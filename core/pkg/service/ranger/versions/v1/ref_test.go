@@ -132,7 +132,7 @@ var _ = Describe("Ref", func() {
 				w := orc.NewWriter(0)
 				Expect(ref.EncodeOrc(w)).To(Succeed())
 				full := w.Bytes()
-				for i := range len(full) {
+				for i := range full {
 					r := orc.NewReader(nil)
 					r.ResetBytes(full[:i])
 					var decoded v1.Ref

@@ -11,13 +11,12 @@ package debounce
 
 import (
 	"context"
-	"io"
+	"runtime/pprof"
 	"sync"
 	"time"
 
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/signal"
 	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -41,7 +40,7 @@ type KeyedConfig[K comparable] struct {
 	Clock xtime.Clock
 	// Callback is invoked once per fired key on the Keyed's single worker goroutine,
 	// so a slow callback delays fires for every other key. Its context is cancelled
-	// when the Keyed closes.
+	// when the Keyed closes or the context passed to NewKeyed ends.
 	//
 	// [REQUIRED]
 	Callback func(context.Context, K)
@@ -73,9 +72,10 @@ func (c KeyedConfig[K]) Validate() error {
 // beyond the key's pending entry. Unlike Debouncer, a trigger does not cancel an
 // in-flight callback for the same key; it schedules another fire after it.
 type Keyed[K comparable] struct {
-	cfg      KeyedConfig[K]
-	shutdown io.Closer
-	wake     chan struct{}
+	cfg    KeyedConfig[K]
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+	wake   chan struct{}
 	// mu guards closed, timer, and pending.
 	mu      sync.Mutex
 	closed  bool
@@ -90,25 +90,28 @@ type window struct {
 	capAt  time.Time
 }
 
-// NewKeyed creates a Keyed from the merged set of configs and starts its worker.
-// It returns an error if the resulting KeyedConfig fails validation. Close releases
-// the worker.
-func NewKeyed[K comparable](configs ...KeyedConfig[K]) (*Keyed[K], error) {
+// NewKeyed creates a Keyed from the merged set of configs and starts its worker, which
+// runs until ctx ends or Close runs. It returns an error if the resulting KeyedConfig
+// fails validation. Close releases the worker.
+func NewKeyed[K comparable](
+	ctx context.Context,
+	configs ...KeyedConfig[K],
+) (*Keyed[K], error) {
 	cfg, err := config.New(KeyedConfig[K]{Clock: xtime.Real}, configs...)
 	if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.Isolated()
 	k := &Keyed[K]{
-		cfg:      cfg,
-		shutdown: signal.NewHardShutdown(sCtx, cancel),
-		wake:     make(chan struct{}, 1),
-		pending:  make(map[K]window),
+		cfg:     cfg,
+		wake:    make(chan struct{}, 1),
+		pending: make(map[K]window),
 	}
-	sCtx.Go(func(ctx context.Context) error {
-		k.run(ctx)
-		return nil
-	}, signal.WithKey("debounce.keyed"))
+	ctx, cancel := context.WithCancel(ctx)
+	k.cancel = cancel
+	k.wg.Go(func() {
+		defer cancel()
+		pprof.Do(ctx, pprof.Labels("routine", "debounce.keyed"), k.run)
+	})
 	return k, nil
 }
 
@@ -148,7 +151,9 @@ func (k *Keyed[K]) Close() error {
 	clear(k.pending)
 	k.stopTimerLocked()
 	k.mu.Unlock()
-	return k.shutdown.Close()
+	k.cancel()
+	k.wg.Wait()
+	return nil
 }
 
 // poke wakes the worker without blocking; a full wake channel already guarantees a

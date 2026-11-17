@@ -13,25 +13,31 @@ Manager secret under PREFIX that holds a token from `claude setup-token`, stored
 the fleet controller and seat.sh write:
 
 - agent: the CLI the token is for.
-- expires: when the token expires, in Unix seconds.
+- expires: when the token expires, in Unix seconds, a LIFETIME after seat.sh stored it.
 - limited-until: when the usage limit of the login resets, in Unix seconds.
-- broken: present when a job found the token rejected.
+- broken: present when a job found the token rejected. Its value is when the job
+  started, in Unix seconds.
 - holders: the role sessions of the seats that may read the token, separated by
   spaces. A session is `<role id>:<instance id>`, the `aws:userid` of the seat.
 
 The controller never reads a token."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import Literal, Protocol, TypedDict
 
-if TYPE_CHECKING:
-    from mypy_boto3_secretsmanager.client import SecretsManagerClient
+from mypy_boto3_secretsmanager.type_defs import (
+    FilterTypeDef,
+    SecretListEntryTypeDef,
+    TagTypeDef,
+)
 
 PREFIX = "synnax-agents/logins/"
 # The IAM role of every seat.
 SEAT_ROLE = "synnax-agent-runner"
 # A tag value holds at most 256 characters, and a holder takes 42 with its space.
 MAX_HOLDERS = 6
+LIFETIME = 365 * 24 * 3600
 
 
 @dataclass
@@ -44,6 +50,11 @@ class Login:
     broken: bool = False
     holders: list[str] = field(default_factory=list)
 
+    @property
+    def stored(self) -> int:
+        """When seat.sh stored the token, in Unix seconds."""
+        return self.expires - LIFETIME
+
     def usable(self, *, now: int) -> bool:
         """Whether a seat may start on the login at now, in Unix seconds."""
         return (
@@ -53,11 +64,45 @@ class Login:
         )
 
 
+class Listed(TypedDict):
+    SecretList: list[SecretListEntryTypeDef]
+
+
+class Secret(TypedDict):
+    ARN: str
+    Name: str
+    Tags: list[TagTypeDef]
+
+
+class Pages(Protocol):
+    def paginate(self, *, Filters: list[FilterTypeDef]) -> Iterable[Listed]: ...
+
+
+class Errors(Protocol):
+    @property
+    def ResourceNotFoundException(self) -> type[Exception]: ...
+
+
+class Secrets(Protocol):
+    """The Secrets Manager calls Logins makes."""
+
+    @property
+    def exceptions(self) -> Errors: ...
+
+    def get_paginator(self, operation_name: Literal["list_secrets"], /) -> Pages: ...
+
+    def describe_secret(self, *, SecretId: str) -> Secret: ...
+
+    def tag_resource(self, *, SecretId: str, Tags: list[TagTypeDef]) -> object: ...
+
+    def untag_resource(self, *, SecretId: str, TagKeys: list[str]) -> object: ...
+
+
 class Logins:
     """Reads the logins and writes their tags. role is the unique id of the seats'
     IAM role, which starts the session of each seat."""
 
-    def __init__(self, *, secrets: "SecretsManagerClient", role: str) -> None:
+    def __init__(self, *, secrets: Secrets, role: str) -> None:
         self.secrets = secrets
         self.role = role
 
@@ -114,3 +159,12 @@ class Logins:
             SecretId=login.arn, Tags=[{"Key": "limited-until", "Value": str(until)}]
         )
         login.limited_until = until
+
+    def reject(self, login: Login, *, at: int) -> None:
+        """Records that Claude rejected the token of the login on a job that started
+        at at, in Unix seconds. The login stays broken until seat.sh stores a new
+        token."""
+        self.secrets.tag_resource(
+            SecretId=login.arn, Tags=[{"Key": "broken", "Value": str(at)}]
+        )
+        login.broken = True

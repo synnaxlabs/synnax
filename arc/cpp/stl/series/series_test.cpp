@@ -11,6 +11,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -1152,36 +1153,26 @@ TEST(SeriesModule, OrBoolTruthTable) {
     EXPECT_EQ(index_bool(f, rh, 3), 0);
 }
 
-TEST(SeriesModule, AndBoolBroadcastsShorterRhs) {
+/// @brief it should trap for a logical and of two series of different lengths.
+TEST(SeriesModule, AndBoolLengthMismatchTraps) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto ha = make_bool_series(f, {1, 1, 1, 1, 1});
     auto hb = make_bool_series(f, {1, 0});
-    auto result = f.get("and")
-                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
-                      .unwrap();
-    auto rh = result[0].i32();
-    EXPECT_EQ(f.state->get(rh)->size(), 5);
-    EXPECT_EQ(index_bool(f, rh, 0), 1);
-    EXPECT_EQ(index_bool(f, rh, 1), 0);
-    EXPECT_EQ(index_bool(f, rh, 2), 0);
-    EXPECT_EQ(index_bool(f, rh, 3), 0);
-    EXPECT_EQ(index_bool(f, rh, 4), 0);
+    expect_failure(
+        f.get("and").call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)}),
+        "arc panic: series length mismatch in logical operation"
+    );
 }
 
-TEST(SeriesModule, OrBoolBroadcastsShorterLhs) {
+/// @brief it should trap for a logical or of two series of different lengths.
+TEST(SeriesModule, OrBoolLengthMismatchTraps) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto ha = make_bool_series(f, {1, 0});
     auto hb = make_bool_series(f, {0, 0, 0, 0, 0});
-    auto result = f.get("or")
-                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
-                      .unwrap();
-    auto rh = result[0].i32();
-    EXPECT_EQ(f.state->get(rh)->size(), 5);
-    EXPECT_EQ(index_bool(f, rh, 0), 1);
-    EXPECT_EQ(index_bool(f, rh, 1), 0);
-    EXPECT_EQ(index_bool(f, rh, 2), 0);
-    EXPECT_EQ(index_bool(f, rh, 3), 0);
-    EXPECT_EQ(index_bool(f, rh, 4), 0);
+    expect_failure(
+        f.get("or").call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)}),
+        "arc panic: series length mismatch in logical operation"
+    );
 }
 
 TEST(SeriesModule, AndScalarBoolTrueIsIdentity) {
@@ -1332,6 +1323,57 @@ TEST(SeriesModule, IndexFromU64OutOfRangeTraps) {
         f.get("index_from_u64").call(f.store, {wasmtime::Val(int64_t{INT32_MAX} + 1)}),
         "index 2147483648 out of bounds for an i32 series index"
     );
+}
+
+/// @brief it should trap for arithmetic on two series of different lengths.
+TEST(SeriesModule, SeriesOpLengthMismatchTraps) {
+    Fixture f(build_series_ops_wat("i32"));
+    auto ha_r = f.get("create_empty")
+                    .call(f.store, {wasmtime::Val(int32_t{2})})
+                    .unwrap();
+    auto hb_r = f.get("create_empty")
+                    .call(f.store, {wasmtime::Val(int32_t{3})})
+                    .unwrap();
+    const std::vector<std::pair<std::string, std::string>> ops = {
+        {"series_add", "addition"},
+        {"series_sub", "subtraction"},
+        {"series_mul", "multiplication"},
+        {"series_div", "division"},
+        {"series_mod", "modulo"},
+    };
+    for (const auto &[name, op]: ops)
+        expect_failure(
+            f.get(name).call(
+                f.store,
+                {wasmtime::Val(ha_r[0].i32()), wasmtime::Val(hb_r[0].i32())}
+            ),
+            "arc panic: series length mismatch in " + op
+        );
+}
+
+/// @brief it should trap for a comparison of two series of different lengths.
+TEST(SeriesModule, CompareLengthMismatchTraps) {
+    Fixture f(build_compare_wat("i32"));
+    auto ha_r = f.get("create_empty")
+                    .call(f.store, {wasmtime::Val(int32_t{2})})
+                    .unwrap();
+    auto hb_r = f.get("create_empty")
+                    .call(f.store, {wasmtime::Val(int32_t{3})})
+                    .unwrap();
+    for (const std::string name:
+         {"compare_gt",
+          "compare_lt",
+          "compare_ge",
+          "compare_le",
+          "compare_eq",
+          "compare_ne"})
+        expect_failure(
+            f.get(name).call(
+                f.store,
+                {wasmtime::Val(ha_r[0].i32()), wasmtime::Val(hb_r[0].i32())}
+            ),
+            "arc panic: series length mismatch in comparison"
+        );
 }
 
 TEST(SeriesModule, SliceExtractsSubrange) {

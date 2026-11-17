@@ -25,6 +25,7 @@ var _ = Describe("EtherCATMakeMigration", func() {
 	DescribeTable("Should migrate the make",
 		func(ctx SpecContext, stored, want string) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			d := v1.Device{Key: "slave", Make: stored}
 			Expect(gorp.NewCreate[v1.Key, v1.Device]().Entry(&d).Exec(ctx, db)).
 				To(Succeed())
@@ -48,6 +49,7 @@ var _ = Describe("EtherCATChannelMapMigration", func() {
 	migrateDevice := func(ctx SpecContext, d v1.Device) v1.Device {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.NewCreate[v1.Key, v1.Device]().Entry(&d).Exec(ctx, db)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -83,7 +85,11 @@ var _ = Describe("EtherCATChannelMapMigration", func() {
 	}
 	channels := func(d v1.Device, dir string) map[string]any {
 		GinkgoHelper()
-		return d.Properties[dir].(map[string]any)["channels"].(map[string]any)
+		props, ok := d.Properties[dir].(map[string]any)
+		Expect(ok).To(BeTrue())
+		chs, ok := props["channels"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		return chs
 	}
 
 	It("Should key automatic and manual read channels by address", func(
@@ -206,6 +212,7 @@ var _ = Describe("EtherCATChannelMapMigration", func() {
 
 	It("Should reject a slave with malformed PDOs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		d := v1.Device{
 			Key:        "slave",
 			Make:       "ethercat",

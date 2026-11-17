@@ -10,14 +10,11 @@
 """Tree navigation utilities for Console UI automation."""
 
 import time
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 from console.context_menu import ContextMenu
-
-if TYPE_CHECKING:
-    from console.layout import LayoutClient
 
 _CONTAINER = ".lyra-tree"
 _VIRTUALIZER = ".lyra-list__virtualizer"
@@ -63,6 +60,23 @@ _NESTED_NAMES_JS = """(parent, prefix) => {
 }"""
 
 
+class Layout(Protocol):
+    """The layout calls that a Tree makes."""
+
+    page: Page
+    ctx_menu: ContextMenu
+
+    def press_key(self, key: str) -> None: ...
+
+    def press_enter(self) -> None: ...
+
+    def select_all_and_type(self, text: str) -> None: ...
+
+    def type_text(self, text: str) -> None: ...
+
+    def drag(self, source: Locator, target: Locator) -> None: ...
+
+
 class Tree:
     """Utility class for working with resource tree elements in Console UI.
 
@@ -73,10 +87,10 @@ class Tree:
     """
 
     page: Page
-    layout: "LayoutClient"
+    layout: Layout
     ctx_menu: ContextMenu
 
-    def __init__(self, layout: "LayoutClient"):
+    def __init__(self, layout: Layout):
         self.layout = layout
         self.page = layout.page
         self.ctx_menu = layout.ctx_menu

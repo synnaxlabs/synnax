@@ -1145,48 +1145,76 @@ TEST_F(SOEMMasterTest, ScanReadsTheCoESerialNumber) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave whose CoE identity object has
-/// no serial number.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWithoutACoESerial) {
+/// @brief it should read a serial number of 8 bytes, as IOLITE modules give.
+TEST_F(SOEMMasterTest, ScanReadsAnEightByteCoESerialNumber) {
     auto slave = create_coe_slave(0);
-    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    slave.sdo_objects_64[{0x1018, 4}] = 0x000000DB21014087;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x000000DB21014087);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should give serial number 0 and no serial read error to a slave whose CoE
+/// identity object has no serial number.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWithoutACoESerial) {
+    auto slave = create_coe_slave(0);
     slave.sdo_objects.clear();
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should give serial number 0 to a slave whose CoE serial number is 0.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheCoESerialIsZero) {
+    this->add_slave(create_coe_slave(0));
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0);
+}
+
+/// @brief it should keep the nonzero SII serial number of a slave over its CoE serial
+/// number, as saved devices have the SII serial number as their identity.
+TEST_F(SOEMMasterTest, ScanKeepsANonzeroSIISerialOverTheCoESerial) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
     EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave whose CoE serial number is
-/// 0.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheCoESerialIsZero) {
+/// @brief it should give serial number 0 to a slave whose CoE serial number is too
+/// large for the Core to store exactly.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheCoESerialIsTooLarge) {
     auto slave = create_coe_slave(0);
-    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    slave.sdo_objects_64[{0x1018, 4}] = uint64_t{1} << 53;
     this->add_slave(slave);
-    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave that aborts the read of its
-/// CoE serial number.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {
+/// @brief it should give serial number 0 and no serial read error to a slave that
+/// aborts the read of its CoE serial number.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheSlaveAbortsTheRead) {
     auto slave = create_coe_slave(0x5555);
-    slave.eep_ser = 0xABCD;
     slave.sdo_read_aborts[{0x1018, 4}] = 0x06010000;
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_EQ(slaves[0].properties.serial, 0);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave that answers the read of its
-/// CoE serial number with a mailbox error.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
+/// @brief it should give serial number 0 and no serial read error to a slave that
+/// answers the read of its CoE serial number with a mailbox error.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheSlaveGivesAMailboxError) {
     auto slave = create_coe_slave(0x5555);
-    slave.eep_ser = 0xABCD;
     slave.sdo_read_mailbox_errors.insert({0x1018, 4});
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_EQ(slaves[0].properties.serial, 0);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
@@ -2203,14 +2231,156 @@ TEST_F(SOEMMasterTest, CyclicExchangeUsesEnabledGroupOnly) {
 
 ////////////////////// Receive //////////////////////
 
-/// @brief it should fail a receive when no frame comes back.
-TEST_F(SOEMMasterTest, ReceiveNegativeWkc) {
+/// @brief it should fail a receive when no send is in flight.
+TEST_F(SOEMMasterTest, ReceiveFailsWithNoSendInFlight) {
     this->initialize_with_slave();
     this->activate_master();
-    this->mock->receive_return = -1;
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
     EXPECT_EQ(err.data, "process data receive failed");
+}
+
+/// @brief it should keep a frame that has not come back in flight, and take it at a
+/// later receive.
+TEST_F(SOEMMasterTest, ReceiveTakesALateFrameAtALaterReceive) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = 3;
+    ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(this->mock->processdata_in_flight.size(), 1);
+    ASSERT_NIL(this->master->receive());
+    EXPECT_TRUE(this->mock->processdata_in_flight.empty());
+    EXPECT_EQ(this->mock->drop_count, 0);
+}
+
+/// @brief it should keep each frame in flight while it is younger than
+/// master::MAX_FRAME_AGE, so a frame that an adapter holds back for more than three
+/// cycles of a fast bus still comes back.
+TEST_F(SOEMMasterTest, ReceiveKeepsFramesInFlightForMoreThanThreeCycles) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->receive_return = EC_NOFRAME;
+    constexpr size_t frames = 9;
+    for (size_t i = 0; i < frames; ++i) {
+        ASSERT_NIL(this->master->send());
+        this->skip(x::telem::MICROSECOND * 100);
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
+    this->mock->receive_return = 3;
+    for (size_t i = 0; i < frames; ++i)
+        ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(this->mock->drop_count, 0);
+    EXPECT_TRUE(this->mock->processdata_in_flight.empty());
+}
+
+/// @brief it should drop a frame that has not come back once it is
+/// master::MAX_FRAME_AGE old and master::MIN_FRAMES_IN_FLIGHT frames are in flight,
+/// and fail its receive.
+TEST_F(SOEMMasterTest, ReceiveDropsAFrameOnceItIsTheMaxFrameAge) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->receive_return = EC_NOFRAME;
+    for (size_t i = 0; i < master::MIN_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_NIL(this->master->send());
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
+    this->skip(master::MAX_FRAME_AGE - x::telem::MICROSECOND);
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    this->skip(x::telem::MICROSECOND);
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(this->mock->drop_count, 1);
+}
+
+/// @brief it should keep a frame of any age in flight while fewer than
+/// master::MIN_FRAMES_IN_FLIGHT frames are in flight, so a slow bus gives a late frame
+/// more than one cycle.
+TEST_F(SOEMMasterTest, ReceiveKeepsAFrameOfAnyAgeWhileFewFramesAreInFlight) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->receive_return = EC_NOFRAME;
+    for (size_t i = 1; i < master::MIN_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_NIL(this->master->send());
+        this->skip(master::MAX_FRAME_AGE);
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
+    ASSERT_NIL(this->master->send());
+    this->skip(master::MAX_FRAME_AGE);
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    EXPECT_EQ(this->mock->drop_count, 1);
+}
+
+/// @brief it should drop the oldest frame and fail the receive when the frame has not
+/// come back and master::MAX_FRAMES_IN_FLIGHT sends wait for their results.
+TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTooManyAreInFlight) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    this->mock->send_return = 0;
+    for (size_t i = 2; i < master::MAX_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
+    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(this->mock->drop_count, 1);
+    EXPECT_TRUE(this->mock->processdata_in_flight.empty());
+}
+
+/// @brief it should drop the oldest frame at a send that would not find a buffer for
+/// each of its frames, and fail the receive of the dropped frame.
+TEST_F(SOEMMasterTest, SendDropsTheOldestFrameWhenItsFramesWouldNotFit) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->send_return = static_cast<int>(PROCESS_DATA_BUFFERS / 2 + 1);
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->send());
+    EXPECT_EQ(this->mock->drop_count, 1);
+    const auto receives = this->mock->receive_count;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    EXPECT_EQ(this->mock->receive_count, receives);
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+}
+
+/// @brief it should keep a frame in flight when a next send would not fit, since the
+/// last send of a stop has no next send.
+TEST_F(SOEMMasterTest, ReceiveKeepsAFrameInFlightWhenTheNextSendWouldNotFit) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->send_return = static_cast<int>(PROCESS_DATA_BUFFERS / 2 + 1);
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_NIL(this->master->send());
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    EXPECT_EQ(this->mock->drop_count, 0);
+}
+
+/// @brief it should give the result of a failed send after the result of the frame
+/// in flight before it.
+TEST_F(SOEMMasterTest, ReceiveKeepsAFailedSendBehindTheFrameInFlight) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    this->mock->send_return = 0;
+    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+    this->mock->receive_return = 3;
+    ASSERT_NIL(this->master->receive());
+    const auto receives = this->mock->receive_count;
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(this->mock->receive_count, receives);
 }
 
 /// @brief it should say that a USB adapter can hold frames back when no frame comes
@@ -2223,7 +2393,11 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     this->activate_master();
     ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
-    this->mock->receive_return = -1;
+    this->mock->receive_return = EC_NOFRAME;
+    for (size_t i = 1; i < master::MIN_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_NIL(this->master->send());
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
     this->skip(x::telem::SECOND - x::telem::MILLISECOND);
     ASSERT_NIL(this->master->send());
     const auto late = this->master->receive();
@@ -2247,6 +2421,7 @@ TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->receive_return = 1;
+    ASSERT_NIL(this->master->send());
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(err.data, "working counter mismatch: expected 3, got 1");
@@ -2259,6 +2434,7 @@ TEST_F(SOEMMasterTest, ReceiveGivesTheLatestMismatchedCount) {
     this->activate_master();
     for (const int wkc: {1, 1, 2, 1}) {
         this->mock->receive_return = wkc;
+        ASSERT_NIL(this->master->send());
         EXPECT_EQ(
             this->master->receive().data,
             "working counter mismatch: expected 3, got " + std::to_string(wkc)
@@ -2271,6 +2447,7 @@ TEST_F(SOEMMasterTest, ReceiveReportsNoShortfallAboveTheExpectedCount) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->receive_return = 4;
+    ASSERT_NIL(this->master->send());
     ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(this->master->shortfall(), std::nullopt);
 }
@@ -2305,9 +2482,76 @@ TEST_F(SOEMMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
 TEST_F(SOEMMasterTest, ReceiveWkcMatch) {
     this->initialize_with_slave();
     this->activate_master();
+    ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
 }
 
+/// @brief it should give each slave below SAFE-OP in the AL status read of the frame
+/// as inputless, and keep a slave in SAFE-OP with an error.
+TEST_F(SOEMMasterTest, ReceiveGivesTheSlavesBelowSafeOpAsInputless) {
+    this->add_default_slave();
+    this->add_default_slave();
+    this->add_default_slave();
+    ASSERT_NIL_P(this->master->scan());
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_SAFE_OP | EC_STATE_ERROR;
+    this->mock->slave_infos[2].state = EC_STATE_PRE_OP;
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(
+        std::vector(this->master->inputless().begin(), this->master->inputless().end()),
+        std::vector<uint16_t>{3}
+    );
+}
+
+/// @brief it should give a slave that does not answer its AL status read as inputless.
+TEST_F(SOEMMasterTest, ReceiveGivesASlaveWithNoStateAnswerAsInputless) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->silent_slaves = {1};
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(
+        std::vector(this->master->inputless().begin(), this->master->inputless().end()),
+        std::vector<uint16_t>{1}
+    );
+}
+
+/// @brief it should give no slave as inputless when no frame comes back.
+TEST_F(SOEMMasterTest, ReceiveGivesNoSlaveAsInputlessWhenNoFrameComesBack) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    EXPECT_TRUE(this->master->inputless().empty());
+}
+
+/// @brief it should read the AL status of no slave without inputs, since its readers
+/// take no data from it.
+TEST_F(SOEMMasterTest, ReceiveReadsNoStateOfASlaveWithoutInputs) {
+    this->add_default_slave();
+    MockSlaveInfo outputs_only;
+    outputs_only.state = EC_STATE_PRE_OP;
+    outputs_only.Obits = 8;
+    this->add_slave(outputs_only);
+    ASSERT_NIL_P(this->master->scan());
+    this->activate_master();
+    this->mock->slave_infos[1].state = EC_STATE_PRE_OP;
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->receive());
+    EXPECT_TRUE(this->master->inputless().empty());
+}
+
+/// @brief it should free the frames in flight when it deactivates.
+TEST_F(SOEMMasterTest, DeactivateFreesTheFramesInFlight) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    ASSERT_NIL(this->master->send());
+    this->master->deactivate();
+    EXPECT_TRUE(this->mock->processdata_in_flight.empty());
+}
 ////////////////////// Send //////////////////////
 
 /// @brief it should fail a send that SOEM cannot put on the wire.
@@ -2841,6 +3085,28 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch)
     this->mock->host_dc_offset = 9'000'000'000;
     ASSERT_NIL(this->master->send());
     ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->mock->register_values[{1, 0x0918}] = 2'000;
+    this->supervise_while_cycling();
+    const auto error = this->written_offset(1) -
+                       (this->mock->latched_at + 7'000'000'000 - 2'000);
+    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+}
+
+/// @brief it should take the DC time of a frame that comes back late as of the send of
+/// its own cycle, not of the latest send.
+TEST_F(SOEMMasterTest, CheckRestoresFromTheSendTimeOfALateFrame) {
+    this->initialize_with_dc_slave({DC_ONLY});
+    this->mock->host_dc_offset = 7'000'000'000;
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    this->skip(x::telem::SECOND * 3);
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = 3;
+    ASSERT_NIL(this->master->receive());
+    this->mock->receive_return = 2;
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = 2'000;
     this->supervise_while_cycling();

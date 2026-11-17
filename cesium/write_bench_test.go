@@ -16,8 +16,10 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 // BenchmarkWrite writes and commits 100 samples to an index and a data channel per
@@ -39,25 +41,67 @@ func BenchmarkWrite(b *testing.B) {
 
 func benchmarkWrite(b *testing.B, mem, contended bool) {
 	b.Helper()
-	ctx := b.Context()
+	db := openBenchDB(b, mem)
+	keys := []cesium.ChannelKey{1, 2}
+	createBenchChannels(b, db, keys)
+	w := openBenchWriter(b, db, keys, control.AuthorityAbsolute)
+	stop := func() {}
+	if contended {
+		lw := openBenchWriter(b, db, keys, control.AuthorityAbsolute-1)
+		stop = retryWrites(b, lw, keys)
+		defer func() {
+			if err := lw.Close(); err != nil {
+				b.Error(err)
+			}
+		}()
+	}
+	// Runs before the deferred close above, so a failed iteration stops the retry
+	// goroutine before its writer closes.
+	defer stop()
+	b.ReportAllocs()
+	start := telem.SecondTS
+	for b.Loop() {
+		if _, err := w.Write(benchFrame(keys, start)); err != nil {
+			b.Fatal(err)
+		}
+		start += benchFrameSamples
+	}
+	b.StopTimer()
+	stop()
+	if err := w.Close(); err != nil {
+		b.Error(err)
+	}
+}
+
+// openBenchDB opens a DB on an in-memory file system when mem is true, and in a
+// temporary directory otherwise. The DB runs until the benchmark ends, then closes.
+func openBenchDB(b *testing.B, mem bool) *cesium.DB {
+	b.Helper()
 	opts := []cesium.Option{cesium.WithInstrumentation(alamos.New("bench"))}
 	dir := b.TempDir()
 	if mem {
 		dir = ""
 		opts = append(opts, cesium.WithFS(fs.NewMem()))
 	}
-	db, err := cesium.Open(ctx, dir, opts...)
+	db, err := cesium.Open(b.Context(), dir, opts...)
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer func() {
-		if err := db.Close(); err != nil {
+	stop := testutil.GoRun(b.Context(), db.Run)
+	b.Cleanup(func() {
+		if err := errors.Join(stop(), db.Close()); err != nil {
 			b.Error(err)
 		}
-	}()
-	keys := []cesium.ChannelKey{1, 2}
+	})
+	return db
+}
+
+// createBenchChannels creates an index channel keys[0] and a float32 data channel
+// keys[1] that it indexes.
+func createBenchChannels(b *testing.B, db *cesium.DB, keys []cesium.ChannelKey) {
+	b.Helper()
 	if err := db.CreateChannel(
-		ctx,
+		b.Context(),
 		cesium.Channel{
 			Key:      keys[0],
 			Name:     "time",
@@ -73,74 +117,65 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 	); err != nil {
 		b.Fatal(err)
 	}
-	const samples = 100
-	frame := func(start telem.TimeStamp) cesium.Frame {
-		ts := make([]telem.TimeStamp, samples)
-		for i := range ts {
-			ts[i] = start + telem.TimeStamp(i)
-		}
-		return telem.MultiFrame(keys, []telem.Series{
-			telem.NewSeries(ts),
-			telem.NewSeries(make([]float32, samples)),
-		})
+}
+
+const benchFrameSamples = 100
+
+// benchFrame returns a frame of benchFrameSamples samples for the channels
+// createBenchChannels creates, with timestamps from start.
+func benchFrame(keys []cesium.ChannelKey, start telem.TimeStamp) cesium.Frame {
+	ts := make([]telem.TimeStamp, benchFrameSamples)
+	for i := range ts {
+		ts[i] = start + telem.TimeStamp(i)
 	}
-	open := func(a control.Authority) *cesium.Writer {
-		w, err := db.OpenWriter(ctx, cesium.WriterConfig{
-			Channels:    keys,
-			Start:       telem.SecondTS,
-			Authorities: []control.Authority{a},
-			Sync:        new(true),
-		})
-		if err != nil {
-			b.Fatal(err)
-		}
-		return w
+	return telem.MultiFrame(keys, []telem.Series{
+		telem.NewSeries(ts),
+		telem.NewSeries(make([]float32, benchFrameSamples)),
+	})
+}
+
+func openBenchWriter(
+	b *testing.B,
+	db *cesium.DB,
+	keys []cesium.ChannelKey,
+	a control.Authority,
+) *cesium.Writer {
+	b.Helper()
+	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+		Channels:    keys,
+		Start:       telem.SecondTS,
+		Authorities: []control.Authority{a},
+		Sync:        new(true),
+	})
+	if err != nil {
+		b.Fatal(err)
 	}
-	w := open(control.AuthorityAbsolute)
+	return w
+}
+
+// retryWrites writes the same frame to w in a loop until the returned function runs.
+func retryWrites(b *testing.B, w *cesium.Writer, keys []cesium.ChannelKey) func() {
+	b.Helper()
 	var (
 		wg   sync.WaitGroup
 		done = make(chan struct{})
 	)
-	stop := sync.OnceFunc(func() {
+	wg.Go(func() {
+		f := benchFrame(keys, telem.SecondTS)
+		for {
+			select {
+			case <-done:
+				return
+			default:
+			}
+			if _, err := w.Write(f); err != nil {
+				b.Error(err)
+				return
+			}
+		}
+	})
+	return sync.OnceFunc(func() {
 		close(done)
 		wg.Wait()
 	})
-	if contended {
-		lw := open(control.AuthorityAbsolute - 1)
-		wg.Go(func() {
-			f := frame(telem.SecondTS)
-			for {
-				select {
-				case <-done:
-					return
-				default:
-				}
-				if _, err := lw.Write(f); err != nil {
-					b.Error(err)
-					return
-				}
-			}
-		})
-		defer func() {
-			if err := lw.Close(); err != nil {
-				b.Error(err)
-			}
-		}()
-	}
-	// Runs before the deferred close above, so a failed iteration stops the retry
-	// goroutine before its writer closes.
-	defer stop()
-	b.ReportAllocs()
-	start := telem.SecondTS
-	for b.Loop() {
-		if _, err := w.Write(frame(start)); err != nil {
-			b.Fatal(err)
-		}
-		start += samples
-	}
-	b.StopTimer()
-	stop()
-	if err := w.Close(); err != nil {
-		b.Error(err)
-	}
 }

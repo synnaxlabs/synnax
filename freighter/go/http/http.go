@@ -23,8 +23,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/encoding/json"
-	xhttp "github.com/synnaxlabs/x/http"
 )
 
 // BindableTransport is a freighter.Transport that knows how to register its routes on a
@@ -34,7 +32,7 @@ type BindableTransport interface {
 	freighter.Transport
 	// BindTo registers the transport's HTTP and websocket routes on the given
 	// fiber.App.
-	BindTo(*fiber.App)
+	BindTo(app *fiber.App)
 }
 
 const (
@@ -61,7 +59,11 @@ func parseSecurityInfo(ctx fiber.Ctx) freighter.SecurityInfo {
 	var info freighter.SecurityInfo
 	if ctx.RequestCtx().IsTLS() {
 		info.TLS.Used = true
-		info.TLS.ConnectionState = ctx.RequestCtx().Conn().(*tls.Conn).ConnectionState()
+		conn, ok := ctx.RequestCtx().Conn().(*tls.Conn)
+		if !ok {
+			panic("TLS request does not run on a TLS connection")
+		}
+		info.TLS.ConnectionState = conn.ConnectionState()
 	}
 	return info
 }
@@ -140,9 +142,3 @@ func parseResponseCtx(
 	}
 	return ctx
 }
-
-var (
-	defaultEncoders = []xhttp.Encoder{json.Codec}
-	defaultDecoders = []xhttp.Decoder{json.Codec}
-	defaultCodecs   = []xhttp.Codec{json.Codec}
-)

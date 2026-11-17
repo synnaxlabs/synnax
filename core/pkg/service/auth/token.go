@@ -13,6 +13,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"slices"
 	"strings"
 	"uuid"
 )
@@ -30,7 +31,7 @@ func NewToken(prefix string, key uuid.UUID) (token string, hash []byte, err erro
 	if _, err = rand.Read(secret); err != nil {
 		return "", nil, err
 	}
-	raw := append(key[:], secret...)
+	raw := slices.Concat(key[:], secret)
 	return prefix + tokenEncoding.EncodeToString(raw), hashSecret(secret), nil
 }
 

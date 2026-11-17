@@ -81,10 +81,7 @@ type Config struct {
 	Channel channel.Channel
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	defaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
@@ -106,7 +103,7 @@ func (cfg Config) Override(other Config) Config {
 }
 
 func Open(ctx context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+	cfg, err := config.New(Config{}, configs...)
 	if err != nil {
 		return nil, err
 	}

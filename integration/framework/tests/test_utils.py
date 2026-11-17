@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import synnax as sy
 from framework import utils
 
 
@@ -32,3 +33,15 @@ class TestReadJSONObject:
         path.write_text(content)
         with pytest.raises(ValidationError):
             utils.read_json_object(str(path))
+
+
+class TestHold:
+    @pytest.mark.parametrize("reason", ["", "  "])
+    def test_should_reject_a_blank_reason(self, reason: str) -> None:
+        with pytest.raises(ValueError, match="needs a reason"):
+            utils.hold(0, reason=reason)
+
+    def test_should_block_for_the_duration(self) -> None:
+        timer = sy.Timer()
+        utils.hold(0.05, reason="measures the block")
+        assert timer.elapsed() >= 50 * sy.TimeSpan.MILLISECOND

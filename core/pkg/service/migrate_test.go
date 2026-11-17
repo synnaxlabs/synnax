@@ -32,10 +32,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
-	telemv0 "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -288,15 +288,16 @@ var _ = Describe("Metrics upgrade", func() {
 			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}}))[0]
-		var data []distchannel.Channel
-		for _, name := range []string{
+		dataNames := []string{
 			"cpu_percentage", "mem_percentage", "ts_size_gb", "kv_size_gb",
-		} {
-			data = append(data, distchannel.Channel{
+		}
+		data := make([]distchannel.Channel, len(dataNames))
+		for i, name := range dataNames {
+			data[i] = distchannel.Channel{
 				Name:       prefix + name,
 				DataType:   telem.Float32T,
 				LocalIndex: idx.LocalKey,
-			})
+			}
 		}
 		stored := append(
 			[]distchannel.Channel{idx},
@@ -322,18 +323,22 @@ var _ = Describe("Metrics upgrade", func() {
 			metrics   = groupv0.Group{Key: uuid.New(), Name: "Metrics"}
 			rootID    = resource.ID{Type: resource.TypeGroup, Key: root.Key.String()}
 			metricsID = resource.ID{Type: resource.TypeGroup, Key: metrics.Key.String()}
-			resources = []ontology.Resource{{ID: rootID}, {ID: metricsID}}
-			edges     = []ontology.Relationship{
+			resources = append(
+				make([]ontology.Resource, 0, 4+len(stored)),
+				ontology.Resource{ID: rootID},
+				ontology.Resource{ID: metricsID},
+			)
+			edges = []ontology.Relationship{
 				parentOf(ontology.RootID, rootID),
 				parentOf(rootID, metricsID),
 			}
-			records []channelv0.Channel
+			records = make([]channelv0.Channel, 0, len(stored)+2)
 		)
 		for _, ch := range append(stored, calcIdx, calc) {
 			rec := channelv0.Channel{
 				Name:        ch.Name,
 				Leaseholder: ch.Leaseholder,
-				DataType:    telemv0.DataType(ch.DataType),
+				DataType:    ch.DataType,
 				IsIndex:     ch.IsIndex,
 				LocalKey:    ch.LocalKey,
 				LocalIndex:  ch.LocalIndex,
@@ -374,4 +379,174 @@ var _ = Describe("Metrics upgrade", func() {
 			Expect(ch.Group).To(HaveValue(Equal(metrics.Key)), ch.Name)
 		}
 	})
+})
+
+var _ = Describe("Group drop report", func() {
+	It("Should report each channel that the upgrade removed from a group",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			legacyDB := gorp.Wrap(n.DB.KV(), gorp.WithCodec(msgpack.Codec))
+			chs := MustSucceed(n.Channel.Allocate(ctx, []distchannel.Channel{
+				{
+					Name:        "oil_temp",
+					Leaseholder: node.KeyFree,
+					DataType:    telem.Float32T,
+					Virtual:     true,
+				},
+				{
+					Name:        "water_temp",
+					Leaseholder: node.KeyFree,
+					DataType:    telem.Float32T,
+					Virtual:     true,
+				},
+				{
+					Name:        "flow_rate",
+					Leaseholder: node.KeyFree,
+					DataType:    telem.Float32T,
+					Virtual:     true,
+				},
+			}))
+			var (
+				channels = groupv0.Group{Key: uuid.New(), Name: "Channels"}
+				devices  = groupv0.Group{Key: uuid.New(), Name: "Devices"}
+				// Cryomech is first by key and by bytes, so only a pick by name that
+				// ignores case keeps alpha.
+				cryomech = groupv0.Group{
+					Key:  uuid.MustParse("00000000-0000-4000-8000-000000000001"),
+					Name: "Cryomech",
+				}
+				alpha = groupv0.Group{
+					Key:  uuid.MustParse("ffffffff-ffff-4fff-bfff-ffffffffffff"),
+					Name: "alpha",
+				}
+				compressors = groupv0.Group{Key: uuid.New(), Name: "Compressors"}
+				// Mixed has no parent and holds two kinds of members, so the upgrade
+				// deletes it.
+				mixed = groupv0.Group{Key: uuid.New(), Name: "Mixed"}
+				id    = func(g groupv0.Group) resource.ID {
+					return resource.ID{Type: resource.TypeGroup, Key: g.Key.String()}
+				}
+				oil = resource.ID{
+					Type: resource.TypeChannel,
+					Key:  chs[0].Key().String(),
+				}
+				water = resource.ID{
+					Type: resource.TypeChannel,
+					Key:  chs[1].Key().String(),
+				}
+				flow = resource.ID{
+					Type: resource.TypeChannel,
+					Key:  chs[2].Key().String(),
+				}
+				groups = []groupv0.Group{
+					channels,
+					devices,
+					cryomech,
+					alpha,
+					compressors,
+					mixed,
+				}
+				res = append(
+					make([]ontology.Resource, 0, 3+len(groups)),
+					ontology.Resource{ID: oil},
+					ontology.Resource{ID: water},
+					ontology.Resource{ID: flow},
+				)
+				recs = make([]channelv0.Channel, 0, len(chs))
+			)
+			for _, ch := range chs {
+				recs = append(recs, channelv0.Channel{
+					Name:        ch.Name,
+					Leaseholder: ch.Leaseholder,
+					DataType:    ch.DataType,
+					LocalKey:    ch.LocalKey,
+					Virtual:     ch.Virtual,
+				})
+			}
+			for _, g := range groups {
+				res = append(res, ontology.Resource{ID: id(g)})
+			}
+			Expect(gorp.WrapWriter[channelv0.Key, channelv0.Channel](legacyDB).
+				Set(ctx, recs...)).To(Succeed())
+			Expect(gorp.WrapWriter[groupv0.Key, groupv0.Group](legacyDB).
+				Set(ctx, groups...)).To(Succeed())
+			Expect(gorp.WrapWriter[string, ontology.Resource](n.DB).
+				Set(ctx, res...)).To(Succeed())
+			Expect(gorp.WrapWriter[string, ontology.Relationship](n.DB).Set(
+				ctx,
+				parentOf(ontology.RootID, id(channels)),
+				parentOf(ontology.RootID, id(devices)),
+				parentOf(id(channels), id(cryomech)),
+				parentOf(id(channels), id(alpha)),
+				parentOf(id(devices), id(compressors)),
+				parentOf(id(cryomech), oil),
+				parentOf(id(alpha), oil),
+				parentOf(id(compressors), water),
+				parentOf(id(compressors), resource.ID{
+					Type: resource.TypeChannel,
+					Key:  "999999",
+				}),
+				parentOf(id(mixed), flow),
+				parentOf(id(mixed), resource.ID{
+					Type: resource.TypeSchematic,
+					Key:  uuid.New().String(),
+				}),
+			)).To(Succeed())
+			layer := MustOpen(svctestutil.OpenLayer(ctx, n))
+
+			By("Keeping a channel of several groups in the first group by name")
+			var migrated []channel.Channel
+			Expect(layer.Channel.NewRetrieve().
+				Where(channel.MatchNames("oil_temp", "water_temp")).
+				Entries(&migrated).
+				Exec(ctx, n.DB)).To(Succeed())
+			groupOf := make(map[string]*group.Key, len(migrated))
+			for _, ch := range migrated {
+				groupOf[ch.Name] = ch.Group
+			}
+			Expect(groupOf["oil_temp"]).To(HaveValue(Equal(alpha.Key)))
+			Expect(groupOf["water_temp"]).To(BeNil())
+
+			By("Writing a warning status for each removal")
+			var statuses []status.Status[any]
+			Expect(layer.Status.NewRetrieve[any]().
+				Entries(&statuses).
+				Exec(ctx, n.DB)).To(Succeed())
+			type report struct{ name, message, description string }
+			var reports []report
+			for _, s := range statuses {
+				if s.Message == "Removed channel from group" {
+					Expect(s.Variant).To(Equal(status.VariantWarning))
+					reports = append(reports, report{s.Name, s.Message, s.Description})
+				}
+			}
+			Expect(reports).To(ConsistOf(
+				report{
+					name:    "Cryomech",
+					message: "Removed channel from group",
+					description: `A channel can now be in only one group, so the ` +
+						`upgrade removed channel "oil_temp" from group "Cryomech". It ` +
+						`kept the channel in the group that comes first by name.`,
+				},
+				report{
+					name:    "Compressors",
+					message: "Removed channel from group",
+					description: `The upgrade removed channel "water_temp" from group ` +
+						`"Compressors", because that group cannot hold a channel.`,
+				},
+				report{
+					name:    "Compressors",
+					message: "Removed channel from group",
+					description: `The upgrade removed channel "999999" from group ` +
+						`"Compressors", because that group cannot hold a channel.`,
+				},
+				report{
+					name:    "Mixed",
+					message: "Removed channel from group",
+					description: `The upgrade deleted group "Mixed", so channel ` +
+						`"flow_rate" is no longer in it.`,
+				},
+			))
+		},
+	)
 })

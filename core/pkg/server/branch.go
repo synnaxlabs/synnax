@@ -10,6 +10,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"net"
 
 	"github.com/cockroachdb/cmux"
@@ -25,6 +26,9 @@ type BranchContext struct {
 	Security SecurityConfig
 	// ServerName is the name of the Server this branch is running on.
 	ServerName string
+	// TLS is the TLS configuration of the Listener the branch serves. It is nil in
+	// insecure mode.
+	TLS *tls.Config
 	// Debug is a flag to enable debugging endpoints and utilities.
 	Debug bool
 }
@@ -54,13 +58,14 @@ const (
 // ShouldServe returns true if the Branch should be served under the given listening
 // conditions.
 func (r RoutingPolicy) ShouldServe(insecure, insecureMux bool) bool {
-	if !insecure && !insecureMux {
+	switch {
+	case !insecure && !insecureMux:
 		return r == RoutingPolicyServeAlwaysPreferSecure ||
 			r == RoutingPolicyServeOnlyIfSecure
-	} else if !insecure && insecureMux {
+	case !insecure && insecureMux:
 		return r == RoutingPolicyServeOnInsecureIfSecure ||
 			r == RoutingPolicyServeAlwaysPreferInsecure
-	} else if insecure && insecureMux {
+	case insecure && insecureMux:
 		return r == RoutingPolicyServeAlwaysPreferInsecure ||
 			r == RoutingPolicyServeOnlyIfInsecure ||
 			r == RoutingPolicyServeAlwaysPreferSecure
@@ -89,10 +94,10 @@ type Branch interface {
 	// Init initializes the branch, creating any underlying servers and binding
 	// transports. Init is called synchronously before Serve, ensuring that the
 	// branch is fully initialized before any goroutines are launched.
-	Init(BranchContext)
+	Init(ctx BranchContext)
 	// Serve starts the branch and should block until the branch exits abnormally or is
 	// stopped by calling Stop. Init must be called before Serve.
-	Serve(BranchContext) error
+	Serve(ctx BranchContext) error
 	// Stop stops the branch gracefully. Stop is safe to call even if Init has not been
 	// called.
 	Stop()

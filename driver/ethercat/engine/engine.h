@@ -121,7 +121,7 @@ private:
     std::vector<slave::DiscoveryResult> slaves;
     /// @brief the vendor, product, and serial number of a slave, and its position when
     /// it has no serial number.
-    using RestartKey = std::tuple<uint32_t, uint32_t, uint32_t, uint16_t>;
+    using RestartKey = std::tuple<uint32_t, uint32_t, uint64_t, uint16_t>;
     /// @brief guards restarts, which the supervisor writes without mu.
     std::mutex restarts_mu;
     /// @brief the last restart of a slave, and its position at its last discovery.

@@ -94,10 +94,7 @@ func generateEncoderCodecFile(
 	if err != nil {
 		return nil, err
 	}
-	current, err := resolveGoImportPath(parentPath, repoRoot)
-	if err != nil {
-		return nil, err
-	}
+	current := resolveGoImportPath(parentPath, repoRoot)
 	aliases := naming.ImportAliases(slices.Collect(maps.Keys(imports)), current)
 	if len(aliases) == 0 {
 		return content, nil
@@ -126,23 +123,10 @@ func renderEncoderCodecFile(
 		ExtraImports: imports,
 	}
 
-	// Generate flex methods for distinct scalar types in sorted order.
 	if len(flex) > 0 {
-		sort.Slice(flex, func(i, j int) bool { return flex[i].GoName < flex[j].GoName })
-		var flexBuf strings.Builder
-		for _, fc := range flex {
-			methods, err := generateFlexMethods(fc)
-			if err != nil {
-				return nil, err
-			}
-			flexBuf.WriteString(methods)
+		if err := fo.addFlex(flex); err != nil {
+			return nil, err
 		}
-		fo.FlexMethods = flexBuf.String()
-		fo.HasFlex = true
-		fo.NeedsJSONText = true
-		fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = ""
-		fo.ExtraImports["github.com/synnaxlabs/x/encoding/msgpack"] = "xmsgpack"
-		fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
 	}
 	for _, e := range entries {
 		b := &encoderBuilder{
@@ -175,66 +159,8 @@ func renderEncoderCodecFile(
 		if !ok {
 			continue
 		}
-
-		// Collect type params that produce Go generics. A type param becomes a Go
-		// generic parameter only when it has NO default value (like Details? in
-		// Status<Details?>). Params with any default (like V = Variant or Data? =
-		// record) are substituted by the types plugin and the Go type is concrete.
-		var typeParams []typeParamData
-		if form.IsGeneric() {
-			for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
-				typeParams = append(typeParams, typeParamData{
-					Name:       tp.Name,
-					Constraint: typemap.TypeParamConstraint(tp),
-				})
-			}
-		}
-
-		recv := receiverName(e.GoName)
-		if len(typeParams) > 0 {
-			// Generic type with non-defaulted params: generate method with type
-			// assertion + JSON fallback for type parameter fields.
-			b.hasTypeParams = true
-			fields := resolution.UnifiedFields(e.Type, b.table)
-			if err := b.processFields(fields, recv, recv); err != nil {
-				return nil, errors.Wrapf(
-					err,
-					"failed to generate generic codec for %s",
-					e.GoName,
-				)
-			}
-			if b.needsJSON {
-				fo.NeedsJSON = true
-			}
-			fo.GenericCodecs = append(fo.GenericCodecs, genericCodec{
-				GoName:     e.GoName,
-				Receiver:   recv,
-				TypeParams: typeParams,
-				EncodeBody: strings.Join(b.encodeLines, "\n"),
-				DecodeBody: strings.Join(b.decodeLines, "\n"),
-				UsesErr:    b.usesErr,
-				Recursive:  typeIsRecursive(e.Type, table),
-			})
-		} else {
-			fields := resolution.UnifiedFields(e.Type, b.table)
-			if err := b.processFields(fields, recv, recv); err != nil {
-				return nil, errors.Wrapf(
-					err,
-					"failed to generate codec for %s",
-					e.GoName,
-				)
-			}
-			if b.needsJSON {
-				fo.NeedsJSON = true
-			}
-			fo.ConcreteCodecs = append(fo.ConcreteCodecs, concreteCodec{
-				GoName:     e.GoName,
-				Receiver:   recv,
-				EncodeBody: strings.Join(b.encodeLines, "\n"),
-				DecodeBody: strings.Join(b.decodeLines, "\n"),
-				UsesErr:    b.usesErr,
-				Recursive:  typeIsRecursive(e.Type, table),
-			})
+		if err := fo.addStructCodec(e, form, b); err != nil {
+			return nil, err
 		}
 	}
 	tmpl, err := template.New("encoder_codec").Funcs(template.FuncMap{
@@ -249,6 +175,86 @@ func renderEncoderCodecFile(
 		return nil, errors.Wrap(err, "failed to execute encoder template")
 	}
 	return buf.Bytes(), nil
+}
+
+// addFlex adds the flex methods for distinct scalar types, in sorted order.
+func (fo *encoderFileOutput) addFlex(flex []flexCodec) error {
+	sort.Slice(flex, func(i, j int) bool { return flex[i].GoName < flex[j].GoName })
+	var flexBuf strings.Builder
+	for _, fc := range flex {
+		methods, err := generateFlexMethods(fc)
+		if err != nil {
+			return err
+		}
+		flexBuf.WriteString(methods)
+	}
+	fo.FlexMethods = flexBuf.String()
+	fo.HasFlex = true
+	fo.NeedsJSONText = true
+	fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = ""
+	fo.ExtraImports["github.com/synnaxlabs/x/encoding/msgpack"] = "xmsgpack"
+	fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
+	return nil
+}
+
+// addStructCodec adds the codec for the struct entry e, generic when the struct has
+// type params without defaults.
+func (fo *encoderFileOutput) addStructCodec(
+	e codecEntry,
+	form resolution.StructForm,
+	b *encoderBuilder,
+) error {
+	// Collect type params that produce Go generics. A type param becomes a Go generic
+	// parameter only when it has NO default value (like Details? in Status<Details?>).
+	// Params with any default (like V = Variant or Data? = record) are substituted by
+	// the types plugin and the Go type is concrete.
+	var typeParams []typeParamData
+	if form.IsGeneric() {
+		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
+			typeParams = append(typeParams, typeParamData{
+				Name:       tp.Name,
+				Constraint: typemap.TypeParamConstraint(tp),
+			})
+		}
+	}
+	recv := receiverName(e.GoName)
+	fields := resolution.UnifiedFields(e.Type, b.table)
+	if len(typeParams) == 0 {
+		if err := b.processFields(fields, recv, recv); err != nil {
+			return errors.Wrapf(err, "failed to generate codec for %s", e.GoName)
+		}
+		if b.needsJSON {
+			fo.NeedsJSON = true
+		}
+		fo.ConcreteCodecs = append(fo.ConcreteCodecs, concreteCodec{
+			GoName:     e.GoName,
+			Receiver:   recv,
+			EncodeBody: strings.Join(b.encodeLines, "\n"),
+			DecodeBody: strings.Join(b.decodeLines, "\n"),
+			UsesErr:    b.usesErr,
+			Recursive:  typeIsRecursive(e.Type, b.table),
+		})
+		return nil
+	}
+	// Generic type with non-defaulted params: generate method with type assertion +
+	// JSON fallback for type parameter fields.
+	b.hasTypeParams = true
+	if err := b.processFields(fields, recv, recv); err != nil {
+		return errors.Wrapf(err, "failed to generate generic codec for %s", e.GoName)
+	}
+	if b.needsJSON {
+		fo.NeedsJSON = true
+	}
+	fo.GenericCodecs = append(fo.GenericCodecs, genericCodec{
+		GoName:     e.GoName,
+		Receiver:   recv,
+		TypeParams: typeParams,
+		EncodeBody: strings.Join(b.encodeLines, "\n"),
+		DecodeBody: strings.Join(b.decodeLines, "\n"),
+		UsesErr:    b.usesErr,
+		Recursive:  typeIsRecursive(e.Type, b.table),
+	})
+	return nil
 }
 
 // reservedNames contains single-letter variable names used in generated method bodies
@@ -369,15 +375,16 @@ func (b *encoderBuilder) processFields(
 			}
 		}
 
-		if f.Optional && !typemap.Nilable(f.Type, b.table) {
+		switch {
+		case f.Optional && !typemap.Nilable(f.Type, b.table):
 			if err := b.processOptional(f, getPath, setPath); err != nil {
 				return err
 			}
-		} else if f.Optional {
+		case f.Optional:
 			if err := b.processOptionalNilable(f, getPath, setPath); err != nil {
 				return err
 			}
-		} else {
+		default:
 			if err := b.processFieldValue(f, getPath, setPath); err != nil {
 				return err
 			}
@@ -658,7 +665,7 @@ func buildUnionCodec(
 		var embeds []string
 		var inlineFields []resolution.Field
 		if v.Inline {
-			pform := payload.Form.(resolution.StructForm)
+			pform := resolution.MustForm[resolution.StructForm](payload)
 			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			for _, ext := range inherited {
 				parent, ok := ext.Resolve(table)
@@ -683,7 +690,7 @@ func buildUnionCodec(
 		)
 		dec = append(dec,
 			fmt.Sprintf("\tcase %q:", v.Name),
-			fmt.Sprintf("\t\tvar v %s", variantType),
+			"\t\tvar v "+variantType,
 		)
 		for _, embed := range embeds {
 			enc = append(enc, fmt.Sprintf(
@@ -826,7 +833,7 @@ func (b *encoderBuilder) processOptional(
 	b.decodeLines = append(b.decodeLines,
 		ind+"{ present, err := r.Bool(); if err != nil { return err }",
 		ind+"if present {",
-		ind+fmt.Sprintf("\tvar hv %s", goType),
+		ind+"\tvar hv "+goType,
 	)
 	b.depth++
 	b.inBlock++
@@ -992,8 +999,8 @@ func (b *encoderBuilder) processMap(
 		ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make(map[%s]%s, n)", setPath, goKeyType, goValType),
 		ind+"\tfor range n {",
-		ind+fmt.Sprintf("\t\tvar key %s", goKeyType),
-		ind+fmt.Sprintf("\t\tvar val %s", goValType),
+		ind+"\t\tvar key "+goKeyType,
+		ind+"\t\tvar val "+goValType,
 	)
 
 	b.depth++
@@ -1088,10 +1095,10 @@ func (b *encoderBuilder) processLeaf(
 			b.encodeLines = append(b.encodeLines,
 				ind+fmt.Sprintf("w.WriteWithLen(%s)", valPath),
 			)
-			b.decodeLines = append(b.decodeLines, ind+fmt.Sprintf(
-				"%s, err = r.ReadWithLen(); if err != nil { return err }",
-				setPath,
-			))
+			b.decodeLines = append(
+				b.decodeLines,
+				ind+setPath+", err = r.ReadWithLen(); if err != nil { return err }",
+			)
 			break
 		}
 		b.encodeLines = append(b.encodeLines,
@@ -1309,10 +1316,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if p, ok := b.pins.Path(b.owner, typ); ok {
 		goPath = p
 	}
-	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
-	if err != nil {
-		return "", err
-	}
+	importPath := resolveGoImportPath(goPath, b.repoRoot)
 	if existingAlias, ok := b.imports[importPath]; ok {
 		qualifier := existingAlias
 		if qualifier == "" {
@@ -1328,7 +1332,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 			alias = parent + alias
 		}
 		for b.aliasUsed(alias) {
-			alias = alias + "x"
+			alias += "x"
 		}
 	}
 	// Only store an alias when it differs from the package's natural name.

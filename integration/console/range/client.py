@@ -71,7 +71,7 @@ class Client(Surface):
         """
         self.explorer.open()
         self.explorer.favorite(name)
-        self.layout.close_tab("Range explorer")
+        self.explorer.views.close_tab()
 
     def open_from_search(self, name: str) -> None:
         """Open a range overview by searching its name in the command palette.

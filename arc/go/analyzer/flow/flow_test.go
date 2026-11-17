@@ -141,7 +141,7 @@ tick(period=50ms) -> sim_daq`))
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("sim_daq is not a channel"))
+				).To(Equal("channel expected: sim_daq is not a channel"))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
@@ -160,7 +160,7 @@ sensor_chan -> sim_daq`))
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("sim_daq is not a channel"))
+				).To(Equal("channel expected: sim_daq is not a channel"))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
@@ -179,7 +179,7 @@ sensor_chan > 100 -> sim_daq`))
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("sim_daq is not a channel"))
+				).To(Equal("channel expected: sim_daq is not a channel"))
 				Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Notes[0].Message,
@@ -266,7 +266,7 @@ sensor_chan -> controller(100.0)`))
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("missing required argument for parameter 'gain' of func 'controller'"))
+				).To(Equal("missing required argument: parameter 'gain' of func 'controller'"))
 			},
 		)
 
@@ -316,7 +316,7 @@ sensor_chan -> filter() -> sink()`))
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(
 					Equal(
-						"missing required argument for parameter 'threshold' of func 'filter'",
+						"missing required argument: parameter 'threshold' of func 'filter'",
 					),
 				)
 			},
@@ -428,7 +428,7 @@ sequence main {
 				).To(ContainSubstring("too many arguments"))
 				Expect(
 					ctx.Diagnostics.String(),
-				).To(ContainSubstring("expected at most 2"))
+				).To(ContainSubstring("takes at most 2"))
 			},
 		)
 	})
@@ -492,7 +492,7 @@ sequence main {
 		It("Should type-check the call arguments", func(bCtx SpecContext) {
 			ctx := analyze(bCtx, `src_chan -> compute() -> out_chan`)
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"missing required argument for parameter 'input' of func 'compute'",
+				"missing required argument: parameter 'input' of func 'compute'",
 			))
 		})
 
@@ -588,18 +588,18 @@ src_chan -> demux() -> {
 			},
 			Entry("unknown named argument",
 				`len(unknown=label) -> count`,
-				"unknown parameter 'unknown' for func 'len'"),
+				"[E3004]: unknown parameter: 'unknown' for func 'len'"),
 			Entry("too many positional arguments",
 				`len(label, label) -> count`,
-				"too many arguments for func 'len': expected at most 1"),
+				"too many arguments: func 'len' takes at most 1"),
 			Entry("duplicate named argument",
 				`len(input=label, input=label) -> count`,
-				"duplicate argument for parameter 'input' of func 'len'"),
+				"[E3003]: duplicate argument: parameter 'input' of func 'len'"),
 			Entry("too many positional arguments in a func body",
 				`func f() {} i64 {
     return len(label, label)
 }`,
-				"too many arguments for func 'len': expected at most 1"),
+				"too many arguments: func 'len' takes at most 1"),
 		)
 	})
 
@@ -617,8 +617,11 @@ source() -> sink()`))
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(*ctx.Diagnostics).To(HaveLen(1))
 					Expect(
+						(*ctx.Diagnostics)[0].Code,
+					).To(Equal(codes.FlowConnection.Code))
+					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("func 'source' has no return value but 'sink' expects an input parameter"))
+					).To(Equal("invalid flow connection: func 'source' has no return value but 'sink' expects an input parameter"))
 				},
 			)
 
@@ -680,7 +683,7 @@ source() -> multi()`))
 					Expect(*ctx.Diagnostics).To(HaveLen(1))
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("missing required argument for parameter 'b' of func 'multi'"))
+					).To(Equal("missing required argument: parameter 'b' of func 'multi'"))
 				},
 			)
 
@@ -739,7 +742,7 @@ my_func -> consumer()`))
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("my_func is not a channel"))
+					).To(Equal("channel expected: my_func is not a channel"))
 				},
 			)
 
@@ -760,7 +763,7 @@ int_chan -> consumer()`))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(Equal(
-						"upstream value type i32 does not match func 'consumer' trigger parameter 'v' type f64",
+						"type mismatch: upstream value type i32 does not match func 'consumer' trigger parameter 'v' type f64",
 					))
 					Expect(ctx.Diagnostics.String()).To(
 						ContainSubstring("note: hint: use f64(value) to convert"),
@@ -835,10 +838,10 @@ int_chan -> consumer()`))
 				Expect(*ctx.Diagnostics).To(HaveLen(2))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("missing required argument for parameter 'threshold' of func 'filter'"))
+				).To(Equal("missing required argument: parameter 'threshold' of func 'filter'"))
 				Expect(
 					(*ctx.Diagnostics)[1].Message,
-				).To(Equal("missing required argument for parameter 'output' of func 'filter'"))
+				).To(Equal("missing required argument: parameter 'output' of func 'filter'"))
 			},
 		)
 
@@ -878,7 +881,7 @@ int_chan -> consumer()`))
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("missing required argument for parameter 'setpoint' of func 'controller'"))
+				).To(Equal("missing required argument: parameter 'setpoint' of func 'controller'"))
 			},
 		)
 
@@ -897,7 +900,7 @@ int_chan -> consumer()`))
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(Equal("unknown parameter 'extra' for func 'simple'"))
+				).To(Equal("unknown parameter: 'extra' for func 'simple'"))
 			},
 		)
 
@@ -1103,8 +1106,10 @@ sensor_chan -> {
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					d := (*ctx.Diagnostics)[0]
+					Expect(d.Code).To(Equal(codes.RoutingTable.Code))
 					Expect(
-						(*ctx.Diagnostics)[0].Message,
+						d.Message,
 					).To(ContainSubstring("output routing table must follow a func invocation"))
 				},
 			)
@@ -1135,7 +1140,7 @@ sensor_chan -> demux() -> {
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect(
 						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("cannot reassign top-level variable 'some_var'"))
+					).To(Equal("invalid assignment: cannot reassign top-level variable 'some_var'"))
 				},
 			)
 
@@ -1231,9 +1236,11 @@ sequence main {
 					ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
 					analyzer.AnalyzeProgram(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					d := (*ctx.Diagnostics)[0]
+					Expect(d.Code).To(Equal(codes.ReadOnlyWrite.Code))
 					Expect(
-						(*ctx.Diagnostics)[0].Message,
-					).To(Equal("cannot write to channel-read variable v; it is read-only"))
+						d.Message,
+					).To(Equal("read-only write: cannot write to channel-read variable v; it is read-only"))
 				},
 			)
 
@@ -2122,14 +2129,13 @@ sequence main {
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			var msgs []string
+			msgs := make([]string, 0, len(*ctx.Diagnostics))
 			for _, d := range *ctx.Diagnostics {
 				msgs = append(msgs, d.Message)
 			}
-			Expect(msgs).To(ContainElement(SatisfyAll(
-				ContainSubstring("inline routing case body stages must be anonymous"),
-				ContainSubstring(`"my_step"`),
-			)), "diagnostics: %v", msgs)
+			Expect(msgs).To(ContainElement(
+				"an inline stage or sequence cannot have a name",
+			), "diagnostics: %v", msgs)
 		})
 
 		It("Should reject a named inline sequence case body", func(bCtx SpecContext) {
@@ -2161,16 +2167,13 @@ sequence main {
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			var msgs []string
+			msgs := make([]string, 0, len(*ctx.Diagnostics))
 			for _, d := range *ctx.Diagnostics {
 				msgs = append(msgs, d.Message)
 			}
-			Expect(msgs).To(ContainElement(SatisfyAll(
-				ContainSubstring(
-					"inline routing case body sequences must be anonymous",
-				),
-				ContainSubstring(`"my_seq"`),
-			)), "diagnostics: %v", msgs)
+			Expect(msgs).To(ContainElement(
+				"an inline stage or sequence cannot have a name",
+			), "diagnostics: %v", msgs)
 		})
 
 		It(
@@ -2660,16 +2663,13 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				var msgs []string
+				msgs := make([]string, 0, len(*ctx.Diagnostics))
 				for _, d := range *ctx.Diagnostics {
 					msgs = append(msgs, d.Message)
 				}
-				Expect(msgs).To(ContainElement(SatisfyAll(
-					ContainSubstring(
-						"inline routing case body stages must be anonymous",
-					),
-					ContainSubstring(`"my_step"`),
-				)), "diagnostics: %v", msgs)
+				Expect(msgs).To(ContainElement(
+					"an inline stage or sequence cannot have a name",
+				), "diagnostics: %v", msgs)
 			},
 		)
 
@@ -2693,16 +2693,13 @@ sequence main {
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, customResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				var msgs []string
+				msgs := make([]string, 0, len(*ctx.Diagnostics))
 				for _, d := range *ctx.Diagnostics {
 					msgs = append(msgs, d.Message)
 				}
-				Expect(msgs).To(ContainElement(SatisfyAll(
-					ContainSubstring(
-						"inline routing case body sequences must be anonymous",
-					),
-					ContainSubstring(`"my_seq"`),
-				)), "diagnostics: %v", msgs)
+				Expect(msgs).To(ContainElement(
+					"an inline stage or sequence cannot have a name",
+				), "diagnostics: %v", msgs)
 			},
 		)
 
@@ -3305,7 +3302,7 @@ sequence main {
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect(
 					(*ctx.Diagnostics)[0].Message,
-				).To(ContainSubstring("missing required argument for parameter 'value'"))
+				).To(ContainSubstring("missing required argument: parameter 'value'"))
 			},
 		)
 
@@ -3430,7 +3427,7 @@ sequence main {
 				Expect(warnings).To(HaveLen(len(fixes)))
 				for i, w := range warnings {
 					Expect(w.Message).To(Equal(
-						"non-boolean conditions are deprecated, use an explicit " +
+						"non-boolean condition: deprecated, use an explicit " +
 							"comparison like x != 0",
 					))
 					Expect(w.Code).To(Equal(codes.TruthyCondition.Code))
@@ -3561,7 +3558,7 @@ var _ = Describe("Trigger call-site conflict", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
+				"[E5009]: invalid trigger binding: parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
 			))
 		},
 	)
@@ -3576,7 +3573,7 @@ var _ = Describe("Trigger call-site conflict", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"too many arguments for func 'consumer': expected at most 0",
+				"too many arguments: func 'consumer' takes at most 0",
 			))
 		},
 	)
@@ -3591,7 +3588,7 @@ var _ = Describe("Duplicate call-site argument", func() {
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-			"duplicate argument for parameter 'v' of func 'sink'",
+			"duplicate argument: parameter 'v' of func 'sink'",
 		))
 	})
 })
@@ -3719,7 +3716,7 @@ var _ = Describe("Routing entry strictness", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"missing required argument for parameter 'value' of func 'amplify'",
+				"missing required argument: parameter 'value' of func 'amplify'",
 			))
 		},
 	)

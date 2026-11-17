@@ -46,8 +46,9 @@ type, or `chan T` for a channel. For the values that the parentheses accept, see
 
 An input or a trigger with `= literal` has a default and can be left out. Parameters
 with defaults come last in their parentheses or braces. Otherwise the compiler fails
-with `required input parameter b cannot follow optional input parameters` or
-`required parameter b cannot follow optional parameters`.
+with
+`invalid parameter order: required input parameter b cannot follow optional input parameters`
+or `invalid parameter order: required parameter b cannot follow optional parameters`.
 
 A body reads a `chan` parameter, or any channel by name, to get its latest value. It
 assigns to the channel to write it. See
@@ -73,10 +74,10 @@ In a flow, the value from upstream fills the first trigger. The parentheses fill
 other triggers, such as `pt -> add(y=2.0)`. A function with no triggers runs on each
 value from upstream, and does not use the value.
 
-| Error                                                                                    | Cause                                                |
-| ---------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `missing required argument for parameter 'y' of func 'add'`                              | A parameter has no value.                            |
-| `parameter 'x' of func 'add' is bound by both a call-site argument and an upstream wire` | The parentheses set the trigger that upstream fills. |
+| Error                                                                                                             | Cause                                                |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `missing required argument: parameter 'y' of func 'add'`                                                          | A parameter has no value.                            |
+| `invalid trigger binding: parameter 'x' of func 'add' is bound by both a call-site argument and an upstream wire` | The parentheses set the trigger that upstream fills. |
 
 <Divider.Divider x />
 
@@ -107,8 +108,9 @@ table passes only the first output: `split() -> out` writes only `high`. Route s
 named outputs with a
 [routing table](/reference/control/arc/reference/flow#custom-routing). An output that
 the body never assigns gives the warning
-`output 'low' is never assigned in function 'split'`. With a named output,
-`return result` fails with `cannot return a value from a function with no return type`.
+`output never assigned: output 'low' is never assigned in function 'split'`. With a
+named output, `return result` fails with
+`invalid return: cannot return a value from a function with no return type`.
 
 <Divider.Divider x />
 

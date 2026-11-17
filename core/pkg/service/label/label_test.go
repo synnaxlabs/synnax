@@ -36,11 +36,12 @@ var _ = Describe("Label", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
 	})
-	BeforeEach(func(ctx SpecContext) {
+	BeforeEach(func() {
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
 	})
@@ -51,7 +52,7 @@ var _ = Describe("Label", Ordered, func() {
 				Color: MustSucceed(color.Parse("#000000")),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil())))
+			Expect(l.Key).ToNot(Equal(uuid.Nil()))
 		})
 		It(
 			"Should return a validation error when the name is empty",
@@ -85,7 +86,7 @@ var _ = Describe("Label", Ordered, func() {
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 			for _, l := range ls {
-				Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil())))
+				Expect(l.Key).ToNot(Equal(uuid.Nil()))
 			}
 		})
 	})

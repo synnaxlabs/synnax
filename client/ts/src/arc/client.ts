@@ -13,7 +13,7 @@ import {
   type UnaryClient,
 } from "@synnaxlabs/freighter";
 import { array, deep, type destructor, filter, zod } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { actions } from "@/actions";
 import { createOf, encode, isUndoable, kindOf, reduceAll } from "@/arc/actions";

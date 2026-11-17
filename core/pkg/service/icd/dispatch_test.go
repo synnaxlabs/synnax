@@ -43,6 +43,7 @@ var _ = Describe("Apply", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		editDB = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(editDB.Run)
 		editSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
 			DB:   editDB,
 			ImEx: imex.NewService(),

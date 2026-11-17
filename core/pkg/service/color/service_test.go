@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	xcolor "github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -29,12 +30,27 @@ var _ = Describe("OpenService", func() {
 			MatchError(ContainSubstring("db: must be non-nil")),
 		))
 	})
+	It("Should refuse a config with no group service", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(
+			color.OpenService(ctx, color.ServiceConfig{DB: db}),
+		).Error().
+			To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("group: must be non-nil")),
+			))
+	})
 })
 
 var _ = Describe("Changes", func() {
 	It("Should return the named color that a commit creates", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		svc := MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
+		StartRun(db.Run)
+		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		svc := MustOpen(
+			color.OpenService(ctx, color.ServiceConfig{DB: db, Group: groups}),
+		)
 		var names []string
 		DeferCleanup(
 			db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {

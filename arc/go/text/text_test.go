@@ -30,14 +30,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// findNodeByKey finds a node by key and asserts it exists
+// findNodeByKey finds a node by key and asserts it exists.
 func findNodeByKey(nodes ir.Nodes, key string) ir.Node {
 	node, found := nodes.Find(key)
 	ExpectWithOffset(1, found).To(BeTrue(), "expected node '%s' to exist", key)
 	return node
 }
 
-// findNodeByType finds the first node by type and asserts it exists
+// findNodeByType finds the first node by type and asserts it exists.
 func findNodeByType(nodes ir.Nodes, nodeType string) ir.Node {
 	GinkgoHelper()
 	for _, n := range nodes {
@@ -49,7 +49,7 @@ func findNodeByType(nodes ir.Nodes, nodeType string) ir.Node {
 	return ir.Node{}
 }
 
-// findEdgeBySourceParam finds an edge by source parameter name
+// findEdgeBySourceParam finds an edge by source parameter name.
 func findEdgeBySourceParam(edges []ir.Edge, param string) ir.Edge {
 	GinkgoHelper()
 	for _, e := range edges {
@@ -61,7 +61,7 @@ func findEdgeBySourceParam(edges []ir.Edge, param string) ir.Edge {
 	return ir.Edge{}
 }
 
-// countNodesByType counts nodes of a specific type
+// countNodesByType counts nodes of a specific type.
 func countNodesByType(nodes ir.Nodes, nodeType string) int {
 	count := 0
 	for _, n := range nodes {
@@ -3147,7 +3147,7 @@ var _ = Describe("Text", func() {
 					Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 					Expect(
 						diagnostics.String(),
-					).To(ContainSubstring("constant -5 overflows u8"))
+					).To(ContainSubstring("constant overflow: -5 overflows u8"))
 				},
 			)
 		})
@@ -4529,8 +4529,8 @@ time.wait(duration=500ms) -> output`
 					_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 					Expect(diagnostics.Ok()).To(BeFalse())
 					Expect(diagnostics.String()).To(SatisfyAll(
-						ContainSubstring("missing required argument for parameter 'a'"),
-						ContainSubstring("missing required argument for parameter 'b'"),
+						ContainSubstring("missing required argument: parameter 'a'"),
+						ContainSubstring("missing required argument: parameter 'b'"),
 					))
 				},
 			)
@@ -4590,7 +4590,7 @@ time.wait(duration=500ms) -> output`
 					Expect(highEdge.Source.Node).To(Equal("demux_0"))
 					highConst := findNodeByKey(inter.Nodes, highEdge.Target.Node)
 					Expect(highConst.Type).To(Equal("constant"))
-					alarmIn := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					alarmIn := MustBeOk(inter.Edges.FindByTarget(
 						ir.Handle{Node: alarmNode.Key, Param: "value"},
 					))
 					Expect(alarmIn.Source).To(Equal(
@@ -4601,7 +4601,7 @@ time.wait(duration=500ms) -> output`
 					Expect(lowEdge.Source.Node).To(Equal("demux_0"))
 					lowConst := findNodeByKey(inter.Nodes, lowEdge.Target.Node)
 					Expect(lowConst.Type).To(Equal("constant"))
-					loggerIn := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					loggerIn := MustBeOk(inter.Edges.FindByTarget(
 						ir.Handle{Node: loggerNode.Key, Param: "value"},
 					))
 					Expect(loggerIn.Source).To(Equal(
@@ -4690,11 +4690,11 @@ time.wait(duration=500ms) -> output`
 					k := MustBeOk(findNodeByKey(inter.Nodes, "scale_0").Inputs.Get("k"))
 					Expect(k.Type.Kind).To(Equal(types.KindVarRef))
 					constKey := findNodeByType(inter.Nodes, "constant").Key
-					call := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					call := MustBeOk(inter.Edges.FindByTarget(
 						ir.Handle{Node: "scale_0", Param: "b"},
 					))
 					Expect(call.Source.Node).To(Equal(constKey))
-					arg := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+					arg := MustBeOk(inter.Edges.FindByTarget(
 						ir.Handle{Node: k.Type.Name, Param: ir.DefaultInputParam},
 					))
 					Expect(arg.Source.Node).To(Equal(constKey))
@@ -4788,7 +4788,7 @@ time.wait(duration=500ms) -> output`
 				highConst := findNodeByKey(inter.Nodes, highEdge.Target.Node)
 				Expect(highConst.Type).To(Equal("constant"))
 
-				constToAmplify := MustBeOk(ir.Edges(inter.Edges).FindByTarget(
+				constToAmplify := MustBeOk(inter.Edges.FindByTarget(
 					ir.Handle{Node: "amplify_0", Param: "signal"},
 				))
 				Expect(constToAmplify.Source.Node).To(Equal(highConst.Key))
@@ -7861,7 +7861,28 @@ time.wait(duration=500ms) -> output`
 					},
 					"no next stage",
 				),
-				Entry("next outside sequence",
+				Entry(
+					"next as the first node of a flow",
+					`
+					sequence main {
+					    stage first {
+					        next -> output
+					    }
+					    stage second {
+					    }
+					}`,
+					[]symbol.Symbol{
+						{
+							Name: "output",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F32()),
+							ID:   10082,
+						},
+					},
+					"[E5005]: invalid transition target: transition target requires a source",
+				),
+				Entry(
+					"next outside sequence",
 					`input > 10 => next`,
 					[]symbol.Symbol{
 						{
@@ -7871,7 +7892,27 @@ time.wait(duration=500ms) -> output`
 							ID:   10081,
 						},
 					},
-					"outside of a sequence",
+					"[E5005]: invalid transition target: 'next' used outside of a sequence",
+				),
+				Entry(
+					"a func that reads a top-level series",
+					"data := [1.0, 2.0]\nfunc f() f64 {\n    return data[0]\n}",
+					[]symbol.Symbol{},
+					"1:0 error [E2006]: not a constant: variable 'data' of type series f64 cannot have "+
+						"a computed initializer",
+				),
+				Entry(
+					"a func with no output before a channel",
+					"func sink() {v f32} {\n}\ninput -> sink() -> input",
+					[]symbol.Symbol{
+						{
+							Name: "input",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F32()),
+							ID:   10081,
+						},
+					},
+					"[E5004]: invalid flow connection: function 'sink' has no output to connect in flow chain",
 				),
 				Entry("next inside inline routing stage body",
 					`
@@ -9279,7 +9320,7 @@ time.wait(duration=500ms) -> output`
 		)
 
 		It(
-			"Should reject a function body reading a variable whose initializer did not fold",
+			"Should reject a function body reading a variable whose initializer is not a constant",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -9300,14 +9341,14 @@ time.wait(duration=500ms) -> output`
 			func rd() {n u8} i64 { return k }
 			trig -> rd() -> out`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				ir, diagnostics := text.Analyze(
+				_, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, resolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				Expect(text.Compile(ctx, ir)).Error().To(MatchError(
-					ContainSubstring("not a compile-time constant"),
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"3:33 error [E2006]: not a constant: cannot read 'k': its initializer is not a " +
+						"compile-time constant",
 				))
 			},
 		)

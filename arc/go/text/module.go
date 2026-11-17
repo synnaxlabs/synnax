@@ -15,11 +15,11 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -173,7 +173,7 @@ func link(i *ir.IR, units []*unit, shell *shellBuilder, bound set.Set[string]) {
 // the module.
 func compileError(path string, diag *diagnostics.Diagnostics) error {
 	first := diag.Errors()[0]
-	return errors.Newf(
+	return codes.ImportFailed.Errorf(
 		"module %q does not compile: %d:%d %s",
 		path,
 		first.Range.Start.Line+1,
@@ -183,7 +183,7 @@ func compileError(path string, diag *diagnostics.Diagnostics) error {
 }
 
 func (l *Loader) cycleError() error {
-	return errors.Newf("import cycle: %s", strings.Join(l.cycle, " -> "))
+	return codes.ImportFailed.Errorf("import cycle: %s", strings.Join(l.cycle, " -> "))
 }
 
 // Search implements symbol.Resolver. It returns the import paths that start with term.

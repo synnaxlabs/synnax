@@ -266,9 +266,7 @@ describe("channel/tree", () => {
         expect(statuses).toContainEqual(
           expect.objectContaining({
             message: "Failed to delete channel",
-            description:
-              `cannot delete channel ${ch.name} because task ${task.name} uses it: ` +
-              "validation error",
+            description: `cannot delete channel ${ch.name} because task ${task.name} uses it`,
           }),
         ),
       );

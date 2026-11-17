@@ -32,6 +32,10 @@ struct Authorities {
     [[nodiscard]] x::errors::Error validate() const {
         return synnax::framer::validate_authorities(this->keys, this->authorities);
     }
+
+    /// @brief sets the authorities that config opens a writer with to those the writer
+    /// holds after these authorities apply.
+    void apply(synnax::framer::WriterConfig &config) const;
 };
 
 /// @brief an object that reads data from an acquisition computer or another source,

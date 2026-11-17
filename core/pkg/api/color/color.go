@@ -64,16 +64,16 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 // CreateRequest holds the named colors to create.
 type CreateRequest struct {
-	// Nameds are the named colors to create.
-	Nameds []color.Named `json:"nameds" msgpack:"nameds"`
+	// Colors are the named colors to create.
+	Colors []color.Named `json:"colors" msgpack:"colors"`
 	// DispatchKey is stamped onto the create broadcasts so the sender skips its echo.
 	DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 }
 
 // CreateResponse holds the created named colors.
 type CreateResponse struct {
-	// Nameds are the created named colors, each with its key.
-	Nameds []color.Named `json:"nameds" msgpack:"nameds"`
+	// Colors are the created named colors, each with its key.
+	Colors []color.Named `json:"colors" msgpack:"colors"`
 }
 
 // Create creates the named colors. It returns a validation error when a color is not
@@ -85,10 +85,10 @@ func (s *Service) Create(
 ) (CreateResponse, error) {
 	if err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
-		CreateMany(ctx, req.Nameds); err != nil {
+		CreateMany(ctx, req.Colors); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{Nameds: req.Nameds}, nil
+	return CreateResponse{Colors: req.Colors}, nil
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -109,7 +109,7 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Nameds))
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.Colors))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -117,6 +117,21 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return res, nil
+}
+
+// RetrieveBuiltinsResponse holds the built-in named colors.
+type RetrieveBuiltinsResponse struct {
+	// Colors are the built-in named colors with their shipped values.
+	Colors []color.Named `json:"colors" msgpack:"colors"`
+}
+
+// RetrieveBuiltins returns the named colors that the Core ships, with their shipped
+// values. Any signed-in subject can read them.
+func (s *Service) RetrieveBuiltins(
+	context.Context,
+	struct{},
+) (RetrieveBuiltinsResponse, error) {
+	return RetrieveBuiltinsResponse{Colors: color.Builtins()}, nil
 }
 
 // DispatchRequest carries an action sequence to apply to one named color. DispatchKey
