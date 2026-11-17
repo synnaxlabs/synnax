@@ -132,7 +132,9 @@ func writeValue(s *channels.ProgramState, key uint32, value telem.Series) {
 			fn, arg = "write_f32", stltest.F32(value.ValueAt[float32](i))
 		case telem.Float64T:
 			fn, arg = "write_f64", stltest.F64(value.ValueAt[float64](i))
-		default:
+		case telem.UnknownT, telem.Uint8T, telem.Uint16T, telem.Uint32T,
+			telem.Uint64T, telem.Int8T, telem.Int16T, telem.Int64T, telem.TimestampT,
+			telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT, telem.BooleanT:
 			Fail("unsupported data type " + string(value.DataType))
 		}
 		rt.CallVoid(ctx, channels.Name, fn, stltest.U32(key), arg)
