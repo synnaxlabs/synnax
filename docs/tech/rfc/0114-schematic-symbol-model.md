@@ -5,7 +5,7 @@
 - **Related**:
   [RFC 0053 - Oracle explicit schema versioning](0053-oracle-explicit-schema-versioning.md),
   [RFC 0100 - Gorp references](0100-gorp-references.md),
-  [RFC 0112 - Named colors and enums](0112-named-colors-and-enums.md)
+  [RFC 0112 - Named colors and enumerations](0112-named-colors-and-enums.md)
 
 ## 0 Summary
 
@@ -28,7 +28,8 @@ or a connector.
 ## 2 Vocabulary
 
 - **Part**: A named set of shapes in a drawing, chosen by id, class, or region id.
-- **State**: What a symbol shows: enum entries, such as Open and Closed, or a number.
+- **State**: What a symbol shows: enumeration entries, such as Open and Closed, or a
+  number.
 - **Command**: A named request that writes one value to one channel, such as Open.
 - **Look**: Paint, visibility, or motion on a part, optionally while a state has values.
 - **Interaction**: What a pointer gesture on a part does.
@@ -96,13 +97,13 @@ BaseState struct {
     name string
 }
 State union on type extends BaseState {
-    enum {
-        enum    enum.Key? {
+    enumeration {
+        enumeration enumeration.Key? {
             @ref kind      use
             @ref on_delete restrict
         }
-        match   Match = exact
-        default float64 = 0
+        match       Match = exact
+        default     float64 = 0
     }
     number {
         bounds spatial.Bounds = { lower = 0, upper = 100 }
@@ -110,10 +111,7 @@ State union on type extends BaseState {
 }
 Match union on type {
     exact {}
-    band {
-        lower float64?
-        upper float64?
-    }
+    within { bounds spatial.Bounds }
 }
 Command struct {
     key   string
@@ -212,74 +210,85 @@ FormatConfig struct {
     notation  notation.Notation = "standard"
 }
 StateBinding struct extends FormatConfig {
-    key     string
-    source  Source?
+    key         string
+    source      Source?
     // these replace the symbol's
-    enum    enum.Key?
-    match   Match?
-    bounds  spatial.Bounds?
-    default float64?
+    enumeration enumeration.Key?
+    match       Match?
+    bounds      spatial.Bounds?
+    default     float64?
 }
 Source union on type {
     channel {
-        key     channel.Key
-        command channel.Key?  // where commands that target this state write
+        key     channel.Key? {
+            @ref kind      use
+            @ref on_delete detach
+        }
+        // where commands that target this state write
+        command channel.Key? {
+            @ref kind      use
+            @ref on_delete detach
+        }
     }
     local { value float64 }
 }
 // a command with no state
 CommandBinding struct {
     key     string
-    channel channel.Key
+    channel channel.Key {
+        @ref kind      use
+        @ref on_delete detach
+    }
 }
 ```
 
 ### 4.2 Values and looks
 
-A state reads its source, then its match. `band` reads a value from `lower` up to, but
-not including, `upper` as 1, and every other number as 0, as today's threshold does. An
-absent bound is open, and the Core refuses a band whose `lower` is above its `upper`.
-The editor writes the band 0.9 to 1.1 on a new state with two entries, and each built-in
-state with two entries ships it in its spec. An enum state draws its `default` entry,
-such as Closed on a valve, while no data has arrived, for NaN, and, when it has an enum,
-for a value that equals no entry after its match. Pluto then adds the unknown indicator.
-A band reads 0.5 as 0, so a valve at 0.5 shows Closed with no indicator, as today. A
-state with no source draws its default entry, or fraction 0 for a number state, with no
-indicator. The binding holds the number format, as each readout does today
-(`schemas/synnax/schematic.oracle:1224-1249`).
+A state reads its source, then its match. `within` reads a value in its `bounds`, from
+`lower` up to, but not including, `upper`, as 1, and every other number as 0, as today's
+threshold does. The Core refuses every `spatial.Bounds`, in a match or on a number
+state, whose `lower` is not below its `upper`. The editor writes `within` 0.9 to 1.1 on
+a new state with two entries, and each built-in state with two entries ships it in its
+spec. An enumeration state draws its `default` entry, such as Closed on a valve, while
+no data has arrived, for NaN, and, when it has an enumeration, for a value that equals
+no entry after its match. Pluto then adds the unknown indicator. `within` 0.9 to 1.1
+reads 0.5 as 0, so a valve at 0.5 shows Closed with no indicator, as today. A state with
+no source, or with a `channel` source that has no `key`, draws its default entry, or
+fraction 0 for a number state, with no indicator. The binding holds the number format,
+as each readout does today (`schemas/synnax/schematic.oracle:1224-1249`).
 
 Looks apply in order, and a later look wins on each field it sets. Stale data keeps the
 last state's looks and adds the stale indicator. Pluto then draws pending, hover,
 pressed, and the hold fill. A symbol stores no indicators: Pluto draws the stale,
 unknown, and other indicators on top of the looks. Only a number state drives motion,
-and the Core refuses a motion whose `state` names an enum state. A number state drives
-motion as a fraction of its bounds, clamped to 0 to 1, and the Core refuses bounds whose
-lower value is not below the upper. A number state is unknown for no data and NaN, but
-not for a value outside its bounds. `spin`, `flow`, and `blink` stop while a state that
-their look reads, in `when` or `state`, is stale or unknown, under the operating
-system's Reduce motion setting, and on a node with `motion_disabled`. Under these two
-settings, a `level`, `rotate`, or `move` jumps to each new fraction with no transition.
-While its state is stale, it keeps its last fraction. While it is unknown, it draws
-fraction 0, which is `from` or an empty `level`, with the unknown indicator. A blink
-stays under three flashes per second.
+and the Core refuses a motion whose `state` names an enumeration state. A number state
+drives motion as a fraction of its bounds, clamped to 0 to 1. A number state is unknown
+for no data and NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink`
+stop while a state that their look reads, in `when` or `state`, is stale or unknown,
+under the operating system's Reduce motion setting, and on a node with
+`motion_disabled`. Under these two settings, a `level`, `rotate`, or `move` jumps to
+each new fraction with no transition. While its state is stale, it keeps its last
+fraction. While it is unknown, it draws fraction 0, which is `from` or an empty `level`,
+with the unknown indicator. A blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
-`next` lists two or more `fixed` commands on one state, each with its own value, and the
-Core refuses any other list on save. It sends the one listed command whose value differs
-from the last state value, also while it is stale, so a click on an open valve sends
-Close. When the value is unknown, a command is pending, or the command channel disagrees
-with the state, `next` opens a menu of its commands. A `fixed` command writes its value.
-An `ask` command opens an input that its state's type picks, such as a menu of enum
+`next` lists two `fixed` commands on one state with different values, and the Core
+refuses any other list on save. It compares the last state value after its match, also
+while the state is stale. When the value equals one command's value, `next` sends the
+other command, so a click on an open valve sends Close. When the value equals neither,
+the value is unknown, a command is pending, or the command channel disagrees with the
+state, `next` opens a menu of its commands. A `fixed` command writes its value. An `ask`
+command opens an input that its state's type picks, such as a menu of enumeration
 entries or a number field, and the typed value stays in Pluto until sent. A command
 writes to the `command` channel of its state's `channel` source, or to its `local`
 value, or with no state, to its `CommandBinding` channel. An interaction whose commands
 have no channel takes no clicks. One Pluto function sends every write, from the node and
 the command key. Built-in states are `position`, `run`, `on`, and `level`, and built-in
 commands are `open`, `close`, `start`, `stop`, and `set`, which asks. The Core's code
-lists each built-in symbol by name, with its state keys and types and its command keys,
-and a read-only route returns the list. Pluto keeps the drawings. A shipped key never
-changes, and a shipped built-in name never changes.
+lists each built-in symbol by name, with its state keys and types, and its command keys
+with the state that each targets, and a read-only route returns the list. Pluto keeps
+the drawings. A shipped key never changes, and a shipped built-in name never changes.
 
 ### 4.4 Edits and customization
 
@@ -290,9 +299,12 @@ the Core refuses the save when the list, or which of them are under control, cha
 the dialog asks again. The custom `symbol.Ref` uses `@ref on_delete restrict`, so a
 custom symbol in use refuses the delete, and the dialog lists its schematics. A built-in
 file is never edited: a node changes a built-in through its label, color, size,
-rotation, enum, match, and default, and a site through RFC 0112 enums and named colors.
-"Duplicate as custom" copies a built-in into a new custom symbol, and "Change symbol"
-moves nodes to another symbol by binding key.
+rotation, enumeration, match, and default, and a site through RFC 0112 enumerations and
+named colors. "Duplicate as custom" copies a built-in into a new custom symbol, and
+"Change symbol" moves nodes to another symbol by binding key. Binding channels are Gorp
+references with `@ref on_delete detach`. A channel delete clears the channel of a
+`channel` source and keeps the binding with its enumeration, match, and format, and it
+removes a `CommandBinding`.
 
 The Core checks every save. It refuses a symbol with a duplicate key in a list, a key
 that names no part, state, or command, an `entry` paint or `equals` condition on a
@@ -301,13 +313,16 @@ repeat or name no state or command of its symbol, whose overrides do not fit the
 their state, or whose `CommandBinding` names a command that has a state. The Core list
 of built-ins lets it check built-in nodes the same way. A `missing` node has no symbol,
 so the Core checks its bindings when "Change symbol" moves it. When a symbol save
-removes a state or command, the save confirm lists the node bindings that it removes,
-and the Core removes them in the same transaction.
+removes a state or command, the save confirm lists the node bindings that it removes.
+When it changes the type of a state, the confirm lists the node overrides of the old
+type. The Core removes them in the same transaction.
 
 An import brings the custom symbols that its schematics use. Every symbol import, alone,
 in a group, or in a schematic, follows one rule. When the Core already has a symbol with
 a bundled key, the import uses it, needs retrieve access on it, and reports a warning
-status that names it if the two differ. Otherwise it adds the bundled symbol under its
+status that names it if the two differ. The import then drops each node binding that
+names a state or command that the Core's copy lacks, and each override of the wrong
+type, and the warning status names them. Otherwise it adds the bundled symbol under its
 bundled key, so a later import of the same file reuses it. A group import treats the
 group the same way, by the group key that a new manifest version carries. It uses or
 adds a group only when a new symbol joins it, and with an old manifest, which has no
@@ -334,18 +349,24 @@ Phase 2 migrates nodes by this table, and phase 1 migrates stored custom symbols
 | 31 live toggles    | `builtin` of the variant                    | `position` or `run`                                             |
 | `solenoid_valve`   | `builtin`, a second one for `normally_open` | As a live toggle                                                |
 | 7 local toggles    | `builtin` of the variant                    | `position` from `local` `enabled`, `disabled` from `!clickable` |
-| `light`            | `builtin`                                   | `on` from `channel`, with the band of a differing `threshold`   |
+| `light`            | `builtin`                                   | `on` from `channel`, with `within` a differing `threshold`      |
 | `custom_actuator`  | `custom` of `spec_key`                      | `state` as a live toggle                                        |
 | `custom_static`    | `custom` of `spec_key`                      | `state` with no source                                          |
 
-A toggle's `channel` source reads `state_channel`, else `command_channel`, and its
-`command` is `command_channel`. Each built-in state with two entries ships the band 0.9
-to 1.1, so a toggle, and a light with no `threshold`, gets no binding `match`. A light
-whose `threshold` differs from that band gets it as its binding `match`, and an inverted
-`threshold` is swapped, as today's check swaps it. With these bands, each migrated
-toggle and light reads every number as it does today. The light's `on_color` moves to an
-enum. `stroke_color` becomes `color`, `staleness_color` goes, the time fields keep their
-values, and `state_overrides` become enums by RFC 0112 §4.6.
+A toggle's `channel` source reads `state_channel`, and its `command` is
+`command_channel`. A toggle with no `state_channel` gets a source with no `key`, so it
+draws its default entry, as today. Its first click sends the command for value 1, as
+today, and later clicks open the menu, because the command channel then disagrees with
+the state. Each built-in state with two entries ships `within` 0.9 to 1.1, so a toggle,
+and a light with no `threshold`, gets no binding `match`. A light whose `threshold`
+differs from those bounds gets it as its binding `match`, and an inverted `threshold` is
+swapped, as today's check swaps it. With these matches, each migrated toggle and light
+reads every number as it does today. The light's `on_color` moves to an enumeration.
+`stroke_color` becomes `color`, `staleness_color` goes, the time fields keep their
+values, and `state_overrides` become enumerations by RFC 0112 §4.6. RFC 0112 phase 22
+turns the region color looks of a custom symbol into `entry` looks, and gives each node
+whose overrides change its colors its own enumeration, or a copy of its symbol when an
+enumeration cannot carry them, so no node changes its look.
 
 The migration and an import give a node whose custom symbol does not exist `missing`
 with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
@@ -360,7 +381,7 @@ with default 0, and each region color becomes a look on that value. A region key
 selectors differ between states becomes two parts with their own keys, and the looks
 follow the parts. A selector that is not a name resolves against the drawing, and each
 match gets a `data-region-id`. A stored actuator, and a static symbol that a
-`custom_actuator` node uses, get the band 0.9 to 1.1 on `state`, the `fixed` commands
+`custom_actuator` node uses, get `within` 0.9 to 1.1 on `state`, the `fixed` commands
 `off` for value 0 and `on` for value 1, named Off and On, and `next` on the whole
 drawing.
 
@@ -379,25 +400,27 @@ drawing.
 The renderer parity work (SY-6054) is done: every built-in except `light` and `switch`
 draws through `Custom.Drawing` from a built-in spec, and phase 1 adds specs for those
 two. The named color record (RFC 0112 phase 3) is merged, so phase 1 waits on nothing
-outstanding. Phase 1 stores the `Spec` fields of §4.1 except `enum`, which RFC 0112
-phase 19 adds with the enum record, and adds the symbol checks of §4.4. Until phase 2
-deletes them, it keeps `variant`, which picks the node variant on placement, and today's
-state shape, under its own name, for `state_overrides`. Phase 2 needs RFC 0112 phase 22,
-whose function its node migration calls, and ships with RFC 0112 phases 19 to 22. Each
-family is redesigned after phase 5 in its own PR.
+outstanding. Phase 1 stores the `Spec` fields of §4.1 except `enumeration`, which RFC
+0112 phase 19 adds with the enumeration record, and adds the symbol checks of §4.4. It
+moves the symbol editor and the clients to the new shape, and phase 3 redesigns the
+editor. Until phase 2 deletes them, it keeps `variant`, which picks the node variant on
+placement, and today's state shape, under its own name, for `state_overrides`. Phase 2
+needs RFC 0112 phase 22, whose function its node migration calls, and ships with RFC
+0112 phases 19 to 22. Each family is redesigned after phase 5 in its own PR.
 
-Phase 2 is one cutover of the stored node shape: a node variant, its checks with the
-Core list of built-ins and its route, the removal of the bindings that a symbol save
-orphans, a Core migration, an export that bundles a schematic's custom symbols with
-their keys, an import that keeps those keys, a renderer with its indicators, a form with
-the enum picker, and the deletion of 86 variants. It is larger than a usual PR because
-no smaller step leaves one node shape in `main`. Phase 4 lists the removed bindings in
-the save confirm. Phase 5 starts with the WebKit benchmark, and no built-in moves until
-it passes at 1,000 moving parts.
+Phase 2 is one cutover of the stored node shape: a node variant with channel references,
+its checks with the Core list of built-ins and its route, the removal of the bindings
+and overrides that a symbol save orphans, a Core migration, an export that bundles a
+schematic's custom symbols with their keys, an import that keeps those keys, a renderer
+with its indicators, a form with the enumeration picker, and the deletion of 86
+variants. It is larger than a usual PR because no smaller step leaves one node shape in
+`main`. Phase 4 lists the removed bindings and overrides in the save confirm. Phase 5
+starts with the WebKit benchmark, and no built-in moves until it passes at 1,000 moving
+parts.
 
 | Phase | Scope                                                  | Touches                                                                                                                                         | Depends on |
 | ----- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Store parts, states, commands, and looks on all specs  | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`                                                                    | -          |
+| 1     | Store parts, states, commands, and looks on all specs  | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`, `console/src/feature/schematic/symbol`, `client/ts`, `client/py`  | -          |
 | 2     | Replace equipment variants with one `symbol` variant   | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/api/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature` | 1          |
 | 3     | Edit parts and looks, and duplicate built-ins          | `console/src/feature/schematic/symbol`                                                                                                          | 1          |
 | 4     | Edit states, commands, and clicks, with a save confirm | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                     | 2, 3       |
@@ -414,8 +437,8 @@ it passes at 1,000 moving parts.
 4. **One ordered look list, with motion inside a look**: A states-by-parts grid (Figma
    variants) grows with each state, and motion beside states (Figma Motion) cannot start
    from one. The trade is real: order is precedence.
-5. **The match is stored on the state**: A band derived from "two entries" lets an enum
-   edit switch a valve to exact matches.
+5. **The match is stored on the state**: A `within` match derived from "two entries"
+   lets an enumeration edit switch a valve to exact matches.
 6. **A save reaches every node, with a confirm**: Symbol revisions alone add a release
    model for one kind of record. The trade is real: a wrong save reaches running stands.
 7. **Components attach at their own handles**: A pipe to any member breaks when a
@@ -446,13 +469,13 @@ it passes at 1,000 moving parts.
     duplicates. The trade is real: the bundled design is not applied when the Core
     already has the symbol, and only a warning reports the difference.
 18. **An unknown number state draws fraction 0**: A `level`, `rotate`, or `move` with no
-    data or NaN draws fraction 0, as an enum state draws its default entry, and never
-    shows an old value as current. The trade is real: an empty-looking part can be
+    data or NaN draws fraction 0, as an enumeration state draws its default entry, and
+    never shows an old value as current. The trade is real: an empty-looking part can be
     misread at a glance, so the unknown indicator carries the warning.
-19. **A symbol save removes the bindings that it orphans**: The save confirm lists them,
-    and the Core removes them in the same transaction, so the node check never accepts
-    unknown keys. The trade is real: when a user adds the state again, they link its
-    channels again.
+19. **A symbol save removes the bindings and overrides that it orphans**: The save
+    confirm lists them, and the Core removes them in the same transaction, so the node
+    check never accepts unknown keys or overrides of the wrong type. The trade is real:
+    when a user adds the state again, they link its channels again.
 
 ## 8 Open questions
 
@@ -466,7 +489,8 @@ it passes at 1,000 moving parts.
 - **Replace on delete**: Whether the delete dialog offers "Replace with..." through Gorp
   Retarget (#5631, #5633).
 - **Page links**: A link field on `Node`, for `off_page_reference` and any other item.
-- **Names**: "State" and "command" are provisional. "Indicator" clashes with
-  `state_indicator`, `ScaleIndicatorConfig`, and `indicator_hidden`. `level.side` names
-  the edge that a fill starts from, but `side` on `tank` and `ScaleIndicatorConfig`
-  names an axis edge.
+- **Names**: "State" and "command" are provisional. The match variant is `within`,
+  because "band" already names `color.Band` and the RFC 0061 lightness band. "Indicator"
+  clashes with `state_indicator`, `ScaleIndicatorConfig`, and `indicator_hidden`.
+  `level.side` names the edge that a fill starts from, but `side` on `tank` and
+  `ScaleIndicatorConfig` names an axis edge.
