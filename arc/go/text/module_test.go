@@ -439,7 +439,7 @@ sequence main {
 func f() i64 { return 1 }
 export sequence s { stage a { trig -> f() -> out } }
 `)
-			var nodeTypes []string
+			nodeTypes := make([]string, 0, len(i.Nodes))
 			for _, n := range i.Nodes {
 				nodeTypes = append(nodeTypes, n.Type)
 			}
@@ -551,7 +551,7 @@ sequence t { stage b { trig -> out8 } }
 			s := findTopLevelScope(i, "m.s")
 			Expect(s.Steps[0].Key()).To(Equal("a"))
 			Expect(s.Activations).To(HaveLen(1))
-			var keys []string
+			keys := make([]string, 0, len(i.Nodes))
 			for _, n := range i.Nodes {
 				keys = append(keys, n.Key)
 			}

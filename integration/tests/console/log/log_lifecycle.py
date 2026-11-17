@@ -14,7 +14,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 import synnax as sy
 from console.case import ConsoleCase
 from console.log import Log
-from framework.utils import assert_envelope, assert_link_format
+from framework.utils import assert_envelope, assert_link_format, hold
 from x import random_name
 
 
@@ -147,7 +147,7 @@ class LogLifecycle(ConsoleCase):
             self.writer.write(
                 {self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)}
             )
-            sy.sleep(0.1)  # noqa: TID251 paces the writes
+            hold(0.1, reason="paces the writes")
 
         assert log.wait_until_streaming(), "Log should be streaming after data write"
         assert not log.is_empty(), "Log should not be empty after data write"
@@ -167,7 +167,7 @@ class LogLifecycle(ConsoleCase):
 
         for _ in range(5):
             self.writer.write(self.timestamp_name, sy.TimeStamp.now())
-            sy.sleep(0.1)  # noqa: TID251 paces the writes
+            hold(0.1, reason="paces the writes")
 
         assert log.wait_until_streaming(), (
             "Log should stream entries from a timestamp channel"
@@ -195,7 +195,7 @@ class LogLifecycle(ConsoleCase):
 
         for i in range(5):
             self.writer.write(self.virtual_name, float(i))
-            sy.sleep(0.1)  # noqa: TID251 paces the writes
+            hold(0.1, reason="paces the writes")
         assert log.wait_until_streaming(), (
             "Log should be streaming virtual channel data"
         )

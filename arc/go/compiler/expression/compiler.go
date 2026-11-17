@@ -499,6 +499,11 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 		ctx.Writer.WriteI32Const(int32(offset))
 		ctx.Writer.WriteI32Const(int32(len(strBytes)))
 		ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID)
+	case types.KindInvalid, types.KindChan, types.KindSeries, types.KindVariable,
+		types.KindNumericConstant, types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef:
+		fallthrough
 	default:
 		return errors.Newf("unsupported default value type: %s", paramType)
 	}
@@ -540,9 +545,14 @@ func compileBuiltinLen[T antlr.ParserRuleContext](
 		}
 		ctx.Resolver.EmitStringLen(ctx.Writer, ctx.WriterID)
 		return types.I64(), nil
-	default:
-		return types.Type{}, errors.Newf(
-			"argument 1 of %s: expected series or str, got %s", funcName, argType,
-		)
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32, types.KindU64,
+		types.KindI8, types.KindI16, types.KindI32, types.KindI64, types.KindF32,
+		types.KindF64, types.KindChan, types.KindVariable, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef, types.KindBool:
 	}
+	return types.Type{}, errors.Newf(
+		"argument 1 of %s: expected series or str, got %s", funcName, argType,
+	)
 }

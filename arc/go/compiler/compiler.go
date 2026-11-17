@@ -412,7 +412,9 @@ func collectLocals(scope *symbol.Symbol) []wasm.ValueType {
 			locals = append(locals, wasm.ConvertType(child.Type))
 		case symbol.KindBlock, symbol.KindLoop:
 			locals = append(locals, collectLocals(child)...)
-		default:
+		case symbol.KindChannel, symbol.KindFunction, symbol.KindInput,
+			symbol.KindSequence, symbol.KindStage, symbol.KindConstant,
+			symbol.KindModule, symbol.KindModuleAlias, symbol.KindAmbient:
 		}
 	}
 	return locals

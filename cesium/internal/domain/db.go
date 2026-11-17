@@ -91,15 +91,7 @@ type Config struct {
 	Clock xtime.Clock
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	defaultConfig                       = Config{
-		FileSize:       800 * telem.Megabyte,
-		GCThreshold:    0.2,
-		MaxDescriptors: 100,
-		Clock:          xtime.Real,
-	}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
@@ -137,7 +129,12 @@ func (c Config) Override(other Config) Config {
 // Open opens a DB using a merged view of the provided configurations (where the next
 // configuration overrides the previous).
 func Open(configs ...Config) (*DB, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+	cfg, err := config.New(Config{
+		FileSize:       800 * telem.Megabyte,
+		GCThreshold:    0.2,
+		MaxDescriptors: 100,
+		Clock:          xtime.Real,
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import cast, override
+from typing import override
 
 from pydantic import BaseModel
 
@@ -18,7 +18,6 @@ import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
 from freighter import EOF, ExceptionPayload, Stream, WebsocketClient
 from freighter.transport import P
-from freighter.websocket import Message
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.frame import Frame, FramePayload
@@ -73,17 +72,14 @@ class _WSIteratorCodec(WSCodec):
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, offset=1)
-        return cast(
-            P,
-            Message(
-                type="data",
-                payload=_Response(
-                    variant=_ResponseVariant.DATA,
-                    command=_Command(0),
-                    ack=False,
-                    error=None,
-                    frame=frame,
-                ),
+        return pld_t(
+            type="data",
+            payload=_Response(
+                variant=_ResponseVariant.DATA,
+                command=_Command(0),
+                ack=False,
+                error=None,
+                frame=frame,
             ),
         )
 

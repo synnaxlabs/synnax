@@ -85,13 +85,15 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		return scope.Type.Unwrap(), nil
 	case symbol.KindConstant:
 		return compileFloatConstant(ctx, scope)
-	default:
-		return types.Type{}, errors.Newf(
-			"unsupported symbol kind: %v for '%s'",
-			scope.Kind,
-			name,
-		)
+	case symbol.KindFunction, symbol.KindBlock, symbol.KindOutput, symbol.KindSequence,
+		symbol.KindStage, symbol.KindLoop, symbol.KindModule, symbol.KindModuleAlias,
+		symbol.KindAmbient:
 	}
+	return types.Type{}, errors.Newf(
+		"unsupported symbol kind: %v for '%s'",
+		scope.Kind,
+		name,
+	)
 }
 
 // liftedInput returns the input of the enclosing function that carries a read of the
@@ -183,6 +185,10 @@ func castAndEmitConst[ASTNode antlr.ParserRuleContext](
 		if f, ok := asFloat64(v); ok {
 			cast = f
 		}
+	case types.KindInvalid, types.KindChan, types.KindSeries, types.KindVariable,
+		types.KindNumericConstant, types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef:
 	}
 	if cast == nil {
 		return types.Type{}, errors.Newf(

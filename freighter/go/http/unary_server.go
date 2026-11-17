@@ -81,8 +81,8 @@ func WithStreamingResponse(compressed ...http.Encoder) UnaryServerOption {
 
 func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	so := unaryServerOptions{
-		requestDecoders:  defaultDecoders,
-		responseEncoders: defaultEncoders,
+		requestDecoders:  []http.Decoder{json.Codec},
+		responseEncoders: []http.Encoder{json.Codec},
 	}
 	for _, opt := range opts {
 		opt(&so)

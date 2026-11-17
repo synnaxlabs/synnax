@@ -410,7 +410,7 @@ func runBench(ctx SpecContext, sc benchScenario) benchResult {
 		startTask()
 	}
 
-	var streamKeys channel.Keys
+	streamKeys := make(channel.Keys, 0, len(groups))
 	isIndex := make(set.Set[channel.Key])
 	for _, g := range groups {
 		streamKeys = append(streamKeys, g.index.Key())

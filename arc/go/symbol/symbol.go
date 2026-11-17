@@ -435,6 +435,8 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 		}
 	case KindInput, KindOutput, KindLoopVariable:
 		child.ID = s.addIndex()
+	case KindChannel, KindFunction, KindBlock, KindSequence, KindStage, KindConstant,
+		KindLoop, KindModule, KindModuleAlias, KindAmbient:
 	}
 	s.children = append(s.children, child)
 	return child, nil
@@ -472,6 +474,8 @@ func (s *Symbol) appendValues(name string, values []*Symbol) []*Symbol {
 			if child.Name == name && child.AST != nil && !child.Internal {
 				values = append(values, child)
 			}
+		case KindChannel, KindFunction, KindBlock, KindSequence, KindStage,
+			KindConstant, KindLoop, KindModule, KindModuleAlias, KindAmbient:
 		}
 		values = child.appendValues(name, values)
 	}
@@ -500,9 +504,9 @@ func (k Kind) noun() string {
 		return "constant"
 	case KindModule, KindModuleAlias:
 		return "import"
-	default:
-		return "symbol"
+	case KindBlock, KindLoop, KindAmbient:
 	}
+	return "symbol"
 }
 
 // AddChild appends each already-constructed child to s.children and sets

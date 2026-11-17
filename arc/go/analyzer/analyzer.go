@@ -75,11 +75,9 @@ func checkComputedReads(ctx acontext.Context[parser.IProgramContext]) {
 
 // hasError reports whether an error diagnostic lies inside node.
 func hasError(diags diagnostics.Diagnostics, node antlr.ParserRuleContext) bool {
-	var span diagnostics.Diagnostic
-	span.SetRange(node)
+	span := diagnostics.Errorf(node, "").Range
 	return slices.ContainsFunc(diags.Errors(), func(d diagnostics.Diagnostic) bool {
-		return !before(d.Range.Start, span.Range.Start) &&
-			!before(span.Range.End, d.Range.End)
+		return !before(d.Range.Start, span.Start) && !before(span.End, d.Range.End)
 	})
 }
 

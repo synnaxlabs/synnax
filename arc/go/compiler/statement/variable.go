@@ -301,6 +301,11 @@ func compileSeriesCompoundAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		ctx.Writer.WriteLocalGet(scope.ID)
 		ctx.Resolver.EmitStateStoreSeries(ctx.Writer, ctx.WriterID, elemType)
+	case symbol.KindChannel, symbol.KindFunction, symbol.KindBlock, symbol.KindOutput,
+		symbol.KindSequence, symbol.KindStage, symbol.KindConstant, symbol.KindLoop,
+		symbol.KindLoopVariable, symbol.KindModule, symbol.KindModuleAlias,
+		symbol.KindAmbient:
+		fallthrough
 	default:
 		return errors.Newf("compound assignment not supported for %v", sym.Kind)
 	}
@@ -366,6 +371,11 @@ func compileCompoundAssignment(
 		} else {
 			ctx.Resolver.EmitStateStore(ctx.Writer, ctx.WriterID, varType.Unwrap())
 		}
+	case symbol.KindChannel, symbol.KindFunction, symbol.KindBlock, symbol.KindOutput,
+		symbol.KindSequence, symbol.KindStage, symbol.KindConstant, symbol.KindLoop,
+		symbol.KindLoopVariable, symbol.KindModule, symbol.KindModuleAlias,
+		symbol.KindAmbient:
+		fallthrough
 	default:
 		return errors.Newf("compound assignment not supported for %v", sym.Kind)
 	}
@@ -454,6 +464,10 @@ func compileAssignment(
 		if err := compileOutputAssignment(ctx, name, scope); err != nil {
 			return err
 		}
+	case symbol.KindFunction, symbol.KindBlock, symbol.KindSequence, symbol.KindStage,
+		symbol.KindConstant, symbol.KindLoop, symbol.KindLoopVariable,
+		symbol.KindModule, symbol.KindModuleAlias, symbol.KindAmbient:
+		fallthrough
 	default:
 		return errors.Newf("cannot assign to %v '%s'", sym.Kind, name)
 	}
@@ -520,6 +534,11 @@ func compileOutputAssignment(
 		ctx.Writer.WriteMemoryOp(wasm.OpF64Store, 3, 0)
 	case types.KindString:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store, 2, 0)
+	case types.KindInvalid, types.KindChan, types.KindSeries, types.KindVariable,
+		types.KindNumericConstant, types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef:
+		fallthrough
 	default:
 		return errors.Newf("unsupported output type %v", scope.Type)
 	}

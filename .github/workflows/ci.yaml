@@ -146,6 +146,7 @@ jobs:
       protobuf: ${{ steps.filter.outputs.protobuf }}
       py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      suppressions_py: ${{ steps.filter.outputs.suppressions_py }}
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
@@ -718,6 +719,25 @@ jobs:
 
       - name: Check names that are public without need
         run: uv run --project scripts scripts/check_exports_py.py
+
+  # Fails on the Python suppressions the change adds: `# type: ignore`, `# noqa`,
+  # `# pyright: ignore`, `cast` calls, and `TYPE_CHECKING`. Ones on the base pass.
+  suppressions-py:
+    needs: changes
+    if:
+      ${{ !inputs.full && (needs.changes.outputs.suppressions_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'suppressions-py')) }}
+    runs-on: ubuntu-latest
+    steps:
+      # The first parent is the code the change applies to: the target branch of a pull
+      # request, or the merge group entries ahead.
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+
+      - name: Check for added Python suppressions
+        run: python3 scripts/check_suppressions_py.py --base HEAD^1
 
   format:
     uses: ./.github/workflows/test.format.yaml
@@ -1381,6 +1401,7 @@ jobs:
       - soem
       - stylelint
       - stylelint-config
+      - suppressions-py
       - vite-plugin
       - www
       - www-site
