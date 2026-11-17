@@ -2257,25 +2257,63 @@ TEST_F(SOEMMasterTest, ReceiveTakesALateFrameAtALaterReceive) {
     EXPECT_EQ(this->mock->drop_count, 0);
 }
 
-/// @brief it should drop the oldest frame and fail the receive when the frame has not
-/// come back and master::MAX_FRAMES_IN_FLIGHT frames are in flight.
-TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTooManyAreInFlight) {
+/// @brief it should keep each frame in flight while it is younger than
+/// master::MAX_FRAME_AGE, so a frame that an adapter holds back for more than three
+/// cycles of a fast bus still comes back.
+TEST_F(SOEMMasterTest, ReceiveKeepsFramesInFlightForMoreThanThreeCycles) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->receive_return = EC_NOFRAME;
-    for (size_t i = 1; i < master::MAX_FRAMES_IN_FLIGHT; ++i) {
+    constexpr size_t frames = 9;
+    for (size_t i = 0; i < frames; ++i) {
         ASSERT_NIL(this->master->send());
+        this->skip(x::telem::MICROSECOND * 100);
         ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
     }
+    this->mock->receive_return = 3;
+    for (size_t i = 0; i < frames; ++i)
+        ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(this->mock->drop_count, 0);
+    EXPECT_TRUE(this->mock->processdata_in_flight.empty());
+}
+
+/// @brief it should drop a frame that has not come back once it is
+/// master::MAX_FRAME_AGE old, and fail its receive.
+TEST_F(SOEMMasterTest, ReceiveDropsAFrameOnceItIsTheMaxFrameAge) {
+    this->initialize_with_slave();
+    this->activate_master();
     ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    this->skip(master::MAX_FRAME_AGE - x::telem::MICROSECOND);
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    ASSERT_NIL(this->master->send());
+    this->skip(x::telem::MICROSECOND);
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
     EXPECT_EQ(err.data, "process data receive failed");
     EXPECT_EQ(this->mock->drop_count, 1);
-    EXPECT_EQ(
-        this->mock->processdata_in_flight.size(),
-        master::MAX_FRAMES_IN_FLIGHT - 1
-    );
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+}
+
+/// @brief it should drop the oldest frame and fail the receive when the frame has not
+/// come back and master::MAX_FRAMES_IN_FLIGHT sends wait for their results.
+TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTooManyAreInFlight) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    this->mock->send_return = 0;
+    for (size_t i = 2; i < master::MAX_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
+    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(this->mock->drop_count, 1);
+    EXPECT_TRUE(this->mock->processdata_in_flight.empty());
 }
 
 /// @brief it should drop the oldest frame at a send that would not find a buffer for
@@ -2336,12 +2374,8 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
     this->mock->receive_return = EC_NOFRAME;
-    for (size_t i = 1; i < master::MAX_FRAMES_IN_FLIGHT; ++i) {
-        ASSERT_NIL(this->master->send());
-        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
-    }
-    this->skip(x::telem::SECOND - x::telem::MILLISECOND);
     ASSERT_NIL(this->master->send());
+    this->skip(x::telem::SECOND - x::telem::MILLISECOND);
     const auto late = this->master->receive();
     ASSERT_OCCURRED_AS(late, errors::CYCLIC_ERROR);
     EXPECT_EQ(
@@ -3044,7 +3078,7 @@ TEST_F(SOEMMasterTest, CheckRestoresFromTheSendTimeOfALateFrame) {
     ASSERT_NIL(this->master->send());
     this->mock->receive_return = EC_NOFRAME;
     ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
-    this->skip(x::telem::SECOND * 3);
+    this->skip(x::telem::MILLISECOND * 5);
     ASSERT_NIL(this->master->send());
     this->mock->receive_return = 3;
     ASSERT_NIL(this->master->receive());
@@ -3054,7 +3088,7 @@ TEST_F(SOEMMasterTest, CheckRestoresFromTheSendTimeOfALateFrame) {
     this->supervise_while_cycling();
     const auto error = this->written_offset(1) -
                        (this->mock->latched_at + 7'000'000'000 - 2'000);
-    EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());
+    EXPECT_LT(std::abs(error), x::telem::MILLISECOND.nanoseconds());
 }
 
 /// @brief it should end the restore of a DC slave whose clock does not settle once the
