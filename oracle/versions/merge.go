@@ -205,7 +205,7 @@ func MergeLive(
 		referenced,
 		analyzer.UsedNamespaces(bodyAST),
 		liveNames,
-		func(path string) (set.Set[string], error) { return declaredNames(r.loader, path) },
+		r.loader,
 	)
 	if err != nil {
 		return "", err
@@ -269,17 +269,13 @@ func checkErasedDocs(
 }
 
 // liveImportList returns the sorted imports of a merged live file: each referenced
-// dependency path, plus each import of the existing live file that the file still
-// needs. A live import in a namespace that no referenced path takes is needed when the
-// merged file uses the namespace. One in a taken namespace is needed only when the
-// live-owned text uses a name that it declares and the referenced path does not, which
-// is the analyzer's test for two imports of one namespace. declared returns the names
-// that the schema at a path declares. liveImportList returns an error when two
-// referenced paths share a namespace.
+// path, plus each live import that the file still uses. A live import in a namespace
+// that a referenced path takes stays only for a name in the live text that it alone
+// declares. It returns an error when two referenced paths share a namespace.
 func liveImportList(
 	own []string,
 	referenced, used, liveNames set.Set[string],
-	declared func(path string) (set.Set[string], error),
+	loader analyzer.FileLoader,
 ) ([]string, error) {
 	byNS := make(map[string]string)
 	for _, p := range slices.Sorted(maps.Keys(referenced)) {
@@ -310,11 +306,11 @@ func liveImportList(
 		if p == taker || len(members) == 0 {
 			continue
 		}
-		mine, err := declared(p)
+		mine, err := declaredNames(loader, p)
 		if err != nil {
 			return nil, err
 		}
-		theirs, err := declared(taker)
+		theirs, err := declaredNames(loader, taker)
 		if err != nil {
 			return nil, err
 		}
