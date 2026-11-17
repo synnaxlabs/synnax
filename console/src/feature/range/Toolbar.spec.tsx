@@ -23,6 +23,8 @@ import { describe, expect, it } from "vitest";
 import { renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar as LinePlotToolbar } from "@/feature/lineplot/toolbar";
 import { Range } from "@/feature/range";
+import { type Analytics } from "@/platform/analytics";
+import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
 import { uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
@@ -44,8 +46,10 @@ const reader = createTestClient();
 const renderToolbar = async ({
   favorites = [],
   as = client,
-}: { favorites?: ranger.Range[]; as?: Client } = {}) => {
-  const { wrapper, store } = await createConsoleWrapper({ client: as });
+  analytics,
+}: { favorites?: ranger.Range[]; as?: Client; analytics?: Analytics.Sink } = {}) => {
+  const { wrapper: base, store } = await createConsoleWrapper({ client: as });
+  const wrapper = analytics == null ? base : wrapWithSink(base, analytics);
   await selectTestProject(store, client);
   favorites.forEach(({ key }) =>
     store.dispatch(Session.Range.add({ variant: "persisted", key })),
@@ -240,6 +244,16 @@ describe("range/Toolbar", () => {
       expect(await findLine("Running", name)).toBeTruthy();
     });
 
+    it("should report a started range to analytics", async () => {
+      const analytics = createTestSink();
+      await renderToolbar({ analytics });
+      fireEvent.click(await screen.findByRole("button", { name: "Start range" }));
+      await typeDraft(uniqueRangeName("reported"));
+      await waitFor(() =>
+        expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
+      );
+    });
+
     it("should close the draft and start nothing on Escape", async () => {
       const name = uniqueRangeName("canceled");
       await renderToolbar();
@@ -394,6 +408,41 @@ describe("range/Toolbar", () => {
         () => expect(screen.queryByPlaceholderText("Range name")).toBeNull(),
         { timeout: 5_000 },
       );
+    });
+
+    it("should leave the range running when the next one fails to start", async () => {
+      const campaign = await createRunning(uniqueRangeName("campaign"));
+      const run = await createRunning(uniqueRangeName("run"), { parent: campaign.key });
+      const subject = await createTestClientWithGrants(client, {
+        create: [ranger.TYPE_RESOURCE_ID],
+        update: [ranger.TYPE_RESOURCE_ID],
+        retrieve: [
+          ranger.TYPE_RESOURCE_ID,
+          label.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          panel.TYPE_RESOURCE_ID,
+        ],
+      });
+      await renderToolbar({ as: subject });
+      const line = await findLine("Running", run.name);
+      fireEvent.click(
+        await within(line).findByRole("button", { name: "Stop and start next" }),
+      );
+      const input = await draftInput();
+      const { role } = await subject.users.current.retrieve();
+      const policies = await client.access.policies.retrieve({
+        where: { roles: [role] },
+      });
+      await client.access.policies.delete(
+        policies.filter((p) => p.actions.includes("create")).map((p) => p.key),
+      );
+      const name = uniqueRangeName("refused");
+      fireEvent.change(input, { target: { value: name } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      // Long enough for the refused create to answer and for any stop to land.
+      await sleep.sleep(TimeSpan.milliseconds(500));
+      expect(await reader.ranges.retrieve([name])).toEqual([]);
+      expect(isRunning(await readRange(run.name))).toBe(true);
     });
 
     it("should keep a newer draft when an earlier suggestion answers late", async () => {
