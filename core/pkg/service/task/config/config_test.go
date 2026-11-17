@@ -403,6 +403,7 @@ var _ = Describe("Service", func() {
 			) (*config.Service[arctask.Config], *tasktestutil.Tasks, *gorp.DB) {
 				GinkgoHelper()
 				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
 				resolving := MustOpen(config.OpenService(
 					ctx,
 					config.ServiceConfig[arctask.Config]{
@@ -588,10 +589,12 @@ var _ = Describe("Service", func() {
 	Describe("Normalize", func() {
 		var versioned *config.Service[arctask.Config]
 		BeforeEach(func(ctx SpecContext) {
+			configDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(configDB.Run)
 			versioned = MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					DB:            configDB,
 					Type:          "versioned_test",
 					Ladder:        arcversions.ConfigLadder,
 					LegacyVersion: 1,
@@ -654,10 +657,12 @@ var _ = Describe("Service", func() {
 		It("Should apply era normalization alone when no legacy rewrite is set", func(
 			ctx SpecContext,
 		) {
+			configDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(configDB.Run)
 			eraOnly := MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:          DeferClose(gorp.Wrap(memkv.New())),
+					DB:          configDB,
 					Type:        "era_only_test",
 					Ladder:      arcversions.ConfigLadder,
 					SetEntryKey: (*arctask.Config).SetKey,
@@ -697,10 +702,12 @@ var _ = Describe("Service", func() {
 		It("Should keep an explicit zero when the legacy version is the latest", func(
 			ctx SpecContext,
 		) {
+			configDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(configDB.Run)
 			latestLegacy := MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					DB:            configDB,
 					Type:          "latest_legacy_test",
 					Ladder:        arcversions.ConfigLadder,
 					LegacyVersion: arcversions.Latest,
@@ -760,6 +767,7 @@ var _ = Describe("Service", func() {
 			)
 			BeforeEach(func(ctx SpecContext) {
 				reconDB = DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(reconDB.Run)
 				reconciling = MustOpen(config.OpenService(
 					ctx,
 					config.ServiceConfig[arctask.Config]{
@@ -872,10 +880,12 @@ var _ = Describe("Service", func() {
 				Fail("ran the reconcile hook in Decode")
 				return nil
 			}
+			configDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(configDB.Run)
 			decoding = MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					DB:            configDB,
 					Type:          "decode_test",
 					Ladder:        arcversions.ConfigLadder,
 					LegacyVersion: 1,
@@ -1063,6 +1073,7 @@ var _ = Describe("With a detach reference", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		ldb = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(ldb.Run)
 		targets = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, target]{
 			DB:   ldb,
 			Name: targetTable,

@@ -22,7 +22,7 @@ from mypy_boto3_ce.type_defs import (
 from mypy_boto3_pricing.type_defs import FilterTypeDef
 
 from common import Channels, channel_name
-from conftest import Client, core
+from conftest import Client
 from cost import (
     FETCHED,
     LIVE_INTERVAL,
@@ -119,8 +119,8 @@ def found(*, running: bool) -> dict[str, dict]:
 @pytest.fixture
 def cost(client: Client) -> Iterator[Cost]:
     log = Log(
-        client=core(client),
-        channels=Channels(client=core(client), enabled=False),
+        client=client,
+        channels=Channels(client=client, enabled=False),
         channel="log",
     )
     c = Cost(log=log, aws=Account())
@@ -185,8 +185,8 @@ class TestPriceTable:
 
     def test_should_keep_the_prices_that_resolve(self, client: Client) -> None:
         log = Log(
-            client=core(client),
-            channels=Channels(client=core(client), enabled=False),
+            client=client,
+            channels=Channels(client=client, enabled=False),
             channel="log",
         )
         c = Cost(log=log, aws=Account(pricing=ListPrices(), volumes={}))

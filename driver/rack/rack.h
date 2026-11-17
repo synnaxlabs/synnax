@@ -338,25 +338,37 @@ class Rack {
     /// @brief guards task_manager.
     std::mutex mu;
     std::unique_ptr<task::Manager> task_manager;
-    x::breaker::Breaker breaker = x::breaker::Breaker({
-        .name = "driver",
-        .base_interval = x::telem::SECOND,
-        .max_retries = 200,
-        .scale = 1.1f,
-        .max_interval = x::telem::MINUTE,
-    });
+    x::breaker::Breaker breaker;
     x::errors::Error run_err = x::errors::NIL;
 
     /// @brief returns true if the error cannot be recovered from and the rack
     /// should stop operations and shut down. Calls on_shutdown unless a stop caused
-    /// the exit.
-    bool
-    should_exit(const x::errors::Error &err, const std::function<void()> &on_shutdown);
+    /// the exit. While reconnecting, it waits for an unreachable Core with no limit.
+    bool should_exit(
+        const x::errors::Error &err,
+        const std::function<void()> &on_shutdown,
+        bool reconnecting = false
+    );
 
     /// @brief starts the main loop for the rack.
     void run(x::args::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
+    /// @brief creates a rack that backs off from Core errors with breaker_config. After
+    /// its first run, it waits for an unreachable Core with no retry limit. It waits
+    /// for any other temporarily unavailable error within max_retries.
+    explicit Rack(
+        const x::breaker::Config &breaker_config =
+            {
+                .name = "driver",
+                .base_interval = x::telem::SECOND,
+                .max_retries = 200,
+                .scale = 1.1f,
+                .max_interval = x::telem::MINUTE,
+            }
+    ):
+        breaker(breaker_config) {}
+
     /// @brief destructor ensures thread is properly joined
     ~Rack();
 

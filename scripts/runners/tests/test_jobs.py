@@ -14,7 +14,7 @@ from typing import Any
 import synnax as sy
 
 from common import Channels
-from conftest import Client, core
+from conftest import Client
 from github import GitHub
 from jobs import Jobs, Queued, completed_line, ref, started_line, step_events, view
 from log import Log
@@ -40,7 +40,7 @@ class Responses(GitHub):
         super().__init__("1", "")
         self.responses = responses
 
-    def get(self, path: str) -> dict:
+    def call(self, path: str, *, method: str = "GET") -> dict:
         return self.responses[path]
 
 
@@ -94,8 +94,8 @@ class Held(Executor):
 
 def jobs(github: GitHub, *, client: Client, pool: Executor | None = None) -> Jobs:
     log = Log(
-        client=core(client),
-        channels=Channels(client=core(client), enabled=False),
+        client=client,
+        channels=Channels(client=client, enabled=False),
         channel="log",
     )
     return Jobs(github=github, log=log, pool=pool or Held())

@@ -51,12 +51,7 @@ type TracingConfig struct {
 	Filter EnvironmentFilter
 }
 
-var (
-	_                    config.Config[TracingConfig] = (*TracingConfig)(nil)
-	defaultTracingConfig                              = TracingConfig{
-		Filter: thresholdEnvFilter(EnvironmentBench),
-	}
-)
+var _ config.Config[TracingConfig] = (*TracingConfig)(nil)
 
 // Validate implements config.Config.
 func (c TracingConfig) Validate() error {
@@ -89,7 +84,9 @@ type Tracer struct {
 // configuration is provided, NewTracer will return a validation error. If you want a
 // no-op devTracer, simply use a nil pointer.
 func NewTracer(configs ...TracingConfig) (*Tracer, error) {
-	cfg, err := config.New(defaultTracingConfig, configs...)
+	cfg, err := config.New(TracingConfig{
+		Filter: thresholdEnvFilter(EnvironmentBench),
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}

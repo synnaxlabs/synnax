@@ -330,12 +330,26 @@ jobs:
           retention-days: 90
           overwrite: true
 
+      # Its own token, minted after Claude Code exits: resolveReviewThread needs
+      # contents: write, which the review must never hold.
+      - name: Mint the token to post the review
+        if: ${{ !inputs.replay }}
+        id: post
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-checks: write
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
       - name: Post the review
         if: ${{ !inputs.replay }}
         working-directory: .github/scripts
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-          BOT: ${{ steps.app.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.post.outputs.token }}
+          BOT: ${{ steps.post.outputs.app-slug }}
         run: python3 -m review post "$RUNNER_TEMP/review.json"
 
   # Takes the eyes away however the review ends, even when its runner is lost.

@@ -99,7 +99,6 @@ func buildFanoutChain(n int) (ir.IR, map[string]node.Node) {
 // external handle; all inner wrappers are always-live so the cascade
 // descends the full chain on each activation.
 func buildDeepNested(depth int) (ir.IR, map[string]node.Node) {
-	irNodes := []ir.Node{irNode("leaf")}
 	nodes := map[string]node.Node{"leaf": newBenchNode()}
 	current := ir.Scope{
 		Key:      "s0",
@@ -115,7 +114,7 @@ func buildDeepNested(depth int) (ir.IR, map[string]node.Node) {
 			Strata:   []ir.Members{{ir.Member{Scope: new(current)}}},
 		}
 	}
-	irNodes = append(irNodes, irNode("trigger", "go"))
+	irNodes := []ir.Node{irNode("leaf"), irNode("trigger", "go")}
 	nodes["trigger"] = newBenchNode(true)
 	current.Liveness = ir.LivenessGated
 	current.Activations = []ir.Activation{

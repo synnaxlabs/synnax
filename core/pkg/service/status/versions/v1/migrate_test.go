@@ -29,6 +29,7 @@ var _ = Describe("v0 -> v1 Status migration", func() {
 		"drops Labels from the wire and preserves core fields when v0 entries carry populated Labels",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 
 			key := "status-" + uuid.New().String()
 			seed := v0.Status[any]{

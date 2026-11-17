@@ -21,6 +21,10 @@ std::filesystem::path machine_dir();
 /// Linux, where every process uses the directory of the computer.
 std::filesystem::path user_dir();
 
+/// @brief returns whether the process runs as root under sudo for a user other than
+/// root. Always false on Windows.
+bool sudo();
+
 /// @brief prepares the state file at path for a Driver run, and never changes the mode
 /// or owner of a path that exists. Returns an error when the state directory or file is
 /// a link, when other users can read the state file, or when another user owns it. Root

@@ -450,9 +450,10 @@ Channel struct {
 	@go marshal
 }
 `)
-			var messages []string
-			for _, f := range run(analyzeLive(liveV0)).Findings {
-				messages = append(messages, f.Message)
+			findings := run(analyzeLive(liveV0)).Findings
+			messages := make([]string, len(findings))
+			for i, f := range findings {
+				messages[i] = f.Message
 			}
 			Expect(messages).To(ContainElement(
 				"schemas/synnax/channel's current surface resolves channel at v0, " +
@@ -480,9 +481,9 @@ Channel struct {
 `)
 			report := run(analyzeLive(liveV0))
 			Expect(report.Status).To(Equal(check.StatusFail))
-			var messages []string
-			for _, f := range report.Findings {
-				messages = append(messages, f.Message)
+			messages := make([]string, len(report.Findings))
+			for i, f := range report.Findings {
+				messages[i] = f.Message
 			}
 			Expect(messages).To(ContainElement(
 				"schemas/synnax/channel's current surface resolves telem at v0 for " +
@@ -502,9 +503,10 @@ Channel struct {
 			for rel, content := range files {
 				write(rel, content)
 			}
-			var messages []string
-			for _, f := range run(analyzeLive(liveV0)).Findings {
-				messages = append(messages, f.Message)
+			findings := run(analyzeLive(liveV0)).Findings
+			messages := make([]string, len(findings))
+			for i, f := range findings {
+				messages[i] = f.Message
 			}
 			Expect(messages).To(ContainElement(ContainSubstring(
 				"resolves telem at v0 for omitted fields",
@@ -583,9 +585,10 @@ Channel struct {
 	@go marshal
 }
 `)
-		var messages []string
-		for _, f := range run(analyzeLive(liveV0)).Findings {
-			messages = append(messages, f.Message)
+		findings := run(analyzeLive(liveV0)).Findings
+		messages := make([]string, len(findings))
+		for i, f := range findings {
+			messages[i] = f.Message
 		}
 		Expect(
 			messages,

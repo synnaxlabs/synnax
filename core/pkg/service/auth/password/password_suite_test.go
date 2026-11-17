@@ -40,6 +40,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	users = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[user.Key, user.User]{
 		DB:   db,
 		Name: string(resource.TypeUser),

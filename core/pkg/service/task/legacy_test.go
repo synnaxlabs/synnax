@@ -415,14 +415,14 @@ func createFixtureTargets(
 		}
 	}
 	testdata := os.DirFS("testdata")
-	var paths []string
-	for _, pattern := range []string{
-		"legacy/*.json",
-		"legacy/expected/*.json",
-		"released/*/*.json",
-	} {
-		paths = append(paths, MustSucceed(fs.Glob(testdata, pattern))...)
+	glob := func(pattern string) []string {
+		return MustSucceed(fs.Glob(testdata, pattern))
 	}
+	paths := slices.Concat(
+		glob("legacy/*.json"),
+		glob("legacy/expected/*.json"),
+		glob("released/*/*.json"),
+	)
 	for _, path := range paths {
 		var stored any
 		Expect(json.Unmarshal(MustSucceed(fs.ReadFile(testdata, path)), &stored)).
@@ -520,49 +520,30 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		for fixture, created := range toCreated {
 			toFixture[created] = fixture
 		}
-		var stores []config.Store
-		stores = append(
-			stores,
-			MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
-				DB: db,
-			})).Stores()...,
-		)
-		stores = append(
-			stores,
+		stores := slices.Concat(
+			MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db})).Stores(),
 			MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 				DB:     db,
 				Device: deviceSvc,
-			})).Stores()...,
-		)
-		stores = append(stores, MustOpen(http.OpenService(ctx, http.ServiceConfig{
-			DB:      db,
-			Channel: channelSvc,
-		})).Stores()...)
-		stores = append(stores, MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
-			DB: db,
-		})).Stores()...)
-		stores = append(stores, MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{
-			DB: db,
-		})).Stores()...)
-		stores = append(stores, MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
-			DB:     db,
-			Status: statusSvc,
-		})).Stores()...)
-		stores = append(stores, MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
-			DB: db,
-		})).Stores()...)
-		stores = append(
-			stores,
+			})).Stores(),
+			MustOpen(http.OpenService(ctx, http.ServiceConfig{
+				DB:      db,
+				Channel: channelSvc,
+			})).Stores(),
+			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db})).Stores(),
+			MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{DB: db})).Stores(),
+			MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
+				DB:     db,
+				Status: statusSvc,
+			})).Stores(),
+			MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{DB: db})).Stores(),
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secretSvc,
-			})).Stores()...,
-		)
-		stores = append(
-			stores,
+			})).Stores(),
 			MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{
 				DB: db,
-			})).Stores()...,
+			})).Stores(),
 		)
 		configs = MustSucceed(config.NewRegistry(stores...))
 		imexSvc = imex.NewService()

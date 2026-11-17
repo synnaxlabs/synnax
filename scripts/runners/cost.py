@@ -20,28 +20,26 @@ import math
 import re
 from collections.abc import Callable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import TYPE_CHECKING, Any, NotRequired, Protocol, TypedDict
+from typing import Any, NotRequired, Protocol, TypedDict
 
 import synnax as sy
+from mypy_boto3_ce.literals import GranularityType, MetricType
+from mypy_boto3_ce.type_defs import (
+    DateIntervalTypeDef,
+    ExpressionTypeDef,
+    GroupDefinitionTypeDef,
+    MetricValueTypeDef,
+    ResultByTimeTypeDef,
+)
+from mypy_boto3_cloudwatch.type_defs import (
+    MetricDataQueryTypeDef,
+    MetricDataResultTypeDef,
+)
+from mypy_boto3_pricing.type_defs import FilterTypeDef
 
 from aws import REGIONS
-from common import channel_name, instance_for, instance_prefix, latest
+from common import ReadsLatest, channel_name, instance_for, instance_prefix, latest
 from log import Log
-
-if TYPE_CHECKING:
-    from mypy_boto3_ce.literals import GranularityType, MetricType
-    from mypy_boto3_ce.type_defs import (
-        DateIntervalTypeDef,
-        ExpressionTypeDef,
-        GroupDefinitionTypeDef,
-        MetricValueTypeDef,
-        ResultByTimeTypeDef,
-    )
-    from mypy_boto3_cloudwatch.type_defs import (
-        MetricDataQueryTypeDef,
-        MetricDataResultTypeDef,
-    )
-    from mypy_boto3_pricing.type_defs import FilterTypeDef
 
 QUERY_TIME = "cost_query_time"
 # When the last full fetch ran. Every write advances QUERY_TIME, so a restart reads
@@ -91,22 +89,33 @@ class Products(TypedDict):
 
 
 class Forecast(TypedDict):
-    Total: "MetricValueTypeDef"
+    Total: MetricValueTypeDef
 
 
 class Usage(TypedDict):
-    ResultsByTime: list["ResultByTimeTypeDef"]
+    ResultsByTime: list[ResultByTimeTypeDef]
     NextPageToken: str
 
 
 class MetricData(TypedDict):
-    MetricDataResults: list["MetricDataResultTypeDef"]
+    MetricDataResults: list[MetricDataResultTypeDef]
     NextToken: NotRequired[str]
+
+
+class Lister(Protocol):
+    def retrieve(self, channels: list[str], /) -> list[sy.Channel]: ...
+
+
+class Core(ReadsLatest, Protocol):
+    """The part of the Core that the cost state reads."""
+
+    @property
+    def channels(self) -> Lister: ...
 
 
 class Pricing(Protocol):
     def get_products(
-        self, *, ServiceCode: str, Filters: list["FilterTypeDef"], MaxResults: int
+        self, *, ServiceCode: str, Filters: list[FilterTypeDef], MaxResults: int
     ) -> Products: ...
 
 
@@ -114,20 +123,20 @@ class Explorer(Protocol):
     def get_cost_forecast(
         self,
         *,
-        TimePeriod: "DateIntervalTypeDef",
-        Metric: "MetricType",
-        Granularity: "GranularityType",
-        Filter: "ExpressionTypeDef",
+        TimePeriod: DateIntervalTypeDef,
+        Metric: MetricType,
+        Granularity: GranularityType,
+        Filter: ExpressionTypeDef,
     ) -> Forecast: ...
 
     def get_cost_and_usage(
         self,
         *,
-        TimePeriod: "DateIntervalTypeDef",
-        Granularity: "GranularityType",
+        TimePeriod: DateIntervalTypeDef,
+        Granularity: GranularityType,
         Metrics: list[str],
-        GroupBy: list["GroupDefinitionTypeDef"] = ...,
-        Filter: "ExpressionTypeDef" = ...,
+        GroupBy: list[GroupDefinitionTypeDef] = ...,
+        Filter: ExpressionTypeDef = ...,
         NextPageToken: str = ...,
     ) -> Usage: ...
 
@@ -136,7 +145,7 @@ class Metrics(Protocol):
     def get_metric_data(
         self,
         *,
-        MetricDataQueries: list["MetricDataQueryTypeDef"],
+        MetricDataQueries: list[MetricDataQueryTypeDef],
         StartTime: dt.datetime,
         EndTime: dt.datetime,
         NextToken: str = ...,
@@ -375,7 +384,7 @@ class Cost:
         )
         return out
 
-    def create_state(self, client: sy.Synnax, *, known: set[str]) -> None:
+    def create_state(self, client: Core, *, known: set[str]) -> None:
         """The types, the last values, and the last fetch time on the Core, so the
         fetch cadence and the live writes hold across a restart."""
         self.known = sorted(r for r in known if instance_prefix(r) is not None)

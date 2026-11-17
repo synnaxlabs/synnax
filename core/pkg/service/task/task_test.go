@@ -101,6 +101,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
@@ -947,7 +948,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(f.Key).To(Equal(alerts.Key))
 			Expect(f.DispatchKey).To(Equal("dk-1"))
 			Expect(f.Seq).To(BeNumerically(">", 0))
-			Expect(f.Actions).To(Equal(append(acts, computed...)))
+			Expect(f.Actions).To(Equal(slices.Concat(acts, computed)))
 		})
 
 		It(
@@ -978,7 +979,7 @@ var _ = Describe("Task", Ordered, func() {
 					set([]string{"config_hash"}, stored.ConfigHash),
 				}))
 				Expect(*frames).To(HaveLen(1))
-				Expect((*frames)[0].Actions).To(Equal(append(acts, computed...)))
+				Expect((*frames)[0].Actions).To(Equal(slices.Concat(acts, computed)))
 			},
 		)
 
@@ -1993,6 +1994,7 @@ var _ = Describe("MatchArcs", func() {
 		"Should filter tasks by Arc through the configured matcher",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrettestutil.OpenService(ctx, db),
@@ -2049,6 +2051,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))

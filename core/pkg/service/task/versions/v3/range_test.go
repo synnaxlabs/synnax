@@ -57,6 +57,7 @@ var _ = Describe("RangeMigration", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := []v2.Task{
 			{Key: inRange, Name: "In Range", Snapshot: true},
 			{Key: inCur, Name: "In Current Range", Snapshot: true},
@@ -145,6 +146,7 @@ var _ = Describe("RangeMigration", func() {
 var _ = Describe("RangeMigration with a corrupt range key", func() {
 	It("Should fail on a range key that does not parse", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		t := v2.Task{Key: uuid.New(), Name: "Snapshot", Snapshot: true}
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&t).Exec(ctx, db)).
 			To(Succeed())

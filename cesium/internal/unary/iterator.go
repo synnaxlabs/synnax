@@ -68,12 +68,7 @@ func (i IteratorConfig) Validate() error {
 	return v.Error()
 }
 
-var (
-	_                     config.Config[IteratorConfig] = IteratorConfig{}
-	defaultIteratorConfig                               = IteratorConfig{
-		AutoChunkSize: 1e5,
-	}
-)
+var _ config.Config[IteratorConfig] = IteratorConfig{}
 
 func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
@@ -115,7 +110,9 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
 		return nil, db.wrapError(ErrDBClosed)
 	}
-	cfg, err := config.New(defaultIteratorConfig, cfgs...)
+	cfg, err := config.New(IteratorConfig{
+		AutoChunkSize: 1e5,
+	}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"math"
 	"os"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -952,6 +953,7 @@ var _ = Describe("DecodeElementConfig", func() {
 var _ = Describe("Migration", func() {
 	It("Should log every config it resets or drops", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		seed := v8.Schematic{
 			Key:   uuid.New(),
 			Name:  "Stored",
@@ -1005,6 +1007,7 @@ var _ = Describe("Migration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := v8.Schematic{
 			Key:   uuid.New(),
 			Nodes: []v8.Node{{Key: "s1"}},
@@ -1037,6 +1040,7 @@ var _ = Describe("Migration", func() {
 	// stored configs through a key of its own or leave every schematic untyped.
 	It("Should type configs a Core already lifted to v8", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		seed := v7.Schematic{
 			Key:     uuid.New(),
 			Name:    "Stored",
@@ -1060,7 +1064,7 @@ var _ = Describe("Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Schematic",
-			Migrations: append(chain, v9.Migration),
+			Migrations: slices.Concat(chain, []gorp.Migration{v9.Migration}),
 		})).To(Succeed())
 		var got v9.Schematic
 		Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().
@@ -1100,6 +1104,7 @@ var _ = Describe("ScaleMigration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := v9.Schematic{
 			Key: uuid.New(),
 			Configs: map[string]v9.ElementConfig{
@@ -1135,6 +1140,7 @@ var _ = Describe("ScaleMigration", func() {
 		"Should reset a non-finite scale to 1 and keep a config with no scale",
 		func(ctx SpecContext, f float64) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			var scaled v9.SwitchElementConfig
 			scaled.Scale = f
 			stored := v9.Schematic{

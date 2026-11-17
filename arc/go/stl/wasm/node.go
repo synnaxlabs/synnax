@@ -62,13 +62,22 @@ type nodeImpl struct {
 	batch *batchCall
 }
 
+// trapCause returns the error that wazero wrapped in its stack trace, or err if none.
+func trapCause(err error) error {
+	var wrapper interface{ Unwrap() error }
+	if errors.As(err, &wrapper) {
+		return wrapper.Unwrap()
+	}
+	return err
+}
+
 func (n *nodeImpl) call(ctx context.Context) ([]result, error) {
 	for i := range n.outputValues {
 		n.outputValues[i].Changed = false
 	}
 	copy(n.stack, n.params)
 	if err := n.fn.CallWithStack(ctx, n.stack); err != nil {
-		return nil, err
+		return nil, trapCause(err)
 	}
 	if n.memBase == 0 {
 		if len(n.outputValues) > 0 {
@@ -395,6 +404,8 @@ func setValueAt(s telem.Series, i int, v uint64) {
 		telem.ByteOrder.PutUint32(s.Data[offset:offset+4], uint32(v))
 	case telem.Bit64:
 		telem.ByteOrder.PutUint64(s.Data[offset:offset+8], v)
+	case telem.UnknownDensity, telem.Bit128:
+		panic("unsupported data density for WASM conversion")
 	}
 }
 

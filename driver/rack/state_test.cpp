@@ -60,6 +60,71 @@ TEST(StateTest, UserStateWithoutService) {
     ASSERT_EQ(cfg.state_dir, expected);
 }
 
+/// @brief it should refuse the state of a user to root under sudo, before it changes
+/// anything, and use it for any other process.
+TEST(StateTest, RefuseUserStateUnderSudo) {
+#if defined(__linux__) || defined(_WIN32)
+    GTEST_SKIP() << "only macOS keeps the state of a user in the folder of that user";
+#else
+    const auto home = std::filesystem::temp_directory_path() / "rack-test-sudo-home";
+    std::filesystem::remove_all(home);
+    const char *previous = std::getenv("HOME");
+    const char *sudo_user = std::getenv("SUDO_USER");
+    x::defer::defer restore([&,
+                             previous = std::string(previous ? previous : ""),
+                             sudo_user = std::string(sudo_user ? sudo_user : "")] {
+        x::env::set("HOME", previous);
+        if (sudo_user.empty())
+            x::env::unset("SUDO_USER");
+        else
+            x::env::set("SUDO_USER", sudo_user);
+        std::filesystem::remove_all(home);
+    });
+    x::env::set("HOME", home.string());
+    // A user that does not exist keeps the state directory in HOME.
+    x::env::set("SUDO_USER", "rack-test-no-such-user");
+    auto args = x::args::Parser(std::vector<std::string>{"program"});
+    Config cfg;
+    if (geteuid() != 0) {
+        ASSERT_NIL(Config::secure_persisted_state(args));
+        ASSERT_NIL(cfg.load_persisted_state(args));
+        return;
+    }
+    ASSERT_OCCURRED_AS(Config::secure_persisted_state(args), STATE_ERROR);
+    const auto err = cfg.load_persisted_state(args);
+    ASSERT_OCCURRED_AS(err, STATE_ERROR);
+    ASSERT_NE(err.message().find("without sudo"), std::string::npos);
+    ASSERT_FALSE(std::filesystem::exists(home));
+#endif
+}
+
+/// @brief it should let root keep its own state when root runs sudo.
+TEST(StateTest, RootStateUnderSudoAsRoot) {
+#if defined(__linux__) || defined(_WIN32)
+    GTEST_SKIP() << "only macOS keeps the state of a user in the folder of that user";
+#else
+    const passwd *root = getpwuid(0);
+    if (geteuid() != 0 || root == nullptr) GTEST_SKIP() << "only root owns its state";
+    const auto dir = std::filesystem::path(root->pw_dir) / "Library" /
+                     "Application Support" / "synnax-driver";
+    if (std::filesystem::exists(dir)) GTEST_SKIP() << dir << " holds a saved login";
+    const std::string name = root->pw_name;
+    const char *sudo_user = std::getenv("SUDO_USER");
+    x::defer::defer restore([&, sudo_user = std::string(sudo_user ? sudo_user : "")] {
+        if (sudo_user.empty())
+            x::env::unset("SUDO_USER");
+        else
+            x::env::set("SUDO_USER", sudo_user);
+        std::filesystem::remove_all(dir);
+    });
+    x::env::set("SUDO_USER", name);
+    auto args = x::args::Parser(std::vector<std::string>{"program"});
+    Config cfg;
+    ASSERT_NIL(cfg.load_persisted_state(args));
+    ASSERT_EQ(cfg.state_dir, dir);
+#endif
+}
+
 namespace fs = std::filesystem;
 
 /// @brief runs each spec with the default state path, and with --state-file.
@@ -146,6 +211,7 @@ TEST_P(StateModeTest, RefuseReadableStateFile) {
         err.message().find("chmod 600 " + this->path.string()),
         std::string::npos
     );
+    ASSERT_NE(err.message().find("fsGroupChangePolicy"), std::string::npos);
     ASSERT_EQ(this->mode(this->path), file_mode);
 }
 
@@ -199,10 +265,8 @@ TEST_P(StateModeTest, RefuseStateFileOfAnotherUser) {
     Config cfg;
     const auto err = cfg.load_persisted_state(this->args);
     ASSERT_OCCURRED_AS(err, STATE_ERROR);
-    ASSERT_NE(
-        err.message().find("chown root " + this->path.string()),
-        std::string::npos
-    );
+    ASSERT_NE(err.message().find("Run the Driver as nobody"), std::string::npos);
+    ASSERT_EQ(err.message().find("chown"), std::string::npos);
 #endif
 }
 

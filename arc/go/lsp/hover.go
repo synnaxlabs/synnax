@@ -624,7 +624,7 @@ func (s *Server) getUserSymbolHover(
 		}
 	case symbol.KindStage:
 		d = doc.New(doc.TitleWithKind(displayName, "Stage"))
-	default:
+	case symbol.KindBlock, symbol.KindLoop, symbol.KindLoopVariable, symbol.KindAmbient:
 		d = doc.New(doc.Title(displayName))
 		d = d.With(doc.Detail("Type", sym.Type.String(), true))
 	}

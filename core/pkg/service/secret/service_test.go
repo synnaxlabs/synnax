@@ -55,6 +55,7 @@ func newStore(ctx SpecContext) *env {
 	GinkgoHelper()
 	e := &env{now: telem.SecondTS * 1000}
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(e.db.Run)
 	e.grants = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	return e
 }

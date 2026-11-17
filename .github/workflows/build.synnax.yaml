@@ -910,7 +910,7 @@ jobs:
     name: Sign Driver (macOS)
     needs: [setup, build-macos]
     if: inputs.sign_binaries && inputs.macos && inputs.driver
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions: &sign_macos_permissions
       contents: write
     runs-on: macos-latest
@@ -943,6 +943,8 @@ jobs:
         run: .github/scripts/import_apple_certificate.sh
 
       - name: Sign and notarize binary
+        # The script spends up to 40 min with the Apple notary service.
+        timeout-minutes: 50
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -1005,7 +1007,7 @@ jobs:
       ${{ !cancelled() && inputs.sign_binaries && inputs.macos && inputs.core &&
       needs.build-macos.result == 'success' && needs.build-macos-core.result ==
       (inputs.driver && 'success' || 'skipped') }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions: *sign_macos_permissions
     runs-on: macos-latest
     env:

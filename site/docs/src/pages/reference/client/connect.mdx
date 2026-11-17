@@ -25,8 +25,8 @@ Core.
 ## Connect to Synnax Desktop
 
 Scripts on the same computer as Synnax Desktop can connect to its Core while it runs.
-Synnax Desktop saves the address of its Core and an API key in `~/.synnax/desktop.json`,
-which only your user can read. The Python client reads this file when you give no
+Synnax Desktop saves the address of its Core in `~/.synnax/desktop.json` and an API key
+in the keychain of your operating system. The Python client reads both when you give no
 arguments:
 
 ```python
@@ -103,8 +103,8 @@ throws the same errors.
 
 </Client.Tabs>
 
-To keep credentials out of a script, read them from environment variables that you set.
-The clients read no environment variables by themselves.
+To keep credentials out of a script, set them in the
+[environment variables](#connect-with-environment-variables).
 
 <Divider.Divider x />
 
@@ -152,6 +152,11 @@ const client = new Synnax({
   apiKey: "syk_...",
 });
 ```
+
+In Node.js, Deno, and Bun, the client sends its session token in the `Authorization`
+header of each stream connection. A browser cannot set headers on a WebSocket, so a
+browser client puts the token in the URL of each stream connection. Proxies and servers
+can log this URL.
 
   </Fragment>
 
@@ -207,43 +212,98 @@ nothing, and exits with code 1. Run `sy login` again to change the values.
 `sy login` never saves the key in a file. When the session has no keychain, the command
 fails and saves nothing. See [Connect without a keychain](#connect-without-a-keychain).
 
-With no host, `sy.Synnax()` first reads the
-[environment variables](#connect-with-environment-variables), then the saved login, then
-[Synnax Desktop](#connect-to-synnax-desktop). When none of them is set, it raises
-`sy.ValidationError`. When you give no host and no API key, the client ignores the other
-arguments.
+When no argument or [environment variable](#connect-with-environment-variables) gives a
+host, `sy.Synnax()` uses the saved login, then
+[Synnax Desktop](#connect-to-synnax-desktop). The arguments and variables that you set
+override its values.
 
 <Divider.Divider x />
 
 ## Connect with environment variables
 
-When you give no host, `sy.Synnax()` reads these environment variables. They take an API
-key, not a username and password.
+The clients read these environment variables. They take an API key, not a username and
+password.
 
-| Variable         | Value                                                 |
-| ---------------- | ----------------------------------------------------- |
-| `SYNNAX_HOST`    | The host of the Core. Required with `SYNNAX_API_KEY`. |
-| `SYNNAX_API_KEY` | An API key. Required with `SYNNAX_HOST`.              |
-| `SYNNAX_PORT`    | The port of the Core. The default is `9090`.          |
-| `SYNNAX_SECURE`  | `true` or `1` to use TLS. The default is `false`.     |
-| `SYNNAX_CA_CERT` | The path to the CA certificate of the Core, for TLS.  |
+| Variable         | Value                                                             |
+| ---------------- | ----------------------------------------------------------------- |
+| `SYNNAX_HOST`    | The host of the Core.                                             |
+| `SYNNAX_API_KEY` | An API key.                                                       |
+| `SYNNAX_PORT`    | The port of the Core. The default is `9090`.                      |
+| `SYNNAX_SECURE`  | `true` or `1` to use TLS. The default is `false`.                 |
+| `SYNNAX_CA_CERT` | The path to the CA certificate of the Core, for TLS. Python only. |
+
+Each client takes each option from the first source that sets it: the argument, then its
+variable, then its default.
+
+| Python    | TypeScript | Variable         | Default |
+| --------- | ---------- | ---------------- | ------- |
+| `host`    | `host`     | `SYNNAX_HOST`    | None    |
+| `port`    | `port`     | `SYNNAX_PORT`    | `9090`  |
+| `api_key` | `apiKey`   | `SYNNAX_API_KEY` | None    |
+| `secure`  | `secure`   | `SYNNAX_SECURE`  | False   |
+| `ca_cert` |            | `SYNNAX_CA_CERT` | None    |
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+When no argument or variable gives a host, the saved Core comes before the default. The
+saved Core is the login that `sy login` saved, else Synnax Desktop on this computer.
+
+Two groups come whole from the first source that sets one of their options:
+
+- The credentials: `api_key`, `username`, and `password`. A `username` and `password`
+  replace the API key of a variable or of the saved Core.
+- TLS: `secure` and `ca_cert`. `secure=True` with no `ca_cert` uses the CA certificates
+  of the computer, even when `SYNNAX_CA_CERT` is set. A `ca_cert` with no `secure` turns
+  TLS on.
+
+To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
+
+```python
+client = sy.Synnax(host="core.example.com", port=9090)
+```
 
 ```bash
-export SYNNAX_HOST=core.example.com
 export SYNNAX_API_KEY=syk_...
 python my_script.py
 ```
 
-The client uses the first source that it finds, in this order:
+When no source gives a host or credentials, or when `SYNNAX_PORT` or `SYNNAX_SECURE` has
+a value that is not valid, the client raises `sy.ValidationError`.
 
-1. The arguments to `sy.Synnax()`, when they include a host.
-2. The environment variables.
-3. The login that `sy login` saved.
-4. Synnax Desktop on this computer.
+  </Fragment>
 
-When only one of `SYNNAX_HOST` and `SYNNAX_API_KEY` is set, or when `SYNNAX_PORT` or
-`SYNNAX_SECURE` has a value that is not valid, the client raises `sy.ValidationError`
-and names the variable.
+  <Fragment slot="typescript">
+
+`secure` and [`caCert`](#typescript-ca-cert) come as a pair. When you give `caCert`, the
+client does not read `SYNNAX_SECURE`, and `secure` is `true` unless you set it.
+
+To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax({ host: "core.example.com", port: 9090 });
+```
+
+```bash
+export SYNNAX_API_KEY=syk_...
+node my_script.js
+```
+
+The client does not read `SYNNAX_API_KEY` when you give a username, a password, or a
+token. With no host from the argument or `SYNNAX_HOST`, or when `SYNNAX_PORT` or
+`SYNNAX_SECURE` has a value that is not valid, the constructor throws `ValidationError`.
+
+The client reads the variables in Node.js, Deno, and Bun. A browser has no environment
+variables. In Deno, run the script with `--allow-env` to read the variables. Without it,
+the client treats them as unset, so give the options as arguments. In a terminal, Deno
+can ask for access first. Add `--deny-env` to stop the question.
+
+  </Fragment>
+
+</Client.Tabs>
 
 ### Connect without a keychain
 
@@ -318,14 +378,43 @@ const client = new Synnax({
 ```
 
 The TypeScript client checks the certificate of the Core. When the Core uses a
-self-signed certificate, the computer must trust its CA certificate. The TypeScript
-client has no CA certificate option. In a browser,
-[install the CA certificate](/reference/enterprise/certificates) on the computer. For
-Node.js, see [Node.js](/reference/enterprise/certificates#nodejs).
+self-signed certificate, give the text of its CA certificate in `caCert`:
+
+```typescript
+import { readFileSync } from "node:fs";
+
+const client = new Synnax({
+  host: "core.example.com",
+  port: 9090,
+  username: "operator",
+  password: "secret",
+  secure: true,
+  caCert: readFileSync("/path/to/ca.crt", "utf8"),
+});
+```
+
+`caCert` works in Node.js and Bun. In Deno, leave out `caCert` and start Deno with
+`--cert /path/to/ca.crt`. A browser cannot use `caCert`.
+[Install the CA certificate](/reference/enterprise/certificates) on the computer
+instead.
 
   </Fragment>
 
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Connect from a web page
+
+The TypeScript client also runs in a web page. The Core accepts requests from pages on
+each origin, so a page that you serve from a different host can connect to it. Each
+person who opens the page can read the API key or password in its code, so do not put
+them in a public page.
+
+For a page on the same origin as the Core, such as a page behind a reverse proxy that
+also forwards the routes of the Core, set `sessionCookie` to `true`. The Core then keeps
+the session token in a cookie that page scripts cannot read. The cookie works only for
+pages on the origin of the Core.
 
 <Divider.Divider x />
 
@@ -369,9 +458,8 @@ A Node.js script does not exit until you close the client.
 <Field.List>
 
 <Field.Item name="host" id="python-host" type="str">
-  The hostname or IP address of the Core. With no host, the client uses the `SYNNAX_*`
-  environment variables, the values that `sy login` saved, or Synnax Desktop, in that
-  order.
+  The hostname or IP address of the Core. See the [order of the
+  options](#connect-with-environment-variables).
 </Field.Item>
 
 <Field.Item name="port" id="python-port" type="int">
@@ -379,8 +467,7 @@ A Node.js script does not exit until you close the client.
 </Field.Item>
 
 <Field.Item name="api_key" id="python-api-key" type="str">
-  The API key to log in with. Needs a host. See [Connect with an API
-  key](#connect-with-an-api-key).
+  The API key to log in with. See [Connect with an API key](#connect-with-an-api-key).
 </Field.Item>
 
 <Field.Item name="username" id="python-username" type="str">
@@ -397,8 +484,8 @@ A Node.js script does not exit until you close the client.
 
 <Field.Item name="ca_cert" id="python-ca-cert" type="str">
   The path to the CA certificate that signs the certificate of the Core. With `ca_cert`
-  and no `secure`, the client raises `ValueError`. With no path, the client trusts the
-  CA certificates of the computer.
+  and no `secure`, the client uses TLS. With `secure=False`, the client raises
+  `ValueError`. With no path, the client trusts the CA certificates of the computer.
 </Field.Item>
 
 <Field.Item
@@ -452,15 +539,17 @@ A Node.js script does not exit until you close the client.
 <Field.List>
 
 <Field.Item name="host" id="typescript-host" type="string">
-  The hostname or IP address of the Core.
+  The hostname or IP address of the Core. The default is `SYNNAX_HOST`. See [Connect
+  with environment variables](#connect-with-environment-variables).
 </Field.Item>
 
 <Field.Item name="port" id="typescript-port" type="number | string">
-  The port of the Core.
+  The port of the Core. The default is `SYNNAX_PORT`, then `9090`.
 </Field.Item>
 
 <Field.Item name="apiKey" id="typescript-api-key" type="string">
-  The API key to log in with. See [Connect with an API key](#connect-with-an-api-key).
+  The API key to log in with. The default is `SYNNAX_API_KEY`. See [Connect with an API
+  key](#connect-with-an-api-key).
 </Field.Item>
 
 <Field.Item name="username" id="typescript-username" type="string">
@@ -471,8 +560,44 @@ A Node.js script does not exit until you close the client.
   The password to log in with.
 </Field.Item>
 
+<Field.Item name="token" id="typescript-token" type="string">
+  The session token of an earlier login, to resume that session with no username,
+  password, or API key. Get the token from `client.auth.token`. A session in a cookie
+  has no token: resume it with `sessionCookie` set to `true` instead. Closing the client
+  leaves a resumed session open.
+</Field.Item>
+
+<Field.Item
+  name="sessionCookie"
+  id="typescript-session-cookie"
+  type="boolean"
+  default="false"
+>
+  Keep the session token in a cookie that page scripts cannot read. Only for a page on
+  the origin of the Core. See [Connect from a web page](#connect-from-a-web-page).
+</Field.Item>
+
+<Field.Item
+  name="sessionPersistent"
+  id="typescript-session-persistent"
+  type="boolean"
+  default="false"
+>
+  Keep the session open when you close the client, so that you can resume it later with
+  `token`, or with `sessionCookie` for a session in a cookie.
+</Field.Item>
+
 <Field.Item name="secure" id="typescript-secure" type="boolean" default="false">
-  Connect with TLS.
+  Connect with TLS. With [`caCert`](#typescript-ca-cert), the default is `true`, and the
+  client does not read `SYNNAX_SECURE`. Without it, the default is `SYNNAX_SECURE`, then
+  `false`.
+</Field.Item>
+
+<Field.Item name="caCert" id="typescript-ca-cert" type="string">
+  The PEM text of the CA certificate that signs the certificate of the Core. With
+  `caCert`, the client connects with TLS when you leave out `secure`. With `caCert` and
+  `secure` set to false, the client throws an error. The client also trusts the default
+  CA certificates of the runtime. Node.js and Bun only.
 </Field.Item>
 
 <Field.Item

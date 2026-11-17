@@ -41,6 +41,10 @@ fs::path user_dir() {
     return {};
 }
 
+bool sudo() {
+    return false;
+}
+
 namespace {
 /// @brief the administrators own the directory. SYSTEM and the administrators have full
 /// access to it and everything in it, and no one else has access.
@@ -95,15 +99,16 @@ x::errors::Error check_owner(const std::wstring &dir) {
 }
 
 /// @brief creates dir for LocalSystem and the administrators alone if it is missing.
-/// Each user can create and read a new folder in ProgramData.
-x::errors::Error
+/// Each user can create and read a new folder in ProgramData. Returns whether dir
+/// existed.
+std::pair<bool, x::errors::Error>
 create_dir(const std::wstring &dir, const PSECURITY_DESCRIPTOR descriptor) {
     // Created with its access in one step, so no user can add a file to it first.
     SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor, FALSE};
-    if (CreateDirectoryW(dir.c_str(), &attributes) == 0)
-        if (const DWORD code = GetLastError(); code != ERROR_ALREADY_EXISTS)
-            return state_error("failed to create state directory", code);
-    return x::errors::NIL;
+    if (CreateDirectoryW(dir.c_str(), &attributes) != 0) return {false, x::errors::NIL};
+    const DWORD code = GetLastError();
+    if (code == ERROR_ALREADY_EXISTS) return {true, x::errors::NIL};
+    return {false, state_error("failed to create state directory", code)};
 }
 
 std::pair<PSECURITY_DESCRIPTOR, x::errors::Error> parse_descriptor() {
@@ -127,7 +132,10 @@ x::errors::Error prepare(const fs::path &path) {
     auto [descriptor, err] = parse_descriptor();
     if (err) return err;
     x::defer::defer free_descriptor([&] { LocalFree(descriptor); });
-    return create_dir(path.parent_path().wstring(), descriptor);
+    const auto dir = path.parent_path().wstring();
+    auto [existed, create_err] = create_dir(dir, descriptor);
+    if (create_err || !existed) return create_err;
+    return check_owner(dir);
 }
 
 /// @brief creates the state directory of the computer for LocalSystem and the
@@ -138,7 +146,7 @@ x::errors::Error secure(const fs::path &path, const bool dedicated) {
     auto [descriptor, desc_err] = parse_descriptor();
     if (desc_err) return desc_err;
     x::defer::defer free_descriptor([&] { LocalFree(descriptor); });
-    if (auto err = create_dir(dir, descriptor)) return err;
+    if (auto [_, err] = create_dir(dir, descriptor); err) return err;
     if (auto err = check_owner(dir)) return err;
     BOOL present = FALSE;
     BOOL defaulted = FALSE;

@@ -20,7 +20,7 @@ from freighter import (
     EOF,
     ExceptionPayload,
     Stream,
-    WebsocketClient,
+    StreamClient,
 )
 from freighter.transport import P
 from freighter.websocket import Message
@@ -198,7 +198,7 @@ class Writer:
         self,
         *,
         start: CrudeTimeStamp | None,
-        client: WebsocketClient,
+        client: StreamClient,
         registry: Registry,
         adapter: WriteFrameAdapter,
         name: str = "",

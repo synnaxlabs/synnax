@@ -43,7 +43,8 @@ var _ = Describe("Codec", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("failed to decode")),
 		))
-		Expect(errors.Encode(err, false).Type).To(Equal("sy.validation"))
+		codec := errors.NewCodec(validate.ErrorProvider())
+		Expect(codec.Encode(err, false).Type).To(Equal("sy.validation"))
 	})
 
 	It("Should name the decoded type when a stream does not decode", func() {
