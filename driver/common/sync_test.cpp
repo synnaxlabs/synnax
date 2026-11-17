@@ -313,12 +313,12 @@ TEST(Sync, SkipsHardwareItCannotFind) {
     ASSERT_FALSE(sync->get("01A").has_value());
 }
 
-/// @brief it should save hardware that a scan reports twice once.
-TEST(Sync, SavesDuplicateHardwareOnce) {
+/// @brief it should save hardware that a scan reports twice once, from the last report.
+TEST(Sync, SavesLastDuplicateHardwareOnce) {
     auto [sync, store] = new_sync();
     ASSERT_NIL(sync->sync({found("01A"), found("01A", "9211")}));
     ASSERT_EQ(store->stored.size(), 1);
-    ASSERT_EQ(store->stored.at(0).model, "9205");
+    ASSERT_EQ(store->stored.at(0).model, "9211");
 }
 
 /// @brief it should stop tracking a resource that a set signal moves to another rack.
@@ -390,5 +390,23 @@ TEST(Sync, CreatesOnceForConcurrentScans) {
     second.join();
     ASSERT_EQ(store->creates, 1);
     ASSERT_EQ(store->stored.size(), 1);
+}
+
+/// @brief it should stop tracking a resource that the Core no longer holds, and create
+/// it again on the next scan.
+TEST(Sync, DropsResourceMissingFromCore) {
+    auto stored = found("01A");
+    stored.key = "key-01A";
+    auto [sync, store] = new_sync({stored});
+    ASSERT_NIL(sync->init());
+    store->stored.clear();
+    store->update_err = x::errors::NOT_FOUND;
+    ASSERT_OCCURRED_AS(sync->sync({found("01A", "9211")}), x::errors::NOT_FOUND);
+    ASSERT_FALSE(sync->get("01A").has_value());
+    ASSERT_TRUE(store->statuses.empty());
+    store->update_err = x::errors::NIL;
+    ASSERT_NIL(sync->sync({found("01A", "9211")}));
+    ASSERT_EQ(store->creates, 1);
+    ASSERT_EQ(sync->get("01A")->model, "9211");
 }
 }

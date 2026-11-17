@@ -9,10 +9,12 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -177,8 +179,10 @@ public:
         std::vector<std::optional<D>> snapshot;
         {
             std::lock_guard lock(this->mu);
+            // The last report wins, as hardware that moves can show up in two places
+            // for one scan.
             std::unordered_set<std::string> seen;
-            for (auto &res: found) {
+            for (auto &res: std::views::reverse(found)) {
                 auto match = this->store->match_key(res);
                 if (!seen.insert(match).second) continue;
                 const auto it = this->tracked.find(match);
@@ -192,9 +196,12 @@ public:
                     .resource = std::move(res),
                 });
             }
+            std::ranges::reverse(results);
+            std::ranges::reverse(snapshot);
         }
         std::vector<Result> updated;
         std::vector<Result> to_create;
+        std::vector<std::string> gone;
         for (std::size_t i = 0; i < results.size(); i++) {
             auto &res = results[i];
             auto stored = std::move(snapshot[i]);
@@ -218,6 +225,11 @@ public:
                     LOG(WARNING) << this->log_prefix << "failed to update "
                                  << merged.name << ": " << err;
                     keep(err);
+                    // The next scan looks the hardware up again.
+                    if (err.matches(x::errors::NOT_FOUND)) {
+                        gone.push_back(res.match);
+                        continue;
+                    }
                     // A resource that did not move stays with the other rack.
                     if (stored->rack != this->rack) continue;
                     merged = *stored;
@@ -244,6 +256,8 @@ public:
         std::vector<D> statuses;
         {
             std::lock_guard lock(this->mu);
+            for (const auto &match: gone)
+                this->tracked.erase(match);
             std::unordered_set<std::string> present;
             for (auto &res: updated) {
                 present.insert(res.match);
