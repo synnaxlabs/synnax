@@ -195,7 +195,7 @@ const getInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
 }) => {
   const cfg = analogReadConfigZ.parse(config ?? {});
   if (config == null) {
-    const devices = deviceKeys ?? (deviceKey == null ? [""] : [deviceKey]);
+    const devices = deviceKeys ?? [deviceKey];
     cfg.channels = [];
     for (const device of devices)
       cfg.channels.push(createNextAIChannel(cfg.channels, { device }));

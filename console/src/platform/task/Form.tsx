@@ -45,7 +45,7 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
 export interface getInitialValuesParams {
   client: Synnax;
   deviceKey?: device.Key;
-  /** The devices of a task that reads from several, in place of deviceKey. */
+  /** The devices of a task that uses several, in place of deviceKey. */
   deviceKeys?: device.Key[];
   config?: unknown;
 }

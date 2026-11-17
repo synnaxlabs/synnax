@@ -23,7 +23,7 @@ import { type GetInitialValues } from "@/platform/task/Form";
 
 export interface CreateParams {
   deviceKey?: device.Key;
-  /** The devices of a task that reads from several, in place of deviceKey. */
+  /** The devices of a task that uses several, in place of deviceKey. */
   deviceKeys?: device.Key[];
   rackKey?: rack.Key;
   config?: unknown;

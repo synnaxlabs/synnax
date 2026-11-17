@@ -175,7 +175,7 @@ const getInitialValues: Task.GetInitialValues<CounterReadSchemas> = ({
 }) => {
   const cfg = counterReadConfigZ.parse(config ?? {});
   if (config == null) {
-    const devices = deviceKeys ?? (deviceKey == null ? [""] : [deviceKey]);
+    const devices = deviceKeys ?? [deviceKey];
     cfg.channels = [];
     for (const device of devices)
       cfg.channels.push(createNextCIChannel(cfg.channels, { device }));

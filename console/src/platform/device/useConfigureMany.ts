@@ -54,7 +54,8 @@ export interface ConfigureManyParams {
 export const { useUpdate: useConfigureMany } = Flux.createUpdate<ConfigureManyParams>({
   name: "devices",
   verbs: verbs.UPDATE,
-  update: async ({ client, data: { keys, zeroProperties, suggestIdentifiers } }) => {
+  update: async ({ client, data }) => {
+    const { keys, zeroProperties, suggestIdentifiers } = data;
     for (const key of keys) {
       // A fresh read sees the identifiers that other runs already saved, not their
       // pending picks.
@@ -83,6 +84,6 @@ export const { useUpdate: useConfigureMany } = Flux.createUpdate<ConfigureManyPa
       ]);
       await client.devices.dispatch(key, edits);
     }
-    return { keys, zeroProperties, suggestIdentifiers };
+    return data;
   },
 });
