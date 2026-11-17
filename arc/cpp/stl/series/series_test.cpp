@@ -1153,36 +1153,26 @@ TEST(SeriesModule, OrBoolTruthTable) {
     EXPECT_EQ(index_bool(f, rh, 3), 0);
 }
 
-TEST(SeriesModule, AndBoolBroadcastsShorterRhs) {
+/// @brief it should trap for a logical and of two series of different lengths.
+TEST(SeriesModule, AndBoolLengthMismatchTraps) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto ha = make_bool_series(f, {1, 1, 1, 1, 1});
     auto hb = make_bool_series(f, {1, 0});
-    auto result = f.get("and")
-                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
-                      .unwrap();
-    auto rh = result[0].i32();
-    EXPECT_EQ(f.state->get(rh)->size(), 5);
-    EXPECT_EQ(index_bool(f, rh, 0), 1);
-    EXPECT_EQ(index_bool(f, rh, 1), 0);
-    EXPECT_EQ(index_bool(f, rh, 2), 0);
-    EXPECT_EQ(index_bool(f, rh, 3), 0);
-    EXPECT_EQ(index_bool(f, rh, 4), 0);
+    expect_failure(
+        f.get("and").call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)}),
+        "arc panic: series length mismatch in logical operation"
+    );
 }
 
-TEST(SeriesModule, OrBoolBroadcastsShorterLhs) {
+/// @brief it should trap for a logical or of two series of different lengths.
+TEST(SeriesModule, OrBoolLengthMismatchTraps) {
     Fixture f{std::string(BOOL_OPS_WAT)};
     auto ha = make_bool_series(f, {1, 0});
     auto hb = make_bool_series(f, {0, 0, 0, 0, 0});
-    auto result = f.get("or")
-                      .call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)})
-                      .unwrap();
-    auto rh = result[0].i32();
-    EXPECT_EQ(f.state->get(rh)->size(), 5);
-    EXPECT_EQ(index_bool(f, rh, 0), 1);
-    EXPECT_EQ(index_bool(f, rh, 1), 0);
-    EXPECT_EQ(index_bool(f, rh, 2), 0);
-    EXPECT_EQ(index_bool(f, rh, 3), 0);
-    EXPECT_EQ(index_bool(f, rh, 4), 0);
+    expect_failure(
+        f.get("or").call(f.store, {wasmtime::Val(ha), wasmtime::Val(hb)}),
+        "arc panic: series length mismatch in logical operation"
+    );
 }
 
 TEST(SeriesModule, AndScalarBoolTrueIsIdentity) {

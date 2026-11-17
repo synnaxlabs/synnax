@@ -756,7 +756,7 @@ func divide_by_zero() {val i32} i32 {
     EXPECT_FALSE(done);
 }
 
-/// @brief Node::next emits no samples when one sample of a series traps.
+/// @brief it should emit no samples when one sample of a series traps.
 TEST(NodeTest, NextDropsCycleOnWasmTrap) {
     const auto client = new_test_client();
 

@@ -538,10 +538,12 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
         .func_wrap(
             MODULE_NAME,
             "and",
-            [ss](uint32_t a, uint32_t b) -> uint32_t {
+            [ss](uint32_t a, uint32_t b) -> wasmtime::Result<uint32_t, wasmtime::Trap> {
                 auto *sa = ss->get(a);
                 auto *sb = ss->get(b);
-                if (sa == nullptr || sb == nullptr) return 0;
+                if (sa == nullptr || sb == nullptr) return uint32_t{0};
+                if (sa->size() != sb->size())
+                    return length_mismatch("logical operation");
                 auto result = sa->logical_and(*sb);
                 return ss->store(std::move(result));
             }
@@ -551,10 +553,12 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
         .func_wrap(
             MODULE_NAME,
             "or",
-            [ss](uint32_t a, uint32_t b) -> uint32_t {
+            [ss](uint32_t a, uint32_t b) -> wasmtime::Result<uint32_t, wasmtime::Trap> {
                 auto *sa = ss->get(a);
                 auto *sb = ss->get(b);
-                if (sa == nullptr || sb == nullptr) return 0;
+                if (sa == nullptr || sb == nullptr) return uint32_t{0};
+                if (sa->size() != sb->size())
+                    return length_mismatch("logical operation");
                 auto result = sa->logical_or(*sb);
                 return ss->store(std::move(result));
             }

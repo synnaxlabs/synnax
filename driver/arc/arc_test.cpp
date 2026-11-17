@@ -799,6 +799,7 @@ void expect_status(
     }
 }
 
+/// @brief it should send a warning and keep the task running when a node traps.
 TEST(ArcErrorHandling, WasmTrapSendsWarning) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
