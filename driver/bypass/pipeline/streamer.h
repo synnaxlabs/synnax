@@ -205,7 +205,8 @@ public:
 
     /// @brief opens the Core streamer and subscribes to the bus. If the Core is
     /// unreachable, returns the streamer anyway, and the streamer reopens its Core half
-    /// in the background.
+    /// in the background. Sink::opened() then means only that bus frames reach the
+    /// sink. Core frames reach it once the Core half opens.
     /// @returns any Core open error other than an unreachable Core.
     std::pair<std::unique_ptr<::driver::pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {
