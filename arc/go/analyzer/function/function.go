@@ -98,14 +98,9 @@ func collectInputs[T antlr.ParserRuleContext](
 		if lit := cfg.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for input parameter %s",
-						inputName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(
+					invalidDefault(err, "input parameter", inputName, lit),
+				)
 				continue
 			}
 			defaultValue = value.Value
@@ -159,14 +154,7 @@ func collectTriggers(
 		if lit := trigger.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, triggerType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for parameter %s",
-						triggerName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(invalidDefault(err, "parameter", triggerName, lit))
 				continue
 			}
 			defaultValue = value.Value
@@ -383,14 +371,7 @@ func addTriggersToScope(
 		if lit := trigger.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, triggerType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for parameter %s",
-						triggerName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(invalidDefault(err, "parameter", triggerName, lit))
 			} else {
 				defaultValue = value.Value
 			}
@@ -458,14 +439,9 @@ func addInputsToScope[T antlr.ParserRuleContext](
 		if lit := cfg.Literal(); lit != nil {
 			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
 			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(
-						err,
-						"invalid default value for input parameter %s",
-						inputName,
-					),
-					lit,
-				))
+				ctx.Diagnostics.Add(
+					invalidDefault(err, "input parameter", inputName, lit),
+				)
 			} else {
 				defaultValue = value.Value
 			}
@@ -481,4 +457,25 @@ func addInputsToScope[T antlr.ParserRuleContext](
 			ctx.Diagnostics.Add(diagnostics.Error(err, cfg))
 		}
 	}
+}
+
+// invalidDefault reports a default value of a parameter that does not parse. param
+// names the kind of parameter.
+func invalidDefault(
+	err error,
+	param, name string,
+	lit antlr.ParserRuleContext,
+) diagnostics.Diagnostic {
+	if errors.Is(err, literal.ErrTruncated) {
+		return codes.InvalidLiteral.Atf(
+			lit,
+			"default value of %s %s would be truncated",
+			param,
+			name,
+		)
+	}
+	return diagnostics.Error(
+		errors.Wrapf(err, "invalid default value for %s %s", param, name),
+		lit,
+	)
 }

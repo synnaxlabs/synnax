@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/set"
+	"go.lsp.dev/protocol"
 )
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
@@ -54,6 +55,36 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 		substituteTypeMap(ctx)
 	}
 	constant.Check(ctx)
+	checkComputedReads(ctx)
+}
+
+// checkComputedReads rejects a func that reads a computed top-level variable. It runs
+// last, so it can skip a variable whose declaration already has an error.
+func checkComputedReads(ctx acontext.Context[parser.IProgramContext]) {
+	for _, read := range *ctx.VarReads {
+		if !read.Var.IsComputed() || hasError(*ctx.Diagnostics, read.Var.AST) {
+			continue
+		}
+		ctx.Diagnostics.Add(codes.NotConstant.Atf(
+			read.Site,
+			"cannot read '%s': its initializer is not a compile-time constant",
+			parser.PrimaryName(read.Site),
+		))
+	}
+}
+
+// hasError reports whether an error diagnostic lies inside node.
+func hasError(diags diagnostics.Diagnostics, node antlr.ParserRuleContext) bool {
+	var span diagnostics.Diagnostic
+	span.SetRange(node)
+	return slices.ContainsFunc(diags.Errors(), func(d diagnostics.Diagnostic) bool {
+		return !before(d.Range.Start, span.Range.Start) &&
+			!before(span.Range.End, d.Range.End)
+	})
+}
+
+func before(a, b protocol.Position) bool {
+	return a.Line < b.Line || (a.Line == b.Line && a.Character < b.Character)
 }
 
 // liftReassignedVarReads lifts reassigned-variable reads in synth expressions

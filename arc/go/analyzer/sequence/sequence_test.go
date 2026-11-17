@@ -744,7 +744,7 @@ var _ = Describe("Sequence Analyzer", func() {
 						}
 					}
 				}
-			`, `an inline stage cannot have a name; remove "my_stage"`),
+			`, `an inline stage or sequence cannot have a name`),
 			Entry("named inline sequence", `
 				sequence main {
 					stage hold {
@@ -753,7 +753,7 @@ var _ = Describe("Sequence Analyzer", func() {
 						}
 					}
 				}
-			`, `an inline sequence cannot have a name; remove "my_seq"`),
+			`, `an inline stage or sequence cannot have a name`),
 		)
 	})
 
@@ -837,14 +837,14 @@ var _ = Describe("Sequence Analyzer", func() {
 						start_cmd -> stage my_stage { 1 -> abort_btn }
 					}
 				}
-			`, `an inline stage cannot have a name; remove "my_stage"`),
+			`, `an inline stage or sequence cannot have a name`),
 			Entry("named inline sequence", `
 				sequence main {
 					stage hold {
 						start_cmd -> sequence my_seq { 1 -> abort_btn }
 					}
 				}
-			`, `an inline sequence cannot have a name; remove "my_seq"`),
+			`, `an inline stage or sequence cannot have a name`),
 		)
 	})
 

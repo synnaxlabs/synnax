@@ -62,6 +62,9 @@ func Parse(
 	return ParsedValue{}, codes.InvalidLiteral.Errorf("unknown literal type")
 }
 
+// ErrTruncated marks a float literal that an integer type would truncate.
+var ErrTruncated = errors.New("non-integer float in an integer type")
+
 // ParseString parses any of the eight string literal forms ("..." / `...`
 // crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. For
 // format-prefixed strings without placeholders, {{ and }} are collapsed to
@@ -319,10 +322,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: value, Type: types.F64()}, nil
 	case types.KindI8:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Errorf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to i8",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < math.MinInt8 || intVal > math.MaxInt8 {
@@ -334,10 +337,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: int8(intVal), Type: types.I8()}, nil
 	case types.KindI16:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Errorf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to i16",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < math.MinInt16 || intVal > math.MaxInt16 {
@@ -349,10 +352,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: int16(intVal), Type: types.I16()}, nil
 	case types.KindI32:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Errorf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to i32",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < math.MinInt32 || intVal > math.MaxInt32 {
@@ -364,18 +367,18 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: int32(intVal), Type: types.I32()}, nil
 	case types.KindI64:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Errorf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to i64",
 				value,
-			)
+			), ErrTruncated))
 		}
 		return ParsedValue{Value: int64(value), Type: types.I64()}, nil
 	case types.KindU8:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Errorf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to u8",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint8 {
@@ -387,10 +390,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: uint8(intVal), Type: types.U8()}, nil
 	case types.KindU16:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Errorf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to u16",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint16 {
@@ -402,10 +405,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: uint16(intVal), Type: types.U16()}, nil
 	case types.KindU32:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Errorf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to u32",
 				value,
-			)
+			), ErrTruncated))
 		}
 		intVal := int64(value)
 		if intVal < 0 || intVal > math.MaxUint32 {
@@ -417,10 +420,10 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 		return ParsedValue{Value: uint32(intVal), Type: types.U32()}, nil
 	case types.KindU64:
 		if value != math.Trunc(value) {
-			return ParsedValue{}, codes.InvalidLiteral.Errorf(
+			return ParsedValue{}, codes.InvalidLiteral.Mark(errors.Mark(errors.Newf(
 				"cannot convert non-integer float %f to u64",
 				value,
-			)
+			), ErrTruncated))
 		}
 		if value < 0 {
 			return ParsedValue{}, codes.ConstantOverflow.Errorf(

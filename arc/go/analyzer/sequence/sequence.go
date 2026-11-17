@@ -196,20 +196,15 @@ func registerInlineBody(
 	decl antlr.ParserRuleContext,
 	counter *int,
 ) *symbol.Symbol {
-	var (
-		id   antlr.TerminalNode
-		kind string
-	)
+	var id antlr.TerminalNode
 	switch d := decl.(type) {
 	case parser.IStageDeclarationContext:
-		id, kind = d.IDENTIFIER(), "stage"
+		id = d.IDENTIFIER()
 	case parser.ISequenceDeclarationContext:
-		id, kind = d.IDENTIFIER(), "sequence"
+		id = d.IDENTIFIER()
 	}
 	if id != nil {
-		ctx.Diagnostics.Add(codes.NamedInlineBody.Atf(decl,
-			"an inline %s cannot have a name; remove %q",
-			kind, id.GetText()))
+		ctx.Diagnostics.Add(codes.NamedInlineBody.At(decl))
 		return nil
 	}
 	synth, err := parentScope.Add(ctx, symbol.Symbol{

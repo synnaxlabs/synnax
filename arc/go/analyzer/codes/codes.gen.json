@@ -115,7 +115,7 @@
   },
   "E2009": {
     "severity": "error",
-    "message": "invalid default value for input parameter <name>",
+    "message": "default value of input parameter x would be truncated",
     "problem": "A number literal is malformed, or it has no exact value in its type.",
     "example": "func f(x i32 = 1.5) {\n}"
   },
@@ -235,7 +235,7 @@
   },
   "E4004": {
     "severity": "error",
-    "message": "undefined symbol: <name>",
+    "message": "undefined symbol: y",
     "problem": "The name is not declared.",
     "example": "func f() {\n    x := y\n}"
   },
@@ -379,7 +379,7 @@
   },
   "W2002": {
     "severity": "warning",
-    "message": "values with units have a large difference in magnitude; smaller value may lose precision",
+    "message": "adding values with very different units can truncate the smaller value",
     "problem": "An operation on values with units can cause truncation or overflow.",
     "example": "func f() {\n    x := 1K + 1pK\n}"
   },

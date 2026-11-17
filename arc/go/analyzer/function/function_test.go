@@ -1221,9 +1221,13 @@ var _ = Describe("Function Analyzer", func() {
 				Entry("overflow in default value",
 					`func foo() {x i8 = 128} i8 { return x }`,
 					ContainSubstring("out of range for i8")),
-				Entry("non-integer float to int",
+				Entry(
+					"non-integer float to int",
 					`func foo() {x i32 = 3.14} i32 { return x }`,
-					ContainSubstring("cannot convert non-integer float")),
+					ContainSubstring(
+						"default value of parameter x would be truncated",
+					),
+				),
 			)
 		})
 	})

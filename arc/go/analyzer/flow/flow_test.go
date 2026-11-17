@@ -2133,10 +2133,9 @@ sequence main {
 			for _, d := range *ctx.Diagnostics {
 				msgs = append(msgs, d.Message)
 			}
-			Expect(msgs).To(ContainElement(SatisfyAll(
-				ContainSubstring("an inline stage cannot have a name"),
-				ContainSubstring(`"my_step"`),
-			)), "diagnostics: %v", msgs)
+			Expect(msgs).To(ContainElement(
+				"an inline stage or sequence cannot have a name",
+			), "diagnostics: %v", msgs)
 		})
 
 		It("Should reject a named inline sequence case body", func(bCtx SpecContext) {
@@ -2172,12 +2171,9 @@ sequence main {
 			for _, d := range *ctx.Diagnostics {
 				msgs = append(msgs, d.Message)
 			}
-			Expect(msgs).To(ContainElement(SatisfyAll(
-				ContainSubstring(
-					"an inline sequence cannot have a name",
-				),
-				ContainSubstring(`"my_seq"`),
-			)), "diagnostics: %v", msgs)
+			Expect(msgs).To(ContainElement(
+				"an inline stage or sequence cannot have a name",
+			), "diagnostics: %v", msgs)
 		})
 
 		It(
@@ -2671,12 +2667,9 @@ sequence main {
 				for _, d := range *ctx.Diagnostics {
 					msgs = append(msgs, d.Message)
 				}
-				Expect(msgs).To(ContainElement(SatisfyAll(
-					ContainSubstring(
-						"an inline stage cannot have a name",
-					),
-					ContainSubstring(`"my_step"`),
-				)), "diagnostics: %v", msgs)
+				Expect(msgs).To(ContainElement(
+					"an inline stage or sequence cannot have a name",
+				), "diagnostics: %v", msgs)
 			},
 		)
 
@@ -2704,12 +2697,9 @@ sequence main {
 				for _, d := range *ctx.Diagnostics {
 					msgs = append(msgs, d.Message)
 				}
-				Expect(msgs).To(ContainElement(SatisfyAll(
-					ContainSubstring(
-						"an inline sequence cannot have a name",
-					),
-					ContainSubstring(`"my_seq"`),
-				)), "diagnostics: %v", msgs)
+				Expect(msgs).To(ContainElement(
+					"an inline stage or sequence cannot have a name",
+				), "diagnostics: %v", msgs)
 			},
 		)
 

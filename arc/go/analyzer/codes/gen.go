@@ -105,28 +105,23 @@ func report(source string, module bool) diagnostics.Diagnostics {
 	return *diag
 }
 
-// read returns the title, problem text, and example of the Markdown file of code.
-func read(code diagnostics.ErrorCode) (title, problem, example string, err error) {
+// read returns the problem text and example of the Markdown file of code.
+func read(code diagnostics.ErrorCode) (problem, example string, err error) {
 	b, err := os.ReadFile(string(code) + ".md")
 	if err != nil {
-		return "", "", "", err
+		return "", "", err
 	}
 	problem, rest, hasExample := strings.Cut(string(b), fence+"arc\n")
 	if hasExample {
 		if example, _, hasExample = strings.Cut(rest, fence); !hasExample {
-			return "", "", "", errors.Newf("%s.md has an example with no end", code)
-		}
-	}
-	if heading, body, ok := strings.Cut(problem, "\n"); ok {
-		if t, isHeading := strings.CutPrefix(heading, "# "); isHeading {
-			title, problem = strings.TrimSpace(t), body
+			return "", "", errors.Newf("%s.md has an example with no end", code)
 		}
 	}
 	problem = strings.Join(strings.Fields(problem), " ")
 	if problem == "" {
-		return "", "", "", errors.Newf("%s.md has no problem text", code)
+		return "", "", errors.Newf("%s.md has no problem text", code)
 	}
-	return title, problem, strings.TrimRight(example, "\n"), nil
+	return problem, strings.TrimRight(example, "\n"), nil
 }
 
 func generate(k diagnostics.Kind) (kind, error) {
@@ -137,20 +132,18 @@ func generate(k diagnostics.Kind) (kind, error) {
 			k.Code,
 		)
 	}
-	title, problem, example, err := read(k.Code)
+	problem, example, err := read(k.Code)
 	if err != nil {
 		return kind{}, err
 	}
-	out := kind{Severity: severity, Message: title, Problem: problem, Example: example}
+	out := kind{Severity: severity, Problem: problem, Example: example}
 	if example == "" {
 		return out, nil
 	}
 	for _, module := range []bool{false, true} {
 		for _, d := range report(example, module) {
 			if d.Code == k.Code {
-				if title == "" {
-					out.Message = d.Message
-				}
+				out.Message = d.Message
 				return out, nil
 			}
 		}

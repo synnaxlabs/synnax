@@ -694,12 +694,10 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		}
 		if resolved.Kind == symbol.KindVariable && resolved.AST != nil &&
 			resolved.IsComputed() && inDeclaredFunction(ctx.Scope) {
-			ctx.Diagnostics.Add(codes.NotConstant.Atf(
-				ctx.AST,
-				"cannot read '%s': its initializer is not a compile-time constant",
-				parser.PrimaryName(ctx.AST),
-			))
-			return
+			*ctx.VarReads = append(
+				*ctx.VarReads,
+				context.VarRead{Var: resolved, Site: ctx.AST},
+			)
 		}
 		if tracksChannelRead(resolved) {
 			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)

@@ -77,6 +77,13 @@ type CallEdge struct {
 	ArgChannels map[int]ChannelMapping
 }
 
+// VarRead is a read of a computed top-level variable in the body of a func
+// declaration.
+type VarRead struct {
+	Var  *symbol.Symbol
+	Site parser.IPrimaryExpressionContext
+}
+
 // Context is a generic container for analysis state that flows through the semantic
 // analysis pipeline. It is parametrized over AST node types to provide type-safe
 // traversal of the parse tree.
@@ -105,6 +112,9 @@ type Context[AST antlr.ParserRuleContext] struct {
 	// CallEdges tracks function call relationships for post-analysis channel
 	// propagation.
 	CallEdges *[]CallEdge
+	// VarReads collects reads that a post-pass checks once each top-level variable
+	// has its final type.
+	VarReads *[]VarRead
 	// AST is the current AST node being analyzed.
 	AST AST
 	// TypeHint is the expected type from surrounding context for type inference.
@@ -352,6 +362,7 @@ func NewRoot[ASTNode antlr.ParserRuleContext](
 		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
 		FmtStrings:  make(parser.FmtStrings),
 		CallEdges:   &[]CallEdge{},
+		VarReads:    &[]VarRead{},
 		AST:         ast,
 	}
 }
@@ -374,6 +385,7 @@ func (ctx Context[P]) Child[N antlr.ParserRuleContext](next N) Context[N] {
 		TypeMap:             ctx.TypeMap,
 		FmtStrings:          ctx.FmtStrings,
 		CallEdges:           ctx.CallEdges,
+		VarReads:            ctx.VarReads,
 		AST:                 next,
 		TypeHint:            ctx.TypeHint,
 		InTypeInferenceMode: ctx.InTypeInferenceMode,

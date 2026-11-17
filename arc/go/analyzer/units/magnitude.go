@@ -10,8 +10,6 @@
 package units
 
 import (
-	"math"
-
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
@@ -80,13 +78,9 @@ func checkAdditiveScaleSafety[AST antlr.ParserRuleContext](
 	}
 
 	if scaleRatio >= threshold {
-		ordersMagnitude := int(math.Log10(scaleRatio))
 		ctx.Diagnostics.Add(codes.UnitPrecisionLoss.Atf(
 			ctx.AST,
-			"additive operation combines values with ~%d orders of magnitude difference (%s vs %s); smaller value may lose precision",
-			ordersMagnitude,
-			left.Unit.Name,
-			right.Unit.Name,
+			"adding values with very different units can truncate the smaller value",
 		))
 	}
 }

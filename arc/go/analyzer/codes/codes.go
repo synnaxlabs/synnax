@@ -332,6 +332,7 @@ var (
 	NamedInlineBody = diagnostics.Kind{
 		Code:     "E5008",
 		Severity: protocol.DiagnosticSeverityError,
+		Message:  "an inline stage or sequence cannot have a name",
 	}
 	// TriggerBinding is a function input with two sources or a missing parameter.
 	TriggerBinding = diagnostics.Kind{
