@@ -403,6 +403,26 @@ TEST_F(StatusTest, IsOutputTruthyDoesNotThrow) {
     EXPECT_NO_THROW({ (void) created->is_output_truthy(0); });
 }
 
+/// @brief it should make its output truthy once it queues a set, before the set
+/// resolves, and falsy again after a reset.
+TEST_F(StatusTest, OutputIsTruthyOnceQueued) {
+    this->outbox.reset();
+    auto cfg = test_client_config();
+    cfg.port = 1;
+    this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg));
+    const auto f = set_spec().config({unique_name("set_truthy_"), "msg", "info"});
+    Module module(this->outbox, noopReporter());
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+
+    auto ctx = make_context();
+    EXPECT_FALSE(created->is_output_truthy(0));
+    ASSERT_NIL(created->next(ctx));
+    EXPECT_EQ(std::get<std::string>((*f.make_node().output(0)).at(0)), "");
+    EXPECT_TRUE(created->is_output_truthy(0));
+    created->reset(ctx);
+    EXPECT_FALSE(created->is_output_truthy(0));
+}
+
 /// @brief it should warn with a reason when the outbox is full.
 TEST_F(StatusTest, WarnsWhenOutboxIsFull) {
     this->outbox.reset();

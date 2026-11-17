@@ -49,7 +49,8 @@ when it runs.
   starts.
 - Output -> the key of the status, as a `str`. A failed call gives an empty key. On a
   Driver, the key of the last set with this `key_or_name` that reached the Core, or an
-  empty key before the first.
+  empty key before the first. A sequence step on a Driver moves on once the set is
+  queued, before the Core has it.
 - Function form -> `status.set(key_or_name, message, variant) str`.
 
 Synnax looks for a status with the key first, then for one with the name. When more than

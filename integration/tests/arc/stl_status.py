@@ -263,13 +263,10 @@ class StlStatus(ArcCase):
         self.log("Firing sequence trigger: every status.set step must set its row")
         self.writer.write(TRIG_SEQ, 1)
         self.wait_for_eq(SEQ_DONE, 1)
-        for name, (variant, message) in SEQ_EXPECTED.items():
+        # On a Driver, the sets can still be queued when the sequence ends.
+        for name, key in SEQ_ROWS:
+            variant, message = SEQ_EXPECTED[name]
+            self._wait_for_row(name, key, variant, message)
             rows = self._rows(name)
             if len(rows) != 1:
                 self.fail(f"{name}: expected 1 row after sequence, got {len(rows)}")
-            row = rows[0]
-            if (row.variant, row.message) != (variant, message):
-                self.fail(
-                    f"{name}: expected step to set ({variant!r}, {message!r}), "
-                    f"got ({row.variant!r}, {row.message!r})"
-                )
