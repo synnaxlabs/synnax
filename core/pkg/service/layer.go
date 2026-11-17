@@ -1073,7 +1073,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
-	kafkaFactory, err := kafka.NewFactory(kafka.FactoryConfig{
+	kafkaFactory, err := kafka.OpenFactory(kafka.FactoryConfig{
 		Instrumentation: cfg.Child("kafka"),
 		DB:              cfg.Distribution.DB,
 		Device:          l.Device,
@@ -1082,7 +1082,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Status:          l.Status,
 		ICD:             l.ICD,
 	})
-	if !ok(err, nil) {
+	if !ok(err, kafkaFactory) {
 		return nil, err
 	}
 	mqttFactory, err := mqtt.OpenFactory(mqtt.FactoryConfig{

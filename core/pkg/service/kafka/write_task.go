@@ -132,7 +132,7 @@ type writeTask struct {
 
 var _ driver.Task = (*writeTask)(nil)
 
-func (f *factory) configureWrite(
+func (f *Factory) configureWrite(
 	ctx context.Context,
 	t task.Task,
 ) (*writeTask, error) {

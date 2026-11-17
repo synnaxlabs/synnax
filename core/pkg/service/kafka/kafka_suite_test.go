@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -157,9 +156,9 @@ var errCommit = errors.New("commit failed")
 // refuse fails the commit it intercepts.
 func refuse(func() error) error { return errCommit }
 
-func newFactory(cfgs ...kafka.FactoryConfig) driver.Factory {
+func newFactory(cfgs ...kafka.FactoryConfig) *kafka.Factory {
 	GinkgoHelper()
-	return MustSucceed(kafka.NewFactory(append([]kafka.FactoryConfig{{
+	return MustOpen(kafka.OpenFactory(append([]kafka.FactoryConfig{{
 		DB:           db,
 		Device:       deviceSvc,
 		Channel:      channelSvc,

@@ -38,9 +38,9 @@ var _ = Describe("Factory", func() {
 	var f driver.Factory
 	BeforeEach(func() { f = newFactory() })
 
-	Describe("NewFactory", func() {
+	Describe("OpenFactory", func() {
 		It("Should reject a config without a DB", func() {
-			Expect(kafka.NewFactory(kafka.FactoryConfig{
+			Expect(kafka.OpenFactory(kafka.FactoryConfig{
 				Device:  deviceSvc,
 				Channel: channelSvc,
 				Framer:  framerSvc,

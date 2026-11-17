@@ -11,6 +11,9 @@ package kafka
 
 import (
 	"context"
+	"io"
+	"slices"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -24,10 +27,14 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // scanTaskName is the name of the internal scan task the factory creates on its rack.
@@ -107,11 +114,32 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-type factory struct{ cfg FactoryConfig }
+// Factory configures the Kafka task types. A change of an ICD configures again each
+// configured read task that reads it. Safe for concurrent use.
+type Factory struct {
+	cfg FactoryConfig
+	// edited holds the ICDs that changed since the last reconfigure.
+	edited struct {
+		icds set.Set[icd.Key]
+		sync.Mutex
+	}
+	// wake signals that edited holds a key.
+	wake chan struct{}
+	// reads holds the read tasks that the driver has not stopped.
+	reads struct {
+		tasks set.Set[*readTask]
+		sync.Mutex
+	}
+	disconnect observe.Disconnect
+	shutdown   io.Closer
+}
 
-var _ driver.Factory = (*factory)(nil)
+var (
+	_ driver.Factory = (*Factory)(nil)
+	_ io.Closer      = (*Factory)(nil)
+)
 
-func (f *factory) reporter() driver.ConfigReporter {
+func (f *Factory) reporter() driver.ConfigReporter {
 	return driver.ConfigReporter{
 		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
@@ -119,20 +147,114 @@ func (f *factory) reporter() driver.ConfigReporter {
 	}
 }
 
-// NewFactory creates a driver.Factory for the Kafka scan, read, and write task types.
-func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
+// OpenFactory opens a Factory for the Kafka scan, read, and write task types. Close it
+// to stop following the changes of ICDs.
+func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &factory{cfg: cfg}, nil
+	f := &Factory{cfg: cfg, wake: make(chan struct{}, 1)}
+	f.edited.icds = make(set.Set[icd.Key])
+	f.reads.tasks = make(set.Set[*readTask])
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	sCtx.Go(f.reconfigureEdited, signal.RecoverWithErrOnPanic())
+	f.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	f.disconnect = cfg.ICD.Observe().OnChange(f.onICDChange)
+	return f, nil
+}
+
+// Close stops following the changes of ICDs.
+func (f *Factory) Close() error {
+	f.disconnect()
+	return f.shutdown.Close()
+}
+
+// onICDChange runs in the commit of an ICD change, so it hands the changed ICDs to
+// reconfigureEdited and never waits.
+func (f *Factory) onICDChange(_ context.Context, r gorp.TxReader[icd.Key, icd.ICD]) {
+	f.edited.Lock()
+	for ch := range r {
+		f.edited.icds.Add(ch.Key)
+	}
+	f.edited.Unlock()
+	select {
+	case f.wake <- struct{}{}:
+	default:
+	}
+}
+
+// reconfigureEdited configures again each read task that reads a changed ICD, until ctx
+// is cancelled. The changes that arrive while it works go into one pass, which reads
+// the latest version of each ICD.
+func (f *Factory) reconfigureEdited(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-f.wake:
+		}
+		f.edited.Lock()
+		icds := f.edited.icds
+		f.edited.icds = make(set.Set[icd.Key])
+		f.edited.Unlock()
+		for _, t := range f.readsOf(icds) {
+			f.reconfigureRead(ctx, t)
+		}
+	}
+}
+
+// readsOf returns the configured read tasks that read any of icds.
+func (f *Factory) readsOf(icds set.Set[icd.Key]) []*readTask {
+	f.reads.Lock()
+	defer f.reads.Unlock()
+	var tasks []*readTask
+	for t := range f.reads.tasks {
+		if slices.ContainsFunc(icds.Slice(), t.icds.Contains) {
+			tasks = append(tasks, t)
+		}
+	}
+	return tasks
+}
+
+// forget stops following t, which the driver stopped.
+func (f *Factory) forget(t *readTask) {
+	f.reads.Lock()
+	defer f.reads.Unlock()
+	f.reads.tasks.Remove(t)
+}
+
+// reconfigureRead configures t again with the ICDs that it reads now. When the config
+// no longer resolves, it stops t and gives it the status of a failed configure.
+func (f *Factory) reconfigureRead(ctx context.Context, t *readTask) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.mu.stopped {
+		return
+	}
+	records, groups, err := f.buildReadRecords(ctx, t.cfg)
+	if err != nil && ctx.Err() != nil {
+		return
+	}
+	t.reconfigure(records, groups, err)
+	if err == nil {
+		return
+	}
+	if stopErr, _ := t.stop(ctx, driver.NoCommand, false); stopErr != nil {
+		f.cfg.L.Error(
+			"failed to stop read task",
+			zap.Stringer("task", t.task.Key),
+			zap.Error(stopErr),
+		)
+	}
+	f.reporter().Report(ctx, t.task, driver.NoCommand, err)
 }
 
 // Name implements driver.Factory.
-func (f *factory) Name() string { return Make }
+func (f *Factory) Name() string { return Make }
 
 // InitialTasks implements driver.Factory, returning the rack's scan task.
-func (f *factory) InitialTasks() []task.Task {
+func (f *Factory) InitialTasks() []task.Task {
 	return []task.Task{{
 		Name:   scanTaskName,
 		Type:   ScanTaskType,
@@ -141,7 +263,7 @@ func (f *factory) InitialTasks() []task.Task {
 }
 
 // ConfigureTask implements driver.Factory.
-func (f *factory) ConfigureTask(
+func (f *Factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
@@ -166,11 +288,18 @@ func (f *factory) ConfigureTask(
 			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
+		f.reads.Lock()
+		f.reads.tasks.Add(rt)
+		f.reads.Unlock()
 		// A successful configure writes no status, so a start answers the command. An
 		// auto-start that fails must answer it too, since no start follows.
 		if rt.cfg.AutoStart {
-			if err := errors.Combine(rt.start(ctx, cmdKey)); err != nil {
-				return nil, err
+			rt.mu.Lock()
+			err := errors.Combine(rt.start(ctx, cmdKey))
+			rt.mu.Unlock()
+			if err != nil {
+				// The driver drops a task that fails to start, so this stops it.
+				return nil, errors.Combine(err, rt.Stop(false))
 			}
 		}
 		return rt, nil

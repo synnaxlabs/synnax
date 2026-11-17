@@ -1936,5 +1936,159 @@ var _ = Describe("Read task", func() {
 					),
 				))
 		})
+
+		Describe("ICD changes", func() {
+			var (
+				m           icd.Message
+				ic          icd.ICD
+				index, data channel.Channel
+				stamp       telem.TimeStamp
+			)
+			BeforeEach(func(ctx SpecContext) {
+				m = stampedMessage("Reading", nil)
+				ic = createICD(ctx, m)
+				index, data = createIndexed(ctx, telem.Float64T)
+				stamp = 0
+			})
+
+			// begin starts a task that reads m of ic from a new topic into index and
+			// data, and returns the topic.
+			begin := func(
+				ctx context.Context,
+				ic icd.ICD,
+				m icd.Message,
+				index, data channel.Channel,
+			) (string, driver.Task, task.Task) {
+				GinkgoHelper()
+				topic := newTopic()
+				dev := createDevice(ctx, clusterProperties())
+				dt, t := configure(ctx, kafka.ReadConfig{
+					Device:  dev.Key,
+					Topic:   topic,
+					Records: []kafka.ReadRecord{record("", ic, read(m, index, data))},
+				})
+				start(ctx, dt, t)
+				return topic, dt, t
+			}
+
+			// latest produces a value of 2 on topic and returns the last value in data.
+			latest := func(
+				ctx context.Context,
+				topic string,
+				data channel.Channel,
+			) func() float64 {
+				return func() float64 {
+					stamp += telem.SecondTS
+					produceJSON(ctx, producer, topic, "", map[string]any{
+						"ts": int64(stamp), "v": 2.0,
+					})
+					s := stored(ctx, data.Key())
+					if s.Len() == 0 {
+						return 0
+					}
+					return s.ValueAt[float64](-1)
+				}
+			}
+
+			// setScale saves an edit of the scale of the v field of m in ic.
+			setScale := func(ctx context.Context, scale float64) {
+				GinkgoHelper()
+				editICD(ctx, ic.Key, icd.NewSetAction(icd.SetPayload{
+					Path:  append(fieldsPath(m), fieldKey(m, 1).String(), "scale"),
+					Value: scale,
+				}))
+			}
+
+			// removeValue saves the removal of the v field of m from ic.
+			removeValue := func(ctx context.Context) {
+				GinkgoHelper()
+				editICD(ctx, ic.Key, icd.NewRemoveAction(icd.RemovePayload{
+					Path: fieldsPath(m),
+					Key:  fieldKey(m, 1).String(),
+				}))
+			}
+
+			It("Should read with the new definition of the ICD after a save",
+				func(ctx SpecContext) {
+					topic, _, _ := begin(ctx, ic, m, index, data)
+					Eventually(latest(ctx, topic, data)).Should(Equal(2.0))
+					setScale(ctx, 10)
+					Eventually(latest(ctx, topic, data)).Should(Equal(20.0))
+				},
+			)
+
+			It("Should keep the last stamp it wrote across a save",
+				func(ctx SpecContext) {
+					topic, _, t := begin(ctx, ic, m, index, data)
+					Eventually(latest(ctx, topic, data)).Should(Equal(2.0))
+					setScale(ctx, 10)
+					Eventually(latest(ctx, topic, data)).Should(Equal(20.0))
+					produceJSON(ctx, producer, topic, "", map[string]any{
+						"ts": 1, "v": 2.0,
+					})
+					Eventually(func() string { return taskStatus(ctx, t).Description }).
+						Should(ContainSubstring("is not after the last written"))
+				},
+			)
+
+			It("Should apply the last of several rapid saves", func(ctx SpecContext) {
+				topic, _, _ := begin(ctx, ic, m, index, data)
+				Eventually(latest(ctx, topic, data)).Should(Equal(2.0))
+				for _, scale := range []float64{3, 5, 7} {
+					setScale(ctx, scale)
+				}
+				Eventually(latest(ctx, topic, data)).Should(Equal(14.0))
+				Consistently(latest(ctx, topic, data)).
+					WithTimeout(250 * time.Millisecond).
+					Should(Equal(14.0))
+			})
+
+			It("Should stop with the status of a failed configure when a save breaks "+
+				"the task", func(ctx SpecContext) {
+				topic, dt, t := begin(ctx, ic, m, index, data)
+				Eventually(latest(ctx, topic, data)).Should(Equal(2.0))
+				removeValue(ctx)
+				Eventually(func() string { return taskStatus(ctx, t).Message }).
+					Should(Equal("Failed to configure task"))
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Details.Running).To(BeFalse())
+				Expect(f.ConfigureTask(ctx, t, "again")).Error().
+					To(MatchError(stat.Description))
+				count := stored(ctx, data.Key()).Len()
+				produceJSON(ctx, producer, topic, "", map[string]any{
+					"ts": int64(stamp + telem.SecondTS), "v": 2.0,
+				})
+				Consistently(func() int64 { return stored(ctx, data.Key()).Len() }).
+					WithTimeout(250 * time.Millisecond).
+					Should(Equal(count))
+				Expect(dt.Exec(ctx, task.Command{Type: "start", Key: "again"})).
+					To(Succeed())
+				again := taskStatus(ctx, t)
+				Expect(again.Message).To(Equal("Failed to start task"))
+				Expect(again.Description).To(Equal(stat.Description))
+			})
+
+			It("Should leave a task that reads another ICD untouched",
+				func(ctx SpecContext) {
+					otherMsg := stampedMessage("Reading", nil)
+					other := createICD(ctx, otherMsg)
+					otherIndex, otherData := createIndexed(ctx, telem.Float64T)
+					_, _, t := begin(ctx, ic, m, index, data)
+					oTopic, _, o := begin(ctx, other, otherMsg, otherIndex, otherData)
+					Eventually(latest(ctx, oTopic, otherData)).Should(Equal(2.0))
+					before := taskStatus(ctx, o)
+					removeValue(ctx)
+					Eventually(func() string { return taskStatus(ctx, t).Message }).
+						Should(Equal("Failed to configure task"))
+					Expect(taskStatus(ctx, o)).To(Equal(before))
+					count := stored(ctx, otherData.Key()).Len()
+					Eventually(func() int64 {
+						latest(ctx, oTopic, otherData)()
+						return stored(ctx, otherData.Key()).Len()
+					}).Should(BeNumerically(">", count))
+				},
+			)
+		})
 	})
 })

@@ -141,7 +141,7 @@ func validateScanConfig(cfg *ScanConfig) error {
 }
 
 // configureScan returns the scan task of t, and whether the factory starts it.
-func (f *factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
+func (f *Factory) configureScan(t task.Task) (*driver.ScanTask, bool, error) {
 	var cfg ScanConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, false, err

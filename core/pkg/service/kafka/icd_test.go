@@ -54,6 +54,19 @@ func createICD(ctx context.Context, messages ...icd.Message) icd.ICD {
 	return ic
 }
 
+// editICD saves acts to the ICD key in one transaction.
+func editICD(ctx context.Context, key icd.Key, acts ...icd.Action) {
+	GinkgoHelper()
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return icdSvc.NewWriter(tx).Apply(ctx, key, acts...)
+	})).To(Succeed())
+}
+
+// fieldsPath returns the path of the fields of m in its ICD.
+func fieldsPath(m icd.Message) []string {
+	return []string{"messages", m.Key.String(), "payload", "fields"}
+}
+
 // fieldKey returns the key of field i of m.
 func fieldKey(m icd.Message, i int) icd.FieldKey {
 	return m.Payload.Variant.(icd.JSONPayload).Fields[i].Base().Key

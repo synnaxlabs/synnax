@@ -16,6 +16,7 @@ import (
 	"io"
 	"net"
 	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -87,7 +89,9 @@ type row struct {
 	offset    int64
 }
 
-// readTask consumes a topic and writes the fields of ICD messages into channels.
+// readTask consumes a topic and writes the fields of ICD messages into channels. Its
+// factory configures it again when an ICD that it reads changes, until the driver stops
+// it.
 type readTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
@@ -118,11 +122,29 @@ type readTask struct {
 	disconnected bool
 	// marks is the offsets the current poll consumed by partition.
 	marks map[string]map[int32]kgo.EpochOffset
+	// icds holds the ICDs that the enabled records of the task read.
+	icds set.Set[icd.Key]
+	// next holds what the last configure after an ICD change resolved. The consumer
+	// adopts it before its next poll, and a start before it opens.
+	next struct {
+		records map[string]*readRecord
+		groups  []*readGroup
+		// err is the error of that configure. No run starts while it is set.
+		err error
+		sync.Mutex
+	}
+	// mu serializes commands, stops, and the configures that follow an ICD change.
+	mu struct {
+		stopped bool
+		sync.Mutex
+	}
+	// forget stops the factory from configuring the task again.
+	forget func(*readTask)
 }
 
 var _ driver.Task = (*readTask)(nil)
 
-func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, error) {
+func (f *Factory) configureRead(ctx context.Context, t task.Task) (*readTask, error) {
 	var cfg ReadConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
@@ -145,6 +167,12 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	if err != nil {
 		return nil, err
 	}
+	icds := make(set.Set[icd.Key])
+	for _, rec := range cfg.Records {
+		if !rec.Disabled {
+			icds.Add(rec.ICD)
+		}
+	}
 	return &readTask{
 		factoryCfg: f.cfg,
 		task:       t,
@@ -153,13 +181,15 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		records:    records,
 		groups:     groups,
 		marks:      map[string]map[int32]kgo.EpochOffset{cfg.Topic: {}},
+		icds:       icds,
+		forget:     f.forget,
 	}, nil
 }
 
 // buildReadRecords resolves the enabled records of cfg against their ICDs and channels.
 // It returns the records by record key and the groups of every record, and validates
 // that each group writes one even frame per record.
-func (f *factory) buildReadRecords(
+func (f *Factory) buildReadRecords(
 	ctx context.Context,
 	cfg ReadConfig,
 ) (map[string]*readRecord, []*readGroup, error) {
@@ -384,6 +414,8 @@ func (g *readGroup) bind(
 // Exec implements driver.Task. Start and stop answer the command with a status,
 // failures included, so Exec returns an error only when that status was not written.
 func (t *readTask) Exec(ctx context.Context, cmd task.Command) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	var err, answerErr error
 	switch cmd.Type {
 	case "start":
@@ -408,7 +440,40 @@ func (t *readTask) Exec(ctx context.Context, cmd task.Command) error {
 
 // Stop implements driver.Task.
 func (t *readTask) Stop(sendStatus bool) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.mu.stopped = true
+	t.forget(t)
 	return errors.Combine(t.stop(context.TODO(), driver.NoCommand, sendStatus))
+}
+
+// reconfigure hands records and groups, or the error of a configure that failed, to the
+// next poll or start.
+func (t *readTask) reconfigure(
+	records map[string]*readRecord,
+	groups []*readGroup,
+	err error,
+) {
+	t.next.Lock()
+	defer t.next.Unlock()
+	t.next.records, t.next.groups, t.next.err = records, groups, err
+}
+
+// adoptNext reads with the records of the last configure after an ICD change, when one
+// is pending, and returns the error of that configure. Each new group keeps the
+// timestamps of the group it replaces, which reads the same message into the same
+// channels.
+func (t *readTask) adoptNext() error {
+	t.next.Lock()
+	defer t.next.Unlock()
+	if t.next.records != nil {
+		for i, g := range t.next.groups {
+			g.last, g.replaying = t.groups[i].last, t.groups[i].replaying
+		}
+		t.records, t.groups = t.next.records, t.next.groups
+		t.next.records, t.next.groups = nil, nil
+	}
+	return t.next.err
 }
 
 // isRunning reports whether the consumer is up. A consumer that failed on its own sets
@@ -438,7 +503,10 @@ func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr err
 			)
 		}
 	}
-	if err = t.open(ctx); err != nil {
+	if err = t.adoptNext(); err == nil {
+		err = t.open(ctx)
+	}
+	if err != nil {
 		return err, t.status.Send(
 			ctx,
 			cmdKey,
@@ -820,6 +888,10 @@ func isConnectionErr(err error) bool {
 // process writes the records of one poll and marks them for commit once every
 // group's write is acknowledged.
 func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
+	if t.adoptNext() != nil {
+		// The factory stops the task, so the records stay uncommitted for the next run.
+		return nil
+	}
 	if t.reassigned.Swap(false) {
 		for _, g := range t.groups {
 			g.replaying = g.index != 0
