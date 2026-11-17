@@ -14,6 +14,7 @@ import (
 	"io"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -159,6 +160,8 @@ type Factory struct {
 	}
 	// wake signals that edited holds a key.
 	wake chan struct{}
+	// icdChanges counts the ICD changes that onICDChange has seen.
+	icdChanges atomic.Uint64
 	// reads holds the read tasks that the driver has not stopped.
 	reads struct {
 		tasks set.Set[*readTask]
@@ -239,6 +242,7 @@ func (f *Factory) onICDChange(_ context.Context, r gorp.TxReader[icd.Key, icd.IC
 		f.edited.icds.Add(ch.Key)
 	}
 	f.edited.Unlock()
+	f.icdChanges.Add(1)
 	f.notify()
 }
 
@@ -457,6 +461,7 @@ func (f *Factory) configureRead(
 	ctx context.Context,
 	t task.Task,
 ) (autoStarter, bool, error) {
+	changes := f.icdChanges.Load()
 	p, err := f.planRead(ctx, t)
 	if err != nil {
 		return nil, p.cfg.AutoStart, err
@@ -496,6 +501,11 @@ func (f *Factory) configureRead(
 	f.reads.Lock()
 	f.reads.tasks.Add(rt)
 	f.reads.Unlock()
+	// An ICD change that commits after planRead and before the task joins reads finds
+	// no task to configure again.
+	if f.icdChanges.Load() != changes {
+		f.reconfigureRead(ctx, rt)
+	}
 	return rt, p.cfg.AutoStart, nil
 }
 
@@ -536,14 +546,13 @@ func (f *Factory) reconfigureRead(ctx context.Context, t *readTask) {
 		return
 	}
 	t.src.configure(nil, err)
-	if err := t.ReadTask.Stop(false); err != nil {
+	if err = t.Fail(ctx, "Failed to configure task", err.Error()); err != nil {
 		f.cfg.L.Error(
 			"failed to stop read task",
 			zap.Stringer("task", t.t),
 			zap.Error(err),
 		)
 	}
-	f.reporter.Report(ctx, t.t, driver.NoCommand, err)
 }
 
 // enabledReadEntries returns the enabled entries and the channels that they name.
