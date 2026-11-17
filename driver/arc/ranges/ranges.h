@@ -39,8 +39,8 @@ namespace driver::arc::ranges {
 const std::string CREATE_FAILURE_MSG = "Failed to create range";
 const std::string END_FAILURE_MSG = "Failed to end range";
 
-/// @brief the shared state of the ranges module, which outlives a module while the
-/// outbox holds its calls. Safe for concurrent use.
+/// @brief the shared state of the ranges module. The outbox holds it only weakly, so
+/// reports stop once the module closes it. Safe for concurrent use.
 class Calls {
     /// @brief held while a report runs, which can wait on the Core.
     std::mutex report_mu;
