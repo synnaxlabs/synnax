@@ -500,9 +500,10 @@ func (b *testBroker) collected() []received {
 
 // retained returns the payloads of the retained messages that match filter.
 func (b *testBroker) retained(filter string) []string {
-	var out []string
-	for _, pk := range b.server.Topics.Messages(filter) {
-		out = append(out, string(pk.Payload))
+	messages := b.server.Topics.Messages(filter)
+	out := make([]string, len(messages))
+	for i, pk := range messages {
+		out[i] = string(pk.Payload)
 	}
 	return out
 }

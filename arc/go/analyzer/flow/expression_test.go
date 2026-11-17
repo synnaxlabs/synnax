@@ -791,11 +791,10 @@ var _ = Describe("AnalyzeComputedArgs", func() {
 	It("Should register no synth for a float constant", func(bCtx SpecContext) {
 		root := symbol.NewRoot(nil, stl.NewSymbols())
 		symbol.AutoImportModules(root)
-		var args []symbol.Argument
-		for _, src := range []string{"math.inf", "f32(-math.inf)", "-math.nan"} {
-			args = append(args, symbol.Argument{
-				Expr: MustSucceed(parser.ParseExpression(src)),
-			})
+		args := []symbol.Argument{
+			{Expr: MustSucceed(parser.ParseExpression("math.inf"))},
+			{Expr: MustSucceed(parser.ParseExpression("f32(-math.inf)"))},
+			{Expr: MustSucceed(parser.ParseExpression("-math.nan"))},
 		}
 		ctx := context.NewRoot(bCtx, args[0].Expr, root)
 		flow.AnalyzeComputedArgs(ctx, args)

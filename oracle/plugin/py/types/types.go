@@ -218,11 +218,12 @@ func generatePyFile(
 	// dependency (e.g. Functions before IR), so the trailing input order only
 	// matters inside a cycle. Any forward reference that remains is resolved by the
 	// model_rebuild() calls emitted at the end of the file.
-	var combinedTypes []resolution.Type
-	combinedTypes = append(combinedTypes, aliasTypeDefs...)
-	combinedTypes = append(combinedTypes, structs...)
-	combinedTypes = append(combinedTypes, unions...)
-	combinedTypes = append(combinedTypes, trailingTypeDefs...)
+	combinedTypes := slices.Concat(
+		aliasTypeDefs,
+		structs,
+		unions,
+		trailingTypeDefs,
+	)
 
 	sortedTypes := table.TopologicalSort(combinedTypes)
 

@@ -273,9 +273,9 @@ var _ = Describe("Is", func() {
 
 		DescribeTable("Should render an empty member as the formatter does",
 			func(want string, messages ...string) {
-				var members []error
-				for _, message := range messages {
-					members = append(members, errors.New(message))
+				members := make([]error, len(messages))
+				for i, message := range messages {
+					members[i] = errors.New(message)
 				}
 				joined := errors.Join(members...)
 				Expect(joined.Error()).To(Equal(want))
