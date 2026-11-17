@@ -29,6 +29,7 @@ describe("range slice", () => {
         version: 1,
         ranges: [],
         toolbar: { collapsed: [] },
+        staticWindows: {},
       });
     });
   });
@@ -50,6 +51,23 @@ describe("range slice", () => {
         staticKeysRewritten: true,
       });
       expect(state).toEqual({ ...Range.ZERO_SLICE_STATE, ranges: [PERSISTED] });
+    });
+
+    it("should keep the times of those ranges while line plots may hold their keys", () => {
+      const state = Range.sliceStateZ.parse({
+        version: 0,
+        ranges: [
+          {
+            variant: "static",
+            key: "local-1",
+            name: "Local 1",
+            timeRange: { start: 0, end: 1000 },
+          },
+        ],
+        staticKeysRewritten: false,
+      });
+      expect(state.ranges).toEqual([]);
+      expect(state.staticWindows).toEqual({ "local-1": { start: 0, end: 1000 } });
     });
   });
 

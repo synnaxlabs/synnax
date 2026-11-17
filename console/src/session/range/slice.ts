@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { array, narrow, TimeSpan } from "@synnaxlabs/x";
+import { array, narrow, numericTimeRangeZ, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**
@@ -113,14 +113,22 @@ export type Group = z.infer<typeof groupZ>;
 
 const toolbarStateZ = z.object({ collapsed: z.array(groupZ).default([]) });
 
-// Version 0 could also hold ranges kept only in the Console. Version 1 drops them.
+const isStatic = (r: unknown): r is Record<string, unknown> =>
+  narrow.isObject(r) && r.variant === "static";
+
+// Version 0 could also hold ranges kept only in the Console. Version 1 drops them, and
+// keeps their times only while line plots may still hold their keys.
 const migrateV0 = (raw: unknown): unknown => {
   if (!narrow.isObject(raw) || (raw.version ?? 0) !== 0) return raw;
   if (!Array.isArray(raw.ranges)) return { ...raw, version: 1 };
-  const ranges = raw.ranges.filter(
-    (r) => !narrow.isObject(r) || r.variant !== "static",
-  );
-  return { ...raw, version: 1, ranges };
+  const ranges = raw.ranges.filter((r) => !isStatic(r));
+  const staticWindows =
+    raw.staticKeysRewritten === true
+      ? {}
+      : Object.fromEntries(
+          raw.ranges.filter(isStatic).map((r) => [r.key, r.timeRange]),
+        );
+  return { ...raw, version: 1, ranges, staticWindows };
 };
 
 export const sliceStateZ = z.preprocess(
@@ -130,6 +138,11 @@ export const sliceStateZ = z.preprocess(
     /** The Core ranges the session added. The built-ins are not among them. */
     ranges: z.array(persistedStateZ).default([]),
     toolbar: toolbarStateZ.prefault({}),
+    /**
+     * The times of the ranges that Desktop 1.0 kept only in the Console, by key. Line
+     * plots may still hold those keys, which the Core cannot resolve.
+     */
+    staticWindows: z.record(z.string(), numericTimeRangeZ).default({}),
   }),
 );
 
@@ -173,8 +186,11 @@ export const { actions, reducer } = createSlice({
       toolbar.collapsed = toolbar.collapsed.filter((g) => g !== group);
       if (collapsed) toolbar.collapsed.push(group);
     },
+    clearStaticWindows: (state) => {
+      state.staticWindows = {};
+    },
   },
 });
-export const { add, remove, setGroupCollapsed } = actions;
+export const { add, remove, setGroupCollapsed, clearStaticWindows } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
