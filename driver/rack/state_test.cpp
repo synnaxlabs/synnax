@@ -146,6 +146,7 @@ TEST_P(StateModeTest, RefuseReadableStateFile) {
         err.message().find("chmod 600 " + this->path.string()),
         std::string::npos
     );
+    ASSERT_NE(err.message().find("fsGroupChangePolicy"), std::string::npos);
     ASSERT_EQ(this->mode(this->path), file_mode);
 }
 
@@ -199,10 +200,8 @@ TEST_P(StateModeTest, RefuseStateFileOfAnotherUser) {
     Config cfg;
     const auto err = cfg.load_persisted_state(this->args);
     ASSERT_OCCURRED_AS(err, STATE_ERROR);
-    ASSERT_NE(
-        err.message().find("chown root " + this->path.string()),
-        std::string::npos
-    );
+    ASSERT_NE(err.message().find("Run the Driver as nobody"), std::string::npos);
+    ASSERT_EQ(err.message().find("chown"), std::string::npos);
 #endif
 }
 
