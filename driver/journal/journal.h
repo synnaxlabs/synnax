@@ -44,14 +44,14 @@ constexpr std::uint8_t SKIPPABLE = 0x80;
 /// @brief the largest payload of one record.
 constexpr std::uint32_t MAX_PAYLOAD = 64 * 1024 * 1024;
 
-/// @brief a file has bytes that are not valid records, other than a torn tail.
-const x::errors::Error CORRUPT = ERROR.sub("corrupt");
+/// @brief a file start is not valid, or a record that passes its checksum is not.
+const x::errors::Error CORRUPT = BASE_ERROR.sub("corrupt");
 /// @brief a file starts with the magic of a different kind of file.
-const x::errors::Error UNKNOWN_MAGIC = ERROR.sub("unknown_magic");
+const x::errors::Error UNKNOWN_MAGIC = BASE_ERROR.sub("unknown_magic");
 /// @brief a file has a format version this Driver cannot read.
-const x::errors::Error UNKNOWN_VERSION = ERROR.sub("unknown_version");
+const x::errors::Error UNKNOWN_VERSION = BASE_ERROR.sub("unknown_version");
 /// @brief a file has a record type the reader does not know and cannot skip.
-const x::errors::Error UNKNOWN_TYPE = ERROR.sub("unknown_type");
+const x::errors::Error UNKNOWN_TYPE = BASE_ERROR.sub("unknown_type");
 
 /// @brief the start of a file.
 struct Header {
@@ -96,12 +96,15 @@ class Writer {
     WriterConfig cfg;
     std::unique_ptr<File> file;
     std::uint64_t size = 0;
+    std::uint64_t cut_bytes = 0;
     std::uint64_t unsynced = 0;
     x::telem::TimeStamp last_sync;
+    /// @brief stops writes after a write, sync, or close.
     x::errors::Error failed;
+    /// @brief stops syncs, because the OS can drop the pages of a failed sync.
+    x::errors::Error sync_failed;
 
     Writer(WriterConfig cfg, std::unique_ptr<File> file, std::uint64_t size);
-    x::errors::Error fail(const x::errors::Error &err);
 
 public:
     Writer(const Writer &) = delete;
@@ -109,16 +112,19 @@ public:
     /// @brief closes the writer and drops the error of close.
     ~Writer();
 
-    /// @brief opens the file of the config, or creates it with only a file start.
-    /// The writer cuts a torn tail from an existing file, and appends after the last
-    /// valid record.
-    /// @returns UNKNOWN_MAGIC or UNKNOWN_VERSION when the file start is not one this
-    /// writer writes. CORRUPT when the file has invalid bytes before its tail.
+    /// @brief opens the file of the config, or creates it with only a file start,
+    /// and locks the file. The writer cuts an existing file at its first record that
+    /// is cut off or fails its checksum, and appends after the records before it.
+    /// @returns LOCKED when another writer has the file open. UNKNOWN_MAGIC or
+    /// UNKNOWN_VERSION when the file start is not one this writer writes. CORRUPT
+    /// when the file start is cut off, or a record that passes its checksum has type
+    /// 0.
     static std::pair<std::unique_ptr<Writer>, x::errors::Error> open(WriterConfig cfg);
 
     /// @brief appends a record, and syncs the file when a sync is due.
     /// @returns an error when the file fails to write or sync. Then the writer
-    /// returns that error from all later calls, and the next open cuts the tail.
+    /// refuses all later writes. After a sync error, records written before it can be
+    /// lost.
     x::errors::Error write(const Record &record);
 
     /// @brief syncs the file when a sync is due. Call it when no writes come, so the
@@ -128,11 +134,16 @@ public:
     /// @brief syncs the file to the disk.
     x::errors::Error sync();
 
-    /// @brief syncs and closes the file. Later calls to the writer return an error.
+    /// @brief syncs and closes the file. It also syncs after a write error. Later
+    /// calls to the writer return an error.
     x::errors::Error close();
 
     /// @returns the byte position after the last record written.
     [[nodiscard]] std::uint64_t pos() const;
+
+    /// @returns the number of bytes that open cut from the end of the file. It is not
+    /// 0 only after a crash or a power loss, or when the file was damaged.
+    [[nodiscard]] std::uint64_t cut() const;
 };
 
 /// @brief the configuration of a reader.
@@ -156,11 +167,10 @@ class Reader {
     ReaderConfig cfg;
     std::ifstream file;
     std::uint64_t size = 0;
-    bool torn_tail = false;
+    std::uint64_t cut_bytes = 0;
 
     explicit Reader(ReaderConfig cfg);
     std::pair<std::optional<Record>, x::errors::Error> next_record();
-    [[nodiscard]] bool zero_after(std::uint64_t pos);
 
 public:
     /// @brief the start of the file.
@@ -171,18 +181,19 @@ public:
     /// valid. CORRUPT when pos is outside the records of the file.
     static std::pair<std::unique_ptr<Reader>, x::errors::Error> open(ReaderConfig cfg);
 
-    /// @brief reads the next record. A record that passes its checksum always
-    /// returns. A record that is cut off at the end of the file, or that fails its
-    /// checksum with only zeros after it, is a torn tail and ends the file.
+    /// @brief reads the next record. The first record that is cut off or fails its
+    /// checksum ends the file, as a crash or a power loss leaves it. cut() then
+    /// returns the number of bytes from that record to the end of the file.
     /// @returns the record, or std::nullopt at the end of the file. CORRUPT when a
-    /// record fails its checksum before the tail, or has type 0. UNKNOWN_TYPE when
-    /// a record has an unknown type without the SKIPPABLE bit.
+    /// record that passes its checksum has type 0. UNKNOWN_TYPE when a record has an
+    /// unknown type without the SKIPPABLE bit.
     std::pair<std::optional<Record>, x::errors::Error> next();
 
     /// @returns the byte position after the last record read or skipped.
     [[nodiscard]] std::uint64_t pos() const;
 
-    /// @returns true when the reader found a torn tail at the end of the file.
-    [[nodiscard]] bool torn() const;
+    /// @returns the number of bytes after the last valid record that the reader did
+    /// not read, or 0 when every byte of the file is a valid record.
+    [[nodiscard]] std::uint64_t cut() const;
 };
 }

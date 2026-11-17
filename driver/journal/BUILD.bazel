@@ -58,6 +58,7 @@ cc_test(
     deps = [
         ":journal",
         "//x/cpp/testutil",
+        "@abseil-cpp//absl/crc:crc32c",
         "@googletest//:gtest_main",
     ],
 )
