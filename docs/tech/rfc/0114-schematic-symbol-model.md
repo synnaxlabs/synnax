@@ -131,6 +131,10 @@ Look struct {
     stroke Paint?
     hidden bool?
     motion Motion?
+    blink  Blink?
+}
+Blink struct {
+    period telem.TimeSpan = 1000000000 { @ts type telem.NumericTimeSpan }
 }
 Condition union on type {
     equals {
@@ -152,9 +156,6 @@ Motion union on type {
     flow {
         rate  telem.Rate = 0.5 { @ts type "number" }
         state string?
-    }
-    blink {
-        period telem.TimeSpan = 1000000000 { @ts type telem.NumericTimeSpan }
     }
     level {
         state string
@@ -257,19 +258,21 @@ no source, or with a `channel` source that has no `key`, draws its default entry
 fraction 0 for a number state, with no indicator. The binding holds the number format,
 as each readout does today (`schemas/synnax/schematic.oracle:1224-1249`).
 
-Looks apply in order, and a later look wins on each field it sets. Stale data keeps the
-last state's looks and adds the stale indicator. Pluto then draws pending, hover,
-pressed, and the hold fill. A symbol stores no indicators: Pluto draws the stale,
-unknown, and other indicators on top of the looks. Only a number state drives motion,
-and the Core refuses a motion whose `state` names an enumeration state. A number state
-drives motion as a fraction of its bounds, clamped to 0 to 1. A number state is unknown
-for no data and NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink`
-stop while a state that their look reads, in `when` or `state`, is stale or unknown,
-under the operating system's Reduce motion setting, and on a node with
-`motion_disabled`. Under these two settings, a `level`, `rotate`, or `move` jumps to
-each new fraction with no transition. While its state is stale, it keeps its last
-fraction. While it is unknown, it draws fraction 0, which is `from` or an empty `level`,
-with the unknown indicator. A blink stays under three flashes per second.
+Looks apply in order, and a later look wins on each field it sets. Look fields are
+optional, so an absent field, such as `hidden`, means that the look does not set it, as
+`switched bool?` does in `schemas/x/color.oracle`. Stale data keeps the last state's
+looks and adds the stale indicator. Pluto then draws pending, hover, pressed, and the
+hold fill. A symbol stores no indicators: Pluto draws the stale, unknown, and other
+indicators on top of the looks. Only a number state drives motion, and the Core refuses
+a motion whose `state` names an enumeration state. A number state drives motion as a
+fraction of its bounds, clamped to 0 to 1. A number state is unknown for no data and
+NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink` stop while a
+state that their look reads, in `when` or `state`, is stale or unknown, under the
+operating system's Reduce motion setting, and on a node with `motion_disabled`. Under
+these two settings, a `level`, `rotate`, or `move` jumps to each new fraction with no
+transition. While its state is stale, it keeps its last fraction. While it is unknown,
+it draws fraction 0, which is `from` or an empty `level`, with the unknown indicator. A
+blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
@@ -309,11 +312,15 @@ custom symbol in use refuses the delete, and the dialog lists its schematics. A 
 file is never edited: a node changes a built-in through its label, color, size,
 rotation, enumeration, match, and default, and a site through RFC 0112 enumerations and
 named colors. "Duplicate as custom" copies a built-in into a new custom symbol, and
-"Change symbol" moves nodes to another symbol by binding key. Binding channels are Gorp
-references with `@ref on_delete detach`. A channel delete clears the channel of a
-`channel` source and keeps the binding with its enumeration, match, and format, and it
-removes a `CommandBinding`. A schematic import drops channel keys that name no channel
-the same way, as a line plot import does (`core/pkg/service/lineplot/imex.go:61`).
+"Change symbol" moves nodes to another symbol by binding key. Its confirm lists the
+bindings whose key the new symbol lacks, the overrides that do not fit the new type, and
+the `CommandBinding`s of commands that have a state there, and the move removes them, as
+a symbol save does. A later step that maps old keys to new ones is UI alone, with no
+shape change. Binding channels are Gorp references with `@ref on_delete detach`. A
+channel delete clears the channel of a `channel` source and keeps the binding with its
+enumeration, match, and format, and it removes a `CommandBinding`. A schematic import
+drops channel keys that name no channel the same way, as a line plot import does
+(`core/pkg/service/lineplot/imex.go:61`).
 
 The Core checks every save. It refuses a symbol with a duplicate key in a list, a key
 that names no part, state, or command, an `entry` paint or `equals` condition on a
@@ -371,15 +378,19 @@ clicks open the menu, because the command channel then disagrees with the state.
 built-in state with two entries ships `within` 0.9 to 1.1, so a toggle, and a light with
 no `threshold`, gets no binding `match`. A light whose `threshold` differs from those
 bounds gets it as its binding `match`, and an inverted `threshold` is swapped, as
-today's check swaps it. With these matches, each migrated toggle and light reads every
-number as it does today. The light's `on_color` moves to an enumeration. `stroke_color`
-becomes `color`, `staleness_color` goes, the time fields keep their values, and
-`state_overrides` become enumerations by RFC 0112 §4.6. The migration ends with
-`gorp.DanglingMigration`, as line plots do (`core/pkg/service/lineplot/migrate.go:24`),
-so the key of a deleted channel clears its channel or removes its `CommandBinding`. RFC
-0112 phase 22 turns the region color looks of a custom symbol into `entry` looks, and
-gives each node whose overrides change its colors its own enumeration, or a copy of its
-symbol when an enumeration cannot carry them, so no node changes its look.
+today's check swaps it. A light whose `threshold` is empty after the swap, with `lower`
+equal to `upper`, gets no binding `match`, so it uses the spec's `within` 0.9 to 1.1,
+and the migration logs a warning that names it and its schematic. This is the one place
+where the migration changes what a user sees, because such a light can never turn on
+today. Every other migrated toggle and light reads every number as it does today. The
+light's `on_color` moves to an enumeration. `stroke_color` becomes `color`,
+`staleness_color` goes, the time fields keep their values, and `state_overrides` become
+enumerations by RFC 0112 §4.6. The migration ends with `gorp.DanglingMigration`, as line
+plots do (`core/pkg/service/lineplot/migrate.go:24`), so the key of a deleted channel
+clears its channel or removes its `CommandBinding`. Phase 1 has already given each
+custom symbol its default enumeration and `entry` looks, so phase 2 gives each node
+whose overrides change its colors its own enumeration, or a copy of its symbol when an
+enumeration cannot carry them, so no node changes its look.
 
 Each built-in gets the enumeration and command names of its family. A normally open
 `solenoid_valve` becomes a second built-in, whose Open is `deactivate` and writes 0.
@@ -402,13 +413,15 @@ adds a symbol with its key.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each distinct pair of region
 key and selector set becomes a part, state `i` becomes value `i` of one state `active`
-with default 0, the old state list stays on the symbol for RFC 0112 phase 22, and each
-region color becomes a look on that value. A region key whose selectors differ between
-states becomes two parts with their own keys, and the looks follow the parts. A selector
-that is not a name resolves against the drawing, and each match gets a `data-region-id`.
-A stored actuator, and a static symbol that a `custom_actuator` node uses, get `within`
-0.9 to 1.1 on `active`, the `fixed` commands `deactivate` for value 0 and `activate` for
-value 1, named Off and On, and `next` on the whole drawing.
+with default 0, and each region color becomes a look on that value. The state gets a
+default enumeration with an entry for each old state, with its name, and the looks
+become `entry` looks where no look changes, both by RFC 0112 §4.6. A region key whose
+selectors differ between states becomes two parts with their own keys, and the looks
+follow the parts. A selector that is not a name resolves against the drawing, and each
+match gets a `data-region-id`. A stored actuator, and a static symbol that a
+`custom_actuator` node uses, get `within` 0.9 to 1.1 on `active`, the `fixed` commands
+`deactivate` for value 0 and `activate` for value 1, named Off and On, and `next` on the
+whole drawing.
 
 ## 5 What this RFC does not cover
 
@@ -424,16 +437,16 @@ value 1, named Off and On, and `next` on the whole drawing.
 
 The renderer parity work (SY-6054) is done: every built-in except `light` and `switch`
 draws through `Custom.Drawing` from a built-in spec, and phase 1 adds specs for those
-two. The named color record (RFC 0112 phase 3) is merged, so phase 1 waits on nothing
-outstanding. Phase 1 stores the `Spec` fields of §4.1 except `enumeration`, which RFC
-0112 phase 19 adds with the enumeration record, and adds the symbol checks of §4.4. It
-moves the symbol editor and the clients to the new shape, and phase 3 redesigns the
-editor. Until phase 2 deletes them, it keeps `variant`, which picks the node variant on
-placement, and today's state shape, under its own name, for `state_overrides` and for
-the old state list of each stored custom symbol, which RFC 0112 phase 22 reads for entry
-names. Phase 2 needs RFC 0112 phase 22, whose function its node migration calls, and
-ships with RFC 0112 phases 19 to 22. Each family is redesigned after phase 5 in its own
-PR.
+two. The named color record (RFC 0112 phase 3) is merged. Phase 1 waits on RFC 0112
+phases 13 to 15, the enumeration record, its API and built-ins, and its clients and
+Pluto queries, because its migration writes enumerations and its editor shows entry
+names. Phase 1 stores the `Spec` fields of §4.1 and adds the symbol checks of §4.4. It
+adds the function that turns a state list into an enumeration (RFC 0112 §4.6), and its
+migration writes the default enumeration of each custom symbol with it. It moves the
+symbol editor and the clients to the new shape, and phase 3 redesigns the editor. Until
+phase 2 deletes them, it keeps `variant`, which picks the node variant on placement, and
+today's state shape, under its own name, for `state_overrides`. Phase 2 ships with RFC
+0112 phases 19 to 22. Each family is redesigned after phase 5 in its own PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant with channel references,
 its checks with the Core list of built-ins and its route, the removal of the bindings
@@ -445,13 +458,13 @@ variants. It is larger than a usual PR because no smaller step leaves one node s
 overrides in it. Phase 5 starts with the WebKit benchmark, and no built-in moves until
 it passes at 1,000 moving parts.
 
-| Phase | Scope                                                    | Touches                                                                                                                                         | Depends on |
-| ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Store parts, states, commands, and looks on all specs    | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`, `console/src/feature/schematic/symbol`, `client/ts`, `client/py`  | -          |
-| 2     | Replace equipment variants with one `symbol` variant     | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/api/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature` | 1          |
-| 3     | Edit parts and looks, duplicate built-ins, confirm saves | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                     | 2          |
-| 4     | Edit states, commands, and clicks                        | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                     | 2, 3       |
-| 5     | Benchmark motion in WebKit, then draw it                 | `pluto/src/schematic/node/common/custom`                                                                                                        | 2          |
+| Phase | Scope                                                    | Touches                                                                                                                                                                        | Depends on |
+| ----- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| 1     | Store parts, states, commands, and looks on all specs    | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `core/pkg/service/enumeration`, `pluto/src/schematic`, `console/src/feature/schematic/symbol`, `client/ts`, `client/py` | -          |
+| 2     | Replace equipment variants with one `symbol` variant     | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/api/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature`                                | 1          |
+| 3     | Edit parts and looks, duplicate built-ins, confirm saves | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                    | 2          |
+| 4     | Edit states, commands, and clicks                        | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                    | 2, 3       |
+| 5     | Benchmark motion in WebKit, then draw it                 | `pluto/src/schematic/node/common/custom`                                                                                                                                       | 2          |
 
 ## 7 Resolved decisions
 
@@ -499,10 +512,14 @@ it passes at 1,000 moving parts.
     data or NaN draws fraction 0, as an enumeration state draws its default entry, and
     never shows an old value as current. The trade is real: an empty-looking part can be
     misread at a glance, so the unknown indicator carries the warning.
-19. **A symbol save removes the bindings and overrides that it orphans**: The save
-    confirm lists them, and the Core removes them in the same transaction, so the node
-    check never accepts unknown keys or overrides of the wrong type. The trade is real:
-    when a user adds the state again, they link its channels again.
+19. **A symbol save and "Change symbol" remove the bindings and overrides that they
+    orphan**: The confirm lists them, and the Core removes them in the same transaction,
+    so the node check never accepts unknown keys or overrides of the wrong type. The
+    trade is real: when a user adds the state again, they link its channels again.
+20. **An empty light threshold takes the spec's match**: Today such a light can never
+    turn on, so the migration gives it `within` 0.9 to 1.1 and logs a warning that names
+    it. The trade is real: it is the one place where the migration changes what a user
+    sees.
 
 ## 8 Open questions
 
