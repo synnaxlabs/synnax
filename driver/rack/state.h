@@ -19,9 +19,9 @@ namespace driver::rack::state {
 std::filesystem::path machine_dir();
 
 /// @brief returns the directory for data the Driver keeps across restarts, such as the
-/// outbox, and creates it when missing. On Linux, the Driver of the computer keeps it
-/// in the directory that systemd gives the service user, so a Driver that updates
-/// itself can write it. Elsewhere it is state_dir.
+/// outbox. On Linux, the Driver service keeps it in the directory that systemd gives
+/// the service user, so a Driver that updates itself can write it. Elsewhere, and for
+/// root, it is state_dir.
 std::pair<std::filesystem::path, x::errors::Error>
 data_dir(const std::filesystem::path &state_dir);
 
