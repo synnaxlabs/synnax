@@ -115,8 +115,6 @@ export type Group = z.infer<typeof groupZ>;
 
 const toolbarStateZ = z.object({ collapsed: z.array(groupZ).default([]) });
 
-export interface ToolbarState extends z.infer<typeof toolbarStateZ> {}
-
 // Version 0 could also hold ranges kept only in the Console. Version 1 drops them.
 const migrateV0 = (raw: unknown): unknown => {
   if (!narrow.isObject(raw) || (raw.version ?? 0) !== 0) return raw;
