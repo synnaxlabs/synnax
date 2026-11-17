@@ -62,8 +62,9 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("lineplot"))
 			Expect(env.Name).To(Equal("exported"))
 
+			wire := WireRoundTrip(env)
 			decoded := MustSucceed(
-				WireRoundTrip(env).Decode[lineplot.LinePlot](),
+				wire.Decode[lineplot.LinePlot](),
 			)
 			Expect(decoded.Name).To(Equal("exported"))
 		})

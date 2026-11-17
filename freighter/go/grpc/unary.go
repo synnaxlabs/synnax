@@ -118,9 +118,9 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 					Role:     iCtx.Role,
 				}
 				if err != nil {
-					p := &errors.Payload{}
-					p.Unmarshal(status.Convert(err).Message())
-					return oCtx, errors.Decode(*p)
+					return oCtx, errors.Decode(
+						errors.ParsePayload(status.Convert(err).Message()),
+					)
 				}
 				res, err = u.ResponseTranslator.Backward(iCtx, tRes)
 				return oCtx, err
