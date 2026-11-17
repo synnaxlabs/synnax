@@ -565,7 +565,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({ path, read, fields, device 
   );
 };
 
-/** The data types that a channel of a field of each kind can take. */
+/** @returns the data types that a channel of a field of the kind cannot take. */
 const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
   DataType.ALL.filter((dt) => !ICD.converts(kind, dt.toString()));
 

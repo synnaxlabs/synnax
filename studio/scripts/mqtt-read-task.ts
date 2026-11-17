@@ -30,11 +30,14 @@ export default serverTaskScript(MQTT, {
     await pickValues(session, dialog, ["temperature", "pressure"]);
     await submitDiscover(session, dialog, form, "Add 2 fields");
 
-    const temperature = form.locator(".console-mqtt-read-binding").filter({
+    const temperature = form.getByRole("treeitem").filter({
       has: form.getByRole("checkbox", { name: "Read temperature", exact: true }),
     });
     await session.waitFor(temperature);
+    await session.click(temperature.getByText("temperature", { exact: true }), {
+      text: true,
+    });
     await session.hold(800);
-    await choose(session, temperature, "Data type", "float32", { search: true });
+    await choose(session, form, "Data type", "float32", { search: true });
   },
 });
