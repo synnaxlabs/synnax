@@ -409,6 +409,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-ts
       directory: client/ts
+      examples_package: "@synnaxlabs/client-examples"
       package: client
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -56,12 +56,13 @@ password `seldon`. Replace these values in the script. For Synnax Desktop, use t
 [Connect to Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop). For a
 Core in Synnax Enterprise, use its address and your credentials.
 
-From the `client/ts/examples/node` folder, install the client that matches the version
-of your Core, then run a script. Change `0.61` to the major and minor version of your
-Core:
+Copy the scripts into a new folder. In that folder, install the client that matches the
+version of your Core, then run a script. Change `0.61` to the major and minor version of
+your Core:
 
 ```bash
-npm install
+npm init -y
+npm pkg set type=module
 npm install @synnaxlabs/client@~0.61.0
 node basicReadWrite.js
 ```
