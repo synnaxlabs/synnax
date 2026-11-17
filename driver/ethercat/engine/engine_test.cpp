@@ -695,6 +695,26 @@ TEST_F(EngineTest, StopTakesEachFrameInFlight) {
     EXPECT_EQ(std::ranges::count(log, "receive"), std::ranges::count(log, "send"));
 }
 
+/// @brief it should send the stop values only after it takes each frame in flight, as
+/// a master that keeps no frames in flight takes the frames of all its sends at once.
+TEST_F(EngineTest, StopSendsTheStopValuesAfterEachFrameInFlight) {
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, static_cast<int16_t>(-7)}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    writer.reset();
+    ASSERT_FALSE(this->engine->running());
+    std::vector<std::string> cycles;
+    for (const auto &call: this->master->call_log())
+        if (call == "send" || call == "receive") cycles.push_back(call);
+    const auto two_sends = std::ranges::adjacent_find(
+        cycles,
+        [](const auto &a, const auto &b) { return a == "send" && b == "send"; }
+    );
+    EXPECT_EQ(two_sends, cycles.end());
+}
+
 /// @brief it should keep the stop value a closed writer left on an output until a new
 /// writer commands the output.
 TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {
