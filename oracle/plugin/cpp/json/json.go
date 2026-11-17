@@ -632,6 +632,33 @@ func (f fieldParser) plain(cppType string) string {
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, f.jsonName)
 }
 
+// required parses a field with no fallback. A required string or number field also
+// refuses its zero value, as Go and TypeScript do.
+func (f fieldParser) required() string {
+	return fmt.Sprintf(
+		`parser.%s<%s>("%s")`,
+		fieldFunc(f.field, f.data.table),
+		f.cppType,
+		f.jsonName,
+	)
+}
+
+// fieldFunc returns the parser method that reads field.
+func fieldFunc(field resolution.Field, table *resolution.Table) string {
+	// The Core mints a key, so a client sends its zero value on create.
+	_, isKey := field.Domains["key"]
+	if isKey || field.Optional ||
+		!validation.FieldRules(field, table).Required {
+		return "field"
+	}
+	base := resolution.PrimitiveBase(field.Type, table)
+	if resolution.IsPrimitive(base) &&
+		(resolution.IsStringPrimitive(base) || resolution.IsNumberPrimitive(base)) {
+		return "required_field"
+	}
+	return "field"
+}
+
 func (f fieldParser) withFallback(cppType, fallback string) string {
 	return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, f.jsonName, fallback)
 }
@@ -830,7 +857,7 @@ func (f fieldParser) primitive() string {
 			return f.withFallback(f.cppType, defaultVal)
 		}
 	}
-	return f.plain(f.cppType)
+	return f.required()
 }
 
 func (f fieldParser) other() string {
@@ -841,7 +868,7 @@ func (f fieldParser) other() string {
 		return f.plain(fmt.Sprintf("std::optional<%s>", f.cppType))
 	}
 	if !f.hasDefault {
-		return f.plain(f.cppType)
+		return f.required()
 	}
 	if defaultVal := jsonDefaultLiteral(f.field, f.data.table); defaultVal != "" {
 		// Hand-written distinct types such as x::telem::Rate and x::telem::DataType
@@ -856,7 +883,7 @@ func (f fieldParser) other() string {
 	if fallback := f.compositeFallback(f.field, f.cppType, f.data); fallback != "" {
 		return f.withFallback(f.cppType, fallback)
 	}
-	return f.plain(f.cppType)
+	return f.required()
 }
 
 // compositeFallback renders a struct or array default as a value of cppType. It returns
