@@ -96,6 +96,21 @@ x::errors::Error give_opcua_dir(const int dir_fd, const passwd &user) {
         return errno_error("failed to give OPC UA directory to the service user");
     return x::errors::NIL;
 }
+
+std::string user_name(const uid_t uid) {
+    const passwd *user = getpwuid(uid);
+    return user != nullptr ? std::string(user->pw_name) : std::to_string(uid);
+}
+
+/// @brief returns whether the Driver may write its API key to a file that uid owns:
+/// its own file, or, as root, the file that root gives to the Linux service user.
+bool trusted_owner(const uid_t uid) {
+    const auto self = geteuid();
+    if (uid == self) return true;
+    if (self != 0) return false;
+    const passwd *service_user = getpwnam("synnax");
+    return service_user != nullptr && uid == service_user->pw_uid;
+}
 }
 
 fs::path machine_dir() {
@@ -133,6 +148,13 @@ x::errors::Error prepare(const fs::path &path) {
     }
     struct stat st{};
     if (fstat(file.fd, &st) != 0) return errno_error("failed to read state file");
+    if (!trusted_owner(st.st_uid))
+        return x::errors::Error(
+            STATE_ERROR,
+            user_name(st.st_uid) + " owns the state file " + path.string() +
+                ". Run 'chown " + user_name(geteuid()) + " " + path.string() +
+                "', then start the Driver again"
+        );
     if ((st.st_mode & (S_IRGRP | S_IROTH)) != 0)
         return x::errors::Error(
             STATE_ERROR,

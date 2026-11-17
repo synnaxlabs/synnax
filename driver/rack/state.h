@@ -23,7 +23,8 @@ std::filesystem::path user_dir();
 
 /// @brief prepares the state file at path for a Driver run, and never changes the mode
 /// or owner of a path that exists. Returns an error when the state directory or file is
-/// a link, or when other users can read the state file. On Windows, it creates a
+/// a link, when other users can read the state file, or when another user owns it. Root
+/// also accepts a state file that the Linux service user owns. On Windows, it creates a
 /// missing state directory of the computer for LocalSystem and the administrators
 /// alone.
 x::errors::Error prepare(const std::filesystem::path &path);

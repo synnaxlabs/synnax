@@ -14,6 +14,7 @@
 #include <vector>
 
 #ifndef _WIN32
+#include <pwd.h>
 #include <unistd.h>
 #endif
 
@@ -183,6 +184,26 @@ TEST_P(StateModeTest, SecureStateFileKeepsDir) {
     ASSERT_NIL(Config::secure_persisted_state(this->args));
     ASSERT_EQ(this->mode(dir), dir_mode);
     ASSERT_FALSE(fs::exists(dir / OPCUA_STATE_DIR));
+}
+
+/// @brief it should refuse a state file that another user owns.
+TEST_P(StateModeTest, RefuseStateFileOfAnotherUser) {
+#ifndef _WIN32
+    if (geteuid() != 0) GTEST_SKIP() << "only root can give a file to another user";
+    const passwd *nobody = getpwnam("nobody");
+    if (nobody == nullptr) GTEST_SKIP() << "no nobody user";
+    fs::create_directories(this->path.parent_path());
+    std::ofstream(this->path) << "{}";
+    fs::permissions(this->path, fs::perms::owner_read | fs::perms::owner_write);
+    ASSERT_EQ(chown(this->path.c_str(), nobody->pw_uid, nobody->pw_gid), 0);
+    Config cfg;
+    const auto err = cfg.load_persisted_state(this->args);
+    ASSERT_OCCURRED_AS(err, STATE_ERROR);
+    ASSERT_NE(
+        err.message().find("chown root " + this->path.string()),
+        std::string::npos
+    );
+#endif
 }
 
 /// @brief it should refuse a readable state file given by a bare file name.
