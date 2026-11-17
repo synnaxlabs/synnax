@@ -151,7 +151,7 @@ func compileElseIfClauses(
 		ctx.Writer.WriteElse()
 		_, err := expression.Compile(elseIfCtx.Child(elseIfClause.Expression()))
 		if err != nil {
-			return elseIfCtx, false, errors.Wrapf(
+			return context.Context[parser.IIfStatementContext]{}, false, errors.Wrapf(
 				err,
 				"failed to compile else-if[%d] condition",
 				i,
@@ -161,7 +161,7 @@ func compileElseIfClauses(
 		elseIfCtx = elseIfCtx.EnterBlock()
 		elseIfDiverged, err := CompileBlock(elseIfCtx.Child(elseIfClause.Block()))
 		if err != nil {
-			return elseIfCtx, false, errors.Wrapf(
+			return context.Context[parser.IIfStatementContext]{}, false, errors.Wrapf(
 				err,
 				"failed to compile else-if[%d] block",
 				i,

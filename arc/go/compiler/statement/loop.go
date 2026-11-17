@@ -203,7 +203,7 @@ func compileRangeInit(
 	}
 	if startExpr != nil {
 		if _, err := expression.Compile(ctx.Child(startExpr)); err != nil {
-			return r, err
+			return rangeLoop{}, err
 		}
 	} else {
 		emitZero(ctx.Writer, r.varType)
@@ -211,11 +211,11 @@ func compileRangeInit(
 	ctx.Writer.WriteLocalSet(r.varIdx)
 	limitSym, err := loopScope.Resolve(ctx, "__for_limit")
 	if err != nil {
-		return r, err
+		return rangeLoop{}, err
 	}
 	r.limitIdx = limitSym.ID
 	if _, err = expression.Compile(ctx.Child(endExpr)); err != nil {
-		return r, err
+		return rangeLoop{}, err
 	}
 	ctx.Writer.WriteLocalSet(r.limitIdx)
 	if stepExpr == nil {
@@ -224,11 +224,11 @@ func compileRangeInit(
 	r.hasStep = true
 	stepSym, err := loopScope.Resolve(ctx, "__for_step")
 	if err != nil {
-		return r, err
+		return rangeLoop{}, err
 	}
 	r.stepIdx = stepSym.ID
 	if _, err = expression.Compile(ctx.Child(stepExpr)); err != nil {
-		return r, err
+		return rangeLoop{}, err
 	}
 	ctx.Writer.WriteLocalSet(r.stepIdx)
 	return r, nil
