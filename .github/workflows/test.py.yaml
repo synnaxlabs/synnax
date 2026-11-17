@@ -199,8 +199,8 @@ jobs:
         shell: bash
         run: echo 'PYTEST_ADDOPTS=-m "not core"' >> "$GITHUB_ENV"
 
-      # Without a limit, a hung test run holds the job for up to 6 hours. Only Python 3.15
-      # measures coverage.
+      # Without a limit, a hung test run holds the job for up to 6 hours. Only Python
+      # 3.15 measures coverage.
       - name: Test
         if: inputs.test && (inputs.coverage_module == '' || matrix.python != '3.15')
         timeout-minutes: 5
