@@ -14,18 +14,18 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { deep, type record, strings, verbs } from "@synnaxlabs/x";
+import { deep, type record, verbs } from "@synnaxlabs/x";
 import { type ComponentType, type ReactElement } from "react";
 import { z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { type Hardware } from "@/platform/device/integration";
+import { LocationBadge } from "@/platform/device/LocationBadge";
 import {
   type ConfigureParams,
   type ConfigureProps,
@@ -108,7 +108,14 @@ const Internal = ({
 
   return (
     <Modal.Frame className={CSS.B("configure")}>
-      <Modal.Header icon={icon}>{name ? [name] : "Device.Configure"}</Modal.Header>
+      <Modal.Header
+        icon={icon}
+        badge={
+          device.location === "" ? undefined : <LocationBadge value={device.location} />
+        }
+      >
+        {name ? ["Configure", name] : "Device.Configure"}
+      </Modal.Header>
       <Form.Form<typeof configurablePropertiesZ> {...methods}>
         <Modal.Body align="stretch" gap="large">
           <Form.TextField
@@ -116,13 +123,6 @@ const Internal = ({
             label="Name"
             path={path.name}
           />
-          {device.location !== "" && (
-            <Input.Item label="Location" padHelpText={false}>
-              <Text.Text variant="code" className={CSS.BE("configure", "location")}>
-                {device.location}
-              </Text.Text>
-            </Input.Item>
-          )}
           <Flex.Box gap="small">
             <Form.TextField
               label="Identifier"
@@ -188,19 +188,16 @@ export interface CreateConfigureArgs {
   zeroProperties: record.Unknown;
   /**
    * @returns the identifiers that the form suggests for the device, which holds the
-   * name that the user entered. Defaults to short forms of that name.
+   * name that the user entered.
    */
-  suggestIdentifiers?: (device: device.Device) => string[];
+  suggestIdentifiers: (device: device.Device) => string[];
 }
-
-const suggestFromName = ({ name }: device.Device): string[] =>
-  strings.createShortIdentifiers(name);
 
 /** Creates the form that names a found device and sets its identifier. */
 export const createConfigure = ({
   icon,
   zeroProperties,
-  suggestIdentifiers = suggestFromName,
+  suggestIdentifiers,
 }: CreateConfigureArgs): ComponentType<ConfigureProps> => {
   const Configure = ({ deviceKey, ...rest }: ConfigureProps): ReactElement => {
     const device = Device.use({ key: deviceKey });
