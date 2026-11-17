@@ -163,7 +163,7 @@ protected:
     }
 };
 
-/// @brief v1 segments must stay readable by every later Driver.
+/// @brief it should read a v1 segment, so every later Driver can read it.
 TEST_F(SpoolTest, ReadsV1Segment) {
     std::filesystem::create_directories(this->dir);
     std::filesystem::copy_file(TESTDATA / "v1_segment.bin", this->dir / "0.seg");
@@ -176,6 +176,7 @@ TEST_F(SpoolTest, ReadsV1Segment) {
     ASSERT_FALSE(ASSERT_NIL_P(reader->read()).has_value());
 }
 
+/// @brief it should write the same bytes as the v1 segment.
 TEST_F(SpoolTest, WritesV1Segment) {
     {
         const auto spool = this->open_spool();
@@ -231,7 +232,10 @@ TEST_F(SpoolTest, OmitsDataTypesFromFrames) {
 TEST_F(SpoolTest, RejectsFrameWithUnknownChannel) {
     const auto spool = this->open_spool();
     const auto writer = spool->open_writer(header_of(1));
-    ASSERT_MATCHES(writer->write({7, x::telem::Series(std::vector<float>{1})}), ERROR);
+    ASSERT_MATCHES(
+        writer->write({7, x::telem::Series(std::vector<float>{1})}),
+        BASE_ERROR
+    );
     ASSERT_NIL(writer->write(frame_of(1)));
 }
 
@@ -239,7 +243,10 @@ TEST_F(SpoolTest, RejectsFrameWithUnknownChannel) {
 TEST_F(SpoolTest, RejectsFrameWithWrongDataType) {
     const auto spool = this->open_spool();
     const auto writer = spool->open_writer(header_of(1));
-    ASSERT_MATCHES(writer->write({1, x::telem::Series(std::vector<double>{1})}), ERROR);
+    ASSERT_MATCHES(
+        writer->write({1, x::telem::Series(std::vector<double>{1})}),
+        BASE_ERROR
+    );
 }
 
 /// @brief it should reject a header without a data type for each channel.
@@ -247,8 +254,35 @@ TEST_F(SpoolTest, RejectsInvalidHeader) {
     const auto spool = this->open_spool();
     auto header = header_of(1);
     header.data_types.pop_back();
-    ASSERT_MATCHES(spool->open_writer(header)->write(frame_of(1)), ERROR);
+    ASSERT_MATCHES(spool->open_writer(header)->write(frame_of(1)), BASE_ERROR);
     ASSERT_TRUE(spool->segments().empty());
+}
+
+/// @brief it should list a segment after close, and refuse later frames.
+TEST_F(SpoolTest, ClosesWriter) {
+    const auto spool = this->open_spool();
+    const auto writer = spool->open_writer(header_of(1));
+    ASSERT_NIL(writer->write(frame_of(1)));
+    ASSERT_NIL(writer->close());
+    ASSERT_EQ(spool->segments().size(), 1);
+    ASSERT_MATCHES(writer->write(frame_of(2)), BASE_ERROR);
+    ASSERT_NIL(writer->close());
+}
+
+/// @brief it should reject a header with a data type it does not know.
+TEST_F(SpoolTest, RejectsUnknownDataType) {
+    const auto spool = this->open_spool();
+    auto header = header_of(1);
+    header.data_types[0] = x::telem::DataType("complex128");
+    ASSERT_MATCHES(spool->open_writer(header)->write(frame_of(1)), BASE_ERROR);
+}
+
+/// @brief it should fail to remove a segment that is not closed.
+TEST_F(SpoolTest, RejectsRemoveOfOpenSegment) {
+    const auto spool = this->open_spool();
+    const auto writer = spool->open_writer(header_of(1));
+    ASSERT_NIL(writer->write(frame_of(1)));
+    ASSERT_MATCHES(spool->remove(0), BASE_ERROR);
 }
 
 /// @brief it should list a segment only after its writer closes.
@@ -367,6 +401,32 @@ TEST_F(SpoolTest, RejectsOffsetOfOtherSegment) {
     ASSERT_OCCURRED_AS_P(spool->open_reader(0), CORRUPT);
 }
 
+/// @brief it should fail to open a reader with a read offset inside the header.
+TEST_F(SpoolTest, RejectsOffsetInHeader) {
+    static_cast<void>(this->write_segment());
+    ASSERT_NIL(
+        journal::commit_offset(
+            this->dir / "0.offset",
+            OFFSET_MAGIC,
+            {.segment = 0, .pos = journal::HEADER_SIZE}
+        )
+    );
+    const auto spool = this->open_spool();
+    ASSERT_OCCURRED_AS_P(spool->open_reader(0), CORRUPT);
+}
+
+/// @brief it should count the cut bytes of a segment once across readers.
+TEST_F(SpoolTest, CountsCutOnce) {
+    const auto path = this->write_segment();
+    append_file(path, std::string("\x40\x00\x00", 3));
+    const auto spool = this->open_spool();
+    for (int i = 0; i < 2; i++) {
+        const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+        while (ASSERT_NIL_P(reader->read()).has_value()) {}
+    }
+    ASSERT_EQ(spool->cut(), 3);
+}
+
 /// @brief it should delete a removed segment from disk.
 TEST_F(SpoolTest, RemovesSegment) {
     {
@@ -431,6 +491,25 @@ TEST_F(SpoolTest, FailsOnPartialSample) {
     // A frame of channel 1 with three data bytes: a float32 needs four.
     const std::string payload("\x0a\x01\x01\x12\x05\x0a\x03\x00\x00\x00", 10);
     append_record(path, {.type = 2, .payload = payload});
+    const auto spool = this->open_spool();
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+    ASSERT_OCCURRED_AS_P(reader->read(), CORRUPT);
+}
+
+/// @brief it should fail on a variable-length series with a cut-off sample.
+TEST_F(SpoolTest, FailsOnPartialVariableSample) {
+    {
+        const auto spool = this->open_spool();
+        ASSERT_NIL(spool->open_writer(v1_header())->write(v1_frame()));
+    }
+    // A frame of string channel 3 whose sample says 5 bytes but holds 1.
+    const std::string payload(
+        "\x0a\x01\x03\x12\x07\x0a\x05\x05\x00\x00\x00"
+        "a",
+        12
+    );
+    append_record(this->dir / "0.seg", {.type = 2, .payload = payload});
     const auto spool = this->open_spool();
     const auto reader = ASSERT_NIL_P(spool->open_reader(0));
     ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
@@ -515,6 +594,16 @@ TEST_F(SpoolTest, RemovesSegmentWithZeroFilledHeader) {
     ASSERT_TRUE(spool->segments().empty());
     ASSERT_EQ(spool->cut(), 64);
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
+}
+
+/// @brief it should remove a segment that a crash left with a cut-off file start.
+TEST_F(SpoolTest, RemovesSegmentWithCutOffFileStart) {
+    std::filesystem::create_directories(this->dir);
+    append_file(this->dir / "3.seg", std::string(SEGMENT_MAGIC.data(), 5));
+    const auto spool = this->open_spool();
+    ASSERT_TRUE(spool->segments().empty());
+    ASSERT_EQ(spool->cut(), 5);
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "3.seg"));
 }
 
 /// @brief it should remove a read offset that has no segment.

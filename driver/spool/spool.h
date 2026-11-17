@@ -16,6 +16,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -37,11 +38,11 @@ constexpr journal::Magic SEGMENT_MAGIC = {'S', 'Y', 'S', 'P', 'L', 'S', 'E', 'G'
 /// @brief the magic at the start of each read offset file.
 constexpr journal::Magic OFFSET_MAGIC = {'S', 'Y', 'S', 'P', 'L', 'O', 'F', 'F'};
 
-const x::errors::Error ERROR = x::errors::Error("spool", "");
+const x::errors::Error BASE_ERROR = x::errors::Error("spool", "");
 /// @brief the spool has no room for a frame.
-const x::errors::Error FULL = ERROR.sub("full");
+const x::errors::Error FULL = BASE_ERROR.sub("full");
 /// @brief a record passes its checksum but is not a valid header or frame.
-const x::errors::Error CORRUPT = ERROR.sub("corrupt");
+const x::errors::Error CORRUPT = BASE_ERROR.sub("corrupt");
 
 /// @brief the configuration of a spool.
 struct Config {
@@ -86,6 +87,7 @@ class Writer {
     std::unique_ptr<journal::Writer> file;
     std::uint64_t size = 0;
     bool refused = false;
+    bool closed = false;
     x::errors::Error failed;
 
     Writer(Spool &spool, Header header, std::uint64_t key);
@@ -94,7 +96,7 @@ class Writer {
 public:
     Writer(const Writer &) = delete;
     Writer &operator=(const Writer &) = delete;
-    /// @brief syncs and closes the segment, so readers can open it.
+    /// @brief closes the writer and drops the error of close.
     ~Writer();
 
     /// @brief appends the frame to the segment. After the spool refuses one frame, the
@@ -102,13 +104,19 @@ public:
     /// @param frame the frame to append. Each of its channels must be in the header,
     /// with the data type of the header.
     /// @returns FULL when the spool has no room for the frame, and counts the frame in
-    /// Spool::refused. ERROR when the frame does not match the header. After a write
-    /// fails, the writer returns the same error for every later frame.
+    /// Spool::refused. BASE_ERROR when the frame does not match the header. After a
+    /// write fails, the writer returns the same error for every later frame.
     x::errors::Error write(const x::telem::Frame &frame);
 
     /// @brief syncs the segment when a sync is due. Call it when no frames come, so
     /// the last frames reach the disk in one second.
     x::errors::Error sync_if_due();
+
+    /// @brief syncs and closes the segment, so readers can open it. Later writes
+    /// return an error, and later calls to close do nothing.
+    /// @returns the error of the last sync. Then the frames since the sync before it
+    /// can be lost.
+    x::errors::Error close();
 };
 
 /// @brief reads the frames of one segment from its committed read offset. Not safe for
@@ -153,6 +161,8 @@ class Spool {
     std::map<std::uint64_t, std::uint64_t> closed;
     std::atomic<std::uint64_t> refused_count = 0;
     std::atomic<std::uint64_t> cut_count = 0;
+    /// @brief the keys of the segments whose cut bytes are in cut_count.
+    std::set<std::uint64_t> cut_segments;
 
     Spool(Config cfg, std::unique_ptr<journal::Lock> lock);
     [[nodiscard]] std::filesystem::path segment_path(std::uint64_t key) const;
@@ -160,6 +170,7 @@ class Spool {
     bool reserve(std::uint64_t bytes);
     void release(std::uint64_t bytes);
     void close(std::uint64_t key, std::uint64_t size);
+    void count_cut(std::uint64_t key, std::uint64_t bytes);
     x::errors::Error remove_files(std::uint64_t key);
     [[nodiscard]] x::errors::Error remove_temp_files() const;
     [[nodiscard]] x::errors::Error remove_orphan_offsets() const;
