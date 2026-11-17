@@ -37,6 +37,8 @@ type (
 var (
 	ErrDBClosed        = resource.NewClosedError("cesium.db")
 	ErrChannelNotFound = channel.ErrNotFound
+	// ErrRunning is returned by Close while Run runs.
+	ErrRunning = errors.New("close called while Run runs")
 )
 
 // Metrics contains statistics about the cesium database.
@@ -149,7 +151,8 @@ func (db *DB) Metrics() Metrics {
 }
 
 // Run runs the relay that feeds writes to streamers, and the garbage collector, until
-// ctx ends. It then waits for them to stop and returns. Writes block once the relay
+// ctx ends. It then waits for them to stop and returns the first error that either
+// returned. Writes block once the relay
 // buffer fills while Run is not running, and streamers do not start. Call Run once,
 // after Open and before Close.
 func (db *DB) Run(ctx context.Context) error {
@@ -166,7 +169,7 @@ func (db *DB) Run(ctx context.Context) error {
 }
 
 // Close closes the database. Call it only after Run returns: while Run runs, Close
-// returns an error and closes nothing. Close is not safe to call with any other DB
+// returns ErrRunning and closes nothing. Close is not safe to call with any other DB
 // methods concurrently.
 //
 // Writers still open when Close runs stop sending to streamers.
@@ -175,7 +178,7 @@ func (db *DB) Run(ctx context.Context) error {
 // closed regardless of whether an error occurred.
 func (db *DB) Close() error {
 	if db.running.Load() {
-		return errors.New("close called while Run runs")
+		return ErrRunning
 	}
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil

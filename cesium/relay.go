@@ -60,7 +60,6 @@ func newRelay(o *options) *relay {
 func (r *relay) flow(sCtx signal.Context) {
 	r.delta.Flow(
 		sCtx,
-		confluence.CancelOnFail(),
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
 		confluence.WithAddress("relay"),
