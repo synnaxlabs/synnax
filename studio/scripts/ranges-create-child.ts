@@ -36,7 +36,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);
   await page.getByRole("button", { name: "Open range explorer", exact: true }).click();
-  const parent = page.getByRole("listitem", { name: PARENT, exact: true }).first();
+  // The parent runs, so the toolbar lists it too.
+  const explorer = page.locator(".console-range-tree__list").first();
+  const parent = explorer.getByRole("listitem", { name: PARENT, exact: true }).first();
   await session.waitFor(parent);
   await session.settle(500);
   await session.moveTo({ x: 800, y: 450 });
@@ -79,7 +81,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // The child lands under its parent, which stays closed.
   await session.click(parent.getByRole("button", { name: "Expand" }));
   await session.waitFor(
-    page.getByRole("listitem", { name: CHILD, exact: true }).first(),
+    explorer.getByRole("listitem", { name: CHILD, exact: true }).first(),
   );
   await session.hold(3000);
 };
