@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
@@ -56,7 +57,9 @@ var _ = Describe("ReconcileLines", func() {
 			YChannel:    5,
 			XChannel:    10,
 			StrokeWidth: 7,
-			Color:       &colorv2.Color{R: 1, A: 128},
+			Color: &color.Ref{
+				Variant: color.FixedRef{Value: colorv2.Color{R: 1, A: 128}},
+			},
 		}
 		lines := v10.ReconcileLines(
 			plotKey,
@@ -65,7 +68,9 @@ var _ = Describe("ReconcileLines", func() {
 		)
 		Expect(lines).To(HaveLen(1))
 		Expect(lines[0].StrokeWidth).To(Equal(7.0))
-		Expect(lines[0].Color).To(HaveValue(Equal(colorv2.Color{R: 1, A: 128})))
+		Expect(lines[0].Color).To(HaveValue(Equal(color.Ref{
+			Variant: color.FixedRef{Value: colorv2.Color{R: 1, A: 128}},
+		})))
 		Expect(lines[0].Key).To(Equal(v8.LineKey(plotKey, "y1", 5, 10)))
 	})
 

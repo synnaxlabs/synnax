@@ -18,11 +18,11 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -143,9 +143,9 @@ type Line struct {
 	// Label is the user-specified line label. Null means derive from the channel name
 	// at render time; non-null is an override.
 	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
-	// Color is the line color. When null, the Console assigns one from the
-	// visualization palette at render time.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// Color is the line color, a named color or a fixed color. When null, the Console
+	// assigns one at render time.
+	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StrokeWidth is the line stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 	// Aggregation selects how the line reduces the samples of one pixel group.
@@ -188,6 +188,9 @@ func (l Line) Validate() error {
 	v.Ternaryf("aggregation", !l.Aggregation.IsValid(), "invalid aggregation: %v", l.Aggregation)
 	v.Ternaryf("detail", !l.Detail.IsValid(), "invalid detail: %v", l.Detail)
 	v.GreaterThanEq("stroke_width", l.StrokeWidth, 1)
+	if l.Color != nil {
+		v.Exec(func() error { return validate.PathedError(l.Color.Validate(), "color") })
+	}
 	return v.Error()
 }
 
@@ -197,9 +200,9 @@ type Rule struct {
 	Key string `json:"key" msgpack:"key"`
 	// Label is the human-readable label rendered alongside the rule.
 	Label string `json:"label" msgpack:"label"`
-	// Color is the display color of the rule. When null, the Console assigns a default
-	// at render time.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	// Color is the display color of the rule, a named color or a fixed color. When
+	// null, the Console assigns one at render time.
+	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Axis is the axis the rule is anchored to.
 	Axis AxisKey `json:"axis" msgpack:"axis"`
 	// LineWidth is the rule line width in pixels.
@@ -241,6 +244,9 @@ func (r *Rule) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r Rule) Validate() error {
 	v := validate.New("Rule")
 	v.Ternaryf("axis", !r.Axis.IsValid(), "invalid axis: %v", r.Axis)
+	if r.Color != nil {
+		v.Exec(func() error { return validate.PathedError(r.Color.Validate(), "color") })
+	}
 	return v.Error()
 }
 
