@@ -177,7 +177,8 @@ The schematic cutover ships in one release:
   `select` and `state_indicator` an `enum` key for its `options`, which it removes. An
   empty list gets no enum. The RFC 0114 phase 2 node migration, which merges after phase
   22, calls the function to give a state binding an `enum` key when its node had its own
-  non-empty state list or `state_overrides`, or an `on_color`, and removes those fields.
+  non-empty state list, an `on_color`, or `state_overrides` that change the entry
+  colors, and removes those fields.
 - In a custom symbol, RFC 0114 phase 1 made each state index a value with default 0, and
   each region color a `color` look on that value. Phase 22 gives the symbol state a
   default enum and rewrites only looks in that shape: one `color` paint with a `when` on
