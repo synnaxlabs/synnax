@@ -630,15 +630,16 @@ var _ = Describe("Virtual Channel Streaming", func() {
 	}
 })
 
-var _ = Describe("Streamer after the DB closes", func() {
+var _ = Describe("Streamer after Run stops", func() {
 	It("Should end the streamer with a closed DB error", func(ctx SpecContext) {
-		db := mustOpenDBOnFS(ctx, FileSystems["memFS"]())
+		db := DeferClose(openDBOnFS(ctx, FileSystems["memFS"]()))
+		stop := StartRun(db.Run)
 		key := GenerateChannelKey()
 		Expect(db.CreateChannel(ctx, virtualChannel(key, "boulder"))).To(Succeed())
 		_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
 			Channels: []cesium.ChannelKey{key},
 		})
-		Expect(db.Close()).To(Succeed())
+		stop()
 		Eventually(o.Outlet()).Should(BeClosed())
 		Expect(closer.Close()).To(MatchError(cesium.ErrDBClosed))
 	})
