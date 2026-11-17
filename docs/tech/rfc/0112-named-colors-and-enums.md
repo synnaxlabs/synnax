@@ -250,7 +250,7 @@ needs RFC 0114 phase 1.
 | 18    | Draw stale and unknown indicators instead of colors      | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`                           | -              |
 | 19    | Add enum references to symbol states                     | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `core/pkg/service/schematic`                                                               | 13             |
 | 20    | Draw entry paint in Pluto                                | `pluto/src/schematic`                                                                                                                             | 15, 19         |
-| 21    | Add the enum picker to the symbol forms                  | `console/src/feature/schematic`                                                                                                                   | 16, 19         |
+| 21    | Add the enum picker to the symbol forms                  | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                            | 16, 19         |
 | 22    | Migrate inline state colors to enums                     | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`, `console`, `client/py`, `integration` | 20, 21         |
 | 23    | Delete the named colors and enums flag                   | `console/src/flags.ts`                                                                                                                            | 22             |
 | 24    | Carry color references in multi-edit                     | `console/src/platform/multiedit`                                                                                                                  | 8              |
@@ -266,9 +266,10 @@ schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 2, only a
 `select` or `state_indicator` can match no entry. Phase 19 also adds the `enum` field to
 `select` and `state_indicator`, and phase 22 fills it. Phase 21 adds the enum picker to
-`select` and `state_indicator`. RFC 0114 phase 2 adds it to node state bindings, and RFC
-0114 phase 4 to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom
-symbol looks from the start. In phase 29, the Driver writes range colors
+the Pluto forms of `select` and `state_indicator`, and the Console passes the flag to
+them as a prop. RFC 0114 phase 2 adds it to node state bindings, and RFC 0114 phase 4 to
+custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks from
+the start. In phase 29, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
 ## 7 Resolved decisions
