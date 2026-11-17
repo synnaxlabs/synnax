@@ -24,6 +24,7 @@
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/scan_task.h"
 #include "driver/ethercat/testutil/master.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::ethercat {
 namespace {
@@ -43,7 +44,10 @@ protected:
         this->cancel.start();
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
         this->rack = ASSERT_NIL_P(this->client->racks.create("test_rack"));
-        this->ctx = std::make_shared<task::MockContext>(this->client);
+        this->ctx = std::make_shared<task::MockContext>(
+            this->client,
+            ::driver::outbox::testutil::open(this->client->statuses)
+        );
     }
 
     std::shared_ptr<synnax::Synnax> client;

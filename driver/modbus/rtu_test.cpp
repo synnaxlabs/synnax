@@ -27,6 +27,7 @@
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/scan_task.h"
 #include "driver/modbus/testutil/slave.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::modbus {
 namespace {
@@ -476,7 +477,10 @@ TEST(RTU, ScannerTestsConnection) {
     testutil::Slave slave(serial_slave());
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
@@ -494,7 +498,10 @@ TEST(RTU, ScannerAcceptsNewLineSettings) {
     testutil::Slave slave(serial_slave());
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
@@ -530,7 +537,10 @@ TEST(RTU, ScannerAcceptsNewPathToPort) {
                       ("modbus-rtu-" + x::uuid::create().to_string());
     std::filesystem::create_symlink(slave.serial_port(), link);
     x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
@@ -564,7 +574,10 @@ TEST(RTU, ScannerTestsNewLineSettingsDuringProbe) {
     testutil::Slave slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
@@ -594,7 +607,10 @@ TEST(RTU, ScannerRejectsLineSettingsOfOpenPort) {
     testutil::Slave slave(serial_slave());
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     auto manager = std::make_shared<device::Manager>();
@@ -621,7 +637,10 @@ TEST(RTU, ScannerKeepsPortForFirstServer) {
     testutil::Slave slave(serial_slave());
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
     auto slow = rtu(slave, 2);
@@ -669,7 +688,10 @@ TEST(RTU, ScannerChecksEachUnit) {
     testutil::Slave slave(cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
     std::unordered_map<std::string, synnax::device::Device> devices{

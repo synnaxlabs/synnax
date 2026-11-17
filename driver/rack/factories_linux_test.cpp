@@ -13,6 +13,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/labjack/names.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
@@ -37,7 +38,10 @@ TEST(RackFactoriesTest, DeletesLegacyLabJackScanner) {
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
-    const auto ctx = std::make_shared<task::MockContext>(client);
+    const auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     x::breaker::Breaker cancel;
     cancel.start();
     auto tasks = factory->configure_initial_tasks(ctx, rack, cancel);
@@ -69,7 +73,10 @@ TEST(RackFactoriesTest, LabJackTaskNamesThePlatforms) {
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     cancel.start();
     const auto [tsk, handled] = factory->configure_task(
         ctx,
@@ -101,7 +108,10 @@ TEST(RackFactoriesTest, IncompatibleCoreLabJackTaskNamesThePlatforms) {
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     cancel.start();
     const auto [tsk, handled] = factory->configure_task(
         ctx,

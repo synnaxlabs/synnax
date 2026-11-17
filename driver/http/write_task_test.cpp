@@ -35,6 +35,7 @@
 #include "driver/http/errors/errors.h"
 #include "driver/http/testutil/server.h"
 #include "driver/http/write_task.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::http {
@@ -153,7 +154,10 @@ TEST(HTTPWriteTask, ParseConfigEmptyEndpoints) {
         {"device", "dev-001"},
         {"endpoints", x::json::json::array()},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -171,7 +175,10 @@ TEST(HTTPWriteTask, ParseConfigAllEndpointsDisabled) {
               {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -195,7 +202,10 @@ TEST(HTTPWriteTask, ParseConfigDuplicatePointers) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -218,7 +228,10 @@ TEST(HTTPWriteTask, ParseConfigBarePrimitiveWithAdditionalFields) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -242,7 +255,10 @@ TEST(HTTPWriteTask, ParseConfigStaticFieldEmptyPointer) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -265,7 +281,10 @@ TEST(HTTPWriteTask, ParseConfigGeneratedFieldEmptyPointer) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -283,7 +302,10 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingNameErrors) {
              {"headers", {{{"value", "abc"}}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_1, err1] = WriteTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
     EXPECT_NE(err1.data.find("name"), std::string::npos);
@@ -307,7 +329,10 @@ TEST(HTTPWriteTask, ParseConfigDuplicateHeaderErrors) {
               }},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_2, err2] = WriteTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err2.matches(x::errors::VALIDATION));
     EXPECT_NE(err2.data.find("duplicate header"), std::string::npos);
@@ -336,7 +361,10 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
              {"headers", {{{"name", "X-Key"}}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints[0].headers.size(), 1);
     EXPECT_EQ(cfg.endpoints[0].headers.at(0).name, "X-Key");
@@ -365,7 +393,10 @@ TEST(HTTPWriteTask, ParseConfigTimestampChannelWithoutTimeFormat) {
                {"channel", cmd_ch.key}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(ctx, task));
     EXPECT_FALSE(cfg.endpoints[0].channel.time_format.has_value());
 }
@@ -384,7 +415,10 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
              {"query_params", {{{"value", "10"}}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_4, err4] = WriteTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
     EXPECT_NE(err4.data.find("parameter"), std::string::npos);
@@ -404,7 +438,10 @@ TEST(HTTPWriteTask, ParseConfigStaticFieldMissingValueErrors) {
              {"fields", {{{"type", "static"}, {"pointer", "/extra"}}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_, err] = WriteTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     EXPECT_NE(err.data.find("value"), std::string::npos);
@@ -434,7 +471,10 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
              {"query_params", {{{"parameter", "limit"}}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints[0].query_params.size(), 1);
     EXPECT_EQ(cfg.endpoints[0].query_params.at(0).parameter, "limit");
@@ -459,7 +499,10 @@ TEST(HTTPWriteTask, ParseConfigDuplicateQueryParamErrors) {
               }},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_6, err6] = WriteTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err6.matches(x::errors::VALIDATION));
     EXPECT_NE(err6.data.find("duplicate query parameter"), std::string::npos);
@@ -1364,7 +1407,10 @@ TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
 
     synnax::task::Task task;
     task.key = x::uuid::create();
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     // A breaker wait would outlast the timeout below, so the test fails if the skipped
     // command engages the breaker.
     common::WriteTask write_task(
@@ -1766,7 +1812,10 @@ TEST(HTTPWriteTask, ParseConfigEnumDuplicateValue) {
                 {{{"value", 1}, {"label", "ON"}}, {{"value", 1}, {"label", "YES"}}}}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -1788,7 +1837,10 @@ TEST(HTTPWriteTask, ParseConfigEnumWithNonStringType) {
                 {{{"value", 1}, {"label", "ON"}}, {{"value", 0}, {"label", "OFF"}}}}}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(WriteTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 

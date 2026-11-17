@@ -26,6 +26,7 @@
 #include "driver/opcua/read_task.h"
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::opcua {
@@ -262,7 +263,10 @@ protected:
 
         task_cfg_json = task_cfg;
 
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
         conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
 

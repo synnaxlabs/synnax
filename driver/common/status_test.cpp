@@ -14,11 +14,15 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/common/status.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::common {
 /// @brief it should correctly communicate the starting state of a task.
 TEST(TestTaskStateHandler, testStartCommunication) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
@@ -55,7 +59,10 @@ TEST(TestTaskStateHandler, testStartCommunication) {
 /// @brief it should send nothing for a start that its cancel ended, and answer the stop
 /// that follows as stopped.
 TEST(TestTaskStateHandler, testCancelledStartSendsNothing) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
     handler.error(
@@ -73,7 +80,10 @@ TEST(TestTaskStateHandler, testCancelledStartSendsNothing) {
 
 /// @brief it should echo the config hash the instance was built from.
 TEST(TestTaskStateHandler, testEchoesConfigHash) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
@@ -92,7 +102,10 @@ TEST(TestTaskStateHandler, testEchoesConfigHash) {
 
 /// @brief it should correctly communicate a warning to the context.
 TEST(TestTaskStateHandler, testSendWarning) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
@@ -122,7 +135,10 @@ TEST(TestTaskStateHandler, testSendWarning) {
 
 /// @brief it should correctly move the task back to a nominal running state.
 TEST(TestTaskStateHandle, testClearWarning) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
@@ -163,7 +179,10 @@ TEST(TestTaskStateHandle, testClearWarning) {
 
 /// @brief it should immediately send an error status to the context.
 TEST(TestTaskStateHandler, testSendError) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
@@ -191,7 +210,10 @@ TEST(TestTaskStateHandler, testSendError) {
 
 /// @brief it should correctly communicate the stopping state of a task.
 TEST(TestTaskStateHandler, testStopCommunication) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
@@ -224,7 +246,10 @@ TEST(TestTaskStateHandler, testStopCommunication) {
 
 /// @brief ack should re-send the current status unchanged, stamping the command.
 TEST(TestTaskStateHandler, testAckReSendsCurrentStatus) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
@@ -245,7 +270,10 @@ TEST(TestTaskStateHandler, testAckReSendsCurrentStatus) {
 
 /// @brief ack before any send should answer with the seeded configured status.
 TEST(TestTaskStateHandler, testAckBeforeAnySend) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
@@ -264,7 +292,10 @@ TEST(TestTaskStateHandler, testAckBeforeAnySend) {
 
 /// @brief it should send repeated identical warnings inside the window only once.
 TEST(TestStatusWindow, testSuppressesIdenticalWarnings) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 50 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
@@ -281,7 +312,10 @@ TEST(TestStatusWindow, testSuppressesIdenticalWarnings) {
 
 /// @brief it should send an unchanged warning once, however many windows pass.
 TEST(TestStatusWindow, testSuppressesIdenticalWarningsAcrossWindows) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "http_read"};
     const auto window = 10 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
@@ -295,7 +329,10 @@ TEST(TestStatusWindow, testSuppressesIdenticalWarningsAcrossWindows) {
 
 /// @brief it should send a warning again after it clears.
 TEST(TestStatusWindow, testSendsWarningAgainAfterClear) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "http_read"};
     const auto window = 10 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
@@ -315,7 +352,10 @@ TEST(TestStatusWindow, testSendsWarningAgainAfterClear) {
 
 /// @brief it should send a change inside the window once the window ends.
 TEST(TestStatusWindow, testDelaysChangeUntilWindowEnds) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 100 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
@@ -333,7 +373,10 @@ TEST(TestStatusWindow, testDelaysChangeUntilWindowEnds) {
 /// @brief it should send the recovery from a warning without another call, as a task
 /// that recovers and then reads normally makes no further status call.
 TEST(TestStatusWindow, testSendsRecoveryWithoutAnotherCall) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task, 100 * x::telem::MILLISECOND);
 
@@ -350,7 +393,10 @@ TEST(TestStatusWindow, testSendsRecoveryWithoutAnotherCall) {
 
 /// @brief it should send only the latest of many changes inside the window.
 TEST(TestStatusWindow, testSendsLatestOfManyChanges) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 100 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
@@ -368,7 +414,10 @@ TEST(TestStatusWindow, testSendsLatestOfManyChanges) {
 /// @brief it should send nothing at the end of the window when the status changed and
 /// changed back to the one already sent.
 TEST(TestStatusWindow, testSkipsChangeThatReturnsToSentStatus) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 50 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
@@ -382,7 +431,10 @@ TEST(TestStatusWindow, testSkipsChangeThatReturnsToSentStatus) {
 
 /// @brief it should send two warnings with the same message and different causes.
 TEST(TestStatusWindow, testSendsDifferentWarningDescriptions) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task, 50 * x::telem::MILLISECOND);
 
@@ -508,7 +560,10 @@ TEST(TestBackgroundWarning, SendsRepeatsOnce) {
 
 /// @brief clearing a warning should drop the description that explained it.
 TEST(TestTaskStateHandler, ClearWarningDropsDescription) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
 
@@ -521,7 +576,10 @@ TEST(TestTaskStateHandler, ClearWarningDropsDescription) {
 
 /// @brief it should send repeated identical errors inside the window only once.
 TEST(TestStatusWindow, testSuppressesIdenticalErrors) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
 
@@ -538,7 +596,10 @@ TEST(TestStatusWindow, testSuppressesIdenticalErrors) {
 /// @brief it should send each start reply at once, as the Console waits for command
 /// acknowledgments.
 TEST(TestStatusWindow, testStartSkipsWindow) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
 
@@ -552,7 +613,10 @@ TEST(TestStatusWindow, testStartSkipsWindow) {
 /// @brief it should send each stop reply at once, as the Console waits for command
 /// acknowledgments.
 TEST(TestStatusWindow, testStopSkipsWindow) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
 
@@ -566,7 +630,10 @@ TEST(TestStatusWindow, testStopSkipsWindow) {
 /// @brief it should send a reply at once inside the window and drop the pending status,
 /// as the reply carries the latest state.
 TEST(TestStatusWindow, testReplySkipsWindowAndReplacesPending) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 100 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
@@ -585,7 +652,10 @@ TEST(TestStatusWindow, testReplySkipsWindowAndReplacesPending) {
 /// @brief it should drop a pending status when the handler is destroyed, as a task that
 /// stops without a stop status must write nothing more.
 TEST(TestStatusWindow, testDestroyDropsPending) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 50 * x::telem::MILLISECOND;
     {
@@ -600,7 +670,10 @@ TEST(TestStatusWindow, testDestroyDropsPending) {
 /// @brief it should drop a pending status and later changes once closed, and still send
 /// replies.
 TEST(TestStatusWindow, testCloseDropsPending) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     const auto window = 50 * x::telem::MILLISECOND;
     auto handler = StatusHandler(ctx, task, window);
@@ -619,7 +692,10 @@ TEST(TestStatusWindow, testCloseDropsPending) {
 /// @brief it should keep a full window between two statuses when another thread starts
 /// a window while the flusher waits.
 TEST(TestStatusWindow, testKeepsWindowWhenAnotherThreadSends) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     // A wide window absorbs a loaded host pausing a writer between starting the window
     // and stamping the status.
@@ -641,7 +717,10 @@ TEST(TestStatusWindow, testKeepsWindowWhenAnotherThreadSends) {
 /// @brief it should send a warning and then an error with the same message, as the
 /// variant differs.
 TEST(TestStatusWindow, testDifferentVariantSameMessage) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task, 50 * x::telem::MILLISECOND);
 
@@ -674,7 +753,10 @@ public:
 /// status.
 TEST(TestHandleConfigErr, testErrorWithPendingStart) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
@@ -703,7 +785,10 @@ TEST(TestHandleConfigErr, testErrorWithPendingStart) {
 /// start is answered as stopped.
 TEST(TestHandleConfigErr, testCancelledConfigureWritesNothing) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto [tsk, handled] = handle_config_err(
         ctx,
@@ -720,7 +805,10 @@ TEST(TestHandleConfigErr, testCancelledConfigureWritesNothing) {
 /// @brief a config error should list each field error on its own line.
 TEST(TestHandleConfigErr, ListsFieldErrors) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     x::json::Parser parser(x::json::json::object());
     parser.field_err("device", "this field is required");
@@ -746,7 +834,10 @@ TEST(TestHandleConfigErr, ListsFieldErrors) {
 /// the status of the last run does not stay.
 TEST(TestHandleConfigErr, testErrorAtBootWritesError) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task task{.rack = 1, .name = "task1", .type = "ni_analog_read"};
     // A stopped status of another rack, such as one an old Driver left.
     task.status = synnax::task::Status{};
@@ -772,7 +863,10 @@ TEST(TestHandleConfigErr, testErrorAtBootWritesError) {
 /// its old rack runs it until a start arrives.
 TEST(TestHandleConfigErr, testErrorAtBootOfAMovedTaskSilent) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task task{.rack = 1, .name = "task1", .type = "ni_analog_read"};
     task.status = synnax::task::Status{};
     task.status->details.rack = 2;
@@ -795,7 +889,10 @@ TEST(TestHandleConfigErr, testErrorAtBootOfAMovedTaskSilent) {
 /// status.
 TEST(TestHandleConfigErr, testErrorAtBootWithAutoStart) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     res.auto_start = true;
@@ -819,7 +916,10 @@ TEST(TestHandleConfigErr, testErrorAtBootWithAutoStart) {
 /// that follows it is what answers the command.
 TEST(TestHandleConfigErr, testSuccessWithPendingStart) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     res.task = std::make_unique<RecordingTask>();
@@ -840,7 +940,10 @@ TEST(TestHandleConfigErr, testSuccessWithPendingStart) {
 /// @brief a successful configure at boot should not write a status.
 TEST(TestHandleConfigErr, testSuccessAtBootSilent) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     res.task = std::make_unique<RecordingTask>();
@@ -862,7 +965,10 @@ TEST(TestHandleConfigErr, testSuccessAtBootSilent) {
 /// command starts it with its own key.
 TEST(TestHandleConfigErr, testAutoStartLeavesThePendingStart) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     auto recording = std::make_unique<RecordingTask>();
@@ -888,7 +994,10 @@ TEST(TestHandleConfigErr, testAutoStartLeavesThePendingStart) {
 /// command.
 TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",

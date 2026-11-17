@@ -17,6 +17,7 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/rack/status/status.h"
 
 namespace driver::rack::status {
@@ -169,7 +170,8 @@ TEST(stateTests, Nominal) {
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses)
     );
     auto task = synnax::task::Task{
         .name = "state",
@@ -214,7 +216,8 @@ TEST(stateTests, RenamedRack) {
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses)
     );
     ctx->set_rack_name(rack.name);
     auto task = synnax::task::Task{
@@ -265,7 +268,8 @@ TEST(stateTests, TaskRunningTransitions) {
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses)
     );
     auto task = synnax::task::Task{
         .name = "state",
@@ -320,7 +324,11 @@ TEST(stateTests, StartedBeforeConfigureReturns) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     const auto statuses = std::make_shared<driver::task::StatusCache>(client->statuses);
-    auto ctx = std::make_shared<driver::task::SynnaxContext>(client, statuses);
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        statuses,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto task = synnax::task::Task{
         .name = "state",
         .type = driver::rack::status::TASK_TYPE,
@@ -348,7 +356,8 @@ TEST(stateTests, ResendsTaskStatusesUntilTheyReachTheCore) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses)
     );
     Task hb(
         rack,
@@ -378,7 +387,8 @@ TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses)
     );
     Task hb(
         rack,
@@ -408,7 +418,8 @@ TEST(stateTests, ResendsTaskStatusesAfterAFailedWrite) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses)
     );
     Task hb(
         rack,
@@ -439,7 +450,8 @@ TEST(stateTests, RetriesAFailedResend) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses)
     );
     Task hb(
         rack,
@@ -469,7 +481,8 @@ TEST(stateTests, ReportsHealth) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses)
     );
     Task hb(
         rack,
@@ -517,7 +530,8 @@ TEST(stateTests, WarnsOnClockSkew) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses)
     );
     Task hb(
         rack,

@@ -24,6 +24,7 @@
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
@@ -376,7 +377,10 @@ TEST(TestScanTask, testSingleScan) {
         created_devices
     );
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -430,7 +434,10 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
         created_devices
     );
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -500,7 +507,10 @@ TEST(TestScanTask, TestTakeOverWhenRackChanges) {
     );
     const auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -569,7 +579,10 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     );
     const auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -638,7 +651,10 @@ TEST(TestScanTask, TestUpdateWhenModelChanges) {
     );
     const auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -701,7 +717,10 @@ TEST(TestScanTask, TestRetryFailedUpdate) {
     const x::errors::Error unreachable("unreachable", "Core unreachable");
     cluster_api->dispatch_errors = {unreachable};
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -755,7 +774,10 @@ TEST(TestScanTask, TestRetryFailedCreate) {
             std::vector<x::errors::Error>{},
             std::vector<x::errors::Error>{}
         ),
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 1,
@@ -799,7 +821,10 @@ TEST(TestScanTask, TestNoStatusForAFailedCreate) {
             std::vector<x::errors::Error>{},
             std::vector<x::errors::Error>{}
         ),
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 1,
@@ -847,7 +872,10 @@ TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {
             std::vector<x::errors::Error>{},
             std::vector<x::errors::Error>{}
         ),
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 1,
@@ -903,7 +931,10 @@ TEST(TestScanTask, TestRetryFailedTakeOver) {
             std::vector<x::errors::Error>{},
             std::vector<x::errors::Error>{}
         ),
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 1,
@@ -954,7 +985,10 @@ TEST(TestScanTask, TestRecreateDeviceMissingFromCore) {
             std::vector<x::errors::Error>{},
             std::vector<x::errors::Error>{}
         ),
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 1,
@@ -1026,7 +1060,10 @@ TEST(TestScanTask, TestUserEditDuringFailedUpdate) {
             std::vector<x::errors::Error>{},
             std::vector<x::errors::Error>{}
         ),
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 50,
@@ -1095,7 +1132,10 @@ TEST(TestScanTask, TestDeleteDuringFailedUpdate) {
             std::vector<x::errors::Error>{},
             std::vector<x::errors::Error>{}
         ),
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 50,
@@ -1145,7 +1185,10 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
     );
     const auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -1198,7 +1241,10 @@ TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
         created_devices
     );
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -1251,7 +1297,10 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
         created_devices
     );
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -1317,7 +1366,10 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     );
     const auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -1387,7 +1439,10 @@ TEST(TestScanTask, TestStatePropagation) {
     );
     auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -1464,7 +1519,10 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
             std::vector<x::errors::Error>{},
             std::vector<x::errors::Error>{}
         ),
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         synnax::task::Task{},
         x::breaker::Config{},
         x::telem::HERTZ * 1,
@@ -1499,7 +1557,10 @@ TEST(TestScanTask, testCustomCommandDelegation) {
         created_devices
     );
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -1586,7 +1647,10 @@ inline synnax::task::Task new_test_task_record() {
 /// @brief it should report itself as running while the scan loop is live, and as not
 /// running once it stops.
 TEST(TestScanTask, testRunningTransitions) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
 
@@ -1606,7 +1670,10 @@ TEST(TestScanTask, testRunningTransitions) {
 /// the retry.
 TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto task = new_test_task_record();
     const auto start_err = x::errors::Error(x::errors::INTERNAL, "scanner unavailable");
     const auto scan_task = new_test_task(ctx, task, {}, {start_err});
@@ -1647,7 +1714,10 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
 /// status, since nothing else writes one.
 TEST(TestScanTask, testStartOnRunningTaskAcknowledges) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
     scan_task->start();
@@ -1678,7 +1748,10 @@ TEST(TestScanTask, testStartOnRunningTaskAcknowledges) {
 /// seeded at construction.
 TEST(TestScanTask, testStopOnStoppedTaskAcknowledges) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
 
@@ -1702,7 +1775,10 @@ TEST(TestScanTask, testStopOnStoppedTaskAcknowledges) {
 /// @brief it should answer a command type nothing handles with an error.
 TEST(TestScanTask, testUnknownCommandAnswersWithError) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
 
@@ -1727,7 +1803,10 @@ TEST(TestScanTask, testUnknownCommandAnswersWithError) {
 /// preceded it.
 TEST(TestScanTask, testScanWarningDoesNotClaimCommand) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task, {x::errors::Error("scan failed")});
 
@@ -1779,7 +1858,10 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
     );
     auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -1845,7 +1927,10 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     );
     const auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -1899,7 +1984,10 @@ TEST(TestScanTask, TestNoUpdateWhenScannerOmitsParent) {
     );
     const auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -1951,7 +2039,10 @@ TEST(TestScanTask, TestUpdateKeepsStoredParent) {
     );
     auto *cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -2072,7 +2163,10 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto *scanner_ptr = scanner.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -2145,7 +2239,10 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto *scanner_ptr = scanner.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -2215,7 +2312,10 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto *scanner_ptr = scanner.get();
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task task;
     task.key = x::uuid::create();
@@ -2256,7 +2356,10 @@ TEST(TestScanTask, PartialScanKeepsDevices) {
             std::vector<x::errors::Error>{},
             std::vector<x::errors::Error>{}
         ),
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         new_test_task_record(),
         x::breaker::Config{},
         x::telem::HERTZ * 1,
@@ -2275,7 +2378,10 @@ TEST(TestScanTask, PartialScanKeepsDevices) {
 /// @brief it should warn once while scans fail the same way, and report success once
 /// they recover.
 TEST(TestScanTask, ScanWarningIsSentOnceAndClears) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
     const auto scan_task = new_test_task(
         ctx,

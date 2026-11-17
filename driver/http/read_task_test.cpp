@@ -25,6 +25,7 @@
 #include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
 #include "driver/http/testutil/server.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::http {
 using ::synnax::http::ReadEndpoint;
@@ -69,7 +70,10 @@ TEST(HTTPReadTask, ParseConfigEmptyEndpoints) {
         {"rate", 1.0},
         {"endpoints", x::json::json::array()},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -89,7 +93,10 @@ TEST(HTTPReadTask, ParseConfigMissingDevice) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -110,7 +117,10 @@ TEST(HTTPReadTask, ParseConfigDuplicateChannel) {
               }},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -132,7 +142,10 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingParameterErrors) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_, err] = ReadTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     EXPECT_NE(err.data.find("parameter"), std::string::npos);
@@ -168,7 +181,10 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints[0].query_params.size(), 1);
     EXPECT_EQ(cfg.endpoints[0].query_params.at(0).parameter, "limit");
@@ -226,7 +242,10 @@ void expect_field_rejected(
     const x::json::json &field,
     const std::string &message
 ) {
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto [_, err] = ReadTaskConfig::parse(ctx, create_field_task(field));
     ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     EXPECT_NE(err.data.find(message), std::string::npos) << err.data;
@@ -305,7 +324,10 @@ TEST(HTTPReadTask, ParseConfigOptionalIndexErrors) {
 /// @brief it should accept an optional float field that sets no fill value.
 TEST(HTTPReadTask, ParseConfigOptionalFloatNeedsNoFillValue) {
     const auto [client, _, data] = create_field_channels(x::telem::FLOAT64_T);
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     const auto cfg = ASSERT_NIL_P(
         ReadTaskConfig::parse(
             ctx,
@@ -320,7 +342,10 @@ TEST(HTTPReadTask, ParseConfigOptionalFloatNeedsNoFillValue) {
 /// @brief it should convert a fill value of 0 to the data type of the channel.
 TEST(HTTPReadTask, ParseConfigFillValueConverts) {
     const auto [client, _, data] = create_field_channels(x::telem::FLOAT32_T);
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     const auto cfg = ASSERT_NIL_P(
         ReadTaskConfig::parse(
             ctx,
@@ -338,7 +363,10 @@ TEST(HTTPReadTask, ParseConfigFillValueConverts) {
 /// @brief it should accept an enum label as a fill value.
 TEST(HTTPReadTask, ParseConfigFillValueEnumLabel) {
     const auto [client, _, data] = create_field_channels(x::telem::UINT8_T);
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     const auto cfg = ASSERT_NIL_P(
         ReadTaskConfig::parse(
             ctx,
@@ -357,7 +385,10 @@ TEST(HTTPReadTask, ParseConfigFillValueEnumLabel) {
 /// @brief it should convert a fill value with the time format of the field.
 TEST(HTTPReadTask, ParseConfigFillValueTimeFormat) {
     const auto [client, _, data] = create_field_channels(x::telem::TIMESTAMP_T);
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     const auto cfg = ASSERT_NIL_P(
         ReadTaskConfig::parse(
             ctx,
@@ -394,7 +425,10 @@ TEST(HTTPReadTask, ParseConfigEnumValueMissingLabelErrors) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_1, err1] = ReadTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
     EXPECT_NE(err1.data.find("label"), std::string::npos);
@@ -429,7 +463,10 @@ TEST(HTTPReadTask, ParseConfigEnumValueMissingValueDefaultsZero) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     const auto &field = cfg.endpoints[0].fields[0];
     ASSERT_EQ(field.enum_values.size(), 1);
@@ -459,7 +496,10 @@ TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_3, err3] = ReadTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err3.matches(x::errors::VALIDATION));
     EXPECT_NE(err3.data.find("duplicate header"), std::string::npos);
@@ -494,7 +534,10 @@ TEST(HTTPReadTask, ParseConfigOmittedQueryParamsDefaultsEmpty) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].query_params.empty());
@@ -528,7 +571,10 @@ TEST(HTTPReadTask, ParseConfigOmittedHeadersDefaultsEmpty) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].headers.empty());
@@ -562,7 +608,10 @@ TEST(HTTPReadTask, ParseConfigOmittedBodyDefaultsEmpty) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].body.empty());
@@ -596,7 +645,10 @@ TEST(HTTPReadTask, ParseConfigOmittedIndexDefaultsEmpty) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].index.empty());
@@ -630,7 +682,10 @@ TEST(HTTPReadTask, ParseConfigOmittedEnumValuesDefaultsEmpty) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_EQ(cfg.endpoints[0].fields.size(), 1);
@@ -659,7 +714,10 @@ TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_4, err4] = ReadTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
     EXPECT_NE(err4.data.find("duplicate query parameter"), std::string::npos);
@@ -687,7 +745,10 @@ TEST(HTTPReadTask, ParseConfigDuplicateEnumLabelErrors) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto [_5, err5] = ReadTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err5.matches(x::errors::VALIDATION));
     EXPECT_NE(err5.data.find("duplicate enum label"), std::string::npos);
@@ -1317,7 +1378,10 @@ protected:
             .properties = props.get<x::json::json::object_t>(),
         };
         ASSERT_NIL(client->devices.create(dev));
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
     }
 };
 
@@ -2047,7 +2111,10 @@ TEST(HTTPReadTask, ParseConfigAllFieldsDisabled) {
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -2064,7 +2131,10 @@ TEST(HTTPReadTask, ParseConfigEndpointWithNoFields) {
              {"fields", x::json::json::array()},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 
@@ -2099,7 +2169,10 @@ TEST(HTTPReadTask, ParseConfigAllEndpointsAllFieldsDisabled) {
              },
          }},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
 }
 

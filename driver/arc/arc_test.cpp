@@ -32,6 +32,7 @@
 #include "driver/bypass/pipeline/streamer.h"
 #include "driver/bypass/pipeline/writer.h"
 #include "driver/control/state.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 #include "driver/task/task.h"
 
@@ -188,7 +189,10 @@ TEST(ArcTests, testCalcDoubling) {
         input_frames
     );
 
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -302,7 +306,10 @@ TEST(ArcTests, testBasicSequence) {
         input_frames
     );
 
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -404,7 +411,10 @@ TEST(ArcTests, testComputedRangeKeyWrite) {
         {trig_idx.key, trig_ch.key},
         input_frames
     );
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
@@ -539,7 +549,10 @@ TEST(ArcTests, testOneShotTruthiness) {
         input_frames
     );
 
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -736,7 +749,10 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         input_frames
     );
 
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -882,7 +898,10 @@ TEST(ArcErrorHandling, WasmTrapSendsWarning) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -934,7 +953,10 @@ TEST(ArcErrorHandling, LoopBudgetStopsProgram) {
     task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto task = ASSERT_NIL_P(
         arc::Task::create(
             task_meta,
@@ -1048,7 +1070,10 @@ TEST(ArcErrorHandling, LoopBudgetStatusSurvivesLaterInput) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
     task_cfg.loop_budget = 1000;
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto task = ASSERT_NIL_P(
         arc::Task::create(
             task_meta,
@@ -1138,7 +1163,10 @@ TEST(ArcErrorHandling, StopInterruptsInfiniteLoop) {
     trigger_fr.emplace(input_idx.key, std::move(idx_series));
     trigger_fr.emplace(input_ch.key, std::move(val_series));
     input_frames->push_back(std::move(trigger_fr));
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto task = ASSERT_NIL_P(
         arc::Task::create(
             task_meta,
@@ -1246,7 +1274,10 @@ TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
     trigger_fr.emplace(input_ch.key, std::move(val_series));
     input_frames->push_back(std::move(trigger_fr));
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto task = ASSERT_NIL_P(
         arc::Task::create(
             task_meta,
@@ -1368,7 +1399,10 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -1491,7 +1525,10 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -1617,7 +1654,10 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     std::promise<void> open;
     mock_streamer->open_gate = open.get_future().share();
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -1741,7 +1781,10 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -1848,7 +1891,10 @@ TEST(ArcEdgeCases, RapidStartStop) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -1944,7 +1990,10 @@ TEST(ArcEdgeCases, StopWithoutStart) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -2079,7 +2128,10 @@ TEST(ArcTests, testChannelConfigParam) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -2236,7 +2288,10 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -2350,7 +2405,10 @@ TEST(ArcEdgeCases, DoubleStart) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -2452,7 +2510,10 @@ TEST(ArcTests, testRestartResetsState) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -2579,7 +2640,10 @@ TEST(ArcTests, testStaticAuthorityConfig) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -2704,7 +2768,10 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -2817,7 +2884,10 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -2925,7 +2995,10 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -3028,7 +3101,10 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -3139,7 +3215,10 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -3238,7 +3317,10 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -3332,7 +3414,10 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
         empty_input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -3419,7 +3504,10 @@ TEST(ArcTests, ForwardsStampFromBeforeStart) {
     auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
         synnax::framer::StreamerConfig{.channels = {output_idx.key, output_ch.key}}
     ));
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto task = ASSERT_NIL_P(
         arc::Task::create(
             task_meta,
@@ -3531,7 +3619,10 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -3601,7 +3692,10 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     auto empty_frames = std::make_shared<std::vector<x::telem::Frame>>();
     auto mock_streamer = pipeline::testutil::simple_streamer_factory({}, empty_frames);
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -3669,7 +3763,10 @@ TEST(ArcTests, ReadsItsOwnFirstWrite) {
     mock_streamer->open_gate = open.get_future().share();
 
     auto bus = std::make_shared<bypass::Bus>();
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(
@@ -3779,7 +3876,10 @@ TEST(ArcTests, AnswersStartWhileFailedStartExits) {
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto hold = std::make_shared<Hold>();
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto task = ASSERT_NIL_P(
         arc::Task::create(
             task_meta,
@@ -3808,7 +3908,10 @@ TEST(ArcTests, AnswersStartWhileFailedStartExits) {
 /// the Core wrote while the Driver was down does not stay.
 TEST(ArcFactory, BootConfigureErrorWritesStatus) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto ctx = std::make_shared<driver::task::MockContext>(client);
+    const auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     synnax::task::Task task{.name = "arc_missing", .type = TASK_TYPE};
     task.config = nlohmann::json{{"arc_key", x::uuid::create().to_string()}};
     Factory factory;

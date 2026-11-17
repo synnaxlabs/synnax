@@ -16,6 +16,7 @@
 
 #include "driver/labjack/names.h"
 #include "driver/ni/names.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/rack/rack.h"
 #include "driver/version/version.h"
 
@@ -33,7 +34,10 @@ TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto built = built_integrations();
     for (const auto &[integration, type]: scanners) {
         if (std::ranges::find(built, integration) == built.end()) continue;
@@ -65,7 +69,10 @@ TEST(RackFactoriesTest, DisabledIntegrationNamesItself) {
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     for (const auto &type: {std::string("modbus_read"), arc::TASK_TYPE}) {
         cancel.start();
         const auto [tsk, handled] = factory->configure_task(
@@ -104,7 +111,10 @@ TEST(RackFactoriesTest, UnknownTypeIsNotHandled) {
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     cancel.start();
     const auto [tsk, handled] = factory->configure_task(
         ctx,
@@ -128,7 +138,10 @@ TEST(RackFactoriesTest, IncompatibleCoreRefusesEveryIntegration) {
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto built = built_integrations();
     for (const auto &integration: built) {
         const auto type = integration + "_read";
@@ -168,7 +181,10 @@ TEST(RackFactoriesTest, IncompatibleCoreStopsTasksAtBoot) {
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     cancel.start();
     const auto [tsk, handled] = factory->configure_task(
         ctx,
@@ -200,7 +216,10 @@ TEST(RackFactoriesTest, DisabledIntegrationLogsAtBoot) {
         nullptr,
         std::make_shared<x::thread::rt::Manager>()
     );
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     cancel.start();
     const auto [tsk, handled] = factory->configure_task(
         ctx,

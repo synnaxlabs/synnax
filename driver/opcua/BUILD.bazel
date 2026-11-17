@@ -64,6 +64,7 @@ cc_test(
         "//driver/opcua",
         "//driver/opcua/certificate",
         "//driver/opcua/testutil",
+        "//driver/outbox/testutil",
         "//driver/pipeline/testutil",
         "//x/cpp/json",
         "//x/cpp/testutil",

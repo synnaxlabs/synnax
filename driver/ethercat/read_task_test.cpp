@@ -20,6 +20,7 @@
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/ethercat/testutil/master.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 #include "engine/engine.h"
 
@@ -108,7 +109,10 @@ protected:
 
         rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
 
         slave_device = create_slave_device(
             SLAVE_SERIAL,
@@ -1058,10 +1062,16 @@ class StuckContext final : public task::Context {
     std::condition_variable cv;
     bool released = false;
     std::vector<synnax::task::Status> sent;
+    std::shared_ptr<::driver::outbox::Outbox> calls;
 
 public:
-    explicit StuckContext(const std::shared_ptr<synnax::Synnax> &client):
-        Context(client) {}
+    StuckContext(
+        const std::shared_ptr<synnax::Synnax> &client,
+        std::shared_ptr<::driver::outbox::Outbox> outbox
+    ):
+        Context(client), calls(std::move(outbox)) {}
+
+    std::shared_ptr<::driver::outbox::Outbox> outbox() override { return this->calls; }
 
     void set_status(synnax::task::Status &status) override {
         std::lock_guard lock(this->mu);
@@ -1103,7 +1113,10 @@ TEST_F(EtherCATReadTest, StartDoesNotWaitOnTheCoreForAStep) {
     auto parser = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
-    const auto ctx = std::make_shared<StuckContext>(this->client);
+    const auto ctx = std::make_shared<StuckContext>(
+        this->client,
+        ::driver::outbox::testutil::open(this->client->statuses)
+    );
     const synnax::task::Task task{.name = "read", .type = READ_TASK_TYPE};
     auto source = ReadTaskSource(
         this->engine,

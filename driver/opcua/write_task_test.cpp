@@ -19,6 +19,7 @@
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
 #include "driver/opcua/write_task.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::opcua {
@@ -211,7 +212,10 @@ protected:
         // Use the comprehensive default server configuration
         auto server_cfg = testutil::ServerConfig::create_default();
 
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         auto reads = std::make_shared<std::vector<::x::telem::Frame>>();
 
         // Create test frames with different data types

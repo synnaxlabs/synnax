@@ -27,6 +27,7 @@ cc_library(
         "//client/cpp:synnax",
         "//driver/bypass",
         "//driver/control",
+        "//driver/outbox",
         "//x/cpp/breaker",
         "//x/cpp/json",
         "//x/cpp/log",
@@ -44,6 +45,7 @@ cc_test(
     deps = [
         "//client/cpp/status",
         "//client/cpp/testutil",
+        "//driver/outbox/testutil",
         "//driver/task",
         "//x/cpp/defer",
         "//x/cpp/uuid",

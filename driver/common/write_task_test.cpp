@@ -21,6 +21,7 @@
 
 #include "driver/common/testutil.h"
 #include "driver/common/write_task.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
@@ -134,7 +135,10 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
 
     synnax::task::Task task;
     task.key = x::uuid::create();
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     WriteTask write_task(
         task,
@@ -299,7 +303,10 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     synnax::task::Task task;
     task.key = x::uuid::create();
 
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     WriteTask write_task(
         task,
@@ -397,7 +404,10 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     );
     synnax::task::Task task;
     task.key = x::uuid::create();
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     WriteTask write_task(
         task,
         ctx,
@@ -463,7 +473,10 @@ TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
     );
     std::promise<void> open;
     streamer_factory->open_gate = open.get_future().share();
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
 
@@ -491,7 +504,10 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
         std::vector{x::errors::UNKNOWN},
         std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>()
     );
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
 
@@ -517,7 +533,10 @@ TEST(TestCommonWriteTask, StartAfterFailureRestarts) {
         std::make_shared<std::vector<x::telem::Frame>>()
     );
     streamer_factory->open_errors = {x::errors::UNKNOWN};
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
 
@@ -551,7 +570,10 @@ TEST(TestCommonWriteTask, StartAfterCleanExitStopsSink) {
             }}
         )
     );
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     MockSink *sink = nullptr;
     auto write_task = create_write_task(ctx, streamer_factory, sink);
 
@@ -605,7 +627,10 @@ std::unique_ptr<WriteTask> create_state_write_task(
 /// the command streamer opens.
 TEST(TestCommonWriteTask, StateWriterOpenErrorFailsStart) {
     x::breaker::Breaker cancel;
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     std::promise<void> open;
     const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
@@ -635,7 +660,10 @@ TEST(TestCommonWriteTask, StateWriterOpenErrorFailsStart) {
 /// @brief it should report a failed command while the state writer is still opening.
 TEST(TestCommonWriteTask, CommandErrorWhileStateWriterOpens) {
     x::breaker::Breaker cancel;
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     std::promise<void> open;
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     cmd_reads->emplace_back(1, x::telem::Series(static_cast<uint8_t>(1)));
@@ -668,7 +696,10 @@ TEST(TestCommonWriteTask, CommandErrorWhileStateWriterOpens) {
 /// after it opened.
 TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
     x::breaker::Breaker cancel;
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     // The second state write fails, the writer closes as unreachable, and the reopen
     // fails.
     const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
@@ -698,7 +729,10 @@ TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
 /// unreachable.
 TEST(TestCommonWriteTask, CoreOutageStopsBothPipelines) {
     x::breaker::Breaker cancel;
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const std::vector unreachable(10, freighter::UNREACHABLE);
     synnax::channel::Channel state;
     state.key = 2;
@@ -762,7 +796,10 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     auto *raw_sink = sink.get();
     synnax::task::Task task;
     task.key = x::uuid::create();
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     WriteTask write_task(
         task,
         ctx,
@@ -808,7 +845,10 @@ TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
     auto *raw_sink = sink.get();
     synnax::task::Task task;
     task.key = x::uuid::create();
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     WriteTask write_task(
         task,
         ctx,
@@ -850,7 +890,10 @@ TEST(TestCommonWriteTask, ExecGivesTheSinkTheStartCommand) {
     const auto *raw_sink = sink.get();
     WriteTask write_task(
         synnax::task::Task{.key = x::uuid::create()},
-        std::make_shared<driver::task::MockContext>(nullptr),
+        std::make_shared<driver::task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         x::breaker::default_config("cat"),
         std::move(sink),
         std::make_shared<pipeline::testutil::WriterFactory>(),
@@ -876,7 +919,10 @@ TEST(TestCommonWriteTask, SkippedCommandWarnsWithoutBreaker) {
     const auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     synnax::task::Task task;
     task.key = x::uuid::create();
-    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<driver::task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     // A breaker wait would outlast the timeout below.
     WriteTask write_task(
         task,
@@ -920,8 +966,8 @@ TEST(TestCommonWriteTask, SkippedCommandWarnsWithoutBreaker) {
 struct SkippingWrite {
     std::shared_ptr<x::sync::List<x::telem::Frame>>
         writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    std::shared_ptr<driver::task::MockContext>
-        ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    std::shared_ptr<driver::task::MockContext> ctx = std::make_shared<
+        driver::task::MockContext>(nullptr, ::driver::outbox::testutil::open({}));
     std::unique_ptr<WriteTask> task;
 
     explicit SkippingWrite(const std::vector<uint8_t> &commands) {
@@ -1028,8 +1074,8 @@ public:
 /// @brief a write task that runs a HoldingSink on the given commands to channel 1, or
 /// with no command channels when commanded is false.
 struct HoldingWrite {
-    std::shared_ptr<driver::task::MockContext>
-        ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    std::shared_ptr<driver::task::MockContext> ctx = std::make_shared<
+        driver::task::MockContext>(nullptr, ::driver::outbox::testutil::open({}));
     HoldingSink *sink;
     x::breaker::Breaker cancel;
     std::unique_ptr<WriteTask> task;

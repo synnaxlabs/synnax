@@ -17,6 +17,7 @@
 #include "driver/modbus/modbus.h"
 #include "driver/modbus/testutil/slave.h"
 #include "driver/modbus/write_task.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::modbus {
@@ -37,7 +38,10 @@ protected:
     void setup_task_config() {
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
         this->devs = std::make_shared<device::Manager>();
-        this->ctx = std::make_shared<task::MockContext>(client);
+        this->ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         if (this->coil_ch.name.empty())
             this->coil_ch.name = make_unique_channel_name("coil");
         if (this->coil_ch.data_type == x::telem::UNKNOWN_T)
