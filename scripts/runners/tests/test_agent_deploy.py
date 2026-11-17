@@ -299,6 +299,18 @@ class TestInstallCommands:
             "-Labels 'self-hosted,Windows,X64,windows-latest,windows-test-bot'"
         ) in windows[-1]
 
+    def test_should_search_every_known_runner_folder(self) -> None:
+        _, windows = install_commands(
+            commit=COMMIT,
+            host="203.0.113.7",
+            ca="Y2E=",
+            info=instance("windows-tester-new", windows=True),
+        )
+        assert (
+            "-Runners 'C:\\actions-runner', "
+            "'C:\\Users\\Administrator\\Desktop\\actions-runner' }"
+        ) in windows[-1]
+
 
 class TestPublicAddress:
     """Tests for reading the public address of the box."""

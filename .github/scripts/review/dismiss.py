@@ -26,7 +26,9 @@ from review.post import (
     comments,
     issue_comment,
     outside_findings,
+    reply,
     rescore,
+    resolve,
     threads,
     write,
 )
@@ -47,14 +49,6 @@ PASSED = (
 )
 _QUOTES = "\"'\u201c\u201d\u2018\u2019"
 _PATH = re.compile(r"(?:^|\s)path:(\S+)")
-_REPLY = """mutation($t: ID!, $b: String!) {
-  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $t, body: $b}) {
-    comment { id }
-  }
-}"""
-_RESOLVE = """mutation($t: ID!) {
-  resolveReviewThread(input: {threadId: $t}) { thread { id } }
-}"""
 
 
 def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
@@ -75,9 +69,9 @@ def dismiss(t: Target, gh: GH, *, comment: int, key: str) -> None:
     hits = [(th, c) for th in found for c in th.replies if c["databaseId"] == comment]
     if not hits and issue_comment(t, gh, comment) is None:
         raise ValueError(f"comment {comment} is not on pull request {t.pr}")
-    for thread, reply in hits:
-        if command(reply["body"]) is None:
-            _reply(gh, thread, USAGE)
+    for thread, c in hits:
+        if command(c["body"]) is None:
+            reply(gh, thread, USAGE)
     can = authority(t, gh)
     _sweep_threads(t, gh, found, can)
     _sweep_comments(t, gh, found, can)
@@ -93,10 +87,10 @@ def _sweep_threads(t: Target, gh: GH, found: list[Thread], can: Authority) -> No
             if command(r["body"]) is None or any(_by(t, c) for c in later):
                 continue
             if not can(r):
-                _reply(gh, th, REFUSED)
+                reply(gh, th, REFUSED)
                 continue
-            _reply(gh, th, DONE)
-            _resolve(gh, th)
+            reply(gh, th, DONE)
+            resolve(gh, th)
 
 
 def _sweep_comments(t: Target, gh: GH, found: list[Thread], can: Authority) -> None:
@@ -119,15 +113,11 @@ def _sweep_comments(t: Target, gh: GH, found: list[Thread], can: Authority) -> N
             record = {"comment": c["id"], "path": path, "title": title}
             _comment(t, gh, answer(record | {"reason": reason}, DONE))
             if (th := still.get((path, title))) is not None:
-                _resolve(gh, th)
+                resolve(gh, th)
 
 
 def _by(t: Target, reply: dict[str, Any]) -> bool:
     return (reply["author"] or {}).get("login") == t.bot
-
-
-def _resolve(gh: GH, thread: Thread) -> None:
-    gh("api", "graphql", "-f", f"query={_RESOLVE}", "-f", f"t={thread.id}")
 
 
 def _named(
@@ -152,16 +142,3 @@ def _named(
 
 def _comment(t: Target, gh: GH, body: str) -> None:
     write(gh, "POST", f"repos/{t.repo}/issues/{t.pr}/comments", {"body": body})
-
-
-def _reply(gh: GH, thread: Thread, body: str) -> None:
-    gh(
-        "api",
-        "graphql",
-        "-f",
-        f"query={_REPLY}",
-        "-f",
-        f"t={thread.id}",
-        "-f",
-        f"b={body}",
-    )

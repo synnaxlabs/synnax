@@ -189,7 +189,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/frame/read",
 			http.WithResponseEncoders(
-				framer.NewFrameEncoder(ctx),
+				framer.NewFrameEncoder(ctx, layer.Errors()),
 				csvEncoder,
 				framer.NewTDMSEncoder(ctx),
 			),

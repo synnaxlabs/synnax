@@ -19,12 +19,18 @@ import (
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+func errorCodec() *errors.Codec {
+	return errors.NewCodec(freighter.ErrorProvider(), testutil.ErrorProvider())
+}
 
 // newFiberApp builds a fiber app whose fasthttp worker-pool janitor wakes every 100ms
 // instead of the default 10s. The janitor only observes shutdown between sleeps, so
