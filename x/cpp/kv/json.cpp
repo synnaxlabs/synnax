@@ -77,13 +77,21 @@ errors::Error errno_error(const std::string &action) {
     return errors::Error(action + ": " + std::strerror(errno));
 }
 
-std::filesystem::path parent_of(const std::filesystem::path &path) {
-    return path.has_parent_path() ? path.parent_path() : std::filesystem::path(".");
+/// @brief opens the parent directory of path, and refuses a link.
+std::pair<int, errors::Error> open_dir(const std::filesystem::path &path) {
+    const auto dir = path.has_parent_path() ? path.parent_path()
+                                            : std::filesystem::path(".");
+    const int fd = open(dir.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (fd < 0) return {fd, errno_error("failed to open directory")};
+    return {fd, errors::NIL};
 }
 
-/// @brief reads the file at path, and refuses a link.
+/// @brief reads the file at path, and refuses a link at path or its directory.
 std::pair<std::string, errors::Error> read_file(const std::filesystem::path &path) {
-    FD file{open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC)};
+    auto [dir_fd, dir_err] = open_dir(path);
+    FD dir{dir_fd};
+    if (dir_err) return {"", dir_err};
+    FD file{openat(dir.fd, path.filename().c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC)};
     if (file.fd < 0) return {"", errno_error("failed to open file")};
     std::string data;
     char buf[4096];
@@ -94,59 +102,42 @@ std::pair<std::string, errors::Error> read_file(const std::filesystem::path &pat
     return {data, errors::NIL};
 }
 
-/// @brief replaces the file at path with data through a renamed temporary file, so a
-/// link at path is replaced and never followed. The file keeps the owner and mode of
-/// the file it replaces, or gets mode and the effective user when it is new.
+/// @brief writes data to the file at path in place, and refuses a link at path or its
+/// directory. An existing file keeps its owner and mode. A new file gets mode.
 errors::Error write_file(
     const std::filesystem::path &path,
     const std::filesystem::perms mode,
     const std::string &data
 ) {
-    FD dir{
-        open(parent_of(path).c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-    };
-    if (dir.fd < 0) return errno_error("failed to open directory");
-    const auto name = path.filename().string();
-    const auto tmp = name + ".tmp";
-    struct stat old{};
-    bool replaces = false;
-    {
-        FD prev{openat(dir.fd, name.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC)};
-        if (prev.fd >= 0) {
-            if (fstat(prev.fd, &old) != 0) return errno_error("failed to read file");
-            replaces = true;
-        } else if (errno != ENOENT && errno != ELOOP)
-            return errno_error("failed to open file");
+    auto [dir_fd, dir_err] = open_dir(path);
+    FD dir{dir_fd};
+    if (dir_err) return dir_err;
+    const auto name = path.filename();
+    FD file{openat(dir.fd, name.c_str(), O_WRONLY | O_TRUNC | O_NOFOLLOW | O_CLOEXEC)};
+    if (file.fd < 0 && errno == ENOENT) {
+        file.fd = openat(
+            dir.fd,
+            name.c_str(),
+            O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+            static_cast<mode_t>(mode)
+        );
+        if (file.fd < 0 && errno == EEXIST)
+            file.fd = openat(
+                dir.fd,
+                name.c_str(),
+                O_WRONLY | O_TRUNC | O_NOFOLLOW | O_CLOEXEC
+            );
     }
-    unlinkat(dir.fd, tmp.c_str(), 0);
-    const auto new_mode = replaces ? old.st_mode & 07777 : static_cast<mode_t>(mode);
-    FD file{openat(
-        dir.fd,
-        tmp.c_str(),
-        O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
-        S_IRUSR | S_IWUSR
-    )};
-    if (file.fd < 0) return errno_error("failed to create file");
-    const auto fail = [&](const std::string &action) {
-        auto err = errno_error(action);
-        unlinkat(dir.fd, tmp.c_str(), 0);
-        return err;
-    };
-    if (replaces && (old.st_uid != geteuid() || old.st_gid != getegid()) &&
-        fchown(file.fd, old.st_uid, old.st_gid) != 0)
-        return fail("failed to keep the owner of file");
-    if (fchmod(file.fd, new_mode) != 0) return fail("failed to set the mode of file");
+    if (file.fd < 0) return errno_error("failed to open file");
     const char *p = data.data();
     size_t left = data.size();
     while (left > 0) {
         const auto n = write(file.fd, p, left);
-        if (n < 0) return fail("failed to write file");
+        if (n < 0) return errno_error("failed to write file");
         p += n;
         left -= static_cast<size_t>(n);
     }
-    if (fsync(file.fd) != 0) return fail("failed to write file");
-    if (renameat(dir.fd, tmp.c_str(), dir.fd, name.c_str()) != 0)
-        return fail("failed to replace file");
+    if (fsync(file.fd) != 0) return errno_error("failed to write file");
     return errors::NIL;
 }
 #endif

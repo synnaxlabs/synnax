@@ -120,8 +120,8 @@ TEST_F(JSONTest, ExistingFileMode) {
     );
 }
 
-/// @brief it should replace a link at the path when it writes, and never follow it.
-TEST_F(JSONTest, WriteReplacesLink) {
+/// @brief it should refuse to write through a link at the path.
+TEST_F(JSONTest, WriteRefusesLink) {
 #ifdef _WIN32
     GTEST_SKIP() << "Windows writes through the path";
 #endif
@@ -135,12 +135,37 @@ TEST_F(JSONTest, WriteReplacesLink) {
     std::ofstream(target) << "target";
     std::filesystem::remove(temp_path);
     std::filesystem::create_symlink(target, temp_path);
-    ASSERT_NIL(kv->set("key", "value"));
-    ASSERT_FALSE(std::filesystem::is_symlink(temp_path));
+    const auto err = kv->set("key", "value");
+    ASSERT_NE(err.message().find("failed to open file"), std::string::npos);
     std::ifstream file(target);
     std::string content;
     file >> content;
     ASSERT_EQ(content, "target");
+}
+
+/// @brief it should write a file in a directory that the process cannot write.
+TEST_F(JSONTest, WriteInReadOnlyDirectory) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows directories have no POSIX mode";
+#endif
+    JSONFileConfig config;
+    config.path = temp_path;
+    config.dir_mode = std::filesystem::perms::owner_all;
+    config.file_mode = std::filesystem::perms::owner_read |
+                       std::filesystem::perms::owner_write;
+    const auto kv = ASSERT_NIL_P(JSONFile::open_file(config));
+    const auto dir = std::filesystem::path(temp_path).parent_path();
+    std::filesystem::permissions(
+        dir,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_exec
+    );
+    const auto err = kv->set("key", "value");
+    std::filesystem::permissions(dir, std::filesystem::perms::owner_all);
+    ASSERT_NIL(err);
+    const auto reopened = ASSERT_NIL_P(JSONFile::open_file(config));
+    std::string value;
+    ASSERT_NIL(reopened->get("key", value));
+    ASSERT_EQ(value, "value");
 }
 
 /// @brief it should refuse to open a link at the path.

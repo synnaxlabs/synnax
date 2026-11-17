@@ -38,9 +38,8 @@ struct JSONFileConfig {
     std::filesystem::path path;
     /// @brief the mode to set the directory to if it doesn't exist.
     std::filesystem::perms dir_mode;
-    /// @brief the mode to give the file if it doesn't exist. On Unix, each write
-    /// replaces the file through a rename, keeps its owner and mode, and never follows
-    /// a link at path.
+    /// @brief the mode to give the file if it doesn't exist. On Unix, reads and
+    /// writes refuse a link at path, and a write keeps the owner and mode of the file.
     std::filesystem::perms file_mode;
 };
 
