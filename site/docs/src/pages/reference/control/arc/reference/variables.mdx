@@ -78,7 +78,7 @@ variables of the functions it calls, go back to their first values. See
 In a stage or sequence, the first value of a `$=` variable is a literal or an expression
 that reads no channel. A computed one runs once, on the first entry of its scope. A
 channel fails with
-`channels and channel-read expressions cannot be assigned to stateful variables`.
+`invalid stateful variable: channels and channel-read expressions cannot be assigned to stateful variables`.
 
 <Divider.Divider x />
 
@@ -101,8 +101,8 @@ func clamp() {x f64} f64 {
 ```
 
 Writing `y := 100.0` in the `if` block fails with
-`name y conflicts with existing variable at line 2, col 4`. A variable can use the name
-of a standard library function, such as `min`.
+`name conflict: name y conflicts with existing variable at line 2, col 4`. A variable
+can use the name of a standard library function, such as `min`.
 
 <Divider.Divider x />
 
@@ -114,7 +114,8 @@ of a standard library function, such as `min`.
 - The value must have the type of the variable.
 - `+=` also appends to a `str`. Strings support no other compound operator.
 - `data[i] = v` sets one element of a series.
-- You cannot assign to a `for` loop variable: `cannot assign to loop variable 'i'`.
+- You cannot assign to a `for` loop variable:
+  `invalid assignment: cannot assign to loop variable 'i'`.
 - In a stage or sequence, a flow can also write a variable: `tank_pt -> peak`. Compound
   and indexed assignment work only in a function.
 - `=` on a channel name variable points it at a different channel of the same type. `=`
@@ -142,4 +143,4 @@ tank_pt -> regulate()
 ```
 
 A read-only variable cannot take a write: `1.0 -> kpa` fails with
-`cannot write to channel-read variable kpa; it is read-only`.
+`read-only write: cannot write to channel-read variable kpa; it is read-only`.
