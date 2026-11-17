@@ -253,7 +253,7 @@ type FreeIndexResolver interface {
 	// this map, and a free channel it leaves out counts its own alignments. Any error
 	// is propagated to the caller opening the writer.
 	ResolveFreeIndexes(
-		context.Context, channel.Keys,
+		ctx context.Context, keys channel.Keys,
 	) (map[channel.Key]channel.Key, error)
 }
 

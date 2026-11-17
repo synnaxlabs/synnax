@@ -10,6 +10,7 @@
 package analyzer
 
 import (
+	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -1046,7 +1047,10 @@ func collectTypeRef(
 		return collectMapTypeRef(mapCtx, typeParams)
 	}
 
-	normalCtx := tr.(*parser.TypeRefNormalContext)
+	normalCtx, ok := tr.(*parser.TypeRefNormalContext)
+	if !ok {
+		panic(fmt.Sprintf("type reference is a %T", tr))
+	}
 	rawType := extractTypeNormal(normalCtx)
 
 	ref := resolution.TypeRef{Name: rawType}

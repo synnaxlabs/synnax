@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
@@ -79,7 +80,7 @@ func checkChain(
 	// chain edit lands in the live file the same way.
 	if merged, ok := res.MergedSources[livePath+".oracle"]; ok {
 		filePath := livePath + ".oracle"
-		onDisk, err := os.ReadFile(filepath.Join(env.RepoRoot, filePath))
+		onDisk, err := paths.ReadFile(filePath, env.RepoRoot)
 		if err != nil && !os.IsNotExist(err) {
 			r.fail(Finding{
 				Path: filePath, Severity: SeverityError, Message: err.Error(),
@@ -658,28 +659,28 @@ func storedRefs(
 			if domain.GetStringFromField(fd, "go", "marshal") == "omit" {
 				continue
 			}
-			locals = append(locals, localRefNames(f, fd.Type)...)
+			locals = append(locals, localRefNames(fd.Type)...)
 		}
 		for _, e := range form.Extends {
-			locals = append(locals, localRefNames(f, e)...)
+			locals = append(locals, localRefNames(e)...)
 		}
 	case resolution.UnionForm:
 		for _, v := range form.Variants {
-			locals = append(locals, localRefNames(f, v.Type)...)
+			locals = append(locals, localRefNames(v.Type)...)
 		}
 		if form.BorrowsEnum() {
-			locals = append(locals, localRefNames(f, form.Enum)...)
+			locals = append(locals, localRefNames(form.Enum)...)
 		}
 	case resolution.DistinctForm:
-		locals = localRefNames(f, form.Base)
+		locals = localRefNames(form.Base)
 	case resolution.AliasForm:
-		locals = localRefNames(f, form.Target)
+		locals = localRefNames(form.Target)
 	}
 	return locals
 }
 
 // localRefNames returns the same-chain type names a reference reaches.
-func localRefNames(f *versions.File, ref resolution.TypeRef) []string {
+func localRefNames(ref resolution.TypeRef) []string {
 	var names []string
 	var walk func(ref resolution.TypeRef)
 	walk = func(ref resolution.TypeRef) {

@@ -38,7 +38,9 @@ var _ = Describe("PEM", func() {
 				block := MustSucceed(xpem.FromPrivateKey(key))
 				Expect(block.Type).To(Equal(expectedBlockType))
 				decoded := MustSucceed(xpem.ToPrivateKey(block))
-				Expect(decoded.(crypto.Signer).Public()).To(Equal(key.Public()))
+				signer, ok := decoded.(crypto.Signer)
+				Expect(ok).To(BeTrue())
+				Expect(signer.Public()).To(Equal(key.Public()))
 			},
 			Entry("RSA", func() crypto.Signer {
 				return MustSucceed(rsa.GenerateKey(rand.Reader, rsaKeySize))

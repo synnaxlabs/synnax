@@ -161,55 +161,46 @@ func UnmarshalUint32(dec *msgpack.Decoder) (uint32, error) {
 	case uint8:
 		return uint32(val), nil
 	case int64:
-		if val < 0 || val > math.MaxUint32 {
-			return 0, errors.Newf("value %d out of uint32 range", val)
-		}
-		return uint32(val), nil
+		return uint32FromInt(val)
 	case int32:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint32",
-				val,
-			)
-		}
-		return uint32(val), nil
+		return uint32FromSmallInt(val)
 	case int16:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint32",
-				val,
-			)
-		}
-		return uint32(val), nil
+		return uint32FromSmallInt(val)
 	case int8:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint32",
-				val,
-			)
-		}
-		return uint32(val), nil
+		return uint32FromSmallInt(val)
 	case int:
-		if val < 0 || val > math.MaxUint32 {
-			return 0, errors.Newf("value %d out of uint32 range", val)
-		}
-		return uint32(val), nil
+		return uint32FromInt(val)
 	case float64:
-		if val < 0 || val > math.MaxUint32 {
-			return 0, errors.Newf("value %f out of uint32 range", val)
-		}
-		return uint32(val), nil
+		return uint32FromFloat(val)
 	case float32:
-		if val < 0 || val > math.MaxUint32 {
-			return 0, errors.Newf("value %f out of uint32 range", val)
-		}
-		return uint32(val), nil
+		return uint32FromFloat(val)
 	case string:
 		n, err := strconv.ParseUint(val, 10, 32)
 		return uint32(n), err
 	default:
 		return 0, errors.Newf("cannot unmarshal %T into uint32", v)
 	}
+}
+
+func uint32FromSmallInt[T int8 | int16 | int32](val T) (uint32, error) {
+	if val < 0 {
+		return 0, errors.Newf("negative value %d cannot be converted to uint32", val)
+	}
+	return uint32(val), nil
+}
+
+func uint32FromInt[T int | int64](val T) (uint32, error) {
+	if val < 0 || val > math.MaxUint32 {
+		return 0, errors.Newf("value %d out of uint32 range", val)
+	}
+	return uint32(val), nil
+}
+
+func uint32FromFloat[T float32 | float64](val T) (uint32, error) {
+	if val < 0 || val > math.MaxUint32 {
+		return 0, errors.Newf("value %f out of uint32 range", val)
+	}
+	return uint32(val), nil
 }
 
 // UnmarshalUint64 decodes a MessagePack value into a uint64, handling type coercion
@@ -229,64 +220,36 @@ func UnmarshalUint64(dec *msgpack.Decoder) (uint64, error) {
 	case uint8:
 		return uint64(val), nil
 	case int64:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint64",
-				val,
-			)
-		}
-		return uint64(val), nil
+		return uint64FromInt(val)
 	case int32:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint64",
-				val,
-			)
-		}
-		return uint64(val), nil
+		return uint64FromInt(val)
 	case int16:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint64",
-				val,
-			)
-		}
-		return uint64(val), nil
+		return uint64FromInt(val)
 	case int8:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint64",
-				val,
-			)
-		}
-		return uint64(val), nil
+		return uint64FromInt(val)
 	case int:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint64",
-				val,
-			)
-		}
-		return uint64(val), nil
+		return uint64FromInt(val)
 	case float64:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %f cannot be converted to uint64",
-				val,
-			)
-		}
-		return uint64(val), nil
+		return uint64FromFloat(val)
 	case float32:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %f cannot be converted to uint64",
-				val,
-			)
-		}
-		return uint64(val), nil
+		return uint64FromFloat(val)
 	case string:
 		return strconv.ParseUint(val, 10, 64)
 	default:
 		return 0, errors.Newf("cannot unmarshal %T into uint64", v)
 	}
+}
+
+func uint64FromInt[T int | int8 | int16 | int32 | int64](val T) (uint64, error) {
+	if val < 0 {
+		return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+	}
+	return uint64(val), nil
+}
+
+func uint64FromFloat[T float32 | float64](val T) (uint64, error) {
+	if val < 0 {
+		return 0, errors.Newf("negative value %f cannot be converted to uint64", val)
+	}
+	return uint64(val), nil
 }

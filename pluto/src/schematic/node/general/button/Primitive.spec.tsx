@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { color, deep } from "@synnaxlabs/x";
+import { color, deep, TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -161,7 +161,11 @@ describe("button symbol", () => {
       it("should swallow a fire-mode click shorter than the delay", () => {
         const onClick = vi.fn();
         const { container } = render(
-          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+          <Button
+            mode="fire"
+            onClick={onClick}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
@@ -174,7 +178,11 @@ describe("button symbol", () => {
       it("should fire after the delay while the button stays held", () => {
         const onClick = vi.fn();
         const { container } = render(
-          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+          <Button
+            mode="fire"
+            onClick={onClick}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         fireEvent.mouseDown(getButton(container));
         vi.advanceTimersByTime(499);
@@ -188,7 +196,11 @@ describe("button symbol", () => {
       it("should gate a delayed pulse behind the hold", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
-          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+          <Button
+            mode="pulse"
+            onMouseDown={onMouseDown}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
@@ -202,7 +214,11 @@ describe("button symbol", () => {
       it("should swallow a pulse click shorter than the delay", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
-          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+          <Button
+            mode="pulse"
+            onMouseDown={onMouseDown}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
@@ -214,7 +230,11 @@ describe("button symbol", () => {
       it("should ignore a secondary-button hold in fire mode", () => {
         const onClick = vi.fn();
         const { container } = render(
-          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+          <Button
+            mode="fire"
+            onClick={onClick}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         fireEvent.mouseDown(getButton(container), { button: 2 });
         vi.advanceTimersByTime(1000);
@@ -224,7 +244,11 @@ describe("button symbol", () => {
       it("should ignore a secondary-button hold for a delayed pulse", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
-          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+          <Button
+            mode="pulse"
+            onMouseDown={onMouseDown}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         fireEvent.mouseDown(getButton(container), { button: 2 });
         vi.advanceTimersByTime(1000);
@@ -234,7 +258,11 @@ describe("button symbol", () => {
       it("should ignore the delay for momentary mode", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
-          <Button mode="momentary" onMouseDown={onMouseDown} onClickDelay={500} />,
+          <Button
+            mode="momentary"
+            onMouseDown={onMouseDown}
+            onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+          />,
         );
         const btn = getButton(container);
         fireEvent.mouseDown(btn);

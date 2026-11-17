@@ -12,6 +12,7 @@ package paths_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -104,6 +105,65 @@ var _ = Describe("Paths", func() {
 			result := paths.Resolve(absPath, repoRoot)
 			Expect(result).To(Equal(absPath))
 		})
+	})
+
+	Describe("ReadFile and WriteFile", func() {
+		var dir string
+		BeforeEach(func() { dir = GinkgoT().TempDir() })
+
+		It("Should write and read a repo-relative path", func() {
+			Expect(paths.WriteFile("a.txt", dir, []byte("hi"), 0o644)).To(Succeed())
+			Expect(paths.ReadFile("a.txt", dir)).To(Equal([]byte("hi")))
+		})
+
+		It("Should read an absolute path inside the root", func() {
+			Expect(paths.WriteFile("a.txt", dir, []byte("hi"), 0o644)).To(Succeed())
+			Expect(paths.ReadFile(filepath.Join(dir, "a.txt"), dir)).
+				To(Equal([]byte("hi")))
+		})
+
+		It("Should read an absolute path through a symlink to the root", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows needs a privilege to create a symlink")
+			}
+			link := filepath.Join(GinkgoT().TempDir(), "link")
+			Expect(os.Symlink(dir, link)).To(Succeed())
+			Expect(paths.WriteFile("a.txt", dir, []byte("hi"), 0o644)).To(Succeed())
+			Expect(
+				paths.WriteFile(filepath.Join(link, "b.txt"), dir, []byte("b"), 0o644),
+			).
+				To(Succeed())
+			Expect(paths.ReadFile(filepath.Join(link, "a.txt"), dir)).
+				To(Equal([]byte("hi")))
+			Expect(paths.ReadFile("b.txt", dir)).To(Equal([]byte("b")))
+		})
+
+		It("Should reject a symlink inside the root that leads out of it", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows needs a privilege to create a symlink")
+			}
+			outside := GinkgoT().TempDir()
+			Expect(os.WriteFile(filepath.Join(outside, "a.txt"), nil, 0o644)).
+				To(Succeed())
+			Expect(os.Symlink(outside, filepath.Join(dir, "out"))).To(Succeed())
+			Expect(paths.ReadFile("out/a.txt", dir)).Error().
+				To(MatchError(ContainSubstring("escapes")))
+			Expect(paths.WriteFile("out/a.txt", dir, nil, 0o644)).
+				To(MatchError(ContainSubstring("escapes")))
+		})
+
+		DescribeTable("Should reject a path outside the root",
+			func(path func() string) {
+				Expect(paths.ReadFile(path(), dir)).Error().
+					To(MatchError(ContainSubstring("escapes")))
+				Expect(paths.WriteFile(path(), dir, nil, 0o644)).
+					To(MatchError(ContainSubstring("escapes")))
+			},
+			Entry("relative", func() string { return "../a.txt" }),
+			Entry("absolute", func() string {
+				return filepath.Join(filepath.Dir(dir), "a.txt")
+			}),
+		)
 	})
 
 	Describe("ValidateOutput", func() {

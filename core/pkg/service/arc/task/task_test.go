@@ -286,7 +286,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	openTestStreamer := func(ctx context.Context, keys channel.Keys, bufferSize int) (
 		responses <-chan framer.StreamerResponse,
-		close func(),
+		stop func(),
 	) {
 		GinkgoHelper()
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
@@ -950,9 +950,9 @@ var _ = Describe("Task", Ordered, func() {
 
 			DescribeTable(
 				"Should fail when a required field is missing",
-				func(clear func(*arctask.FactoryConfig), field string) {
+				func(unset func(*arctask.FactoryConfig), field string) {
 					cfg := full()
-					clear(&cfg)
+					unset(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
 				Entry(

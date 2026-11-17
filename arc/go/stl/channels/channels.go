@@ -350,12 +350,12 @@ func (s *sink) Next(ctx node.Context) {
 	s.state.writeChannel(key, data, time)
 	lastTS := time.ValueAt[telem.TimeStamp](-1)
 	out := s.Output(0)
-	out.Resize(1)
+	*out = out.Resized(1)
 	out.SetValueAt[uint8](0, 1)
 	out.Alignment = data.Alignment
 	out.TimeRange = data.TimeRange
 	outTime := s.OutputTime(0)
-	outTime.Resize(1)
+	*outTime = outTime.Resized(1)
 	outTime.SetValueAt(0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange

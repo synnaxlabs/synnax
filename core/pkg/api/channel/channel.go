@@ -171,10 +171,7 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	translated, err := translateChannelsBackward(req.Channels)
-	if err != nil {
-		return CreateResponse{}, err
-	}
+	translated := translateChannelsBackward(req.Channels)
 	for i := range translated {
 		translated[i].Internal = false
 	}
@@ -294,9 +291,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 
 // translateChannelsBackward translates a slice of api channel structs to a
 // slice of internal channel structs.
-func translateChannelsBackward(
-	channels []Channel,
-) ([]channel.Channel, error) {
+func translateChannelsBackward(channels []Channel) []channel.Channel {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
 		tCh := channel.Channel{
@@ -318,7 +313,7 @@ func translateChannelsBackward(
 
 		translated[i] = tCh
 	}
-	return translated, nil
+	return translated
 }
 
 // CountLimitedRequest is a request for the count of the channels that count against the

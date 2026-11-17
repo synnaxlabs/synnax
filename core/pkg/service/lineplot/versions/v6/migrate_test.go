@@ -144,8 +144,9 @@ var _ = Describe("v6 wire format", func() {
 		Expect(lp.Ranges.Custom.Variant).To(BeAssignableToTypeOf(
 			v6.DynamicCustomRange{},
 		))
-		Expect(lp.Ranges.Custom.Variant.(v6.DynamicCustomRange).Span).
-			To(BeNumerically(">", telem.TimeSpan(0)))
+		custom, ok := lp.Ranges.Custom.Variant.(v6.DynamicCustomRange)
+		Expect(ok).To(BeTrue())
+		Expect(custom.Span).To(BeNumerically(">", telem.TimeSpan(0)))
 		Expect(lp.Lines).To(HaveLen(2))
 	})
 

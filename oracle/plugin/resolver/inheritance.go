@@ -286,7 +286,7 @@ func VariantFields(
 	}
 	inherited, flattened := VariantBases(form, v, lang, table)
 	addBases(inherited)
-	payloadForm := payload.Form.(resolution.StructForm)
+	payloadForm := resolution.MustForm[resolution.StructForm](payload)
 	bases := slices.Concat(form.Extends, payloadForm.Extends)
 	for _, f := range flattened {
 		out = append(

@@ -70,6 +70,9 @@ struct MockSlaveInfo {
     /// @brief CoE objects keyed by index and sub-index. SDOread returns them, and a
     /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
+    /// @brief 8-byte CoE objects keyed by index and sub-index. As in SOEM, SDOread
+    /// fails a read that allows fewer bytes with packet error 3.
+    std::map<std::pair<uint16_t, uint8_t>, uint64_t> sdo_objects_64;
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
     /// sub-index. A code of 0 makes the read get no reply.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
@@ -606,12 +609,23 @@ public:
             this->push_packet_error(slave, index, sub_index, packet->second);
             return 0;
         }
+        if (const auto wide = info.sdo_objects_64.find({index, sub_index});
+            wide != info.sdo_objects_64.end()) {
+            if (std::cmp_less(*psize, sizeof(wide->second))) {
+                this->push_packet_error(slave, index, sub_index, 3);
+                return 0;
+            }
+            *psize = sizeof(wide->second);
+            std::memcpy(p, &wide->second, *psize);
+            return 1;
+        }
         const auto &objects = info.sdo_objects;
         const auto it = objects.find({index, sub_index});
         if (it == objects.end()) {
             this->push_sdo_abort(slave, index, sub_index, 0x06020000);
             return 0;
         }
+        *psize = std::min(*psize, static_cast<int>(sizeof(it->second)));
         std::memcpy(p, &it->second, *psize);
         return 1;
     }

@@ -102,6 +102,17 @@ func postJSON(
 	}))
 }
 
+// A browser sends back the name and value only, for every Core on the host.
+func withCookie(host string, cs ...*http.Cookie) map[string]string {
+	pairs := lo.Map(cs, func(c *http.Cookie, _ int) string {
+		return c.Name + "=" + c.Value
+	})
+	return map[string]string{
+		fiber.HeaderHost:   host,
+		fiber.HeaderCookie: strings.Join(pairs, "; "),
+	}
+}
+
 var _ = Describe("HTTP", func() {
 	Describe("Bind", func() {
 		var app *fiber.App
@@ -402,16 +413,6 @@ var _ = Describe("HTTP", func() {
 				cookies[0].MaxAge,
 			).To(Equal(int(auth.DefaultIdleTimeout / time.Second)))
 			return cookies[0]
-		}
-		// a browser sends back the name and value only, for every Core on the host
-		withCookie := func(host string, cs ...*http.Cookie) map[string]string {
-			pairs := lo.Map(cs, func(c *http.Cookie, _ int) string {
-				return c.Name + "=" + c.Value
-			})
-			return map[string]string{
-				fiber.HeaderHost:   host,
-				fiber.HeaderCookie: strings.Join(pairs, "; "),
-			}
 		}
 		It("Should authenticate a request that carries only the cookie", func() {
 			cookie := loginWithCookie("localhost:9090")

@@ -148,6 +148,7 @@ func (t joinText) SafeFormatError(p errors.Printer) error {
 
 var (
 	stackType      = reflect.TypeOf(errors.WithStack(errors.New("")))
+	joinType       = reflect.TypeFor[*joinError]()
 	stdlibJoinType = reflect.TypeOf(stderrors.Join(errors.New("")))
 )
 
@@ -158,11 +159,11 @@ func unwrapJoin(err error) []error {
 	if reflect.TypeOf(err) == stackType {
 		bare = errors.UnwrapOnce(err)
 	}
-	if join, ok := bare.(*joinError); ok {
-		return join.members
-	}
-	if reflect.TypeOf(bare) == stdlibJoinType {
-		return bare.(multiCause).Unwrap()
+	if joined, ok := bare.(multiCause); ok {
+		switch reflect.TypeOf(bare) {
+		case joinType, stdlibJoinType:
+			return joined.Unwrap()
+		}
 	}
 	return []error{err}
 }

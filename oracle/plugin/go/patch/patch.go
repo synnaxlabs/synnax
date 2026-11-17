@@ -876,8 +876,10 @@ func zeroDefault(
 		return !v.BoolValue
 	case resolution.ValueKindArray:
 		return len(v.Elements) == 0
-	default:
+	case resolution.ValueKindStruct:
 		return false
+	default:
+		panic(fmt.Sprintf("unknown value kind %d", v.Kind))
 	}
 }
 
@@ -931,6 +933,7 @@ func hashValue(sel string, ptr bool, sh shape, depth int) []string {
 			indent(hashValue(addressable+"["+i+"]", false, *sh.elem, depth+1))...,
 		)
 		return append(lines, "}")
+	case shapePrimitive:
 	}
 	call := func(method, goType string) []string {
 		if sh.converted {
@@ -1010,7 +1013,7 @@ func variantPath(
 			embedPath(payload, name, table)...,
 		)
 	}
-	pform := payload.Form.(resolution.StructForm)
+	pform := resolution.MustForm[resolution.StructForm](payload)
 	inherited, flattened := resolver.VariantBases(form, v, "go", table)
 	if declares(inherited, slices.Concat(flattened, pform.Fields), name, table) {
 		return nil

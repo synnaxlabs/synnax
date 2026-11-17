@@ -161,6 +161,15 @@ TEST(PropertiesParse, ReadsTheSettingsOfTheCatalog) {
     EXPECT_EQ(Properties::parse(parser).settings, settings);
 }
 
+/// @brief it should read back a serial number of 8 bytes, as IOLITE modules give.
+TEST(PropertiesParse, ReadsAnEightByteSerialNumber) {
+    auto parser = x::json::Parser(
+        Properties{.position = 1, .serial = 0x000000DB21014087}.to_json()
+    );
+    EXPECT_EQ(Properties::parse(parser).serial, 0x000000DB21014087);
+    ASSERT_NIL(parser.error());
+}
+
 /// @brief it should leave the settings empty for a slave that the catalog does not
 /// describe.
 TEST(PropertiesParse, LeavesMissingSettingsEmpty) {
@@ -701,14 +710,10 @@ Identity saved(
     };
 }
 
-/// @brief returns a slave at position on the bus whose serial number read got no
-/// answer, with serial as the serial number from its SII.
-DiscoveryResult unread_on_bus(
-    const uint16_t position,
-    const uint32_t product_code,
-    const uint32_t serial = 0
-) {
-    auto result = on_bus(position, product_code, serial);
+/// @brief returns a slave at position on the bus with SII serial number 0 whose CoE
+/// serial number read got no answer.
+DiscoveryResult unread_on_bus(const uint16_t position, const uint32_t product_code) {
+    auto result = on_bus(position, product_code);
     result.status.serial_error = "no answer";
     return result;
 }
@@ -905,24 +910,27 @@ TEST(Locate, GivesASlaveWithAnUnreadSerialNumberToASlaveThatFoundNoUnit) {
     );
 }
 
-/// @brief it should not find a slave by an unread serial number, as the serial number
-/// from the SII of a slave can be wrong.
-TEST(Locate, IgnoresAnUnreadSerialNumber) {
+/// @brief it should find a slave with SII serial number 0 that was below PRE-OP at the
+/// scan only at its saved position, as its serial number is unread.
+TEST(Locate, FindsAStartingSlaveWithNoSIISerialOnlyAtItsPosition) {
     EXPECT_EQ(
-        locate({saved(2, 0x1, 777)}, {unread_on_bus(5, 0x1, 777)}),
-        (Located{std::nullopt})
+        locate(
+            {saved(1, 0x1, 777), saved(3, 0x1, 888)},
+            {starting_on_bus(1, 0x1), starting_on_bus(5, 0x1)}
+        ),
+        (Located{1, std::nullopt})
     );
 }
 
-/// @brief it should find a slave that was below PRE-OP at the scan only at its saved
-/// position, as its serial number is unread.
-TEST(Locate, FindsAStartingSlaveOnlyAtItsPosition) {
+/// @brief it should find a slave that was below PRE-OP at the scan by its nonzero SII
+/// serial number at any position.
+TEST(Locate, FindsAStartingSlaveByItsSIISerialNumber) {
     EXPECT_EQ(
         locate(
             {saved(1, 0x1, 777), saved(3, 0x1, 888)},
             {starting_on_bus(1, 0x1, 999), starting_on_bus(5, 0x1, 888)}
         ),
-        (Located{1, std::nullopt})
+        (Located{std::nullopt, 5})
     );
 }
 

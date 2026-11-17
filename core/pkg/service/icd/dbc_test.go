@@ -67,7 +67,10 @@ func messageNamed(messages []icd.Message, name string) icd.Message {
 }
 
 func canIdentifier(m icd.Message) icd.CanIdentifier {
-	return binaryPayloadOf(m).Identifier.Variant.(icd.CanIdentifier)
+	GinkgoHelper()
+	id, ok := binaryPayloadOf(m).Identifier.Variant.(icd.CanIdentifier)
+	Expect(ok).To(BeTrue())
+	return id
 }
 
 func binaryFields(m icd.Message) []icd.BinaryField {
@@ -91,7 +94,7 @@ func toExpected(messages []icd.Message) []expectedMessage {
 	var out []expectedMessage
 	for _, m := range messages {
 		p := binaryPayloadOf(m)
-		id := p.Identifier.Variant.(icd.CanIdentifier)
+		id := canIdentifier(m)
 		em := expectedMessage{
 			Name:     m.Name,
 			ID:       id.ID,

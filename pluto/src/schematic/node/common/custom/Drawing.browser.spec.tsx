@@ -11,14 +11,10 @@ import { type schematic } from "@synnaxlabs/client";
 import { computed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type dimensions, location, type xy } from "@synnaxlabs/x";
-import {
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  type RefCallback,
-} from "react";
+import { type FC, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import { render, renderHook } from "vitest-browser-react";
+import { userEvent } from "vitest/browser";
+import { render } from "vitest-browser-react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
@@ -58,27 +54,16 @@ interface Paint {
 }
 
 const renderCustom = async (theme: Theming.ThemeSpec): Promise<Paint> => {
-  const Themed = ({ children }: PropsWithChildren): ReactElement => (
-    <Theming.Provider theme={theme}>{children}</Theming.Provider>
+  const { container } = await render(
+    <Theming.Provider theme={theme}>
+      <Primitive.Div>
+        <Custom.Drawing spec={SPEC} />
+      </Primitive.Div>
+    </Theming.Provider>,
   );
-  const { result } = await renderHook(
-    () =>
-      Custom.useRender({
-        orientation: "left",
-        activeState: "base",
-        externalScale: 1,
-        spec: SPEC,
-      }),
-    { wrapper: Themed },
-  );
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-  result.current(container);
   const rect = container.querySelector("rect");
   if (rect == null) throw new Error("custom symbol not mounted");
-  const paint = { stroke: computed(rect, "stroke"), fill: computed(rect, "fill") };
-  container.remove();
-  return paint;
+  return { stroke: computed(rect, "stroke"), fill: computed(rect, "fill") };
 };
 
 const renderBuiltIn = async (theme: Theming.ThemeSpec): Promise<Element> => {
@@ -94,7 +79,7 @@ const renderBuiltIn = async (theme: Theming.ThemeSpec): Promise<Element> => {
   return rect;
 };
 
-describe("Custom.useRender theme band", () => {
+describe("Custom.Drawing theme band", () => {
   describe.each([
     ["light", Theming.SYNNAX_LIGHT],
     ["dark", Theming.SYNNAX_DARK],
@@ -159,26 +144,21 @@ const COLORED_SPEC: schematic.symbol.Spec = {
 
 const DISPLAY = "--pluto-symbol-display";
 
-interface ColoredProps {
+const ColoredDrawing = ({
+  strokeColor,
+}: {
   strokeColor?: color.Crude;
-}
+}): ReactElement => (
+  <Theming.Provider theme={Theming.SYNNAX_DARK}>
+    <Primitive.Div>
+      <Custom.Drawing spec={COLORED_SPEC} strokeColor={strokeColor} />
+    </Primitive.Div>
+  </Theming.Provider>
+);
 
 const renderColored = async (strokeColor?: color.Crude) => {
-  const { result, rerender } = await renderHook(
-    (props?: ColoredProps) =>
-      Custom.useRender({
-        orientation: "left",
-        activeState: "base",
-        externalScale: 1,
-        spec: COLORED_SPEC,
-        strokeColor: props?.strokeColor,
-      }),
-    { initialProps: { strokeColor } },
-  );
-  const { container } = await render(
-    <Theming.Provider theme={Theming.SYNNAX_DARK}>
-      <Primitive.Div ref={result.current} />
-    </Theming.Provider>,
+  const { container, rerender } = await render(
+    <ColoredDrawing strokeColor={strokeColor} />,
   );
   const query = (selector: string): Element => {
     const el = container.querySelector(selector);
@@ -188,7 +168,9 @@ const renderColored = async (strokeColor?: color.Crude) => {
   return {
     stroke: (selector: string): string => computed(query(selector), "stroke"),
     display: (): string => computed(query("svg"), DISPLAY),
-    rerender,
+    rerender: async (next?: color.Crude) => {
+      await rerender(<ColoredDrawing strokeColor={next} />);
+    },
   };
 };
 
@@ -206,7 +188,7 @@ const renderColoredBuiltIn = async (strokeColor: color.Crude) => {
   return { display: computed(svg, DISPLAY), stroke: computed(rect, "stroke") };
 };
 
-describe("Custom.useRender symbol color", () => {
+describe("Custom.Drawing symbol color", () => {
   it("should give the root svg the display color of a built-in symbol", async () => {
     const builtIn = await renderColoredBuiltIn(STALE);
     const { display } = await renderColored(STALE);
@@ -230,7 +212,7 @@ describe("Custom.useRender symbol color", () => {
     async (shape) => {
       const plain = await renderColored();
       const { stroke, rerender } = await renderColored(STALE);
-      await rerender({ strokeColor: undefined });
+      await rerender(undefined);
       expect(stroke(shape)).toBe(plain.stroke(shape));
     },
   );
@@ -239,6 +221,48 @@ describe("Custom.useRender symbol color", () => {
     const { stroke } = await renderColored();
     expect(stroke(".bare")).toBe("none");
   });
+});
+
+const ROOT_PAINT_SPEC: schematic.symbol.Spec = {
+  ...SPEC,
+  svg:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" fill="red" stroke="blue">' +
+    '<rect class="bare" width="10" height="10"/></svg>',
+  states: [],
+};
+
+const ROOT_PAINT_SYMBOLS: [string, ReactElement][] = [
+  [
+    "static symbol",
+    <Primitive.Div key="static">
+      <Custom.Drawing spec={ROOT_PAINT_SPEC} />
+    </Primitive.Div>,
+  ],
+  [
+    "enabled actuator",
+    <Toggle.Button key="actuator" enabled>
+      <Custom.Drawing spec={ROOT_PAINT_SPEC} enabled />
+    </Toggle.Button>,
+  ],
+];
+
+describe("Custom.Drawing root paint", () => {
+  it.each(ROOT_PAINT_SYMBOLS)(
+    "should paint the shapes of a %s as the symbol paints its root",
+    async (_, symbol) => {
+      const { container } = await render(
+        <Theming.Provider theme={Theming.SYNNAX_DARK}>{symbol}</Theming.Provider>,
+      );
+      const svg = container.querySelector("svg");
+      const shape = container.querySelector(".bare");
+      if (svg == null || shape == null) throw new Error("custom symbol not mounted");
+      const paint = (el: Element) => {
+        const { fill, stroke } = getComputedStyle(el);
+        return { fill, stroke };
+      };
+      expect(paint(shape)).toEqual(paint(svg));
+    },
+  );
 });
 
 const HOLD_DELAY = 10_000;
@@ -265,25 +289,32 @@ const renderHeld = async (symbol: ReactElement): Promise<Element> => {
   return button;
 };
 
-const renderCustomHeld = async (): Promise<Element> => {
-  const { result } = await renderHook(() =>
-    Custom.useRender({
-      orientation: "left",
-      activeState: "base",
-      externalScale: 1,
-      spec: { ...SPEC, svg: HOLD_SVG, states: [] },
-      strokeColor: STALE,
-      delayed: true,
-    }),
-  );
-  return await renderHeld(
-    <Toggle.Button
-      ref={result.current}
-      className={CSS.BM("symbol", "custom")}
-      onClickDelay={HOLD_DELAY}
-    />,
-  );
+// The selector matches any first rect, so it would reach a fill beside the shapes.
+const HOLD_SPEC: schematic.symbol.Spec = {
+  ...SPEC,
+  svg: HOLD_SVG,
+  states: [
+    {
+      key: "base",
+      name: "Base",
+      regions: [
+        {
+          key: "main",
+          name: "Main",
+          selectors: ["rect:nth-of-type(1)"],
+          strokeColor: STROKE,
+        },
+      ],
+    },
+  ],
 };
+
+const renderCustomHeld = async (): Promise<Element> =>
+  await renderHeld(
+    <Toggle.Button className={CSS.BM("symbol", "custom")} onClickDelay={HOLD_DELAY}>
+      <Custom.Drawing spec={HOLD_SPEC} strokeColor={STALE} />
+    </Toggle.Button>,
+  );
 
 const findHoldFill = (button: Element): SVGGraphicsElement => {
   const fill = button.querySelector(".pluto-symbol-hold__fill");
@@ -294,6 +325,7 @@ const findHoldFill = (button: Element): SVGGraphicsElement => {
 interface HoldFillPaint {
   display: string;
   animation: string;
+  fill: string;
   box: xy.XY & dimensions.Dimensions;
 }
 
@@ -303,6 +335,7 @@ const readHoldFill = (button: Element): HoldFillPaint => {
   return {
     display: computed(fill, "display"),
     animation: computed(fill, "animation-name"),
+    fill: computed(fill, "fill"),
     box: { x, y, width, height },
   };
 };
@@ -315,7 +348,7 @@ const findMaskSource = (fill: Element): Element | null => {
   return doc.getElementById(href?.slice(1) ?? "");
 };
 
-describe("Custom.useRender hold fill", () => {
+describe("Custom.Drawing hold fill", () => {
   it("should fill the drawing while held, as a built-in symbol does", async () => {
     const builtIn = readHoldFill(await renderHeld(BUILT_IN_HOLD));
     const button = await renderCustomHeld();
@@ -331,6 +364,76 @@ describe("Custom.useRender hold fill", () => {
       getComputedStyle(builtIn, "::after").content,
     );
   });
+});
+
+const BUILT_IN_TOGGLE_SPEC = Custom.createBuiltIn({
+  variant: "actuator",
+  svg:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+    '<rect class="shape" width="10" height="10"/></svg>',
+  handles: [],
+});
+
+const JSX_TOGGLE_DRAWING = (
+  <Primitive.SVG dimensions={{ width: 10, height: 10 }}>
+    <rect className="shape" width="10" height="10" />
+  </Primitive.SVG>
+);
+
+const press = async (button: Element): Promise<void> => {
+  button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+  await expect.poll(() => button.classList.contains("pluto--pressed")).toBe(true);
+};
+
+const TOGGLE_STATES: [string, boolean, (button: Element) => Promise<void>][] = [
+  ["hovered", false, userEvent.hover],
+  ["hovered enabled", true, userEvent.hover],
+  ["pressed", false, press],
+  ["pressed enabled", true, press],
+];
+
+const renderToggleShape = async (
+  drawing: ReactElement,
+  enabled: boolean,
+  interact: (button: Element) => Promise<void>,
+): Promise<{ rest: Paint; changed: Paint }> => {
+  const { container } = await render(
+    <Theming.Provider theme={Theming.SYNNAX_DARK}>
+      <div className={CSS.BE("symbol", "container")}>
+        <Toggle.Button enabled={enabled} onClickDelay={HOLD_DELAY}>
+          {drawing}
+        </Toggle.Button>
+      </div>
+    </Theming.Provider>,
+  );
+  const button = container.querySelector("button");
+  const shape = container.querySelector(".shape");
+  if (button == null || shape == null) throw new Error("toggle not rendered");
+  const paint = (): Paint => ({
+    stroke: computed(shape, "stroke"),
+    fill: computed(shape, "fill"),
+  });
+  const rest = paint();
+  await interact(button);
+  const changed = paint();
+  await userEvent.unhover(button);
+  return { rest, changed };
+};
+
+describe("Custom.Drawing built-in toggle", () => {
+  it.each(TOGGLE_STATES)(
+    "should paint the shapes of a %s toggle as a JSX toggle",
+    async (_, enabled, interact) => {
+      const jsx = await renderToggleShape(JSX_TOGGLE_DRAWING, enabled, interact);
+      const builtIn = await renderToggleShape(
+        <Custom.Drawing spec={BUILT_IN_TOGGLE_SPEC} builtIn enabled={enabled} />,
+        enabled,
+        interact,
+      );
+      expect(jsx.changed.stroke).not.toBe(jsx.rest.stroke);
+      expect(builtIn).toEqual(jsx);
+    },
+  );
 });
 
 const BODY = '<rect width="40" height="20"/>';
@@ -363,8 +466,8 @@ const MARKER_CENTERS: Record<location.Outer, xy.XY> = {
 };
 
 interface ContainerProps {
-  ref: RefCallback<HTMLElement>;
   orientation: location.Outer;
+  children: ReactElement;
 }
 
 const CONTAINERS: [string, FC<ContainerProps>][] = [
@@ -377,16 +480,10 @@ const renderMarkerCenter = async (
   Container: FC<ContainerProps>,
   orientation: location.Outer,
 ): Promise<xy.XY> => {
-  const { result } = await renderHook(() =>
-    Custom.useRender({
-      orientation,
-      activeState: "base",
-      externalScale: 1,
-      spec,
-    }),
-  );
   const { container } = await render(
-    <Container ref={result.current} orientation={orientation} />,
+    <Container orientation={orientation}>
+      <Custom.Drawing spec={spec} orientation={orientation} />
+    </Container>,
   );
   const svg = container.querySelector("svg");
   const marker = container.querySelector(".marker");
@@ -403,7 +500,7 @@ const renderMarkerCenter = async (
   };
 };
 
-describe("Custom.useRender orientation", () => {
+describe("Custom.Drawing orientation", () => {
   describe.each(DRAWINGS)("%s", (_, drawing) => {
     const spec = createOrientedSpec(drawing);
     describe.each(CONTAINERS)("%s symbol", (_, Container) => {
@@ -417,4 +514,26 @@ describe("Custom.useRender orientation", () => {
       );
     });
   });
+});
+
+describe("Custom.Drawing size", () => {
+  const spec = { ...createOrientedSpec(BODY), scale: 2 };
+
+  it.each([
+    ["left", { width: 120, height: 60 }],
+    ["top", { width: 60, height: 120 }],
+  ] as const)(
+    "should size the drawing by both scales when it faces %s",
+    async (orientation, size) => {
+      const { container } = await render(
+        <Primitive.Div orientation={orientation}>
+          <Custom.Drawing spec={spec} orientation={orientation} scale={1.5} />
+        </Primitive.Div>,
+      );
+      const svg = container.querySelector("svg");
+      if (svg == null) throw new Error("custom symbol not mounted");
+      const { width, height } = svg.getBoundingClientRect();
+      expect({ width, height }).toEqual(size);
+    },
+  );
 });
