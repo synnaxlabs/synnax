@@ -11,53 +11,43 @@ import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/components/arc";
 
-describe("Arc.diagnostic", () => {
-  it("should give the code, severity, and message of a kind", () => {
-    expect(Arc.diagnostic("W5000")).toEqual({
-      code: "W5000",
-      severity: "warning",
-      message: "declare variables at the top of a stage or sequence",
-    });
-  });
-
-  it("should put the values in place of the verbs", () => {
-    expect(Arc.diagnostic("W4001", ["<old>", "<new>"]).message).toEqual(
-      "'<old>' is deprecated, use '<new>' instead",
-    );
-  });
-
-  it("should put the value of a quoted verb in quotes", () => {
-    expect(Arc.diagnostic("W4000", ["<m>"]).message).toEqual(
-      'imported module "<m>" is unused',
-    );
-  });
-
-  it("should give one message for each list of values", () => {
-    expect(Arc.diagnostic("E2000", ["division"], ["modulo"]).message).toEqual([
-      "integer division by zero",
-      "integer modulo by zero",
+describe("kinds", () => {
+  it("should return the kinds of a band with errors before warnings", () => {
+    const codes = Arc.kinds(4).map((kind) => kind.code);
+    expect(codes).toEqual([
+      "E4000",
+      "E4001",
+      "E4002",
+      "E4003",
+      "E4004",
+      "E4005",
+      "E4006",
+      "E4007",
+      "E4008",
+      "E4009",
+      "W4000",
+      "W4001",
     ]);
   });
 
-  it("should give no message for a kind that takes it from an error", () => {
-    expect(Arc.diagnostic("E2001")).toEqual({ code: "E2001", severity: "error" });
+  it("should give a kind its severity, problem, example, and message", () => {
+    const kind = Arc.kinds(4).find(({ code }) => code === "W4000");
+    expect(kind).toEqual({
+      code: "W4000",
+      severity: "warning",
+      message: 'imported module "math" is unused',
+      problem: "The code imports a module and does not use it.",
+      example: "import math",
+    });
   });
 
-  it("should throw for a code that no kind has", () => {
-    expect(() => Arc.diagnostic("E9999")).toThrow(
-      "no Arc diagnostic kind has the code E9999",
-    );
+  it("should give a kind with no example an empty message", () => {
+    const kind = Arc.kinds(1).find(({ code }) => code === "E1001");
+    expect(kind?.message).toEqual("");
+    expect(kind?.example).toEqual("");
   });
 
-  it("should throw when a verb has no value", () => {
-    expect(() => Arc.diagnostic("W4001", ["<old>"])).toThrow(
-      "W4001 has a verb with no value",
-    );
-  });
-
-  it("should throw when a value has no verb", () => {
-    expect(() => Arc.diagnostic("W5000", ["<x>"])).toThrow(
-      "W5000 has a value with no verb",
-    );
+  it("should throw for a band that has no kind", () => {
+    expect(() => Arc.kinds(9)).toThrow("no Arc diagnostic kind is in band 9");
   });
 });
