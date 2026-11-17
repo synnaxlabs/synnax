@@ -87,9 +87,12 @@ def _run_helper(path: Path) -> subprocess.CompletedProcess[str]:
 
 def _read_desktop_file(path: Path) -> dict[str, Any] | None:
     try:
-        raw: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return None
+    except OSError as e:
+        raise ConfigurationError(f"Cannot read {path}: {e.strerror}.") from e
+    raw: dict[str, Any] = json.loads(text)
     return raw
 
 
@@ -126,8 +129,9 @@ def load_desktop_options(
     :param path: The file Synnax Desktop writes.
     :param run: Runs the key helper.
     :returns: The options, or None if Synnax Desktop has saved none.
-    :raises ConfigurationError: If the file names no key helper, if the key helper
-        fails, or if an older Synnax Desktop saved the key in the file.
+    :raises ConfigurationError: If the file exists but cannot be read, if it names no
+        key helper, if the key helper fails, or if an older Synnax Desktop saved the
+        key in the file.
     :raises Unreachable: If the key helper is gone, as an AppImage helper is after
         Synnax Desktop closes.
     """
@@ -207,7 +211,7 @@ def _saved_by_desktop(opts: Options, path: Path) -> bool:
         return False
     try:
         raw = _read_desktop_file(path)
-    except (ValueError, OSError):
+    except (ValueError, ConfigurationError):
         # The file changes only the advice of errors, so a broken one must not break
         # a connection that names its Core.
         return False
@@ -219,8 +223,8 @@ def _saved_by_desktop(opts: Options, path: Path) -> bool:
 
 
 NO_OPTIONS_MSG = (
-    "No host was given and no Core is saved. Open Synnax Desktop, log in with "
-    "`sy login`, set SYNNAX_HOST, or give a host."
+    "No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or log "
+    "in with `sy login`."
 )
 
 NO_CREDENTIALS_MSG = (
@@ -260,8 +264,8 @@ def load_options(
     :raises ValidationError: If the environment variables are not valid, or if no source
         gives a host or credentials.
     :raises ConfigurationError: If no OS keychain is available to read the key of the
-        saved login, if the key helper of Synnax Desktop fails, or if an older Synnax
-        Desktop left its key in the discovery file.
+        saved login, if the file of Synnax Desktop exists but cannot be read, if its key
+        helper fails, or if an older Synnax Desktop left its key in the file.
     :raises Unreachable: If the key helper of Synnax Desktop is gone.
     """
     given = PartialOptions()

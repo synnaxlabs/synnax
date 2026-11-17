@@ -476,21 +476,21 @@ Ask an administrator to give your user a role that allows the action. See
 ## No connection parameters were given
 
 ```
-ValidationError: No host was given and no Core is saved. Open Synnax Desktop, log in with `sy login`, set SYNNAX_HOST, or give a host.
+ValidationError: No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or log in with `sy login`.
 ```
 
 <Problem.Body>
 <Problem.Cause>
 
-You created a Python client with no host. `SYNNAX_HOST` is not set, there is no saved
-login, and Synnax Desktop has not run on this computer.
+You created a Python client with no host. `SYNNAX_HOST` is not set, and there is no
+saved login.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Open Synnax Desktop, run `sy login`, set the
+Give a host to `sy.Synnax`, set the
 [environment variables](/reference/client/connect#connect-with-environment-variables),
-or give a host to `sy.Synnax`. See [Connect to a Core](/reference/client/connect).
+or run `sy login`. See [Connect to a Core](/reference/client/connect).
 
 </Problem.Fix>
 </Problem.Body>

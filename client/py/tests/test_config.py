@@ -25,7 +25,6 @@ from synnax.config import (
     KEYCHAIN_UNAVAILABLE_MSG,
     NO_CREDENTIALS_MSG,
     NO_KEY_HELPER_MSG,
-    NO_OPTIONS_MSG,
     OLD_DESKTOP_MSG,
     Cluster,
     Clusters,
@@ -139,6 +138,17 @@ class TestLoadDesktopOptions:
     def test_none_without_a_file(self, desktop_file: Path) -> None:
         """Should return None when Synnax Desktop saved nothing."""
         assert load_desktop_options(desktop_file, FakeHelper()) is None
+
+    def test_unreadable_file(self, desktop_file: Path) -> None:
+        """Should name the file and the reason when the file exists but cannot be
+        read.
+        """
+        # A directory at the path cannot be read as a file, on any platform or user.
+        desktop_file.mkdir()
+        with pytest.raises(ConfigurationError, match="Cannot read") as e:
+            load_desktop_options(desktop_file, FakeHelper())
+        assert str(desktop_file) in str(e.value)
+        assert isinstance(e.value.__cause__, OSError)
 
     def test_older_file_with_a_key(self, desktop_file: Path) -> None:
         """Should ask for a newer Synnax Desktop, and not read a key from the file."""
@@ -639,9 +649,15 @@ class TestLoadOptions:
         args: dict[str, Any],
         env: dict[str, str],
     ) -> None:
-        """Should explain how to connect when no source gives a host."""
-        with pytest.raises(ValidationError, match=NO_OPTIONS_MSG):
+        """Should explain how to connect, without naming Synnax Desktop, when no source
+        gives a host and Synnax Desktop saved no file.
+        """
+        with pytest.raises(ValidationError) as e:
             load_options(**args, env=env, clusters=clusters, desktop_file=desktop_file)
+        assert str(e.value) == (
+            "No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or "
+            "log in with `sy login`."
+        )
 
 
 class TestDesktopConnection:
