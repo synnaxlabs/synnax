@@ -52,7 +52,7 @@ File::open(const std::filesystem::path &path) {
     return {std::unique_ptr<File>(new File(fd)), x::errors::NIL};
 }
 
-x::errors::Error File::write(std::string_view data) {
+x::errors::Error File::write(std::string_view data) const {
     while (!data.empty()) {
         const auto n = ::write(
             static_cast<int>(this->handle),
@@ -66,13 +66,13 @@ x::errors::Error File::write(std::string_view data) {
     return x::errors::NIL;
 }
 
-x::errors::Error File::sync() {
+x::errors::Error File::sync() const {
     if (full_sync(static_cast<int>(this->handle)) != 0)
         return errno_error("failed to sync");
     return x::errors::NIL;
 }
 
-x::errors::Error File::lock() {
+x::errors::Error File::lock() const {
     if (flock(static_cast<int>(this->handle), LOCK_EX | LOCK_NB) == 0)
         return x::errors::NIL;
     if (errno == EWOULDBLOCK) return LOCKED;

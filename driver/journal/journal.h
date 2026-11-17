@@ -79,13 +79,13 @@ struct WriterConfig {
     /// @brief the maximum time between a write and the sync that follows it.
     x::telem::TimeSpan sync_interval = x::telem::SECOND;
     /// @brief the number of written bytes that starts a sync.
-    std::uint64_t sync_bytes = 1000 * 1000;
+    std::uint64_t sync_bytes = 1000000;
     /// @brief the clock that times syncs.
     x::telem::NowFunc now = x::telem::TimeStamp::now;
     /// @brief gets the result of each sync of the file and returns the result the
     /// writer uses.
-    std::function<x::errors::Error(x::errors::Error)> on_sync =
-        [](x::errors::Error err) { return err; };
+    std::function<x::errors::Error(const x::errors::Error &)> on_sync =
+        [](const x::errors::Error &err) { return err; };
 };
 
 class File;

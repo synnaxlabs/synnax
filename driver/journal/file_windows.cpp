@@ -59,7 +59,7 @@ File::open(const std::filesystem::path &path) {
     };
 }
 
-x::errors::Error File::write(std::string_view data) {
+x::errors::Error File::write(std::string_view data) const {
     while (!data.empty()) {
         DWORD n = 0;
         const auto len = static_cast<DWORD>(
@@ -72,12 +72,12 @@ x::errors::Error File::write(std::string_view data) {
     return x::errors::NIL;
 }
 
-x::errors::Error File::sync() {
+x::errors::Error File::sync() const {
     if (!FlushFileBuffers(to_handle(this->handle))) return last_error("failed to sync");
     return x::errors::NIL;
 }
 
-x::errors::Error File::lock() {
+x::errors::Error File::lock() const {
     OVERLAPPED overlapped{};
     if (LockFileEx(
             to_handle(this->handle),

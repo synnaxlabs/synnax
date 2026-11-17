@@ -79,7 +79,10 @@ protected:
     open_reader(std::set<std::uint8_t> types = {1}, std::uint64_t pos = 0) const {
         return ASSERT_NIL_P(
             Reader::open(
-                {.path = this->path, .magic = SEGMENT, .types = types, .pos = pos}
+                {.path = this->path,
+                 .magic = SEGMENT,
+                 .types = std::move(types),
+                 .pos = pos}
             )
         );
     }
@@ -278,7 +281,7 @@ TEST_F(JournalTest, OffsetWithExtraBytesIsCorrupt) {
 
 TEST_F(JournalTest, RemovesFile) {
     this->write({});
-    ASSERT_NIL(remove(this->path));
+    ASSERT_NIL(journal::remove(this->path));
     EXPECT_FALSE(std::filesystem::exists(this->path));
 }
 
@@ -299,7 +302,7 @@ TEST_F(JournalTest, SyncsByTimeAndBytes) {
             .sync_bytes = 100,
             .now = [&] { return now; },
             .on_sync =
-                [&](x::errors::Error err) {
+                [&](const x::errors::Error &err) {
                     syncs++;
                     return err;
                 },

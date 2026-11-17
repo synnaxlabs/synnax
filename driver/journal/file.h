@@ -33,14 +33,14 @@ public:
     open(const std::filesystem::path &path);
 
     /// @brief writes all of data at the end of the file.
-    x::errors::Error write(std::string_view data);
+    [[nodiscard]] x::errors::Error write(std::string_view data) const;
 
     /// @brief returns after the data and size of the file are on the disk.
-    x::errors::Error sync();
+    [[nodiscard]] x::errors::Error sync() const;
 
     /// @brief takes an exclusive lock on the file without blocking.
     /// @returns LOCKED when another holder has a lock on the file.
-    x::errors::Error lock();
+    [[nodiscard]] x::errors::Error lock() const;
 };
 
 /// @brief returns after the entries of dir are on the disk.
