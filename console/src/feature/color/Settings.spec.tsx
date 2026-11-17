@@ -140,6 +140,8 @@ describe("Color.Settings", () => {
         fireEvent.keyDown(field, { key: "Enter" });
       });
       await screen.findByText(name);
+      // The list can show the color before the save resolves and remounts the form.
+      await expect.poll(() => field.isConnected).toBe(false);
     }
     await expect
       .poll(async () => await namesInOrder(palette))
