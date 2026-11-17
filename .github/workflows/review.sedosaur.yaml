@@ -74,6 +74,7 @@ jobs:
       head: ${{ steps.pr.outputs.head }}
       base: ${{ steps.pr.outputs.base }}
       skip: ${{ steps.skip.outputs.skip }}
+      fork: ${{ steps.pr.outputs.fork }}
       carried: ${{ steps.carry.outputs.carried }}
       check: ${{ steps.check.outputs.id }}
     steps:
@@ -192,6 +193,37 @@ jobs:
         run: |
           gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT/reactions" \
             -f content=rocket --silent
+
+  # A comment whose request Sedosaur skips gets a reply that says why.
+  decline:
+    needs: start
+    if: needs.start.outputs.skip == 'true' && inputs.comment != '' && !inputs.replay
+    name: Reply to the request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      - name: Reply with the reason
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR: ${{ inputs.pr }}
+          HEAD_SHA: ${{ needs.start.outputs.head }}
+          FORK: ${{ needs.start.outputs.fork }}
+        run: |
+          if [ "$FORK" = true ]; then
+            body="Sedosaur does not review a pull request from a fork."
+          else
+            body="Sedosaur already reviewed $HEAD_SHA under the current rules."
+            body+=" To review it again, comment \`@sedosaur review repeat=true\`."
+          fi
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            -f body="$body" --silent
 
   review:
     needs: start
