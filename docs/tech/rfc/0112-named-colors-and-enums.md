@@ -179,6 +179,11 @@ The schematic cutover ships in one release:
   the entries at every value where it is set becomes one `entry` look, with a `when` for
   those values. Every other stroke or fill keeps its `color` looks, so no stored symbol
   changes its look.
+- In a node's `state_overrides`, the override of the stroke or fill that sets the
+  symbol's entry colors sets the colors of the node's enum. A node whose other overrides
+  differ from its symbol moves to a copy of the symbol that carries them, and nodes with
+  the same overrides share one copy. A node whose overrides equal its symbol needs
+  neither, so no node changes its look.
 - The upgrade runs as a composition migration, as panels do
   (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
   state lists beside the converted schematic, and its write step
@@ -309,6 +314,9 @@ from the start. In phase 29, the Driver writes range colors
     a swatch, and the `named` variant names a `color.Named`. The trade is real: the
     Synnax `color` schema shares its name with the x value type, so Oracle aliases one
     import where a file uses both.
+20. **Node overrides move into symbol copies**: Overrides that an enum cannot carry go
+    to a copy of the symbol, so no node repaints at upgrade. Dropping them repaints
+    nodes that users colored by hand. The trade is real: the symbol tree gains copies.
 
 ## 8 Open questions
 
