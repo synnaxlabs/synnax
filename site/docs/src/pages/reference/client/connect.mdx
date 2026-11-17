@@ -103,7 +103,7 @@ throws the same errors.
 
 </Client.Tabs>
 
-To keep credentials out of a script, give no host and set the
+To keep credentials out of a script, set them in the
 [environment variables](#connect-with-environment-variables).
 
 <Divider.Divider x />
@@ -217,13 +217,13 @@ arguments.
 
 ## Connect with environment variables
 
-When you give no host, the client reads these environment variables. They take an API
-key, not a username and password.
+The clients read these environment variables. They take an API key, not a username and
+password.
 
 | Variable         | Value                                                             |
 | ---------------- | ----------------------------------------------------------------- |
-| `SYNNAX_HOST`    | The host of the Core. Required with `SYNNAX_API_KEY`.             |
-| `SYNNAX_API_KEY` | An API key. Required with `SYNNAX_HOST`.                          |
+| `SYNNAX_HOST`    | The host of the Core.                                             |
+| `SYNNAX_API_KEY` | An API key.                                                       |
 | `SYNNAX_PORT`    | The port of the Core. The default is `9090`.                      |
 | `SYNNAX_SECURE`  | `true` or `1` to use TLS. The default is `false`.                 |
 | `SYNNAX_CA_CERT` | The path to the CA certificate of the Core, for TLS. Python only. |
@@ -231,6 +231,9 @@ key, not a username and password.
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
+
+When you give no host, `sy.Synnax()` reads the variables. Set `SYNNAX_HOST` and
+`SYNNAX_API_KEY` together.
 
 ```bash
 export SYNNAX_HOST=core.example.com
@@ -253,25 +256,37 @@ and names the variable.
 
   <Fragment slot="typescript">
 
+The client fills each option that you do not give from its variable, then from its
+default:
+
+| Option   | 1. Argument | 2. Variable      | 3. Default |
+| -------- | ----------- | ---------------- | ---------- |
+| `host`   | `host`      | `SYNNAX_HOST`    | None       |
+| `port`   | `port`      | `SYNNAX_PORT`    | `9090`     |
+| `apiKey` | `apiKey`    | `SYNNAX_API_KEY` | None       |
+| `secure` | `secure`    | `SYNNAX_SECURE`  | `false`    |
+
+To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
+
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
 
-const client = new Synnax();
+const client = new Synnax({ host: "core.example.com", port: 9090 });
 ```
 
 ```bash
-export SYNNAX_HOST=core.example.com
 export SYNNAX_API_KEY=syk_...
 node my_script.js
 ```
 
-The client reads the variables in Node.js, Deno, and Bun. A browser has no environment
-variables, so give a host there. In Deno, run the script with `--allow-env` when the
-client reads the variables. With a host, `--allow-net` alone is enough.
+The client does not read `SYNNAX_API_KEY` when you give a username, a password, or a
+token. With no host from the argument or `SYNNAX_HOST`, or when `SYNNAX_PORT` or
+`SYNNAX_SECURE` has a value that is not valid, the constructor throws `ValidationError`.
 
-With no host, give no port, credentials, or `secure`, because the variables set them.
-The constructor throws `ValidationError` when you give one of them with no host, when
-the variables give no host, or when a variable is not valid.
+The client reads the variables in Node.js, Deno, and Bun. A browser has no environment
+variables. In Deno, run the script with `--allow-env` to read the variables. Without it,
+the client treats them as unset, so give the options as arguments. In a terminal, Deno
+can ask for access first. Add `--deny-env` to stop the question.
 
   </Fragment>
 
@@ -484,16 +499,17 @@ A Node.js script does not exit until you close the client.
 <Field.List>
 
 <Field.Item name="host" id="typescript-host" type="string">
-  The hostname or IP address of the Core. Without it, the client reads the [environment
-  variables](#connect-with-environment-variables).
+  The hostname or IP address of the Core. The default is `SYNNAX_HOST`. See [Connect
+  with environment variables](#connect-with-environment-variables).
 </Field.Item>
 
 <Field.Item name="port" id="typescript-port" type="number | string">
-  The port of the Core.
+  The port of the Core. The default is `SYNNAX_PORT`, then `9090`.
 </Field.Item>
 
 <Field.Item name="apiKey" id="typescript-api-key" type="string">
-  The API key to log in with. See [Connect with an API key](#connect-with-an-api-key).
+  The API key to log in with. The default is `SYNNAX_API_KEY`. See [Connect with an API
+  key](#connect-with-an-api-key).
 </Field.Item>
 
 <Field.Item name="username" id="typescript-username" type="string">
@@ -505,7 +521,7 @@ A Node.js script does not exit until you close the client.
 </Field.Item>
 
 <Field.Item name="secure" id="typescript-secure" type="boolean" default="false">
-  Connect with TLS.
+  Connect with TLS. The default is `SYNNAX_SECURE`, then `false`.
 </Field.Item>
 
 <Field.Item

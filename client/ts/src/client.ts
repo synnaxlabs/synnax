@@ -110,17 +110,14 @@ const constructorParamsZ = synnaxParamsZ.refine(
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
-type ConnectionField =
-  "host" | "port" | "username" | "password" | "apiKey" | "token" | "secure";
-
 /**
- * The parameters of the client constructor: all of SynnaxParams, or no connection
- * parameters. With no host, the client reads the SYNNAX_HOST, SYNNAX_PORT,
- * SYNNAX_API_KEY, and SYNNAX_SECURE environment variables.
+ * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
+ * SYNNAX_API_KEY, and SYNNAX_SECURE environment variables fill the fields left out.
  */
-export type ConstructorParams =
-  | SynnaxParams
-  | (Omit<SynnaxParams, ConnectionField> & Partial<Record<ConnectionField, undefined>>);
+export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
+  host?: string;
+  port?: number | string;
+}
 
 /**
  * The authority a client logs in with: its credentials when both are given or its API
@@ -242,13 +239,13 @@ export default class Synnax extends framer.Client {
   readonly clientVersion: string = __VERSION__;
 
   /**
-   * @param props.host - Hostname of a node in the cluster. Without it, the client
-   * reads the SYNNAX_* environment variables.
-   * @param props.port - Port of the node in the cluster.
+   * @param props.host - Hostname of a node in the cluster. Defaults to SYNNAX_HOST.
+   * @param props.port - Port of the node in the cluster. Defaults to SYNNAX_PORT, then
+   * 9090.
    * @param props.username - Username for authentication, with props.password.
    * @param props.password - Password for authentication, with props.username.
    * @param props.apiKey - API key for authentication, in place of a username and
-   * password.
+   * password. Defaults to SYNNAX_API_KEY when no credentials or token are given.
    * @param props.token - The token of an earlier login to resume instead.
    * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
    * never sees, for a browser client the Core serves.
@@ -257,12 +254,11 @@ export default class Synnax extends framer.Client {
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
-   * be configured to support TLS. Defaults to false. A Synnax client must be closed
-   * when it is no longer needed. This stops the connection machine and closes the
-   * change stream.
-   * @throws {ValidationError} If there is no host and the params give a port,
-   * credentials, or the secure option, or the environment variables give no host or
-   * are not valid.
+   * be configured to support TLS. Defaults to SYNNAX_SECURE, then false. A Synnax
+   * client must be closed when it is no longer needed. This stops the connection
+   * machine and closes the change stream.
+   * @throws {ValidationError} If neither the params nor SYNNAX_HOST give a host, or if
+   * SYNNAX_PORT or SYNNAX_SECURE is not valid.
    */
   constructor(params: ConstructorParams = {}) {
     const parsedParams = zod.parse(

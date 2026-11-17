@@ -7,83 +7,91 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { errors } from "@synnaxlabs/x";
+
 import { ValidationError } from "@/errors";
 
 /** Environment variables, such as `process.env`. */
 export type Env = Readonly<Record<string, string | undefined>>;
 
-/** The connection parameters that the environment variables give. */
-export interface Params {
+/** The client parameters that the environment variables can fill. */
+export interface Given {
+  host?: string;
+  port?: number | string;
+  apiKey?: string;
+  username?: string;
+  password?: string;
+  token?: string;
+  secure?: boolean;
+}
+
+interface Resolved {
   host: string;
-  port: number;
-  apiKey: string;
+  port: number | string;
+  apiKey?: string;
   secure: boolean;
 }
 
-const NEEDS_HOST = [
-  ["port", "a port"],
-  ["username", "a username"],
-  ["password", "a password"],
-  ["apiKey", "an API key"],
-  ["token", "a token"],
-  ["secure", "the secure option"],
-] as const;
-
-type Field = (typeof NEEDS_HOST)[number][0];
-
-/** Client parameters that can leave out the host. */
-export type Given = { host?: string } & Partial<Record<Field, unknown>>;
-
+const DEFAULT_PORT = 9090;
 const TRUE = ["1", "true", "yes"];
 const FALSE = ["", "0", "false", "no"];
 
 // Values from env files and secrets often carry a trailing newline, and an empty value
 // usually means an unset variable in Docker Compose or CI.
-const read = (env: Env, name: string): string => env[name]?.trim() ?? "";
+const read = (env: Env, name: string): string => {
+  try {
+    return env[name]?.trim() ?? "";
+  } catch (e) {
+    const err = errors.fromUnknown(e);
+    // Deno throws NotCapable when the script has no permission to read the variable.
+    if (err.name === "NotCapable") return "";
+    throw err;
+  }
+};
 
-/**
- * Loads the connection parameters in the SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
- * and SYNNAX_SECURE environment variables. Values are trimmed, and an empty value
- * counts as unset.
- * @param env - The environment variables, or undefined when the runtime has none.
- * @throws {ValidationError} If SYNNAX_HOST and SYNNAX_API_KEY are not both set, or if
- * SYNNAX_PORT or SYNNAX_SECURE is not valid.
- */
-export const loadParams = (env: Env = {}): Params => {
-  const host = read(env, "SYNNAX_HOST");
-  const apiKey = read(env, "SYNNAX_API_KEY");
-  if (host === "" && apiKey === "")
-    throw new ValidationError("give a host, or set SYNNAX_HOST and SYNNAX_API_KEY");
-  if (host === "") throw new ValidationError("set SYNNAX_HOST with SYNNAX_API_KEY");
-  if (apiKey === "") throw new ValidationError("set SYNNAX_API_KEY with SYNNAX_HOST");
-  const rawPort = read(env, "SYNNAX_PORT") || "9090";
-  const port = /^\d+$/.test(rawPort) ? Number(rawPort) : 0;
+const readPort = (env: Env): number => {
+  const raw = read(env, "SYNNAX_PORT");
+  if (raw === "") return DEFAULT_PORT;
+  const port = /^\d+$/.test(raw) ? Number(raw) : 0;
   if (port < 1 || port > 65535)
     throw new ValidationError(
-      `SYNNAX_PORT must be a port from 1 to 65535, not "${rawPort}"`,
+      `SYNNAX_PORT must be a port from 1 to 65535, not "${raw}"`,
     );
-  const rawSecure = read(env, "SYNNAX_SECURE");
-  const secure = TRUE.includes(rawSecure.toLowerCase());
-  if (!secure && !FALSE.includes(rawSecure.toLowerCase()))
-    throw new ValidationError(
-      `SYNNAX_SECURE must be true or false, not "${rawSecure}"`,
-    );
-  return { host, port, apiKey, secure };
+  return port;
+};
+
+const readSecure = (env: Env): boolean => {
+  const raw = read(env, "SYNNAX_SECURE");
+  const secure = TRUE.includes(raw.toLowerCase());
+  if (!secure && !FALSE.includes(raw.toLowerCase()))
+    throw new ValidationError(`SYNNAX_SECURE must be true or false, not "${raw}"`);
+  return secure;
 };
 
 /**
- * Returns the params when they give a host. Else, returns them with the connection
- * parameters of the environment variables (see loadParams).
- * @param env - The environment variables, read only when the params give no host.
- * @throws {ValidationError} If the params give a port, credentials, or the secure
- * option with no host, or if the environment variables are not valid.
+ * Fills each connection parameter from the params, then its environment variable,
+ * then its default (port 9090, secure false). SYNNAX_API_KEY fills the API key only
+ * when the params give no credentials or token. Reads only the variables of missing
+ * fields. Variable values are trimmed, and an empty value is unset. In Deno, a
+ * variable the script has no permission to read is unset.
+ * @throws {ValidationError} If neither the params nor SYNNAX_HOST give a host, or if
+ * SYNNAX_PORT or SYNNAX_SECURE is not valid.
  */
 export const resolveParams = <P extends Given>(
   params: P,
-  env?: Env,
-): P | (P & Params) => {
-  if (params.host != null && params.host !== "") return params;
-  const given = NEEDS_HOST.find(([field]) => params[field] != null);
-  if (given != null) throw new ValidationError(`give a host with ${given[1]}`);
-  return { ...params, ...loadParams(env) };
+  env: Env = {},
+): Omit<P, keyof Resolved> & Resolved => {
+  const host =
+    params.host != null && params.host !== "" ? params.host : read(env, "SYNNAX_HOST");
+  if (host === "") throw new ValidationError("give a host, or set SYNNAX_HOST");
+  const { apiKey, username, password, token } = params;
+  const credentials = apiKey ?? username ?? password ?? token;
+  const envKey = credentials == null ? read(env, "SYNNAX_API_KEY") : "";
+  return {
+    ...params,
+    host,
+    port: params.port ?? readPort(env),
+    apiKey: envKey === "" ? apiKey : envKey,
+    secure: params.secure ?? readSecure(env),
+  };
 };
