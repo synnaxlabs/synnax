@@ -165,7 +165,8 @@ public:
     }
 
     /// @brief saves the hardware that a scan found, and the status of every tracked
-    /// resource.
+    /// resource. It first stops tracking the resources that the Core no longer holds
+    /// on the rack.
     /// @param found the hardware that the scan found, with both field groups set to
     /// what a new resource holds, and the status the scanner reports, if any.
     /// @returns the first error, after it tries every resource.
@@ -175,10 +176,19 @@ public:
         const auto keep = [&](const x::errors::Error &err) {
             if (err && !first_err) first_err = err;
         };
+        auto [held, held_err] = this->store->retrieve(this->rack);
+        if (held_err) return held_err;
         std::vector<Result> results;
         std::vector<std::optional<D>> snapshot;
         {
             std::lock_guard lock(this->mu);
+            // The Core can lose a row without a delete signal, such as on a restart.
+            std::unordered_set<std::string> stored;
+            for (const auto &res: held)
+                stored.insert(this->store->match_key(res));
+            std::erase_if(this->tracked, [&](const auto &entry) {
+                return !stored.contains(entry.first);
+            });
             // The last report wins, as hardware that moves can show up in two places
             // for one scan.
             std::unordered_set<std::string> seen;
@@ -201,7 +211,6 @@ public:
         }
         std::vector<Result> updated;
         std::vector<Result> to_create;
-        std::vector<std::string> gone;
         for (std::size_t i = 0; i < results.size(); i++) {
             auto &res = results[i];
             auto stored = std::move(snapshot[i]);
@@ -225,11 +234,6 @@ public:
                     LOG(WARNING) << this->log_prefix << "failed to update "
                                  << merged.name << ": " << err;
                     keep(err);
-                    // The next scan looks the hardware up again.
-                    if (err.matches(x::errors::NOT_FOUND)) {
-                        gone.push_back(res.match);
-                        continue;
-                    }
                     // A resource that did not move stays with the other rack.
                     if (stored->rack != this->rack) continue;
                     merged = *stored;
@@ -256,8 +260,6 @@ public:
         std::vector<D> statuses;
         {
             std::lock_guard lock(this->mu);
-            for (const auto &match: gone)
-                this->tracked.erase(match);
             std::unordered_set<std::string> present;
             for (auto &res: updated) {
                 present.insert(res.match);

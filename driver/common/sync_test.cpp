@@ -392,21 +392,17 @@ TEST(Sync, CreatesOnceForConcurrentScans) {
     ASSERT_EQ(store->stored.size(), 1);
 }
 
-/// @brief it should stop tracking a resource that the Core no longer holds, and create
-/// it again on the next scan.
-TEST(Sync, DropsResourceMissingFromCore) {
+/// @brief it should create again a tracked resource that the Core no longer holds,
+/// when its identity is unchanged.
+TEST(Sync, RecreatesResourceMissingFromCore) {
     auto stored = found("01A");
     stored.key = "key-01A";
     auto [sync, store] = new_sync({stored});
     ASSERT_NIL(sync->init());
     store->stored.clear();
-    store->update_err = x::errors::NOT_FOUND;
-    ASSERT_OCCURRED_AS(sync->sync({found("01A", "9211")}), x::errors::NOT_FOUND);
-    ASSERT_FALSE(sync->get("01A").has_value());
-    ASSERT_TRUE(store->statuses.empty());
-    store->update_err = x::errors::NIL;
-    ASSERT_NIL(sync->sync({found("01A", "9211")}));
+    ASSERT_NIL(sync->sync({found("01A")}));
     ASSERT_EQ(store->creates, 1);
-    ASSERT_EQ(sync->get("01A")->model, "9211");
+    ASSERT_EQ(store->stored.size(), 1);
+    ASSERT_TRUE(store->identity_updates.empty());
 }
 }
