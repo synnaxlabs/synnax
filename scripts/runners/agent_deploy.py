@@ -102,18 +102,30 @@ def public_address(fetch: Callable[[Request], bytes]) -> str:
     return address.decode().strip()
 
 
+def check_pools(found: dict[str, dict]) -> None:
+    """Checks that STARTS has a pool for every runner instance, before a deploy changes
+    any of them.
+
+    :raises LookupError: naming each runner instance whose Name tag has no pool.
+    """
+    unknown = sorted(
+        f"{iid} ({info['tags'].get('Name', '')!r})"
+        for iid, info in found.items()
+        if "RunnerOS" in info["tags"]
+        and info["state"] not in GONE
+        and info["tags"].get("Name") not in STARTS
+    )
+    if unknown:
+        raise LookupError(f"no runner pool for {', '.join(unknown)}")
+
+
 def install_commands(
     *, commit: str, host: str, ca: str, info: dict
 ) -> tuple[list[str], list[str]]:
     """The Linux and Windows commands that run the install script of the commit on the
-    instance info describes. ca is the certificate of the Core in base64.
-
-    :raises LookupError: if no pool in STARTS has the instance's Name tag.
-    """
-    name = info["tags"].get("Name", "")
-    if name not in STARTS:
-        raise LookupError(f"no runner pool for an instance named {name!r}")
-    prefix, labels = STARTS[name]
+    instance info describes, which check_pools accepted. ca is the certificate of the
+    Core in base64."""
+    prefix, labels = STARTS[info["tags"]["Name"]]
     source = SOURCE.format(commit)
     linux = [
         f"curl -fsSL -o /tmp/agent_install.sh {source}/agent_install.sh && "
@@ -286,6 +298,8 @@ def main() -> int:
     add_connection_args(install)
     args = p.parse_args()
     aws = AWS()
+    # Before the stop too, which the workflow runs ahead of the install.
+    check_pools(aws.instances())
     if args.action == "stop":
         stop = (STOP_LINUX, STOP_WINDOWS)
         return 0 if run(aws, commands=lambda _: stop) else 1

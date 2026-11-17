@@ -27,20 +27,23 @@ instance=$(curl -fsS -H "X-aws-ec2-metadata-token: $imds_token" \
 token=$(curl -fsS -X POST \
     -H "Authorization: token $GITHUB_PAT" \
     -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/$repo/actions/runners/registration-token" |
-    jq -r .token)
+    "https://api.github.com/repos/$repo/actions/runners/registration-token" \
+    | sed -n 's/.*"token": *"\([^"]*\)".*/\1/p')
+: "${token:?no registration token in the GitHub response}"
 
 # A job the runner shutdown cut short never ran its Stop containers step, so its Core
-# service container still holds host port 9090. Nothing else runs in Docker here.
-docker ps -aq | xargs -r docker rm -f
-docker network prune -f
+# service container still holds host port 9090. Without Docker, no container is left.
+if command -v docker > /dev/null; then
+    docker ps -aq | xargs -r docker rm -f
+    docker network prune -f
+fi
 
 cd /home/ubuntu/actions-runner
 # Without a registration on GitHub, remove skips the server and deletes the local
-# config. A stale registration that is running a job fails it, and --replace below
-# registers the runner anyway.
+# config. When remove fails, the local config goes so that --replace can register.
 if [[ -f .runner ]]; then
-    ./config.sh remove --token "$token" || true
+    ./config.sh remove --token "$token" \
+        || rm -f .runner .credentials .credentials_rsaparams
 fi
 ./config.sh --url "https://github.com/$repo" \
     --token "$token" \

@@ -299,12 +299,6 @@ class TestInstallCommands:
             "-Labels 'self-hosted,Windows,X64,windows-latest,windows-test-bot'"
         ) in windows[-1]
 
-    def test_should_fail_for_an_instance_of_no_pool(self) -> None:
-        with pytest.raises(LookupError):
-            install_commands(
-                commit=COMMIT, host="203.0.113.7", ca="Y2E=", info=instance("other")
-            )
-
 
 class TestPublicAddress:
     """Tests for reading the public address of the box."""
@@ -414,6 +408,17 @@ class TestMain:
         assert start(monkeypatch, fleet, controller, "stop") == 0
         assert fleet.sent == {UBUNTU: STOP_LINUX, WINDOWS: STOP_WINDOWS}
         assert controller.written(SCALER_CMD) == []
+
+    @pytest.mark.parametrize("action", ["stop", "install"])
+    def test_should_change_no_runner_when_one_has_no_pool(
+        self, fleet: Fleet, monkeypatch: pytest.MonkeyPatch, action: str
+    ) -> None:
+        fleet.found["i-0ccc"] = instance("other", state="stopped")
+        argv = (action,) if action == "stop" else (action, "--commit", COMMIT)
+        with pytest.raises(LookupError, match="i-0ccc"):
+            start(monkeypatch, fleet, Controller(), *argv)
+        assert fleet.sent == {}
+        assert fleet.started == []
 
     def test_should_install_the_agent_with_the_scaler_off(
         self, fleet: Fleet, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

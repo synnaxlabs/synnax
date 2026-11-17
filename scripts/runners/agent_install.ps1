@@ -23,7 +23,9 @@ $Uv = 'https://github.com/astral-sh/uv/releases/download/0.12.5'
 $Source = "https://raw.githubusercontent.com/synnaxlabs/synnax/$Commit/scripts/runners"
 
 $Runner = 'C:\actions-runner'
-if (-not (Test-Path (Join-Path $Runner 'config.cmd'))) { throw "No GitHub runner in $Runner" }
+if (-not (Test-Path (Join-Path $Runner 'config.cmd'))) {
+    throw "No GitHub runner in $Runner"
+}
 if (-not [Environment]::GetEnvironmentVariable('GITHUB_PAT', 'Machine')) {
     throw 'GITHUB_PAT is not set'
 }

@@ -27,21 +27,28 @@ $imdsToken = Invoke-RestMethod -Uri "$imds/api/token" -Method Put `
     -Headers @{ 'X-aws-ec2-metadata-token-ttl-seconds' = '21600' }
 $instance = Invoke-RestMethod -Uri "$imds/meta-data/instance-id" `
     -Headers @{ 'X-aws-ec2-metadata-token' = $imdsToken }
-$token = (Invoke-RestMethod -Method Post `
-        -Uri "https://api.github.com/repos/$repo/actions/runners/registration-token" `
-        -Headers @{ Authorization = "token $pat"; Accept = 'application/vnd.github+json' }
+$headers = @{ Authorization = "token $pat"; Accept = 'application/vnd.github+json' }
+$token = (Invoke-RestMethod -Method Post -Headers $headers `
+        -Uri "https://api.github.com/repos/$repo/actions/runners/registration-token"
 ).token
 
 Set-Location 'C:\actions-runner'
 # Without a registration on GitHub, remove skips the server and deletes the local
-# config. A stale registration that is running a job fails it, and --replace below
-# registers the runner anyway.
+# config. When remove fails, the local config goes so that --replace can register.
 if (Test-Path '.runner') {
-    try { & .\config.cmd remove --token $token 2>$null } catch { Write-Output $_ }
-    if ($LASTEXITCODE -ne 0) { Write-Output "config remove exit $LASTEXITCODE" }
+    $removed = $false
+    try {
+        & .\config.cmd remove --token $token 2>$null
+        $removed = $LASTEXITCODE -eq 0
+    } catch { Write-Output $_ }
+    if (-not $removed) {
+        Remove-Item '.runner', '.credentials', '.credentials_rsaparams' `
+            -Force -ErrorAction Ignore
+    }
 }
 & .\config.cmd --url "https://github.com/$repo" --token $token `
-    --name "$Prefix-$($instance.Substring(0, 6))" --labels $Labels --unattended --replace
+    --name "$Prefix-$($instance.Substring(0, 6))" --labels $Labels `
+    --unattended --replace
 if ($LASTEXITCODE -ne 0) { throw "config exit $LASTEXITCODE" }
 & .\run.cmd
 exit $LASTEXITCODE
