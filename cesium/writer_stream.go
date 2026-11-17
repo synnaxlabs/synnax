@@ -45,11 +45,6 @@ const (
 	writerCommandEndDomain
 )
 
-var validateWriterCommand = validate.NewInclusiveBoundsChecker(
-	WriterCommandWrite,
-	writerCommandEndDomain,
-)
-
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
 	// Config is used for updating the parameters in writerCommandSetAuthority, and its
@@ -115,9 +110,10 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay          confluence.Inlet[relayResponse]
-	accumulatedErr error
-	errSent        bool
+	relay           confluence.Inlet[relayResponse]
+	validateCommand func(WriterCommand) error
+	accumulatedErr  error
+	errSent         bool
 	// writeRefused is true when a write was refused for no control since the last
 	// commit that reported it.
 	writeRefused       bool
@@ -175,7 +171,7 @@ func (w *streamWriter) process(
 	ctx context.Context,
 	req WriterRequest,
 ) (commitEnd telem.TimeStamp, authorized bool, err error) {
-	if err = validateWriterCommand(req.Command); err != nil {
+	if err = w.validateCommand(req.Command); err != nil {
 		return 0, false, err
 	}
 	switch req.Command {

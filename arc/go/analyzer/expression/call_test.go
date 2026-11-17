@@ -235,7 +235,7 @@ var _ = Describe("Callee noun", func() {
 			expr,
 			"",
 		)
-		var messages []string
+		messages := make([]string, 0, len(*ctx.Diagnostics))
 		for _, d := range *ctx.Diagnostics {
 			messages = append(messages, d.Message)
 		}

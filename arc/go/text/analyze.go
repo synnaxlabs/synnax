@@ -689,12 +689,15 @@ func lowerBody[T antlr.ParserRuleContext](
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	if decl, ok := body.AST.(parser.IStageDeclarationContext); ok {
+	switch decl := body.AST.(type) {
+	case parser.IStageDeclarationContext:
 		return lowerStage(ctx.Child(decl), body, kg, shell)
+	case parser.ISequenceDeclarationContext:
+		return lowerSequence(ctx.Child(decl), body, kg, shell)
 	}
-	return lowerSequence(
-		ctx.Child(body.AST.(parser.ISequenceDeclarationContext)), body, kg, shell,
-	)
+	ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		"internal: '%s' declares no sequence or stage", body.Name))
+	return ir.Scope{}, nil, nil, false
 }
 
 func analyzeIdentifierByRole(
@@ -737,7 +740,10 @@ func analyzeIdentifierByRole(
 			return flowNodeResult{}, false
 		}
 		return flowNodeResult{transition: &intent}, true
-	default:
+	case symbol.KindVariable, symbol.KindStatefulVariable, symbol.KindChannel,
+		symbol.KindFunction, symbol.KindBlock, symbol.KindInput, symbol.KindOutput,
+		symbol.KindLoop, symbol.KindLoopVariable, symbol.KindModule,
+		symbol.KindModuleAlias, symbol.KindAmbient:
 		if isSink && sym.Root().UserDefined && sym.Root() != ctx.Scope.Root() {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"cannot write to '%s': it belongs to an imported module", name))
@@ -784,6 +790,7 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{node: r}, ok
 	}
+	panic("unknown symbol kind " + sym.Kind.String())
 }
 
 // bindReadToAlias feeds a read node's channel param from the alias's register

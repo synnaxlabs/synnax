@@ -504,21 +504,18 @@ func (r Retrieve[K, E]) encodedAfter() []byte {
 // after drops the keys that a scan visits at or before it.
 func storageOrder[K Key](keys []K, after *K) []K {
 	type encoded struct {
-		key        K
-		start, end int
+		key K
+		raw []byte
 	}
 	var (
 		codec = key.NewCodec[K](nil)
-		raw   []byte
 		pairs = make([]encoded, len(keys))
 	)
 	for i, k := range keys {
-		start := len(raw)
-		raw = append(raw, codec.Encode(k)...)
-		pairs[i] = encoded{key: k, start: start, end: len(raw)}
+		pairs[i] = encoded{key: k, raw: bytes.Clone(codec.Encode(k))}
 	}
 	slices.SortFunc(pairs, func(a, b encoded) int {
-		return bytes.Compare(raw[a.start:a.end], raw[b.start:b.end])
+		return bytes.Compare(a.raw, b.raw)
 	})
 	sorted := make([]K, 0, len(pairs))
 	var bound []byte
@@ -526,7 +523,7 @@ func storageOrder[K Key](keys []K, after *K) []K {
 		bound = bytes.Clone(codec.Encode(*after))
 	}
 	for _, p := range pairs {
-		if bound == nil || bytes.Compare(raw[p.start:p.end], bound) > 0 {
+		if bound == nil || bytes.Compare(p.raw, bound) > 0 {
 			sorted = append(sorted, p.key)
 		}
 	}

@@ -19,12 +19,16 @@ from pathlib import Path
 import pytest
 
 from synnax.config import (
+    DESKTOP_KEY_ACCOUNT,
+    DESKTOP_KEY_SERVICE,
     DESKTOP_NOT_RUNNING_MSG,
     KEYCHAIN_UNAVAILABLE_MSG,
     NO_OPTIONS_MSG,
+    OLD_DESKTOP_MSG,
     Cluster,
     Clusters,
     File,
+    Keyring,
     load_desktop_options,
     load_env_options,
     try_load_options_if_none_provided,
@@ -34,13 +38,14 @@ from synnax.options import Options
 from tests.memory_keyring import MemoryKeyring, NoKeychain
 
 
-def write_desktop_file(path: Path, *, port: int, api_key: str = "syk_k_s") -> None:
-    """Writes the file the way Synnax Desktop does."""
+def write_desktop_file(
+    path: Path, keychain: Keyring, *, port: int, api_key: str = "syk_k_s"
+) -> None:
+    """Saves the address and the API key the way Synnax Desktop does."""
+    keychain.set_password(DESKTOP_KEY_SERVICE, DESKTOP_KEY_ACCOUNT, api_key)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps(
-            {"host": "127.0.0.1", "port": port, "secure": False, "api_key": api_key}
-        ),
+        json.dumps({"host": "127.0.0.1", "port": port, "secure": False}),
         encoding="utf-8",
     )
 
@@ -56,36 +61,55 @@ def desktop_file(tmp_path: Path) -> Path:
 
 
 class TestLoadDesktopOptions:
-    def test_reads_the_desktop_file(self, desktop_file: Path) -> None:
-        """Should read the address and the API key that Synnax Desktop saved."""
-        write_desktop_file(desktop_file, port=4321)
-        assert load_desktop_options(desktop_file) == Options(
+    def test_reads_the_file_and_the_keychain(self, desktop_file: Path) -> None:
+        """Should read the address from the file and the API key from the keychain."""
+        keychain = MemoryKeyring()
+        write_desktop_file(desktop_file, keychain, port=4321)
+        assert load_desktop_options(keychain, desktop_file) == Options(
             host="127.0.0.1", port=4321, secure=False, api_key="syk_k_s"
         )
 
     def test_reads_utf8_text(self, desktop_file: Path) -> None:
         """Should decode the file as UTF-8 whatever the locale code page is."""
         cert = "C:\\Users\\Zoë\\ca.pem"
+        keychain = MemoryKeyring()
+        keychain.set_password(DESKTOP_KEY_SERVICE, DESKTOP_KEY_ACCOUNT, "syk_k_s")
         desktop_file.parent.mkdir(parents=True, exist_ok=True)
         desktop_file.write_bytes(
             json.dumps(
-                {
-                    "host": "127.0.0.1",
-                    "port": 4321,
-                    "secure": True,
-                    "api_key": "syk_k_s",
-                    "ca_cert": cert,
-                },
+                {"host": "127.0.0.1", "port": 4321, "secure": True, "ca_cert": cert},
                 ensure_ascii=False,
             ).encode("utf-8")
         )
-        opts = load_desktop_options(desktop_file)
+        opts = load_desktop_options(keychain, desktop_file)
         assert opts is not None
         assert opts.ca_cert == cert
 
     def test_none_without_a_file(self, desktop_file: Path) -> None:
         """Should return None when Synnax Desktop saved nothing."""
-        assert load_desktop_options(desktop_file) is None
+        assert load_desktop_options(MemoryKeyring(), desktop_file) is None
+
+    def test_none_without_a_key(self, desktop_file: Path) -> None:
+        """Should return None when the keychain holds no key for the address."""
+        write_desktop_file(desktop_file, MemoryKeyring(), port=4321)
+        assert load_desktop_options(MemoryKeyring(), desktop_file) is None
+
+    def test_older_file_with_a_key(self, desktop_file: Path) -> None:
+        """Should ask for a newer Synnax Desktop, and not read a key from the file."""
+        desktop_file.write_text(
+            json.dumps(
+                {"host": "127.0.0.1", "port": 1, "secure": False, "api_key": "syk_k"}
+            ),
+            encoding="utf-8",
+        )
+        with pytest.raises(ConfigurationError, match=OLD_DESKTOP_MSG):
+            load_desktop_options(MemoryKeyring(), desktop_file)
+
+    def test_no_keychain(self, desktop_file: Path) -> None:
+        """Should fail with advice when no OS keychain is available."""
+        write_desktop_file(desktop_file, MemoryKeyring(), port=4321)
+        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
+            load_desktop_options(NoKeychain(), desktop_file)
 
 
 ENV = {"SYNNAX_HOST": "core.lab", "SYNNAX_API_KEY": "syk_env"}
@@ -170,7 +194,7 @@ class TestLoadEnvOptions:
 class TestTryLoadOptions:
     def test_given_options(self, clusters: Clusters, desktop_file: Path) -> None:
         """Should use the given options, which Synnax Desktop did not save."""
-        write_desktop_file(desktop_file, port=4321)
+        write_desktop_file(desktop_file, clusters.keyring, port=4321)
         opts, embedded = try_load_options_if_none_provided(
             host="h", port=1, clusters=clusters, desktop_file=desktop_file
         )
@@ -182,12 +206,28 @@ class TestTryLoadOptions:
         """Should know the options that Synnax Desktop saved when a caller gives them,
         as the CLI does.
         """
-        write_desktop_file(desktop_file, port=4321)
+        write_desktop_file(desktop_file, clusters.keyring, port=4321)
         _, embedded = try_load_options_if_none_provided(
             host="127.0.0.1",
             port=4321,
             api_key="syk_k_s",
             clusters=clusters,
+            desktop_file=desktop_file,
+        )
+        assert embedded
+
+    def test_given_desktop_address_without_a_keychain(
+        self, clusters: Clusters, desktop_file: Path, tmp_path: Path
+    ) -> None:
+        """Should know the Synnax Desktop address from the file alone, with no keychain
+        and a key that differs from the saved one.
+        """
+        write_desktop_file(desktop_file, clusters.keyring, port=4321)
+        _, embedded = try_load_options_if_none_provided(
+            host="127.0.0.1",
+            port=4321,
+            api_key="syk_other_s",
+            clusters=Clusters(File(config_dir=tmp_path / "empty"), NoKeychain()),
             desktop_file=desktop_file,
         )
         assert embedded
@@ -222,7 +262,7 @@ class TestTryLoadOptions:
     ) -> None:
         """Should use the login that `sy login` saved before the Desktop file."""
         clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_saved")))
-        write_desktop_file(desktop_file, port=4321)
+        write_desktop_file(desktop_file, clusters.keyring, port=4321)
         opts, embedded = try_load_options_if_none_provided(
             clusters=clusters, desktop_file=desktop_file
         )
@@ -232,7 +272,7 @@ class TestTryLoadOptions:
         self, clusters: Clusters, desktop_file: Path
     ) -> None:
         """Should use the Desktop file when `sy login` saved nothing."""
-        write_desktop_file(desktop_file, port=4321)
+        write_desktop_file(desktop_file, clusters.keyring, port=4321)
         opts, embedded = try_load_options_if_none_provided(
             clusters=clusters, desktop_file=desktop_file
         )
@@ -252,7 +292,7 @@ class TestTryLoadOptions:
     ) -> None:
         """Should use the environment variables before a login and Synnax Desktop."""
         clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_saved")))
-        write_desktop_file(desktop_file, port=4321)
+        write_desktop_file(desktop_file, clusters.keyring, port=4321)
         opts, embedded = try_load_options_if_none_provided(
             env=ENV, clusters=clusters, desktop_file=desktop_file
         )
@@ -268,7 +308,7 @@ class TestTryLoadOptions:
         Clusters(config, MemoryKeyring()).set(
             Cluster(options=Options(host="h", port=1, api_key="syk_saved"))
         )
-        write_desktop_file(desktop_file, port=4321)
+        write_desktop_file(desktop_file, MemoryKeyring(), port=4321)
         with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
             try_load_options_if_none_provided(
                 clusters=Clusters(config, NoKeychain()), desktop_file=desktop_file
@@ -277,13 +317,15 @@ class TestTryLoadOptions:
     def test_desktop_without_a_keychain(
         self, tmp_path: Path, desktop_file: Path
     ) -> None:
-        """Should use the Desktop file when no login is saved, with no keychain."""
-        write_desktop_file(desktop_file, port=4321)
-        opts, embedded = try_load_options_if_none_provided(
-            clusters=Clusters(File(config_dir=tmp_path), NoKeychain()),
-            desktop_file=desktop_file,
-        )
-        assert (opts.port, embedded) == (4321, True)
+        """Should fail with advice when Synnax Desktop saved a key and no OS keychain
+        is available to read it.
+        """
+        write_desktop_file(desktop_file, MemoryKeyring(), port=4321)
+        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
+            try_load_options_if_none_provided(
+                clusters=Clusters(File(config_dir=tmp_path), NoKeychain()),
+                desktop_file=desktop_file,
+            )
 
     def test_nothing_saved(self, clusters: Clusters, desktop_file: Path) -> None:
         """Should explain how to connect when nothing is saved."""
@@ -299,15 +341,34 @@ class TestDesktopConnection:
         with socket.socket() as s:
             s.bind(("127.0.0.1", 0))
             port = int(s.getsockname()[1])
-        write_desktop_file(tmp_path / ".synnax" / "desktop.json", port=port)
-        # A fresh interpreter reads the home directory of the test.
+        write_desktop_file(
+            tmp_path / ".synnax" / "desktop.json", MemoryKeyring(), port=port
+        )
+        # A fresh interpreter reads the home directory of the test, with a key in a
+        # keychain that is not the one of the operating system.
         env = {
             **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
             "HOME": str(tmp_path),
             "USERPROFILE": str(tmp_path),
         }
+        # keyring.set_keyring accepts only a KeyringBackend, which this script defines.
+        script = (
+            "import keyring\n"
+            "from keyring.backend import KeyringBackend\n"
+            "class Keychain(KeyringBackend):\n"
+            "    priority = 1\n"
+            "    def get_password(self, service, username):\n"
+            f"        if (service, username) == ({DESKTOP_KEY_SERVICE!r}, "
+            f"{DESKTOP_KEY_ACCOUNT!r}):\n"
+            "            return 'syk_k_s'\n"
+            "    def set_password(self, service, username, password): pass\n"
+            "    def delete_password(self, service, username): pass\n"
+            "keyring.set_keyring(Keychain())\n"
+            "import synnax as sy\n"
+            "sy.Synnax(max_retries=0)\n"
+        )
         result = subprocess.run(
-            [sys.executable, "-c", "import synnax as sy; sy.Synnax(max_retries=0)"],
+            [sys.executable, "-c", script],
             env=env,
             capture_output=True,
             text=True,

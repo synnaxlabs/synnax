@@ -9,9 +9,14 @@
 
 from __future__ import annotations
 
+# On Python 3.15 and later, pandas loads on first use. Older versions ignore this.
+__lazy_modules__ = ["pandas", "pandas.api.extensions"]
+
+import sys
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
-from typing import TypeAlias, overload, override
+from functools import cache
+from typing import TypeIs, TypeVar, overload, override
 
 import numpy as np
 import numpy.typing as npt
@@ -19,7 +24,6 @@ import pandas as pd
 from pandas import DataFrame
 from pandas.api.extensions import ExtensionDtype
 from pydantic import BaseModel, Field
-from typing_extensions import TypeVar
 
 import synnax.channel.payload as channel
 from synnax.exceptions import MultipleFoundError, ValidationError
@@ -112,7 +116,7 @@ class Frame:
         elif isinstance(channels, FramePayload):
             self.channels = list(channels.keys)
             self.series = channels.series
-        elif isinstance(channels, DataFrame):
+        elif is_dataframe(channels):
             self.channels = list(channels.columns)
             self.series = [Series(data=channels[k]) for k in self.channels]
         elif isinstance(channels, Mapping):
@@ -354,16 +358,18 @@ def _time_index(stamps: npt.NDArray[np.int64]) -> pd.DatetimeIndex:
 
 
 # A blank in a NumPy integer column makes it float64, which corrupts values above 2^53.
-_NULLABLE_INTS: Mapping[np.dtype, ExtensionDtype] = {
-    np.dtype(np.int8): pd.Int8Dtype(),
-    np.dtype(np.int16): pd.Int16Dtype(),
-    np.dtype(np.int32): pd.Int32Dtype(),
-    np.dtype(np.int64): pd.Int64Dtype(),
-    np.dtype(np.uint8): pd.UInt8Dtype(),
-    np.dtype(np.uint16): pd.UInt16Dtype(),
-    np.dtype(np.uint32): pd.UInt32Dtype(),
-    np.dtype(np.uint64): pd.UInt64Dtype(),
-}
+@cache
+def _nullable_ints() -> Mapping[np.dtype, ExtensionDtype]:
+    return {
+        np.dtype(np.int8): pd.Int8Dtype(),
+        np.dtype(np.int16): pd.Int16Dtype(),
+        np.dtype(np.int32): pd.Int32Dtype(),
+        np.dtype(np.int64): pd.Int64Dtype(),
+        np.dtype(np.uint8): pd.UInt8Dtype(),
+        np.dtype(np.uint16): pd.UInt16Dtype(),
+        np.dtype(np.uint32): pd.UInt32Dtype(),
+        np.dtype(np.uint64): pd.UInt64Dtype(),
+    }
 
 
 def _nullable_dtype(
@@ -371,7 +377,7 @@ def _nullable_dtype(
 ) -> ExtensionDtype | None:
     if isinstance(values, list):
         return None
-    return _NULLABLE_INTS.get(values.dtype)
+    return _nullable_ints().get(values.dtype)
 
 
 # Bound per call, so a typed mapping of keys, names, payloads, or a mix matches.
@@ -380,4 +386,12 @@ K = TypeVar(
     bound=channel.Key | str | channel.Payload,
     default=channel.Key | str | channel.Payload,
 )
-CrudeFrame: TypeAlias = Frame | FramePayload | Mapping[K, CrudeSeries] | DataFrame
+type CrudeFrame[
+    K: channel.Key | str | channel.Payload = channel.Key | str | channel.Payload
+] = Frame | FramePayload | Mapping[K, CrudeSeries] | DataFrame
+
+
+def is_dataframe(value: object) -> TypeIs[DataFrame]:
+    """Returns whether value is a pandas DataFrame, without loading pandas."""
+    # A value cannot be a DataFrame while pandas is not loaded.
+    return "pandas" in sys.modules and isinstance(value, DataFrame)

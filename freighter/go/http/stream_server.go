@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
 	"go.uber.org/zap"
@@ -79,9 +80,7 @@ func withCodec(c http.Codec) StreamServerOption {
 
 func newStreamServerOptions(opts []StreamServerOption) streamServerOptions {
 	so := streamServerOptions{}
-	for _, c := range defaultCodecs {
-		withCodec(c)(&so)
-	}
+	withCodec(json.Codec)(&so)
 	for _, opt := range opts {
 		opt(&so)
 	}

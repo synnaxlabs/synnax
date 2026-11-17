@@ -11,7 +11,6 @@ import asyncio
 import threading
 import time
 from collections.abc import Callable, Iterator
-from typing import cast
 
 import numpy as np
 import pytest
@@ -911,9 +910,9 @@ class TestRemainsTrueForProcessor:
     """Unit tests for the _RemainsTrueFor percentage logic, independent of streaming
     timing."""
 
-    # The callbacks under test never touch the controller, so a bare sentinel stands in
-    # for it.
-    _state = cast(Controller, object())
+    # The callbacks under test never touch the controller, so an uninitialized one
+    # stands in for it.
+    _state = Controller.__new__(Controller)
 
     def _run(self, results: list[bool], percentage: float) -> _RemainsTrueFor:
         it = iter(results)
@@ -961,7 +960,7 @@ class TestRemainsTrueForProcessor:
         """Should count a truthy numeric result as one true result, not as its
         value."""
         it = iter([2, 0, 2, 0])
-        processor = _RemainsTrueFor(lambda _: cast(bool, next(it)), percentage=0.75)
+        processor = _RemainsTrueFor(lambda _: next(it), percentage=0.75)
         for _ in range(4):
             processor.process(self._state)
         assert processor.count == 4

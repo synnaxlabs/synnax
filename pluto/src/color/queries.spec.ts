@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/client";
+import { color, type group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { color as xcolor, id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -24,6 +24,16 @@ const remote = createTestClient();
 
 const createNamed = async (): Promise<color.Named> =>
   await remote.colors.create({ name: `color-${id.create()}`, light: "#00FF00" });
+
+const createPalette = async (): Promise<group.Group> =>
+  await remote.groups.create({ scope: "color", name: `palette-${id.create()}` });
+
+const createInPalette = async (palette: group.Group): Promise<color.Named> =>
+  await remote.colors.create({
+    name: `color-${id.create()}`,
+    light: "#00FF00",
+    group: palette.key,
+  });
 
 const renameRemotely = async (key: color.Key, name: string): Promise<void> => {
   await remote.colors.retrieve(key);
@@ -131,6 +141,123 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("success");
       await expect(createTestClient().colors.retrieve(named.key)).rejects.toThrow();
+    });
+  });
+
+  describe("useCreateForm", () => {
+    it("should create a named color at its place in a palette", async () => {
+      const palette = await createPalette();
+      const { result } = renderHook(
+        () =>
+          Color.useCreateForm({
+            query: null,
+            initialValues: {
+              name: "",
+              light: xcolor.construct("#FF0000"),
+              group: palette.key,
+              position: "a0",
+            },
+          }),
+        { wrapper },
+      );
+      const name = `created-${id.create()}`;
+      act(() => {
+        result.current.form.set(Color.createFormPath.name, name);
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.form.value().key).toBeDefined());
+      const stored = await createTestClient().colors.retrieve(name);
+      expect(stored.group).toBe(palette.key);
+      expect(stored.position).toBe("a0");
+    });
+  });
+
+  describe("useForm", () => {
+    it("should send an edit to the dark value", async () => {
+      const named = await createNamed();
+      const { result } = await renderHookSuspended(
+        () => Color.useForm({ query: { key: named.key } }),
+        { wrapper },
+      );
+      act(() =>
+        result.current.form.set(Color.formPath.dark, xcolor.construct("#0000FF")),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const stored = await createTestClient().colors.retrieve(named.key);
+      expect(stored.dark).toEqual(xcolor.construct("#0000FF"));
+    });
+  });
+
+  describe("useMove", () => {
+    it("should move named colors to new places in their palette", async () => {
+      const [a, b] = await Promise.all([createNamed(), createNamed()]);
+      const { result } = renderHook(Color.useMove, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync([
+          { key: a.key, position: "a5" },
+          { key: b.key, position: "a4" },
+        ]);
+      });
+      expect(result.current.variant).toEqual("success");
+      const reader = createTestClient();
+      expect((await reader.colors.retrieve(a.key)).position).toBe("a5");
+      expect((await reader.colors.retrieve(b.key)).position).toBe("a4");
+    });
+  });
+
+  describe("useRestore", () => {
+    it("should write the shipped values back onto an edited built-in", async () => {
+      const shipped = (await client.colors.retrieveBuiltins()).at(-1);
+      if (shipped == null) throw new Error("the Core ships no named colors");
+      await remote.colors.retrieve(shipped.key);
+      await remote.colors.dispatch(
+        shipped.key,
+        color.set({ path: ["light"], value: xcolor.construct("#123456") }),
+      );
+      const { result } = renderHook(Color.useRestore, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(shipped);
+      });
+      expect(result.current.variant).toEqual("success");
+      const stored = await createTestClient().colors.retrieve(shipped.key);
+      expect(stored.light).toEqual(shipped.light);
+      expect(stored.dark).toEqual(shipped.dark);
+    });
+  });
+
+  describe("useDeletePalette", () => {
+    it("should delete a palette and its named colors", async () => {
+      const palette = await createPalette();
+      const [a, b] = await Promise.all([
+        createInPalette(palette),
+        createInPalette(palette),
+      ]);
+      const { result } = renderHook(Color.useDeletePalette, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          palette: palette.key,
+          colors: [a.key, b.key],
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+      const reader = createTestClient();
+      await expect(reader.groups.retrieve({ key: palette.key })).rejects.toThrow(
+        NotFoundError,
+      );
+      await expect(reader.colors.retrieve(a.key)).rejects.toThrow(NotFoundError);
+      await expect(reader.colors.retrieve(b.key)).rejects.toThrow(NotFoundError);
+    });
+
+    it("should delete an empty palette", async () => {
+      const palette = await createPalette();
+      const { result } = renderHook(Color.useDeletePalette, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ palette: palette.key, colors: [] });
+      });
+      expect(result.current.variant).toEqual("success");
+      await expect(
+        createTestClient().groups.retrieve({ key: palette.key }),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

@@ -140,9 +140,12 @@ export const mockSupervisor = (
 export interface DiscoveryFile {
   /** The API key the app saved last, or null before the first save. */
   apiKey: string | null;
+  /** A key that Synnax Desktop 1.1 saved in plaintext, until the app forgets it. */
+  legacy: string | null;
 }
 
 const saveArgsZ = z.object({ apiKey: z.string(), replaces: z.string().nullable() });
+const forgetArgsZ = z.object({ apiKey: z.string() });
 
 /**
  * Creates a discovery file and the supervisor command handlers that read and write it,
@@ -154,11 +157,15 @@ export const createDiscoveryFile = (
   apiKey: string | null = null,
   beforeSave?: (file: DiscoveryFile, apiKey: string) => void | Promise<void>,
 ): { file: DiscoveryFile; handlers: Record<string, CommandHandler> } => {
-  const file: DiscoveryFile = { apiKey };
+  const file: DiscoveryFile = { apiKey, legacy: null };
   return {
     file,
     handlers: {
       supervisor_api_key: () => file.apiKey,
+      supervisor_legacy_api_key: () => file.legacy,
+      supervisor_forget_legacy_api_key: (args) => {
+        if (forgetArgsZ.parse(args).apiKey === file.legacy) file.legacy = null;
+      },
       supervisor_save_api_key: async (args) => {
         const { apiKey, replaces } = saveArgsZ.parse(args);
         await beforeSave?.(file, apiKey);

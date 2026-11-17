@@ -28,10 +28,7 @@ type LoggerConfig struct {
 	ZapLogger *zap.Logger
 }
 
-var (
-	_                   config.Config[LoggerConfig] = LoggerConfig{}
-	defaultLoggerConfig                             = LoggerConfig{}
-)
+var _ config.Config[LoggerConfig] = LoggerConfig{}
 
 // Validate implements config.Config.
 func (c LoggerConfig) Validate() error { return nil }
@@ -52,7 +49,7 @@ type Logger struct {
 
 // NewLogger creates a new Logger with the given configuration.
 func NewLogger(configs ...LoggerConfig) (*Logger, error) {
-	cfg, err := config.New(defaultLoggerConfig, configs...)
+	cfg, err := config.New(LoggerConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -10,6 +10,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"net"
 
 	"github.com/cockroachdb/cmux"
@@ -25,6 +26,9 @@ type BranchContext struct {
 	Security SecurityConfig
 	// ServerName is the name of the Server this branch is running on.
 	ServerName string
+	// TLS is the TLS configuration of the Listener the branch serves. It is nil in
+	// insecure mode.
+	TLS *tls.Config
 	// Debug is a flag to enable debugging endpoints and utilities.
 	Debug bool
 }

@@ -218,11 +218,12 @@ func generatePyFile(
 	// dependency (e.g. Functions before IR), so the trailing input order only
 	// matters inside a cycle. Any forward reference that remains is resolved by the
 	// model_rebuild() calls emitted at the end of the file.
-	var combinedTypes []resolution.Type
-	combinedTypes = append(combinedTypes, aliasTypeDefs...)
-	combinedTypes = append(combinedTypes, structs...)
-	combinedTypes = append(combinedTypes, unions...)
-	combinedTypes = append(combinedTypes, trailingTypeDefs...)
+	combinedTypes := slices.Concat(
+		aliasTypeDefs,
+		structs,
+		unions,
+		trailingTypeDefs,
+	)
 
 	sortedTypes := table.TopologicalSort(combinedTypes)
 
@@ -489,9 +490,8 @@ func declareTypeVars(
 		declared = append(declared, tpd)
 		tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
 		// An omitted optional type argument means its bound, or arbitrary JSON when
-		// unbounded. TypeVar defaults need typing_extensions on Python 3.12.
+		// unbounded.
 		if tp.Optional {
-			data.imports.typeVarDefault = true
 			tvd.Default = tpd.Constraint
 			if tvd.Default == "" {
 				data.imports.addPydantic("JsonValue")
@@ -1960,11 +1960,8 @@ type importManager struct {
 	reserved set.Set[string]
 	uuid     []string
 	typing   []string
-	// typeVarDefault is true when a TypeVar takes a default, so TypeVar comes from
-	// typing_extensions instead of typing.
-	typeVarDefault bool
-	enum           []string
-	pydantic       []string
+	enum     []string
+	pydantic []string
 	// field is the name pydantic's Field is imported as. It differs from "Field" when
 	// the file declares a type of that name.
 	field  string
@@ -2174,7 +2171,7 @@ type resourceData struct {
 
 func (d *templateData) UUIDImports() []string { return d.imports.uuid }
 func (d *templateData) TypingImports() []string {
-	if len(d.TypeVars) == 0 || d.imports.typeVarDefault {
+	if len(d.TypeVars) == 0 {
 		return d.imports.typing
 	}
 	return append(slices.Clone(d.imports.typing), "TypeVar")
@@ -2195,14 +2192,6 @@ func (d *templateData) CodecImports() []string    { return d.imports.codec }
 func (d *templateData) NamespaceImports() []namespaceImportData { return d.imports.namespaces }
 
 func (d *templateData) ModuleImports() []moduleImportData { return d.imports.modules }
-
-// TypingExtensionsImports returns the names imported from typing_extensions.
-func (d *templateData) TypingExtensionsImports() []string {
-	if d.imports.typeVarDefault {
-		return []string{"TypeVar"}
-	}
-	return nil
-}
 
 type typeParamData struct {
 	// Name is the TypeVar name (e.g., "V").
@@ -2553,9 +2542,6 @@ from uuid import {{ join .UUIDImports ", " }}
 {{- end }}
 {{- if .TypingImports }}
 from typing import {{ join .TypingImports ", " }}
-{{- end }}
-{{- if .TypingExtensionsImports }}
-from typing_extensions import {{ join .TypingExtensionsImports ", " }}
 {{- end }}
 {{- if .EnumImports }}
 from enum import {{ join .EnumImports ", " }}

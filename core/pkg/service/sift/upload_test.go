@@ -206,7 +206,7 @@ var _ = Describe("Upload", func() {
 	It("Should start the waiting uploads of a device oldest first",
 		func(ctx SpecContext) {
 			server.Pause()
-			want := []string{rng.Name}
+			want := append(make([]string, 0, 4), rng.Name)
 			upload(ctx)
 			Eventually(server.Streams).Should(Equal(1))
 			for range 3 {
@@ -216,9 +216,10 @@ var _ = Describe("Upload", func() {
 			}
 			server.Resume()
 			Eventually(func() []string {
-				var names []string
-				for _, r := range server.Runs() {
-					names = append(names, r.Name)
+				runs := server.Runs()
+				names := make([]string, len(runs))
+				for i, r := range runs {
+					names[i] = r.Name
 				}
 				return names
 			}).WithTimeout(10 * time.Second).Should(Equal(want))
