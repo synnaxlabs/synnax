@@ -7,17 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import math
 from collections.abc import Iterator
-from typing import cast
 
 import pytest
 import synnax as sy
+from mypy_boto3_ce.literals import GranularityType, MetricType
+from mypy_boto3_ce.type_defs import (
+    DateIntervalTypeDef,
+    ExpressionTypeDef,
+    GroupDefinitionTypeDef,
+)
+from mypy_boto3_pricing.type_defs import FilterTypeDef
 
-from aws import AWS
 from common import Channels, channel_name
 from conftest import Client, core
-from cost import FETCHED, LIVE_INTERVAL, Cost, Prices
+from cost import FETCHED, LIVE_INTERVAL, Cost, Forecast, Metrics, Products, Usage
 from log import Log
 
 RUNNER = "windows-build-bot-i-0aaa"
@@ -26,31 +32,73 @@ RATE = channel_name("cost_per_hour", runner=RUNNER)
 EBS = channel_name("ebs_cost_per_hour", runner=RUNNER)
 
 
+def product(usd: str) -> str:
+    """A Pricing API product with one on-demand price per unit."""
+    dims = {"d": {"pricePerUnit": {"USD": usd}}}
+    return json.dumps({"terms": {"OnDemand": {"t": {"priceDimensions": dims}}}})
+
+
 class NoAWS:
-    """Stands in for AWS where a test makes no AWS call."""
+    """Stands in for AWS where a test makes no AWS call: every call fails."""
 
-    pricing = None
+    def __init__(self) -> None:
+        self.cloudwatch: dict[str, Metrics] = {}
+
+    @property
+    def pricing(self) -> "NoAWS":
+        return self
+
+    @property
+    def ce(self) -> "NoAWS":
+        return self
+
+    def get_products(
+        self, *, ServiceCode: str, Filters: list[FilterTypeDef], MaxResults: int
+    ) -> Products:
+        raise ConnectionError("AWS unreachable")
+
+    def get_cost_forecast(
+        self,
+        *,
+        TimePeriod: DateIntervalTypeDef,
+        Metric: MetricType,
+        Granularity: GranularityType,
+        Filter: ExpressionTypeDef,
+    ) -> Forecast:
+        raise ConnectionError("AWS unreachable")
+
+    def get_cost_and_usage(
+        self,
+        *,
+        TimePeriod: DateIntervalTypeDef,
+        Granularity: GranularityType,
+        Metrics: list[str],
+        GroupBy: list[GroupDefinitionTypeDef] | None = None,
+        Filter: ExpressionTypeDef | None = None,
+        NextPageToken: str | None = None,
+    ) -> Usage:
+        raise ConnectionError("AWS unreachable")
+
+    def volumes(self) -> dict[str, int]:
+        raise ConnectionError("AWS unreachable")
 
 
-class Volumes:
-    """Stands in for AWS with no attached volumes."""
+class Volumes(NoAWS):
+    """Stands in for AWS with no attached volumes, free storage, and a price for one
+    instance type only."""
 
-    pricing = None
+    def get_products(
+        self, *, ServiceCode: str, Filters: list[FilterTypeDef], MaxResults: int
+    ) -> Products:
+        fields = {f["Field"]: f["Value"] for f in Filters}
+        if fields.get("instanceType") == "t3.large":
+            return {"PriceList": [product("0.5")]}
+        if fields.get("productFamily") == "Storage":
+            return {"PriceList": [product("0")]}
+        return {"PriceList": []}
 
     def volumes(self) -> dict[str, int]:
         return {}
-
-
-class SomePrices:
-    """Prices one instance type and fails on any other."""
-
-    def instance(self, instance_type: str, *, region: str, windows: bool) -> float:
-        if instance_type != "t3.large":
-            raise LookupError(instance_type)
-        return 0.5
-
-    def volume(self, region: str) -> float:
-        return 0.0
 
 
 def found(*, running: bool) -> dict[str, dict]:
@@ -64,7 +112,7 @@ def cost(client: Client) -> Iterator[Cost]:
         channels=Channels(client=core(client), enabled=False),
         channel="log",
     )
-    c = Cost(log=log, aws=cast(AWS, NoAWS()))
+    c = Cost(log=log, aws=NoAWS())
     now = sy.TimeStamp.now()
     # A fetch just ran, so step() only writes the live frame.
     c.attempted = now
@@ -130,8 +178,7 @@ class TestPriceTable:
             channels=Channels(client=core(client), enabled=False),
             channel="log",
         )
-        c = Cost(log=log, aws=cast(AWS, Volumes()))
-        c.prices = cast(Prices, SomePrices())
+        c = Cost(log=log, aws=Volumes())
         c.known = [RUNNER, OTHER]
         instances = {
             "i-0aaa": {"type": "t3.large", "region": "us-east-1", "windows": True},
