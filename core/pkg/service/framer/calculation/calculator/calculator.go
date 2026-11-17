@@ -182,8 +182,8 @@ func newCalculator(
 	return c
 }
 
-// newHostFactory returns a factory of the nodes that the host modules of the
-// calculator provide.
+// newHostFactory returns a factory of the nodes that the host modules of the calculator
+// provide.
 func newHostFactory(ctx context.Context, cs calcState) (node.CompoundFactory, error) {
 	channelMod, err := stlchannels.NewHost(ctx, nil, cs.channel, cs.strings)
 	if err != nil {

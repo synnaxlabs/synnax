@@ -137,8 +137,8 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 	return g, nil
 }
 
-// newGroupPipeline returns a pipeline that streams the reads of the calculators of
-// the group into c and writes its output with wrt.
+// newGroupPipeline returns a pipeline that streams the reads of the calculators of the
+// group into c and writes its output with wrt.
 func newGroupPipeline(
 	cfg groupConfig,
 	strm framer.Streamer,
