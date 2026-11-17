@@ -103,6 +103,36 @@ class TestRangeNotCreated:
         with pytest.raises(TypeError, match="when series is provided"):
             untyped(rng.write)(frame, [sy.Series([1.0])])
 
+    def test_channel_attribute(self) -> None:
+        """Should treat an unknown attribute as a channel query, which needs a range
+        that was created"""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(sy.ConfigurationError):
+            _ = rng.my_channel
+
+    def test_private_attribute_miss(self) -> None:
+        """Should raise an AttributeError, not query a channel, for a missing private
+        attribute on a range built without __init__"""
+        rng = sy.Range.model_construct(
+            key=uuid4(),
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(AttributeError):
+            _ = rng.my_channel
+
+    def test_model_ignores_clients(self) -> None:
+        """Should leave the injected clients and caches out of dumps and repr"""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        assert not any(name.startswith("_") for name in rng.model_dump())
+        assert "_scoped" not in repr(rng)
+
 
 @pytest.mark.ranger
 class TestRangeClient:
