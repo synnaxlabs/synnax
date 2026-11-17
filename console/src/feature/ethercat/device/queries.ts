@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, status, type Synnax, type task } from "@synnaxlabs/client";
-import { Device, Flux } from "@synnaxlabs/pluto";
+import { device, type rack, status, type Synnax, type task } from "@synnaxlabs/client";
+import { Device, Flux, Task } from "@synnaxlabs/pluto";
 import { array, deep, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 
 import { canReplace } from "@/feature/ethercat/device/replace";
@@ -151,6 +151,33 @@ const startTasks = async (tasks: task.Task[]): Promise<void> => {
   );
 };
 
+/** @throws {Error} if a task fails to stop. */
+const stopTasks = async (tasks: task.Task[]): Promise<void> => {
+  await Promise.all(
+    tasks.map(async (t) => {
+      const res = await t.executeCommandSync({ type: "stop" });
+      if (res.variant === "error") throw status.toError(res);
+    }),
+  );
+};
+
+const isRunning = (t: task.Task): boolean =>
+  (t.type === READ_TYPE || t.type === WRITE_TYPE) && t.status?.details.running === true;
+
+const taskDevices = (t: task.Task): device.Key[] => devicesOf(t.config);
+
+/** @returns the tasks with a channel on a slave of the network. */
+const onNetwork = (
+  tasks: task.Task[],
+  slaves: SlaveDevice[],
+  network: string,
+): task.Task[] => {
+  const keys = new Set(
+    slaves.filter((s) => s.properties.network === network).map((s) => s.key),
+  );
+  return tasks.filter((t) => taskDevices(t).some((k) => keys.has(k)));
+};
+
 /**
  * Stops each EtherCAT read and write task that runs on the network of the slave. When
  * a stop fails, starts the tasks again.
@@ -162,35 +189,49 @@ const stopTasksOnNetwork = async (
   { rack, properties }: SlaveDevice,
 ): Promise<task.Task[]> => {
   const running = (await client.tasks.retrieve({ rack, includeStatus: true })).filter(
-    (t) =>
-      (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
-      t.status?.details.running === true,
+    isRunning,
   );
-  const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
-  const onNetwork = new Set(
-    (keys.length === 0
+  const keys = unique.unique(running.flatMap(taskDevices));
+  const slaves =
+    keys.length === 0
       ? []
-      : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS })
-    )
-      .filter((s) => s.properties.network === properties.network)
-      .map((s) => s.key),
-  );
-  const tasks = running.filter((t) =>
-    devicesOf(t.config).some((k) => onNetwork.has(k)),
-  );
+      : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS });
+  const tasks = onNetwork(running, slaves, properties.network);
   let stopped = false;
   try {
-    await Promise.all(
-      tasks.map(async (t) => {
-        const res = await t.executeCommandSync({ type: "stop" });
-        if (res.variant === "error") throw status.toError(res);
-      }),
-    );
+    await stopTasks(tasks);
     stopped = true;
   } finally {
     if (!stopped) await startTasks(tasks);
   }
   return tasks;
+};
+
+/** The EtherCAT read and write tasks that run on the network of the rack, kept live. */
+export const useRunningOnNetwork = (
+  rackKey: rack.Key,
+  network: string,
+): task.Task[] => {
+  const tasks =
+    Task.useResultMultiple({
+      where: { rack: { eq: rackKey }, type: { in: [READ_TYPE, WRITE_TYPE] } },
+    }).data ?? [];
+  const running = tasks.filter(isRunning);
+  const slaves = useSlavesByKeys(unique.unique(running.flatMap(taskDevices))) ?? [];
+  return onNetwork(running, slaves, network);
+};
+
+/**
+ * Stops the tasks, then starts them again, so that their network starts with the saved
+ * settings of its slaves. A task that fails to start shows its own error.
+ * @throws {Error} if a task fails to stop, after the tasks start again.
+ */
+export const restartTasks = async (tasks: task.Task[]): Promise<void> => {
+  try {
+    await stopTasks(tasks);
+  } finally {
+    await startTasks(tasks);
+  }
 };
 
 /**
