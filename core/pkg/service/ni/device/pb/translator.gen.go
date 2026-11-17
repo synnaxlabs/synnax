@@ -24,6 +24,8 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
+	spatialpb "github.com/synnaxlabs/x/spatial/pb"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // DeviceToPB converts Device to Device.
@@ -45,6 +47,13 @@ func DeviceToPB(r device.Device) (*Device, error) {
 	if r.Chassis != nil {
 		v := r.Chassis.String()
 		pb.Chassis = &v
+	}
+	if r.Hardware != nil {
+		var err error
+		pb.Hardware, err = HardwareToPB(*r.Hardware)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if r.AnalogOutput != nil {
 		pb.AnalogOutput = make(map[uint32]*AnalogOutputChannels, len(r.AnalogOutput))
@@ -129,6 +138,13 @@ func DeviceFromPB(pb *Device) (device.Device, error) {
 			return device.Device{}, err
 		}
 		r.Chassis = &v
+	}
+	if pb.Hardware != nil {
+		val, err := HardwareFromPB(pb.Hardware)
+		if err != nil {
+			return device.Device{}, err
+		}
+		r.Hardware = &val
 	}
 	if pb.AnalogOutput != nil {
 		r.AnalogOutput = make(map[uint16]device.AnalogOutputChannels, len(pb.AnalogOutput))
@@ -939,6 +955,13 @@ func IdentityToPB(r device.Identity) (*Identity, error) {
 		v := r.Chassis.String()
 		pb.Chassis = &v
 	}
+	if r.Hardware != nil {
+		var err error
+		pb.Hardware, err = HardwareToPB(*r.Hardware)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -962,6 +985,13 @@ func IdentityFromPB(pb *Identity) (device.Identity, error) {
 			return device.Identity{}, err
 		}
 		r.Chassis = &v
+	}
+	if pb.Hardware != nil {
+		val, err := HardwareFromPB(pb.Hardware)
+		if err != nil {
+			return device.Identity{}, err
+		}
+		r.Hardware = &val
 	}
 	defaults.FillGroups(&r)
 	return r, nil
@@ -1152,6 +1182,384 @@ func ConfigurationsFromPB(pbs []*Configuration) ([]device.Configuration, error) 
 	return result, nil
 }
 
+// AnalogInputPortToPB converts AnalogInputPort to AnalogInputPort.
+func AnalogInputPortToPB(r device.AnalogInputPort) (*AnalogInputPort, error) {
+	terminalConfigsVal, err := lo.MapErr(r.TerminalConfigs, func(v device.TerminalConfig, _ int) (TerminalConfig, error) { return TerminalConfigToPB(v) })
+	if err != nil {
+		return nil, err
+	}
+	defaultTerminalConfigVal, err := TerminalConfigToPB(r.DefaultTerminalConfig)
+	if err != nil {
+		return nil, err
+	}
+	pb := &AnalogInputPort{
+		Port:                  uint32(r.Port),
+		Types:                 r.Types,
+		Negative:              uint32(r.Negative),
+		TerminalConfigs:       terminalConfigsVal,
+		DefaultTerminalConfig: defaultTerminalConfigVal,
+	}
+	return pb, nil
+}
+
+// AnalogInputPortFromPB converts AnalogInputPort to AnalogInputPort.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func AnalogInputPortFromPB(pb *AnalogInputPort) (device.AnalogInputPort, error) {
+	var r device.AnalogInputPort
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.TerminalConfigs, err = lo.MapErr(pb.TerminalConfigs, func(v TerminalConfig, _ int) (device.TerminalConfig, error) { return TerminalConfigFromPB(v) })
+	if err != nil {
+		return device.AnalogInputPort{}, err
+	}
+	r.DefaultTerminalConfig, err = TerminalConfigFromPB(pb.DefaultTerminalConfig)
+	if err != nil {
+		return device.AnalogInputPort{}, err
+	}
+	r.Port = uint16(pb.Port)
+	r.Types = pb.Types
+	r.Negative = uint16(pb.Negative)
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// AnalogInputPortListToPB converts a slice of AnalogInputPort to AnalogInputPort.
+func AnalogInputPortListToPB(rs []device.AnalogInputPort) ([]*AnalogInputPort, error) {
+	result := make([]*AnalogInputPort, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AnalogInputPortToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AnalogInputPortListFromPB converts a slice of AnalogInputPort to AnalogInputPort.
+func AnalogInputPortListFromPB(pbs []*AnalogInputPort) ([]device.AnalogInputPort, error) {
+	result := make([]device.AnalogInputPort, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AnalogInputPortFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AnalogOutputPortToPB converts AnalogOutputPort to AnalogOutputPort.
+func AnalogOutputPortToPB(r device.AnalogOutputPort) (*AnalogOutputPort, error) {
+	terminalConfigsVal, err := lo.MapErr(r.TerminalConfigs, func(v device.TerminalConfig, _ int) (TerminalConfig, error) { return TerminalConfigToPB(v) })
+	if err != nil {
+		return nil, err
+	}
+	pb := &AnalogOutputPort{
+		Port:            uint32(r.Port),
+		Types:           r.Types,
+		TerminalConfigs: terminalConfigsVal,
+	}
+	return pb, nil
+}
+
+// AnalogOutputPortFromPB converts AnalogOutputPort to AnalogOutputPort.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func AnalogOutputPortFromPB(pb *AnalogOutputPort) (device.AnalogOutputPort, error) {
+	var r device.AnalogOutputPort
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.TerminalConfigs, err = lo.MapErr(pb.TerminalConfigs, func(v TerminalConfig, _ int) (device.TerminalConfig, error) { return TerminalConfigFromPB(v) })
+	if err != nil {
+		return device.AnalogOutputPort{}, err
+	}
+	r.Port = uint16(pb.Port)
+	r.Types = pb.Types
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// AnalogOutputPortsToPB converts a slice of AnalogOutputPort to AnalogOutputPort.
+func AnalogOutputPortsToPB(rs []device.AnalogOutputPort) ([]*AnalogOutputPort, error) {
+	result := make([]*AnalogOutputPort, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AnalogOutputPortToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AnalogOutputPortsFromPB converts a slice of AnalogOutputPort to AnalogOutputPort.
+func AnalogOutputPortsFromPB(pbs []*AnalogOutputPort) ([]device.AnalogOutputPort, error) {
+	result := make([]device.AnalogOutputPort, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AnalogOutputPortFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CounterPortToPB converts CounterPort to CounterPort.
+func CounterPortToPB(r device.CounterPort) (*CounterPort, error) {
+	pb := &CounterPort{
+		Port:  uint32(r.Port),
+		Types: r.Types,
+	}
+	return pb, nil
+}
+
+// CounterPortFromPB converts CounterPort to CounterPort.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func CounterPortFromPB(pb *CounterPort) (device.CounterPort, error) {
+	var r device.CounterPort
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	r.Port = uint16(pb.Port)
+	r.Types = pb.Types
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// CounterPortsToPB converts a slice of CounterPort to CounterPort.
+func CounterPortsToPB(rs []device.CounterPort) ([]*CounterPort, error) {
+	result := make([]*CounterPort, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CounterPortToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CounterPortsFromPB converts a slice of CounterPort to CounterPort.
+func CounterPortsFromPB(pbs []*CounterPort) ([]device.CounterPort, error) {
+	result := make([]device.CounterPort, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CounterPortFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// DigitalPortToPB converts DigitalPort to DigitalPort.
+func DigitalPortToPB(r device.DigitalPort) (*DigitalPort, error) {
+	pb := &DigitalPort{
+		Port:   uint32(r.Port),
+		Lines:  uint32(r.Lines),
+		Input:  r.Input,
+		Output: r.Output,
+	}
+	return pb, nil
+}
+
+// DigitalPortFromPB converts DigitalPort to DigitalPort.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func DigitalPortFromPB(pb *DigitalPort) (device.DigitalPort, error) {
+	var r device.DigitalPort
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	r.Port = uint16(pb.Port)
+	r.Lines = uint8(pb.Lines)
+	r.Input = pb.Input
+	r.Output = pb.Output
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// DigitalPortsToPB converts a slice of DigitalPort to DigitalPort.
+func DigitalPortsToPB(rs []device.DigitalPort) ([]*DigitalPort, error) {
+	result := make([]*DigitalPort, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = DigitalPortToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// DigitalPortsFromPB converts a slice of DigitalPort to DigitalPort.
+func DigitalPortsFromPB(pbs []*DigitalPort) ([]device.DigitalPort, error) {
+	result := make([]device.DigitalPort, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = DigitalPortFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// HardwareToPB converts Hardware to Hardware.
+func HardwareToPB(r device.Hardware) (*Hardware, error) {
+	analogInputsVal, err := AnalogInputPortListToPB(r.AnalogInputs)
+	if err != nil {
+		return nil, err
+	}
+	analogOutputsVal, err := AnalogOutputPortsToPB(r.AnalogOutputs)
+	if err != nil {
+		return nil, err
+	}
+	counterInputsVal, err := CounterPortsToPB(r.CounterInputs)
+	if err != nil {
+		return nil, err
+	}
+	counterOutputsVal, err := CounterPortsToPB(r.CounterOutputs)
+	if err != nil {
+		return nil, err
+	}
+	digitalPortsVal, err := DigitalPortsToPB(r.DigitalPorts)
+	if err != nil {
+		return nil, err
+	}
+	aiVoltageRangesVal, err := spatialpb.BoundsListToPB(r.AiVoltageRanges)
+	if err != nil {
+		return nil, err
+	}
+	aiCurrentRangesVal, err := spatialpb.BoundsListToPB(r.AiCurrentRanges)
+	if err != nil {
+		return nil, err
+	}
+	aoVoltageRangesVal, err := spatialpb.BoundsListToPB(r.AoVoltageRanges)
+	if err != nil {
+		return nil, err
+	}
+	aoCurrentRangesVal, err := spatialpb.BoundsListToPB(r.AoCurrentRanges)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Hardware{
+		Terminals:              r.Terminals,
+		AiMinRate:              float64(r.AiMinRate),
+		AiMaxSingleChannelRate: float64(r.AiMaxSingleChannelRate),
+		AiMaxMultiChannelRate:  float64(r.AiMaxMultiChannelRate),
+		AoMaxRate:              float64(r.AoMaxRate),
+		AnalogInputs:           analogInputsVal,
+		AnalogOutputs:          analogOutputsVal,
+		CounterInputs:          counterInputsVal,
+		CounterOutputs:         counterOutputsVal,
+		DigitalPorts:           digitalPortsVal,
+		AiVoltageRanges:        aiVoltageRangesVal,
+		AiCurrentRanges:        aiCurrentRangesVal,
+		AoVoltageRanges:        aoVoltageRangesVal,
+		AoCurrentRanges:        aoCurrentRangesVal,
+	}
+	return pb, nil
+}
+
+// HardwareFromPB converts Hardware to Hardware.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func HardwareFromPB(pb *Hardware) (device.Hardware, error) {
+	var r device.Hardware
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.AnalogInputs, err = AnalogInputPortListFromPB(pb.AnalogInputs)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AnalogOutputs, err = AnalogOutputPortsFromPB(pb.AnalogOutputs)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.CounterInputs, err = CounterPortsFromPB(pb.CounterInputs)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.CounterOutputs, err = CounterPortsFromPB(pb.CounterOutputs)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.DigitalPorts, err = DigitalPortsFromPB(pb.DigitalPorts)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AiVoltageRanges, err = spatialpb.BoundsListFromPB(pb.AiVoltageRanges)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AiCurrentRanges, err = spatialpb.BoundsListFromPB(pb.AiCurrentRanges)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AoVoltageRanges, err = spatialpb.BoundsListFromPB(pb.AoVoltageRanges)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AoCurrentRanges, err = spatialpb.BoundsListFromPB(pb.AoCurrentRanges)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.Terminals = pb.Terminals
+	r.AiMinRate = telem.Rate(pb.AiMinRate)
+	r.AiMaxSingleChannelRate = telem.Rate(pb.AiMaxSingleChannelRate)
+	r.AiMaxMultiChannelRate = telem.Rate(pb.AiMaxMultiChannelRate)
+	r.AoMaxRate = telem.Rate(pb.AoMaxRate)
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// HardwareListToPB converts a slice of Hardware to Hardware.
+func HardwareListToPB(rs []device.Hardware) ([]*Hardware, error) {
+	result := make([]*Hardware, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = HardwareToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// HardwareListFromPB converts a slice of Hardware to Hardware.
+func HardwareListFromPB(pbs []*Hardware) ([]device.Hardware, error) {
+	result := make([]device.Hardware, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = HardwareFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // UpdateToPB converts Update to Update.
 func UpdateToPB(r device.Update) (*Update, error) {
 	if r.Variant == nil {
@@ -1224,4 +1632,40 @@ func UpdatesFromPB(pbs []*Update) ([]device.Update, error) {
 		}
 	}
 	return result, nil
+}
+
+// TerminalConfigToPB converts device.TerminalConfig to TerminalConfig.
+func TerminalConfigToPB(v device.TerminalConfig) (TerminalConfig, error) {
+	switch v {
+	case device.TerminalConfigCfgDefault:
+		return TerminalConfig_TERMINAL_CONFIG_CFG_DEFAULT, nil
+	case device.TerminalConfigRse:
+		return TerminalConfig_TERMINAL_CONFIG_RSE, nil
+	case device.TerminalConfigNrse:
+		return TerminalConfig_TERMINAL_CONFIG_NRSE, nil
+	case device.TerminalConfigDiff:
+		return TerminalConfig_TERMINAL_CONFIG_DIFF, nil
+	case device.TerminalConfigPseudoDiff:
+		return TerminalConfig_TERMINAL_CONFIG_PSEUDO_DIFF, nil
+	default:
+		return 0, errors.Newf("unrecognized device.TerminalConfig value: %v", v)
+	}
+}
+
+// TerminalConfigFromPB converts TerminalConfig to device.TerminalConfig.
+func TerminalConfigFromPB(v TerminalConfig) (device.TerminalConfig, error) {
+	switch v {
+	case TerminalConfig_TERMINAL_CONFIG_CFG_DEFAULT:
+		return device.TerminalConfigCfgDefault, nil
+	case TerminalConfig_TERMINAL_CONFIG_RSE:
+		return device.TerminalConfigRse, nil
+	case TerminalConfig_TERMINAL_CONFIG_NRSE:
+		return device.TerminalConfigNrse, nil
+	case TerminalConfig_TERMINAL_CONFIG_DIFF:
+		return device.TerminalConfigDiff, nil
+	case TerminalConfig_TERMINAL_CONFIG_PSEUDO_DIFF:
+		return device.TerminalConfigPseudoDiff, nil
+	default:
+		return device.TerminalConfig(""), errors.Newf("unrecognized TerminalConfig value: %v", v)
+	}
 }

@@ -549,7 +549,7 @@ describe("AnalogRead ports", () => {
     ).toBeTruthy();
   });
 
-  it.each<[string, () => ni.Hardware, Partial<NI.Task.AIChannel>]>([
+  it.each<[string, () => ni.device.Hardware, Partial<NI.Task.AIChannel>]>([
     ["inside a wider range", createHardware, { minVal: -5, maxVal: 5 }],
     [
       "on a device that lists no ranges",

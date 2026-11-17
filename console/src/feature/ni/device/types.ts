@@ -50,7 +50,7 @@ export const propertiesZ = z.object({
       channels: z.record(z.string(), Device.commandStatePairZ).default(() => ({})),
     })
     .default(() => ({ stateIndex: 0, channels: {} })),
-  hardware: ni.hardwareZ.optional(),
+  hardware: ni.device.hardwareZ.optional(),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 

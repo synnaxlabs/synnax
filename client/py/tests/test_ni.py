@@ -772,10 +772,10 @@ class TestNIHardware:
     @pytest.mark.parametrize("rate", [-1, math.inf, math.nan])
     def test_reject_invalid_analog_input_rate(self, rate: float) -> None:
         with pytest.raises(ValidationError):
-            sy.ni.Hardware.model_validate({"ai_min_rate": rate})
+            sy.ni.device.Hardware.model_validate({"ai_min_rate": rate})
 
     def test_accept_zero_analog_input_rate(self) -> None:
-        hardware = sy.ni.Hardware.model_validate({"ai_min_rate": 0})
+        hardware = sy.ni.device.Hardware.model_validate({"ai_min_rate": 0})
         assert hardware.ai_min_rate == sy.Rate(0)
 
 

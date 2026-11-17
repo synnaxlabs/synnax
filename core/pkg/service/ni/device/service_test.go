@@ -400,12 +400,14 @@ var _ = Describe("Service", func() {
 					Serial:       "02B",
 					ResourceName: "Mod2",
 					Model:        "PXI-6259",
+					Hardware:     &device.Hardware{AiMinRate: 10},
 				}},
 			})).To(Succeed())
 			got := retrieve(ctx, d.Key)
 			Expect(got.Serial).To(Equal("02B"))
 			Expect(got.ResourceName).To(Equal("Mod2"))
 			Expect(got.Model).To(Equal("PXI-6259"))
+			Expect(got.Hardware).To(Equal(&device.Hardware{AiMinRate: 10}))
 			Expect(got.Name).To(Equal(d.Name))
 			Expect(got.Identifier).To(Equal("dev1"))
 		})
@@ -519,6 +521,25 @@ var _ = Describe("Service", func() {
 			got := retrieve(ctx, d.Key)
 			Expect(got.Serial).To(BeEmpty())
 			Expect(got.ResourceName).To(Equal("Mod2"))
+		})
+
+		It("Should keep the stored hardware when an identity update has none", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			identity := newIdentity()
+			identity.Hardware = &device.Hardware{AiMinRate: 10}
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			identity.Hardware = nil
+			identity.Model = "PXI-6259A"
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Model).To(Equal("PXI-6259A"))
+			Expect(got.Hardware).To(Equal(&device.Hardware{AiMinRate: 10}))
 		})
 	})
 

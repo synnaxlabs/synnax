@@ -85,3 +85,59 @@ func XLocationFromPB(v XLocation) (spatial.XLocation, error) {
 		return spatial.XLocation(""), errors.Newf("unrecognized XLocation value: %v", v)
 	}
 }
+
+// BoundsToPB converts Bounds to Bounds using provided type
+// converters.
+func BoundsToPB(
+	r spatial.Bounds,
+) (*Bounds, error) {
+	pb := &Bounds{
+		Lower: r.Lower,
+		Upper: r.Upper,
+	}
+	return pb, nil
+}
+
+// BoundsFromPB converts Bounds to Bounds using provided type
+// converters.
+func BoundsFromPB(
+	pb *Bounds,
+) (spatial.Bounds, error) {
+	var r spatial.Bounds
+	if pb == nil {
+		return r, nil
+	}
+	r.Lower = pb.Lower
+	r.Upper = pb.Upper
+	return r, nil
+}
+
+// BoundsListToPB converts a slice of Bounds to Bounds.
+func BoundsListToPB(
+	rs []spatial.Bounds,
+) ([]*Bounds, error) {
+	result := make([]*Bounds, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = BoundsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// BoundsListFromPB converts a slice of Bounds to Bounds.
+func BoundsListFromPB(
+	pbs []*Bounds,
+) ([]spatial.Bounds, error) {
+	result := make([]spatial.Bounds, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = BoundsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}

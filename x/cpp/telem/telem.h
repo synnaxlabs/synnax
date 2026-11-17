@@ -747,6 +747,12 @@ public:
     friend void from_json(const x::json::json &j, Rate &r) {
         r = Rate(j.get<double>());
     }
+
+    /// @brief converts the Rate to protobuf representation.
+    [[nodiscard]] double to_proto() const { return this->value; }
+
+    /// @brief creates a Rate from protobuf representation.
+    static Rate from_proto(const double pb) { return Rate(pb); }
 };
 
 /// @brief a single hertz

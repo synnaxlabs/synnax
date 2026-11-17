@@ -13,6 +13,7 @@ package v4
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	device "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -2714,6 +2715,24 @@ func (dwc *DigitalWriteConfig) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (t Terminal) EncodeOrc(w *orc.Writer) error {
+	w.String(string(t.TerminalConfig))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (t *Terminal) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		t.TerminalConfig = device.TerminalConfig(rawV)
 	}
 	return nil
 }

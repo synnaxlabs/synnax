@@ -52,6 +52,38 @@ type StatusDetails = versions.StatusDetails
 // Status is the operational status of a device.
 type Status = versions.Status
 
+// TerminalConfig selects the terminal configuration for an analog input channel.
+type TerminalConfig = versions.TerminalConfig
+
+const (
+	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
+	TerminalConfigCfgDefault TerminalConfig = versions.TerminalConfigCfgDefault
+	// TerminalConfigRse is referenced single ended.
+	TerminalConfigRse TerminalConfig = versions.TerminalConfigRse
+	// TerminalConfigNrse is non-referenced single ended.
+	TerminalConfigNrse TerminalConfig = versions.TerminalConfigNrse
+	// TerminalConfigDiff is differential.
+	TerminalConfigDiff TerminalConfig = versions.TerminalConfigDiff
+	// TerminalConfigPseudoDiff is pseudo-differential.
+	TerminalConfigPseudoDiff TerminalConfig = versions.TerminalConfigPseudoDiff
+)
+
+// AnalogInputPort is an analog input port of an NI device.
+type AnalogInputPort = versions.AnalogInputPort
+
+// AnalogOutputPort is an analog output port of an NI device.
+type AnalogOutputPort = versions.AnalogOutputPort
+
+// CounterPort is a counter of an NI device.
+type CounterPort = versions.CounterPort
+
+// DigitalPort is a digital port of an NI device.
+type DigitalPort = versions.DigitalPort
+
+// Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
+// NI device.
+type Hardware = versions.Hardware
+
 // Where is a filter that selects NI devices.
 type Where struct {
 	// And matches when every child matches.
@@ -87,6 +119,9 @@ type Identity struct {
 	Model string `json:"model" msgpack:"model"`
 	// Chassis is the chassis that holds the device. Absent for a standalone device.
 	Chassis *chassis.Key `json:"chassis,omitzero" msgpack:"chassis,omitempty"`
+	// Hardware is what the Driver read from DAQmx about the device. An update without
+	// it keeps the stored value.
+	Hardware *Hardware `json:"hardware,omitzero" msgpack:"hardware,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -96,6 +131,9 @@ func (i Identity) Validate() error {
 	v.NonZero("rack", i.Rack)
 	v.NotEmptyString("resource_name", i.ResourceName)
 	v.NotEmptyString("model", i.Model)
+	if i.Hardware != nil {
+		v.Exec(func() error { return validate.PathedError(i.Hardware.Validate(), "hardware") })
+	}
 	return v.Error()
 }
 
