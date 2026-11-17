@@ -75,12 +75,12 @@ using SetStatusDone = std::function<
 
 /// @brief a queue of Core calls on disk, which one thread sends in order. The queue
 /// keeps its calls across process restarts. It syncs a call to the disk within about
-/// a second, and before each retry wait, so a power loss can lose the calls of the last
-/// second. It saves its send position about once a second, so after a crash it can
-/// send the calls of the last second again. This is safe, because the Core does not
-/// let an older status set replace a newer one. While the Core is temporarily
-/// unavailable, the thread retries the first call with no limit. Any other error drops
-/// the call. Safe for concurrent use.
+/// a second, so a power loss can lose the calls of the last second. It saves its send
+/// position about once a second, so after a crash it can send the calls of the last
+/// second again. This is safe, because the Core does not let an older status set
+/// replace a newer one. While the Core is temporarily unavailable, the thread retries
+/// the first call with no limit. Any other error drops the call. Safe for concurrent
+/// use.
 class Outbox {
     struct Call {
         pb::Call request;
@@ -96,9 +96,13 @@ class Outbox {
     x::breaker::Breaker breaker;
     mutable std::mutex mu;
     std::condition_variable cv;
+    std::condition_variable sync_cv;
     bool stopped = false;
     std::deque<Call> calls;
     std::set<std::uint64_t> segments;
+    /// @brief the segments whose write or sync failed, so their calls may not be on
+    /// the disk.
+    std::set<std::uint64_t> unsynced;
     std::uint64_t tail = 0;
     /// @brief null until the first call of the tail segment.
     std::unique_ptr<journal::Writer> writer;
@@ -111,6 +115,7 @@ class Outbox {
     std::atomic<std::uint64_t> refused_count = 0;
     std::uint64_t cut_bytes = 0;
     std::thread sender;
+    std::thread syncer;
 
     explicit Outbox(Config cfg);
     [[nodiscard]] std::filesystem::path segment_path(std::uint64_t key) const;
@@ -118,12 +123,14 @@ class Outbox {
     x::errors::Error push(pb::Call request, SetStatusDone done);
     /// @returns the byte position after the call in the tail segment.
     std::pair<std::uint64_t, x::errors::Error> append(const pb::Call &request);
-    /// @brief starts a new tail segment at the next call.
-    void end_tail();
+    /// @brief starts a new tail segment at the next call. failed marks the old tail
+    /// as not synced. Requires mu.
+    void end_tail(bool failed);
     /// @brief syncs the tail segment, or only when a sync is due unless forced.
     /// Requires mu.
-    void sync_tail(bool forced);
+    x::errors::Error sync_tail(bool forced);
     void run();
+    void run_syncs();
     x::errors::Error send(const Call &call) const;
     /// @brief takes the sent call off the queue. Saves the offset when the queue is
     /// empty, the call ends its segment, or a second passed since the last save.
