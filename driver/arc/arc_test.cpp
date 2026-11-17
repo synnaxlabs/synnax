@@ -799,7 +799,7 @@ void expect_status(
     }
 }
 
-TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
+TEST(ArcErrorHandling, WasmTrapSendsWarning) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto input_idx_name = make_unique_channel_name("trap_input_idx");
@@ -888,19 +888,21 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-    auto *error_status = find_status_by_variant(
-        ctx->statuses,
-        synnax::status::VARIANT_ERROR
+    ASSERT_EVENTUALLY_TRUE(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        nullptr
     );
-    ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
-    expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
-    EXPECT_EQ(error_status->message, "Failed to run Arc program");
-    EXPECT_TRUE(
-        error_status->description.starts_with("The divide_by_zero node failed: ")
+    const auto *warning = find_status_by_variant(
+        ctx->statuses,
+        synnax::status::VARIANT_WARNING
+    );
+    expect_status(*warning, synnax::status::VARIANT_WARNING, true);
+    EXPECT_EQ(warning->message, "Node failed");
+    EXPECT_TRUE(warning->description.starts_with("The divide_by_zero node failed: "));
+    EXPECT_TRUE(warning->description.contains("integer divide by zero"));
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
     );
 
     task->stop("test_stop", true);
@@ -1370,14 +1372,14 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     );
 
     task->start("test_start_1");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-    auto *error_status = find_status_by_variant(
-        ctx->statuses,
-        synnax::status::VARIANT_ERROR
+    ASSERT_EVENTUALLY_TRUE(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        nullptr
     );
-    EXPECT_NE(error_status, nullptr) << "Should have error status after WASM trap";
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
+    );
 
     task->stop("test_stop_1", true);
 
