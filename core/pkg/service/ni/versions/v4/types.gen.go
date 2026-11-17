@@ -537,13 +537,6 @@ type Terminal struct {
 	TerminalConfig nidevice.TerminalConfig `json:"terminal_config" msgpack:"terminal_config"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Terminal) ApplyDefaults() {
-	if t.TerminalConfig == "" {
-		t.TerminalConfig = nidevice.TerminalConfigCfgDefault
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (t *Terminal) SetDefaults() {
 	t.TerminalConfig = nidevice.TerminalConfigCfgDefault

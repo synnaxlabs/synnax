@@ -318,4 +318,5 @@ Bounds struct<T extends numeric = float64> {
         type.
     """
     @go marshal
+    @pb
 }

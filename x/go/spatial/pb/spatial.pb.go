@@ -135,6 +135,63 @@ func (x *XY) GetY() float64 {
 	return 0
 }
 
+// Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
+// The TypeScript binding is generic over T so callers can express bounds over either
+// number or bigint values; other languages emit a concrete float64-based type.
+type Bounds struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// lower is the inclusive lower bound.
+	Lower float64 `protobuf:"fixed64,1,opt,name=lower,proto3" json:"lower,omitempty"`
+	// upper is the exclusive upper bound.
+	Upper         float64 `protobuf:"fixed64,2,opt,name=upper,proto3" json:"upper,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Bounds) Reset() {
+	*x = Bounds{}
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Bounds) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Bounds) ProtoMessage() {}
+
+func (x *Bounds) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Bounds.ProtoReflect.Descriptor instead.
+func (*Bounds) Descriptor() ([]byte, []int) {
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Bounds) GetLower() float64 {
+	if x != nil {
+		return x.Lower
+	}
+	return 0
+}
+
+func (x *Bounds) GetUpper() float64 {
+	if x != nil {
+		return x.Upper
+	}
+	return 0
+}
+
 var File_x_go_spatial_pb_spatial_proto protoreflect.FileDescriptor
 
 const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
@@ -142,7 +199,10 @@ const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
 	"\x1dx/go/spatial/pb/spatial.proto\x12\fx.spatial.pb\" \n" +
 	"\x02XY\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
-	"\x01y\x18\x02 \x01(\x01R\x01y*6\n" +
+	"\x01y\x18\x02 \x01(\x01R\x01y\"4\n" +
+	"\x06Bounds\x12\x14\n" +
+	"\x05lower\x18\x01 \x01(\x01R\x05lower\x12\x14\n" +
+	"\x05upper\x18\x02 \x01(\x01R\x05upper*6\n" +
 	"\tXLocation\x12\x13\n" +
 	"\x0fX_LOCATION_LEFT\x10\x00\x12\x14\n" +
 	"\x10X_LOCATION_RIGHT\x10\x01B\x96\x01\n" +
@@ -161,10 +221,11 @@ func file_x_go_spatial_pb_spatial_proto_rawDescGZIP() []byte {
 }
 
 var file_x_go_spatial_pb_spatial_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_x_go_spatial_pb_spatial_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_x_go_spatial_pb_spatial_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_x_go_spatial_pb_spatial_proto_goTypes = []any{
 	(XLocation)(0), // 0: x.spatial.pb.XLocation
 	(*XY)(nil),     // 1: x.spatial.pb.XY
+	(*Bounds)(nil), // 2: x.spatial.pb.Bounds
 }
 var file_x_go_spatial_pb_spatial_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -185,7 +246,7 @@ func file_x_go_spatial_pb_spatial_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_spatial_pb_spatial_proto_rawDesc), len(file_x_go_spatial_pb_spatial_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

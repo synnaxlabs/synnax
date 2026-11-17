@@ -17,6 +17,7 @@ proto_library(
     deps = [
         "//core/pkg/service/status:status_proto",
         "//x/go/filter:filter_proto",
+        "//x/go/spatial:spatial_proto",
     ],
 )
 
@@ -28,5 +29,6 @@ cpp_grpc_library(
     deps = [
         "//core/pkg/service/status:status_grpc",
         "//x/go/filter:filter_grpc",
+        "//x/go/spatial:spatial_grpc",
     ],
 )
