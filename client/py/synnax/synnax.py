@@ -159,19 +159,19 @@ class Synnax(framer.Client):
         api_key: str = "",
     ):
         """Creates a new client. Each option comes from the argument, then from its
-        SYNNAX_* environment variable, then from the default. When neither gives a
-        host, the Core that `sy login` saved, or else the Core of Synnax Desktop on
-        this computer, comes before the default. The credentials and the TLS options
-        (secure, ca_cert) each come whole from the first source that sets one of them.
+        SYNNAX_* environment variable, then from the default. When neither gives a host,
+        the Core that `sy login` saved, or else the Core of Synnax Desktop on this
+        computer, comes before the default. The credentials and the TLS options (secure,
+        ca_cert) each come whole from the first source that sets one of them.
 
         :param host: Hostname of a Core in the Synnax cluster.
         :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
         :param secure: Whether to use TLS when connecting to the Core. None means True
-            with a ca_cert, else the choice of the next source. The client verifies
-            the Core's certificate against ca_cert, or the system trust roots when
-            ca_cert is None.
+            with a ca_cert, else the choice of the next source. The client verifies the
+            Core's certificate against ca_cert, or the system trust roots when ca_cert
+            is None.
         :param open_timeout: The time to wait for a connection. A bare number is
             seconds.
         :param read_timeout: The time to wait for a response. A bare number is seconds.

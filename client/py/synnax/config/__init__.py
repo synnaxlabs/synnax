@@ -103,8 +103,8 @@ _FALSE = ("0", "false", "no")
 
 
 class PartialOptions(TypedDict, total=False):
-    """The connection options that one source sets. A source leaves out the options
-    that it does not set.
+    """The connection options that one source sets. A source leaves out the options that
+    it does not set.
     """
 
     host: str
@@ -123,9 +123,9 @@ def _env(env: Mapping[str, str], name: str) -> str:
 
 
 def load_env_options(env: Mapping[str, str]) -> PartialOptions:
-    """Loads the options in the SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
-    SYNNAX_SECURE, and SYNNAX_CA_CERT environment variables. Values are stripped, and
-    an empty value counts as unset.
+    """Loads the options in the SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY, SYNNAX_SECURE,
+    and SYNNAX_CA_CERT environment variables. Values are stripped, and an empty value
+    counts as unset.
 
     :param env: The environment variables, such as os.environ.
     :returns: The options that the variables set.
@@ -205,18 +205,18 @@ def load_options(
     desktop_file: Path = DESKTOP_FILE_PATH,
 ) -> tuple[Options, bool]:
     """Chooses each option from the first source that sets it: the argument, then its
-    SYNNAX_* environment variable, then the default. When no argument or variable
-    gives a host, the Core that `sy login` saved, or else the Core that Synnax Desktop
-    saved, comes before the default. The credentials (api_key, username, password)
-    and the TLS options (secure, ca_cert) each come whole from the first source that
-    sets one of them.
+    SYNNAX_* environment variable, then the default. When no argument or variable gives
+    a host, the Core that `sy login` saved, or else the Core that Synnax Desktop saved,
+    comes before the default. The credentials (api_key, username, password) and the TLS
+    options (secure, ca_cert) each come whole from the first source that sets one of
+    them. A ca_cert with no secure turns TLS on.
 
     :param env: The environment variables, such as os.environ. Defaults to none.
     :param clusters: The saved logins. Defaults to those of the current user.
     :param desktop_file: The file where Synnax Desktop saves its options.
     :returns: The options, and whether they connect to the Core of Synnax Desktop.
-    :raises ValidationError: If the environment variables are not valid, or if no
-        source gives a host or credentials.
+    :raises ValidationError: If the environment variables are not valid, or if no source
+        gives a host or credentials.
     :raises ConfigurationError: If no OS keychain is available to read the key of the
         saved login or of Synnax Desktop, or if an older Synnax Desktop left its key in
         the discovery file.
