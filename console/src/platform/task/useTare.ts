@@ -38,8 +38,8 @@ export interface Tareable {
 }
 
 /**
- * @returns the float channels among the given ones and whether the task runs. A key
- * of 0 stands for no channel.
+ * @returns the float channels among the given ones and whether the task runs. A key of
+ * 0 stands for no channel.
  */
 export const useTareable = (channels: channel.Key[]): Tareable => {
   const keys = channels.filter((key) => key !== 0);

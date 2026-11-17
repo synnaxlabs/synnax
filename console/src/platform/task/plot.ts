@@ -30,7 +30,7 @@ export const enabledChannels = (entries: PlotEntry[]): channel.Key[] =>
     .map(({ channel }) => channel);
 
 /** A read task to plot, with the function that finds the channels of its config. */
-export interface PlotTask extends Pick<task.Task, "name" | "config"> {
+export interface PlotSource extends Pick<task.Task, "name" | "config"> {
   plotChannels: PlotChannels;
 }
 
@@ -38,7 +38,7 @@ const isPlottable = ({ isIndex, dataType }: channel.Channel): boolean =>
   !isIndex && dataType.isNumeric && !dataType.equals(DataType.TIMESTAMP);
 
 /** @returns a function that opens one line plot of the tasks' numeric channels. */
-export const usePlot = (): ((tasks: PlotTask[]) => void) => {
+export const usePlot = (): ((tasks: PlotSource[]) => void) => {
   const client = Synnax.use();
   const create = LinePlot.useCreate();
   const handleError = Status.useErrorHandler();

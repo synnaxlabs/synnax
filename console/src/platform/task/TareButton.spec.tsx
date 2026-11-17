@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { awaitCommand, renderInTaskFormWithClient } from "@/platform/task/testutil";
+import { awaitTare, renderInTaskFormWithClient } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -37,15 +37,11 @@ describe("TareButton", () => {
       type: "opc_read",
       config: {},
     });
-    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-    try {
+    const args = await awaitTare(client, tsk.key, async () => {
       await renderButton(tsk.key, true);
       fireEvent.click(await screen.findByRole("button"));
-      const cmd = await awaitCommand(streamer, tsk.key, "tare");
-      expect(cmd.args).toEqual({ keys: [FLOAT] });
-    } finally {
-      streamer.close();
-    }
+    });
+    expect(args).toEqual({ keys: [FLOAT] });
   });
 
   it("should be disabled while the task is stopped", async () => {
