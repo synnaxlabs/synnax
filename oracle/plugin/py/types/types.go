@@ -1155,6 +1155,9 @@ func collectValidation(
 	isNumber := resolution.IsNumberPrimitive(primitive)
 	// A required string, aliased or not, is nonempty. A UUID has no length.
 	requiredString := required && resolution.PrimitiveBase(typeRef, table) == "string"
+	if requiredString && !isString && rules.MinLength == nil {
+		constraints = append(constraints, "min_length=1")
+	}
 	if isString {
 		switch {
 		case rules.MinLength != nil:
