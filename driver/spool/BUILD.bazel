@@ -43,6 +43,7 @@ cc_test(
     data = glob(["testdata/*.bin"]),
     deps = [
         ":spool",
+        ":spool_cc_proto",
         "//driver/journal",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",

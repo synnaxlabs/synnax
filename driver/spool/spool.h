@@ -12,6 +12,7 @@
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -50,6 +51,12 @@ struct Config {
     std::filesystem::path dir;
     /// @brief the maximum number of bytes the segment files can hold.
     std::uint64_t cap = DEFAULT_CAP;
+    /// @brief the maximum time between a write and the sync that follows it.
+    x::telem::TimeSpan sync_interval = x::telem::SECOND;
+    /// @brief gets the result of each sync of a segment and returns the result the
+    /// spool uses.
+    std::function<x::errors::Error(const x::errors::Error &)> on_sync =
+        [](const x::errors::Error &err) { return err; };
 };
 
 /// @brief what a segment holds frames for: one writer of one cluster.
@@ -105,7 +112,9 @@ public:
     /// with the data type of the header.
     /// @returns FULL when the spool has no room for the frame, and counts the frame in
     /// Spool::refused. BASE_ERROR when the frame does not match the header. After a
-    /// write fails, the writer returns the same error for every later frame.
+    /// write fails to store a frame, the writer returns the same error for every later
+    /// frame. When only the sync after the frame fails, the frame stays in the segment,
+    /// and readers can read it.
     x::errors::Error write(const x::telem::Frame &frame);
 
     /// @brief syncs the segment when a sync is due. Call it when no frames come, so
