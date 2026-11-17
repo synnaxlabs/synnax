@@ -30,4 +30,20 @@ inline std::shared_ptr<wasm::Module> empty_module() {
     if (err) throw std::runtime_error(err.message());
     return mod;
 }
+
+/// @brief opens a WASM module whose `spin` function uses the whole loop budget. Throws
+/// if the module fails to open.
+inline std::shared_ptr<wasm::Module> spin_module() {
+    program::Program program;
+    program.wasm = wasmtime::wat2wasm(R"((module
+        (memory (export "memory") 1)
+        (global $budget (export "$loop_budget") (mut i64) (i64.const 0))
+        (func (export "spin") (global.set $budget (i64.const 0)))
+    ))")
+                       .unwrap();
+    program.functions.push_back(ir::Function{.key = "spin"});
+    auto [mod, err] = wasm::Module::open({.program = std::move(program)});
+    if (err) throw std::runtime_error(err.message());
+    return mod;
+}
 }
