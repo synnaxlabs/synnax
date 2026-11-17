@@ -423,8 +423,9 @@ TEST_F(StatusTest, OutputIsTruthyOnceQueued) {
     EXPECT_FALSE(created->is_output_truthy(0));
 }
 
-/// @brief it should warn with a reason when the outbox is full.
-TEST_F(StatusTest, WarnsWhenOutboxIsFull) {
+/// @brief it should count a set the full outbox refuses without reporting it on the
+/// caller's thread, which must never wait on the Core.
+TEST_F(StatusTest, CountsARefusedSetWithoutReporting) {
     this->outbox.reset();
     auto cfg = test_client_config();
     cfg.port = 1;
@@ -438,10 +439,21 @@ TEST_F(StatusTest, WarnsWhenOutboxIsFull) {
     ASSERT_NIL(created->next(ctx));
     ASSERT_NIL(created->next(ctx));
     EXPECT_EQ(this->outbox->refused(), 1);
+    EXPECT_TRUE(reports->snapshot().empty());
+}
+
+/// @brief it should report the refused sets once, with their count and reason.
+TEST(SetsTest, ReportsRefusedSetsOnce) {
+    const auto reports = std::make_shared<Reports>();
+    Sets sets(recordingReporter(reports));
+    sets.refuse("outbox is full.");
+    sets.refuse("outbox is full.");
+    sets.report_refused();
+    sets.report_refused();
     const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, SET_FAILURE_MSG);
-    EXPECT_FALSE(calls[0].description.empty());
+    EXPECT_EQ(calls[0].description, "outbox is full. Dropped 2 sets.");
 }
 
 }
