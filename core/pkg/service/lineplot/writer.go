@@ -176,8 +176,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 
 // colorNewLines returns an action for each line of next that has no color and that
 // neither prev nor a set line action in acts holds. Each action gives its line the
-// series color that the fewest lines of next use, and a tie goes to the first series
-// color.
+// series color that a line with no color shows: the one that the fewest lines of next
+// use, counting each earlier line with no color as using the color it shows, and a tie
+// goes to the first series color.
 func (w Writer) colorNewLines(
 	ctx context.Context,
 	prev, next LinePlot,
@@ -189,10 +190,9 @@ func (w Writer) colorNewLines(
 			known.Add(a.SetLine.Line.Key)
 		}
 	}
-	fresh := lo.Filter(next.Lines, func(l Line, _ int) bool {
+	if !lo.ContainsBy(next.Lines, func(l Line) bool {
 		return l.Color == nil && !known.Contains(l.Key)
-	})
-	if len(fresh) == 0 {
+	}) {
 		return nil, nil
 	}
 	series, err := w.color.Series(ctx, w.tx)
@@ -208,14 +208,20 @@ func (w Writer) colorNewLines(
 			uses[n.Key]++
 		}
 	}
-	colored := make([]Action, len(fresh))
-	for i, l := range fresh {
+	var colored []Action
+	for _, l := range next.Lines {
+		if l.Color != nil {
+			continue
+		}
 		pick := lo.MinBy(series, func(a, b color.Key) bool { return uses[a] < uses[b] })
 		uses[pick]++
-		colored[i] = NewSetLineColorAction(SetLineColorPayload{
+		if known.Contains(l.Key) {
+			continue
+		}
+		colored = append(colored, NewSetLineColorAction(SetLineColorPayload{
 			Key:   l.Key,
 			Color: &color.Ref{Variant: color.NamedRef{Key: pick}},
-		})
+		}))
 	}
 	return colored, nil
 }

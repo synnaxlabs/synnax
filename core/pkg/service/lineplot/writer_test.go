@@ -1689,6 +1689,25 @@ var _ = Describe("Line colors", func() {
 		},
 	)
 
+	It(
+		"Should count an Auto line as using the series color it shows",
+		func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{
+				Channels: lineplot.Channels{Y1: []channel.Key{ch1}},
+			})
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				lineplot.NewSetLineColorAction(
+					lineplot.SetLineColorPayload{Key: p.Lines[0].Key},
+				),
+			})).To(Succeed())
+			Expect(dispatch(ctx, p.Key, "d2", []lineplot.Action{addChannel(ch2)})).
+				To(Succeed())
+			Expect(
+				colors(retrieve(ctx, p.Key)),
+			).To(Equal([]*color.Ref{nil, named(series[1])}))
+		},
+	)
+
 	It("Should keep no color on a line that an undo restores", func(ctx SpecContext) {
 		p := create(ctx, lineplot.LinePlot{
 			Channels: lineplot.Channels{Y1: []channel.Key{ch1}},
