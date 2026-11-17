@@ -29,14 +29,19 @@ export const formatLocation = (
   { networkName, position }: Slot,
 ): string => (networkName == null ? location : `${networkName}, slot ${position}`);
 
+const isIdentifier = (id: string): boolean => Device.identifierZ.safeParse(id).success;
+
 /**
  * @returns identifiers that name the slot of the slave, such as "s3" and "slot3", then
- * one that also names its network, such as "e2_s3".
+ * the first that also names its network and fits, such as "e2_s3".
  */
 export const suggestIdentifiers = ({ networkName, position }: Slot): string[] => {
   const slot = `s${position}`;
-  const ids = [slot, `slot${position}`];
-  const [network] = strings.createShortIdentifiers(networkName ?? "");
-  if (network != null) ids.push(`${network}_${slot}`);
-  return ids.filter((id) => Device.identifierZ.safeParse(id).success);
+  const ids = [slot, `slot${position}`].filter(isIdentifier);
+  const network = strings
+    .createShortIdentifiers(networkName ?? "")
+    .map((n) => `${n}_${slot}`)
+    .find(isIdentifier);
+  if (network != null) ids.push(network);
+  return ids;
 };
