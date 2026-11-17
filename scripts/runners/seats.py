@@ -80,11 +80,11 @@ class Seat(Protocol):
 
     def create_tags(
         self, *, Resources: list[str], Tags: list["TagTypeDef"]
-    ) -> None: ...
+    ) -> object: ...
 
     def delete_tags(
         self, *, Resources: list[str], Tags: list["TagTypeDef"]
-    ) -> None: ...
+    ) -> object: ...
 
 
 class Fleet(Protocol):
