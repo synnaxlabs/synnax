@@ -126,11 +126,10 @@ not including, `upper` as 1, and every other number as 0, as today's threshold d
 absent bound is open, and the Core refuses a band whose `lower` is above its `upper`.
 The editor writes the band 0.9 to 1.1 on a new state with two entries. An enum state
 draws its `default` entry, such as Closed on a valve, while no data has arrived, for
-NaN, and, with an `exact` match, for a value that equals no entry. Pluto then adds the
-unknown mark. A band leaves no number unmatched, so 0.5 on a valve shows Closed with no
-mark, as today. A state with no source draws its default entry with no mark. The binding
-holds the number format, as each readout does today
-(`schemas/synnax/schematic.oracle:1224-1249`).
+NaN, and for a value that equals no entry after its match. Pluto then adds the unknown
+mark. A band reads 0.5 as 0, so a valve at 0.5 shows Closed with no mark, as today. A
+state with no source draws its default entry with no mark. The binding holds the number
+format, as each readout does today (`schemas/synnax/schematic.oracle:1224-1249`).
 
 Looks apply in order, and a later look wins on each field it sets. Stale data keeps the
 last state's looks and adds the stale mark. Pluto then draws pending, hover, pressed,
@@ -199,7 +198,8 @@ time fields keep their values, and `state_overrides` become enums by RFC 0112 §
 The migration and an import give a node whose custom symbol does not exist `missing`
 with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
 look, and "Change symbol" moves the node to another symbol. An import mints new symbol
-keys, so a key never comes back on its own.
+keys and points each node at the new key of the symbol that it brought, so only a symbol
+absent from the import gives `missing`. A key never comes back on its own.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each region becomes a part,
 state `i` becomes value `i` of one state `state` with default 0, and each region color
