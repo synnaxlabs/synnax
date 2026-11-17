@@ -240,7 +240,7 @@ func (f *Factory) reconfigureRead(ctx context.Context, t *readTask) {
 	if err == nil {
 		return
 	}
-	if stopErr, _ := t.stop(ctx, driver.NoCommand, false); stopErr != nil {
+	if stopErr := errors.Combine(t.stop(ctx, driver.NoCommand, false)); stopErr != nil {
 		f.cfg.L.Error(
 			"failed to stop read task",
 			zap.Stringer("task", t.task.Key),

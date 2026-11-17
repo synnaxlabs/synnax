@@ -493,10 +493,10 @@ func (t *readTask) reconfigure(
 }
 
 // adoptNext reads with the records of the last configure after an ICD change, when one
-// is pending, and returns the error of that configure. Each new group keeps the
-// timestamps of the group it replaces, which reads the same message into the same
-// channels.
-func (t *readTask) adoptNext() error {
+// is pending. It returns false when that configure failed, and the task must not read.
+// Each new group keeps the timestamps of the group it replaces, which reads the same
+// message into the same channels.
+func (t *readTask) adoptNext() bool {
 	t.next.Lock()
 	defer t.next.Unlock()
 	if t.next.records != nil {
@@ -506,6 +506,14 @@ func (t *readTask) adoptNext() error {
 		t.records, t.groups = t.next.records, t.next.groups
 		t.next.records, t.next.groups = nil, nil
 	}
+	return t.next.err == nil
+}
+
+// configureErr returns the error of the last configure after an ICD change, or nil when
+// it succeeded.
+func (t *readTask) configureErr() error {
+	t.next.Lock()
+	defer t.next.Unlock()
 	return t.next.err
 }
 
@@ -536,8 +544,10 @@ func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr err
 			)
 		}
 	}
-	if err = t.adoptNext(); err == nil {
+	if t.adoptNext() {
 		err = t.open(ctx)
+	} else {
+		err = t.configureErr()
 	}
 	if err != nil {
 		return err, t.status.Send(
@@ -921,7 +931,7 @@ func isConnectionErr(err error) bool {
 // process writes the records of one poll and marks them for commit once every
 // group's write is acknowledged.
 func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
-	if t.adoptNext() != nil {
+	if !t.adoptNext() {
 		// The factory stops the task, so the records stay uncommitted for the next run.
 		return nil
 	}
