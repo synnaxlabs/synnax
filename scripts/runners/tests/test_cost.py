@@ -23,7 +23,16 @@ from mypy_boto3_pricing.type_defs import FilterTypeDef
 
 from common import Channels, channel_name
 from conftest import Client, core
-from cost import FETCHED, LIVE_INTERVAL, Cost, Forecast, Metrics, Products, Usage
+from cost import (
+    FETCHED,
+    LIVE_INTERVAL,
+    Cost,
+    Forecast,
+    Metrics,
+    Pricing,
+    Products,
+    Usage,
+)
 from log import Log
 
 RUNNER = "windows-build-bot-i-0aaa"
@@ -38,19 +47,8 @@ def product(usd: str) -> str:
     return json.dumps({"terms": {"OnDemand": {"t": {"priceDimensions": dims}}}})
 
 
-class NoAWS:
-    """Stands in for AWS where a test makes no AWS call: every call fails."""
-
-    def __init__(self) -> None:
-        self.cloudwatch: dict[str, Metrics] = {}
-
-    @property
-    def pricing(self) -> "NoAWS":
-        return self
-
-    @property
-    def ce(self) -> "NoAWS":
-        return self
+class Unreachable:
+    """Stands in for the Pricing and Cost Explorer clients: every call fails."""
 
     def get_products(
         self, *, ServiceCode: str, Filters: list[FilterTypeDef], MaxResults: int
@@ -79,13 +77,10 @@ class NoAWS:
     ) -> Usage:
         raise ConnectionError("AWS unreachable")
 
-    def volumes(self) -> dict[str, int]:
-        raise ConnectionError("AWS unreachable")
 
-
-class Volumes(NoAWS):
-    """Stands in for AWS with no attached volumes, free storage, and a price for one
-    instance type only."""
+class ListPrices:
+    """Stands in for the Pricing client: free storage and a price for one instance
+    type only."""
 
     def get_products(
         self, *, ServiceCode: str, Filters: list[FilterTypeDef], MaxResults: int
@@ -97,8 +92,24 @@ class Volumes(NoAWS):
             return {"PriceList": [product("0")]}
         return {"PriceList": []}
 
+
+class Account:
+    """Stands in for AWS: the given Pricing client, a Cost Explorer whose every call
+    fails, no CloudWatch region, and the given volumes. Without volumes, the volume
+    lookup fails."""
+
+    def __init__(
+        self, *, pricing: Pricing | None = None, volumes: dict[str, int] | None = None
+    ) -> None:
+        self.pricing: Pricing = pricing or Unreachable()
+        self.ce = Unreachable()
+        self.cloudwatch: dict[str, Metrics] = {}
+        self.attached = volumes
+
     def volumes(self) -> dict[str, int]:
-        return {}
+        if self.attached is None:
+            raise ConnectionError("AWS unreachable")
+        return self.attached
 
 
 def found(*, running: bool) -> dict[str, dict]:
@@ -112,7 +123,7 @@ def cost(client: Client) -> Iterator[Cost]:
         channels=Channels(client=core(client), enabled=False),
         channel="log",
     )
-    c = Cost(log=log, aws=NoAWS())
+    c = Cost(log=log, aws=Account())
     now = sy.TimeStamp.now()
     # A fetch just ran, so step() only writes the live frame.
     c.attempted = now
@@ -178,7 +189,7 @@ class TestPriceTable:
             channels=Channels(client=core(client), enabled=False),
             channel="log",
         )
-        c = Cost(log=log, aws=Volumes())
+        c = Cost(log=log, aws=Account(pricing=ListPrices(), volumes={}))
         c.known = [RUNNER, OTHER]
         instances = {
             "i-0aaa": {"type": "t3.large", "region": "us-east-1", "windows": True},
