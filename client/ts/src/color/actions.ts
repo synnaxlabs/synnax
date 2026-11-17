@@ -28,6 +28,7 @@ const documentZ = z
     light: color.colorZ,
     dark: color.colorZ.optional(),
     group: zod.nullToUndefined(z.string()),
+    position: z.string().optional(),
   })
   .strict();
 
@@ -38,6 +39,7 @@ const applyPath = (state: Draft<Named>, action: patch.Action): HandlerResult => 
     light: [...state.light],
     ...(state.dark != null ? { dark: [...state.dark] } : {}),
     ...(state.group != null ? { group: state.group } : {}),
+    ...(state.position != null ? { position: state.position } : {}),
   };
   const inverse = patch.apply(doc, action);
   if (inverse.length === 0) return actions.NO_OP_RESULT;
@@ -46,6 +48,7 @@ const applyPath = (state: Draft<Named>, action: patch.Action): HandlerResult => 
   if (path[0] === "name") state.name = next.name;
   else if (path[0] === "light") state.light = next.light;
   else if (path[0] === "group") state.group = next.group;
+  else if (path[0] === "position") state.position = next.position;
   else state.dark = next.dark;
   return { inverse, targets: [path.join(".")] };
 };
@@ -60,7 +63,7 @@ const handlers: Handlers = {
 
 /**
  * Applies actions to a named color in order. Path actions edit only its name, light
- * value, dark value, and group.
+ * value, dark value, group, and position.
  * @throws {Error} if the named color cannot hold an action, such as a set of its key.
  */
 export const reduceAll = createReduceAll(handlers);
