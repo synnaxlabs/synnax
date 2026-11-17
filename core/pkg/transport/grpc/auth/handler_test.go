@@ -123,7 +123,10 @@ var (
 
 var _ = Describe("Auth", func() {
 	var transport api.Transport
-	bindable, ok := grpcauth.New(&transport, api.NewErrorCodec()).(grpc.CompoundBindableTransport)
+	bindable, ok := grpcauth.New(
+		&transport,
+		api.NewErrorCodec(),
+	).(grpc.CompoundBindableTransport)
 	Expect(ok).To(BeTrue())
 	login, ok := transport.AuthLogin.(*loginServer)
 	Expect(ok).To(BeTrue())
