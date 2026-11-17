@@ -412,7 +412,7 @@ export class Client extends query.Retriever<
     const arcs = await this.execRetrieve({ where, includeChanges: true });
     checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     const a = arcs[0];
-    return a.type === "automation" ? (a.changes ?? []) : [];
+    return a.type === "automation" ? a.changes : [];
   }
 
   private async execRetrieve(
