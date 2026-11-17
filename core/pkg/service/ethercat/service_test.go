@@ -231,7 +231,6 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			StartRun(db.Run)
 			var applied []gorp.Migration
 			for _, key := range []string{
 				"normalize_keys",
@@ -252,6 +251,7 @@ var _ = Describe("Service", func() {
 				Namespace:  "Device",
 				Migrations: applied,
 			})).To(Succeed())
+			StartRun(db.Run)
 			// The device a 0.59.2 Python ethercat.Device stored.
 			slave := device.Device{
 				Key:      "python",
