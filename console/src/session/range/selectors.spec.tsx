@@ -49,12 +49,12 @@ describe("range selectors", () => {
 
     it("should offer the rolling ranges whatever the session holds", () => {
       const store = createStore();
-      const { result } = renderHook(() => Range.useSelectState(Range.RECENT_KEY), {
+      const { result } = renderHook(() => Range.useSelectState(Range.BUILT_IN[0].key), {
         wrapper: createWrapper(store),
       });
       expect(result.current).toEqual(Range.BUILT_IN[0]);
       act(() => {
-        store.dispatch(Range.remove({ keys: [Range.RECENT_KEY] }));
+        store.dispatch(Range.remove({ keys: [Range.BUILT_IN[0].key] }));
       });
       expect(result.current).toEqual(Range.BUILT_IN[0]);
     });

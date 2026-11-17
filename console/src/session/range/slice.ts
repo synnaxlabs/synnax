@@ -32,17 +32,15 @@ export interface DynamicState {
 
 export type State = PersistedState | DynamicState;
 
-export const RECENT_KEY = "recent";
-
 /**
  * The rolling windows every session offers. Held in code rather than written into
  * stored state, so a release can revise them and no session can lose one. The list
- * always leads with {@link RECENT_KEY}, the window new plots and channels open with.
+ * always leads with the window new plots and channels open with.
  */
 export const BUILT_IN: DynamicState[] = [
   {
     variant: "dynamic",
-    key: RECENT_KEY,
+    key: "recent",
     name: "Rolling 30s",
     span: Number(TimeSpan.seconds(30)),
   },

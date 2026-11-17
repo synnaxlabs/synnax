@@ -86,7 +86,7 @@ describe("Range.useResolveMultiple", () => {
   });
 
   it("should pass a rolling range through untouched", async () => {
-    const { result } = await renderResolveMultiple([], [Session.Range.RECENT_KEY]);
+    const { result } = await renderResolveMultiple([], [Session.Range.BUILT_IN[0].key]);
     expect(result.current).toEqual([Session.Range.BUILT_IN[0]]);
   });
 
