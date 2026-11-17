@@ -12,6 +12,8 @@ package testutil
 import (
 	"context"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,12 +24,11 @@ import (
 )
 
 // GoRun calls run in a goroutine with a child of ctx. It returns once that goroutine
-// and
-// every goroutine started after it are blocked or gone and no new one appears between
-// two polls, or after blockTimeout. The goroutines that run starts, nested ones
-// included, are then in the baseline of a later leak check. The returned stop ends
-// the child, waits for run to return, and returns its error. Later calls to stop
-// return the same error. GoRun works outside Ginkgo, such as in benchmarks.
+// and the goroutines it starts, directly or through others, are blocked or gone and
+// none appears between two polls, or after blockTimeout. The goroutines of run are then
+// in the baseline of a later leak check. The returned stop ends the child, waits for
+// run to return, and returns its error. Later calls to stop return the same error.
+// GoRun works outside Ginkgo, such as in benchmarks.
 func GoRun(
 	ctx context.Context,
 	run func(ctx context.Context) error,
@@ -78,14 +79,14 @@ const (
 	blockPollInterval = time.Millisecond
 )
 
-// waitUntilSettled waits until no goroutine with an ID of at least first runs and the
-// set of those goroutines is the same in two polls in a row. Goroutine IDs only grow,
-// so the set holds every goroutine that the goroutine with ID first started.
-func waitUntilSettled(first uint64) {
+// waitUntilSettled waits until the goroutine with ID root and every goroutine it
+// started, directly or through others, are blocked or gone, and that set of goroutines
+// is the same in two polls in a row.
+func waitUntilSettled(root uint64) {
 	deadline := time.Now().Add(blockTimeout)
 	var prev []uint64
 	for time.Now().Before(deadline) {
-		ids, busy := since(first)
+		ids, busy := descendants(root)
 		if !busy && slices.Equal(ids, prev) {
 			return
 		}
@@ -94,16 +95,46 @@ func waitUntilSettled(first uint64) {
 	}
 }
 
-// since returns the sorted IDs of the goroutines with an ID of at least first, and
-// whether one of them is running or runnable.
-func since(first uint64) (ids []uint64, busy bool) {
-	for _, g := range goroutine.Goroutines() {
-		if g.ID < first {
-			continue
+// descendants returns the sorted IDs of root and of the goroutines it started,
+// directly or through others, and whether one of them is running or runnable.
+// Goroutine IDs do not follow creation order across processors, so it follows the
+// creator of each goroutine instead.
+func descendants(root uint64) (ids []uint64, busy bool) {
+	all := goroutine.Goroutines()
+	children := make(map[uint64][]goroutine.Goroutine, len(all))
+	queue := make([]goroutine.Goroutine, 0, 1)
+	for _, g := range all {
+		if g.ID == root {
+			queue = append(queue, g)
 		}
+		if creator, ok := creatorID(g.Backtrace); ok {
+			children[creator] = append(children[creator], g)
+		}
+	}
+	for len(queue) > 0 {
+		g := queue[0]
+		queue = queue[1:]
 		ids = append(ids, g.ID)
 		busy = busy || g.State == "running" || g.State == "runnable"
+		queue = append(queue, children[g.ID]...)
 	}
 	slices.Sort(ids)
 	return ids, busy
+}
+
+// creatorID returns the ID of the goroutine that started the goroutine with the given
+// backtrace, from its "created by ... in goroutine N" line.
+func creatorID(backtrace string) (uint64, bool) {
+	const createdBy, in = "created by ", " in goroutine "
+	start := strings.LastIndex(backtrace, createdBy)
+	if start < 0 {
+		return 0, false
+	}
+	line, _, _ := strings.Cut(backtrace[start:], "\n")
+	_, id, found := strings.Cut(line, in)
+	if !found {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(strings.TrimSpace(id), 10, 64)
+	return n, err == nil
 }
