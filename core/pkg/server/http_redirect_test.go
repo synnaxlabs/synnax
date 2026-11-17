@@ -98,7 +98,8 @@ var _ = Describe("HttpRedirect", func() {
 			named    = 1
 		)
 		redirect := func(listener int, host string) string {
-			// Every Listener binds all interfaces, so loopback reaches it.
+			GinkgoHelper()
+			// These Listeners bind all interfaces, so loopback reaches them.
 			addr := b.Addresses()[listener]
 			conn := MustOpen(net.Dial("tcp", "127.0.0.1"+addr.PortString()))
 			MustSucceed(fmt.Fprintf(

@@ -49,7 +49,7 @@ func redirectToListener(ctx BranchContext) (http.Handler, error) {
 }
 
 // reachable returns true when host names one machine that remote clients can reach. A
-// Listener binds every interface, so a loopback or unspecified host does not name it.
+// loopback or unspecified host does not name the machine to a remote client.
 func reachable(host string) bool {
 	if host == "" || host == "localhost" {
 		return false
