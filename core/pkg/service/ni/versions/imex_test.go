@@ -142,7 +142,8 @@ var _ = Describe("Ladders", func() {
 			decodePort(versions.AnalogReadConfigLadder, func(
 				c v4.AnalogReadConfig,
 			) (uint16, bool) {
-				ch := c.Channels[0].Variant.(v4.AIVoltageChannel)
+				ch, ok := c.Channels[0].Variant.(v4.AIVoltageChannel)
+				Expect(ok).To(BeTrue())
 				return ch.Port, ch.Disabled
 			}),
 		),

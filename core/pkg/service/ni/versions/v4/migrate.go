@@ -11,14 +11,15 @@ package v4
 
 import (
 	"context"
-	"fmt"
 	"math"
+	"reflect"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
+	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
 
@@ -136,7 +137,13 @@ func MigrateAnalogReadConfig(
 			continue
 		}
 		if _, clamped := narrowPort(c.Port); clamped {
-			n := cfg.Channels[i].Variant.(AIThermocoupleChannel)
+			n, ok := cfg.Channels[i].Variant.(AIThermocoupleChannel)
+			if !ok {
+				return AnalogReadConfig{}, errVariantChanged(
+					tc.Key,
+					cfg.Channels[i].Variant,
+				)
+			}
 			n.Disabled = true
 			cfg.Channels[i].Variant = n
 		}
@@ -195,14 +202,14 @@ type changeLog struct {
 	channel string
 }
 
-func (l changeLog) warn(field string, old, new zap.Field) {
+func (l changeLog) warn(field string, before, after zap.Field) {
 	l.ins.L.Warn(
 		"narrowed an NI channel field",
 		zap.Stringer("config", l.config),
 		zap.String("channel", l.channel),
 		zap.String("field", field),
-		old,
-		new,
+		before,
+		after,
 	)
 }
 
@@ -212,193 +219,186 @@ type number interface {
 
 // logNumber logs field when its old and new values differ. A NaN old value always
 // differs.
-func logNumber[O, N number](l changeLog, field string, old O, new N) {
-	if float64(old) != float64(new) {
+func logNumber[O, N number](l changeLog, field string, before O, after N) {
+	if float64(before) != float64(after) {
 		l.warn(
 			field,
-			zap.Float64("old", float64(old)),
-			zap.Float64("new", float64(new)),
+			zap.Float64("old", float64(before)),
+			zap.Float64("new", float64(after)),
 		)
 	}
 }
 
-// logFlag logs field when its old and new values differ.
-func logFlag(l changeLog, field string, old, new bool) {
-	if old != new {
-		l.warn(field, zap.Bool("old", old), zap.Bool("new", new))
+// logDisabled logs the Disabled field when its old and new values differ.
+func logDisabled(l changeLog, before, after bool) {
+	if before != after {
+		l.warn("Disabled", zap.Bool("old", before), zap.Bool("new", after))
 	}
 }
 
-// aiBases returns the shared fields of a v3 analog input variant and of its migration.
-// It panics for a variant without shared fields.
-func aiBases(
-	old v3.AIChannelVariant,
-	n AIChannelVariant,
-) (v3.BaseAIChannel, BaseAIChannel) {
-	switch o := old.(type) {
-	case v3.AIVoltageChannel:
-		return o.BaseAIChannel, n.(AIVoltageChannel).BaseAIChannel
-	case v3.AIAccelChannel:
-		return o.BaseAIChannel, n.(AIAccelChannel).BaseAIChannel
-	case v3.AIBridgeChannel:
-		return o.BaseAIChannel, n.(AIBridgeChannel).BaseAIChannel
-	case v3.AICurrentChannel:
-		return o.BaseAIChannel, n.(AICurrentChannel).BaseAIChannel
-	case v3.AIForceBridgeTableChannel:
-		return o.BaseAIChannel, n.(AIForceBridgeTableChannel).BaseAIChannel
-	case v3.AIForceBridgeTwoPointLinChannel:
-		return o.BaseAIChannel, n.(AIForceBridgeTwoPointLinChannel).BaseAIChannel
-	case v3.AIForceIEPEChannel:
-		return o.BaseAIChannel, n.(AIForceIEPEChannel).BaseAIChannel
-	case v3.AIMicrophoneChannel:
-		return o.BaseAIChannel, n.(AIMicrophoneChannel).BaseAIChannel
-	case v3.AIPressureBridgeTableChannel:
-		return o.BaseAIChannel, n.(AIPressureBridgeTableChannel).BaseAIChannel
-	case v3.AIPressureBridgeTwoPointLinChannel:
-		return o.BaseAIChannel, n.(AIPressureBridgeTwoPointLinChannel).BaseAIChannel
-	case v3.AIResistanceChannel:
-		return o.BaseAIChannel, n.(AIResistanceChannel).BaseAIChannel
-	case v3.AIRTDChannel:
-		return o.BaseAIChannel, n.(AIRTDChannel).BaseAIChannel
-	case v3.AIStrainGaugeChannel:
-		return o.BaseAIChannel, n.(AIStrainGaugeChannel).BaseAIChannel
-	case v3.AIThermocoupleChannel:
-		return o.BaseAIChannel, n.(AIThermocoupleChannel).BaseAIChannel
-	case v3.AITorqueBridgeTableChannel:
-		return o.BaseAIChannel, n.(AITorqueBridgeTableChannel).BaseAIChannel
-	case v3.AITorqueBridgeTwoPointLinChannel:
-		return o.BaseAIChannel, n.(AITorqueBridgeTwoPointLinChannel).BaseAIChannel
-	case v3.AIVelocityIEPEChannel:
-		return o.BaseAIChannel, n.(AIVelocityIEPEChannel).BaseAIChannel
-	case v3.AIAccel4WireDCVoltageChannel:
-		return o.BaseAIChannel, n.(AIAccel4WireDCVoltageChannel).BaseAIChannel
-	case v3.AIAccelChargeChannel:
-		return o.BaseAIChannel, n.(AIAccelChargeChannel).BaseAIChannel
-	case v3.AIChargeChannel:
-		return o.BaseAIChannel, n.(AIChargeChannel).BaseAIChannel
-	case v3.AICurrentRMSChannel:
-		return o.BaseAIChannel, n.(AICurrentRMSChannel).BaseAIChannel
-	case v3.AIForceBridgePolynomialChannel:
-		return o.BaseAIChannel, n.(AIForceBridgePolynomialChannel).BaseAIChannel
-	case v3.AIFreqVoltageChannel:
-		return o.BaseAIChannel, n.(AIFreqVoltageChannel).BaseAIChannel
-	case v3.AIPressureBridgePolynomialChannel:
-		return o.BaseAIChannel, n.(AIPressureBridgePolynomialChannel).BaseAIChannel
-	case v3.AIThermistorIexChannel:
-		return o.BaseAIChannel, n.(AIThermistorIexChannel).BaseAIChannel
-	case v3.AIThermistorVexChannel:
-		return o.BaseAIChannel, n.(AIThermistorVexChannel).BaseAIChannel
-	case v3.AITorqueBridgePolynomialChannel:
-		return o.BaseAIChannel, n.(AITorqueBridgePolynomialChannel).BaseAIChannel
-	case v3.AIVoltageRMSChannel:
-		return o.BaseAIChannel, n.(AIVoltageRMSChannel).BaseAIChannel
-	case v3.AIVoltageWithExcitChannel:
-		return o.BaseAIChannel, n.(AIVoltageWithExcitChannel).BaseAIChannel
-	default:
-		panic(fmt.Sprintf("analog input variant %T has no base", old))
-	}
+func errVariantChanged(channel string, variant any) error {
+	return errors.Newf("channel %s migrated to %T", channel, variant)
 }
 
-func logAIChannel(l changeLog, old v3.AIChannel, migrated AIChannel) {
+// aiBase returns the BaseAIChannel that an analog input variant embeds, or false for a
+// variant without one.
+func aiBase[B any](variant any) (B, bool) {
+	v := reflect.ValueOf(variant)
+	if v.Kind() != reflect.Struct {
+		var zero B
+		return zero, false
+	}
+	field := v.FieldByName("BaseAIChannel")
+	if !field.IsValid() {
+		var zero B
+		return zero, false
+	}
+	return reflect.TypeAssert[B](field)
+}
+
+func logAIChannel(l changeLog, old v3.AIChannel, migrated AIChannel) error {
 	if o, ok := old.Variant.(v3.AITempBuiltinChannel); ok {
+		n, ok := migrated.Variant.(AITempBuiltinChannel)
+		if !ok {
+			return errVariantChanged(o.Key, migrated.Variant)
+		}
 		l.channel = o.Key
-		n := migrated.Variant.(AITempBuiltinChannel)
-		logFlag(l, "Disabled", o.Disabled, n.Disabled)
-		return
+		logDisabled(l, o.Disabled, n.Disabled)
+		return nil
 	}
-	if old.Variant == nil {
-		return
+	o, ok := aiBase[v3.BaseAIChannel](old.Variant)
+	if !ok {
+		return nil
 	}
-	o, n := aiBases(old.Variant, migrated.Variant)
+	n, ok := aiBase[BaseAIChannel](migrated.Variant)
+	if !ok {
+		return errVariantChanged(o.Key, migrated.Variant)
+	}
 	l.channel = o.Key
 	logNumber(l, "Port", o.Port, n.Port)
-	logFlag(l, "Disabled", o.Disabled, n.Disabled)
+	logDisabled(l, o.Disabled, n.Disabled)
 	tc, ok := old.Variant.(v3.AIThermocoupleChannel)
 	if !ok {
-		return
+		return nil
 	}
 	oldCJC, ok := tc.Cjc.Variant.(v3.ChanCJC)
 	if !ok {
-		return
+		return nil
 	}
-	newCJC := migrated.Variant.(AIThermocoupleChannel).Cjc.Variant.(ChanCJC)
+	newTC, ok := migrated.Variant.(AIThermocoupleChannel)
+	if !ok {
+		return errVariantChanged(o.Key, migrated.Variant)
+	}
+	newCJC, ok := newTC.Cjc.Variant.(ChanCJC)
+	if !ok {
+		return errVariantChanged(o.Key, newTC.Cjc.Variant)
+	}
 	logNumber(l, "Cjc.Port", oldCJC.Port, newCJC.Port)
+	return nil
 }
 
-func logAOChannel(l changeLog, old v3.AOChannel, migrated AOChannel) {
+func logAOChannel(l changeLog, old v3.AOChannel, migrated AOChannel) error {
 	if old.Variant == nil {
-		return
+		return nil
 	}
 	o, n := old.Base(), migrated.Base()
 	l.channel = o.Key
 	logNumber(l, "Port", o.Port, n.Port)
 	if gen, ok := old.Variant.(v3.AOFuncGenChannel); ok {
-		after := migrated.Variant.(AOFuncGenChannel).Frequency
-		logNumber(l, "Frequency", gen.Frequency, after)
+		after, ok := migrated.Variant.(AOFuncGenChannel)
+		if !ok {
+			return errVariantChanged(o.Key, migrated.Variant)
+		}
+		logNumber(l, "Frequency", gen.Frequency, after.Frequency)
 	}
-	logFlag(l, "Disabled", o.Disabled, n.Disabled)
+	logDisabled(l, o.Disabled, n.Disabled)
+	return nil
 }
 
-func logCIChannel(l changeLog, old v3.CIChannel, migrated CIChannel) {
+func logCIChannel(l changeLog, old v3.CIChannel, migrated CIChannel) error {
 	if old.Variant == nil {
-		return
+		return nil
 	}
 	o, n := old.Base(), migrated.Base()
 	l.channel = o.Key
 	logNumber(l, "Port", o.Port, n.Port)
-	logFlag(l, "Disabled", o.Disabled, n.Disabled)
+	logDisabled(l, o.Disabled, n.Disabled)
+	return nil
 }
 
-func logDIChannel(l changeLog, old v3.DIChannel, migrated DIChannel) {
+func logDIChannel(l changeLog, old v3.DIChannel, migrated DIChannel) error {
 	l.channel = old.Key
 	logNumber(l, "Port", old.Port, migrated.Port)
-	logFlag(l, "Disabled", old.Disabled, migrated.Disabled)
+	logDisabled(l, old.Disabled, migrated.Disabled)
+	return nil
 }
 
-func logDOChannel(l changeLog, old v3.DOChannel, migrated DOChannel) {
+func logDOChannel(l changeLog, old v3.DOChannel, migrated DOChannel) error {
 	l.channel = old.Key
 	logNumber(l, "Port", old.Port, migrated.Port)
-	logFlag(l, "Disabled", old.Disabled, migrated.Disabled)
+	logDisabled(l, old.Disabled, migrated.Disabled)
+	return nil
 }
 
-func logAnalogRead(l changeLog, old v3.AnalogReadConfig, migrated AnalogReadConfig) {
-	for i, ch := range old.Channels {
-		logAIChannel(l, ch, migrated.Channels[i])
+// logChannels logs each channel of a config with logFn.
+func logChannels[O, N any](
+	l changeLog,
+	old []O,
+	migrated []N,
+	logFn func(changeLog, O, N) error,
+) error {
+	for i, ch := range old {
+		if err := logFn(l, ch, migrated[i]); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func logAnalogWrite(l changeLog, old v3.AnalogWriteConfig, migrated AnalogWriteConfig) {
-	for i, ch := range old.Channels {
-		logAOChannel(l, ch, migrated.Channels[i])
-	}
+func logAnalogRead(
+	l changeLog,
+	old v3.AnalogReadConfig,
+	migrated AnalogReadConfig,
+) error {
+	return logChannels(l, old.Channels, migrated.Channels, logAIChannel)
 }
 
-func logCounterRead(l changeLog, old v3.CounterReadConfig, migrated CounterReadConfig) {
-	for i, ch := range old.Channels {
-		logCIChannel(l, ch, migrated.Channels[i])
-	}
+func logAnalogWrite(
+	l changeLog,
+	old v3.AnalogWriteConfig,
+	migrated AnalogWriteConfig,
+) error {
+	return logChannels(l, old.Channels, migrated.Channels, logAOChannel)
 }
 
-func logDigitalRead(l changeLog, old v3.DigitalReadConfig, migrated DigitalReadConfig) {
-	for i, ch := range old.Channels {
-		logDIChannel(l, ch, migrated.Channels[i])
-	}
+func logCounterRead(
+	l changeLog,
+	old v3.CounterReadConfig,
+	migrated CounterReadConfig,
+) error {
+	return logChannels(l, old.Channels, migrated.Channels, logCIChannel)
+}
+
+func logDigitalRead(
+	l changeLog,
+	old v3.DigitalReadConfig,
+	migrated DigitalReadConfig,
+) error {
+	return logChannels(l, old.Channels, migrated.Channels, logDIChannel)
 }
 
 func logDigitalWrite(
 	l changeLog,
 	old v3.DigitalWriteConfig,
 	migrated DigitalWriteConfig,
-) {
-	for i, ch := range old.Channels {
-		logDOChannel(l, ch, migrated.Channels[i])
-	}
+) error {
+	return logChannels(l, old.Channels, migrated.Channels, logDOChannel)
 }
 
 // logged wraps a config migration so that it logs each channel field it changes.
 func logged[O, N gorp.Entry[uuid.UUID]](
 	migrateFn func(context.Context, O) (N, error),
-	logFn func(changeLog, O, N),
+	logFn func(changeLog, O, N) error,
 ) func(context.Context, O, alamos.Instrumentation) (N, error) {
 	return func(ctx context.Context, old O, ins alamos.Instrumentation) (N, error) {
 		migrated, err := migrateFn(ctx, old)
@@ -406,7 +406,11 @@ func logged[O, N gorp.Entry[uuid.UUID]](
 			var zero N
 			return zero, err
 		}
-		logFn(changeLog{ins: ins, config: old.GorpKey()}, old, migrated)
+		l := changeLog{ins: ins, config: old.GorpKey()}
+		if err = logFn(l, old, migrated); err != nil {
+			var zero N
+			return zero, err
+		}
 		return migrated, nil
 	}
 }

@@ -113,7 +113,8 @@ var _ = Describe("MigrateCounterReadConfig", func() {
 			}}},
 		}))
 		Expect(got.Channels).To(HaveLen(1))
-		ch := got.Channels[0].Variant.(v4.CIFrequencyChannel)
+		ch, ok := got.Channels[0].Variant.(v4.CIFrequencyChannel)
+		Expect(ok).To(BeTrue())
 		Expect(ch.Key).To(Equal("ctr"))
 		Expect(ch.Port).To(BeEquivalentTo(1))
 		Expect(ch.Divisor).To(Equal(uint32(8)))
@@ -219,12 +220,14 @@ var _ = Describe("MigrateAnalogReadConfig", func() {
 					}},
 				},
 			}))
-			tc := got.Channels[0].Variant.(v4.AIThermocoupleChannel)
+			tc, ok := got.Channels[0].Variant.(v4.AIThermocoupleChannel)
+			Expect(ok).To(BeTrue())
 			Expect(tc.Disabled).To(BeTrue())
 			Expect(tc.Port).To(Equal(uint16(1)))
 			Expect(tc.Cjc.Variant).
 				To(Equal(v4.CJCVariant(v4.ChanCJC{Port: math.MaxUint16})))
-			v := got.Channels[1].Variant.(v4.AIVoltageChannel)
+			v, ok := got.Channels[1].Variant.(v4.AIVoltageChannel)
+			Expect(ok).To(BeTrue())
 			Expect(v.Disabled).To(BeFalse())
 		},
 	)
@@ -254,8 +257,9 @@ func runStored[I, O gorp.Entry[uuid.UUID]](
 	Expect(gorp.NewRetrieve[uuid.UUID, O]().
 		Where(gorp.MatchKeys[uuid.UUID, O](old.GorpKey())).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
-	var fields []any
-	for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
+	entries := logs.FilterMessage("narrowed an NI channel field").All()
+	fields := make([]any, 0, len(entries))
+	for _, e := range entries {
 		fields = append(fields, e.ContextMap()["field"])
 	}
 	return got, fields
@@ -284,11 +288,13 @@ var _ = Describe("AnalogReadMigration", func() {
 					},
 				},
 			)
-			tc := got.Channels[0].Variant.(v4.AIThermocoupleChannel)
+			tc, ok := got.Channels[0].Variant.(v4.AIThermocoupleChannel)
+			Expect(ok).To(BeTrue())
 			Expect(tc.Disabled).To(BeTrue())
 			Expect(tc.Cjc.Variant).
 				To(Equal(v4.CJCVariant(v4.ChanCJC{Port: math.MaxUint16})))
-			v := got.Channels[1].Variant.(v4.AIVoltageChannel)
+			v, ok := got.Channels[1].Variant.(v4.AIVoltageChannel)
+			Expect(ok).To(BeTrue())
 			Expect(v.Port).To(Equal(uint16(math.MaxUint16)))
 			Expect(v.Disabled).To(BeTrue())
 			Expect(fields).To(ConsistOf("Cjc.Port", "Disabled", "Port", "Disabled"))
