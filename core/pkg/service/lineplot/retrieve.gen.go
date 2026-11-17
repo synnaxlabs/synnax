@@ -96,6 +96,15 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Detach: func(e *LinePlot, t color.Key) {
+				for i5 := range e.Lines {
+					if e.Lines[i5].Color != nil {
+						if v6, ok := e.Lines[i5].Color.Variant.(color.NamedRef); ok && v6.Key == t {
+							e.Lines[i5].Color = nil
+						}
+					}
+				}
+			},
 			Inline: func(
 				ctx context.Context,
 				tx gorp.Tx,
@@ -135,6 +144,15 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Detach: func(e *LinePlot, t color.Key) {
+				for i5 := range e.Rules {
+					if e.Rules[i5].Color != nil {
+						if v6, ok := e.Rules[i5].Color.Variant.(color.NamedRef); ok && v6.Key == t {
+							e.Rules[i5].Color = nil
+						}
+					}
+				}
 			},
 			Inline: func(
 				ctx context.Context,
