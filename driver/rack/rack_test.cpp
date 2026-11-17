@@ -65,7 +65,6 @@ TEST(RackTest, FatalErrorStopsRack) {
     ASSERT_OCCURRED_AS(r.stop(), synnax::auth::ERR_INVALID_CREDENTIALS);
 }
 
-#ifndef _WIN32
 /// @brief it should keep waiting for an unreachable Core past its retry limit after its
 /// first run.
 TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
@@ -121,5 +120,4 @@ TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
     pipe.resume();
     ASSERT_NIL(r.stop());
 }
-#endif
 }
