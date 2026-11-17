@@ -169,7 +169,8 @@ public:
     /// on the rack.
     /// @param found the hardware that the scan found, with both field groups set to
     /// what a new resource holds, and the status the scanner reports, if any.
-    /// @returns the first error, after it tries every resource.
+    /// @returns the error of the rack retrieve, which ends the scan before it changes
+    /// any resource. Otherwise, the first error, after it tries every resource.
     x::errors::Error sync(std::vector<D> found) {
         std::lock_guard scan_lock(this->scan_mu);
         x::errors::Error first_err;

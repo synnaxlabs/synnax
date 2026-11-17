@@ -55,6 +55,7 @@ struct FakeStore final : Store<Resource> {
     std::vector<Resource> statuses;
     int creates = 0;
     x::errors::Error create_err;
+    x::errors::Error retrieve_err;
     x::errors::Error find_err;
     x::errors::Error update_err;
     /// @brief runs inside update_identity, as a signal that arrives during a scan.
@@ -76,6 +77,7 @@ struct FakeStore final : Store<Resource> {
 
     std::pair<std::vector<Resource>, x::errors::Error>
     retrieve(const synnax::rack::Key rack) override {
+        if (this->retrieve_err) return {{}, this->retrieve_err};
         std::vector<Resource> res;
         for (const auto &r: this->stored)
             if (r.rack == rack) res.push_back(r);
@@ -404,5 +406,16 @@ TEST(Sync, RecreatesResourceMissingFromCore) {
     ASSERT_EQ(store->creates, 1);
     ASSERT_EQ(store->stored.size(), 1);
     ASSERT_TRUE(store->identity_updates.empty());
+}
+
+/// @brief it should end a scan whose rack retrieve fails before it changes anything.
+TEST(Sync, StopsWhenRetrieveFails) {
+    auto [sync, store] = new_sync();
+    ASSERT_NIL(sync->init());
+    store->retrieve_err = x::errors::VALIDATION;
+    ASSERT_OCCURRED_AS(sync->sync({found("01A")}), x::errors::VALIDATION);
+    ASSERT_EQ(store->creates, 0);
+    ASSERT_TRUE(store->statuses.empty());
+    ASSERT_FALSE(sync->get("01A").has_value());
 }
 }
