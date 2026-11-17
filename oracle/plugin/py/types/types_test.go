@@ -1992,13 +1992,13 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing_extensions import TypeVar`,
+							`from typing import Generic, TypeVar`,
 							`from pydantic import BaseModel, JsonValue`,
 							`Details = TypeVar("Details", default=JsonValue)`,
 							`class Status(BaseModel, Generic[Details]):`,
 							`details: Details | None = None`,
 						).
-						ToNotContain(`from typing import Generic, TypeVar`)
+						ToNotContain(`typing_extensions`)
 				},
 			)
 
@@ -2015,7 +2015,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing_extensions import TypeVar`,
+							`from typing import Generic, TypeVar`,
 							`T = TypeVar("T", bound=str, default=str)`,
 						).
 						ToNotContain(`JsonValue`)
