@@ -33,9 +33,7 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
           isResolved
           path
           comments(first: 100) {
-            nodes {
-              databaseId author { __typename login } body originalCommit { oid }
-            }
+            nodes { databaseId author { __typename login } body }
           }
         }
       }
@@ -121,16 +119,17 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
     inline threads, skipping any finding an unresolved thread of the bot already holds.
     Such a thread gets the finding's new heading when its severity changed, and keeps
     the rest of its comment. The findings outside the diff go in one comment the bot
-    edits on each review. An unresolved thread of the bot whose finding the review no
-    longer reports gets a reply and is resolved, when its file changed after the
-    thread's commit. The summary in the pull request body is replaced, and the check run
-    completes.
+    edits on each review. The summary in the pull request body is replaced, and the
+    check run completes. Last, while the target is still the head of the pull request,
+    each open thread of the bot whose finding the review no longer reports gets a reply
+    and is resolved, when its file changed since the review before. A failure there
+    only warns.
     """
     t = target
     found = threads(t, gh)
     can = authority(t, gh)
     gone = {(d.path, d.title) for d in dismissals(t, gh, found, can)}
-    reported = {(f.path, f.title) for f in review.findings}
+    reported = {(f.path, render.title(render.heading(f))) for f in review.findings}
     review = _drop(review, gone)
     blob = f"https://github.com/{t.repo}/blob/{t.head}"
     diff = _diff_lines(t, gh)
@@ -152,12 +151,6 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
             "comments": comments,
         }
         write(gh, "POST", f"repos/{t.repo}/pulls/{t.pr}/reviews", payload)
-    for th in found:
-        if th.resolved or (th.path, th.title) in reported | gone:
-            continue
-        if _changed(t, gh, th):
-            reply(gh, th, SETTLED.format(head=t.head))
-            resolve(gh, th)
     outside = [f for f in review.findings if f not in inline]
     _upsert_outside(t, gh, render.outside(outside, blob=blob), created=bool(outside))
     message = gh("api", f"repos/{t.repo}/commits/{t.head}", "--jq", ".commit.message")
@@ -178,6 +171,12 @@ def post(review: Review, *, target: Target, gh: GH) -> None:
         "output": render.check(review),
     }
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
+    try:
+        _settle(
+            t, gh, [th for th in found if (th.path, th.title) not in reported | gone]
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"::warning::Could not resolve settled threads: {e}", file=sys.stderr)
     if review.findings:
         recheck(t, gh, can)
 
@@ -230,8 +229,6 @@ class Thread:
     """The finding's comment."""
     comment: int
     """The database ID of the finding's comment."""
-    commit: str | None
-    """The commit the finding was posted on, or None when GitHub no longer has it."""
     resolved: bool
     replies: list[dict[str, Any]]
     """The comments after the finding, oldest first, as GraphQL serves them."""
@@ -276,7 +273,6 @@ def threads(t: Target, gh: GH) -> list[Thread]:
                     title=title,
                     body=first["body"],
                     comment=first["databaseId"],
-                    commit=(first["originalCommit"] or {}).get("oid"),
                     resolved=node["resolved"],
                     replies=replies,
                 )
@@ -284,9 +280,25 @@ def threads(t: Target, gh: GH) -> list[Thread]:
     return found
 
 
-def _changed(t: Target, gh: GH, th: Thread) -> bool:
-    if th.commit is None:
-        return False
+def _settle(t: Target, gh: GH, unreported: list[Thread]) -> None:
+    pr = f"repos/{t.repo}/pulls/{t.pr}"
+    if gh("api", pr, "--jq", ".head.sha").strip() != t.head:
+        return
+    since = next((c for c in reviewed(t, gh) if c != t.head), None)
+    if since is None:
+        return
+    changed: dict[str, bool] = {}
+    for th in unreported:
+        if th.resolved:
+            continue
+        if th.path not in changed:
+            changed[th.path] = _changed(t, gh, since, th.path)
+        if changed[th.path]:
+            resolve(gh, th)
+            reply(gh, th, SETTLED.format(head=t.head))
+
+
+def _changed(t: Target, gh: GH, since: str, path: str) -> bool:
     owner, name = t.repo.split("/")
     out = gh(
         "api",
@@ -298,9 +310,9 @@ def _changed(t: Target, gh: GH, th: Thread) -> bool:
         "-f",
         f"r={name}",
         "-f",
-        f"a={th.commit}:{th.path}",
+        f"a={since}:{path}",
         "-f",
-        f"b={t.head}:{th.path}",
+        f"b={t.head}:{path}",
         "--jq",
         ".data.repository | [.old.oid, .new.oid] | tojson",
     )

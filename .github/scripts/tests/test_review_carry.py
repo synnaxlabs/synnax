@@ -67,7 +67,6 @@ def thread(*replies: dict[str, Any]) -> dict[str, Any]:
         "databaseId": 1,
         "author": {"__typename": "Bot", "login": "sedosaur"},
         "body": "<picture></picture> **Samples**\n\nText.",
-        "originalCommit": {"oid": "c"},
     }
     return {
         "id": "T1",

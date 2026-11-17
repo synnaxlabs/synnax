@@ -43,6 +43,8 @@ PATCH = (
 )
 OUTSIDE = "<!-- sedosaur_outside_diff -->"
 GREPTILE = "<!-- greptile_comment -->\nGreptile's summary\n<!-- /greptile_comment -->"
+SINCE = "a" * 40
+"""The commit of the review before the head."""
 MESSAGE = "[ci] Bound MQTT samples and give each discovery request a deadline"
 
 
@@ -85,7 +87,9 @@ class FakeGH:
         self.comments: list[dict[str, Any]] = []
         self.body = "Fixes the thing."
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
-        self.blobs: dict[str, str] = {"old:a.go": "1", "head:a.go": "2"}
+        self.head = "head"
+        """The head of the pull request now."""
+        self.blobs: dict[str, str] = {f"{SINCE}:a.go": "1", "head:a.go": "2"}
         """The blob ID of each `<commit>:<path>` that exists."""
         self.mutations: list[tuple[str, ...]] = []
 
@@ -124,7 +128,7 @@ class FakeGH:
         if path == f"repos/{REPO}/commits/head":
             return MESSAGE + "\n"
         if path == f"repos/{REPO}/pulls/7":
-            return self.body + "\n"
+            return (self.head if ".head.sha" in args else self.body) + "\n"
         raise AssertionError(f"unexpected gh call: {args}")
 
     def written(self, method: str, path: str) -> list[dict[str, Any]]:
@@ -260,41 +264,56 @@ class TestInlineFindings:
 class TestSettledThreads:
     """Tests resolving the threads whose findings a review no longer reports."""
 
-    def test_should_resolve_one_whose_file_changed(self, gh: FakeGH) -> None:
+    @pytest.fixture(autouse=True)
+    def earlier(self, gh: FakeGH) -> None:
+        gh.edits = [summary_edit(SINCE)]
         gh.threads = [thread("sedosaur")]
+
+    def test_should_resolve_one_whose_file_changed(self, gh: FakeGH) -> None:
         post(review(finding(title="Other")), target=TARGET, gh=gh)
-        reply, resolve = gh.mutations
+        resolve, reply = gh.mutations
+        assert "resolveReviewThread" in resolve[3]
         assert "t=T" in reply
         assert "b=The review of head no longer reports this finding." in reply
-        assert "addPullRequestReviewThreadReply" in reply[3]
-        assert "resolveReviewThread" in resolve[3]
 
     def test_should_resolve_one_whose_file_the_head_deleted(self, gh: FakeGH) -> None:
-        gh.threads = [thread("sedosaur")]
         del gh.blobs["head:a.go"]
         post(review(), target=TARGET, gh=gh)
         assert len(gh.mutations) == 2
 
     def test_should_keep_one_whose_file_is_the_same(self, gh: FakeGH) -> None:
-        gh.threads = [thread("sedosaur")]
         gh.blobs["head:a.go"] = "1"
         post(review(), target=TARGET, gh=gh)
         assert gh.mutations == []
 
-    def test_should_keep_one_whose_commit_is_gone(self, gh: FakeGH) -> None:
-        th = thread("sedosaur")
-        th["comments"][0]["originalCommit"] = None
-        gh.threads = [th]
+    def test_should_keep_one_when_the_last_review_commit_is_gone(
+        self, gh: FakeGH
+    ) -> None:
+        del gh.blobs[f"{SINCE}:a.go"]
+        post(review(), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_keep_one_without_an_earlier_review(self, gh: FakeGH) -> None:
+        gh.edits = [summary_edit("b" * 40, login="pat")]
+        post(review(), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_keep_one_when_the_pull_request_moved_on(self, gh: FakeGH) -> None:
+        gh.head = "newer"
         post(review(), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_the_review_still_reports(self, gh: FakeGH) -> None:
-        gh.threads = [thread("sedosaur")]
         post(review(finding()), target=TARGET, gh=gh)
         assert gh.mutations == []
 
+    def test_should_keep_one_whose_title_holds_asterisks(self, gh: FakeGH) -> None:
+        f = finding(title="Leaks `**kwargs`")
+        gh.threads = [posted(f)]
+        post(review(f), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
     def test_should_keep_one_still_reported_outside_the_diff(self, gh: FakeGH) -> None:
-        gh.threads = [thread("sedosaur")]
         post(review(finding(line=10)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
@@ -312,6 +331,18 @@ class TestSettledThreads:
         gh.threads = [thread("greptile-apps")]
         post(review(), target=TARGET, gh=gh)
         assert gh.mutations == []
+
+    def test_should_complete_the_review_when_a_resolve_fails(
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        def fail(*args: str, stdin: str | None = None) -> str:
+            if any("resolveReviewThread" in a for a in args):
+                raise subprocess.CalledProcessError(1, "gh")
+            return gh(*args, stdin=stdin)
+
+        post(review(), target=TARGET, gh=fail)
+        assert gh.written("PATCH", "check-runs/55")[0]["conclusion"] == "success"
+        assert "::warning::Could not resolve settled threads" in capsys.readouterr().err
 
 
 class TestDismissedFindings:
@@ -528,12 +559,7 @@ class TestListing:
 def thread(login: str, *replies: str, resolved: bool = False) -> dict[str, Any]:
     def comment(body: str, kind: str, author: str) -> dict[str, Any]:
         who = {"__typename": kind, "login": author}
-        return {
-            "databaseId": 9,
-            "author": who,
-            "body": body,
-            "originalCommit": {"oid": "old"},
-        }
+        return {"databaseId": 9, "author": who, "body": body}
 
     body = "<picture></picture> **Samples return old data**\n\nOld text."
     comments = [comment(body, "Bot", login)]
