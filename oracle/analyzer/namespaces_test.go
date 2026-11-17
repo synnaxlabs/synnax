@@ -16,35 +16,29 @@ import (
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Namespaces", func() {
 	Describe("UsedNamespaces", func() {
-		parse := func(src string) parser.ISchemaContext {
-			GinkgoHelper()
-			ast, diag := parser.Parse(src)
-			Expect(diag).ToNot(HaveOccurred())
-			return ast
-		}
-
 		It("Should return each qualifier that the file references", func() {
-			Expect(analyzer.UsedNamespaces(parse(`
+			Expect(analyzer.UsedNamespaces(MustSucceed(parser.Parse(`
 				Range struct extends base.Range {
 					span telem.TimeRange
 					labels label.Key[]
 				}
-			`))).To(Equal(set.New("base", "telem", "label")))
+			`)))).To(Equal(set.New("base", "telem", "label")))
 		})
 
 		It("Should add the filter namespace when the file declares a filter", func() {
-			Expect(analyzer.UsedNamespaces(parse(`
+			Expect(analyzer.UsedNamespaces(MustSucceed(parser.Parse(`
 				Thing struct {
 					name string
 				}
 				Where filter Thing {
 					name
 				}
-			`))).To(Equal(set.New(resolution.FilterNamespace)))
+			`)))).To(Equal(set.New(resolution.FilterNamespace)))
 		})
 	})
 
