@@ -270,4 +270,7 @@ def _merge(sources: list[Mapping[str, Any]]) -> dict[str, Any]:
             merged.pop(k, None)
         source = next((s for s in sources if any(k in s for k in group)), {})
         merged.update({k: source[k] for k in group if k in source})
+    # A CA certificate has a use only with TLS.
+    if merged.get("ca_cert") is not None:
+        merged.setdefault("secure", True)
     return merged

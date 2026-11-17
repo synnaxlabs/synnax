@@ -279,6 +279,16 @@ class TestLoadOptions:
                 SAVED.model_copy(update={"ca_cert": "/env.crt"}),
             ),
             (
+                {},
+                {"SYNNAX_CA_CERT": "/env.crt"},
+                SAVED.model_copy(update={"ca_cert": "/env.crt"}),
+            ),
+            (
+                {"ca_cert": "/arg.crt"},
+                {},
+                SAVED.model_copy(update={"ca_cert": "/arg.crt"}),
+            ),
+            (
                 {"api_key": "syk_arg"},
                 {},
                 SAVED.model_copy(update={"api_key": "syk_arg"}),
@@ -303,6 +313,8 @@ class TestLoadOptions:
             "secure-arg",
             "secure-env",
             "tls-env",
+            "ca-cert-env",
+            "ca-cert-arg",
             "key-arg",
             "key-env",
             "password-arg",
@@ -343,9 +355,10 @@ class TestLoadOptions:
             ({"secure": True}, (True, None)),
             ({"secure": False}, (False, None)),
             ({"secure": True, "ca_cert": "/arg.crt"}, (True, "/arg.crt")),
+            ({"ca_cert": "/arg.crt"}, (True, "/arg.crt")),
             ({}, (True, "/env.crt")),
         ],
-        ids=["system-roots", "no-tls", "arg-cert", "env"],
+        ids=["system-roots", "no-tls", "arg-cert", "arg-cert-alone", "env"],
     )
     def test_tls_from_one_source(
         self,
