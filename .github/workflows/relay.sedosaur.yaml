@@ -8,8 +8,8 @@
 # included in the file licenses/APL.txt.
 
 # Asks Sedosaur for a review when a pull request opens or is ready, and when a member
-# or an agent mentions `@sedosaur` or `@greptile` in a comment. A comment with
-# `repeat=true` asks for a review of a head that has one. A push never asks. Sends
+# or an agent mentions `@sedosaur` or `@greptile` in a comment. A line `@sedosaur review
+# repeat=true` asks for a review of a head that has one. A push never asks. Sends
 # Sedosaur a reply that mentions it on the thread of one of its findings, such as a
 # dismissal, and a comment that dismisses a finding outside the diff. Both hold secrets,
 # so they run from the default branch through a dispatch. A fork's token cannot
@@ -52,20 +52,40 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      contents: read
     env:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number || github.event.issue.number }}
       REF: ${{ github.event.repository.default_branch }}
       COMMENT: ${{ github.event.comment.id }}
-      REPEAT: ${{ contains(github.event.comment.body, 'repeat=true') }}
     steps:
+      # The default branch, never the code of the pull request.
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Read the request
+        id: request
+        env:
+          BODY: ${{ github.event.comment.body }}
+        run: python3 .github/scripts/sedosaur_request.py >> "$GITHUB_OUTPUT"
+
+      # Only a person gets a reply to a skipped request. Agents ask again by design.
       # No retry through gh_api.sh: a dispatch that fails with a 5xx can still start a
       # run. When the dispatch is lost, a member can ask again with a comment.
       - name: Start Review - Sedosaur
+        env:
+          REPEAT: ${{ steps.request.outputs.repeat }}
+          REPLY:
+            ${{ steps.request.outputs.requested == 'true' &&
+            github.event.comment.user.type != 'Bot' }}
         run: |
           gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR" \
-            -f comment="$COMMENT" -f repeat="$REPEAT"
+            -f comment="$COMMENT" -f repeat="$REPEAT" -f reply="$REPLY"
 
   dismiss:
     name: Relay reply

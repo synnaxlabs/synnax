@@ -49,6 +49,10 @@ on:
         description: "Review the head again, even when its last review succeeded"
         type: boolean
         default: false
+      reply:
+        description: "Reply to the comment when the review skips"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -56,11 +60,13 @@ env:
   RUN_URL:
     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-# One review of a pull request at a time. A newer request replaces a queued one. Replays
-# post nothing, so each runs apart.
+# One review of a pull request at a time, apart from repeats. A newer request replaces a
+# queued one of the same kind, so a plain request never drops a repeat. Replays post
+# nothing, so each runs apart.
 concurrency:
   group:
-    review-sedosaur-${{ inputs.pr }}-${{ inputs.replay && github.run_id || 'live' }}
+    review-sedosaur-${{ inputs.pr }}-${{ inputs.replay && github.run_id || inputs.repeat
+    && 'repeat' || 'live' }}
   cancel-in-progress: false
 
 jobs:
@@ -194,10 +200,9 @@ jobs:
           gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT/reactions" \
             -f content=rocket --silent
 
-  # A comment whose request Sedosaur skips gets a reply that says why.
   decline:
     needs: start
-    if: needs.start.outputs.skip == 'true' && inputs.comment != '' && !inputs.replay
+    if: needs.start.outputs.skip == 'true' && inputs.reply && !inputs.replay
     name: Reply to the request
     runs-on: ubuntu-latest
     steps:
