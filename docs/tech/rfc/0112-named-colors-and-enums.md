@@ -191,10 +191,11 @@ The schematic cutover ships in one release:
   and "Replace with..." merges them later. When a list repeats a value, the first entry
   stays.
 - RFC 0114 phase 1 adds the function that turns a state list into an enumeration. Phase
-  21 calls it to give each `select` and `state_indicator` an `enumeration` key for its
-  `options`, which it removes. An empty list gets no enumeration. The RFC 0114 phase 2
-  node migration, which merges after phase 21, calls the function to give a state
-  binding an `enumeration` key when its node had its own non-empty state list, an
+  21 calls it to give each `select` and `state_indicator` that has no `enumeration` an
+  `enumeration` key for its `options`. A node that already has one keeps it. Phase 21
+  removes `options` from every node, and an empty list gets no enumeration. The RFC 0114
+  phase 2 node migration, which merges after phase 21, calls the function to give a
+  state binding an `enumeration` key when its node had its own non-empty state list, an
   `on_color`, or `state_overrides` that change the entry colors, and removes those
   fields.
 - In a custom symbol, the RFC 0114 phase 1 migration makes each state index a value with
@@ -288,9 +289,10 @@ schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 to `select` and `state_indicator`, phase 21 fills it, and RFC 0114 phase 1 adds it to
 symbol states. Phase 20 adds the enumeration picker to the Pluto forms of `select` and
 `state_indicator`, and Pluto draws each from its `enumeration`, or from `options` when
-it has none. RFC 0114 phase 2 adds the picker to node state bindings, and RFC 0114 phase
-4 to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks
-from the start. In phase 28, the Driver writes range colors
+it has none. The picker leaves `options` as they are, so clearing the picker goes back
+to them until phase 21. RFC 0114 phase 2 adds the picker to node state bindings, and RFC
+0114 phase 4 to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom
+symbol looks from the start. In phase 28, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
 ## 7 Resolved decisions
