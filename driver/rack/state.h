@@ -29,8 +29,9 @@ std::filesystem::path user_dir();
 x::errors::Error prepare(const std::filesystem::path &path);
 
 /// @brief secures the state file at path and its directory, and skips either when it
-/// does not exist. Run as root on Linux, it gives the state to the service user. On
-/// Windows, it secures the state directory of the computer, and returns an error when
-/// neither LocalSystem nor the administrators own it.
-x::errors::Error secure(const std::filesystem::path &path);
+/// does not exist. Only a dedicated directory, which the Driver chose, changes. Run as
+/// root on Linux, it gives the state to the service user. On Windows, it secures the
+/// dedicated state directory of the computer, and returns an error when neither
+/// LocalSystem nor the administrators own it.
+x::errors::Error secure(const std::filesystem::path &path, bool dedicated);
 }

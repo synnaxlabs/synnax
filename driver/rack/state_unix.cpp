@@ -144,11 +144,12 @@ x::errors::Error prepare(const fs::path &path) {
 
 /// @brief opens the state directory and file without following links, so a link put
 /// in their place is refused. A file that does not exist yet is skipped. Only root
-/// changes a mode or owner. Root keeps the directory and the Linux service user gets
-/// read access to it and owns the file and the OPC UA directory. The service can then
-/// read and write its key but cannot put a link in the directory for root to follow.
-/// Without a service user, root makes the directory owner-only and takes the file.
-x::errors::Error secure(const fs::path &path) {
+/// changes a mode or owner, and only a dedicated directory changes. Root keeps that
+/// directory and the Linux service user gets read access to it and owns the file and
+/// the OPC UA directory. The service can then read and write its key but cannot put a
+/// link in the directory for root to follow. Without a service user, root makes that
+/// directory owner-only and takes the file.
+x::errors::Error secure(const fs::path &path, const bool dedicated) {
     FD dir{open(
         path.parent_path().c_str(),
         O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
@@ -162,13 +163,13 @@ x::errors::Error secure(const fs::path &path) {
 #ifdef __linux__
     if (root) service_user = getpwnam("synnax");
 #endif
-    if (service_user != nullptr) {
+    if (dedicated && service_user != nullptr) {
         // Other users may pass through to run the service binary in bin/.
         if (fchown(dir.fd, 0, service_user->pw_gid) != 0 ||
             fchmod(dir.fd, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH) != 0)
             return errno_error("failed to secure state directory");
         if (auto err = give_opcua_dir(dir.fd, *service_user)) return err;
-    } else if (root) {
+    } else if (dedicated && root) {
         struct stat st{};
         if (fstat(dir.fd, &st) != 0)
             return errno_error("failed to read state directory");

@@ -39,7 +39,10 @@ std::string get_persisted_state_path(x::args::Parser &parser) {
 }
 
 x::errors::Error rack::Config::secure_persisted_state(x::args::Parser &args) {
-    return state::secure(get_persisted_state_path(args));
+    return state::secure(
+        get_persisted_state_path(args),
+        args.field<std::string>("--state-file", "").empty()
+    );
 }
 
 x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
@@ -67,7 +70,7 @@ x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
             "failed to create state directory: " + ec.message()
         );
     // Secured before the copy, so the key is never readable by other users.
-    if (auto err = state::secure(to)) return err;
+    if (auto err = state::secure(to, true)) return err;
     fs::copy_file(from, to, ec);
     if (ec)
         return x::errors::Error(
@@ -89,7 +92,7 @@ x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
             STATE_ERROR,
             "failed to copy the OPC UA certificates: " + ec.message()
         );
-    if (auto err = state::secure(to)) return err;
+    if (auto err = state::secure(to, true)) return err;
     fs::remove(from, ec);
     if (!ec) fs::remove_all(opcua, ec);
     if (ec)

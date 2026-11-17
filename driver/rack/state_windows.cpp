@@ -132,8 +132,8 @@ x::errors::Error prepare(const fs::path &path) {
 
 /// @brief creates the state directory of the computer for LocalSystem and the
 /// administrators alone, or gives an existing one to them alone.
-x::errors::Error secure(const fs::path &path) {
-    if (path.parent_path() != machine_dir()) return x::errors::NIL;
+x::errors::Error secure(const fs::path &path, const bool dedicated) {
+    if (!dedicated || path.parent_path() != machine_dir()) return x::errors::NIL;
     auto dir = path.parent_path().wstring();
     auto [descriptor, desc_err] = parse_descriptor();
     if (desc_err) return desc_err;

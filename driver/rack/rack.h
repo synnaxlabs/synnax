@@ -280,10 +280,11 @@ struct Config {
     /// @brief applies the persisted state ownership and modes without opening the
     /// state. For root commands only, as a Driver run never changes them. Changes
     /// nothing without root. Run as root once the Linux service user exists, it gives
-    /// that user the state that an earlier login left to root. Skips state that does
-    /// not exist. On Windows, it creates the
-    /// state directory of the computer for LocalSystem and the administrators alone,
-    /// and returns an error when another user owns it.
+    /// that user the state that an earlier login left to root. With a --state-file, it
+    /// changes only that file and never its directory. Skips state that does not
+    /// exist. On Windows, it creates the state directory of the computer for
+    /// LocalSystem and the administrators alone, and returns an error when another user
+    /// owns it.
     static x::errors::Error secure_persisted_state(x::args::Parser &args);
 
     /// @brief moves the state and OPC UA certificates of the user to the state of the

@@ -167,6 +167,24 @@ TEST_P(StateModeTest, SecureWithoutRootKeepsModes) {
     ASSERT_EQ(this->mode(this->path), file_mode);
 }
 
+/// @brief it should change only the state file, never its directory, when root
+/// secures a --state-file.
+TEST_P(StateModeTest, SecureStateFileKeepsDir) {
+#ifndef _WIN32
+    if (geteuid() != 0) GTEST_SKIP() << "only root changes modes";
+#endif
+    if (GetParam()) GTEST_SKIP() << "the default directory is dedicated";
+    const auto dir = this->path.parent_path();
+    fs::create_directories(dir);
+    const auto dir_mode = fs::perms::owner_all | fs::perms::group_read |
+                          fs::perms::group_exec | fs::perms::others_exec;
+    fs::permissions(dir, dir_mode);
+    std::ofstream(this->path) << "{}";
+    ASSERT_NIL(Config::secure_persisted_state(this->args));
+    ASSERT_EQ(this->mode(dir), dir_mode);
+    ASSERT_FALSE(fs::exists(dir / OPCUA_STATE_DIR));
+}
+
 /// @brief it should refuse a readable state file given by a bare file name.
 TEST(StateTest, RefuseReadableRelativeStateFile) {
 #ifdef _WIN32
