@@ -17,6 +17,11 @@ cc_library(
         "//conditions:default": ["file_posix.cpp"],
     }),
     hdrs = ["file.h"],
+    # wingdi.h defines ERROR as a macro.
+    copts = select({
+        "@platforms//os:windows": ["/DNOGDI"],
+        "//conditions:default": [],
+    }),
     deps = ["//x/cpp/errors"],
 )
 
