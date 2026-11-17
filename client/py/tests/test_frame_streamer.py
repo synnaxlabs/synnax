@@ -250,21 +250,25 @@ class TestStreamer:
                             assert len(d) == 1
                             assert d[0] == (ts if channel == idx.name else value)
 
+    # The upper bound only catches a read that ignores its timeout. A loaded CI runner
+    # can wake a 0.1 s wait 0.15 s late, so a tight bound tests the scheduler.
     def test_timeout_seconds(self, client: sy.Synnax) -> None:
-        """Should return None after the specified timeout is exceeded"""
+        """Should return None once the timeout elapses"""
         with client.open_streamer([]) as s:
-            start = sy.TimeStamp.now()
+            start = time.monotonic()
             f = s.read(timeout=0.1)
+            elapsed = time.monotonic() - start
             assert f is None
-            assert abs(sy.TimeSpan.since(start).seconds - 0.1) < 0.05
+            assert 0.1 <= elapsed < 1
 
     def test_timeout_timespan(self, client: sy.Synnax) -> None:
-        """Should return None after the specified timeout is exceeded"""
+        """Should return None once a TimeSpan timeout elapses"""
         with client.open_streamer([]) as s:
-            start = sy.TimeStamp.now()
+            start = time.monotonic()
             f = s.read(timeout=100 * sy.TimeSpan.MILLISECOND)
+            elapsed = time.monotonic() - start
             assert f is None
-            assert abs(sy.TimeSpan.since(start).seconds - 0.1) < 0.05
+            assert 0.1 <= elapsed < 1
 
     def test_downsample(self, virtual_channel: sy.Channel, client: sy.Synnax) -> None:
         """Should correctly stream data for a channel"""
