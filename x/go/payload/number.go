@@ -28,28 +28,25 @@ type Number struct {
 // FloatNumber returns v as a Number of the float kind.
 func FloatNumber(v Float) Number { return Number{kind: KindFloat, f: float64(v)} }
 
-// IntegerNumber returns v as a Number of the integer kind.
-func IntegerNumber(v Integer) Number { return Number{kind: KindInteger, i: int64(v)} }
+// integerNumber returns v as a Number of the integer kind.
+func integerNumber(v Integer) Number { return Number{kind: KindInteger, i: int64(v)} }
 
-// UnsignedNumber returns v as a Number of the unsigned kind.
-func UnsignedNumber(v Unsigned) Number {
+// unsignedNumber returns v as a Number of the unsigned kind.
+func unsignedNumber(v Unsigned) Number {
 	return Number{kind: KindUnsigned, u: uint64(v)}
 }
 
-// Kind returns the kind of n.
-func (n Number) Kind() Kind { return n.kind }
+// float returns n, which must be of the float kind.
+func (n Number) float() Float { return Float(n.f) }
 
-// Float returns n, which must be of the float kind.
-func (n Number) Float() Float { return Float(n.f) }
+// integer returns n, which must be of the integer kind.
+func (n Number) integer() Integer { return Integer(n.i) }
 
-// Integer returns n, which must be of the integer kind.
-func (n Number) Integer() Integer { return Integer(n.i) }
+// unsigned returns n, which must be of the unsigned kind.
+func (n Number) unsigned() Unsigned { return Unsigned(n.u) }
 
-// Unsigned returns n, which must be of the unsigned kind.
-func (n Number) Unsigned() Unsigned { return Unsigned(n.u) }
-
-// Boolean returns whether n is not 0. ok is false when n is NaN, which has no boolean.
-func (n Number) Boolean() (v, ok bool) {
+// boolean returns whether n is not 0. ok is false when n is NaN, which has no boolean.
+func (n Number) boolean() (v, ok bool) {
 	switch n.kind {
 	case KindInteger:
 		return n.i != 0, true
@@ -115,9 +112,9 @@ func (n Number) To(k Kind) (out Number, ok bool) {
 	return out, acc == big.Exact
 }
 
-// Fits reports whether a channel of data type dt holds n. An integer data type holds n
+// fits reports whether a channel of data type dt holds n. An integer data type holds n
 // exactly. A float data type holds the nearest value to n, and a NaN or an infinity.
-func (n Number) Fits(dt telem.DataType) bool {
+func (n Number) fits(dt telem.DataType) bool {
 	k, _ := KindOf(dt)
 	switch k {
 	case KindFloat:
@@ -149,8 +146,9 @@ func (n Number) float64() float64 {
 	return n.f
 }
 
-// Append appends n to dst as one sample of the numeric data type dt, which must hold n.
-func (n Number) Append(dst []byte, dt telem.DataType) []byte {
+// appendTo appends n to dst as one sample of the numeric data type dt, which must
+// hold n.
+func (n Number) appendTo(dst []byte, dt telem.DataType) []byte {
 	order := telem.ByteOrder
 	switch dt {
 	case telem.Float64T:
