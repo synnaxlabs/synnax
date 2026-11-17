@@ -15,6 +15,7 @@
 
 #include "driver/http/scan_task.h"
 #include "driver/http/testutil/server.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::http {
 namespace {
@@ -396,7 +397,10 @@ TEST(HTTPScanTask, ScannerConfig) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -426,7 +430,10 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -463,7 +470,10 @@ TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -499,7 +509,10 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -537,7 +550,10 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -586,7 +602,10 @@ TEST(HTTPScanTask, ScanServerThatStallsAfterHeaders) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -611,7 +630,10 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -662,7 +684,10 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -715,7 +740,10 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -767,7 +795,10 @@ TEST(HTTPScanTask, ScanConsoleSavedHealthCheckWithNullExpectedValue) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -785,7 +816,10 @@ TEST(HTTPScanTask, ScanNoDevices) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -817,7 +851,10 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -860,7 +897,10 @@ TEST(HTTPScanTask, ScanInvalidHealthCheck) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -891,7 +931,10 @@ TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -940,7 +983,10 @@ TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -994,7 +1040,10 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -1046,7 +1095,10 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -1132,7 +1184,10 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -1167,7 +1222,10 @@ TEST(HTTPScanTask, TestConnectionUnreachable) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -1215,7 +1273,10 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -1271,7 +1332,10 @@ TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -1310,7 +1374,10 @@ TEST(HTTPScanTask, ExecUnknownCommand) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -1349,7 +1416,10 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 
@@ -1377,7 +1447,10 @@ TEST(HTTPScanTask, TestConnectionInvalidArgs) {
     task.rack = 1;
     task.name = "HTTP Scanner";
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto processor = std::make_shared<Processor>();
     Scanner scanner(ctx, task, processor);
 

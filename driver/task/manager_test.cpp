@@ -32,6 +32,7 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/task/task.h"
 
 namespace driver::task {
@@ -645,7 +646,13 @@ protected:
         conn.port = pipe->port;
         const auto piped = std::make_shared<synnax::Synnax>(conn);
         const auto piped_rack = ASSERT_NIL_P(piped->racks.retrieve(rack.key));
-        manager = std::make_unique<Manager>(piped_rack, piped, std::move(factory), cfg);
+        manager = std::make_unique<Manager>(
+            piped_rack,
+            piped,
+            std::move(factory),
+            ::driver::outbox::testutil::open(piped->statuses),
+            cfg
+        );
     }
 
     /// @brief starts a manager that reaches the Core through pipe, and runs it again
@@ -689,7 +696,13 @@ protected:
     }
 
     void start_manager(std::unique_ptr<Factory> factory, ManagerConfig cfg = {}) {
-        manager = std::make_unique<Manager>(rack, client, std::move(factory), cfg);
+        manager = std::make_unique<Manager>(
+            rack,
+            client,
+            std::move(factory),
+            ::driver::outbox::testutil::open(client->statuses),
+            cfg
+        );
         std::promise<void> started;
         thread = std::thread([&] {
             ASSERT_NIL(manager->run([&] { started.set_value(); }));
@@ -3857,7 +3870,12 @@ protected:
 TEST_F(ShutdownTest, DuringConfiguration) {
     auto factory = std::make_unique<BlockingTaskFactory>();
     auto *f = factory.get();
-    auto manager = std::make_unique<Manager>(rack, client, std::move(factory));
+    auto manager = std::make_unique<Manager>(
+        rack,
+        client,
+        std::move(factory),
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
@@ -3886,7 +3904,12 @@ TEST_F(ShutdownTest, DuringConfiguration) {
 TEST_F(ShutdownTest, WithPendingOps) {
     auto factory = std::make_unique<BlockingTaskFactory>();
     auto *f = factory.get();
-    auto manager = std::make_unique<Manager>(rack, client, std::move(factory));
+    auto manager = std::make_unique<Manager>(
+        rack,
+        client,
+        std::move(factory),
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
@@ -3976,6 +3999,7 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
         rack,
         client,
         std::move(factory),
+        ::driver::outbox::testutil::open(client->statuses),
         ManagerConfig{
             .op_timeout = 60 * x::telem::SECOND,
             .poll_interval = 1 * x::telem::SECOND,
@@ -4062,7 +4086,12 @@ public:
 TEST_F(ShutdownTest, ParallelTaskStop) {
     // Each task takes 200ms to stop
     auto factory = std::make_unique<SlowStopFactory>(200 * x::telem::MILLISECOND);
-    auto manager = std::make_unique<Manager>(rack, client, std::move(factory));
+    auto manager = std::make_unique<Manager>(
+        rack,
+        client,
+        std::move(factory),
+        ::driver::outbox::testutil::open(client->statuses)
+    );
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
@@ -4130,6 +4159,7 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
         rack,
         client,
         std::move(factory),
+        ::driver::outbox::testutil::open(client->statuses),
         ManagerConfig{
             .op_timeout = 60 * x::telem::SECOND,
             .poll_interval = 1 * x::telem::SECOND,
@@ -4324,6 +4354,7 @@ TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
     const auto ctx = std::make_shared<SynnaxContext>(
         client,
         std::make_shared<StatusCache>(client->statuses),
+        ::driver::outbox::testutil::open(client->statuses),
         nullptr,
         nullptr,
         rack.key

@@ -22,6 +22,7 @@
 #include "driver/modbus/modbus.h"
 #include "driver/modbus/read_task.h"
 #include "driver/modbus/testutil/slave.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::modbus {
@@ -83,7 +84,10 @@ protected:
         };
         ASSERT_NIL(client->devices.create(device));
 
-        ctx = std::make_shared<driver::task::MockContext>(client);
+        ctx = std::make_shared<driver::task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         mock_factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
     }
 
@@ -373,7 +377,10 @@ TEST(ReadTask, testBasicReadTask) {
     auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
 
     auto devs = std::make_shared<device::Manager>();
@@ -468,7 +475,10 @@ TEST(ReadTask, testStopInterruptsReadWaitingForTurn) {
     auto p = x::json::Parser(j);
     auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
     auto devs = std::make_shared<device::Manager>();
     auto task = common::ReadTask(
@@ -559,7 +569,10 @@ TEST(ReadTask, testStopEndsReadThatHoldsTurn) {
     auto p = x::json::Parser(j);
     auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
     auto task = common::ReadTask(
         tsk,
@@ -654,7 +667,10 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
     auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(
+        client,
+        ::driver::outbox::testutil::open(client->statuses)
+    );
     auto factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
     auto devs = std::make_shared<device::Manager>();
 

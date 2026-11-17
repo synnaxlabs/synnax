@@ -30,6 +30,7 @@
 
 #include "driver/bypass/bypass.h"
 #include "driver/control/state.h"
+#include "driver/outbox/outbox.h"
 #include "driver/task/operation.h"
 #include "driver/task/status_cache.h"
 
@@ -82,6 +83,9 @@ public:
     /// @brief returns the shared control authority states.
     virtual std::shared_ptr<control::States> control_states() { return nullptr; }
 
+    /// @brief returns the Driver's queue of Core calls.
+    virtual std::shared_ptr<::driver::outbox::Outbox> outbox() = 0;
+
     /// @brief returns the rack key for this driver, used as the group identity for
     /// Core-side deduplication filtering.
     virtual synnax::rack::Key rack_key() { return 0; }
@@ -121,12 +125,18 @@ public:
 /// @brief a mock context that can be used for testing tasks.
 class MockContext final : public Context {
     std::mutex mu;
+    std::shared_ptr<::driver::outbox::Outbox> calls;
 
 public:
     std::vector<synnax::task::Status> statuses;
 
-    explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
-        Context(client) {}
+    explicit MockContext(
+        const std::shared_ptr<synnax::Synnax> &client,
+        std::shared_ptr<::driver::outbox::Outbox> outbox
+    ):
+        Context(client), calls(std::move(outbox)) {}
+
+    std::shared_ptr<::driver::outbox::Outbox> outbox() override { return this->calls; }
 
     void set_status(synnax::task::Status &status) override {
         mu.lock();
@@ -152,6 +162,7 @@ class SynnaxContext final : public Context {
     std::shared_ptr<control::States> states;
     synnax::rack::Key rack;
     std::shared_ptr<StatusCache> statuses;
+    std::shared_ptr<::driver::outbox::Outbox> calls;
     /// @brief guards operations and cancelled.
     std::mutex operations_mu;
     /// @brief the open operations and the cancelled ones, by the key of their command.
@@ -179,6 +190,7 @@ public:
     SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
         std::shared_ptr<StatusCache> statuses,
+        std::shared_ptr<::driver::outbox::Outbox> outbox,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
         const synnax::rack::Key rack_key = 0
@@ -187,13 +199,16 @@ public:
         bypass_bus(bus),
         states(control_states),
         rack(rack_key),
-        statuses(std::move(statuses)) {}
+        statuses(std::move(statuses)),
+        calls(std::move(outbox)) {}
 
     std::shared_ptr<bypass::Bus> bus() override { return this->bypass_bus; }
 
     std::shared_ptr<control::States> control_states() override { return this->states; }
 
     synnax::rack::Key rack_key() override { return this->rack; }
+
+    std::shared_ptr<::driver::outbox::Outbox> outbox() override { return this->calls; }
 
     void set_status(synnax::task::Status &status) override {
         if (const auto op = this->operation(status); op != nullptr)
@@ -411,6 +426,7 @@ public:
         synnax::rack::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
         std::unique_ptr<Factory> factory,
+        std::shared_ptr<::driver::outbox::Outbox> outbox,
         const ManagerConfig &cfg = {}
     ):
         rack(std::move(rack)),
@@ -419,6 +435,7 @@ public:
         ctx(std::make_shared<SynnaxContext>(
             client,
             this->statuses,
+            std::move(outbox),
             std::make_shared<bypass::Bus>(),
             this->control_states,
             this->rack.key
