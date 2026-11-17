@@ -249,6 +249,9 @@ catalog:
 catalogs:
   ts6:
     typescript: ^6.0.3
+  # Undici 8 does not load on Node 22.12, the oldest Node the published packages run on.
+  node22:
+    undici: ^7.30.2
 # Dependencies do not install agent skills into the repository.
 permissions:
   compromise:

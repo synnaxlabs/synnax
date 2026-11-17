@@ -17,6 +17,12 @@ import {
 } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import {
+  type Connector,
+  DEFAULT_CONNECTOR,
+  type FetchInit,
+  type FetchResponse,
+} from "@/connector";
 import { Timeout, Unreachable } from "@/errors";
 import {
   type FileEncoding,
@@ -160,6 +166,7 @@ const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
  * to 60 seconds. A timeout of zero, infinity, or more than 2^31 - 1 milliseconds (about
  * 24.8 days) sets no limit. File transfers have no limit, since their bodies can take
  * longer.
+ * @param connector - Sends the requests. Defaults to the global fetch.
  */
 export class HTTPClient
   extends MiddlewareCollector
@@ -168,17 +175,20 @@ export class HTTPClient
   endpoint: url.URL;
   encoder: binary.Codec;
   private readonly timeout: TimeSpan | null;
+  private readonly connector: Connector;
 
   constructor(
     endpoint: url.URL,
     encoder: binary.Codec,
     secure: boolean = false,
     timeout: CrudeTimeSpan = DEFAULT_TIMEOUT,
+    connector: Connector = DEFAULT_CONNECTOR,
   ) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
     this.timeout = limitOf(timeout);
+    this.connector = connector;
 
     return new Proxy(this, {
       get: (target, prop, receiver) => {
@@ -216,7 +226,7 @@ export class HTTPClient
         const { timeout } = this;
         const signal =
           timeout == null ? undefined : AbortSignal.timeout(timeout.milliseconds);
-        let httpRes: Response;
+        let httpRes: FetchResponse;
         let data: ArrayBuffer;
         try {
           httpRes = await this.fetch(url, ctx.target, {
@@ -259,9 +269,8 @@ export class HTTPClient
       this.context(url),
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
-        // duplex is required by the Fetch standard whenever the body is a stream, but
-        // is not yet in the lib's RequestInit type.
-        const init: RequestInit & { duplex: "half" } = {
+        // duplex is required by the Fetch standard whenever the body is a stream.
+        const init: FetchInit = {
           method: "POST",
           body: await toSendableBody(body),
           headers: {
@@ -336,17 +345,21 @@ export class HTTPClient
   private async fetch(
     url: url.URL,
     target: string,
-    request: RequestInit,
-  ): Promise<Response> {
+    request: FetchInit,
+  ): Promise<FetchResponse> {
     try {
-      return await fetch(target, request);
+      return await this.connector.fetch(target, request);
     } catch (e) {
       const err = errors.fromUnknown(e);
       throw shouldCastToUnreachable(err) ? new Unreachable({ url, cause: err }) : err;
     }
   }
 
-  private decodeError(data: ArrayBuffer, httpRes: Response, target: string): Error {
+  private decodeError(
+    data: ArrayBuffer,
+    httpRes: FetchResponse,
+    target: string,
+  ): Error {
     if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)
       return new Error(
         `[freighter] HTTP ${httpRes.status} from ${target}: ${httpRes.statusText}`,

@@ -8,6 +8,15 @@
 // included in the file licenses/APL.txt.
 
 export {
+  type Connector,
+  type Dial,
+  type Fetch,
+  type FetchInit,
+  type FetchResponse,
+  type Socket,
+  trustCA,
+} from "@/connector";
+export {
   EOF,
   FreighterError,
   ReceiveOverflow,
