@@ -227,6 +227,115 @@ var _ = Describe("Plugin", func() {
 			})
 		})
 
+		Context("pinned numbers", func() {
+			It("Should give a field its @pb number", func() {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						subject string { @pb number 3 }
+						@pb reserved 2
+					}
+				`
+				resp := MustGenerate(source, "test", loader, p)
+				ExpectContent(resp, "test.proto").ToContain(
+					"reserved 2;",
+					"string key = 1;",
+					"string subject = 3;",
+				)
+			})
+
+			It("Should sort reserved numbers with those of omitted fields", func() {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						hash    bytes  { @pb omit }
+						subject string { @pb number 5 }
+						@pb reserved 4 3
+					}
+				`
+				resp := MustGenerate(source, "test", loader, p)
+				ExpectContent(resp, "test.proto").ToContain(
+					"reserved 2, 3, 4;",
+					"string subject = 5;",
+				)
+			})
+
+			It("Should pin a number in an inline union variant", func() {
+				source := `
+					@go output "core/pkg/service/arc"
+					@pb
+
+					Change struct { path string }
+
+					Arc union on type {
+						automation {
+							program string?
+							changes Change[] { @pb number 3 }
+							@pb reserved 2
+						}
+					}
+				`
+				resp := MustGenerate(source, "arc", loader, p)
+				ExpectContent(resp, "arc.proto").ToContain(
+					"message ArcAutomationPayload {",
+					"reserved 2;",
+					"optional string program = 1;",
+					"repeated Change changes = 3;",
+				)
+			})
+
+			It("Should fail when a pinned number matches a counted one", func() {
+				req := MustGenerateRequest(`
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						subject string { @pb number 1 }
+					}
+				`, "test", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					`fields "key" and "subject" share protobuf number 1`,
+				)))
+			})
+
+			It("Should fail when a field takes a reserved number", func() {
+				req := MustGenerateRequest(`
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						subject string
+						@pb reserved 2
+					}
+				`, "test", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					`field "subject": protobuf number 2 is reserved`,
+				)))
+			})
+
+			It("Should fail on a number that is not a positive integer", func() {
+				req := MustGenerateRequest(`
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key string { @pb number 0 }
+					}
+				`, "test", loader)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"@pb number takes positive integers",
+				)))
+			})
+		})
+
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct proto type",
 				func(oracleType, expectedProtoType string) {

@@ -1574,6 +1574,11 @@ func registerVariant(
 	domains := make(map[string]resolution.Domain)
 	maps.Copy(domains, c.fileDomains)
 	inheritOmits(domains, unionDomains)
+	// Protobuf emits the payload as its own message, so the variant's @pb applies to
+	// it.
+	if pb, ok := variant.Domains["pb"]; ok {
+		domains["pb"] = pb.Merge(domains["pb"])
+	}
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
