@@ -18,25 +18,26 @@ import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import {
-  useField,
-  type UseFieldOptions,
-  type UseFieldReturn,
-  useFieldState,
-} from "@/form/useField";
+import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
 import { useStatusDisplay } from "@/form/useStatusDisplay";
 import { Input } from "@/input";
 import { Select } from "@/select";
 
 interface FieldChild<I, O>
-  extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "preview"> {}
+  extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "preview"> {
+  /** "Mixed" when the subtrees that `Form.Fanout` edits differ here. */
+  placeholder?: string;
+}
 
 /** Props for {@link Field}. */
 export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
     /** The path into the form values. */
     path: deep.Target<I>;
-    /** Renders the input. Defaults to a text input. */
+    /**
+     * Renders the input. Defaults to a text input. Under `Form.Fanout`, a mixed field
+     * passes an undefined value and the placeholder "Mixed".
+     */
     children?: RenderProp<FieldChild<I, O>>;
     /** Whether to hold room for help text, so the layout does not jump. */
     padHelpText?: boolean;
@@ -78,12 +79,13 @@ export const Field = <I = string | number, O = I>({
   if (field == null || !visible) return null;
   const key = String(path);
   if (label == null) label = caseconv.toSentence(deep.element(key, -1));
-  const helpText =
-    field.mixed === true && field.status.variant === "success"
-      ? "Mixed"
-      : field.status.message;
-  const { onChange: fieldOnChange, value } = field;
-  const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
+  const helpText = field.status.message;
+  const { onChange: fieldOnChange, value, mixed } = field;
+  // A mixed field shows no value, so any value entered goes to every subtree.
+  const childrenProps: FieldChild<I, O> =
+    mixed === true
+      ? { onChange: fieldOnChange, value: undefined as I, placeholder: "Mixed" }
+      : { onChange: fieldOnChange, value };
   if (field.preview != null) childrenProps.preview = field.preview;
   return (
     <Input.Item
@@ -198,11 +200,12 @@ export const CheckboxField = ({
   ...rest
 }: CheckboxFieldProps): ReactElement | null => (
   <Field<boolean> {...rest} path={path as deep.Target<boolean>}>
-    {({ value, onChange, ...p }) => (
+    {({ value, onChange, placeholder, ...p }) => (
       <Input.Checkbox
         {...p}
+        indeterminate={placeholder != null}
         {...inputProps}
-        value={inverted ? !value : value}
+        value={placeholder != null ? false : inverted ? !value : value}
         onChange={(v) => onChange(inverted ? !v : v)}
       />
     )}
@@ -273,35 +276,9 @@ export type SelectFieldProps<K extends record.Key> = BuiltFieldProps<
   Select.SingleSimpleProps<K>,
   "children" | "resourceName"
 >;
-/**
- * Binds a select to a form field. Under `Form.Fanout`, a select whose subtrees differ
- * shows no option, so a pick of any option applies to every subtree.
- */
-export const buildSelectField = <K extends record.Key>({
-  fieldProps,
-  inputProps: baseInputProps,
-}: FieldBuilderProps<K, K, Select.SingleSimpleProps<K>>) => {
-  const C = ({
-    inputProps,
-    path,
-    ...rest
-  }: BuiltFieldProps<K, K, Select.SingleSimpleProps<K>>) => {
-    const target = path as deep.Target<K>;
-    const mixed = useFieldState(target, { optional: true })?.mixed === true;
-    return (
-      <Field<K, K> {...fieldProps} {...rest} path={target}>
-        {(cp) => (
-          <Select.Simple<K>
-            {...cp}
-            {...baseInputProps}
-            {...(inputProps as Select.SingleSimpleProps<K>)}
-            value={mixed ? undefined : cp.value}
-          />
-        )}
-      </Field>
-    );
-  };
-  return C as FC<
-    BuiltFieldProps<K, K, Select.SingleSimpleProps<K>, "children" | "resourceName">
-  >;
-};
+export const buildSelectField = <K extends record.Key>(
+  props: FieldBuilderProps<K, K, Select.SingleSimpleProps<K>>,
+) =>
+  fieldBuilder<K, K, Select.SingleSimpleProps<K>, "children" | "resourceName">(
+    Select.Simple<K>,
+  )(props);

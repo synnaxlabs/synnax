@@ -457,14 +457,15 @@ describe("AnalogRead with several selected channels", () => {
     return rendered;
   };
 
-  it("should set the range of every selected channel", async () => {
+  it("should write a value typed into a mixed field, even the first channel's, to every selected channel", async () => {
     const { draft } = await renderSelected([
       createChannel("ai_voltage", 0, { name: "chan_a", minVal: -10 }),
       createChannel("ai_voltage", 1, { name: "chan_b", minVal: -5 }),
     ]);
-    expect(await screen.findByText("Mixed")).toBeTruthy();
-    commitFieldInput(screen.getByLabelText<HTMLInputElement>("Minimum value"), "-2");
-    await waitFor(() => expect(screen.queryByText("Mixed")).toBeNull());
+    const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
+    expect([min.value, min.placeholder]).toEqual(["", "Mixed"]);
+    commitFieldInput(min, "-10");
+    await waitFor(() => expect(min.value).toBe("-10"));
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: draft.key,
@@ -473,7 +474,7 @@ describe("AnalogRead with several selected channels", () => {
       const mins = saved.config.channels.map((c) =>
         c.type === "ai_voltage" ? c.minVal : null,
       );
-      expect(mins).toEqual([-2, -2]);
+      expect(mins).toEqual([-10, -10]);
     });
   });
 
@@ -506,9 +507,9 @@ describe("AnalogRead with several selected channels", () => {
       createChannel("ai_voltage", 1, { name: "chan_b", customScale: POUNDS }),
     ]);
     // The fields of one scale type would write into the scale of the other channel.
-    await findDialogTriggerByText("Select scale type");
+    await findDialogTriggerByText("Mixed");
     expect(screen.queryByLabelText("Slope")).toBeNull();
-    await selectFromDropdown("Select scale type", "Linear");
+    await selectFromDropdown("Mixed", "Linear");
     expect(await screen.findByLabelText("Slope")).toBeTruthy();
     await waitFor(async () => {
       const [a, b] = await storedChannels(draft.key);
@@ -525,7 +526,7 @@ describe("AnalogRead with several selected channels", () => {
       createChannel("ai_voltage", 0, { name: "chan_a", customScale: NEWTONS }),
       createChannel("ai_voltage", 1, { name: "chan_b", customScale: POUNDS }),
     ]);
-    await selectFromDropdown("Select scale type", "Polynomial");
+    await selectFromDropdown("Mixed", "Polynomial");
     await waitFor(async () =>
       expect(
         (await storedChannels(draft.key)).map((c) => [
@@ -550,9 +551,9 @@ describe("AnalogRead with several selected channels", () => {
         cjc: { source: "built_in" },
       }),
     ]);
-    await findDialogTriggerByText("Select CJC source");
+    await findDialogTriggerByText("Mixed");
     expect(screen.queryByLabelText("CJC value")).toBeNull();
-    await selectFromDropdown("Select CJC source", "Constant value");
+    await selectFromDropdown("Mixed", "Constant value");
     expect(await screen.findByLabelText("CJC value")).toBeTruthy();
     await waitFor(async () =>
       expect((await storedChannels(draft.key)).map((c) => c.cjc)).toEqual([

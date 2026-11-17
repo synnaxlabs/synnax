@@ -46,6 +46,7 @@ import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
   clickDeploy,
+  commitFieldInput,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
@@ -450,6 +451,31 @@ describe("Read", () => {
       expect(screen.queryByText("Excitation voltage")).toBeNull();
     });
 
+    it("should save a setting typed once, even the first input's, to each input", async () => {
+      const { draft, slaves } = await renderTwoSelected((keys) =>
+        keys.map((device, i) => ({
+          device,
+          parameters: [
+            { ...MEASUREMENT, value: 6 },
+            { ...EXCITATION, value: [5, 10][i] },
+          ],
+        })),
+      );
+      const excitation =
+        await screen.findByLabelText<HTMLInputElement>("Excitation voltage");
+      expect([excitation.value, excitation.placeholder]).toEqual(["", "Mixed"]);
+      commitFieldInput(excitation, "5");
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.startupParameters).toEqual(
+          slaves.map((device) => ({
+            device: device.key,
+            parameters: expect.arrayContaining([{ ...EXCITATION, value: 5 }]),
+          })),
+        );
+      });
+    });
+
     it("should save a scale picked once to each channel", async () => {
       const { draft } = await renderTwoSelected(() => []);
       fireEvent.click(screen.getByRole("button", { name: /None/ }));
@@ -466,10 +492,10 @@ describe("Read", () => {
     it("should give a linear scale to a channel that lacks one", async () => {
       const doubled = task.SCALE_SCHEMAS.linear.parse({ type: "linear", slope: 2 });
       const { draft } = await renderTwoSelected(() => [], [doubled]);
-      await findDialogTriggerByText("Select scale type");
+      await findDialogTriggerByText("Mixed");
       // The slope of the first channel would write into the scale of the second.
       expect(screen.queryByLabelText("Slope")).toBeNull();
-      fireEvent.click(await findDialogTriggerByText("Select scale type"));
+      fireEvent.click(await findDialogTriggerByText("Mixed"));
       fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
       expect(await screen.findByLabelText("Slope")).toBeTruthy();
       // The schema fills a missing slope on read, so the spec reads the stored scales.

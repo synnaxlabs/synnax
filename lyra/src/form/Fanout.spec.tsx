@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { Form } from "@/form";
 
-const channelZ = z.object({ name: z.string(), range: z.number() });
+const channelZ = z.object({ name: z.string(), range: z.number(), on: z.boolean() });
 const schema = z.object({ a: channelZ, b: channelZ, c: channelZ.optional() });
 type Values = z.infer<typeof schema>;
 const path = deep.path<Values>();
@@ -23,7 +23,9 @@ const path = deep.path<Values>();
 interface RenderedForm {
   values: () => Values;
   getByDisplayValue: (value: string) => HTMLElement;
-  queryByText: (text: string) => HTMLElement | null;
+  getByPlaceholderText: (text: string) => HTMLElement;
+  queryByPlaceholderText: (text: string) => HTMLElement | null;
+  getByRole: (role: string) => HTMLElement;
 }
 
 const renderForm = (values: Values, children: ReactNode): RenderedForm => {
@@ -40,12 +42,14 @@ const renderForm = (values: Values, children: ReactNode): RenderedForm => {
       return ctx.value();
     },
     getByDisplayValue: c.getByDisplayValue,
-    queryByText: c.queryByText,
+    getByPlaceholderText: c.getByPlaceholderText,
+    queryByPlaceholderText: c.queryByPlaceholderText,
+    getByRole: c.getByRole,
   };
 };
 
-const A = { name: "a", range: 10 };
-const B = { name: "b", range: 10 };
+const A = { name: "a", range: 10, on: false };
+const B = { name: "b", range: 10, on: false };
 
 describe("Form.Fanout", () => {
   it("should show the value that every subtree shares", () => {
@@ -56,17 +60,17 @@ describe("Form.Fanout", () => {
       </Form.Fanout>,
     );
     expect(c.getByDisplayValue("10")).toBeTruthy();
-    expect(c.queryByText("Mixed")).toBeNull();
+    expect(c.queryByPlaceholderText("Mixed")).toBeNull();
   });
 
-  it("should show Mixed where the subtrees differ", () => {
+  it("should show no value and Mixed where the subtrees differ", () => {
     const c = renderForm(
       { a: A, b: { ...B, range: 5 } },
       <Form.Fanout paths={[path.a, path.b]}>
         <Form.NumericField path={path.a.range} />
       </Form.Fanout>,
     );
-    expect(c.queryByText("Mixed")).toBeTruthy();
+    expect(c.getByPlaceholderText("Mixed")).toHaveProperty("value", "");
   });
 
   it("should show Mixed where a subtree lacks the field", () => {
@@ -76,21 +80,34 @@ describe("Form.Fanout", () => {
         <Form.NumericField path={path.a.range} />
       </Form.Fanout>,
     );
-    expect(c.queryByText("Mixed")).toBeTruthy();
+    expect(c.getByPlaceholderText("Mixed")).toBeTruthy();
   });
 
-  it("should write an edit to every subtree", () => {
+  it("should write a value typed into a mixed field, even the first's, to every subtree", () => {
     const c = renderForm(
       { a: A, b: { ...B, range: 5 } },
       <Form.Fanout paths={[path.a, path.b]}>
         <Form.NumericField path={path.a.range} />
       </Form.Fanout>,
     );
-    const input = c.getByDisplayValue("10");
-    fireEvent.change(input, { target: { value: "20" } });
+    const input = c.getByPlaceholderText("Mixed");
+    fireEvent.change(input, { target: { value: "10" } });
     fireEvent.blur(input);
-    expect(c.values()).toMatchObject({ a: { range: 20 }, b: { range: 20 } });
-    expect(c.queryByText("Mixed")).toBeNull();
+    expect(c.values()).toMatchObject({ a: { range: 10 }, b: { range: 10 } });
+    expect(c.queryByPlaceholderText("Mixed")).toBeNull();
+  });
+
+  it("should show a mixed checkbox as indeterminate and check every subtree", () => {
+    const c = renderForm(
+      { a: { ...A, on: true }, b: B },
+      <Form.Fanout paths={[path.a, path.b]}>
+        <Form.CheckboxField path={path.a.on} label="On" />
+      </Form.Fanout>,
+    );
+    const checkbox = c.getByRole("checkbox");
+    expect(checkbox.closest(".lyra--indeterminate")).toBeTruthy();
+    fireEvent.click(checkbox);
+    expect(c.values()).toMatchObject({ a: { on: true }, b: { on: true } });
   });
 
   it("should run a field's onChange once for each subtree, with its own values", () => {
@@ -103,7 +120,7 @@ describe("Form.Fanout", () => {
         />
       </Form.Fanout>,
     );
-    fireEvent.change(c.getByDisplayValue("a"), { target: { value: "c" } });
+    fireEvent.change(c.getByPlaceholderText("Mixed"), { target: { value: "c" } });
     expect(c.values()).toMatchObject({
       a: { name: "c", range: 20 },
       b: { name: "c", range: 10 },
