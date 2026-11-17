@@ -573,7 +573,6 @@ protected:
     std::thread thread;
     synnax::framer::Streamer streamer;
     bool setup_succeeded = false;
-#ifndef _WIN32
     std::unique_ptr<CorePipe> pipe;
     std::mutex runs_mu;
     std::condition_variable runs_cv;
@@ -620,7 +619,6 @@ protected:
             return this->runs >= n;
         });
     }
-#endif
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -1057,7 +1055,6 @@ TEST_F(TaskManagerTest, BootLeavesARunningStatusOfAnotherRackAlone) {
         EXPECT_NE(s.message, "Task stopped");
 }
 
-#ifndef _WIN32
 /// @brief it should deploy its tasks and answer commands again when it runs again
 /// after the connection to the Core drops.
 TEST_F(TaskManagerTest, RunsAgainAfterTheCoreConnectionDrops) {
@@ -1809,7 +1806,6 @@ TEST_F(TaskManagerTest, InitialTaskKeepsOneInstanceAcrossALostConnection) {
     EXPECT_EQ(f->configures.load(), 1);
     EXPECT_EQ(f->live.load(), 1);
 }
-#endif
 
 /// @brief it should not deploy a task that is created but never started.
 TEST_F(TaskManagerTest, NoConfigureOnCreate) {
