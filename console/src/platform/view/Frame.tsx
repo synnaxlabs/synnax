@@ -240,7 +240,10 @@ const opensInNewTab = (
   key: view.Key,
 ): boolean => openInNewTab != null && (key !== selected || staticViews.includes(key));
 
-const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
+const ContextMenu = ({
+  keys,
+  target,
+}: Menu.ContextMenuMenuProps): ReactElement | null => {
   const ctx = useContext("View.Selector");
   const { openInNewTab, staticViews, resourceType } = ctx;
   const { getItem } = List.useUtilContext<view.Key, View>();
@@ -276,7 +279,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       )}
       {canRename && (
         <PlatformContextMenu.RenameItem
-          onClick={() => Text.edit(List.itemNameID(editableKeys[0]))}
+          onClick={() => Text.edit(List.itemNameID(editableKeys[0]), target)}
         />
       )}
       {canRename && (

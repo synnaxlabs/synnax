@@ -26,7 +26,8 @@
     },
     "freighter/ts": {
       "entry": ["src/index.ts!"],
-      "project": ["src/**/*.ts!"]
+      "project": ["src/**/*.ts!"],
+      "ignoreBinaries": ["openssl"]
     },
     "lyra": {
       "entry": ["src/*/index.ts!"],

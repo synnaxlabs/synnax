@@ -47,6 +47,8 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 	ServiceDesc *grpc.ServiceDesc
 	// Exec is a function that executes the grpc request.
 	Exec func(context.Context, grpc.ClientConnInterface, RQT) (RST, error)
+	// Errors decodes the errors that the server returns.
+	Errors *errors.Codec
 	freighter.MiddlewareCollector
 }
 
@@ -62,6 +64,8 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 	ServiceDesc *grpc.ServiceDesc
 	// handler is the handler that will be called when a request is received.
 	handler func(context.Context, RQ) (RS, error)
+	// Errors encodes the errors that the handler returns.
+	Errors *errors.Codec
 	freighter.MiddlewareCollector
 	// Internal indicates whether the service is for go-to-go communication only,
 	// allowing for more advanced error encoding that propagates stack traces, causes,
@@ -118,7 +122,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 					Role:     iCtx.Role,
 				}
 				if err != nil {
-					return oCtx, errors.Decode(
+					return oCtx, u.Errors.Decode(
 						errors.ParsePayload(status.Convert(err).Message()),
 					)
 				}
@@ -164,7 +168,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 	)
 	if err != nil {
 		var zero RST
-		return zero, errors.Encode(err, u.Internal)
+		return zero, u.Errors.Encode(err, u.Internal)
 	}
 	return tRes, nil
 }

@@ -86,9 +86,11 @@ TEST(StateTest, RefuseUserStateUnderSudo) {
     auto args = x::args::Parser(std::vector<std::string>{"program"});
     Config cfg;
     if (geteuid() != 0) {
+        ASSERT_NIL(Config::secure_persisted_state(args));
         ASSERT_NIL(cfg.load_persisted_state(args));
         return;
     }
+    ASSERT_OCCURRED_AS(Config::secure_persisted_state(args), STATE_ERROR);
     const auto err = cfg.load_persisted_state(args);
     ASSERT_OCCURRED_AS(err, STATE_ERROR);
     ASSERT_NE(err.message().find("without sudo"), std::string::npos);

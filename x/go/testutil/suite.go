@@ -13,15 +13,18 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	"github.com/onsi/gomega/format"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // SuiteConfig returns the configuration every suite passes to RunSpecs: the one parsed
 // from the command line, with all specs in random order and pending specs failing the
 // suite. Flags would disable the go test result cache, so the suite sets these itself.
-// It also makes Gomega print the stack trace of an error in a failure. Call it from the
-// Test function, after the flags are parsed.
+// It also makes Gomega print the stack trace of an error in a failure, and makes
+// MessagePack encode UUIDs as the Core does. Call it from the Test function, after the
+// flags are parsed.
 func SuiteConfig() types.SuiteConfig {
 	format.RegisterCustomFormatter(formatErrorWithStack)
+	msgpack.RegisterUUID()
 	cfg, _ := ginkgo.GinkgoConfiguration()
 	cfg.RandomizeAllSpecs = true
 	cfg.FailOnPending = true

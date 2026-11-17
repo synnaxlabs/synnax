@@ -13,7 +13,6 @@ import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import (
-    TYPE_CHECKING,
     Any,
     Literal,
     Protocol as BaseProtocol,
@@ -50,10 +49,6 @@ from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.params import deprecate_positional
 from x.timing import Timer
-
-# synnax.arc imports synnax.task at load time.
-if TYPE_CHECKING:
-    from synnax import arc
 
 
 class _CreateRequest(BaseModel):
@@ -566,7 +561,7 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        arcs: arc.Key | list[arc.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -585,7 +580,7 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        arcs: arc.Key | list[arc.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -604,7 +599,7 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        arcs: arc.Key | list[arc.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -626,7 +621,7 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        arcs: arc.Key | list[arc.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
