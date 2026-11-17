@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/crc/crc32c.h"
 #include "gtest/gtest.h"
 
 #include "x/cpp/testutil/testutil.h"
@@ -39,6 +40,17 @@ void write_file(const std::filesystem::path &path, const std::string &data) {
 void append_file(const std::filesystem::path &path, const std::string &data) {
     std::ofstream f(path, std::ios::binary | std::ios::app);
     f.write(data.data(), static_cast<std::streamsize>(data.size()));
+}
+
+/// @brief encodes a record with a valid checksum, which the writer would refuse.
+std::string encode(const std::uint8_t type, const std::string &payload) {
+    std::string buf(4, '\0');
+    buf[0] = static_cast<char>(payload.size());
+    auto body = buf + static_cast<char>(type) + payload;
+    const auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(body));
+    for (int i = 0; i < 4; i++)
+        buf.push_back(static_cast<char>(crc >> (8 * i)));
+    return buf + static_cast<char>(type) + payload;
 }
 
 std::vector<Record> read_all(Reader &reader) {
@@ -88,7 +100,7 @@ protected:
     }
 };
 
-/// @brief v1 files must stay readable by every later Driver.
+/// @brief it should read a v1 segment, which every later Driver must read.
 TEST_F(JournalTest, ReadsV1Segment) {
     auto reader = ASSERT_NIL_P(
         Reader::open(
@@ -105,10 +117,11 @@ TEST_F(JournalTest, ReadsV1Segment) {
     EXPECT_EQ(records[1].payload, "");
     EXPECT_EQ(records[2].type, 3);
     EXPECT_EQ(records[2].payload, std::string("\x00\x01\x02", 3));
-    EXPECT_FALSE(reader->torn());
+    EXPECT_EQ(reader->cut(), 0);
     EXPECT_EQ(reader->pos(), 60);
 }
 
+/// @brief it should write the same bytes as the v1 segment fixture.
 TEST_F(JournalTest, WritesV1Segment) {
     auto writer = ASSERT_NIL_P(
         Writer::open({.path = this->path, .magic = SEGMENT, .flags = 0x0102})
@@ -122,6 +135,7 @@ TEST_F(JournalTest, WritesV1Segment) {
     EXPECT_EQ(read_file(this->path), read_file(TESTDATA / "v1_segment.bin"));
 }
 
+/// @brief it should append after the records of an existing file.
 TEST_F(JournalTest, AppendsAfterReopen) {
     this->write({{.type = 1, .payload = "a"}});
     this->write({{.type = 1, .payload = "b"}});
@@ -131,6 +145,7 @@ TEST_F(JournalTest, AppendsAfterReopen) {
     EXPECT_EQ(records[1].payload, "b");
 }
 
+/// @brief it should start reading at a position from an earlier reader.
 TEST_F(JournalTest, ReadsFromPosition) {
     this->write({{.type = 1, .payload = "a"}, {.type = 1, .payload = "b"}});
     auto reader = this->open_reader();
@@ -142,6 +157,7 @@ TEST_F(JournalTest, ReadsFromPosition) {
     EXPECT_EQ(records[0].payload, "b");
 }
 
+/// @brief it should refuse a position outside the records of the file.
 TEST_F(JournalTest, PositionOutsideFileIsCorrupt) {
     this->write({{.type = 1, .payload = "a"}});
     ASSERT_OCCURRED_AS_P(
@@ -154,47 +170,87 @@ TEST_F(JournalTest, PositionOutsideFileIsCorrupt) {
     );
 }
 
+/// @brief it should cut a record that is cut off at the end of the file.
 TEST_F(JournalTest, RecoversCutOffTail) {
     this->write({{.type = 1, .payload = "a"}, {.type = 1, .payload = "b"}});
     const auto size = std::filesystem::file_size(this->path);
     append_file(this->path, std::string("\x10\x00\x00\x00\x01\x02", 6));
     auto reader = this->open_reader();
     EXPECT_EQ(read_all(*reader).size(), 2);
-    EXPECT_TRUE(reader->torn());
+    EXPECT_EQ(reader->cut(), 6);
     EXPECT_EQ(reader->pos(), size);
     reader.reset();
-    this->write({{.type = 1, .payload = "c"}});
+    auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
+    EXPECT_EQ(writer->cut(), 6);
+    ASSERT_NIL(writer->write({.type = 1, .payload = "c"}));
+    ASSERT_NIL(writer->close());
     reader = this->open_reader();
     const auto records = read_all(*reader);
     ASSERT_EQ(records.size(), 3);
     EXPECT_EQ(records[2].payload, "c");
-    EXPECT_FALSE(reader->torn());
+    EXPECT_EQ(reader->cut(), 0);
 }
 
+/// @brief it should cut a zero-filled tail.
 TEST_F(JournalTest, RecoversZeroFilledTail) {
     this->write({{.type = 1, .payload = "a"}});
     const auto size = std::filesystem::file_size(this->path);
     append_file(this->path, std::string(4096, '\0'));
     auto reader = this->open_reader();
     EXPECT_EQ(read_all(*reader).size(), 1);
-    EXPECT_TRUE(reader->torn());
+    EXPECT_EQ(reader->cut(), 4096);
     reader.reset();
     auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
     EXPECT_EQ(writer->pos(), size);
+    EXPECT_EQ(writer->cut(), 4096);
     ASSERT_NIL(writer->close());
     EXPECT_EQ(std::filesystem::file_size(this->path), size);
 }
 
-TEST_F(JournalTest, BadChecksumBeforeTailIsCorrupt) {
+/// @brief it should end the log at the first record that fails its checksum.
+TEST_F(JournalTest, BadChecksumMidFileEndsLog) {
+    this->write(
+        {{.type = 1, .payload = "abc"},
+         {.type = 1, .payload = "def"},
+         {.type = 1, .payload = "ghi"}}
+    );
+    const auto size = std::filesystem::file_size(this->path);
+    const auto second = HEADER_SIZE + RECORD_PREFIX_SIZE + 3;
+    auto data = read_file(this->path);
+    data[second + RECORD_PREFIX_SIZE] = 'x';
+    write_file(this->path, data);
+    auto reader = this->open_reader();
+    EXPECT_EQ(read_all(*reader).size(), 1);
+    EXPECT_EQ(reader->cut(), size - second);
+    reader.reset();
+    auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
+    EXPECT_EQ(writer->cut(), size - second);
+    EXPECT_EQ(writer->pos(), second);
+    ASSERT_NIL(writer->close());
+    EXPECT_EQ(std::filesystem::file_size(this->path), second);
+}
+
+/// @brief it should end the log at a record whose length passes the end of the file.
+TEST_F(JournalTest, LengthPastEndEndsLog) {
     this->write({{.type = 1, .payload = "abc"}, {.type = 1, .payload = "def"}});
     auto data = read_file(this->path);
-    data[HEADER_SIZE + 9] = 'x';
+    data[HEADER_SIZE + 3] = 0x01;
     write_file(this->path, data);
+    const auto reader = this->open_reader();
+    EXPECT_EQ(read_all(*reader).size(), 0);
+    EXPECT_EQ(reader->cut(), data.size() - HEADER_SIZE);
+}
+
+/// @brief it should return CORRUPT for a valid record with type 0.
+TEST_F(JournalTest, TypeZeroIsCorrupt) {
+    this->write({});
+    append_file(this->path, encode(SKIPPABLE, "a"));
     const auto reader = this->open_reader();
     ASSERT_OCCURRED_AS_P(reader->next(), CORRUPT);
     ASSERT_OCCURRED_AS_P(Writer::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
 }
 
+/// @brief it should skip an unknown type that has the SKIPPABLE bit.
 TEST_F(JournalTest, SkipsUnknownSkippableType) {
     this->write(
         {{.type = 2 | SKIPPABLE, .payload = "new"}, {.type = 1, .payload = "old"}}
@@ -205,18 +261,47 @@ TEST_F(JournalTest, SkipsUnknownSkippableType) {
     EXPECT_EQ(records[0].payload, "old");
 }
 
+/// @brief it should return UNKNOWN_TYPE for an unknown type without the SKIPPABLE bit.
 TEST_F(JournalTest, UnknownTypeIsError) {
     this->write({{.type = 2, .payload = "new"}});
     const auto reader = this->open_reader();
     ASSERT_OCCURRED_AS_P(reader->next(), UNKNOWN_TYPE);
 }
 
+/// @brief it should refuse a record with type 0 and keep writing.
 TEST_F(JournalTest, WriterRejectsTypeZero) {
     auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
-    ASSERT_OCCURRED_AS(writer->write({.type = SKIPPABLE}), ERROR);
+    ASSERT_OCCURRED_AS(writer->write({.type = SKIPPABLE}), BASE_ERROR);
     ASSERT_NIL(writer->write({.type = 1}));
 }
 
+/// @brief it should refuse a payload over MAX_PAYLOAD and keep writing.
+TEST_F(JournalTest, WriterRejectsTooLargePayload) {
+    auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
+    ASSERT_OCCURRED_AS(
+        writer->write({.type = 1, .payload = std::string(MAX_PAYLOAD + 1, 'a')}),
+        BASE_ERROR
+    );
+    ASSERT_NIL(writer->write({.type = 1}));
+}
+
+/// @brief it should refuse a write after close.
+TEST_F(JournalTest, WriteAfterCloseIsError) {
+    auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
+    ASSERT_NIL(writer->close());
+    ASSERT_OCCURRED_AS(writer->write({.type = 1}), BASE_ERROR);
+}
+
+/// @brief it should refuse a second writer on a file until the first closes.
+TEST_F(JournalTest, SecondWriterIsLocked) {
+    auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
+    ASSERT_OCCURRED_AS_P(Writer::open({.path = this->path, .magic = SEGMENT}), LOCKED);
+    ASSERT_NIL(writer->close());
+    writer.reset();
+    ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
+}
+
+/// @brief it should return UNKNOWN_MAGIC for the magic of another kind of file.
 TEST_F(JournalTest, BadMagicIsUnknownMagic) {
     this->write({});
     ASSERT_OCCURRED_AS_P(
@@ -229,6 +314,7 @@ TEST_F(JournalTest, BadMagicIsUnknownMagic) {
     );
 }
 
+/// @brief it should return UNKNOWN_VERSION for a newer format version.
 TEST_F(JournalTest, NewerVersionIsUnknownVersion) {
     this->write({});
     auto data = read_file(this->path);
@@ -244,11 +330,13 @@ TEST_F(JournalTest, NewerVersionIsUnknownVersion) {
     );
 }
 
+/// @brief it should return CORRUPT for a file start that is cut off.
 TEST_F(JournalTest, CutOffFileStartIsCorrupt) {
     write_file(this->path, "SYTE");
     ASSERT_OCCURRED_AS_P(Reader::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
 }
 
+/// @brief it should sync when sync_interval passes or sync_bytes are written.
 TEST_F(JournalTest, SyncsByTimeAndBytes) {
     auto now = x::telem::TimeStamp(0);
     int syncs = 0;
@@ -285,8 +373,9 @@ TEST_F(JournalTest, SyncsByTimeAndBytes) {
     EXPECT_EQ(syncs, 4);
 }
 
+/// @brief it should refuse all later writes and syncs after a sync error.
 TEST_F(JournalTest, SyncErrorIsFatal) {
-    const auto injected = x::errors::Error(ERROR, "disk failed");
+    const auto injected = x::errors::Error(BASE_ERROR, "disk failed");
     int syncs = 0;
     auto writer = ASSERT_NIL_P(
         Writer::open({
@@ -299,9 +388,9 @@ TEST_F(JournalTest, SyncErrorIsFatal) {
             },
         })
     );
-    ASSERT_OCCURRED_AS(writer->write({.type = 1, .payload = "a"}), ERROR);
-    ASSERT_OCCURRED_AS(writer->write({.type = 1, .payload = "b"}), ERROR);
-    ASSERT_OCCURRED_AS(writer->close(), ERROR);
+    ASSERT_OCCURRED_AS(writer->write({.type = 1, .payload = "a"}), BASE_ERROR);
+    ASSERT_OCCURRED_AS(writer->write({.type = 1, .payload = "b"}), BASE_ERROR);
+    ASSERT_OCCURRED_AS(writer->close(), BASE_ERROR);
     EXPECT_EQ(syncs, 1);
 }
 }
