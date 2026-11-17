@@ -12,6 +12,15 @@ name = "synnax-console"
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
+default-run = "synnax-console"
+
+[lib]
+name = "desktop"
+
+[[bin]]
+name = "synnax-desktop-key"
+path = "src/key.rs"
+required-features = ["desktop"]
 
 # See more keys and their definitions at
 # https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -28,6 +37,7 @@ webkit2gtk = "2.0.2"
 [dependencies]
 device_query = "4.0.1"
 keyring = "4.2.0"
+keyring-core = "1.0.1"
 semver = { version = "1.0.28", features = ["serde"] }
 serde = "1.0.229"
 serde_json = "1.0.154"

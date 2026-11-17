@@ -2,8 +2,9 @@
 
 ## 0 Python version
 
-Synnax uses **Python 3.12 or greater**, although we highly recommend always using the
-**latest version of Python**.
+Synnax follows [SPEC 0](https://scientific-python.org/specs/spec-0000/) and supports
+each Python version for three years after its release: **Python 3.13 or greater** today.
+We recommend the **latest version of Python**.
 
 ## 1 Monorepo organization
 

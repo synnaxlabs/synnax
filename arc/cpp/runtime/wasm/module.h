@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -28,6 +29,18 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::wasm {
+
+/// @brief returns the cause in a Wasmtime trap message, without its backtrace.
+inline std::string trap_reason(std::string_view message) {
+    constexpr std::string_view CAUSE = "Caused by:\n    ";
+    if (const auto pos = message.rfind(CAUSE); pos != std::string_view::npos)
+        message.remove_prefix(pos + CAUSE.size());
+    constexpr std::string_view PREFIX = "wasm trap: ";
+    if (message.starts_with(PREFIX)) message.remove_prefix(PREFIX.size());
+    while (message.ends_with('\n'))
+        message.remove_suffix(1);
+    return std::string(message);
+}
 
 /// @brief Convert SampleValue to wasmtime::Val for WASM function calls.
 inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
@@ -438,8 +451,10 @@ public:
                     );
                 }
                 auto msg = trap.message();
-                std::string trap_msg(msg.data(), msg.size());
-                return x::errors::Error(errors::WASM_TRAP, trap_msg);
+                return x::errors::Error(
+                    errors::WASM_TRAP,
+                    trap_reason({msg.data(), msg.size()})
+                );
             }
 
             const auto results = result.ok();

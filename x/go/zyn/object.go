@@ -124,25 +124,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		return nil, errors.WithStack(validate.ErrRequired)
 	}
 	if dataMap, ok := data.(map[string]any); ok {
-		result := make(map[string]any)
-		for fieldName, schema := range o.fields {
-			fieldData, exists := o.getFieldOnMap(dataMap, fieldName)
-			if !exists {
-				if schema.Shape().Optional() {
-					continue
-				}
-				return nil, validate.PathedError(validate.ErrRequired, fieldName)
-			}
-			fieldData, err := schema.Dump(fieldData)
-			if err != nil {
-				return nil, validate.PathedError(err, fieldName)
-			}
-			if fieldData == nil && schema.Shape().Optional() {
-				continue
-			}
-			result[o.caseConversions.snake[fieldName]] = fieldData
-		}
-		return result, nil
+		return o.dumpMap(dataMap)
 	}
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
@@ -160,6 +142,32 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			types.ValueName(val),
 		)
 	}
+	return o.dumpStruct(val)
+}
+
+func (o ObjectZ) dumpMap(dataMap map[string]any) (any, error) {
+	result := make(map[string]any)
+	for fieldName, schema := range o.fields {
+		fieldData, exists := o.getFieldOnMap(dataMap, fieldName)
+		if !exists {
+			if schema.Shape().Optional() {
+				continue
+			}
+			return nil, validate.PathedError(validate.ErrRequired, fieldName)
+		}
+		fieldData, err := schema.Dump(fieldData)
+		if err != nil {
+			return nil, validate.PathedError(err, fieldName)
+		}
+		if fieldData == nil && schema.Shape().Optional() {
+			continue
+		}
+		result[o.caseConversions.snake[fieldName]] = fieldData
+	}
+	return result, nil
+}
+
+func (o ObjectZ) dumpStruct(val reflect.Value) (any, error) {
 	result := make(map[string]any)
 	for fieldName, schema := range o.fields {
 		field := o.fieldByName(val, fieldName)

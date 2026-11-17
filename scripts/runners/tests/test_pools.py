@@ -10,7 +10,7 @@
 import synnax as sy
 
 from common import BUSY, IDLE, OFFLINE
-from conftest import Client, core
+from conftest import Client
 from pools import (
     POOL_INDEX,
     WAIT_INDEX,
@@ -106,7 +106,7 @@ WAIT = "runner_total_queue_wait"
 
 def report(client: Client) -> PoolReport:
     publisher = Publisher(
-        client=core(client),
+        client=client,
         name="pools",
         channels=[POOL_INDEX, *count_channels(), WAIT_INDEX, *wait_channels()],
         report=lambda *_: None,

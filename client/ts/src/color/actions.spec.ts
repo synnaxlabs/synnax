@@ -54,6 +54,13 @@ describe("color.reduceAll", () => {
       expect(cleared.next.group).toBeUndefined();
     });
 
+    it("should set the position", () => {
+      const { next } = color.reduceAll(createNamed(), [
+        color.set({ path: ["position"], value: "a0V" }),
+      ]);
+      expect(next.position).toBe("a0V");
+    });
+
     it("should return an inverse that restores the named color", () => {
       const prev = createNamed();
       const { next, inverse, targets } = color.reduceAll(prev, [
@@ -98,6 +105,14 @@ describe("color.reduceAll", () => {
   });
 
   describe("remove", () => {
+    it("should remove the position", () => {
+      const prev = { ...createNamed(), position: "a0" };
+      const { next } = color.reduceAll(prev, [
+        color.remove({ path: [], key: "position" }),
+      ]);
+      expect(next.position).toBeUndefined();
+    });
+
     it("should remove the dark value", () => {
       const prev = color.namedZ.parse({ ...createNamed(), dark: "#0000ff" });
       const { next, inverse } = color.reduceAll(prev, [

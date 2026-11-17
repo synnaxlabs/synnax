@@ -12,9 +12,9 @@ package icd_test
 import (
 	"encoding/json/v2"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
-	"path/filepath"
 	"strings"
 	"uuid"
 
@@ -35,20 +35,22 @@ type checkFixture struct {
 	ICD          icd.ICD           `json:"icd"`
 }
 
+var checkFixtures = os.DirFS("testdata/fixtures")
+
 func checkFixtureEntries(kind string) []TableEntry {
 	GinkgoHelper()
-	paths := MustSucceed(
-		filepath.Glob(filepath.Join("testdata", "fixtures", kind, "*.json")),
-	)
+	paths := MustSucceed(fs.Glob(checkFixtures, kind+"/*.json"))
 	return lo.Map(paths, func(path string, _ int) TableEntry {
-		return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
+		name := strings.TrimSuffix(strings.TrimPrefix(path, kind+"/"), ".json")
+		return Entry(name, path)
 	})
 }
 
 func loadCheckFixture(path string) checkFixture {
 	GinkgoHelper()
 	var f checkFixture
-	Expect(json.Unmarshal(MustSucceed(os.ReadFile(path)), &f)).To(Succeed())
+	Expect(json.Unmarshal(MustSucceed(fs.ReadFile(checkFixtures, path)), &f)).
+		To(Succeed())
 	Expect(f.Description).ToNot(BeEmpty())
 	return f
 }
@@ -71,9 +73,7 @@ var _ = Describe("Check", func() {
 	)
 
 	It("Should store a valid fixture", func(ctx SpecContext) {
-		f := loadCheckFixture(filepath.Join(
-			"testdata", "fixtures", "valid", "can_multiplexed.json",
-		))
+		f := loadCheckFixture("valid/can_multiplexed.json")
 		Expect(svc.NewWriter(tx).Create(ctx, &f.ICD)).To(Succeed())
 	})
 

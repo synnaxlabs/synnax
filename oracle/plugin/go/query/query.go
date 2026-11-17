@@ -446,311 +446,40 @@ func extractRetrieveInfo(
 	if !ok {
 		return nil, nil
 	}
-	matchers, err := matcher.List(typ, table)
-	if err != nil {
-		return nil, err
-	}
-	byField := lo.KeyBy(
-		matchers,
-		func(m matcher.Matcher) string { return m.Field.Name },
-	)
-
-	// Resolve the key type. A struct-level `@retrieve key "TypeName"` override takes
-	// precedence; this is useful when the entry type has a computed GorpKey that is not
-	// stored as a field on the struct (e.g. channel.Channel). Otherwise, fall back to
-	// the first field carrying `@key`.
-	var keyType string
-	if keyRef, ok := resolution.RetrieveKey(typ); ok {
-		keyType = r.ResolveTypeRef(keyRef, ctx)
-	} else {
-		var keyField *resolution.Field
-		for i := range allFields {
-			if plugindomain.HasDomainFromField(allFields[i], "key") {
-				keyField = &allFields[i]
-				break
-			}
-		}
-		if keyField == nil {
-			return nil, nil
-		}
-		keyType = r.ResolveTypeRef(keyField.Type, ctx)
-	}
-
-	name := naming.GetGoName(typ)
-	var anyArgs, typeArgs, typeParams string
-
-	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
 	indexesOnly := plugindomain.HasExprFromType(typ, "retrieve", "indexes")
-	if form, ok := typ.Form.(resolution.StructForm); ok {
-		params := resolution.NonDefaultedTypeParams(form.TypeParams)
-		if len(params) > 0 {
-			if !indexesOnly {
-				return nil, errors.Newf(
-					"%s: a generic @retrieve type needs @retrieve indexes",
-					typ.QualifiedName,
-				)
-			}
-			// The table of a generic type holds records of every type argument.
-			anys := make([]string, len(params))
-			names := make([]string, len(params))
-			decls := make([]string, len(params))
-			for i, tp := range params {
-				anys[i], names[i], decls[i] = "any", tp.Name, tp.Name+" any"
-			}
-			anyArgs = "[" + strings.Join(anys, ", ") + "]"
-			typeArgs = "[" + strings.Join(names, ", ") + "]"
-			typeParams = "[" + strings.Join(decls, ", ") + "]"
-		}
-	}
-
-	// Collect @filter and @index fields. A field may carry both: in that
-	// case, MatchX / MatchXs are generated to route through the index.
-	// Resolve the Go type only for fields that actually contribute generated
-	// code — otherwise ResolveTypeRef would add imports for types that are
-	// never referenced in retrieve.gen.go.
-	var (
-		filters  []filterInfo
-		indexes  []indexInfo
-		refs     []refInfo
-		search   []searchInfo
-		ownTable = plugindomain.GetStringFromType(typ, resourceDomain, "type")
-	)
-	for _, field := range allFields {
-		if indexesOnly && plugindomain.HasDomainFromField(field, "filter") {
-			return nil, errors.Newf(
-				"%s: @retrieve indexes generates no matchers, so field %s cannot "+
-					"take @filter",
-				typ.QualifiedName,
-				field.Name,
-			)
-		}
-		m, hasFilter := byField[field.Name]
-		// The service writes the matchers for the filter's bare lines.
-		hasFilter = hasFilter && !indexesOnly
-		hasIndex := plugindomain.HasDomainFromField(field, "index")
-		hasSearch := plugindomain.HasDomainFromField(field, "search")
-		hasRef := plugindomain.HasDomainFromField(field, "ref")
-		if !hasFilter && !hasIndex && !hasSearch && !hasRef {
-			continue
-		}
-		access, ok := matcher.Access(typ, field, table)
-		if !ok {
-			return nil, errors.Newf(
-				"%s: a variant drops field %s, so no index can read it",
-				typ.QualifiedName,
-				field.Name,
-			)
-		}
-		if hasSearch {
-			textType := field.Type
-			if textType.IsTypeParam() && textType.TypeParam.HasDefault() {
-				textType = *textType.TypeParam.Default
-			}
-			if field.Optional || key.ResolvePrimitive(textType, table) != "string" {
-				return nil, errors.Newf(
-					"%s: @search field %s must be a string that is not optional",
-					typ.QualifiedName,
-					field.Name,
-				)
-			}
-			search = append(search, searchInfo{
-				Access:   access,
-				IsString: textType.Name == "string",
-			})
-		}
-		if hasRef {
-			if hasIndex || plugindomain.HasDomainFromField(field, "filter") {
-				return nil, errors.Newf(
-					"%s: @ref field %s has its own index and filter, so it cannot "+
-						"carry @index or @filter",
-					typ.QualifiedName,
-					field.Name,
-				)
-			}
-			info, err := extractRef(typ, field, ownTable, false, rt, table, r, ctx)
-			if err != nil {
-				return nil, err
-			}
-			if info.OnDelete == "Inline" {
-				return nil, errors.Newf(
-					"%s: @ref field %s needs a union variant to hold it to inline",
-					typ.QualifiedName,
-					field.Name,
-				)
-			}
-			// The walk over a union's variants declares the reference, because each
-			// variant holds the base field.
-			if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
-				if info.OnDelete == "Detach" {
-					return nil, errors.Newf(
-						"%s: @ref on_delete detach is not supported on the base fields "+
-							"of a union (%s)",
-						typ.QualifiedName,
-						field.Name,
-					)
-				}
-				// The variant walk names the index after the field, ignoring @go name.
-				info.StructField = naming.LowerFirst(naming.ToPascalCase(field.Name))
-			} else {
-				refs = append(refs, info)
-			}
-			filters = append(filters, filterInfo{
-				FieldName:  field.Name,
-				GoName:     info.GoName,
-				Func:       matcher.RefFunc(info.GoName, info.IsSlice),
-				GoType:     info.ElemGoType,
-				ElemGoType: info.ElemGoType,
-				IsSlice:    info.IsSlice,
-				Ref:        &info,
-			})
-			continue
-		}
-		if !hasFilter && !hasIndex {
-			continue
-		}
-
-		isSlice := field.Type.Name == "Array" && len(field.Type.TypeArgs) == 1
-
-		goType := r.ResolveTypeRef(field.Type, ctx)
-		var elemGoType string
-		if isSlice {
-			elemGoType = r.ResolveTypeRef(field.Type.TypeArgs[0], ctx)
-		}
-		goFieldName := naming.GetFieldName(field)
-
-		// indexField names the index that backs the field's filter. A sub-field index
-		// holds part of the value, so it cannot answer a match on the field.
-		var (
-			indexField   string
-			indexTextual bool
-		)
-		if hasIndex {
-			base := indexInfo{
-				FieldName:   field.Name,
-				GoName:      goFieldName,
-				Access:      access,
-				GoType:      goType,
-				ValueGoType: goType,
-				Kind:        "lookup",
-			}
-			fieldIndexes := []indexInfo{base}
-			if plugindomain.HasExprFromField(field, "index", "sorted") {
-				sorts, err := resolution.Sorts([]resolution.Field{field}, table)
-				if err != nil {
-					return nil, errors.Wrapf(err, "%s", typ.QualifiedName)
-				}
-				fieldIndexes = lo.Map(
-					sorts,
-					func(sort resolution.Sort, _ int) indexInfo {
-						idx := base
-						idx.Kind, idx.Textual = "sorted", sort.Textual
-						idx.FieldName = sort.Name
-						if len(sort.Path) > 1 {
-							leaf := sort.Leaf()
-							idx.GoName += naming.GetFieldName(leaf)
-							idx.Access += "." + naming.GetFieldName(leaf)
-							idx.ValueGoType = r.ResolveTypeRef(leaf.Type, ctx)
-						}
-						idx.GoType = idx.ValueGoType
-						if idx.Textual {
-							idx.GoType = "string"
-						}
-						return idx
-					},
-				)
-			}
-			for _, idx := range fieldIndexes {
-				// camelCase field name on the per-Retrieve indexes struct. Unexported
-				// because the indexes struct itself is unexported.
-				idx.StructField = naming.LowerFirst(idx.GoName)
-				if idx.Access == access {
-					indexField, indexTextual = idx.StructField, idx.Textual
-				}
-				indexes = append(indexes, idx)
-			}
-		}
-
-		if hasFilter {
-			filters = append(filters, filterInfo{
-				FieldName:      field.Name,
-				GoName:         goFieldName,
-				Access:         access,
-				Func:           m.Func,
-				GoType:         goType,
-				ElemGoType:     elemGoType,
-				IsScalar:       m.Kind.Scalar(),
-				IsBool:         key.ResolvePrimitive(field.Type, table) == "bool",
-				IsSlice:        m.Kind == matcher.Element,
-				IndexFieldName: indexField,
-				IndexTextual:   indexTextual,
-			})
-		}
-	}
-
-	walked, err := newRefWalker(table).walk(typ)
+	c, err := newFieldCollector(typ, table, rt, r, ctx, indexesOnly)
 	if err != nil {
 		return nil, err
 	}
-	// The loop above declares the references of a struct's own fields. The walk
-	// declares every reference of a union, its base fields included.
-	if _, ok := typ.Form.(resolution.StructForm); ok {
-		walked = lo.Filter(walked, func(ref *walkedRef, _ int) bool {
-			return strings.Contains(ref.path, ".")
-		})
-	}
-	nested, err := renderNestedRefs(
-		typ, walked, ownTable, keyType, name+anyArgs, rt, table, r, ctx,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(search) > 0 {
-		for _, idx := range indexes {
-			if idx.StructField == "search" {
-				return nil, errors.Newf(
-					"%s: @index field %s collides with the search index",
-					typ.QualifiedName,
-					idx.FieldName,
-				)
-			}
-		}
-		// A union's variant references have no dotted path, so one can be named search.
-		nestedRefs := lo.Map(nested, func(n nestedRef, _ int) refInfo {
-			return n.refInfo
-		})
-		for _, ref := range slices.Concat(refs, nestedRefs) {
-			if ref.StructField == "search" {
-				return nil, errors.Newf(
-					"%s: @ref field %s collides with the search index",
-					typ.QualifiedName,
-					ref.FieldName,
-				)
-			}
-		}
-	}
-
-	noun, ok := resolution.RetrieveNoun(typ)
+	keyType, ok := retrieveKeyType(typ, allFields, r, ctx)
 	if !ok {
-		noun = strings.ToLower(name)
+		return nil, nil
+	}
+	name := naming.GetGoName(typ)
+	anyArgs, typeArgs, typeParams, err := retrieveTypeArgs(typ, indexesOnly)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.collect(allFields, keyType, name+anyArgs); err != nil {
+		return nil, err
 	}
 	info := &retrieveInfo{
-		TableName:   ownTable,
+		TableName:   c.ownTable,
 		Name:        name,
 		AnyArgs:     anyArgs,
 		Params:      typeParams,
 		Args:        typeArgs,
 		GoName:      name + anyArgs,
-		Noun:        noun,
+		Noun:        retrieveNoun(typ, name),
 		KeyType:     keyType,
-		IsCustom:    isCustom,
+		IsCustom:    plugindomain.HasExprFromType(typ, "retrieve", "custom"),
 		IndexesOnly: indexesOnly,
 		Filtered:    isFilterTarget(typ, table),
-		Filters:     filters,
-		Indexes:     indexes,
-		Refs:        refs,
-		NestedRefs:  nested,
-		Search:      search,
+		Filters:     c.filters,
+		Indexes:     c.indexes,
+		Refs:        c.refs,
+		NestedRefs:  c.nested,
+		Search:      c.search,
 	}
 	if indexesOnly && !info.HasIndexes() {
 		return nil, errors.Newf(
@@ -759,6 +488,403 @@ func extractRetrieveInfo(
 		)
 	}
 	return info, nil
+}
+
+func retrieveNoun(typ resolution.Type, name string) string {
+	if noun, ok := resolution.RetrieveNoun(typ); ok {
+		return noun
+	}
+	return strings.ToLower(name)
+}
+
+func newFieldCollector(
+	typ resolution.Type,
+	table *resolution.Table,
+	rt resourceTypes,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+	indexesOnly bool,
+) (*fieldCollector, error) {
+	matchers, err := matcher.List(typ, table)
+	if err != nil {
+		return nil, err
+	}
+	return &fieldCollector{
+		typ:         typ,
+		table:       table,
+		rt:          rt,
+		r:           r,
+		ctx:         ctx,
+		indexesOnly: indexesOnly,
+		ownTable:    plugindomain.GetStringFromType(typ, resourceDomain, "type"),
+		byField: lo.KeyBy(
+			matchers,
+			func(m matcher.Matcher) string { return m.Field.Name },
+		),
+	}, nil
+}
+
+// retrieveKeyType resolves the Go type of the table key. A struct-level
+// `@retrieve key "TypeName"` override wins, for an entry whose GorpKey is computed
+// rather than stored (e.g. channel.Channel). Otherwise the first `@key` field sets it.
+// It returns false when the type has neither.
+func retrieveKeyType(
+	typ resolution.Type,
+	fields []resolution.Field,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+) (string, bool) {
+	if keyRef, ok := resolution.RetrieveKey(typ); ok {
+		return r.ResolveTypeRef(keyRef, ctx), true
+	}
+	for _, f := range fields {
+		if plugindomain.HasDomainFromField(f, "key") {
+			return r.ResolveTypeRef(f.Type, ctx), true
+		}
+	}
+	return "", false
+}
+
+// retrieveTypeArgs returns the type argument lists of a generic retrieved type: any for
+// each parameter, the parameter names, and their declarations. All are empty for a type
+// with no parameters.
+func retrieveTypeArgs(
+	typ resolution.Type,
+	indexesOnly bool,
+) (anyArgs, typeArgs, typeParams string, err error) {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok {
+		return "", "", "", nil
+	}
+	params := resolution.NonDefaultedTypeParams(form.TypeParams)
+	if len(params) == 0 {
+		return "", "", "", nil
+	}
+	if !indexesOnly {
+		return "", "", "", errors.Newf(
+			"%s: a generic @retrieve type needs @retrieve indexes",
+			typ.QualifiedName,
+		)
+	}
+	// The table of a generic type holds records of every type argument.
+	anys := make([]string, len(params))
+	names := make([]string, len(params))
+	decls := make([]string, len(params))
+	for i, tp := range params {
+		anys[i], names[i], decls[i] = "any", tp.Name, tp.Name+" any"
+	}
+	return "[" + strings.Join(anys, ", ") + "]",
+		"[" + strings.Join(names, ", ") + "]",
+		"[" + strings.Join(decls, ", ") + "]",
+		nil
+}
+
+// fieldCollector gathers the @filter, @index, @ref, and @search fields of a retrieved
+// type. It resolves Go types only for fields that generate code, so retrieve.gen.go
+// imports nothing it does not use.
+type fieldCollector struct {
+	typ         resolution.Type
+	table       *resolution.Table
+	rt          resourceTypes
+	r           *resolver.Resolver
+	ctx         *resolver.Context
+	indexesOnly bool
+	ownTable    string
+	byField     map[string]matcher.Matcher
+	nested      []nestedRef
+	filters     []filterInfo
+	indexes     []indexInfo
+	refs        []refInfo
+	search      []searchInfo
+}
+
+// collect gathers the fields of a retrieved type, then the references below them.
+func (c *fieldCollector) collect(
+	fields []resolution.Field,
+	keyType, goName string,
+) error {
+	for _, field := range fields {
+		if err := c.add(field); err != nil {
+			return err
+		}
+	}
+	nested, err := retrieveNestedRefs(
+		c.typ, c.ownTable, keyType, goName, c.rt, c.table, c.r, c.ctx,
+	)
+	if err != nil {
+		return err
+	}
+	c.nested = nested
+	if len(c.search) == 0 {
+		return nil
+	}
+	return checkSearchCollisions(c.typ, c.indexes, c.refs, nested)
+}
+
+func (c *fieldCollector) add(field resolution.Field) error {
+	if c.indexesOnly && plugindomain.HasDomainFromField(field, "filter") {
+		return errors.Newf(
+			"%s: @retrieve indexes generates no matchers, so field %s cannot "+
+				"take @filter",
+			c.typ.QualifiedName,
+			field.Name,
+		)
+	}
+	m, hasFilter := c.byField[field.Name]
+	// The service writes the matchers for the filter's bare lines.
+	hasFilter = hasFilter && !c.indexesOnly
+	hasIndex := plugindomain.HasDomainFromField(field, "index")
+	hasSearch := plugindomain.HasDomainFromField(field, "search")
+	hasRef := plugindomain.HasDomainFromField(field, "ref")
+	if !hasFilter && !hasIndex && !hasSearch && !hasRef {
+		return nil
+	}
+	access, ok := matcher.Access(c.typ, field, c.table)
+	if !ok {
+		return errors.Newf(
+			"%s: a variant drops field %s, so no index can read it",
+			c.typ.QualifiedName,
+			field.Name,
+		)
+	}
+	if hasSearch {
+		if err := c.addSearch(field, access); err != nil {
+			return err
+		}
+	}
+	if hasRef {
+		return c.addRef(field, hasIndex)
+	}
+	if !hasFilter && !hasIndex {
+		return nil
+	}
+	var filter *matcher.Matcher
+	if hasFilter {
+		filter = &m
+	}
+	return c.addFilterOrIndex(field, access, filter, hasIndex)
+}
+
+// addFilterOrIndex adds the indexes of an @index field and the matcher of a field with
+// a non-nil filter.
+func (c *fieldCollector) addFilterOrIndex(
+	field resolution.Field,
+	access string,
+	filter *matcher.Matcher,
+	hasIndex bool,
+) error {
+	goType := c.r.ResolveTypeRef(field.Type, c.ctx)
+	var elemGoType string
+	if field.Type.Name == "Array" && len(field.Type.TypeArgs) == 1 {
+		elemGoType = c.r.ResolveTypeRef(field.Type.TypeArgs[0], c.ctx)
+	}
+	goFieldName := naming.GetFieldName(field)
+	// indexField names the index that backs the field's filter. A sub-field index holds
+	// part of the value, so it cannot answer a match on the field.
+	var (
+		indexField   string
+		indexTextual bool
+	)
+	if hasIndex {
+		var err error
+		indexField, indexTextual, err = c.addIndexes(field, access, goType, goFieldName)
+		if err != nil {
+			return err
+		}
+	}
+	if filter != nil {
+		c.filters = append(c.filters, filterInfo{
+			FieldName:      field.Name,
+			GoName:         goFieldName,
+			Access:         access,
+			Func:           filter.Func,
+			GoType:         goType,
+			ElemGoType:     elemGoType,
+			IsScalar:       filter.Kind.Scalar(),
+			IsBool:         key.ResolvePrimitive(field.Type, c.table) == "bool",
+			IsSlice:        filter.Kind == matcher.Element,
+			IndexFieldName: indexField,
+			IndexTextual:   indexTextual,
+		})
+	}
+	return nil
+}
+
+func (c *fieldCollector) addSearch(field resolution.Field, access string) error {
+	textType := field.Type
+	if textType.IsTypeParam() && textType.TypeParam.HasDefault() {
+		textType = *textType.TypeParam.Default
+	}
+	if field.Optional || key.ResolvePrimitive(textType, c.table) != "string" {
+		return errors.Newf(
+			"%s: @search field %s must be a string that is not optional",
+			c.typ.QualifiedName,
+			field.Name,
+		)
+	}
+	c.search = append(c.search, searchInfo{
+		Access:   access,
+		IsString: textType.Name == "string",
+	})
+	return nil
+}
+
+func (c *fieldCollector) addRef(field resolution.Field, hasIndex bool) error {
+	if hasIndex || plugindomain.HasDomainFromField(field, "filter") {
+		return errors.Newf(
+			"%s: @ref field %s has its own index and filter, so it cannot "+
+				"carry @index or @filter",
+			c.typ.QualifiedName,
+			field.Name,
+		)
+	}
+	info, err := extractRef(c.typ, field, c.ownTable, false, c.rt, c.table, c.r, c.ctx)
+	if err != nil {
+		return err
+	}
+	if info.OnDelete == "Inline" {
+		return errors.Newf(
+			"%s: @ref field %s needs a union variant to hold it to inline",
+			c.typ.QualifiedName,
+			field.Name,
+		)
+	}
+	// The walk over a union's variants declares the reference, because each variant
+	// holds the base field.
+	if _, isUnion := c.typ.Form.(resolution.UnionForm); isUnion {
+		if info.OnDelete == "Detach" {
+			return errors.Newf(
+				"%s: @ref on_delete detach is not supported on the base fields "+
+					"of a union (%s)",
+				c.typ.QualifiedName,
+				field.Name,
+			)
+		}
+		// The variant walk names the index after the field, ignoring @go name.
+		info.StructField = naming.LowerFirst(naming.ToPascalCase(field.Name))
+	} else {
+		c.refs = append(c.refs, info)
+	}
+	c.filters = append(c.filters, filterInfo{
+		FieldName:  field.Name,
+		GoName:     info.GoName,
+		Func:       matcher.RefFunc(info.GoName, info.IsSlice),
+		GoType:     info.ElemGoType,
+		ElemGoType: info.ElemGoType,
+		IsSlice:    info.IsSlice,
+		Ref:        &info,
+	})
+	return nil
+}
+
+// addIndexes adds the indexes of an @index field and returns the struct field and
+// textual flag of the index that reads the whole field, if any.
+func (c *fieldCollector) addIndexes(
+	field resolution.Field,
+	access, goType, goFieldName string,
+) (indexField string, textual bool, err error) {
+	base := indexInfo{
+		FieldName:   field.Name,
+		GoName:      goFieldName,
+		Access:      access,
+		GoType:      goType,
+		ValueGoType: goType,
+		Kind:        "lookup",
+	}
+	fieldIndexes := []indexInfo{base}
+	if plugindomain.HasExprFromField(field, "index", "sorted") {
+		if fieldIndexes, err = c.sortedIndexes(field, base); err != nil {
+			return "", false, err
+		}
+	}
+	for _, idx := range fieldIndexes {
+		// Unexported, because the indexes struct itself is unexported.
+		idx.StructField = naming.LowerFirst(idx.GoName)
+		if idx.Access == access {
+			indexField, textual = idx.StructField, idx.Textual
+		}
+		c.indexes = append(c.indexes, idx)
+	}
+	return indexField, textual, nil
+}
+
+func (c *fieldCollector) sortedIndexes(
+	field resolution.Field,
+	base indexInfo,
+) ([]indexInfo, error) {
+	sorts, err := resolution.Sorts([]resolution.Field{field}, c.table)
+	if err != nil {
+		return nil, errors.Wrapf(err, "%s", c.typ.QualifiedName)
+	}
+	return lo.Map(sorts, func(sort resolution.Sort, _ int) indexInfo {
+		idx := base
+		idx.Kind, idx.Textual = "sorted", sort.Textual
+		idx.FieldName = sort.Name
+		if len(sort.Path) > 1 {
+			leaf := sort.Leaf()
+			idx.GoName += naming.GetFieldName(leaf)
+			idx.Access += "." + naming.GetFieldName(leaf)
+			idx.ValueGoType = c.r.ResolveTypeRef(leaf.Type, c.ctx)
+		}
+		idx.GoType = idx.ValueGoType
+		if idx.Textual {
+			idx.GoType = "string"
+		}
+		return idx
+	}), nil
+}
+
+// retrieveNestedRefs renders the references that the field loop does not declare: those
+// below a struct's top-level fields, and every reference of a union.
+func retrieveNestedRefs(
+	typ resolution.Type,
+	ownTable, keyType, goName string,
+	rt resourceTypes,
+	table *resolution.Table,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+) ([]nestedRef, error) {
+	walked, err := newRefWalker(table).walk(typ)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := typ.Form.(resolution.StructForm); ok {
+		walked = lo.Filter(walked, func(ref *walkedRef, _ int) bool {
+			return strings.Contains(ref.path, ".")
+		})
+	}
+	return renderNestedRefs(typ, walked, ownTable, keyType, goName, rt, table, r, ctx)
+}
+
+// checkSearchCollisions errors when an index or reference takes the name of the search
+// index.
+func checkSearchCollisions(
+	typ resolution.Type,
+	indexes []indexInfo,
+	refs []refInfo,
+	nested []nestedRef,
+) error {
+	for _, idx := range indexes {
+		if idx.StructField == "search" {
+			return errors.Newf(
+				"%s: @index field %s collides with the search index",
+				typ.QualifiedName,
+				idx.FieldName,
+			)
+		}
+	}
+	// A union's variant references have no dotted path, so one can be named search.
+	nestedRefs := lo.Map(nested, func(n nestedRef, _ int) refInfo { return n.refInfo })
+	for _, ref := range slices.Concat(refs, nestedRefs) {
+		if ref.StructField == "search" {
+			return errors.Newf(
+				"%s: @ref field %s collides with the search index",
+				typ.QualifiedName,
+				ref.FieldName,
+			)
+		}
+	}
+	return nil
 }
 
 // isFilterTarget reports whether a filter definition targets typ.

@@ -163,10 +163,8 @@ condition or a flow starts it.
 
 ## Errors while it runs
 
-| Where it runs | When a part of the automation has an error                                                             |
-| ------------- | ------------------------------------------------------------------------------------------------------ |
-| The Core      | Synnax drops the output of that part for the cycle, shows a warning, and keeps running.                |
-| A Driver      | Synnax stops the automation and shows an error. A warning, such as a skipped sample, does not stop it. |
+When a part of the automation has an error, Synnax drops the output of that part for the
+cycle, shows a warning, and keeps running. This is the same on the Core and on a Driver.
 
 To choose where an automation runs, see
 [where an Arc automation runs](/reference/control/arc#where-an-arc-automation-runs).

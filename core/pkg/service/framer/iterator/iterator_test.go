@@ -1367,8 +1367,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				) {
 					GinkgoHelper()
 					start := telem.SecondTS * stamps[0]
-					keys := []channel.Key{index.Key()}
-					series := []telem.Series{telem.NewSeriesSecondsTSV(stamps...)}
+					keys := append(make([]channel.Key, 0, 1+len(channels)), index.Key())
+					series := append(
+						make([]telem.Series, 0, 1+len(channels)),
+						telem.NewSeriesSecondsTSV(stamps...),
+					)
 					for i, ch := range channels {
 						keys = append(keys, ch.Key())
 						series = append(series, telem.NewSeriesV[float32](values[i]...))
@@ -2841,7 +2844,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			})
 			// values returns the samples of every series in m, in order.
 			values := func(m telem.MultiSeries) []float32 {
-				var out []float32
+				out := make([]float32, 0, m.Len())
 				for _, s := range m.Series {
 					out = append(out, s.Unmarshal[float32]()...)
 				}

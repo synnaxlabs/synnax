@@ -9,6 +9,8 @@
 
 package patch
 
+import "fmt"
+
 // Any applies the action at c to a required field that holds any JSON value. Below the
 // field, the action applies to the JSON form of the value.
 func Any(dst *any, c Cursor) error {
@@ -71,7 +73,8 @@ func (c Cursor) action() Action {
 		return Remove{Path: c.path[:len(c.path)-1], Key: c.path[len(c.path)-1]}
 	case kindInsert:
 		return Insert{Path: c.path, Value: c.value, After: c.after}
-	default:
+	case kindMove:
 		return Move{Path: c.path, Key: c.key, After: c.after}
 	}
+	panic(fmt.Sprintf("patch: invalid action kind %d", c.kind))
 }

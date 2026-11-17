@@ -136,7 +136,7 @@ func (n *nodeImpl) runBatch(ctx node.Context, count int64, stamps sampleStamps) 
 	b.stack[compiler.BatchOutParam] = uint64(b.ptr)
 	if err := b.fn.CallWithStack(ctx.Context, b.stack); err != nil {
 		ctx.ReportError(errors.Wrapf(
-			err,
+			trapCause(err),
 			"WASM execution failed in node %s over %d samples",
 			n.ir.Key,
 			count,

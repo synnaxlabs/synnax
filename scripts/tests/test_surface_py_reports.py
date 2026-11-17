@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import argparse
+
 import surface_py_cli
 import surface_py_state
 
@@ -16,21 +18,19 @@ class TestCLIReport:
         lines = surface_py_cli.report().splitlines()
         assert "sy command" in lines
         assert "sy login command" in lines
-        assert any(line.startswith("sy tsconvert input_path {") for line in lines)
         assert not any('"help"' in line for line in lines)
 
-    def test_gives_each_argument_its_position(self) -> None:
-        info = {
-            "hidden": False,
-            "deprecated": False,
-            "params": [
-                {"name": "a", "param_type_name": "argument"},
-                {"name": "flag", "param_type_name": "option"},
-                {"name": "b", "param_type_name": "argument"},
-            ],
-        }
+    def test_reports_whether_a_command_is_required(self) -> None:
+        lines = surface_py_cli.report().splitlines()
+        assert 'sy command {"required": true}' in lines
+
+    def test_gives_each_positional_argument_its_position(self) -> None:
+        parser = argparse.ArgumentParser(prog="sy")
+        parser.add_argument("a")
+        parser.add_argument("--flag")
+        parser.add_argument("b")
         out: list[str] = []
-        surface_py_cli.walk(info, path="sy", out=out)
+        surface_py_cli.walk(parser, path="sy", out=out)
         assert '"position": 0' in out[1]
         assert "position" not in out[2]
         assert '"position": 1' in out[3]

@@ -4237,13 +4237,13 @@ var _ = Describe("Writer Behavior", func() {
 				Specify("Index error across many channels", func(ctx SpecContext) {
 					var (
 						idxKey   = GenerateChannelKey()
-						channels = []cesium.Channel{{
+						channels = append(make([]cesium.Channel, 0, 11), cesium.Channel{
 							Key:      idxKey,
 							Name:     "many idx",
 							DataType: telem.TimestampT,
 							IsIndex:  true,
-						}}
-						keys = []cesium.ChannelKey{idxKey}
+						})
+						keys = append(make([]cesium.ChannelKey, 0, 11), idxKey)
 					)
 					for i := range 10 {
 						k := GenerateChannelKey()
@@ -4262,7 +4262,10 @@ var _ = Describe("Writer Behavior", func() {
 					}))
 					write := func(stamps ...telem.TimeStamp) {
 						GinkgoHelper()
-						series := []telem.Series{telem.NewSeriesV(stamps...)}
+						series := append(
+							make([]telem.Series, 0, len(keys)),
+							telem.NewSeriesV(stamps...),
+						)
 						for range keys[1:] {
 							series = append(
 								series,
@@ -5301,12 +5304,15 @@ var _ = Describe("Writer commit order", func() {
 			db       *cesium.DB
 			indexKey = GenerateChannelKey()
 			dataKeys = make([]cesium.ChannelKey, dataChannelCount)
-			channels = []cesium.Channel{{
-				Key:      indexKey,
-				Name:     "index",
-				IsIndex:  true,
-				DataType: telem.TimestampT,
-			}}
+			channels = append(
+				make([]cesium.Channel, 0, 1+dataChannelCount),
+				cesium.Channel{
+					Key:      indexKey,
+					Name:     "index",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				},
+			)
 			persistCount int
 			readErrs     []error
 		)
@@ -5334,7 +5340,10 @@ var _ = Describe("Writer commit order", func() {
 		keys := append([]cesium.ChannelKey{indexKey}, dataKeys...)
 		for i := range domainCount {
 			start := telem.TimeStamp(i+1) * 10 * telem.SecondTS
-			series := []telem.Series{telem.NewSeriesV(start, start+telem.SecondTS)}
+			series := append(
+				make([]telem.Series, 0, len(keys)),
+				telem.NewSeriesV(start, start+telem.SecondTS),
+			)
 			for range dataKeys {
 				series = append(series, telem.NewSeriesV[int64](1, 2))
 			}

@@ -12,7 +12,6 @@
 
 pub mod commands;
 mod diagnostics;
-pub mod discovery;
 mod launch;
 pub mod probe;
 mod reset;
