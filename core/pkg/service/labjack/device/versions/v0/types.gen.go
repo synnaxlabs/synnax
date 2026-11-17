@@ -444,6 +444,18 @@ func (T4Device) isDeviceVariant() {}
 // schema constraints.
 func (t T4Device) Validate() error {
 	v := validate.New("T4Device")
+	for key := range t.AnalogInput {
+		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
+	}
+	for key := range t.AnalogOutput {
+		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
+	}
+	for key := range t.DigitalInput {
+		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
+	}
+	for key := range t.DigitalOutput {
+		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
 	v.Exec(t.Base.Validate)
 	return v.Error()
 }
@@ -467,6 +479,18 @@ func (T7Device) isDeviceVariant() {}
 // schema constraints.
 func (t T7Device) Validate() error {
 	v := validate.New("T7Device")
+	for key := range t.AnalogInput {
+		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
+	}
+	for key := range t.AnalogOutput {
+		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
+	}
+	for key := range t.DigitalInput {
+		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
+	}
+	for key := range t.DigitalOutput {
+		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
 	v.Exec(t.Base.Validate)
 	return v.Error()
 }
@@ -490,6 +514,18 @@ func (T8Device) isDeviceVariant() {}
 // schema constraints.
 func (t T8Device) Validate() error {
 	v := validate.New("T8Device")
+	for key := range t.AnalogInput {
+		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
+	}
+	for key := range t.AnalogOutput {
+		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
+	}
+	for key := range t.DigitalInput {
+		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
+	}
+	for key := range t.DigitalOutput {
+		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
 	v.Exec(t.Base.Validate)
 	return v.Error()
 }
