@@ -813,21 +813,38 @@ TEST_F(IGHMasterTest, DCTimeReadsTheReferenceClockOnceASlaveAnswers) {
     }
 }
 
-/// @brief it should keep the latest DC time when a frame does not reach the reference
-/// clock.
-TEST_F(IGHMasterTest, DCTimeKeepsTheLatestTimeWhenAFrameMissesTheReferenceClock) {
+/// @brief it should give no DC time for a frame that did not reach the reference clock,
+/// or while IgH has no reference clock during a scan of the bus.
+TEST_F(IGHMasterTest, DCTimeGivesNoneForAFrameWithNoTime) {
     create_dc(this->api->add_slave(), {DC_SYNC});
     ASSERT_NIL(this->scan_and_activate());
     this->api->inputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
-    ASSERT_NIL(this->master.send());
-    ASSERT_NIL(this->master.receive());
-    const auto first = this->master.dc_time();
-    ASSERT_TRUE(first);
-    this->api->reference_clock_result = -EIO;
-    this->api->reference_clock_time = 12345;
-    ASSERT_NIL(this->master.send());
-    ASSERT_NIL(this->master.receive());
-    EXPECT_EQ(this->master.dc_time(), first);
+    for (const int ret: {-EIO, -ENXIO}) {
+        this->api->reference_clock_result = 0;
+        ASSERT_NIL(this->master.send());
+        ASSERT_NIL(this->master.receive());
+        ASSERT_TRUE(this->master.dc_time());
+        this->api->reference_clock_result = ret;
+        ASSERT_NIL(this->master.send());
+        ASSERT_NIL(this->master.receive());
+        EXPECT_FALSE(this->master.dc_time());
+    }
+}
+
+/// @brief it should find the reference clock again on a scan after a failed one, as
+/// the bus can change in between.
+TEST_F(IGHMasterTest, ScanFindsTheReferenceClockAgainAfterAFailedScan) {
+    this->api->add_slave();
+    this->api->add_slave();
+    auto &slaves = this->api->slaves;
+    slaves[0].info.ports[0].receive_time = 1;
+    slaves[1].sii_result = -EIO;
+    ASSERT_OCCURRED_AS_P(this->master.scan(), errors::MASTER_INIT_ERROR);
+    slaves[0].info.ports[0].receive_time = 0;
+    slaves[1].sii_result = 0;
+    create_dc(slaves[1], {DC_SYNC});
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(this->image.reference_clock, 2);
 }
 
 /// @brief it should fail a receive when IgH cannot read the reference clock for a

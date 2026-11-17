@@ -167,8 +167,9 @@ public:
     [[nodiscard]] std::span<const uint16_t> inputless() const override { return {}; }
 
     /// @brief does what master::Master::dc_time does, but returns nullopt when no slave
-    /// runs a DC mode, and until a slave gives a working counter, since IgH aligns the
-    /// slave clocks to the host clock only after activation.
+    /// runs a DC mode, until a slave gives a working counter, since IgH aligns the
+    /// slave clocks to the host clock only after activation, and for a frame that
+    /// carried no time.
     [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {
         return this->latest_dc;
     }

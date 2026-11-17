@@ -63,9 +63,6 @@ const STALE = -2;
 
 const BADGE_CLASS = CSS.BE("ethercat-sync", "badge");
 
-/** The start of the name of a network that the IgH master runs. */
-const IGH_PREFIX = "igh:";
-
 const STALE_ERROR =
   "The device no longer lists this mode, so the network fails to start. Pick a mode.";
 
@@ -378,13 +375,8 @@ export const Configure = ({
   const given = settings?.mode?.opMode ?? null;
   // The Driver writes no startup parameters to a slave that other software sets up.
   const shared = settings?.mode?.shared === true;
-  const network = Form.useFieldValue(path.properties.network, { ctx: form });
   const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
-  // The IgH master runs no DC sync, so it does not run the choice of the catalog.
-  const catalog =
-    given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
-      ? given
-      : null;
+  const catalog = given != null && !isStale(modes, given) ? given : null;
   const { capture } = Analytics.use();
   const stale = choice != null && isStale(modes, choice);
   const index = choice == null ? autoIndex(modes, catalog) : choice.index;

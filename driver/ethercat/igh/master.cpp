@@ -249,6 +249,7 @@ x::errors::Error Master::initialize() {
 
     this->cached_slaves.clear();
     this->cached_slaves.reserve(master_info.slave_count);
+    this->reference_clock.reset();
 
     for (unsigned int i = 0; i < master_info.slave_count; ++i) {
         ec_slave_info_t slave_info;
@@ -733,7 +734,9 @@ x::errors::Error Master::receive() {
                               );
         // A frame that did not reach the reference clock carries no time (EIO), and IgH
         // has no reference clock while it scans the bus (ENXIO).
-        else if (ret != -EIO && ret != -ENXIO)
+        else if (ret == -EIO || ret == -ENXIO)
+            this->latest_dc.reset();
+        else
             return x::errors::Error(
                 errors::CYCLIC_ERROR,
                 "failed to read the reference clock: " + reason(ret)

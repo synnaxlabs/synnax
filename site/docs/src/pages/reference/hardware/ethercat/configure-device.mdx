@@ -339,10 +339,9 @@ start them again.
 
 <Edition.Enterprise>
 
-The IgH master does not run DC sync and reads no sync modes, so **Sync mode** lists
-none. A module that needs DC sync, such as a Dewesoft module set to DC sync, cannot
-reach OP with IgH. A DC sync mode selected during an earlier scan with the built-in
-master fails the start.
+The IgH master reads the sync modes of each module and runs DC sync, as the built-in
+master does. It cannot run a mode whose SYNC1 event comes a part of a SYNC0 cycle after
+SYNC0. The start then fails and names the module.
 
 The Driver uses IgH whenever the IgH kernel module is loaded. To use the built-in master
 instead:
