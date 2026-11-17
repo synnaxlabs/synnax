@@ -251,6 +251,15 @@ var _ = Describe("flakyUnavailable", func() {
 		Expect(post(app, message{Message: "flaky-a", ID: 1}).StatusCode).
 			To(Equal(http.StatusOK))
 	})
+
+	It("Should keep the first-seen state of each server apart", func() {
+		first, second := fiber.New(fiber.Config{}), fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(GinkgoT().Context(), first)).To(Succeed())
+		Expect(ihttp.BindTo(GinkgoT().Context(), second)).To(Succeed())
+		msg := message{Message: "flaky-per-server", ID: 1}
+		Expect(post(first, msg).StatusCode).To(Equal(http.StatusServiceUnavailable))
+		Expect(post(second, msg).StatusCode).To(Equal(http.StatusServiceUnavailable))
+	})
 })
 
 var _ = Describe("emptyResponse", func() {
