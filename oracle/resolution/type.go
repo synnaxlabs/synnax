@@ -497,9 +497,14 @@ func primitiveBase(ref TypeRef, table *Table, visited set.Set[string]) string {
 	return ""
 }
 
-// maxCollectionDepth bounds the walk of Collection, so a cyclic or self-expanding
-// alias or distinct chain ends instead of looping.
-const maxCollectionDepth = 64
+const (
+	// maxCollectionDepth bounds the steps of Collection, so a cyclic alias or distinct
+	// chain ends.
+	maxCollectionDepth = 64
+	// maxCollectionRefSize bounds the references Collection builds, so an alias whose
+	// target grows at each step ends.
+	maxCollectionRefSize = 1024
+)
 
 // Collection returns the builtin collection reference ("Array", "Map", or "record")
 // that ref ultimately resolves to. It follows type-parameter constraints and defaults,
@@ -537,8 +542,24 @@ func Collection(ref TypeRef, table *Table) (TypeRef, bool) {
 		default:
 			return TypeRef{}, false
 		}
+		if refSize(ref, maxCollectionRefSize) > maxCollectionRefSize {
+			return TypeRef{}, false
+		}
 	}
 	return TypeRef{}, false
+}
+
+// refSize counts the references in ref and its type arguments, stopping once the count
+// passes limit.
+func refSize(ref TypeRef, limit int) int {
+	size := 1
+	for _, arg := range ref.TypeArgs {
+		if size > limit {
+			break
+		}
+		size += refSize(arg, limit-size)
+	}
+	return size
 }
 
 // CollectionKind reports the collection kind that ref ultimately resolves to:

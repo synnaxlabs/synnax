@@ -454,6 +454,10 @@ var _ = Describe("Collection", func() {
 			Target:     ref("t.Grow", ref("t.Grow", tpRef)),
 			TypeParams: params,
 		})
+		add("Double", resolution.AliasForm{
+			Target:     ref("t.Double", ref("Map", tpRef, tpRef)),
+			TypeParams: params,
+		})
 	})
 
 	It("Should return the collection with its type arguments applied", func() {
@@ -476,6 +480,11 @@ var _ = Describe("Collection", func() {
 
 	It("Should return false for a self-expanding alias", func() {
 		_, ok := resolution.Collection(ref("t.Grow", ref("string")), table)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should return false for an alias that doubles at each step", func() {
+		_, ok := resolution.Collection(ref("t.Double", ref("string")), table)
 		Expect(ok).To(BeFalse())
 	})
 })
