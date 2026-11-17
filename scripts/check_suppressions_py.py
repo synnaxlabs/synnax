@@ -15,7 +15,9 @@ file-level directive such as `# ruff: noqa` or `# mypy: ignore-errors`, or a cal
 imports from the runtime. Ruff and mypy only flag blanket or unused suppressions. The
 check reads comments and names from tokens and calls from the syntax tree, so a string
 that holds the text is not a finding. Only lines added to tracked files and the lines of
-untracked files count. Generated files are skipped: fix their generator instead.
+untracked files count, and only for a kind whose count in the file the change raises, so
+an edit to a line that already holds one passes. Generated files are skipped: fix their
+generator instead.
 
     uv run --project scripts scripts/check_suppressions_py.py [--base REF]
 """
@@ -27,6 +29,7 @@ import re
 import subprocess
 import sys
 import tokenize
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -57,6 +60,7 @@ _DIFF = [
 class Finding:
     path: str
     line: int
+    kind: str
     message: str
 
 
@@ -101,19 +105,18 @@ def _cast_lines(tree: ast.Module) -> set[int]:
     return lines
 
 
-def check_source(source: str, *, path: str, lines: set[int]) -> list[Finding]:
-    """Returns the suppressions on the given lines of one file."""
-    if _generated(source):
-        return []
+def _findings(source: str, *, path: str, lines: set[int] | None) -> list[Finding]:
+    """Returns the suppressions on the given lines, or on every line for None."""
     tokens = [
         t
         for t in tokenize.generate_tokens(io.StringIO(source).readline)
-        if t.start[0] in lines
+        if lines is None or t.start[0] in lines
     ]
     findings = [
         Finding(
             path=path,
             line=t.start[0],
+            kind="comment",
             message=f"remove the `{m.group(0)}`; fix the type or the code",
         )
         for t in tokens
@@ -123,23 +126,57 @@ def check_source(source: str, *, path: str, lines: set[int]) -> list[Finding]:
         Finding(
             path=path,
             line=t.start[0],
+            kind="TYPE_CHECKING",
             message="remove the `TYPE_CHECKING` guard; import at runtime and break "
             "any import cycle instead",
         )
         for t in tokens
         if t.type == tokenize.NAME and t.string == "TYPE_CHECKING"
     ]
+    casts = _cast_lines(ast.parse(source, filename=path))
     findings += [
-        Finding(path=path, line=n, message="remove the `cast`; narrow the type instead")
-        for n in _cast_lines(ast.parse(source, filename=path)) & lines
+        Finding(
+            path=path,
+            line=n,
+            kind="cast",
+            message="remove the `cast`; narrow the type instead",
+        )
+        for n in (casts if lines is None else casts & lines)
     ]
     return sorted(findings, key=lambda f: f.line)
+
+
+def check_source(
+    source: str, *, path: str, lines: set[int], base: str = ""
+) -> list[Finding]:
+    """Returns the suppressions on the given lines of one file.
+
+    A kind of suppression is reported only when the file has more of it than base, so
+    an edit to a line that already holds one passes.
+    """
+    if _generated(source):
+        return []
+    total = Counter(f.kind for f in _findings(source, path=path, lines=None))
+    before = Counter(f.kind for f in _findings(base, path=path, lines=None))
+    return [
+        f
+        for f in _findings(source, path=path, lines=lines)
+        if total[f.kind] > before[f.kind]
+    ]
 
 
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(
         ["git", *args], cwd=root, check=True, capture_output=True, text=True
     ).stdout
+
+
+def _base(root: Path, base: str, path: str) -> str:
+    """Returns the file at base, or nothing when base lacks it."""
+    shown = subprocess.run(
+        ["git", "show", f"{base}:{path}"], cwd=root, capture_output=True, text=True
+    )
+    return shown.stdout if shown.returncode == 0 else ""
 
 
 def check(base: str, *, root: Path) -> list[Finding]:
@@ -149,8 +186,13 @@ def check(base: str, *, root: Path) -> list[Finding]:
     findings = []
     for path in sorted(added.keys() | set(untracked.splitlines())):
         source = (root / path).read_text(encoding="utf-8")
-        lines = added.get(path, set(range(1, source.count("\n") + 2)))
-        findings.extend(check_source(source, path=path, lines=lines))
+        if path in added:
+            lines = added[path]
+            base_source = _base(root, base, path)
+        else:
+            lines = set(range(1, source.count("\n") + 2))
+            base_source = ""
+        findings.extend(check_source(source, path=path, lines=lines, base=base_source))
     return findings
 
 
