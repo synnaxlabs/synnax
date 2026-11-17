@@ -3680,7 +3680,8 @@ TEST(ArcTests, ReadsItsOwnFirstWrite) {
             std::make_shared<bypass::pipeline::StreamerFactory>(
                 mock_streamer,
                 bus,
-                x::control::Subject{}
+                x::control::Subject{},
+                x::breaker::default_config("arc_test")
             )
         )
     );

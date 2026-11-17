@@ -414,6 +414,7 @@ jobs:
       examples_package: "@synnaxlabs/client-examples"
       package: client
       packed: true
+      runtimes: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
