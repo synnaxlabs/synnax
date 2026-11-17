@@ -196,6 +196,8 @@ type Transport struct {
 	ColorDelete   freighter.UnaryServer[color.DeleteRequest, struct{}]
 	// ColorDispatch applies path actions to a named color.
 	ColorDispatch freighter.UnaryServer[color.DispatchRequest, struct{}]
+	// ColorRetrieveBuiltins returns the shipped values of the built-in named colors.
+	ColorRetrieveBuiltins freighter.UnaryServer[struct{}, color.RetrieveBuiltinsResponse]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -493,6 +495,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ColorRetrieve,
 		t.ColorDelete,
 		t.ColorDispatch,
+		t.ColorRetrieveBuiltins,
 
 		// RACK
 		t.RackCreate,
@@ -751,6 +754,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ColorRetrieve.BindHandler(bind.Read(l.binder, l.Color.Retrieve))
 	t.ColorDelete.BindHandler(bind.Write(l.binder, l.Color.Delete))
 	t.ColorDispatch.BindHandler(bind.Write(l.binder, l.Color.Dispatch))
+	t.ColorRetrieveBuiltins.BindHandler(l.Color.RetrieveBuiltins)
 
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))

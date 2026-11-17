@@ -465,6 +465,9 @@ catalogs:
     fflate:
       specifier: ^0.8.3
       version: 0.8.3
+    fractional-indexing:
+      specifier: 3.2.0
+      version: 3.2.0
     globals:
       specifier: ^17.13.0
       version: 17.13.0
@@ -993,6 +996,9 @@ importers:
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
+      fractional-indexing:
+        specifier: 'catalog:'
+        version: 3.2.0
       pluralize:
         specifier: 'catalog:'
         version: 8.0.0
@@ -6953,6 +6959,10 @@ packages:
 
   fraction.js@5.3.4:
     resolution: {integrity: sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==}
+
+  fractional-indexing@3.2.0:
+    resolution: {integrity: sha512-PcOxmqwYCW7O2ovKRU8OoQQj2yqTfEB/yeTYk4gPid6dN5ODRfU1hXd9tTVZzax/0NkO7AxpHykvZnT1aYp/BQ==}
+    engines: {node: ^14.13.1 || >=16.0.0}
 
   fs-monkey@1.0.3:
     resolution: {integrity: sha512-cybjIfiiE+pTWicSCLFHSrXZ6EilF30oh91FDP9S2B051prEa7QWfrVTQm10/dDpswBDXZugPa1Ogu8Yh+HV0Q==}
@@ -14686,6 +14696,8 @@ snapshots:
       package-manager-detector: 1.9.0
 
   fraction.js@5.3.4: {}
+
+  fractional-indexing@3.2.0: {}
 
   fs-monkey@1.0.3: {}
 
