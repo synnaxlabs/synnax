@@ -73,20 +73,38 @@ for ATTEMPT in 1 2 3; do
     sleep 10
 done
 ID=$(jq -r .id <<< "$SUBMISSION")
-# A second upload would start again at the end of the queue, so a wait that fails or
-# takes too long polls the same submission again.
-for ATTEMPT in 1 2 3; do
-    echo "Notarization wait attempt $ATTEMPT of 3"
-    if RESULT=$(xcrun notarytool wait "$ID" "${NOTARY[@]}" --timeout 6m); then
-        break
+# A second upload would start again at the end of the queue, so the script polls the
+# same submission until the budget ends. A poll that fails, such as on a timeout or a
+# 401, is tried again.
+BUDGET=$((45 * 60))
+START=$(date +%s)
+STATUS=""
+while :; do
+    if INFO=$(xcrun notarytool info "$ID" "${NOTARY[@]}"); then
+        NEXT=$(jq -r .status <<< "$INFO")
+        [ "$NEXT" = "$STATUS" ] || echo "Notarization status: $NEXT"
+        STATUS=$NEXT
+    else
+        echo "Notarization status poll failed: $INFO"
     fi
-    [ "$ATTEMPT" = 3 ] || {
-        echo "$RESULT"
-        sleep 10
-    }
+    [ -z "$STATUS" ] || [ "$STATUS" = "In Progress" ] || break
+    [ $(($(date +%s) - START)) -lt "$BUDGET" ] || break
+    sleep 30
 done
-echo "$RESULT"
-if [ "$(jq -r .status <<< "$RESULT")" != "Accepted" ]; then
-    echo "Notarization of submission $ID did not pass" >&2
-    exit 1
-fi
+MINUTES=$((($(date +%s) - START) / 60))
+case "$STATUS" in
+    Accepted) ;;
+    "")
+        echo "Got no status for submission $ID in $MINUTES min" >&2
+        exit 1
+        ;;
+    "In Progress")
+        echo "Submission $ID still In Progress after $MINUTES min" >&2
+        exit 1
+        ;;
+    *)
+        xcrun notarytool log "$ID" "${NOTARY[@]}" || true
+        echo "Apple marked submission $ID $STATUS" >&2
+        exit 1
+        ;;
+esac
