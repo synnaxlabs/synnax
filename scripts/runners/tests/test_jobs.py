@@ -40,7 +40,7 @@ class Responses(GitHub):
         super().__init__("1", "")
         self.responses = responses
 
-    def get(self, path: str) -> dict:
+    def call(self, path: str, *, method: str = "GET") -> dict:
         return self.responses[path]
 
 
