@@ -74,9 +74,10 @@ jobs:
           BODY: ${{ github.event.comment.body }}
         run: python3 .github/scripts/sedosaur_request.py >> "$GITHUB_OUTPUT"
 
-      # Only a person gets a reply to a skipped request. Agents ask again by design.
-      # No retry through gh_api.sh: a dispatch that fails with a 5xx can still start a
-      # run. When the dispatch is lost, a member can ask again with a comment.
+      # A newer run replaces a queued one, so a request made while a repeat waits is a
+      # repeat too. Only a person gets a reply to a skipped request. Agents ask again by
+      # design. No retry through gh_api.sh: a dispatch that fails with a 5xx can still
+      # start a run. When the dispatch is lost, a member can ask again with a comment.
       - name: Start Review - Sedosaur
         env:
           REPEAT: ${{ steps.request.outputs.repeat }}
@@ -84,6 +85,15 @@ jobs:
             ${{ steps.request.outputs.requested == 'true' &&
             github.event.comment.user.type != 'Bot' }}
         run: |
+          if [ "$REPEAT" != true ]; then
+            waiting=$(gh run list --workflow review.sedosaur.yaml --limit 100 \
+              --json displayTitle,status --jq '[.[] | select(.displayTitle ==
+                "\(env.PR) repeat" and .status != "in_progress" and
+                .status != "completed")] | length')
+            if [ "$waiting" -gt 0 ]; then
+              REPEAT=true
+            fi
+          fi
           gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR" \
             -f comment="$COMMENT" -f repeat="$REPEAT" -f reply="$REPLY"
 

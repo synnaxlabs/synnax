@@ -16,7 +16,9 @@
 # another ref, so a new policy can be tried on old commits before it merges.
 
 name: Review - Sedosaur
-run-name: ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}
+run-name:
+  ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}${{ inputs.repeat && ' repeat'
+  || '' }}
 
 on:
   workflow_dispatch:
@@ -60,13 +62,11 @@ env:
   RUN_URL:
     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-# One review of a pull request at a time, apart from repeats. A newer request replaces a
-# queued one of the same kind, so a plain request never drops a repeat. Replays post
-# nothing, so each runs apart.
+# One review of a pull request at a time. A newer request replaces a queued one, so the
+# relay asks for a repeat while one waits. Replays post nothing, so each runs apart.
 concurrency:
   group:
-    review-sedosaur-${{ inputs.pr }}-${{ inputs.replay && github.run_id || inputs.repeat
-    && 'repeat' || 'live' }}
+    review-sedosaur-${{ inputs.pr }}-${{ inputs.replay && github.run_id || 'live' }}
   cancel-in-progress: false
 
 jobs:
