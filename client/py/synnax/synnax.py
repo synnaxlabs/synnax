@@ -11,6 +11,7 @@
 # them, not when synnax loads. Older versions ignore this list.
 __lazy_modules__ = ["synnax"]
 
+import os
 import threading
 import weakref
 from collections.abc import Callable
@@ -151,8 +152,9 @@ class Synnax(framer.Client):
         api_key: str = "",
     ):
         """Creates a new client. Without a host, the client connects with the
-        credentials that `sy login` saved, or, if it saved none, to the Core of Synnax
-        Desktop on this computer.
+        SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY, SYNNAX_SECURE, and SYNNAX_CA_CERT
+        environment variables, then with the credentials that `sy login` saved, then
+        to the Core of Synnax Desktop on this computer.
 
         :param host: Hostname of a Core in the Synnax cluster.
         :param port: Port of the Core.
@@ -177,6 +179,7 @@ class Synnax(framer.Client):
                 "give either an API key or a username and password, not both"
             )
         opts, embedded = try_load_options_if_none_provided(
+            env=os.environ,
             host=host,
             port=port,
             username=username,

@@ -16,10 +16,33 @@ from keyring.errors import KeyringError
 
 import synnax as sy
 from synnax.cli import connect
-from synnax.config import Cluster, Clusters, File
+from synnax.config import KEYCHAIN_UNAVAILABLE_MSG, Cluster, Clusters, File
+from synnax.exceptions import ConfigurationError
 from synnax.options import Options
 from tests.cli.scripted import Scripted
-from tests.memory_keyring import MemoryKeyring
+from tests.memory_keyring import MemoryKeyring, NoKeychain
+
+
+class WinError(Exception):
+    """Has the shape of pywintypes.error, which only exists on Windows."""
+
+    def __init__(self, winerror: int):
+        super().__init__(winerror, "CredRead", "error")
+        self.winerror = winerror
+
+
+class NoLogonSessionKeyring(MemoryKeyring):
+    """Fails as the Windows backend does in a session with no credential store. 1312
+    is ERROR_NO_SUCH_LOGON_SESSION.
+    """
+
+    def __init__(self, winerror: int = 1312):
+        super().__init__()
+        self._winerror = winerror
+
+    @override
+    def get_password(self, service: str, username: str) -> str | None:
+        raise WinError(self._winerror)
 
 
 class UndeletableKeyring(MemoryKeyring):
@@ -54,6 +77,45 @@ def block_config_writes(clusters: Clusters) -> None:
     path = clusters.internal.config_file
     path.unlink()
     path.mkdir()
+
+
+@pytest.mark.cli
+class TestNoKeychain:
+    def test_get_without_a_saved_login(self, tmp_path: Path) -> None:
+        """Should return None without using the keychain when nothing is saved."""
+        assert Clusters(File(config_dir=tmp_path), NoKeychain()).get() is None
+
+    def test_get_a_saved_login(self, tmp_path: Path) -> None:
+        """Should name the saved Core and point to the environment variables."""
+        config = File(config_dir=tmp_path)
+        Clusters(config, MemoryKeyring()).set(
+            Cluster(options=Options(host="core.lab", port=9090, api_key="syk_k"))
+        )
+        with pytest.raises(ConfigurationError) as e:
+            Clusters(config, NoKeychain()).get()
+        assert str(e.value) == (
+            "Cannot read the login saved for core.lab:9090. " + KEYCHAIN_UNAVAILABLE_MSG
+        )
+
+    def test_set(self, tmp_path: Path) -> None:
+        """Should save nothing, not even to the config file."""
+        clusters = Clusters(File(config_dir=tmp_path), NoKeychain())
+        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
+            clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_k")))
+        assert clusters.internal.get("clusters.default") is None
+
+    def test_windows_session_without_a_credential_store(self, tmp_path: Path) -> None:
+        """Should treat the Windows no-logon-session error as no keychain."""
+        clusters = Clusters(File(config_dir=tmp_path), NoLogonSessionKeyring())
+        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
+            clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_k")))
+
+    def test_other_windows_errors_propagate(self, tmp_path: Path) -> None:
+        """Should leave a Windows error with another code as it is."""
+        clusters = Clusters(File(config_dir=tmp_path), NoLogonSessionKeyring(5))
+        with pytest.raises(WinError) as e:
+            clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_k")))
+        assert e.value.winerror == 5
 
 
 @pytest.mark.cli
@@ -290,3 +352,43 @@ class TestLogin:
         assert saved.options.api_key.startswith("syk_")
         assert sy.auth.api_key_id(saved.options.api_key) not in before
         delete_new_keys(client, before)
+
+    def test_fails_without_a_keychain(
+        self,
+        tmp_path: Path,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should print one line that points to the environment variables, and delete
+        the key it could not save.
+        """
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        user = Scripted(host, port, username, password, "n")
+        assert not connect.login(
+            user.prompt, Clusters(File(config_dir=tmp_path), NoKeychain())
+        )
+        assert user.err.getvalue().strip() == KEYCHAIN_UNAVAILABLE_MSG
+        assert {k.key for k in client.auth.retrieve_keys()} == before
+
+    def test_fails_with_a_saved_login_and_no_keychain(
+        self,
+        tmp_path: Path,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should name the saved Core, point to the environment variables, and make
+        no key.
+        """
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.retrieve_keys()}
+        config = File(config_dir=tmp_path)
+        Clusters(config, MemoryKeyring()).set(
+            Cluster(options=Options(host="core.lab", port=9090, api_key="syk_k"))
+        )
+        user = Scripted(host, port, username, password, "n")
+        assert not connect.login(user.prompt, Clusters(config, NoKeychain()))
+        assert user.err.getvalue().strip() == (
+            "Cannot read the login saved for core.lab:9090. " + KEYCHAIN_UNAVAILABLE_MSG
+        )
+        assert {k.key for k in client.auth.retrieve_keys()} == before

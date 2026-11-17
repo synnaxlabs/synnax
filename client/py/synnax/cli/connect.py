@@ -18,7 +18,7 @@ from synnax import Synnax
 from synnax.auth import api_key_id
 from synnax.cli.prompt import Prompt
 from synnax.config import Cluster, Clusters
-from synnax.exceptions import AuthError
+from synnax.exceptions import AuthError, ConfigurationError
 from synnax.options import Options
 from x.exceptions import Error
 
@@ -67,7 +67,7 @@ def _save_api_key(
                 )
             )
         )
-    except (OSError, KeyringError) as e:
+    except (OSError, KeyringError, ConfigurationError) as e:
         saved = clusters.get()
         if saved is not None and saved.options.api_key == token:
             # The save worked, and only the cleanup of the old password failed.
@@ -123,6 +123,9 @@ def login(prompt: Prompt, clusters: Clusters) -> bool:
         return False
     try:
         _save_api_key(synnax, opts=options, clusters=clusters, prompt=prompt)
+    except ConfigurationError as e:
+        prompt.error(" ".join([str(e), *getattr(e, "__notes__", [])]))
+        return False
     except (OSError, KeyringError, Error) as e:
         notes = getattr(e, "__notes__", [])
         prompt.error(" ".join([f"Cannot save the API key: {e}", *notes]))
