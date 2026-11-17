@@ -49,6 +49,8 @@ type enumCheckData struct {
 	FieldName string
 	// Optional is true for an optional field, which the check reads only when present.
 	Optional bool
+	// MapKey is true for a map keyed by the enum, whose check reads each key.
+	MapKey bool
 }
 
 // goDefaultFills returns the fills for a field's static default. A scalar default
@@ -767,10 +769,15 @@ func numberLiteral(n *validation.Number) string {
 	return strconv.FormatFloat(n.Float, 'g', -1, 64)
 }
 
-// goEnumCheck returns an enum-membership validation for a field whose type is an enum.
-// An optional field is checked only when present.
+// goEnumCheck returns an enum-membership validation for a field whose type is an enum,
+// or for each key of a map keyed by an enum. An optional field is checked only when
+// present.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
-	resolved, _, ok := resolution.Dealias(field.Type, data.table)
+	ref, mapKey := field.Type, false
+	if ref.Name == "Map" && len(ref.TypeArgs) == 2 {
+		ref, mapKey = ref.TypeArgs[0], true
+	}
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return enumCheckData{}, false
 	}
@@ -789,6 +796,7 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 		GoName:    naming.GetFieldName(field),
 		FieldName: field.Name,
 		Optional:  field.Optional,
+		MapKey:    mapKey,
 	}, true
 }
 
