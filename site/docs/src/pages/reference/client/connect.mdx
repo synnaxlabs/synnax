@@ -271,6 +271,9 @@ a value that is not valid, the client raises `sy.ValidationError`.
 
   <Fragment slot="typescript">
 
+`secure` and [`caCert`](#typescript-ca-cert) come as a pair. When you give `caCert`, the
+client does not read `SYNNAX_SECURE`, and `secure` is `true` unless you set it.
+
 To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
 
 ```typescript
