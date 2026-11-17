@@ -27,14 +27,12 @@ var _ = Describe("Transport", func() {
 		DescribeTable(
 			"Should return a validation error when a required field is missing",
 			func(field string, omit func(*transport.LayerConfig)) {
-				errs := api.NewErrorCodec()
 				cfg := transport.LayerConfig{
 					API: apiLayer,
 					Router: MustSucceed(fhttp.NewRouter(
 						GinkgoT().Context(),
-						fhttp.RouterConfig{Errors: errs},
+						fhttp.RouterConfig{Errors: api.NewErrorCodec()},
 					)),
-					Errors: errs,
 				}
 				omit(&cfg)
 				Expect(transport.NewLayer(cfg)).Error().
@@ -46,23 +44,16 @@ var _ = Describe("Transport", func() {
 				"router",
 				func(c *transport.LayerConfig) { c.Router = nil },
 			),
-			Entry(
-				"missing Errors",
-				"errors",
-				func(c *transport.LayerConfig) { c.Errors = nil },
-			),
 		)
 
 		It("Should bind the API layer to both transport protocols", func() {
-			errs := api.NewErrorCodec()
 			router := MustSucceed(fhttp.NewRouter(
 				GinkgoT().Context(),
-				fhttp.RouterConfig{Errors: errs},
+				fhttp.RouterConfig{Errors: api.NewErrorCodec()},
 			))
 			tl := MustSucceed(transport.NewLayer(transport.LayerConfig{
 				API:    apiLayer,
 				Router: router,
-				Errors: errs,
 			}))
 
 			Expect(tl.GRPC).To(HaveLen(14))

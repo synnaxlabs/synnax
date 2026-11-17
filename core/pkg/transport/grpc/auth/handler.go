@@ -414,13 +414,6 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	t.AuthKeyRetrieve = keyRetrieve
 	t.AuthKeyDelete = keyDelete
 	return grpc.CompoundBindableTransport{
-		login,
-		create,
-		renew,
-		retrieve,
-		del,
-		keyCreate,
-		keyRetrieve,
-		keyDelete,
+		login, create, renew, retrieve, del, keyCreate, keyRetrieve, keyDelete,
 	}
 }

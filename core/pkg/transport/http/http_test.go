@@ -73,7 +73,7 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 	router := MustSucceed(
 		fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
 	)
-	thttp.Bind(layer, router, errs)
+	thttp.Bind(layer, router)
 	app := fiber.New()
 	router.BindTo(app)
 	DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
@@ -125,7 +125,7 @@ var _ = Describe("HTTP", func() {
 			router := MustSucceed(
 				fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
 			)
-			thttp.Bind(apiLayer, router, errs)
+			thttp.Bind(apiLayer, router)
 			app = fiber.New()
 			router.BindTo(app)
 		})
@@ -267,7 +267,7 @@ var _ = Describe("HTTP", func() {
 			router := MustSucceed(
 				fhttp.NewRouter(context.Background(), fhttp.RouterConfig{Errors: errs}),
 			)
-			thttp.Bind(layer, router, errs)
+			thttp.Bind(layer, router)
 			app = fiber.New()
 			router.BindTo(app)
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })

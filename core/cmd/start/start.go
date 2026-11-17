@@ -354,7 +354,6 @@ func BootupCore(
 		Instrumentation: cfg.Child("transport"),
 		API:             apiLayer,
 		Router:          r,
-		Errors:          errs,
 	})
 	if !ok(err, nil) {
 		return err

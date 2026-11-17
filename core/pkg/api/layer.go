@@ -61,6 +61,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // LayerConfig is the configuration for opening the API layer.
@@ -324,6 +325,9 @@ type Layer struct {
 	binder       *bind.Service
 	config       config.LayerConfig
 }
+
+// Errors returns the codec that encodes the errors the API sends to clients.
+func (l *Layer) Errors() *errors.Codec { return l.config.Errors }
 
 // BindTo binds the API layer to the provided Transport implementation.
 func (l *Layer) BindTo(t Transport) {
