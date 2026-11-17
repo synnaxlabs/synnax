@@ -9,9 +9,12 @@
 
 #pragma once
 
+#include <atomic>
 #include <memory>
 
 #include "absl/log/log.h"
+
+#include "client/cpp/errors/errors.h"
 
 #include "driver/bypass/bypass.h"
 #include "driver/bypass/pipeline/forwarder.h"
@@ -29,18 +32,23 @@ class Writer final : public ::driver::pipeline::Writer {
     std::shared_ptr<Bus> bus;
     std::shared_ptr<control::States> states;
     synnax::framer::WriterConfig cfg;
+    std::shared_ptr<std::atomic<size_t>> carried_drops;
 
 public:
+    /// @param carried_drops receives the drop count on close when the acquisition
+    /// pipeline reopens after the close error, and 0 otherwise. May be null.
     Writer(
         std::unique_ptr<Forwarder> forwarder,
         std::shared_ptr<Bus> bus,
         std::shared_ptr<control::States> states,
-        synnax::framer::WriterConfig cfg
+        synnax::framer::WriterConfig cfg,
+        std::shared_ptr<std::atomic<size_t>> carried_drops = nullptr
     ):
         forwarder(std::move(forwarder)),
         bus(std::move(bus)),
         states(std::move(states)),
-        cfg(std::move(cfg)) {}
+        cfg(std::move(cfg)),
+        carried_drops(std::move(carried_drops)) {}
 
     /// @brief publishes fr to the bus and queues it for the Core.
     /// @returns the Core error that stopped delivery, if any.
@@ -83,7 +91,16 @@ public:
         return this->forwarder->set_authority(authorities);
     }
 
-    [[nodiscard]] x::errors::Error close() override { return this->forwarder->close(); }
+    [[nodiscard]] x::errors::Error close() override {
+        auto err = this->forwarder->close();
+        if (this->carried_drops != nullptr)
+            this->carried_drops->store(
+                synnax::errors::is_temporarily_unavailable(err)
+                    ? this->forwarder->dropped()
+                    : 0
+            );
+        return err;
+    }
 };
 
 /// @brief a WriterFactory that wraps writers with bus publish capability. It waits for
@@ -97,6 +114,9 @@ class WriterFactory final : public ::driver::pipeline::WriterFactory {
     std::shared_ptr<control::States> states;
     std::uint32_t group;
     ForwarderConfig forwarder;
+    /// @brief the drop count that a reopened writer of the same run starts from.
+    std::shared_ptr<std::atomic<size_t>>
+        carried_drops = std::make_shared<std::atomic<size_t>>(0);
 
 public:
     WriterFactory(
@@ -117,12 +137,14 @@ public:
         auto cfg = config;
         if (this->group != 0 && cfg.subject.group == 0) cfg.subject.group = this->group;
         this->bus->register_channels(cfg.channels);
-        auto forwarder = std::make_unique<Forwarder>(
-            this->server,
-            cfg,
-            this->forwarder
-        );
-        if (auto err = forwarder->opened()) return {nullptr, err};
+        auto forwarder_cfg = this->forwarder;
+        forwarder_cfg.dropped = this->carried_drops->load();
+        auto forwarder = std::make_unique<Forwarder>(this->server, cfg, forwarder_cfg);
+        if (auto err = forwarder->opened()) {
+            if (!synnax::errors::is_temporarily_unavailable(err))
+                this->carried_drops->store(0);
+            return {nullptr, err};
+        }
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
                 << " channels, group=" << this->group;
         return {
@@ -130,7 +152,8 @@ public:
                 std::move(forwarder),
                 this->bus,
                 this->states,
-                cfg
+                cfg,
+                this->carried_drops
             ),
             x::errors::NIL,
         };

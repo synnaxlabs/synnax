@@ -56,6 +56,9 @@ struct ForwarderConfig {
     size_t max_queue_bytes = size_t{64} * 1024 * 1024;
     /// @brief the shortest time between two reports of a new drop count.
     x::telem::TimeSpan drop_report_interval = 5 * x::telem::SECOND;
+    /// @brief the frames that earlier forwarders of the same run dropped. The drop
+    /// count starts from it.
+    size_t dropped = 0;
     /// @brief warns when the queue passes half its cap, until it drains below a
     /// quarter. Once a frame drops, it reports the drop count instead, and leaves the
     /// final count when the forwarder closes. Called from the forwarder thread only.
@@ -94,7 +97,7 @@ class Forwarder {
     std::condition_variable cv;
     std::deque<Op> queue;
     size_t queue_bytes = 0;
-    size_t dropped_frames = 0;
+    size_t dropped_frames;
     bool closing = false;
     x::errors::Error err = x::errors::NIL;
     bool settled = false;
@@ -296,7 +299,8 @@ public:
         max_queue_bytes(cfg.max_queue_bytes),
         drop_report_interval(cfg.drop_report_interval.chrono()),
         warn(cfg.warn),
-        breaker(cfg.breaker) {
+        breaker(cfg.breaker),
+        dropped_frames(cfg.dropped) {
         this->breaker.start();
         this->thread = std::thread([this] { this->run(); });
     }
@@ -365,7 +369,7 @@ public:
         return this->err;
     }
 
-    /// @brief the number of frames dropped since the forwarder opened.
+    /// @brief the number of frames dropped, ForwarderConfig::dropped included.
     [[nodiscard]] size_t dropped() {
         std::lock_guard lock(this->mu);
         return this->dropped_frames;

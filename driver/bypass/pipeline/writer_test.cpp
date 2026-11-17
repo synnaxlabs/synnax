@@ -550,4 +550,52 @@ TEST(WriterTest, SetAuthorityMatchingSizes) {
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2}}));
     ASSERT_NIL(writer->set_authority({.keys = {1, 2}, .authorities = {100, 200}}));
 }
+
+/// @brief it should carry the drop count to the writer that the acquisition pipeline
+/// reopens after a license error, and never clear it while the reopened writer runs.
+TEST(WriterTest, CarriesDropsAcrossAReopen) {
+    constexpr size_t outage_opens = 20;
+    std::vector<x::errors::Error> close_errors(outage_opens, x::errors::NIL);
+    close_errors.push_back(synnax::errors::LICENSE_MISSING);
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>(outage_opens, freighter::UNREACHABLE),
+        close_errors
+    );
+    using Warnings = x::sync::List<std::pair<std::string, std::string>>;
+    const auto warnings = std::make_shared<Warnings>();
+    constexpr size_t frame_size = FRAME_OVERHEAD + SERIES_OVERHEAD + sizeof(float);
+    WriterFactory factory(
+        mock_factory,
+        std::make_shared<Bus>(),
+        std::make_shared<control::States>(),
+        0,
+        {.max_queue_bytes = 2 * frame_size,
+         .warn =
+             [warnings](const std::string &message, const std::string &description) {
+                 warnings->push_back({message, description});
+             },
+         .breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(static_cast<float>(1.0)));
+    auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
+    for (int i = 0; i < 5; i++)
+        ASSERT_NIL(writer->write(frame));
+    ASSERT_EVENTUALLY_EQ(mock_factory->writes->size(), 2);
+    ASSERT_OCCURRED_AS(writer->close(), synnax::errors::LICENSE_MISSING);
+    const std::pair<std::string, std::string> dropped{
+        "Dropped frames",
+        "Dropped 3 frames because the Core could not take them fast enough.",
+    };
+    ASSERT_EQ(warnings->at(warnings->size() - 1), dropped);
+    const auto before = warnings->size();
+    auto reopened = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
+    ASSERT_NIL(reopened->write(frame));
+    ASSERT_EVENTUALLY_EQ(mock_factory->writes->size(), 3);
+    ASSERT_NIL(reopened->close());
+    ASSERT_GT(warnings->size(), before);
+    for (size_t i = before; i < warnings->size(); i++)
+        EXPECT_EQ(warnings->at(i), dropped);
+}
 }
