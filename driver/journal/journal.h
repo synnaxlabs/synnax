@@ -37,6 +37,8 @@ using Magic = std::array<char, 8>;
 constexpr std::uint16_t VERSION = 1;
 /// @brief the byte size of the file start.
 constexpr std::uint64_t HEADER_SIZE = 12;
+/// @brief the byte size of the length, checksum, and type before each payload.
+constexpr std::uint64_t RECORD_PREFIX_SIZE = 9;
 /// @brief the type bit that lets a reader skip a type it does not know.
 constexpr std::uint8_t SKIPPABLE = 0x80;
 /// @brief the largest payload of one record.

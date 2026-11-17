@@ -117,7 +117,7 @@ TEST_F(JournalTest, WritesV1Segment) {
     ASSERT_NIL(writer->write({.type = 0x82, .payload = "skip"}));
     ASSERT_NIL(writer->write({.type = 1, .payload = ""}));
     ASSERT_NIL(writer->write({.type = 3, .payload = std::string("\x00\x01\x02", 3)}));
-    EXPECT_EQ(writer->pos(), 60);
+    EXPECT_EQ(writer->pos(), HEADER_SIZE + 4 * RECORD_PREFIX_SIZE + 12);
     ASSERT_NIL(writer->close());
     EXPECT_EQ(read_file(this->path), read_file(TESTDATA / "v1_segment.bin"));
 }

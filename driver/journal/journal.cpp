@@ -20,9 +20,6 @@
 
 namespace driver::journal {
 namespace {
-/// @brief the byte size of the length, checksum, and type before a payload.
-constexpr std::uint64_t PREFIX_SIZE = 9;
-
 template<std::integral T>
 void put(std::string &buf, const T value) {
     const auto bytes = x::binary::to_little_endian(value);
@@ -208,14 +205,14 @@ bool Reader::zero_after(const std::uint64_t pos) {
 std::pair<std::optional<Record>, x::errors::Error> Reader::next_record() {
     auto &pos = this->cfg.pos;
     if (this->torn_tail || pos == this->size) return {std::nullopt, x::errors::NIL};
-    std::array<char, PREFIX_SIZE> prefix{};
-    if (this->size - pos < PREFIX_SIZE ||
-        !this->file.read(prefix.data(), PREFIX_SIZE)) {
+    std::array<char, RECORD_PREFIX_SIZE> prefix{};
+    if (this->size - pos < RECORD_PREFIX_SIZE ||
+        !this->file.read(prefix.data(), RECORD_PREFIX_SIZE)) {
         this->torn_tail = true;
         return {std::nullopt, x::errors::NIL};
     }
     const auto len = get<std::uint32_t>(prefix.data());
-    const auto end = pos + PREFIX_SIZE + len;
+    const auto end = pos + RECORD_PREFIX_SIZE + len;
     Record record{.type = static_cast<std::uint8_t>(prefix[8])};
     bool valid = end <= this->size && len <= MAX_PAYLOAD;
     if (valid) {
