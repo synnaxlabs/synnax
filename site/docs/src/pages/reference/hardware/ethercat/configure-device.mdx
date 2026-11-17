@@ -135,9 +135,8 @@ yet.
   Driver tries the module again the next time the network starts. If every module with
   inputs or outputs refuses, or a module does not reach OP within 10 seconds, no task on
   the port starts.
-- **DC sync** -> The Driver runs each module in its [sync mode](#set-the-sync-mode).
-  With the built-in master, it starts SYNC0 and SYNC1 of a module in DC sync before the
-  module goes to SAFE-OP.
+- **DC sync** -> The Driver runs each module in its [sync mode](#set-the-sync-mode). It
+  starts SYNC0 and SYNC1 of a module in DC sync before the module goes to SAFE-OP.
 - **Cycle rate** -> The network cycles at the slowest rate that is a multiple of each
   read task's sample rate and at least each write task's execution rate. The rate is
   always between 100 Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the

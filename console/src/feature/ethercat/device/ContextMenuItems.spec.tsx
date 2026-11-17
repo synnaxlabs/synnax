@@ -430,31 +430,6 @@ describe("EtherCAT device ContextMenuItems", () => {
       ).toBeTruthy();
     });
 
-    it("should not run the mode that the catalog gives on an IgH network", async () => {
-      await openConfigure({
-        network: "igh:0",
-        opModes: [SM_MODE, DC_MODE],
-        settings: {
-          device: [],
-          channels: [],
-          mode: {
-            index: 0x8020,
-            subIndex: 9,
-            value: 0,
-            shared: false,
-            opMode: { index: 1, assignActivate: 0x0300, sync0Cycle: 0, sync1Cycle: 0 },
-            switch: [],
-          },
-        },
-      });
-      fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
-      expect(
-        await screen.findByText(
-          "The Driver uses SM sync, because the device lists it. Best for most needs.",
-        ),
-      ).toBeTruthy();
-    });
-
     it.each(MODE_TEXTS)(
       "should describe the clock ticks of a mode with $name",
       async ({ mode, option, help }) => {

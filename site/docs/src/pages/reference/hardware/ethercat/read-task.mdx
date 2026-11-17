@@ -39,11 +39,11 @@ sample rate of each read task, from 100 Hz to 10 kHz. If no such rate exists, fo
 example for read tasks at 3 kHz and 4 kHz, the task does not start. See
 [how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
 
-Each sample has the time of the network cycle that read it. Without IgH, if a module on
-the network has a distributed clock, the Driver measures that time with the distributed
-clock. The timestamps then show when the EtherCAT frame passed the modules, without the
-jitter of the computer clock, and they stay in line with the computer clock. When the
-computer is busy, a cycle can still run late, and its timestamp shows the delay. See
+Each sample has the time of the network cycle that read it. If a module on the network
+has a distributed clock, the Driver measures that time with the distributed clock. The
+timestamps then show when the EtherCAT frame passed the modules, without the jitter of
+the computer clock, and they stay in line with the computer clock. When the computer is
+busy, a cycle can still run late, and its timestamp shows the delay. See
 [timing](/reference/hardware/tasks#timing).
 
 <Divider.Divider x />
