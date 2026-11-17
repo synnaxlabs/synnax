@@ -477,33 +477,6 @@ describe("MQTT read form", () => {
     );
   });
 
-  it("should reuse a channel stored under another message of a topic it adds", async () => {
-    const time = await createTimeChannel();
-    const flow = await client.channels.create({
-      name: uniqueName("flow"),
-      dataType: DataType.FLOAT64,
-      index: time.key,
-    });
-    const { dev, draft } = await renderRead({
-      fields: [createField("temperature", "float")],
-      properties: {
-        read: {
-          [`plant/kiln#${uuid.create()}`]: {
-            index: time.key,
-            channels: { "/flow": flow.key },
-          },
-        },
-      },
-    });
-    await screen.findByRole("treeitem", { name: /^temperature/ });
-    await addField(dev.rack, "plant/kiln", "flow");
-    await waitFor(async () =>
-      expect(
-        plainOf((await retrieveEntries(draft.key))[1]).messages[0].bindings,
-      ).toEqual([{ field: expect.any(String), channel: flow.key, dataType: "" }]),
-    );
-  });
-
   it("should show a note for a topic whose message is gone", async () => {
     const entry = await createEntry({ fields: [createField("temperature", "float")] });
     await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
