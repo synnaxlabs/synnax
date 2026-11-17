@@ -156,11 +156,29 @@ func MergeLive(
 		rendered.Add(name)
 	}
 
+	liveUsed := make(set.Set[string])
+	useLive := func(src ...string) {
+		for _, s := range src {
+			liveUsed.Add(analyzer.Qualifiers(s).Slice()...)
+		}
+	}
+	useLive(lc.fileDomains...)
+	for _, ex := range lc.extras {
+		useLive(ex.typeLines...)
+		useLive(ex.actionBlocks...)
+		for _, lines := range ex.fieldLines {
+			useLive(lines...)
+		}
+		for _, lines := range ex.valueLines {
+			useLive(lines...)
+		}
+	}
 	for _, name := range lc.order {
 		if _, member := surf[name]; member {
 			renderMember(name)
 			continue
 		}
+		useLive(lc.raw[name])
 		parts = append(parts, lc.raw[name])
 	}
 	for _, name := range cur.Order {
@@ -183,7 +201,7 @@ func MergeLive(
 		)
 	}
 	importList, err := liveImportList(
-		lc.imports, referenced, analyzer.UsedNamespaces(bodyAST),
+		lc.imports, referenced, analyzer.UsedNamespaces(bodyAST), liveUsed,
 	)
 	if err != nil {
 		return "", err
@@ -248,36 +266,32 @@ func checkErasedDocs(
 
 // liveImportList returns the sorted imports of a merged live file: each referenced
 // dependency path, plus each import of the existing live file whose namespace the
-// merged file uses and no referenced path takes. It returns an error when two of these
-// imports share a resource namespace, since the live file can import only one.
-func liveImportList(own []string, referenced, used set.Set[string]) ([]string, error) {
+// live-owned text uses, or the merged file uses and no referenced path takes. A live
+// import can share a namespace with another import, and the analyzer then requires each
+// to declare a name that the file uses. It returns an error when two referenced paths
+// share a namespace.
+func liveImportList(
+	own []string, referenced, used, liveUsed set.Set[string],
+) ([]string, error) {
 	byNS := make(map[string]string)
-	add := func(p string) error {
+	for _, p := range slices.Sorted(maps.Keys(referenced)) {
 		ns := resourceOf(p)
-		if existing, ok := byNS[ns]; ok && existing != p {
-			return errors.Newf(
-				"namespace %s is ambiguous between %s and %s",
-				ns, min(existing, p), max(existing, p),
+		if existing, ok := byNS[ns]; ok {
+			return nil, errors.Newf(
+				"namespace %s is ambiguous between %s and %s", ns, existing, p,
 			)
 		}
 		byNS[ns] = p
-		return nil
 	}
-	for _, p := range slices.Sorted(maps.Keys(referenced)) {
-		if err := add(p); err != nil {
-			return nil, err
-		}
-	}
-	taken := set.New(slices.Collect(maps.Keys(byNS))...)
+	imports := referenced.Copy()
 	for _, p := range own {
-		if ns := resourceOf(p); taken.Contains(ns) || !used.Contains(ns) {
-			continue
-		}
-		if err := add(p); err != nil {
-			return nil, err
+		ns := resourceOf(p)
+		_, taken := byNS[ns]
+		if liveUsed.Contains(ns) || (used.Contains(ns) && !taken) {
+			imports.Add(p)
 		}
 	}
-	return slices.Sorted(maps.Values(byNS)), nil
+	return slices.Sorted(maps.Keys(imports)), nil
 }
 
 // importsByVersion maps each version of a chain to the live path of each dependency its
