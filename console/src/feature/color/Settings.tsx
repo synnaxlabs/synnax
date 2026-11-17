@@ -26,8 +26,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color as PColor, Flux, Group } from "@synnaxlabs/pluto";
-import { color as xcolor, uuid } from "@synnaxlabs/x";
-import { generateKeyBetween } from "fractional-indexing";
+import { color as xcolor, type record, uuid } from "@synnaxlabs/x";
+import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import pluralize from "pluralize";
 import {
   createContext,
@@ -281,6 +281,31 @@ Context.displayName = "Color.Settings";
 
 const DRAG_TYPE = "application/x-synnax-color";
 
+/**
+ * Returns the moves that put the dragged color just before the target, given every
+ * color of their palette in order. When no position fits before the target, as when two
+ * colors share one or the target has none, every color takes a new position.
+ */
+const placeBefore = (
+  palette: color.Named[],
+  dragged: color.Key,
+  target: color.Key,
+): PColor.MoveParams[] => {
+  const others = palette.filter((c) => c.key !== dragged);
+  const i = others.findIndex((c) => c.key === target);
+  const next = others[i].position;
+  const prev = i > 0 ? others[i - 1].position : undefined;
+  if (next != null && (prev == null || prev < next))
+    return [{ key: dragged, position: generateKeyBetween(prev ?? null, next) }];
+  const order = others.map((c) => c.key);
+  order.splice(i, 0, dragged);
+  const positions = generateNKeysBetween(null, null, order.length);
+  const current = new Map(palette.map((c) => [c.key, c.position]));
+  return order.flatMap((key, j) =>
+    current.get(key) === positions[j] ? [] : [{ key, position: positions[j] }],
+  );
+};
+
 const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
   const { itemKey } = props;
   const named = List.useItem<color.Key, color.Named>(itemKey);
@@ -378,16 +403,18 @@ const NEW_PREFIX = "new:";
 interface NewColorProps {
   /** The palette of the new color, or an empty string for none. */
   group: string;
-  /** The positions in the palette, in order. */
-  positions: string[];
+  /** Every color in the palette, in order. */
+  colors: color.Named[];
   /** The light value the next new color starts with. */
   light: xcolor.Color;
   onClose: () => void;
 }
 
-interface NewColorFormProps extends Omit<NewColorProps, "positions"> {
-  position: string;
-  onCreated: (position: string) => void;
+interface NewColorFormProps extends Omit<NewColorProps, "colors"> {
+  /** Returns the position of the color that the form creates when it saves. */
+  position: () => string;
+  /** Called with the key of each color that the form creates. */
+  onCreated: (key: record.Key) => void;
 }
 
 interface NewColorNameProps extends Input.Control<string> {
@@ -417,17 +444,18 @@ const NewColorForm = ({
 }: NewColorFormProps): ReactElement => {
   const { form, save, variant } = PColor.useCreateForm({
     query: null,
-    initialValues: { name: "", light, position, ...(group === "" ? {} : { group }) },
-    afterSave: () => onCreated(position),
+    initialValues: { name: "", light, ...(group === "" ? {} : { group }) },
+    beforeValidate: ({ set }) => set(createPath.position, position()),
+    afterSave: ({ value }) => {
+      const { key } = value();
+      if (key != null) onCreated(key);
+    },
   });
   const handleSave = (): void => {
     if (variant !== "loading") save();
   };
   return (
-    <PlatformSettings.CreateProvider
-      close={onClose}
-      created={() => onCreated(position)}
-    >
+    <PlatformSettings.CreateProvider close={onClose} created={onCreated}>
       <Form.Form<typeof PColor.createFormSchema> {...form}>
         <div className={CSS.BE("color-settings", "form")}>
           <span className={CSS.BE("color-settings", "form-check")} />
@@ -472,13 +500,16 @@ const NewColorForm = ({
  * A form at the start of a palette. Each color it creates goes after the one it created
  * before, so the colors keep the order the user typed them in.
  */
-const NewColor = ({ positions, ...rest }: NewColorProps): ReactElement => {
-  const [after, setAfter] = useState<string | null>(null);
-  const next = positions.find((p) => after == null || p > after) ?? null;
-  const position = generateKeyBetween(after, next);
-  return (
-    <NewColorForm key={position} position={position} onCreated={setAfter} {...rest} />
-  );
+const NewColor = ({ colors, ...rest }: NewColorProps): ReactElement => {
+  const [last, setLast] = useState<record.Key | null>(null);
+  const position = (): string => {
+    const after = colors.find((c) => c.key === last)?.position ?? null;
+    const next = colors.find(
+      (c) => c.position != null && (after == null || c.position > after),
+    );
+    return generateKeyBetween(after, next?.position ?? null);
+  };
+  return <NewColorForm key={last} position={position} onCreated={setLast} {...rest} />;
 };
 
 interface NewPaletteProps {
@@ -552,9 +583,10 @@ const ColorsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   const ids = color.resourceID(keys);
   const canUpdate = Access.useUpdateGranted(ids);
   const canDelete = Access.useDeleteGranted(ids);
+  const deletable = colors.filter((c) => !shipped.has(c.key));
   const confirm = Modals.useConfirmDelete({ type: "Color", icon: "Swatches" });
   const { update: remove } = PColor.useDelete({
-    beforeUpdate: async () => await confirm(colors),
+    beforeUpdate: async () => await confirm(deletable),
   });
   const { update: restore } = PColor.useRestore();
   const single = colors.length === 1 ? colors[0] : undefined;
@@ -562,7 +594,6 @@ const ColorsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
     const s = shipped.get(c.key);
     return s != null && edited(c, s) ? [s] : [];
   });
-  const deletable = colors.filter((c) => !shipped.has(c.key));
   return (
     <ContextMenu.Menu>
       {single != null && canUpdate && (
@@ -643,21 +674,13 @@ export const Settings = (): ReactElement => {
       return c == null ? [] : [c];
     })
     .sort(compare);
+  // Every color of each palette, whatever the search shows.
+  const members = Map.groupBy([...all].sort(compare), (c) => c.group ?? "");
   const move = (dragged: color.Key, target: color.Key): void => {
     const d = byKey.get(dragged);
     const t = byKey.get(target);
     if (d == null || t == null || d.group !== t.group) return;
-    const peers = sorted.filter((c) => c.group === t.group && c.key !== dragged);
-    // Colors with a position sort first, so a target with none goes after the last one
-    // that has one.
-    const last = peers.findLast((c) => c.position != null)?.position ?? null;
-    const i = peers.findIndex((c) => c.key === target);
-    const before = i > 0 ? (peers[i - 1].position ?? null) : null;
-    const position =
-      t.position == null
-        ? generateKeyBetween(last, null)
-        : generateKeyBetween(before, t.position);
-    moveColor({ key: dragged, position });
+    moveColor(placeBefore(members.get(t.group ?? "") ?? [], dragged, target));
   };
   const shippedGroups = new Set([...shipped.values()].map((c) => c.group));
   const series = [...shipped.values()]
@@ -703,11 +726,14 @@ export const Settings = (): ReactElement => {
     if (!open) continue;
     if (creating === palette) {
       const key = `${NEW_PREFIX}${palette}`;
-      const unused = series.find((v) => !colors.some((c) => xcolor.equals(c.light, v)));
+      const inPalette = members.get(palette) ?? [];
+      const unused = series.find(
+        (v) => !inPalette.some((c) => xcolor.equals(c.light, v)),
+      );
       news.set(key, {
         group: palette,
-        positions: colors.flatMap((c) => (c.position == null ? [] : [c.position])),
-        light: unused ?? series[colors.length % series.length],
+        colors: inPalette,
+        light: unused ?? series[inPalette.length % series.length],
         onClose: () => setCreating(null),
       });
       data.push(key);
@@ -715,7 +741,7 @@ export const Settings = (): ReactElement => {
     data.push(...colors.map((c) => c.key));
   }
   return (
-    <Context value={{ shipped, palettes, members: byGroup, move }}>
+    <Context value={{ shipped, palettes, members, move }}>
       <PlatformSettings.Table<color.Key, color.Named>
         list={{ ...list, data }}
         columns={COLUMNS}

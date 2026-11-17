@@ -19,6 +19,7 @@ import {
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
+  set,
 } from "@/color/actions.gen";
 import {
   type Key,
@@ -184,6 +185,25 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
       endpoint: "/color/delete",
       payload,
       apply: () => this.store.delete(payload.keys),
+    };
+  }
+
+  /**
+   * Builds a batch entry that sets the position of the named color in its palette. The
+   * entry's cache write moves the cached named color.
+   */
+  setPositionRequest(
+    key: Key,
+    position: string,
+  ): batch.Request<actions.DispatchPayload<Key, Action>> {
+    return {
+      endpoint: "/color/dispatch",
+      payload: { key, actions: [set({ path: ["position"], value: position })] },
+      apply: () => {
+        const prev = this.store.get(key)?.position;
+        query.partialUpdate(this.store, key, { position });
+        return () => query.partialUpdate(this.store, key, { position: prev });
+      },
     };
   }
 

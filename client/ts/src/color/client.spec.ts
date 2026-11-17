@@ -210,6 +210,18 @@ describe("color.Client", () => {
         .toEqual([named.key]);
     });
 
+    it("should set the positions of named colors in one batch", async () => {
+      const [a, b] = await Promise.all([createNamed(), createNamed()]);
+      await client.batch.send([
+        client.colors.setPositionRequest(a.key, "a1"),
+        client.colors.setPositionRequest(b.key, "a0"),
+      ]);
+      expect(expectLive(client.colors.watch(a.key).getCached()).position).toBe("a1");
+      const reader = createTestClient();
+      expect((await reader.colors.retrieve(a.key)).position).toBe("a1");
+      expect((await reader.colors.retrieve(b.key)).position).toBe("a0");
+    });
+
     it("should delete a palette and its named colors in one batch", async () => {
       const palette = await client.groups.create({
         scope: "color",

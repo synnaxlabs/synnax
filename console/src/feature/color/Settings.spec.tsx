@@ -9,7 +9,15 @@
 
 import { color, group, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { color as xcolor } from "@synnaxlabs/x";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -34,13 +42,16 @@ const createPalette = async (): Promise<group.Group> =>
 const createColor = async (
   palette: group.Group,
   position?: string,
+  name: string = uniqueName("color"),
 ): Promise<color.Named> =>
-  await client.colors.create({
-    name: uniqueName("color"),
-    light: "#00FF00",
-    group: palette.key,
-    position,
-  });
+  await client.colors.create({ name, light: "#00FF00", group: palette.key, position });
+
+/** Returns the nth built-in color from the end, which no other spec here edits. */
+const builtinFromEnd = async (n: number): Promise<color.Named> => {
+  const shipped = (await client.colors.retrieveBuiltins()).at(-n);
+  if (shipped == null) throw new Error("the Core ships no named colors");
+  return shipped;
+};
 
 const renderColors = async (as: Synnax = client): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client: as });
@@ -64,10 +75,34 @@ const deleted = async (retrieve: () => Promise<unknown>): Promise<boolean> => {
   }
 };
 
-/** Names the colors in the palette by position, as the Core orders them. */
+const findColor = async (name: string): Promise<HTMLElement> =>
+  await screen.findByRole("option", { name });
+
+/** Drags one color onto another. jsdom has no DataTransfer, so a map stands in. */
+const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
+  const data = new Map<string, string>();
+  const dataTransfer = {
+    effectAllowed: "none",
+    get types() {
+      return [...data.keys()];
+    },
+    setData: (type: string, value: string) => data.set(type, value),
+    getData: (type: string) => data.get(type) ?? "",
+  };
+  fireEvent.dragStart(from, { dataTransfer });
+  fireEvent.dragOver(to, { dataTransfer });
+  fireEvent.drop(to, { dataTransfer });
+};
+
+/** Names the colors in the palette by position, with any that have none last. */
 const namesInOrder = async (palette: group.Group): Promise<string[]> =>
   (await client.colors.retrieve({ groups: [palette.key] }))
-    .sort((a, b) => ((a.position ?? "") < (b.position ?? "") ? -1 : 1))
+    .sort((a, b) => {
+      if (a.position === b.position) return a.name.localeCompare(b.name);
+      if (a.position == null) return 1;
+      if (b.position == null) return -1;
+      return a.position < b.position ? -1 : 1;
+    })
     .map((c) => c.name);
 
 describe("Color.Settings", () => {
@@ -176,5 +211,130 @@ describe("Color.Settings", () => {
       await screen.findByRole("button", { name: "Create a color in Series" }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Create palette" })).toBeNull();
+  });
+
+  it("should move a dragged color before the one it drops on", async () => {
+    const palette = await createPalette();
+    const [a, b, c] = await Promise.all([
+      createColor(palette, "a0"),
+      createColor(palette, "a1"),
+      createColor(palette, "a2"),
+    ]);
+    await renderColors();
+    dragOnto(await findColor(c.name), await findColor(a.name));
+    await expect
+      .poll(async () => await namesInOrder(palette))
+      .toEqual([c.name, a.name, b.name]);
+    expect((await client.colors.retrieve(a.key)).position).toBe("a0");
+  });
+
+  it("should move a color before one that shares a position with another", async () => {
+    const palette = await createPalette();
+    const a = await createColor(palette, "a0", uniqueName("a"));
+    const b = await createColor(palette, "a1", uniqueName("b"));
+    const c = await createColor(palette, "a1", uniqueName("c"));
+    await renderColors();
+    dragOnto(await findColor(a.name), await findColor(c.name));
+    await expect
+      .poll(async () => await namesInOrder(palette))
+      .toEqual([b.name, a.name, c.name]);
+  });
+
+  it("should move a color before one with no position", async () => {
+    const palette = await createPalette();
+    const a = await createColor(palette, "a0", uniqueName("a"));
+    const b = await createColor(palette, undefined, uniqueName("b"));
+    const c = await createColor(palette, undefined, uniqueName("c"));
+    await renderColors();
+    dragOnto(await findColor(a.name), await findColor(c.name));
+    await expect
+      .poll(async () => await namesInOrder(palette))
+      .toEqual([b.name, a.name, c.name]);
+  });
+
+  it("should mark an edited built-in and restore the values Synnax ships", async () => {
+    const shipped = await builtinFromEnd(2);
+    await client.colors.retrieve(shipped.key);
+    await client.colors.dispatch(
+      shipped.key,
+      color.set({ path: ["light"], value: xcolor.construct("#123456") }),
+    );
+    await renderColors();
+    expect(
+      await within(await findColor(shipped.name)).findByText("Edited"),
+    ).toBeTruthy();
+    await openContextMenu(shipped.name);
+    await clickAndSettle("Restore default");
+    await expect
+      .poll(async () => xcolor.hex((await client.colors.retrieve(shipped.key)).light))
+      .toBe(xcolor.hex(shipped.light));
+  });
+
+  it("should leave built-ins out of a delete", async () => {
+    const shipped = await builtinFromEnd(3);
+    const custom = await createColor(await createPalette());
+    await renderColors();
+    for (const name of [custom.name, shipped.name])
+      fireEvent.click(
+        within(await findColor(name)).getByRole("checkbox", { name: "Select" }),
+      );
+    await openContextMenu(custom.name);
+    await clickAndSettle("Delete");
+    expect(
+      await screen.findByText(`Are you sure you want to delete ${custom.name}?`),
+    ).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    });
+    await expect
+      .poll(async () => await deleted(() => client.colors.retrieve(custom.key)))
+      .toBe(true);
+    expect((await client.colors.retrieve(shipped.key)).key).toBe(shipped.key);
+  });
+
+  it("should delete every color of a palette that a search hides", async () => {
+    const palette = await createPalette();
+    const [shown, hidden] = await Promise.all([
+      createColor(palette),
+      createColor(palette),
+    ]);
+    await renderColors();
+    await findColor(hidden.name);
+    fireEvent.change(screen.getByPlaceholderText("Search colors"), {
+      target: { value: shown.name },
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole("option", { name: hidden.name })).toBeNull(),
+    );
+    await openContextMenu(palette.name);
+    await clickAndSettle("Delete");
+    expect(
+      await screen.findByText(
+        "This also deletes its 2 colors. This action cannot be undone.",
+      ),
+    ).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    });
+    await expect
+      .poll(async () => await deleted(() => client.colors.retrieve(hidden.key)))
+      .toBe(true);
+  });
+
+  it("should keep a typed name when another color joins the palette", async () => {
+    const palette = await createPalette();
+    await createColor(palette, "a0");
+    await renderColors();
+    fireEvent.click(
+      await screen.findByRole("button", { name: `Create a color in ${palette.name}` }),
+    );
+    const field = await screen.findByPlaceholderText("Color name");
+    fireEvent.change(field, { target: { value: "Coolant" } });
+    const joined = await createColor(palette, "Zz");
+    await findColor(joined.name);
+    expect(screen.getByPlaceholderText("Color name")).toHaveProperty(
+      "value",
+      "Coolant",
+    );
   });
 });

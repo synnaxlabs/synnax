@@ -189,14 +189,19 @@ describe("queries", () => {
   });
 
   describe("useMove", () => {
-    it("should move a named color to a new place in its palette", async () => {
-      const named = await createNamed();
+    it("should move named colors to new places in their palette", async () => {
+      const [a, b] = await Promise.all([createNamed(), createNamed()]);
       const { result } = renderHook(Color.useMove, { wrapper });
       await act(async () => {
-        await result.current.updateAsync({ key: named.key, position: "a5" });
+        await result.current.updateAsync([
+          { key: a.key, position: "a5" },
+          { key: b.key, position: "a4" },
+        ]);
       });
       expect(result.current.variant).toEqual("success");
-      expect((await createTestClient().colors.retrieve(named.key)).position).toBe("a5");
+      const reader = createTestClient();
+      expect((await reader.colors.retrieve(a.key)).position).toBe("a5");
+      expect((await reader.colors.retrieve(b.key)).position).toBe("a4");
     });
   });
 

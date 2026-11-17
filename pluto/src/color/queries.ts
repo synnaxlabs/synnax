@@ -132,17 +132,14 @@ export interface MoveParams extends Pick<color.Named, "key"> {
   position: string;
 }
 
-/** Moves a named color to a new place in its palette. */
-export const { useUpdate: useMove } = Flux.createUpdate<MoveParams>({
-  name: RESOURCE_NAME,
+/** Moves named colors to new places in their palettes, in one transaction. */
+export const { useUpdate: useMove } = Flux.createUpdate<MoveParams[]>({
+  name: PLURAL_RESOURCE_NAME,
   verbs: verbs.UPDATE,
-  update: async ({ client, data }) => {
-    const { key, position } = data;
-    // A dispatch reaches the Core only for a cached named color.
-    await client.colors.retrieve(key);
-    await client.colors.dispatch(
-      key,
-      color.set({ path: ["position"], value: position }),
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.batch.send(
+      data.map(({ key, position }) => client.colors.setPositionRequest(key, position)),
+      { onOptimistic: async () => await onOptimisticComplete(data) },
     );
     return data;
   },
