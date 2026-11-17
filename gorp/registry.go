@@ -32,6 +32,11 @@ type registeredTable interface {
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
+	// watchesTargets reports whether the table runs a hook when a target of its entries
+	// is set.
+	watchesTargets() bool
+	// targetSet runs the hook of the table for the entry with the text key k.
+	targetSet(ctx context.Context, tx Tx, k string) error
 }
 
 // registeredReference is the part of a Reference that the delete walk reaches.
@@ -40,6 +45,7 @@ type registeredReference interface {
 	referenceName() string
 	index() int
 	onDeletePolicy() OnDelete
+	linkKind() LinkKind
 	targetTables() []string
 	// dependents returns the text keys of the entries that hold target.
 	dependents(ctx context.Context, snap Snapshot, target Target) ([]string, error)
@@ -198,6 +204,49 @@ func (r *registry) dependents(
 		}
 	}
 	return out, nil
+}
+
+// watchers returns the Use references to the table named table whose owner tables
+// watch their targets.
+func (r *registry) watchers(table string) []registeredReference {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []registeredReference
+	for _, ref := range r.referencing[table] {
+		if ref.linkKind() != Use {
+			continue
+		}
+		if t, ok := r.tables[ref.ownerTable()]; ok && t.watchesTargets() {
+			out = append(out, ref)
+		}
+	}
+	return out
+}
+
+// targetSet runs the target hook of each entry that holds target through one of refs,
+// which watchers returns for the table of target.
+func (r *registry) targetSet(
+	ctx context.Context,
+	tx Tx,
+	refs []registeredReference,
+	target Target,
+) error {
+	for _, ref := range refs {
+		owner, err := r.table(ref.ownerTable())
+		if err != nil {
+			return err
+		}
+		keys, err := ref.dependents(ctx, tx, target)
+		if err != nil {
+			return err
+		}
+		for _, k := range keys {
+			if err = owner.targetSet(ctx, tx, k); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // deletePlan is the full effect of deleting a set of entries.
