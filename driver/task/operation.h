@@ -23,6 +23,9 @@
 namespace driver::task {
 /// @brief the message of the step that a stop sends while it cancels a start.
 inline constexpr auto STOPPING_MESSAGE = "Stopping task";
+/// @brief the message of the status that the Core writes for a running task whose
+/// Driver stopped responding.
+inline constexpr auto STOPPED_RESPONDING_MESSAGE = "Task stopped responding";
 
 /// @brief one command that the task manager runs on a task. It sends the steps of the
 /// command, warns when a step runs past its limit, and sends exactly one final status

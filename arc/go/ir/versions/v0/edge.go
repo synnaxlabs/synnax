@@ -29,7 +29,7 @@ func (k EdgeKind) Arrow() string {
 }
 
 // String returns the string representation of the edge. Format: "source.param ->
-// target.param (continuous)" or "source.param => target.param (conditional)"
+// target.param (continuous)" or "source.param => target.param (conditional)".
 func (e Edge) String() string {
 	return fmt.Sprintf("%s %s %s (%s)", e.Source, e.Kind.Arrow(), e.Target, e.Kind)
 }

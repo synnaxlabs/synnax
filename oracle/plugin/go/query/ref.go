@@ -350,6 +350,11 @@ func isZeroDefault(v *resolution.ExpressionValue) bool {
 		return v.StringValue == ""
 	case resolution.ValueKindInt:
 		return v.IntValue == 0
+	case resolution.ValueKindFloat,
+		resolution.ValueKindBool,
+		resolution.ValueKindIdent,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return false
 }

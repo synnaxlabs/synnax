@@ -28,14 +28,14 @@ type Translator[I, O freighter.Payload] interface {
 // A server needs one only for its responses.
 type ForwardTranslator[I, O freighter.Payload] interface {
 	// Forward translates the given input into a transportable output.
-	Forward(context.Context, I) (O, error)
+	Forward(ctx context.Context, in I) (O, error)
 }
 
 // BackwardTranslator translates transportable payloads into application internal
 // ones. A server needs one only for its requests.
 type BackwardTranslator[I, O freighter.Payload] interface {
 	// Backward translates the given output into an application internal input.
-	Backward(context.Context, O) (I, error)
+	Backward(ctx context.Context, out O) (I, error)
 }
 
 // EmptyTranslator is a translator for an empty GRPC request.

@@ -30,6 +30,36 @@ func (e *Edge) Patch(c patch.Cursor) error {
 func (e *Edge) PatchKey() string { return e.Key }
 
 // Patch applies the path action at c, which is not done, to the value.
+func (lc *LabelConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "label":
+		return patch.Value(&lc.Label, c.Next())
+	case "level":
+		return patch.Defaulted(&lc.Level, c.Next(), func(def *LabelConfig) {
+			lc.Level = def.Level
+		})
+	case "orientation":
+		return patch.Defaulted(&lc.Orientation, c.Next(), func(def *LabelConfig) {
+			lc.Orientation = def.Orientation
+		})
+	case "direction":
+		return patch.Defaulted(&lc.Direction, c.Next(), func(def *LabelConfig) {
+			lc.Direction = def.Direction
+		})
+	case "max_inline_size":
+		return patch.Defaulted(&lc.MaxInlineSize, c.Next(), func(def *LabelConfig) {
+			lc.MaxInlineSize = def.MaxInlineSize
+		})
+	case "align":
+		return patch.Defaulted(&lc.Align, c.Next(), func(def *LabelConfig) {
+			lc.Align = def.Align
+		})
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (n *Node) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "config":
@@ -2358,8 +2388,6 @@ func (bnc *ButtonNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&bnc.Size, c.Next(), func(def *ButtonNodeConfig) {
 			bnc.Size = def.Size
 		})
-	case "level":
-		return patch.OptionalValue(&bnc.Level, c.Next())
 	case "on_click_delay":
 		return patch.Value(&bnc.OnClickDelay, c.Next())
 	case "command_channel":
@@ -2433,7 +2461,9 @@ func (gnc *GaugeNodeConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.OptionalValue(&gnc.NumericTelemConfig.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&gnc.NumericTelemConfig.RollingAverage, c.Next())
+		return patch.Defaulted(&gnc.NumericTelemConfig.RollingAverage, c.Next(), func(def *GaugeNodeConfig) {
+			gnc.NumericTelemConfig.RollingAverage = def.NumericTelemConfig.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&gnc.NumericTelemConfig.Precision, c.Next())
 	case "notation":
@@ -2638,8 +2668,8 @@ func (oprnc *OffPageReferenceNodeConfig) Patch(c patch.Cursor) error {
 		}
 		oprnc.Page = &next
 		return nil
-	case "dbl_click_nav_disabled":
-		return patch.Value(&oprnc.DblClickNavDisabled, c.Next())
+	case "double_click_navigation_disabled":
+		return patch.Value(&oprnc.DoubleClickNavigationDisabled, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -2669,8 +2699,8 @@ func (pnc *PolygonNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "rotation":
 		return patch.Value(&pnc.Rotation, c.Next())
-	case "corner_rounding":
-		return patch.Value(&pnc.CornerRounding, c.Next())
+	case "border_radius":
+		return patch.Value(&pnc.BorderRadius, c.Next())
 	case "stroke_color":
 		return patch.OptionalValue(&pnc.StrokeColor, c.Next())
 	case "fill_color":
@@ -2756,7 +2786,9 @@ func (snc *ScaleNodeConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.OptionalValue(&snc.ScaleIndicatorConfig.NumericTelemConfig.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&snc.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage, c.Next())
+		return patch.Defaulted(&snc.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage, c.Next(), func(def *ScaleNodeConfig) {
+			snc.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage = def.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&snc.ScaleIndicatorConfig.NumericTelemConfig.Precision, c.Next())
 	case "notation":
@@ -3029,9 +3061,9 @@ func (tbnc *TextBoxNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "text_color":
 		return patch.OptionalValue(&tbnc.TextColor, c.Next())
-	case "width":
-		return patch.Defaulted(&tbnc.Width, c.Next(), func(def *TextBoxNodeConfig) {
-			tbnc.Width = def.Width
+	case "inline_size":
+		return patch.Defaulted(&tbnc.InlineSize, c.Next(), func(def *TextBoxNodeConfig) {
+			tbnc.InlineSize = def.InlineSize
 		})
 	case "align":
 		return patch.Defaulted(&tbnc.Align, c.Next(), func(def *TextBoxNodeConfig) {
@@ -3069,7 +3101,9 @@ func (vnc *ValueNodeConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.OptionalValue(&vnc.NumericTelemConfig.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&vnc.NumericTelemConfig.RollingAverage, c.Next())
+		return patch.Defaulted(&vnc.NumericTelemConfig.RollingAverage, c.Next(), func(def *ValueNodeConfig) {
+			vnc.NumericTelemConfig.RollingAverage = def.NumericTelemConfig.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&vnc.NumericTelemConfig.Precision, c.Next())
 	case "notation":
@@ -5272,7 +5306,9 @@ func (tnc *TankNodeConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.OptionalValue(&tnc.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&tnc.RollingAverage, c.Next())
+		return patch.Defaulted(&tnc.RollingAverage, c.Next(), func(def *TankNodeConfig) {
+			tnc.RollingAverage = def.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&tnc.Precision, c.Next())
 	case "notation":

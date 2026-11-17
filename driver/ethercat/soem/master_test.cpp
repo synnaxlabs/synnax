@@ -1145,48 +1145,76 @@ TEST_F(SOEMMasterTest, ScanReadsTheCoESerialNumber) {
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave whose CoE identity object has
-/// no serial number.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWithoutACoESerial) {
+/// @brief it should read a serial number of 8 bytes, as IOLITE modules give.
+TEST_F(SOEMMasterTest, ScanReadsAnEightByteCoESerialNumber) {
     auto slave = create_coe_slave(0);
-    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    slave.sdo_objects_64[{0x1018, 4}] = 0x000000DB21014087;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x000000DB21014087);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should give serial number 0 and no serial read error to a slave whose CoE
+/// identity object has no serial number.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWithoutACoESerial) {
+    auto slave = create_coe_slave(0);
     slave.sdo_objects.clear();
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
+}
+
+/// @brief it should give serial number 0 to a slave whose CoE serial number is 0.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheCoESerialIsZero) {
+    this->add_slave(create_coe_slave(0));
+    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0);
+}
+
+/// @brief it should keep the nonzero SII serial number of a slave over its CoE serial
+/// number, as saved devices have the SII serial number as their identity.
+TEST_F(SOEMMasterTest, ScanKeepsANonzeroSIISerialOverTheCoESerial) {
+    auto slave = create_coe_slave(0x5555);
+    slave.eep_ser = 0xABCD;
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
     EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave whose CoE serial number is
-/// 0.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheCoESerialIsZero) {
+/// @brief it should give serial number 0 to a slave whose CoE serial number is too
+/// large for the Core to store exactly.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheCoESerialIsTooLarge) {
     auto slave = create_coe_slave(0);
-    slave.eep_ser = 0xABCD;
+    slave.sdo_objects.clear();
+    slave.sdo_objects_64[{0x1018, 4}] = uint64_t{1} << 53;
     this->add_slave(slave);
-    EXPECT_EQ(ASSERT_NIL_P(this->master->scan())[0].properties.serial, 0xABCD);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave that aborts the read of its
-/// CoE serial number.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveAbortsTheRead) {
+/// @brief it should give serial number 0 and no serial read error to a slave that
+/// aborts the read of its CoE serial number.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheSlaveAbortsTheRead) {
     auto slave = create_coe_slave(0x5555);
-    slave.eep_ser = 0xABCD;
     slave.sdo_read_aborts[{0x1018, 4}] = 0x06010000;
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_EQ(slaves[0].properties.serial, 0);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 
-/// @brief it should keep the SII serial number of a slave that answers the read of its
-/// CoE serial number with a mailbox error.
-TEST_F(SOEMMasterTest, ScanKeepsTheSIISerialWhenTheSlaveGivesAMailboxError) {
+/// @brief it should give serial number 0 and no serial read error to a slave that
+/// answers the read of its CoE serial number with a mailbox error.
+TEST_F(SOEMMasterTest, ScanGivesNoSerialWhenTheSlaveGivesAMailboxError) {
     auto slave = create_coe_slave(0x5555);
-    slave.eep_ser = 0xABCD;
     slave.sdo_read_mailbox_errors.insert({0x1018, 4});
     this->add_slave(slave);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_EQ(slaves[0].properties.serial, 0xABCD);
+    EXPECT_EQ(slaves[0].properties.serial, 0);
     EXPECT_TRUE(slaves[0].status.serial_error.empty());
 }
 

@@ -122,7 +122,7 @@ var _ = Describe("MigrateArc", func() {
 			got := migrateFromV0(ctx, seed)
 			Expect(got.Key).To(Equal(seed.Key))
 			Expect(got.Name).To(Equal(seed.Name))
-			Expect(got.Mode).To(Equal(v3.Mode(seed.Mode)))
+			Expect(got.Mode).To(Equal(seed.Mode))
 			Expect(got.Text.Materialize().Raw).To(Equal(seed.Text.Raw))
 			Expect(got.Graph.Functions).To(HaveLen(1))
 			Expect(got.Graph.Functions[0].Key).To(Equal("scale"))
@@ -231,7 +231,7 @@ var _ = Describe("MigrateArc", func() {
 				got := migrateFromV0(ctx, seed)
 				Expect(got.Key).To(Equal(seed.Key))
 				Expect(got.Name).To(Equal(seed.Name))
-				Expect(got.Mode).To(Equal(v3.Mode(seed.Mode)))
+				Expect(got.Mode).To(Equal(seed.Mode))
 				Expect(got.Program).To(BeNil())
 			},
 		)

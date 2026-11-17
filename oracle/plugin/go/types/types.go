@@ -12,7 +12,6 @@ package types
 import (
 	"bytes"
 	"cmp"
-	"context"
 	"fmt"
 	"math"
 	"slices"
@@ -86,16 +85,16 @@ func (p *Plugin) Requires() []string { return nil }
 // root re-export surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, members, err := versioning.RewriteCurrent(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
 	}
-	preds, err := chainPredecessors(context.Background(), req)
+	preds, err := chainPredecessors(req)
 	if err != nil {
 		return nil, err
 	}
-	orders, err := chainOrders(context.Background(), req)
+	orders, err := chainOrders(req)
 	if err != nil {
 		return nil, err
 	}
@@ -104,13 +103,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		currentPaths.Add(current)
 	}
 	pins, err := versioning.NewPins(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
 	}
 	closure := PersistedClosure(rewritten)
-	embedded, err := allEmbeddedTypes(context.Background(), req, rewritten)
+	embedded, err := allEmbeddedTypes(req, rewritten)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +159,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// frozen packages still need regeneration.
 	if len(pathMap) == 0 {
 		frozen, err := chainFrozenFiles(
-			context.Background(), req, p.Options.FileNamePattern, embedded,
+			req, p.Options.FileNamePattern, embedded,
 		)
 		if err != nil {
 			return nil, err
@@ -239,7 +238,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	resp.Files = append(resp.Files, selectorResp.Files...)
 	frozen, err := chainFrozenFiles(
-		context.Background(), req, p.Options.FileNamePattern, embedded,
+		req, p.Options.FileNamePattern, embedded,
 	)
 	if err != nil {
 		return nil, err
@@ -265,7 +264,7 @@ type predecessor struct {
 // version package instead of being defined at the current one. Sibling plugins
 // (go/marshal) use it to skip emission for aliased types.
 func AliasedTypes(req *plugin.Request) (set.Set[string], error) {
-	preds, err := chainPredecessors(context.Background(), req)
+	preds, err := chainPredecessors(req)
 	if err != nil {
 		return nil, err
 	}
@@ -351,18 +350,18 @@ func latestTable(
 // every chain-covered @go output path to its current version, and members
 // holds every current-surface member's qualified name.
 func Survey(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+	table *resolution.Table, res *versions.Resolver,
 ) (map[string]int, set.Set[string], error) {
-	return versioning.Survey(ctx, table, res)
+	return versioning.Survey(table, res)
 }
 
 // StructurallyEqual reports whether two declarations share a persisted shape,
 // resolving each side's references through its own table. It re-exports the
 // internal schemadiff judgment for the versions gate.
 func StructurallyEqual(
-	old, new resolution.Type, oldTable, newTable *resolution.Table,
+	old, next resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
-	return schemadiff.StructurallyEqual(old, new, oldTable, newTable)
+	return schemadiff.StructurallyEqual(old, next, oldTable, newTable)
 }
 
 // PersistedClosure returns the qualified names of every type reachable from a @go
@@ -709,7 +708,7 @@ func orderDecls(
 
 func processEnum(e resolution.Type) enumData {
 	name := naming.GetGoName(e)
-	form := e.Form.(resolution.EnumForm)
+	form := resolution.MustForm[resolution.EnumForm](e)
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
@@ -771,7 +770,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 }
 
 func processStruct(entry resolution.Type, data *templateData) (structData, error) {
-	form := entry.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](entry)
 	sd := structData{
 		Name:    entry.Name,
 		Doc:     doc.Get(entry.Domains),

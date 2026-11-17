@@ -124,7 +124,7 @@ var _ = Describe("Service", func() {
 
 	Describe("OpenRoles", func() {
 		It("Should open roles with a valid configuration", func(ctx SpecContext) {
-			r := MustSucceed(rbac.OpenRoles(ctx, newRolesConfig(ctx)))
+			r := MustSucceed(rbac.OpenRoles(ctx, newRolesConfig()))
 			Expect(r.Policy).ToNot(BeNil())
 			Expect(r.Role).ToNot(BeNil())
 			Expect(r.Close()).To(Succeed())
@@ -132,7 +132,7 @@ var _ = Describe("Service", func() {
 		DescribeTable(
 			"Should return an error when a required field is missing",
 			func(ctx SpecContext, mutate func(*rbac.RolesConfig), errorMsg string) {
-				cfg := newRolesConfig(ctx)
+				cfg := newRolesConfig()
 				mutate(&cfg)
 				Expect(rbac.OpenRoles(ctx, cfg)).Error().
 					To(MatchError(ContainSubstring(errorMsg)))

@@ -361,14 +361,8 @@ func (e *Engine) stream(ctx context.Context, a *attempt, l *live) (err error) {
 	}
 	var frames <-chan framer.Frame
 	defer func() { l.drop(a.progress, frames) }()
-	for {
-		start := time.Now()
-		if err = e.catchUp(ctx, a, l); err != nil {
-			return err
-		}
-		if time.Since(start) < handoffWindow {
-			break
-		}
+	if err = e.catchUpUntilShort(ctx, a, l); err != nil {
+		return err
 	}
 	frames = l.forward(a.progress)
 	if err = e.catchUp(ctx, a, l); err != nil {
@@ -392,21 +386,41 @@ func (e *Engine) stream(ctx context.Context, a *attempt, l *live) (err error) {
 			if !ok {
 				return a.fallBehind(ctx, l.err())
 			}
-			// Marking every flow first keeps the marks of a frame that fails to send.
-			a.mark(e.flows, fr)
-			for _, f := range e.flows {
-				if err = a.sendLive(ctx, f, fr); err != nil {
-					return err
-				}
-			}
-			if err = e.report(ctx, a.progress); err != nil {
-				return err
-			}
-			if err = a.maybeCheckpoint(ctx); err != nil {
+			if err = e.sendFrame(ctx, a, fr); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+// catchUpUntilShort catches up from storage until a pass takes less than the handoff
+// window.
+func (e *Engine) catchUpUntilShort(ctx context.Context, a *attempt, l *live) error {
+	for {
+		start := time.Now()
+		if err := e.catchUp(ctx, a, l); err != nil {
+			return err
+		}
+		if time.Since(start) < handoffWindow {
+			return nil
+		}
+	}
+}
+
+// sendFrame sends a live frame on every flow, then reports progress and checkpoints
+// when one is due.
+func (e *Engine) sendFrame(ctx context.Context, a *attempt, fr framer.Frame) error {
+	// Marking every flow first keeps the marks of a frame that fails to send.
+	a.mark(e.flows, fr)
+	for _, f := range e.flows {
+		if err := a.sendLive(ctx, f, fr); err != nil {
+			return err
+		}
+	}
+	if err := e.report(ctx, a.progress); err != nil {
+		return err
+	}
+	return a.maybeCheckpoint(ctx)
 }
 
 func (e *Engine) positions(from Positions, start telem.TimeStamp) Positions {
@@ -519,24 +533,7 @@ func (e *Engine) retry(
 	for {
 		id, _, err := e.ingestionConfig(ctx)
 		if err == nil {
-			a := &attempt{
-				engine: e,
-				sender: sender{
-					client:  e.ingest,
-					ctx:     ctx,
-					timeout: e.cfg.ConfirmTimeout.Duration(),
-					stopTimeout: min(
-						e.cfg.ConfirmTimeout.Duration(),
-						e.cfg.StopTimeout.Duration(),
-					),
-				},
-				progress: p,
-				configID: id,
-				sent:     maps.Clone(p.confirmed),
-				values:   maps.Clone(p.confirmedValues),
-				ends:     make(map[channel.Key]telem.Alignment),
-				last:     time.Now(),
-			}
+			a := e.newAttempt(ctx, p, id)
 			confirms := e.confirms
 			err = run(ctx, a)
 			if err != nil && ctx.Err() != nil {
@@ -571,6 +568,29 @@ func (e *Engine) retry(
 			}
 			return err
 		}
+	}
+}
+
+// newAttempt returns an attempt that sends with the ingestion config id, starting
+// from p.
+func (e *Engine) newAttempt(ctx context.Context, p *progress, id string) *attempt {
+	return &attempt{
+		engine: e,
+		sender: sender{
+			client:  e.ingest,
+			ctx:     ctx,
+			timeout: e.cfg.ConfirmTimeout.Duration(),
+			stopTimeout: min(
+				e.cfg.ConfirmTimeout.Duration(),
+				e.cfg.StopTimeout.Duration(),
+			),
+		},
+		progress: p,
+		configID: id,
+		sent:     maps.Clone(p.confirmed),
+		values:   maps.Clone(p.confirmedValues),
+		ends:     make(map[channel.Key]telem.Alignment),
+		last:     time.Now(),
 	}
 }
 
@@ -1119,19 +1139,26 @@ func (l *live) close() error {
 	return err
 }
 
+// closeStale closes a streamer that closed on its own. It reports whether a streamer
+// is still open.
+func (l *live) closeStale() (open bool, err error) {
+	if l.shutdown == nil {
+		return false, nil
+	}
+	l.mu.Lock()
+	closed := l.closed
+	l.mu.Unlock()
+	if !closed {
+		return true, nil
+	}
+	return false, l.close()
+}
+
 // open opens a streamer on the channels of every flow, unless one is open. It replaces
 // a streamer that closed.
 func (l *live) open(ctx context.Context) error {
-	if l.shutdown != nil {
-		l.mu.Lock()
-		closed := l.closed
-		l.mu.Unlock()
-		if !closed {
-			return nil
-		}
-		if err := l.close(); err != nil {
-			return err
-		}
+	if open, err := l.closeStale(); open || err != nil {
+		return err
 	}
 	e := l.engine
 	keys := make(channel.Keys, 0)

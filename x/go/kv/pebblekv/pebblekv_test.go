@@ -179,7 +179,9 @@ var _ = Describe("PebbleKV", func() {
 		})
 
 		It("Should report engine info", func() {
-			report := db.(alamos.ReportProvider).Report()
+			provider, ok := db.(alamos.ReportProvider)
+			Expect(ok).To(BeTrue())
+			report := provider.Report()
 			Expect(report["engine"]).To(Equal("pebble"))
 		})
 

@@ -60,6 +60,13 @@ class TestTimeStamp:
         now = sy.TimeStamp.now() + sy.TimeSpan.SECOND
         assert now.datetime() > datetime.now().astimezone()
 
+    def test_now_nanosecond_precision(self) -> None:
+        """Should read the system clock without truncating it to microseconds"""
+        before = time.time_ns()
+        now = sy.TimeStamp.now()
+        after = time.time_ns()
+        assert before <= now <= after
+
     @pytest.mark.parametrize(
         ("crude", "expected"),
         [

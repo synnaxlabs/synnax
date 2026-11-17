@@ -417,7 +417,7 @@ func (s *scanner) listen(
 	duration time.Duration,
 	handle func(paho.Message) (stop bool),
 ) error {
-	_, _, cfg, err := s.browseConfig(ctx, key)
+	_, cfg, err := s.browseConfig(ctx, key)
 	if err != nil {
 		return err
 	}

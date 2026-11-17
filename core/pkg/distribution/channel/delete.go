@@ -18,6 +18,6 @@ import (
 // Delete deletes the storage channels for the provided keys. Free channels have no
 // storage registration and are skipped. It does not touch channel metadata.
 func (s *Service) Delete(ctx context.Context, keys Keys) error {
-	stored := Keys(lo.Reject(keys, func(key Key, _ int) bool { return key.Free() }))
+	stored := lo.Reject(keys, func(key Key, _ int) bool { return key.Free() })
 	return s.cfg.TS.DeleteChannels(stored.Storage())
 }

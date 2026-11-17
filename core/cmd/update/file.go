@@ -211,7 +211,7 @@ func (c current) apply(
 			to,
 			c.version,
 		)
-	default:
+	case storage.UpdateNotStarted, storage.UpdatePending:
 		return errors.Newf(
 			"Core %s did not finish the update within %s. Check the Core log. If the "+
 				"Core undoes the update, run `synnax update undo` to put back Core %s.",
@@ -219,6 +219,8 @@ func (c current) apply(
 			timeout,
 			c.version,
 		)
+	default:
+		return errors.Newf("unknown update state %d", state)
 	}
 }
 

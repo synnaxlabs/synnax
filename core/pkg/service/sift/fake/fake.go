@@ -89,6 +89,8 @@ type Server struct {
 	runsHeld  chan struct{}
 	runFails  []error
 	updFails  []error
+	runReject error
+	updReject error
 	cfgFails  []error
 }
 
@@ -221,6 +223,22 @@ func (s *Server) FailRunUpdates(errs ...error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.updFails = append(s.updFails, errs...)
+}
+
+// RejectRuns makes every call to CreateAdhocRun return err, until a call with nil. The
+// errors of FailRuns return first.
+func (s *Server) RejectRuns(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.runReject = err
+}
+
+// RejectRunUpdates makes every call to UpdateRun return err, until a call with nil.
+// The errors of FailRunUpdates return first.
+func (s *Server) RejectRunUpdates(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.updReject = err
 }
 
 // FailConfigs makes each of the next calls to CreateIngestionConfig return one of
@@ -432,7 +450,7 @@ func (s *Server) IngestWithConfigDataStream(
 			return err
 		}
 		req, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -592,6 +610,9 @@ func (s *Server) CreateAdhocRun(
 		s.runFails = s.runFails[1:]
 		return nil, err
 	}
+	if s.runReject != nil {
+		return nil, s.runReject
+	}
 	if err := checkRun(req.Name, req.StartTime, req.StopTime); err != nil {
 		return nil, err
 	}
@@ -661,6 +682,9 @@ func (s *Server) UpdateRun(
 		err := s.updFails[0]
 		s.updFails = s.updFails[1:]
 		return nil, err
+	}
+	if s.updReject != nil {
+		return nil, s.updReject
 	}
 	if req.Run == nil || req.UpdateMask == nil {
 		return nil, status.Error(
