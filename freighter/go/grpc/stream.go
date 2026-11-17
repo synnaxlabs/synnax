@@ -360,10 +360,10 @@ func translateGRPCError(codec *errors.Codec, err error) error {
 		return io.EOF
 	}
 	s := status.Convert(err)
-	switch s.Code() {
-	case codes.Canceled:
+	if s.Code() == codes.Canceled {
 		return context.Canceled
-	case codes.DeadlineExceeded:
+	}
+	if s.Code() == codes.DeadlineExceeded {
 		return context.DeadlineExceeded
 	}
 	if decoded := codec.Decode(errors.ParsePayload(s.Message())); decoded != nil {
