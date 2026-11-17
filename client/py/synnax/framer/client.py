@@ -10,8 +10,6 @@
 from collections.abc import Mapping, Sequence
 from typing import TypeAlias, cast, overload
 
-import pandas as pd
-
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
 from freighter import (
@@ -24,7 +22,7 @@ from synnax.channel.retrieve import Retriever
 from synnax.exceptions import ValidationError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
-from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K, is_dataframe
 from synnax.framer.iterator import AUTO_SPAN, Iterator
 from synnax.framer.reader import Reader
 from synnax.framer.streamer import DEFAULT_KEEP_ALIVE, AsyncStreamer, Streamer
@@ -237,7 +235,7 @@ class Client:
             parsed_channels = cast(channel.Params, channels.channels)
         elif isinstance(channels, FramePayload):
             parsed_channels = channels.keys
-        elif isinstance(channels, pd.DataFrame):
+        elif is_dataframe(channels):
             parsed_channels = list(channels.columns)
         else:
             parsed_channels = channels
@@ -249,7 +247,9 @@ class Client:
             err_on_unauthorized=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
-            if isinstance(channels, (Mapping, Frame, FramePayload, pd.DataFrame)):
+            if isinstance(channels, (Mapping, Frame, FramePayload)) or is_dataframe(
+                channels
+            ):
                 w.write(channels)
             elif series is None:
                 raise ValidationError(f"No series provided for channels {channels}")

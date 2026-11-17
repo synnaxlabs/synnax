@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import operator
+import subprocess
+import sys
 import uuid
 from collections.abc import Callable
 from datetime import timedelta, timezone
@@ -1362,3 +1364,22 @@ class TestSeriesProperties:
         s = telem.Series(np.array(values, dtype="datetime64[ns]"))
         assert s.data_type == telem.DataType.TIMESTAMP
         assert np.asarray(s).tolist() == values
+
+
+@pytest.mark.skipif(sys.version_info < (3, 15), reason="lazy imports need Python 3.15")
+class TestPandasLoading:
+    def test_series_without_pandas(self) -> None:
+        """Should build series and timestamps without loading pandas."""
+        script = (
+            "import sys\n"
+            "from x import telem\n"
+            "telem.Series([1.0, 2.0])\n"
+            "telem.Series(__import__('numpy').array([1, 2]))\n"
+            "telem.TimeStamp.now() + telem.TimeSpan.from_seconds(1)\n"
+            "print('pandas' in sys.modules)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
