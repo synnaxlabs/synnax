@@ -44,7 +44,8 @@ inline x::errors::Error err_from_status(const ::grpc::Status &status) {
 /// @param ca_cert the path to the PEM file. When empty, the credentials use the file
 /// named by GRPC_DEFAULT_SSL_ROOTS_FILE_PATH, or the system trust store when that is
 /// unset.
-/// @returns the credentials, or an error when the file at ca_cert cannot be read.
+/// @returns the credentials, or an error when the file at ca_cert cannot be read or
+/// holds no certificates.
 inline std::pair<std::shared_ptr<::grpc::ChannelCredentials>, x::errors::Error>
 ssl_credentials(const std::string &ca_cert) {
     // Both files go in as explicit roots, because gRPC allows a leaf certificate as
@@ -53,6 +54,15 @@ ssl_credentials(const std::string &ca_cert) {
     if (!ca_cert.empty()) {
         auto [roots, err] = x::fs::read_file(ca_cert);
         if (err) return {nullptr, err};
+        // gRPC reads empty roots as the system trust store.
+        if (roots.find_first_not_of(" \t\r\n") == std::string::npos)
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "the CA certificate file " + ca_cert + " is empty"
+                )
+            };
         opts.pem_root_certs = std::move(roots);
     } else if (
         const char *path = std::getenv(priv::ROOTS_FILE_ENV.c_str()); path != nullptr

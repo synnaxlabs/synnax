@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <filesystem>
+#include <fstream>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -149,6 +154,22 @@ TEST(testTLS, missingCACertIsError) {
         ssl_credentials("freighter/cpp/grpc/testutil/missing.pem"),
         x::fs::NOT_FOUND
     );
+}
+
+/// @brief a CA file with no certificates is an error, not the system trust store.
+TEST(testTLS, emptyCACertIsError) {
+    const auto dir = std::filesystem::temp_directory_path();
+    for (const auto &[name, contents]: std::vector<std::pair<std::string, std::string>>{
+             {"empty.pem", ""},
+             {"blank.pem", " \n\t\r\n"},
+         }) {
+        const auto path = (dir / name).string();
+        std::ofstream(path) << contents;
+        const auto [creds, err] = ssl_credentials(path);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        EXPECT_NE(err.data.find(path), std::string::npos);
+        EXPECT_EQ(creds, nullptr);
+    }
 }
 
 /// @brief a pool built from an error fails unary calls and streams with it.
