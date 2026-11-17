@@ -590,21 +590,27 @@ void Engine::run() {
         this->write_outputs(false);
         send();
     }
+    const auto take_in_flight = [&] {
+        const auto deadline = this->config.host_clock.now() + LAST_FRAME_TIMEOUT;
+        x::errors::Error err;
+        while (!in_flight.empty()) {
+            err = this->master->receive();
+            if (!err.matches(errors::FRAME_IN_FLIGHT))
+                in_flight.erase(in_flight.begin());
+            else if (this->config.host_clock.now() < deadline)
+                this->config.host_clock.sleep(LAST_FRAME_POLL);
+            else
+                break;
+        }
+        return err;
+    };
+    // A master that keeps no frames in flight takes the frames of all its sends at
+    // once.
+    take_in_flight();
     // Sends the stop values of the last writer to close before the slaves leave OP.
     this->write_outputs(true);
     send();
-    // Takes each frame in flight, so the last receive is of the stop values.
-    const auto deadline = this->config.host_clock.now() + LAST_FRAME_TIMEOUT;
-    x::errors::Error last_err;
-    while (!in_flight.empty()) {
-        last_err = this->master->receive();
-        if (!last_err.matches(errors::FRAME_IN_FLIGHT))
-            in_flight.erase(in_flight.begin());
-        else if (this->config.host_clock.now() < deadline)
-            this->config.host_clock.sleep(LAST_FRAME_POLL);
-        else
-            break;
-    }
+    const auto last_err = take_in_flight();
     if (last_err && !shortfall(last_err))
         LOG(WARNING) << "[ethercat] last cycle failed on " << this->iface << ": "
                      << last_err.message();
