@@ -31,7 +31,8 @@ const std::string STATE_FILE = "persisted-state.json";
 
 std::string get_persisted_state_path(x::args::Parser &parser) {
     auto p_path = parser.field<std::string>("--state-file", "");
-    if (!p_path.empty()) return p_path;
+    // A bare file name has no parent directory to open.
+    if (!p_path.empty()) return fs::absolute(p_path).string();
     auto dir = state::user_dir();
     if (dir.empty() || parser.flag(MACHINE_STATE_FLAG)) dir = state::machine_dir();
     return (dir / STATE_FILE).string();
@@ -104,16 +105,34 @@ x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
 
 std::pair<std::shared_ptr<x::kv::KV>, x::errors::Error>
 open_kv(x::args::Parser &parser) {
-    if (auto err = rack::Config::secure_persisted_state(parser)) return {nullptr, err};
+    const auto path = get_persisted_state_path(parser);
+    if (auto err = state::prepare(path)) return {nullptr, err};
+    const auto dir = fs::path(path).parent_path();
+    std::error_code dir_ec;
+    std::error_code file_ec;
+    const bool dir_existed = fs::exists(dir, dir_ec);
+    const bool file_existed = fs::exists(path, file_ec);
+    if (dir_ec || file_ec)
+        return {
+            nullptr,
+            x::errors::Error(
+                STATE_ERROR,
+                "failed to find state file: " + (dir_ec ? dir_ec : file_ec).message()
+            )
+        };
     auto [kv, err] = x::kv::JSONFile::open_file(
         x::kv::JSONFileConfig{
-            .path = get_persisted_state_path(parser),
+            .path = path,
             .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
             .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
         }
     );
-    if (!err) err = rack::Config::secure_persisted_state(parser);
-    return {kv, err};
+    if (err) return {kv, err};
+    // State that this run created is not the operator's, so root gives it to the Linux
+    // service user, as login does. An existing directory keeps its mode and owner.
+    if (parser.field<std::string>("--state-file", "").empty() && !file_existed)
+        if (auto sec_err = state::secure(path, !dir_existed)) return {nullptr, sec_err};
+    return {kv, x::errors::NIL};
 }
 
 x::errors::Error rack::Config::load_persisted_state(x::args::Parser &args) {
