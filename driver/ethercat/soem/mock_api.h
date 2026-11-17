@@ -164,6 +164,11 @@ public:
     std::set<uint16_t> silent_slaves;
     /// @brief what al_status returns for each slave.
     std::map<uint16_t, uint16_t> al_statuses;
+    /// @brief the process data sends in flight, oldest first, with the DC time that
+    /// each carries when host_dc_offset is set.
+    std::deque<std::optional<int64_t>> processdata_in_flight;
+    /// @brief the number of drop_processdata calls.
+    int drop_count = 0;
     /// @brief guards the slave states that readstate writes and that a cycle thread
     /// reads in receive_processdata.
     std::mutex state_mu;
@@ -236,8 +241,8 @@ public:
     /// @brief the host clock that the reference clock of host_dc_offset and
     /// latch_receive_times run on.
     x::loop::HostClock clock;
-    /// @brief when set, each send_processdata sets the DC time to the clock time plus
-    /// this, in nanoseconds, like a reference clock that runs on.
+    /// @brief when set, each frame carries the clock time of its send plus this, in
+    /// nanoseconds, like a reference clock that runs on. Its receive sets the DC time.
     std::optional<int64_t> host_dc_offset;
     /// @brief the number of latch_receive_times calls.
     int latch_count = 0;
@@ -359,10 +364,14 @@ public:
     }
 
     int send_processdata(uint8_t group) override {
-        if (this->host_dc_offset) this->context.DCtime = now() + *this->host_dc_offset;
         this->send_count++;
         this->send_states.push_back(this->read_state.load());
         this->processdata_groups.push_back(group);
+        if (this->send_return > 0)
+            this->processdata_in_flight.push_back(
+                this->host_dc_offset ? std::optional(now() + *this->host_dc_offset)
+                                     : std::nullopt
+            );
         return this->send_return;
     }
 
@@ -373,14 +382,24 @@ public:
         this->processdata_groups.push_back(group);
         std::lock_guard lock(this->state_mu);
         this->al_statuses.clear();
+        if (this->processdata_in_flight.empty()) return EC_NOFRAME;
+        if (this->receive_return < 0) return this->receive_return;
+        if (const auto dc = this->processdata_in_flight.front())
+            this->context.DCtime = *dc;
+        this->processdata_in_flight.pop_front();
         for (size_t i = 0; i < this->slave_infos.size(); ++i) {
             const auto pos = static_cast<uint16_t>(i + 1);
-            this->al_statuses[pos] = this->receive_return < 0 ||
-                                             this->silent_slaves.contains(pos)
+            this->al_statuses[pos] = this->silent_slaves.contains(pos)
                                        ? 0
                                        : this->bus_state_of(pos);
         }
         return this->receive_return;
+    }
+
+    void drop_processdata() override {
+        this->drop_count++;
+        if (!this->processdata_in_flight.empty())
+            this->processdata_in_flight.pop_front();
     }
 
     [[nodiscard]] uint16_t al_status(const uint16_t slave) const override {

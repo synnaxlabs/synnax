@@ -163,7 +163,7 @@ extern "C" {
 #define EC_BUFSIZE 1518
 
 /** number of frame buffers per channel (tx, rx1 rx2) */
-#define EC_MAXBUF 16
+#define EC_MAXBUF 32
 
 /** size of EEPROM bitmap cache */
 #define EC_MAXEEPBITMAP 128
