@@ -162,16 +162,16 @@ an entry that is not `abnormal`.
 
 ### 4.6 Migration
 
-The schematic cutover is one migration in one release:
+The schematic cutover ships in one release:
 
 - Each inline state list becomes an enum. Lists with the same set of (value, name,
   color) share one, with keys and order ignored. Lists that differ stay separate, and
   "Replace with..." merges them later. When a list repeats a value, the first entry
   stays.
-- A state binding gets an `enum` key when its node had its own state list,
-  `state_overrides`, or `on_color`, and a `select` or `state_indicator` gets one for its
-  `options`. RFC 0114 phase 2 writes these with this section's function. The old fields
-  are removed.
+- Phase 22 adds the function that turns a state list into an enum, and gives each
+  `select` and `state_indicator` an `enum` key for its `options`. The RFC 0114 phase 2
+  node migration calls the function to give a state binding an `enum` key when its node
+  had its own state list, `state_overrides`, or `on_color`. The old fields are removed.
 - In a custom symbol, RFC 0114 phase 1 made each state index a value with default 0, and
   each region color a `color` look on that value. The first stroke or fill whose color
   changes between values sets the entry colors. Each stroke or fill whose colors equal
@@ -242,9 +242,10 @@ needs RFC 0114 phase 1.
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Before RFC 0114 phase 2, only
 a select or state indicator can match no entry. Phase 19 also adds the `enum` field to
-`select` and `state_indicator`, and phase 22 fills it. Phase 21's picker for node state
-bindings needs RFC 0114 phase 2. RFC 0114 phase 1 stores a `color.Ref` in custom symbol
-looks from the start. In phase 29, the Driver writes range colors
+`select` and `state_indicator`, and phase 22 fills it. Phase 21 adds the enum picker to
+`select`, `state_indicator`, and the custom symbol editor, and RFC 0114 phase 2 adds it
+to node state bindings. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks
+from the start. In phase 29, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
 ## 7 Resolved decisions
