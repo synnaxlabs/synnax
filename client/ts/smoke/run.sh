@@ -11,8 +11,8 @@
 
 # Packs the client and its Synnax dependencies, installs the tarballs in a new project
 # outside the workspace, and runs smoke.mjs in Node.js (current and 22.12.0), Deno, Bun,
-# Chromium, and WebKit. The test only reads from the Core at SYNNAX_TEST_HOST and
-# SYNNAX_TEST_PORT (default localhost:9090).
+# Chromium, Firefox, and WebKit. The test only reads from the Core at SYNNAX_TEST_HOST
+# and SYNNAX_TEST_PORT (default localhost:9090).
 
 set -euo pipefail
 

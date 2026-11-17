@@ -7,16 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import urllib.error
+from pathlib import Path
 from typing import Any
 
 import pytest
 import synnax as sy
 
 from common import BUSY, IDLE, OFFLINE, RECOMMAND_DELAY, Channels, channel_name
-from conftest import Client, Writer
+from conftest import Client, Clock, Server, Writer, github
+from controller import fleet_status
 from gate import Gate
+from github import API, REPO
 from log import Log
 from publisher import OPEN_LEEWAY
+from registry import RunnerRegistry
 from scaler import Scaler
 
 POOL = "ubuntu-build-bot"
@@ -31,7 +36,12 @@ def instance(state: str) -> dict:
     return {"state": state, "running": state == "running", "launched": LONG_AGO}
 
 
-def scaler(client: Client, *, cooldown: sy.TimeSpan = NO_COOLDOWN) -> Scaler:
+def scaler(
+    client: Client,
+    *,
+    cooldown: sy.TimeSpan = NO_COOLDOWN,
+    server: Server | None = None,
+) -> Scaler:
     channels = Channels(client=client, enabled=False)
     return Scaler(
         client=client,
@@ -43,6 +53,7 @@ def scaler(client: Client, *, cooldown: sy.TimeSpan = NO_COOLDOWN) -> Scaler:
             channels=channels,
             log=Log(client=client, channels=channels, channel="gh_log"),
         ),
+        github=github(server or Server(Clock())),
     )
 
 
@@ -185,6 +196,86 @@ class TestScaler:
         cycle(s, status={A: OFFLINE}, **poll)
         assert runner_commands(client) == [True, False]
         assert instance_commands(client) == [False]
+
+    def test_should_delete_the_registration_before_the_stop(
+        self, client: Client
+    ) -> None:
+        server = Server(Clock())
+        server.registered[A] = 7
+        s = scaler(client, server=server)
+        poll: dict[str, Any] = {
+            "known": {A},
+            "labels": {A: LABELS},
+            "queued": {},
+            "found": {"i-0aaa": instance("running")},
+            "running": set(),
+        }
+        cycle(s, status={A: IDLE}, **poll)
+        assert server.registered == {A: 7}
+        cycle(s, status={A: OFFLINE}, **poll)
+        assert server.registered == {}
+        assert instance_commands(client) == [False]
+
+    def test_should_start_the_runner_github_has_a_job_for(self, client: Client) -> None:
+        server = Server(Clock())
+        server.registered[A] = 7
+        server.busy.add(A)
+        s = scaler(client, cooldown=sy.TimeSpan.HOUR, server=server)
+        poll: dict[str, Any] = {
+            "known": {A},
+            "labels": {A: LABELS},
+            "queued": {},
+            "found": {"i-0aaa": instance("running")},
+            "running": set(),
+        }
+        s.idle_since[A] = LONG_AGO
+        cycle(s, status={A: IDLE}, **poll)
+        cycle(s, status={A: OFFLINE}, **poll)
+        cycle(s, status={A: OFFLINE}, **poll)
+        assert runner_commands(client) == [True, False, True]
+        assert instance_commands(client) == []
+        assert server.deletes() == [f"{API}/repos/{REPO}/actions/runners/7"]
+        assert len(client.written("log")) == 1
+
+    def test_should_start_a_deleted_runner_from_its_stored_labels(
+        self, client: Client, tmp_path: Path
+    ) -> None:
+        registry = RunnerRegistry(tmp_path / "registry.json")
+        registry.add({A: LABELS})
+        gh = github(Server(Clock()))
+        listed, seen = gh.runner_status()
+        registry.add(seen)
+        labels = registry.labels()
+        found = {"i-0aaa": instance("stopped")}
+        status = fleet_status(listed, labels=labels, found=found)
+        assert status == {A: OFFLINE}
+        s = scaler(client)
+        s.step(
+            known=registry.snapshot(),
+            status=status,
+            labels=labels,
+            queued={POOL: 1},
+            found=found,
+            running=set(),
+        )
+        assert started(client) == [A]
+
+    def test_should_fail_when_github_refuses_the_delete(self, client: Client) -> None:
+        server = Server(Clock())
+        server.registered[A] = 7
+        s = scaler(client, server=server)
+        poll: dict[str, Any] = {
+            "known": {A},
+            "labels": {A: LABELS},
+            "queued": {},
+            "found": {"i-0aaa": instance("running")},
+            "running": set(),
+        }
+        cycle(s, status={A: IDLE}, **poll)
+        server.failures[f"{API}/repos/{REPO}/actions/runners/7"] = 403
+        with pytest.raises(urllib.error.HTTPError):
+            cycle(s, status={A: OFFLINE}, **poll)
+        assert instance_commands(client) == []
 
     def test_should_keep_the_instance_of_a_runner_that_took_a_job_after_the_drain(
         self, client: Client
@@ -446,6 +537,23 @@ class TestScaler:
         cycle(s, **poll)
         assert runner_commands(client) == [True]
         assert len(client.written("log")) == 1
+
+    def test_should_keep_the_registration_while_disabled(self, client: Client) -> None:
+        server = Server(Clock())
+        server.registered[A] = 7
+        s = scaler(client, server=server)
+        poll: dict[str, Any] = {
+            "known": {A},
+            "labels": {A: LABELS},
+            "queued": {},
+            "found": {"i-0aaa": instance("running")},
+            "running": set(),
+        }
+        cycle(s, status={A: IDLE}, **poll)
+        s.enabled = False
+        cycle(s, status={A: OFFLINE}, **poll)
+        assert server.registered == {A: 7}
+        assert instance_commands(client) == []
 
     def test_should_start_an_instance_after_a_slow_writer_close(
         self, client: Client, monkeypatch: pytest.MonkeyPatch

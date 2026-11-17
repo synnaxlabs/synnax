@@ -22,16 +22,14 @@ limit to the login. A seat whose token Claude rejected tags its own instance
 `login-broken`, and the controller marks the login broken."""
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 import synnax as sy
+from mypy_boto3_ec2.type_defs import TagTypeDef
 
 from common import RECOMMAND_DELAY
 from log import Log
 from logins import MAX_HOLDERS, Login, Logins
-
-if TYPE_CHECKING:
-    from mypy_boto3_ec2.type_defs import TagTypeDef
 
 PROJECT = "synnax-agents"
 # Labels every seat runner carries, which name no seat.
@@ -79,11 +77,11 @@ class Seat(Protocol):
     def start_instances(self, *, InstanceIds: list[str]) -> object: ...
 
     def create_tags(
-        self, *, Resources: list[str], Tags: list["TagTypeDef"]
+        self, *, Resources: list[str], Tags: list[TagTypeDef]
     ) -> object: ...
 
     def delete_tags(
-        self, *, Resources: list[str], Tags: list["TagTypeDef"]
+        self, *, Resources: list[str], Tags: list[TagTypeDef]
     ) -> object: ...
 
 

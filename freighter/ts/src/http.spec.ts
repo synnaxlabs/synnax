@@ -96,6 +96,40 @@ describe("http", () => {
     await expect(send).rejects.toThrow("Unreachable");
   });
 
+  describe("deno fetch errors", () => {
+    const failWith = (cause: string): Promise<unknown> =>
+      new HTTPClient({
+        endpoint: ENDPOINT,
+        codec: new binary.JSONCodec(),
+        connector: {
+          fetch: async () => {
+            throw new TypeError("fetch failed", { cause: new Error(cause) });
+          },
+          dial: async () => {
+            throw new Error("unused");
+          },
+        },
+      }).send("/echo", {}, messageZ, messageZ);
+
+    test("throws unreachable for a refused connection", async () => {
+      await expect(
+        failWith(
+          "error sending request for url (http://127.0.0.1:9311/x): client error " +
+            "(Connect): tcp connect error: Connection refused (os error 61)",
+        ),
+      ).rejects.toThrow(Unreachable);
+    });
+
+    test("does not throw unreachable for a TLS failure", async () => {
+      const err = await failWith(
+        "error sending request for url (https://127.0.0.1:9312/x): client error " +
+          "(Connect): received corrupt message of type InvalidContentType",
+      ).catch((e: unknown) => e);
+      expect(Unreachable.matches(err)).toBe(false);
+      expect(err).toBeInstanceOf(TypeError);
+    });
+  });
+
   describe("timeout", () => {
     let server: Server;
 
