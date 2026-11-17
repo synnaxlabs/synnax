@@ -8,18 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
+import { strings } from "@synnaxlabs/x";
 
 import { Device } from "@/platform/device";
 
+// NI MAX names a network chassis after its serial number, such as cDAQ9189-1D71E7C, and
+// each of its modules after the chassis. No form of a name with the serial fits.
+const SERIAL = /-[0-9a-f]{6,}(?=mod\d+$|$)/i;
+
 /**
  * @returns the NI MAX name of the device as an identifier, such as "cdaq1mod1", then a
- * short form of it, such as "c1m1".
+ * short form of it, such as "c1m1". The name leaves out a chassis serial number. When
+ * no form fits, returns short forms of the device name.
  */
-export const suggestIdentifiers = ({ location }: device.Device): string[] => {
-  const parts = location.toLowerCase().match(/[a-z]+|\d+/g) ?? [];
+export const suggestIdentifiers = ({ location, name }: device.Device): string[] => {
+  const parts =
+    location
+      .replace(SERIAL, "")
+      .toLowerCase()
+      .match(/[a-z]+|\d+/g) ?? [];
   const full = parts.join("");
   const short = parts.map((p) => (/\d/.test(p) ? p : p[0])).join("");
-  return [...new Set([full, short])].filter(
+  const ids = [...new Set([full, short])].filter(
     (id) => Device.identifierZ.safeParse(id).success,
   );
+  return ids.length > 0 ? ids : strings.createShortIdentifiers(name);
 };

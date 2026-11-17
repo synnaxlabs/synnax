@@ -16,4 +16,6 @@
 
 .console-location-badge__text {
     min-width: 0;
+    -webkit-user-select: text;
+    user-select: text;
 }
