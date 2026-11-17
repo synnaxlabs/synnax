@@ -45,7 +45,8 @@ constexpr std::uint8_t SKIPPABLE = 0x80;
 /// @brief the largest payload of one record.
 constexpr std::uint32_t MAX_PAYLOAD = 64 * 1024 * 1024;
 
-/// @brief a file start is not valid, or a record that passes its checksum is not.
+/// @brief a record that passes its checksum is not valid, or a read position is
+/// outside the records of a file.
 const x::errors::Error CORRUPT = BASE_ERROR.sub("corrupt");
 /// @brief a file starts with the magic of a different kind of file.
 const x::errors::Error UNKNOWN_MAGIC = BASE_ERROR.sub("unknown_magic");
