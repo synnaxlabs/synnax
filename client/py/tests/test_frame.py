@@ -636,6 +636,16 @@ class TestWriteFrameAdapter:
             series: list[CrudeSeries] = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
             write_adapter.adapt(ch, series)
 
+    def test_adaptation_of_one_series_in_a_list_and_single_payload(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
+        """Should raise a validation error when one channel gets a list holding a
+        series"""
+        write_adapter, ch = adapter
+        series: list[CrudeSeries] = [sy.Series([1.0, 2.0])]
+        with pytest.raises(sy.ValidationError):
+            write_adapter.adapt(ch, series)
+
     def test_adaptation_of_single_channel_and_no_data(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
     ) -> None:

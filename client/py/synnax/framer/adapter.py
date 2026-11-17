@@ -7,9 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import uuid
 import warnings
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any, TypeIs
+
+import numpy as np
 
 import synnax.channel.payload as channel
 from synnax.channel.retrieve import (
@@ -194,16 +197,22 @@ class WriteFrameAdapter:
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         frame = self._adapt(channels_or_data, series)
-        extra = set(frame.channels) - set(self.keys)
+        channels: list[channel.Payload] = []
+        extra: set[channel.Key | str] = set()
+        for col in frame.channels:
+            ch = self._channels.get(col) if isinstance(col, channel.Key) else None
+            if ch is None:
+                extra.add(col)
+            else:
+                channels.append(ch)
         if extra:
             raise PathError("keys", ValidationError(f"frame has extra keys {extra}"))
 
-        for i, (col, series) in enumerate(frame.items()):
-            ch = self._channels[cast(channel.Key, col)]
+        for i, (ch, series) in enumerate(zip(channels, frame.series, strict=True)):
             if series.data_type != ch.data_type:
                 if self._strict_data_types:
                     raise PathError(
-                        str(col),
+                        str(ch.key),
                         ValidationError(
                             f"Data type {ch.data_type} for channel {ch} does "
                             + f"not match series data type {series.data_type}.",
@@ -252,8 +261,15 @@ class WriteFrameAdapter:
                     """
                     )
 
+            if not _is_crude_series(series):
+                raise ValidationError(
+                    f"""
+                Received a single channel {kind}
+                but multiple series.
+                """
+                )
             key = self._adapt_to_key(channels_or_data)
-            return Frame([key], [Series(cast(CrudeSeries, series))])
+            return Frame([key], [Series(series)])
 
         if isinstance(channels_or_data, (list, tuple)):
             if series is None:
@@ -263,9 +279,7 @@ class WriteFrameAdapter:
                 """
                 )
             series_list: list[CrudeSeries] = (
-                [series]
-                if not isinstance(series, list)
-                else cast(list[CrudeSeries], series)
+                list(series) if isinstance(series, list) else [series]
             )
             channels: list[channel.Key] = []
             o_series: list[Series] = []
@@ -325,3 +339,25 @@ class WriteFrameAdapter:
         raise TypeError(
             f"""Cannot construct frame from {channels_or_data} and {series}"""
         )
+
+
+def _is_crude_series(
+    series: CrudeSeries | list[CrudeSeries],
+) -> TypeIs[CrudeSeries]:
+    """Returns whether series is one series: a single value, or a list of samples."""
+    return not isinstance(series, list) or all(
+        isinstance(s, _SAMPLE_TYPES) for s in series
+    )
+
+
+_SAMPLE_TYPES = (
+    np.number,
+    np.bool_,
+    np.datetime64,
+    str,
+    bytes,
+    uuid.UUID,
+    dict,
+    float,
+    int,
+)
