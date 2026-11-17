@@ -241,9 +241,9 @@
   },
   "E4005": {
     "severity": "error",
-    "message": "name x conflicts with existing variable at line 2, col 4",
-    "problem": "A declaration has a name that its scope already has.",
-    "example": "func f() {\n    x := 1\n    x := 2\n}"
+    "message": "name x conflicts with existing variable at line 1, col 0",
+    "problem": "A declaration has a name that its scope or an outer scope already has.",
+    "example": "x := 1\nfunc f() {\n    x := 2\n}"
   },
   "E4006": {
     "severity": "error",

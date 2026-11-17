@@ -19,6 +19,7 @@ import (
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	xpb "github.com/synnaxlabs/x/pb"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -183,6 +184,7 @@ func (setByKeyOrNameRequestTranslator) Forward(
 		KeyOrName: msg.KeyOrName,
 		Message:   msg.Message,
 		Variant:   string(msg.Variant),
+		Time:      int64(msg.Time),
 	}, nil
 }
 
@@ -194,6 +196,7 @@ func (setByKeyOrNameRequestTranslator) Backward(
 		KeyOrName: msg.KeyOrName,
 		Message:   msg.Message,
 		Variant:   svcstatus.Variant(msg.Variant),
+		Time:      telem.TimeStamp(msg.Time),
 	}, nil
 }
 

@@ -54,13 +54,18 @@ The author picks the tier. `Label - Classify` raises a PR to `review/human` when
 report that `Check - Classify` compares changes. A reviewer can raise it by swapping the
 label.
 
-| Label          | Review                          | Covers                                                                                                                                                                                                                                                                    |
-| -------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `review/human` | A human reads it, plus Sedosaur | A change to a user-facing interface: a new field or data structure (anything under `schemas/`, a stored shape, a migration), a Python, TypeScript, or C++ client interface, a CLI command, a Core or Driver config (flags, config files), or a Console design or feature. |
-| `review/bot`   | Sedosaur only                   | Everything else: bug fixes, internals, tests, lints, renames, formatting, and generated code.                                                                                                                                                                             |
+| Label          | Review                          | Covers                                                                                                                                                                                                                                                                                                                                 |
+| -------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `review/human` | A human reads it, plus Sedosaur | A change to a user-facing interface: a new field or data structure (anything under `schemas/`, a stored shape, a migration), a Python, TypeScript, or C++ client interface, a CLI command, a Core or Driver config (flags, config files), the mode, owner, or location of a file a deployment manages, or a Console design or feature. |
+| `review/bot`   | Sedosaur only                   | Everything else: bug fixes, internals, tests, lints, renames, formatting, and generated code.                                                                                                                                                                                                                                          |
 
 A `review/human` reviewer reads the changed interface and its tests, approves or
-requests changes, and confirms a stored shape change carries a migration.
+requests changes, and confirms a stored shape change carries a migration. A change to
+the mode, owner, or location of a file or directory that a deployment manages, such as
+the Driver state directory, is breaking. The generated release notes show only PR
+titles, so the change also goes in the breaking changes of its minor's page in
+`site/docs/src/releases/`, on each branch that serves release notes, before the release
+(see `site/docs/README.md`).
 
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
 pending until the PR has one tier label and a finished Sedosaur review of the head. A

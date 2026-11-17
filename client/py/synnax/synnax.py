@@ -11,6 +11,7 @@
 # them, not when synnax loads. Older versions ignore this list.
 __lazy_modules__ = ["synnax"]
 
+import os
 import threading
 import weakref
 from collections.abc import Callable
@@ -70,6 +71,11 @@ class _Lazy[T]:
     def __init__(self, build: Callable[["Synnax"], T]) -> None:
         self._build = build
         self._name = build.__name__
+        # Keyed by each client's build lock, and weak on the values, so this map never
+        # keeps a client or its sub-clients alive.
+        self._built: weakref.WeakValueDictionary[object, T] = (
+            weakref.WeakValueDictionary()
+        )
 
     @overload
     def __get__(self, obj: None, owner: type) -> Self: ...
@@ -83,10 +89,12 @@ class _Lazy[T]:
         # After the first build, the value in the instance dict hides this
         # descriptor, so later reads take no lock.
         with obj._build_lock:
-            built = obj.__dict__
-            if self._name not in built:
-                built[self._name] = self._build(obj)
-            return built[self._name]  # type: ignore[no-any-return]
+            value = self._built.get(obj._build_lock)
+            if value is None:
+                value = self._build(obj)
+                self._built[obj._build_lock] = value
+                obj.__dict__[self._name] = value
+            return value
 
 
 class Synnax(framer.Client):
@@ -151,8 +159,9 @@ class Synnax(framer.Client):
         api_key: str = "",
     ):
         """Creates a new client. Without a host, the client connects with the
-        credentials that `sy login` saved, or, if it saved none, to the Core of Synnax
-        Desktop on this computer.
+        SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY, SYNNAX_SECURE, and SYNNAX_CA_CERT
+        environment variables, then with the credentials that `sy login` saved, then
+        to the Core of Synnax Desktop on this computer.
 
         :param host: Hostname of a Core in the Synnax cluster.
         :param port: Port of the Core.
@@ -177,6 +186,7 @@ class Synnax(framer.Client):
                 "give either an API key or a username and password, not both"
             )
         opts, embedded = try_load_options_if_none_provided(
+            env=os.environ,
             host=host,
             port=port,
             username=username,

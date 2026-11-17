@@ -11,8 +11,13 @@ import { type ranger } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { type bounds, box, color, location, xy } from "@synnaxlabs/x";
 
-import { legible, withLightness } from "@/lineplot/range/aether/legible";
 import { type Draw2D } from "@/vis/draw2d";
+
+/** @returns the color with its OKLCH lightness set, keeping its chroma and hue. */
+const withLightness = (c: color.Color, l: number, alpha = 255): color.Color => {
+  const [, ch, h] = color.oklch(c);
+  return color.fromOKLCH([l, ch, h, alpha / 255]);
+};
 
 /** A range's bar in the annotation strip, in canvas pixels. */
 export interface Bar {
@@ -126,7 +131,7 @@ export const layout = (
       {
         range,
         color: c,
-        display: legible(c, t),
+        display: theme.legible(c, t),
         start,
         end,
         x0,

@@ -495,8 +495,16 @@ func analyzeIdentifierByRole(
 
 	switch sym.Kind {
 	case symbol.KindConstant:
-		// Every module constant holds a float64.
-		value := sym.DefaultValue.(float64)
+		value, ok := sym.DefaultValue.(float64)
+		if !ok {
+			ctx.Diagnostics.Add(codes.BrokenInvariant.Atf(
+				ctx.AST,
+				"constant %s holds a %T, not a float64",
+				sym.Name,
+				sym.DefaultValue,
+			))
+			return flowNodeResult{}, false
+		}
 		t := ctx.TypeMap[ctx.AST]
 		n := newConstNode(
 			kg.generate("const", sym.Name),

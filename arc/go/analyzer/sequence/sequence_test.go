@@ -297,7 +297,8 @@ var _ = Describe("Sequence Analyzer", func() {
 			`),
 		)
 
-		DescribeTable("Invalid",
+		DescribeTable(
+			"Invalid",
 			func(bCtx SpecContext, source, expectedError string) {
 				Expect(
 					analyzeAndExpectError(bCtx, source),
@@ -347,6 +348,52 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, "conflicts with existing variable"),
+			Entry("a top-level variable after a sequence that declares it", `
+				sequence main {
+					limit := 1.0
+				}
+				limit := 5.0
+			`, "name limit conflicts with existing variable"),
+			Entry("a top-level variable after a nested stage that declares it", `
+				sequence main {
+					stage s1 {
+						limit := 1.0
+					}
+				}
+				limit := 5.0
+			`, "name limit conflicts with existing variable"),
+			Entry("a top-level variable after a top-level stage that declares it", `
+				stage s1 {
+					limit := 1.0
+				}
+				limit := 5.0
+			`, "name limit conflicts with existing variable"),
+			Entry("a sequence variable after a stage that declares it", `
+				sequence main {
+					stage s1 {
+						limit := 1.0
+					}
+					limit := 5.0
+				}
+			`, "name limit conflicts with existing variable"),
+			Entry("a sequence variable after a nested sequence that declares it", `
+				sequence main {
+					sequence inner {
+						limit := 1.0
+					}
+					limit := 5.0
+				}
+			`, "name limit conflicts with existing variable"),
+			Entry("a stage variable after a nested sequence that declares it", `
+				sequence main {
+					stage s1 {
+						sequence inner {
+							limit := 1.0
+						}
+						limit := 5.0
+					}
+				}
+			`, "name limit conflicts with existing variable"),
 			Entry("referencing a variable declared in a sibling sequence", `
 				sequence a {
 					x := 1

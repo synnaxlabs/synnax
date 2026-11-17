@@ -462,12 +462,12 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 		pipeline.MustConnect[framer.WriterResponse](writerAddr, writerResponsesAddr, 10)
 	}
 	t.sCtx = sCtx
-	t.closer = append(
+	closers = append(
 		closers,
 		signal.NewGracefulShutdown(sCtx, cancel),
 		streamerCloseSignal,
 	)
-	closers = nil
+	t.closer, closers = closers, nil
 	return func() { pipeline.Flow(sCtx, opts...) }, nil
 }
 

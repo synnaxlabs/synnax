@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -28,6 +29,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Group creates the palette of the built-in named colors.
+	//
+	// [REQUIRED]
+	Group *group.Service
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -40,6 +45,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("color")
 	v.NotNil("db", c.DB)
+	v.NotNil("group", c.Group)
 	return v.Error()
 }
 
@@ -47,6 +53,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Group = override.Nil(c.Group, other.Group)
 	return c
 }
 
@@ -58,8 +65,8 @@ type Service struct {
 	state   *actions.State[Key, Action]
 }
 
-// OpenService opens a Service. When the error is nil, the caller must close the
-// service.
+// OpenService opens a Service and creates each built-in named color that is missing.
+// When the error is nil, the caller must close the service.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -78,6 +85,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		References:      s.indexes.references(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
+		return nil, err
+	}
+	if err = s.createBuiltins(ctx, cfg.DB, cfg.Group); err != nil {
 		return nil, err
 	}
 	return s, nil

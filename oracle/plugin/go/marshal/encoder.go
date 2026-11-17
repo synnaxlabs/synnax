@@ -366,15 +366,16 @@ func (b *encoderBuilder) processFields(
 			}
 		}
 
-		if f.Optional && !typemap.Nilable(f.Type, b.table) {
+		switch {
+		case f.Optional && !typemap.Nilable(f.Type, b.table):
 			if err := b.processOptional(f, getPath, setPath); err != nil {
 				return err
 			}
-		} else if f.Optional {
+		case f.Optional:
 			if err := b.processOptionalNilable(f, getPath, setPath); err != nil {
 				return err
 			}
-		} else {
+		default:
 			if err := b.processFieldValue(f, getPath, setPath); err != nil {
 				return err
 			}
@@ -1322,7 +1323,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 			alias = parent + alias
 		}
 		for b.aliasUsed(alias) {
-			alias = alias + "x"
+			alias += "x"
 		}
 	}
 	// Only store an alias when it differs from the package's natural name.

@@ -290,20 +290,18 @@ func validateType[T, N antlr.ParserRuleContext](
 				nextType.Kind != basetypes.KindVariable {
 				firstType = nextType
 			}
-		} else {
-			// Unit compatibility is already validated above by units.ValidateBinaryOp
-			if !types.Compatible(firstType, nextType) {
-				ctx.Diagnostics.Add(
-					codes.TypeMismatch.Atf(
-						ctx.AST,
-						"type mismatch: cannot use %s and %s in %s operation",
-						firstType,
-						nextType,
-						opName,
-					),
-				)
-				return
-			}
+		} else if !types.Compatible(firstType, nextType) {
+			// units.ValidateBinaryOp already checked unit compatibility.
+			ctx.Diagnostics.Add(
+				codes.TypeMismatch.Atf(
+					ctx.AST,
+					"type mismatch: cannot use %s and %s in %s operation",
+					firstType,
+					nextType,
+					opName,
+				),
+			)
+			return
 		}
 	}
 }
@@ -634,7 +632,8 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 		))
 		return
 	}
-	if funcName == "len" || funcName == "series.len" {
+	switch {
+	case funcName == "len" || funcName == "series.len":
 		// len dispatches on its argument type at compile time, so only the names
 		// and arity are checked here.
 		bindArguments(
@@ -645,13 +644,15 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 			ir.FormatFunctionSignature(funcName, fnType),
 			"",
 		)
-	} else if hasMultipleNamedOutputs(fnType) {
-		ctx.Diagnostics.Add(codes.NotCallable.Atf(
-			site,
-			"cannot call function %s: functions with multiple named outputs are not callable",
-			funcName,
-		))
-	} else {
+	case hasMultipleNamedOutputs(fnType):
+		ctx.Diagnostics.Add(
+			codes.NotCallable.Atf(
+				site,
+				"cannot call function %s: functions with multiple named outputs are not callable",
+				funcName,
+			),
+		)
+	default:
 		AnalyzeCall(ctx, funcName, fnType, args, callee.AnalyzeArguments, site, "")
 	}
 	if callerFn == nil {

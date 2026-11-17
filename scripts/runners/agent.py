@@ -7,11 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "psutil", "synnax>=0.61,<0.62"]
-# ///
-
 """Writes this machine's CPU, memory, and disk usage to Synnax every 5 seconds.
 
 Runs on each runner instance, started by agent_boot.py. Four float32 channels on one
@@ -253,7 +248,7 @@ def run(
                     last = max(last, start)
                 last = max(sy.TimeStamp.now(), last + sy.TimeSpan(1))
                 frame = {names["index"]: last, **values}
-                writer.write(frame)  # pyright: ignore[reportArgumentType]
+                writer.write(frame)
                 failures = 0
             except Exception as e:
                 warn("write", e)

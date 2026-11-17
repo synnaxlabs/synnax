@@ -77,11 +77,11 @@ class Held(Executor):
         self.immediate = immediate
         self.pending: list[tuple[Future[Any], Callable[[], Any]]] = []
 
-    def submit(  # type: ignore[override]
-        self, fn: Callable[[], Any], /, *args: Any, **kwargs: Any
-    ) -> Future[Any]:
-        future: Future[Any] = Future()
-        self.pending.append((future, fn))
+    def submit[**P, T](
+        self, fn: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs
+    ) -> Future[T]:
+        future: Future[T] = Future()
+        self.pending.append((future, lambda: fn(*args, **kwargs)))
         if self.immediate:
             self.release()
         return future

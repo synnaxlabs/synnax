@@ -334,25 +334,26 @@ func (s *System) unifyTypeVariableWithVisited(
 			s.Substitutions[lit.Name] = generic
 			return nil
 		}
-		if tv.Constraint != nil && other.Constraint == nil {
+		switch {
+		case tv.Constraint != nil && other.Constraint == nil:
 			s.Substitutions[other.Name] = tv
 			return nil
-		} else if tv.Constraint != nil && other.Constraint != nil &&
+		case tv.Constraint != nil && other.Constraint != nil &&
 			tv.Constraint.Kind == types.KindFloatConstant &&
 			(other.Constraint.Kind == types.KindIntegerConstant ||
-				other.Constraint.Kind == types.KindExactIntegerFloatConstant) {
+				other.Constraint.Kind == types.KindExactIntegerFloatConstant):
 			// An integer literal, or a float literal with an integer value such as
 			// 2.0, in a float position takes the float's type.
 			s.Substitutions[other.Name] = tv
 			return nil
-		} else if tv.Constraint != nil && other.Constraint != nil &&
-			s.numericYields(other, tv) {
+		case tv.Constraint != nil && other.Constraint != nil &&
+			s.numericYields(other, tv):
 			s.Substitutions[other.Name] = tv
 			return nil
-		} else if other.Constraint != nil && tv.Constraint == nil {
+		case other.Constraint != nil && tv.Constraint == nil:
 			s.Substitutions[tv.Name] = other
 			return nil
-		} else if tv.Name != other.Name {
+		case tv.Name != other.Name:
 			s.Substitutions[tv.Name] = other
 			return nil
 		}
@@ -362,11 +363,12 @@ func (s *System) unifyTypeVariableWithVisited(
 	// Unwrap channels to their value type for compatibility checking
 	checkType := other.Unwrap()
 
-	if tv.Constraint == nil {
+	switch {
+	case tv.Constraint == nil:
 		if occursIn(tv, other) {
 			return errors.Wrapf(errCyclicType, "%s occurs in %v", tv.Name, other)
 		}
-	} else if tv.Constraint.Kind == types.KindNumericConstant {
+	case tv.Constraint.Kind == types.KindNumericConstant:
 		if !checkType.IsNumeric() {
 			return errors.Wrapf(
 				errConstraintViolation,
@@ -374,7 +376,7 @@ func (s *System) unifyTypeVariableWithVisited(
 				other,
 			)
 		}
-	} else if tv.Constraint.Kind == types.KindIntegerConstant {
+	case tv.Constraint.Kind == types.KindIntegerConstant:
 		// Integer constraint: accepts any numeric type (for literal coercion)
 		// Integer literals can be coerced to floats: `x f32 := 42` is valid
 		if !checkType.IsNumeric() {
@@ -384,7 +386,7 @@ func (s *System) unifyTypeVariableWithVisited(
 				other,
 			)
 		}
-	} else if tv.Constraint.Kind == types.KindFloatConstant {
+	case tv.Constraint.Kind == types.KindFloatConstant:
 		// Float constraint: in compatible context, only accept floats (not concrete
 		// integers). This ensures `x := 10; x + 3.2` fails (x is resolved to i64, can't
 		// add float literal). But `2 + 3.2` still works because both are type variables
@@ -396,7 +398,7 @@ func (s *System) unifyTypeVariableWithVisited(
 				other,
 			)
 		}
-	} else if tv.Constraint.Kind == types.KindExactIntegerFloatConstant {
+	case tv.Constraint.Kind == types.KindExactIntegerFloatConstant:
 		if !checkType.IsNumeric() {
 			return errors.Wrapf(
 				errConstraintViolation,
