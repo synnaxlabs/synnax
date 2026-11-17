@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 )
 
 // healthTransport serves the gRPC health service, whose Watch stream stays open.
@@ -113,4 +114,38 @@ var _ = Describe("gRPC", func() {
 		}()
 		Eventually(closed, 5*time.Second).Should(Receive(Succeed()))
 	})
+
+	It("Should keep a stream open while its client pings every 10 seconds", func(
+		ctx SpecContext,
+	) {
+		healthSrv := health.NewServer()
+		b := MustSucceed(server.Serve(server.Config{
+			Listeners: []server.Listener{{Address: "localhost:0"}},
+			Security:  server.SecurityConfig{Insecure: new(true)},
+			Branches: []server.Branch{&server.GRPCBranch{
+				Transports: []fgrpc.BindableTransport{
+					healthTransport{Server: healthSrv},
+				},
+			}},
+		}))
+		DeferCleanup(b.Close)
+		conn := MustSucceed(grpc.NewClient(
+			b.Addresses()[0].String(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithKeepaliveParams(keepalive.ClientParameters{
+				Time:    10 * time.Second,
+				Timeout: 10 * time.Second,
+			}),
+		))
+		DeferCleanup(conn.Close)
+		stream := MustSucceed(
+			healthpb.NewHealthClient(conn).Watch(ctx, &healthpb.HealthCheckRequest{}),
+		)
+		MustSucceed(stream.Recv())
+		// A Core that refuses these pings closes the connection at the fourth of them.
+		time.Sleep(45 * time.Second)
+		healthSrv.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
+		Expect(MustSucceed(stream.Recv()).Status).
+			To(Equal(healthpb.HealthCheckResponse_NOT_SERVING))
+	}, SpecTimeout(time.Minute))
 })

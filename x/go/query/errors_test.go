@@ -20,9 +20,10 @@ var _ = Describe("Errors", func() {
 	DescribeTable(
 		"Should decode an encoded error as the error it wraps",
 		func(base error, errType string) {
-			encoded := errors.Encode(errors.Wrap(base, "channel 5"), false)
+			codec := errors.NewCodec(query.ErrorProvider())
+			encoded := codec.Encode(errors.Wrap(base, "channel 5"), false)
 			Expect(encoded.Type).To(Equal(errType))
-			decoded := errors.Decode(encoded)
+			decoded := codec.Decode(encoded)
 			Expect(decoded).To(MatchError(base))
 			Expect(decoded).To(MatchError(ContainSubstring("channel 5")))
 		},

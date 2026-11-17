@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var _ = Describe("Type Unification", func() {
@@ -359,11 +360,8 @@ var _ = Describe("Type Unification", func() {
 					system.AddEquality(tv, cyclicType, nil, "T = cyclic T"),
 				).To(MatchError(ContainSubstring("is not compatible with")))
 			},
-			Entry("chan T", func(tv types.Type) types.Type { return types.Chan(tv) }),
-			Entry(
-				"series T",
-				func(tv types.Type) types.Type { return types.Series(tv) },
-			),
+			Entry("chan T", types.Chan),
+			Entry("series T", types.Series),
 		)
 
 		It("should report unresolved type variables with no constraints", func() {
@@ -798,8 +796,8 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("str is not compatible with i32")))
 
-			ue, ok := err.(*constraints.UnificationError)
-			Expect(ok).To(BeTrue(), "expected UnificationError")
+			var ue *constraints.UnificationError
+			Expect(errors.As(err, &ue)).To(BeTrue(), "expected UnificationError")
 			Expect(ue.Message).To(ContainSubstring("is not compatible with"))
 		})
 
@@ -815,10 +813,39 @@ var _ = Describe("Type Unification", func() {
 				err,
 			).To(MatchError(ContainSubstring("f64 is not compatible with i64")))
 
-			ue, ok := err.(*constraints.UnificationError)
-			Expect(ok).To(BeTrue())
+			var ue *constraints.UnificationError
+			Expect(errors.As(err, &ue)).To(BeTrue())
 			Expect(ue.Hint).To(ContainSubstring("use"))
 			Expect(ue.Hint).To(ContainSubstring("to convert"))
+		})
+
+		It("Should hint a comparison for a numeric value into a bool", func() {
+			err := constraints.New().UnifyConstraint(constraints.Constraint{
+				Left:   types.Bool(),
+				Right:  types.U8(),
+				Reason: "edge",
+			})
+			Expect(err).To(
+				MatchError(ContainSubstring("u8 is not compatible with bool")),
+			)
+			var ue *constraints.UnificationError
+			Expect(errors.As(err, &ue)).To(BeTrue())
+			Expect(ue.Hint).To(Equal(constraints.BoolHint))
+		})
+
+		It("Should not hint a comparison for comparison operands", func() {
+			err := constraints.New().AddCompatible(
+				types.Bool(),
+				types.U8(),
+				nil,
+				"== operands must be compatible",
+			)
+			Expect(err).To(
+				MatchError(ContainSubstring("u8 is not compatible with bool")),
+			)
+			var ue *constraints.UnificationError
+			Expect(errors.As(err, &ue)).To(BeTrue())
+			Expect(ue.Hint).To(BeEmpty())
 		})
 	})
 

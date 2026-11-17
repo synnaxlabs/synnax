@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import synnax as sy
-from framework.utils import create_indexed_pair, create_virtual_channels
+from framework.utils import create_indexed_pair, create_virtual_channels, hold
 from tests.arc.arc import ArcCase
 
 ARC_STL_TIME_SOURCE = """
@@ -594,7 +594,7 @@ class StlTime(ArcCase):
     def _test_interval_rate(self) -> None:
         self.log("=== time.interval ===")
         baselines = {ch: self.read_tlm(ch, 0) for ch, _ in INTERVAL_CHANNELS}
-        sy.sleep(1.0)  # noqa: TID251 fixed window to count fires
+        hold(1.0, reason="fixed window to count fires")
         for ch, label in INTERVAL_CHANNELS:
             delta = self.read_tlm(ch, 0) - baselines[ch]
             self.log(f"[{label}] {ch} fired {delta} times in 1s (expected ~10)")

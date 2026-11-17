@@ -7,16 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = [
-#     "boto3",
-#     "certifi>=2026.10.19",
-#     "PyJWT[crypto]>=2.10,<3",
-#     "synnax>=0.61,<0.62",
-# ]
-# ///
-
 """Polls GitHub and EC2 every --interval and writes the fleet's state to Synnax.
 Also runs the scaler, the gate, and the cost fetch, and creates every channel below
 plus the agents' channels, for each new runner too, unless --no-create-channels.
@@ -108,6 +98,7 @@ iam:GetRole on the seat role, and list and tag the logins in Secrets Manager.
 import argparse
 import os
 from concurrent.futures import Future, ThreadPoolExecutor, wait as futures_wait
+from typing import Protocol
 
 import synnax as sy
 
@@ -119,6 +110,8 @@ from common import (
     OFFLINE,
     ChannelCreateError,
     Channels,
+    Streams,
+    Writes,
     add_connection_args,
     channel_name,
     command_channels,
@@ -182,6 +175,10 @@ def resolve(futures: list[Future]) -> list:
     return [f.result() for f in futures]
 
 
+class Core(Writes, Streams, Protocol):
+    """The part of the Core that the controller writes and streams."""
+
+
 class Controller:
     """One poll cycle: fetch GitHub and EC2 concurrently, refresh channels when the
     runner set changes, publish status and events, and let the gate and the scaler
@@ -191,7 +188,7 @@ class Controller:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Core,
         channels: Channels,
         github: GitHub,
         aws: AWS,

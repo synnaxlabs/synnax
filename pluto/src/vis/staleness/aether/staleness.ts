@@ -17,8 +17,8 @@ import { type telem } from "@/telem/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
 
-/** Seconds without a sample before a source is considered stale. */
-export const DEFAULT_TIMEOUT = 5;
+/** Nanoseconds without a sample before a source is considered stale. */
+export const DEFAULT_TIMEOUT = TimeSpan.seconds(5).nanoseconds;
 
 /**
  * configZ carries the staleness config every source-backed component adds to its own
@@ -41,7 +41,7 @@ export const stateZ = configZ.extend({
 });
 
 export interface EntryProps {
-  /** Returns the current staleness timeout, in seconds. */
+  /** Returns the current staleness timeout, in nanoseconds. */
   timeout: () => number;
   /** Returns the staleness the source currently reports. */
   stale: () => boolean;
@@ -147,7 +147,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
         const elapsed = time == null ? 0n : this.now().valueOf() - time.valueOf();
         const age = Math.max(0, new TimeSpan(elapsed).milliseconds);
         entry.lastReceived = performance.now() - age;
-        setStale(entry, age >= props.timeout() * 1000);
+        setStale(entry, age >= new TimeSpan(props.timeout()).milliseconds);
       },
       cleanup: () => this.release(entry),
     };
@@ -185,7 +185,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
       // A source that has never sent reads as empty, not stale. Staleness means data
       // stopped, which cannot be true before any arrived.
       if (e.lastReceived == null) return;
-      setStale(e, now - e.lastReceived >= e.props.timeout() * 1000);
+      setStale(e, now - e.lastReceived >= new TimeSpan(e.props.timeout()).milliseconds);
     });
   }
 }

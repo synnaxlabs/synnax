@@ -10,6 +10,7 @@
 import { type binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Connector, DEFAULT_CONNECTOR, type Socket } from "@/connector";
 import { EOF, ReceiveOverflow, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
@@ -79,7 +80,7 @@ class WebSocketStream<
   private readonly codec: binary.Codec;
   private readonly reqSchema: RQ;
   private readonly messageZ: ReturnType<typeof messageZ<RS>>;
-  private readonly ws: WebSocket;
+  private readonly ws: Socket;
   private serverClosed: Error | null;
   private sendClosed: boolean;
   private readonly flowControl: FlowControl;
@@ -91,7 +92,7 @@ class WebSocketStream<
   private readonly resLabel: string;
 
   constructor(
-    ws: WebSocket,
+    ws: Socket,
     encoder: binary.Codec,
     target: string,
     reqSchema: RQ,
@@ -219,11 +220,11 @@ class WebSocketStream<
     this.ws.onclose = this.onClose.bind(this);
   }
 
-  private onMessage(ev: MessageEvent<ArrayBuffer>): void {
+  private onMessage(ev: { data: ArrayBuffer }): void {
     this.addMessage(ev.data);
   }
 
-  private onClose(ev: CloseEvent): void {
+  private onClose(ev: { code: number }): void {
     this.addMessage({
       type: "close",
       error: {
@@ -236,6 +237,20 @@ class WebSocketStream<
 
 const CLOSE_NORMAL = 1000;
 
+/** Configures a {@link WebSocketClient}. */
+export interface WebSocketClientConfig {
+  /** A base URL to use as a prefix for all requests. */
+  endpoint: url.URL;
+  /** Encodes messages and decodes responses. */
+  codec: binary.Codec;
+  /** Whether to connect over WSS. Defaults to false. */
+  secure?: boolean;
+  /** Overrides for the default flow control limits. */
+  flowControl?: Partial<FlowControl>;
+  /** Opens the WebSockets. Defaults to the global WebSocket. */
+  connector?: Connector;
+}
+
 /**
  * WebSocketClient is an implementation of StreamClient that is backed by websockets.
  */
@@ -244,29 +259,33 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   encoder: binary.Codec;
   secure: boolean;
   flowControl: FlowControl;
+  private readonly connector: Connector;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
-  /**
-   * @param encoder - The encoder to use for encoding messages and decoding responses.
-   * @param baseEndpoint - A base url to use as a prefix for all requests.
-   * @param flowControl - Overrides for the default flow control limits.
-   */
-  constructor(
-    baseEndpoint: url.URL,
-    encoder: binary.Codec,
+  constructor({
+    endpoint,
+    codec,
     secure = false,
-    flowControl: Partial<FlowControl> = {},
-  ) {
+    flowControl = {},
+    connector = DEFAULT_CONNECTOR,
+  }: WebSocketClientConfig) {
     super();
     this.secure = secure;
     this.flowControl = { ...DEFAULT_FLOW_CONTROL, ...flowControl };
-    this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
-    this.encoder = encoder;
+    this.baseUrl = endpoint.replace({ protocol: secure ? "wss" : "ws" });
+    this.encoder = codec;
+    this.connector = connector;
   }
 
   withCodec(codec: binary.Codec): WebSocketClient {
-    const c = new WebSocketClient(this.baseUrl, codec, this.secure, this.flowControl);
+    const c = new WebSocketClient({
+      endpoint: this.baseUrl,
+      codec,
+      secure: this.secure,
+      flowControl: this.flowControl,
+      connector: this.connector,
+    });
     c.use(...this.middleware);
     return c;
   }
@@ -281,7 +300,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     await this.executeMiddleware(
       { target, protocol: "websocket", params: {}, role: "client" },
       async (ctx: Context): Promise<Context> => {
-        const ws = new WebSocket(this.buildURL(target, ctx));
+        const ws = await this.connector.dial(this.buildURL(target, ctx));
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         stream = await this.wrapSocket(ws, target, reqSchema, resSchema);
@@ -303,7 +322,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   private async wrapSocket<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
-    ws: WebSocket,
+    ws: Socket,
     target: string,
     reqSchema: RQ,
     resSchema: RS,
@@ -323,7 +342,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
           .then(() => resolve(oWs))
           .catch((err: unknown) => reject(errors.fromUnknown(err)));
       };
-      ws.onerror = (ev: Event) => {
+      ws.onerror = (ev: object) => {
         const ev_ = ev as ErrorEvent;
         reject(new Error(ev_.message ?? "websocket error", { cause: ev_.error ?? ev }));
       };

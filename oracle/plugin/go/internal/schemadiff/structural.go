@@ -25,10 +25,10 @@ import (
 // Wire-compatible enum additions need no migration, but they are still a shape change
 // the history must record.
 func StructurallyEqual(
-	old, new resolution.Type, oldTable, newTable *resolution.Table,
+	old, next resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
 	oldEnum, oldOK := old.Form.(resolution.EnumForm)
-	newEnum, newOK := new.Form.(resolution.EnumForm)
+	newEnum, newOK := next.Form.(resolution.EnumForm)
 	if oldOK != newOK {
 		return false
 	}
@@ -43,21 +43,21 @@ func StructurallyEqual(
 			}
 		}
 	}
-	if !marshalEqual(old, new, oldTable, newTable) || !defaultsEqual(old, new) ||
-		!inlinePayloadsEqual(old, new, oldTable, newTable) {
+	if !marshalEqual(old, next, oldTable, newTable) || !defaultsEqual(old, next) ||
+		!inlinePayloadsEqual(old, next, oldTable, newTable) {
 		return false
 	}
-	return SchemasEqual(old, new, oldTable, newTable)
+	return SchemasEqual(old, next, oldTable, newTable)
 }
 
 // inlinePayloadsEqual compares the inline variant payloads of two unions with
 // StructurallyEqual. An inline payload is part of its union's declaration, so its field
 // list and defaults are the union's.
 func inlinePayloadsEqual(
-	old, new resolution.Type, oldTable, newTable *resolution.Table,
+	old, next resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
 	oldForm, oldOK := old.Form.(resolution.UnionForm)
-	newForm, newOK := new.Form.(resolution.UnionForm)
+	newForm, newOK := next.Form.(resolution.UnionForm)
 	if !oldOK || !newOK {
 		return true
 	}
@@ -84,20 +84,23 @@ func inlinePayloadsEqual(
 // omits a field the other stores. It also requires each field type to name the same
 // declaration, so a type moving to another resource is a change even when its shape
 // holds.
-func marshalEqual(old, new resolution.Type, oldTable, newTable *resolution.Table) bool {
+func marshalEqual(
+	old, next resolution.Type,
+	oldTable, newTable *resolution.Table,
+) bool {
 	// The type-level persistence set is part of the declared shape: a version that
 	// flips a type between hand and generated, or changes its codec marker, is a
 	// real delta even when the field list is unchanged (auth v0 legacy → v1 Orc).
 	for _, expr := range []string{"hand", "marshal"} {
 		if domain.HasExprFromType(old, "go", expr) !=
-			domain.HasExprFromType(new, "go", expr) ||
+			domain.HasExprFromType(next, "go", expr) ||
 			domain.GetStringFromType(old, "go", expr) !=
-				domain.GetStringFromType(new, "go", expr) {
+				domain.GetStringFromType(next, "go", expr) {
 			return false
 		}
 	}
 	oldForm, oldOK := old.Form.(resolution.StructForm)
-	newForm, newOK := new.Form.(resolution.StructForm)
+	newForm, newOK := next.Form.(resolution.StructForm)
 	if oldOK != newOK || !oldOK {
 		return true
 	}
@@ -123,9 +126,9 @@ func marshalEqual(old, new resolution.Type, oldTable, newTable *resolution.Table
 // of the declared shape: it fills on write, so a version that adds one persists bytes
 // its predecessor never wrote. Callers run it after marshalEqual, which rejects a
 // differing form or field count.
-func defaultsEqual(old, new resolution.Type) bool {
+func defaultsEqual(old, next resolution.Type) bool {
 	oldForm, oldOK := old.Form.(resolution.StructForm)
-	newForm, newOK := new.Form.(resolution.StructForm)
+	newForm, newOK := next.Form.(resolution.StructForm)
 	if !oldOK || !newOK || len(oldForm.Fields) != len(newForm.Fields) {
 		return true
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv/pb"
+	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -139,23 +140,26 @@ func (deleteRequestTranslator) Backward(
 	return kv.DeleteRequest{Range: key, Keys: r.Keys}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	get := &getServer{
 		RequestTranslator:  getRequestTranslator{},
 		ResponseTranslator: getResponseTranslator{},
 		ServiceDesc:        &KVGetService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.KVGet = get
 	set := &setServer{
 		RequestTranslator:  setRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &KVSetService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.KVSet = set
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &KVDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.KVDelete = del
 	return grpc.CompoundBindableTransport{get, set, del}

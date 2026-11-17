@@ -80,11 +80,19 @@ func main() {
 	}
 
 	// MOCK_LOADER_ERROR fails as a dynamic loader does: one unformatted line on stderr.
-	if os.Getenv("MOCK_LOADER_ERROR") == "1" {
+	// MOCK_LOADER_ERROR_FILE does the same once the file it names exists.
+	_, loaderErrFileErr := os.Stat(os.Getenv("MOCK_LOADER_ERROR_FILE"))
+	if os.Getenv("MOCK_LOADER_ERROR") == "1" || loaderErrFileErr == nil {
 		fmt.Fprintln(
 			os.Stderr,
 			"driver: version `GLIBC_2.39' not found (required by driver)",
 		)
+		os.Exit(1)
+	}
+
+	// MOCK_CRASH_BANNER crashes before the first log line, as x::crash does.
+	if os.Getenv("MOCK_CRASH_BANNER") == "1" {
+		fmt.Fprintln(os.Stderr, "*** driver crashed: SIGSEGV (segmentation fault) ***")
 		os.Exit(1)
 	}
 

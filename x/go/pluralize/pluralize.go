@@ -10,6 +10,8 @@
 package pluralize
 
 import (
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/x/set"
@@ -34,14 +36,7 @@ var irregulars = map[string]string{
 }
 
 // irregularPlurals is the reverse set for already-plural detection.
-var irregularPlurals set.Set[string]
-
-func init() {
-	irregularPlurals = make(set.Set[string], len(irregulars))
-	for _, v := range irregulars {
-		irregularPlurals.Add(v)
-	}
-}
+var irregularPlurals = set.New(slices.Collect(maps.Values(irregulars))...)
 
 var uncountable = set.New(
 	"sheep",
@@ -240,7 +235,7 @@ func isUpper(b byte) bool {
 }
 
 func isAllUpper(s string) bool {
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if s[i] >= 'a' && s[i] <= 'z' {
 			return false
 		}

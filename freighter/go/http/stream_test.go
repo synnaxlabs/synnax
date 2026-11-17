@@ -51,12 +51,13 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+		router := MustSucceed(fhttp.NewRouter(context.Background(), fhttp.RouterConfig{
+			Errors:              errorCodec(),
 			StreamWriteDeadline: testutil.WriteDeadline,
 		}))
 		server = router.NewStreamServer[testutil.Request, testutil.Response]("/")
 		client = MustSucceed(fhttp.NewStreamClient[testutil.Request, testutil.Response](
-			fhttp.StreamClientConfig{Codec: json.Codec},
+			fhttp.StreamClientConfig{Codec: json.Codec, Errors: errorCodec()},
 		))
 		_, addr = serveRouter(router)
 	})
@@ -67,6 +68,14 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		address.Address,
 	) {
 		return server, client, addr
+	})
+
+	Describe("NewStreamClient", func() {
+		It("Should reject a config without an error codec", func() {
+			Expect(fhttp.NewStreamClient[testutil.Request, testutil.Response](
+				fhttp.StreamClientConfig{Codec: json.Codec},
+			)).Error().To(MatchError(ContainSubstring("errors: must be non-nil")))
+		})
 	})
 
 	Describe("Report", func() {
@@ -114,7 +123,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		It("Should fail a stream whose peer sends a message past the limit", func(
 			ctx SpecContext,
 		) {
-			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				Errors:                 errorCodec(),
 				StreamWriteDeadline:    testutil.WriteDeadline,
 				StreamMessageSizeLimit: 64,
 			}))
@@ -143,11 +153,12 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	Describe("WithAdditionalCodec", func() {
 		// Serves its own app: shutting down the shared one would strand later specs.
 		It(
-			"should construct the codec with a live context that ends when the app stops",
+			"should construct the codec with a live context that ends with the stream",
 			func(ctx SpecContext) {
 				const contentType = "application/x-test"
 				codecCtx := make(chan context.Context, 1)
-				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+					Errors:              errorCodec(),
 					StreamWriteDeadline: testutil.WriteDeadline,
 				}))
 				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -167,7 +178,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					_, err := stream.Receive()
 					return err
 				})
-				ownApp, ownAddr := serveRouter(router)
+				_, ownAddr := serveRouter(router)
 				headers := http.Header{}
 				headers.Set(fiber.HeaderContentType, contentType)
 				conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
@@ -178,10 +189,48 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				Eventually(codecCtx).Should(Receive(&got))
 				Expect(got.Err()).ToNot(HaveOccurred())
 				Expect(conn.Close()).To(Succeed())
-				Expect(ownApp.Shutdown()).To(Succeed())
 				Eventually(got.Done()).Should(BeClosed())
 			},
 		)
+	})
+
+	Describe("Request context", func() {
+		It("should pass request context values to the stream handler", func(
+			ctx SpecContext,
+		) {
+			type key struct{}
+			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				Errors:              errorCodec(),
+				StreamWriteDeadline: testutil.WriteDeadline,
+			}))
+			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+				"/",
+			)
+			values := make(chan any, 1)
+			ownServer.BindHandler(func(
+				ctx context.Context,
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
+			) error {
+				values <- ctx.Value(key{})
+				_, err := stream.Receive()
+				return err
+			})
+			app := newFiberApp(fiber.Config{})
+			app.Use(func(c fiber.Ctx) error {
+				c.SetContext(context.WithValue(c.Context(), key{}, "cat"))
+				return c.Next()
+			})
+			router.BindTo(app)
+			addr := serveApp(app)
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/json")
+			conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+				ctx, "ws://"+addr.String()+"/", headers,
+			))
+			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+			Expect(res.Body.Close()).To(Succeed())
+			Eventually(values).Should(Receive(Equal("cat")))
+		})
 	})
 
 	Describe("Shutdown", func() {
@@ -189,7 +238,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		It(
 			"should stop serving a stream whose peer never answers the close message",
 			func(ctx SpecContext) {
-				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+					Errors:              errorCodec(),
 					StreamWriteDeadline: testutil.WriteDeadline,
 				}))
 				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -220,6 +270,40 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				shutdown := make(chan error, 1)
 				go func() { shutdown <- ownApp.Shutdown() }()
 				Eventually(shutdown, 5*time.Second).Should(Receive(BeNil()))
+			},
+		)
+
+		It(
+			"should end a stream when the router's lifetime ends",
+			func(ctx SpecContext) {
+				life, cancel := context.WithCancel(ctx)
+				router := MustSucceed(fhttp.NewRouter(life, fhttp.RouterConfig{
+					Errors:              errorCodec(),
+					StreamWriteDeadline: testutil.WriteDeadline,
+				}))
+				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+					"/",
+				)
+				ended := make(chan struct{})
+				ownServer.BindHandler(func(
+					ctx context.Context,
+					_ freighter.ServerStream[testutil.Request, testutil.Response],
+				) error {
+					<-ctx.Done()
+					close(ended)
+					return nil
+				})
+				_, ownAddr := serveRouter(router)
+				headers := http.Header{}
+				headers.Set(fiber.HeaderContentType, "application/json")
+				conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+					ctx, "ws://"+ownAddr.String()+"/", headers,
+				))
+				DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+				Expect(res.Body.Close()).To(Succeed())
+				Consistently(ended, 20*time.Millisecond).ShouldNot(BeClosed())
+				cancel()
+				Eventually(ended).Should(BeClosed())
 			},
 		)
 	})

@@ -38,7 +38,14 @@ const path = deep.path<z.infer<typeof deviceFormSchema>>();
 export interface CreateTestDeviceOptions extends Partial<
   Pick<
     device.New,
-    "name" | "configured" | "properties" | "make" | "model" | "rack" | "location"
+    | "key"
+    | "name"
+    | "configured"
+    | "properties"
+    | "make"
+    | "model"
+    | "rack"
+    | "location"
   >
 > {}
 
@@ -94,6 +101,7 @@ export const startRackHeartbeat = async (
 export const createTestDevice = async (
   client: Synnax,
   {
+    key = id.create(),
     configured = true,
     name,
     properties = {},
@@ -107,7 +115,7 @@ export const createTestDevice = async (
   rackKey ??= (await client.racks.create({ name: uniqueName("rack") })).key;
   return await client.devices.create(
     {
-      key: id.create(),
+      key,
       name: name ?? uniqueName("device"),
       rack: rackKey,
       location,

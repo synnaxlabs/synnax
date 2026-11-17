@@ -212,6 +212,11 @@ func defaultInvariantViolation(
 			return "an integer-enum default that is not the zeroth member leaves the " +
 				"zeroth member (the zero value) as a valid, distinct value", true
 		}
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return "", false
 }
@@ -347,6 +352,9 @@ func checkGroupMember(
 				return
 			}
 		}
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	c.diag.Add(diagnostics.Errorf(
 		nil,
