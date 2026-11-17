@@ -7873,6 +7873,13 @@ time.wait(duration=500ms) -> output`
 					},
 					"[E5005]: 'next' used outside of a sequence",
 				),
+				Entry(
+					"a func that reads a top-level series",
+					"data := [1.0, 2.0]\nfunc f() f64 {\n    return data[0]\n}",
+					[]symbol.Symbol{},
+					"1:0 error [E2006]: variable 'data' of type series f64 cannot have "+
+						"a computed initializer",
+				),
 				Entry("a func with no output before a channel",
 					"func sink() {v f32} {\n}\ninput -> sink() -> input",
 					[]symbol.Symbol{

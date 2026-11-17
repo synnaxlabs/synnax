@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
@@ -62,7 +63,9 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 // last, so it can skip a variable whose declaration already has an error.
 func checkComputedReads(ctx acontext.Context[parser.IProgramContext]) {
 	for _, read := range *ctx.VarReads {
-		if !read.Var.IsComputed() || hasError(*ctx.Diagnostics, read.Var.AST) {
+		// Lowering rejects a variable with no zero value at its declaration.
+		if !read.Var.IsComputed() || types.Zero(read.Var.Type) == nil ||
+			hasError(*ctx.Diagnostics, read.Var.AST) {
 			continue
 		}
 		ctx.Diagnostics.Add(codes.NotConstant.Atf(
