@@ -26,9 +26,9 @@ func NewHTTPRedirectBranch() *SimpleHTTPBranch {
 }
 
 // redirectToListener redirects to the host and port of the request when the Listener's
-// certificate covers the host, and to the configured host and port of the Listener
-// otherwise. A forged Host header cannot send a client to a host the Core does not
-// serve.
+// certificate covers the host, or when the Listener has no host that remote clients can
+// reach. Otherwise it redirects to the configured host and port of the Listener, so a
+// forged Host header cannot send a client to a host the Core does not serve.
 func redirectToListener(ctx BranchContext) (http.Handler, error) {
 	_, listenerPort, err := net.SplitHostPort(ctx.Lis.Addr().String())
 	if err != nil {
@@ -36,7 +36,8 @@ func redirectToListener(ctx BranchContext) (http.Handler, error) {
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host, port := ctx.ServerName, listenerPort
-		if reqHost, reqPort := splitRequestHost(r); certCovers(ctx.TLS, reqHost) {
+		reqHost, reqPort := splitRequestHost(r)
+		if !reachable(ctx.ServerName) || certCovers(ctx.TLS, reqHost) {
 			host = reqHost
 			if reqPort != "" {
 				port = reqPort
@@ -45,6 +46,16 @@ func redirectToListener(ctx BranchContext) (http.Handler, error) {
 		target := "https://" + net.JoinHostPort(host, port) + r.URL.RequestURI()
 		http.Redirect(w, r, target, http.StatusMovedPermanently)
 	}), nil
+}
+
+// reachable returns true when host names one machine that remote clients can reach. A
+// Listener binds every interface, so a loopback or unspecified host does not name it.
+func reachable(host string) bool {
+	if host == "" || host == "localhost" {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip == nil || (!ip.IsLoopback() && !ip.IsUnspecified())
 }
 
 // splitRequestHost returns the host and port of the Host header of r. The port is empty
