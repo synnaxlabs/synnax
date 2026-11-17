@@ -112,11 +112,16 @@ TypeError: Promise.withResolvers is not a function
 ReferenceError: WebSocket is not defined
 ```
 
+```
+Error [ERR_REQUIRE_ESM]: require() of ES Module
+```
+
 <Problem.Body>
 <Problem.Cause>
 
-The TypeScript client needs Node.js 22.12 or later. On an older Node.js, `connect` does
-not return, and reads, writes, and streamers throw these errors.
+The TypeScript client needs Node.js 22.12 or later. On Node.js 21 or earlier, `connect`
+does not return, and reads, writes, and streamers throw these errors. On Node.js 22.0 to
+22.11, `require()` of the client fails with `ERR_REQUIRE_ESM`.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -139,10 +144,6 @@ SyntaxError: The requested module '@synnaxlabs/client' does not provide an expor
 TypeError: Synnax is not a constructor
 ```
 
-```
-Error [ERR_REQUIRE_ESM]: require() of ES Module
-```
-
 <Problem.Body>
 <Problem.Cause>
 
@@ -151,7 +152,7 @@ The TypeScript client is an ES module with no default export.
 </Problem.Cause>
 <Problem.Fix>
 
-Import `Synnax` by name with `import`, not `require`:
+Import `Synnax` by name:
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";

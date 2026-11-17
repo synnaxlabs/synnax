@@ -329,6 +329,19 @@ Node.js, see [Node.js](/reference/enterprise/certificates#nodejs).
 
 <Divider.Divider x />
 
+## Connect from a web page
+
+The TypeScript client also runs in a web page. The Core accepts requests from pages on
+each origin, so a page that you serve from a different host can connect to it. Each
+person who opens the page can read the API key or password in its code, so do not put
+them in a public page.
+
+For a page that the Core serves, set `sessionCookie` to `true`. The Core then keeps the
+session token in a cookie that page scripts cannot read. The cookie works only for pages
+on the origin of the Core.
+
+<Divider.Divider x />
+
 ## Close the client
 
 Close the client when your code is done with it:
@@ -469,6 +482,32 @@ A Node.js script does not exit until you close the client.
 
 <Field.Item name="password" id="typescript-password" type="string">
   The password to log in with.
+</Field.Item>
+
+<Field.Item name="token" id="typescript-token" type="string">
+  The session token of an earlier login, to resume that session with no username,
+  password, or API key. Get the token from `client.auth.token`. Closing the client
+  leaves a resumed session open.
+</Field.Item>
+
+<Field.Item
+  name="sessionCookie"
+  id="typescript-session-cookie"
+  type="boolean"
+  default="false"
+>
+  Keep the session token in a cookie that page scripts cannot read. Only for a page that
+  the Core serves. See [Connect from a web page](#connect-from-a-web-page).
+</Field.Item>
+
+<Field.Item
+  name="sessionPersistent"
+  id="typescript-session-persistent"
+  type="boolean"
+  default="false"
+>
+  Keep the session open when you close the client, so that you can resume it later with
+  `token`.
 </Field.Item>
 
 <Field.Item name="secure" id="typescript-secure" type="boolean" default="false">
