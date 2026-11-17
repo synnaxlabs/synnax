@@ -126,6 +126,10 @@ public:
     virtual std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) = 0;
 
+    /// @brief called when an acquisition pipeline starts, before its first
+    /// open_writer. The writers it opens until the next call belong to one run.
+    virtual void begin_run() {}
+
     virtual ~WriterFactory() = default;
 };
 
