@@ -62,7 +62,7 @@ func StartRun(
 		errs := make(chan error, 1)
 		go func() { errs <- stopRun() }()
 		var err error
-		gomega.Eventually(errs).Should(gomega.Receive(&err))
+		gomega.Eventually(errs).WithTimeout(stopTimeout).Should(gomega.Receive(&err))
 		gomega.Expect(err).To(matcher)
 	})
 	ginkgo.DeferCleanup(stop)
@@ -70,6 +70,7 @@ func StartRun(
 }
 
 const (
+	stopTimeout       = 10 * time.Second
 	blockTimeout      = 10 * time.Second
 	blockPollInterval = time.Millisecond
 )
