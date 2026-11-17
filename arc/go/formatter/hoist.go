@@ -80,6 +80,12 @@ func HoistDeclarations(content string) string {
 	return strings.Join(out, "\n")
 }
 
+// bracedBody is a sequence declaration or a stage body.
+type bracedBody interface {
+	antlr.ParserRuleContext
+	LBRACE() antlr.TerminalNode
+}
+
 type bodyItem struct {
 	node antlr.ParserRuleContext
 	decl bool
@@ -98,7 +104,7 @@ func bodyItems[I interface {
 
 // bodyHoists returns one move per declaration that follows the body's first step.
 func bodyHoists(
-	body antlr.ParserRuleContext,
+	body bracedBody,
 	items []bodyItem,
 	comments commentLines,
 ) []LineMove {
@@ -186,11 +192,11 @@ func (c commentLines) lastLine(item bodyItem) int {
 // onSeparateLines reports whether no item shares a line with another item or with
 // the body's braces, so whole lines can move.
 func onSeparateLines(
-	body antlr.ParserRuleContext,
+	body bracedBody,
 	items []bodyItem,
 	comments commentLines,
 ) bool {
-	last := body.GetStart().GetLine()
+	last := body.LBRACE().GetSymbol().GetLine()
 	for _, item := range items {
 		if item.node.GetStart().GetLine() <= last {
 			return false

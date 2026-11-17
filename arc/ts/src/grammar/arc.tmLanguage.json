@@ -301,7 +301,7 @@
         },
         {
           "name": "meta.sequence.definition.arc",
-          "begin": "\\b(sequence)\\s+(\\w+)\\s*\\{",
+          "begin": "\\b(sequence)\\s+(\\w+)\\s*[({]",
           "beginCaptures": {
             "1": {
               "name": "keyword.other.arc"
@@ -319,7 +319,7 @@
         },
         {
           "name": "meta.stage.definition.arc",
-          "begin": "\\b(stage)\\s+(\\w+)\\s*\\{",
+          "begin": "\\b(stage)\\s+(\\w+)\\s*[({]",
           "beginCaptures": {
             "1": {
               "name": "keyword.other.arc"

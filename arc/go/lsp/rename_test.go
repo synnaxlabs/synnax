@@ -169,6 +169,24 @@ var _ = Describe("Rename", func() {
 			}
 		})
 
+		It("should rename a sequence parameter", func(ctx SpecContext) {
+			content := `sequence main(x f32) {
+    stage s {
+        x -> out
+    }
+}`
+			OpenArcDocument(server, ctx, uri, content)
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 2, Character: 8},
+				NewName:      "limit",
+			}))
+			Expect(result.Changes[uri]).To(HaveLen(2))
+			for _, edit := range result.Changes[uri] {
+				Expect(edit.NewText).To(Equal("limit"))
+			}
+		})
+
 		It(
 			"should not rename variables across different functions",
 			func(ctx SpecContext) {

@@ -43,6 +43,15 @@ describe("shiki", () => {
       expect(html).toContain(`color:${color(tokens.type)}"> f64</span>`);
     });
 
+    it("should color the name and parameters of a sequence", async () => {
+      const render = await highlighter([grammar]);
+      const html = render("sequence fill(limit f32, valve chan u8) {}", "arc");
+      expect(html).toContain(`color:${color(tokens.keyword)}">sequence</span>`);
+      expect(html).toContain(`color:${color(tokens.function)}"> fill</span>`);
+      expect(html).toContain(`color:${color(tokens.variable)}">limit</span>`);
+      expect(html).toContain(`color:${color(tokens.type)}"> chan</span>`);
+    });
+
     it("should color a flow call and its named input", async () => {
       const render = await highlighter([grammar]);
       const html = render("sensor -> scale(factor=2.0) -> out", "arc");

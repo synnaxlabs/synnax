@@ -86,6 +86,8 @@ flow.
   [conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
 - `-> name` starts a stage or sequence on each new value, also a false one. `=> name`
   starts it only on a true value.
+- A stage or sequence with [parameters](#stage-and-sequence-parameters) starts with a
+  call, such as `=> fill(tank_pt, press_vlv_cmd)`.
 - `next` outside a sequence fails with `'next' used outside of a sequence`. In the last
   step, it fails with `'next' in last stage 'hold' has no next stage`.
 
@@ -119,6 +121,39 @@ into the trigger `v`.
 
 For required parameters and defaults, see
 [inputs](/reference/control/arc/reference/functions#inputs).
+
+<Divider.Divider x />
+
+## Stage and sequence parameters
+
+A named top-level stage or sequence can take parameters, written as the
+[inputs of a function](/reference/control/arc/reference/functions#inputs).
+
+```arc channels="fill_a_cmd, fill_b_cmd, abort_cmd, tank_a_pt, tank_b_pt, press_a_vlv_cmd, press_b_vlv_cmd, vent_vlv_cmd" bodies="fill, open, close, vent"
+sequence fill(pressure chan f32, valve chan bool, limit f32 = 300) {
+    stage open {
+        true -> valve
+        pressure > limit => next
+    }
+    stage close {
+        false -> valve
+    }
+}
+
+stage vent(valve chan bool) {
+    true -> valve
+}
+
+fill_a_cmd => fill(tank_a_pt, press_a_vlv_cmd)
+fill_b_cmd => fill(pressure=tank_b_pt, valve=press_b_vlv_cmd, limit=500)
+abort_cmd => vent(vent_vlv_cmd)
+```
+
+Each call site is its own instance with its own state, in the same way that each call
+site of a function keeps its own
+[state](/reference/control/arc/reference/functions#stateful-variables). The two `fill`
+calls run at the same time, each with its own channels and limit. The nested stages
+`open` and `close` read the parameters of `fill`.
 
 <Divider.Divider x />
 

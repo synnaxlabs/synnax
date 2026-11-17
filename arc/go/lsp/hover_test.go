@@ -777,6 +777,26 @@ func add() {a i32, b i32} i32 {
 			"sequence main {\n    stage first {}\n}\n",
 			uint32(1), uint32(11),
 			"first", "Stage"),
+		Entry("sequence with parameters",
+			"sequence main(x f32, y chan f32) {\n    stage first {}\n}\n",
+			uint32(0), uint32(10),
+			"main", "sequence main(x f32, y chan f32)"),
+		Entry("stage with parameters",
+			"stage hold(out chan f32, value f32 = 2) {\n    value -> out\n}\n",
+			uint32(0), uint32(7),
+			"hold", "stage hold(out chan f32, value f32)"),
+		Entry(
+			"call of a sequence with parameters",
+			"sequence main(x f32) {\n    stage first {}\n}\nsequence other {\n    stage a {\n        true => main(1)\n    }\n}\n",
+			uint32(5),
+			uint32(17),
+			"main",
+			"sequence main(x f32)",
+		),
+		Entry("sequence parameter",
+			"sequence main(x f32) {\n    stage first {\n        x -> out\n    }\n}\n",
+			uint32(2), uint32(8),
+			"x", "Input Parameter"),
 	)
 
 	DescribeTable(

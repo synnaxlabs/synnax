@@ -619,6 +619,10 @@ func (s *Server) getUserSymbolHover(
 		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindSequence:
 		d = doc.New(doc.TitleWithKind(displayName, "Sequence"))
+		if sym.IsParameterized() {
+			d.Add(doc.Divider())
+			d.Add(doc.Code("arc", formatParameterSignature(sym)))
+		}
 		if stages := formatSequenceStagesList(sym); len(stages) > 0 {
 			d.Add(doc.Paragraph("Stages: " + strings.Join(stages, ", ")))
 		}
@@ -684,6 +688,14 @@ func formatFunctionSignatureContent(sym *symbol.Symbol) string {
 			writeParams(&sig, "(", sym.Type.Outputs, ")")
 		}
 	}
+	return sig.String()
+}
+
+// formatParameterSignature returns the header of a sequence or stage with parameters.
+func formatParameterSignature(sym *symbol.Symbol) string {
+	var sig strings.Builder
+	sig.WriteString(sym.AST.GetStart().GetText() + " " + sym.Name)
+	writeParams(&sig, "(", sym.Type.Inputs, ")")
 	return sig.String()
 }
 

@@ -561,7 +561,7 @@ RoutingEntry ::= RoutingKey ':' FlowNode (('->' | '=>') FlowNode)*
 RoutingKey ::= Identifier | 'true' | 'false'
 
 FlowNode ::= Identifier           // channel, variable, stage, or sequence name
-           | FunctionInvocation   // func(...)
+           | FunctionInvocation   // func(...), sequence(...), or stage(...)
            | Expression           // inline computation
            | StageDeclaration     // inline stage body
            | SequenceDeclaration  // inline sequence body
@@ -621,6 +621,46 @@ Flow graphs must be acyclic within each scope:
 - **Flows within a stage** (`->`): Must be acyclic
 - **Stage transitions** (`=>`): Can be cyclic (valid state machines)
 
+### Sequence and stage parameters
+
+A named top-level sequence or stage can declare parameters, with the syntax of function
+[inputs](#inputs). A nested sequence or stage declares none. It reads the parameters of
+the top-level scope that holds it.
+
+```arc
+sequence fill(limit f32, valve chan bool) {
+    stage open {
+        true -> valve
+        tank > limit => next
+    }
+    stage close {
+        false -> valve
+    }
+}
+
+stage vent(valve chan bool) {
+    true -> valve
+}
+
+start_a => fill(10, valve_a)
+start_b => fill(limit=20, valve=valve_b)
+abort => vent(vent_valve)
+```
+
+Each call is its own instance with its own state, and instances run at the same time. A
+call is a valid target where the name of a sequence or stage is one. The bare name of a
+sequence or stage with parameters is not a valid target.
+
+- Arguments are all positional or all named. Trailing parameters with defaults may be
+  omitted.
+- An argument is a literal, a channel, a top-level variable that holds a literal or a
+  channel, or a parameter of the caller.
+- A `chan` parameter takes a channel. Any other parameter takes a value.
+- A value parameter cannot be reassigned. A `chan` parameter can be read and written,
+  but a variable cannot alias it.
+- A sequence or stage with parameters cannot call itself, directly or through other
+  sequences or stages with parameters.
+
 ## Sequences
 
 Sequences extend Arc's reactive model to support sequential automation workflows like
@@ -643,12 +683,14 @@ inactive, they don't.
 ### Sequence syntax
 
 ```
-SequenceDeclaration ::= 'sequence' Identifier? '{' SequenceItem* '}'
+SequenceDeclaration ::= 'sequence' Identifier? Parameters? '{' SequenceItem* '}'
+
+Parameters ::= '(' InputList ')'
 
 SequenceItem ::= FlowStatement | Assignment | SingleInvocation
               | VariableDeclaration | StageDeclaration | SequenceDeclaration
 
-StageDeclaration ::= 'stage' Identifier? '{' StageItem* '}'
+StageDeclaration ::= 'stage' Identifier? Parameters? '{' StageItem* '}'
 
 StageItem ::= FlowStatement | Assignment | SingleInvocation
             | VariableDeclaration | SequenceDeclaration
@@ -707,6 +749,8 @@ stage step3 {} // terminal (no outgoing transitions)
 - `=> next` — Go to the next stage in definition order
 - `=> stage_name` — Jump to any stage in the same sequence
 - `=> sequence_name` — Jump to a different sequence (starts at its first stage)
+- `=> name(args)` — Start an instance of a sequence or stage with
+  [parameters](#sequence-and-stage-parameters)
 
 ### Step completion
 

@@ -1993,6 +1993,8 @@ var _ = Describe("Completion", func() {
 				"sequence main {\n    stage cat {", uint32(1), uint32(15)),
 			Entry("stage, cursor after trailing space",
 				"sequence main {\n    stage cat { ", uint32(1), uint32(16)),
+			Entry("sequence with parameters, cursor flush against brace",
+				"sequence main(x f32) {", uint32(0), uint32(22)),
 		)
 
 		DescribeTable(
@@ -2008,6 +2010,10 @@ var _ = Describe("Completion", func() {
 				"func cat() {\n    \n}", uint32(1), uint32(4), "return"),
 			Entry("sequence body offers stage",
 				"sequence main {\n    \n}", uint32(1), uint32(4), "stage"),
+			Entry("sequence body with parameters offers stage",
+				"sequence main(x f32) {\n    \n}", uint32(1), uint32(4), "stage"),
+			Entry("stage body with parameters offers its parameter",
+				"stage hold(out chan f32) {\n    \n}", uint32(1), uint32(4), "out"),
 			Entry(
 				"stage body offers next",
 				"sequence main {\n    stage cat {\n        \n    }\n}",
@@ -2016,5 +2022,83 @@ var _ = Describe("Completion", func() {
 				"next",
 			),
 		)
+	})
+
+	Describe("Sequences and stages with parameters", func() {
+		const declarations = "sequence main(x f32, y chan f32) {\n" +
+			"    stage s {\n        x -> y\n    }\n}\n" +
+			"stage hold(out chan f32, value f32 = 2) {\n    value -> out\n}\n" +
+			"sequence manual {\n    stage s {}\n}\n"
+
+		BeforeEach(func() {
+			channels := []symbol.Symbol{
+				{
+					Name: "trig",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				{
+					Name: "sink",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   2,
+				},
+			}
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			}))
+			server.SetClient(&MockClient{})
+		})
+
+		DescribeTable("should offer",
+			func(ctx SpecContext, content string, line, char uint32, labels []string) {
+				OpenArcDocument(server, ctx, docURI, content)
+				items := Completion(server, ctx, docURI, line, char).Items
+				for _, label := range labels {
+					Expect(HasCompletion(items, label)).To(BeTrue(), label)
+				}
+			},
+			Entry("types in a parameter list",
+				"sequence main(x ) {\n}\n", uint32(0), uint32(16),
+				[]string{"f32", "chan"}),
+			Entry("the parameters of a sequence as named arguments",
+				declarations+"trig => main()", uint32(11), uint32(13),
+				[]string{"x", "y"}),
+			Entry("the parameters of a stage as named arguments",
+				declarations+"trig => hold()", uint32(11), uint32(13),
+				[]string{"out", "value"}),
+			Entry("channels as the value of a channel parameter",
+				declarations+"trig => main(y=sink)", uint32(11), uint32(15),
+				[]string{"sink"}),
+			Entry(
+				"the parameters in a nested stage",
+				"sequence main(x f32, y chan f32) {\n    stage s {\n        \n    }\n}\n",
+				uint32(2),
+				uint32(8),
+				[]string{"x", "y"},
+			),
+		)
+
+		It(
+			"Should not offer a named argument that the call has",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, docURI, declarations+"trig => main(x=1, )")
+				items := Completion(server, ctx, docURI, 11, 18).Items
+				Expect(HasCompletion(items, "x")).To(BeFalse())
+				Expect(HasCompletion(items, "y")).To(BeTrue())
+			},
+		)
+
+		It("Should insert parens only after a name that takes arguments", func(
+			ctx SpecContext,
+		) {
+			OpenArcDocument(server, ctx, docURI, declarations+"trig => ma")
+			items := Completion(server, ctx, docURI, 11, 10).Items
+			Expect(ItemInsertText(MustBeOk(FindCompletion(items, "main")))).
+				To(Equal("main($0)"))
+			Expect(ItemInsertText(MustBeOk(FindCompletion(items, "manual")))).
+				To(BeEmpty())
+		})
 	})
 })

@@ -4695,4 +4695,273 @@ TEST(StageEntrySamplesTest, EmitsOnlyTheSamplesTakenAtOrAfterEntry) {
         (std::vector<float>{3.0f, 4.0f})
     );
 }
+
+// Each direct call of a sequence or stage with parameters is its own instance.
+namespace parameters {
+const std::string FILL = R"(
+    sequence fill(limit f32, valve chan u8) {
+        stage open {
+            1 -> valve
+            %tank% > limit => next
+        }
+        stage close {
+            0 -> valve
+        }
+    })";
+
+Sequence new_h(const std::string &source) {
+    return Sequence(
+        source,
+        {{"start_a", x::telem::UINT8_T},
+         {"start_b", x::telem::UINT8_T},
+         {"tank", x::telem::FLOAT32_T},
+         {"gate", x::telem::UINT8_T},
+         {"valve_a", x::telem::UINT8_T},
+         {"valve_b", x::telem::UINT8_T},
+         {"out_a", x::telem::FLOAT32_T},
+         {"out_b", x::telem::FLOAT32_T},
+         {"log", x::telem::STRING_T}}
+    );
+}
+
+void level(Sequence &h, const float value) {
+    h.push("tank", x::telem::Series(value));
+}
+
+/// @brief reports whether a flushed frame holds a write to the named valve.
+bool written(const Sequence &h, const x::telem::Frame &fr, const std::string &valve) {
+    return !collect<std::uint8_t>(fr, h.key(valve)).empty();
+}
+}
+
+/// @brief it should run each call as its own instance.
+TEST(ParametersTest, RunsEachCallAsItsOwnInstance) {
+    using namespace parameters;
+    auto h = new_h(FILL + R"(
+    %start_a% == 1 => fill(10, %valve_a%)
+    %start_b% == 1 => fill(20, %valve_b%))");
+    h.trigger("start_a");
+    const auto first = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(first, h.key("valve_a")), 1);
+    EXPECT_FALSE(written(h, first, "valve_b"));
+
+    h.trigger("start_b");
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 1);
+
+    level(h, 15);
+    const auto low = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(low, h.key("valve_a")), 0);
+    EXPECT_FALSE(written(h, low, "valve_b"));
+
+    level(h, 25);
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 0);
+}
+
+/// @brief it should take arguments by name and a default.
+TEST(ParametersTest, TakesArgumentsByNameAndADefault) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence set(out chan f32, value f32 = 7.5) {
+        stage write {
+            value -> out
+        }
+    }
+    %start_a% == 1 => set(out=%out_a%)
+    %start_b% == 1 => set(value=-2.5, out=%out_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    const auto out = h.flush();
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_a")), 7.5f);
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_b")), -2.5f);
+}
+
+/// @brief it should give each instance its own variables.
+TEST(ParametersTest, GivesEachInstanceItsOwnVariables) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence fill(limit f32, valve chan u8) {
+        high := limit * 2
+        stage open {
+            1 -> valve
+            %tank% > high => next
+        }
+        stage close {
+            0 -> valve
+        }
+    }
+    %start_a% == 1 => fill(10, %valve_a%)
+    %start_b% == 1 => fill(20, %valve_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 1);
+
+    level(h, 25);
+    const auto low = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(low, h.key("valve_a")), 0);
+    EXPECT_FALSE(written(h, low, "valve_b"));
+
+    level(h, 45);
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 0);
+}
+
+/// @brief it should run a top-level stage with parameters.
+TEST(ParametersTest, RunsATopLevelStageWithParameters) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    stage hold(valve chan u8) {
+        1 -> valve
+    }
+    %start_a% == 1 => hold(%valve_a%)
+    %start_b% == 1 => hold(%valve_b%))");
+    h.trigger("start_b");
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_b")), 1);
+    EXPECT_FALSE(written(h, out, "valve_a"));
+}
+
+/// @brief it should take a top-level constant and a top-level alias.
+TEST(ParametersTest, TakesATopLevelConstantAndATopLevelAlias) {
+    using namespace parameters;
+    auto h = new_h(FILL + R"(
+    limit f32 := 10
+    valve := %valve_b%
+    %start_a% == 1 => fill(limit, valve))");
+    h.trigger("start_a");
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 1);
+    level(h, 15);
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_b")), 0);
+}
+
+/// @brief it should pass the parameters of the caller to its callee.
+TEST(ParametersTest, PassesTheParametersOfTheCallerToItsCallee) {
+    using namespace parameters;
+    auto h = new_h(FILL + R"(
+    sequence arm(limit f32, valve chan u8) {
+        stage wait {
+            %gate% == 1 => fill(limit, valve)
+        }
+    }
+    %start_a% == 1 => arm(10, %valve_a%)
+    %start_b% == 1 => arm(20, %valve_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    EXPECT_FALSE(written(h, h.flush(), "valve_a"));
+
+    h.trigger("gate");
+    const auto opened = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(opened, h.key("valve_a")), 1);
+    EXPECT_EQ(last<std::uint8_t>(opened, h.key("valve_b")), 1);
+
+    level(h, 15);
+    const auto low = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(low, h.key("valve_a")), 0);
+    EXPECT_FALSE(written(h, low, "valve_b"));
+}
+
+/// @brief it should pass a value parameter to a function input.
+TEST(ParametersTest, PassesAValueParameterToAFunctionInput) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    func add(offset f32) {value f32} f32 {
+        return value + offset
+    }
+    sequence shift(offset f32, out chan f32) {
+        stage run {
+            %tank% -> add(offset=offset) -> out
+        }
+    }
+    %start_a% == 1 => shift(1, %out_a%)
+    %start_b% == 1 => shift(100, %out_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    level(h, 5);
+    const auto out = h.flush();
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_a")), 6);
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_b")), 105);
+}
+
+/// @brief it should read a channel parameter in an expression and a variable.
+TEST(ParametersTest, ReadsAChannelParameterInAnExpressionAndAVariable) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence scale(src chan f32, gain f32, out chan f32) {
+        doubled := src * 2
+        stage run {
+            doubled + gain -> out
+        }
+    }
+    %start_a% == 1 => scale(%tank%, 1, %out_a%)
+    %start_b% == 1 => scale(%tank%, 10, %out_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    level(h, 3);
+    const auto out = h.flush();
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_a")), 7);
+    EXPECT_FLOAT_EQ(last<float>(out, h.key("out_b")), 16);
+}
+
+/// @brief it should keep an inline body in its own instance.
+TEST(ParametersTest, KeepsAnInlineBodyInItsOwnInstance) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence watch(limit f32, valve chan u8) {
+        stage armed {
+            %tank% > limit => stage {
+                1 -> valve
+            }
+        }
+    }
+    %start_a% == 1 => watch(10, %valve_a%)
+    %start_b% == 1 => watch(20, %valve_b%))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    level(h, 15);
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_a")), 1);
+    EXPECT_FALSE(written(h, out, "valve_b"));
+}
+
+/// @brief it should show a value parameter in a format string.
+TEST(ParametersTest, ShowsAValueParameterInAFormatString) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence report(limit f32) {
+        stage write {
+            f"limit {limit}" -> %log%
+        }
+    }
+    %start_a% == 1 => report(10)
+    %start_b% == 1 => report(20))");
+    h.trigger("start_a");
+    h.trigger("start_b");
+    EXPECT_EQ(
+        collect<std::string>(h.flush(), h.key("log")),
+        (std::vector<std::string>{"limit 10", "limit 20"})
+    );
+}
+
+/// @brief it should jump from an instance to a sequence with no parameters.
+TEST(ParametersTest, JumpsFromAnInstanceToASequenceWithNoParameters) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    sequence fill(limit f32, valve chan u8) {
+        stage open {
+            1 -> valve
+            %tank% > limit => vent
+        }
+    }
+    sequence vent {
+        stage all {
+            0 -> %valve_a%
+            0 -> %valve_b%
+        }
+    }
+    %start_a% == 1 => fill(10, %valve_a%))");
+    h.trigger("start_a");
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_a")), 1);
+    level(h, 15);
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_a")), 0);
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_b")), 0);
+}
 }
