@@ -1018,7 +1018,7 @@ func processField(
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
-		fd.PyType = fd.PyType + " | None"
+		fd.PyType += " | None"
 	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
 		if kind == "Array" {
 			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")

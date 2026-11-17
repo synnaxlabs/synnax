@@ -210,7 +210,7 @@ func renderTestCodecFile(
 		// In test files the receiver is used as a local variable, so it must
 		// not shadow the package import alias.
 		if recv == packageName {
-			recv = recv + "v"
+			recv += "v"
 		}
 
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {

@@ -42,6 +42,22 @@ const Make = "sift"
 // streams that idle for 60 s.
 const keepaliveTime = 20 * time.Second
 
+// retrieveDevice returns the device with the given key.
+func retrieveDevice(
+	ctx context.Context,
+	cfg FactoryConfig,
+	key device.Key,
+) (device.Device, error) {
+	var dev device.Device
+	if err := cfg.Device.NewRetrieve().
+		Where(device.MatchKeys(key)).
+		Entry(&dev).
+		Exec(ctx, cfg.DB); err != nil {
+		return device.Device{}, err
+	}
+	return dev, nil
+}
+
 // decodeProperties returns the connection properties of dev. It returns a validation
 // error when dev is not a Sift device or its properties are incomplete.
 func decodeProperties(dev device.Device) (Properties, error) {

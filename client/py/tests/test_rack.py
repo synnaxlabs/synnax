@@ -113,7 +113,7 @@ class TestRackClient:
         )
         with pytest.raises(
             sy.ValidationError,
-            match="cannot delete rack test because device test uses it as its rack",
+            match=r"^cannot delete rack test because device test uses it as its rack$",
         ):
             client.racks.delete([rack.key])
 
@@ -128,7 +128,10 @@ class TestRackClient:
             type="pagerduty_alert",
             config={"routing_key": str(create_routing_key())},
         )
-        with pytest.raises(sy.ValidationError, match="still holds tasks"):
+        with pytest.raises(
+            sy.ValidationError,
+            match=r"^cannot delete rack test because it still holds tasks$",
+        ):
             client.racks.delete([rack.key])
 
     def test_create_with_integrations(self, client: sy.Synnax) -> None:

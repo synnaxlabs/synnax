@@ -37,7 +37,7 @@ const TelemForm = (): ReactElement => {
         const { name } = await client.channels.retrieve({ key });
         set(path.tooltip, [name]);
       }, "Failed to retrieve channel");
-    onChange({ ...value, channel: key ?? undefined });
+    onChange({ ...value, channel: key ?? 0 });
   };
   return (
     <Base.Sections x>
@@ -45,7 +45,7 @@ const TelemForm = (): ReactElement => {
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
-            value={value.channel ?? 0}
+            value={value.channel}
             onChange={handleSourceChange}
             // Only variable density channels (STRING, JSON, UUID) read as text.
             filter={(ch) => ch.dataType.isVariable}

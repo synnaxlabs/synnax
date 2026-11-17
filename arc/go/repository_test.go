@@ -12,7 +12,6 @@ package arc_test
 import (
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,7 +23,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-const repositoryRoot = "../.."
+// repository is the root of the monorepo.
+var repository = os.DirFS("../..")
 
 // repositoryChannels holds the channels that the .arc files in the repository use. A
 // new file that uses a new channel adds it here.
@@ -55,18 +55,19 @@ var repositoryChannels = map[string]types.Type{
 
 func findRepositoryPrograms() ([]string, error) {
 	var paths []string
-	err := filepath.WalkDir(
-		repositoryRoot,
+	err := fs.WalkDir(
+		repository,
+		".",
 		func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
 			name := d.Name()
-			if d.IsDir() && path != repositoryRoot &&
+			if d.IsDir() && path != "." &&
 				(strings.HasPrefix(name, ".") || name == "node_modules") {
-				return filepath.SkipDir
+				return fs.SkipDir
 			}
-			if !d.IsDir() && filepath.Ext(name) == ".arc" {
+			if !d.IsDir() && strings.HasSuffix(name, ".arc") {
 				paths = append(paths, path)
 			}
 			return nil
@@ -101,7 +102,7 @@ var _ = Describe("Repository programs", func() {
 	DescribeTable(
 		"should compile",
 		func(ctx SpecContext, path string) {
-			raw := string(MustSucceed(os.ReadFile(path)))
+			raw := string(MustSucceed(fs.ReadFile(repository, path)))
 			MustSucceed(arc.CompileText(ctx, arc.Text{Raw: raw}, newRepositoryRoot()))
 		},
 		lo.Map(paths, func(path string, _ int) TableEntry { return Entry(path, path) }),

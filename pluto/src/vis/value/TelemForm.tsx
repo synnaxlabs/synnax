@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { deep, notation } from "@synnaxlabs/x";
@@ -17,12 +17,10 @@ import { Channel } from "@/channel";
 import { Notation } from "@/notation";
 import { Staleness } from "@/vis/staleness";
 
-interface ValueTelemFormT {
-  channel?: channel.Key;
-  rollingAverage?: number;
-  precision?: number;
-  notation?: notation.Notation;
-}
+type ValueTelemFormT = Pick<
+  schematic.NumericTelemConfig,
+  "channel" | "rollingAverage" | "precision" | "notation"
+>;
 
 const path = deep.path<ValueTelemFormT>();
 
@@ -31,7 +29,7 @@ export const TelemForm = (): ReactElement => {
   const { value, onChange } = Form.useField(path);
 
   const handleSourceChange = (key: channel.Key | null): void =>
-    onChange({ ...value, channel: key ?? undefined });
+    onChange({ ...value, channel: key ?? 0 });
 
   const handleNotationChange = (notation: notation.Notation): void =>
     onChange({ ...value, notation });
@@ -42,21 +40,19 @@ export const TelemForm = (): ReactElement => {
   const handleRollingAverageChange = (windowSize: number): void =>
     onChange({ ...value, rollingAverage: windowSize });
 
-  const channelKey = value.channel ?? 0;
-
   return (
     <>
       <Form.Section title="Source">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
-            value={channelKey}
+            value={value.channel}
             onChange={handleSourceChange}
             allowNone
           />
         </Input.Item>
         <Input.Item label="Averaging window" padHelpText={false}>
           <Input.Numeric
-            value={value.rollingAverage ?? 1}
+            value={value.rollingAverage}
             bounds={{ lower: 1, upper: 100 }}
             integer
             onChange={handleRollingAverageChange}
@@ -65,10 +61,7 @@ export const TelemForm = (): ReactElement => {
       </Form.Section>
       <Form.Section title="Format">
         <Input.Item label="Notation" padHelpText={false}>
-          <Notation.Select
-            value={value.notation ?? "standard"}
-            onChange={handleNotationChange}
-          />
+          <Notation.Select value={value.notation} onChange={handleNotationChange} />
         </Input.Item>
         <Input.Item label="Precision" padHelpText={false}>
           <Input.Numeric

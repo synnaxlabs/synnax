@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <concepts>
@@ -39,6 +40,10 @@
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
+/// @brief the SOEM frame buffers that the process data frames in flight can take. The
+/// rest stay free for the mailbox and state reads of other threads.
+constexpr size_t PROCESS_DATA_BUFFERS = EC_MAXBUF - 4;
+
 /// @brief how long, and on which clock, the master waits for the slaves.
 struct Config {
     /// @brief how long the slaves get to reach PRE-OP after discovery. The default is
@@ -110,6 +115,17 @@ class Master final : public master::Master {
         size_t failures = 0;
     };
 
+    /// @brief a send() that no receive() took.
+    struct Cycle {
+        /// @brief the Config::clock time of the send.
+        std::chrono::steady_clock::time_point sent_at;
+        /// @brief what receive() returns for a send that held process data back, or
+        /// NIL.
+        x::errors::Error held_err;
+        /// @brief the number of process data frames of the send that went out.
+        size_t frames = 0;
+    };
+
     /// @brief the state of one bus run, from activate() to deactivate().
     struct Session {
         /// @brief the plan that activate() got.
@@ -120,6 +136,17 @@ class Master final : public master::Master {
         size_t output_sz = 0;
         /// @brief the working counter of a frame that every enabled slave handled.
         int expected_wkc = 0;
+        /// @brief the enabled slaves with inputs, in ascending order. Each cycle reads
+        /// their AL status in the frames of its process data.
+        std::vector<uint16_t> state_reads;
+        /// @brief the sends that no receive() took, oldest first. Only the cycle uses
+        /// it.
+        std::vector<Cycle> cycles;
+        /// @brief the number of frames of the latest send that went out. Only the cycle
+        /// uses it.
+        size_t send_frames = 0;
+        /// @brief what inputless() returns. Only the cycle uses it.
+        std::vector<uint16_t> inputless;
         /// @brief whether the enabled slaves' frames carry the reference clock time.
         bool has_dc = false;
         /// @brief the DC setup of each enabled slave in a DC mode.
@@ -138,17 +165,12 @@ class Master final : public master::Master {
         std::set<uint16_t> unrestored_clocks;
         /// @brief the latest DC time that moved forward, in nanoseconds.
         int64_t last_dc_time = NO_DC_FRAME;
-        /// @brief the Config::clock time of the last process data send.
-        std::chrono::steady_clock::time_point sent_at;
         /// @brief the DC time minus the Config::clock time, in nanoseconds, at the send
         /// of the frame that gave last_dc_time.
         std::atomic<int64_t> host_dc_offset{NO_DC_FRAME};
         /// @brief whether the cycle holds process data back. A frame then carries only
         /// the reference clock time.
         std::atomic<bool> process_data_held{false};
-        /// @brief what receive returns after a send that held process data back, or NIL
-        /// after a send that did not. Only the cycle uses it.
-        x::errors::Error held_err;
         /// @brief what shortfall() returns. Only the cycle uses it.
         std::optional<uint32_t> shortfall;
         /// @brief the working counter of the latest mismatch, and what receive()
@@ -214,6 +236,8 @@ public:
 
     [[nodiscard]] std::optional<uint32_t> shortfall() const override;
 
+    [[nodiscard]] std::span<const uint16_t> inputless() const override;
+
 private:
     /// @brief returns the record of the slave at pos in the SOEM slave table. Record 0
     /// describes the whole bus.
@@ -253,7 +277,8 @@ private:
 
     /// @brief reads the CoE serial number of a slave with SII serial number 0 into its
     /// properties, or the reason the read got no answer into its status. Keeps serial
-    /// number 0 when the slave answers the read with an error.
+    /// number 0 when the slave answers the read with an error, or gives a serial number
+    /// above 2^53 - 1.
     void read_serial(slave::DiscoveryResult &slave);
 
     /// @brief reads the identity and PDO layout of the slave at a position.

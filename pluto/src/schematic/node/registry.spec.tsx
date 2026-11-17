@@ -141,6 +141,14 @@ describe("Schematic.Node.createConfig", () => {
     expect(config.units).toBe("bar");
   });
 
+  it("should write the spec's value into a new text box", () => {
+    expect(createConfig({ variant: "text_box" }).value).toBe("Text box");
+  });
+
+  it("should keep a text box value the input sets", () => {
+    expect(createConfig({ variant: "text_box", value: "" }).value).toBe("");
+  });
+
   it("should carry a custom symbol's spec key", () => {
     const config = createConfig({ variant: "custom_static", specKey: "spec-1" });
     expect(config.specKey).toBe("spec-1");

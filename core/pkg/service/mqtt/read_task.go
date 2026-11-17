@@ -116,77 +116,13 @@ func newReadTopic(
 	if err = validateTopic(entry.Topic); err != nil {
 		return nil, err
 	}
-	indexSet := false
 	for _, f := range entry.Fields {
 		if f.Disabled {
 			continue
 		}
-		path := "field " + f.Name + " of topic " + entry.Topic
-		ch, ok := channels[f.Channel]
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: channel %d does not exist",
-				path,
-				f.Channel,
-			)
+		if err := t.addField(entry, f, channels); err != nil {
+			return nil, err
 		}
-		pointer, err := xjson.ParsePointer(f.Pointer)
-		if err != nil {
-			return nil, errors.Wrap(err, path)
-		}
-		if ch.DataType == telem.BytesT && len(pointer) == 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: a bytes channel requires a JSON pointer", path,
-			)
-		}
-		field := readField{
-			name:     f.Name,
-			pointer:  pointer,
-			channel:  f.Channel,
-			dataType: ch.DataType,
-		}
-		xf := xjson.Field{DataType: ch.DataType, Enums: enums(f.EnumValues)}
-		if ch.DataType == telem.TimestampT {
-			if f.TimeFormat == nil {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"%s: a timestamp channel requires a time format", path,
-				)
-			}
-			if xf.TimeFormat, err = xjson.ParseTimeFormat(
-				string(*f.TimeFormat),
-			); err != nil {
-				return nil, errors.Wrap(err, path)
-			}
-		}
-		if field.decoder, err = xjson.NewDecoder(xf); err != nil {
-			return nil, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
-		}
-		if !indexSet {
-			t.index, indexSet = ch.Index(), true
-		} else if ch.Index() != t.index {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: every channel of a topic must share one index channel", path,
-			)
-		}
-		if f.Key == entry.Index {
-			if !ch.IsIndex {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"%s: the index field must write to an index channel", path,
-				)
-			}
-			t.indexField = len(t.fields)
-		} else if ch.IsIndex {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: only the index field can write to an index channel", path,
-			)
-		}
-		t.fields = append(t.fields, field)
 	}
 	if len(t.fields) == 0 {
 		return nil, errors.Wrapf(
@@ -213,6 +149,88 @@ func newReadTopic(
 	t.extractor = xjson.NewExtractor(pointers)
 	t.values = make([]jsontext.Value, len(t.fields))
 	return t, nil
+}
+
+// addField validates f, an enabled field of entry, and adds it to t.
+func (t *readTopic) addField(
+	entry PlainReadEntry,
+	f ReadField,
+	channels map[channel.Key]channel.Channel,
+) error {
+	path := "field " + f.Name + " of topic " + entry.Topic
+	ch, ok := channels[f.Channel]
+	if !ok {
+		return errors.Wrapf(
+			validate.ErrValidation, "%s: channel %d does not exist", path, f.Channel,
+		)
+	}
+	field, err := newReadField(path, f, ch)
+	if err != nil {
+		return err
+	}
+	if len(t.fields) == 0 {
+		t.index = ch.Index()
+	} else if ch.Index() != t.index {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"%s: every channel of a topic must share one index channel", path,
+		)
+	}
+	if f.Key == entry.Index {
+		if !ch.IsIndex {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"%s: the index field must write to an index channel", path,
+			)
+		}
+		t.indexField = len(t.fields)
+	} else if ch.IsIndex {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"%s: only the index field can write to an index channel", path,
+		)
+	}
+	t.fields = append(t.fields, field)
+	return nil
+}
+
+// newReadField validates f against ch, the channel that it writes to. path names f in
+// errors.
+func newReadField(path string, f ReadField, ch channel.Channel) (readField, error) {
+	pointer, err := xjson.ParsePointer(f.Pointer)
+	if err != nil {
+		return readField{}, errors.Wrap(err, path)
+	}
+	if ch.DataType == telem.BytesT && len(pointer) == 0 {
+		return readField{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s: a bytes channel requires a JSON pointer", path,
+		)
+	}
+	field := readField{
+		name:     f.Name,
+		pointer:  pointer,
+		channel:  f.Channel,
+		dataType: ch.DataType,
+	}
+	xf := xjson.Field{DataType: ch.DataType, Enums: enums(f.EnumValues)}
+	if ch.DataType == telem.TimestampT {
+		if f.TimeFormat == nil {
+			return readField{}, errors.Wrapf(
+				validate.ErrValidation,
+				"%s: a timestamp channel requires a time format", path,
+			)
+		}
+		if xf.TimeFormat, err = xjson.ParseTimeFormat(
+			string(*f.TimeFormat),
+		); err != nil {
+			return readField{}, errors.Wrap(err, path)
+		}
+	}
+	if field.decoder, err = xjson.NewDecoder(xf); err != nil {
+		return readField{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
+	}
+	return field, nil
 }
 
 // enums returns entries in the form xjson takes.
@@ -697,50 +715,76 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 		sparkplug.State:
 	}
 	for _, m := range ev.Metrics {
-		t, ok := r.tags[tagID{tagScope: scope, name: m.Name}]
-		if !ok || m.Value == nil {
-			continue
-		}
-		data, err := sparkplug.AppendSample(nil, t.dataType, m.Value)
-		if err != nil {
-			r.degrade(now, errors.Wrapf(err, "rejected a value of %s", t))
-			continue
-		}
-		if m.Historical {
-			if err = r.history.add(now, t, m.Timestamp, data); err != nil {
-				r.degrade(now, err)
-			}
-			continue
-		}
-		if t.index != 0 {
-			stamp := m.Timestamp
-			if stamp == 0 {
-				stamp = msg.received
-			}
-			// An index takes timestamps in rising order only. A birth repeats values
-			// that the task may have, so a stale one is no loss.
-			if stamp <= r.lastStamp[t.index] {
-				if !birth {
-					r.degrade(now, errors.Newf(
-						"rejected a value of %s: its timestamp is not after the last "+
-							"one written",
-						t,
-					))
-				}
-				continue
-			}
-			r.lastStamp[t.index] = stamp
-			if err = r.history.live(now, t.index, stamp); err != nil {
-				r.degrade(now, err)
-			}
-			b.append(
-				t.index,
-				telem.TimestampT,
-				telem.ByteOrder.AppendUint64(nil, uint64(stamp)),
-			)
-		}
-		b.append(t.channel, t.dataType, data)
+		r.appendMetric(now, msg.received, scope, m, birth, b)
 	}
+}
+
+// appendMetric puts the value of m into b when m is a tag of the task in scope.
+// received is the time that the message of m arrived.
+func (r *reader) appendMetric(
+	now time.Time,
+	received telem.TimeStamp,
+	scope tagScope,
+	m sparkplug.Metric,
+	birth bool,
+	b *batch,
+) {
+	t, ok := r.tags[tagID{tagScope: scope, name: m.Name}]
+	if !ok || m.Value == nil {
+		return
+	}
+	data, err := sparkplug.AppendSample(nil, t.dataType, m.Value)
+	if err != nil {
+		r.degrade(now, errors.Wrapf(err, "rejected a value of %s", t))
+		return
+	}
+	if m.Historical {
+		if err = r.history.add(now, t, m.Timestamp, data); err != nil {
+			r.degrade(now, err)
+		}
+		return
+	}
+	if t.index != 0 && !r.appendIndex(now, received, t, m, birth, b) {
+		return
+	}
+	b.append(t.channel, t.dataType, data)
+}
+
+// appendIndex puts the timestamp of m into the index of t in b. It returns false when
+// it rejects a timestamp that is not after the last one written.
+func (r *reader) appendIndex(
+	now time.Time,
+	received telem.TimeStamp,
+	t readTag,
+	m sparkplug.Metric,
+	birth bool,
+	b *batch,
+) bool {
+	stamp := m.Timestamp
+	if stamp == 0 {
+		stamp = received
+	}
+	// An index takes timestamps in rising order only. A birth repeats values that the
+	// task may have, so a stale one is no loss.
+	if stamp <= r.lastStamp[t.index] {
+		if !birth {
+			r.degrade(now, errors.Newf(
+				"rejected a value of %s: its timestamp is not after the last one written",
+				t,
+			))
+		}
+		return false
+	}
+	r.lastStamp[t.index] = stamp
+	if err := r.history.live(now, t.index, stamp); err != nil {
+		r.degrade(now, err)
+	}
+	b.append(
+		t.index,
+		telem.TimestampT,
+		telem.ByteOrder.AppendUint64(nil, uint64(stamp)),
+	)
+	return true
 }
 
 // reads reports whether the task has a tag in scope, or, for an edge node, in one of

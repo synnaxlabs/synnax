@@ -107,11 +107,11 @@ func createGroup(ctx SpecContext, name string, parent resource.ID) group.Group {
 	return g
 }
 
-func createTask(ctx SpecContext, name string) task.Task {
+func createTask(ctx SpecContext) task.Task {
 	GinkgoHelper()
 	t := task.Task{
 		Rack: testRack.Key,
-		Name: name,
+		Name: "Sequence",
 		Type: pagerduty.AlertTaskType,
 	}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -332,7 +332,7 @@ var _ = Describe("Export", func() {
 		ctx SpecContext,
 	) {
 		proj := createProject(ctx, "Panel Tasks")
-		t := createTask(ctx, "Sequence")
+		t := createTask(ctx)
 		p := createPanel(
 			ctx, "Controls", proj.Key, leaf(resourceTab(t.ResourceID())),
 		)
@@ -373,7 +373,7 @@ var _ = Describe("Export", func() {
 
 	It("Should place a task referenced by two panels once", func(ctx SpecContext) {
 		proj := createProject(ctx, "Shared Task")
-		t := createTask(ctx, "Sequence")
+		t := createTask(ctx)
 		createPanel(
 			ctx, "First", proj.Key, leaf(resourceTab(t.ResourceID())),
 		)
@@ -804,7 +804,7 @@ var _ = Describe("Import", func() {
 
 	It("Should leave imported tasks under the rack", func(ctx SpecContext) {
 		src := createProject(ctx, "Panel Tasks")
-		t := createTask(ctx, "Sequence")
+		t := createTask(ctx)
 		createPanel(
 			ctx, "Controls", src.Key, leaf(resourceTab(t.ResourceID())),
 		)
@@ -1121,7 +1121,7 @@ var _ = Describe("Legacy import", func() {
 	It("Should import legacy task files through the leaf machinery", func(
 		ctx SpecContext,
 	) {
-		t := createTask(ctx, "Sequence")
+		t := createTask(ctx)
 		env := MustSucceed(imexSvc.Export(ctx, db, task.ResourceID(t.Key)))
 		tx = DeferClose(db.OpenTx())
 		proj := importLegacy(ctx, zip.Files{

@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
@@ -79,7 +80,7 @@ func checkChain(
 	// chain edit lands in the live file the same way.
 	if merged, ok := res.MergedSources[livePath+".oracle"]; ok {
 		filePath := livePath + ".oracle"
-		onDisk, err := os.ReadFile(filepath.Join(env.RepoRoot, filePath))
+		onDisk, err := paths.ReadFile(filePath, env.RepoRoot)
 		if err != nil && !os.IsNotExist(err) {
 			r.fail(Finding{
 				Path: filePath, Severity: SeverityError, Message: err.Error(),

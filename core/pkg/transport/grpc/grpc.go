@@ -209,6 +209,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ColorRetrieve = noop.UnaryServer[color.RetrieveRequest, color.RetrieveResponse]{}
 	t.ColorDelete = noop.UnaryServer[color.DeleteRequest, struct{}]{}
 	t.ColorDispatch = noop.UnaryServer[color.DispatchRequest, struct{}]{}
+	t.ColorRetrieveBuiltins = noop.UnaryServer[
+		struct{},
+		color.RetrieveBuiltinsResponse,
+	]{}
 
 	// ACCESS
 	t.AccessCreatePolicy = noop.UnaryServer[policy.CreateRequest, policy.CreateResponse]{}

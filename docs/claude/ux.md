@@ -331,6 +331,24 @@ bound, a log precision, or the line plot X channel.
   layout does not move. The arrow keys and the pointer move one highlight, and Enter
   picks the highlighted item.
 
+### Color picker
+
+- With named colors, two tabs split the picker's width: Library (`Icon.Library`) and
+  Custom (`Icon.Sliders`). It opens on Library while the value is linked or absent, and
+  on Custom while the value is a fixed color.
+- One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
+  Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
+- Library has the select dialog's search under the tab bar's hairline, with a hairline
+  under it. Each palette sits under its title, which ends with the name of the hovered
+  color, else the linked one. Swatches have no tooltips.
+- A swatch shows the color's value for the current theme only.
+- An edit in Custom stores a fixed color and unlinks the value. There is no unlink
+  button.
+- An optional color puts a square Auto button at the right of the tab bar, on both tabs.
+- The saturation and brightness plane has the tiny radius.
+- The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
+  icon. Hex codes use the code font, so every code takes the same width and fits.
+
 ### Menus and selects
 
 - Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
@@ -368,6 +386,11 @@ bound, a log precision, or the line plot X channel.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
+- An open `Select.Multiple` and the line plot's Ranges select list their selected values
+  first, with no divider: their joined tint marks where they end. The order is set when
+  the select opens and holds while it stays open, so an item never moves under the
+  pointer. A search lists its matches in their own order. GitHub and GitLab do the same.
+  A filter menu keeps its own order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above
@@ -381,6 +404,9 @@ bound, a log precision, or the line plot X channel.
   count: the dots of the first hidden tags, then "+N". With no tag shown, the count
   reads "N labels", then "+N" with its dots. Only a group too narrow for that shows
   nothing.
+- Only a tag that shows a color dot shows as a dot in the count. Tags with other icons,
+  such as channels, fold into a plain "+N".
+- An outlined group, such as a select in a form, keeps its outline at every step.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
 - A value in a list item or a property panel shows no caret, at rest, on hover, or while
@@ -486,6 +512,19 @@ bound, a log precision, or the line plot X channel.
 - A part that opens something gets l3 on hover and l4 on press.
 - The dots of a labels value overlap a little, as one group.
 
+### Record headers
+
+- The header of a record page, such as a range overview, puts its actions on the top
+  line, beside the parents. The name takes the full width under them.
+- A parent shows its color square, as the explorer does, at 80% opacity, then its name
+  at weight 500 in gray l9. A caret the size of the text separates two parents. The
+  parents never wrap: the furthest up fades first.
+- In a narrow pane, the parents move to their own line under the actions. When the pane
+  is narrower still, the copy, download, and link buttons fold into a "⋮" menu. Plot and
+  the star stay.
+- A word of a time line ("started", "ended") wraps with its time, never alone.
+- In a narrow pane, a field of a record shows its value under its name.
+
 ### Page sections
 
 - A section of a record page, such as Child ranges or Metadata, is an outlined box like
@@ -494,6 +533,17 @@ bound, a log precision, or the line plot X channel.
 - The header holds one text button with the section's icon, title, and caret. It
   collapses the box to its bar. An action in the header opens the box again.
 - An empty section shows no box, only one muted "+ Noun" line that adds its first item.
+
+### Group headings
+
+- A list that groups its items, such as the palettes on the Colors page, heads each
+  group with `Header.Group`: one full-width bar that opens and closes the group.
+- The bar is l2 with the item radius. Its height is the Lyra size nearest the item
+  height: `large` above a 40 px item. Hover and press fill the whole bar.
+- The title is a plain string or a span at the button label weight. The count follows in
+  tiny l9 text, then an optional badge. The caret at the end points down when open.
+- Actions, such as a "+" that creates an item in the group, sit before the caret and do
+  not open or close it. Rename edits the title in place.
 
 ### Record tables
 

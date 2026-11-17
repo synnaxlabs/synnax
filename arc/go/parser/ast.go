@@ -10,6 +10,7 @@
 package parser
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -354,9 +355,15 @@ func isFloatType(t ITypeContext) bool {
 // directly so it works when either side is a lexer keyword (AUTHORITY on
 // the left, FOR on the right) and not just an IDENTIFIER.
 func QualifiedNameParts(qid IQualifiedIdentifierContext) (head, tail string) {
-	head = qid.GetChild(0).(antlr.TerminalNode).GetText()
-	tail = qid.GetChild(2).(antlr.TerminalNode).GetText()
-	return head, tail
+	return terminalText(qid, 0), terminalText(qid, 2)
+}
+
+func terminalText(qid IQualifiedIdentifierContext, i int) string {
+	node, ok := qid.GetChild(i).(antlr.TerminalNode)
+	if !ok {
+		panic(fmt.Sprintf("qualified identifier child %d is a %T", i, qid.GetChild(i)))
+	}
+	return node.GetText()
 }
 
 // FunctionNameParts returns the head and tail of a function context's

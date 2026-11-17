@@ -10,6 +10,7 @@
 package http_test
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"testing"
@@ -58,8 +59,15 @@ func TestHTTP(t *testing.T) {
 	RunSpecs(t, "HTTP Suite", SuiteConfig())
 }
 
+// pollHealth sends one GET to url and gives up after a second.
 func pollHealth(url string) error {
-	res, err := http.Get(url)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}

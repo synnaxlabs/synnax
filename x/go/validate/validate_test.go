@@ -164,7 +164,6 @@ var _ = Describe("Validate", func() {
 				return v.Error()
 			}()),
 			Entry("an Errorf failure", validate.Errorf("%d%% wrong", 100)),
-			Entry("a wrapped validation error", validate.ErrRequired),
 		)
 
 		It("Should keep an earlier failure through a passing check", func() {

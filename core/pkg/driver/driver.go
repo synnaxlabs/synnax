@@ -179,7 +179,10 @@ var (
 		"ni",
 		"opc",
 	}
-	DefaultConfig = Config{
+)
+
+func defaultConfig() Config {
+	return Config{
 		Integrations:         []string{},
 		BinaryFS:             xfs.Default,
 		Enabled:              new(true),
@@ -194,7 +197,7 @@ var (
 		TaskShutdownTimeout:  time.Second * 30,
 		TaskWorkerCount:      4,
 	}
-)
+}
 
 // Override implements [config.Config.Override].
 func (c Config) Override(other Config) Config {
@@ -322,7 +325,7 @@ type Driver struct {
 // subprocess. Otherwise, Open returns a [Driver] whose methods are no-ops. Open also
 // returns a no-op Driver when cfg.Enabled is false.
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
-	cfg, err := config.New(Config{FS: defaultFS}.Override(DefaultConfig), cfgs...)
+	cfg, err := config.New(Config{FS: defaultFS}.Override(defaultConfig()), cfgs...)
 	if err != nil {
 		return nil, err
 	}
