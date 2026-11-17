@@ -54,13 +54,14 @@ const (
 // ShouldServe returns true if the Branch should be served under the given listening
 // conditions.
 func (r RoutingPolicy) ShouldServe(insecure, insecureMux bool) bool {
-	if !insecure && !insecureMux {
+	switch {
+	case !insecure && !insecureMux:
 		return r == RoutingPolicyServeAlwaysPreferSecure ||
 			r == RoutingPolicyServeOnlyIfSecure
-	} else if !insecure && insecureMux {
+	case !insecure && insecureMux:
 		return r == RoutingPolicyServeOnInsecureIfSecure ||
 			r == RoutingPolicyServeAlwaysPreferInsecure
-	} else if insecure && insecureMux {
+	case insecure && insecureMux:
 		return r == RoutingPolicyServeAlwaysPreferInsecure ||
 			r == RoutingPolicyServeOnlyIfInsecure ||
 			r == RoutingPolicyServeAlwaysPreferSecure

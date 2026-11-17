@@ -360,11 +360,8 @@ var _ = Describe("Type Unification", func() {
 					system.AddEquality(tv, cyclicType, nil, "T = cyclic T"),
 				).To(MatchError(ContainSubstring("is not compatible with")))
 			},
-			Entry("chan T", func(tv types.Type) types.Type { return types.Chan(tv) }),
-			Entry(
-				"series T",
-				func(tv types.Type) types.Type { return types.Series(tv) },
-			),
+			Entry("chan T", types.Chan),
+			Entry("series T", types.Series),
 		)
 
 		It("should report unresolved type variables with no constraints", func() {

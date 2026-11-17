@@ -66,7 +66,6 @@ linters:
     - forcetypeassert # SY-6105
     - gochecknoglobals # SY-6107
     - gochecknoinits # SY-6108
-    - gocritic # SY-6115
     - gosec # SY-3843
     - noctx # SY-6109
     - prealloc # SY-6115
@@ -104,6 +103,9 @@ linters:
       force-expect-to: true
       validate-async-intervals: true
       force-tonot: true
+    gocritic:
+      disabled-checks:
+        - unlambda # Entries build before BeforeEach, so method values bind too early.
     misspell:
       # Specs use these typos on purpose.
       ignore-rules:
