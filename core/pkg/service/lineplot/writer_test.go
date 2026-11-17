@@ -14,9 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
@@ -1259,7 +1261,10 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, db),
 					).
 						To(Succeed())
-					Expect(res.Lines[0].Color).To(BeNil())
+					series := MustSucceed(colorSvc.Series(ctx, db))
+					Expect(res.Lines[0].Color).To(Equal(
+						&color.Ref{Variant: color.NamedRef{Key: series[0]}},
+					))
 				},
 			)
 
@@ -1565,4 +1570,181 @@ var _ = Describe("Writer", func() {
 			)
 		})
 	})
+})
+
+var _ = Describe("Line colors", func() {
+	var series []color.Key
+	BeforeEach(func(ctx SpecContext) {
+		series = MustSucceed(colorSvc.Series(ctx, db))
+	})
+	named := func(k color.Key) *color.Ref {
+		return &color.Ref{Variant: color.NamedRef{Key: k}}
+	}
+	colors := func(p lineplot.LinePlot) []*color.Ref {
+		return lo.Map(
+			p.Lines,
+			func(l lineplot.Line, _ int) *color.Ref { return l.Color },
+		)
+	}
+	retrieve := func(ctx SpecContext, key lineplot.Key) lineplot.LinePlot {
+		GinkgoHelper()
+		var res lineplot.LinePlot
+		Expect(svc.NewRetrieve().
+			Where(lineplot.MatchKeys(key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		return res
+	}
+	create := func(ctx SpecContext, p lineplot.LinePlot) lineplot.LinePlot {
+		GinkgoHelper()
+		p = defaults.Fill(p)
+		p.Project, p.Name = &proj.Key, "colored"
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &p)
+		})).To(Succeed())
+		return p
+	}
+	addChannel := func(ch channel.Key) lineplot.Action {
+		return lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
+			AxisKey: lineplot.YAxisKeyY1, Channel: ch,
+		})
+	}
+
+	It(
+		"Should give each line of a new plot the next series color",
+		func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{
+				Channels: lineplot.Channels{Y1: []channel.Key{ch1, ch2}},
+			})
+			Expect(
+				colors(p),
+			).To(Equal([]*color.Ref{named(series[0]), named(series[1])}))
+		},
+	)
+
+	It(
+		"Should give an added line the first series color that no line uses",
+		func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{
+				Channels: lineplot.Channels{Y1: []channel.Key{ch1, ch2}},
+				Lines: []lineplot.Line{
+					{
+						YAxis:    lineplot.YAxisKeyY1,
+						YChannel: ch1,
+						Color:    named(series[0]),
+					},
+					{
+						YAxis:    lineplot.YAxisKeyY1,
+						YChannel: ch2,
+						Color:    named(series[2]),
+					},
+				},
+			})
+			rec := &Recorder[lineplot.Key, lineplot.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{addChannel(ch3)})).
+				To(Succeed())
+			res := retrieve(ctx, p.Key)
+			Expect(res.Lines[2].Color).To(Equal(named(series[1])))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Actions).To(Equal([]lineplot.Action{
+				addChannel(ch3),
+				lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
+					Key: res.Lines[2].Key, Color: named(series[1]),
+				}),
+			}))
+		},
+	)
+
+	It(
+		"Should give a line past the last series color the one used least",
+		func(ctx SpecContext) {
+			chs := MustSucceed(
+				channeltestutil.CreateVirtual(ctx, db, channelSvc, len(series)+2),
+			)
+			p := create(ctx, lineplot.LinePlot{
+				Channels: lineplot.Channels{Y1: chs[:len(chs)-1]},
+				Lines: []lineplot.Line{
+					{
+						YAxis:    lineplot.YAxisKeyY1,
+						YChannel: chs[0],
+						Color:    named(series[0]),
+					},
+					{
+						YAxis:    lineplot.YAxisKeyY1,
+						YChannel: chs[1],
+						Color:    named(series[0]),
+					},
+				},
+			})
+			Expect(
+				colors(p)[2:],
+			).To(Equal(lo.Map(series[1:], func(k color.Key, _ int) *color.Ref {
+				return named(k)
+			})))
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{
+				addChannel(chs[len(chs)-1]),
+			})).To(Succeed())
+			Expect(
+				retrieve(ctx, p.Key).Lines[len(chs)-1].Color,
+			).To(Equal(named(series[1])))
+		},
+	)
+
+	It(
+		"Should give a cleared line the first series color that no other line uses",
+		func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{
+				Channels: lineplot.Channels{Y1: []channel.Key{ch1, ch2}},
+				Lines: []lineplot.Line{
+					{
+						YAxis:    lineplot.YAxisKeyY1,
+						YChannel: ch1,
+						Color:    named(series[0]),
+					},
+					{
+						YAxis:    lineplot.YAxisKeyY1,
+						YChannel: ch2,
+						Color:    named(series[0]),
+					},
+				},
+			})
+			rec := &Recorder[lineplot.Key, lineplot.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			clear := lineplot.NewSetLineColorAction(
+				lineplot.SetLineColorPayload{Key: p.Lines[0].Key},
+			)
+			Expect(dispatch(ctx, p.Key, "d1", []lineplot.Action{clear})).To(Succeed())
+			Expect(
+				colors(retrieve(ctx, p.Key)),
+			).To(Equal([]*color.Ref{named(series[1]), named(series[0])}))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Actions).To(Equal([]lineplot.Action{
+				clear,
+				lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
+					Key: p.Lines[0].Key, Color: named(series[1]),
+				}),
+			}))
+		},
+	)
+
+	It(
+		"Should give each rule with no color the next series color",
+		func(ctx SpecContext) {
+			p := create(ctx, lineplot.LinePlot{
+				Rules: []lineplot.Rule{
+					{Key: "r1", Axis: lineplot.AxisKeyY1, Color: named(series[0])},
+					{Key: "r2", Axis: lineplot.AxisKeyY1},
+					{Key: "r3", Axis: lineplot.AxisKeyY1},
+				},
+			})
+			Expect(lo.Map(p.Rules, func(r lineplot.Rule, _ int) *color.Ref {
+				return r.Color
+			})).To(Equal([]*color.Ref{
+				named(series[0]), named(series[1]), named(series[2]),
+			}))
+		},
+	)
 })

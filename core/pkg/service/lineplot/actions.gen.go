@@ -237,7 +237,7 @@ type SetLineLabelPayload struct {
 }
 
 // SetLineColorPayload sets the color of the line identified by key to a named or a
-// fixed color. Null resets it to a color the Console assigns at render time.
+// fixed color. Null gives the line the series color that the fewest other lines use.
 type SetLineColorPayload struct {
 	Key   string     `json:"key" msgpack:"key"`
 	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
@@ -284,7 +284,7 @@ type SetRuleLabelPayload struct {
 }
 
 // SetRuleColorPayload sets the color of the rule identified by key to a named or a
-// fixed color. Null resets it to a color the Console assigns at render time.
+// fixed color. Null gives the rule the series color that the fewest other rules use.
 type SetRuleColorPayload struct {
 	Key   string     `json:"key" msgpack:"key"`
 	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`

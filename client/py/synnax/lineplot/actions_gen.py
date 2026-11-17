@@ -182,7 +182,7 @@ class SetLineLabelPayload(BaseModel):
 
 class SetLineColorPayload(BaseModel):
     """Sets the color of the line identified by key to a named or a fixed color. Null
-    resets it to a color the Console assigns at render time.
+    gives the line the series color that the fewest other lines use.
     """
 
     key: str
@@ -237,7 +237,7 @@ class SetRuleLabelPayload(BaseModel):
 
 class SetRuleColorPayload(BaseModel):
     """Sets the color of the rule identified by key to a named or a fixed color. Null
-    resets it to a color the Console assigns at render time.
+    gives the rule the series color that the fewest other rules use.
     """
 
     key: str

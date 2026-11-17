@@ -145,10 +145,11 @@ the first eight are closer than 0.05 in OKLab, in either theme. The first eight 
 hues of `#DC136C`, `#20A4F3`, `#52FFB8`, `#F18F01`, `#FE5F55`, `#8075FF`, `#F7AEF8`, and
 `#791E94` from today's list, and a hue moves only to pass a check. The last eight fill
 the hue gaps and pass only the contrast check: a repeated color is a sure mix-up, and a
-near color only a possible one. A line with no color is in Auto: when the plot draws, it
-takes the first series color that no other line in its plot uses, and nothing is saved.
-Past 16 lines, it takes the series color used least in its plot, and a tie goes to the
-first by position. A user can pick any color, and Auto clears it.
+near color only a possible one. A new line gets the first series color that no other
+line in its plot uses, and stores its key. Past 16 lines, it gets the series color used
+least in its plot, and a tie goes to the first by position. A user can pick any color.
+Auto clears a picked color, and the line gets a series color the same way. Rules get
+series colors the same way, counted among the rules of the plot.
 
 ### 4.5 Editor checks
 
@@ -253,10 +254,10 @@ pattern: the Core has no settings store. In phase 29, the Driver writes range co
 3. **A symbol stores only its enum**: A per-state override brings the copies back.
 4. **One unknown look for the Core**: A look for each user, enum, or symbol lets a data
    fault look like a valid state on another screen.
-5. **Auto takes the first unused series key when the plot draws**: An index can repeat a
-   color that a user picked. A hash gives a 4-line plot a shared color 59% of the time
-   with 8 colors. A saved key keeps Auto colors through a remove, but a line then needs
-   a saved flag to stay in Auto.
+5. **Series colors by first unused key**: An index repaints on a remove. A hash gives a
+   4-line plot a shared color 59% of the time with 8 colors. Auto picks once for the
+   same reason: an Auto mode that saves nothing repaints, and one that keeps its color
+   needs a saved flag.
 6. **A deleted named color becomes fixed**: Each user keeps the color, as with a deleted
    Figma style
    ([Figma](https://webcf.waybackmachine.org/web/20210815191134/https://help.figma.com/hc/en-us/articles/360039238753-Styles-in-Figma)).

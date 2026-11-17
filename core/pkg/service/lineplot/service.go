@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -50,6 +51,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
+	// Color is the service that holds the series colors, which a writer gives to new
+	// lines.
+	//
+	// [REQUIRED]
+	Color *color.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -60,6 +66,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Color = override.Nil(c.Color, other.Color)
 	return c
 }
 
@@ -68,6 +75,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("lineplot")
 	v.NotNil("db", c.DB)
 	v.NotNil("imex", c.ImEx)
+	v.NotNil("color", c.Color)
 	return v.Error()
 }
 
@@ -157,6 +165,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         tx,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
+		color:      s.cfg.Color,
 	}
 }
 

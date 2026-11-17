@@ -767,7 +767,7 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.rules).toEqual([]));
     });
 
-    it("useRule resolves a series color for a rule with no stored color", async () => {
+    it("useRule shows the series color that the Core stores on a rule with no color", async () => {
       const [first] = await retrieveSeries();
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
@@ -798,9 +798,10 @@ describe("lineplot queries", () => {
         () => LinePlot.useRule({ key: created.key, ruleKey: "rl-1" }),
         { wrapper },
       );
-      expect(rule.current.pickedColor).toBeUndefined();
-      await waitFor(() => expect(rule.current.color).toEqual(first.light));
-      expect(rule.current.autoColor).toEqual(first.light);
+      await waitFor(() =>
+        expect(rule.current.pickedColor).toEqual({ type: "named", key: first.key }),
+      );
+      expect(rule.current.color).toEqual(first.light);
     });
 
     const setLine = (line: lineplotClient.Line) => lineplotClient.setLine({ line });
@@ -847,7 +848,7 @@ describe("lineplot queries", () => {
       );
     });
 
-    it("useLines gives a line with no color the first series color no line uses", async () => {
+    it("useLines shows the first unused series color that the Core stores on a line", async () => {
       const [first, second] = await retrieveSeries();
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
@@ -873,7 +874,33 @@ describe("lineplot queries", () => {
           second.light,
         ]),
       );
-      expect(result.current.lines[1].pickedColor).toBeUndefined();
+      expect(result.current.lines[1].pickedColor).toEqual({
+        type: "named",
+        key: second.key,
+      });
+    });
+
+    it("useLines shows the series color that the Core stores on an added line", async () => {
+      const [first] = await retrieveSeries();
+      const created = await createPlot();
+      const channel = await createChannel();
+      const { result } = await loadAndUse(created.key, () => ({
+        lines: LinePlot.useLines({ key: created.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel })],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.lines[0]?.pickedColor).toEqual({
+          type: "named",
+          key: first.key,
+        }),
+      );
+      expect(result.current.lines[0].color).toEqual(first.light);
     });
 
     it("useLineCount reflects the number of lines", async () => {
@@ -1555,9 +1582,11 @@ describe("lineplot queries", () => {
         },
         { wrapper },
       );
-      await waitFor(() =>
-        expect(result.current.line.label).toEqual(`lnstab_a_${suffix}`),
-      );
+      const [first] = await retrieveSeries();
+      await waitFor(() => {
+        expect(result.current.line.label).toEqual(`lnstab_a_${suffix}`);
+        expect(result.current.line.autoColor).toEqual(first.light);
+      });
       const firstLine = result.current.line;
       const countBefore = renderCount;
       await act(async () => {
