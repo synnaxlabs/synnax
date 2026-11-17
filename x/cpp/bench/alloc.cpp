@@ -9,6 +9,9 @@
 
 #include <cstdlib>
 #include <new>
+#ifdef _WIN32
+#include <malloc.h>
+#endif
 
 #include "x/cpp/bench/alloc.h"
 
@@ -20,31 +23,120 @@ std::atomic<int64_t> alloc_bytes{0};
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 }
 
-// A replacement operator new may not be declared inline, so these live here
-// rather than in the header.
-void *operator new(const std::size_t n) {
+// These replace every form of the global operator new and delete. A form left to the
+// runtime could free memory that a replaced form allocated, which ASan aborts on.
+namespace {
+void *allocate(const std::size_t n) noexcept {
     x::bench::alloc_count.fetch_add(1, std::memory_order_relaxed);
     x::bench::alloc_bytes.fetch_add(static_cast<int64_t>(n), std::memory_order_relaxed);
-    if (auto *p = std::malloc(n)) return p;
-    throw std::bad_alloc();
+    // operator new(0) must return a unique pointer, but malloc(0) can return null.
+    return std::malloc(n == 0 ? 1 : n);
 }
 
-void *operator new[](const std::size_t n) {
+void *allocate(const std::size_t n, const std::align_val_t alignment) noexcept {
     x::bench::alloc_count.fetch_add(1, std::memory_order_relaxed);
     x::bench::alloc_bytes.fetch_add(static_cast<int64_t>(n), std::memory_order_relaxed);
-    if (auto *p = std::malloc(n)) return p;
-    throw std::bad_alloc();
+    const auto align = static_cast<std::size_t>(alignment);
+#ifdef _WIN32
+    return _aligned_malloc(n == 0 ? 1 : n, align);
+#else
+    // aligned_alloc takes only a nonzero multiple of the alignment.
+    return std::aligned_alloc(align, n == 0 ? align : (n + align - 1) / align * align);
+#endif
+}
+
+void release(void *p) noexcept {
+    std::free(p);
+}
+
+void release(void *p, std::align_val_t) noexcept {
+#ifdef _WIN32
+    _aligned_free(p);
+#else
+    std::free(p);
+#endif
+}
+
+void *or_throw(void *p) {
+    if (p == nullptr) throw std::bad_alloc();
+    return p;
+}
+}
+
+void *operator new(const std::size_t n) {
+    return or_throw(allocate(n));
+}
+void *operator new[](const std::size_t n) {
+    return or_throw(allocate(n));
+}
+void *operator new(const std::size_t n, const std::nothrow_t &) noexcept {
+    return allocate(n);
+}
+void *operator new[](const std::size_t n, const std::nothrow_t &) noexcept {
+    return allocate(n);
+}
+void *operator new(const std::size_t n, const std::align_val_t a) {
+    return or_throw(allocate(n, a));
+}
+void *operator new[](const std::size_t n, const std::align_val_t a) {
+    return or_throw(allocate(n, a));
+}
+void *operator new(
+    const std::size_t n,
+    const std::align_val_t a,
+    const std::nothrow_t &
+) noexcept {
+    return allocate(n, a);
+}
+void *operator new[](
+    const std::size_t n,
+    const std::align_val_t a,
+    const std::nothrow_t &
+) noexcept {
+    return allocate(n, a);
 }
 
 void operator delete(void *p) noexcept {
-    std::free(p);
+    release(p);
 }
 void operator delete[](void *p) noexcept {
-    std::free(p);
+    release(p);
 }
 void operator delete(void *p, std::size_t) noexcept {
-    std::free(p);
+    release(p);
 }
 void operator delete[](void *p, std::size_t) noexcept {
-    std::free(p);
+    release(p);
+}
+void operator delete(void *p, const std::nothrow_t &) noexcept {
+    release(p);
+}
+void operator delete[](void *p, const std::nothrow_t &) noexcept {
+    release(p);
+}
+void operator delete(void *p, const std::align_val_t a) noexcept {
+    release(p, a);
+}
+void operator delete[](void *p, const std::align_val_t a) noexcept {
+    release(p, a);
+}
+void operator delete(void *p, std::size_t, const std::align_val_t a) noexcept {
+    release(p, a);
+}
+void operator delete[](void *p, std::size_t, const std::align_val_t a) noexcept {
+    release(p, a);
+}
+void operator delete(
+    void *p,
+    const std::align_val_t a,
+    const std::nothrow_t &
+) noexcept {
+    release(p, a);
+}
+void operator delete[](
+    void *p,
+    const std::align_val_t a,
+    const std::nothrow_t &
+) noexcept {
+    release(p, a);
 }

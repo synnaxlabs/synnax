@@ -13,8 +13,8 @@
 #include <cstdint>
 
 namespace x::bench {
-/// @brief the calls to and bytes from the global operator new and new[]. Linking this
-/// library replaces both operators so that they count.
+/// @brief the calls to and bytes from every form of the global operator new and new[].
+/// Linking this library replaces them so that they count.
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the global operator
 // new counts into these.
 extern std::atomic<int64_t> alloc_count;
