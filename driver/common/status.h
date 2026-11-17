@@ -190,7 +190,8 @@ private:
     std::string accumulated_msg;
     /// @brief the shortest time between two statuses that answer no command.
     const std::chrono::nanoseconds window;
-    /// @brief guards pending, sent, sent_at, and closed, and orders writes to ctx.
+    /// @brief guards pending, sent, sent_at, closed, background, and last, and orders
+    /// writes to ctx.
     std::mutex mu;
     /// @brief wakes the flusher when a status starts to wait or the handler closes.
     std::condition_variable cv;
