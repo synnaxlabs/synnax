@@ -1,0 +1,64 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package driver.outbox.pb;
+
+// Call is one Core call in an outbox segment. Each call is one record. A Driver
+// refuses to open an outbox with a call kind it cannot send.
+message Call {
+  oneof call {
+    SetStatus set_status = 1;
+    CreateRange create_range = 2;
+    EndRange end_range = 3;
+  }
+}
+
+// SetStatus sets the message and variant of the status with a key or name.
+message SetStatus {
+  // key_or_name is the key of the status, or its name when no status has the key.
+  string key_or_name = 1;
+  string message = 2;
+  string variant = 3;
+  // time is when the set happened, in nanoseconds since the Unix epoch.
+  int64 time = 4;
+}
+
+// CreateRange creates a range.
+message CreateRange {
+  // key is the UUID of the range as text.
+  string key = 1;
+  string name = 2;
+  // start is the start of the range, in nanoseconds since the Unix epoch.
+  int64 start = 3;
+  // end is the end of the range, in nanoseconds since the Unix epoch.
+  int64 end = 4;
+  // parent is the UUID of the range that holds this range, as text.
+  optional string parent = 5;
+  optional Color color = 6;
+  // labels are the UUIDs of the labels of the range, as text.
+  repeated string labels = 7;
+}
+
+// EndRange sets the end of a range.
+message EndRange {
+  // key is the UUID of the range as text.
+  string key = 1;
+  // end is the end of the range, in nanoseconds since the Unix epoch.
+  int64 end = 2;
+}
+
+// Color is a color with 8-bit channels.
+message Color {
+  uint32 r = 1;
+  uint32 g = 2;
+  uint32 b = 3;
+  uint32 a = 4;
+}
