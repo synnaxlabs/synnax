@@ -725,20 +725,28 @@ TEST_F(RackConfigTest, SavedCACertApplies) {
     ASSERT_EQ(cfg.connection.ca_cert, "/etc/synnax/ca.pem");
 }
 
-/// @brief it should read SYNNAX_DRIVER_SECURE against the saved value, so any word but
-/// false or 0 keeps a saved true.
-TEST_F(RackConfigTest, EnvironmentSecureReadsAgainstSavedValue) {
-    ASSERT_NIL(Config::save_conn_params(args, {.secure = true}));
+/// @brief it should read SYNNAX_DRIVER_SECURE on its own, in any case, so it replaces
+/// a saved CA certificate.
+TEST_F(RackConfigTest, EnvironmentSecureIgnoresSavedValue) {
+    ASSERT_NIL(Config::save_conn_params(args, {.ca_cert = "/etc/synnax/ca.pem"}));
     x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_SECURE"); });
+    x::env::set("SYNNAX_DRIVER_SECURE", "True");
+    auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.secure, true);
+    ASSERT_EQ(cfg.connection.ca_cert, "");
+    x::env::set("SYNNAX_DRIVER_SECURE", "0");
+    cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.secure, false);
+    ASSERT_EQ(cfg.connection.ca_cert, "");
+}
+
+/// @brief it should fail on a SYNNAX_DRIVER_SECURE value that is not true, false, 1, or
+/// 0.
+TEST_F(RackConfigTest, EnvironmentSecureRejectsInvalidValue) {
+    ASSERT_NIL(Config::save_conn_params(args, {.secure = true}));
     x::env::set("SYNNAX_DRIVER_SECURE", "yes");
-    ASSERT_EQ(ASSERT_NIL_P(Config::resolve(args, brk)).connection.secure, true);
-    x::env::set("SYNNAX_DRIVER_SECURE", "false");
-    ASSERT_EQ(ASSERT_NIL_P(Config::resolve(args, brk)).connection.secure, false);
-    ASSERT_NIL(Config::save_conn_params(args, {.secure = false}));
-    x::env::set("SYNNAX_DRIVER_SECURE", "yes");
-    ASSERT_EQ(ASSERT_NIL_P(Config::resolve(args, brk)).connection.secure, false);
-    x::env::set("SYNNAX_DRIVER_SECURE", "1");
-    ASSERT_EQ(ASSERT_NIL_P(Config::resolve(args, brk)).connection.secure, true);
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_DRIVER_SECURE"); });
+    ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
 }
 
 /// @brief it should load the secure flag from the config file.

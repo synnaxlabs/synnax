@@ -93,13 +93,7 @@ struct Config {
         const auto secure = parser.field("secure", std::optional<bool>());
         const auto ca_cert = parser.field("ca_cert", std::string());
         if (secure.has_value() || !ca_cert.empty()) {
-            // The env parser reads a bool relative to its default, so it gets the
-            // current value.
-            this->secure = secure.has_value()
-                             ? std::optional(
-                                   parser.field("secure", this->secure.value_or(false))
-                               )
-                             : std::nullopt;
+            this->secure = secure;
             this->ca_cert = ca_cert;
         }
         this->clock_skew_threshold = x::telem::TimeSpan(parser.field(

@@ -65,10 +65,25 @@ TEST_F(XEnvTest, LoadOptional) {
     EXPECT_EQ(parser.field("TEST_OPTIONAL_BOOL", unset_default), std::nullopt);
     set("TEST_OPTIONAL_BOOL", "false");
     EXPECT_EQ(parser.field("TEST_OPTIONAL_BOOL", unset_default), false);
-    set("TEST_OPTIONAL_BOOL", "true");
+    set("TEST_OPTIONAL_BOOL", "TRUE");
     EXPECT_EQ(parser.field("TEST_OPTIONAL_BOOL", unset_default), true);
+    set("TEST_OPTIONAL_BOOL", "0");
+    EXPECT_EQ(parser.field("TEST_OPTIONAL_BOOL", unset_default), false);
     unset("TEST_OPTIONAL_BOOL");
     ASSERT_NIL(parser.error());
+}
+
+/// @brief it should reject an optional bool that is not true, false, 1, or 0.
+TEST_F(XEnvTest, RejectInvalidOptionalBool) {
+    set("TEST_OPTIONAL_BOOL", "yes");
+    Parser parser;
+    EXPECT_EQ(parser.field("TEST_OPTIONAL_BOOL", std::optional<bool>()), std::nullopt);
+    ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
+    EXPECT_EQ(
+        parser.error().data,
+        "TEST_OPTIONAL_BOOL: TEST_OPTIONAL_BOOL must be true, false, 1, or 0"
+    );
+    unset("TEST_OPTIONAL_BOOL");
 }
 
 /// @brief it should load string values from environment variables.
