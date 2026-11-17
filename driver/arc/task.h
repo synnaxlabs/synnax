@@ -110,6 +110,14 @@ class Task final : public task::Task {
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
 
+    /// @brief sends a warning while the runtime runs. Drops a report that comes after a
+    /// stop, such as a late outbox result, so it does not replace the stopped status.
+    void
+    warn_while_running(const std::string &message, const std::string &description) {
+        std::lock_guard lock(this->state_mu);
+        if (this->runtime->running()) this->state.send_warning(message, description);
+    }
+
     /// @brief answers every pending start with the current status. Requires state_mu.
     void answer_pending_starts() {
         for (const auto &key: this->pending_starts)
@@ -243,10 +251,7 @@ public:
                         [task_ptr = task.get()](
                             const std::string &message,
                             const std::string &description
-                        ) {
-                            std::lock_guard lock(task_ptr->state_mu);
-                            task_ptr->state.send_warning(message, description);
-                        }
+                        ) { task_ptr->warn_while_running(message, description); }
                     ),
                     std::make_shared<::driver::arc::ranges::Module>(
                         ctx->client,
