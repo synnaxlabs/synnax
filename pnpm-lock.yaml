@@ -774,6 +774,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)(supports-color@10.2.2)
+      playwright:
+        specifier: 'catalog:'
+        version: 1.64.1
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
