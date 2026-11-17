@@ -52,6 +52,19 @@ path of the computer, when the path of the computer holds no login yet.
 The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a different
 path. The service always uses the default path.
 
+On Linux and macOS, the Driver creates a missing state directory with mode `0700` and a
+missing state file with mode `0600`. Each `start`, `login`, and `clear` sets the state
+file to `0600` again, at any path. At the default path, each one also:
+
+- On Linux, when root runs it and a `synnax` user exists, gives the directory to root
+  and the `synnax` group with mode `0751`, and gives the state file and the `opcua`
+  directory to the `synnax` user.
+- Else, sets a state directory that the Driver user owns to `0700`, and replaces a state
+  file that another user owns with a copy that the Driver user owns.
+
+These steps replace the owners and modes that a setup step, such as an init container,
+gives these paths.
+
 To remove the saved login, run `synnax-driver clear`. Run `login` again before the next
 start.
 
