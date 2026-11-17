@@ -196,7 +196,8 @@ time fields keep their values, and `state_overrides` become enums by RFC 0112 §
 
 The migration and an import give a node whose custom symbol does not exist `missing`
 with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
-look, and a later import of a symbol with that key turns the node back into `custom`.
+look, and "Change symbol" moves the node to another symbol. An import mints new symbol
+keys, so a key never comes back on its own.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each region becomes a part,
 state `i` becomes value `i` of one state `state` with default 0, and each region color
