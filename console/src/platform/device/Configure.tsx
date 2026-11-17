@@ -118,7 +118,9 @@ const Internal = ({
           />
           {device.location !== "" && (
             <Input.Item label="Location" padHelpText={false}>
-              <Text.Text>{device.location}</Text.Text>
+              <Text.Text variant="code" className={CSS.BE("configure", "location")}>
+                {device.location}
+              </Text.Text>
             </Input.Item>
           )}
           <Flex.Box gap="small">

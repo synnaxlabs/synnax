@@ -24,3 +24,8 @@
         }
     }
 }
+
+/* Starts where the text of a field starts. */
+.console-configure__location {
+    padding-left: 0.5rem;
+}
