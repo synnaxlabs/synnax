@@ -64,7 +64,9 @@ requests changes, and confirms a stored shape change carries a migration. A chan
 the mode, owner, or location of a file or directory that a deployment manages, such as
 the Driver state directory, is breaking. The generated release notes show only PR
 titles, so the same PR adds the change to the breaking changes on the next release's
-page in `site/docs/src/releases/`.
+page in `site/docs/src/releases/`. A breaking change in a patch goes on its minor's
+page, such as `0-61-0.mdx`, on `main` and on `release/docs-X.Y`, and names the patch
+version.
 
 Two statuses gate a merge into `main` or a `release/**` branch. `Review gate` stays
 pending until the PR has one tier label and a finished Sedosaur review of the head. A
