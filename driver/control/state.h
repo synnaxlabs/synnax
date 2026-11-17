@@ -44,13 +44,13 @@ class States {
     /// @brief local writers that closed while the Core was connected. The mirror can
     /// still name one as a holder until the Core's transfer arrives.
     std::unordered_set<std::string> closed;
-    /// @brief local writers open on the Core since it was last lost.
-    std::unordered_set<std::string> seen;
+    /// @brief local writers whose Core writer is open.
+    std::unordered_set<std::string> on_core;
     std::uint64_t next_order = 0;
     bool connected = true;
 
     [[nodiscard]] bool local(const x::control::Subject &subject) const {
-        return !this->connected || !this->seen.contains(subject.key);
+        return !this->connected || !this->on_core.contains(subject.key);
     }
 
     Gate &gate(const x::control::Subject &subject) {
@@ -146,7 +146,6 @@ public:
         for (const auto channel: stale)
             this->recompute(channel);
         this->closed.clear();
-        this->seen.clear();
     }
 
     /// @brief replaces the mirror with the cluster's complete control state and marks
@@ -165,12 +164,19 @@ public:
                 if (!this->states.contains(channel)) this->recompute(channel);
     }
 
-    /// @brief records that the writer of subject opened on the Core. Until the next
-    /// disconnect, its decreases and close wait for the Core's transfers while the Core
-    /// is connected. Safe to call before its gate opens.
+    /// @brief records that the writer of subject opened on the Core. Until
+    /// closed_on_core, its decreases and close wait for the Core's transfers while the
+    /// Core is connected. Safe to call before its gate opens.
     void opened_on_core(const x::control::Subject &subject) {
         std::unique_lock lock(this->mu);
-        this->seen.insert(subject.key);
+        this->on_core.insert(subject.key);
+    }
+
+    /// @brief records that the Core writer of subject closed or failed, so the writer
+    /// keeps the local rule until it opens on the Core again.
+    void closed_on_core(const x::control::Subject &subject) {
+        std::unique_lock lock(this->mu);
+        this->on_core.erase(subject.key);
     }
 
     /// @brief applies the control updates carried by a series from the control channel.
@@ -226,9 +232,7 @@ public:
         if (it == this->gates.end()) return;
         const auto channels = it->second.authorities;
         this->gates.erase(it);
-        const bool local = this->local(subject);
-        this->seen.erase(subject.key);
-        if (!local) {
+        if (!this->local(subject)) {
             this->closed.insert(subject.key);
             return;
         }

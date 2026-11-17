@@ -543,6 +543,7 @@ TEST(StatesTest, KeepsTheLocalRuleUntilAWriterReopens) {
     states.opened_on_core(ARC);
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {150});
+    states.closed_on_core(ARC);
     states.disconnect();
     states.set({});
     ASSERT_TRUE(states.is_authorized(1, ARC));
@@ -562,9 +563,32 @@ TEST(StatesTest, HandsOffWhenAWriterClosesBeforeItReopens) {
     states.opened_on_core(ARC);
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {150});
+    states.closed_on_core(ARC);
     states.disconnect();
     states.set({});
     states.close_gate(ARC);
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+}
+
+/// @brief it should wait for the Core's transfers after reconnect when a writer reopens
+/// on the Core before the disconnect runs.
+TEST(StatesTest, KeepsAWriterThatReopenedBeforeTheDisconnect) {
+    States states;
+    states.opened_on_core(ARC);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
+    states.closed_on_core(ARC);
+    states.opened_on_core(ARC);
+    states.disconnect();
+    states.set({x::control::State<synnax::channel::Key>{
+        .subject = ARC,
+        .resource = 1,
+        .authority = 200,
+    }});
+    states.set_authority(ARC, 1, 100);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
 }

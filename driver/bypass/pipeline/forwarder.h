@@ -65,6 +65,9 @@ struct ForwarderConfig {
     Warn warn;
     /// @brief called from the forwarder thread each time the Core writer opens.
     std::function<void()> on_open;
+    /// @brief called from the forwarder thread each time an open Core writer closes or
+    /// fails.
+    std::function<void()> on_close;
     /// @brief backs off from an unreachable Core, with no retry limit.
     x::breaker::Config breaker{
         .name = "forwarder",
@@ -88,6 +91,7 @@ class Forwarder {
     const std::chrono::nanoseconds drop_report_interval;
     const Warn warn;
     const std::function<void()> on_open;
+    const std::function<void()> on_close;
     x::breaker::Breaker breaker;
 
     // Only the forwarder thread touches these.
@@ -286,6 +290,7 @@ class Forwarder {
                 this->report();
             }
             const auto close_err = writer->close();
+            if (this->on_close) this->on_close();
             const auto err = close_err ? close_err : op_err;
             if (!err) return;
             if (!this->wait(err)) return;
@@ -304,6 +309,7 @@ public:
         drop_report_interval(cfg.drop_report_interval.chrono()),
         warn(cfg.warn),
         on_open(cfg.on_open),
+        on_close(cfg.on_close),
         breaker(cfg.breaker),
         dropped_frames(cfg.dropped) {
         this->breaker.start();

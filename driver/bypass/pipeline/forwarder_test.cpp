@@ -213,6 +213,31 @@ TEST(ForwarderTest, SendsOpsInQueueOrderAcrossAReopen) {
     EXPECT_EQ(server->config.authorities, std::vector<x::control::Authority>{100});
 }
 
+/// @brief it should call on_close once for each Core writer it opens, a failed one
+/// included.
+TEST(ForwarderTest, ClosesEachWriterItOpens) {
+    const auto server = factory();
+    server->return_false_ok_on = {1};
+    server->close_errors = {freighter::UNREACHABLE};
+    std::atomic<size_t> opens = 0;
+    std::atomic<size_t> closes = 0;
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {
+            .on_open = [&opens] { opens++; },
+            .on_close = [&closes] { closes++; },
+            .breaker = {.base_interval = x::telem::MILLISECOND},
+        }
+    );
+    ASSERT_NIL(forwarder.write(frame(0)));
+    ASSERT_NIL(forwarder.write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(opens.load(), 2);
+    ASSERT_EQ(closes.load(), 1);
+    ASSERT_NIL(forwarder.close());
+    ASSERT_EQ(closes.load(), 2);
+}
+
 /// @brief it should warn once when the queue passes half its cap, stop warning once it
 /// drains below a quarter, and warn again when it passes half again.
 TEST(ForwarderTest, WarnsWhileFallingBehindTheCore) {

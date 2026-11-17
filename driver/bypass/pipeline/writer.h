@@ -141,6 +141,9 @@ public:
         forwarder_cfg.on_open = [states = this->states, subject = cfg.subject] {
             states->opened_on_core(subject);
         };
+        forwarder_cfg.on_close = [states = this->states, subject = cfg.subject] {
+            states->closed_on_core(subject);
+        };
         auto forwarder = std::make_unique<Forwarder>(this->server, cfg, forwarder_cfg);
         if (auto err = forwarder->opened()) return {nullptr, err};
         this->states->open_gate(cfg.subject, cfg.channels, cfg.authorities);
