@@ -950,6 +950,47 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect((await retrieve(slave.key)).name).toBe(name);
     });
 
+    it("should restart a running write task on the network", async () => {
+      const slave = await setup({ outputs: [CONTROL_ENTRY] });
+      const rack = await client.racks.retrieve({ key: slave.rack });
+      const write = await rack.createTask({
+        name: uniqueName("ecat_write"),
+        type: EtherCAT.Task.WRITE_TYPE,
+        config: EtherCAT.Task.WRITE_SCHEMAS.config.parse({
+          channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+        }),
+      });
+      await reportTaskRunning(client, write);
+      const driver = await answerCommandsUntil(client, [write], "start");
+      await screen.findByText(RESTART);
+      await save(RESTART);
+      expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
+    });
+
+    it("should start the tasks again when a stop fails", async () => {
+      let statuses: Status.NotificationSpec[] = [];
+      const slave = await setup({ onStatuses: (s) => (statuses = s) });
+      const read = await createRunningRead(slave);
+      const stop = await answerNextCommand(client, read, {
+        type: "stop",
+        variant: "error",
+        message: "Failed to stop task",
+      });
+      const start = await answerNextCommand(client, read, { type: "start" });
+      await screen.findByText(RESTART);
+      await save(RESTART);
+      await stop.answered;
+      await start.answered;
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            message: "Failed to restart tasks",
+          }),
+        ),
+      );
+    });
+
     it("should offer a restart for a slave that is not configured", async () => {
       const slave = await setup({ configured: false });
       const other = await createSlaveDevice(client, slave.rack, {
