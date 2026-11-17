@@ -833,15 +833,15 @@ func (c *Codec) readHeader() (decodeHeader, error) {
 	var h decodeHeader
 	flagB, err := c.reader.Uint8()
 	if err != nil {
-		return h, err
+		return decodeHeader{}, err
 	}
 	seqNum, err := c.reader.Uint32()
 	if err != nil {
-		return h, err
+		return decodeHeader{}, err
 	}
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
-		return h, errors.Wrapf(
+		return decodeHeader{}, errors.Wrapf(
 			validate.ErrValidation,
 			"remote sent invalid sequence number %d. Valid rawIndices are %v",
 			seqNum,
@@ -852,25 +852,25 @@ func (c *Codec) readHeader() (decodeHeader, error) {
 	c.prune(seqNum)
 	h.fgs = decodeFlags(flagB)
 	if h.fgs.extended {
-		return h, errors.Wrap(
+		return decodeHeader{}, errors.Wrap(
 			validate.ErrValidation,
 			"remote sent an extended flags byte, which this codec does not support",
 		)
 	}
 	if h.fgs.equalLens {
 		if h.dataLen, err = c.reader.Uint32(); err != nil {
-			return h, err
+			return decodeHeader{}, err
 		}
 	}
 	if h.fgs.equalTimeRanges && !h.fgs.timeRangesZero {
 		if h.tr, err = c.readTimeRange(); err != nil {
-			return h, err
+			return decodeHeader{}, err
 		}
 	}
 	if h.fgs.equalAlignments && !h.fgs.zeroAlignments {
 		v, err := c.reader.Uint64()
 		if err != nil {
-			return h, err
+			return decodeHeader{}, err
 		}
 		h.alignment = telem.Alignment(v)
 	}
@@ -884,12 +884,12 @@ func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, er
 	var err error
 	if !h.fgs.equalLens {
 		if dataLenOrSize, err = c.reader.Uint32(); err != nil {
-			return s, err
+			return telem.Series{}, err
 		}
 	}
 	dataType, exists := h.state.keyDataTypes[key]
 	if !exists {
-		return s, errors.Newf("unknown channel key: %v", key)
+		return telem.Series{}, errors.Newf("unknown channel key: %v", key)
 	}
 	s.DataType = dataType
 	size := int64(dataLenOrSize)
@@ -898,7 +898,7 @@ func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, er
 	}
 	h.decoded += size + SeriesOverhead
 	if c.decodeLimit > 0 && h.decoded > c.decodeLimit {
-		return s, errors.Wrapf(
+		return telem.Series{}, errors.Wrapf(
 			validate.ErrValidation,
 			"frame decodes to more than the limit of %d bytes",
 			c.decodeLimit,
@@ -907,13 +907,16 @@ func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, er
 	if dataType == telem.BooleanT {
 		packed, err := c.readBytes(bitPackedByteCount(int64(dataLenOrSize)))
 		if err != nil {
-			return s, err
+			return telem.Series{}, err
 		}
 		s.Data = unpackBoolBits(packed, int(dataLenOrSize))
 	} else if s.Data, err = c.readBytes(size); err != nil {
-		return s, err
+		return telem.Series{}, err
 	}
-	return s, c.readSeriesMetadata(h.fgs, &s)
+	if err = c.readSeriesMetadata(h.fgs, &s); err != nil {
+		return telem.Series{}, err
+	}
+	return s, nil
 }
 
 // readSeriesMetadata reads the time range, alignment, and multiple of s that the
