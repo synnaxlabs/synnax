@@ -139,7 +139,7 @@ var _ = Describe("Python Types Plugin", func() {
 					"type StringInput = str | list[str] | StringDict | String",
 					"class BoolDict(TypedDict, total=False):\n    eq: bool",
 					"type BoolInput = bool | BoolDict | Bool",
-					"{\"eq\": T, \"in\": list[T]},  # type: ignore[valid-type]",
+					"{\"eq\": \"T\", \"in\": \"list[T]\"},\n    total=False,",
 					"type SetInput[T] = T | list[T] | SetDict[T] | Set[T]",
 					"class ContainsDict(TypedDict, Generic[T], total=False):\n"+
 						"    any: list[T]",
