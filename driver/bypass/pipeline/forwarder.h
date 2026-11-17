@@ -15,6 +15,7 @@
 #include <mutex>
 #include <thread>
 #include <variant>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -25,10 +26,26 @@
 #include "driver/pipeline/acquisition.h"
 
 namespace driver::bypass::pipeline {
+/// @brief an estimate of the bookkeeping bytes that one heap allocation costs.
+constexpr size_t ALLOCATION_OVERHEAD = 32;
+/// @brief the bytes a queued frame holds in addition to its series.
+constexpr size_t FRAME_OVERHEAD = sizeof(x::telem::Frame) +
+                                  sizeof(std::vector<synnax::channel::Key>) +
+                                  sizeof(std::vector<x::telem::Series>) +
+                                  4 * ALLOCATION_OVERHEAD;
+/// @brief the bytes a queued series holds in addition to its samples.
+constexpr size_t SERIES_OVERHEAD = sizeof(x::telem::Series) +
+                                   sizeof(synnax::channel::Key) +
+                                   2 * ALLOCATION_OVERHEAD;
+/// @brief the bytes a queued authority change holds in addition to its keys and
+/// authorities.
+constexpr size_t AUTHORITIES_OVERHEAD = sizeof(::driver::pipeline::Authorities) +
+                                        2 * ALLOCATION_OVERHEAD;
+
 /// @brief configures a Forwarder.
 struct ForwarderConfig {
-    /// @brief the most bytes of frames that wait for the Core. A write past it drops
-    /// its frame and counts it.
+    /// @brief the most bytes that queued frames and authority changes hold, overhead
+    /// included. A write past it drops its frame and counts it.
     size_t max_queue_bytes = size_t{64} * 1024 * 1024;
     /// @brief backs off from an unreachable Core, with no retry limit.
     x::breaker::Config breaker{
@@ -75,10 +92,15 @@ class Forwarder {
 
     static size_t byte_size(const Op &op) {
         const auto *fr = std::get_if<x::telem::Frame>(&op);
-        if (fr == nullptr) return 0;
-        size_t size = 0;
+        if (fr == nullptr) {
+            const auto &auth = std::get<::driver::pipeline::Authorities>(op);
+            return AUTHORITIES_OVERHEAD +
+                   auth.keys.size() * sizeof(synnax::channel::Key) +
+                   auth.authorities.size() * sizeof(x::control::Authority);
+        }
+        size_t size = FRAME_OVERHEAD;
         for (const auto &s: *fr->series)
-            size += s.byte_size();
+            size += SERIES_OVERHEAD + s.byte_size();
         return size;
     }
 
@@ -219,12 +241,15 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief queues authorities for the Core, in order with the frames.
+    /// @brief queues authorities for the Core, in order with the frames. It never drops
+    /// them, but they count toward the queue cap.
     /// @returns the Core error that stopped the forwarder, if any.
     x::errors::Error set_authority(const ::driver::pipeline::Authorities &authorities) {
         std::lock_guard lock(this->mu);
         if (this->err) return this->err;
-        this->queue.emplace_back(authorities);
+        Op op = authorities;
+        this->queue_bytes += byte_size(op);
+        this->queue.push_back(std::move(op));
         this->cv.notify_one();
         return x::errors::NIL;
     }

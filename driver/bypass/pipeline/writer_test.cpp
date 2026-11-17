@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
@@ -39,10 +40,12 @@ public:
 TEST(WriterTest, RewrittenFrameReachesBusOnce) {
     auto bus = std::make_shared<Bus>();
     auto sub = bus->subscribe({1});
+    // The second Core write fails and the close returns a license error. This stops
+    // the forwarder, so the acquisition pipeline reopens and rewrites its frame.
     const auto server = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{},
-        std::vector{freighter::UNREACHABLE},
+        std::vector{synnax::errors::LICENSE_MISSING},
         std::vector{1}
     );
     auto pipeline = ::driver::pipeline::Acquisition(
@@ -58,6 +61,7 @@ TEST(WriterTest, RewrittenFrameReachesBusOnce) {
         x::breaker::Config{.base_interval = x::telem::MICROSECOND * 10}
     );
     ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(server->writer_opens.load(), 2);
     ASSERT_EVENTUALLY_GE(server->writes->size(), 3);
     ASSERT_TRUE(pipeline.stop());
     std::vector<uint64_t> received;
