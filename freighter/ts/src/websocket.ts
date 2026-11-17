@@ -316,7 +316,11 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     return c;
   }
 
-  /** Implements the StreamClient interface. */
+  /**
+   * Implements the StreamClient interface.
+   * @throws {Unreachable} if the socket fails or closes before it opens. A TLS failure
+   * that the runtime names (Bun and Deno) throws the runtime error instead.
+   */
   async stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     reqSchema: RQ,
