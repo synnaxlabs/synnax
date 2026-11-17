@@ -17,12 +17,9 @@ use std::process::ExitCode;
 use desktop::discovery;
 
 fn main() -> ExitCode {
-    let mut out = io::stdout().lock();
-    match discovery::key_entry().and_then(|key| discovery::print_key(&key, &mut out)) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(err) => {
-            eprintln!("failed to read the Synnax Desktop API key: {err}");
-            ExitCode::FAILURE
-        }
-    }
+    discovery::print_key(
+        discovery::key_entry(),
+        &mut io::stdout().lock(),
+        &mut io::stderr().lock(),
+    )
 }

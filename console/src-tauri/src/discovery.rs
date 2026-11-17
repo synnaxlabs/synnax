@@ -14,6 +14,7 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 
 use keyring_core::{Entry, Error};
 use serde::{Deserialize, Serialize};
@@ -103,17 +104,27 @@ pub fn read_key(key: &Entry) -> io::Result<Option<String>> {
     }
 }
 
-/// Writes the API key saved in `key` to `out`, followed by a newline. Fails with
-/// [`io::ErrorKind::NotFound`] when none is saved. No error holds the key.
-pub fn print_key(key: &Entry, out: &mut impl Write) -> io::Result<()> {
-    let api_key = read_key(key)?.ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::NotFound,
-            "Synnax Desktop has saved no API key. Open Synnax Desktop to save one.",
-        )
-    })?;
-    writeln!(out, "{api_key}")?;
-    out.flush()
+/// Writes the API key saved in `key` to `out`, followed by a newline, and returns
+/// success. When `key` is an error, no key is saved, or the keychain fails, writes one
+/// line to `err` and returns failure. Nothing written to `err` holds the key.
+pub fn print_key(key: io::Result<Entry>, out: &mut impl Write, err: &mut impl Write) -> ExitCode {
+    let printed = key.and_then(|key| read_key(&key)).and_then(|api_key| {
+        let api_key = api_key.ok_or_else(|| {
+            io::Error::other(
+                "Synnax Desktop has saved no API key. Open Synnax Desktop to save one.",
+            )
+        })?;
+        writeln!(out, "{api_key}")?;
+        out.flush()
+    });
+    match printed {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            // A failed write to stderr leaves only the exit code to report the error.
+            let _ = writeln!(err, "failed to read the Synnax Desktop API key: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 /// Saves `api_key` in the keychain and `file` to `path`, but only when the saved key is
@@ -273,38 +284,58 @@ mod tests {
         forget_legacy_key(&dir.path().join("missing.json"), "syk_old").unwrap();
     }
 
+    /// Runs [`print_key`] and returns its exit code, stdout, and stderr.
+    fn print(key: io::Result<Entry>) -> (ExitCode, String, String) {
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let code = print_key(key, &mut out, &mut err);
+        let text = |bytes| String::from_utf8(bytes).unwrap();
+        (code, text(out), text(err))
+    }
+
     #[test]
     fn prints_the_saved_key_and_a_newline() {
         let key = key();
         key.set_password("syk_secret").unwrap();
-        let mut out = Vec::new();
-        print_key(&key, &mut out).unwrap();
-        assert_eq!(out, b"syk_secret\n");
+        let (code, out, err) = print(Ok(key));
+        assert_eq!(code, ExitCode::SUCCESS);
+        assert_eq!(out, "syk_secret\n");
+        assert_eq!(err, "");
     }
 
     #[test]
-    fn prints_nothing_when_no_key_is_saved() {
-        let mut out = Vec::new();
-        let err = print_key(&key(), &mut out).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    fn fails_with_one_line_when_no_key_is_saved() {
+        let (code, out, err) = print(Ok(key()));
+        assert_eq!(code, ExitCode::FAILURE);
+        assert_eq!(out, "");
         assert_eq!(
-            err.to_string(),
-            "Synnax Desktop has saved no API key. Open Synnax Desktop to save one."
+            err,
+            "failed to read the Synnax Desktop API key: Synnax Desktop has saved no API \
+             key. Open Synnax Desktop to save one.\n"
         );
-        assert!(out.is_empty());
     }
 
     #[test]
-    fn prints_nothing_and_hides_the_key_when_the_keychain_fails() {
+    fn fails_with_one_line_when_there_is_no_keychain() {
+        let (code, out, err) = print(Err(io::Error::other("no keychain")));
+        assert_eq!(code, ExitCode::FAILURE);
+        assert_eq!(out, "");
+        assert_eq!(
+            err,
+            "failed to read the Synnax Desktop API key: no keychain\n"
+        );
+    }
+
+    #[test]
+    fn hides_the_key_when_the_keychain_fails() {
         let key = key();
         key.set_password("syk_secret").unwrap();
         let mock: &keyring_core::mock::Cred = key.as_any().downcast_ref().unwrap();
         mock.set_error(Error::NoStorageAccess("the keychain is locked".into()));
-        let mut out = Vec::new();
-        let err = print_key(&key, &mut out).unwrap_err().to_string();
+        let (code, out, err) = print(Ok(key));
+        assert_eq!(code, ExitCode::FAILURE);
+        assert_eq!(out, "");
         assert!(err.contains("the keychain is locked"));
         assert!(!err.contains("syk_secret"));
-        assert!(out.is_empty());
     }
 
     #[test]

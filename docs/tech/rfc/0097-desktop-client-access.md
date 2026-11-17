@@ -27,7 +27,7 @@ install command and code for each client, and a button that replaces the key.
    arguments. A saved `sy login` comes first, so a person who logged in to another Core
    keeps that behavior.
 2. **No secret on disk**: The OS keychain holds the API key, never the launch password.
-   The discovery file holds only the address.
+   The discovery file holds only the address and the path of the key helper.
 3. **Desktop makes the key through the public API**: The Console creates the key after
    sign-in, as `sy login` does. The Core gets no change.
 4. **Always on**: There is no setting. "Reset key" is the only control.
@@ -37,13 +37,19 @@ install command and code for each client, and a button that replaces the key.
 ### 3.0 The discovery file
 
 The shell writes `~/.synnax/desktop.json` on every operating system: `host`, `port`, and
-`secure`, the field names of the Python `Options`. The write goes to a partial file,
-then renames it. The API key goes to the OS keychain under service
+`secure`, the field names of the Python `Options`, and `api_key_helper`. The write goes
+to a partial file, then renames it. The API key goes to the OS keychain under service
 `com.synnaxlabs.desktop` and account `api_key`. "Erase all data" deletes the file and
 the key. Desktop 1.1 wrote `api_key` in the file. That key never moves to the keychain:
 the window revokes it in the Core, removes it from the file only after the revoke, and
 saves a new key in the keychain. A failed revoke leaves the file as it is and runs again
 on the next read, so a plaintext root key never stays valid.
+
+`api_key_helper` is the absolute path of `synnax-desktop-key`, a program that Desktop
+installs next to its executable. It prints the key to stdout, or writes one line to
+stderr and exits with code 1 when there is no key or no keychain. Clients run it, so
+they do not read the keychain format of each OS. The shell writes the path on each save,
+so a moved app or a new AppImage mount gets the correct path.
 
 ### 3.1 A port that stays the same
 
