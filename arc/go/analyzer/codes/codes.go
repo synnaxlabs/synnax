@@ -225,9 +225,9 @@ func f(x f64) u8 {
 		Code:     "W2003",
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  "unit dropped",
-		Problem: "A cast with no unit removes the unit of a value, and the value " +
-			"goes to a name in a different unit of the same dimension. The name " +
-			"takes the number as it is, with no conversion.",
+		Problem: "A cast with no unit removes the unit of a value before the value " +
+			"goes to a different unit. `i64(5s)` written to a name in `ms` gives " +
+			"`5`, not `5000`.",
 		Example: `func f() {
     d i64 ms := i64(5s)
 }`,

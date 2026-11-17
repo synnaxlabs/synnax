@@ -344,7 +344,7 @@
   "W2003": {
     "severity": "warning",
     "message": "unit dropped",
-    "problem": "A cast with no unit removes the unit of a value, and the value goes to a name in a different unit of the same dimension. The name takes the number as it is, with no conversion.",
+    "problem": "A cast with no unit removes the unit of a value before the value goes to a different unit. `i64(5s)` written to a name in `ms` gives `5`, not `5000`.",
     "example": "func f() {\n    d i64 ms := i64(5s)\n}"
   },
   "W3000": {
