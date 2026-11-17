@@ -604,7 +604,7 @@ const WithFormat = ({ icdKey, children }: WithFormatProps): ReactElement => {
     mode: isPreview || !canEdit ? "preview" : "normal",
   });
   PICD.useCheck({ key: icdKey, form });
-  Task.useFlushBeforeDeploy(flush);
+  Task.useFlushFirst(flush);
   const formats = new Map(useContext(FormatsContext)).set(icdKey, form);
   return <FormatsContext value={formats}>{children}</FormatsContext>;
 };
