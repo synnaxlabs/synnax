@@ -1042,7 +1042,7 @@ var _ = Describe("Expressions", func() {
 				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				var calls []string
+				calls := make([]string, 0, len(*ctx.CallEdges))
 				for _, edge := range *ctx.CallEdges {
 					calls = append(calls, edge.Caller.Name+"->"+edge.Callee.Name)
 				}

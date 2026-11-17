@@ -118,7 +118,7 @@ var _ = Describe("Infer", func() {
 	})
 
 	It("Should give one shape to many sources of one value and one time", func() {
-		var docs []xjson.Document
+		docs := make([]xjson.Document, 0, 10)
 		for ch := range 5 {
 			docs = append(docs, documents(
 				fmt.Sprintf("sensor-%d", ch),

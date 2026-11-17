@@ -18,9 +18,22 @@ import subprocess
 import time
 from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 WORKER = "Runner.Worker"
 INTERVAL = 1.0
+
+
+class Services(Protocol):
+    """The runner services drain() stops and the power off after them."""
+
+    def units(self) -> set[str]: ...
+
+    def busy(self) -> set[str]: ...
+
+    def stop(self, unit: str) -> None: ...
+
+    def poweroff(self) -> None: ...
 
 
 class System:
@@ -60,7 +73,7 @@ class System:
         subprocess.run(["systemctl", "poweroff"], check=True)
 
 
-def drain(system: System, *, sleep: Callable[[float], None] = time.sleep) -> None:
+def drain(system: Services, *, sleep: Callable[[float], None] = time.sleep) -> None:
     """Stops each idle runner service until none runs, then powers off."""
     while units := system.units():
         # A stop can take seconds, so each runner is checked right before its stop.

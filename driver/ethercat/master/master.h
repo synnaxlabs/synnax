@@ -35,6 +35,19 @@ namespace driver::ethercat::master {
 /// @brief the distributed clock epoch, 2000-01-01, as a Unix timestamp.
 inline const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
+/// @brief the most frames that a master keeps in flight after a send(), so a caller
+/// can reserve room for their results.
+constexpr size_t MAX_FRAMES_IN_FLIGHT = 32;
+
+/// @brief how long a master keeps a frame in flight after its send(). It is a time,
+/// not a count of frames, since an adapter holds frames back for the same time at any
+/// rate.
+inline const x::telem::TimeSpan MAX_FRAME_AGE = x::telem::MILLISECOND * 10;
+
+/// @brief how many frames a master keeps in flight at any age, so a frame of a slow bus
+/// gets more than one receive().
+constexpr size_t MIN_FRAMES_IN_FLIGHT = 3;
+
 /// @brief information about an available EtherCAT master or network.
 struct Info {
     /// @brief unique identifier for this master (e.g., "igh:0" or "eth0").
@@ -163,7 +176,14 @@ public:
     /// @brief stops cyclic communication and closes the master.
     virtual void deactivate() = 0;
 
-    /// @brief receives and processes input data from the EtherCAT network.
+    /// @brief receives the oldest frame that a send() sent and no receive() took, and
+    /// processes its inputs. Returns errors::FRAME_IN_FLIGHT when the frame has not
+    /// come back and the master keeps it in flight, so a later receive() takes it.
+    /// Each send(), failed or not, gets exactly one result other than FRAME_IN_FLIGHT,
+    /// in send order. Once the oldest frame is MAX_FRAME_AGE old and
+    /// MIN_FRAMES_IN_FLIGHT frames are in flight, or once MAX_FRAMES_IN_FLIGHT frames
+    /// are in flight, the master drops it and returns an error in place of
+    /// FRAME_IN_FLIGHT.
     [[nodiscard]] virtual x::errors::Error receive() = 0;
 
     /// @brief queues output data and sends to the EtherCAT network.

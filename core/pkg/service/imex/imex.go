@@ -208,7 +208,7 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 // Decode materializes the envelope body as T using the codec bound when the envelope
 // was unmarshaled. T may name only the fields it needs. Envelopes built by Encode have
 // no codec bound and must be marshaled and unmarshaled before Decode.
-func (e Envelope) Decode[T any]() (T, error) {
+func (e *Envelope) Decode[T any]() (T, error) {
 	var t T
 	if e.codec == nil {
 		return t, errors.New(

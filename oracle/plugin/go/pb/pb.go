@@ -191,9 +191,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputOrder = append(outputOrder, outputPath)
 	}
 
-	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
-		return enum.FindPBOutputPath(typ, table)
-	}
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		typeDefs := outputTypeDefs[outputPath]
@@ -217,7 +214,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			outputPath,
 			req.Resolutions,
 			"pb",
-			pbPathFunc,
+			enum.FindPBOutputPath,
 		)
 		content, err := p.generateFile(
 			outputPath,
@@ -274,11 +271,12 @@ func (p *Plugin) generateFile(
 	req *plugin.Request,
 ) ([]byte, error) {
 	var namespace, filePath string
-	if len(structs) > 0 {
+	switch {
+	case len(structs) > 0:
 		namespace, filePath = structs[0].Namespace, structs[0].FilePath
-	} else if len(typeDefs) > 0 {
+	case len(typeDefs) > 0:
 		namespace, filePath = typeDefs[0].Namespace, typeDefs[0].FilePath
-	} else if len(unions) > 0 {
+	case len(unions) > 0:
 		namespace, filePath = unions[0].Namespace, unions[0].FilePath
 	}
 
@@ -623,11 +621,12 @@ func (p *Plugin) processStructForTranslation(
 
 	for _, field := range resolution.UnifiedFields(s, data.table) {
 		fieldData := p.processFieldForTranslation(field, data, s)
-		if fieldData.IsOptional {
+		switch {
+		case fieldData.IsOptional:
 			translator.OptionalFields = append(translator.OptionalFields, fieldData)
-		} else if fieldData.HasError || fieldData.HasBackwardError {
+		case fieldData.HasError || fieldData.HasBackwardError:
 			translator.ErrorFields = append(translator.ErrorFields, fieldData)
-		} else {
+		default:
 			translator.Fields = append(translator.Fields, fieldData)
 		}
 	}
@@ -1009,13 +1008,14 @@ func (p *Plugin) processGenericStructForTranslation(
 
 	for _, field := range resolution.UnifiedFields(s, data.table) {
 		fieldData, isTypeParam := p.processGenericFieldForTranslation(field, data, s)
-		if isTypeParam {
+		switch {
+		case isTypeParam:
 			translator.TypeParamFields = append(translator.TypeParamFields, fieldData)
-		} else if fieldData.IsOptional {
+		case fieldData.IsOptional:
 			translator.OptionalFields = append(translator.OptionalFields, fieldData)
-		} else if fieldData.HasError || fieldData.HasBackwardError {
+		case fieldData.HasError || fieldData.HasBackwardError:
 			translator.ErrorFields = append(translator.ErrorFields, fieldData)
-		} else {
+		default:
 			translator.Fields = append(translator.Fields, fieldData)
 		}
 	}
@@ -1539,11 +1539,12 @@ func (p *Plugin) addInstance(inst instance.Instance, data *templateData) {
 	}
 	for _, field := range inst.Fields {
 		fd := p.processFieldForTranslation(field, data, inst.Generic)
-		if fd.IsOptional {
+		switch {
+		case fd.IsOptional:
 			translator.OptionalFields = append(translator.OptionalFields, fd)
-		} else if fd.HasError || fd.HasBackwardError {
+		case fd.HasError || fd.HasBackwardError:
 			translator.ErrorFields = append(translator.ErrorFields, fd)
-		} else {
+		default:
 			translator.Fields = append(translator.Fields, fd)
 		}
 	}

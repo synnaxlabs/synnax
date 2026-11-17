@@ -38,7 +38,8 @@ public:
     virtual void stopped_with_err(const x::errors::Error &_) {}
 
     /// @brief called on the pipeline thread each time the streamer opens. Frames
-    /// written to the Core after it is called reach write().
+    /// written to the Core after it is called reach write(), unless the streamer opens
+    /// before its Core half, as the bypass streamer does while the Core is unreachable.
     virtual void opened() {}
 
     virtual ~Sink() = default;

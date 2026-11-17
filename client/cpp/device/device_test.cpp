@@ -857,9 +857,8 @@ TEST(DeviceTests, testCreateDeviceWithMissingParent) {
     };
     const auto err = client.devices.create(child);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_TRUE(err.data.contains(
-        "device missing_" + rand + " does not exist: validation error"
-    )) << err;
+    EXPECT_TRUE(err.data.contains("device missing_" + rand + R"( does not exist")"))
+        << err;
     EXPECT_TRUE(err.data.contains(R"("path":["parent"])")) << err;
 }
 

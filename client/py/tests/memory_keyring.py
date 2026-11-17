@@ -8,32 +8,38 @@
 #  included in the file licenses/APL.txt.
 
 
-from typing import override
-
-from keyring.backend import KeyringBackend
-from keyring.errors import PasswordDeleteError
+from keyring.errors import NoKeyringError, PasswordDeleteError
 
 
-class MemoryKeyring(KeyringBackend):
+class MemoryKeyring:
     """A keyring that keeps passwords in memory, so tests never touch the keyring of
     the operating system.
     """
 
-    priority = 1
-
     def __init__(self) -> None:
-        super().__init__()  # type: ignore[no-untyped-call]
         self.values: dict[tuple[str, str], str] = {}
 
-    @override
     def get_password(self, service: str, username: str) -> str | None:
         return self.values.get((service, username))
 
-    @override
     def set_password(self, service: str, username: str, password: str) -> None:
         self.values[(service, username)] = password
 
-    @override
     def delete_password(self, service: str, username: str) -> None:
         if self.values.pop((service, username), None) is None:
             raise PasswordDeleteError(username)
+
+
+class NoKeychain:
+    """Fails every call as keyring's fail backend does when the session has no OS
+    keychain.
+    """
+
+    def get_password(self, service: str, username: str) -> str | None:
+        raise NoKeyringError("No recommended backend was available.")
+
+    def set_password(self, service: str, username: str, password: str) -> None:
+        raise NoKeyringError("No recommended backend was available.")
+
+    def delete_password(self, service: str, username: str) -> None:
+        raise NoKeyringError("No recommended backend was available.")
