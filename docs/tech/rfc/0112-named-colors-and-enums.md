@@ -226,6 +226,15 @@ The schematic cutover ships in one release:
   its source symbol. The import needs retrieve access on the source symbol of each copy
   that it adds, create access for each record that it adds, and update access on the
   group of each copy. A node that gets `missing` (RFC 0114 §4.5) keeps no overrides.
+- From phase 19, a schematic export bundles every enumeration that its nodes name, and
+  from RFC 0114 phase 1, a symbol export bundles those of its states. An import follows
+  the symbol import rule and access of RFC 0114 §4.4. When the Core already has an
+  enumeration with a bundled key, the import uses it and reports a warning status that
+  names it if the two differ. Otherwise it adds the bundled enumeration under its
+  bundled key. An older file can name an enumeration key that is neither bundled nor on
+  the Core. When the node still has `options`, the import makes the enumeration from
+  them by the rule above, so the node keeps working. Otherwise the import drops the key,
+  and the warning status names the node.
 
 The line plot migration stores the color that each uncolored line and rule shows today
 as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
@@ -270,7 +279,7 @@ needs phases 13 to 15, and phase 21 needs RFC 0114 phase 1.
 | 16    | Add the Console enumeration editor with its checks         | `console/src/feature/enumeration`                                                                                                      | 9, 15          |
 | 17    | Add Replace with for enumerations                          | `core/pkg/api/enumeration`, `console/src/feature/enumeration`                                                                          | 1, 16          |
 | 18    | Draw stale and unknown indicators instead of colors        | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`, `integration` | -              |
-| 19    | Add enumeration keys to selects and state indicators       | `schemas/synnax`, `core/pkg/service/schematic`                                                                                         | 13             |
+| 19    | Add and bundle enumeration keys on selects and indicators  | `schemas/synnax`, `core/pkg/service/schematic`                                                                                         | 14             |
 | 20    | Pick and draw enumerations in selects and state indicators | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                 | 16, 19         |
 | 21    | Migrate inline state colors to enumerations                | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20             |
 | 22    | Delete the enumeration editor flag                         | `console/src/flags.ts`                                                                                                                 | 21             |
