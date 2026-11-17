@@ -59,7 +59,9 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 						fnScope, err := ctx.Scope.Root().
 							Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
 						if err != nil {
-							ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+							ctx.Diagnostics.Add(
+								codes.UnexpectedError.Wrap(err, ctx.AST),
+							)
 							return
 						}
 						fnScope.AutoName("fmt_str_")
@@ -77,7 +79,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 			AST:  ctx.AST,
 		})
 		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 			return
 		}
 		scope.AutoName("constant_")
@@ -94,7 +96,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 		return
 	}
 	fnScope = fnScope.AutoName("expression_")
@@ -107,7 +109,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 		return
 	}
 	// Inferring in the body's scope gives the output and the body one type variable.
@@ -160,7 +162,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 		return
 	}
 	fnScope = fnScope.AutoName("expression_")
@@ -170,7 +172,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 		return
 	}
 	blockCtx := ctx.WithScope(blockScope)
@@ -233,7 +235,7 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			Internal: true,
 			AST:      expr,
 		}); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+			ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, expr))
 			return
 		}
 		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: t})

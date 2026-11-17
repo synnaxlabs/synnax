@@ -38,7 +38,7 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 		return
 	}
 	for _, stmt := range ctx.AST.AllStatement() {
@@ -616,7 +616,7 @@ func analyzeForStatement(ctx context.Context[parser.IForStatementContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 		return
 	}
 	loopScope.Name = "__loop"
@@ -911,7 +911,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	if err != nil {
 		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.ParserInvariant.Atf(
 				ctx.AST,
 				"return statement can only be used inside a function body",
 			))
@@ -1038,7 +1038,7 @@ func analyzeChannelAssignment(
 	// context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if errors.Skip(fnErr, query.ErrNotFound) != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(fnErr, ctx.AST))
 		return
 	}
 	if fn != nil {
@@ -1522,7 +1522,7 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) types.Type {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 		return types.Type{}
 	}
 	blockScope, err := funcScope.Add(ctx, symbol.Symbol{
@@ -1530,7 +1530,7 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) types.Type {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 		return types.Type{}
 	}
 	var collectedReturnTypes []types.Type

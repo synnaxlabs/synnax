@@ -463,7 +463,7 @@ func analyzeInlineBody(
 ) (flowNodeResult, bool) {
 	synth := shell.synthByAST[decl]
 	if synth == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(decl,
+		ctx.Diagnostics.Add(codes.BrokenInvariant.Atf(decl,
 			"internal: synth scope not registered for inline body"))
 		return flowNodeResult{}, false
 	}
@@ -1694,7 +1694,7 @@ func checkActivationsBound(
 ) {
 	for key := range activations {
 		if !bound.Contains(key) {
-			aCtx.Diagnostics.Add(diagnostics.Errorf(
+			aCtx.Diagnostics.Add(codes.BrokenInvariant.Atf(
 				aCtx.AST,
 				"internal: activation target '%s' did not bind to any "+
 					"scope; this should have been rejected by analyzeNamedRef",
@@ -2131,7 +2131,7 @@ func (p *flowChainProcessor) consumeTransition(
 	ast parser.IFlowNodeContext,
 ) bool {
 	if p.prevNode == nil {
-		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+		p.ctx.Diagnostics.Add(codes.ParserInvariant.Atf(
 			ast, "transition target requires a source",
 		))
 		return false
@@ -2210,7 +2210,7 @@ func analyzeFlow(
 		}
 	}
 	if len(p.edges) < 1 && !p.transitionEmitted {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.ParserInvariant.Atf(
 			ctx.AST,
 			"flow statement requires at least two nodes",
 		))

@@ -44,6 +44,7 @@ A kind that changes severity takes a new code. Its old code is not used again.
 
 | Band | Area                         | Examples                                                 |
 | ---- | ---------------------------- | -------------------------------------------------------- |
+| 0xxx | Internal errors              | A check that fails only when the compiler has a defect   |
 | 1xxx | Syntax                       | Mismatched input                                         |
 | 2xxx | Types and expressions        | Type mismatch, casts, units, overflow, NaN               |
 | 3xxx | Functions and statements     | Missing or extra argument, `return`, `break`, assignment |
@@ -74,7 +75,7 @@ The errors page is generated from the kinds. `errors.mdx` has no item for each c
 - **Real messages**: `go generate` compiles the failing example, checks that it reports
   the code, and writes the message to `codes.gen.json`. The page shows that message, so
   no person names the `%s` values.
-- **Layout**: One heading for each band.
+- **Layout**: One heading for each band. Band 0 is not on the page.
 - **Anchors**: The anchor of a code is the code in lowercase, such as `#e2001`.
 
 ### 2.4 Prior art

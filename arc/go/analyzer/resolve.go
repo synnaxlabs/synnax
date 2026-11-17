@@ -38,20 +38,20 @@ func ResolveNodeTypes(
 	for _, edge := range edges {
 		sourceNode, ok := nodes.Find(edge.Source.Node)
 		if !ok {
-			diag.Add(diagnostics.Errorf(nil,
+			diag.Add(codes.DanglingEdge.Atf(nil,
 				"edge source node '%s' not found", edge.Source.Node))
 			return false
 		}
 		sourceParam, ok := sourceNode.Outputs.Get(edge.Source.Param)
 		if !ok {
-			diag.Add(diagnostics.Errorf(nil,
+			diag.Add(codes.DanglingEdge.Atf(nil,
 				"output '%s' not found in node '%s' (%s)",
 				edge.Source.Param, edge.Source.Node, sourceNode.Type))
 			return false
 		}
 		targetNode, ok := nodes.Find(edge.Target.Node)
 		if !ok {
-			diag.Add(diagnostics.Errorf(nil,
+			diag.Add(codes.DanglingEdge.Atf(nil,
 				"edge target node '%s' not found", edge.Target.Node))
 			return false
 		}

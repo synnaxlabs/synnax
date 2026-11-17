@@ -1,4 +1,40 @@
 {
+  "E0000": {
+    "severity": "error",
+    "message": "",
+    "problem": "The compiler got an error from a call that cannot fail.",
+    "example": ""
+  },
+  "E0001": {
+    "severity": "error",
+    "message": "",
+    "problem": "The compiler cannot find a scope that an earlier pass made.",
+    "example": ""
+  },
+  "E0002": {
+    "severity": "error",
+    "message": "",
+    "problem": "The compiler broke one of its own rules when it built the program.",
+    "example": ""
+  },
+  "E0003": {
+    "severity": "error",
+    "message": "",
+    "problem": "An edge of the program names a node or an output that does not exist.",
+    "example": ""
+  },
+  "E0004": {
+    "severity": "error",
+    "message": "",
+    "problem": "The compiler stopped with a panic.",
+    "example": ""
+  },
+  "E0005": {
+    "severity": "error",
+    "message": "",
+    "problem": "The compiler reached source that the parser must reject.",
+    "example": ""
+  },
   "E1000": {
     "severity": "error",
     "message": "missing ')' at '}'",
@@ -154,6 +190,18 @@
     "message": "circular function call: a -> b -> a",
     "problem": "A function calls itself through a circular chain of calls.",
     "example": "func a() {\n    b()\n}\n\nfunc b() {\n    a()\n}"
+  },
+  "E3011": {
+    "severity": "error",
+    "message": "",
+    "problem": "The `variant` of a `status.set` call is not one of the allowed values.",
+    "example": ""
+  },
+  "E3012": {
+    "severity": "error",
+    "message": "",
+    "problem": "A color is not a valid value (name, hex, `rgb()`, `rgba()`, `hsl()`, `hsla()`).",
+    "example": ""
   },
   "E4000": {
     "severity": "error",

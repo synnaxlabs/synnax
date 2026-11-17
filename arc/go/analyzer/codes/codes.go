@@ -18,6 +18,37 @@ import (
 )
 
 var (
+	// UnexpectedError is an error from a call that cannot fail at its call site.
+	UnexpectedError = diagnostics.Kind{
+		Code:     "E0000",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// MissingScope is a lookup of a scope that an earlier pass did not register.
+	MissingScope = diagnostics.Kind{
+		Code:     "E0001",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// BrokenInvariant is a program that the compiler lowered in a way it forbids.
+	BrokenInvariant = diagnostics.Kind{
+		Code:     "E0002",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// DanglingEdge is an edge to a node or an output that does not exist.
+	DanglingEdge = diagnostics.Kind{
+		Code:     "E0003",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// AnalysisPanic is a panic in the compiler that the editor recovered.
+	AnalysisPanic = diagnostics.Kind{
+		Code:     "E0004",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// ParserInvariant is source that the parser accepts and must reject.
+	ParserInvariant = diagnostics.Kind{
+		Code:     "E0005",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+
 	// Syntax is source text that the parser rejects.
 	Syntax = diagnostics.Kind{
 		Code:     "E1000",
@@ -173,6 +204,16 @@ var (
 		Code:     "E3010",
 		Severity: protocol.DiagnosticSeverityError,
 	}
+	// InvalidStatusVariant is a status variant that is not one of the allowed values.
+	InvalidStatusVariant = diagnostics.Kind{
+		Code:     "E3011",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// InvalidColor is a color argument in a form that Arc does not accept.
+	InvalidColor = diagnostics.Kind{
+		Code:     "E3012",
+		Severity: protocol.DiagnosticSeverityError,
+	}
 	// OutputNeverAssigned is a named output that no path of its function sets.
 	OutputNeverAssigned = diagnostics.Kind{
 		Code:     "W3000",
@@ -312,6 +353,12 @@ var (
 
 // All is each kind of the table.
 var All = []diagnostics.Kind{
+	UnexpectedError,
+	MissingScope,
+	BrokenInvariant,
+	DanglingEdge,
+	AnalysisPanic,
+	ParserInvariant,
 	Syntax,
 	SourceLimit,
 	InvalidStringLiteral,
@@ -341,6 +388,8 @@ var All = []diagnostics.Kind{
 	StatefulVariable,
 	AssignmentTarget,
 	CircularCall,
+	InvalidStatusVariant,
+	InvalidColor,
 	OutputNeverAssigned,
 	ImportFailed,
 	ImportOrder,

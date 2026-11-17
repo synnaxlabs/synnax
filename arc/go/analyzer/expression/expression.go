@@ -622,7 +622,7 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 ) {
 	callerFn, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
 		return
 	}
 	if callerFn != nil && callee.Exec == symbol.ExecFlow {
@@ -683,7 +683,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		if tracksChannelRead(resolved) {
 			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
+				ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(fnErr, ctx.AST))
 				return
 			}
 			if fn != nil {
