@@ -16,6 +16,7 @@
 
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -44,6 +45,7 @@ class GatedFactory final : public ::driver::pipeline::WriterFactory {
 
         x::errors::Error write(const x::telem::Frame &) override {
             std::unique_lock lock(this->factory.mu);
+            this->factory.started++;
             this->factory.cv.wait(lock, [this] { return this->factory.credits > 0; });
             this->factory.credits--;
             this->factory.written++;
@@ -54,6 +56,8 @@ class GatedFactory final : public ::driver::pipeline::WriterFactory {
     };
 
 public:
+    /// @brief the writes that began, including one that waits.
+    std::atomic<size_t> started = 0;
     std::atomic<size_t> written = 0;
 
     void allow(const size_t frames) {
@@ -219,6 +223,8 @@ TEST(ForwarderTest, WarnsWhileFallingBehindTheCore) {
         {.channels = {1}},
         {.max_queue_bytes = 8 * FRAME_SIZE, .warn = record(warnings)}
     );
+    // A failed assertion must not leave the forwarder waiting on the Core forever.
+    x::defer::defer release([&server] { server->allow(1000); });
     for (int i = 0; i < 5; i++)
         ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
     server->allow(1);
@@ -254,12 +260,14 @@ TEST(ForwarderTest, ReportsDroppedFramesAtMostOncePerInterval) {
          .drop_report_interval = x::telem::HOUR,
          .warn = record(warnings)}
     );
+    x::defer::defer release([&server] { server->allow(1000); });
     for (int i = 0; i < 5; i++)
         ASSERT_NIL(forwarder.write(frame(static_cast<float>(i))));
     ASSERT_EQ(forwarder.dropped(), 1);
     server->allow(1);
     const auto last = [&] { return warnings->at(warnings->size() - 1); };
-    ASSERT_EVENTUALLY_EQ(server->written.load(), 1);
+    // The forwarder removed the first frame from its queue once it waits on the second.
+    ASSERT_EVENTUALLY_EQ(server->started.load(), 2);
     ASSERT_EVENTUALLY_EQ(last().first, "Dropped frames");
     EXPECT_EQ(
         last().second,
