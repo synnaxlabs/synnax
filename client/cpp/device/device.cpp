@@ -61,8 +61,12 @@ std::pair<Device, x::errors::Error> Client::retrieve(
         return {Device{}, errors::paged_one_error()};
     auto [devices, err] = this->retrieve(where, options);
     if (err) return {Device{}, err};
-    if (const auto
-            one_err = errors::check_one("device", where.to_json(), devices.size()))
+    if (const auto one_err = errors::check_one(
+            "device",
+            where.to_json(),
+            options.search_term,
+            devices.size()
+        ))
         return {Device{}, one_err};
     return {std::move(devices[0]), x::errors::NIL};
 }

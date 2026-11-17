@@ -254,9 +254,11 @@ const DISCOVER_KIND: Kind<ReadEntry> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-const entryLabel = Component.renderProp(
-  ({ path }: Task.Views.GroupProps<ReadEntry>) => <EntryLabel path={path} />,
+const GroupLabel = ({ path }: Task.Views.GroupProps<ReadEntry>) => (
+  <EntryLabel path={path} />
 );
+
+const entryLabel = Component.renderProp(GroupLabel);
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const entries = PForm.useFieldValue(root.config.entries);

@@ -521,7 +521,7 @@ TEST(StatusTest, SetByKeyOrNameCreatesNewByName) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_create_");
     const auto res = ASSERT_NIL_P(
-        client.statuses.set_by_key_or_name(name, "hello", "info")
+        client.statuses.set_by_key_or_name(name, "hello", "info", x::telem::TimeStamp())
     );
     EXPECT_FALSE(res.key.empty());
     EXPECT_FALSE(res.multiple_matches);
@@ -538,11 +538,13 @@ TEST(StatusTest, SetByKeyOrNameUpdatesByName) {
     const auto name = unique_name("by_kon_update_name_");
 
     const auto preset = ASSERT_NIL_P(
-        client.statuses.set_by_key_or_name(name, "initial", "info")
+        client.statuses
+            .set_by_key_or_name(name, "initial", "info", x::telem::TimeStamp())
     );
 
     const auto res = ASSERT_NIL_P(
-        client.statuses.set_by_key_or_name(name, "updated", "warning")
+        client.statuses
+            .set_by_key_or_name(name, "updated", "warning", x::telem::TimeStamp())
     );
     EXPECT_EQ(res.key, preset.key);
     EXPECT_FALSE(res.multiple_matches);
@@ -558,11 +560,13 @@ TEST(StatusTest, SetByKeyOrNameUpdatesByUUID) {
     const auto name = unique_name("by_kon_update_uuid_");
 
     const auto preset = ASSERT_NIL_P(
-        client.statuses.set_by_key_or_name(name, "initial", "info")
+        client.statuses
+            .set_by_key_or_name(name, "initial", "info", x::telem::TimeStamp())
     );
 
     const auto res = ASSERT_NIL_P(
-        client.statuses.set_by_key_or_name(preset.key, "via uuid", "error")
+        client.statuses
+            .set_by_key_or_name(preset.key, "via uuid", "error", x::telem::TimeStamp())
     );
     EXPECT_EQ(res.key, preset.key);
     EXPECT_FALSE(res.multiple_matches);
@@ -599,10 +603,54 @@ TEST(StatusTest, SetByKeyOrNameMultiMatch) {
     ASSERT_NIL(client.statuses.set(b));
 
     const auto res = ASSERT_NIL_P(
-        client.statuses.set_by_key_or_name(name, "updated", "warning")
+        client.statuses
+            .set_by_key_or_name(name, "updated", "warning", x::telem::TimeStamp())
     );
     EXPECT_TRUE(res.multiple_matches);
     EXPECT_TRUE(res.key == a.key || res.key == b.key);
+}
+
+/// @brief it should keep the time that the caller sets.
+TEST(StatusTest, SetByKeyOrNameKeepsTime) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_time_");
+    const auto time = x::telem::TimeStamp::now() - x::telem::SECOND;
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "hello", "info", time)
+    );
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(res.key));
+    EXPECT_EQ(retrieved.time, time);
+}
+
+/// @brief it should stamp the current time when the time is zero.
+TEST(StatusTest, SetByKeyOrNameZeroTimeMeansNow) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_zero_time_");
+    const auto before = x::telem::TimeStamp::now();
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "hello", "info", x::telem::TimeStamp())
+    );
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(res.key));
+    EXPECT_GE(retrieved.time, before);
+}
+
+/// @brief it should not replace a stored status that is newer than the set.
+TEST(StatusTest, SetByKeyOrNameOlderTimeDoesNotReplace) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_older_");
+    const auto time = x::telem::TimeStamp::now();
+    const auto preset = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "newer", "success", time)
+    );
+    const auto res = ASSERT_NIL_P(
+        client.statuses
+            .set_by_key_or_name(name, "older", "error", time - x::telem::SECOND)
+    );
+    EXPECT_EQ(res.key, preset.key);
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(res.key));
+    EXPECT_EQ(retrieved.message, "newer");
+    EXPECT_EQ(retrieved.variant, "success");
+    EXPECT_EQ(retrieved.time, time);
 }
 
 /// @brief set_by_key_or_name returns an error when the variant is invalid.
@@ -610,7 +658,7 @@ TEST(StatusTest, SetByKeyOrNameInvalidVariant) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_iv_");
     const auto res = ASSERT_OCCURRED_AS_P(
-        client.statuses.set_by_key_or_name(name, "x", "bogus"),
+        client.statuses.set_by_key_or_name(name, "x", "bogus", x::telem::TimeStamp()),
         x::errors::VALIDATION
     );
     EXPECT_TRUE(res.key.empty());

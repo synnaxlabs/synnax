@@ -11,11 +11,17 @@
 name = "synnax-runners"
 version = "0.0.0"
 description = "Self-hosted CI runner fleet controller"
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "boto3>=1.43,<2",
     "certifi>=2026.10.19,<2027",
+    "mypy-boto3-ce>=1.43,<2",
+    "mypy-boto3-cloudwatch>=1.43,<2",
+    "mypy-boto3-ec2>=1.43,<2",
+    "mypy-boto3-pricing>=1.43,<2",
+    "mypy-boto3-secretsmanager>=1.43,<2",
+    "mypy-boto3-ssm>=1.43,<2",
     "psutil>=7.2,<8",
     "pyjwt[crypto]>=2.10,<3",
     "synnax>=0.61,<0.62",

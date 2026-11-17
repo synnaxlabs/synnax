@@ -16,7 +16,6 @@ import synnax as sy
 
 import conftest
 import gh_runner
-from conftest import core
 from gh_runner import RETRY, SERVICE, TASK, Runner
 
 CMD = "ubuntu_build_i_0f44_gh_cmd"
@@ -251,6 +250,13 @@ class Streamer(conftest.Streamer):
         self.core.closed += 1
 
 
+class Lookup(conftest.ChannelStore):
+    """Finds every channel at KEY."""
+
+    def retrieve(self, channel: str, /) -> sy.Channel:
+        return sy.Channel(name=channel, data_type=sy.DataType.UINT8, key=KEY)
+
+
 class Core(conftest.Client):
     """Adds the stored command states, found from the given lookback on, and the
     channel lookup."""
@@ -266,7 +272,7 @@ class Core(conftest.Client):
         self.drained = threading.Event()
         self.hold: threading.Event | None = None
         self.entered = threading.Event()
-        self.channels = SimpleNamespace(retrieve=lambda name: SimpleNamespace(key=KEY))
+        self.channels: Lookup = Lookup()
 
     def read(self, time_range: sy.TimeRange, name: str) -> list[bool]:
         self.reads += 1
@@ -279,7 +285,7 @@ class Core(conftest.Client):
 
 def listen(client: Core, runner: Runner, sink: Sink) -> None:
     """Listens until the client has no more frames to stream."""
-    runner.listen(core(client), CMD, STATE, sink)
+    runner.listen(client, CMD, STATE, sink)
     assert client.drained.wait(5)
     runner.stop_listening()
     assert runner.thread is not None
@@ -367,12 +373,12 @@ class TestListen:
         client.stored = [True]
         client.hold = threading.Event()
         machine.processes = {LISTENER}
-        runner.listen(core(client), CMD, STATE, sink)
+        runner.listen(client, CMD, STATE, sink)
         old = runner.thread
         assert old is not None
         assert client.entered.wait(5)
         runner.stop_listening()
-        runner.listen(core(client), CMD, STATE, sink)
+        runner.listen(client, CMD, STATE, sink)
         client.hold.set()
         old.join(5)
         assert not old.is_alive()

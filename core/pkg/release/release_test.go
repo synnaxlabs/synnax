@@ -11,6 +11,7 @@ package release_test
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -134,7 +135,7 @@ var _ = Describe("Download", func() {
 		write(name, []byte("core"))
 		write(name+".sig", signer.Sign(name, []byte("core")))
 		Expect(download(ctx)).To(Succeed())
-		Expect(os.ReadFile(dst)).To(Equal([]byte("core")))
+		Expect(os.ReadFile(filepath.Clean(dst))).To(Equal([]byte("core")))
 		mode := os.FileMode(0o600)
 		// Windows has no Unix permission bits, so Go reports a writable file as 0666.
 		if runtime.GOOS == "windows" {
@@ -144,10 +145,10 @@ var _ = Describe("Download", func() {
 	})
 
 	It("Should check a signature that the Tauri signer wrote", func(ctx SpecContext) {
-		write(name, MustSucceed(os.ReadFile(filepath.Join("testdata", name))))
+		write(name, MustSucceed(fs.ReadFile(os.DirFS("testdata"), name)))
 		write(
 			name+".sig",
-			MustSucceed(os.ReadFile(filepath.Join("testdata", name+".sig"))),
+			MustSucceed(fs.ReadFile(os.DirFS("testdata"), name+".sig")),
 		)
 		cfg.PublicKey = tauriPublicKey
 		Expect(download(ctx)).To(Succeed())
@@ -238,12 +239,14 @@ var _ = Describe("Download", func() {
 			serve(func(w http.ResponseWriter, _ *http.Request) {
 				for _, b := range data {
 					MustSucceed(w.Write([]byte{b}))
-					w.(http.Flusher).Flush()
+					flusher, ok := w.(http.Flusher)
+					Expect(ok).To(BeTrue())
+					flusher.Flush()
 					time.Sleep(50 * time.Millisecond)
 				}
 			})
 			Expect(download(ctx)).To(Succeed())
-			Expect(os.ReadFile(dst)).To(Equal(data))
+			Expect(os.ReadFile(filepath.Clean(dst))).To(Equal(data))
 		})
 
 		It("Should fail when the file sends no response", func(ctx SpecContext) {
@@ -256,7 +259,9 @@ var _ = Describe("Download", func() {
 			func(ctx SpecContext) {
 				serve(func(w http.ResponseWriter, r *http.Request) {
 					MustSucceed(w.Write(data[:1]))
-					w.(http.Flusher).Flush()
+					flusher, ok := w.(http.Flusher)
+					Expect(ok).To(BeTrue())
+					flusher.Flush()
 					<-r.Context().Done()
 				})
 				Expect(

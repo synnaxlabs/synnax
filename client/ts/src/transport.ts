@@ -42,11 +42,11 @@ export class Transport {
     // middleware (e.g. auth) registered through unary applies to file too. The file
     // client deliberately skips the breaker's retry wrapper: an upload body may be a
     // one-shot ReadableStream that cannot be re-sent on a retry.
-    const http = new HTTPClient(this.url, codec, this.secure);
+    const http = new HTTPClient({ endpoint: this.url, codec, secure });
     this.unary = unaryWithBreaker(http, breakerCfg, onRetry);
     this.unaryNoRetry = http;
     this.file = http;
-    this.stream = new WebSocketClient(this.url, codec, this.secure);
+    this.stream = new WebSocketClient({ endpoint: this.url, codec, secure });
   }
 
   use(...middleware: Middleware[]): void {

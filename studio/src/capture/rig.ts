@@ -99,6 +99,7 @@ const desktopShell = (connection: Record<string, string | number>): string => `(
     JSON.stringify({ level, ts: Date.now() / 1000 - age, logger, msg });
   const answers = {
     supervisor_api_key: () => apiKey,
+    supervisor_legacy_api_key: () => null,
     supervisor_save_api_key: (args) => {
       apiKey = args.apiKey;
       return true;

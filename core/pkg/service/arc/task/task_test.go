@@ -286,7 +286,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	openTestStreamer := func(ctx context.Context, keys channel.Keys, bufferSize int) (
 		responses <-chan framer.StreamerResponse,
-		close func(),
+		stop func(),
 	) {
 		GinkgoHelper()
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
@@ -770,7 +770,7 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
-			"Should not write a status when config is invalid at boot",
+			"Should write an error status when config is invalid at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 					DB:         db,
@@ -792,12 +792,15 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Variant).To(BeEquivalentTo("error"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
 		It(
-			"Should not write a status when GetProgram fails at boot",
+			"Should write an error status when GetProgram fails at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 					DB:         db,
@@ -819,7 +822,10 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Variant).To(BeEquivalentTo("error"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
@@ -944,9 +950,9 @@ var _ = Describe("Task", Ordered, func() {
 
 			DescribeTable(
 				"Should fail when a required field is missing",
-				func(clear func(*arctask.FactoryConfig), field string) {
+				func(unset func(*arctask.FactoryConfig), field string) {
 					cfg := full()
-					clear(&cfg)
+					unset(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
 				Entry(
@@ -1046,7 +1052,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "stop"})).To(Succeed())
 		})
 
-		It("Should be idempotent on stop", func(ctx SpecContext) {
+		It("Should be idempotent on stop", func() {
 			Expect(arcTask.Stop(true)).To(Succeed())
 			Expect(arcTask.Stop(true)).To(Succeed())
 		})
@@ -3806,7 +3812,7 @@ var _ = Describe("Task", Ordered, func() {
 					g.Expect(stat.Description).
 						To(HavePrefix("The divide_test node failed: "))
 					g.Expect(stat.Description).
-						To(ContainSubstring("integer divide by zero"))
+						To(HaveSuffix(": integer divide by zero"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 			},

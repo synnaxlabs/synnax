@@ -10,7 +10,7 @@
 import numpy as np
 
 from common import Channels, channel_name
-from conftest import Client, core
+from conftest import Client
 from gate import Gate
 from log import Log
 from publisher import OPEN_LEEWAY
@@ -20,11 +20,11 @@ CHANNEL = channel_name("gh_cmd", runner=RUNNER)
 
 
 def gate(client: Client) -> Gate:
-    channels = Channels(client=core(client), enabled=False)
+    channels = Channels(client=client, enabled=False)
     return Gate(
-        client=core(client),
+        client=client,
         channels=channels,
-        log=Log(client=core(client), channels=channels, channel="log"),
+        log=Log(client=client, channels=channels, channel="log"),
     )
 
 

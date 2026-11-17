@@ -100,8 +100,9 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
-			Expect(migrated.Config["routing_key"]).To(BeAssignableToTypeOf(""))
-			routingKey := uuid.MustParse(migrated.Config["routing_key"].(string))
+			rawKey, ok := migrated.Config["routing_key"].(string)
+			Expect(ok).To(BeTrue())
+			routingKey := uuid.MustParse(rawKey)
 			Expect(secrets.Reveal(ctx, db, routingKey)).
 				To(HaveKeyWithValue(routingKey, []byte("rk-ancient")))
 			var routingSecret secret.Secret

@@ -215,7 +215,9 @@ var _ = Describe("MigrateCIChannel", func() {
 			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 				Variant: v2.CIFrequencyChannel{Divisor: divisor},
 			}))
-			Expect(got.Variant.(v3.CIFrequencyChannel).Divisor).To(Equal(want))
+			ch, ok := got.Variant.(v3.CIFrequencyChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.Divisor).To(Equal(want))
 		},
 		Entry("absent", int32(0), uint32(4)),
 		Entry("negative", int32(-5), uint32(1)),
@@ -226,7 +228,9 @@ var _ = Describe("MigrateCIChannel", func() {
 		got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 			Variant: v2.CIPeriodChannel{Divisor: -1},
 		}))
-		Expect(got.Variant.(v3.CIPeriodChannel).Divisor).To(Equal(uint32(1)))
+		ch, ok := got.Variant.(v3.CIPeriodChannel)
+		Expect(ok).To(BeTrue())
+		Expect(ch.Divisor).To(Equal(uint32(1)))
 	})
 
 	DescribeTable("Should clamp and truncate pulses per revolution",
@@ -234,8 +238,9 @@ var _ = Describe("MigrateCIChannel", func() {
 			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 				Variant: v2.CIPositionAngularChannel{PulsesPerRev: pulses},
 			}))
-			Expect(got.Variant.(v3.CIPositionAngularChannel).PulsesPerRev).
-				To(Equal(want))
+			ch, ok := got.Variant.(v3.CIPositionAngularChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.PulsesPerRev).To(Equal(want))
 		},
 		Entry("absent", 0.0, uint32(24)),
 		Entry("below 1", 0.5, uint32(1)),
@@ -248,8 +253,9 @@ var _ = Describe("MigrateCIChannel", func() {
 		got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 			Variant: v2.CIVelocityAngularChannel{PulsesPerRev: -3},
 		}))
-		Expect(got.Variant.(v3.CIVelocityAngularChannel).PulsesPerRev).
-			To(Equal(uint32(1)))
+		ch, ok := got.Variant.(v3.CIVelocityAngularChannel)
+		Expect(ok).To(BeTrue())
+		Expect(ch.PulsesPerRev).To(Equal(uint32(1)))
 	})
 
 	DescribeTable("Should clamp and truncate the initial count",
@@ -257,7 +263,9 @@ var _ = Describe("MigrateCIChannel", func() {
 			got := MustSucceed(v3.MigrateCIChannel(ctx, v2.CIChannel{
 				Variant: v2.CIEdgeCountChannel{InitialCount: count},
 			}))
-			Expect(got.Variant.(v3.CIEdgeCountChannel).InitialCount).To(Equal(want))
+			ch, ok := got.Variant.(v3.CIEdgeCountChannel)
+			Expect(ok).To(BeTrue())
+			Expect(ch.InitialCount).To(Equal(want))
 		},
 		Entry("negative", -5.0, uint32(0)),
 		Entry("a fraction", 3.7, uint32(3)),
@@ -279,11 +287,13 @@ var _ = Describe("MigrateAnalogReadConfig", func() {
 					}},
 				},
 			}))
-			tc := got.Channels[0].Variant.(v3.AIThermocoupleChannel)
+			tc, ok := got.Channels[0].Variant.(v3.AIThermocoupleChannel)
+			Expect(ok).To(BeTrue())
 			Expect(tc.Disabled).To(BeTrue())
 			Expect(tc.Port).To(Equal(uint32(1)))
 			Expect(tc.Cjc.Variant).To(Equal(v3.ChanCJC{Port: 0}))
-			v := got.Channels[1].Variant.(v3.AIVoltageChannel)
+			v, ok := got.Channels[1].Variant.(v3.AIVoltageChannel)
+			Expect(ok).To(BeTrue())
 			Expect(v.Disabled).To(BeFalse())
 		},
 	)
@@ -370,13 +380,15 @@ var _ = Describe("CounterReadMigration", func() {
 		Expect(gorp.NewRetrieve[uuid.UUID, v3.CounterReadConfig]().
 			Where(gorp.MatchKeys[uuid.UUID, v3.CounterReadConfig](stored.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
-		ch := got.Channels[0].Variant.(v3.CIPositionAngularChannel)
+		ch, ok := got.Channels[0].Variant.(v3.CIPositionAngularChannel)
+		Expect(ok).To(BeTrue())
 		Expect(ch.PulsesPerRev).To(Equal(uint32(1)))
 		Expect(ch.Port).To(BeZero())
 		Expect(ch.Disabled).To(BeTrue())
-		fields := []any{}
-		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-			fields = append(fields, e.ContextMap()["field"])
+		logged := logs.FilterMessage("narrowed an NI channel field").All()
+		fields := make([]any, len(logged))
+		for i, e := range logged {
+			fields[i] = e.ContextMap()["field"]
 		}
 		Expect(fields).To(ConsistOf("Port", "PulsesPerRev", "Disabled"))
 	})
@@ -428,9 +440,10 @@ var _ = Describe("AnalogReadMigration", func() {
 			Namespace:       "ni_analog_read_config",
 			Migrations:      []gorp.Migration{v3.AnalogReadMigration},
 		})).To(Succeed())
-		fields := []any{}
-		for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-			fields = append(fields, e.ContextMap()["field"])
+		logged := logs.FilterMessage("narrowed an NI channel field").All()
+		fields := make([]any, len(logged))
+		for i, e := range logged {
+			fields[i] = e.ContextMap()["field"]
 		}
 		Expect(fields).To(ConsistOf("Cjc.Port", "Disabled"))
 	})
@@ -480,9 +493,10 @@ func runStored[I, O gorp.Entry[uuid.UUID]](
 	Expect(gorp.NewRetrieve[uuid.UUID, O]().
 		Where(gorp.MatchKeys[uuid.UUID, O](old.GorpKey())).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
-	fields := []any{}
-	for _, e := range logs.FilterMessage("narrowed an NI channel field").All() {
-		fields = append(fields, e.ContextMap()["field"])
+	logged := logs.FilterMessage("narrowed an NI channel field").All()
+	fields := make([]any, len(logged))
+	for i, e := range logged {
+		fields[i] = e.ContextMap()["field"]
 	}
 	return got, fields
 }
@@ -496,7 +510,8 @@ var _ = Describe("MigrateAnalogWriteConfig", func() {
 				BaseAOChannel: v2.BaseAOChannel{Key: "ao", Port: -1},
 			}}},
 		}))
-		ch := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		ch, ok := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		Expect(ok).To(BeTrue())
 		Expect(ch.Port).To(BeZero())
 		Expect(ch.Disabled).To(BeTrue())
 	})
@@ -507,8 +522,9 @@ var _ = Describe("MigrateCounterReadConfig", func() {
 		got := MustSucceed(v3.MigrateCounterReadConfig(ctx, v2.CounterReadConfig{
 			Channels: []v2.CIChannel{{Variant: v2.CIFrequencyChannel{Divisor: -2}}},
 		}))
-		Expect(got.Channels[0].Variant.(v3.CIFrequencyChannel).Divisor).
-			To(Equal(uint32(1)))
+		ch, ok := got.Channels[0].Variant.(v3.CIFrequencyChannel)
+		Expect(ok).To(BeTrue())
+		Expect(ch.Divisor).To(Equal(uint32(1)))
 	})
 })
 
@@ -518,7 +534,7 @@ var _ = Describe("MigrateDigitalReadConfig", func() {
 			Device:   "dev",
 			Channels: []v2.DIChannel{{Key: "a", Line: 33}},
 		}))
-		Expect(string(got.Device)).To(Equal("dev"))
+		Expect(got.Device).To(Equal("dev"))
 		Expect(got.Channels).To(Equal([]v3.DIChannel{
 			{Key: "a", Line: 31, Disabled: true},
 		}))
@@ -550,7 +566,8 @@ var _ = Describe("AnalogWriteMigration", func() {
 				}}},
 			},
 		)
-		ch := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		ch, ok := got.Channels[0].Variant.(v3.AOVoltageChannel)
+		Expect(ok).To(BeTrue())
 		Expect(ch.Port).To(BeZero())
 		Expect(ch.Disabled).To(BeTrue())
 		Expect(fields).To(ConsistOf("Port", "Disabled"))

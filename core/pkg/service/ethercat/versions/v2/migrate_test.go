@@ -99,7 +99,7 @@ var _ = Describe("Migrate", func() {
 		requested [][]string
 		stored    map[string]v2.Slave
 	)
-	slaves := func(
+	var slaves v2.Slaves = func(
 		_ context.Context,
 		_ gorp.Snapshot,
 		keys []string,

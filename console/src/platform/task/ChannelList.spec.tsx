@@ -22,13 +22,13 @@ const path = deep.path<{ config: { channels: Task.Channel[] } }>();
 
 const resolve = () => null;
 
-const listItem = Component.renderProp(
-  ({ itemKey, ...p }: Task.ChannelListItemProps) => (
-    <Select.Item itemKey={itemKey} {...p}>
-      item-{itemKey}
-    </Select.Item>
-  ),
+const ListItem = ({ itemKey, ...p }: Task.ChannelListItemProps) => (
+  <Select.Item itemKey={itemKey} {...p}>
+    item-{itemKey}
+  </Select.Item>
 );
+
+const listItem = Component.renderProp(ListItem);
 
 interface HarnessProps {
   selected?: string[];

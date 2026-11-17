@@ -398,7 +398,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 );
                 continue;
             }
-            if (slave.status.serial_unread()) {
+            if (slave.status.starting || slave.serial_unread()) {
                 if (slave.status.starting)
                     LOG(INFO) << SCAN_LOG_PREFIX << "slave "
                               << slave.properties.position << " on " << key
@@ -523,9 +523,9 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     }
     {
         std::lock_guard lock(this->switch_mu);
-        if (const auto it = this->switch_times.find(key);
-            it != this->switch_times.end())
-            json_props[SWITCHED_AT] = it->second.nanoseconds();
+        if (const auto it = this->switches.find(key);
+            it != this->switches.end() && it->second.of(props))
+            json_props[SWITCHED_AT] = it->second.at.nanoseconds();
     }
 
     const auto [saved, saved_err] = parse_properties(json_props);
@@ -641,7 +641,7 @@ std::vector<std::string> Scanner::slave_keys(
                 return false;
             const bool same_slot = p.network == master_key &&
                                    p.position == live.position;
-            if (slave.status.serial_unread()) return !by_serial && same_slot;
+            if (slave.serial_unread()) return !by_serial && same_slot;
             if (by_serial && live.serial != 0) return p.serial == live.serial;
             return p.serial == 0 && same_slot;
         });
@@ -665,8 +665,9 @@ std::vector<std::string> Scanner::slave_keys(
             if (!keys[i].empty()) kept.insert(keys[i]);
         }
     for (size_t i = 0; i < slaves.size(); ++i) {
-        if (!keys[i].empty() || !has_identity(slaves[i]) ||
-            slaves[i].status.serial_unread())
+        // A starting slave has no live properties for a new device.
+        if (!keys[i].empty() || !has_identity(slaves[i]) || slaves[i].status.starting ||
+            slaves[i].serial_unread())
             continue;
         const auto base = generate_slave_key(slaves[i].properties, master_key);
         auto key = base;
@@ -792,6 +793,8 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     saved.name = dev.name;
     std::vector<slave::StartupParameter> written;
     uint16_t position = 0;
+    uint32_t serial = 0;
+    std::string network;
     std::pair<uint16_t, uint8_t> mode_object;
     const auto err = engine->configure(
         saved,
@@ -799,6 +802,8 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
             -> std::pair<std::vector<slave::StartupParameter>, x::errors::Error> {
             const auto &props = found.properties;
             position = props.position;
+            serial = props.serial;
+            network = props.network;
             if (!props.settings || !props.settings->contains("mode"))
                 return {
                     {},
@@ -862,7 +867,12 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     }
     {
         std::lock_guard lock(this->switch_mu);
-        this->switch_times[dev.key] = x::telem::TimeStamp::now();
+        this->switches[dev.key] = {
+            .at = x::telem::TimeStamp::now(),
+            .serial = serial,
+            .network = network,
+            .position = position,
+        };
     }
     // configure also returns the error of its scan after the write.
     if (err.matches(errors::STARTUP_PARAMETER_REJECTED)) {

@@ -56,7 +56,7 @@ def signature(fn: griffe.Function) -> str:
     return out
 
 
-def type_params(obj: griffe.Class | griffe.Function) -> str:
+def type_params(obj: griffe.Class | griffe.Function | griffe.TypeAlias) -> str:
     if not obj.type_parameters:
         return ""
     out = []
@@ -102,6 +102,10 @@ def walk(obj: griffe.Object, *, out: list[str]) -> None:
             if member.value is not None:
                 line += f" = {flat(member.value)}"
             out.append(line + labels(member))
+        elif isinstance(member, griffe.TypeAlias):
+            out.append(
+                f"{member.path}{type_params(member)} type = {flat(member.value)}"
+            )
         else:
             raise ValueError(f"unknown kind {member.kind} of {member.path}")
 

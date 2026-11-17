@@ -140,7 +140,7 @@ func (y *MemFS) Exists(name string) (bool, error) {
 	return false, err
 }
 
-// Remove implements FS.Remove
+// Remove implements FS.Remove.
 func (y *MemFS) Remove(fullName string) error {
 	if err := y.walk(fullName, func(dir *memNode, frag string, final bool) error {
 		if !final {
@@ -425,15 +425,16 @@ func (f *memFile) Write(p []byte) (int, error) {
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
 	f.n.touch()
-	if f.wpos+len(p) <= len(f.n.mu.data) {
+	switch {
+	case f.wpos+len(p) <= len(f.n.mu.data):
 		n := copy(f.n.mu.data[f.wpos:f.wpos+len(p)], p)
 		if n != len(p) {
 			panic("stuff")
 		}
-	} else if f.wpos > len(f.n.mu.data) {
+	case f.wpos > len(f.n.mu.data):
 		zeros := make([]byte, f.wpos-len(f.n.mu.data))
 		f.n.mu.data = append(append(f.n.mu.data, zeros...), p...)
-	} else {
+	default:
 		f.n.mu.data = append(f.n.mu.data[:f.wpos], p...)
 	}
 	f.wpos += len(p)

@@ -175,7 +175,7 @@ This section lists the most common diagnostics without a code, not all of them.
   </Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"name <x> conflicts with existing <kind> at line <l>, col <c>"}>
-  <Problem.Cause>Two declarations in the same scope have the same name.</Problem.Cause>
+  <Problem.Cause>This scope or an outer scope also declares the name.</Problem.Cause>
   <Problem.Fix>Rename one of them.</Problem.Fix>
 </Problem.Item>
 
@@ -413,7 +413,6 @@ failed to compile function 'f' body: failed to compile return expression: float 
 ## Errors while it runs
 
 Errors while an automation runs have no code. An example is an integer division by zero.
-On the Core, Synnax shows a warning and the automation keeps running. On a Driver, an
-error stops the automation. A failed `status.set` or `ranges` call shows a warning on
-both, and the automation keeps running. For the full rules, see
+Synnax shows a warning and the automation keeps running, on the Core and on a Driver. A
+failed `status.set` or `ranges` call also shows a warning. For the full rules, see
 [errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).

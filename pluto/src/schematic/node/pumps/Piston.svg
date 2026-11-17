@@ -1,0 +1,16 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="30" />
+  <line x1="32" y1="2" x2="62" y2="32" class="pluto--detail" />
+  <line x1="32" y1="62" x2="62" y2="32" class="pluto--detail" />
+  <path d="M 23 32, h 16, m 0 -8, v 16" class="pluto--detail" stroke-linecap="round" />
+</svg>

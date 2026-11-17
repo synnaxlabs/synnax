@@ -11,6 +11,8 @@ package schematic_test
 
 import (
 	"encoding/json/v2"
+	"fmt"
+	"slices"
 	"strconv"
 	"uuid"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
@@ -533,7 +536,7 @@ var _ = Describe("Reducer", func() {
 		It(
 			"Should apply a 50-action editor session and converge to a coherent schematic",
 			func() {
-				var actions []schematic.Action
+				actions := make([]schematic.Action, 0, 23)
 				for i := range 5 {
 					actions = append(
 						actions,
@@ -685,35 +688,157 @@ var _ = Describe("Payload decoding", func() {
 	}
 
 	It("Should fill the defaults a node config omits", func() {
-		cfg := decodeConfig(`{"variant": "switch"}`).
+		cfg, ok := decodeConfig(`{"variant": "switch"}`).
 			Variant.(schematic.SwitchNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Scale).To(BeEquivalentTo(1))
-		Expect(cfg.StalenessTimeout).To(BeEquivalentTo(5))
+		Expect(cfg.StalenessTimeout).To(Equal(5 * telem.Second))
 		Expect(cfg.Label.Level).To(BeEquivalentTo("h5"))
 	})
 
 	It("Should keep a zero the payload carries", func() {
-		cfg := decodeConfig(`{"variant": "line", "end": {"x": 0, "y": 40}}`).
+		cfg, ok := decodeConfig(`{"variant": "line", "end": {"x": 0, "y": 40}}`).
 			Variant.(schematic.LineNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.End).To(Equal(spatial.XY{X: 0, Y: 40}))
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})
 
+	invalidTimeout := MatchError(ContainSubstring("staleness_timeout"))
+	DescribeTable("Should validate a span against its bounds",
+		func(field string, span int64, matcher OmegaMatcher) {
+			cfg := decodeConfig(
+				fmt.Sprintf(`{"variant": "valve", %q: %d}`, field, span),
+			)
+			Expect(cfg.Validate()).To(matcher)
+		},
+		Entry("staleness timeout at 0", "staleness_timeout", int64(0), invalidTimeout),
+		Entry("staleness timeout below 1 s", "staleness_timeout", int64(999999999),
+			invalidTimeout),
+		Entry("staleness timeout at 1 s", "staleness_timeout", int64(1000000000),
+			Succeed()),
+		Entry("staleness timeout above 2^53 ns", "staleness_timeout", int64(1)<<53,
+			invalidTimeout),
+		Entry("click delay at the timer limit", "on_click_delay",
+			int64(2147483647000000), Succeed()),
+		Entry("click delay above the timer limit", "on_click_delay",
+			int64(2147483647000001), MatchError(ContainSubstring("on_click_delay"))),
+		Entry("negative click delay", "on_click_delay", int64(-1),
+			MatchError(ContainSubstring("on_click_delay"))),
+	)
+
+	DescribeTable("Should validate a count against its lower bound",
+		func(variant, field string, count int, matcher OmegaMatcher) {
+			cfg := decodeConfig(
+				fmt.Sprintf(`{"variant": %q, %q: %d}`, variant, field, count),
+			)
+			Expect(cfg.Validate()).To(matcher)
+		},
+		Entry("polygon sides below 3", "polygon", "num_sides", 2,
+			MatchError(ContainSubstring("num_sides"))),
+		Entry("polygon sides at 3", "polygon", "num_sides", 3, Succeed()),
+		Entry("value rolling average at 0", "value", "rolling_average", 0,
+			MatchError(ContainSubstring("rolling_average"))),
+		Entry("value rolling average at 1", "value", "rolling_average", 1, Succeed()),
+		Entry("tank rolling average at 0", "tank", "rolling_average", 0,
+			MatchError(ContainSubstring("rolling_average"))),
+		Entry("tank rolling average at 1", "tank", "rolling_average", 1, Succeed()),
+		Entry("value inline size at 0", "value", "inline_size", 0,
+			MatchError(ContainSubstring("inline_size"))),
+		Entry("value inline size at 1", "value", "inline_size", 1, Succeed()),
+		Entry("input inline size at 0", "input", "inline_size", 0,
+			MatchError(ContainSubstring("inline_size"))),
+		Entry("text box inline size at 0", "text_box", "inline_size", 0,
+			MatchError(ContainSubstring("inline_size"))),
+		Entry("circle radius at 0", "circle", "radius", 0,
+			MatchError(ContainSubstring("radius"))),
+		Entry("circle radius at 1", "circle", "radius", 1, Succeed()),
+		Entry("polygon side length at 0", "polygon", "side_length", 0,
+			MatchError(ContainSubstring("side_length"))),
+		Entry("gauge bar width at 0", "gauge", "bar_width", 0,
+			MatchError(ContainSubstring("bar_width"))),
+		Entry("gauge bar width at 1", "gauge", "bar_width", 1, Succeed()),
+	)
+
+	DescribeTable("Should validate a scale above 0",
+		func(variant string, scale float64, matcher OmegaMatcher) {
+			cfg := decodeConfig(
+				fmt.Sprintf(`{"variant": %q, "scale": %g}`, variant, scale),
+			)
+			Expect(cfg.Validate()).To(matcher)
+		},
+		Entry("valve at 0", "valve", 0.0, MatchError(ContainSubstring("scale"))),
+		Entry("light below 0", "light", -1.0, MatchError(ContainSubstring("scale"))),
+		Entry("cylinder above 0", "cylinder", 0.5, Succeed()),
+	)
+
+	DescribeTable("Should validate a tank staleness timeout against its bounds",
+		func(span int64, matcher OmegaMatcher) {
+			cfg := decodeConfig(
+				fmt.Sprintf(`{"variant": "tank", "staleness_timeout": %d}`, span),
+			)
+			Expect(cfg.Validate()).To(matcher)
+		},
+		Entry("below 1 s", int64(999999999), invalidTimeout),
+		Entry("at 1 s", int64(1000000000), Succeed()),
+	)
+
+	It("Should fill the wrap width a payload omits", func() {
+		cfg, ok := decodeConfig(`{"variant": "button"}`).Variant.(schematic.ButtonNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(150))
+	})
+
+	DescribeTable("Should validate a wrap width against its bounds",
+		func(width int, matcher OmegaMatcher) {
+			cfg := decodeConfig(fmt.Sprintf(`{"variant": "button", "label": {
+				"label": "P1", "max_inline_size": %d}}`, width))
+			Expect(cfg.Validate()).To(matcher)
+		},
+		Entry("at 0", 0, MatchError(ContainSubstring("max_inline_size"))),
+		Entry("at 1", 1, Succeed()),
+	)
+
 	It("Should keep an empty string the payload carries", func() {
-		cfg := decodeConfig(`{"variant": "value", "units": ""}`).
+		cfg, ok := decodeConfig(`{"variant": "value", "units": ""}`).
 			Variant.(schematic.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Units).To(Equal(""))
 	})
 
 	It("Should keep a zero precision", func() {
-		cfg := decodeConfig(`{"variant": "value", "precision": 0}`).
+		cfg, ok := decodeConfig(`{"variant": "value", "precision": 0}`).
 			Variant.(schematic.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Precision).To(HaveValue(BeZero()))
 	})
 
+	It("Should leave an omitted shape stroke width absent", func() {
+		cfg, ok := decodeConfig(`{"variant": "circle"}`).
+			Variant.(schematic.CircleNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.StrokeWidth).To(BeNil())
+	})
+
+	It("Should give an omitted text box value the empty string", func() {
+		cfg, ok := decodeConfig(`{"variant": "text_box"}`).
+			Variant.(schematic.TextBoxNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Value).To(BeEmpty())
+	})
+
 	It("Should leave an omitted precision absent", func() {
-		cfg := decodeConfig(`{"variant": "value"}`).Variant.(schematic.ValueNodeConfig)
+		cfg, ok := decodeConfig(`{"variant": "value"}`).Variant.(schematic.ValueNodeConfig)
+		Expect(ok).To(BeTrue())
 		Expect(cfg.Precision).To(BeNil())
+	})
+
+	It("Should leave the authority of an omitted control state absent", func() {
+		cfg, ok := decodeConfig(`{"variant": "button"}`).
+			Variant.(schematic.ButtonNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Control.Authority).To(BeNil())
+		Expect(cfg.CommandChannel).To(BeZero())
 	})
 
 	DescribeTable("Should reject a precision that is not a byte", func(p string) {
@@ -1034,5 +1159,104 @@ var _ = Describe("Path actions", func() {
 				map[string]any{"node": "n2", "param": "out"},
 			),
 		),
+	)
+})
+
+var _ = Describe("Path actions on defaulted fields", func() {
+	symbol := func(variant string) schematic.Schematic {
+		GinkgoHelper()
+		var cfg schematic.NodeConfig
+		Expect(json.Unmarshal([]byte(`{"variant": "`+variant+`"}`), &cfg)).
+			To(Succeed())
+		return schematic.Schematic{
+			Name:  "Engine",
+			Nodes: []schematic.Node{configured(node("n1", 0, 0), cfg)},
+		}
+	}
+	configPath := []string{"nodes", "n1", "config"}
+	set := func(path []string, value any) schematic.Action {
+		return schematic.NewSetAction(schematic.SetPayload{
+			Path:  slices.Concat(configPath, path),
+			Value: value,
+		})
+	}
+	remove := func(key string) schematic.Action {
+		return schematic.NewRemoveAction(
+			schematic.RemovePayload{Path: configPath, Key: key},
+		)
+	}
+	DescribeTable("Should reject emptying a field that has a schema default",
+		func(variant string, a schematic.Action) {
+			Expect(schematic.Reduce(symbol(variant), a)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the document requires a value")),
+			))
+		},
+		Entry("a removed page", "off_page_reference", remove("page")),
+		Entry("a page set to no value", "off_page_reference",
+			set([]string{"page"}, nil)),
+		Entry("a removed control state", "button", remove("control")),
+	)
+
+	DescribeTable("Should clear an optional field to absent",
+		func(
+			variant, key string,
+			value any,
+			clearAction schematic.Action,
+			field string,
+		) {
+			state := MustSucceed(
+				schematic.Reduce(symbol(variant), set([]string{key}, value)),
+			)
+			Expect(state.Nodes[0].Config.Variant).To(HaveField(field, Not(BeNil())))
+			next := MustSucceed(schematic.Reduce(state, clearAction))
+			Expect(next.Nodes[0].Config.Variant).To(HaveField(field, BeNil()))
+		},
+		Entry("a removed precision", "value", "precision", 5, remove("precision"),
+			"Precision"),
+		Entry("a precision set to no value", "value", "precision", 5,
+			set([]string{"precision"}, nil), "Precision"),
+		Entry("a removed light threshold", "light", "threshold",
+			map[string]any{"lower": 1, "upper": 2}, remove("threshold"), "Threshold"),
+		Entry("a removed cylinder border radius", "cylinder", "border_radius", 4,
+			remove("border_radius"), "BorderRadius"),
+		Entry("a removed tank border radius", "tank", "border_radius", 4,
+			remove("border_radius"), "BorderRadius"),
+		Entry("a removed box border radius", "box", "border_radius", 5,
+			remove("border_radius"), "BorderRadius"),
+		Entry("a removed box stroke width", "box", "stroke_width", 0,
+			remove("stroke_width"), "StrokeWidth"),
+		Entry("a polygon stroke width set to no value", "polygon", "stroke_width", 4,
+			set([]string{"stroke_width"}, nil), "StrokeWidth"),
+		Entry("a removed control authority", "button", "control",
+			map[string]any{
+				"authority":        5,
+				"hidden":           false,
+				"chip_hidden":      false,
+				"indicator_hidden": false,
+				"orientation":      "bottom",
+			},
+			schematic.NewRemoveAction(schematic.RemovePayload{
+				Path: slices.Concat(configPath, []string{"control"}),
+				Key:  "authority",
+			}),
+			"Control.Authority"),
+	)
+
+	DescribeTable("Should set a field inside a struct the symbol did not store",
+		func(variant string, path []string, value any, want OmegaMatcher) {
+			next := MustSucceed(schematic.Reduce(symbol(variant), set(path, value)))
+			Expect(next.Nodes[0].Config.Variant).To(want)
+		},
+		Entry("a control state field", "button", []string{"control", "hidden"}, true,
+			SatisfyAll(
+				HaveField("Control.Hidden", BeTrue()),
+				HaveField("Control.Authority", BeNil()),
+			)),
+		Entry("a position field", "value", []string{"position", "x"}, 3,
+			SatisfyAll(
+				HaveField("Position.X", BeEquivalentTo(3)),
+				HaveField("Position.Y", BeEquivalentTo(0)),
+			)),
 	)
 })
