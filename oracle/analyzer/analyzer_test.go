@@ -4196,6 +4196,64 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject an explicit type argument for a defaulted type parameter",
+			func(decl string) {
+				source := `
+				Box struct<T = uint8[2]> {
+					value T
+				}
+
+				Pair struct<K, V = string> {
+					key   K
+					value V
+				}
+
+				` + decl
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"cannot take a type argument for defaulted type parameter",
+				))
+			},
+			Entry("field", "Config struct {\n\tvalue Box<uint8[3]>\n}"),
+			Entry(
+				"argument equal to the default",
+				"Config struct {\n\tvalue Box<uint8[2]>\n}",
+			),
+			Entry("second parameter", "Config struct {\n\tvalue Pair<int32, int64>\n}"),
+			Entry("nested argument", "Config struct {\n\tvalue Box<uint8[3]>[]\n}"),
+			Entry("alias", "Wide = Box<uint8[3]>"),
+			Entry("extends", "Wide struct extends Box<uint8[3]> {}"),
+		)
+
+		It("Should allow a pass-through of the enclosing type's parameter", func() {
+			source := `
+				Details struct<Data? = record> {
+					data Data
+				}
+
+				Status<Data? = record> = Details<Data>
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should allow an omitted argument for a defaulted type parameter", func() {
+			source := `
+				Pair struct<K, V = string> {
+					key   K
+					value V
+				}
+
+				Config struct {
+					value Pair<int32>
+				}
+			`
+			_, diag := Analyze(source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
 			"Should reject an optional marker outside a field",
 			func(decl, message string) {
 				source := `

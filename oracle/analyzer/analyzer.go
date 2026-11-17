@@ -1951,13 +1951,14 @@ func resolveTypeRef(
 	_, isVersion := paths.Version(ns)
 	otherResource := len(parts) == 2 && !isVersion
 
+	var params []resolution.TypeParam
 	if (resolution.IsPrimitive(name) || resolution.IsConstraint(name)) &&
 		len(parts) == 1 {
 		ref.Name = name
 	} else if typ, ok := lookupRef(c.table, len(parts) == 2, ns, name); ok {
 		ref.Name = typ.QualifiedName
 		// An omitted optional type argument is nil.
-		params := resolution.TypeParams(typ.Form)
+		params = resolution.TypeParams(typ.Form)
 		for i := len(ref.TypeArgs); i < len(params) &&
 			params[i].Optional && !params[i].HasDefault(); i++ {
 			ref.TypeArgs = append(ref.TypeArgs, resolution.TypeRef{Name: "nil"})
@@ -1971,6 +1972,29 @@ func resolveTypeRef(
 
 	for i := range ref.TypeArgs {
 		resolveTypeRef(c, currentType, &ref.TypeArgs[i])
+	}
+	rejectDefaultedTypeArgs(c, *ref, params)
+}
+
+// rejectDefaultedTypeArgs reports an explicit type argument for a defaulted type
+// parameter, which the Go, Python, and C++ generators drop for the default. It allows
+// a pass-through of the enclosing type's own type parameter.
+func rejectDefaultedTypeArgs(
+	c *analysisCtx,
+	ref resolution.TypeRef,
+	params []resolution.TypeParam,
+) {
+	for i, arg := range ref.TypeArgs {
+		if i >= len(params) || !params[i].HasDefault() || arg.IsTypeParam() {
+			continue
+		}
+		c.report(diagnostics.Errorf(
+			nil,
+			"%s cannot take a type argument for defaulted type parameter %s: omit "+
+				"it to use the default",
+			ref.Name,
+			params[i].Name,
+		))
 	}
 }
 

@@ -966,7 +966,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp hand
 				}
 
-				GoStatus struct<Details?> extends Status<Details, Variant> {
+				GoStatus struct<Details?> extends Status<Details> {
 					variant Variant
 					-variant
 
