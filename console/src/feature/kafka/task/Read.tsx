@@ -12,7 +12,7 @@ import "@/feature/kafka/task/Task.css";
 import {
   channel,
   DisconnectedError,
-  icd,
+  type icd,
   kafka,
   type Synnax,
   ValidationError,
@@ -530,8 +530,7 @@ const Records: FC<RecordsProps> = ({
 
   /**
    * Puts messages in the ICD of the first record, or in a new ICD for a task with no
-   * record, then adds the records that read them. The records go in once the Core
-   * holds the messages, since the Core saves no record of a missing message.
+   * record, then adds the records that read them.
    */
   const addRecords = async (
     messages: icd.Message[],
@@ -545,18 +544,14 @@ const Records: FC<RecordsProps> = ({
       icdKey = (await client.icds.create({ name, messages })).key;
     } else {
       icdKey = first.icd;
-      let after = ICD.formatOf(formats, icdKey).value().messages.at(-1)?.key;
-      const actions = messages.map((value) => {
-        const action = icd.insert({
-          path: [String(PICD.formPath.messages)],
-          value,
-          after,
-        });
-        after = value.key;
-        return action;
+      const format = ICD.formatOf(formats, icdKey);
+      let after = format.value().messages.at(-1)?.key;
+      format.batch(() => {
+        for (const message of messages) {
+          format.insert(PICD.formPath.messages, message, after);
+          after = message.key;
+        }
       });
-      if (!(await client.icds.dispatch(icdKey, actions)))
-        throw new Error(`ICD ${icdKey} is not loaded`);
     }
     const added = recordsOf(icdKey);
     push(added);
