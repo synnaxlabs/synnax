@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <filesystem>
 #include <future>
 #include <limits>
 #include <memory>
@@ -20,9 +21,11 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
+#include "freighter/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -32,6 +35,7 @@
 #include "driver/bypass/pipeline/streamer.h"
 #include "driver/bypass/pipeline/writer.h"
 #include "driver/control/state.h"
+#include "driver/outbox/outbox.h"
 #include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 #include "driver/task/task.h"
@@ -1817,6 +1821,80 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
         }
     EXPECT_TRUE(found_stop_reply)
         << "The stop status should carry the stop command's key";
+}
+
+/// @brief it should keep the stopped status when the outbox answers a set after the
+/// task stops.
+TEST(ArcStatusVerification, LateSetResultKeepsStoppedStatus) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("late_set_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "import status\n\n"
+                   "interval(period=50ms) -> status.set(\n"
+                   "    key_or_name=\"late_set_status\",\n"
+                   "    message=\"late\",\n"
+                   "    variant=\"info\"\n"
+                   ")\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_late_set_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_late_set_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    // The first send finds the Core unreachable, and every later one is rejected.
+    std::vector<x::errors::Error> errors(1000, x::errors::VALIDATION);
+    errors.front() = freighter::UNREACHABLE;
+    const auto sets = std::make_shared<freighter::testutil::UnaryClient<
+        ::grpc::status::SetByKeyOrNameRequest,
+        ::grpc::status::SetByKeyOrNameResponse>>(
+        std::vector<::grpc::status::SetByKeyOrNameResponse>(errors.size()),
+        errors
+    );
+    const auto dir = std::filesystem::temp_directory_path() /
+                     ("late_set_" + x::uuid::create().to_string());
+    x::defer::defer remove([&] { std::filesystem::remove_all(dir); });
+    outbox::Config outbox_cfg{
+        .dir = dir,
+        .statuses = synnax::status::Client(nullptr, nullptr, nullptr, sets),
+    };
+    outbox_cfg.retry.base_interval = 500 * x::telem::MILLISECOND;
+    outbox_cfg.retry.max_interval = 500 * x::telem::MILLISECOND;
+    const std::shared_ptr outbox = ASSERT_NIL_P(outbox::Outbox::open(outbox_cfg));
+    auto ctx = std::make_shared<task::MockContext>(client, outbox);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory(
+                {},
+                std::make_shared<std::vector<x::telem::Frame>>()
+            )
+        )
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(outbox->size(), 1);
+    task->stop("test_stop", true);
+    const auto stopped = ctx->snapshot().size();
+    ASSERT_EVENTUALLY_GE(outbox->dropped(), 1);
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), stopped);
+    EXPECT_FALSE(statuses.back().details.running);
+    EXPECT_EQ(statuses.back().details.cmd, "test_stop");
 }
 
 TEST(ArcEdgeCases, RapidStartStop) {

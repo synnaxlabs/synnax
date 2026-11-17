@@ -12,6 +12,7 @@ from typing import NamedTuple
 import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc import ArcCase
+from tests.arc.timing import runtime
 
 TRIG_SET = "trig_status_set"
 TRIG_DUP_FUNC = "trig_dup_func"
@@ -22,7 +23,7 @@ SEQ_DONE = "seq_status_done"
 
 DUP_NAME = "duplicate_status_name"
 DUP_KEYS = ("44440001", "44440002")
-DUP_VARIANT = "info"
+DUP_VARIANT: sy.status.Variant = "info"
 DUP_MESSAGE = "some message"
 
 # Each consecutive status.set step in status_seq must set its own row. SEQ_ROWS
@@ -192,6 +193,30 @@ class StlStatus(ArcCase):
             s for s in self.client.statuses.retrieve(search_term=name) if s.name == name
         ]
 
+    def _wait_for_row(
+        self, name: str, key: str, variant: sy.status.Variant, message: str
+    ) -> None:
+        def reached() -> bool | None:
+            row = {s.key: s for s in self._rows(name)}.get(key)
+            if row is not None and (row.variant, row.message) == (variant, message):
+                return True
+            return None
+
+        if sy.poll(reached, timeout=5 * sy.TimeSpan.SECOND, interval=0.05) is None:
+            self.fail(f"{name}: row {key} never became ({variant!r}, {message!r})")
+
+    def _fire(
+        self, trigger: str, rows: list[tuple[str, str, sy.status.Variant, str]]
+    ) -> None:
+        """Fire trigger. On a Driver, status.set returns the key of the last set that
+        reached the Core, so wait for the rows and fire again."""
+        self.writer.write(trigger, 1)
+        if runtime(self.rack) == "Go":
+            return
+        for name, key, variant, message in rows:
+            self._wait_for_row(name, key, variant, message)
+        self.writer.write(trigger, 1)
+
     def verify_sequence_execution(self) -> None:
         self._verify_set()
         self._verify_warn_on_duplicate()
@@ -199,7 +224,7 @@ class StlStatus(ArcCase):
 
     def _verify_set(self) -> None:
         self.log("Firing set trigger: every case upserts its predefined row")
-        self.writer.write(TRIG_SET, 1)
+        self._fire(TRIG_SET, [(c.name, c.key, c.variant, c.message) for c in CASES])
         for c in CASES:
             self.wait_for_eq(c.key_channel, c.key)
             rows = self._rows(c.name)
@@ -214,7 +239,7 @@ class StlStatus(ArcCase):
 
     def _verify_warn_on_duplicate(self) -> None:
         self.log("Firing set duplicate: warn and set only the first status")
-        self.writer.write(TRIG_DUP_FUNC, 1)
+        self._fire(TRIG_DUP_FUNC, [(DUP_NAME, DUP_KEYS[0], DUP_VARIANT, DUP_MESSAGE)])
         self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0])
         if not self.wait_for_notification("Found duplicate status names"):
             self.fail("duplicate set did not surface a multi-match warning")
@@ -239,13 +264,10 @@ class StlStatus(ArcCase):
         self.log("Firing sequence trigger: every status.set step must set its row")
         self.writer.write(TRIG_SEQ, 1)
         self.wait_for_eq(SEQ_DONE, 1)
-        for name, (variant, message) in SEQ_EXPECTED.items():
+        # On a Driver, the sets can still be queued when the sequence ends.
+        for name, key in SEQ_ROWS:
+            variant, message = SEQ_EXPECTED[name]
+            self._wait_for_row(name, key, variant, message)
             rows = self._rows(name)
             if len(rows) != 1:
                 self.fail(f"{name}: expected 1 row after sequence, got {len(rows)}")
-            row = rows[0]
-            if (row.variant, row.message) != (variant, message):
-                self.fail(
-                    f"{name}: expected step to set ({variant!r}, {message!r}), "
-                    f"got ({row.variant!r}, {row.message!r})"
-                )

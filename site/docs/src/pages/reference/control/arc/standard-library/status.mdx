@@ -47,7 +47,10 @@ when it runs.
 - Trigger -> optional. Each new trigger runs it, whatever the value. To run it only when
   a condition is true, use `=>`. With no trigger, it runs once each time its stage
   starts.
-- Output -> the key of the status, as a `str`. A failed call gives an empty key.
+- Output -> the key of the status, as a `str`. A failed call gives an empty key. On a
+  Driver, the key of the last set with this `key_or_name` that reached the Core, or an
+  empty key before the first. A sequence step on a Driver moves on once the set is
+  queued, before the Core has it.
 - Function form -> `status.set(key_or_name, message, variant) str`.
 
 Synnax looks for a status with the key first, then for one with the name. When more than
@@ -65,5 +68,7 @@ tank_pt > 500 => status.set(
 )
 ```
 
-The example sets the status on each `tank_pt` value above 500. `status.set` works the
-same on the Core and on a Driver.
+The example sets the status on each `tank_pt` value above 500. On a Driver, `status.set`
+does not wait for the Core. The Driver keeps up to 10,000 sets on disk and sends them in
+order when it can reach the Core, with the time each set ran. When the Driver holds
+10,000 sets, it drops new ones and shows a warning.

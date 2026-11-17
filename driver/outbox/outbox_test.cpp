@@ -281,6 +281,14 @@ TEST_F(OutboxTest, RefusesCallsWhenFull) {
     ASSERT_EQ(outbox->size(), 2);
 }
 
+/// @brief it should run a posted function on the send thread.
+TEST_F(OutboxTest, RunsPostedFunctions) {
+    const auto outbox = this->open_outbox(transport_of({}));
+    std::atomic<bool> ran = false;
+    outbox->post([&] { ran = true; });
+    ASSERT_EVENTUALLY_TRUE(ran.load());
+}
+
 /// @brief it should keep the calls before a call that a crash cut off, and count the
 /// bytes it lost.
 TEST_F(OutboxTest, KeepsCallsBeforeCutOffTail) {

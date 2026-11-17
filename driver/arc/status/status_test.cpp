@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <filesystem>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -18,6 +22,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/factory.h"
@@ -101,10 +106,22 @@ struct Report {
     std::string description;
 };
 
+/// @brief the reports of a recording reporter, which the outbox thread writes.
+struct Reports {
+    std::mutex mu;
+    std::vector<Report> reports;
+
+    std::vector<Report> snapshot() {
+        std::lock_guard lock(this->mu);
+        return this->reports;
+    }
+};
+
 /// @brief returns a reporter that appends each report to out.
-Reporter recordingReporter(std::vector<Report> *out) {
+Reporter recordingReporter(const std::shared_ptr<Reports> &out) {
     return [out](const std::string &message, const std::string &description) {
-        out->push_back({message, description});
+        std::lock_guard lock(out->mu);
+        out->reports.push_back({message, description});
     };
 }
 
@@ -131,22 +148,59 @@ std::string unique_name(const std::string &prefix) {
 
 }
 
-TEST(StatusModuleTest, HandlesSet) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
+class StatusTest : public ::testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> client;
+    std::filesystem::path dir;
+    std::shared_ptr<::driver::outbox::Outbox> outbox;
+
+    void SetUp() override {
+        this->client = std::make_shared<synnax::Synnax>(new_test_client());
+        this->dir = std::filesystem::temp_directory_path() /
+                    ("status_test_" + x::uuid::create().to_string());
+        this->outbox = this->open_outbox(this->client);
+    }
+
+    void TearDown() override {
+        this->outbox.reset();
+        std::filesystem::remove_all(this->dir);
+    }
+
+    [[nodiscard]] std::shared_ptr<::driver::outbox::Outbox> open_outbox(
+        const std::shared_ptr<synnax::Synnax> &c,
+        const std::size_t cap = ::driver::outbox::DEFAULT_CAP,
+        const x::telem::TimeSpan retry = x::telem::SECOND
+    ) const {
+        ::driver::outbox::Config cfg{
+            .dir = this->dir,
+            .statuses = c->statuses,
+            .cap = cap,
+        };
+        cfg.retry.base_interval = retry;
+        cfg.retry.max_interval = retry;
+        return ASSERT_NIL_P(::driver::outbox::Outbox::open(cfg));
+    }
+
+    void wait_sent() const { ASSERT_EVENTUALLY_EQ(this->outbox->size(), 0); }
+};
+
+/// @brief it should handle only the set node.
+TEST_F(StatusTest, HandlesSet) {
+    Module module(this->outbox, noopReporter());
     EXPECT_TRUE(module.handles("set"));
     EXPECT_FALSE(module.handles("delete"));
     EXPECT_FALSE(module.handles("set_status"));
     EXPECT_FALSE(module.handles("anything_else"));
 }
 
-TEST(StatusModuleTest, ModuleNameIsStatus) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
+/// @brief it should name the module status.
+TEST_F(StatusTest, ModuleNameIsStatus) {
+    Module module(this->outbox, noopReporter());
     EXPECT_EQ(module.module_name(), "status");
 }
 
-TEST(StatusModuleTest, CreatesSetNodeFromBareType) {
+/// @brief it should create a set node from the bare type.
+TEST_F(StatusTest, CreatesSetNodeFromBareType) {
     auto node = make_set_ir_node("test_key", "msg", "warning");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -154,8 +208,7 @@ TEST(StatusModuleTest, CreatesSetNodeFromBareType) {
         ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
+    Module module(this->outbox, noopReporter());
     auto created = ASSERT_NIL_P(
         module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
@@ -163,7 +216,9 @@ TEST(StatusModuleTest, CreatesSetNodeFromBareType) {
     EXPECT_NE(dynamic_cast<SetStatus *>(created.get()), nullptr);
 }
 
-TEST(StatusModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
+/// @brief it should create a set node from the qualified type through a multi
+/// factory.
+TEST_F(StatusTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
     auto node = make_set_ir_node("test_key", "msg", "warning");
     node.type = "status.set";
     auto ir = build_ir(node);
@@ -172,8 +227,7 @@ TEST(StatusModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
         ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto module = std::make_shared<Module>(client, noopReporter());
+    auto module = std::make_shared<Module>(this->outbox, noopReporter());
     ::arc::runtime::node::MultiFactory multi({module});
     auto created = ASSERT_NIL_P(
         multi.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
@@ -182,7 +236,8 @@ TEST(StatusModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
     EXPECT_NE(dynamic_cast<SetStatus *>(created.get()), nullptr);
 }
 
-TEST(StatusModuleTest, ReturnsNotFoundForUnknownType) {
+/// @brief it should return NOT_FOUND for an unknown node type.
+TEST_F(StatusTest, ReturnsNotFoundForUnknownType) {
     auto node = make_set_ir_node("test_key", "msg", "warning");
     node.type = "not_set_or_delete";
     auto ir = build_ir(node);
@@ -191,8 +246,7 @@ TEST(StatusModuleTest, ReturnsNotFoundForUnknownType) {
         ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
+    Module module(this->outbox, noopReporter());
     const auto created = ASSERT_OCCURRED_AS_P(
         module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))),
         x::errors::NOT_FOUND
@@ -200,9 +254,9 @@ TEST(StatusModuleTest, ReturnsNotFoundForUnknownType) {
     EXPECT_EQ(created, nullptr);
 }
 
-TEST(SetStatusTest, ReadsAVarBoundMessageAtFireTime) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<Report> calls;
+/// @brief it should read a var-bound message when the node runs.
+TEST_F(StatusTest, ReadsAVarBoundMessageAtFireTime) {
+    const auto reports = std::make_shared<Reports>();
     const auto name = unique_name("var_msg_");
     const auto f = set_spec().config(
         {name,
@@ -211,145 +265,134 @@ TEST(SetStatusTest, ReadsAVarBoundMessageAtFireTime) {
          ),
          "info"}
     );
-    Module module(client, recordingReporter(&calls));
+    Module module(this->outbox, recordingReporter(reports));
     auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
+    this->wait_sent();
+    ASSERT_NIL(created->next(ctx));
 
     const auto node = f.make_node();
     const auto new_key = std::get<std::string>((*node.output(0)).at(0));
-    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(new_key));
+    const auto retrieved = ASSERT_NIL_P(this->client->statuses.retrieve(new_key));
     EXPECT_EQ(retrieved.message, "live message");
-    EXPECT_TRUE(calls.empty());
+    EXPECT_TRUE(reports->snapshot().empty());
 }
 
-TEST(SetStatusTest, NextWritesResolvedKeyToOutput) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+/// @brief it should output an empty key before the first set resolves, and the key
+/// of the last resolved set after.
+TEST_F(StatusTest, OutputsLastResolvedKey) {
     const auto name = unique_name("set_next_");
-
-    // Pre-create so we know the resolved UUID; configure the node with that
-    // UUID so we can retrieve the row by key after next().
-    const auto preset_key = ASSERT_NIL_P(client->statuses.set_by_key_or_name(
-                                             name,
-                                             "initial",
-                                             "info",
-                                             x::telem::TimeStamp()
-                                         ))
-                                .key;
-
-    auto node = make_set_ir_node(preset_key, "the message", "info");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-
+    const auto f = set_spec().config({name, "the message", "info"});
+    Module module(this->outbox, noopReporter());
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+    const auto node = f.make_node();
     auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
 
-    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(preset_key));
+    ASSERT_NIL(created->next(ctx));
+    EXPECT_EQ(std::get<std::string>((*node.output(0)).at(0)), "");
+    this->wait_sent();
+    ASSERT_NIL(created->next(ctx));
+    const auto key = std::get<std::string>((*node.output(0)).at(0));
+    ASSERT_FALSE(key.empty());
+    const auto retrieved = ASSERT_NIL_P(this->client->statuses.retrieve(key));
+    EXPECT_EQ(retrieved.name, name);
     EXPECT_EQ(retrieved.message, "the message");
     EXPECT_EQ(retrieved.variant, "info");
 }
 
 /// @brief it should stamp the status with the time the node runs.
-TEST(SetStatusTest, NextStampsTimeWhenItRuns) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+TEST_F(StatusTest, NextStampsTimeWhenItRuns) {
     const auto name = unique_name("set_time_");
-    const auto preset_key = ASSERT_NIL_P(client->statuses.set_by_key_or_name(
+    const auto preset_key = ASSERT_NIL_P(this->client->statuses.set_by_key_or_name(
                                              name,
                                              "initial",
                                              "info",
                                              x::telem::TimeStamp(1)
                                          ))
                                 .key;
-
-    auto node = make_set_ir_node(preset_key, "the message", "info");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
+    const auto f = set_spec().config({preset_key, "the message", "info"});
+    Module module(this->outbox, noopReporter());
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
     const auto before = x::telem::TimeStamp::now();
     ASSERT_NIL(created->next(ctx));
     const auto after = x::telem::TimeStamp::now();
+    this->wait_sent();
 
-    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(preset_key));
+    const auto retrieved = ASSERT_NIL_P(this->client->statuses.retrieve(preset_key));
+    EXPECT_EQ(retrieved.message, "the message");
     EXPECT_GE(retrieved.time, before);
     EXPECT_LE(retrieved.time, after);
 }
 
-TEST(SetStatusTest, NextRepeatedCallsKeepWriting) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+/// @brief it should send every set, in order.
+TEST_F(StatusTest, NextRepeatedCallsKeepWriting) {
     const auto name = unique_name("set_repeat_");
-
-    const auto preset_key = ASSERT_NIL_P(client->statuses.set_by_key_or_name(
+    const auto preset_key = ASSERT_NIL_P(this->client->statuses.set_by_key_or_name(
                                              name,
                                              "initial",
                                              "info",
                                              x::telem::TimeStamp()
                                          ))
                                 .key;
-
-    auto node = make_set_ir_node(preset_key, "msg", "info");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
+    const auto f = set_spec().config({preset_key, "msg", "info"});
+    Module module(this->outbox, noopReporter());
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
     ASSERT_NIL(created->next(ctx));
     ASSERT_NIL(created->next(ctx));
-    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(preset_key));
+    this->wait_sent();
+    const auto retrieved = ASSERT_NIL_P(this->client->statuses.retrieve(preset_key));
     EXPECT_EQ(retrieved.message, "msg");
 }
 
-TEST(SetStatusTest, NextWarnsOnInvalidVariant) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto name = unique_name("set_iv_");
-
-    std::vector<Report> calls;
-    auto node = make_set_ir_node(name, "msg", "bogus");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(client, recordingReporter(&calls));
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
+/// @brief it should warn when the Core rejects a set, and drop the set.
+TEST_F(StatusTest, NextWarnsOnInvalidVariant) {
+    const auto reports = std::make_shared<Reports>();
+    const auto f = set_spec().config({unique_name("set_iv_"), "msg", "bogus"});
+    Module module(this->outbox, recordingReporter(reports));
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
 
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
+    this->wait_sent();
+    EXPECT_EQ(this->outbox->dropped(), 1);
+    const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to set status");
     EXPECT_NE(calls[0].description.find("invalid status variant"), std::string::npos);
 }
 
-TEST(SetStatusTest, IsOutputTruthyDoesNotThrow) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+/// @brief it should queue a set and return at once while the Core is unreachable.
+TEST_F(StatusTest, NeverBlocksWithCoreUnreachable) {
+    this->outbox.reset();
+    auto cfg = test_client_config();
+    cfg.port = 1;
+    this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg));
+    const auto reports = std::make_shared<Reports>();
+    const auto f = set_spec().config({unique_name("set_down_"), "msg", "info"});
+    Module module(this->outbox, recordingReporter(reports));
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+    const auto node = f.make_node();
+
+    auto ctx = make_context();
+    const auto start = x::telem::TimeStamp::now();
+    for (int i = 0; i < 3; i++)
+        ASSERT_NIL(created->next(ctx));
+    EXPECT_LT(x::telem::TimeStamp::now() - start, x::telem::SECOND);
+    EXPECT_EQ(std::get<std::string>((*node.output(0)).at(0)), "");
+    EXPECT_EQ(this->outbox->size(), 3);
+    EXPECT_EQ(this->outbox->dropped(), 0);
+    EXPECT_TRUE(reports->snapshot().empty());
+}
+
+/// @brief it should check output truthiness without throwing.
+TEST_F(StatusTest, IsOutputTruthyDoesNotThrow) {
     auto node = make_set_ir_node("truthy", "msg", "info");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -357,11 +400,81 @@ TEST(SetStatusTest, IsOutputTruthyDoesNotThrow) {
         ::arc::runtime::errors::noop_handler
     );
     auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(client, noopReporter());
+    Module module(this->outbox, noopReporter());
     auto created = ASSERT_NIL_P(
         module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
     EXPECT_NO_THROW({ (void) created->is_output_truthy(0); });
+}
+
+/// @brief it should make its output truthy once it queues a set, before the set
+/// resolves, and falsy again after a reset.
+TEST_F(StatusTest, OutputIsTruthyOnceQueued) {
+    this->outbox.reset();
+    auto cfg = test_client_config();
+    cfg.port = 1;
+    this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg));
+    const auto f = set_spec().config({unique_name("set_truthy_"), "msg", "info"});
+    Module module(this->outbox, noopReporter());
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+
+    auto ctx = make_context();
+    EXPECT_FALSE(created->is_output_truthy(0));
+    ASSERT_NIL(created->next(ctx));
+    EXPECT_EQ(std::get<std::string>((*f.make_node().output(0)).at(0)), "");
+    EXPECT_TRUE(created->is_output_truthy(0));
+    created->reset(ctx);
+    EXPECT_FALSE(created->is_output_truthy(0));
+}
+
+/// @brief it should report a set the full outbox refuses from the outbox thread, with
+/// no later set, since the caller must never wait on the Core.
+TEST_F(StatusTest, ReportsARefusedSetFromTheOutboxThread) {
+    this->outbox.reset();
+    auto cfg = test_client_config();
+    cfg.port = 1;
+    this->outbox = this->open_outbox(
+        std::make_shared<synnax::Synnax>(cfg),
+        1,
+        x::telem::MILLISECOND
+    );
+    const auto reports = std::make_shared<Reports>();
+    const auto caller = std::this_thread::get_id();
+    std::atomic<bool> on_caller = false;
+    const auto record = recordingReporter(reports);
+    const auto f = set_spec().config({unique_name("set_full_"), "msg", "info"});
+    Module module(
+        this->outbox,
+        [&, record](const std::string &message, const std::string &description) {
+            if (std::this_thread::get_id() == caller) on_caller = true;
+            record(message, description);
+        }
+    );
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+    ASSERT_NIL(created->next(ctx));
+    EXPECT_EQ(this->outbox->refused(), 1);
+    ASSERT_EVENTUALLY_FALSE(reports->snapshot().empty());
+    const auto got = reports->snapshot();
+    EXPECT_EQ(got[0].message, SET_FAILURE_MSG);
+    EXPECT_NE(got[0].description.find("Dropped 1 sets."), std::string::npos);
+    EXPECT_FALSE(on_caller.load());
+}
+
+/// @brief it should report the refused sets once, with their count and reason.
+TEST(SetsTest, ReportsRefusedSetsOnce) {
+    const auto reports = std::make_shared<Reports>();
+    Sets sets(recordingReporter(reports));
+    sets.refuse("outbox is full.");
+    sets.refuse("outbox is full.");
+    sets.report_refused();
+    sets.report_refused();
+    const auto calls = reports->snapshot();
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_EQ(calls[0].message, SET_FAILURE_MSG);
+    EXPECT_EQ(calls[0].description, "outbox is full. Dropped 2 sets.");
 }
 
 }
