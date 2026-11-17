@@ -950,6 +950,22 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect((await retrieve(slave.key)).name).toBe(name);
     });
 
+    it("should stop no task for a save that fails validation", async () => {
+      const slave = await setup();
+      const read = await createRunningRead(slave);
+      const driver = await answerCommandsUntil(client, [read], "start");
+      fireEvent.change(identifierInput(), { target: { value: "1x" } });
+      await screen.findByText(RESTART);
+      await save(RESTART);
+      await screen.findByText(IDENTIFIER_FORMAT_ERROR);
+      const identifier = createIdentifier();
+      fireEvent.change(identifierInput(), { target: { value: identifier } });
+      await save(RESTART);
+      // A stop from the first save would arrive before the start of the second.
+      expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
+      expect((await retrieve(slave.key)).properties.identifier).toBe(identifier);
+    });
+
     it("should restart a running write task on the network", async () => {
       const slave = await setup({ outputs: [CONTROL_ENTRY] });
       const rack = await client.racks.retrieve({ key: slave.rack });
