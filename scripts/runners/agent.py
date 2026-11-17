@@ -248,7 +248,7 @@ def run(
                     last = max(last, start)
                 last = max(sy.TimeStamp.now(), last + sy.TimeSpan(1))
                 frame = {names["index"]: last, **values}
-                writer.write(frame)  # pyright: ignore[reportArgumentType]
+                writer.write(frame)
                 failures = 0
             except Exception as e:
                 warn("write", e)

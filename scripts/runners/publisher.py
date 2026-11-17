@@ -92,8 +92,7 @@ class Publisher:
                 return True
             if authority is not None:
                 self.writer.set_authority(authority)
-            # CrudeFrame's annotation omits name-keyed dicts, which write accepts.
-            self.writer.write(frame)  # pyright: ignore[reportArgumentType]
+            self.writer.write(frame)
             if authority is not None:
                 self.writer.set_authority(self.authority)
             return True
