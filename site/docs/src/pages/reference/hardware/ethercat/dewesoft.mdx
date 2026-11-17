@@ -14,9 +14,9 @@ as EtherCAT modules. Each module shows in the devices toolbar, and read and writ
 use its PDOs as they use the PDOs of other modules. To connect the network, see
 [Configure an EtherCAT device](/reference/hardware/ethercat/configure-device).
 
-In dual mode, DewesoftX sets the amplifiers of a device, such as the range and the
-excitation. In standalone mode, Synnax can set them. See
-[Set up a module in Synnax](#set-up-a-module-in-synnax).
+In dual mode, DewesoftX sets the amplifiers of an IOLITE 6xSTG, such as the range and
+the excitation. On other modules, and in standalone mode, Synnax sets them when a task
+starts. See [Set up a module in Synnax](#set-up-a-module-in-synnax).
 
 <Divider.Divider x />
 
@@ -69,8 +69,8 @@ The Driver writes each setting as a startup parameter. It writes the settings of
 **Configure** dialog when the network starts. It writes the settings of a read channel
 when the read task starts.
 
-If DewesoftX sets up the module, the **Configure** dialog shows a note in place of the
-settings:
+If DewesoftX sets up an IOLITE 6xSTG, the **Configure** dialog shows a note in place of
+the settings:
 
 - **DewesoftX sets up this device** -> Synnax uses the device, and DewesoftX sets its
   settings.
@@ -78,6 +78,10 @@ settings:
 
 To give the module to Synnax, click **Switch to Synnax**, then restart the power of the
 device.
+
+The Console shows this note only for the 6xSTG. On other modules in dual mode, the
+Driver writes the settings of the module, and of each input that a read task reads, when
+a task starts. These settings replace the settings from DewesoftX.
 
 <Divider.Divider x />
 

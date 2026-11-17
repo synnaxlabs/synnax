@@ -29,6 +29,8 @@ using testutil::IOLITE_DIO;
 
 /// @brief the product code of the IOLITEi 1xSTG, a card with one EtherCAT bus.
 constexpr uint32_t IOLITEI_1XSTG = 0x9E;
+/// @brief the product code of the IOLITE 8xTH.
+constexpr uint32_t IOLITE_8XTH = 0xFD;
 /// @brief the revision of an IOLITE 6xSTG in its ESI.
 constexpr uint32_t STG_REVISION = 0x00020001;
 
@@ -335,9 +337,9 @@ TEST(ReadSettings, Puts6xSTGOnTheBusOfItsRevision) {
     }
 }
 
-/// @brief it should name DewesoftX as the only reader of a card with one bus in the DC
-/// buffered mode of DewesoftX.
-TEST(ReadSettings, NamesDewesoftXAsTheOnlyReaderOfASingleBusCard) {
+/// @brief it should not mark a card with one bus in the DC buffered mode of DewesoftX
+/// as set up by another program, since no card was tested in that mode.
+TEST(ReadSettings, DoesNotMarkASingleBusCardInBufferedModeAsShared) {
     const auto buffered = testutil::read_of({{{0x8020, 7}, 1}, {{0x8020, 2}, 0}});
     const auto [settings, err] = read_settings(
         DEWESOFT,
@@ -349,10 +351,46 @@ TEST(ReadSettings, NamesDewesoftXAsTheOnlyReaderOfASingleBusCard) {
     ASSERT_MATCHES(err, coe::OBJECT_MISSING);
     ASSERT_TRUE(settings.has_value());
     const auto &mode = settings.value()["mode"];
-    EXPECT_TRUE(mode["shared"].get<bool>());
-    EXPECT_EQ(mode["only_read_by"], "DewesoftX");
+    EXPECT_FALSE(mode["shared"].get<bool>());
+    EXPECT_FALSE(mode.contains("only_read_by"));
     EXPECT_FALSE(mode.contains("shared_with"));
     EXPECT_FALSE(mode.contains("bus"));
+}
+
+/// @brief it should give a standalone 8xTH the DC sync mode that its mode needs, and
+/// not mark an 8xTH in the buffered mode of DewesoftX as shared.
+TEST(ReadSettings, Gives8xTHInStandaloneModeItsDCSyncMode) {
+    const std::vector<dc::OpMode> op_modes{
+        {.name = "SM", .assign_activate = 0x0000},
+        {.name = "DC", .assign_activate = 0x0700},
+    };
+    std::vector<x::json::json> modes;
+    for (const uint32_t value: {0, 1}) {
+        const auto [settings, err] = read_settings(
+            DEWESOFT,
+            IOLITE_8XTH,
+            0x00010000,
+            op_modes,
+            testutil::read_of({{{0x8020, 9}, value}, {{0x8020, 2}, 0}})
+        );
+        ASSERT_MATCHES(err, coe::OBJECT_MISSING);
+        ASSERT_TRUE(settings.has_value());
+        ASSERT_TRUE(settings.value().contains("mode"));
+        modes.push_back(settings.value()["mode"]);
+    }
+    EXPECT_FALSE(modes[0]["shared"].get<bool>());
+    EXPECT_EQ(
+        modes[0]["op_mode"],
+        (x::json::json{
+            {"index", 1},
+            {"assign_activate", 0x0700},
+            {"sync0_cycle", 1000},
+            {"sync1_cycle", 10000000},
+        })
+    );
+    EXPECT_FALSE(modes[1]["shared"].get<bool>());
+    EXPECT_FALSE(modes[1].contains("shared_with"));
+    EXPECT_FALSE(modes[1].contains("op_mode"));
 }
 
 /// @brief it should not add the save write for a 6xSTG that saves each change.
