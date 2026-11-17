@@ -34,6 +34,7 @@ cat > package.json << EOF
 EOF
 cat > pnpm-workspace.yaml << EOF
 nodeLinker: hoisted
+trustPolicy: no-downgrade
 overrides:
   "@synnaxlabs/x": file:$work/x.tgz
   "@synnaxlabs/alamos": file:$work/alamos.tgz
@@ -43,9 +44,12 @@ pnpm install --reporter=silent
 
 echo "Node.js $(node --version)"
 node smoke.mjs
+# The workspace tooling needs a newer Node.js, so only this test covers the floor.
+echo "Node.js 22.12.0"
+pnpm --package=node@runtime:22.12.0 dlx node smoke.mjs
 deno --version | head -1
 # Immer reads NODE_ENV when it loads.
-deno run --allow-net --allow-env=NODE_ENV smoke.mjs
+deno run --allow-net --allow-env=NODE_ENV,SYNNAX_TEST_HOST,SYNNAX_TEST_PORT smoke.mjs
 echo "Bun $(bun --version)"
 bun smoke.mjs
 node "$smoke/browser.mjs" "$work"

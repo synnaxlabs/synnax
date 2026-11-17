@@ -10,8 +10,8 @@
 import { Synnax } from "@synnaxlabs/client";
 
 const client = new Synnax({
-  host: "localhost",
-  port: 9090,
+  host: process.env.SYNNAX_TEST_HOST ?? "localhost",
+  port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
   username: "synnax",
   password: "seldon",
   secure: false,
@@ -20,5 +20,5 @@ const channels = await client.channels.retrieve({ limit: 3 });
 if (channels.length === 0) throw new Error("The Core has no channels");
 const streamer = await client.openStreamer(channels.map((ch) => ch.key));
 streamer.close();
-client.close();
+await client.close();
 globalThis.smoked = true;

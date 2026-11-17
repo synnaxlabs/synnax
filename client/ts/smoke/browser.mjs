@@ -14,7 +14,12 @@ import { chromium, webkit } from "playwright";
 import { build, preview } from "vite";
 
 const root = process.argv[2];
-await build({ root, logLevel: "error" });
+const env = (name) => JSON.stringify(process.env[name]) ?? "undefined";
+const define = {
+  "process.env.SYNNAX_TEST_HOST": env("SYNNAX_TEST_HOST"),
+  "process.env.SYNNAX_TEST_PORT": env("SYNNAX_TEST_PORT"),
+};
+await build({ root, define, logLevel: "error" });
 const server = await preview({ root, preview: { port: 4173, strictPort: true } });
 try {
   for (const type of [chromium, webkit]) {
