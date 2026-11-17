@@ -192,49 +192,9 @@ func newTopicMessage(
 		)
 	}
 	m := &topicMessage{name: msg.Name, indexField: -1}
-	bindings := make([]codec.Binding, len(rm.Bindings))
-	indexSet := false
-	for i, b := range rm.Bindings {
-		ch, ok := channels[b.Channel]
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"message %s: channel %d does not exist", msg.Name, b.Channel,
-			)
-		}
-		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
-		m.dataTypes = append(m.dataTypes, ch.DataType)
-		if !indexSet {
-			m.index, indexSet = ch.Index(), true
-		} else if ch.Index() != m.index {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"message %s: every channel must share one index channel", msg.Name,
-			)
-		}
-		isIndexField := rm.Index != nil && *rm.Index == b.Field
-		switch {
-		case isIndexField && !ch.IsIndex:
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"message %s: the index field must write to an index channel",
-				msg.Name,
-			)
-		case !isIndexField && ch.IsIndex:
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"message %s: only the index field can write to an index channel",
-				msg.Name,
-			)
-		case isIndexField:
-			m.indexField = i
-		}
-	}
-	if rm.Index != nil && m.indexField == -1 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"message %s: the index field has no channel", msg.Name,
-		)
+	bindings, err := m.bind(rm, channels)
+	if err != nil {
+		return nil, errors.Wrapf(err, "message %s", msg.Name)
 	}
 	*decoded = codec.JSONMessage{Name: msg.Name, Payload: payload, Bindings: bindings}
 	if m.index != 0 {
@@ -246,6 +206,53 @@ func newTopicMessage(
 		}
 	}
 	return m, nil
+}
+
+// bind sets the data types, the index channel, and the index field of m from the
+// bindings of rm and their channels. It returns the codec binding of each.
+func (m *topicMessage) bind(
+	rm ReadMessage,
+	channels map[channel.Key]channel.Channel,
+) ([]codec.Binding, error) {
+	bindings := make([]codec.Binding, len(rm.Bindings))
+	for i, b := range rm.Bindings {
+		ch, ok := channels[b.Channel]
+		if !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "channel %d does not exist", b.Channel,
+			)
+		}
+		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
+		m.dataTypes = append(m.dataTypes, ch.DataType)
+		if i == 0 {
+			m.index = ch.Index()
+		} else if ch.Index() != m.index {
+			return nil, errors.Wrap(
+				validate.ErrValidation, "every channel must share one index channel",
+			)
+		}
+		isIndexField := rm.Index != nil && *rm.Index == b.Field
+		switch {
+		case isIndexField && !ch.IsIndex:
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"the index field must write to an index channel",
+			)
+		case !isIndexField && ch.IsIndex:
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"only the index field can write to an index channel",
+			)
+		case isIndexField:
+			m.indexField = i
+		}
+	}
+	if rm.Index != nil && m.indexField == -1 {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "the index field has no channel",
+		)
+	}
+	return bindings, nil
 }
 
 // convert reads msg as the message whose match rule its document meets. A payload that
