@@ -95,6 +95,41 @@ var _ = Describe("Manager", func() {
 		Expect(m.ExternalNamedImports()).To(BeNil())
 		Expect(m.InternalNamedImports()).To(BeNil())
 	})
+
+	It("Should render an aliased import", func() {
+		m.AddAliasedImport("@synnaxlabs/x", "color", "xcolor")
+		Expect(m.SynnaxImports()).To(Equal([]imports.NamedImport{
+			{Path: "@synnaxlabs/x", Names: []string{"color as xcolor"}},
+		}))
+	})
+
+	Describe("Conflicts", func() {
+		It("Should return each name that two paths declare", func() {
+			m.AddImport("@synnaxlabs/x", "color")
+			m.AddImport("@synnaxlabs/x", "telem")
+			m.AddNamespaceImport("@/color/types.gen", "color")
+			Expect(m.Conflicts()).To(Equal(map[string][]string{
+				"color": {"@/color/types.gen", "@synnaxlabs/x"},
+			}))
+		})
+
+		It("Should return nil when one path declares each name", func() {
+			m.AddImport("@synnaxlabs/x", "color")
+			m.AddImport("@synnaxlabs/x", "color")
+			m.AddAliasedImport("@/color", "color", "xcolor")
+			Expect(m.Conflicts()).To(BeNil())
+		})
+	})
+})
+
+var _ = Describe("Aliases", func() {
+	It("Should prefix the name of each path that does not end in it", func() {
+		Expect(imports.Aliases(map[string][]string{
+			"color": {"@/color/types.gen", "@synnaxlabs/x"},
+		})).To(Equal(map[imports.Key]string{
+			{Path: "@synnaxlabs/x", Name: "color"}: "xcolor",
+		}))
+	})
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

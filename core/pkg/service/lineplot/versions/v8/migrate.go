@@ -11,6 +11,7 @@ package v8
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -99,17 +100,17 @@ func yAxisChannels(c Channels, k YAxisKey) []channel.Key {
 
 // builtInSpans are the rolling windows the Console offered as range keys before v8.
 var builtInSpans = map[string]telem.TimeSpan{
-	"recent":     telem.TimeSpan(30 * telem.Second),
-	"rolling1m":  telem.TimeSpan(telem.Minute),
-	"rolling5m":  telem.TimeSpan(5 * telem.Minute),
-	"rolling15m": telem.TimeSpan(15 * telem.Minute),
-	"rolling30m": telem.TimeSpan(30 * telem.Minute),
-	"rolling1h":  telem.TimeSpan(telem.Hour),
-	"rolling6h":  telem.TimeSpan(6 * telem.Hour),
-	"rolling12h": telem.TimeSpan(12 * telem.Hour),
-	"rolling1d":  telem.TimeSpan(telem.Day),
-	"rolling7d":  telem.TimeSpan(7 * telem.Day),
-	"rolling30d": telem.TimeSpan(30 * telem.Day),
+	"recent":     30 * telem.Second,
+	"rolling1m":  telem.Minute,
+	"rolling5m":  5 * telem.Minute,
+	"rolling15m": 15 * telem.Minute,
+	"rolling30m": 30 * telem.Minute,
+	"rolling1h":  telem.Hour,
+	"rolling6h":  6 * telem.Hour,
+	"rolling12h": 12 * telem.Hour,
+	"rolling1d":  telem.Day,
+	"rolling7d":  7 * telem.Day,
+	"rolling30d": 30 * telem.Day,
 }
 
 // customKey is the v7 range key that resolved to the plot's custom window.
@@ -185,14 +186,15 @@ func windowRef(w telem.Window) ranger.Ref {
 }
 
 func migrateCustom(c v7.CustomRange) telem.Window {
-	if s, ok := c.Variant.(v7.StaticCustomRange); ok {
+	switch v := c.Variant.(type) {
+	case v7.StaticCustomRange:
 		return telem.Window{Variant: telem.StaticWindow{
-			TimeRange: telem.TimeRange{Start: s.Start, End: s.End},
+			TimeRange: telem.TimeRange{Start: v.Start, End: v.End},
 		}}
+	case v7.DynamicCustomRange:
+		return telem.Window{Variant: telem.DynamicWindow{TimeSpan: v.Span}}
 	}
-	return telem.Window{
-		Variant: telem.DynamicWindow{TimeSpan: c.Variant.(v7.DynamicCustomRange).Span},
-	}
+	panic(fmt.Sprintf("unknown custom range variant %T", c.Variant))
 }
 
 // v7LineKey is the decoded form of a v7 line key.

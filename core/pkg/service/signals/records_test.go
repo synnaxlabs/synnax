@@ -90,6 +90,21 @@ var _ = Describe("Records", func() {
 			To(Equal(testResource(uint32(42))))
 	})
 
+	It("Should fail on a numeric key delete sample of the wrong length", func(
+		ctx SpecContext,
+	) {
+		deleteName := nextName()
+		Expect(sigs.PublishTable(ctx, signals.TableConfig[uint32, testNumericEntry]{
+			Changes:     numTable.Changes,
+			Resource:    testResource[uint32],
+			DeleteName:  deleteName,
+			SetDisabled: new(true),
+		})).To(Succeed())
+		recordOf := sigs.Records()[retrieveChannel(ctx, deleteName).Key()].Of
+		Expect(recordOf([]byte{42, 0})).Error().
+			To(MatchError(ContainSubstring("delete sample has 2 bytes")))
+	})
+
 	It("Should find the entry of a string key delete sample", func(ctx SpecContext) {
 		deleteName := nextName()
 		Expect(sigs.PublishTable(ctx, signals.TableConfig[string, testStringEntry]{

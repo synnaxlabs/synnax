@@ -190,7 +190,7 @@ const ZERO_SCROLLBACK: ScrollbackState = {
 };
 
 const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
-  const p = theme.key === "synnaxDark" ? DARK_PREFIX : LIGHT_PREFIX;
+  const p = theme.dark ? DARK_PREFIX : LIGHT_PREFIX;
   const [h, s, l, a] = color.hsla(c);
   return color.fromHSLA([
     Math.min(360, Math.round(h * p.hue)),

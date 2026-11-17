@@ -48,12 +48,12 @@ export interface SelectMultipleProps
 const MultipleTag = (
   props: Select.MultipleTagProps<label.Key>,
 ): ReactElement | null => {
-  const { itemKey } = props;
+  const { itemKey, onClick } = props;
   const item = List.useItem<label.Key, label.Label>(itemKey);
   const { onSelect } = Select.useItemState<label.Key>(itemKey);
   if (item == null) return null;
   return (
-    <Tag.Tag color={item.color} onClose={onSelect} size="small">
+    <Tag.Tag color={item.color} onClose={onSelect} onClick={onClick} size="small">
       {item.name}
     </Tag.Tag>
   );
@@ -84,64 +84,50 @@ const Base = (props: BaseProps): ReactElement => (
   </Select.Multiple>
 );
 
-const Open = ({ filter, query, ...rest }: SelectMultipleProps): ReactElement => {
-  const { data, getItem, subscribe, status, more, search } = Flux.useList(
-    (client: Synnax) => client.labels,
-    { name: "labels", query, filter },
-  );
-  return (
-    <Base
-      getItem={getItem}
-      onFetchMore={more}
-      onSearch={search}
-      status={status}
-      {...rest}
-      data={data}
-      subscribe={subscribe}
-    />
-  );
-};
-
-interface ClosedProps extends SelectMultipleProps {
-  onOpen: () => void;
-}
-
-const Closed = ({
-  filter: _filter,
-  query: _query,
-  onOpen,
-  ...rest
-}: ClosedProps): ReactElement => {
-  const labels = useResultMultiple({ keys: rest.value }).data ?? [];
-  const getItem = List.createGetItem<label.Key, label.Label | undefined>(
-    (key) => labels.find((l) => l.key === key),
-    (keys) => labels.filter((l) => keys.includes(l.key)),
-  );
-  const handleVisibleChange = (next: state.SetArg<boolean>): void => {
-    if (state.executeSetter(next, false)) onOpen();
-  };
-  return (
-    <Base
-      getItem={getItem}
-      virtual={false}
-      {...rest}
-      data={rest.value}
-      visible={false}
-      onVisibleChange={handleVisibleChange}
-    />
-  );
-};
-
 /**
  * Selects labels. Until the user first opens it, it reads only the labels of its value:
  * the list of every label mounts on the first open, since a page can hold one of these
  * per item.
  */
-export const SelectMultiple = (props: SelectMultipleProps): ReactElement => {
-  const [opened, setOpened] = useState(false);
-  if (opened || props.visible === true)
-    return <Open initialVisible={opened} {...props} />;
-  return <Closed {...props} onOpen={() => setOpened(true)} />;
+export const SelectMultiple = ({
+  filter,
+  query,
+  onVisibleChange,
+  ...rest
+}: SelectMultipleProps): ReactElement => {
+  const [opened, setOpened] = useState(
+    rest.visible === true || rest.initialVisible === true,
+  );
+  if (rest.visible === true && !opened) setOpened(true);
+  const list = Flux.useList((client: Synnax) => client.labels, {
+    name: "labels",
+    query: opened ? query : null,
+    filter,
+  });
+  const labels = useResultMultiple({ keys: rest.value }).data ?? [];
+  const getValueItem = List.createGetItem<label.Key, label.Label | undefined>(
+    (key) => labels.find((l) => l.key === key),
+    (keys) => labels.filter((l) => keys.includes(l.key)),
+  );
+  // It is closed until the first open, so the dialog's last state is false.
+  const handleVisibleChange = (next: state.SetArg<boolean>): void => {
+    if (!opened && state.executeSetter(next, false)) setOpened(true);
+    onVisibleChange?.(next);
+  };
+  // A change to virtual mounts the trigger again, so the list stays static once open.
+  return (
+    <Base
+      getItem={opened ? list.getItem : getValueItem}
+      onFetchMore={opened ? list.more : undefined}
+      onSearch={opened ? list.search : undefined}
+      status={opened ? list.status : undefined}
+      virtual={false}
+      {...rest}
+      data={opened ? list.data : rest.value}
+      subscribe={opened ? list.subscribe : undefined}
+      onVisibleChange={handleVisibleChange}
+    />
+  );
 };
 
 export interface SelectSingleProps

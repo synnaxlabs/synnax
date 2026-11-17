@@ -9,24 +9,46 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The flex class outranks the bordered rule in Box.css, which would otherwise tie with
-   this one and leave the border color to load order. */
+/* How large a tag's color dot is. Group dots follow it. */
+:root {
+    --lyra-tag-dot: 1.5rem;
+}
+
+/* A tag rests on the surface, and keeps that face on hover and press unless its group
+   gives it a click. Its face snaps, so a step of its group never animates it. */
 .lyra-flex.lyra-btn.lyra-tag {
-    border: var(--pluto-border-l6);
+    --pluto-bg: var(--pluto-gray-l0);
+    --pluto-hover-bg: var(--pluto-gray-l0);
+    --pluto-active-bg: var(--pluto-gray-l0);
+    --pluto-border-color: var(--pluto-gray-l6);
+    --pluto-hover-border-color: var(--pluto-gray-l6);
+    --pluto-active-border-color: var(--pluto-gray-l6);
+
+    /* The face and outline it shows now, hovered or pressed too. */
+    --lyra-tag-face: var(--pluto-btn-bg);
+    --lyra-tag-edge: var(--pluto-btn-border-color);
+
     border-radius: var(--pluto-border-radius-small);
     width: fit-content;
-    background: var(--pluto-gray-l0);
     max-width: 200px;
     overflow: hidden;
     white-space: nowrap;
     box-shadow: var(--pluto-shadow-lift);
     position: relative;
+    transition: none;
 
-    /* The close overlays the leading icon, so it paints the tag's face to mask
-       it, outranking the glyph default's transparent fill. */
+    & > .lyra-icon--dot {
+        width: var(--lyra-tag-dot);
+        height: var(--lyra-tag-dot);
+        margin-right: calc(var(--lyra-tag-dot) / 4);
+    }
+
+    /* The close overlays the leading icon, so it paints the tag's face to mask it,
+       outranking the glyph default's transparent fill. Only its opacity fades, so it
+       cross-fades with the icon while its mask snaps with the face. */
     .lyra-btn.lyra-tag__close {
-        --pluto-bg: var(--pluto-gray-l0);
-        --pluto-hover-bg: var(--pluto-gray-l0);
-        --pluto-active-bg: var(--pluto-gray-l0);
+        --pluto-bg: var(--lyra-tag-face);
+        --pluto-hover-bg: var(--lyra-tag-face);
+        --pluto-active-bg: var(--lyra-tag-face);
     }
 }

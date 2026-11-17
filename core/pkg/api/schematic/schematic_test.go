@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -37,7 +38,7 @@ import (
 // tankConfig returns a tank node config with its schema defaults.
 func tankConfig() schematic.NodeConfig {
 	cfg := schematic.NodeConfig{Variant: schematic.TankNodeConfig{}}
-	cfg.ApplyDefaults()
+	cfg = defaults.Fill(cfg)
 	return cfg
 }
 
@@ -273,7 +274,11 @@ var _ = Describe("Service", func() {
 												Param: "in",
 											},
 											Config: schematic.EdgeConfig{
-												Variant: schematic.PipeEdgeConfig{},
+												Variant: schematic.PipeEdgeConfig{
+													SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
+														StrokeWidth: 2,
+													},
+												},
 											},
 										}},
 									),

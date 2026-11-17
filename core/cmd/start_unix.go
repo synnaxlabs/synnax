@@ -20,7 +20,7 @@ import (
 // RunMain is the entry point for the Synnax CLI on non-Windows platforms. It simply
 // delegates to Execute() since Windows Service mode is not applicable.
 func RunMain() {
-	if err := Cmd.Execute(); err != nil {
+	if err := NewCmd().Execute(); err != nil {
 		os.Exit(exit.Code(err))
 	}
 }

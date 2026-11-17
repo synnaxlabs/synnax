@@ -12,7 +12,6 @@ package types
 import (
 	"bytes"
 	"cmp"
-	"context"
 	"fmt"
 	"math"
 	"slices"
@@ -86,16 +85,16 @@ func (p *Plugin) Requires() []string { return nil }
 // root re-export surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, members, err := versioning.RewriteCurrent(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
 	}
-	preds, err := chainPredecessors(context.Background(), req)
+	preds, err := chainPredecessors(req)
 	if err != nil {
 		return nil, err
 	}
-	orders, err := chainOrders(context.Background(), req)
+	orders, err := chainOrders(req)
 	if err != nil {
 		return nil, err
 	}
@@ -104,13 +103,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		currentPaths.Add(current)
 	}
 	pins, err := versioning.NewPins(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
 	}
 	closure := PersistedClosure(rewritten)
-	embedded, err := allEmbeddedTypes(context.Background(), req, rewritten)
+	embedded, err := allEmbeddedTypes(req, rewritten)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +159,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// frozen packages still need regeneration.
 	if len(pathMap) == 0 {
 		frozen, err := chainFrozenFiles(
-			context.Background(), req, p.Options.FileNamePattern, embedded,
+			req, p.Options.FileNamePattern, embedded,
 		)
 		if err != nil {
 			return nil, err
@@ -239,7 +238,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	resp.Files = append(resp.Files, selectorResp.Files...)
 	frozen, err := chainFrozenFiles(
-		context.Background(), req, p.Options.FileNamePattern, embedded,
+		req, p.Options.FileNamePattern, embedded,
 	)
 	if err != nil {
 		return nil, err
@@ -265,7 +264,7 @@ type predecessor struct {
 // version package instead of being defined at the current one. Sibling plugins
 // (go/marshal) use it to skip emission for aliased types.
 func AliasedTypes(req *plugin.Request) (set.Set[string], error) {
-	preds, err := chainPredecessors(context.Background(), req)
+	preds, err := chainPredecessors(req)
 	if err != nil {
 		return nil, err
 	}
@@ -351,18 +350,18 @@ func latestTable(
 // every chain-covered @go output path to its current version, and members
 // holds every current-surface member's qualified name.
 func Survey(
-	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+	table *resolution.Table, res *versions.Resolver,
 ) (map[string]int, set.Set[string], error) {
-	return versioning.Survey(ctx, table, res)
+	return versioning.Survey(table, res)
 }
 
 // StructurallyEqual reports whether two declarations share a persisted shape,
 // resolving each side's references through its own table. It re-exports the
 // internal schemadiff judgment for the versions gate.
 func StructurallyEqual(
-	old, new resolution.Type, oldTable, newTable *resolution.Table,
+	old, next resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
-	return schemadiff.StructurallyEqual(old, new, oldTable, newTable)
+	return schemadiff.StructurallyEqual(old, next, oldTable, newTable)
 }
 
 // PersistedClosure returns the qualified names of every type reachable from a @go
@@ -456,13 +455,13 @@ func generateGoFile(
 	if err != nil || len(conflicts) == 0 {
 		return content, err
 	}
-	// Two versions of one dependency derive the same alias. Rebind them by version
-	// and render again.
+	// Two versions of one dependency, or two packages with one name, derive the same
+	// alias. Rebind them and render again.
 	var conflicted []string
 	for _, paths := range conflicts {
 		conflicted = append(conflicted, paths...)
 	}
-	overrides := naming.VersionAliases(
+	overrides := naming.ImportAliases(
 		conflicted, resolveGoImportPath(outputPath, repoRoot),
 	)
 	content, conflicts, err = renderGoFile(
@@ -709,7 +708,7 @@ func orderDecls(
 
 func processEnum(e resolution.Type) enumData {
 	name := naming.GetGoName(e)
-	form := e.Form.(resolution.EnumForm)
+	form := resolution.MustForm[resolution.EnumForm](e)
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
@@ -771,7 +770,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 }
 
 func processStruct(entry resolution.Type, data *templateData) (structData, error) {
-	form := entry.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](entry)
 	sd := structData{
 		Name:    entry.Name,
 		Doc:     doc.Get(entry.Domains),
@@ -817,10 +816,6 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 
 	genMethods := !sd.IsGeneric
 	if genMethods && len(embeds) > 0 {
-		sd.DefaultRecurse = append(
-			sd.DefaultRecurse,
-			embedRecurseSteps(embeds, nil, data, defaultsRule)...,
-		)
 		sd.ValidateRecurse = append(
 			sd.ValidateRecurse,
 			embedRecurseSteps(embeds, nil, data, validateRule)...,
@@ -857,10 +852,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 			if defaultOnly.Contains(field.Name) {
 				fills = overrideFills(field, fd)
 			}
-			sd.DefaultFills = append(sd.DefaultFills, fills...)
-		}
-		if step, ok := goRecurseStep(field, fd, defaultsRule); ok {
-			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
+			sd.SetFills = append(sd.SetFills, fills...)
 		}
 		if validateSkip(field, fd) {
 			continue
@@ -880,8 +872,6 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		sd.DefaultGroups = goDefaultGroups(fields, data)
 		sd.SetSteps = setDefaultsSteps(embeds, fields, data)
 	}
-	sd.SetFills = setFills(sd.DefaultFills)
-	sd.DefaultFills = applyFills(sd.DefaultFills)
 	sd.DecodeHooks = sd.SetDefaultsView().Sets() &&
 		!data.embedded.Contains(embedKey(data.OutputPath, naming.GetGoName(entry)))
 	if sd.DecodeHooks {
@@ -899,10 +889,7 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 		data.AddExternal(strconvImportPath)
 	}
 	if len(sd.Name) > 0 {
-		sd.Receiver = receiverName(
-			sd.Name,
-			hasSliceRecurse(sd.DefaultRecurse) || hasSliceRecurse(sd.ValidateRecurse),
-		)
+		sd.Receiver = receiverName(sd.Name, hasSliceRecurse(sd.ValidateRecurse))
 	}
 
 	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
@@ -1155,21 +1142,21 @@ type declData struct {
 }
 
 type structData struct {
-	Name           string
-	Doc            string
-	AliasOf        string
-	Receiver       string
-	Fields         []fieldData
-	TypeParams     []typeParamData
-	ExtendsTypes   []string
-	ExtraFields    []string
-	DefaultFills   []defaultFillData
-	DefaultGroups  []defaultGroupData
-	DefaultRecurse []recurseStepData
+	Name         string
+	Doc          string
+	AliasOf      string
+	Receiver     string
+	Fields       []fieldData
+	TypeParams   []typeParamData
+	ExtendsTypes []string
+	ExtraFields  []string
 	// SetSteps and SetFills are the nested SetDefaults calls and the assignments of
 	// the generated SetDefaults.
 	SetSteps []recurseStepData
 	SetFills []defaultFillData
+	// DefaultGroups are the struct's own `@default group`s, set only when all of
+	// their members are zero.
+	DefaultGroups []defaultGroupData
 	// DecodeHooks marks a struct whose zero value decodes JSON and msgpack over its
 	// defaults. A type that some struct embeds takes none: its embedder sets them.
 	DecodeHooks      bool
@@ -1487,57 +1474,6 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 }
 {{end -}}
 {{- $s := .}}
-{{- if or .DefaultFills .DefaultGroups .DefaultRecurse}}
-{{- if .SetDefaultsView.HasGroups}}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults. A default
-// group takes its defaults only when all of its members are zero.
-{{- else}}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-{{- end}}
-func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
-{{- range $s.DefaultFills}}
-	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
-{{- range .Setup}}
-		{{.}}
-{{- end}}
-		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
-	}
-{{- end}}
-{{- range $s.DefaultGroups}}
-	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$s.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
-{{- range .Fills}}
-		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
-{{- end}}
-	}
-{{- end}}
-{{- range $s.DefaultRecurse}}
-{{- if eq (printf "%s" .Kind) "value"}}
-	{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
-{{- else if eq (printf "%s" .Kind) "pointer"}}
-	if {{$s.Receiver}}.{{.GoName}} != nil {
-		{{$s.Receiver}}.{{.GoName}}.ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "slice"}}
-	for i := range {{$s.Receiver}}.{{.GoName}} {
-		{{$s.Receiver}}.{{.GoName}}[i].ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "nested_slice"}}
-	for i := range {{$s.Receiver}}.{{.GoName}} {
-		for j := range {{$s.Receiver}}.{{.GoName}}[i] {
-			{{$s.Receiver}}.{{.GoName}}[i][j].ApplyDefaults()
-		}
-	}
-{{- else if eq (printf "%s" .Kind) "map"}}
-	for key, value := range {{$s.Receiver}}.{{.GoName}} {
-		value.ApplyDefaults()
-		{{$s.Receiver}}.{{.GoName}}[key] = value
-	}
-{{- end}}
-{{- end}}
-}
-{{- end}}
 {{- template "setDefaults" .SetDefaultsView}}
 {{- if .DecodeHooks}}
 {{- if .SetDefaultsView.HasGroups}}
@@ -1727,57 +1663,6 @@ type {{.TypeName}} struct {
 func ({{.TypeName}}) {{$u.Marker}}() {}
 {{- template "setDefaults" .SetDefaultsView}}
 {{- $vt := .}}
-{{- if .NeedsApplyDefaults}}
-{{- if .SetDefaultsView.HasGroups}}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults. A default
-// group takes its defaults only when all of its members are zero.
-{{- else}}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-{{- end}}
-func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
-{{- range $vt.DefaultFills}}
-	if {{$vt.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
-{{- range .Setup}}
-		{{.}}
-{{- end}}
-		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
-	}
-{{- end}}
-{{- range $vt.DefaultGroups}}
-	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$vt.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
-{{- range .Fills}}
-		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
-{{- end}}
-	}
-{{- end}}
-{{- range $vt.DefaultRecurse}}
-{{- if eq (printf "%s" .Kind) "value"}}
-	{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
-{{- else if eq (printf "%s" .Kind) "pointer"}}
-	if {{$vt.Receiver}}.{{.GoName}} != nil {
-		{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "slice"}}
-	for i := range {{$vt.Receiver}}.{{.GoName}} {
-		{{$vt.Receiver}}.{{.GoName}}[i].ApplyDefaults()
-	}
-{{- else if eq (printf "%s" .Kind) "nested_slice"}}
-	for i := range {{$vt.Receiver}}.{{.GoName}} {
-		for j := range {{$vt.Receiver}}.{{.GoName}}[i] {
-			{{$vt.Receiver}}.{{.GoName}}[i][j].ApplyDefaults()
-		}
-	}
-{{- else if eq (printf "%s" .Kind) "map"}}
-	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
-		value.ApplyDefaults()
-		{{$vt.Receiver}}.{{.GoName}}[key] = value
-	}
-{{- end}}
-{{- end}}
-}
-{{- end}}
 {{- if .NeedsValidate}}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1933,29 +1818,6 @@ func (u {{.Name}}) {{.TagMethod}}() {{.DiscType}} {
 {{- end}}
 	}
 	return ""
-}
-{{- end}}
-{{- if .NeedsApplyDefaults}}
-{{- if .HasGroups}}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults. A default group takes its defaults only when all of its
-// members are zero.
-{{- else}}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-{{- end}}
-func (u *{{.Name}}) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-{{- range .Variants}}
-{{- if .NeedsApplyDefaults}}
-	case {{.TypeName}}:
-		variant.ApplyDefaults()
-		u.Variant = variant
-{{- end}}
-{{- end}}
-	}
 }
 {{- end}}
 

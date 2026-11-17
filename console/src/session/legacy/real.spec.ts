@@ -74,11 +74,10 @@ const STORE: Record<string, unknown> = {
 const read = async (key: string) => STORE[key] ?? null;
 
 describe("Legacy.migrate over a real 0.56 store", () => {
-  it("should carry both Cores across under the keys they already had", async () => {
+  it("should carry the local Core across and drop the retired demo Core", async () => {
     const { core } = await Legacy.migrate(read);
-    expect(Object.keys(core?.cores ?? {}).sort()).toEqual([
+    expect(Object.keys(core?.cores ?? {})).toEqual([
       "8edeb842-40e9-4a55-87e9-5f0937b4654a",
-      "DEMO",
     ]);
     expect(core?.cores["8edeb842-40e9-4a55-87e9-5f0937b4654a"]).toMatchObject({
       name: "Local",
@@ -87,7 +86,6 @@ describe("Legacy.migrate over a real 0.56 store", () => {
       port: 9090,
       secure: false,
     });
-    expect(core?.cores.DEMO).toMatchObject({ port: 9090, secure: true });
   });
 
   it("should leave the selection empty when the old store had none", async () => {

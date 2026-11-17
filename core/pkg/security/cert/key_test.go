@@ -42,8 +42,9 @@ var _ = Describe("KeyAlgorithm", func() {
 		DescribeTable("should generate the ML-DSA parameter set the name selects",
 			func(algo cert.KeyAlgorithm, expected mldsa.Parameters) {
 				key := MustSucceed(algo.GenerateKey(testutil.SmallKeySize))
-				Expect(key.(*mldsa.PrivateKey).PublicKey().Parameters()).
-					To(Equal(expected))
+				mlKey, ok := key.(*mldsa.PrivateKey)
+				Expect(ok).To(BeTrue())
+				Expect(mlKey.PublicKey().Parameters()).To(Equal(expected))
 			},
 			Entry("ML-DSA-44", cert.KeyAlgorithmMLDSA44, mldsa.MLDSA44()),
 			Entry("ML-DSA-65", cert.KeyAlgorithmMLDSA65, mldsa.MLDSA65()),

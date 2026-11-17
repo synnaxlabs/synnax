@@ -42,13 +42,6 @@ type RetrieveResponse struct {
 	ICDs []serviceicd.ICD `json:"icds" msgpack:"icds"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RetrieveResponse) ApplyDefaults() {
-	for i := range r.ICDs {
-		r.ICDs[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r RetrieveResponse) Validate() error {

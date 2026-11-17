@@ -23,6 +23,7 @@ export * from "@/feature/icd/useImport";
 const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/icd/editor/Editor"), "Editor"),
   Icon: Icon.Library,
+  iconKey: "library",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     {

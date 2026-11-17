@@ -11,6 +11,7 @@ package cluster_test
 
 import (
 	"fmt"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -48,12 +49,9 @@ type (
 )
 
 func aspenRecord(hostKey int, nodeKeys ...int) []byte {
-	nodes := ""
+	nodes := make([]string, len(nodeKeys))
 	for i, k := range nodeKeys {
-		if i > 0 {
-			nodes += ","
-		}
-		nodes += fmt.Sprintf(
+		nodes[i] = fmt.Sprintf(
 			`"%d":{"Address":"localhost:%d","Heartbeat":{"Generation":3,"Version":7},"State":0,"Key":%d}`,
 			k,
 			9089+k,
@@ -63,7 +61,7 @@ func aspenRecord(hostKey int, nodeKeys ...int) []byte {
 	return fmt.Appendf(
 		nil,
 		`{"Nodes":{%s},"HostKey":%d,"ClusterKey":%q}`,
-		nodes, hostKey, clusterKey,
+		strings.Join(nodes, ","), hostKey, clusterKey,
 	)
 }
 
@@ -83,7 +81,7 @@ var _ = Describe("Identity", func() {
 
 	It("Should store a new identity that an older Core reads", func(ctx SpecContext) {
 		id := MustSucceed(cluster.OpenIdentity(ctx, db, "localhost:9090"))
-		b, closer := MustSucceed2(db.Get(ctx, identityKey))
+		b, closer := MustSucceed2(db.Get(identityKey))
 		defer func() { Expect(closer.Close()).To(Succeed()) }()
 		Expect(b).To(MatchJSON(fmt.Sprintf(
 			`{"Nodes":{"1":{"Address":"localhost:9090","Heartbeat":{"Generation":0,"Version":0},"State":0,"Key":1}},"HostKey":1,"ClusterKey":%q}`,

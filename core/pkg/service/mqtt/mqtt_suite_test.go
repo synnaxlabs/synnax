@@ -12,7 +12,6 @@ package mqtt_test
 import (
 	"context"
 	"crypto/tls"
-	"io"
 	"log/slog"
 	"net"
 	"slices"
@@ -361,7 +360,7 @@ func startBrokerWith(opts brokerOptions) *testBroker {
 	b := &testBroker{}
 	b.server = mochi.New(&mochi.Options{
 		InlineClient: true,
-		Logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:       slog.New(slog.DiscardHandler),
 	})
 	if opts.username == "" {
 		Expect(b.server.AddHook(&openHook{refused: opts.refused}, nil)).To(Succeed())

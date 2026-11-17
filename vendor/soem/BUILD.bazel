@@ -267,6 +267,7 @@ EOF""",
 # The headers, options, and links of soem and core.
 SOEM_LIBRARY_HDRS = SOEM_HDRS + [
     "SOEM/osal/osal.h",
+    "soem_patched.h",
     ":generate_ec_options_h",
 ] + select({
     "@platforms//os:linux": LINUX_PLATFORM_HDRS,

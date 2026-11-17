@@ -21,7 +21,10 @@ export type RetrieveQuery = {
   key: view.Key;
 };
 
-export const { useResult } = Flux.createRetrieve<RetrieveQuery, view.View>({
+export const { use, useResult, useTombstone } = Flux.createRetrieve<
+  RetrieveQuery,
+  view.View
+>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key } }) => await client.views.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>

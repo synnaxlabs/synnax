@@ -53,6 +53,8 @@ func buildNodes(specs ...nodeSpec) (graph.Nodes, map[string]msgpack.EncodedJSON)
 	return nodes, inputs
 }
 
+const boolHint = "note: hint: compare the value to get a bool, such as value != 0"
+
 var _ = Describe("Graph", func() {
 	Describe("Parse", func() {
 		It("Should correctly parse a single stage", func() {
@@ -740,7 +742,7 @@ var _ = Describe("Graph", func() {
 
 			DescribeTable(
 				"Should describe a mismatched edge into select",
-				func(ctx SpecContext, t types.Type) {
+				func(ctx SpecContext, t types.Type, note OmegaMatcher) {
 					nodes, inputs := buildNodes(
 						nodeSpec{
 							key: "on",
@@ -782,12 +784,13 @@ var _ = Describe("Graph", func() {
 							"to 'select' input 'output': " + t.String() +
 							" is not compatible with bool",
 					))
+					Expect(diagnostics.String()).To(note)
 				},
-				Entry("f32", types.F32()),
-				Entry("f64", types.F64()),
-				Entry("u8", types.U8()),
-				Entry("i32", types.I32()),
-				Entry("str", types.String()),
+				Entry("f32", types.F32(), ContainSubstring(boolHint)),
+				Entry("f64", types.F64(), ContainSubstring(boolHint)),
+				Entry("u8", types.U8(), ContainSubstring(boolHint)),
+				Entry("i32", types.I32(), ContainSubstring(boolHint)),
+				Entry("str", types.String(), Not(ContainSubstring("note:"))),
 			)
 
 			It("Should handle missing edge connections", func(ctx SpecContext) {

@@ -48,9 +48,11 @@ const NoStatuses = (): ReactElement => {
 const favoriteNameID = (key: status.Key): string =>
   BaseList.itemNameID(`favorite-${key}`);
 
-const contextMenu = Component.renderProp((props: Menu.ContextMenuMenuProps) => (
+const FavoritesContextMenu = (props: Menu.ContextMenuMenuProps) => (
   <ContextMenu {...props} nameID={favoriteNameID} />
-));
+);
+
+const contextMenu = Component.renderProp(FavoritesContextMenu);
 
 const List = (): ReactElement => {
   const favorites = Session.Status.useSelectFavorites();

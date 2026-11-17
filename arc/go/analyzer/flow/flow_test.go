@@ -522,7 +522,9 @@ func gate() {value bool} bool { return value }
 compute(src_chan) -> gate() -> flag`)
 				Expect(ctx.Diagnostics.String()).To(ContainSubstring(
 					"upstream value type f64 does not match func 'gate' " +
-						"trigger parameter 'value' type bool",
+						"trigger parameter 'value' type bool\n" +
+						"  note: hint: compare the value to get a bool, such as " +
+						"value != 0",
 				))
 			},
 		)
@@ -760,6 +762,9 @@ int_chan -> consumer()`))
 					Expect((*ctx.Diagnostics)[0].Message).To(Equal(
 						"upstream value type i32 does not match func 'consumer' trigger parameter 'v' type f64",
 					))
+					Expect(ctx.Diagnostics.String()).To(
+						ContainSubstring("note: hint: use f64(value) to convert"),
+					)
 				},
 			)
 		})
