@@ -9,14 +9,19 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 
+import { suggestIdentifiers } from "@/feature/ni/device/identifier";
+import { ZERO_PROPERTIES } from "@/feature/ni/device/types";
 import { Task } from "@/feature/ni/task";
 import { Device as PlatformDevice } from "@/platform/device";
+
+const MULTI_DEVICE = { zeroProperties: ZERO_PROPERTIES, suggestIdentifiers };
 
 const TASK_CONTEXT_MENU_ITEMS = [
   PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.analogReadTask",
     label: "Create analog read task",
     useCreate: Task.useCreateAnalogRead,
+    multiDevice: MULTI_DEVICE,
   }),
   PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.analogWriteTask",
@@ -27,6 +32,7 @@ const TASK_CONTEXT_MENU_ITEMS = [
     itemKey: "ni.counterReadTask",
     label: "Create counter read task",
     useCreate: Task.useCreateCounterRead,
+    multiDevice: MULTI_DEVICE,
   }),
   PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.digitalReadTask",

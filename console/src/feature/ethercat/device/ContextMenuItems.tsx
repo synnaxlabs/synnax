@@ -11,10 +11,11 @@ import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
+import { strings, unique } from "@synnaxlabs/x";
 
 import {
   useEnabledState,
-  useResultSlave,
+  useSlavesByKeys,
   useToggleEnabled,
 } from "@/feature/ethercat/device/queries";
 import { Task } from "@/feature/ethercat/task";
@@ -31,16 +32,23 @@ const ConfigureItem = ({ deviceKey, onConfigure }: ConfigureItemProps) => (
   </Menu.Item>
 );
 
+const MULTI_DEVICE = {
+  zeroProperties: {},
+  suggestIdentifiers: ({ name }: device.Device) => strings.createShortIdentifiers(name),
+};
+
 const READ_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.readTask",
   label: "Create read task",
   useCreate: Task.useCreateRead,
+  multiDevice: MULTI_DEVICE,
 });
 
 const WRITE_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.writeTask",
   label: "Create write task",
   useCreate: Task.useCreateWrite,
+  multiDevice: MULTI_DEVICE,
 });
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
@@ -49,12 +57,18 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const { update: toggleEnabled } = useToggleEnabled();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
-  const { data: first } = useResultSlave({ key: keys[0] });
-  const pdos = first?.properties.pdos;
-  const taskItems = [
-    ...(pdos != null && pdos.inputs.length > 0 ? [READ_TASK_ITEM] : []),
-    ...(pdos != null && pdos.outputs.length > 0 ? [WRITE_TASK_ITEM] : []),
-  ];
+  const slaves = useSlavesByKeys(keys) ?? [];
+  const hasInputs = slaves.some(({ properties }) => properties.pdos.inputs.length > 0);
+  const hasOutputs = slaves.some(
+    ({ properties }) => properties.pdos.outputs.length > 0,
+  );
+  // One task runs the modules of one network.
+  const oneNetwork =
+    unique.unique(slaves.map(({ rack, properties }) => `${rack}/${properties.network}`))
+      .length <= 1;
+  const taskItems = oneNetwork
+    ? [...(hasInputs ? [READ_TASK_ITEM] : []), ...(hasOutputs ? [WRITE_TASK_ITEM] : [])]
+    : [];
 
   const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });
