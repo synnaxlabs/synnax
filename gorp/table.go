@@ -45,6 +45,10 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// in an entry of the table, after Gorp writes the entry. It gets the entry as
 	// written. An error fails the delete.
 	OnDetach func(ctx context.Context, tx Tx, e E) error
+	// OnTargetSet runs in the transaction of each write that sets an entry that an
+	// entry of the table holds through a Use reference, after Gorp writes the target,
+	// with the holding entry. An error fails the write.
+	OnTargetSet func(ctx context.Context, tx Tx, e E) error
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -69,6 +73,8 @@ type Table[K Key, E Entry[K]] struct {
 	populateShutdown io.Closer
 	// onDetach is TableConfig.OnDetach.
 	onDetach func(ctx context.Context, tx Tx, e E) error
+	// onTargetSet is TableConfig.OnTargetSet.
+	onTargetSet func(ctx context.Context, tx Tx, e E) error
 }
 
 // Close cancels any running populate goroutine, waits for it to exit, and releases
@@ -105,12 +111,13 @@ func OpenTable[K Key, E Entry[K]](
 	cfg TableConfig[K, E],
 ) (*Table[K, E], error) {
 	t := &Table[K, E]{
-		db:         cfg.DB,
-		keyPrefix:  key.Prefix[E](),
-		indexes:    slices.Clone(cfg.Indexes),
-		name:       cfg.Name,
-		references: cfg.References,
-		onDetach:   cfg.OnDetach,
+		db:          cfg.DB,
+		keyPrefix:   key.Prefix[E](),
+		indexes:     slices.Clone(cfg.Indexes),
+		name:        cfg.Name,
+		references:  cfg.References,
+		onDetach:    cfg.OnDetach,
+		onTargetSet: cfg.OnTargetSet,
 	}
 	if t.name == "" {
 		t.name = types.Name[E]()
