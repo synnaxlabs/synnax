@@ -323,7 +323,9 @@ Base struct {
 Device union on model Model extends Base {
     t4 {
         analog_input   map<T4AnalogInputPort, channel.Key> = {} {
-            @doc value "maps an analog input port to the channel that holds its samples."
+            @doc value """
+                maps an analog input port to the channel that holds its samples.
+            """
         }
         analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
             @doc value "maps an analog output port to the channels that write to it."
@@ -339,7 +341,9 @@ Device union on model Model extends Base {
     }
     t7 {
         analog_input   map<T7AnalogInputPort, channel.Key> = {} {
-            @doc value "maps an analog input port to the channel that holds its samples."
+            @doc value """
+                maps an analog input port to the channel that holds its samples.
+            """
         }
         analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
             @doc value "maps an analog output port to the channels that write to it."
@@ -355,7 +359,9 @@ Device union on model Model extends Base {
     }
     t8 {
         analog_input   map<T8AnalogInputPort, channel.Key> = {} {
-            @doc value "maps an analog input port to the channel that holds its samples."
+            @doc value """
+                maps an analog input port to the channel that holds its samples.
+            """
         }
         analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
             @doc value "maps an analog output port to the channels that write to it."
