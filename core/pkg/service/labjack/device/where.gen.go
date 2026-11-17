@@ -83,7 +83,7 @@ func MatchWhere(w Where) (Filter, error) {
 				_ Retrieve,
 				e *Device,
 			) (bool, error) {
-				return match(e.Name), nil
+				return match(e.Base().Name), nil
 			}))
 		}
 	}
@@ -105,7 +105,7 @@ func MatchWhere(w Where) (Filter, error) {
 				_ Retrieve,
 				e *Device,
 			) (bool, error) {
-				return e.Serial > v, nil
+				return e.Base().Serial > v, nil
 			}))
 		}
 		if l.Gte != nil {
@@ -115,7 +115,7 @@ func MatchWhere(w Where) (Filter, error) {
 				_ Retrieve,
 				e *Device,
 			) (bool, error) {
-				return e.Serial >= v, nil
+				return e.Base().Serial >= v, nil
 			}))
 		}
 		if l.Lt != nil {
@@ -125,7 +125,7 @@ func MatchWhere(w Where) (Filter, error) {
 				_ Retrieve,
 				e *Device,
 			) (bool, error) {
-				return e.Serial < v, nil
+				return e.Base().Serial < v, nil
 			}))
 		}
 		if l.Lte != nil {
@@ -135,7 +135,7 @@ func MatchWhere(w Where) (Filter, error) {
 				_ Retrieve,
 				e *Device,
 			) (bool, error) {
-				return e.Serial <= v, nil
+				return e.Base().Serial <= v, nil
 			}))
 		}
 	}

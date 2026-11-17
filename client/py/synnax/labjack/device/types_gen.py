@@ -38,7 +38,571 @@ MODEL_T8: Literal["t8"] = "t8"
 
 Model = Literal["t4", "t7", "t8"]
 
+ANALOG_OUTPUT_PORT_DAC0: Literal["DAC0"] = "DAC0"
+
+ANALOG_OUTPUT_PORT_DAC1: Literal["DAC1"] = "DAC1"
+
+
+AnalogOutputPort = Literal["DAC0", "DAC1"]
+
+T_4_ANALOG_INPUT_PORT_AIN0: Literal["AIN0"] = "AIN0"
+
+T_4_ANALOG_INPUT_PORT_AIN1: Literal["AIN1"] = "AIN1"
+
+T_4_ANALOG_INPUT_PORT_AIN2: Literal["AIN2"] = "AIN2"
+
+T_4_ANALOG_INPUT_PORT_AIN3: Literal["AIN3"] = "AIN3"
+
+T_4_ANALOG_INPUT_PORT_AIN4: Literal["AIN4"] = "AIN4"
+
+T_4_ANALOG_INPUT_PORT_AIN5: Literal["AIN5"] = "AIN5"
+
+T_4_ANALOG_INPUT_PORT_AIN6: Literal["AIN6"] = "AIN6"
+
+T_4_ANALOG_INPUT_PORT_AIN7: Literal["AIN7"] = "AIN7"
+
+T_4_ANALOG_INPUT_PORT_AIN8: Literal["AIN8"] = "AIN8"
+
+T_4_ANALOG_INPUT_PORT_AIN9: Literal["AIN9"] = "AIN9"
+
+T_4_ANALOG_INPUT_PORT_AIN10: Literal["AIN10"] = "AIN10"
+
+T_4_ANALOG_INPUT_PORT_AIN11: Literal["AIN11"] = "AIN11"
+
+
+T4AnalogInputPort = Literal[
+    "AIN0",
+    "AIN1",
+    "AIN2",
+    "AIN3",
+    "AIN4",
+    "AIN5",
+    "AIN6",
+    "AIN7",
+    "AIN8",
+    "AIN9",
+    "AIN10",
+    "AIN11",
+]
+
+T_4_DIGITAL_PORT_DIO4: Literal["DIO4"] = "DIO4"
+
+T_4_DIGITAL_PORT_DIO5: Literal["DIO5"] = "DIO5"
+
+T_4_DIGITAL_PORT_DIO6: Literal["DIO6"] = "DIO6"
+
+T_4_DIGITAL_PORT_DIO7: Literal["DIO7"] = "DIO7"
+
+T_4_DIGITAL_PORT_DIO8: Literal["DIO8"] = "DIO8"
+
+T_4_DIGITAL_PORT_DIO9: Literal["DIO9"] = "DIO9"
+
+T_4_DIGITAL_PORT_DIO10: Literal["DIO10"] = "DIO10"
+
+T_4_DIGITAL_PORT_DIO11: Literal["DIO11"] = "DIO11"
+
+T_4_DIGITAL_PORT_DIO12: Literal["DIO12"] = "DIO12"
+
+T_4_DIGITAL_PORT_DIO13: Literal["DIO13"] = "DIO13"
+
+T_4_DIGITAL_PORT_DIO14: Literal["DIO14"] = "DIO14"
+
+T_4_DIGITAL_PORT_DIO15: Literal["DIO15"] = "DIO15"
+
+T_4_DIGITAL_PORT_DIO16: Literal["DIO16"] = "DIO16"
+
+T_4_DIGITAL_PORT_DIO17: Literal["DIO17"] = "DIO17"
+
+T_4_DIGITAL_PORT_DIO18: Literal["DIO18"] = "DIO18"
+
+T_4_DIGITAL_PORT_DIO19: Literal["DIO19"] = "DIO19"
+
+T_4_DIGITAL_PORT_DIO20: Literal["DIO20"] = "DIO20"
+
+T_4_DIGITAL_PORT_DIO21: Literal["DIO21"] = "DIO21"
+
+T_4_DIGITAL_PORT_DIO22: Literal["DIO22"] = "DIO22"
+
+
+T4DigitalPort = Literal[
+    "DIO4",
+    "DIO5",
+    "DIO6",
+    "DIO7",
+    "DIO8",
+    "DIO9",
+    "DIO10",
+    "DIO11",
+    "DIO12",
+    "DIO13",
+    "DIO14",
+    "DIO15",
+    "DIO16",
+    "DIO17",
+    "DIO18",
+    "DIO19",
+    "DIO20",
+    "DIO21",
+    "DIO22",
+]
+
+T_7_ANALOG_INPUT_PORT_AIN0: Literal["AIN0"] = "AIN0"
+
+T_7_ANALOG_INPUT_PORT_AIN1: Literal["AIN1"] = "AIN1"
+
+T_7_ANALOG_INPUT_PORT_AIN2: Literal["AIN2"] = "AIN2"
+
+T_7_ANALOG_INPUT_PORT_AIN3: Literal["AIN3"] = "AIN3"
+
+T_7_ANALOG_INPUT_PORT_AIN4: Literal["AIN4"] = "AIN4"
+
+T_7_ANALOG_INPUT_PORT_AIN5: Literal["AIN5"] = "AIN5"
+
+T_7_ANALOG_INPUT_PORT_AIN6: Literal["AIN6"] = "AIN6"
+
+T_7_ANALOG_INPUT_PORT_AIN7: Literal["AIN7"] = "AIN7"
+
+T_7_ANALOG_INPUT_PORT_AIN8: Literal["AIN8"] = "AIN8"
+
+T_7_ANALOG_INPUT_PORT_AIN9: Literal["AIN9"] = "AIN9"
+
+T_7_ANALOG_INPUT_PORT_AIN10: Literal["AIN10"] = "AIN10"
+
+T_7_ANALOG_INPUT_PORT_AIN11: Literal["AIN11"] = "AIN11"
+
+T_7_ANALOG_INPUT_PORT_AIN12: Literal["AIN12"] = "AIN12"
+
+T_7_ANALOG_INPUT_PORT_AIN13: Literal["AIN13"] = "AIN13"
+
+T_7_ANALOG_INPUT_PORT_AIN48: Literal["AIN48"] = "AIN48"
+
+T_7_ANALOG_INPUT_PORT_AIN49: Literal["AIN49"] = "AIN49"
+
+T_7_ANALOG_INPUT_PORT_AIN50: Literal["AIN50"] = "AIN50"
+
+T_7_ANALOG_INPUT_PORT_AIN51: Literal["AIN51"] = "AIN51"
+
+T_7_ANALOG_INPUT_PORT_AIN52: Literal["AIN52"] = "AIN52"
+
+T_7_ANALOG_INPUT_PORT_AIN53: Literal["AIN53"] = "AIN53"
+
+T_7_ANALOG_INPUT_PORT_AIN54: Literal["AIN54"] = "AIN54"
+
+T_7_ANALOG_INPUT_PORT_AIN55: Literal["AIN55"] = "AIN55"
+
+T_7_ANALOG_INPUT_PORT_AIN56: Literal["AIN56"] = "AIN56"
+
+T_7_ANALOG_INPUT_PORT_AIN57: Literal["AIN57"] = "AIN57"
+
+T_7_ANALOG_INPUT_PORT_AIN58: Literal["AIN58"] = "AIN58"
+
+T_7_ANALOG_INPUT_PORT_AIN59: Literal["AIN59"] = "AIN59"
+
+T_7_ANALOG_INPUT_PORT_AIN60: Literal["AIN60"] = "AIN60"
+
+T_7_ANALOG_INPUT_PORT_AIN61: Literal["AIN61"] = "AIN61"
+
+T_7_ANALOG_INPUT_PORT_AIN62: Literal["AIN62"] = "AIN62"
+
+T_7_ANALOG_INPUT_PORT_AIN63: Literal["AIN63"] = "AIN63"
+
+T_7_ANALOG_INPUT_PORT_AIN64: Literal["AIN64"] = "AIN64"
+
+T_7_ANALOG_INPUT_PORT_AIN65: Literal["AIN65"] = "AIN65"
+
+T_7_ANALOG_INPUT_PORT_AIN66: Literal["AIN66"] = "AIN66"
+
+T_7_ANALOG_INPUT_PORT_AIN67: Literal["AIN67"] = "AIN67"
+
+T_7_ANALOG_INPUT_PORT_AIN68: Literal["AIN68"] = "AIN68"
+
+T_7_ANALOG_INPUT_PORT_AIN69: Literal["AIN69"] = "AIN69"
+
+T_7_ANALOG_INPUT_PORT_AIN70: Literal["AIN70"] = "AIN70"
+
+T_7_ANALOG_INPUT_PORT_AIN71: Literal["AIN71"] = "AIN71"
+
+T_7_ANALOG_INPUT_PORT_AIN72: Literal["AIN72"] = "AIN72"
+
+T_7_ANALOG_INPUT_PORT_AIN73: Literal["AIN73"] = "AIN73"
+
+T_7_ANALOG_INPUT_PORT_AIN74: Literal["AIN74"] = "AIN74"
+
+T_7_ANALOG_INPUT_PORT_AIN75: Literal["AIN75"] = "AIN75"
+
+T_7_ANALOG_INPUT_PORT_AIN76: Literal["AIN76"] = "AIN76"
+
+T_7_ANALOG_INPUT_PORT_AIN77: Literal["AIN77"] = "AIN77"
+
+T_7_ANALOG_INPUT_PORT_AIN78: Literal["AIN78"] = "AIN78"
+
+T_7_ANALOG_INPUT_PORT_AIN79: Literal["AIN79"] = "AIN79"
+
+T_7_ANALOG_INPUT_PORT_AIN80: Literal["AIN80"] = "AIN80"
+
+T_7_ANALOG_INPUT_PORT_AIN81: Literal["AIN81"] = "AIN81"
+
+T_7_ANALOG_INPUT_PORT_AIN82: Literal["AIN82"] = "AIN82"
+
+T_7_ANALOG_INPUT_PORT_AIN83: Literal["AIN83"] = "AIN83"
+
+T_7_ANALOG_INPUT_PORT_AIN84: Literal["AIN84"] = "AIN84"
+
+T_7_ANALOG_INPUT_PORT_AIN85: Literal["AIN85"] = "AIN85"
+
+T_7_ANALOG_INPUT_PORT_AIN86: Literal["AIN86"] = "AIN86"
+
+T_7_ANALOG_INPUT_PORT_AIN87: Literal["AIN87"] = "AIN87"
+
+T_7_ANALOG_INPUT_PORT_AIN88: Literal["AIN88"] = "AIN88"
+
+T_7_ANALOG_INPUT_PORT_AIN89: Literal["AIN89"] = "AIN89"
+
+T_7_ANALOG_INPUT_PORT_AIN90: Literal["AIN90"] = "AIN90"
+
+T_7_ANALOG_INPUT_PORT_AIN91: Literal["AIN91"] = "AIN91"
+
+T_7_ANALOG_INPUT_PORT_AIN92: Literal["AIN92"] = "AIN92"
+
+T_7_ANALOG_INPUT_PORT_AIN93: Literal["AIN93"] = "AIN93"
+
+T_7_ANALOG_INPUT_PORT_AIN94: Literal["AIN94"] = "AIN94"
+
+T_7_ANALOG_INPUT_PORT_AIN95: Literal["AIN95"] = "AIN95"
+
+T_7_ANALOG_INPUT_PORT_AIN96: Literal["AIN96"] = "AIN96"
+
+T_7_ANALOG_INPUT_PORT_AIN97: Literal["AIN97"] = "AIN97"
+
+T_7_ANALOG_INPUT_PORT_AIN98: Literal["AIN98"] = "AIN98"
+
+T_7_ANALOG_INPUT_PORT_AIN99: Literal["AIN99"] = "AIN99"
+
+T_7_ANALOG_INPUT_PORT_AIN100: Literal["AIN100"] = "AIN100"
+
+T_7_ANALOG_INPUT_PORT_AIN101: Literal["AIN101"] = "AIN101"
+
+T_7_ANALOG_INPUT_PORT_AIN102: Literal["AIN102"] = "AIN102"
+
+T_7_ANALOG_INPUT_PORT_AIN103: Literal["AIN103"] = "AIN103"
+
+T_7_ANALOG_INPUT_PORT_AIN104: Literal["AIN104"] = "AIN104"
+
+T_7_ANALOG_INPUT_PORT_AIN105: Literal["AIN105"] = "AIN105"
+
+T_7_ANALOG_INPUT_PORT_AIN106: Literal["AIN106"] = "AIN106"
+
+T_7_ANALOG_INPUT_PORT_AIN107: Literal["AIN107"] = "AIN107"
+
+T_7_ANALOG_INPUT_PORT_AIN108: Literal["AIN108"] = "AIN108"
+
+T_7_ANALOG_INPUT_PORT_AIN109: Literal["AIN109"] = "AIN109"
+
+T_7_ANALOG_INPUT_PORT_AIN110: Literal["AIN110"] = "AIN110"
+
+T_7_ANALOG_INPUT_PORT_AIN111: Literal["AIN111"] = "AIN111"
+
+T_7_ANALOG_INPUT_PORT_AIN112: Literal["AIN112"] = "AIN112"
+
+T_7_ANALOG_INPUT_PORT_AIN113: Literal["AIN113"] = "AIN113"
+
+T_7_ANALOG_INPUT_PORT_AIN114: Literal["AIN114"] = "AIN114"
+
+T_7_ANALOG_INPUT_PORT_AIN115: Literal["AIN115"] = "AIN115"
+
+T_7_ANALOG_INPUT_PORT_AIN116: Literal["AIN116"] = "AIN116"
+
+T_7_ANALOG_INPUT_PORT_AIN117: Literal["AIN117"] = "AIN117"
+
+T_7_ANALOG_INPUT_PORT_AIN118: Literal["AIN118"] = "AIN118"
+
+T_7_ANALOG_INPUT_PORT_AIN119: Literal["AIN119"] = "AIN119"
+
+T_7_ANALOG_INPUT_PORT_AIN120: Literal["AIN120"] = "AIN120"
+
+T_7_ANALOG_INPUT_PORT_AIN121: Literal["AIN121"] = "AIN121"
+
+T_7_ANALOG_INPUT_PORT_AIN122: Literal["AIN122"] = "AIN122"
+
+T_7_ANALOG_INPUT_PORT_AIN123: Literal["AIN123"] = "AIN123"
+
+T_7_ANALOG_INPUT_PORT_AIN124: Literal["AIN124"] = "AIN124"
+
+T_7_ANALOG_INPUT_PORT_AIN125: Literal["AIN125"] = "AIN125"
+
+T_7_ANALOG_INPUT_PORT_AIN126: Literal["AIN126"] = "AIN126"
+
+T_7_ANALOG_INPUT_PORT_AIN127: Literal["AIN127"] = "AIN127"
+
+
+T7AnalogInputPort = Literal[
+    "AIN0",
+    "AIN1",
+    "AIN2",
+    "AIN3",
+    "AIN4",
+    "AIN5",
+    "AIN6",
+    "AIN7",
+    "AIN8",
+    "AIN9",
+    "AIN10",
+    "AIN11",
+    "AIN12",
+    "AIN13",
+    "AIN48",
+    "AIN49",
+    "AIN50",
+    "AIN51",
+    "AIN52",
+    "AIN53",
+    "AIN54",
+    "AIN55",
+    "AIN56",
+    "AIN57",
+    "AIN58",
+    "AIN59",
+    "AIN60",
+    "AIN61",
+    "AIN62",
+    "AIN63",
+    "AIN64",
+    "AIN65",
+    "AIN66",
+    "AIN67",
+    "AIN68",
+    "AIN69",
+    "AIN70",
+    "AIN71",
+    "AIN72",
+    "AIN73",
+    "AIN74",
+    "AIN75",
+    "AIN76",
+    "AIN77",
+    "AIN78",
+    "AIN79",
+    "AIN80",
+    "AIN81",
+    "AIN82",
+    "AIN83",
+    "AIN84",
+    "AIN85",
+    "AIN86",
+    "AIN87",
+    "AIN88",
+    "AIN89",
+    "AIN90",
+    "AIN91",
+    "AIN92",
+    "AIN93",
+    "AIN94",
+    "AIN95",
+    "AIN96",
+    "AIN97",
+    "AIN98",
+    "AIN99",
+    "AIN100",
+    "AIN101",
+    "AIN102",
+    "AIN103",
+    "AIN104",
+    "AIN105",
+    "AIN106",
+    "AIN107",
+    "AIN108",
+    "AIN109",
+    "AIN110",
+    "AIN111",
+    "AIN112",
+    "AIN113",
+    "AIN114",
+    "AIN115",
+    "AIN116",
+    "AIN117",
+    "AIN118",
+    "AIN119",
+    "AIN120",
+    "AIN121",
+    "AIN122",
+    "AIN123",
+    "AIN124",
+    "AIN125",
+    "AIN126",
+    "AIN127",
+]
+
+T_7_DIGITAL_PORT_DIO0: Literal["DIO0"] = "DIO0"
+
+T_7_DIGITAL_PORT_DIO1: Literal["DIO1"] = "DIO1"
+
+T_7_DIGITAL_PORT_DIO2: Literal["DIO2"] = "DIO2"
+
+T_7_DIGITAL_PORT_DIO3: Literal["DIO3"] = "DIO3"
+
+T_7_DIGITAL_PORT_DIO4: Literal["DIO4"] = "DIO4"
+
+T_7_DIGITAL_PORT_DIO5: Literal["DIO5"] = "DIO5"
+
+T_7_DIGITAL_PORT_DIO6: Literal["DIO6"] = "DIO6"
+
+T_7_DIGITAL_PORT_DIO7: Literal["DIO7"] = "DIO7"
+
+T_7_DIGITAL_PORT_DIO8: Literal["DIO8"] = "DIO8"
+
+T_7_DIGITAL_PORT_DIO9: Literal["DIO9"] = "DIO9"
+
+T_7_DIGITAL_PORT_DIO10: Literal["DIO10"] = "DIO10"
+
+T_7_DIGITAL_PORT_DIO11: Literal["DIO11"] = "DIO11"
+
+T_7_DIGITAL_PORT_DIO12: Literal["DIO12"] = "DIO12"
+
+T_7_DIGITAL_PORT_DIO13: Literal["DIO13"] = "DIO13"
+
+T_7_DIGITAL_PORT_DIO14: Literal["DIO14"] = "DIO14"
+
+T_7_DIGITAL_PORT_DIO15: Literal["DIO15"] = "DIO15"
+
+T_7_DIGITAL_PORT_DIO16: Literal["DIO16"] = "DIO16"
+
+T_7_DIGITAL_PORT_DIO17: Literal["DIO17"] = "DIO17"
+
+T_7_DIGITAL_PORT_DIO18: Literal["DIO18"] = "DIO18"
+
+T_7_DIGITAL_PORT_DIO19: Literal["DIO19"] = "DIO19"
+
+T_7_DIGITAL_PORT_DIO20: Literal["DIO20"] = "DIO20"
+
+T_7_DIGITAL_PORT_DIO21: Literal["DIO21"] = "DIO21"
+
+T_7_DIGITAL_PORT_DIO22: Literal["DIO22"] = "DIO22"
+
+
+T7DigitalPort = Literal[
+    "DIO0",
+    "DIO1",
+    "DIO2",
+    "DIO3",
+    "DIO4",
+    "DIO5",
+    "DIO6",
+    "DIO7",
+    "DIO8",
+    "DIO9",
+    "DIO10",
+    "DIO11",
+    "DIO12",
+    "DIO13",
+    "DIO14",
+    "DIO15",
+    "DIO16",
+    "DIO17",
+    "DIO18",
+    "DIO19",
+    "DIO20",
+    "DIO21",
+    "DIO22",
+]
+
+T_8_ANALOG_INPUT_PORT_AIN0: Literal["AIN0"] = "AIN0"
+
+T_8_ANALOG_INPUT_PORT_AIN1: Literal["AIN1"] = "AIN1"
+
+T_8_ANALOG_INPUT_PORT_AIN2: Literal["AIN2"] = "AIN2"
+
+T_8_ANALOG_INPUT_PORT_AIN3: Literal["AIN3"] = "AIN3"
+
+T_8_ANALOG_INPUT_PORT_AIN4: Literal["AIN4"] = "AIN4"
+
+T_8_ANALOG_INPUT_PORT_AIN5: Literal["AIN5"] = "AIN5"
+
+T_8_ANALOG_INPUT_PORT_AIN6: Literal["AIN6"] = "AIN6"
+
+T_8_ANALOG_INPUT_PORT_AIN7: Literal["AIN7"] = "AIN7"
+
+
+T8AnalogInputPort = Literal[
+    "AIN0", "AIN1", "AIN2", "AIN3", "AIN4", "AIN5", "AIN6", "AIN7"
+]
+
+T_8_DIGITAL_PORT_DIO0: Literal["DIO0"] = "DIO0"
+
+T_8_DIGITAL_PORT_DIO1: Literal["DIO1"] = "DIO1"
+
+T_8_DIGITAL_PORT_DIO2: Literal["DIO2"] = "DIO2"
+
+T_8_DIGITAL_PORT_DIO3: Literal["DIO3"] = "DIO3"
+
+T_8_DIGITAL_PORT_DIO4: Literal["DIO4"] = "DIO4"
+
+T_8_DIGITAL_PORT_DIO5: Literal["DIO5"] = "DIO5"
+
+T_8_DIGITAL_PORT_DIO6: Literal["DIO6"] = "DIO6"
+
+T_8_DIGITAL_PORT_DIO7: Literal["DIO7"] = "DIO7"
+
+T_8_DIGITAL_PORT_DIO8: Literal["DIO8"] = "DIO8"
+
+T_8_DIGITAL_PORT_DIO9: Literal["DIO9"] = "DIO9"
+
+T_8_DIGITAL_PORT_DIO10: Literal["DIO10"] = "DIO10"
+
+T_8_DIGITAL_PORT_DIO11: Literal["DIO11"] = "DIO11"
+
+T_8_DIGITAL_PORT_DIO12: Literal["DIO12"] = "DIO12"
+
+T_8_DIGITAL_PORT_DIO13: Literal["DIO13"] = "DIO13"
+
+T_8_DIGITAL_PORT_DIO14: Literal["DIO14"] = "DIO14"
+
+T_8_DIGITAL_PORT_DIO15: Literal["DIO15"] = "DIO15"
+
+T_8_DIGITAL_PORT_DIO16: Literal["DIO16"] = "DIO16"
+
+T_8_DIGITAL_PORT_DIO17: Literal["DIO17"] = "DIO17"
+
+T_8_DIGITAL_PORT_DIO18: Literal["DIO18"] = "DIO18"
+
+T_8_DIGITAL_PORT_DIO19: Literal["DIO19"] = "DIO19"
+
+
+T8DigitalPort = Literal[
+    "DIO0",
+    "DIO1",
+    "DIO2",
+    "DIO3",
+    "DIO4",
+    "DIO5",
+    "DIO6",
+    "DIO7",
+    "DIO8",
+    "DIO9",
+    "DIO10",
+    "DIO11",
+    "DIO12",
+    "DIO13",
+    "DIO14",
+    "DIO15",
+    "DIO16",
+    "DIO17",
+    "DIO18",
+    "DIO19",
+]
+
 Key: TypeAlias = UUID
+
+
+class CommandStatePair(BaseModel):
+    """Is the pair of channels that writes to one port.
+
+    Attributes:
+        command: Is the channel that commands the port.
+        state: Is the channel that holds the state of the port.
+    """
+
+    command: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    state: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
 
 
 class Identity(BaseModel):
@@ -215,8 +779,8 @@ Update = Annotated[
 ]
 
 
-class Device(BaseModel):
-    """Is a LabJack T-series device.
+class Base(BaseModel):
+    """Carries the fields that every LabJack device shares.
 
     Attributes:
         key: Uniquely identifies the device.
@@ -230,8 +794,6 @@ class Device(BaseModel):
         write_state_index: Is the index channel of the state channels of the device's
             outputs.
         status: Is the current operational status of the device.
-        model: Is the model of the device. It selects the ports the device has.
-        ports: Holds the channel maps and the accessories of the device's model.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -243,12 +805,66 @@ class Device(BaseModel):
     read_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
     write_state_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
     status: Status | None = None
-    model: Model
-    ports: Ports
 
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class T4Device(Base):
+    """Is a T4."""
+
+    model: Literal["t4"] = "t4"
+    analog_input: dict[
+        T4AnalogInputPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    analog_output: dict[AnalogOutputPort, CommandStatePair] = Field(
+        default_factory=dict
+    )
+    digital_input: dict[
+        T4DigitalPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    digital_output: dict[T4DigitalPort, CommandStatePair] = Field(default_factory=dict)
+
+
+class T7Device(Base):
+    """Is a T7."""
+
+    model: Literal["t7"] = "t7"
+    mux80_attached: bool = False
+    analog_input: dict[
+        T7AnalogInputPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    analog_output: dict[AnalogOutputPort, CommandStatePair] = Field(
+        default_factory=dict
+    )
+    digital_input: dict[
+        T7DigitalPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    digital_output: dict[T7DigitalPort, CommandStatePair] = Field(default_factory=dict)
+
+
+class T8Device(Base):
+    """Is a T8."""
+
+    model: Literal["t8"] = "t8"
+    analog_input: dict[
+        T8AnalogInputPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    analog_output: dict[AnalogOutputPort, CommandStatePair] = Field(
+        default_factory=dict
+    )
+    digital_input: dict[
+        T8DigitalPort, Annotated[channel.Key, Field(ge=0, le=4294967295)]
+    ] = Field(default_factory=dict)
+    digital_output: dict[T8DigitalPort, CommandStatePair] = Field(default_factory=dict)
+
+
+# Is a LabJack T-series device. Its model selects the ports it has.
+Device = Annotated[
+    T4Device | T7Device | T8Device,
+    Field(discriminator="model"),
+]
 
 
 class RetrieveResponse(BaseModel):

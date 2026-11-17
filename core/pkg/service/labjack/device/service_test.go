@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/device"
@@ -29,19 +28,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
-	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Service", func() {
 	var (
-		stat       *status.Service
-		rackSvc    *rack.Service
-		svc        *device.Service
-		channelSvc *channel.Service
-		tx         gorp.Tx
-		rackKey    rack.Key
+		stat    *status.Service
+		rackSvc *rack.Service
+		svc     *device.Service
+		tx      gorp.Tx
+		rackKey rack.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
@@ -50,18 +47,11 @@ var _ = Describe("Service", func() {
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
-			HostKey:    node.Identity.HostKey,
+			HostKey:    1,
 			Status:     stat,
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		rackKey = rackSvc.EmbeddedKey
-		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel: node.Channel,
-			TS:      node.Storage.TS,
-			DB:      db,
-			HostKey: node.Identity.HostKey,
-			Status:  stat,
-		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
 			Status: stat,
@@ -110,41 +100,6 @@ var _ = Describe("Service", func() {
 		return s
 	}
 
-	Describe("Channels", func() {
-		createIndex := func(ctx context.Context) channel.Key {
-			GinkgoHelper()
-			ch := channel.Channel{
-				Name:     channeltestutil.UniqueChannelName(),
-				DataType: telem.TimestampT,
-				IsIndex:  true,
-			}
-			Expect(channelSvc.NewWriter(tx).Create(ctx, &ch)).To(Succeed())
-			return ch.Key()
-		}
-		bind := func(ctx context.Context, read *channel.Key) error {
-			d := device.Device{
-				Key:        uuid.New(),
-				Rack:       rackKey,
-				Name:       "T7-0002",
-				Serial:     nextSerial(),
-				Connection: device.ConnectionUSB,
-				Model:      device.ModelT7,
-				Ports:      device.Ports{Variant: device.T7Ports{}},
-				ReadIndex:  read,
-			}
-			return gorp.NewCreate[device.Key, device.Device]().Entry(&d).Exec(ctx, tx)
-		}
-
-		It("Should keep a channel that a device binds from being deleted", func(
-			ctx SpecContext,
-		) {
-			ch := createIndex(ctx)
-			Expect(bind(ctx, new(ch))).To(Succeed())
-			Expect(channelSvc.NewWriter(tx).Delete(ctx, ch, false)).
-				To(MatchError(validate.ErrValidation))
-		})
-	})
-
 	Describe("OpenService", func() {
 		DescribeTable("Should reject a config missing a required field",
 			func(ctx SpecContext, field string, unset func(*device.ServiceConfig)) {
@@ -174,16 +129,31 @@ var _ = Describe("Service", func() {
 			Expect(retrieve(ctx, d.Key).Serial).To(Equal(d.Serial))
 		})
 
-		It("Should refuse to replace a device of another model", func(ctx SpecContext) {
-			d := create(ctx)
-			replaced := d
-			replaced.Model = device.ModelT4
-			replaced.Ports = device.Ports{Variant: device.T4Ports{}}
-			Expect(svc.NewWriter(tx).Create(ctx, &replaced)).To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("model: cannot change from t7 to t4")),
-			))
-			Expect(retrieve(ctx, d.Key).Model).To(Equal(device.ModelT7))
+		It("Should store the port maps of a device", func(ctx SpecContext) {
+			d := device.Device{Variant: device.T7Device{
+				Base: device.Base{
+					Rack:       rackKey,
+					Name:       "T7-0002",
+					Serial:     nextSerial(),
+					Connection: device.ConnectionUSB,
+				},
+				AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+					device.T7AnalogInputPortAin0:  1,
+					device.T7AnalogInputPortAin48: 2,
+				},
+				AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{
+					device.AnalogOutputPortDac1: {Command: 3, State: 4},
+				},
+				DigitalInput: map[device.T7DigitalPort]channel.Key{
+					device.T7DigitalPortDio0: 5,
+				},
+				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+					device.T7DigitalPortDio22: {Command: 6, State: 7},
+				},
+			}}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			got := retrieve(ctx, d.Base().Key)
+			Expect(got.Variant).To(Equal(d.Variant))
 		})
 
 		It("Should keep a key the caller sets", func(ctx SpecContext) {
@@ -334,6 +304,7 @@ var _ = Describe("Service", func() {
 				Configuration: device.Configuration{
 					Name:       "Renamed",
 					Identifier: "dev1",
+					ReadIndex:  7,
 					Ports:      device.Ports{Variant: ports},
 				},
 			}}
@@ -361,6 +332,7 @@ var _ = Describe("Service", func() {
 			got := retrieve(ctx, d.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Identifier).To(Equal("dev1"))
+			Expect(got.ReadIndex).To(BeEquivalentTo(7))
 			Expect(got.Ports).To(Equal(device.Ports{
 				Variant: device.T7Ports{Mux80Attached: true},
 			}))

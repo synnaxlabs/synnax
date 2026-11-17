@@ -75,6 +75,311 @@ func (c Connection) IsValid() bool {
 	}
 }
 
+// AnalogOutputPort is an analog output port of a LabJack device.
+type AnalogOutputPort string
+
+const (
+	AnalogOutputPortDac0 AnalogOutputPort = "DAC0"
+	AnalogOutputPortDac1 AnalogOutputPort = "DAC1"
+)
+
+// IsValid reports whether a is one of the defined AnalogOutputPort
+// values.
+func (a AnalogOutputPort) IsValid() bool {
+	switch a {
+	case AnalogOutputPortDac0, AnalogOutputPortDac1:
+		return true
+	default:
+		return false
+	}
+}
+
+// T4AnalogInputPort is an analog input port of a T4.
+type T4AnalogInputPort string
+
+const (
+	T4AnalogInputPortAin0  T4AnalogInputPort = "AIN0"
+	T4AnalogInputPortAin1  T4AnalogInputPort = "AIN1"
+	T4AnalogInputPortAin2  T4AnalogInputPort = "AIN2"
+	T4AnalogInputPortAin3  T4AnalogInputPort = "AIN3"
+	T4AnalogInputPortAin4  T4AnalogInputPort = "AIN4"
+	T4AnalogInputPortAin5  T4AnalogInputPort = "AIN5"
+	T4AnalogInputPortAin6  T4AnalogInputPort = "AIN6"
+	T4AnalogInputPortAin7  T4AnalogInputPort = "AIN7"
+	T4AnalogInputPortAin8  T4AnalogInputPort = "AIN8"
+	T4AnalogInputPortAin9  T4AnalogInputPort = "AIN9"
+	T4AnalogInputPortAin10 T4AnalogInputPort = "AIN10"
+	T4AnalogInputPortAin11 T4AnalogInputPort = "AIN11"
+)
+
+// IsValid reports whether t is one of the defined T4AnalogInputPort
+// values.
+func (t T4AnalogInputPort) IsValid() bool {
+	switch t {
+	case T4AnalogInputPortAin0, T4AnalogInputPortAin1, T4AnalogInputPortAin2, T4AnalogInputPortAin3, T4AnalogInputPortAin4, T4AnalogInputPortAin5, T4AnalogInputPortAin6, T4AnalogInputPortAin7, T4AnalogInputPortAin8, T4AnalogInputPortAin9, T4AnalogInputPortAin10, T4AnalogInputPortAin11:
+		return true
+	default:
+		return false
+	}
+}
+
+// T4DigitalPort is a digital port of a T4.
+type T4DigitalPort string
+
+const (
+	T4DigitalPortDio4  T4DigitalPort = "DIO4"
+	T4DigitalPortDio5  T4DigitalPort = "DIO5"
+	T4DigitalPortDio6  T4DigitalPort = "DIO6"
+	T4DigitalPortDio7  T4DigitalPort = "DIO7"
+	T4DigitalPortDio8  T4DigitalPort = "DIO8"
+	T4DigitalPortDio9  T4DigitalPort = "DIO9"
+	T4DigitalPortDio10 T4DigitalPort = "DIO10"
+	T4DigitalPortDio11 T4DigitalPort = "DIO11"
+	T4DigitalPortDio12 T4DigitalPort = "DIO12"
+	T4DigitalPortDio13 T4DigitalPort = "DIO13"
+	T4DigitalPortDio14 T4DigitalPort = "DIO14"
+	T4DigitalPortDio15 T4DigitalPort = "DIO15"
+	T4DigitalPortDio16 T4DigitalPort = "DIO16"
+	T4DigitalPortDio17 T4DigitalPort = "DIO17"
+	T4DigitalPortDio18 T4DigitalPort = "DIO18"
+	T4DigitalPortDio19 T4DigitalPort = "DIO19"
+	T4DigitalPortDio20 T4DigitalPort = "DIO20"
+	T4DigitalPortDio21 T4DigitalPort = "DIO21"
+	T4DigitalPortDio22 T4DigitalPort = "DIO22"
+)
+
+// IsValid reports whether t is one of the defined T4DigitalPort
+// values.
+func (t T4DigitalPort) IsValid() bool {
+	switch t {
+	case T4DigitalPortDio4, T4DigitalPortDio5, T4DigitalPortDio6, T4DigitalPortDio7, T4DigitalPortDio8, T4DigitalPortDio9, T4DigitalPortDio10, T4DigitalPortDio11, T4DigitalPortDio12, T4DigitalPortDio13, T4DigitalPortDio14, T4DigitalPortDio15, T4DigitalPortDio16, T4DigitalPortDio17, T4DigitalPortDio18, T4DigitalPortDio19, T4DigitalPortDio20, T4DigitalPortDio21, T4DigitalPortDio22:
+		return true
+	default:
+		return false
+	}
+}
+
+// T7AnalogInputPort is an analog input port of a T7. AIN48 and up need a Mux80.
+type T7AnalogInputPort string
+
+const (
+	T7AnalogInputPortAin0   T7AnalogInputPort = "AIN0"
+	T7AnalogInputPortAin1   T7AnalogInputPort = "AIN1"
+	T7AnalogInputPortAin2   T7AnalogInputPort = "AIN2"
+	T7AnalogInputPortAin3   T7AnalogInputPort = "AIN3"
+	T7AnalogInputPortAin4   T7AnalogInputPort = "AIN4"
+	T7AnalogInputPortAin5   T7AnalogInputPort = "AIN5"
+	T7AnalogInputPortAin6   T7AnalogInputPort = "AIN6"
+	T7AnalogInputPortAin7   T7AnalogInputPort = "AIN7"
+	T7AnalogInputPortAin8   T7AnalogInputPort = "AIN8"
+	T7AnalogInputPortAin9   T7AnalogInputPort = "AIN9"
+	T7AnalogInputPortAin10  T7AnalogInputPort = "AIN10"
+	T7AnalogInputPortAin11  T7AnalogInputPort = "AIN11"
+	T7AnalogInputPortAin12  T7AnalogInputPort = "AIN12"
+	T7AnalogInputPortAin13  T7AnalogInputPort = "AIN13"
+	T7AnalogInputPortAin48  T7AnalogInputPort = "AIN48"
+	T7AnalogInputPortAin49  T7AnalogInputPort = "AIN49"
+	T7AnalogInputPortAin50  T7AnalogInputPort = "AIN50"
+	T7AnalogInputPortAin51  T7AnalogInputPort = "AIN51"
+	T7AnalogInputPortAin52  T7AnalogInputPort = "AIN52"
+	T7AnalogInputPortAin53  T7AnalogInputPort = "AIN53"
+	T7AnalogInputPortAin54  T7AnalogInputPort = "AIN54"
+	T7AnalogInputPortAin55  T7AnalogInputPort = "AIN55"
+	T7AnalogInputPortAin56  T7AnalogInputPort = "AIN56"
+	T7AnalogInputPortAin57  T7AnalogInputPort = "AIN57"
+	T7AnalogInputPortAin58  T7AnalogInputPort = "AIN58"
+	T7AnalogInputPortAin59  T7AnalogInputPort = "AIN59"
+	T7AnalogInputPortAin60  T7AnalogInputPort = "AIN60"
+	T7AnalogInputPortAin61  T7AnalogInputPort = "AIN61"
+	T7AnalogInputPortAin62  T7AnalogInputPort = "AIN62"
+	T7AnalogInputPortAin63  T7AnalogInputPort = "AIN63"
+	T7AnalogInputPortAin64  T7AnalogInputPort = "AIN64"
+	T7AnalogInputPortAin65  T7AnalogInputPort = "AIN65"
+	T7AnalogInputPortAin66  T7AnalogInputPort = "AIN66"
+	T7AnalogInputPortAin67  T7AnalogInputPort = "AIN67"
+	T7AnalogInputPortAin68  T7AnalogInputPort = "AIN68"
+	T7AnalogInputPortAin69  T7AnalogInputPort = "AIN69"
+	T7AnalogInputPortAin70  T7AnalogInputPort = "AIN70"
+	T7AnalogInputPortAin71  T7AnalogInputPort = "AIN71"
+	T7AnalogInputPortAin72  T7AnalogInputPort = "AIN72"
+	T7AnalogInputPortAin73  T7AnalogInputPort = "AIN73"
+	T7AnalogInputPortAin74  T7AnalogInputPort = "AIN74"
+	T7AnalogInputPortAin75  T7AnalogInputPort = "AIN75"
+	T7AnalogInputPortAin76  T7AnalogInputPort = "AIN76"
+	T7AnalogInputPortAin77  T7AnalogInputPort = "AIN77"
+	T7AnalogInputPortAin78  T7AnalogInputPort = "AIN78"
+	T7AnalogInputPortAin79  T7AnalogInputPort = "AIN79"
+	T7AnalogInputPortAin80  T7AnalogInputPort = "AIN80"
+	T7AnalogInputPortAin81  T7AnalogInputPort = "AIN81"
+	T7AnalogInputPortAin82  T7AnalogInputPort = "AIN82"
+	T7AnalogInputPortAin83  T7AnalogInputPort = "AIN83"
+	T7AnalogInputPortAin84  T7AnalogInputPort = "AIN84"
+	T7AnalogInputPortAin85  T7AnalogInputPort = "AIN85"
+	T7AnalogInputPortAin86  T7AnalogInputPort = "AIN86"
+	T7AnalogInputPortAin87  T7AnalogInputPort = "AIN87"
+	T7AnalogInputPortAin88  T7AnalogInputPort = "AIN88"
+	T7AnalogInputPortAin89  T7AnalogInputPort = "AIN89"
+	T7AnalogInputPortAin90  T7AnalogInputPort = "AIN90"
+	T7AnalogInputPortAin91  T7AnalogInputPort = "AIN91"
+	T7AnalogInputPortAin92  T7AnalogInputPort = "AIN92"
+	T7AnalogInputPortAin93  T7AnalogInputPort = "AIN93"
+	T7AnalogInputPortAin94  T7AnalogInputPort = "AIN94"
+	T7AnalogInputPortAin95  T7AnalogInputPort = "AIN95"
+	T7AnalogInputPortAin96  T7AnalogInputPort = "AIN96"
+	T7AnalogInputPortAin97  T7AnalogInputPort = "AIN97"
+	T7AnalogInputPortAin98  T7AnalogInputPort = "AIN98"
+	T7AnalogInputPortAin99  T7AnalogInputPort = "AIN99"
+	T7AnalogInputPortAin100 T7AnalogInputPort = "AIN100"
+	T7AnalogInputPortAin101 T7AnalogInputPort = "AIN101"
+	T7AnalogInputPortAin102 T7AnalogInputPort = "AIN102"
+	T7AnalogInputPortAin103 T7AnalogInputPort = "AIN103"
+	T7AnalogInputPortAin104 T7AnalogInputPort = "AIN104"
+	T7AnalogInputPortAin105 T7AnalogInputPort = "AIN105"
+	T7AnalogInputPortAin106 T7AnalogInputPort = "AIN106"
+	T7AnalogInputPortAin107 T7AnalogInputPort = "AIN107"
+	T7AnalogInputPortAin108 T7AnalogInputPort = "AIN108"
+	T7AnalogInputPortAin109 T7AnalogInputPort = "AIN109"
+	T7AnalogInputPortAin110 T7AnalogInputPort = "AIN110"
+	T7AnalogInputPortAin111 T7AnalogInputPort = "AIN111"
+	T7AnalogInputPortAin112 T7AnalogInputPort = "AIN112"
+	T7AnalogInputPortAin113 T7AnalogInputPort = "AIN113"
+	T7AnalogInputPortAin114 T7AnalogInputPort = "AIN114"
+	T7AnalogInputPortAin115 T7AnalogInputPort = "AIN115"
+	T7AnalogInputPortAin116 T7AnalogInputPort = "AIN116"
+	T7AnalogInputPortAin117 T7AnalogInputPort = "AIN117"
+	T7AnalogInputPortAin118 T7AnalogInputPort = "AIN118"
+	T7AnalogInputPortAin119 T7AnalogInputPort = "AIN119"
+	T7AnalogInputPortAin120 T7AnalogInputPort = "AIN120"
+	T7AnalogInputPortAin121 T7AnalogInputPort = "AIN121"
+	T7AnalogInputPortAin122 T7AnalogInputPort = "AIN122"
+	T7AnalogInputPortAin123 T7AnalogInputPort = "AIN123"
+	T7AnalogInputPortAin124 T7AnalogInputPort = "AIN124"
+	T7AnalogInputPortAin125 T7AnalogInputPort = "AIN125"
+	T7AnalogInputPortAin126 T7AnalogInputPort = "AIN126"
+	T7AnalogInputPortAin127 T7AnalogInputPort = "AIN127"
+)
+
+// IsValid reports whether t is one of the defined T7AnalogInputPort
+// values.
+func (t T7AnalogInputPort) IsValid() bool {
+	switch t {
+	case T7AnalogInputPortAin0, T7AnalogInputPortAin1, T7AnalogInputPortAin2, T7AnalogInputPortAin3, T7AnalogInputPortAin4, T7AnalogInputPortAin5, T7AnalogInputPortAin6, T7AnalogInputPortAin7, T7AnalogInputPortAin8, T7AnalogInputPortAin9, T7AnalogInputPortAin10, T7AnalogInputPortAin11, T7AnalogInputPortAin12, T7AnalogInputPortAin13, T7AnalogInputPortAin48, T7AnalogInputPortAin49, T7AnalogInputPortAin50, T7AnalogInputPortAin51, T7AnalogInputPortAin52, T7AnalogInputPortAin53, T7AnalogInputPortAin54, T7AnalogInputPortAin55, T7AnalogInputPortAin56, T7AnalogInputPortAin57, T7AnalogInputPortAin58, T7AnalogInputPortAin59, T7AnalogInputPortAin60, T7AnalogInputPortAin61, T7AnalogInputPortAin62, T7AnalogInputPortAin63, T7AnalogInputPortAin64, T7AnalogInputPortAin65, T7AnalogInputPortAin66, T7AnalogInputPortAin67, T7AnalogInputPortAin68, T7AnalogInputPortAin69, T7AnalogInputPortAin70, T7AnalogInputPortAin71, T7AnalogInputPortAin72, T7AnalogInputPortAin73, T7AnalogInputPortAin74, T7AnalogInputPortAin75, T7AnalogInputPortAin76, T7AnalogInputPortAin77, T7AnalogInputPortAin78, T7AnalogInputPortAin79, T7AnalogInputPortAin80, T7AnalogInputPortAin81, T7AnalogInputPortAin82, T7AnalogInputPortAin83, T7AnalogInputPortAin84, T7AnalogInputPortAin85, T7AnalogInputPortAin86, T7AnalogInputPortAin87, T7AnalogInputPortAin88, T7AnalogInputPortAin89, T7AnalogInputPortAin90, T7AnalogInputPortAin91, T7AnalogInputPortAin92, T7AnalogInputPortAin93, T7AnalogInputPortAin94, T7AnalogInputPortAin95, T7AnalogInputPortAin96, T7AnalogInputPortAin97, T7AnalogInputPortAin98, T7AnalogInputPortAin99, T7AnalogInputPortAin100, T7AnalogInputPortAin101, T7AnalogInputPortAin102, T7AnalogInputPortAin103, T7AnalogInputPortAin104, T7AnalogInputPortAin105, T7AnalogInputPortAin106, T7AnalogInputPortAin107, T7AnalogInputPortAin108, T7AnalogInputPortAin109, T7AnalogInputPortAin110, T7AnalogInputPortAin111, T7AnalogInputPortAin112, T7AnalogInputPortAin113, T7AnalogInputPortAin114, T7AnalogInputPortAin115, T7AnalogInputPortAin116, T7AnalogInputPortAin117, T7AnalogInputPortAin118, T7AnalogInputPortAin119, T7AnalogInputPortAin120, T7AnalogInputPortAin121, T7AnalogInputPortAin122, T7AnalogInputPortAin123, T7AnalogInputPortAin124, T7AnalogInputPortAin125, T7AnalogInputPortAin126, T7AnalogInputPortAin127:
+		return true
+	default:
+		return false
+	}
+}
+
+// T7DigitalPort is a digital port of a T7.
+type T7DigitalPort string
+
+const (
+	T7DigitalPortDio0  T7DigitalPort = "DIO0"
+	T7DigitalPortDio1  T7DigitalPort = "DIO1"
+	T7DigitalPortDio2  T7DigitalPort = "DIO2"
+	T7DigitalPortDio3  T7DigitalPort = "DIO3"
+	T7DigitalPortDio4  T7DigitalPort = "DIO4"
+	T7DigitalPortDio5  T7DigitalPort = "DIO5"
+	T7DigitalPortDio6  T7DigitalPort = "DIO6"
+	T7DigitalPortDio7  T7DigitalPort = "DIO7"
+	T7DigitalPortDio8  T7DigitalPort = "DIO8"
+	T7DigitalPortDio9  T7DigitalPort = "DIO9"
+	T7DigitalPortDio10 T7DigitalPort = "DIO10"
+	T7DigitalPortDio11 T7DigitalPort = "DIO11"
+	T7DigitalPortDio12 T7DigitalPort = "DIO12"
+	T7DigitalPortDio13 T7DigitalPort = "DIO13"
+	T7DigitalPortDio14 T7DigitalPort = "DIO14"
+	T7DigitalPortDio15 T7DigitalPort = "DIO15"
+	T7DigitalPortDio16 T7DigitalPort = "DIO16"
+	T7DigitalPortDio17 T7DigitalPort = "DIO17"
+	T7DigitalPortDio18 T7DigitalPort = "DIO18"
+	T7DigitalPortDio19 T7DigitalPort = "DIO19"
+	T7DigitalPortDio20 T7DigitalPort = "DIO20"
+	T7DigitalPortDio21 T7DigitalPort = "DIO21"
+	T7DigitalPortDio22 T7DigitalPort = "DIO22"
+)
+
+// IsValid reports whether t is one of the defined T7DigitalPort
+// values.
+func (t T7DigitalPort) IsValid() bool {
+	switch t {
+	case T7DigitalPortDio0, T7DigitalPortDio1, T7DigitalPortDio2, T7DigitalPortDio3, T7DigitalPortDio4, T7DigitalPortDio5, T7DigitalPortDio6, T7DigitalPortDio7, T7DigitalPortDio8, T7DigitalPortDio9, T7DigitalPortDio10, T7DigitalPortDio11, T7DigitalPortDio12, T7DigitalPortDio13, T7DigitalPortDio14, T7DigitalPortDio15, T7DigitalPortDio16, T7DigitalPortDio17, T7DigitalPortDio18, T7DigitalPortDio19, T7DigitalPortDio20, T7DigitalPortDio21, T7DigitalPortDio22:
+		return true
+	default:
+		return false
+	}
+}
+
+// T8AnalogInputPort is an analog input port of a T8.
+type T8AnalogInputPort string
+
+const (
+	T8AnalogInputPortAin0 T8AnalogInputPort = "AIN0"
+	T8AnalogInputPortAin1 T8AnalogInputPort = "AIN1"
+	T8AnalogInputPortAin2 T8AnalogInputPort = "AIN2"
+	T8AnalogInputPortAin3 T8AnalogInputPort = "AIN3"
+	T8AnalogInputPortAin4 T8AnalogInputPort = "AIN4"
+	T8AnalogInputPortAin5 T8AnalogInputPort = "AIN5"
+	T8AnalogInputPortAin6 T8AnalogInputPort = "AIN6"
+	T8AnalogInputPortAin7 T8AnalogInputPort = "AIN7"
+)
+
+// IsValid reports whether t is one of the defined T8AnalogInputPort
+// values.
+func (t T8AnalogInputPort) IsValid() bool {
+	switch t {
+	case T8AnalogInputPortAin0, T8AnalogInputPortAin1, T8AnalogInputPortAin2, T8AnalogInputPortAin3, T8AnalogInputPortAin4, T8AnalogInputPortAin5, T8AnalogInputPortAin6, T8AnalogInputPortAin7:
+		return true
+	default:
+		return false
+	}
+}
+
+// T8DigitalPort is a digital port of a T8.
+type T8DigitalPort string
+
+const (
+	T8DigitalPortDio0  T8DigitalPort = "DIO0"
+	T8DigitalPortDio1  T8DigitalPort = "DIO1"
+	T8DigitalPortDio2  T8DigitalPort = "DIO2"
+	T8DigitalPortDio3  T8DigitalPort = "DIO3"
+	T8DigitalPortDio4  T8DigitalPort = "DIO4"
+	T8DigitalPortDio5  T8DigitalPort = "DIO5"
+	T8DigitalPortDio6  T8DigitalPort = "DIO6"
+	T8DigitalPortDio7  T8DigitalPort = "DIO7"
+	T8DigitalPortDio8  T8DigitalPort = "DIO8"
+	T8DigitalPortDio9  T8DigitalPort = "DIO9"
+	T8DigitalPortDio10 T8DigitalPort = "DIO10"
+	T8DigitalPortDio11 T8DigitalPort = "DIO11"
+	T8DigitalPortDio12 T8DigitalPort = "DIO12"
+	T8DigitalPortDio13 T8DigitalPort = "DIO13"
+	T8DigitalPortDio14 T8DigitalPort = "DIO14"
+	T8DigitalPortDio15 T8DigitalPort = "DIO15"
+	T8DigitalPortDio16 T8DigitalPort = "DIO16"
+	T8DigitalPortDio17 T8DigitalPort = "DIO17"
+	T8DigitalPortDio18 T8DigitalPort = "DIO18"
+	T8DigitalPortDio19 T8DigitalPort = "DIO19"
+)
+
+// IsValid reports whether t is one of the defined T8DigitalPort
+// values.
+func (t T8DigitalPort) IsValid() bool {
+	switch t {
+	case T8DigitalPortDio0, T8DigitalPortDio1, T8DigitalPortDio2, T8DigitalPortDio3, T8DigitalPortDio4, T8DigitalPortDio5, T8DigitalPortDio6, T8DigitalPortDio7, T8DigitalPortDio8, T8DigitalPortDio9, T8DigitalPortDio10, T8DigitalPortDio11, T8DigitalPortDio12, T8DigitalPortDio13, T8DigitalPortDio14, T8DigitalPortDio15, T8DigitalPortDio16, T8DigitalPortDio17, T8DigitalPortDio18, T8DigitalPortDio19:
+		return true
+	default:
+		return false
+	}
+}
+
+// CommandStatePair is the pair of channels that writes to one port.
+type CommandStatePair struct {
+	// Command is the channel that commands the port.
+	Command channel.Key `json:"command" msgpack:"command"`
+	// State is the channel that holds the state of the port.
+	State channel.Key `json:"state" msgpack:"state"`
+}
+
 // StatusDetails identifies the device and rack that a status pertains to.
 type StatusDetails struct {
 	// Rack is the key of the rack the device belongs to.
@@ -86,65 +391,186 @@ type StatusDetails struct {
 // Status is the operational status of a device.
 type Status = status.Status[StatusDetails]
 
-// PortsVariant is implemented by every Ports variant.
-type PortsVariant interface {
-	isPortsVariant()
+// Base carries the fields that every LabJack device shares.
+type Base struct {
+	// Key uniquely identifies the device.
+	Key Key `json:"key" msgpack:"key"`
+	// Rack is the key of the rack the device is connected to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Name is a human-readable name for the device.
+	Name string `json:"name" msgpack:"name"`
+	// Serial is the serial number of the device.
+	Serial uint32 `json:"serial" msgpack:"serial"`
+	// Connection is the connection the scanner last found the device on.
+	Connection Connection `json:"connection" msgpack:"connection"`
+	// Identifier is the prefix of the device's channel names. The device is
+	// unconfigured while it is empty.
+	Identifier string `json:"identifier" msgpack:"identifier"`
+	// ReadIndex is the index channel of the channels that the device reads into.
+	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
+	// WriteStateIndex is the index channel of the state channels of the device's
+	// outputs.
+	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
+	// Status is the current operational status of the device.
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
 
-// T4Ports are the ports of a T4.
-type T4Ports struct {
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b Base) Validate() error {
+	v := validate.New("Base")
+	v.Ternaryf("connection", !b.Connection.IsValid(), "invalid connection: %v", b.Connection)
+	v.NotEmptyString("name", b.Name)
+	v.NonZero("serial", b.Serial)
+	v.Ternary("identifier", !validatePattern0.MatchString(string(b.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
+	return v.Error()
 }
 
-func (T4Ports) isPortsVariant() {}
+// DeviceVariant is implemented by every Device variant.
+type DeviceVariant interface {
+	isDeviceVariant()
+}
 
-// T7Ports are the ports of a T7.
-type T7Ports struct {
+// T4Device is a T4.
+type T4Device struct {
+	Base
+	// AnalogInput maps an analog input port to the channel that holds its samples.
+	AnalogInput map[T4AnalogInputPort]channel.Key `json:"analog_input" msgpack:"analog_input"`
+	// AnalogOutput maps an analog output port to the channels that write to it.
+	AnalogOutput map[AnalogOutputPort]CommandStatePair `json:"analog_output" msgpack:"analog_output"`
+	// DigitalInput maps a digital port to the channel that holds its samples.
+	DigitalInput map[T4DigitalPort]channel.Key `json:"digital_input" msgpack:"digital_input"`
+	// DigitalOutput maps a digital port to the channels that write to it.
+	DigitalOutput map[T4DigitalPort]CommandStatePair `json:"digital_output" msgpack:"digital_output"`
+}
+
+func (T4Device) isDeviceVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t T4Device) Validate() error {
+	v := validate.New("T4Device")
+	for key := range t.AnalogInput {
+		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
+	}
+	for key := range t.AnalogOutput {
+		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
+	}
+	for key := range t.DigitalInput {
+		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
+	}
+	for key := range t.DigitalOutput {
+		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
+	v.Exec(t.Base.Validate)
+	return v.Error()
+}
+
+// T7Device is a T7.
+type T7Device struct {
+	Base
 	// Mux80Attached is true when a Mux80 is attached, which adds the analog input ports
 	// AIN48 to AIN127.
 	Mux80Attached bool `json:"mux80_attached" msgpack:"mux80_attached"`
+	// AnalogInput maps an analog input port to the channel that holds its samples.
+	AnalogInput map[T7AnalogInputPort]channel.Key `json:"analog_input" msgpack:"analog_input"`
+	// AnalogOutput maps an analog output port to the channels that write to it.
+	AnalogOutput map[AnalogOutputPort]CommandStatePair `json:"analog_output" msgpack:"analog_output"`
+	// DigitalInput maps a digital port to the channel that holds its samples.
+	DigitalInput map[T7DigitalPort]channel.Key `json:"digital_input" msgpack:"digital_input"`
+	// DigitalOutput maps a digital port to the channels that write to it.
+	DigitalOutput map[T7DigitalPort]CommandStatePair `json:"digital_output" msgpack:"digital_output"`
 }
 
-func (T7Ports) isPortsVariant() {}
+func (T7Device) isDeviceVariant() {}
 
-// T8Ports are the ports of a T8.
-type T8Ports struct {
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t T7Device) Validate() error {
+	v := validate.New("T7Device")
+	for key := range t.AnalogInput {
+		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
+	}
+	for key := range t.AnalogOutput {
+		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
+	}
+	for key := range t.DigitalInput {
+		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
+	}
+	for key := range t.DigitalOutput {
+		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
+	v.Exec(t.Base.Validate)
+	return v.Error()
 }
 
-func (T8Ports) isPortsVariant() {}
+// T8Device is a T8.
+type T8Device struct {
+	Base
+	// AnalogInput maps an analog input port to the channel that holds its samples.
+	AnalogInput map[T8AnalogInputPort]channel.Key `json:"analog_input" msgpack:"analog_input"`
+	// AnalogOutput maps an analog output port to the channels that write to it.
+	AnalogOutput map[AnalogOutputPort]CommandStatePair `json:"analog_output" msgpack:"analog_output"`
+	// DigitalInput maps a digital port to the channel that holds its samples.
+	DigitalInput map[T8DigitalPort]channel.Key `json:"digital_input" msgpack:"digital_input"`
+	// DigitalOutput maps a digital port to the channels that write to it.
+	DigitalOutput map[T8DigitalPort]CommandStatePair `json:"digital_output" msgpack:"digital_output"`
+}
 
-// Ports holds the configuration that depends on the model: the channel maps and the
-// accessories that add ports.
-type Ports struct {
-	Variant PortsVariant
+func (T8Device) isDeviceVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t T8Device) Validate() error {
+	v := validate.New("T8Device")
+	for key := range t.AnalogInput {
+		v.Ternaryf("analog_input", !key.IsValid(), "invalid analog_input key: %v", key)
+	}
+	for key := range t.AnalogOutput {
+		v.Ternaryf("analog_output", !key.IsValid(), "invalid analog_output key: %v", key)
+	}
+	for key := range t.DigitalInput {
+		v.Ternaryf("digital_input", !key.IsValid(), "invalid digital_input key: %v", key)
+	}
+	for key := range t.DigitalOutput {
+		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
+	v.Exec(t.Base.Validate)
+	return v.Error()
+}
+
+// Device is a LabJack T-series device. Its model selects the ports it has.
+type Device struct {
+	Variant DeviceVariant
 }
 
 // MarshalJSONTo encodes the active variant with its "model" tag injected.
-func (u Ports) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (u Device) MarshalJSONTo(enc *jsontext.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
 		return enc.WriteToken(jsontext.Null)
-	case T4Ports:
+	case T4Device:
 		return json.MarshalEncode(enc, struct {
 			Type Model `json:"model"`
-			T4Ports
-		}{Type: ModelT4, T4Ports: v})
-	case T7Ports:
+			T4Device
+		}{Type: ModelT4, T4Device: v})
+	case T7Device:
 		return json.MarshalEncode(enc, struct {
 			Type Model `json:"model"`
-			T7Ports
-		}{Type: ModelT7, T7Ports: v})
-	case T8Ports:
+			T7Device
+		}{Type: ModelT7, T7Device: v})
+	case T8Device:
 		return json.MarshalEncode(enc, struct {
 			Type Model `json:"model"`
-			T8Ports
-		}{Type: ModelT8, T8Ports: v})
+			T8Device
+		}{Type: ModelT8, T8Device: v})
 	default:
-		return errors.Newf("Ports: unknown variant %T", v)
+		return errors.Newf("Device: unknown variant %T", v)
 	}
 }
 
 // UnmarshalJSONFrom decodes the variant selected by the "model" field.
-func (u *Ports) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (u *Device) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	data, err := dec.ReadValue()
 	if err != nil {
 		return err
@@ -166,34 +592,34 @@ func (u *Ports) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	case ModelT4:
 		var v struct {
 			Type Model `json:"model"`
-			T4Ports
+			T4Device
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.T4Ports
+		u.Variant = v.T4Device
 	case ModelT7:
 		var v struct {
 			Type Model `json:"model"`
-			T7Ports
+			T7Device
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.T7Ports
+		u.Variant = v.T7Device
 	case ModelT8:
 		var v struct {
 			Type Model `json:"model"`
-			T8Ports
+			T8Device
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.T8Ports
+		u.Variant = v.T8Device
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"Ports: unknown model %q",
+			"Device: unknown model %q",
 			disc.Type,
 		)
 	}
@@ -201,13 +627,13 @@ func (u *Ports) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // Model returns the model of the active variant, or an empty model when there is none.
-func (u Ports) Model() Model {
+func (u Device) Model() Model {
 	switch u.Variant.(type) {
-	case T4Ports:
+	case T4Device:
 		return ModelT4
-	case T7Ports:
+	case T7Device:
 		return ModelT7
-	case T8Ports:
+	case T8Device:
 		return ModelT8
 	}
 	return ""
@@ -215,49 +641,46 @@ func (u Ports) Model() Model {
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
-func (u Ports) Validate() error {
-	v := validate.New("Ports")
-	v.Ternary("model", u.Variant == nil, "required")
-	return v.Error()
-}
-
-// Device is a LabJack T-series device.
-type Device struct {
-	// Key uniquely identifies the device.
-	Key Key `json:"key" msgpack:"key"`
-	// Rack is the key of the rack the device is connected to.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Name is a human-readable name for the device.
-	Name string `json:"name" msgpack:"name"`
-	// Serial is the serial number of the device.
-	Serial uint32 `json:"serial" msgpack:"serial"`
-	// Connection is the connection the scanner last found the device on.
-	Connection Connection `json:"connection" msgpack:"connection"`
-	// Identifier is the prefix of the device's channel names. The device is
-	// unconfigured while it is empty.
-	Identifier string `json:"identifier" msgpack:"identifier"`
-	// ReadIndex is the index channel of the channels that the device reads into.
-	ReadIndex *channel.Key `json:"read_index,omitzero" msgpack:"read_index,omitempty"`
-	// WriteStateIndex is the index channel of the state channels of the device's
-	// outputs.
-	WriteStateIndex *channel.Key `json:"write_state_index,omitzero" msgpack:"write_state_index,omitempty"`
-	// Status is the current operational status of the device.
-	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
-	// Model is the model of the device. It selects the ports the device has.
-	Model Model `json:"model" msgpack:"model"`
-	// Ports holds the channel maps and the accessories of the device's model.
-	Ports Ports `json:"ports" msgpack:"ports"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (d Device) Validate() error {
+func (u Device) Validate() error {
 	v := validate.New("Device")
-	v.Ternaryf("connection", !d.Connection.IsValid(), "invalid connection: %v", d.Connection)
-	v.Ternaryf("model", !d.Model.IsValid(), "invalid model: %v", d.Model)
-	v.NotEmptyString("name", d.Name)
-	v.NonZero("serial", d.Serial)
-	v.Ternary("identifier", !validatePattern0.MatchString(string(d.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
-	v.Exec(func() error { return validate.PathedError(d.Ports.Validate(), "ports") })
+	v.Ternary("model", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case T4Device:
+		v.Exec(variant.Validate)
+	case T7Device:
+		v.Exec(variant.Validate)
+	case T8Device:
+		v.Exec(variant.Validate)
+	}
 	return v.Error()
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u Device) Base() Base {
+	switch variant := u.Variant.(type) {
+	case T4Device:
+		return variant.Base
+	case T7Device:
+		return variant.Base
+	case T8Device:
+		return variant.Base
+	}
+	return Base{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *Device) SetBase(base Base) {
+	switch variant := u.Variant.(type) {
+	case T4Device:
+		variant.Base = base
+		u.Variant = variant
+	case T7Device:
+		variant.Base = base
+		u.Variant = variant
+	case T8Device:
+		variant.Base = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("Device: cannot set the base of variant %T", variant))
+	}
 }
