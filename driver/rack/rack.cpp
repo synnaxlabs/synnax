@@ -70,6 +70,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     auto [outbox, outbox_err] = outbox::Outbox::open({
         .dir = data / OUTBOX_DIR,
         .statuses = client->statuses,
+        .ranges = client->ranges,
     });
     if (outbox_err) {
         this->should_exit(outbox_err, on_shutdown);

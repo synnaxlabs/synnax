@@ -254,14 +254,11 @@ public:
                         ) { task_ptr->warn_while_running(message, description); }
                     ),
                     std::make_shared<::driver::arc::ranges::Module>(
-                        ctx->client,
+                        ctx->outbox(),
                         [task_ptr = task.get()](
                             const std::string &message,
                             const std::string &description
-                        ) {
-                            std::lock_guard lock(task_ptr->state_mu);
-                            task_ptr->state.send_warning(message, description);
-                        }
+                        ) { task_ptr->warn_while_running(message, description); }
                     ),
                 },
             .rt_handle = rt_handle,

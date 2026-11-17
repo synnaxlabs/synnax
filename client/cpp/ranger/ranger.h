@@ -42,10 +42,12 @@ using DispatchClient = freighter::
 /// @brief a client for performing operations on the ranges in a Synnax cluster.
 class Client {
 public:
+    Client() = default;
+
     Client(
-        std::unique_ptr<RetrieveClient> retrieve_client,
-        std::unique_ptr<CreateClient> create_client,
-        std::unique_ptr<DispatchClient> dispatch_client,
+        std::shared_ptr<RetrieveClient> retrieve_client,
+        std::shared_ptr<CreateClient> create_client,
+        std::shared_ptr<DispatchClient> dispatch_client,
         ranger::kv::Client kv_client
     ):
         retrieve_client(std::move(retrieve_client)),
@@ -129,11 +131,11 @@ public:
 
 private:
     /// @brief range retrieval transport.
-    std::unique_ptr<RetrieveClient> retrieve_client;
+    std::shared_ptr<RetrieveClient> retrieve_client;
     /// @brief create retrieval transport.
-    std::unique_ptr<CreateClient> create_client;
+    std::shared_ptr<CreateClient> create_client;
     /// @brief range dispatch transport.
-    std::unique_ptr<DispatchClient> dispatch_client;
+    std::shared_ptr<DispatchClient> dispatch_client;
     /// @brief range kv get transport.
     ranger::kv::Client kv;
 };
