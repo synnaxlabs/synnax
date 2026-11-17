@@ -262,16 +262,17 @@ func checkIndex(
 	message string,
 ) error {
 	f, ok := fields[*rm.Index]
+	timestamp, isTimestamp := f.Variant.(icd.TimestampJSONField)
 	switch {
 	case !ok:
 		return validate.Errorf(
 			"field %s does not exist in message %s", *rm.Index, message,
 		)
-	case f.Type() != payload.KindTimestamp:
+	case !isTimestamp:
 		return validate.Errorf(
 			"the index field %s must be a timestamp field", f.Base().Name,
 		)
-	case f.Variant.(icd.TimestampJSONField).Default != nil:
+	case timestamp.Default != nil:
 		return validate.Errorf(
 			"the index field %s cannot take a default", f.Base().Name,
 		)

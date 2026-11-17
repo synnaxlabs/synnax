@@ -502,8 +502,9 @@ var _ = Describe("Service", func() {
 					Expect(ic.Messages).To(HaveLen(1))
 					m := ic.Messages[0]
 					Expect(m.Name).To(Equal("plant/level"))
-					fields := m.Payload.Variant.(icd.JSONPayload).Fields
-					names, kinds := []string{}, []payload.Kind{}
+					fields := jsonFields(m)
+					names := make([]string, 0, len(fields))
+					kinds := make([]payload.Kind, 0, len(fields))
 					for _, f := range fields {
 						names = append(names, f.Base().Name)
 						kinds = append(kinds, f.Type())
