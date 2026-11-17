@@ -26,7 +26,7 @@ export interface TaskContextMenuItemConfig {
    * Offers the item for several devices. It configures each one that is not configured
    * yet, then creates one task with `deviceKeys`.
    */
-  multiDevice?: Omit<ConfigureManyParams, "keys">;
+  configureMany?: Omit<ConfigureManyParams, "keys">;
 }
 
 export interface TaskContextMenuItemProps {
@@ -45,19 +45,19 @@ export const createTaskContextMenuItem = ({
   itemKey,
   label,
   useCreate,
-  multiDevice,
+  configureMany,
 }: TaskContextMenuItemConfig): TaskContextMenuItem => {
   const Item: TaskContextMenuItem = ({ deviceKeys, beforeCreate }) => {
     const createTask = useCreate();
-    const { updateAsync: configure } = useConfigureMany();
+    const configure = useConfigureMany();
     const handleClick = () => {
-      if (multiDevice == null || deviceKeys.length === 1) {
+      if (configureMany == null || deviceKeys.length === 1) {
         beforeCreate();
         createTask({ deviceKey: deviceKeys[0] });
         return;
       }
       void (async () => {
-        if (await configure({ ...multiDevice, keys: deviceKeys }))
+        if (await configure({ ...configureMany, keys: deviceKeys }))
           createTask({ deviceKeys });
       })();
     };
@@ -68,7 +68,7 @@ export const createTaskContextMenuItem = ({
     );
   };
   Item.itemKey = itemKey;
-  Item.multiDevice = multiDevice != null;
+  Item.multiDevice = configureMany != null;
   return Item;
 };
 

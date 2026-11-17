@@ -32,7 +32,7 @@ const ConfigureItem = ({ deviceKey, onConfigure }: ConfigureItemProps) => (
   </Menu.Item>
 );
 
-const MULTI_DEVICE = {
+const CONFIGURE_MANY = {
   zeroProperties: {},
   suggestIdentifiers: ({ name }: device.Device) => strings.createShortIdentifiers(name),
 };
@@ -41,14 +41,14 @@ const READ_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.readTask",
   label: "Create read task",
   useCreate: Task.useCreateRead,
-  multiDevice: MULTI_DEVICE,
+  configureMany: CONFIGURE_MANY,
 });
 
 const WRITE_TASK_ITEM = Device.createTaskContextMenuItem({
   itemKey: "ethercat.writeTask",
   label: "Create write task",
   useCreate: Task.useCreateWrite,
-  multiDevice: MULTI_DEVICE,
+  configureMany: CONFIGURE_MANY,
 });
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {

@@ -27,6 +27,5 @@ export * from "@/platform/device/setProperties";
 export * from "@/platform/device/TaskContextMenuItems";
 export * from "@/platform/device/types";
 export * from "@/platform/device/useChangeIdentifier";
-export * from "@/platform/device/useConfigureMany";
 export * from "@/platform/device/useFromConfig";
 export * from "@/platform/device/wrapTaskForm";

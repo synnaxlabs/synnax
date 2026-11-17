@@ -11,17 +11,8 @@ import { actions, channel, device } from "@synnaxlabs/client";
 import { Flux } from "@synnaxlabs/pluto";
 import { deep, type record, verbs } from "@synnaxlabs/x";
 
-import { identifierZ } from "@/platform/device/types";
-
-/** @returns the channel name prefixes that the identifiers of the devices give. */
-const prefixesOf = (devices: device.Device[]): Set<string> =>
-  new Set(
-    devices.flatMap(({ properties }) =>
-      typeof properties?.identifier === "string" && properties.identifier !== ""
-        ? [channel.escapeInvalidName(properties.identifier)]
-        : [],
-    ),
-  );
+import { Analytics } from "@/platform/analytics";
+import { channelPrefix, identifierZ } from "@/platform/device/types";
 
 /**
  * @returns the first idea that gives no taken channel name prefix. A taken idea takes
@@ -45,24 +36,27 @@ export interface ConfigureManyParams {
   suggestIdentifiers: (device: device.Device) => string[];
 }
 
-/**
- * Configures each device that is not configured yet with the first suggested
- * identifier that no other device uses.
- *
- * @throws {Error} if no suggested identifier is free for a device.
- */
-export const { useUpdate: useConfigureMany } = Flux.createUpdate<ConfigureManyParams>({
+interface UpdateParams extends ConfigureManyParams {
+  capture: Analytics.Sink["capture"];
+}
+
+const { useUpdate } = Flux.createUpdate<UpdateParams>({
   name: "devices",
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
-    const { keys, zeroProperties, suggestIdentifiers } = data;
+    const { keys, zeroProperties, suggestIdentifiers, capture } = data;
     for (const key of keys) {
       // A fresh read sees the identifiers that other runs already saved, not their
       // pending picks.
       const all = await client.devices.retrieve({});
       const prev = all.find((d) => d.key === key);
       if (prev == null || prev.configured) continue;
-      const taken = prefixesOf(all.filter((d) => d.key !== key));
+      const taken = new Set(
+        all
+          .filter((d) => d.key !== key)
+          .map(channelPrefix)
+          .filter((prefix) => prefix != null),
+      );
       const identifier = firstFree(suggestIdentifiers(prev), taken);
       if (identifier == null)
         throw new Error(
@@ -83,7 +77,21 @@ export const { useUpdate: useConfigureMany } = Flux.createUpdate<ConfigureManyPa
         "properties",
       ]);
       await client.devices.dispatch(key, edits);
+      capture("device_configured", { make: prev.make });
     }
     return data;
   },
 });
+
+/**
+ * Returns a function that configures each device that is not configured yet with the
+ * first suggested identifier that no other device uses. The function resolves to
+ * whether every device saved, and reports a failure as an error status.
+ */
+export const useConfigureMany = (): ((
+  params: ConfigureManyParams,
+) => Promise<boolean>) => {
+  const { capture } = Analytics.use();
+  const { updateAsync } = useUpdate();
+  return async (params) => await updateAsync({ ...params, capture });
+};
