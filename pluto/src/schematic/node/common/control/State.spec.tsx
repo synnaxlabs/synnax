@@ -21,11 +21,19 @@ import { Grid } from "@/schematic/node/common/grid";
 import { control } from "@/telem/control/aether";
 import { render } from "@/testutil/render";
 
+interface RenderOptions {
+  config?: Control.StateConfig;
+  registry?: aether.ComponentRegistry;
+  children?: ReactNode;
+}
+
 const renderState = (
   channel: channel.Key,
-  config: Control.StateConfig = Control.stateConfigZ.parse({}),
-  registry: aether.ComponentRegistry = control.REGISTRY,
-  children?: ReactNode,
+  {
+    config = Control.stateConfigZ.parse({}),
+    registry = control.REGISTRY,
+    children,
+  }: RenderOptions = {},
 ) =>
   render(
     <ReactFlowProvider>
@@ -49,12 +57,9 @@ describe("Control.State", () => {
   });
 
   it("should show its children for the zero channel", () => {
-    const { getByText, queryAllByRole } = renderState(
-      0,
-      undefined,
-      undefined,
-      <span>child</span>,
-    );
+    const { getByText, queryAllByRole } = renderState(0, {
+      children: <span>child</span>,
+    });
     expect(getByText("child")).toBeTruthy();
     expect(queryAllByRole("button")).toHaveLength(0);
   });
@@ -91,7 +96,7 @@ describe("Control.State authority", () => {
   });
 
   it("should acquire control with absolute authority by default", async () => {
-    renderState(7, Control.stateConfigZ.parse({}), STUB_REGISTRY);
+    renderState(7, { registry: STUB_REGISTRY });
     await waitFor(() =>
       expect(chipSinks).toHaveBeenCalledWith(
         control.acquireChannelControl({ channel: 7, authority: 255 }),
@@ -100,7 +105,10 @@ describe("Control.State authority", () => {
   });
 
   it("should acquire control with the configured authority", async () => {
-    renderState(7, Control.stateConfigZ.parse({ authority: 100 }), STUB_REGISTRY);
+    renderState(7, {
+      config: Control.stateConfigZ.parse({ authority: 100 }),
+      registry: STUB_REGISTRY,
+    });
     await waitFor(() =>
       expect(chipSinks).toHaveBeenCalledWith(
         control.acquireChannelControl({ channel: 7, authority: 100 }),
