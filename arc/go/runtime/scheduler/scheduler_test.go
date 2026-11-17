@@ -281,6 +281,13 @@ var _ = Describe("Scheduler", func() {
 	})
 
 	Describe("Construction", func() {
+		It("Should panic when a non-empty scope has no mode", func() {
+			prog := ir.IR{Root: ir.Scope{Key: "main"}}
+			Expect(func() { MustSucceed(scheduler.New(prog, nodes)) }).To(
+				PanicWith("scope main has no mode"),
+			)
+		})
+
 		It(
 			"Should run Next on an empty program without panicking",
 			func(ctx SpecContext) {

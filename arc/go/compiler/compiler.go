@@ -398,8 +398,10 @@ func blockTypeFor(vt wasm.ValueType) wasm.BlockType {
 		return wasm.BlockTypeF32
 	case wasm.F64:
 		return wasm.BlockTypeF64
-	default:
+	case wasm.I32:
 		return wasm.BlockTypeI32
+	default:
+		panic(errors.Newf("unknown wasm value type %#x", byte(vt)))
 	}
 }
 
