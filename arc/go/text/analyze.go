@@ -585,17 +585,8 @@ func bindArg(
 	param types.Param,
 	shell *shellBuilder,
 ) (argument, bool) {
-	if head, tail := parser.ExpressionNameParts(expr); head != "" {
-		sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
-		if err == nil && sym.Kind != symbol.KindConstant {
-			if param.Type.Kind == types.KindChan {
-				return argument{channel: shell.channelKey(sym)}, true
-			}
-			if outer, passed := shell.args[sym]; passed {
-				return outer, true
-			}
-			return argument{value: sym.DefaultValue}, true
-		}
+	if arg, named := namedArg(ctx, expr, param, shell); named {
+		return arg, true
 	}
 	if value, ok := ctx.FloatConstant(expr); ok {
 		return argument{value: types.EncodeFloat(value)}, true
@@ -606,6 +597,30 @@ func bindArg(
 		return argument{}, false
 	}
 	return argument{value: parsed.Value}, true
+}
+
+// namedArg returns the argument of an expr that names a variable or a channel.
+func namedArg(
+	ctx acontext.Context[parser.IFunctionContext],
+	expr parser.IExpressionContext,
+	param types.Param,
+	shell *shellBuilder,
+) (argument, bool) {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
+		return argument{}, false
+	}
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	if err != nil || sym.Kind == symbol.KindConstant {
+		return argument{}, false
+	}
+	if param.Type.Kind == types.KindChan {
+		return argument{channel: shell.channelKey(sym)}, true
+	}
+	if outer, passed := shell.args[sym]; passed {
+		return outer, true
+	}
+	return argument{value: sym.DefaultValue}, true
 }
 
 // instantiate lowers body as a root-level scope keyed key, with args bound.
@@ -2998,10 +3013,11 @@ func lowerSequence(
 		allNodes []ir.Node
 		allEdges []ir.Edge
 	)
+	ctx = ctx.WithScope(seqScope)
 	items := ctx.AST.AllSequenceItem()
 	for _, item := range items {
 		if decl := item.VariableDeclaration(); decl != nil {
-			e, ok := lowerVarDecl(ctx.Child(decl).WithScope(seqScope), kg, shell)
+			e, ok := lowerVarDecl(ctx.Child(decl), kg, shell)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
@@ -3026,119 +3042,113 @@ func lowerSequence(
 
 	for i, si := range steps {
 		frame.activeIdx = i
-		nextKey := ""
-		if i+1 < len(steps) {
-			nextKey = steps[i+1].key
+		members, nodes, edges, ok := lowerStep(ctx, si, frame.nextMember(), kg, shell)
+		if !ok {
+			return ir.Scope{}, nil, nil, false
 		}
-
-		item := si.item
-		if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			stgScope, nodes, edges, ok := analyzeStage(
-				ctx.Child(stageDecl).WithScope(seqScope),
-				kg,
-				shell,
-			)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			// Anonymous inline stages inherit the synthesized step key as
-			// their own Key so Member.Key() is derivable from the scope.
-			if stageDecl.IDENTIFIER() == nil {
-				stgScope.Key = si.key
-			}
-			scope.Steps = append(scope.Steps, ir.Member{Scope: &stgScope})
-			allNodes = append(allNodes, nodes...)
-			allEdges = append(allEdges, edges...)
-			continue
-		}
-
-		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			nodes, edges, inlineMembers, transitionEmitted, ok := analyzeFlow(
-				ctx.Child(flowStmt).WithScope(seqScope),
-				kg,
-				shell,
-			)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			child := flowScope(si.key, nodes)
-			addInlineMembers(&child, inlineMembers)
-			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
-			allNodes = append(allNodes, nodes...)
-			allEdges = append(allEdges, edges...)
-			// Only auto-wire the step-advance transition when the flow did
-			// not already terminate in an explicit `=> X`. The explicit
-			// transition may target an outer frame; emitting the auto-wire
-			// alongside it causes the inner frame's evaluator to clear the
-			// firing-node's mark before the outer frame's evaluator sees
-			// it, preventing the cross-level jump from firing.
-			if !transitionEmitted && len(nodes) > 0 {
-				autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
-			}
-			continue
-		}
-
-		if assign := item.Assignment(); assign != nil {
-			aNodes, aEdges, ok := lowerAssignment(
-				ctx.Child(assign).WithScope(seqScope),
-				kg,
-				shell,
-			)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			child := flowScope(si.key, aNodes)
-			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
-			allNodes = append(allNodes, aNodes...)
-			allEdges = append(allEdges, aEdges...)
-			if len(aNodes) > 0 {
-				autoWireTransition(shell, aNodes[len(aNodes)-1], nextKey)
-			}
-			continue
-		}
-
-		if single := item.SingleInvocation(); single != nil {
-			nodes, ok := analyzeSingleInvocation(
-				ctx.Child(single).WithScope(seqScope),
-				kg,
-				shell,
-			)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			child := flowScope(si.key, nodes)
-			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
-			allNodes = append(allNodes, nodes...)
-			autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
-			continue
-		}
-
-		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
-			nestedScope, nodes, edges, ok := analyzeSequence(
-				ctx.Child(nestedSeqDecl).WithScope(seqScope),
-				kg,
-				shell,
-			)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			// Anonymous inline nested sequences must use the outer's
-			// synthesized step key so autoWireTransition from the preceding
-			// flow step can address them; analyzeSequence otherwise stamps
-			// the scope.Key with an AutoName (seq_N) that does not match
-			// collectStepKeys' step_N. Named nested sequences keep their
-			// source-level name.
-			if nestedSeqDecl.IDENTIFIER() == nil {
-				nestedScope.Key = si.key
-			}
-			scope.Steps = append(scope.Steps, ir.Member{Scope: &nestedScope})
-			allNodes = append(allNodes, nodes...)
-			allEdges = append(allEdges, edges...)
-		}
+		scope.Steps = append(scope.Steps, members...)
+		allNodes = append(allNodes, nodes...)
+		allEdges = append(allEdges, edges...)
 	}
 
 	scope.Transitions = frame.transitions
 	return scope, allNodes, allEdges, true
+}
+
+// lowerStep lowers the step si of a sequence, which the step keyed nextKey follows.
+func lowerStep(
+	ctx acontext.Context[parser.ISequenceDeclarationContext],
+	si stepInfo,
+	nextKey string,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (ir.Members, []ir.Node, []ir.Edge, bool) {
+	if stageDecl := si.item.StageDeclaration(); stageDecl != nil {
+		stgScope, nodes, edges, ok := analyzeStage(ctx.Child(stageDecl), kg, shell)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		// Anonymous inline stages inherit the synthesized step key as
+		// their own Key so Member.Key() is derivable from the scope.
+		if stageDecl.IDENTIFIER() == nil {
+			stgScope.Key = si.key
+		}
+		return ir.Members{{Scope: &stgScope}}, nodes, edges, true
+	}
+	if nestedSeqDecl := si.item.SequenceDeclaration(); nestedSeqDecl != nil {
+		nestedScope, nodes, edges, ok := analyzeSequence(
+			ctx.Child(nestedSeqDecl),
+			kg,
+			shell,
+		)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		// Anonymous inline nested sequences must use the outer's
+		// synthesized step key so autoWireTransition from the preceding
+		// flow step can address them; analyzeSequence otherwise stamps
+		// the scope.Key with an AutoName (seq_N) that does not match
+		// collectStepKeys' step_N. Named nested sequences keep their
+		// source-level name.
+		if nestedSeqDecl.IDENTIFIER() == nil {
+			nestedScope.Key = si.key
+		}
+		return ir.Members{{Scope: &nestedScope}}, nodes, edges, true
+	}
+	return lowerLeafStep(ctx, si, nextKey, kg, shell)
+}
+
+// lowerLeafStep lowers a flow, assignment, or call step and wires its way out.
+func lowerLeafStep(
+	ctx acontext.Context[parser.ISequenceDeclarationContext],
+	si stepInfo,
+	nextKey string,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (ir.Members, []ir.Node, []ir.Edge, bool) {
+	if flowStmt := si.item.FlowStatement(); flowStmt != nil {
+		nodes, edges, inlineMembers, transitionEmitted, ok := analyzeFlow(
+			ctx.Child(flowStmt),
+			kg,
+			shell,
+		)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		child := flowScope(si.key, nodes)
+		addInlineMembers(&child, inlineMembers)
+		// Only auto-wire the step-advance transition when the flow did
+		// not already terminate in an explicit `=> X`. The explicit
+		// transition may target an outer frame; emitting the auto-wire
+		// alongside it causes the inner frame's evaluator to clear the
+		// firing-node's mark before the outer frame's evaluator sees
+		// it, preventing the cross-level jump from firing.
+		if !transitionEmitted && len(nodes) > 0 {
+			autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
+		}
+		return ir.Members{{Scope: &child}}, nodes, edges, true
+	}
+	if assign := si.item.Assignment(); assign != nil {
+		aNodes, aEdges, ok := lowerAssignment(ctx.Child(assign), kg, shell)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		child := flowScope(si.key, aNodes)
+		if len(aNodes) > 0 {
+			autoWireTransition(shell, aNodes[len(aNodes)-1], nextKey)
+		}
+		return ir.Members{{Scope: &child}}, aNodes, aEdges, true
+	}
+	if single := si.item.SingleInvocation(); single != nil {
+		nodes, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		child := flowScope(si.key, nodes)
+		autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
+		return ir.Members{{Scope: &child}}, nodes, nil, true
+	}
+	return nil, nil, nil, true
 }
 
 // analyzeStage resolves the scope of a stage declaration and lowers it.
@@ -3185,72 +3195,13 @@ func lowerStage(
 	defer shell.ownJumps(&jumps)()
 	ctx = ctx.WithScope(stageScope)
 	for _, item := range stageBody.AllStageItem() {
-		if decl := item.VariableDeclaration(); decl != nil {
-			e, ok := lowerVarDecl(ctx.Child(decl), kg, shell)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			if e.init != nil {
-				nodes = append(nodes, *e.init)
-			}
-			continue
+		itemMembers, itemNodes, itemEdges, ok := lowerStageItem(ctx, item, kg, shell)
+		if !ok {
+			return ir.Scope{}, nil, nil, false
 		}
-		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			itemNodes, itemEdges, inlineMembers, _, ok := analyzeFlow(
-				ctx.Child(flowStmt),
-				kg,
-				shell,
-			)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			nodes = append(nodes, itemNodes...)
-			edges = append(edges, itemEdges...)
-			for _, n := range itemNodes {
-				members = append(members, ir.Member{NodeKey: new(n.Key)})
-			}
-			members = append(members, inlineMembers...)
-			continue
-		}
-		if assign := item.Assignment(); assign != nil {
-			aNodes, aEdges, ok := lowerAssignment(
-				ctx.Child(assign),
-				kg,
-				shell,
-			)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			nodes = append(nodes, aNodes...)
-			edges = append(edges, aEdges...)
-			for _, n := range aNodes {
-				members = append(members, ir.Member{NodeKey: new(n.Key)})
-			}
-			continue
-		}
-		if single := item.SingleInvocation(); single != nil {
-			itemNodes, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			nodes = append(nodes, itemNodes...)
-			for _, n := range itemNodes {
-				members = append(members, ir.Member{NodeKey: new(n.Key)})
-			}
-			continue
-		}
-		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
-			subScope, subNodes, subEdges, ok := analyzeSequence(
-				ctx.Child(nestedSeqDecl), kg, shell,
-			)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			nodes = append(nodes, subNodes...)
-			edges = append(edges, subEdges...)
-			members = append(members, ir.Member{Scope: &subScope})
-			continue
-		}
+		members = append(members, itemMembers...)
+		nodes = append(nodes, itemNodes...)
+		edges = append(edges, itemEdges...)
 	}
 
 	members = append(scopeVarMembers(stageScope, shell), members...)
@@ -3259,6 +3210,69 @@ func lowerStage(
 	}
 	scope.Transitions = jumps
 	return scope, nodes, edges, true
+}
+
+// lowerStageItem lowers one item of a stage body to its members, nodes, and edges.
+func lowerStageItem(
+	ctx acontext.Context[parser.IStageDeclarationContext],
+	item parser.IStageItemContext,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (ir.Members, []ir.Node, []ir.Edge, bool) {
+	var members ir.Members
+	if decl := item.VariableDeclaration(); decl != nil {
+		e, ok := lowerVarDecl(ctx.Child(decl), kg, shell)
+		if !ok || e.init == nil {
+			return nil, nil, nil, ok
+		}
+		return nil, []ir.Node{*e.init}, nil, true
+	}
+	if flowStmt := item.FlowStatement(); flowStmt != nil {
+		nodes, edges, inlineMembers, _, ok := analyzeFlow(
+			ctx.Child(flowStmt),
+			kg,
+			shell,
+		)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		for _, n := range nodes {
+			members = append(members, ir.Member{NodeKey: new(n.Key)})
+		}
+		return append(members, inlineMembers...), nodes, edges, true
+	}
+	if assign := item.Assignment(); assign != nil {
+		aNodes, aEdges, ok := lowerAssignment(ctx.Child(assign), kg, shell)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		for _, n := range aNodes {
+			members = append(members, ir.Member{NodeKey: new(n.Key)})
+		}
+		return members, aNodes, aEdges, true
+	}
+	if single := item.SingleInvocation(); single != nil {
+		nodes, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		for _, n := range nodes {
+			members = append(members, ir.Member{NodeKey: new(n.Key)})
+		}
+		return members, nodes, nil, true
+	}
+	if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
+		subScope, nodes, edges, ok := analyzeSequence(
+			ctx.Child(nestedSeqDecl),
+			kg,
+			shell,
+		)
+		if !ok {
+			return nil, nil, nil, false
+		}
+		return ir.Members{{Scope: &subScope}}, nodes, edges, true
+	}
+	return nil, nil, nil, true
 }
 
 // analyzeSingleInvocation lowers a bare call or expression step, with its node last. A
