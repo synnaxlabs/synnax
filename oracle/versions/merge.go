@@ -257,8 +257,7 @@ func liveImportList(own []string, referenced set.Set[string]) ([]string, error) 
 }
 
 // importsByVersion maps each version of a chain to the live path of each dependency its
-// file
-// imports, keyed by resource namespace. A declaration resolves the namespaces it
+// file imports, keyed by resource namespace. A declaration resolves the namespaces it
 // references through the imports of the file that declares it, inherited fields
 // included.
 func importsByVersion(r *Resolver, chain Chain) (map[int]map[string]string, error) {
