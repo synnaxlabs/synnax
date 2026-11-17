@@ -16,19 +16,23 @@
 #include <deque>
 #include <filesystem>
 #include <functional>
+#include <list>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <set>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/journal/journal.h"
 #include "driver/outbox/pb/call.pb.h"
@@ -57,7 +61,10 @@ struct Config {
     std::filesystem::path dir;
     /// @brief the client that sends status sets to the Core.
     synnax::status::Client statuses;
-    /// @brief the maximum number of calls the outbox can hold.
+    /// @brief the client that creates and ends ranges on the Core.
+    synnax::ranger::Client ranges;
+    /// @brief the number of calls past which the outbox takes only the first end of
+    /// each range it took a create of, up to this number of ends again.
     std::size_t cap = DEFAULT_CAP;
     /// @brief the backoff between sends while the Core is temporarily unavailable.
     x::breaker::Config retry = {
@@ -74,22 +81,31 @@ struct Config {
 using SetStatusDone = std::function<
     void(const synnax::status::SetByKeyOrNameResult &, const x::errors::Error &)>;
 
+/// @brief called on the send thread once the Core answers a range call. An error
+/// means the outbox dropped the call.
+using RangeDone = std::function<void(const x::errors::Error &)>;
+
 /// @brief a queue of Core calls on disk, which one thread sends in order. The queue
 /// keeps its calls across process restarts. It syncs a call to the disk within about
 /// a second, so a power loss can lose the calls of the last second. It saves its send
 /// position about once a second, so after a crash it can send the calls of the last
 /// second again. This is safe, because the Core does not let an older status set
-/// replace a newer one. While the Core is temporarily unavailable, the thread retries
-/// the first call with no limit. Any other error drops the call. Safe for concurrent
-/// use.
+/// replace a newer one, the outbox counts a create of a range that exists as sent, and
+/// an end sets the same time again. While the Core is temporarily unavailable, the
+/// thread retries the first call with no limit. Any other error drops the call. Safe
+/// for concurrent use.
 class Outbox {
     struct Call {
         pb::Call request;
         /// @brief null for a call loaded from disk.
         SetStatusDone set_status_done;
+        /// @brief null for a call loaded from disk.
+        RangeDone range_done;
         std::uint64_t segment;
         /// @brief the byte position after the call in its segment.
         std::uint64_t end;
+        /// @brief an end the outbox took past the cap.
+        bool over_cap = false;
     };
 
     Config cfg;
@@ -104,8 +120,14 @@ class Outbox {
     /// @brief the segments whose write or sync failed, so their calls may not be on
     /// the disk.
     std::set<std::uint64_t> unsynced;
+    /// @brief the keys of the last cap ranges the outbox took a create of and no end
+    /// of, oldest first.
+    std::list<std::string> open_order;
+    std::unordered_map<std::string, std::list<std::string>::iterator> open_ranges;
     /// @brief the functions to run on the send thread.
     std::vector<std::function<void()>> posted;
+    /// @brief the number of queued ends taken past the cap.
+    std::size_t over_cap_ends = 0;
     std::uint64_t tail = 0;
     /// @brief null until the first call of the tail segment.
     std::unique_ptr<journal::Writer> writer;
@@ -123,7 +145,12 @@ class Outbox {
     explicit Outbox(Config cfg);
     [[nodiscard]] std::filesystem::path segment_path(std::uint64_t key) const;
     x::errors::Error load(std::uint64_t key, std::uint64_t pos);
-    x::errors::Error push(pb::Call request, SetStatusDone done);
+    x::errors::Error push(Call call);
+    /// @brief tracks the open ranges and the ends past the cap for a call the outbox
+    /// takes. Requires mu.
+    void track(const Call &call);
+    void open_range(const std::string &key);
+    void close_range(const std::string &key);
     /// @returns the byte position after the call in the tail segment.
     std::pair<std::uint64_t, x::errors::Error> append(const pb::Call &request);
     /// @brief starts a new tail segment at the next call. failed marks the old tail
@@ -135,6 +162,9 @@ class Outbox {
     void run();
     void run_syncs();
     x::errors::Error send(const Call &call) const;
+    [[nodiscard]] x::errors::Error send_set(const Call &call) const;
+    [[nodiscard]] x::errors::Error send_create(const pb::CreateRange &create) const;
+    [[nodiscard]] x::errors::Error send_end(const pb::EndRange &end) const;
     /// @brief takes the sent call off the queue. Saves the offset when the queue is
     /// empty, the call ends its segment, or a second passed since the last save.
     x::errors::Error commit(const Call &call);
@@ -165,6 +195,25 @@ public:
     /// @returns FULL when the outbox has no room, and counts the set in refused().
     x::errors::Error
     set_status(const ::grpc::status::SetByKeyOrNameRequest &req, SetStatusDone done);
+
+    /// @brief queues the create of a range and returns without waiting for the Core.
+    /// When the Core rejects the create as not valid and a range with its key exists,
+    /// the outbox counts the create as sent.
+    /// @param range the range, with its key and time range set by the caller.
+    /// @param done called once the Core answers the create.
+    /// @returns FULL when the outbox has no room, and counts the create in refused().
+    x::errors::Error create_range(const synnax::ranger::Range &range, RangeDone done);
+
+    /// @brief queues a call that sets the end of a range, and returns without waiting
+    /// for the Core. The outbox sends it after the calls queued before it. When full,
+    /// it still takes the first end of a range it took a create of, up to cap ends. It
+    /// keeps only the last cap ranges it took a create of for this.
+    /// @param key the key of the range.
+    /// @param end the end of the range.
+    /// @param done called once the Core answers the call.
+    /// @returns FULL when the outbox refuses the end, and counts it in refused().
+    x::errors::Error
+    end_range(const x::uuid::UUID &key, x::telem::TimeStamp end, RangeDone done);
 
     /// @brief runs fn on the send thread before its next send or retry, or at once
     /// when the outbox holds no calls. fn must not call the outbox.

@@ -11,13 +11,13 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>
 #include <variant>
 
-#include "client/cpp/status/status.h"
-#include "client/cpp/synnax.h"
+#include "client/cpp/ranger/ranger.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -29,18 +29,82 @@
 #include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
 #include "driver/arc/reporter.h"
+#include "driver/outbox/outbox.h"
 
 namespace driver::arc::ranges {
 // Reporter text. Keep in sync with core/pkg/service/arc/ranges/ranges.go.
 const std::string CREATE_FAILURE_MSG = "Failed to create range";
 const std::string END_FAILURE_MSG = "Failed to end range";
 
-/// @brief dispatch_create creates an open range that starts now, parsing the color and
-/// parent and reporting failures as warnings. On any failure no range is created.
-/// Returns the new key or "".
-inline std::string dispatch_create(
-    const std::shared_ptr<synnax::Synnax> &client,
-    const Reporter &report,
+/// @brief the shared state of the ranges module, which outlives a module while the
+/// outbox holds its calls. Safe for concurrent use.
+class Calls {
+    /// @brief held while a report runs, which can wait on the Core.
+    std::mutex report_mu;
+    Reporter reporter;
+    std::mutex refused_mu;
+    size_t refused_calls = 0;
+    std::string refused_reason;
+
+public:
+    explicit Calls(Reporter reporter): reporter(std::move(reporter)) {}
+
+    /// @brief reports through the reporter until close.
+    void report(const std::string &message, const std::string &description) {
+        std::lock_guard lock(this->report_mu);
+        if (this->reporter != nullptr) this->reporter(message, description);
+    }
+
+    /// @brief counts a create the outbox refused, without waiting on the Core.
+    void refuse(const std::string &reason) {
+        std::lock_guard lock(this->refused_mu);
+        this->refused_calls++;
+        this->refused_reason = reason;
+    }
+
+    /// @brief reports the creates refused since the last call, if any. It can wait on
+    /// the Core, so only the outbox thread calls it.
+    void report_refused() {
+        size_t count = 0;
+        std::string reason;
+        {
+            std::lock_guard lock(this->refused_mu);
+            count = std::exchange(this->refused_calls, 0);
+            reason = this->refused_reason;
+        }
+        if (count == 0) return;
+        this->report(
+            CREATE_FAILURE_MSG,
+            reason + " Dropped " + std::to_string(count) + " creates."
+        );
+    }
+
+    /// @brief stops reports, and waits for a report in progress, so the reporter can
+    /// end.
+    void close() {
+        std::lock_guard lock(this->report_mu);
+        this->reporter = nullptr;
+    }
+};
+
+/// @brief returns a callback that reports a failed call as message.
+inline ::driver::outbox::RangeDone
+on_done(const std::shared_ptr<Calls> &calls, const std::string &message) {
+    return [weak = std::weak_ptr(calls), message](const x::errors::Error &err) {
+        const auto calls = weak.lock();
+        if (calls == nullptr) return;
+        calls->report_refused();
+        if (err) calls->report(message, err.data);
+    };
+}
+
+/// @brief queues the create of an open range that starts now, and reports failures
+/// as warnings. Never waits for the Core.
+/// @returns the key of the new range, or "" when the color or parent is not valid or
+/// the outbox refuses the create.
+inline std::string queue_create(
+    ::driver::outbox::Outbox &outbox,
+    const std::shared_ptr<Calls> &calls,
     const std::string &name,
     const std::string &parent,
     const std::string &color_hex
@@ -49,7 +113,7 @@ inline std::string dispatch_create(
     if (!color_hex.empty()) {
         auto [parsed, err] = x::color::parse(color_hex);
         if (err) {
-            report(
+            calls->report(
                 CREATE_FAILURE_MSG,
                 "The color \"" + color_hex + "\" is not valid: " + err.data
             );
@@ -58,6 +122,7 @@ inline std::string dispatch_create(
         c = parsed;
     }
     synnax::ranger::Range r;
+    r.key = x::uuid::create();
     r.name = name;
     r.time_range = x::telem::TimeRange{
         x::telem::TimeStamp::now(),
@@ -67,7 +132,7 @@ inline std::string dispatch_create(
     if (!parent.empty()) {
         auto [uid, err] = x::uuid::UUID::parse(parent);
         if (err) {
-            report(
+            calls->report(
                 CREATE_FAILURE_MSG,
                 "The parent key \"" + parent + "\" is not a valid range key."
             );
@@ -75,27 +140,35 @@ inline std::string dispatch_create(
         }
         r.parent = uid;
     }
-    if (const auto err = client->ranges.create(r)) {
-        report(CREATE_FAILURE_MSG, err.data);
+    if (const auto err = outbox.create_range(r, on_done(calls, CREATE_FAILURE_MSG))) {
+        calls->refuse(err.data);
         return "";
     }
     return r.key.to_string();
 }
 
-/// @brief dispatch_end sets the end bound on the range identified by key to now in a
-/// single request. Returns the key or "".
-inline std::string dispatch_end(
-    const std::shared_ptr<synnax::Synnax> &client,
-    const Reporter &report,
+/// @brief queues a call that sets the end of the keyed range to now, after the calls
+/// queued before it. Never waits for the Core.
+/// @returns the key, or "" when the key is not valid or the call fails to queue.
+inline std::string queue_end(
+    ::driver::outbox::Outbox &outbox,
+    const std::shared_ptr<Calls> &calls,
     const std::string &key
 ) {
     auto [uid, parse_err] = x::uuid::UUID::parse(key);
     if (parse_err) {
-        report(END_FAILURE_MSG, "The key \"" + key + "\" is not a valid range key.");
+        calls->report(
+            END_FAILURE_MSG,
+            "The key \"" + key + "\" is not a valid range key."
+        );
         return "";
     }
-    if (const auto err = client->ranges.set_end(uid, x::telem::TimeStamp::now())) {
-        report(END_FAILURE_MSG, err.data);
+    if (const auto err = outbox.end_range(
+            uid,
+            x::telem::TimeStamp::now(),
+            on_done(calls, END_FAILURE_MSG)
+        )) {
+        calls->report(END_FAILURE_MSG, err.data);
         return "";
     }
     return uid.to_string();
@@ -120,26 +193,26 @@ inline x::errors::Error validate_string(
     );
 }
 
-/// @brief Flow node for `ranges.create`. Creates an open range on every trigger and
+/// @brief Flow node for `ranges.create`. Queues an open range on every trigger and
 /// emits the new range key on Output(0). Inputs are read at fire time so var-bound
 /// params track the referenced variable's latest value.
 class CreateRange : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
-    std::shared_ptr<synnax::Synnax> client;
-    Reporter report;
+    std::shared_ptr<::driver::outbox::Outbox> outbox;
+    std::shared_ptr<Calls> calls;
 
 public:
     CreateRange(
         ::arc::runtime::state::Node &&state,
-        std::shared_ptr<synnax::Synnax> client,
-        Reporter report
+        std::shared_ptr<::driver::outbox::Outbox> outbox,
+        std::shared_ptr<Calls> calls
     ):
-        state(std::move(state)), client(std::move(client)), report(std::move(report)) {}
+        state(std::move(state)), outbox(std::move(outbox)), calls(std::move(calls)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
-        const std::string key = dispatch_create(
-            this->client,
-            this->report,
+        const std::string key = queue_create(
+            *this->outbox,
+            this->calls,
             this->state.string_input("name"),
             this->state.string_input("parent"),
             this->state.string_input("color")
@@ -157,26 +230,26 @@ public:
     }
 };
 
-/// @brief Flow node for `ranges.end`. Sets the end bound on the keyed range to now on
+/// @brief Flow node for `ranges.end`. Queues an end of the keyed range at now on
 /// every trigger, emitting the key on Output(0). The key is read at fire time so a
 /// var-bound param tracks the referenced variable's latest value.
 class EndRange : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
-    std::shared_ptr<synnax::Synnax> client;
-    Reporter report;
+    std::shared_ptr<::driver::outbox::Outbox> outbox;
+    std::shared_ptr<Calls> calls;
 
 public:
     EndRange(
         ::arc::runtime::state::Node &&state,
-        std::shared_ptr<synnax::Synnax> client,
-        Reporter report
+        std::shared_ptr<::driver::outbox::Outbox> outbox,
+        std::shared_ptr<Calls> calls
     ):
-        state(std::move(state)), client(std::move(client)), report(std::move(report)) {}
+        state(std::move(state)), outbox(std::move(outbox)), calls(std::move(calls)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
-        const std::string out = dispatch_end(
-            this->client,
-            this->report,
+        const std::string out = queue_end(
+            *this->outbox,
+            this->calls,
             this->state.string_input("key")
         );
         *this->state.output(0) = x::telem::Series(out);
@@ -193,13 +266,19 @@ public:
 };
 
 class Module : public ::arc::stl::Module, public ::arc::stl::strings::StateConsumer {
-    std::shared_ptr<synnax::Synnax> client;
-    Reporter report;
+    std::shared_ptr<::driver::outbox::Outbox> outbox;
+    std::shared_ptr<Calls> calls;
     std::shared_ptr<::arc::stl::strings::State> str_state;
 
 public:
-    Module(std::shared_ptr<synnax::Synnax> client, Reporter report):
-        client(std::move(client)), report(std::move(report)) {}
+    /// @param report called from the outbox thread too, until the module ends.
+    Module(std::shared_ptr<::driver::outbox::Outbox> outbox, Reporter report):
+        outbox(std::move(outbox)), calls(std::make_shared<Calls>(std::move(report))) {}
+
+    Module(const Module &) = delete;
+    Module &operator=(const Module &) = delete;
+
+    ~Module() override { this->calls->close(); }
 
     [[nodiscard]] std::string module_name() const override { return "ranges"; }
 
@@ -212,21 +291,21 @@ public:
     }
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context) override {
-        auto client = this->client;
-        auto report = this->report;
+        auto outbox = this->outbox;
+        auto calls = this->calls;
         auto str_state = this->str_state;
         linker
             .func_wrap(
                 "ranges",
                 "create",
-                [client, report, str_state](
+                [outbox, calls, str_state](
                     uint32_t name_h,
                     uint32_t parent_h,
                     uint32_t color_h
                 ) -> uint32_t {
-                    return str_state->create(dispatch_create(
-                        client,
-                        report,
+                    return str_state->create(queue_create(
+                        *outbox,
+                        calls,
                         str_state->get(name_h),
                         str_state->get(parent_h),
                         str_state->get(color_h)
@@ -238,9 +317,9 @@ public:
             .func_wrap(
                 "ranges",
                 "end",
-                [client, report, str_state](uint32_t key_h) -> uint32_t {
+                [outbox, calls, str_state](uint32_t key_h) -> uint32_t {
                     return str_state->create(
-                        dispatch_end(client, report, str_state->get(key_h))
+                        queue_end(*outbox, calls, str_state->get(key_h))
                     );
                 }
             )
@@ -259,8 +338,8 @@ public:
             return {
                 std::make_unique<CreateRange>(
                     std::move(cfg.state),
-                    this->client,
-                    this->report
+                    this->outbox,
+                    this->calls
                 ),
                 x::errors::NIL
             };
@@ -268,11 +347,7 @@ public:
         if (const auto err = validate_string(cfg.node.inputs, "ranges.end", "key"); err)
             return {nullptr, err};
         return {
-            std::make_unique<EndRange>(
-                std::move(cfg.state),
-                this->client,
-                this->report
-            ),
+            std::make_unique<EndRange>(std::move(cfg.state), this->outbox, this->calls),
             x::errors::NIL
         };
     }

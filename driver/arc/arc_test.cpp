@@ -417,7 +417,7 @@ TEST(ArcTests, testComputedRangeKeyWrite) {
     );
     auto ctx = std::make_shared<driver::task::MockContext>(
         client,
-        ::driver::outbox::testutil::open(client->statuses)
+        ::driver::outbox::testutil::open(client->statuses, client->ranges)
     );
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
@@ -427,9 +427,7 @@ TEST(ArcTests, testComputedRangeKeyWrite) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    // The key reaches the channel only after the create node returned it, so
-    // the range exists by the time the first write lands.
-    auto rng = ASSERT_NIL_P(client->ranges.retrieve(name));
+    auto rng = ASSERT_EVENTUALLY_NIL_P(client->ranges.retrieve(name));
     const auto expected = rng.key.to_string();
     bool found = false;
     for (const auto &output_fr: mock_writer->writes->snapshot())

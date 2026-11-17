@@ -254,7 +254,7 @@ public:
                         ) { task_ptr->warn_while_running(message, description); }
                     ),
                     std::make_shared<::driver::arc::ranges::Module>(
-                        ctx->client,
+                        ctx->outbox(),
                         [task_ptr = task.get()](
                             const std::string &message,
                             const std::string &description

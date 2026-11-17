@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstddef>
+#include <filesystem>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <utility>
 #include <variant>
@@ -15,12 +18,13 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/synnax.h"
+#include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
-#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/factory.h"
-#include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/testutil/testutil.h"
 #include "driver/arc/ranges/ranges.h"
 
@@ -39,35 +43,6 @@ namespace {
     };
 }
 
-::arc::types::Param str_param(const std::string &name, const std::string &value) {
-    ::arc::types::Param p;
-    p.name = name;
-    p.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
-    p.value = value;
-    return p;
-}
-
-// make_create_ir_node builds a `create` IR node with {name, parent, color}.
-::arc::ir::Node make_create_ir_node(
-    const std::string &name,
-    const std::string &parent,
-    const std::string &color
-) {
-    ::arc::ir::Node node;
-    node.key = "ranges";
-    node.type = "create";
-    node.inputs = ::arc::types::Params{
-        str_param("name", name),
-        str_param("parent", parent),
-        str_param("color", color)
-    };
-    ::arc::types::Param out;
-    out.name = "output";
-    out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
-    node.outputs = ::arc::types::Params{out};
-    return node;
-}
-
 ::arc::types::Param str_input(const std::string &name) {
     ::arc::types::Param p;
     p.name = name;
@@ -75,33 +50,25 @@ namespace {
     return p;
 }
 
-// create_spec declares the create native's input shape for building test configs.
-::arc::stl::testutil::NodeSpec create_spec() {
+::arc::stl::testutil::NodeSpec
+spec_of(const std::string &type, const std::vector<std::string> &inputs) {
     ::arc::types::Param out;
     out.name = ::arc::ir::default_output_param;
     out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
     ::arc::stl::testutil::NodeSpec spec;
-    spec.type = "create";
+    spec.type = type;
     spec.outputs = ::arc::types::Params{out};
-    spec.inputs = ::arc::types::Params{
-        str_input("name"),
-        str_input("parent"),
-        str_input("color")
-    };
+    for (const auto &name: inputs)
+        spec.inputs.push_back(str_input(name));
     return spec;
 }
 
-// make_end_ir_node builds an `end` IR node with {key}.
-::arc::ir::Node make_end_ir_node(const std::string &key) {
-    ::arc::ir::Node node;
-    node.key = "ranges";
-    node.type = "end";
-    node.inputs = ::arc::types::Params{str_param("key", key)};
-    ::arc::types::Param out;
-    out.name = "output";
-    out.type = ::arc::types::Type{.kind = ::arc::types::Kind::String};
-    node.outputs = ::arc::types::Params{out};
-    return node;
+::arc::stl::testutil::NodeSpec create_spec() {
+    return spec_of("create", {"name", "parent", "color"});
+}
+
+::arc::stl::testutil::NodeSpec end_spec() {
+    return spec_of("end", {"key"});
 }
 
 /// @brief a report captured by recordingReporter.
@@ -110,10 +77,22 @@ struct Report {
     std::string description;
 };
 
+/// @brief the reports of a recording reporter, which the outbox thread writes.
+struct Reports {
+    std::mutex mu;
+    std::vector<Report> reports;
+
+    std::vector<Report> snapshot() {
+        std::lock_guard lock(this->mu);
+        return this->reports;
+    }
+};
+
 /// @brief returns a reporter that appends each report to out.
-Reporter recordingReporter(std::vector<Report> *out) {
+Reporter recordingReporter(const std::shared_ptr<Reports> &out) {
     return [out](const std::string &message, const std::string &description) {
-        out->push_back({message, description});
+        std::lock_guard lock(out->mu);
+        out->reports.push_back({message, description});
     };
 }
 
@@ -127,195 +106,168 @@ std::string unique_name(const std::string &prefix) {
                     );
 }
 
-::arc::ir::IR build_ir(::arc::ir::Node node) {
-    ::arc::ir::IR ir;
-    ir.nodes.push_back(std::move(node));
-    ::arc::ir::Function fn;
-    fn.key = "fn";
-    ir.functions.push_back(fn);
-    return ir;
+std::string output_of(const ::arc::stl::testutil::Fixture &f) {
+    return std::get<std::string>((*f.make_node().output(0)).at(0));
+}
 }
 
-// output_key returns the string written to the node's first output.
-std::string output_key(::arc::runtime::state::State &s) {
-    auto check = ASSERT_NIL_P(s.node("ranges"));
-    return std::get<std::string>((*check.output(0)).at(0));
-}
+class RangesTest : public ::testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> client;
+    std::filesystem::path dir;
+    std::shared_ptr<::driver::outbox::Outbox> outbox;
 
-}
+    void SetUp() override {
+        this->client = std::make_shared<synnax::Synnax>(new_test_client());
+        this->dir = std::filesystem::temp_directory_path() /
+                    ("ranges_test_" + x::uuid::create().to_string());
+        this->outbox = this->open_outbox(this->client);
+    }
 
-TEST(RangesModuleTest, HandlesCreateAndEnd) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
+    void TearDown() override {
+        this->outbox.reset();
+        std::filesystem::remove_all(this->dir);
+    }
+
+    [[nodiscard]] std::shared_ptr<::driver::outbox::Outbox> open_outbox(
+        const std::shared_ptr<synnax::Synnax> &c,
+        const std::size_t cap = ::driver::outbox::DEFAULT_CAP
+    ) const {
+        ::driver::outbox::Config cfg{
+            .dir = this->dir,
+            .statuses = c->statuses,
+            .ranges = c->ranges,
+            .cap = cap,
+        };
+        cfg.retry.base_interval = 10 * x::telem::MILLISECOND;
+        cfg.retry.max_interval = 10 * x::telem::MILLISECOND;
+        return ASSERT_NIL_P(::driver::outbox::Outbox::open(cfg));
+    }
+
+    void open_unreachable(const std::size_t cap = ::driver::outbox::DEFAULT_CAP) {
+        this->outbox.reset();
+        auto cfg = test_client_config();
+        cfg.port = 1;
+        this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg), cap);
+    }
+
+    void wait_sent() const { ASSERT_EVENTUALLY_EQ(this->outbox->size(), 0); }
+
+    /// @brief runs the node that f describes once in a module that reports through
+    /// report.
+    void run(const ::arc::stl::testutil::Fixture &f, Reporter report = noopReporter()) {
+        Module module(this->outbox, std::move(report));
+        auto node = ASSERT_NIL_P(module.create(f.make_config()));
+        auto ctx = make_context();
+        ASSERT_NIL(node->next(ctx));
+    }
+
+    [[nodiscard]] synnax::ranger::Range retrieve(const std::string &key) const {
+        return ASSERT_NIL_P(
+            this->client->ranges.retrieve(ASSERT_NIL_P(x::uuid::UUID::parse(key)))
+        );
+    }
+};
+
+/// @brief it should handle only the create and end nodes.
+TEST_F(RangesTest, HandlesCreateAndEnd) {
+    Module module(this->outbox, noopReporter());
     EXPECT_TRUE(module.handles("create"));
     EXPECT_TRUE(module.handles("end"));
     EXPECT_FALSE(module.handles("start"));
     EXPECT_FALSE(module.handles("anything_else"));
-}
-
-TEST(RangesModuleTest, ModuleNameIsRanges) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
     EXPECT_EQ(module.module_name(), "ranges");
 }
 
-TEST(RangesModuleTest, CreatesCreateNodeFromBareType) {
-    auto node = make_create_ir_node("rng", "", "");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
+/// @brief it should create a create node and an end node from their bare types.
+TEST_F(RangesTest, CreatesNodesFromBareTypes) {
+    Module module(this->outbox, noopReporter());
+    const auto create = create_spec().config({"rng", "", ""});
+    auto created = ASSERT_NIL_P(module.create(create.make_config()));
+    EXPECT_NE(dynamic_cast<CreateRange *>(created.get()), nullptr);
+    const auto end = end_spec().config({x::uuid::create().to_string()});
+    auto ended = ASSERT_NIL_P(module.create(end.make_config()));
+    EXPECT_NE(dynamic_cast<EndRange *>(ended.get()), nullptr);
+}
+
+/// @brief it should create a node from its qualified type through a multi factory.
+TEST_F(RangesTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
+    auto spec = create_spec();
+    spec.type = "ranges.create";
+    const auto f = spec.config({"rng", "", ""});
+    ::arc::runtime::node::MultiFactory multi(
+        {std::make_shared<Module>(this->outbox, noopReporter())}
     );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-    ASSERT_NE(created, nullptr);
+    auto created = ASSERT_NIL_P(multi.create(f.make_config()));
     EXPECT_NE(dynamic_cast<CreateRange *>(created.get()), nullptr);
 }
 
-TEST(RangesModuleTest, CreatesEndNodeFromBareType) {
-    auto node = make_end_ir_node(x::uuid::UUID().to_string());
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-    EXPECT_NE(dynamic_cast<EndRange *>(created.get()), nullptr);
-}
-
-TEST(RangesModuleTest, ReturnsNotFoundForUnknownType) {
-    auto node = make_create_ir_node("rng", "", "");
-    node.type = "not_create_or_end";
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
+/// @brief it should return NOT_FOUND for an unknown node type.
+TEST_F(RangesTest, ReturnsNotFoundForUnknownType) {
+    auto spec = create_spec();
+    spec.type = "not_create_or_end";
+    const auto f = spec.config({"rng", "", ""});
+    Module module(this->outbox, noopReporter());
     const auto created = ASSERT_OCCURRED_AS_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))),
+        module.create(f.make_config()),
         x::errors::NOT_FOUND
     );
     EXPECT_EQ(created, nullptr);
 }
 
-TEST(CreateRangeTest, NextCreatesOpenRange) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+/// @brief it should emit the key of an open range at once, and create the range.
+TEST_F(RangesTest, CreatesOpenRange) {
     const auto name = unique_name("cpp_create_");
-    auto node = make_create_ir_node(name, "", "");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-
-    const auto key = output_key(s);
-    const auto uid = ASSERT_NIL_P(x::uuid::UUID::parse(key));
-    const auto r = ASSERT_NIL_P(client->ranges.retrieve(uid));
+    const auto f = create_spec().config({name, "", ""});
+    this->run(f);
+    const auto key = output_of(f);
+    ASSERT_FALSE(key.empty());
+    this->wait_sent();
+    const auto r = this->retrieve(key);
     EXPECT_EQ(r.name, name);
     EXPECT_EQ(r.time_range.end, x::telem::TIME_STAMP_MAX);
 }
 
-TEST(CreateRangeTest, NextParsesColor) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto name = unique_name("cpp_color_");
-    auto node = make_create_ir_node(name, "", "#df6d38");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-
-    const auto r = ASSERT_NIL_P(
-        client->ranges.retrieve(ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s))))
-    );
+/// @brief it should create the range with the color it parses.
+TEST_F(RangesTest, CreatesRangeWithColor) {
+    const auto f = create_spec().config({unique_name("cpp_color_"), "", "#df6d38"});
+    this->run(f);
+    this->wait_sent();
+    const auto r = this->retrieve(output_of(f));
     ASSERT_TRUE(r.color.has_value());
     EXPECT_EQ(r.color.value().r, 0xdf);
     EXPECT_EQ(r.color.value().g, 0x6d);
     EXPECT_EQ(r.color.value().b, 0x38);
 }
 
-TEST(CreateRangeTest, NextCreatesRangeUnderParent) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+/// @brief it should create the range under its parent.
+TEST_F(RangesTest, CreatesRangeUnderParent) {
     synnax::ranger::Range parent;
     parent.name = unique_name("cpp_parent_");
     parent.time_range = x::telem::TimeRange{
         x::telem::TimeStamp::now(),
         x::telem::TIME_STAMP_MAX
     };
-    ASSERT_NIL(client->ranges.create(parent));
-    auto node = make_create_ir_node(
-        unique_name("cpp_child_"),
-        parent.key.to_string(),
-        ""
+    ASSERT_NIL(this->client->ranges.create(parent));
+    const auto f = create_spec().config(
+        {unique_name("cpp_child_"), parent.key.to_string(), ""}
     );
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-
-    const auto r = ASSERT_NIL_P(
-        client->ranges.retrieve(ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s))))
-    );
-    EXPECT_EQ(r.parent.value(), parent.key);
+    this->run(f);
+    this->wait_sent();
+    EXPECT_EQ(this->retrieve(output_of(f)).parent.value(), parent.key);
 }
 
-TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto name = unique_name("cpp_badcolor_");
-    std::vector<Report> calls;
-    auto node = make_create_ir_node(name, "", "not-a-color");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
+/// @brief it should warn, emit an empty key, and queue nothing for a color that is
+/// not valid.
+TEST_F(RangesTest, WarnsOnInvalidColor) {
+    const auto reports = std::make_shared<Reports>();
+    const auto f = create_spec().config(
+        {unique_name("cpp_badcolor_"), "", "not-a-color"}
     );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    Module module(client, recordingReporter(&calls));
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-
-    EXPECT_EQ(output_key(s), "");
+    this->run(f, recordingReporter(reports));
+    EXPECT_EQ(output_of(f), "");
+    EXPECT_EQ(this->outbox->size(), 0);
+    const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to create range");
     EXPECT_TRUE(
@@ -323,36 +275,9 @@ TEST(CreateRangeTest, NextWarnsAndDoesNotCreateOnInvalidColor) {
     );
 }
 
-TEST(CreateRangeTest, NextWarnsAndEmitsEmptyKeyOnInvalidParent) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<Report> calls;
-    auto node = make_create_ir_node(unique_name("cpp_badparent_"), "not-a-uuid", "");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    Module module(client, recordingReporter(&calls));
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-
-    EXPECT_EQ(output_key(s), "");
-    ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].message, "Failed to create range");
-    EXPECT_EQ(
-        calls[0].description,
-        "The parent key \"not-a-uuid\" is not a valid range key."
-    );
-}
-
-TEST(CreateRangeTest, ReadsAVarBoundParentAtFireTime) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<Report> calls;
+/// @brief it should read a var-bound parent when the node runs.
+TEST_F(RangesTest, ReadsAVarBoundParentAtFireTime) {
+    const auto reports = std::make_shared<Reports>();
     // The configured "" would succeed parentless; only the live slot value
     // can produce this warning.
     const auto f = create_spec().config(
@@ -362,14 +287,9 @@ TEST(CreateRangeTest, ReadsAVarBoundParentAtFireTime) {
          ),
          ""}
     );
-    Module module(client, recordingReporter(&calls));
-    auto created = ASSERT_NIL_P(module.create(f.make_config()));
-
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-
-    const auto node = f.make_node();
-    EXPECT_EQ(std::get<std::string>((*node.output(0)).at(0)), "");
+    this->run(f, recordingReporter(reports));
+    EXPECT_EQ(output_of(f), "");
+    const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to create range");
     EXPECT_EQ(
@@ -378,83 +298,149 @@ TEST(CreateRangeTest, ReadsAVarBoundParentAtFireTime) {
     );
 }
 
-TEST(EndRangeTest, NextSetsEndToNow) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto start = x::telem::TimeStamp::now();
+/// @brief it should count a create as sent when the Core already holds its key.
+TEST_F(RangesTest, CountsAnExistingRangeAsCreated) {
     synnax::ranger::Range r;
-    r.name = unique_name("cpp_end_");
-    r.time_range = x::telem::TimeRange{start, x::telem::TIME_STAMP_MAX};
-    ASSERT_NIL(client->ranges.create(r));
-
-    const auto before = x::telem::TimeStamp::now();
-    auto node = make_end_ir_node(r.key.to_string());
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-
-    const auto updated = ASSERT_NIL_P(client->ranges.retrieve(r.key));
-    EXPECT_GE(updated.time_range.end.nanoseconds(), before.nanoseconds());
-    EXPECT_LE(
-        updated.time_range.end.nanoseconds(),
-        x::telem::TimeStamp::now().nanoseconds()
-    );
-    EXPECT_NE(updated.time_range.end, x::telem::TIME_STAMP_MAX);
+    r.key = x::uuid::create();
+    r.name = unique_name("cpp_exists_");
+    r.time_range = x::telem::TimeRange{
+        x::telem::TimeStamp::now(),
+        x::telem::TIME_STAMP_MAX
+    };
+    ASSERT_NIL(this->client->ranges.create(r));
+    ASSERT_NIL(this->outbox->create_range(r, nullptr));
+    this->wait_sent();
+    EXPECT_EQ(this->outbox->dropped(), 0);
 }
 
-TEST(EndRangeTest, NextWarnsWhenRangeDoesNotExist) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<Report> calls;
-    auto node = make_end_ir_node(x::uuid::create().to_string());
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    Module module(client, recordingReporter(&calls));
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
+/// @brief it should set the end of the range to the time the node runs.
+TEST_F(RangesTest, EndsRangeAtTimeOfRun) {
+    synnax::ranger::Range r;
+    r.name = unique_name("cpp_end_");
+    r.time_range = x::telem::TimeRange{
+        x::telem::TimeStamp::now(),
+        x::telem::TIME_STAMP_MAX
+    };
+    ASSERT_NIL(this->client->ranges.create(r));
+    const auto f = end_spec().config({r.key.to_string()});
+    const auto before = x::telem::TimeStamp::now();
+    this->run(f);
+    const auto after = x::telem::TimeStamp::now();
+    EXPECT_EQ(output_of(f), r.key.to_string());
+    this->wait_sent();
+    const auto updated = this->retrieve(r.key.to_string());
+    EXPECT_GE(updated.time_range.end, before);
+    EXPECT_LE(updated.time_range.end, after);
+}
 
+/// @brief it should warn and drop the end of a range that does not exist.
+TEST_F(RangesTest, WarnsWhenEndedRangeDoesNotExist) {
+    const auto reports = std::make_shared<Reports>();
+    const auto f = end_spec().config({x::uuid::create().to_string()});
+    Module module(this->outbox, recordingReporter(reports));
+    auto node = ASSERT_NIL_P(module.create(f.make_config()));
     auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-
-    EXPECT_EQ(output_key(s), "");
+    ASSERT_NIL(node->next(ctx));
+    this->wait_sent();
+    EXPECT_EQ(this->outbox->dropped(), 1);
+    const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to end range");
     EXPECT_FALSE(calls[0].description.empty());
 }
 
-TEST(EndRangeTest, NextWarnsOnInvalidKey) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    std::vector<Report> calls;
-    auto node = make_end_ir_node("not-a-uuid");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("ranges"));
-    Module module(client, recordingReporter(&calls));
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
+/// @brief it should warn and queue nothing for a key that is not valid.
+TEST_F(RangesTest, WarnsOnInvalidEndKey) {
+    const auto reports = std::make_shared<Reports>();
+    const auto f = end_spec().config({"not-a-uuid"});
+    this->run(f, recordingReporter(reports));
+    EXPECT_EQ(output_of(f), "");
+    EXPECT_EQ(this->outbox->size(), 0);
+    const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to end range");
     EXPECT_EQ(calls[0].description, "The key \"not-a-uuid\" is not a valid range key.");
 }
 
+/// @brief it should refuse and count a create when the outbox is full, and still
+/// take an end.
+TEST_F(RangesTest, RefusesCreateButNotEndWhenFull) {
+    this->open_unreachable(1);
+    const auto reports = std::make_shared<Reports>();
+    Module module(this->outbox, recordingReporter(reports));
+    const auto first = create_spec().config({unique_name("cpp_full_"), "", ""});
+    auto first_node = ASSERT_NIL_P(module.create(first.make_config()));
+    const auto second = create_spec().config({unique_name("cpp_full_"), "", ""});
+    auto second_node = ASSERT_NIL_P(module.create(second.make_config()));
+    auto ctx = make_context();
+    ASSERT_NIL(first_node->next(ctx));
+    ASSERT_NIL(second_node->next(ctx));
+    EXPECT_FALSE(output_of(first).empty());
+    EXPECT_EQ(output_of(second), "");
+    EXPECT_EQ(this->outbox->refused(), 1);
+    const auto end = end_spec().config({output_of(first)});
+    auto end_node = ASSERT_NIL_P(module.create(end.make_config()));
+    ASSERT_NIL(end_node->next(ctx));
+    EXPECT_EQ(this->outbox->size(), 2);
+    EXPECT_TRUE(reports->snapshot().empty());
+}
+
+/// @brief it should report the refused creates once, with their count and reason.
+TEST(CallsTest, ReportsRefusedCreatesOnce) {
+    const auto reports = std::make_shared<Reports>();
+    Calls calls(recordingReporter(reports));
+    calls.refuse("outbox is full.");
+    calls.refuse("outbox is full.");
+    calls.report_refused();
+    calls.report_refused();
+    const auto got = reports->snapshot();
+    ASSERT_EQ(got.size(), 1u);
+    EXPECT_EQ(got[0].message, CREATE_FAILURE_MSG);
+    EXPECT_EQ(got[0].description, "outbox is full. Dropped 2 creates.");
+}
+
+#ifndef _WIN32
+/// @brief it should create and end a range while the Core is unreachable, and the
+/// Core should hold the range with the times of the runs after it reconnects.
+TEST_F(RangesTest, CreatesAndEndsRangeWhileCoreUnreachable) {
+    CorePipe pipe(test_client_config().port);
+    pipe.pause();
+    auto cfg = test_client_config();
+    cfg.host = "127.0.0.1";
+    cfg.port = pipe.port;
+    this->outbox.reset();
+    this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg));
+    Module module(this->outbox, noopReporter());
+    auto ctx = make_context();
+
+    const auto name = unique_name("cpp_outage_");
+    const auto create = create_spec().config({name, "", ""});
+    auto create_node = ASSERT_NIL_P(module.create(create.make_config()));
+    const auto created_from = x::telem::TimeStamp::now();
+    ASSERT_NIL(create_node->next(ctx));
+    const auto created_to = x::telem::TimeStamp::now();
+    const auto key = output_of(create);
+    ASSERT_FALSE(key.empty());
+
+    const auto end = end_spec().config({key});
+    auto end_node = ASSERT_NIL_P(module.create(end.make_config()));
+    const auto ended_from = x::telem::TimeStamp::now();
+    ASSERT_NIL(end_node->next(ctx));
+    const auto ended_to = x::telem::TimeStamp::now();
+    EXPECT_EQ(output_of(end), key);
+    EXPECT_LT(ended_to - created_from, x::telem::SECOND);
+    EXPECT_EQ(this->outbox->size(), 2);
+
+    pipe.resume();
+    this->wait_sent();
+    EXPECT_EQ(this->outbox->dropped(), 0);
+    const auto r = this->retrieve(key);
+    EXPECT_EQ(r.name, name);
+    EXPECT_GE(r.time_range.start, created_from);
+    EXPECT_LE(r.time_range.start, created_to);
+    EXPECT_GE(r.time_range.end, ended_from);
+    EXPECT_LE(r.time_range.end, ended_to);
+    this->outbox.reset();
+}
+#endif
 }

@@ -13,6 +13,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -23,11 +24,18 @@ namespace driver::outbox::testutil {
 /// outbox ends.
 /// @param statuses sends the status sets. A default client suits a test that queues
 /// no sets.
+/// @param ranges creates and ends the ranges. A default client suits a test that
+/// queues no range calls.
 /// @throws std::runtime_error when the outbox fails to open.
-inline std::shared_ptr<Outbox> open(const synnax::status::Client &statuses) {
+inline std::shared_ptr<Outbox> open(
+    const synnax::status::Client &statuses,
+    const synnax::ranger::Client &ranges = {}
+) {
     const auto dir = std::filesystem::temp_directory_path() /
                      ("outbox_" + x::uuid::create().to_string());
-    auto [outbox, err] = Outbox::open({.dir = dir, .statuses = statuses});
+    auto [outbox, err] = Outbox::open(
+        {.dir = dir, .statuses = statuses, .ranges = ranges}
+    );
     if (err) throw std::runtime_error(err.message());
     return {outbox.release(), [dir](const Outbox *o) {
                 delete o;
