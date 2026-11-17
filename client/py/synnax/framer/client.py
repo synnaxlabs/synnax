@@ -17,8 +17,8 @@ from alamos import NOOP, Instrumentation
 from freighter import (
     AsyncStreamClient,
     FileTransport,
+    StreamClient,
     UnaryClient,
-    WebsocketClient,
 )
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import ValidationError
@@ -60,7 +60,7 @@ class Client:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    _stream_client: WebsocketClient
+    _stream_client: StreamClient
     _async_client: AsyncStreamClient
     _unary_client: UnaryClient
     _channels: Retriever
@@ -72,7 +72,7 @@ class Client:
     def __init__(
         self,
         *,
-        stream_client: WebsocketClient,
+        stream_client: StreamClient,
         async_client: AsyncStreamClient,
         unary_client: UnaryClient,
         file_transport: FileTransport,
