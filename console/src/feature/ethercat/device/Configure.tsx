@@ -302,7 +302,9 @@ const General = (): ReactElement => {
   return (
     <Form.Section title="General">
       <Input.Item label="Location" padHelpText={false}>
-        <Text.Text>{formatLocation(location, slot)}</Text.Text>
+        <Text.Text variant="code" className={CSS.BE("ethercat-configure", "location")}>
+          {formatLocation(location, slot)}
+        </Text.Text>
       </Input.Item>
       <Form.TextField
         path={path.properties.identifier}

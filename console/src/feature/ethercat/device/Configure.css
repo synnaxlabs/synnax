@@ -31,6 +31,14 @@
     margin-left: auto;
 }
 
+/* As tall as a field, with its text where the text of a field starts. */
+.console-ethercat-configure__location {
+    display: flex;
+    align-items: center;
+    min-height: var(--pluto-height-medium);
+    padding-left: 1.5rem;
+}
+
 /* As tall as an idea, so the icon centers on the first line of ideas. */
 .console-ethercat-configure__ideas-icon {
     height: var(--pluto-height-small);
