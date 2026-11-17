@@ -26,7 +26,7 @@ var _ = Describe("All", func() {
 	It("Should give each kind a code that no other kind has", func() {
 		seen := set.New[diagnostics.ErrorCode]()
 		for _, kind := range codes.All {
-			Expect(string(kind.Code)).To(MatchRegexp(`^[EW][0-5]\d{3}$`))
+			Expect(string(kind.Code)).To(MatchRegexp(`^[EW][1-5]\d{3}$`))
 			Expect(seen.Contains(kind.Code)).To(BeFalse(), string(kind.Code))
 			seen.Add(kind.Code)
 		}

@@ -855,7 +855,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			sequence.RejectReactiveAssignment(&diag, stmt.Assignment())
 			Expect(diag).To(HaveLen(1))
 			Expect(diag[0].Message).
-				To(Equal("use '<value> -> valve' to write to 'valve'"))
+				To(Equal("invalid assignment: use '<value> -> valve' to write to 'valve'"))
 		})
 	})
 })

@@ -43,6 +43,14 @@ var _ = Describe("Diagnostic kinds", func() {
 				func(d diagnostics.Diagnostic, _ int) diagnostics.ErrorCode { return d.Code },
 			)
 			Expect(reported).To(ContainElement(kind.Code), aCtx.Diagnostics.String())
+			for _, d := range *aCtx.Diagnostics {
+				if d.Code == kind.Code {
+					Expect(d.Message).To(Or(
+						Equal(kind.Message),
+						HavePrefix(kind.Message+": "),
+					), "a message starts with the headline of its kind")
+				}
+			}
 		},
 		Entry("a value of the wrong type",
 			"func f() {\n x i32 := 1\n y str := x\n}", codes.TypeMismatch),

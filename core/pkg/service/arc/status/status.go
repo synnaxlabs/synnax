@@ -251,7 +251,7 @@ func checkVariantLiteral(
 	if !ok || status.Variant(value).IsValid() {
 		return
 	}
-	diags.Add(codes.InvalidStatusVariant.Atf(expr,
+	diags.Add(codes.FuncArgValue.Atf(expr,
 		"%q is not a valid status variant: [%s]",
 		value, allowedVariantsList,
 	))

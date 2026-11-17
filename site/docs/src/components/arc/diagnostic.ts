@@ -13,9 +13,11 @@ import KINDS from "../../../../../arc/go/analyzer/codes/codes.gen.json";
 export interface Kind {
   code: string;
   severity: "error" | "warning";
-  /** The message that the example reports. Empty when the kind has no example. */
+  /** The headline that each message of the kind starts with. */
   message: string;
+  /** The description of the problem, in general terms. */
   problem: string;
+  /** Source that reports the kind. Empty when the kind has no example. */
   example: string;
 }
 

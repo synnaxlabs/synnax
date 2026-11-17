@@ -118,6 +118,12 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 	var marked *kindError
 	if errors.As(err, &marked) {
 		d.Code, d.Severity = marked.kind.Code, marked.kind.Severity
+		// The text of an error that wraps the marked error moves to the end.
+		own := marked.Error()
+		d.Message = marked.kind.describe(own)
+		if outer, ok := strings.CutSuffix(err.Error(), own); ok && outer != "" {
+			d.Message += " (" + strings.TrimSuffix(outer, ": ") + ")"
+		}
 	}
 	var hp HintProvider
 	if errors.As(err, &hp) {

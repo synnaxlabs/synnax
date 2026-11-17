@@ -84,7 +84,7 @@ func reportUnusedImports(ctx acontext.Context[parser.IProgramContext]) {
 		if child.Used || child.Target == nil {
 			continue
 		}
-		d := codes.UnusedImport.At(child.AST, child.Name)
+		d := codes.UnusedImport.Atf(child.AST, "%q", child.Name)
 		if item, ok := child.AST.(parser.IImportItemContext); ok {
 			d = d.WithEdits("Remove unused import", formatter.RemoveImport(item))
 		}

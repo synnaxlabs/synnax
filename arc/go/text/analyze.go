@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -463,9 +464,7 @@ func analyzeInlineBody(
 ) (flowNodeResult, bool) {
 	synth := shell.synthByAST[decl]
 	if synth == nil {
-		ctx.Diagnostics.Add(codes.BrokenInvariant.Atf(decl,
-			"internal: synth scope not registered for inline body"))
-		return flowNodeResult{}, false
+		panic(errors.New("internal: synth scope not registered for inline body"))
 	}
 	scope, ok := processInlineBody(ctx, synth, kg, shell)
 	if !ok {
@@ -497,12 +496,11 @@ func analyzeIdentifierByRole(
 	case symbol.KindConstant:
 		value, ok := sym.DefaultValue.(float64)
 		if !ok {
-			ctx.Diagnostics.Add(codes.BrokenInvariant.Atf(
-				ctx.AST,
+			ctx.Diagnostics.Add(diagnostics.Error(errors.Newf(
 				"constant %s holds a %T, not a float64",
 				sym.Name,
 				sym.DefaultValue,
-			))
+			), ctx.AST))
 			return flowNodeResult{}, false
 		}
 		t := ctx.TypeMap[ctx.AST]
@@ -1566,7 +1564,17 @@ func analyze(
 	root *symbol.Symbol,
 	module bool,
 	cfgs []parser.Config,
-) (ir.IR, *diagnostics.Diagnostics) {
+) (program ir.IR, diag *diagnostics.Diagnostics) {
+	// A panic is a compiler defect. It must not stop the process that compiles.
+	defer func() {
+		if r := recover(); r != nil {
+			program = ir.IR{}
+			diag = &diagnostics.Diagnostics{diagnostics.Error(
+				errors.Newf("internal compiler error: %v", r),
+				nil,
+			)}
+		}
+	}()
 	u, diag := analyzeUnit(ctx, t, root, module, cfgs)
 	return u.ir, diag
 }
@@ -1633,7 +1641,7 @@ func analyzeUnit(
 	bound := set.New[string]()
 	bindActivations(&i.Root, shell.activations, bound)
 	link(&i, units, shell, bound)
-	checkActivationsBound(aCtx, shell.activations, bound)
+	checkActivationsBound(shell.activations, bound)
 	if d := resolveAndStratify(aCtx, &i, deps, module); d != nil {
 		return unit{ir: i}, d
 	}
@@ -1696,14 +1704,12 @@ func appendRootNodes(i *ir.IR, members ir.Members, nodes []*ir.Node) ir.Members 
 // registered activation should bind. If one does not, something upstream
 // registered an activation without going through analyzeNamedRef.
 func checkActivationsBound(
-	aCtx acontext.Context[parser.IProgramContext],
 	activations map[string][]ir.Activation,
 	bound set.Set[string],
 ) {
 	for key := range activations {
 		if !bound.Contains(key) {
-			aCtx.Diagnostics.Add(codes.BrokenInvariant.Atf(
-				aCtx.AST,
+			panic(errors.Newf(
 				"internal: activation target '%s' did not bind to any "+
 					"scope; this should have been rejected by analyzeNamedRef",
 				key,
@@ -2139,10 +2145,7 @@ func (p *flowChainProcessor) consumeTransition(
 	ast parser.IFlowNodeContext,
 ) bool {
 	if p.prevNode == nil {
-		p.ctx.Diagnostics.Add(codes.ParserInvariant.Atf(
-			ast, "transition target requires a source",
-		))
-		return false
+		panic(errors.New("transition target requires a source"))
 	}
 	if len(p.prevNode.Outputs) == 0 {
 		p.ctx.Diagnostics.Add(codes.FlowConnection.Atf(
@@ -2218,11 +2221,7 @@ func analyzeFlow(
 		}
 	}
 	if len(p.edges) < 1 && !p.transitionEmitted {
-		ctx.Diagnostics.Add(codes.ParserInvariant.Atf(
-			ctx.AST,
-			"flow statement requires at least two nodes",
-		))
-		return nil, nil, nil, false, false
+		panic(errors.New("flow statement requires at least two nodes"))
 	}
 	return p.nodes, p.edges, p.inlineMembers, p.transitionEmitted, true
 }

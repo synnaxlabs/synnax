@@ -104,7 +104,7 @@ var _ = Describe("Import Pass", func() {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(
 					ctx.Diagnostics.String(),
-				).ToNot(ContainSubstring(`imported module "banana" is unused`))
+				).ToNot(ContainSubstring(`unused import: "banana"`))
 			},
 		)
 
@@ -138,7 +138,7 @@ var _ = Describe("Import Pass", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(
 				ctx.Diagnostics.String(),
-			).To(ContainSubstring(`imported module "time" is unused`))
+			).To(ContainSubstring(`unused import: "time"`))
 		})
 
 		It("Should not flag a used import", func(bCtx SpecContext) {

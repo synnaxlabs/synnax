@@ -61,10 +61,10 @@ func Check(
 		resolved2 := cs.ApplySubstitutions(t2)
 		if reason != "" {
 			return codes.TypeMismatch.Errorf(
-				"type mismatch in %s: cannot assign %v to %v",
-				reason,
+				"type mismatch: cannot assign %v to %v in %s",
 				resolved2,
 				resolved1,
+				reason,
 			)
 		}
 		return codes.TypeMismatch.Errorf(
@@ -113,10 +113,10 @@ func newTypeMismatchError(
 	var msg string
 	if reason != "" {
 		msg = fmt.Sprintf(
-			"type mismatch in %s: expected %v, got %v",
-			reason,
+			"type mismatch: expected %v, got %v in %s",
 			expected,
 			actual,
+			reason,
 		)
 	} else {
 		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)

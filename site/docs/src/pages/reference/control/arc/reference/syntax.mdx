@@ -182,7 +182,7 @@ t.interval(period=1min) -> vent_vlv_cmd
 | -------------------------------------- | ----------------------------------------------------------------------- |
 | Imports come before all other code.    | `import statements must appear before any other top-level declarations` |
 | Each module must exist.                | `unknown module "foo"`                                                  |
-| Each import should be used.            | `imported module "time" is unused` (warning `W4000`)                    |
+| Each import should be used.            | `unused import: "time"` (warning `W4000`)                               |
 | Each import needs its own name.        | `duplicate import: "tank" is already imported`. Add `as` to one.        |
 | A member of a module needs the import. | `undefined symbol: time`, with a note to add `import time`              |
 
@@ -201,7 +201,7 @@ that it writes. Values are integers from 0 to 255.
 
 Authority declarations come after the imports and before all other code. You can write
 more than one. A second default fails with `multiple default authority values`, and a
-repeated channel fails with `duplicate authority for 'vent_vlv_cmd'`.
+repeated channel fails with `duplicate authority: 'vent_vlv_cmd'`.
 
 With no declaration, the automation writes at 255. Always give a default. A per-channel
 form without a default leaves the other channels, and their index channels, at 255. See

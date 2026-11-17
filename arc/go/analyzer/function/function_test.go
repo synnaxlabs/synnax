@@ -547,13 +547,22 @@ var _ = Describe("Function Analyzer", func() {
 					"cannot return a value from a function with no return type",
 				),
 			),
-			Entry("missing return in function with return type",
+			Entry(
+				"missing return in function with return type",
 				`func dog() f64 {}`,
-				Equal("function 'dog' must return a value of type f64 on all paths")),
-			Entry("missing return on else path",
+				Equal(
+					"invalid return: function 'dog' must return a value of type f64 on all paths",
+				),
+			),
+			Entry(
+				"missing return on else path",
 				`func dog() f64 { if (5 > 3) { return 2.3 } }`,
-				Equal("function 'dog' must return a value of type f64 on all paths")),
-			Entry("missing return in deeply nested branch",
+				Equal(
+					"invalid return: function 'dog' must return a value of type f64 on all paths",
+				),
+			),
+			Entry(
+				"missing return in deeply nested branch",
 				`func dog() f64 {
 					if (5 > 3) { return 2.3 }
 					else {
@@ -562,7 +571,10 @@ var _ = Describe("Function Analyzer", func() {
 						} else { return 5 }
 					}
 				}`,
-				Equal("function 'dog' must return a value of type f64 on all paths")),
+				Equal(
+					"invalid return: function 'dog' must return a value of type f64 on all paths",
+				),
+			),
 			Entry("concrete f64 expression returned from f32 function",
 				`func dog() {x f64} f32 { return x * 2.0 }`,
 				ContainSubstring("cannot return f64 from 'dog': expected f32")),

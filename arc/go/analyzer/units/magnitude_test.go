@@ -40,7 +40,8 @@ var _ = Describe("Magnitude Safety", func() {
 				Expect(warnings).To(HaveLen(1))
 				Expect(warnings[0].Code).To(Equal(codes.UnitPrecisionLoss.Code))
 				Expect(warnings[0].Message).To(Equal(
-					"adding values with very different units can truncate the smaller value",
+					"unit precision loss: adding values with very different units can truncate " +
+						"the smaller value",
 				))
 			},
 			Entry("K and pK (12 orders)", "K", "pK", types.KindF64),

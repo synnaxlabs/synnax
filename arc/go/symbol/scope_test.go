@@ -707,7 +707,7 @@ var _ = Describe("Scope", func() {
 			It("Should hide a member that is not exported", func(bCtx SpecContext) {
 				alias := buildAlias(bCtx, buildSourceModule())
 				Expect(alias.Resolve(bCtx, "h")).Error().
-					To(MatchError(`'h' is not exported by module "m"`))
+					To(MatchError(`not exported: 'h' in module "m"`))
 			})
 
 			It(
@@ -811,7 +811,7 @@ var _ = Describe("Scope", func() {
 						alias := buildAlias(bCtx, buildSourceModule())
 						Expect(alias.Parent.ResolveMember(
 							bCtx, "m", "h", symbol.IncludeInternal,
-						)).Error().To(MatchError(`'h' is not exported by module "m"`))
+						)).Error().To(MatchError(`not exported: 'h' in module "m"`))
 					},
 				)
 

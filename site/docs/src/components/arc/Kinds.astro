@@ -25,36 +25,29 @@ import { InlineCode } from "@/components/text/InlineCode";
                 {code[1] !== all[i - 1]?.code[1] && (
                     <li class="arc-kinds__band">{BANDS[code[1]]}</li>
                 )}
-                {message === "" ? (
-                    <li id={id}>
-                        <Problem.Head
-                            id={id}
-                            titles={[problem]}
-                            code={code}
-                            severity={severity}
-                        />
-                    </li>
-                ) : (
-                    <li>
-                        <details class="arc-kind" id={id}>
-                            <summary>
-                                <Problem.Head
-                                    id={id}
-                                    titles={[message]}
-                                    exact
-                                    code={code}
-                                    severity={severity}
-                                />
-                            </summary>
-                            <div class="arc-kind__body">
-                                <p>
-                                    <InlineCode text={problem} />
-                                </p>
+                <li>
+                    <details class="arc-kind" id={id}>
+                        <summary>
+                            <Problem.Head
+                                id={id}
+                                titles={[message]}
+                                exact
+                                code={code}
+                                severity={severity}
+                            />
+                        </summary>
+                        <div class="arc-kind__body">
+                            <p>
+                                <InlineCode text={problem} />
+                            </p>
+                            {example === "" ? (
+                                <p class="arc-kind__none">No example</p>
+                            ) : (
                                 <Code code={example} lang={arcGrammar} theme={theme} />
-                            </div>
-                        </details>
-                    </li>
-                )}
+                            )}
+                        </div>
+                    </details>
+                </li>
             </>
         );
     })}
@@ -97,6 +90,11 @@ import { InlineCode } from "@/components/text/InlineCode";
         &::-webkit-details-marker {
             display: none;
         }
+    }
+
+    .arc-kind__none {
+        font-size: var(--pluto-small-size);
+        color: var(--pluto-gray-l8);
     }
 
     .arc-kind__body {

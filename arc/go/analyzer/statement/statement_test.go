@@ -1184,7 +1184,7 @@ var _ = Describe("Statement", func() {
 				Expect(warnings).To(HaveLen(len(fixes)))
 				for i, w := range warnings {
 					Expect(w.Message).To(Equal(
-						"non-boolean conditions are deprecated, use an explicit " +
+						"non-boolean condition: deprecated, use an explicit " +
 							"comparison like x != 0",
 					))
 					Expect(w.Code).To(Equal(codes.TruthyCondition.Code))

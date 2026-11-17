@@ -239,7 +239,9 @@ var _ = Describe("Stratify", func() {
 			diag := &diagnostics.Diagnostics{}
 			diag = stratifier.Stratify(&prog, diag)
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("[E5014]: cycle detected"))
+			Expect(
+				diag.String(),
+			).To(ContainSubstring("[E5014]: dataflow cycle: cycle detected"))
 		})
 
 		It("Should report a cycle across three members", func() {
@@ -254,7 +256,9 @@ var _ = Describe("Stratify", func() {
 			diag := &diagnostics.Diagnostics{}
 			diag = stratifier.Stratify(&prog, diag)
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("[E5014]: cycle detected"))
+			Expect(
+				diag.String(),
+			).To(ContainSubstring("[E5014]: dataflow cycle: cycle detected"))
 		})
 	})
 

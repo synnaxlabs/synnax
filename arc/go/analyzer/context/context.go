@@ -249,7 +249,12 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 	if sym == nil || sym.Deprecated == nil {
 		return
 	}
-	d := codes.DeprecatedSymbol.At(c.AST, name, sym.Deprecated.QualifiedName())
+	d := codes.DeprecatedSymbol.Atf(
+		c.AST,
+		"'%s' is deprecated, use '%s' instead",
+		name,
+		sym.Deprecated.QualifiedName(),
+	)
 	if token := bareIdentifier(c.AST, name); token != nil {
 		d = c.withReplacement(d, token, sym.Deprecated)
 	}

@@ -40,7 +40,7 @@ var (
 	// ErrUnresolvedVariable indicates a type variable could not be resolved to a
 	// concrete type.
 	ErrUnresolvedVariable = codes.UnresolvedType.Mark(
-		errors.Wrap(errConstraints, "unresolved type variable"),
+		errors.Wrap(errConstraints, "unresolved type: type variable"),
 	)
 	// errConvergence indicates the unification algorithm did not converge within
 	// iteration limit.
@@ -142,10 +142,10 @@ func (s *System) UnifyConstraint(c Constraint) error {
 		msg := fmt.Sprintf("type mismatch: %v is not compatible with %v", right, left)
 		if c.Reason != "" {
 			msg = fmt.Sprintf(
-				"type mismatch in %s: %v is not compatible with %v",
-				c.Reason,
+				"type mismatch: %v is not compatible with %v in %s",
 				right,
 				left,
+				c.Reason,
 			)
 		}
 		var hint string

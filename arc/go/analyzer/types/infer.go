@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // InferFromTypeContext extracts the concrete type from an Arc type annotation.
@@ -65,9 +66,7 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if ctx.BOOL() != nil {
 		return types.Bool(), nil
 	}
-	return types.Type{}, codes.ParserInvariant.Errorf(
-		"unknown type: expected a primitive (i32, f64, str, etc.)",
-	)
+	panic(errors.New("unknown type: expected a primitive (i32, f64, str, etc.)"))
 }
 
 func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
@@ -77,9 +76,7 @@ func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if float := ctx.FloatType(); float != nil {
 		return inferFloatType(float)
 	}
-	return types.Type{}, codes.ParserInvariant.Errorf(
-		"unknown type: expected a numeric type (i32, f64, etc.)",
-	)
+	panic(errors.New("unknown type: expected a numeric type (i32, f64, etc.)"))
 }
 
 func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
@@ -102,10 +99,7 @@ func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
 	case "u64":
 		return types.U64(), nil
 	default:
-		return types.Type{}, codes.ParserInvariant.Errorf(
-			"unknown integer type: %s",
-			text,
-		)
+		panic(errors.Newf("unknown integer type: %s", text))
 	}
 }
 
@@ -117,10 +111,7 @@ func inferFloatType(ctx parser.IFloatTypeContext) (types.Type, error) {
 	case "f64":
 		return types.F64(), nil
 	default:
-		return types.Type{}, codes.ParserInvariant.Errorf(
-			"unknown float type: %s",
-			text,
-		)
+		panic(errors.Newf("unknown float type: %s", text))
 	}
 }
 
@@ -161,9 +152,7 @@ func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 		}
 		return types.Series(valueType), nil
 	}
-	return types.Type{}, codes.ParserInvariant.Errorf(
-		"series elements must be a primitive type (i32, f64, str, etc.)",
-	)
+	panic(errors.New("series elements must be a primitive type (i32, f64, str, etc.)"))
 }
 
 // Compatible returns true if t1 and t2 have compatible base types after unwrapping

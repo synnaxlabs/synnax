@@ -83,7 +83,7 @@ var _ = Describe("Analyzer Integration", func() {
 				diagnostic := (*ctx.Diagnostics)[0]
 				Expect(
 					diagnostic.Message,
-				).To(Equal("name dog conflicts with existing function at line 2, col 4"))
+				).To(Equal("name conflict: name dog conflicts with existing function at line 2, col 4"))
 			},
 		)
 
@@ -1765,9 +1765,10 @@ var _ = DescribeTable("Reads of a top-level variable that is not a constant",
 		Expect(*ctx.Diagnostics).To(HaveLen(1), ctx.Diagnostics.String())
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
 	},
-	Entry("a computed initializer",
+	Entry(
+		"a computed initializer",
 		"k := 1 + 2\nfunc f() i64 {\n    return k\n}",
-		"3:11 error [E2006]: cannot read 'k': its initializer is not a compile-time "+
+		"3:11 error [E2006]: not a constant: cannot read 'k': its initializer is not a compile-time "+
 			"constant",
 	),
 	Entry("an initializer with an undefined name",
@@ -1776,6 +1777,6 @@ var _ = DescribeTable("Reads of a top-level variable that is not a constant",
 	),
 	Entry("an initializer that overflows its type",
 		"k i8 := 300\nfunc f() i64 {\n    return i64(k)\n}",
-		"1:8 error [E2007]: constant 300 overflows i8",
+		"1:8 error [E2007]: constant overflow: 300 overflows i8",
 	),
 )

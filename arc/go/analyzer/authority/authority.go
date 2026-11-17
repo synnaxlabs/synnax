@@ -93,7 +93,7 @@ func analyzeEntry(
 		if seenChannels.Contains(name) {
 			ctx.Diagnostics.Add(codes.AuthorityDuplicate.Atf(
 				entry,
-				"duplicate authority for '%s'",
+				"duplicate authority: '%s'",
 				name,
 			))
 			return

@@ -789,7 +789,7 @@ var _ = Describe("Diagnostics", func() {
 			kind := diagnostics.Kind{
 				Code:     "TEST004",
 				Severity: protocol.DiagnosticSeverityWarning,
-				Message:  "'%s' is deprecated, use '%s' instead",
+				Message:  "deprecated symbol",
 			}
 
 			It("Should make a diagnostic of the kind at the context", func() {
@@ -798,14 +798,10 @@ var _ = Describe("Diagnostics", func() {
 						&fakeToken{line: 3, column: 4, text: "now"},
 						&fakeToken{line: 3, column: 4, text: "now"},
 					),
-					"now",
-					"time.now",
 				)
 				Expect(d.Code).To(Equal(diagnostics.ErrorCode("TEST004")))
 				Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityWarning))
-				Expect(
-					d.Message,
-				).To(Equal("'now' is deprecated, use 'time.now' instead"))
+				Expect(d.Message).To(Equal("deprecated symbol"))
 				Expect(d.Range).To(Equal(protocol.Range{
 					Start: protocol.Position{Line: 2, Character: 4},
 					End:   protocol.Position{Line: 2, Character: 7},
@@ -833,6 +829,34 @@ var _ = Describe("Diagnostics", func() {
 				).To(Equal(protocol.Position{Line: 2, Character: 4}))
 			})
 
+			DescribeTable("Should start the message with the headline of the kind",
+				func(detail, message string) {
+					kind := diagnostics.Kind{Code: "TEST009", Message: "type mismatch"}
+					Expect(kind.Atf(nil, "%s", detail).Message).To(Equal(message))
+					Expect(
+						kind.Wrap(errors.New(detail), nil).Message,
+					).To(Equal(message))
+					Expect(diagnostics.Error(kind.Errorf("%s", detail), nil).Message).
+						To(Equal(message))
+				},
+				Entry("a detail", "expected i32", "type mismatch: expected i32"),
+				Entry(
+					"a detail that starts with the headline",
+					"type mismatch: expected i32",
+					"type mismatch: expected i32",
+				),
+			)
+
+			It("Should move the text of a wrapping error to the end", func() {
+				kind := diagnostics.Kind{Code: "TEST010", Message: "type mismatch"}
+				err := errors.Wrap(
+					kind.Errorf("type mismatch: expected i32"),
+					"bad default",
+				)
+				Expect(diagnostics.Error(err, nil).Message).
+					To(Equal("type mismatch: expected i32 (bad default)"))
+			})
+
 			It("Should leave the range empty with no context", func() {
 				d := diagnostics.Kind{Code: "TEST007"}.Atf(nil, "too large")
 				Expect(d.Range).To(Equal(protocol.Range{}))
@@ -856,7 +880,7 @@ var _ = Describe("Diagnostics", func() {
 				marked := kind.Mark(hintedError{msg: "type mismatch", hint: "cast it"})
 				d := diagnostics.Error(errors.Wrap(marked, "bad default"), nil)
 				Expect(d.Code).To(Equal(diagnostics.ErrorCode("TEST008")))
-				Expect(d.Message).To(Equal("bad default: type mismatch"))
+				Expect(d.Message).To(Equal("type mismatch (bad default)"))
 				Expect(d.Notes).To(Equal([]protocol.DiagnosticRelatedInformation{
 					{Message: "cast it"},
 				}))

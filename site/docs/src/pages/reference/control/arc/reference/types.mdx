@@ -128,7 +128,7 @@ tank_pt -> regulate(valve=press_vlv_cmd, limit=500.0)
 
 The data types must match. Passing an `f64` channel to a `chan i32` parameter named
 `sensor` of a function `count` fails with `E2001`:
-`type mismatch in argument 'sensor' of 'count' (element types): expected i32, got f64`.
+`type mismatch: expected i32, got f64 in argument 'sensor' of 'count' (element types)`.
 
 <Divider.Divider x />
 
@@ -260,4 +260,4 @@ start_cmd == 1 => vent
 ```
 
 Without the type, the call fails with
-`type mismatch in argument 'duration' of 'time.wait': expected i64 ns, got i64 s`.
+`type mismatch: expected i64 ns, got i64 s in argument 'duration' of 'time.wait'`.

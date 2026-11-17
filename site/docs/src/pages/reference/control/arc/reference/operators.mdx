@@ -157,7 +157,7 @@ another:
 | `a + b`, `a u8` and `b i32`  | `type mismatch: cannot use u8 and i32 in + operation`                              |
 | `f64(x) + y`                 | `f64`                                                                              |
 | `x * 2`, `x f32`             | `f32`. The literal takes the type of `x`.                                          |
-| `x * 2.5`, `x i32`           | `type mismatch in * operands must be compatible: float is not compatible with i32` |
+| `x * 2.5`, `x i32`           | `type mismatch: float is not compatible with i32 in * operands must be compatible` |
 
 To mix types, cast one side. See [casts](/reference/control/arc/reference/types#casts).
 

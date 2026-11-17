@@ -2177,32 +2177,32 @@ var _ = Describe("Expressions", func() {
 			Entry(
 				"==",
 				"v == math.nan",
-				"comparison with math.nan using == is always false",
+				"comparison with NaN: == with math.nan is always false",
 			),
 			Entry(
 				"!=",
 				"v != math.nan",
-				"comparison with math.nan using != is always true, use not math.is_nan instead",
+				"comparison with NaN: != with math.nan is always true, use not math.is_nan instead",
 			),
 			Entry(
 				"<",
 				"v < math.nan",
-				"comparison with math.nan using < is always false",
+				"comparison with NaN: < with math.nan is always false",
 			),
 			Entry(
 				">",
 				"math.nan > v",
-				"comparison with math.nan using > is always false",
+				"comparison with NaN: > with math.nan is always false",
 			),
 			Entry(
 				"<=",
 				"v <= -math.nan",
-				"comparison with math.nan using <= is always false",
+				"comparison with NaN: <= with math.nan is always false",
 			),
 			Entry(
 				">=",
 				"w >= f32(math.nan)",
-				"comparison with math.nan using >= is always false",
+				"comparison with NaN: >= with math.nan is always false",
 			),
 			Entry("not on an ordered comparison with math.inf", "v < math.inf", ""),
 			Entry("left side", "math.nan == w", "always false"),
@@ -2270,12 +2270,12 @@ var _ = Describe("Expressions", func() {
 			Entry(
 				"an import alias",
 				"import math as m\nfunc f() {v f64} {\n    a := v == m.nan\n}",
-				"comparison with m.nan using == is always false, use m.is_nan instead",
+				"comparison with NaN: == with m.nan is always false, use m.is_nan instead",
 			),
 			Entry(
 				"a module without is_nan",
 				"import custom\nfunc f() {v f64} {\n    a := v != custom.missing\n}",
-				"comparison with custom.missing using != is always true, "+
+				"comparison with NaN: != with custom.missing is always true, "+
 					"use not is_nan from the math module instead",
 			),
 		)
@@ -2316,7 +2316,7 @@ var _ = Describe("TruthyCondition", func() {
 			Expect(d.Code).To(Equal(codes.TruthyCondition.Code))
 			Expect(d.Severity).To(Equal(protocol.DiagnosticSeverityWarning))
 			Expect(d.Message).To(Equal(
-				"non-boolean conditions are deprecated, use an explicit " +
+				"non-boolean condition: deprecated, use an explicit " +
 					"comparison like x != 0",
 			))
 			Expect(d.Fixes).To(HaveLen(1))

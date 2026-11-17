@@ -54,8 +54,7 @@ func analyzeLiteralExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return
+		panic(err)
 	}
 	scope.AutoName("constant_")
 }
@@ -99,8 +98,7 @@ func analyzeFmtStrExpression(
 	fnScope, err := ctx.Scope.Root().
 		Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return true
+		panic(err)
 	}
 	fnScope.AutoName("fmt_str_")
 	fnScope.SetLexicalResolver(ctx.Scope)
@@ -118,8 +116,7 @@ func analyzeComputedExpression(ctx acontext.Context[parser.IExpressionContext]) 
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	// Set on the function scope, not the block: the compiler resolves the
@@ -131,8 +128,7 @@ func analyzeComputedExpression(ctx acontext.Context[parser.IExpressionContext]) 
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return
+		panic(err)
 	}
 	// Inferring in the body's scope gives the output and the body one type variable.
 	body := ctx.WithScope(blockScope)
@@ -184,8 +180,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	fnScope.SetLexicalResolver(enclosing)
@@ -194,8 +189,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return
+		panic(err)
 	}
 	blockCtx := ctx.WithScope(blockScope)
 	args := inputArguments(blockCtx, ctx.AST)
@@ -257,8 +251,7 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			Internal: true,
 			AST:      expr,
 		}); err != nil {
-			ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, expr))
-			return
+			panic(err)
 		}
 		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: t})
 	}

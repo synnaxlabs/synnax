@@ -371,7 +371,14 @@ func checkNaNComparison[T, O antlr.ParserRuleContext](
 		if op == "!=" {
 			check = "not " + check
 		}
-		d := codes.NaNComparison.At(ctx.AST, qid.GetText(), op, op == "!=", check)
+		d := codes.NaNComparison.Atf(
+			ctx.AST,
+			"%s with %s is always %t, use %s instead",
+			op,
+			qid.GetText(),
+			op == "!=",
+			check,
+		)
 		if imported && len(operands) == 2 && (op == "==" || op == "!=") {
 			d = d.WithFix(ctx.AST, check+"("+sourceText(operands[1-i])+")")
 		}
@@ -620,8 +627,7 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 ) {
 	callerFn, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return
+		panic(err)
 	}
 	if callerFn != nil && callee.Exec == symbol.ExecFlow {
 		ctx.Diagnostics.Add(codes.NotCallable.Atf(
@@ -648,7 +654,7 @@ func AnalyzeCallSite[T antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(
 			codes.NotCallable.Atf(
 				site,
-				"cannot call function %s: functions with multiple named outputs are not callable",
+				"not callable: function %s has more than one named output",
 				funcName,
 			),
 		)
@@ -702,8 +708,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		if tracksChannelRead(resolved) {
 			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(fnErr, ctx.AST))
-				return
+				panic(fnErr)
 			}
 			if fn != nil {
 				// Use SourceID if available, otherwise use symbol's own ID
@@ -774,7 +779,12 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 				if sourceType.Kind == basetypes.KindBool &&
 					targetType.IsNumeric() &&
 					targetType.Kind != basetypes.KindU8 {
-					ctx.Diagnostics.Add(codes.BoolCast.At(ctx.AST, targetType).
+					ctx.Diagnostics.Add(codes.BoolCast.Atf(
+						ctx.AST,
+						"bool to %s is experimental; a future release may only allow "+
+							"bool to u8",
+						targetType,
+					).
 						WithFix(expr, "u8("+sourceText(expr)+")"))
 				}
 			}
@@ -916,7 +926,10 @@ func TruthyCondition(
 	if !known {
 		fix = sourceText(condition) + " != " + zero
 	}
-	return codes.TruthyCondition.At(condition).WithFix(condition, fix), true
+	return codes.TruthyCondition.Atf(
+		condition,
+		"non-boolean condition: deprecated, use an explicit comparison like x != 0",
+	).WithFix(condition, fix), true
 }
 
 // sourceText returns the source code of node.

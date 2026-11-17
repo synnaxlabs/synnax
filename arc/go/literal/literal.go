@@ -90,7 +90,7 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 		value, err = UnescapeString(body, flags.Multi)
 		if err != nil {
 			return ParsedValue{}, codes.InvalidStringLiteral.Mark(
-				errors.Wrapf(err, "invalid string literal %s", text),
+				errors.Wrapf(err, "invalid string literal: %s", text),
 			)
 		}
 	}
@@ -580,7 +580,7 @@ func ParseConst(
 	targetType types.Type,
 ) (ParsedValue, error) {
 	if expr == nil {
-		return ParsedValue{}, codes.NotConstant.Errorf("expression is not a constant")
+		return ParsedValue{}, codes.NotConstant.Errorf("not a constant: expression")
 	}
 	if primary := parser.GetPrimaryExpression(expr); primary != nil {
 		if lit := primary.Literal(); lit != nil {

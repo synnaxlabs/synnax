@@ -45,8 +45,12 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 	for _, param := range fnType.Inputs {
 		if param.Value == nil && !supplied.Contains(param.Name) &&
 			!satisfied.Contains(param.Name) {
-			ctx.Diagnostics.Add(codes.FuncArgMissing.At(site, param.Name, fnName).
-				WithNote("signature: " + signature))
+			ctx.Diagnostics.Add(codes.FuncArgMissing.Atf(
+				site,
+				"missing required argument: parameter '%s' of func '%s'",
+				param.Name,
+				fnName,
+			).WithNote("signature: " + signature))
 		}
 	}
 	if hook != nil {
@@ -80,7 +84,7 @@ func bindArguments[T antlr.ParserRuleContext](
 		if supplied.Contains(param.Name) {
 			ctx.Diagnostics.Add(codes.FuncArgDuplicate.Atf(
 				arg.AST,
-				"duplicate argument for parameter '%s' of func '%s'",
+				"duplicate argument: parameter '%s' of func '%s'",
 				param.Name,
 				fnName,
 			).
@@ -107,7 +111,7 @@ func matchParam[T antlr.ParserRuleContext](
 		param, ok := fnType.Inputs.Get(arg.Name)
 		if !ok {
 			ctx.Diagnostics.Add(codes.FuncArgUnknown.Atf(arg.AST,
-				"unknown parameter '%s' for func '%s'", arg.Name, fnName).
+				"unknown parameter: '%s' for func '%s'", arg.Name, fnName).
 				WithNote("signature: " + signature))
 			return types.Param{}, false
 		}
@@ -116,8 +120,12 @@ func matchParam[T antlr.ParserRuleContext](
 	positional := fnType.Inputs.Positional(trigger)
 	if arg.Index >= len(positional) {
 		if arg.Index == len(positional) {
-			ctx.Diagnostics.Add(codes.FuncArgExtra.At(arg.AST, fnName, len(positional)).
-				WithNote("signature: " + signature))
+			ctx.Diagnostics.Add(codes.FuncArgExtra.Atf(
+				arg.AST,
+				"too many arguments: func '%s' takes at most %d",
+				fnName,
+				len(positional),
+			).WithNote("signature: " + signature))
 		}
 		return types.Param{}, false
 	}

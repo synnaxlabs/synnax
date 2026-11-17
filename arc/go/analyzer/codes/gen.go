@@ -9,8 +9,8 @@
 
 //go:build ignore
 
-// Writes the table of kinds to codes.gen.json, which the docs site reads. Each kind has
-// a Markdown file with its problem text and an Arc example that reports its code.
+// Writes the table of kinds to codes.gen.json, which the docs site reads. It compiles
+// the example of each kind and checks that the example reports the code of the kind.
 package main
 
 import (
@@ -38,8 +38,6 @@ type kind struct {
 	Problem  string `json:"problem"`
 	Example  string `json:"example"`
 }
-
-const fence = "```"
 
 var (
 	severities = map[protocol.DiagnosticSeverity]string{
@@ -105,25 +103,6 @@ func report(source string, module bool) diagnostics.Diagnostics {
 	return *diag
 }
 
-// read returns the problem text and example of the Markdown file of code.
-func read(code diagnostics.ErrorCode) (problem, example string, err error) {
-	b, err := os.ReadFile(string(code) + ".md")
-	if err != nil {
-		return "", "", err
-	}
-	problem, rest, hasExample := strings.Cut(string(b), fence+"arc\n")
-	if hasExample {
-		if example, _, hasExample = strings.Cut(rest, fence); !hasExample {
-			return "", "", errors.Newf("%s.md has an example with no end", code)
-		}
-	}
-	problem = strings.Join(strings.Fields(problem), " ")
-	if problem == "" {
-		return "", "", errors.Newf("%s.md has no problem text", code)
-	}
-	return problem, strings.TrimRight(example, "\n"), nil
-}
-
 func generate(k diagnostics.Kind) (kind, error) {
 	severity, ok := severities[k.Severity]
 	if !ok {
@@ -132,18 +111,28 @@ func generate(k diagnostics.Kind) (kind, error) {
 			k.Code,
 		)
 	}
-	problem, example, err := read(k.Code)
-	if err != nil {
-		return kind{}, err
+	if k.Message == "" || k.Problem == "" {
+		return kind{}, errors.Newf("%s has no message or no problem text", k.Code)
 	}
-	out := kind{Severity: severity, Problem: problem, Example: example}
-	if example == "" {
+	out := kind{
+		Severity: severity,
+		Message:  k.Message,
+		Problem:  k.Problem,
+		Example:  k.Example,
+	}
+	if k.Example == "" {
 		return out, nil
 	}
 	for _, module := range []bool{false, true} {
-		for _, d := range report(example, module) {
+		for _, d := range report(k.Example, module) {
 			if d.Code == k.Code {
-				out.Message = d.Message
+				if d.Message != k.Message &&
+					!strings.HasPrefix(d.Message, k.Message+": ") {
+					return kind{}, errors.Newf(
+						"the message of %s does not start with its headline %q: %s",
+						k.Code, k.Message, d.Message,
+					)
+				}
 				return out, nil
 			}
 		}
@@ -151,7 +140,7 @@ func generate(k diagnostics.Kind) (kind, error) {
 	return kind{}, errors.Newf(
 		"the example of %s does not report it:\n%s",
 		k.Code,
-		report(example, false).String(),
+		report(k.Example, false).String(),
 	)
 }
 

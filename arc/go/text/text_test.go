@@ -3147,7 +3147,7 @@ var _ = Describe("Text", func() {
 					Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 					Expect(
 						diagnostics.String(),
-					).To(ContainSubstring("constant -5 overflows u8"))
+					).To(ContainSubstring("constant overflow: -5 overflows u8"))
 				},
 			)
 		})
@@ -4529,8 +4529,8 @@ time.wait(duration=500ms) -> output`
 					_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 					Expect(diagnostics.Ok()).To(BeFalse())
 					Expect(diagnostics.String()).To(SatisfyAll(
-						ContainSubstring("missing required argument for parameter 'a'"),
-						ContainSubstring("missing required argument for parameter 'b'"),
+						ContainSubstring("missing required argument: parameter 'a'"),
+						ContainSubstring("missing required argument: parameter 'b'"),
 					))
 				},
 			)
@@ -7861,7 +7861,8 @@ time.wait(duration=500ms) -> output`
 					},
 					"no next stage",
 				),
-				Entry("next outside sequence",
+				Entry(
+					"next outside sequence",
 					`input > 10 => next`,
 					[]symbol.Symbol{
 						{
@@ -7871,16 +7872,17 @@ time.wait(duration=500ms) -> output`
 							ID:   10081,
 						},
 					},
-					"[E5005]: 'next' used outside of a sequence",
+					"[E5005]: invalid transition target: 'next' used outside of a sequence",
 				),
 				Entry(
 					"a func that reads a top-level series",
 					"data := [1.0, 2.0]\nfunc f() f64 {\n    return data[0]\n}",
 					[]symbol.Symbol{},
-					"1:0 error [E2006]: variable 'data' of type series f64 cannot have "+
+					"1:0 error [E2006]: not a constant: variable 'data' of type series f64 cannot have "+
 						"a computed initializer",
 				),
-				Entry("a func with no output before a channel",
+				Entry(
+					"a func with no output before a channel",
 					"func sink() {v f32} {\n}\ninput -> sink() -> input",
 					[]symbol.Symbol{
 						{
@@ -7890,7 +7892,7 @@ time.wait(duration=500ms) -> output`
 							ID:   10081,
 						},
 					},
-					"[E5004]: function 'sink' has no output to connect in flow chain",
+					"[E5004]: invalid flow connection: function 'sink' has no output to connect in flow chain",
 				),
 				Entry("next inside inline routing stage body",
 					`
@@ -9325,7 +9327,7 @@ time.wait(duration=500ms) -> output`
 					NewRoot(nil, resolver...),
 				)
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"3:33 error [E2006]: cannot read 'k': its initializer is not a " +
+					"3:33 error [E2006]: not a constant: cannot read 'k': its initializer is not a " +
 						"compile-time constant",
 				))
 			},

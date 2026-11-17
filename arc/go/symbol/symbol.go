@@ -341,9 +341,7 @@ func NewRoot(
 func (s *Symbol) GetChildByParserRule(rule antlr.ParserRuleContext) (*Symbol, error) {
 	res := s.findChild(func(child *Symbol) bool { return child.AST == rule })
 	if res == nil {
-		return nil, codes.MissingScope.Errorf(
-			"could not find symbol matching parser rule",
-		)
+		return nil, errors.New("could not find symbol matching parser rule")
 	}
 	return res, nil
 }

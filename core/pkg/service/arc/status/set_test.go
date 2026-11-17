@@ -551,7 +551,7 @@ var _ = Describe("Analyzer hooks", func() {
 		for _, e := range errs {
 			if regexp.MustCompile(regexp.QuoteMeta(badVariant) + `.*not a valid status variant`).
 				MatchString(e.Message) {
-				Expect(e.Code).To(Equal(codes.InvalidStatusVariant.Code))
+				Expect(e.Code).To(Equal(codes.FuncArgValue.Code))
 				found = true
 				break
 			}

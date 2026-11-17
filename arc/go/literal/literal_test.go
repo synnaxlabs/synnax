@@ -893,7 +893,7 @@ var _ = Describe("Diagnostic codes of literal errors", func() {
 
 	It("Should report a missing expression as not a constant", func() {
 		_, err := literal.ParseConst(nil, types.I64())
-		Expect(err).To(MatchError(ContainSubstring("expression is not a constant")))
+		Expect(err).To(MatchError(ContainSubstring("not a constant: expression")))
 		Expect(codeOf(err)).To(Equal(codes.NotConstant.Code))
 	})
 

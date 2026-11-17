@@ -375,6 +375,6 @@ func checkColorLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionCo
 		return
 	}
 	if _, err := color.Parse(value); err != nil {
-		diags.Add(codes.InvalidColor.Atf(expr, "%v", err))
+		diags.Add(codes.FuncArgValue.Atf(expr, "%v", err))
 	}
 }

@@ -557,7 +557,7 @@ var _ = Describe("Analyzer hooks", func() {
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		for _, e := range diags.Errors() {
 			if matchesColor(e.Message) {
-				Expect(e.Code).To(Equal(codes.InvalidColor.Code))
+				Expect(e.Code).To(Equal(codes.FuncArgValue.Code))
 				return true
 			}
 		}

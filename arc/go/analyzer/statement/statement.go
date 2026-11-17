@@ -38,8 +38,7 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return
+		panic(err)
 	}
 	for _, stmt := range ctx.AST.AllStatement() {
 		Analyze(ctx.Child(stmt).WithScope(blockScope))
@@ -632,8 +631,7 @@ func analyzeForStatement(ctx context.Context[parser.IForStatementContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return
+		panic(err)
 	}
 	loopScope.Name = "__loop"
 	loopCtx := ctx.WithScope(loopScope)
@@ -927,11 +925,9 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	if err != nil {
 		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 		if err != nil {
-			ctx.Diagnostics.Add(codes.ParserInvariant.Atf(
-				ctx.AST,
-				"return statement can only be used inside a function body",
-			))
-			return
+			panic(
+				errors.New("return statement can only be used inside a function body"),
+			)
 		}
 	}
 	funcName := enclosingScope.Name
@@ -1054,8 +1050,7 @@ func analyzeChannelAssignment(
 	// context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if errors.Skip(fnErr, query.ErrNotFound) != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(fnErr, ctx.AST))
-		return
+		panic(fnErr)
 	}
 	if fn != nil {
 		// Use SourceID if available (for variables assigned from input params),
@@ -1538,16 +1533,14 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) types.Type {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return types.Type{}
+		panic(err)
 	}
 	blockScope, err := funcScope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(codes.UnexpectedError.Wrap(err, ctx.AST))
-		return types.Type{}
+		panic(err)
 	}
 	var collectedReturnTypes []types.Type
 	for _, stmt := range ctx.AST.AllStatement() {

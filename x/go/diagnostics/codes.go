@@ -11,6 +11,7 @@ package diagnostics
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/errors"
@@ -27,34 +28,49 @@ type Kind struct {
 	Code ErrorCode
 	// Severity is the severity of each diagnostic of the kind.
 	Severity protocol.DiagnosticSeverity
-	// Message is the message format. A kind that reports with Atf or Wrap has none.
+	// Message is the headline of the kind. The message of each diagnostic of the kind
+	// is the headline, or the headline and a detail.
 	Message string
+	// Problem describes the kind for its documentation.
+	Problem string
+	// Example is source that reports the kind, for its documentation.
+	Example string
 }
 
-// At returns a diagnostic of the kind at ctx. args fill the verbs of Message.
-func (k Kind) At(ctx antlr.ParserRuleContext, args ...any) Diagnostic {
+// describe returns the message of a diagnostic of the kind with detail. The message
+// starts with the headline.
+func (k Kind) describe(detail string) string {
+	head := k.Message + ": "
+	if k.Message == "" || detail == k.Message || strings.HasPrefix(detail, head) {
+		return detail
+	}
+	return head + detail
+}
+
+// At returns a diagnostic of the kind at ctx with the headline as its message.
+func (k Kind) At(ctx antlr.ParserRuleContext) Diagnostic {
 	return Diagnostic{
 		Code:     k.Code,
 		Severity: k.Severity,
-		Message:  fmt.Sprintf(k.Message, args...),
+		Message:  k.Message,
 		Range:    rangeOf(ctx),
 	}
 }
 
-// Atf returns a diagnostic of the kind at ctx with the message of format and args.
+// Atf returns a diagnostic of the kind at ctx. format and args give its detail.
 func (k Kind) Atf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
 	return Diagnostic{
 		Code:     k.Code,
 		Severity: k.Severity,
-		Message:  fmt.Sprintf(format, args...),
+		Message:  k.describe(fmt.Sprintf(format, args...)),
 		Range:    rangeOf(ctx),
 	}
 }
 
-// Wrap returns a diagnostic of the kind at ctx with the message of err.
+// Wrap returns a diagnostic of the kind at ctx with the message of err as its detail.
 func (k Kind) Wrap(err error, ctx antlr.ParserRuleContext) Diagnostic {
 	d := Error(err, ctx)
-	d.Code, d.Severity = k.Code, k.Severity
+	d.Code, d.Severity, d.Message = k.Code, k.Severity, k.describe(err.Error())
 	return d
 }
 

@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/ir"
@@ -485,7 +484,10 @@ func (s *Server) analyze(
 ) (pDiagnostics []protocol.Diagnostic, docIR ir.IR, docDiag diagnostics.Diagnostics) {
 	defer s.recoverAnalysis(func(err error) {
 		docIR = ir.IR{}
-		docDiag = diagnostics.Diagnostics{codes.AnalysisPanic.Wrap(err, nil)}
+		docDiag = diagnostics.Diagnostics{{
+			Severity: protocol.DiagnosticSeverityError,
+			Message:  err.Error(),
+		}}
 		pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 	})
 	s.cfg.L.Debug("analyzing program")

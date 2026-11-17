@@ -23,13 +23,9 @@ describe("kinds", () => {
       "W2001",
       "W2002",
     ]);
-    const from = codes.indexOf("E3013");
-    expect(codes.slice(from, from + 4)).toEqual(["E3013", "W4000", "W4001", "E4000"]);
+    const from = codes.indexOf("E3011");
+    expect(codes.slice(from, from + 4)).toEqual(["E3011", "W4000", "W4001", "E4000"]);
     expect(codes.at(-1)).toEqual("E5015");
-  });
-
-  it("should leave out the internal errors of band 0", () => {
-    expect(Arc.kinds().filter(({ code }) => code[1] === "0")).toEqual([]);
   });
 
   it("should name the band of each kind", () => {
@@ -41,15 +37,15 @@ describe("kinds", () => {
     expect(kind).toEqual({
       code: "W4000",
       severity: "warning",
-      message: 'imported module "math" is unused',
+      message: "unused import",
       problem: "The code imports a module and does not use it.",
       example: "import math",
     });
   });
 
-  it("should give a kind with no example an empty message", () => {
+  it("should give a kind with no example its message and an empty example", () => {
     const kind = Arc.kinds().find(({ code }) => code === "E1001");
-    expect(kind?.message).toEqual("");
+    expect(kind?.message).toEqual("source limit exceeded");
     expect(kind?.example).toEqual("");
   });
 });
