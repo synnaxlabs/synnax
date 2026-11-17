@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import {
+  type channel,
+  DisconnectedError,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { LinePlot } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/lyra/status";
+import { LinePlot, Synnax } from "@synnaxlabs/pluto";
 import { resolveWindow, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 
 import { Framer } from "@/platform/framer";
@@ -27,14 +32,31 @@ export interface DownloadAsCSVParams {
   name: string;
 }
 
+const channelsOf = (lines: DownloadLine[]): channel.Key[] =>
+  unique.unique(
+    lines
+      .flatMap((l) => [l.channels.y, l.channels.x])
+      .filter((v): v is channel.Key => v != null && v !== 0),
+  );
+
+// Returns where a live window of the plot ends: the end of the newest stored sample of
+// its channels, or now when they store none.
+const readEdge = async (
+  client: Client,
+  channels: channel.Key[],
+): Promise<TimeStamp> => {
+  if (channels.length === 0) return TimeStamp.now();
+  const { series } = await client.readLatest(channels, 1);
+  const ends = series.filter((s) => !s.timeRange.isZero).map((s) => s.timeRange.end);
+  return ends.length === 0
+    ? TimeStamp.now()
+    : ends.reduce((a, b) => TimeStamp.max(a, b));
+};
+
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
   return ({ timeRanges, lines, name }) => {
-    const channels = unique.unique(
-      lines
-        .flatMap((l) => [l.channels.y, l.channels.x])
-        .filter((v): v is channel.Key => v != null && v !== 0),
-    );
+    const channels = channelsOf(lines);
     const timeRange = TimeRange.merge(...timeRanges);
     openDownloadCSVModal({
       timeRange: timeRange.numeric,
@@ -46,17 +68,22 @@ export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
 };
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const derived = LinePlot.useLines({ key });
   const ranges = LinePlot.useRanges({ key });
   const name = LinePlot.useName({ key });
   const windows = Session.Range.useResolveWindows(ranges);
-  return () => {
-    const now = TimeStamp.now();
-    const lines: DownloadLine[] = derived.map((d) => ({
-      channels: { x: d.xChannel, y: d.yChannel },
-    }));
-    const timeRanges = windows.map((w) => resolveWindow(w, now));
-    downloadAsCSV({ timeRanges, lines, name });
-  };
+  return () =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const lines: DownloadLine[] = derived.map((d) => ({
+        channels: { x: d.xChannel, y: d.yChannel },
+      }));
+      const live = windows.some((w) => w.variant === "dynamic");
+      const end = live ? await readEdge(client, channelsOf(lines)) : TimeStamp.now();
+      const timeRanges = windows.map((w) => resolveWindow(w, end));
+      downloadAsCSV({ timeRanges, lines, name });
+    }, "Failed to download plot as CSV");
 };

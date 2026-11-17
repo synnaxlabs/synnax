@@ -52,6 +52,7 @@ import {
   tileRequestKey,
   type TileSpec,
 } from "@/framer/cache/tile";
+import { type Frame } from "@/framer/frame";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type PointsLimit, type Snapshot } from "@/framer/subscription";
 import { status } from "@/status";
@@ -64,6 +65,8 @@ export interface PointsProps {
   streamer: MultiplexedStreamer;
   joiner: Joiner;
   retrieveChannels: ChannelRetriever;
+  /** Reads the newest count stored samples of each channel in the time range. */
+  readLatest: (keys: channel.Key[], count: number, tr: TimeRange) => Promise<Frame>;
   now: () => TimeStamp;
   /** Retry behavior for failed reads. */
   breaker?: breaker.Config;
@@ -146,6 +149,14 @@ export class Points {
   private memo: Memo | null = null;
   // grown is true when the stream grew the newest raw series since the last value.
   private grown = false;
+  // stored is the end of the newest stored sample's span for a dynamic window, null
+  // when the channel stores none, and undefined until the first read lands. A read
+  // supersedes the reads before it.
+  private stored?: TimeStamp | null;
+  private storedRead = 0;
+  // tileKeys holds what tilesOf gave for the limit since the last rebuild or boundary
+  // move, so a view that slides works out its tiles once per update.
+  private tileKeys: string | null = null;
 
   constructor(
     private readonly props: PointsProps,
@@ -161,6 +172,7 @@ export class Points {
       this.held.forEach((h) => {
         if (tileRange(h.spec).overlapsWith(tr)) h.stale = true;
       });
+      if (this.dynamic && this.index != null) void this.readStored();
       this.changed();
     });
     void this.resolve();
@@ -184,13 +196,15 @@ export class Points {
    */
   update(window: Window, limit: PointsLimit): void {
     const moved = !deep.equal(window, this.window);
+    const wasDynamic = this.dynamic;
     if (!moved && deep.equal(limit, this.limit)) return;
     const prev = this.limit;
     const slid = !moved && deep.equal({ ...prev, view: limit.view }, limit);
-    const tiles = slid ? this.tilesOf(prev) : null;
+    const prevKeys = slid ? (this.tileKeys ?? this.tilesOf(prev)) : null;
     this.window = window;
     this.limit = limit;
-    if (tiles != null && tiles === this.tilesOf(limit)) return;
+    this.tileKeys = slid ? this.tilesOf(limit) : null;
+    if (prevKeys != null && prevKeys === this.tileKeys) return;
     this.memo = null;
     if (
       limit.count !== prev.count ||
@@ -203,6 +217,7 @@ export class Points {
     if (this.index == null) return;
     this.stream(this.index);
     if (moved) this.moveBoundary();
+    if (this.dynamic && !wasDynamic) void this.readStored();
   }
 
   /**
@@ -230,6 +245,7 @@ export class Points {
   // caches the snapshot they make.
   private rebuild(now: TimeStamp): Snapshot {
     this.grown = false;
+    this.tileKeys = null;
     const epoch = this.props.store.epoch(this.key);
     if (this.index == null) {
       const snapshot = { series: new MultiSeries([]), status: this.status() };
@@ -306,6 +322,7 @@ export class Points {
   /** Releases every tile, block, and stream the channel holds. */
   close(): void {
     this.generation++;
+    this.storedRead++;
     this.abort.abort();
     this.notifier.notify();
     this.stopInvalidations();
@@ -362,6 +379,7 @@ export class Points {
         this.index = index;
         this.moveBoundary();
         this.stream(index);
+        if (this.dynamic) void this.readStored();
         this.breaker.reset();
         this.readFailure = null;
         this.changed();
@@ -370,6 +388,29 @@ export class Points {
         if (generation !== this.generation) return;
         this.fail(e);
         if (isDefinitive(e) || !(await this.breaker.wait())) {
+          this.parked = this.readFailure;
+          return;
+        }
+      }
+  }
+
+  // Reads the end of the newest stored sample's span. A failure that is definitive or
+  // outlasts the breaker stops the channel for good.
+  private async readStored(): Promise<void> {
+    const read = ++this.storedRead;
+    const brk = createBreaker(this.notifier, this.props.breaker);
+    while (read === this.storedRead)
+      try {
+        const frame = await this.props.readLatest([this.key], 1, TimeRange.MAX);
+        if (read !== this.storedRead) return;
+        const newest = frame.get(this.key).series.findLast((s) => !s.timeRange.isZero);
+        this.stored = newest?.timeRange.end ?? null;
+        this.changed();
+        return;
+      } catch (e) {
+        if (read !== this.storedRead) return;
+        this.fail(e);
+        if (isDefinitive(e) || !(await brk.wait())) {
           this.parked = this.readFailure;
           return;
         }
@@ -427,6 +468,7 @@ export class Points {
   private moveBoundary(): void {
     this.boundary = this.rawFrom(this.home());
     this.steps = [];
+    this.tileKeys = null;
   }
 
   // Moves the boundary to at most one raw block behind rawFrom, so a window that never
@@ -770,8 +812,16 @@ export class Points {
     this.pins = next;
   }
 
-  // Returns the end of the newest drawn sample's span.
+  // Returns the end of the newest sample's span: the newest drawn, or the newest stored
+  // when a dynamic window has a newer one.
   private time(tail: Series[] = []): TimeStamp | undefined {
+    const drawn = this.drawnTime(tail);
+    const stored = this.dynamic ? this.stored : null;
+    if (stored == null) return drawn;
+    return drawn == null ? stored : TimeStamp.max(drawn, stored);
+  }
+
+  private drawnTime(tail: Series[]): TimeStamp | undefined {
     const newest = tail.findLast((s) => !s.timeRange.isZero);
     if (newest != null) return newest.timeRange.end;
     const last = this.raw.at(-1);
@@ -791,7 +841,10 @@ export class Points {
       ...(live?.keys.map((k) => live.demand.status(k)) ?? []),
     );
     if (worst != null && worst.variant !== "success") return worst;
-    const loading = this.loading || this.pending.size > 0;
+    const loading =
+      this.loading ||
+      this.pending.size > 0 ||
+      (this.dynamic && this.stored === undefined);
     return loading ? this.statuses.loading : this.statuses.success;
   }
 

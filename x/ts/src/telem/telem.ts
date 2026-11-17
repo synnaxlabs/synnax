@@ -2093,7 +2093,7 @@ export const stringTimeStampZ = z.preprocess(
  */
 export type StringTimeStamp = z.infer<typeof stringTimeStampZ>;
 
-/** A rolling window that ends now. */
+/** A rolling window that ends at the newest sample. */
 export const dynamicWindowZ = z.object({
   variant: z.literal("dynamic"),
   timeSpan: numericTimeSpanZ.default(0),
@@ -2123,11 +2123,11 @@ export const dynamicWindow = (span: CrudeTimeSpan): DynamicWindow => ({
   timeSpan: Number(new TimeSpan(span).valueOf()),
 });
 
-/** @returns the time range the window covers when the time is now. */
-export const resolveWindow = (window: Window, now: TimeStamp): TimeRange => {
-  if (window.variant === "dynamic") return new TimeRange(now.sub(window.timeSpan), now);
-  const { start, end } = window.timeRange;
-  return new TimeRange(BigInt(start), BigInt(end));
+/** @returns the time range the window covers when a dynamic window ends at end. */
+export const resolveWindow = (window: Window, end: TimeStamp): TimeRange => {
+  if (window.variant === "dynamic") return new TimeRange(end.sub(window.timeSpan), end);
+  const { timeRange } = window;
+  return new TimeRange(BigInt(timeRange.start), BigInt(timeRange.end));
 };
 
 export const typedArrayZ = z.union([

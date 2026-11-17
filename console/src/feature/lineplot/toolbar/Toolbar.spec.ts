@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import { DataType, lineplot, type Synnax as Client } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
+import { dynamicWindow, id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   client,
@@ -18,10 +19,16 @@ import {
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
-import { getSwitch } from "@/platform/modals/testutil";
+import { findButton, getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import {
+  captureBrowserDownloads,
+  getIconButton,
+  readBlob,
+  removeSaveFilePicker,
+  uniqueName,
+} from "@/testutil";
 
 const roles = new RoleClients(client);
 
@@ -60,6 +67,63 @@ describe("lineplot/toolbar/Toolbar", () => {
     await screen.findByText("Data");
     fireEvent.click(getIconButton(result.container, "csv"));
     expect(await screen.findByText(`Download data for ${name} as CSV`)).toBeDefined();
+  });
+
+  describe("download CSV", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("should end a live window at the newest sample of the plot's channels", async () => {
+      removeSaveFilePicker();
+      const downloads = captureBrowserDownloads();
+      const suffix = id.create().replace(/-/g, "_");
+      const index = await client.channels.create({
+        name: `toolbar_csv_time_${suffix}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: `toolbar_csv_data_${suffix}`,
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      // The samples stop an hour before now, far outside a live window ending now.
+      const start = TimeStamp.now().sub(TimeSpan.hours(1));
+      await client.write(start, {
+        [index.key]: Array.from({ length: 5 }, (_, i) =>
+          start.add(TimeSpan.seconds(i)),
+        ),
+        [data.key]: [1, 2, 3, 4, 5],
+      });
+      const key = uuid.create();
+      const line = { yAxis: "y1" as const, yChannel: data.key, xChannel: 0 };
+      const { result } = await renderLinePlot(Toolbar, {
+        linePlot: {
+          key,
+          name: uniqueName("plot"),
+          channels: { y1: [data.key] },
+          lines: [{ key: lineplot.lineKey(key, line), ...line }],
+          ranges: [{ variant: "window", window: dynamicWindow(TimeSpan.seconds(30)) }],
+        },
+        preloadedState: (key) => createPreloadedState(key),
+      });
+      await screen.findByText("Data");
+      fireEvent.click(getIconButton(result.container, "csv"));
+      const download = await waitFor(() => {
+        const button = findButton("Download");
+        expect(button.className).not.toContain("lyra--disabled");
+        return button;
+      });
+      await act(async () => {
+        fireEvent.click(download);
+      });
+      await waitFor(() => expect(downloads.blobs).toHaveLength(1));
+      const rows = (await readBlob(downloads.blobs[0])).trim().split("\n");
+      expect(rows.slice(1).map((r) => Number(r.split(",").at(-1)))).toEqual([
+        1, 2, 3, 4, 5,
+      ]);
+    });
   });
 
   it("renames the plot from the properties tab", async () => {
