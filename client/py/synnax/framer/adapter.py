@@ -249,16 +249,6 @@ class WriteFrameAdapter:
                 but no data.
                 """
                 )
-            if isinstance(series, list) and len(series) > 1:
-                first = series[0]
-                if not isinstance(first, (float, int)):
-                    raise ValidationError(
-                        f"""
-                    Received a single channel {kind}
-                    but multiple series.
-                    """
-                    )
-
             if not is_crude_series(series):
                 raise ValidationError(
                     f"""
