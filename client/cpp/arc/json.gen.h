@@ -217,7 +217,10 @@ inline AutomationArc AutomationArc::parse(x::json::Parser parser) {
     AutomationArc result;
     static_cast<Base &>(result) = Base::parse(parser);
     result.program = parser.field<std::optional<::arc::program::Program>>("program");
-    result.changes = parser.field<std::optional<std::vector<Change>>>("changes");
+    result.changes = parser.field<std::vector<Change>>(
+        "changes",
+        std::vector<Change>{}
+    );
     result.calculations = parser.field<std::vector<Calculation>>(
         "calculations",
         std::vector<Calculation>{}
@@ -230,7 +233,7 @@ inline x::json::json AutomationArc::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);
     if (this->program.has_value()) j["program"] = this->program->to_json();
-    if (this->changes.has_value()) j["changes"] = x::json::to_array(*this->changes);
+    j["changes"] = x::json::to_array(this->changes);
     j["calculations"] = x::json::to_array(this->calculations);
     j["type"] = this->type;
     return j;

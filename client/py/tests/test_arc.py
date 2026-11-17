@@ -214,7 +214,7 @@ class TestArc:
         assert tsk is not None
         retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
         assert isinstance(retrieved, sy.arc.Automation)
-        assert not retrieved.changes
+        assert retrieved.changes == []
         client.statuses.set(
             sy.task.Status(
                 variant=sy.status.VARIANT_SUCCESS,
