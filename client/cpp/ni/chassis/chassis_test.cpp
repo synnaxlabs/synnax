@@ -35,4 +35,40 @@ TEST(Client, CreatesUpdatesAndDeletes) {
     ASSERT_NIL(client.ni.chassis.del({chassis.key}));
     ASSERT_OCCURRED_AS_P(client.ni.chassis.retrieve(chassis.key), x::errors::NOT_FOUND);
 }
+
+/// @brief it should retrieve chassis by a filter.
+TEST(Client, RetrievesByFilter) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "ni_chassis_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto serial = x::uuid::create().to_string();
+    auto chassis = Chassis{
+        .rack = r.key,
+        .name = "cDAQ-9189",
+        .serial = serial,
+        .resource_name = x::uuid::create().to_string(),
+        .model = "cDAQ-9189",
+    };
+    ASSERT_NIL(client.ni.chassis.create(chassis));
+    const auto list = ASSERT_NIL_P(client.ni.chassis.retrieve(Where{.serial = serial}));
+    ASSERT_EQ(list.size(), 1);
+    ASSERT_EQ(list[0].key, chassis.key);
+    const auto one = ASSERT_NIL_P(
+        client.ni.chassis.retrieve(Where{.serial = serial}, x::filter::one)
+    );
+    ASSERT_EQ(one.key, chassis.key);
+}
+
+/// @brief it should reject a retrieve of one chassis with a limit.
+TEST(Client, RejectsLimitOnRetrieveOne) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        client.ni.chassis.retrieve(
+            Where{.name = "cDAQ-9189"},
+            x::filter::one,
+            RetrieveOptions{.limit = 1}
+        ),
+        x::errors::VALIDATION
+    );
+}
 }

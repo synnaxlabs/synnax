@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -76,5 +77,56 @@ TEST(Client, Deletes) {
     const auto [dev, r] = create_device(client, x::uuid::create().to_string());
     ASSERT_NIL(client.ni.devices.del({dev.key}));
     ASSERT_OCCURRED_AS_P(client.ni.devices.retrieve(dev.key), x::errors::NOT_FOUND);
+}
+
+/// @brief it should set the key of each device that a list create stores, in order.
+TEST(Client, CreatesListInOrder) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "ni_device_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    std::vector<Device> devices{
+        {.rack = r.key,
+         .name = "First",
+         .resource_name = x::uuid::create().to_string(),
+         .model = "9205"},
+        {.rack = r.key,
+         .name = "Second",
+         .resource_name = x::uuid::create().to_string(),
+         .model = "9211"},
+    };
+    ASSERT_NIL(client.ni.devices.create(devices));
+    for (const auto &dev: devices) {
+        const auto got = ASSERT_NIL_P(client.ni.devices.retrieve(dev.key));
+        ASSERT_EQ(got.name, dev.name);
+    }
+}
+
+/// @brief it should write the configuration group and keep the identity as stored.
+TEST(Client, UpdatesConfigurationAndKeepsIdentity) {
+    const auto client = new_test_client();
+    const auto [dev, r] = create_device(client, x::uuid::create().to_string());
+    ConfigurationUpdate configuration;
+    configuration.name = "Thermocouples";
+    configuration.identifier = "tc";
+    configuration.analog_input.channels[0] = 0;
+    ASSERT_NIL(client.ni.devices.update(dev.key, Update(configuration)));
+    const auto got = ASSERT_NIL_P(client.ni.devices.retrieve(dev.key));
+    ASSERT_EQ(got.name, "Thermocouples");
+    ASSERT_EQ(got.identifier, "tc");
+    ASSERT_EQ(got.resource_name, dev.resource_name);
+    ASSERT_EQ(got.model, "9205");
+}
+
+/// @brief it should reject a retrieve of one device with a limit.
+TEST(Client, RejectsLimitOnRetrieveOne) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        client.ni.devices.retrieve(
+            Where{.name = "NI 9205"},
+            x::filter::one,
+            RetrieveOptions{.limit = 1}
+        ),
+        x::errors::VALIDATION
+    );
 }
 }
