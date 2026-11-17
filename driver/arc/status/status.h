@@ -53,6 +53,8 @@ class Sets {
     Reporter reporter;
     std::mutex keys_mu;
     std::unordered_map<std::string, std::string> keys;
+    size_t refused_sets = 0;
+    std::string refused_reason;
 
 public:
     explicit Sets(Reporter reporter): reporter(std::move(reporter)) {}
@@ -71,9 +73,34 @@ public:
         return it == this->keys.end() ? "" : it->second;
     }
 
+    /// @brief records key as the last resolved key of key_or_name.
     void resolve(const std::string &key_or_name, const std::string &key) {
         std::lock_guard lock(this->keys_mu);
         this->keys[key_or_name] = key;
+    }
+
+    /// @brief counts a set the outbox refused, without waiting on the Core.
+    void refuse(const std::string &reason) {
+        std::lock_guard lock(this->keys_mu);
+        this->refused_sets++;
+        this->refused_reason = reason;
+    }
+
+    /// @brief reports the sets refused since the last call, if any. It can wait on the
+    /// Core, so only the outbox thread calls it.
+    void report_refused() {
+        size_t count = 0;
+        std::string reason;
+        {
+            std::lock_guard lock(this->keys_mu);
+            count = std::exchange(this->refused_sets, 0);
+            reason = this->refused_reason;
+        }
+        if (count == 0) return;
+        this->report(
+            SET_FAILURE_MSG,
+            reason + " Dropped " + std::to_string(count) + " sets."
+        );
     }
 
     /// @brief stops reports, and waits for a report in progress, so the reporter can
@@ -107,6 +134,7 @@ inline std::string queue_set(
         ) {
             const auto sets = weak.lock();
             if (sets == nullptr) return;
+            sets->report_refused();
             if (err) {
                 LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
                            << " error=" << err.data;
@@ -121,7 +149,7 @@ inline std::string queue_set(
             sets->resolve(key_or_name, res.key);
         }
     );
-    if (err) sets->report(SET_FAILURE_MSG, err.data);
+    if (err) sets->refuse(err.data);
     return sets->key(key_or_name);
 }
 

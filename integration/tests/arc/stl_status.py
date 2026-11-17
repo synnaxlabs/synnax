@@ -12,6 +12,7 @@ from typing import NamedTuple
 import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc import ArcCase
+from tests.arc.timing import runtime
 
 TRIG_SET = "trig_status_set"
 TRIG_DUP_FUNC = "trig_dup_func"
@@ -210,7 +211,7 @@ class StlStatus(ArcCase):
         """Fire trigger. On a Driver, status.set returns the key of the last set that
         reached the Core, so wait for the rows and fire again."""
         self.writer.write(trigger, 1)
-        if self.rack.embedded:
+        if runtime(self.rack) == "Go":
             return
         for name, key, variant, message in rows:
             self._wait_for_row(name, key, variant, message)
