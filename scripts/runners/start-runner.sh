@@ -28,8 +28,8 @@ instance=$(curl -fsS -H "X-aws-ec2-metadata-token: $imds_token" \
     "$imds/meta-data/instance-id")
 name=$RUNNER_PREFIX-${instance:0:6}
 github=(-H "Authorization: token $GITHUB_PAT" -H "Accept: application/vnd.github+json")
-listed=$(curl -fsS "${github[@]}" "$api?name=$name" \
-    | sed -n 's/.*"total_count": *\([0-9]*\).*/\1/p')
+listing=$(curl -fsS "${github[@]}" "$api?name=$name")
+listed=$(sed -n 's/.*"total_count": *\([0-9]*\).*/\1/p' <<< "$listing")
 : "${listed:?no runner count in the GitHub response}"
 
 # A job the runner shutdown cut short never ran its Stop containers step, so its Core
@@ -41,6 +41,14 @@ fi
 
 cd /home/ubuntu/actions-runner
 if [[ -f .runner ]] && ((listed > 0)); then
+    # Sets the pool's labels in place, which a new registration would do but would
+    # strand a job GitHub bound to this one. GitHub sets the default labels itself.
+    id=$(grep -o '"id": *[0-9]*' <<< "$listing" | sed -n '1s/[^0-9]//gp')
+    custom=$(tr ',' '\n' <<< "$RUNNER_LABELS" \
+        | grep -viE '^(self-hosted|linux|windows|x64)$' \
+        | sed 's/.*/"&"/' | paste -sd, -)
+    curl -fsS -X PUT "${github[@]}" "$api/$id/labels" \
+        -d "{\"labels\":[$custom]}" > /dev/null
     exec ./run.sh
 fi
 token=$(curl -fsS -X POST "${github[@]}" "$api/registration-token" \

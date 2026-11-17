@@ -123,9 +123,10 @@ stops only after GitHub shows the runner offline. Its own uv project and CI job.
 in `pools.py` must use the label the workflows request (`windows-test-bot`, not
 `windows-latest`), or its jobs never start an instance.
 
-The agent deploy also installs `start-runner.sh` and `start-runner.ps1`, which register
-the GitHub runner again on each start. `STARTS` in `agent_deploy.py` gives each pool's
-runner name prefix and labels by the instance's `Name` tag; a new pool needs an entry.
+The agent deploy also installs `start-runner.sh` and `start-runner.ps1`. On each start
+they set the labels of a runner GitHub lists, and register a runner it does not list.
+`STARTS` in `agent_deploy.py` gives each pool's runner name prefix and labels by the
+instance's `Name` tag; a new pool needs an entry.
 
 `seats.py` starts a stopped agent or review seat (`infra/agent-runner`) when a job that
 asks for its labels queues. It finds a seat by its instance tags, because the seat

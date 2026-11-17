@@ -31,11 +31,20 @@ $instance = Invoke-RestMethod -Uri "$imds/meta-data/instance-id" `
 $name = "$Prefix-$($instance.Substring(0, 6))"
 $api = "https://api.github.com/repos/$repo/actions/runners"
 $headers = @{ Authorization = "token $pat"; Accept = 'application/vnd.github+json' }
-$listed = (Invoke-RestMethod -Headers $headers -Uri "$api`?name=$name").total_count
+$listing = Invoke-RestMethod -Headers $headers -Uri "$api`?name=$name"
+$listed = $listing.total_count
 if ($null -eq $listed) { throw 'No runner count in the GitHub response' }
 
 Set-Location 'C:\actions-runner'
 if ((Test-Path '.runner') -and $listed -gt 0) {
+    # Sets the pool's labels in place, which a new registration would do but would
+    # strand a job GitHub bound to this one. GitHub sets the default labels itself.
+    $custom = @($Labels -split ',' |
+            Where-Object { $_ -notmatch '^(self-hosted|linux|windows|x64)$' })
+    $body = @{ labels = $custom } | ConvertTo-Json -Compress
+    Invoke-RestMethod -Method Put -Headers $headers -Body $body `
+        -ContentType 'application/json' `
+        -Uri "$api/$($listing.runners[0].id)/labels" | Out-Null
     & .\run.cmd
     exit $LASTEXITCODE
 }
