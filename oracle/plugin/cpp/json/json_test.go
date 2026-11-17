@@ -735,7 +735,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 			It(
 				"Should refuse the zero value of a required string or number",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@cpp output "client/cpp/task"
 
@@ -752,7 +752,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						identity string = ""
 					}
 				`
-					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+					resp := MustGenerate(source, "task", loader, jsonPlugin)
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
 							`.key = parser.field<std::uint32_t>("key"),`,

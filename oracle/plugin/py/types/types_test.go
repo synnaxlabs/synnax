@@ -400,7 +400,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It(
 			"Should refuse the zero value of a required string or unsigned field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@py output "out"
 
@@ -423,7 +423,7 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 				}
 			`
-				resp := MustGenerate(ctx, source, "device", loader, typesPlugin)
+				resp := MustGenerate(source, "device", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").ToContain(
 					`key: int = Field(ge=0, le=4294967295)`,
 					`name: str = Field(min_length=1)`,
