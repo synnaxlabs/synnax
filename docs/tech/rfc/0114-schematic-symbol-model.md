@@ -102,7 +102,7 @@ Action union on kind { fire { command string }, next { commands string[] } }
 
 // schemas/synnax/schematic.oracle, a NodeConfig variant
 symbol extends LabeledConfig, ScaledConfig {
-    symbol symbol.Ref   // builtin { name } | custom { key } (restrict) | missing { key }
+    symbol symbol.Ref  // builtin { name } | custom { key } (restrict) | missing { key }
     color color.Ref?                // what `node` paint reads
     disabled bool = false, motion_disabled bool = false
     on_click_delay telem.TimeSpan = 0
