@@ -11,6 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
+import { type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -24,13 +25,16 @@ const renderState = (
   channel: channel.Key,
   config: Control.StateConfig = Control.stateConfigZ.parse({}),
   registry: aether.ComponentRegistry = control.REGISTRY,
+  children?: ReactNode,
 ) =>
   render(
     <ReactFlowProvider>
       <Haul.Provider>
         <div data-id="node">
           <Grid.Grid nodeKey="node" editable={false}>
-            <Control.State config={config} channel={channel} />
+            <Control.State config={config} channel={channel}>
+              {children}
+            </Control.State>
           </Grid.Grid>
         </div>
       </Haul.Provider>
@@ -41,6 +45,17 @@ const renderState = (
 describe("Control.State", () => {
   it("should show nothing for the zero channel", () => {
     const { queryAllByRole } = renderState(0);
+    expect(queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("should show its children for the zero channel", () => {
+    const { getByText, queryAllByRole } = renderState(
+      0,
+      undefined,
+      undefined,
+      <span>child</span>,
+    );
+    expect(getByText("child")).toBeTruthy();
     expect(queryAllByRole("button")).toHaveLength(0);
   });
 });
