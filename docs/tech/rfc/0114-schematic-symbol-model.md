@@ -401,13 +401,13 @@ adds a symbol with its key.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each distinct pair of region
 key and selector set becomes a part, state `i` becomes value `i` of one state `active`
-with default 0, and each region color becomes a look on that value. A region key whose
-selectors differ between states becomes two parts with their own keys, and the looks
-follow the parts. A selector that is not a name resolves against the drawing, and each
-match gets a `data-region-id`. A stored actuator, and a static symbol that a
-`custom_actuator` node uses, get `within` 0.9 to 1.1 on `active`, the `fixed` commands
-`deactivate` for value 0 and `activate` for value 1, named Off and On, and `next` on the
-whole drawing.
+with default 0, the old state list stays on the symbol for RFC 0112 phase 22, and each
+region color becomes a look on that value. A region key whose selectors differ between
+states becomes two parts with their own keys, and the looks follow the parts. A selector
+that is not a name resolves against the drawing, and each match gets a `data-region-id`.
+A stored actuator, and a static symbol that a `custom_actuator` node uses, get `within`
+0.9 to 1.1 on `active`, the `fixed` commands `deactivate` for value 0 and `activate` for
+value 1, named Off and On, and `next` on the whole drawing.
 
 ## 5 What this RFC does not cover
 
@@ -428,9 +428,11 @@ outstanding. Phase 1 stores the `Spec` fields of §4.1 except `enumeration`, whi
 0112 phase 19 adds with the enumeration record, and adds the symbol checks of §4.4. It
 moves the symbol editor and the clients to the new shape, and phase 3 redesigns the
 editor. Until phase 2 deletes them, it keeps `variant`, which picks the node variant on
-placement, and today's state shape, under its own name, for `state_overrides`. Phase 2
-needs RFC 0112 phase 22, whose function its node migration calls, and ships with RFC
-0112 phases 19 to 22. Each family is redesigned after phase 5 in its own PR.
+placement, and today's state shape, under its own name, for `state_overrides` and for
+the old state list of each stored custom symbol, which RFC 0112 phase 22 reads for entry
+names. Phase 2 needs RFC 0112 phase 22, whose function its node migration calls, and
+ships with RFC 0112 phases 19 to 22. Each family is redesigned after phase 5 in its own
+PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant with channel references,
 its checks with the Core list of built-ins and its route, the removal of the bindings
