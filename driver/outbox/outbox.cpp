@@ -227,6 +227,14 @@ std::pair<std::uint64_t, x::errors::Error> Outbox::append(const pb::Call &reques
     return {this->writer->pos(), x::errors::NIL};
 }
 
+void Outbox::post(std::function<void()> fn) {
+    {
+        std::lock_guard lock(this->mu);
+        this->posted.push_back(std::move(fn));
+    }
+    this->cv.notify_one();
+}
+
 void Outbox::end_tail(const bool failed) {
     if (failed) this->unsynced.insert(this->tail);
     this->writer.reset();
@@ -255,14 +263,21 @@ void Outbox::run_syncs() {
 void Outbox::run() {
     while (true) {
         Call call;
+        bool has_call = false;
+        std::vector<std::function<void()>> posted;
         {
             std::unique_lock lock(this->mu);
             this->cv.wait(lock, [this] {
-                return this->stopped || !this->calls.empty();
+                return this->stopped || !this->calls.empty() || !this->posted.empty();
             });
             if (this->stopped) return;
-            call = this->calls.front();
+            std::swap(posted, this->posted);
+            has_call = !this->calls.empty();
+            if (has_call) call = this->calls.front();
         }
+        for (const auto &fn: posted)
+            fn();
+        if (!has_call) continue;
         const auto err = this->send(call);
         if (synnax::errors::is_temporarily_unavailable(err)) {
             if (!this->breaker.wait_unlimited(err)) return;

@@ -23,6 +23,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "client/cpp/status/status.h"
 #include "x/cpp/breaker/breaker.h"
@@ -103,6 +104,8 @@ class Outbox {
     /// @brief the segments whose write or sync failed, so their calls may not be on
     /// the disk.
     std::set<std::uint64_t> unsynced;
+    /// @brief the functions to run on the send thread.
+    std::vector<std::function<void()>> posted;
     std::uint64_t tail = 0;
     /// @brief null until the first call of the tail segment.
     std::unique_ptr<journal::Writer> writer;
@@ -162,6 +165,10 @@ public:
     /// @returns FULL when the outbox has no room, and counts the set in refused().
     x::errors::Error
     set_status(const ::grpc::status::SetByKeyOrNameRequest &req, SetStatusDone done);
+
+    /// @brief runs fn on the send thread before its next send or retry, or at once
+    /// when the outbox holds no calls. fn must not call the outbox.
+    void post(std::function<void()> fn);
 
     /// @returns the number of calls the Core rejected, which the outbox dropped.
     [[nodiscard]] std::uint64_t dropped() const;
