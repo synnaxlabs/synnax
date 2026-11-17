@@ -123,12 +123,27 @@ private:
     };
     /// @brief the unidentified slaves on each interface.
     std::unordered_map<std::string, Unidentified> unidentified;
-    /// @brief guards switch_times, which set_standalone() writes while a scan reads it.
+    /// @brief a switch to Synnax only of a module.
+    struct Switch {
+        x::telem::TimeStamp at;
+        uint32_t serial = 0;
+        std::string network;
+        uint16_t position = 0;
+
+        /// @brief whether the switch is of the module with props. A module with no
+        /// serial number is known by its slot.
+        [[nodiscard]] bool of(const slave::Properties &props) const {
+            if (props.serial != this->serial) return false;
+            return this->serial != 0 ||
+                   (props.network == this->network && props.position == this->position);
+        }
+    };
+    /// @brief guards switches, which set_standalone() writes while a scan reads it.
     mutable std::mutex switch_mu;
-    /// @brief the time of the last switch to Synnax only of each slave, keyed by device
-    /// key. Each scan writes it to the properties of the device, so that the scan is
-    /// their only writer.
-    std::unordered_map<std::string, x::telem::TimeStamp> switch_times;
+    /// @brief the last switch of each slave, keyed by device key. Each scan writes its
+    /// time to the properties of the device while the device holds the switched module,
+    /// so that the scan is their only writer.
+    std::unordered_map<std::string, Switch> switches;
 
     /// @brief creates the slave device with key for the given slave on the master with
     /// master_key and network_name, and returns whether its saved config enables it.

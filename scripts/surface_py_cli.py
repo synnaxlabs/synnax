@@ -11,44 +11,54 @@
 each, without help text.
 
 Compare the output of two revisions to see if a pull request changes the CLI. The script
-walks the real command tree.
+walks the real parser that the module of each console script returns from `parser()`.
 
     uv run --project scripts scripts/surface_py_cli.py
 """
 
+import argparse
+import importlib
 import json
 import sys
 from importlib.metadata import distribution
 from typing import Any
 
-import click
 
-HELP_FIELDS = {"help", "short_help", "epilog"}
+def _fields(action: argparse.Action) -> dict[str, Any]:
+    return {
+        "choices": None if action.choices is None else sorted(map(str, action.choices)),
+        "default": repr(action.default),
+        "nargs": action.nargs,
+        "option_strings": sorted(action.option_strings),
+        "required": action.required,
+        "type": getattr(action.type, "__name__", None),
+    }
 
 
-def walk(info: dict[str, Any], *, path: str, out: list[str]) -> None:
-    flags = "".join(f" {k}" for k in ("hidden", "deprecated") if info[k])
-    out.append(f"{path} command{flags}")
+def walk(parser: argparse.ArgumentParser, *, path: str, out: list[str]) -> None:
+    out.append(f"{path} command")
     position = 0
-    for param in info["params"]:
-        fields = {k: v for k, v in param.items() if k not in HELP_FIELDS}
-        if param["param_type_name"] == "argument":
+    for action in parser._actions:
+        if isinstance(action, argparse._HelpAction):
+            continue
+        if isinstance(action, argparse._SubParsersAction):
+            required = json.dumps({"required": action.required})
+            out.append(f"{path} {action.dest} {required}")
+            for name, sub in action.choices.items():
+                walk(sub, path=f"{path} {name}", out=out)
+            continue
+        fields = _fields(action)
+        if not action.option_strings:
             fields["position"] = position
             position += 1
-        out.append(f"{path} {param['name']} {json.dumps(fields, sort_keys=True)}")
-    for name, sub in info.get("commands", {}).items():
-        walk(sub, path=f"{path} {name}", out=out)
+        out.append(f"{path} {action.dest} {json.dumps(fields, sort_keys=True)}")
 
 
 def report() -> str:
     out: list[str] = []
     for script in distribution("synnax").entry_points.select(group="console_scripts"):
-        command = script.load()
-        walk(
-            command.to_info_dict(click.Context(command, info_name=script.name)),
-            path=script.name,
-            out=out,
-        )
+        module = importlib.import_module(script.module)
+        walk(module.parser(), path=script.name, out=out)
     return "".join(f"{line}\n" for line in sorted(out))
 
 

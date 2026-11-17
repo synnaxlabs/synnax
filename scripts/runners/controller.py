@@ -98,6 +98,7 @@ iam:GetRole on the seat role, and list and tag the logins in Secrets Manager.
 import argparse
 import os
 from concurrent.futures import Future, ThreadPoolExecutor, wait as futures_wait
+from typing import Protocol
 
 import synnax as sy
 
@@ -109,6 +110,8 @@ from common import (
     OFFLINE,
     ChannelCreateError,
     Channels,
+    Streams,
+    Writes,
     add_connection_args,
     channel_name,
     command_channels,
@@ -172,6 +175,10 @@ def resolve(futures: list[Future]) -> list:
     return [f.result() for f in futures]
 
 
+class Core(Writes, Streams, Protocol):
+    """The part of the Core that the controller writes and streams."""
+
+
 class Controller:
     """One poll cycle: fetch GitHub and EC2 concurrently, refresh channels when the
     runner set changes, publish status and events, and let the gate and the scaler
@@ -181,7 +188,7 @@ class Controller:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Core,
         channels: Channels,
         github: GitHub,
         aws: AWS,

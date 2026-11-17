@@ -61,17 +61,11 @@ linters:
     # Not yet adopted. Each issue tracks the work to enable it.
     - containedctx # SY-6109
     - contextcheck # SY-6109
-    - exhaustive # SY-6106
     - fatcontext # SY-6109
-    - forcetypeassert # SY-6105
     - gochecknoglobals # SY-6107
     - gochecknoinits # SY-6108
-    - gocritic # SY-6115
     - gosec # SY-3843
     - noctx # SY-6109
-    - prealloc # SY-6115
-    - recvcheck # SY-6111
-    - unparam # SY-6112
   settings:
     depguard:
       rules:
@@ -88,6 +82,13 @@ linters:
               desc: use github.com/synnaxlabs/x/errors
     errcheck:
       check-blank: true
+    exhaustive:
+      # Stdlib kind enums; each switch handles a subset on purpose.
+      # golangci-lint v2 renamed ignore-enum-types to ignore-types
+      # (pkg/config/linters_settings.go).
+      ignore-types:
+        - ^reflect\.Kind$
+        - ^encoding/json/jsontext\.Kind$
     forbidigo:
       forbid:
         - pattern: ^fmt\.Errorf$
@@ -97,11 +98,25 @@ linters:
       force-expect-to: true
       validate-async-intervals: true
       force-tonot: true
+    gocritic:
+      disabled-checks:
+        - unlambda # Entries build before BeforeEach, so method values bind too early.
     misspell:
       # Specs use these typos on purpose.
       ignore-rules:
         - performnace
         - teh
+    recvcheck:
+      # Decode and patch methods write to their receiver, so they take a pointer even
+      # on a value type. MarshalJSONTo takes a value even on a pointer type, as the
+      # built-in rule allows for MarshalJSON, so that it also runs on a value.
+      exclusions:
+        - "*.DecodeMsgpack"
+        - "*.DecodeOrc"
+        - "*.MarshalJSONTo"
+        - "*.Patch"
+        - "*.UnmarshalJSON"
+        - "*.UnmarshalJSONFrom"
     govet:
       enable-all: true
       disable:

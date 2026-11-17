@@ -57,6 +57,17 @@ from another system. Text on a 15% tint of its status (badges, notes) uses
 step nearest the status color that reads on the tint: a darker step in light mode, and a
 lighter step or the base step in dark mode.
 
+### Series colors
+
+The Core ships 16 series colors for data, in a palette of named colors named "Series"
+(`core/pkg/service/color/builtin.go`). Each has a light and a dark value with 3:1
+contrast on the canvas of its theme. The first eight keep the old hues and stay apart
+under each color vision deficiency. The last eight fill the hue gaps and only pass the
+contrast check, so lines past the eighth can look alike to a color-blind user.
+
+A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
+A new line takes the first series color in that order that no other line uses.
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
@@ -375,6 +386,11 @@ bound, a log precision, or the line plot X channel.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
+- An open `Select.Multiple` and the line plot's Ranges select list their selected values
+  first, with no divider: their joined tint marks where they end. The order is set when
+  the select opens and holds while it stays open, so an item never moves under the
+  pointer. A search lists its matches in their own order. GitHub and GitLab do the same.
+  A filter menu keeps its own order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above
@@ -517,6 +533,17 @@ bound, a log precision, or the line plot X channel.
 - The header holds one text button with the section's icon, title, and caret. It
   collapses the box to its bar. An action in the header opens the box again.
 - An empty section shows no box, only one muted "+ Noun" line that adds its first item.
+
+### Group headings
+
+- A list that groups its items, such as the palettes on the Colors page, heads each
+  group with `Header.Group`: one full-width bar that opens and closes the group.
+- The bar is l2 with the item radius. Its height is the Lyra size nearest the item
+  height: `large` above a 40 px item. Hover and press fill the whole bar.
+- The title is a plain string or a span at the button label weight. The count follows in
+  tiny l9 text, then an optional badge. The caret at the end points down when open.
+- Actions, such as a "+" that creates an item in the group, sit before the caret and do
+  not open or close it. Rename edits the title in place.
 
 ### Record tables
 

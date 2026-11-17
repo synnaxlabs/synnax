@@ -219,13 +219,14 @@ func (p *Plugin) generateFile(
 	table *resolution.Table,
 ) ([]byte, error) {
 	var namespace, filePath string
-	if len(structs) > 0 {
+	switch {
+	case len(structs) > 0:
 		namespace, filePath = structs[0].Namespace, structs[0].FilePath
-	} else if len(typeDefs) > 0 {
+	case len(typeDefs) > 0:
 		namespace, filePath = typeDefs[0].Namespace, typeDefs[0].FilePath
-	} else if len(aliases) > 0 {
+	case len(aliases) > 0:
 		namespace, filePath = aliases[0].Namespace, aliases[0].FilePath
-	} else if len(enums) > 0 {
+	case len(enums) > 0:
 		namespace, filePath = enums[0].Namespace, enums[0].FilePath
 	}
 

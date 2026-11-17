@@ -463,8 +463,10 @@ var _ = Describe("Open", func() {
 			})
 			Expect(readDriverConnection(dir)).To(HaveKeyWithValue("secure", true))
 			anchorFile := filepath.Join(dir, "driver", "trust-anchors.pem")
-			Expect(os.ReadFile(anchorFile)).To(Equal(anchors))
-			Expect(os.ReadFile(envFile)).To(ContainSubstring(
+			Expect(
+				fs.ReadFile(os.DirFS(dir), "driver/trust-anchors.pem"),
+			).To(Equal(anchors))
+			Expect(os.ReadFile(filepath.Clean(envFile))).To(ContainSubstring(
 				"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=" + anchorFile,
 			))
 			Expect(d.Close()).To(Succeed())
@@ -655,7 +657,7 @@ var _ = Describe("Open", func() {
 			Expect(readDriverConnection(dir)).To(HaveKeyWithValue("secure", false))
 			Expect(filepath.Join(dir, "driver", "trust-anchors.pem")).
 				ToNot(BeAnExistingFile())
-			Expect(os.ReadFile(envFile)).
+			Expect(os.ReadFile(filepath.Clean(envFile))).
 				ToNot(ContainSubstring("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH"))
 			Expect(d.Close()).To(Succeed())
 		})
@@ -699,8 +701,7 @@ func authenticate(ctx context.Context, key string) auth.Identity {
 // readSavedKey returns the API key the Driver saved in keyDir.
 func readSavedKey(keyDir string) string {
 	GinkgoHelper()
-	path := filepath.Join(keyDir, "embedded-driver-key")
-	return string(MustSucceed(os.ReadFile(path)))
+	return string(MustSucceed(fs.ReadFile(os.DirFS(keyDir), "embedded-driver-key")))
 }
 
 // readDriverConnection returns the connection block of the config file the Driver was
@@ -708,7 +709,7 @@ func readSavedKey(keyDir string) string {
 // removed once the process exits.
 func readDriverConnection(parentDirname string) map[string]any {
 	GinkgoHelper()
-	b := MustSucceed(os.ReadFile(filepath.Join(parentDirname, "driver", "config.json")))
+	b := MustSucceed(fs.ReadFile(os.DirFS(parentDirname), "driver/config.json"))
 	var cfg map[string]any
 	Expect(json.Unmarshal(b, &cfg)).To(Succeed())
 	conn, ok := cfg["connection"].(map[string]any)

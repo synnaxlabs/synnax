@@ -118,7 +118,7 @@ type ServerStream[RQ, RS Payload] interface {
 	// returns. In this case, the server will return a context.Canceled error.
 	//
 	// 2. If the transport fails -> Returns the error that caused the transport
-	//to fail.
+	// to fail.
 	//
 	// Repeated calls to Receive will immediately return the same error.
 	StreamReceiver[RQ]

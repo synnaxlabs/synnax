@@ -453,9 +453,8 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeFunction
 	case symbol.KindBlock, symbol.KindLoop:
 		tokenType = semanticTokenTypeBlock
-	case symbol.KindLoopVariable:
-		tokenType = SemanticTokenTypeVariable
-	default:
+	case symbol.KindLoopVariable, symbol.KindModule, symbol.KindModuleAlias,
+		symbol.KindAmbient:
 		tokenType = SemanticTokenTypeVariable
 	}
 	return &tokenType

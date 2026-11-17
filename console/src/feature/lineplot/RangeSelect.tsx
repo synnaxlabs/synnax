@@ -374,6 +374,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
           data={data}
           initialHover={0}
           virtual
+          selectedFirst
         >
           <Select.MultipleTrigger<string>
             icon={<Icon.Range />}

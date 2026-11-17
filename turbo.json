@@ -64,6 +64,7 @@
       "outputs": ["coverage/**"],
       "passThroughEnv": ["SYNNAX_TEST_HOST", "SYNNAX_TEST_PORT"]
     },
-    "devtools": { "cache": false }
+    "devtools": { "cache": false },
+    "examples": { "cache": false, "dependsOn": ["^build"] }
   }
 }

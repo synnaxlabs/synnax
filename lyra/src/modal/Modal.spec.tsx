@@ -77,6 +77,18 @@ describe("Modal", () => {
       expect(withoutIcon.baseElement.querySelector(".test-icon")).toBeNull();
     });
 
+    it("should show the badge after the breadcrumb", () => {
+      renderModal(
+        <Modal.Header badge={<span>USB</span>}>{["Configure", "T7"]}</Modal.Header>,
+      );
+      const title = screen.getByText("T7");
+      const badge = screen.getByText("USB");
+      expect(badge.closest(".lyra-breadcrumb")).toBeNull();
+      expect(
+        title.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
     it("should name the close action and its escape key in the tooltip", async () => {
       renderModal(
         <Tooltip.Config delay={0}>

@@ -114,7 +114,12 @@ func encode(err error) (errors.Payload, bool) {
 		}, true
 	}
 	if errors.CheapIs(err, ErrValidation) {
-		return errors.Payload{Type: "sy.validation", Data: err.Error()}, true
+		msg := errors.MessageWithout(err, ErrValidation)
+		// The bare sentinel has no message but its own.
+		if msg == "" {
+			msg = err.Error()
+		}
+		return errors.Payload{Type: baseErrorType, Data: msg}, true
 	}
 	return errors.Payload{}, false
 }
