@@ -265,6 +265,7 @@ jobs:
       coverage_flag: alamos-ts
       directory: alamos/ts
       macos: *full
+      node_lts: true
       package: alamos
       packed: true
       windows: *full
@@ -879,6 +880,7 @@ jobs:
       coverage_flag: freighter-ts
       directory: freighter/ts
       freighter_image: ${{ needs.freighter-image.outputs.image }}
+      node_lts: true
       package: freighter
       packed: true
     secrets:
@@ -1302,6 +1304,7 @@ jobs:
       coverage_flag: x-ts
       directory: x/ts
       macos: *full
+      node_lts: true
       package: x
       packed: true
       windows: *full
