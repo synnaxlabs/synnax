@@ -672,6 +672,22 @@ var _ = Describe("NewReadMigration", func() {
 		},
 	)
 
+	It("Should make no ICD for the config of a snapshot", func(ctx SpecContext) {
+		old := plainConfig()
+		Expect(gorp.WrapWriter[uuid.UUID, v1.ReadConfig](db).Set(ctx, old)).
+			To(Succeed())
+		Expect(gorp.WrapWriter[task.Key, task.Task](db).Set(ctx, task.Task{
+			Key:      old.Key,
+			Name:     "Pump (snapshot)",
+			Type:     "mqtt_read",
+			Snapshot: true,
+		})).To(Succeed())
+		ins, _ := observe()
+		Expect(migrate(ctx, ins)).To(Succeed())
+		Expect(made).To(BeEmpty())
+		Expect(read(ctx, old.Key).Entries).To(BeEmpty())
+	})
+
 	It("Should make no ICD for a config without plain entries", func(ctx SpecContext) {
 		old := v1.ReadConfig{
 			Key: uuid.New(),
