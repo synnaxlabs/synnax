@@ -92,12 +92,14 @@ Look struct {
 Condition union on kind { equals { state string, values float64[] } }
 Paint union on kind { entry { state string }, node {}, color { color color.Ref } }
 Motion union on kind {
-    spin { rate Rate }, blink { period float64 = 1 }, flow { rate Rate }
+    // rate: turns per second, times the value of the state that `by` names
+    spin { rate telem.Rate = 0.5, by string? }
+    flow { rate telem.Rate = 0.5, by string? }
+    blink { period telem.TimeSpan = 1s }
     level { state string, side spatial.OuterLocation = bottom }
     rotate { state string, from, to float64 }
     move { state string, from, to spatial.XY }
 }
-Rate struct { value float64 = 0.5, by string? }   // cycles per second, times `by`
 Interaction struct { key string, part string?, action Action }
 Action union on kind { fire { command string }, next { commands string[] } }
 
