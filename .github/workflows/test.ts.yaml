@@ -85,7 +85,7 @@ on:
         default: 20
       runtimes:
         description:
-          Whether to smoke-test the packed package in Deno, Bun, Chromium, and WebKit
+          Whether to smoke-test the packed package in Deno, Bun, and three browsers
         required: false
         type: boolean
         default: false
