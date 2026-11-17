@@ -135,19 +135,21 @@ match, default, and bounds. An edit to a built-in enum changes every symbol that
 by default.
 
 Each state stores its match: `exact`, or `band`, which reads a value inside the band as
-1 and every other number as 0, as today's threshold does. The migration writes the band
-0.9 to 1.1 on every toggle (`DEFAULT_THRESHOLD`,
-`pluto/src/schematic/node/common/telem/telem.ts:16`), and a node can change it. Each
-enum state names the value of a default entry, such as Closed on a valve. A state with a
-source but no data yet, NaN, and a value that equals no entry after its match draw the
-default entry, and Pluto adds the unknown indicator. A band reads 0.5 as 0, so a valve
-at 0.5 shows Closed with no indicator, as today. A state with no source draws its
-default entry with no indicator. When no entry has the default value, `entry` paint goes
-on to the symbol color. Stale data keeps its entry and gets the stale indicator, and
-`staleness_color` leaves `StalenessConfig` for every symbol.
+1 and every other number as 0, as today's threshold does. Each built-in state with two
+entries ships the band 0.9 to 1.1 in its spec (`DEFAULT_THRESHOLD`,
+`pluto/src/schematic/node/common/telem/telem.ts:16`), so the migration writes no band on
+a toggle, and a node can change it. Each enum state names the value of a default entry,
+such as Closed on a valve. A state with a source but no data yet, NaN, and a value that
+equals no entry after its match draw the default entry, and Pluto adds the unknown
+indicator. A band reads 0.5 as 0, so a valve at 0.5 shows Closed with no indicator, as
+today. A state with no source draws its default entry with no indicator. When no entry
+has the default value, `entry` paint goes on to the symbol color. Stale data keeps its
+entry and gets the stale indicator, and `staleness_color` leaves `StalenessConfig` for
+every symbol.
 
-The light gets the built-in "Light" enum (Off 0, On 1). Its threshold, or 0.9 to 1.1
-when it has none, becomes its band, and its `stroke_color` becomes the symbol color.
+The light gets the built-in "Light" enum (Off 0, On 1). A light whose threshold differs
+from the band of its spec gets that threshold as its node's band, and its `stroke_color`
+becomes the symbol color.
 
 A `select` or `state_indicator` has no symbol state, so it has no default entry. A value
 that matches no entry keeps today's look and gets the unknown indicator: a
