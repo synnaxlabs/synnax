@@ -9,27 +9,28 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Registers the GitHub runner of this Ubuntu instance again, then runs it. Started by
-# github-runner.service, which agent_install.sh writes with RUNNER_PREFIX and
-# RUNNER_LABELS. GITHUB_PAT comes from /etc/github-runner.env. A fresh registration on
-# every start brings back a runner whose registration the scaler deleted.
+# Runs the GitHub runner of this Ubuntu instance, and registers it again first when
+# GitHub does not list it. Started by github-runner.service, which agent_install.sh
+# writes with RUNNER_PREFIX and RUNNER_LABELS. GITHUB_PAT comes from
+# /etc/github-runner.env. A runner GitHub lists keeps its registration, so it can take a
+# job GitHub bound to it. One whose registration the scaler deleted registers again.
 
 set -euo pipefail
 
 : "${RUNNER_PREFIX:?}" "${RUNNER_LABELS:?}" "${GITHUB_PAT:?}"
 
 repo=synnaxlabs/synnax
+api=https://api.github.com/repos/$repo/actions/runners
 imds=http://169.254.169.254/latest
 imds_token=$(curl -fsS -X PUT "$imds/api/token" \
     -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 instance=$(curl -fsS -H "X-aws-ec2-metadata-token: $imds_token" \
     "$imds/meta-data/instance-id")
-token=$(curl -fsS -X POST \
-    -H "Authorization: token $GITHUB_PAT" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/$repo/actions/runners/registration-token" \
-    | sed -n 's/.*"token": *"\([^"]*\)".*/\1/p')
-: "${token:?no registration token in the GitHub response}"
+name=$RUNNER_PREFIX-${instance:0:6}
+github=(-H "Authorization: token $GITHUB_PAT" -H "Accept: application/vnd.github+json")
+listed=$(curl -fsS "${github[@]}" "$api?name=$name" \
+    | sed -n 's/.*"total_count": *\([0-9]*\).*/\1/p')
+: "${listed:?no runner count in the GitHub response}"
 
 # A job the runner shutdown cut short never ran its Stop containers step, so its Core
 # service container still holds host port 9090. Without Docker, no container is left.
@@ -39,6 +40,12 @@ if command -v docker > /dev/null; then
 fi
 
 cd /home/ubuntu/actions-runner
+if [[ -f .runner ]] && ((listed > 0)); then
+    exec ./run.sh
+fi
+token=$(curl -fsS -X POST "${github[@]}" "$api/registration-token" \
+    | sed -n 's/.*"token": *"\([^"]*\)".*/\1/p')
+: "${token:?no registration token in the GitHub response}"
 # Without a registration on GitHub, remove skips the server and deletes the local
 # config. When remove fails, the local config goes so that --replace can register.
 if [[ -f .runner ]]; then
@@ -47,7 +54,7 @@ if [[ -f .runner ]]; then
 fi
 ./config.sh --url "https://github.com/$repo" \
     --token "$token" \
-    --name "$RUNNER_PREFIX-${instance:0:6}" \
+    --name "$name" \
     --labels "$RUNNER_LABELS" \
     --unattended \
     --replace
