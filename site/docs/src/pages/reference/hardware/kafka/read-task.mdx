@@ -49,13 +49,17 @@ The Console has no topic browser. Type the topic, the record keys, and the point
 1. In the devices toolbar, right-click the cluster and select **Create read task**. You
    can also run the "Create Kafka read task" command.
 2. Enter the **Topic**, such as `sensor-readings`.
-3. Click **Add record**, then set **Record key**, or leave it empty for any key.
-4. Click **Add field** on the record, then set **Pointer** and **Data type**.
+3. Click **Add record**, then set **Record key**, or leave it empty for any key. The
+   first record creates an ICD named after the task.
+4. Click **Add field**, then set the **Name**, **Pointer**, and **Type** of the field.
+   Each edit saves to the ICD.
 5. Click <Icon.Play /> (**Start**).
 
-The Console creates a channel for each field and an index channel for each record. It
-names them from the cluster name, the record key, and the pointer. To choose a name, set
-**Channel** before you start.
+The Console creates a channel for each field that the task reads, and an index channel
+for each message. It names them from the cluster, the topic, the record key, and the
+field. To choose a name, set **Channel** before you start. Click the dot of a field to
+stop or start reading it. Click **Add message** on a record when one key carries more
+than one message.
 
 <Video id="hardware/kafka/read-task" />
 
@@ -175,13 +179,13 @@ await task.start();
 
 ## Timestamps
 
-The **Source** of a record sets the timestamps of its samples:
+The **Source** of a message sets the timestamps of its samples:
 
 - **Kafka timestamp** -> the timestamp of the Kafka record, in milliseconds. The
   default.
-- **Record value** -> a time in the JSON value, at a **Pointer**, in a **Time format**:
-  ISO 8601, or Unix time in seconds, milliseconds, microseconds, or nanoseconds. The
-  value goes to the index channel of the record.
+- **Payload value** -> a timestamp **Field** of the message: ISO 8601, or Unix time in
+  seconds, milliseconds, microseconds, or nanoseconds. The value goes to the index
+  channel of the message.
 
 Timestamps in an index channel must increase. A topic with more than one partition can
 deliver records out of time order, so the task skips a record that is not after the last
