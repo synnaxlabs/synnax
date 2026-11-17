@@ -86,3 +86,13 @@ describe("Device", () => {
     expect(ni.device.deviceZ.safeParse({ ...device, [field]: "" }).success).toBe(false);
   });
 });
+
+describe("hardwareZ", () => {
+  it.each([-1, Infinity, NaN])("should reject an analog input rate of %s", (rate) => {
+    expect(() => ni.device.hardwareZ.parse({ aiMinRate: rate })).toThrow();
+  });
+
+  it("should accept an analog input rate of 0", () => {
+    expect(ni.device.hardwareZ.parse({ aiMinRate: 0 }).aiMinRate).toBe(0);
+  });
+});

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ni_test
+package device_test
 
 import (
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ni"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -22,7 +22,7 @@ var _ = Describe("Hardware", func() {
 	DescribeTable(
 		"Should reject an analog input rate that is not a non-negative number",
 		func(rate telem.Rate) {
-			Expect(ni.Hardware{AiMinRate: rate}.Validate()).
+			Expect(device.Hardware{AiMinRate: rate}.Validate()).
 				To(MatchError(ContainSubstring("ai_min_rate")))
 		},
 		Entry("negative", telem.Rate(-1)),
@@ -31,6 +31,6 @@ var _ = Describe("Hardware", func() {
 	)
 
 	It("Should accept an analog input rate of 0", func() {
-		Expect(ni.Hardware{}.Validate()).To(Succeed())
+		Expect(device.Hardware{}.Validate()).To(Succeed())
 	})
 })
