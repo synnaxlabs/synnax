@@ -28,13 +28,12 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
-import { type ComponentType, type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
 import { isReady } from "@/platform/device/racks";
-import { type ScanActionProps } from "@/platform/device/types";
 import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 
@@ -75,11 +74,10 @@ const State = ({ variant, message, description, action }: StateProps): ReactElem
   </Pane.Item>
 );
 
-interface ScannerStateProps {
+interface ScannerStateProps extends Pick<Hardware, "ScanAction"> {
   rack: rack.Rack;
   scanner: task.Task | undefined;
   name: string;
-  ScanAction?: ComponentType<ScanActionProps>;
 }
 
 const ScannerState = ({

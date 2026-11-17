@@ -54,7 +54,10 @@ export interface Hardware extends Integration {
    * 3". Without it, the find view shows the location of the device.
    */
   formatLocation?: (device: device.Device) => string;
-  /** The names that the find view shows in place of the models of found devices. */
+  /**
+   * The names that the find view and the new device pop-up show in place of the models
+   * of found devices.
+   */
   modelNames?: Record<string, string>;
   /**
    * An action beside the status of a scan task that warns or fails, such as one that

@@ -9,7 +9,9 @@
 
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { act, fireEvent, screen } from "@testing-library/react";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -17,7 +19,7 @@ import { Device } from "@/platform/device";
 import { createWarningScanner } from "@/platform/device/testutil";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { CaptureStatuses, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -27,24 +29,52 @@ const BLOCKED = "No EtherCAT modules found on Ethernet 2.";
  * Opens the find view on a rack whose EtherCAT scanner warns that the DewesoftX filter
  * blocks an adapter, with the data of the warning.
  */
-const renderFind = async (data: unknown): Promise<task.Task> => {
+const renderFind = async (
+  data: unknown,
+): Promise<{ scanner: task.Task; statuses: () => Status.NotificationSpec[] }> => {
   const hardware = { ...EtherCAT.Device.HARDWARE, key: uniqueName("integration") };
   const scanner = await createWarningScanner(client, hardware, {
     description: BLOCKED,
     data,
   });
-  await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
+  let statuses: Status.NotificationSpec[] = [];
+  await renderModalOpener(Device.useFindModal, [{ hardware }], {
+    client,
+    extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+  });
   await screen.findByText(BLOCKED);
-  return scanner;
+  return { scanner, statuses: () => statuses };
 };
 
 describe("EtherCAT scan action", () => {
   it("should turn off the DewesoftX filter once the user confirms", async () => {
-    const scanner = await renderFind({ filtered: ["\\Device\\NPF_{0}"] });
+    const { scanner } = await renderFind({ filtered: ["\\Device\\NPF_{0}"] });
     const driver = await answerNextCommand(client, scanner);
     fireEvent.click(findButton("Turn off the filter"));
     fireEvent.click(await screen.findByRole("button", { name: "Turn off" }));
     expect((await driver.answered).type).toBe("disable_dewesoft_filter");
+  });
+
+  it("should show why the Driver could not turn off the filter", async () => {
+    const { scanner, statuses } = await renderFind({ filtered: ["\\Device\\NPF_{0}"] });
+    const reason = "Only a Driver on Windows can turn off the DewesoftX filter.";
+    const driver = await answerNextCommand(client, scanner, {
+      variant: "error",
+      message: "Failed to turn off the DewesoftX filter",
+      description: reason,
+    });
+    fireEvent.click(findButton("Turn off the filter"));
+    fireEvent.click(await screen.findByRole("button", { name: "Turn off" }));
+    await driver.answered;
+    await waitFor(() =>
+      expect(
+        statuses().find(
+          (s) =>
+            s.message === "Failed to turn off the DewesoftX filter" &&
+            s.description === reason,
+        ),
+      ).toBeDefined(),
+    );
   });
 
   it("should send no command when the user cancels", async () => {
