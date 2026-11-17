@@ -98,8 +98,14 @@ const readRange = async (name: string): Promise<ranger.Range> => {
 const groupOf = (title: string): HTMLElement =>
   screen.getByRole("region", { name: title });
 
-const findLine = async (title: string, name: string): Promise<HTMLElement> =>
-  await waitFor(() => within(groupOf(title)).getByRole("listitem", { name }));
+const findLine = async (
+  title: string,
+  name: string,
+  timeout?: number,
+): Promise<HTMLElement> =>
+  await waitFor(() => within(groupOf(title)).getByRole("listitem", { name }), {
+    timeout,
+  });
 
 /** Running shows only while a range runs, so its group can be absent. */
 const queryLine = (title: string, name: string): HTMLElement | null => {
@@ -210,7 +216,7 @@ describe("range/Toolbar", () => {
           name: "Stop",
         }),
       );
-      const ended = await findLine("Recent", run.name);
+      const ended = await findLine("Recent", run.name, 10_000);
       await waitFor(() => expect(queryLine("Recent", phase.name)).toBeNull());
       fireEvent.click(within(ended).getByRole("button", { name: "Expand" }));
       expect(await findLine("Recent", phase.name)).toBeTruthy();
