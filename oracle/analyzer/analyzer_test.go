@@ -2585,7 +2585,8 @@ Node union on variant {
 			`
 			table, diag := Analyze(source, "test", loader)
 			Expect(table).To(BeNil())
-			Expect(diag.Flat().Errors()).To(HaveExactElements(
+			flat := diag.Flat()
+			Expect(flat.Errors()).To(HaveExactElements(
 				HaveField("Message", "struct Self cannot extend itself"),
 			))
 		})
