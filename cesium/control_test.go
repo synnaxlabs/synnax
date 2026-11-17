@@ -39,7 +39,7 @@ func observeControl(
 ) (<-chan cesium.ControlUpdate, observe.Disconnect) {
 	updates := make(chan cesium.ControlUpdate, 100)
 	return updates, db.OnControlUpdate(
-		func(_ context.Context, u cesium.ControlUpdate) {
+		func(u cesium.ControlUpdate) {
 			select {
 			case updates <- u:
 			default:

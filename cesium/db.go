@@ -58,7 +58,7 @@ type DB struct {
 	*options
 	relay *relay
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
-	controlUpdates observe.Observer[ControlUpdate]
+	controlUpdates controlObserver
 	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
 	mu             struct {

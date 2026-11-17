@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"slices"
-	"time"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
@@ -121,7 +120,7 @@ type streamWriter struct {
 	// commit that reported it.
 	writeRefused       bool
 	virtual            *virtualWriter
-	updateDBControl    func(ctx context.Context, u ControlUpdate)
+	updateDBControl    func(u ControlUpdate)
 	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
 	internal           []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
@@ -130,20 +129,12 @@ type streamWriter struct {
 	WriterConfig
 }
 
-// closeTimeout bounds how long a closing writer waits to report its control release.
-const closeTimeout = 5 * time.Second
-
 // Flow implements the confluence.Flow interface.
 func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
 	sCtx.Go(func(ctx context.Context) (err error) {
-		defer func() {
-			// ctx may have ended, but the close must still report the control release.
-			closeCtx, cancel := context.WithTimeout(context.Background(), closeTimeout)
-			defer cancel()
-			err = errors.Combine(err, w.close(closeCtx))
-		}()
+		defer func() { err = errors.Combine(err, w.close()) }()
 		for {
 			select {
 			case <-ctx.Done():
@@ -183,7 +174,7 @@ func (w *streamWriter) process(
 	case WriterCommandCommit:
 		return w.commit(ctx)
 	case writerCommandSetAuthority:
-		w.setAuthority(ctx, req.Config)
+		w.setAuthority(req.Config)
 	case writerCommandEndDomain:
 		err = w.endDomain(ctx, req.Config.Channels)
 	case WriterCommandWrite:
@@ -195,7 +186,7 @@ func (w *streamWriter) process(
 	return 0, true, nil
 }
 
-func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
+func (w *streamWriter) setAuthority(cfg WriterConfig) {
 	if len(cfg.Authorities) == 0 {
 		return
 	}
@@ -236,7 +227,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 	}
 
 	if len(u.Transfers) > 0 {
-		w.updateDBControl(ctx, u)
+		w.updateDBControl(u)
 	}
 }
 
@@ -467,7 +458,7 @@ func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) erro
 	return unauthorized
 }
 
-func (w *streamWriter) close(ctx context.Context) error {
+func (w *streamWriter) close() error {
 	var err error
 	parentUpdate := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal)),
@@ -490,7 +481,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(parentUpdate.Transfers) > 0 {
-		w.updateDBControl(ctx, parentUpdate)
+		w.updateDBControl(parentUpdate)
 	}
 	return err
 }
