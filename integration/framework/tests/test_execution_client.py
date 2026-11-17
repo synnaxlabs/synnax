@@ -12,7 +12,7 @@ import sys
 import threading
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -170,8 +170,7 @@ def client(
         resources=Resources({resources.BROWSER: browsers}),
         options=DEFAULT_OPTIONS,
         run_dir=cases_dir.parent / "run",
-        # Only a conductor range needs the client, and these runs have none.
-        client=cast(sy.Synnax, None),
+        client=None,
         conductor_range=None,
         tests=results,
         tests_lock=threading.Lock(),

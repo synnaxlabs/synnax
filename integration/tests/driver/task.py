@@ -25,6 +25,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from framework.test_case import TestCase
+from framework.utils import hold
 from x.telem import to_float
 
 _STATUS_CHANNEL = "sy_status_set"
@@ -212,7 +213,7 @@ def send_and_verify_commands(
                 ">>> Retrying command send and verify... "
                 f"({attempt + 1}/{max_attempts})"
             )
-            sy.sleep(2)  # noqa: TID251 retry backoff
+            hold(2)  # retry backoff
     raise AssertionError(
         f"{prefix}Failed to send and verify commands after "
         f"{max_attempts} attempts: {last_err}"
@@ -573,7 +574,7 @@ def collect_samples(
                     f"samples, last frame had {batch}"
                 )
     start = sy.TimeStamp.now()
-    sy.sleep(duration.seconds)  # noqa: TID251 fixed sample window
+    hold(duration.seconds)  # fixed sample window
     return start
 
 
@@ -903,7 +904,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                         "Task is not streaming data with data_saving disabled"
                     )
             start_time = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)  # noqa: TID251 fixed sample window
+            hold(duration.seconds * 1.25)  # fixed sample window
 
         end_time = sy.TimeStamp.now()
         time_range = sy.TimeRange(start_time, end_time)

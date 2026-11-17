@@ -59,7 +59,7 @@ class ExecutionClient:
         resources: Resources,
         options: RunOptions,
         run_dir: Path,
-        client: sy.Synnax,
+        client: sy.Synnax | None,
         conductor_range: sy.Range | None,
         tests: list[Test],
         tests_lock: threading.Lock,
@@ -74,6 +74,8 @@ class ExecutionClient:
     ) -> None:
         """:param cores: The Cores to run tests on. The first one is the only Core
         whose Driver reads NI devices.
+        :param client: The client that finalizes test ranges. Required when
+        conductor_range is set.
         :param timeout_grace: Seconds past its timeout a test has to finish before the
         client stops waiting on it.
         """
@@ -563,6 +565,8 @@ class ExecutionClient:
         )
 
     def _finalize_range(self, test_range: sy.Range) -> sy.Range:
+        if self._client is None:
+            raise RuntimeError("A conductor range needs a client to finalize")
         self._client.ranges.set_end(test_range.key, sy.TimeStamp.now())
         return self._client.ranges.retrieve(key=test_range.key)
 
