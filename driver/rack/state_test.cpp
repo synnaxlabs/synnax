@@ -96,6 +96,33 @@ TEST(StateTest, RefuseUserStateUnderSudo) {
 #endif
 }
 
+/// @brief it should let root keep its own state when root runs sudo.
+TEST(StateTest, RootStateUnderSudoAsRoot) {
+#if defined(__linux__) || defined(_WIN32)
+    GTEST_SKIP() << "only macOS keeps the state of a user in the folder of that user";
+#else
+    const passwd *root = getpwuid(0);
+    if (geteuid() != 0 || root == nullptr) GTEST_SKIP() << "only root owns its state";
+    const auto dir = std::filesystem::path(root->pw_dir) / "Library" /
+                     "Application Support" / "synnax-driver";
+    if (std::filesystem::exists(dir)) GTEST_SKIP() << dir << " holds a saved login";
+    const std::string name = root->pw_name;
+    const char *sudo_user = std::getenv("SUDO_USER");
+    x::defer::defer restore([&, sudo_user = std::string(sudo_user ? sudo_user : "")] {
+        if (sudo_user.empty())
+            x::env::unset("SUDO_USER");
+        else
+            x::env::set("SUDO_USER", sudo_user);
+        std::filesystem::remove_all(dir);
+    });
+    x::env::set("SUDO_USER", name);
+    auto args = x::args::Parser(std::vector<std::string>{"program"});
+    Config cfg;
+    ASSERT_NIL(cfg.load_persisted_state(args));
+    ASSERT_EQ(cfg.state_dir, dir);
+#endif
+}
+
 namespace fs = std::filesystem;
 
 /// @brief runs each spec with the default state path, and with --state-file.
