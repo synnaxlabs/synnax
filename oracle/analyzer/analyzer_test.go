@@ -4224,19 +4224,37 @@ Node union on variant {
 			Entry("nested argument", "Config struct {\n\tvalue Box<uint8[3]>[]\n}"),
 			Entry("alias", "Wide = Box<uint8[3]>"),
 			Entry("extends", "Wide struct extends Box<uint8[3]> {}"),
+			Entry(
+				"pass-through of a parameter without a default",
+				"Wrap struct<U> {\n\tbox Box<U>\n}",
+			),
+			Entry(
+				"pass-through of a parameter with another default",
+				"Wrap struct<U = uint8[3]> {\n\tbox Box<U>\n}",
+			),
 		)
 
-		It("Should allow a pass-through of the enclosing type's parameter", func() {
-			source := `
-				Details struct<Data? = record> {
+		DescribeTable(
+			"Should allow a pass-through of a parameter with the same default",
+			func(def string) {
+				source := `
+				Details struct<Data? = ` + def + `> {
 					data Data
 				}
 
-				Status<Data? = record> = Details<Data>
+				Status<Data? = ` + def + `> = Details<Data>
+
+				Info struct {
+					name string
+				}
 			`
-			_, diag := Analyze(source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-		})
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("primitive", "record"),
+			Entry("struct declared later", "Info"),
+			Entry("fixed-size array", "uint8[2]"),
+		)
 
 		It("Should allow an omitted argument for a defaulted type parameter", func() {
 			source := `
