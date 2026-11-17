@@ -1725,7 +1725,9 @@ protected:
 
     /// @brief the key of the device of the slave.
     [[nodiscard]] std::string device_key() const {
-        return "ethercat_1_2_" + std::to_string(this->props.serial);
+        return "ethercat_" + std::to_string(this->props.vendor_id) + "_" +
+               std::to_string(this->props.product_code) + "_" +
+               std::to_string(this->props.serial);
     }
 
     /// @brief stores the device of the slave in the Core with a switch at time, and
@@ -1995,6 +1997,29 @@ TEST_F(EtherCATScanModeTest, ScansLeaveOutTheSwitchTimeOfAReplacedModule) {
     auto replacement = this->props;
     replacement.serial = this->props.serial + 1;
     this->master->replace_slave(1, replacement);
+    this->master->deactivate();
+    Devices devices;
+    store(devices, this->device_key(), replacement);
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, this->device_key());
+    EXPECT_FALSE(scanned.at(0).properties.contains("switched_at"));
+}
+
+/// @brief it should leave the switch time of a module with no serial number out of the
+/// device once the device holds a module in another slot.
+TEST_F(EtherCATScanModeTest, ScansLeaveOutTheSwitchTimeOfAReplacedModuleWithNoSerial) {
+    this->start(true);
+    this->props.serial = 0;
+    this->props.product_code = std::uniform_int_distribution<uint32_t>(3)(this->rng);
+    this->serve();
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    auto replacement = this->props;
+    replacement.position = 2;
+    this->master->remove_slave(1);
+    this->master->add_slave(replacement);
     this->master->deactivate();
     Devices devices;
     store(devices, this->device_key(), replacement);

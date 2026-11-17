@@ -524,7 +524,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     {
         std::lock_guard lock(this->switch_mu);
         if (const auto it = this->switches.find(key);
-            it != this->switches.end() && it->second.serial == props.serial)
+            it != this->switches.end() && it->second.of(props))
             json_props[SWITCHED_AT] = it->second.at.nanoseconds();
     }
 
@@ -794,6 +794,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     std::vector<slave::StartupParameter> written;
     uint16_t position = 0;
     uint32_t serial = 0;
+    std::string network;
     std::pair<uint16_t, uint8_t> mode_object;
     const auto err = engine->configure(
         saved,
@@ -802,6 +803,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
             const auto &props = found.properties;
             position = props.position;
             serial = props.serial;
+            network = props.network;
             if (!props.settings || !props.settings->contains("mode"))
                 return {
                     {},
@@ -865,7 +867,12 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     }
     {
         std::lock_guard lock(this->switch_mu);
-        this->switches[dev.key] = {.at = x::telem::TimeStamp::now(), .serial = serial};
+        this->switches[dev.key] = {
+            .at = x::telem::TimeStamp::now(),
+            .serial = serial,
+            .network = network,
+            .position = position,
+        };
     }
     // configure also returns the error of its scan after the write.
     if (err.matches(errors::STARTUP_PARAMETER_REJECTED)) {

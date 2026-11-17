@@ -123,10 +123,20 @@ private:
     };
     /// @brief the unidentified slaves on each interface.
     std::unordered_map<std::string, Unidentified> unidentified;
-    /// @brief a switch to Synnax only of the module with serial.
+    /// @brief a switch to Synnax only of a module.
     struct Switch {
         x::telem::TimeStamp at;
         uint32_t serial = 0;
+        std::string network;
+        uint16_t position = 0;
+
+        /// @brief whether the switch is of the module with props. A module with no
+        /// serial number is known by its slot.
+        [[nodiscard]] bool of(const slave::Properties &props) const {
+            if (props.serial != this->serial) return false;
+            return this->serial != 0 ||
+                   (props.network == this->network && props.position == this->position);
+        }
     };
     /// @brief guards switches, which set_standalone() writes while a scan reads it.
     mutable std::mutex switch_mu;
