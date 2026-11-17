@@ -12,12 +12,9 @@ package confluence
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/timeout"
 )
 
 // AbstractMultiSource is a basic implementation of a Source that can send values to
@@ -43,38 +40,6 @@ func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
 			return ctx.Err()
 		case inlet.Inlet() <- v:
 		}
-	}
-	return nil
-}
-
-// SendToEachWithTimeout sends the provided value to each Inlet in the Source. If
-// the inlet does not receive the value within the provided timeout, the function
-// will not send to the inlet. It will, however, continue to send to the remaining
-// inlets, resetting the timer after it expires. If the timer expired for any inlet,
-// the function will return a timeout error.
-func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
-	ctx context.Context,
-	v V,
-	t time.Duration,
-	timer *time.Timer,
-) error {
-	timedOutInlet := -1
-	for i, inlet := range ams.Out {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-			timer.Reset(t)
-			timedOutInlet = i
-		case inlet.Inlet() <- v:
-		}
-	}
-	if timedOutInlet >= 0 {
-		return errors.Wrapf(
-			timeout.ErrTimeout,
-			"timed out sending to inlet %s",
-			ams.Out[timedOutInlet].InletAddress(),
-		)
 	}
 	return nil
 }

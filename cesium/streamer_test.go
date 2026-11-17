@@ -588,6 +588,95 @@ var _ = Describe("Streamer Behavior", func() {
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					},
 				)
+
+				Describe("Closing with a streamer", func() {
+					var (
+						subDB     *cesium.DB
+						responses *confluence.Stream[cesium.StreamerResponse]
+						streamer  cesium.Streamer[
+							cesium.StreamerRequest,
+							cesium.StreamerResponse,
+						]
+					)
+					BeforeEach(func(ctx SpecContext) {
+						subDB = openDBOnFS(ctx, MustSucceed(fs.Sub("closing-fs")))
+						streamer = MustSucceed(subDB.NewStreamer(
+							ctx,
+							cesium.StreamerConfig{SendOpenAck: true},
+						))
+						requests := confluence.NewStream[cesium.StreamerRequest](1)
+						responses = confluence.NewStream[cesium.StreamerResponse]()
+						streamer.InFrom(requests)
+						streamer.OutTo(responses)
+						DeferCleanup(func() {
+							Expect(subDB.Close()).To(Succeed())
+							Expect(fs.Remove("closing-fs")).To(Succeed())
+						})
+					})
+
+					// flow fails the spec instead of hanging it if Flow stalls.
+					flow := func(sCtx signal.Context) {
+						GinkgoHelper()
+						flowed := make(chan struct{})
+						go func() {
+							defer GinkgoRecover()
+							defer close(flowed)
+							streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						}()
+						Eventually(flowed).Should(BeClosed())
+					}
+
+					expectExit := func(sCtx signal.Context) {
+						GinkgoHelper()
+						exited := make(chan error, 1)
+						go func() { exited <- sCtx.Wait() }()
+						Eventually(
+							exited,
+						).Should(Receive(MatchError(cesium.ErrDBClosed)))
+						Eventually(responses.Outlet()).Should(BeClosed())
+					}
+
+					It("Should end a flowing streamer", func(ctx SpecContext) {
+						sCtx, cancel := signal.WithCancel(ctx)
+						defer cancel()
+						flow(sCtx)
+						Eventually(responses.Outlet()).Should(Receive())
+						Expect(subDB.Close()).To(Succeed())
+						expectExit(sCtx)
+					})
+
+					It(
+						"Should end a streamer stalled on its consumer",
+						func(ctx SpecContext) {
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							flow(sCtx)
+							Expect(subDB.Close()).To(Succeed())
+							expectExit(sCtx)
+						},
+					)
+
+					It(
+						"Should end a streamer that starts flowing after the close",
+						func(ctx SpecContext) {
+							Expect(subDB.Close()).To(Succeed())
+							sCtx, cancel := signal.WithCancel(ctx)
+							defer cancel()
+							flow(sCtx)
+							expectExit(sCtx)
+						},
+					)
+
+					It(
+						"Should not stall a Flow on a canceled context after the close",
+						func(ctx SpecContext) {
+							Expect(subDB.Close()).To(Succeed())
+							sCtx, cancel := signal.WithCancel(ctx)
+							cancel()
+							flow(sCtx)
+						},
+					)
+				})
 			})
 		})
 	}
