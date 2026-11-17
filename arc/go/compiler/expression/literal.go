@@ -195,6 +195,12 @@ func compileNumericLiteral(
 			return types.Type{}, unexpected()
 		}
 		ctx.Writer.WriteI64Const(int64(v))
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
+		fallthrough
 	default:
 		return types.Type{}, errors.Newf("unsupported numeric type: %s", parsed.Type)
 	}

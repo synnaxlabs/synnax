@@ -166,6 +166,11 @@ func concreteTypeForHint(t types.Type) string {
 			types.KindNumericConstant,
 			types.KindExactIntegerFloatConstant:
 			return "f64"
+		case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32,
+			types.KindU64, types.KindI8, types.KindI16, types.KindI32, types.KindI64,
+			types.KindF32, types.KindF64, types.KindString, types.KindChan,
+			types.KindSeries, types.KindVariable, types.KindFunction,
+			types.KindSequence, types.KindStage, types.KindVarRef, types.KindBool:
 		}
 	}
 	if t.Kind == types.KindIntegerConstant {
@@ -441,9 +446,13 @@ func defaultTypeForConstraint(constraint types.Type) types.Type {
 		types.KindNumericConstant,
 		types.KindExactIntegerFloatConstant:
 		return types.F64()
-	default:
-		return constraint
+	case types.KindInvalid, types.KindU8, types.KindU16, types.KindU32, types.KindU64,
+		types.KindI8, types.KindI16, types.KindI32, types.KindI64, types.KindF32,
+		types.KindF64, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindFunction, types.KindSequence, types.KindStage,
+		types.KindVarRef, types.KindBool:
 	}
+	return constraint
 }
 
 // promoteNumericTypes returns the promoted type when unifying two numeric types.
