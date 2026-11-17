@@ -24,7 +24,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { NotFoundError, ValidationError } from "@/errors";
+import { NotFoundError, UnsupportedError, ValidationError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { type Block, RAW_LEVEL, type RawBlock, rawIndex } from "@/framer/cache/block";
 import {
@@ -395,7 +395,8 @@ export class Points {
   }
 
   // Reads the end of the newest stored sample's span. A failure that is definitive or
-  // outlasts the breaker stops the channel for good.
+  // outlasts the breaker stops the channel for good. A failure leaves loading as it is,
+  // since tiles and raw samples load apart from this read.
   private async readStored(): Promise<void> {
     const read = ++this.storedRead;
     const brk = createBreaker(this.notifier, this.props.breaker);
@@ -405,11 +406,19 @@ export class Points {
         if (read !== this.storedRead) return;
         const newest = frame.get(this.key).series.findLast((s) => !s.timeRange.isZero);
         this.stored = newest?.timeRange.end ?? null;
+        this.readFailure = null;
         this.changed();
         return;
       } catch (e) {
         if (read !== this.storedRead) return;
-        this.fail(e);
+        // The Core stores no samples for a calculation over virtual channels.
+        if (UnsupportedError.matches(e)) {
+          this.stored = null;
+          this.changed();
+          return;
+        }
+        this.readFailure = status.fromException(e, READ_FAILED);
+        this.changed();
         if (isDefinitive(e) || !(await brk.wait())) {
           this.parked = this.readFailure;
           return;

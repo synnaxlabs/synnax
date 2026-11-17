@@ -260,7 +260,7 @@ const channelDataPropsZ = z.object({
   useIndexOfChannel: z.boolean().default(false),
   /** The line's x channel, or zero when x is the index of the line's y channel. */
   xChannel: z.number().or(z.string()).default(0),
-  /** The home view: a fixed range, or a span that ends now for a live line. */
+  /** The home view: a fixed range, or a span that ends at the newest sample. */
   window: windowZ,
   aggregation: aggregationZ.default("min_max"),
 });

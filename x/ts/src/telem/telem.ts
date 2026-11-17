@@ -2107,7 +2107,7 @@ export const staticWindowZ = z.object({
 });
 export interface StaticWindow extends z.infer<typeof staticWindowZ> {}
 
-/** A window of time: a rolling span that ends now, or a fixed range. */
+/** A window of time: a rolling span or a fixed range. */
 export const windowZ = z.discriminatedUnion("variant", [dynamicWindowZ, staticWindowZ]);
 export type Window = DynamicWindow | StaticWindow;
 

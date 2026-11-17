@@ -39,7 +39,7 @@ import { Reader, type RemoteReader } from "@/framer/cache/reader";
 import { Store, type StoreProps } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { tileKey, TileReader } from "@/framer/cache/tile";
-import { AccessDeniedError, ValidationError } from "@/index";
+import { AccessDeniedError, UnsupportedError, ValidationError } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
 // More points than any window here holds samples, so every sample draws.
@@ -454,6 +454,61 @@ describe("Points", () => {
         await expect
           .poll(() => points.value().time?.valueOf(), POLL)
           .toBe(LAST.valueOf());
+      } finally {
+        await close();
+      }
+    });
+
+    it("should report no stored sample when the Core cannot read the channel", async () => {
+      const core = createIdle();
+      let reads = 0;
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async () => {
+          reads++;
+          throw new UnsupportedError("cannot open iterator on virtual channel");
+        },
+      );
+      const points = subscribe(core.data[0].key, window, RAW);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().time).toBeUndefined();
+        await sleep.sleep(TimeSpan.milliseconds(100));
+        expect(reads).toBe(1);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should clear the failure once a retried read lands", async () => {
+      const core = createIdle();
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      let reads = 0;
+      const { subscribe, close } = createPoints(
+        core,
+        undefined,
+        {},
+        BREAKER,
+        async (keys, count, tr) => {
+          // The first read fails after every other read landed, so none clears it.
+          if (reads++ === 0) {
+            await gate;
+            throw new Error("connection reset");
+          }
+          return core.readLatest(keys, count, tr);
+        },
+      );
+      const points = subscribe(core.data[0].key, window, RAW);
+      try {
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        release();
+        await expect.poll(() => reads, POLL).toBe(2);
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().time?.valueOf()).toBe(LAST.valueOf());
       } finally {
         await close();
       }
