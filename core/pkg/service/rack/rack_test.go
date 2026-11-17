@@ -946,7 +946,7 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 		It(
-			"Should not check the embedded rack when the embedded Driver is disabled",
+			"Should give the embedded rack a disabled status when its Driver is disabled",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
 				cfg := rack.ServiceConfig{
@@ -963,6 +963,15 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(before.Close()).To(Succeed())
 				cfg.EmbeddedDriverDisabled = true
 				after := DeferClose(openStack(ctx, restartDB, cfg))
+				var copied atomic.Pointer[rack.Outage]
+				DeferCleanup(after.rack.OnSuspect(
+					func(_ context.Context, o rack.Outage) error {
+						if *o.Owner == key.ResourceID() {
+							copied.Store(&o)
+						}
+						return nil
+					},
+				))
 				other := rack.Rack{Name: "other"}
 				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
 					return after.rack.NewWriter(tx).Create(ctx, &other)
@@ -973,9 +982,16 @@ var _ = Describe("Rack", Ordered, func() {
 					)
 					g.Expect(s.Message).To(Equal("Driver not running"))
 				}).Should(Succeed())
-				s := MustSucceed(retrieveStatusTx(ctx, after.status, restartDB, key))
-				Expect(s.Variant).To(Equal(status.VariantDisabled))
-				Expect(s.Message).To(Equal("Driver disabled"))
+				Eventually(func(g Gomega) {
+					s := MustSucceed(
+						retrieveStatusTx(ctx, after.status, restartDB, key),
+					)
+					g.Expect(s.Variant).To(Equal(status.VariantDisabled))
+					g.Expect(s.Message).To(Equal("Driver disabled"))
+				}).Should(Succeed())
+				Eventually(copied.Load).ShouldNot(BeNil())
+				Expect(copied.Load().Variant).To(Equal(status.VariantDisabled))
+				Expect(copied.Load().Message).To(Equal("Driver disabled"))
 			},
 		)
 		It(

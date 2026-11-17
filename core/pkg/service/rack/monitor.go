@@ -160,23 +160,7 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 		// again.
 		state.statusTime = state.lastUpdated
 		m.mu.racks[r.Key] = state
-		statuses = append(statuses, Status{
-			Owner:   new(r.ResourceID()),
-			Name:    r.Name,
-			Variant: status.VariantWarning,
-			Time:    state.lastUpdated,
-			Message: "Driver not running",
-			Description: fmt.Sprintf(
-				"The Core has not heard from the Driver on %s. Check that the "+
-					"Driver is running and can reach the Core.",
-				r.Name,
-			),
-		})
-		m.L.Warn(
-			"driver not running",
-			zap.String("rack", r.Name),
-			zap.Stringer("time_since_alive", telem.TimeSpan(now-state.lastUpdated)),
-		)
+		statuses = append(statuses, m.outageStatus(r, state, now))
 	}
 	m.mu.Unlock()
 
@@ -206,6 +190,34 @@ func (m *monitor) writeOutages(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (m *monitor) outageStatus(r Rack, state rackState, now telem.TimeStamp) Status {
+	stat := Status{
+		Owner: new(r.ResourceID()),
+		Name:  r.Name,
+		Time:  state.lastUpdated,
+	}
+	if m.svc.EmbeddedDriverDisabled && r.Key == m.svc.EmbeddedKey {
+		stat.Variant = status.VariantDisabled
+		stat.Message = "Driver disabled"
+		stat.Description = "The Core started with --no-driver, so the embedded " +
+			"Driver does not run."
+		return stat
+	}
+	m.L.Warn(
+		"driver not running",
+		zap.String("rack", r.Name),
+		zap.Stringer("time_since_alive", telem.TimeSpan(now-state.lastUpdated)),
+	)
+	stat.Variant = status.VariantWarning
+	stat.Message = "Driver not running"
+	stat.Description = fmt.Sprintf(
+		"The Core has not heard from the Driver on %s. Check that the Driver is "+
+			"running and can reach the Core.",
+		r.Name,
+	)
+	return stat
 }
 
 // copyOutages calls each handler that has not copied the outage of a rack. A handler
@@ -263,12 +275,6 @@ func (m *monitor) copyOutages(ctx context.Context) {
 	}
 }
 
-// watched returns false for the embedded rack of a Core that runs without its embedded
-// Driver.
-func (m *monitor) watched(key Key) bool {
-	return !m.svc.EmbeddedDriverDisabled || key != m.svc.EmbeddedKey
-}
-
 // outageStarted returns true when a rack has been silent for a health check interval
 // and its outage is not yet written.
 func (m *monitor) outageStarted(state rackState, now telem.TimeStamp) bool {
@@ -316,9 +322,6 @@ func (m *monitor) handleRackStatus(owner resource.ID, stat status.Status[any]) {
 	key, err := KeyFromResourceID(owner)
 	if err != nil {
 		m.L.Error("failed to decode status owner", zap.Error(err))
-		return
-	}
-	if !m.watched(key) {
 		return
 	}
 	alive := storedDetails(stat.Details).Running
@@ -405,9 +408,7 @@ func openMonitor(
 	}
 	s.mu.handlers = make(map[int]SuspectHandler)
 	for _, r := range racks {
-		if s.watched(r.Key) {
-			s.mu.racks[r.Key] = rackState{lastUpdated: now}
-		}
+		s.mu.racks[r.Key] = rackState{lastUpdated: now}
 	}
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
 	signal.GoTick(

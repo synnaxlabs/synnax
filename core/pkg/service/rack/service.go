@@ -65,7 +65,8 @@ type ServiceConfig struct {
 	// [OPTIONAL - defaults to telem.Now]
 	Now func() telem.TimeStamp
 	// EmbeddedDriverDisabled is true when the Core runs without its embedded Driver.
-	// The embedded rack then holds a disabled status, and its health is not checked.
+	// A silent embedded rack then passes a disabled status to its tasks and devices,
+	// not a "Driver not running" warning.
 	//
 	// [OPTIONAL - defaults to false]
 	EmbeddedDriverDisabled bool
@@ -204,20 +205,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 		return err
 	}
 	s.EmbeddedKey = r.Key
-	if !s.EmbeddedDriverDisabled {
-		return nil
-	}
-	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.Status.NewWriter(tx).Set(ctx, &Status{
-			Owner:   new(r.ResourceID()),
-			Name:    r.Name,
-			Time:    s.Now(),
-			Variant: status.VariantDisabled,
-			Message: "Driver disabled",
-			Description: "The Core started with --no-driver, so the embedded " +
-				"Driver does not run.",
-		})
-	})
+	return nil
 }
 
 // RetrieveOrCreateEmbedded returns the embedded rack of this Core that was created with
