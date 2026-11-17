@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -40,6 +41,7 @@ interface InternalProps extends Omit<ConfigureProps, "deviceKey"> {
   icon: Icon.ReactElement;
   device: device.Device;
   initialProperties: record.Unknown;
+  suggestIdentifiers: (device: device.Device) => string[];
 }
 
 const configurablePropertiesZ = z.object({ name: nameZ, identifier: identifierZ });
@@ -71,6 +73,7 @@ const Internal = ({
   close,
   icon,
   initialProperties,
+  suggestIdentifiers,
   onCreateReadTask,
   onBack,
 }: InternalProps) => {
@@ -81,7 +84,7 @@ const Internal = ({
   const currentName = Form.useFieldValue(path.name, { ctx: methods });
   const { capture } = Analytics.use();
   const { updateAsync, variant } = useSave();
-  const suggestions = strings.createShortIdentifiers(currentName);
+  const suggestions = suggestIdentifiers({ ...device, name: currentName });
   const save = async (createTask: boolean) => {
     if (!methods.validate()) return;
     const saved = await updateAsync({
@@ -113,6 +116,11 @@ const Internal = ({
             label="Name"
             path={path.name}
           />
+          {device.location !== "" && (
+            <Input.Item label="Location" padHelpText={false}>
+              <Text.Text>{device.location}</Text.Text>
+            </Input.Item>
+          )}
           <Flex.Box gap="small">
             <Form.TextField
               label="Identifier"
@@ -176,12 +184,21 @@ export interface CreateConfigureArgs {
   icon: Icon.ReactElement;
   /** The properties a device starts with when the user configures it. */
   zeroProperties: record.Unknown;
+  /**
+   * @returns the identifiers that the form suggests for the device, which holds the
+   * name that the user entered. Defaults to short forms of that name.
+   */
+  suggestIdentifiers?: (device: device.Device) => string[];
 }
+
+const suggestFromName = ({ name }: device.Device): string[] =>
+  strings.createShortIdentifiers(name);
 
 /** Creates the form that names a found device and sets its identifier. */
 export const createConfigure = ({
   icon,
   zeroProperties,
+  suggestIdentifiers = suggestFromName,
 }: CreateConfigureArgs): ComponentType<ConfigureProps> => {
   const Configure = ({ deviceKey, ...rest }: ConfigureProps): ReactElement => {
     const device = Device.use({ key: deviceKey });
@@ -190,6 +207,7 @@ export const createConfigure = ({
         device={device}
         icon={icon}
         initialProperties={zeroProperties}
+        suggestIdentifiers={suggestIdentifiers}
         {...rest}
       />
     );

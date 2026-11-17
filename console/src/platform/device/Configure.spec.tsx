@@ -167,6 +167,11 @@ describe("device Configure", () => {
     await waitFor(() => expect(screen.queryByText(HINT)).toBeNull());
   });
 
+  it("should show the location of the device", async () => {
+    await setup();
+    expect(screen.getByText("dev1")).toBeTruthy();
+  });
+
   it("should fill the identifier from a suggestion based on the name", async () => {
     const { dev } = await setup();
     const [suggestion] = strings.createShortIdentifiers(dev.name);
