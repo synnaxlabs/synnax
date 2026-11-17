@@ -141,9 +141,12 @@ pressed, and the hold fill. A symbol stores no indicators: Pluto draws the stale
 unknown, and other indicators on top of the looks. Only a number state drives motion,
 and the Core refuses a motion whose `state` or `by` names an enum state. A number state
 drives motion as a fraction of its bounds, clamped to 0 to 1, and the Core refuses
-bounds whose lower value is not below the upper. Motion stops while its state is stale
+bounds whose lower value is not below the upper. A number state is unknown for no data
+and NaN, but not for a value outside its bounds. Motion stops while its state is stale
 or unknown, under the operating system's Reduce motion setting, and on a node with
-`motion_disabled`. A blink stays under three flashes per second.
+`motion_disabled`. While its state is stale, a `level`, `rotate`, or `move` keeps its
+last fraction. While it is unknown, it draws fraction 0, which is `from` or an empty
+`level`, with the unknown indicator. A blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
@@ -307,6 +310,10 @@ until it passes at 1,000 moving parts.
     all of its nodes, as today. A copy for each import splits the nodes across
     duplicates. The trade is real: the bundled design is not applied when the Core
     already has the symbol, and only a warning reports the difference.
+18. **An unknown number state draws fraction 0**: A `level`, `rotate`, or `move` with no
+    data or NaN draws fraction 0, as an enum state draws its default entry, and never
+    shows an old value as current. The trade is real: an empty-looking part can be
+    misread at a glance, so the unknown indicator carries the warning.
 
 ## 8 Open questions
 
