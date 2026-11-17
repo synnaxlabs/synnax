@@ -130,9 +130,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 // groupEntries groups the struct and union types that get a codec by their Go output
-// path, keyed by qualified name. Codecs are explicit: a type gets one iff it declares
-//
-//	@go	marshal; references never pull a codec in.
+// path, keyed by qualified name. A type gets a codec iff it declares @go marshal;
+// references never pull a codec in.
 func groupEntries(
 	req *plugin.Request,
 	aliased set.Set[string],
