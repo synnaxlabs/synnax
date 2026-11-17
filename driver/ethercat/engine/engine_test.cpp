@@ -715,6 +715,42 @@ TEST_F(EngineTest, StopSendsTheStopValuesAfterEachFrameInFlight) {
     EXPECT_EQ(two_sends, cycles.end());
 }
 
+/// @brief it should wait for a frame still in flight when the bus stops, then send the
+/// stop values and take the late frame and the stop frame.
+TEST_F(EngineTest, StopWaitsForAFrameStillInFlight) {
+    this->master->stall();
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, static_cast<int16_t>(-7)}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->wait_until_stalled();
+    // The bus stops during the stalled cycle, so its send is the last before the stop.
+    this->master->hold_frame();
+    this->master->clear_call_log();
+    std::thread stopper([&writer] { writer.reset(); });
+    x::defer::defer join([&] {
+        this->master->resume();
+        if (stopper.joinable()) stopper.join();
+    });
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    this->master->resume();
+    stopper.join();
+    std::vector<std::string> cycles;
+    for (const auto &call: this->master->call_log())
+        if (call == "send" || call == "receive") cycles.push_back(call);
+    ASSERT_GE(cycles.size(), 5);
+    EXPECT_EQ(cycles[0], "receive");
+    EXPECT_EQ(cycles[1], "send");
+    const auto stop = std::find(cycles.begin() + 2, cycles.end(), "send");
+    EXPECT_GT(std::count(cycles.begin() + 2, stop, "receive"), 1);
+    EXPECT_EQ(
+        std::vector(stop, cycles.end()),
+        (std::vector<std::string>{"send", "receive", "receive"})
+    );
+    EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
+}
+
 /// @brief it should keep the stop value a closed writer left on an output until a new
 /// writer commands the output.
 TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {
