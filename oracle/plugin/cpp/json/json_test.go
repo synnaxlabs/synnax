@@ -740,6 +740,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 					@cpp output "client/cpp/task"
 
 					Serial = uint32
+					Name = string {
+						@validate required
+					}
 
 					Device struct {
 						key      uint32 {
@@ -748,6 +751,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						}
 						name     string @validate required
 						serial   Serial @validate required
+						alias    Name
 						label    string?
 						identity string = ""
 					}
@@ -758,6 +762,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 							`.key = parser.field<std::uint32_t>("key"),`,
 							`.name = parser.required_field<std::string>("name"),`,
 							`.serial = parser.required_field<Serial>("serial"),`,
+							`.alias = parser.required_field<Name>("alias"),`,
 							`.label = parser.field<std::optional<std::string>>("label"),`,
 							`.identity = parser.field<std::string>("identity", ""),`,
 						)
