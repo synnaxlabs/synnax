@@ -27,6 +27,7 @@ const client = createTestClient();
 const ADAPTER = Device.createLegacyAdapter({
   make: "make",
   zeroProperties: { rate: 10, channels: {} },
+  suggestIdentifiers: () => [],
 });
 
 describe("createLegacyAdapter", () => {
@@ -92,7 +93,11 @@ describe("createLegacyAdapter", () => {
       dev: device.Device,
       zeroProperties: record.Unknown = { rate: 10, channels: {} },
     ): Promise<device.Device> => {
-      const adapter = Device.createLegacyAdapter({ make: "make", zeroProperties });
+      const adapter = Device.createLegacyAdapter({
+        make: "make",
+        zeroProperties,
+        suggestIdentifiers: () => [],
+      });
       const name = uniqueName("named");
       const { result } = renderHook(() => adapter.useSave(), { wrapper });
       await act(async () => {

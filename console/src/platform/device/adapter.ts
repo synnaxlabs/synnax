@@ -16,6 +16,8 @@ export interface Configurable {
   key: string;
   name: string;
   identifier: string;
+  /** Where the device sits, such as a DAQmx alias. Empty when it has no location. */
+  location: string;
   /** Whether the user has named the device and set its identifier. */
   configured: boolean;
   /** @returns the identifiers that the form suggests for the device under a name. */
@@ -71,6 +73,7 @@ export const createLegacyAdapter = ({
     return {
       key,
       name: dev.name,
+      location: dev.location,
       configured: dev.configured,
       identifier: typeof identifier === "string" ? identifier : "",
       suggestIdentifiers: (name) => suggestIdentifiers({ ...dev, name }),

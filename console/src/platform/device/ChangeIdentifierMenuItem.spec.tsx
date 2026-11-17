@@ -21,7 +21,11 @@ import {
 } from "@/platform/device/testutil";
 import { createSelection } from "@/platform/tree/testutil";
 
-const ADAPTER = Device.createLegacyAdapter({ make: "acme", zeroProperties: {} });
+const ADAPTER = Device.createLegacyAdapter({
+  make: "acme",
+  zeroProperties: {},
+  suggestIdentifiers: () => [],
+});
 const ConfigureMenuItem = Device.createConfigureMenuItem(ADAPTER);
 const ChangeIdentifierMenuItem = Device.createChangeIdentifierMenuItem({
   adapter: ADAPTER,
