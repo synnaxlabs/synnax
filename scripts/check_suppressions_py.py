@@ -110,14 +110,14 @@ def check_source(source: str, *, path: str) -> list[Finding]:
 def check(*, root: Path) -> list[Finding]:
     """Returns the suppressions in the tracked and untracked files under root."""
     paths = subprocess.run(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "*.py"],
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "*.py"],
         cwd=root,
         check=True,
         capture_output=True,
         text=True,
-    ).stdout.splitlines()
+    ).stdout.split("\0")
     findings = []
-    for path in sorted(set(paths)):
+    for path in sorted(set(paths) - {""}):
         file = root / path
         if file.is_file():
             source = file.read_text(encoding="utf-8")

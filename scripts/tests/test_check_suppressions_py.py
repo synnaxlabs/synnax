@@ -89,6 +89,13 @@ class TestCheck:
         findings = check(root=tmp_path)
         assert [(f.path, f.line) for f in findings] == [("a.py", 2), ("c.py", 1)]
 
+    def test_should_check_files_with_non_ascii_names(self, tmp_path: Path) -> None:
+        _git(tmp_path, "init", "-q", "-b", "main")
+        (tmp_path / "données.py").write_text("x = 1  # noqa\n")
+        _git(tmp_path, "add", ".")
+        _git(tmp_path, "commit", "-qm", "base")
+        assert [f.path for f in check(root=tmp_path)] == ["données.py"]
+
     def test_should_skip_ignored_and_deleted_files(self, tmp_path: Path) -> None:
         _git(tmp_path, "init", "-q", "-b", "main")
         (tmp_path / ".gitignore").write_text("ignored.py\n")
