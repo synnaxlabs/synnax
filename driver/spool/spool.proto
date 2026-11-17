@@ -1,0 +1,55 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// The records of a spool segment. Segments stay on disk across Driver upgrades, so
+// never renumber or reuse a field.
+
+syntax = "proto3";
+
+package driver.spool.pb;
+
+// Subject is the control subject of the writer of a segment.
+message Subject {
+  string key = 1;
+  string name = 2;
+  uint32 group = 3;
+}
+
+// Header is the first record of a segment.
+message Header {
+  // cluster is the 16-byte UUID of the cluster the frames go to.
+  bytes cluster = 1;
+  repeated uint32 channels = 2;
+  // indexes holds the index channel of each channel, in the order of channels.
+  repeated uint32 indexes = 3;
+  // data_types holds the data type of each channel, in the order of channels.
+  repeated string data_types = 4;
+  Subject subject = 5;
+  // task is the 16-byte UUID of the task that wrote the segment.
+  bytes task = 6;
+  uint32 rack = 7;
+  // created is the time the segment was created, in nanoseconds since the Unix epoch.
+  int64 created = 8;
+  // version is the version of the Driver that wrote the segment.
+  string version = 9;
+}
+
+// Series holds the samples of one channel. Its data type is in the header.
+message Series {
+  bytes data = 1;
+  uint64 alignment = 2;
+  int64 start = 3;
+  int64 end = 4;
+}
+
+// Frame is one frame of a segment. A series is for the channel at the same index.
+message Frame {
+  repeated uint32 channels = 1;
+  repeated Series series = 2;
+}

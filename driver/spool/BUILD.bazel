@@ -1,0 +1,51 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+proto_library(
+    name = "spool_proto",
+    srcs = ["spool.proto"],
+)
+
+cc_proto_library(
+    name = "spool_cc_proto",
+    deps = [":spool_proto"],
+)
+
+cc_library(
+    name = "spool",
+    srcs = ["spool.cpp"],
+    hdrs = ["spool.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":spool_cc_proto",
+        "//driver/journal",
+        "//x/cpp/control",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/uuid",
+    ],
+)
+
+cc_test(
+    name = "spool_test",
+    srcs = ["spool_test.cpp"],
+    data = glob(["testdata/*.bin"]),
+    deps = [
+        ":spool",
+        ":spool_cc_proto",
+        "//driver/journal",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
