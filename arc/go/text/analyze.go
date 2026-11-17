@@ -2072,6 +2072,9 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	}
 
 	node := result.node
+	if isSink && node.node.Key == "" && len(p.nodes) == 0 && declaredAsStep(p.ctx.AST) {
+		p.readStepSource()
+	}
 	if p.prevNode != nil {
 		if len(p.prevNode.Outputs) == 0 {
 			p.ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -2128,6 +2131,25 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		p.nodes = append(p.nodes, node.node)
 	}
 	return true
+}
+
+// readStepSource reads the source variable of a variable-to-variable step through a
+// node in the step, so the step has an output to complete on.
+func (p *flowChainProcessor) readStepSource() {
+	t := p.prevNode.Outputs[0].Type
+	read := newConstNode(
+		p.kg.generate("read", ""),
+		types.VarRef(t, p.prevOutput.Node),
+		t,
+		types.Zero(t),
+	)
+	p.edges = append(p.edges, ir.Edge{
+		Source: p.prevOutput,
+		Target: ir.Handle{Node: read.Key, Param: ir.DefaultInputParam},
+		Kind:   ir.EdgeKindContinuous,
+	})
+	p.nodes = append(p.nodes, read)
+	p.prevOutput = ir.Handle{Node: read.Key, Param: ir.DefaultOutputParam}
 }
 
 // consumeTransition records a transition and/or activation for a flow chain
@@ -2682,20 +2704,18 @@ func addInlineMembers(scope *ir.Scope, members []ir.Member) {
 }
 
 // autoWireTransition advances past a step, or completes a terminal one, when its last
-// node emits a value, truthy unless the step is a write, or runs with no outputs.
+// node emits a value that passes kind, or runs with no outputs.
 func autoWireTransition(
 	shell *shellBuilder,
 	lastNode ir.Node,
 	nextMemberKey string,
-	write bool,
+	kind ir.EdgeKind,
 ) {
 	on := ir.Handle{Node: lastNode.Key, Param: ir.DoneParam}
-	kind := ir.EdgeKindContinuous
 	if len(lastNode.Outputs) > 0 {
 		on.Param = firstOutputParam(lastNode.Outputs)
-		if !write {
-			kind = ir.EdgeKindConditional
-		}
+	} else {
+		kind = ir.EdgeKindContinuous
 	}
 	if nextMemberKey == "" {
 		shell.addCompletion(on, kind)
@@ -2822,9 +2842,13 @@ func analyzeSequence(
 			// firing-node's mark before the outer frame's evaluator sees
 			// it, preventing the cross-level jump from firing.
 			if !transitionEmitted && len(nodes) > 0 {
+				kind := ir.EdgeKindConditional
 				flowNodes := flowStmt.AllFlowNode()
-				write := flowNodes[len(flowNodes)-1].Identifier() != nil
-				autoWireTransition(shell, nodes[len(nodes)-1], nextKey, write)
+				if flowNodes[len(flowNodes)-1].Identifier() != nil {
+					ops := flowStmt.AllFlowOperator()
+					kind = flowOperatorEdgeKind(ops[len(ops)-1])
+				}
+				autoWireTransition(shell, nodes[len(nodes)-1], nextKey, kind)
 			}
 			continue
 		}
@@ -2843,7 +2867,9 @@ func analyzeSequence(
 			allNodes = append(allNodes, aNodes...)
 			allEdges = append(allEdges, aEdges...)
 			if len(aNodes) > 0 {
-				autoWireTransition(shell, aNodes[len(aNodes)-1], nextKey, true)
+				autoWireTransition(
+					shell, aNodes[len(aNodes)-1], nextKey, ir.EdgeKindContinuous,
+				)
 			}
 			continue
 		}
@@ -2860,7 +2886,9 @@ func analyzeSequence(
 			child := flowScope(si.key, nodes)
 			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
 			allNodes = append(allNodes, nodes...)
-			autoWireTransition(shell, nodes[len(nodes)-1], nextKey, false)
+			autoWireTransition(
+				shell, nodes[len(nodes)-1], nextKey, ir.EdgeKindConditional,
+			)
 			continue
 		}
 

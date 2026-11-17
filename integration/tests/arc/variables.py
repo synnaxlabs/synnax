@@ -355,6 +355,9 @@ vars_start => falsy_seq_assign_str_main
 vars_start => falsy_seq_flow_u8_main
 vars_start => falsy_seq_flow_bool_main
 vars_start => falsy_seq_flow_str_main
+vars_start => falsy_seq_copy_u8_main
+vars_start => falsy_seq_copy_bool_main
+vars_start => falsy_seq_copy_str_main
 vars_start => falsy_stg_main
 
 sequence falsy_seq_alias_u8_main {
@@ -429,6 +432,36 @@ sequence falsy_seq_flow_str_main {
     falsy_seq_flow_str_v -> falsy_seq_flow_str
 }
 
+sequence falsy_seq_copy_u8_main {
+    falsy_seq_copy_u8_src u8 := 1
+    falsy_seq_copy_u8_v u8 := 1
+    falsy_seq_copy_u8_v -> falsy_seq_copy_u8
+    stage { falsy_go => next }
+    falsy_seq_copy_u8_src = 0
+    falsy_seq_copy_u8_src -> falsy_seq_copy_u8_v
+    falsy_seq_copy_u8_v -> falsy_seq_copy_u8
+}
+
+sequence falsy_seq_copy_bool_main {
+    falsy_seq_copy_bool_src bool := true
+    falsy_seq_copy_bool_v bool := true
+    falsy_seq_copy_bool_v -> falsy_seq_copy_bool
+    stage { falsy_go => next }
+    falsy_seq_copy_bool_src = false
+    falsy_seq_copy_bool_src -> falsy_seq_copy_bool_v
+    falsy_seq_copy_bool_v -> falsy_seq_copy_bool
+}
+
+sequence falsy_seq_copy_str_main {
+    falsy_seq_copy_str_src str := "x"
+    falsy_seq_copy_str_v str := "x"
+    falsy_seq_copy_str_v -> falsy_seq_copy_str
+    stage { falsy_go => next }
+    falsy_seq_copy_str_src = ""
+    falsy_seq_copy_str_src -> falsy_seq_copy_str_v
+    falsy_seq_copy_str_v -> falsy_seq_copy_str
+}
+
 sequence falsy_stg_main {
     falsy_stg_alias_u8_v := falsy_stg_alias_u8
     falsy_stg_alias_bool_v := falsy_stg_alias_bool
@@ -439,6 +472,12 @@ sequence falsy_stg_main {
     falsy_stg_flow_u8_v u8 := 1
     falsy_stg_flow_bool_v bool := true
     falsy_stg_flow_str_v str := "x"
+    falsy_stg_copy_u8_src u8 := 1
+    falsy_stg_copy_u8_v u8 := 1
+    falsy_stg_copy_bool_src bool := true
+    falsy_stg_copy_bool_v bool := true
+    falsy_stg_copy_str_src str := "x"
+    falsy_stg_copy_str_v str := "x"
 
     stage falsy_stg_before {
         1 -> falsy_stg_alias_u8_v
@@ -450,6 +489,9 @@ sequence falsy_stg_main {
         falsy_stg_flow_u8_v -> falsy_stg_flow_u8
         falsy_stg_flow_bool_v -> falsy_stg_flow_bool
         falsy_stg_flow_str_v -> falsy_stg_flow_str
+        falsy_stg_copy_u8_v -> falsy_stg_copy_u8
+        falsy_stg_copy_bool_v -> falsy_stg_copy_bool
+        falsy_stg_copy_str_v -> falsy_stg_copy_str
         falsy_go => next
     }
     stage falsy_stg_after {
@@ -462,13 +504,33 @@ sequence falsy_stg_main {
         0 -> falsy_stg_flow_u8_v
         false -> falsy_stg_flow_bool_v
         "" -> falsy_stg_flow_str_v
+        falsy_stg_copy_u8_src = 0
+        falsy_stg_copy_bool_src = false
+        falsy_stg_copy_str_src = ""
+        falsy_stg_copy_u8_src -> falsy_stg_copy_u8_v
+        falsy_stg_copy_bool_src -> falsy_stg_copy_bool_v
+        falsy_stg_copy_str_src -> falsy_stg_copy_str_v
         falsy_stg_assign_u8_v -> falsy_stg_assign_u8
         falsy_stg_assign_bool_v -> falsy_stg_assign_bool
         falsy_stg_assign_str_v -> falsy_stg_assign_str
         falsy_stg_flow_u8_v -> falsy_stg_flow_u8
         falsy_stg_flow_bool_v -> falsy_stg_flow_bool
         falsy_stg_flow_str_v -> falsy_stg_flow_str
+        falsy_stg_copy_u8_v -> falsy_stg_copy_u8
+        falsy_stg_copy_bool_v -> falsy_stg_copy_bool
+        falsy_stg_copy_str_v -> falsy_stg_copy_str
     }
+}
+
+// ─────────────────── conditional write to a variable ────────────────────
+vars_start => cond_write_main
+cond_write_src -> cond_write_seen
+
+sequence cond_write_main {
+    cond_write_v u8 := 1
+    1 -> cond_write_ready
+    cond_write_src => cond_write_v
+    cond_write_v -> cond_write_out
 }
 
 // ──────────────────────── computed initializers ─────────────────────────
@@ -626,9 +688,11 @@ FALSY_SINKS = [
     "seq_alias",
     "seq_assign",
     "seq_flow",
+    "seq_copy",
     "stg_alias",
     "stg_assign",
     "stg_flow",
+    "stg_copy",
 ]
 
 
@@ -652,6 +716,11 @@ FALSY_CHANNELS = [
     for sink in FALSY_SINKS
 ]
 FALSY_OUTPUTS = [name for name, _ in FALSY_CHANNELS] + FALSY_DONE
+COND_WRITE_OUTPUTS = [
+    "cond_write_ready",
+    "cond_write_seen",
+    "cond_write_out",
+]
 COMPUTED_OUTPUTS = [
     "computed_top_out",
     "computed_entry_out",
@@ -681,6 +750,7 @@ OUTPUTS = (
     + INPUT_OUTPUTS
     + ALIAS_LITERAL_OUTPUTS
     + FALSY_OUTPUTS
+    + COND_WRITE_OUTPUTS
     + COMPUTED_OUTPUTS
 )
 
@@ -782,6 +852,10 @@ U8_CHANNELS = [
     "alias_lit_a",
     "alias_lit_b",
     "falsy_go",
+    "cond_write_src",
+    "cond_write_ready",
+    "cond_write_seen",
+    "cond_write_out",
     "computed_fire",
     "computed_now_fire",
     "computed_to_second",
@@ -845,6 +919,7 @@ class Variables(ArcCase):
         self._verify_alias_inputs()
         self._verify_alias_literal()
         self._verify_falsy_writes()
+        self._verify_conditional_write()
         self._verify_computed()
         self._verify_stage_stamps()
 
@@ -1049,6 +1124,14 @@ class Variables(ArcCase):
                 self.wait_for_eq(f"falsy_{sink}_{case.type}", case.falsy)
         for done in FALSY_DONE:
             self.wait_for_eq(done, 1)
+
+    def _verify_conditional_write(self) -> None:
+        self.log("=== conditional write to a variable ===")
+        self.wait_for_eq("cond_write_ready", 1)
+        self.writer.write("cond_write_src", 0)
+        self.wait_for_eq("cond_write_seen", 0)
+        self.writer.write("cond_write_src", 7)
+        self.wait_for_eq("cond_write_out", 7)
 
     def _verify_stage_stamps(self) -> None:
         self.log("=== stateful stamps on stage entry ===")
