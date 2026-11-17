@@ -220,9 +220,7 @@ func (db *DB) goPopulate(ctx context.Context, populate func(context.Context)) er
 		case db.run.populates <- populate:
 			return nil
 		case <-db.run.stopped:
-			// Run stops only when its context ends.
-			return errors.Wrap(
-				context.Canceled,
+			return errors.New(
 				"[gorp] - a table with indexes or references opened after DB.Run stopped",
 			)
 		case <-ctx.Done():

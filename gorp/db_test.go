@@ -181,8 +181,10 @@ var _ = Describe("DB", func() {
 			"Should fail to open a table with indexes after Run stops",
 			func(ctx SpecContext) {
 				StartRun(runDB.Run)()
-				Expect(openTable(ctx)).Error().
-					To(MatchError(context.Canceled))
+				Expect(openTable(ctx)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("after DB.Run stopped")),
+					Not(MatchError(context.Canceled)),
+				))
 			},
 		)
 
