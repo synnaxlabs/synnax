@@ -12,7 +12,7 @@ import sys
 import threading
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -151,6 +151,7 @@ def client(
     on_test_ran: Callable[[], None] = lambda: None,
     timeout_grace: float = 60.0,
     log: Callable[[str], None] = lambda message: None,
+    conductor_range: sy.Range | None = None,
 ) -> tuple[ExecutionClient, list[Sequence], list[models.Test]]:
     """Returns a client for the sequences, with the sequences to run and the list it
     records results in."""
@@ -170,9 +171,8 @@ def client(
         resources=Resources({resources.BROWSER: browsers}),
         options=DEFAULT_OPTIONS,
         run_dir=cases_dir.parent / "run",
-        # Only a conductor range needs the client, and these runs have none.
-        client=cast(sy.Synnax, None),
-        conductor_range=None,
+        client=None,
+        conductor_range=conductor_range,
         tests=results,
         tests_lock=threading.Lock(),
         active_tests=active if active is not None else [],
@@ -259,6 +259,15 @@ class TestExecutionClient:
         spans = run(cases_dir, sequence("a", "plain", "plain", hold=0.1))
         assert spans["a_0"].end <= spans["a_1"].start
         assert spans["a_0"].port == spans["a_1"].port
+
+    def test_conductor_range_without_client(self, cases_dir: Path) -> None:
+        """Should reject a conductor range that comes without a client."""
+        conductor_range = sy.Range(
+            name="conductor",
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(ValueError, match="needs a client"):
+            client(cases_dir, sequence("a", "plain"), conductor_range=conductor_range)
 
     def test_one_core(self, cases_dir: Path) -> None:
         """Should run sequences in order with one Core."""
