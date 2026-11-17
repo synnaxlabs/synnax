@@ -27,6 +27,7 @@
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/esi/settings.h"
+#include "driver/ethercat/master/dc.h"
 #include "driver/ethercat/sii/sii.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"
@@ -369,7 +370,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
             .refusals = std::move(unidentified),
         };
     };
-    auto [dc_setups, dc_err] = this->resolve_dc();
+    auto [dc_setups, dc_err] = master::resolve_dc(this->slave_list, session.plan);
     if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
 
@@ -1216,81 +1217,6 @@ x::errors::Error Master::clear_dc_activation() {
     return x::errors::Error(errors::ACTIVATION_ERROR, failed);
 }
 
-std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() const {
-    const auto period = this->session.value().plan.period;
-    std::vector<DCSetup> setups;
-    std::vector<x::telem::TimeSpan> cycles;
-    std::string events;
-    for (const auto &slave: this->slave_list) {
-        const auto &props = slave.properties;
-        const auto config = this->config(props.position);
-        if (!config.enabled) continue;
-        const auto choice = config.op_mode ? config.op_mode : props.catalog_op_mode();
-        const auto [mode, select_err] = dc::select(props.op_modes, choice);
-        if (select_err)
-            return {
-                {},
-                x::errors::Error(
-                    errors::SLAVE_CONFIG_ERROR,
-                    std::format(
-                        "slave {} ({}) cannot use its chosen mode: {}",
-                        props.position,
-                        props.name,
-                        select_err.data
-                    )
-                )
-            };
-        if (!mode) continue;
-        auto [regs, err] = dc::resolve(
-            *mode,
-            period,
-            choice ? choice->cycles : dc::Cycles{}
-        );
-        if (err)
-            return {
-                {},
-                x::errors::Error(
-                    errors::SLAVE_CONFIG_ERROR,
-                    std::format(
-                        "slave {} ({}) cannot run its DC mode at a bus cycle of {}: {}",
-                        props.position,
-                        props.name,
-                        period.to_string(),
-                        err.data
-                    )
-                )
-            };
-        setups.push_back({.position = props.position, .registers = regs});
-        if (!regs.marks_data() || (regs.assign_activate & dc::PDI_SYNC_UNIT) != 0)
-            continue;
-        cycles.emplace_back(regs.sync0_cycle);
-        if (!events.empty()) events += ", ";
-        events += std::format(
-            "slave {} ({}) every {}",
-            props.position,
-            props.name,
-            cycles.back().to_string()
-        );
-    }
-    if (!cycles.empty() && dc::grid(period, cycles) <
-                               static_cast<double>(dc::MIN_EVENT_CYCLE.nanoseconds()))
-        return {
-            {},
-            x::errors::Error(
-                errors::SLAVE_CONFIG_ERROR,
-                std::format(
-                    "SYNC0 events do not line up with the bus cycle of {}: {}. Change "
-                    "the bus rate or the SYNC0 cycles so that a span of {} or more "
-                    "divides the bus cycle and each SYNC0 cycle.",
-                    period.to_string(),
-                    events,
-                    dc::MIN_EVENT_CYCLE.to_string()
-                )
-            )
-        };
-    return {setups, x::errors::NIL};
-}
-
 x::errors::Error Master::wait_for_dc_settle(
     const std::vector<uint16_t> &positions,
     const std::function<bool()> &stopped
@@ -1360,7 +1286,7 @@ x::errors::Error Master::start_dc() {
     return x::errors::NIL;
 }
 
-x::errors::Error Master::start_sync(const DCSetup &setup) {
+x::errors::Error Master::start_sync(const master::DCSetup &setup) {
     const auto &[pos, regs] = setup;
     const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
     const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
@@ -1469,7 +1395,7 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
         }))
         return err;
     const auto &setups = this->session.value().dc_setups;
-    const auto setup = std::ranges::find(setups, pos, &DCSetup::position);
+    const auto setup = std::ranges::find(setups, pos, &master::DCSetup::position);
     if (setup == setups.end()) return x::errors::NIL;
     return this->start_sync(*setup);
 }
@@ -1514,7 +1440,7 @@ bool Master::restore_failed(const uint16_t pos) const {
 bool Master::restores_clock(const uint16_t pos) const {
     if (this->record(0).hasdc && this->record(0).DCnext == pos) return true;
     const auto &setups = this->session.value().dc_setups;
-    return std::ranges::find(setups, pos, &DCSetup::position) != setups.end();
+    return std::ranges::find(setups, pos, &master::DCSetup::position) != setups.end();
 }
 
 bool Master::wait_for_frame(
