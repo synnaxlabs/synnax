@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -21,6 +22,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/bench/alloc.h"
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -2362,6 +2364,59 @@ TEST_F(SOEMMasterTest, ReceiveKeepsAFrameInFlightWhenTheNextSendWouldNotFit) {
     ASSERT_NIL(this->master->send());
     ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
     EXPECT_EQ(this->mock->drop_count, 0);
+}
+
+/// @brief it should allocate nothing in a cycle that keeps a frame in flight, drops a
+/// frame, or takes one, since the cycle runs on a real-time thread.
+TEST_F(SOEMMasterTest, CyclesAllocateNothing) {
+    this->initialize_with_slave();
+    this->activate_master();
+    constexpr size_t sends = master::MAX_FRAMES_IN_FLIGHT;
+    this->mock->send_states.reserve(this->mock->send_states.size() + 8 * sends);
+    this->mock->processdata_groups.reserve(
+        this->mock->processdata_groups.size() + 32 * sends
+    );
+    this->mock->processdata_in_flight.reserve(sends + 1);
+    size_t in_flight = 0;
+    size_t dropped = 0;
+    size_t mismatched = 0;
+    size_t full = 0;
+    const auto count = [&](const x::errors::Error &err) {
+        if (err.matches(errors::FRAME_IN_FLIGHT))
+            in_flight++;
+        else if (err.matches(errors::WORKING_COUNTER_ERROR))
+            mismatched++;
+        else if (err)
+            dropped++;
+        else
+            full++;
+    };
+    // Cycles like the engine: each send, then every result up to a frame in flight.
+    size_t waiting = 0;
+    const auto run = [&] {
+        for (const int wkc: {EC_NOFRAME, 2, 3}) {
+            this->mock->receive_return = wkc;
+            for (size_t i = 0; i < sends; ++i) {
+                static_cast<void>(this->master->send());
+                waiting++;
+                while (waiting > 0) {
+                    const auto &err = this->master->receive();
+                    count(err);
+                    if (err.matches(errors::FRAME_IN_FLIGHT)) break;
+                    waiting--;
+                }
+            }
+        }
+    };
+    run();
+    in_flight = dropped = mismatched = full = 0;
+    const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
+    run();
+    EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
+    EXPECT_GT(in_flight, 0);
+    EXPECT_GT(dropped, 0);
+    EXPECT_GT(mismatched, 0);
+    EXPECT_GT(full, 0);
 }
 
 /// @brief it should give the result of a failed send after the result of the frame
