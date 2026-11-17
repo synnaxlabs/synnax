@@ -32,6 +32,7 @@ var _ = Describe("OpenService", func() {
 	})
 	It("Should refuse a config with no group service", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(
 			color.OpenService(ctx, color.ServiceConfig{DB: db}),
 		).Error().
