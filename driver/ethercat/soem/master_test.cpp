@@ -22,7 +22,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/bench/bench.h"
+#include "x/cpp/bench/alloc.h"
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 

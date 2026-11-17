@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include <new>
 
-#include "x/cpp/bench/bench.h"
+#include "x/cpp/bench/alloc.h"
 
 namespace x::bench {
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the global operator
