@@ -430,7 +430,7 @@ Range struct {
 			payload, ok := MustBeOk(f.Table.Get("synnax/channel@v0.Payload")).
 				Form.(resolution.UnionForm)
 			Expect(ok).To(BeTrue())
-			var fields []string
+			fields := make([]string, 0, len(payload.Variants))
 			for _, v := range payload.Variants {
 				p, ok := MustBeOk(f.Table.Get(v.Type.Name)).Form.(resolution.StructForm)
 				Expect(ok).To(BeTrue())
