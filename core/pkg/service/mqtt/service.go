@@ -146,11 +146,13 @@ func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 		Migrations: []gorp.Migration{
 			v2.NewReadMigration(resolver.channels, resolver.create),
 		},
-		SetEntryKey:   (*ReadConfig).SetKey,
-		PatchEntry:    (*ReadConfig).Patch,
-		HashEntry:     (*ReadConfig).HashContent,
-		ResolveEntry:  resolver.resolve,
-		ValidateEntry: (*ReadConfig).Validate,
+		SetEntryKey:    (*ReadConfig).SetKey,
+		PatchEntry:     (*ReadConfig).Patch,
+		HashEntry:      (*ReadConfig).HashContent,
+		HashReferences: resolver.hash,
+		HashedTables:   []string{"icd"},
+		ResolveEntry:   resolver.resolve,
+		ValidateEntry:  (*ReadConfig).Validate,
 	}
 }
 
