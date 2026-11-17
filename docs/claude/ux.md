@@ -529,6 +529,17 @@ bound, a log precision, or the line plot X channel.
   collapses the box to its bar. An action in the header opens the box again.
 - An empty section shows no box, only one muted "+ Noun" line that adds its first item.
 
+### Group headings
+
+- A list that groups its items, such as the palettes on the Colors page, heads each
+  group with `Header.Group`: one full-width bar that opens and closes the group.
+- The bar is l2 with the item radius. Its height is the Lyra size nearest the item
+  height: `large` above a 40 px item. Hover and press fill the whole bar.
+- The title is a plain string or a span at the button label weight. The count follows in
+  tiny l9 text, then an optional badge. The caret at the end points down when open.
+- Actions, such as a "+" that creates an item in the group, sit before the caret and do
+  not open or close it. Rename edits the title in place.
+
 ### Record tables
 
 - A task's channel list is a record table: one item per channel, built from
