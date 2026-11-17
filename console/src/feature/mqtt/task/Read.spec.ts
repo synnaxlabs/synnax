@@ -488,6 +488,37 @@ describe("MQTT read form", () => {
     await screen.findByText("Message not found");
   });
 
+  it.each([
+    { name: "gone", note: "Message not found", change: removeMessage },
+    {
+      name: "not JSON",
+      note: "The format of this message is not JSON. Open it to change its format.",
+      change: async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =>
+        await client.icds.dispatch(
+          key,
+          icd.set({
+            path: ["messages", messages[0].message, "payload"],
+            value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+          }),
+        ),
+    },
+  ])(
+    "should not offer Add field for a topic whose message is $name",
+    async ({ note, change }) => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await renderRead({ entries: [entry], beforeRender: () => change(entry) });
+      await screen.findByText(note);
+      expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /plant\/oven/ }),
+      );
+      await screen.findByRole("menuitem", { name: "Add message" });
+      expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
+    },
+  );
+
   it("should point a topic whose message is gone at a new message", async () => {
     const time = createTimeField();
     const timeCh = await createTimeChannel();

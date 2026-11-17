@@ -110,7 +110,7 @@ func openWatched(
 					OnDelete: gorp.Restrict,
 					Kind:     gorp.Use,
 					Targets: func(c *kafka.WriteConfig) []string {
-						return []string{string(c.Device)}
+						return []string{c.Device}
 					},
 				},
 			),
@@ -124,7 +124,7 @@ func openWatched(
 		) error {
 			var st status.Status[any]
 			if err := stat.NewRetrieve[any]().
-				Where(status.MatchKeys[any](string(c.Device))).
+				Where(status.MatchKeys[any](c.Device)).
 				Entry(&st).
 				Exec(ctx, snap); err != nil {
 				return err
