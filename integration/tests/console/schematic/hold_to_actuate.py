@@ -129,7 +129,7 @@ class HoldToActuate(ConsoleCase):
         """An activation delay swallows a short click and fires after a hold."""
         self.log("Short-clicking the delayed button")
         self.delay_btn.press()
-        hold(1.0)  # nothing may change
+        hold(1.0, reason="nothing may change")
         value = self.get_value(self.delay_ch)
         assert value is None, (
             f"a click shorter than the activation delay must not write, got {value}"
@@ -142,7 +142,7 @@ class HoldToActuate(ConsoleCase):
         """A valve with an activation delay only actuates after a hold."""
         self.log("Short-clicking the delayed valve")
         self.valve.press()
-        hold(1.0)  # nothing may change
+        hold(1.0, reason="nothing may change")
         value = self.get_value(self.valve_cmd_ch)
         assert value is None, (
             f"a click shorter than the activation delay must not actuate, got {value}"

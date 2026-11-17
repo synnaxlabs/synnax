@@ -76,9 +76,12 @@ class ExecutionClient:
         whose Driver reads NI devices.
         :param client: The client that finalizes test ranges. Required when
         conductor_range is set.
+        :raises ValueError: If conductor_range is set and client is not.
         :param timeout_grace: Seconds past its timeout a test has to finish before the
         client stops waiting on it.
         """
+        if conductor_range is not None and client is None:
+            raise ValueError("A conductor range needs a client to finalize test ranges")
         self._config_client = config_client
         self._cores = cores
         self._resources = resources
@@ -565,8 +568,7 @@ class ExecutionClient:
         )
 
     def _finalize_range(self, test_range: sy.Range) -> sy.Range:
-        if self._client is None:
-            raise RuntimeError("A conductor range needs a client to finalize")
+        assert self._client is not None
         self._client.ranges.set_end(test_range.key, sy.TimeStamp.now())
         return self._client.ranges.retrieve(key=test_range.key)
 

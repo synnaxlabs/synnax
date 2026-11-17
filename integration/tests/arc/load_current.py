@@ -75,7 +75,7 @@ class LoadCurrent(ArcCase):
         self.log("load_current crossed 50, wait timer should now be running")
 
         self.log("Phase 3: Asserting flag is still 1 (wait has not elapsed yet)...")
-        hold(500 * sy.TimeSpan.MILLISECOND)  # nothing may change
+        hold(500 * sy.TimeSpan.MILLISECOND, reason="nothing may change")
         self.wait_for_eq("flag", 1, timeout=0)
         self.log("flag remains 1 during wait period")
 

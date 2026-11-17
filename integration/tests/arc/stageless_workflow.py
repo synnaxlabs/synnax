@@ -111,7 +111,7 @@ class StagelessWorkflow(ArcCase):
             "wait{500ms} to elapse without advancing"
         )
         self.writer.write("sw_pressure", 10.0)
-        hold(1)  # nothing may change
+        hold(1, reason="nothing may change")
         a_value = self.read_tlm("sw_a")
         if a_value is None:
             self.fail(

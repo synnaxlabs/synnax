@@ -226,7 +226,7 @@ class EtherCATRead(ReadTaskCase[sy.ethercat.ReadTask]):
         self.log("Testing: Cycle counters advance")
         start = sy.TimeStamp.now()
         with self.tsk.run(timeout=self.COMMAND_TIMEOUT):
-            hold(self.COUNTER_DURATION)  # acquire for a fixed time
+            hold(self.COUNTER_DURATION, reason="acquire for a fixed time")
         for pos in STGS:
             counter = self.client.channels.retrieve(f"hitl_ethercat_bufcounter_{pos}")
             counts = counter.read(sy.TimeRange(start, sy.TimeStamp.MAX)).to_numpy()

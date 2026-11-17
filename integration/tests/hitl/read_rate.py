@@ -49,7 +49,7 @@ class ReadRateCase(ReadTaskCase[ReadTaskT]):
         with self.client.open_streamer(["sy_status_set"]) as statuses:
             with self.tsk.run():
                 started = sy.TimeStamp.now()
-                hold(_ACQUISITION_S)  # fixed sample window
+                hold(_ACQUISITION_S, reason="fixed sample window")
                 stopping = sy.TimeStamp.now()
             problems = self._read_until_stopped(statuses)
         stamps = (

@@ -228,7 +228,7 @@ class GrandFinale(SimulatorCase):
         self.log("Test 5 - Verify read sample counts")
 
         start_time = sy.TimeStamp.now()
-        hold(self.TASK_DURATION.seconds * 1.25)  # fixed sample window
+        hold(self.TASK_DURATION.seconds * 1.25, reason="fixed sample window")
         stack.close()
         end_time = sy.TimeStamp.now()
 

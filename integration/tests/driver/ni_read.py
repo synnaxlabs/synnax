@@ -223,7 +223,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
 
             # Capture pre-tare averages
             pre_start = sy.TimeStamp.now()
-            hold(0.5)  # fixed sample window
+            hold(0.5, reason="fixed sample window")
             pre_end = sy.TimeStamp.now()
             pre_tr = sy.TimeRange(pre_start, pre_end)
 
@@ -261,7 +261,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
 
             # Capture post-tare values
             post_start = sy.TimeStamp.now()
-            hold(0.5)  # fixed sample window
+            hold(0.5, reason="fixed sample window")
             post_end = sy.TimeStamp.now()
 
         post_tr = sy.TimeRange(post_start, post_end)

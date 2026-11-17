@@ -82,7 +82,7 @@ class WriterOpenCloseStress(TestCase):
                 )
 
             self.log(f"  [{ts}] OK latency={latency}")
-            hold(200 * sy.TimeSpan.MILLISECOND)  # probe interval
+            hold(200 * sy.TimeSpan.MILLISECOND, reason="probe interval")
 
         self._stop.set()
         for t in threads:
@@ -107,7 +107,7 @@ class WriterOpenCloseStress(TestCase):
                 if self._interval is not None:
                     remaining = self._interval - op_timer.elapsed()
                     if remaining > sy.TimeSpan(0):
-                        hold(remaining)  # paces the writes
+                        hold(remaining, reason="paces the writes")
         finally:
             client.close()
 

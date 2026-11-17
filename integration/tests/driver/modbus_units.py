@@ -139,7 +139,7 @@ class ModbusUnits(SimulatorCase):
                 assert res.registers == [2], (
                     f"The gateway should have 2 connections, got {res.registers[0]}"
                 )
-                hold(0.2)  # nothing may change
+                hold(0.2, reason="nothing may change")
 
     def test_silent_unit(self) -> None:
         self.log("Testing: A silent unit is demoted, and the others keep reading")

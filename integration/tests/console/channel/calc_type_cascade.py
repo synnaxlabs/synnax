@@ -222,7 +222,7 @@ class CalcTypeCascade(ConsoleCase):
             combined_ch.key,
             f"return f32({self.calcs['scaled']}) + {self.raw['reference']}",
         )
-        hold(2)  # checks that no error shows
+        hold(2, reason="checks that no error shows")
 
         notifs = self.console.notifications.check()
         error_notifs = [

@@ -213,7 +213,7 @@ def send_and_verify_commands(
                 ">>> Retrying command send and verify... "
                 f"({attempt + 1}/{max_attempts})"
             )
-            hold(2)  # retry backoff
+            hold(2, reason="retry backoff")
     raise AssertionError(
         f"{prefix}Failed to send and verify commands after "
         f"{max_attempts} attempts: {last_err}"
@@ -574,7 +574,7 @@ def collect_samples(
                     f"samples, last frame had {batch}"
                 )
     start = sy.TimeStamp.now()
-    hold(duration.seconds)  # fixed sample window
+    hold(duration.seconds, reason="fixed sample window")
     return start
 
 
@@ -904,7 +904,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                         "Task is not streaming data with data_saving disabled"
                     )
             start_time = sy.TimeStamp.now()
-            hold(duration.seconds * 1.25)  # fixed sample window
+            hold(duration.seconds * 1.25, reason="fixed sample window")
 
         end_time = sy.TimeStamp.now()
         time_range = sy.TimeRange(start_time, end_time)
