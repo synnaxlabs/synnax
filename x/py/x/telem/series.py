@@ -607,12 +607,8 @@ CrudeSample: TypeAlias = (
 )
 """A single sample that a Series can be built from."""
 
-type CrudeSeries = (
-    Series
-    | bytes
-    | pd.Series
-    | np.ndarray
-    | list[float]
+_CrudeSampleList: TypeAlias = (
+    list[float]
     | list[int]
     | list[bool]
     | list[str]
@@ -621,8 +617,29 @@ type CrudeSeries = (
     | list[uuid.UUID]
     | list[TimeStamp]
     | list[np.datetime64]
-    | CrudeSample
 )
+
+type CrudeSeries = (
+    Series | bytes | pd.Series | np.ndarray | _CrudeSampleList | CrudeSample
+)
+
+# Built from the aliases above, so it cannot drift from them. It does not read
+# CrudeSeries, because evaluating that alias loads pandas.
+_CRUDE_SAMPLE_TYPES: tuple[type, ...] = tuple(
+    {get_origin(t) or t for t in get_args(CrudeSample)}
+    | {get_origin(s) or s for t in get_args(_CrudeSampleList) for s in get_args(t)}
+)
+
+
+def is_crude_series(series: CrudeSeries | list[CrudeSeries]) -> TypeIs[CrudeSeries]:
+    """Returns whether series is one crude series rather than a list of them.
+
+    A list is one series when every element is a sample: a member of CrudeSample, or
+    an element type of a list member of CrudeSeries.
+    """
+    return not isinstance(series, list) or all(
+        isinstance(s, _CRUDE_SAMPLE_TYPES) for s in series
+    )
 
 
 def elapsed_seconds(d: npt.NDArray[np.int64]) -> npt.NDArray[np.float64]:

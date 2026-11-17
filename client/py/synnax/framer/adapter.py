@@ -7,12 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
 import warnings
 from collections.abc import Mapping
-from typing import Any, TypeIs
-
-import numpy as np
+from typing import Any
 
 import synnax.channel.payload as channel
 from synnax.channel.retrieve import (
@@ -23,6 +20,7 @@ from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
 from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K, is_dataframe
 from synnax.telem import CrudeSeries, DataType, LimitReduction, Reduction, Series
+from x.telem import is_crude_series
 
 
 class ReadFrameAdapter:
@@ -261,7 +259,7 @@ class WriteFrameAdapter:
                     """
                     )
 
-            if not _is_crude_series(series):
+            if not is_crude_series(series):
                 raise ValidationError(
                     f"""
                 Received a single channel {kind}
@@ -339,25 +337,3 @@ class WriteFrameAdapter:
         raise TypeError(
             f"""Cannot construct frame from {channels_or_data} and {series}"""
         )
-
-
-def _is_crude_series(
-    series: CrudeSeries | list[CrudeSeries],
-) -> TypeIs[CrudeSeries]:
-    """Returns whether series is one series: a single value, or a list of samples."""
-    return not isinstance(series, list) or all(
-        isinstance(s, _SAMPLE_TYPES) for s in series
-    )
-
-
-_SAMPLE_TYPES = (
-    np.number,
-    np.bool_,
-    np.datetime64,
-    str,
-    bytes,
-    uuid.UUID,
-    dict,
-    float,
-    int,
-)
