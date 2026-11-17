@@ -370,7 +370,7 @@ class StarterStopperMixin:
 
     @deprecate_positional("timeout")
     @contextmanager
-    def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
+    def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None]:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.

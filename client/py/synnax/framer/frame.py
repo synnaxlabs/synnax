@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
-from typing import TypeAlias, overload, override
+from typing import TypeAlias, TypeVar, overload, override
 
 import numpy as np
 import numpy.typing as npt
@@ -19,7 +19,6 @@ import pandas as pd
 from pandas import DataFrame
 from pandas.api.extensions import ExtensionDtype
 from pydantic import BaseModel, Field
-from typing_extensions import TypeVar
 
 import synnax.channel.payload as channel
 from synnax.exceptions import MultipleFoundError, ValidationError
