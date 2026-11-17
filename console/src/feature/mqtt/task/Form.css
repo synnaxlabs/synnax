@@ -9,7 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-task-configure--mqtt_read,
 .console-task-configure--mqtt_write {
     .console-panes {
         --console-list-width: 300px;
