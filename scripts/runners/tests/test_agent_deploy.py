@@ -300,11 +300,14 @@ class TestPublicAddress:
 
 
 class Switch(conftest.Writer):
+    def __init__(self, *, controller: "Controller", start: sy.TimeStamp) -> None:
+        super().__init__(client=controller, start=start)
+        self.controller = controller
+
     def write(self, frame: dict) -> None:
         super().write(frame)
-        controller = cast(Controller, self.client)
-        if not controller.deaf:
-            controller.state = frame[SCALER_CMD]
+        if not self.controller.deaf:
+            self.controller.state = frame[SCALER_CMD]
 
 
 class Controller(conftest.Client):
@@ -321,7 +324,7 @@ class Controller(conftest.Client):
     def open_writer(
         self, start: sy.TimeStamp, *args: object, **kwargs: object
     ) -> Switch:
-        return Switch(client=self, start=start)
+        return Switch(controller=self, start=start)
 
     def read(self, time_range: sy.TimeRange, name: str) -> list[bool]:
         return [] if self.state is None else [self.state]

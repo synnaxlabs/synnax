@@ -13,7 +13,6 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
 
 import numpy as np
 import psutil
@@ -39,7 +38,7 @@ from agent import (
     runner_name,
 )
 from agent_log import Log
-from gh_runner import Runner
+from gh_runner import Runner, Sink
 
 RUNNER = "ubuntu-build-bot-i-0f44"
 NAMES = {
@@ -62,10 +61,13 @@ def arguments(*, secure: bool = False, no_runner: bool = False) -> argparse.Name
 
 
 class Writer(conftest.Writer):
+    def __init__(self, *, core: "Core", start: sy.TimeStamp) -> None:
+        super().__init__(client=core, start=start)
+        self.core = core
+
     def write(self, frame: dict) -> None:
-        core = cast(Core, self.client)
-        if rejected := core.rejected & frame.keys():
-            core.rejected -= rejected
+        if rejected := self.core.rejected & frame.keys():
+            self.core.rejected -= rejected
             raise ConnectionError("Core unreachable")
         super().write(frame)
 
@@ -89,7 +91,7 @@ class Core(conftest.Client):
         self, start: sy.TimeStamp, *args: object, **kwargs: object
     ) -> Writer:
         self.writers += 1
-        return Writer(client=self, start=start)
+        return Writer(core=self, start=start)
 
     def close(self) -> None:
         self.closed = True
@@ -135,7 +137,7 @@ class Control:
         self.applied: list[tuple[bool, str]] = []
         self.listened: list[tuple[str, str]] = []
         self.sinks: list[object] = []
-        self.sink: object = None
+        self.sink: Sink | None = None
         self.ticks = 0
         self.listening = False
 
@@ -143,7 +145,7 @@ class Control:
         self.applied.append((enabled, why))
         self.state = enabled
 
-    def listen(self, client: object, name: str, state: str, sink: object) -> None:
+    def listen(self, client: object, name: str, state: str, sink: Sink) -> None:
         self.listened.append((name, state))
         self.sinks.append(sink)
         self.sink = sink
@@ -154,10 +156,6 @@ class Control:
 
     def stop_listening(self) -> None:
         self.listening = False
-
-
-def control(c: Control) -> Runner:
-    return cast(Runner, c)
 
 
 class Loop:
@@ -466,7 +464,7 @@ class TestConnect:
         monkeypatch.setattr(agent, "CONNECT_GRACE", sy.TimeSpan(0))
         cores(monkeypatch, ConnectionError("Core unreachable"), Core())
         c = Control()
-        connect(arguments(), NAMES, control(c), store)
+        connect(arguments(), NAMES, c, store)
         assert c.applied == [(True, "no Synnax")]
 
     def test_should_leave_a_runner_that_has_a_state(
@@ -476,7 +474,7 @@ class TestConnect:
         cores(monkeypatch, Core())
         c = Control()
         c.state = False
-        connect(arguments(), NAMES, control(c), store)
+        connect(arguments(), NAMES, c, store)
         assert c.applied == []
 
 
@@ -501,7 +499,9 @@ class TestRun:
         run(arguments(no_runner=True), NAMES, RUNNER, None, store)
         assert [sorted(f) for f in session.frames] == [sorted(USAGE)] * 2
         first, second = session.written(NAMES["index"])
-        assert cast(sy.TimeStamp, first) < cast(sy.TimeStamp, second)
+        assert isinstance(first, sy.TimeStamp)
+        assert isinstance(second, sy.TimeStamp)
+        assert first < second
         assert all(
             isinstance(f[NAMES[k]], np.float32)
             for f in session.frames
@@ -513,7 +513,7 @@ class TestRun:
         self, session: Core, store: Store
     ) -> None:
         c = Control()
-        run(arguments(), NAMES, RUNNER, control(c), store)
+        run(arguments(), NAMES, RUNNER, c, store)
         assert c.listened == [(NAMES["cmd"], NAMES["state"])]
         assert c.ticks == 2
         assert not c.listening
@@ -548,7 +548,7 @@ class TestRun:
     ) -> None:
         session.rejected = {NAMES["log"]}
         c = Control()
-        run(arguments(), NAMES, RUNNER, control(c), store)
+        run(arguments(), NAMES, RUNNER, c, store)
         assert session.written(NAMES["log"]) == [["[agent] agent connected"]]
         assert isinstance(c.sink, Log)
         assert c.sink is not c.sinks[0]
