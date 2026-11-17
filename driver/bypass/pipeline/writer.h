@@ -14,8 +14,6 @@
 
 #include "absl/log/log.h"
 
-#include "client/cpp/errors/errors.h"
-
 #include "driver/bypass/bypass.h"
 #include "driver/bypass/pipeline/forwarder.h"
 #include "driver/control/state.h"
@@ -35,8 +33,8 @@ class Writer final : public ::driver::pipeline::Writer {
     std::shared_ptr<std::atomic<size_t>> carried_drops;
 
 public:
-    /// @param carried_drops receives the drop count on close when the acquisition
-    /// pipeline reopens after the close error, and 0 otherwise. May be null.
+    /// @param carried_drops receives the drop count on close, for a writer that the
+    /// acquisition pipeline reopens in the same run. May be null.
     Writer(
         std::unique_ptr<Forwarder> forwarder,
         std::shared_ptr<Bus> bus,
@@ -94,11 +92,7 @@ public:
     [[nodiscard]] x::errors::Error close() override {
         auto err = this->forwarder->close();
         if (this->carried_drops != nullptr)
-            this->carried_drops->store(
-                synnax::errors::is_temporarily_unavailable(err)
-                    ? this->forwarder->dropped()
-                    : 0
-            );
+            this->carried_drops->store(this->forwarder->dropped());
         return err;
     }
 };
@@ -132,6 +126,9 @@ public:
         group(group),
         forwarder(std::move(forwarder)) {}
 
+    /// @brief starts the drop count of the run at 0.
+    void begin_run() override { this->carried_drops->store(0); }
+
     std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) override {
         auto cfg = config;
@@ -140,11 +137,7 @@ public:
         auto forwarder_cfg = this->forwarder;
         forwarder_cfg.dropped = this->carried_drops->load();
         auto forwarder = std::make_unique<Forwarder>(this->server, cfg, forwarder_cfg);
-        if (auto err = forwarder->opened()) {
-            if (!synnax::errors::is_temporarily_unavailable(err))
-                this->carried_drops->store(0);
-            return {nullptr, err};
-        }
+        if (auto err = forwarder->opened()) return {nullptr, err};
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
                 << " channels, group=" << this->group;
         return {

@@ -598,4 +598,50 @@ TEST(WriterTest, CarriesDropsAcrossAReopen) {
     for (size_t i = before; i < warnings->size(); i++)
         EXPECT_EQ(warnings->at(i), dropped);
 }
+
+/// @brief it should start the drop count of a new run at 0, even when the last run
+/// stopped with a close error that the pipeline retries.
+TEST(WriterTest, StartsEachRunWithNoDrops) {
+    constexpr size_t outage_opens = 20;
+    std::vector<x::errors::Error> close_errors(outage_opens, x::errors::NIL);
+    close_errors.push_back(synnax::errors::LICENSE_MISSING);
+    const auto server = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>(outage_opens, freighter::UNREACHABLE),
+        close_errors
+    );
+    using Warnings = x::sync::List<std::pair<std::string, std::string>>;
+    const auto warnings = std::make_shared<Warnings>();
+    constexpr size_t frame_size = FRAME_OVERHEAD + SERIES_OVERHEAD + sizeof(uint64_t);
+    auto pipeline = ::driver::pipeline::Acquisition(
+        std::make_shared<WriterFactory>(
+            server,
+            std::make_shared<Bus>(),
+            std::make_shared<control::States>(),
+            0,
+            ForwarderConfig{
+                .max_queue_bytes = 2 * frame_size,
+                .warn = [warnings](
+                            const std::string &message,
+                            const std::string &description
+                        ) { warnings->push_back({message, description}); },
+                .breaker = {.base_interval = x::telem::MILLISECOND},
+            }
+        ),
+        synnax::framer::WriterConfig{.channels = {1}},
+        std::make_shared<CountingSource>(),
+        x::breaker::Config{.base_interval = x::telem::MICROSECOND * 10}
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(server->writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(warnings->at(warnings->size() - 1).first, "Dropped frames");
+    const auto first_run = warnings->size();
+    const auto writes = server->writes->size();
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(server->writes->size(), writes + 10);
+    ASSERT_TRUE(pipeline.stop());
+    for (size_t i = first_run; i < warnings->size(); i++)
+        EXPECT_NE(warnings->at(i).first, "Dropped frames");
+}
 }
