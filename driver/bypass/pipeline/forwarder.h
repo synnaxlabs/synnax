@@ -9,10 +9,13 @@
 
 #pragma once
 
+#include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <variant>
 #include <vector>
@@ -42,11 +45,21 @@ constexpr size_t SERIES_OVERHEAD = sizeof(x::telem::Series) +
 constexpr size_t AUTHORITIES_OVERHEAD = sizeof(::driver::pipeline::Authorities) +
                                         2 * ALLOCATION_OVERHEAD;
 
+/// @brief shows a warning on a task status, or stops showing it when message is empty.
+using Warn = std::function<
+    void(const std::string &message, const std::string &description)>;
+
 /// @brief configures a Forwarder.
 struct ForwarderConfig {
     /// @brief the most bytes that queued frames and authority changes hold, overhead
-    /// included. A write past it drops its frame and counts it.
+    /// included. A write past it drops its frame, the newest one, and counts it.
     size_t max_queue_bytes = size_t{64} * 1024 * 1024;
+    /// @brief the shortest time between two reports of a new drop count.
+    x::telem::TimeSpan drop_report_interval = 5 * x::telem::SECOND;
+    /// @brief warns when the queue passes half its cap, until it drains below a
+    /// quarter. Once a frame drops, it reports the drop count instead until the
+    /// forwarder closes. Called from the forwarder thread only.
+    Warn warn;
     /// @brief backs off from an unreachable Core, with no retry limit.
     x::breaker::Config breaker{
         .name = "forwarder",
@@ -67,7 +80,15 @@ class Forwarder {
     std::shared_ptr<::driver::pipeline::WriterFactory> server;
     synnax::framer::WriterConfig config;
     const size_t max_queue_bytes;
+    const std::chrono::nanoseconds drop_report_interval;
+    const Warn warn;
     x::breaker::Breaker breaker;
+
+    // Only the forwarder thread touches these.
+    bool lagging = false;
+    std::string shown_message;
+    std::string shown_description;
+    std::chrono::steady_clock::time_point drops_shown_at;
 
     std::mutex mu;
     std::condition_variable cv;
@@ -102,6 +123,51 @@ class Forwarder {
         for (const auto &s: *fr->series)
             size += SERIES_OVERHEAD + s.byte_size();
         return size;
+    }
+
+    void show(const std::string &message, const std::string &description) {
+        if (message == this->shown_message && description == this->shown_description)
+            return;
+        this->shown_message = message;
+        this->shown_description = description;
+        this->warn(message, description);
+    }
+
+    /// @brief shows on the task status whether the queue lags or drops frames.
+    void report() {
+        if (!this->warn) return;
+        size_t bytes;
+        size_t dropped;
+        {
+            std::lock_guard lock(this->mu);
+            bytes = this->queue_bytes;
+            dropped = this->dropped_frames;
+        }
+        if (bytes * 2 >= this->max_queue_bytes)
+            this->lagging = true;
+        else if (bytes * 4 < this->max_queue_bytes)
+            this->lagging = false;
+        if (dropped > 0) {
+            const auto now = std::chrono::steady_clock::now();
+            if (this->shown_message == "Dropped frames" &&
+                now - this->drops_shown_at < this->drop_report_interval)
+                return;
+            this->drops_shown_at = now;
+            return this->show(
+                "Dropped frames",
+                "Dropped " + std::to_string(dropped) +
+                    (dropped == 1 ? " frame" : " frames") +
+                    " because the Core could not take them fast enough."
+            );
+        }
+        if (!this->lagging) return this->show("", "");
+        const auto mb = this->max_queue_bytes / (1024 * 1024);
+        this->show(
+            "Falling behind the Core",
+            "More than " + std::to_string(mb / 2) +
+                " MB of frames wait for the Core. Frames drop when " +
+                std::to_string(mb) + " MB wait."
+        );
     }
 
     /// @brief waits for an op, or returns false once closing leaves none.
@@ -170,8 +236,12 @@ class Forwarder {
     }
 
     void run() {
-        x::defer::defer settle([this] { this->settle(); });
+        x::defer::defer settle([this] {
+            this->settle();
+            if (this->warn) this->show("", "");
+        });
         while (true) {
+            this->report();
             auto [writer, open_err] = this->server->open_writer(this->config);
             if (open_err) {
                 if (this->wait(open_err)) continue;
@@ -184,6 +254,7 @@ class Forwarder {
             while (this->next(op)) {
                 if (op_err = this->apply(*writer, op); op_err) break;
                 this->pop();
+                this->report();
             }
             const auto close_err = writer->close();
             const auto err = close_err ? close_err : op_err;
@@ -201,6 +272,8 @@ public:
         server(std::move(server)),
         config(std::move(config)),
         max_queue_bytes(cfg.max_queue_bytes),
+        drop_report_interval(cfg.drop_report_interval.chrono()),
+        warn(cfg.warn),
         breaker(cfg.breaker) {
         this->breaker.start();
         this->thread = std::thread([this] { this->run(); });
@@ -220,8 +293,9 @@ public:
         return this->err;
     }
 
-    /// @brief queues fr for the Core. Drops and counts it when the queue is full. A
-    /// frame larger than the cap goes through when the queue is empty.
+    /// @brief queues fr for the Core. Drops and counts it when the queue is full, and
+    /// never waits on the Core. A frame larger than the cap goes through when the queue
+    /// is empty.
     /// @returns the Core error that stopped the forwarder, if any.
     x::errors::Error write(const x::telem::Frame &fr) {
         std::lock_guard lock(this->mu);

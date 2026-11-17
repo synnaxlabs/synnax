@@ -18,8 +18,10 @@
 #include "writer.h"
 
 namespace driver::bypass::pipeline {
+/// @brief creates the writer factory of a task. warn shows Core delivery warnings on
+/// the task status.
 inline std::shared_ptr<::driver::pipeline::WriterFactory>
-create_writer_factory(const std::shared_ptr<task::Context> &ctx) {
+create_writer_factory(const std::shared_ptr<task::Context> &ctx, Warn warn = nullptr) {
     auto factory = std::make_shared<::driver::pipeline::SynnaxWriterFactory>(
         ctx->client
     );
@@ -33,7 +35,8 @@ create_writer_factory(const std::shared_ptr<task::Context> &ctx) {
         factory,
         ctx->bus(),
         ctx->control_states(),
-        ctx->rack_key()
+        ctx->rack_key(),
+        ForwarderConfig{.warn = std::move(warn)}
     );
 }
 
