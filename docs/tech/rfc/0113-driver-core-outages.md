@@ -92,9 +92,14 @@ an unreachable Core never ends `read`.
 (`driver/rack/state.h:17-28`), capped at 10 GB by default in the Driver config. A full
 spool refuses new frames and counts them, so each segment stays contiguous. A segment
 holds one forwarder's outage: the cluster key, the channels and subject, and the frames
-as length-prefixed `pb::Frame` (`x/cpp/telem/frame.h:185`). The forwarder spools
+as `pb::Frame` records (`x/cpp/telem/frame.h:185`). The forwarder spools
 `states->filter(fr, subject)`, the frame the bus publishes, and drops virtual calculated
 channels (`core/pkg/service/channel/writer.go:407-408`).
+
+The spool and the outbox (§3.4) share one file format, `journal` (NEW). A file starts
+with a magic for its kind, a format version, and flags. Each record has a length, a
+CRC-32C, a type, and a protobuf payload that the Driver owns, and a writer syncs to disk
+each second or each megabyte.
 
 The spool's own drainer thread sends segments whenever the Core is reachable, so a
 segment survives its task stopping, a config change, a second outage, and a restart. For
@@ -114,9 +119,10 @@ with a count of the frames it knows were unsent, a lower bound.
 ### 3.4 Arc statuses and ranges
 
 `outbox::Outbox` (NEW) is a queue of Core calls on disk next to the spool, stored as
-length-prefixed request protos and sent in order by one thread. It holds 10,000 calls.
-Unlike `task::StatusCache` (`driver/task/status_cache.cpp:32-69`), which keeps the
-latest status per task, it keeps every call, so the Core sees what happened.
+request proto records in the journal format (§3.3) and sent in order by one thread. It
+holds 10,000 calls. Unlike `task::StatusCache` (`driver/task/status_cache.cpp:32-69`),
+which keeps the latest status per task, it keeps every call, so the Core sees what
+happened.
 
 - **`status.set`**: The node stamps the time, queues the call, and never blocks. It
   returns the key of the last resolved set of that name, or an empty string before the
@@ -158,7 +164,9 @@ the install steps of RFC 0102 §3.5 for a Driver that cannot update itself. This
 RFC 0102 decision 12: a Driver that keeps away from a newer Core cannot misread it.
 Between sequences, the operator restarts the Driver service or pod, it updates at that
 connect (RFC 0102 §3.5), and the new Driver drains the spool and outbox. Both files
-start with a format version, and a Driver reads every version a stable release wrote.
+start with a magic and a format version, and a Driver reads every version a stable
+release wrote. A reader skips an unknown record type only when the type is marked
+skippable.
 
 ### 3.7 Operators during an outage
 
