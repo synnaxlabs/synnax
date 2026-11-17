@@ -1383,3 +1383,31 @@ class TestPandasLoading:
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "False"
+
+
+@pytest.mark.series
+class TestIsCrudeSeries:
+    def test_scalar(self) -> None:
+        """Should treat a single sample as one series"""
+        assert telem.is_crude_series(1.0)
+
+    def test_list_of_samples(self) -> None:
+        """Should treat a list of samples as one series"""
+        assert telem.is_crude_series([1, 2, 3])
+
+    def test_numpy_array(self) -> None:
+        """Should treat a numpy array as one series"""
+        assert telem.is_crude_series(np.array([1, 2, 3], dtype=np.int32))
+
+    def test_series(self) -> None:
+        """Should treat a Series as one series"""
+        assert telem.is_crude_series(telem.Series([1.0, 2.0]))
+
+    def test_list_of_series(self) -> None:
+        """Should not treat a list of series as one series"""
+        series: list[telem.CrudeSeries] = [telem.Series([1.0]), telem.Series([2.0])]
+        assert not telem.is_crude_series(series)
+
+    def test_empty_list(self) -> None:
+        """Should treat an empty list as one empty series"""
+        assert telem.is_crude_series([])

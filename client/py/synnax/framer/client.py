@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Mapping, Sequence
-from typing import TypeAlias, cast, overload
+from typing import TypeAlias, overload
 
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
@@ -229,10 +229,9 @@ class Client:
     ) -> None:
         parsed_channels: channel.Params
         if isinstance(channels, Mapping):
-            # normalize_params rejects a mix of keys and names
-            parsed_channels = cast(channel.Params, list(channels.keys()))
+            parsed_channels = _params(list(channels.keys()))
         elif isinstance(channels, Frame):
-            parsed_channels = cast(channel.Params, channels.channels)
+            parsed_channels = _params(channels.channels)
         elif isinstance(channels, FramePayload):
             parsed_channels = channels.keys
         elif is_dataframe(channels):
@@ -465,3 +464,18 @@ class Client:
         :param tr: time range to delete data from.
         """
         self._deleter.delete(channels, tr)
+
+
+def _params(
+    channels: Sequence[channel.Key | str | channel.Payload],
+) -> channel.Params:
+    keys = [c for c in channels if isinstance(c, channel.Key)]
+    if len(keys) == len(channels):
+        return keys
+    names = [c for c in channels if isinstance(c, str)]
+    if len(names) == len(channels):
+        return names
+    payloads = [c for c in channels if isinstance(c, channel.Payload)]
+    if len(payloads) == len(channels):
+        return payloads
+    raise TypeError("channel params must be all keys or all names, got a mix of both")

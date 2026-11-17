@@ -636,6 +636,16 @@ class TestWriteFrameAdapter:
             series: list[CrudeSeries] = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
             write_adapter.adapt(ch, series)
 
+    def test_adaptation_of_one_series_in_a_list_and_single_payload(
+        self, adapter: tuple[WriteFrameAdapter, sy.Channel]
+    ) -> None:
+        """Should raise a validation error when one channel gets a list holding a
+        series"""
+        write_adapter, ch = adapter
+        series: list[CrudeSeries] = [sy.Series([1.0, 2.0])]
+        with pytest.raises(sy.ValidationError):
+            write_adapter.adapt(ch, series)
+
     def test_adaptation_of_single_channel_and_no_data(
         self, adapter: tuple[WriteFrameAdapter, sy.Channel]
     ) -> None:
@@ -712,6 +722,19 @@ class TestWriteFrameAdapter:
         adapter.update(ch.name)
         adapted = adapter.adapt(ch.name, "hello")
         assert adapted[ch.key][0] == "hello"
+
+    def test_adapt_list_of_strings_to_single_channel(self, client: sy.Synnax) -> None:
+        """Should adapt a list of strings for one channel into one string series"""
+        ch = client.channels.create(
+            name=f"test_{random_name()}",
+            virtual=True,
+            data_type=sy.DataType.STRING,
+        )
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
+        adapter.update(ch.name)
+        adapted = adapter.adapt(ch.name, ["hello", "world"])
+        assert adapted.channels == [ch.key]
+        assert list(adapted[ch.key]) == ["hello", "world"]
 
 
 @pytest.mark.framer
