@@ -10,6 +10,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -81,8 +82,15 @@ struct WriterConfig {
     x::telem::TimeSpan sync_interval = x::telem::SECOND;
     /// @brief the number of written bytes that starts a sync.
     std::uint64_t sync_bytes = 1000000;
-    /// @brief the clock that times syncs.
-    x::telem::NowFunc now = x::telem::TimeStamp::now;
+    /// @brief the monotonic clock that times syncs.
+    x::telem::NowFunc now = [] {
+        return x::telem::TimeStamp(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()
+            )
+                .count()
+        );
+    };
     /// @brief gets the result of each sync of the file and returns the result the
     /// writer uses.
     std::function<x::errors::Error(const x::errors::Error &)> on_sync =
@@ -91,7 +99,7 @@ struct WriterConfig {
 
 /// @brief appends records to one file. The writer syncs the file to the disk when
 /// sync_interval passed or sync_bytes were written since the last sync, and on close.
-/// It checks both only in write and sync. Not safe for concurrent use.
+/// It checks both only in write and sync_if_due. Not safe for concurrent use.
 class Writer {
     WriterConfig cfg;
     std::unique_ptr<File> file;
@@ -112,19 +120,21 @@ public:
     /// @brief closes the writer and drops the error of close.
     ~Writer();
 
-    /// @brief opens the file of the config, or creates it with only a file start,
-    /// and locks the file. The writer cuts an existing file at its first record that
-    /// is cut off or fails its checksum, and appends after the records before it.
+    /// @brief locks the file of the config, and creates it with only a file start
+    /// when it is shorter than a file start. The writer cuts the file at its first
+    /// record that is cut off or fails its checksum, also in the middle of the file,
+    /// and appends after the records before it. cut() reports the bytes it cut.
     /// @returns LOCKED when another writer has the file open. UNKNOWN_MAGIC or
     /// UNKNOWN_VERSION when the file start is not one this writer writes. CORRUPT
-    /// when the file start is cut off, or a record that passes its checksum has type
-    /// 0.
+    /// when a record that passes its checksum has type 0.
     static std::pair<std::unique_ptr<Writer>, x::errors::Error> open(WriterConfig cfg);
 
     /// @brief appends a record, and syncs the file when a sync is due.
     /// @returns an error when the file fails to write or sync. Then the writer
     /// refuses all later writes. After a sync error, records written before it can be
-    /// lost.
+    /// lost from the disk while the OS cache still shows them, so a writer opened
+    /// again in the same process can keep them. Open the file again only after a
+    /// restart.
     x::errors::Error write(const Record &record);
 
     /// @brief syncs the file when a sync is due. Call it when no writes come, so the
@@ -182,8 +192,9 @@ public:
     static std::pair<std::unique_ptr<Reader>, x::errors::Error> open(ReaderConfig cfg);
 
     /// @brief reads the next record. The first record that is cut off or fails its
-    /// checksum ends the file, as a crash or a power loss leaves it. cut() then
-    /// returns the number of bytes from that record to the end of the file.
+    /// checksum ends the file, as a crash or a power loss leaves it. A damaged record
+    /// in the middle of the file also ends it, and the records after it are lost.
+    /// cut() then returns the number of bytes from that record to the end of the file.
     /// @returns the record, or std::nullopt at the end of the file. CORRUPT when a
     /// record that passes its checksum has type 0. UNKNOWN_TYPE when a record has an
     /// unknown type without the SKIPPABLE bit.
