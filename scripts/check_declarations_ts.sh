@@ -11,9 +11,9 @@
 
 # Usage: check_declarations_ts.sh <package> <directory>
 #
-# Type-checks the declaration files of @synnaxlabs/<package>, installed in <directory>
-# by pack_ts.sh, as a strict consumer with skipLibCheck off sees them. It checks once
-# with the bundler module resolution and once with nodenext.
+# Type-checks the declaration files of each entry point of @synnaxlabs/<package>,
+# installed in <directory> by pack_ts.sh, as a strict consumer with skipLibCheck off
+# sees them. It checks once with the bundler module resolution and once with nodenext.
 
 set -euo pipefail
 
@@ -21,11 +21,26 @@ package=$1
 work=$(cd "$2" && pwd)
 repo=$(cd "$(dirname "$0")/.." && pwd)
 
-cat > "$work/index.ts" << EOF
-import * as pkg from "@synnaxlabs/$package";
+manifest=$work/node_modules/@synnaxlabs/$package/package.json
 
-export const value = pkg;
-EOF
+# The testutil entry points need the optional peers, such as vitest.
+read -ra peers < <(node -e '
+const peers = require(process.argv[1]).peerDependencies ?? {};
+console.log(Object.entries(peers).map(([name, range]) => name + "@" + range).join(" "));
+' "$manifest")
+if [ ${#peers[@]} -gt 0 ]; then
+    pnpm --dir "$work" add --reporter=silent "${peers[@]}"
+fi
+
+# Wildcard exports such as ./dist/* name files, not entry points.
+node -e '
+const [manifest, name] = process.argv.slice(1);
+Object.keys(require(manifest).exports)
+  .filter((key) => !key.includes("*"))
+  .forEach((key, i) =>
+    console.log("export * as e" + i + " from " + JSON.stringify(name + key.slice(1))),
+  );
+' "$manifest" "@synnaxlabs/$package" > "$work/index.ts"
 for resolution in bundler nodenext; do
     module=$([ "$resolution" = bundler ] && echo esnext || echo nodenext)
     cat > "$work/tsconfig.json" << EOF
