@@ -49,7 +49,6 @@ class States {
     /// @brief local writers whose Core writer is open.
     std::unordered_set<std::string> on_core;
     std::uint64_t next_order = 0;
-    std::uint64_t disconnects = 0;
     bool connected = true;
 
     [[nodiscard]] bool local(const x::control::Subject &subject) const {
@@ -134,13 +133,10 @@ public:
     /// @brief marks the Core as lost, so local gates hand channels to each other until
     /// the next set. A channel that a local writer holds, or held before it closed,
     /// goes to the local gate that the Core's rule picks. A holder the Core reported
-    /// stays. Each local writer then reopens on the Core, so it waits for the Core's
-    /// transfers again only after it opens on the Core that follows.
+    /// stays.
     void disconnect() {
         std::unique_lock lock(this->mu);
         this->connected = false;
-        this->disconnects++;
-        this->on_core.clear();
         std::vector<synnax::channel::Key> stale;
         for (const auto &[channel, state]: this->states)
             if (this->gates.contains(state.subject.key) ||
@@ -152,43 +148,35 @@ public:
         for (const auto channel: stale)
             this->recompute(channel);
         this->closed.clear();
-        for (const auto &[_, g]: this->gates)
-            if (g.reopen) g.reopen();
-    }
-
-    /// @brief returns a count that changes on each disconnect, for set_reopen.
-    [[nodiscard]] std::uint64_t epoch() const {
-        std::shared_lock lock(this->mu);
-        return this->disconnects;
-    }
-
-    /// @brief sets the function that reopens the Core writer of subject on each
-    /// disconnect, until its gate closes. Calls it at once when a disconnect ran after
-    /// since, an epoch read before the writer first opened. reopen runs under the lock
-    /// of States, so it must not call back into States.
-    void set_reopen(
-        const x::control::Subject &subject,
-        const std::uint64_t since,
-        std::function<void()> reopen
-    ) {
-        std::unique_lock lock(this->mu);
-        const auto it = this->gates.find(subject.key);
-        if (it == this->gates.end()) return;
-        it->second.reopen = std::move(reopen);
-        if (this->disconnects != since) it->second.reopen();
     }
 
     /// @brief replaces the mirror with the cluster's complete control state and marks
     /// the Core as connected. A channel the Core reports as uncontrolled goes to its
     /// local gates, so a local writer that has not reopened on the Core yet keeps its
-    /// channels. Such a writer keeps the local rule until opened_on_core.
+    /// channels. Such a writer keeps the local rule until opened_on_core. A writer
+    /// open on the Core that held a channel the Core no longer gives it lost its Core
+    /// writer to a restart, so it keeps the local rule and reopens.
     void set(const std::vector<x::control::State<synnax::channel::Key>> &next) {
         std::unique_lock lock(this->mu);
         this->connected = true;
         this->closed.clear();
+        const auto prev = std::move(this->states);
         this->states.clear();
         for (const auto &state: next)
             this->states[state.resource] = state;
+        for (auto &[key, g]: this->gates) {
+            if (!this->on_core.contains(key)) continue;
+            for (const auto &[channel, _]: g.authorities) {
+                const auto was = prev.find(channel);
+                if (was == prev.end() || was->second.subject != g.subject) continue;
+                const auto now = this->states.find(channel);
+                if (now != this->states.end() && now->second.subject == g.subject)
+                    continue;
+                this->on_core.erase(key);
+                if (g.reopen) g.reopen();
+                break;
+            }
+        }
         for (const auto &[_, g]: this->gates)
             for (const auto &[channel, _]: g.authorities)
                 if (!this->states.contains(channel)) this->recompute(channel);
@@ -226,12 +214,17 @@ public:
 
     /// @brief opens a gate for a local writer with the authorities it opens with, one
     /// for all channels or one per channel. An empty list means absolute authority.
+    /// @param reopen reopens the writer's Core writer when set finds that the Core
+    /// forgot it. It runs under the lock of States, so it must not call back into
+    /// States.
     void open_gate(
         const x::control::Subject &subject,
         const std::vector<synnax::channel::Key> &channels,
-        const std::vector<x::control::Authority> &authorities
+        const std::vector<x::control::Authority> &authorities,
+        std::function<void()> reopen = nullptr
     ) {
         std::unique_lock lock(this->mu);
+        if (reopen != nullptr) this->gate(subject).reopen = std::move(reopen);
         for (size_t i = 0; i < channels.size(); i++) {
             auto auth = x::control::AUTHORITY_ABSOLUTE;
             if (authorities.size() == 1)
