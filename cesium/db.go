@@ -165,8 +165,7 @@ const (
 // ctx ends. It then waits for them to stop and returns the first error that either
 // returned. Writes block once the relay buffer fills while Run is not running, and
 // streamers do not start. Call Run once, after Open and before Close. A second Run
-// returns an error wrapping resource.ErrOpen, and a Run after Close returns
-// ErrDBClosed.
+// returns an error, and a Run after Close returns ErrDBClosed.
 func (db *DB) Run(ctx context.Context) error {
 	db.lifecycle.Lock()
 	if db.closed.Load() {
@@ -175,7 +174,7 @@ func (db *DB) Run(ctx context.Context) error {
 	}
 	if db.lifecycle.state != runIdle {
 		db.lifecycle.Unlock()
-		return errors.Wrap(resource.ErrOpen, "run called twice")
+		return errors.New("run called twice")
 	}
 	db.lifecycle.state = runRunning
 	db.lifecycle.Unlock()
