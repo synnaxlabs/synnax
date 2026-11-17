@@ -19,17 +19,35 @@ namespace driver::journal {
 namespace {
 x::errors::Error last_error(const std::string &msg) {
     const auto code = static_cast<int>(GetLastError());
-    return x::errors::Error(ERROR, msg + ": " + std::system_category().message(code));
+    return x::errors::Error(
+        BASE_ERROR,
+        msg + ": " + std::system_category().message(code)
+    );
 }
 
 HANDLE to_handle(const std::intptr_t handle) {
     return reinterpret_cast<HANDLE>(handle);
+}
+
+/// @brief the lock covers one byte far past the data, so it does not block reads.
+OVERLAPPED lock_range() {
+    OVERLAPPED overlapped{};
+    overlapped.Offset = MAXDWORD;
+    overlapped.OffsetHigh = 0x7FFFFFFF;
+    return overlapped;
+}
+
+bool seek_end(const HANDLE h) {
+    return SetFilePointerEx(h, LARGE_INTEGER{}, nullptr, FILE_END) != 0;
 }
 }
 
 File::File(const std::intptr_t handle): handle(handle) {}
 
 File::~File() {
+    // Windows releases the lock of a closed handle only after a delay.
+    auto overlapped = lock_range();
+    UnlockFileEx(to_handle(this->handle), 0, 1, 0, &overlapped);
     CloseHandle(to_handle(this->handle));
 }
 
@@ -47,7 +65,7 @@ File::open(const std::filesystem::path &path) {
     );
     if (h == INVALID_HANDLE_VALUE)
         return {nullptr, last_error("failed to open " + path.string())};
-    if (!SetFilePointerEx(h, LARGE_INTEGER{}, nullptr, FILE_END)) {
+    if (!seek_end(h)) {
         auto err = last_error("failed to seek " + path.string());
         CloseHandle(h);
         return {nullptr, err};
@@ -71,19 +89,29 @@ x::errors::Error File::write(std::string_view data) const {
     return x::errors::NIL;
 }
 
+x::errors::Error File::truncate(const std::uint64_t size) const {
+    FILE_END_OF_FILE_INFO info{};
+    info.EndOfFile.QuadPart = static_cast<LONGLONG>(size);
+    const auto h = to_handle(this->handle);
+    if (!SetFileInformationByHandle(h, FileEndOfFileInfo, &info, sizeof(info)) ||
+        !seek_end(h))
+        return last_error("failed to truncate");
+    return x::errors::NIL;
+}
+
 x::errors::Error File::sync() const {
     if (!FlushFileBuffers(to_handle(this->handle))) return last_error("failed to sync");
     return x::errors::NIL;
 }
 
 x::errors::Error File::lock() const {
-    OVERLAPPED overlapped{};
+    auto overlapped = lock_range();
     if (LockFileEx(
             to_handle(this->handle),
             LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
             0,
-            MAXDWORD,
-            MAXDWORD,
+            1,
+            0,
             &overlapped
         ))
         return x::errors::NIL;
@@ -91,7 +119,6 @@ x::errors::Error File::lock() const {
     return last_error("failed to lock");
 }
 
-/// @brief Windows has no directory sync. replace writes through instead.
 x::errors::Error sync_dir(const std::filesystem::path &) {
     return x::errors::NIL;
 }

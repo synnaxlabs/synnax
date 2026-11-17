@@ -21,16 +21,20 @@
 namespace driver::journal {
 namespace {
 x::errors::Error errno_error(const std::string &msg) {
-    return x::errors::Error(ERROR, msg + ": " + std::generic_category().message(errno));
+    return x::errors::Error(
+        BASE_ERROR,
+        msg + ": " + std::generic_category().message(errno)
+    );
 }
 
-/// @brief fsync on macOS does not flush the drive cache, so it needs F_FULLFSYNC.
+/// @brief fsync on macOS does not flush the drive cache, so it needs F_FULLFSYNC. Some
+/// file systems do not support F_FULLFSYNC, and only get fsync.
 int full_sync(const int fd) {
 #ifdef __APPLE__
-    return fcntl(fd, F_FULLFSYNC);
-#else
-    return fsync(fd);
+    if (fcntl(fd, F_FULLFSYNC) == 0) return 0;
+    if (errno != ENOTSUP && errno != EINVAL && errno != ENOTTY) return -1;
 #endif
+    return fsync(fd);
 }
 }
 
@@ -62,6 +66,12 @@ x::errors::Error File::write(std::string_view data) const {
         if (n < 0) return errno_error("failed to write");
         data.remove_prefix(static_cast<std::size_t>(n));
     }
+    return x::errors::NIL;
+}
+
+x::errors::Error File::truncate(const std::uint64_t size) const {
+    if (ftruncate(static_cast<int>(this->handle), static_cast<off_t>(size)) != 0)
+        return errno_error("failed to truncate");
     return x::errors::NIL;
 }
 
