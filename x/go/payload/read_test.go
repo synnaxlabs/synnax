@@ -266,6 +266,36 @@ var _ = Describe("Read", func() {
 		})
 
 		DescribeTable(
+			"should accept a value at the edge of the width",
+			func(r payload.Read, dt telem.DataType) {
+				Expect(r.Check(dt, false)).To(Succeed())
+			},
+			Entry(
+				"int8 at its maximum",
+				payload.FromInteger(
+					payload.IntegerRead{Fill: new(payload.Integer(127))},
+				),
+				telem.Int8T,
+			),
+			Entry("int8 at its minimum",
+				payload.FromInteger(payload.IntegerRead{
+					Fill: new(payload.Integer(-128)),
+				}),
+				telem.Int8T),
+			Entry("uint16 at its maximum",
+				payload.FromUnsigned(payload.UnsignedRead{
+					Fill: new(payload.Unsigned(65535)),
+				}),
+				telem.Uint16T),
+			Entry("uint64 at its maximum",
+				payload.FromUnsigned(payload.UnsignedRead{
+					Fill: new(payload.Unsigned(math.MaxUint64)),
+				}),
+				telem.Uint64T),
+			Entry("a NaN on float32", floatRead(&nan), telem.Float32T),
+		)
+
+		DescribeTable(
 			"should reject a field that does not agree with its channel",
 			func(r payload.Read, dt telem.DataType, index bool, msg string) {
 				Expect(r.Check(dt, index)).To(SatisfyAll(
@@ -286,6 +316,14 @@ var _ = Describe("Read", func() {
 					Fill: new(payload.Unsigned(70000)),
 				}), telem.Uint16T, false,
 				"fill: 70000 does not fit uint16"),
+			Entry("a fill past the int8 minimum",
+				payload.FromInteger(payload.IntegerRead{
+					Fill: new(payload.Integer(-129)),
+				}), telem.Int8T, false,
+				"fill: -129 does not fit int8"),
+			Entry("a fill past the range of float32",
+				floatRead(new(payload.Float(1e39))), telem.Float32T, false,
+				"fill: 1e+39 does not fit float32"),
 			Entry("a fill on an index channel",
 				payload.Read{
 					Kind: payload.KindTimestamp,
@@ -384,6 +422,31 @@ var _ = Describe("Read", func() {
 			},
 			Entry("float", floatRead(new(payload.Float(1.5))), telem.Float32T,
 				telem.NewSeriesV[float32](1.5).Data),
+			Entry("float64", floatRead(new(payload.Float(2.5))), telem.Float64T,
+				telem.NewSeriesV(2.5).Data),
+			Entry(
+				"int8",
+				payload.FromInteger(
+					payload.IntegerRead{Fill: new(payload.Integer(-2))},
+				),
+				telem.Int8T,
+				telem.NewSeriesV[int8](-2).Data,
+			),
+			Entry("int32",
+				payload.FromInteger(payload.IntegerRead{
+					Fill: new(payload.Integer(70000)),
+				}),
+				telem.Int32T, telem.NewSeriesV[int32](70000).Data),
+			Entry("uint16",
+				payload.FromUnsigned(payload.UnsignedRead{
+					Fill: new(payload.Unsigned(300)),
+				}),
+				telem.Uint16T, telem.NewSeriesV[uint16](300).Data),
+			Entry("uint64",
+				payload.FromUnsigned(payload.UnsignedRead{
+					Fill: new(payload.Unsigned(math.MaxUint64)),
+				}),
+				telem.Uint64T, telem.NewSeriesV[uint64](math.MaxUint64).Data),
 			Entry("string",
 				payload.Read{
 					Kind:   payload.KindString,

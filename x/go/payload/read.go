@@ -90,9 +90,9 @@ func FromInteger(r IntegerRead) Read {
 	return Read{Kind: KindInteger, Number: numberRead(
 		r.DataType, r.EnumValues, r.Fill,
 		func(e IntegerEntry) NumberEntry {
-			return NumberEntry{Label: e.Label, Value: IntegerNumber(e.Value)}
+			return NumberEntry{Label: e.Label, Value: integerNumber(e.Value)}
 		},
-		IntegerNumber,
+		integerNumber,
 	)}
 }
 
@@ -101,9 +101,9 @@ func FromUnsigned(r UnsignedRead) Read {
 	return Read{Kind: KindUnsigned, Number: numberRead(
 		r.DataType, r.EnumValues, r.Fill,
 		func(e UnsignedEntry) NumberEntry {
-			return NumberEntry{Label: e.Label, Value: UnsignedNumber(e.Value)}
+			return NumberEntry{Label: e.Label, Value: unsignedNumber(e.Value)}
 		},
-		UnsignedNumber,
+		unsignedNumber,
 	)}
 }
 
@@ -120,9 +120,9 @@ func (r Read) Float() FloatRead {
 	return FloatRead{
 		DataType: r.Number.DataType,
 		EnumValues: lo.Map(r.Number.EnumValues, func(e NumberEntry, _ int) FloatEntry {
-			return FloatEntry{Label: e.Label, Value: e.Value.Float()}
+			return FloatEntry{Label: e.Label, Value: e.Value.float()}
 		}),
-		Fill: fill(r.Number.Fill, Number.Float),
+		Fill: fill(r.Number.Fill, Number.float),
 	}
 }
 
@@ -133,10 +133,10 @@ func (r Read) Integer() IntegerRead {
 		EnumValues: lo.Map(
 			r.Number.EnumValues,
 			func(e NumberEntry, _ int) IntegerEntry {
-				return IntegerEntry{Label: e.Label, Value: e.Value.Integer()}
+				return IntegerEntry{Label: e.Label, Value: e.Value.integer()}
 			},
 		),
-		Fill: fill(r.Number.Fill, Number.Integer),
+		Fill: fill(r.Number.Fill, Number.integer),
 	}
 }
 
@@ -147,10 +147,10 @@ func (r Read) Unsigned() UnsignedRead {
 		EnumValues: lo.Map(
 			r.Number.EnumValues,
 			func(e NumberEntry, _ int) UnsignedEntry {
-				return UnsignedEntry{Label: e.Label, Value: e.Value.Unsigned()}
+				return UnsignedEntry{Label: e.Label, Value: e.Value.unsigned()}
 			},
 		),
-		Fill: fill(r.Number.Fill, Number.Unsigned),
+		Fill: fill(r.Number.Fill, Number.unsigned),
 	}
 }
 
@@ -234,14 +234,14 @@ func (r Read) Check(dt telem.DataType, index bool) error {
 		return nil
 	}
 	for _, e := range r.Number.EnumValues {
-		if !e.Value.Fits(dt) {
+		if !e.Value.fits(dt) {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"enum label %q: %s does not fit %s", e.Label, e.Value, dt,
 			)
 		}
 	}
-	if f := r.Number.Fill; f != nil && !f.Fits(dt) {
+	if f := r.Number.Fill; f != nil && !f.fits(dt) {
 		return errors.Wrapf(
 			validate.ErrValidation, "fill: %s does not fit %s", f, dt,
 		)
@@ -342,7 +342,7 @@ func (c *reconciler) numbers(in NumberRead) NumberRead {
 	var out NumberRead
 	for _, e := range in.EnumValues {
 		v, ok := e.Value.To(c.kind)
-		if !ok || !v.Fits(c.dt) {
+		if !ok || !v.fits(c.dt) {
 			c.notef(
 				"enum label %q was dropped: %s does not fit %s",
 				e.Label,
@@ -359,7 +359,7 @@ func (c *reconciler) numbers(in NumberRead) NumberRead {
 		}
 	}
 	if f := in.Fill; f != nil {
-		if v, ok := f.To(c.kind); ok && v.Fits(c.dt) {
+		if v, ok := f.To(c.kind); ok && v.fits(c.dt) {
 			out.Fill = &v
 		} else {
 			c.notef("fill %s was dropped: it does not fit %s", f, c.dt)
@@ -373,7 +373,7 @@ func (c *reconciler) numbers(in NumberRead) NumberRead {
 func (c *reconciler) booleans(in NumberRead) BooleanRead {
 	var out BooleanRead
 	for _, e := range in.EnumValues {
-		v, ok := e.Value.Boolean()
+		v, ok := e.Value.boolean()
 		if !ok {
 			c.notef("enum label %q was dropped: %s is not a boolean", e.Label, e.Value)
 			continue
@@ -386,7 +386,7 @@ func (c *reconciler) booleans(in NumberRead) BooleanRead {
 		}
 	}
 	if f := in.Fill; f != nil {
-		if v, ok := f.Boolean(); ok {
+		if v, ok := f.boolean(); ok {
 			out.Fill = &v
 		} else {
 			c.notef("fill %s was dropped: it is not a boolean", f)
@@ -402,15 +402,15 @@ func (r Read) Field(dt telem.DataType) (xjson.Field, error) {
 	switch r.Kind {
 	case KindFloat:
 		f.Enums = lo.Map(r.Number.EnumValues, func(e NumberEntry, _ int) xjson.Enum {
-			return xjson.NewEnum(e.Label, float64(e.Value.Float()))
+			return xjson.NewEnum(e.Label, float64(e.Value.float()))
 		})
 	case KindInteger:
 		f.Enums = lo.Map(r.Number.EnumValues, func(e NumberEntry, _ int) xjson.Enum {
-			return xjson.NewEnum(e.Label, int64(e.Value.Integer()))
+			return xjson.NewEnum(e.Label, int64(e.Value.integer()))
 		})
 	case KindUnsigned:
 		f.Enums = lo.Map(r.Number.EnumValues, func(e NumberEntry, _ int) xjson.Enum {
-			return xjson.NewEnum(e.Label, uint64(e.Value.Unsigned()))
+			return xjson.NewEnum(e.Label, uint64(e.Value.unsigned()))
 		})
 	case KindString:
 		f.Enums = lo.Map(r.String.EnumValues, func(e StringEntry, _ int) xjson.Enum {
@@ -436,7 +436,7 @@ func (r Read) Fill(dt telem.DataType) (sample []byte, ok bool) {
 	order := telem.ByteOrder
 	switch {
 	case isNumeric(r.Kind) && r.Number.Fill != nil:
-		return r.Number.Fill.Append(nil, dt), true
+		return r.Number.Fill.appendTo(nil, dt), true
 	case r.Kind == KindString && r.String.Fill != nil:
 		s := *r.String.Fill
 		return append(order.AppendUint32(nil, uint32(len(s))), s...), true
