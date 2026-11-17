@@ -30,7 +30,7 @@ const messageSchema = z.object({
   message: z.string().optional(),
 });
 
-const client = new WebSocketClient(endpoint, new binary.JSONCodec());
+const client = new WebSocketClient({ endpoint, codec: new binary.JSONCodec() });
 
 class MyCustomError extends errors.createTyped("integration.error") {
   code: number;
@@ -92,7 +92,7 @@ describe("websocket", () => {
 
   describe("middleware", () => {
     test("receive middleware", async () => {
-      const myClient = new WebSocketClient(endpoint, new binary.JSONCodec());
+      const myClient = new WebSocketClient({ endpoint, codec: new binary.JSONCodec() });
       let c = 0;
       myClient.use(async (md, next): Promise<Context> => {
         if (md.params !== undefined) {
@@ -106,7 +106,7 @@ describe("websocket", () => {
     });
 
     test("middleware error on server", async () => {
-      const myClient = new WebSocketClient(endpoint, new binary.JSONCodec());
+      const myClient = new WebSocketClient({ endpoint, codec: new binary.JSONCodec() });
       await expect(
         myClient.stream("stream/middlewareCheck", messageSchema, messageSchema),
       ).rejects.toThrow("test param not found");
@@ -128,12 +128,11 @@ describe("local server", () => {
     codec: binary.Codec = new binary.JSONCodec(),
   ) => {
     const { port } = server.address() as AddressInfo;
-    const c = new WebSocketClient(
-      new url.URL({ host: "127.0.0.1", port }),
+    const c = new WebSocketClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
       codec,
-      false,
       flowControl,
-    );
+    });
     return await c.stream("stream", messageSchema, messageSchema);
   };
 
@@ -193,12 +192,11 @@ describe("local server", () => {
 
   test("should keep the flow control limits in a client from withCodec", async () => {
     const { port } = server.address() as AddressInfo;
-    const c = new WebSocketClient(
-      new url.URL({ host: "127.0.0.1", port }),
-      new binary.JSONCodec(),
-      false,
-      { receiveQueueLimit: 1024 },
-    ).withCodec(new binary.JSONCodec());
+    const c = new WebSocketClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: new binary.JSONCodec(),
+      flowControl: { receiveQueueLimit: 1024 },
+    }).withCodec(new binary.JSONCodec());
     const stream = await c.stream("stream", messageSchema, messageSchema);
     const { ws } = await connected;
     const closed = new Promise((resolve) => ws.on("close", resolve));

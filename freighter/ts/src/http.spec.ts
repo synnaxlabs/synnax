@@ -23,7 +23,7 @@ const ENDPOINT = new url.URL({
   pathPrefix: "unary",
 });
 
-const client = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+const client = new HTTPClient({ endpoint: ENDPOINT, codec: new binary.JSONCodec() });
 
 const messageZ = z.object({
   id: z.number().optional(),
@@ -60,7 +60,7 @@ describe("http", () => {
   });
 
   test("request params", async () => {
-    const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+    const c = new HTTPClient({ endpoint: ENDPOINT, codec: new binary.JSONCodec() });
     const response = await c.send("/middlewareCheck", {}, messageZ, messageZ, {
       Test: "test",
     });
@@ -68,7 +68,7 @@ describe("http", () => {
   });
 
   test("request params missing", async () => {
-    const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+    const c = new HTTPClient({ endpoint: ENDPOINT, codec: new binary.JSONCodec() });
     await expect(c.send("/middlewareCheck", {}, messageZ, messageZ)).rejects.toThrow();
   });
 
@@ -82,15 +82,15 @@ describe("http", () => {
   });
 
   test("unreachable", async () => {
-    const c = new HTTPClient(
-      new url.URL({
+    const c = new HTTPClient({
+      endpoint: new url.URL({
         host: "127.0.0.1",
         protocol: "http",
         port: 9999,
         pathPrefix: "unary",
       }),
-      new binary.JSONCodec(),
-    );
+      codec: new binary.JSONCodec(),
+    });
     const send = c.send("/unreachable", {}, messageZ, messageZ);
     await expect(send).rejects.toThrow(Unreachable);
     await expect(send).rejects.toThrow("Unreachable");
@@ -106,12 +106,11 @@ describe("http", () => {
       server = createServer(handler);
       await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
       const { port } = server.address() as AddressInfo;
-      return new HTTPClient(
-        new url.URL({ host: "127.0.0.1", port }),
-        new binary.JSONCodec(),
-        false,
+      return new HTTPClient({
+        endpoint: new url.URL({ host: "127.0.0.1", port }),
+        codec: new binary.JSONCodec(),
         timeout,
-      );
+      });
     };
 
     afterEach(async () => {
@@ -261,15 +260,15 @@ describe("http", () => {
     });
 
     test("unreachable", async () => {
-      const c = new HTTPClient(
-        new url.URL({
+      const c = new HTTPClient({
+        endpoint: new url.URL({
           host: "127.0.0.1",
           protocol: "http",
           port: 9999,
           pathPrefix: "unary",
         }),
-        new binary.JSONCodec(),
-      );
+        codec: new binary.JSONCodec(),
+      });
       await expect(
         c.upload("/echo", encodeJSON({}), { encoding: "JSON" }, messageZ),
       ).rejects.toThrow(Unreachable);
@@ -371,15 +370,15 @@ describe("http", () => {
     });
 
     test("unreachable", async () => {
-      const c = new HTTPClient(
-        new url.URL({
+      const c = new HTTPClient({
+        endpoint: new url.URL({
           host: "127.0.0.1",
           protocol: "http",
           port: 9999,
           pathPrefix: "unary",
         }),
-        new binary.JSONCodec(),
-      );
+        codec: new binary.JSONCodec(),
+      });
       await expect(
         c.download("/echo", {}, messageZ, { encoding: "JSON" }),
       ).rejects.toThrow(Unreachable);

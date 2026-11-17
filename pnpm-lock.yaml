@@ -636,6 +636,10 @@ catalogs:
     zod:
       specifier: ^4.6.7
       version: 4.6.7
+  node22:
+    undici:
+      specifier: ^7.30.2
+      version: 7.30.2
   ts6:
     typescript:
       specifier: ^6.0.3
@@ -1176,6 +1180,9 @@ importers:
       '@synnaxlabs/x':
         specifier: 'catalog:'
         version: link:../../x/ts
+      undici:
+        specifier: catalog:node22
+        version: 7.30.2
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -9117,6 +9124,10 @@ packages:
 
   undici-types@8.11.2:
     resolution: {integrity: sha512-iMVNmWZ0leK/goS6eXMizSzmm9CDWtyphwbaCms3DNLqRxDL+mMoNVcZMTyyVgXP0N+Z8neAMzDoUOUJL8veKg==}
+
+  undici@7.30.2:
+    resolution: {integrity: sha512-mLyPQnHwUxaM/rideoK/+KL8DaAJLRl4aBCfmX444aCSLnIaomqPLtNRe2jdCYcsk5wZzXrDIQC8ZeYNRAYyIA==}
+    engines: {node: '>=20.18.1'}
 
   undici@8.12.2:
     resolution: {integrity: sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg==}
@@ -17273,6 +17284,8 @@ snapshots:
   undici-types@7.24.6: {}
 
   undici-types@8.11.2: {}
+
+  undici@7.30.2: {}
 
   undici@8.12.2: {}
 
