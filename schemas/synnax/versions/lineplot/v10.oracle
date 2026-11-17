@@ -42,8 +42,9 @@ Axes = v5.Axes
 Line struct extends v8.Line {
     color color.Ref? {
         @doc value """
-            is the line color, a named color or a fixed color. When null, the Console
-            assigns one at render time.
+            is the line color, a named color or a fixed color. A write with no color
+            gets the series color that the fewest other lines use, and a tie goes to
+            the first.
         """
     }
 }
@@ -51,8 +52,9 @@ Line struct extends v8.Line {
 Rule struct extends v5.Rule {
     color color.Ref? {
         @doc value """
-            is the display color of the rule, a named color or a fixed color. When null,
-            the Console assigns one at render time.
+            is the display color of the rule, a named color or a fixed color. A write
+            with no color gets the series color that the fewest other rules use, and a
+            tie goes to the first.
         """
     }
 }

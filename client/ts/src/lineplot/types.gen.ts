@@ -131,8 +131,8 @@ export const lineZ = z.object({
    */
   label: z.string().optional(),
   /**
-   * color is the line color, a named color or a fixed color. When null, the Console
-   * assigns one at render time.
+   * color is the line color, a named color or a fixed color. A write with no color gets
+   * the series color that the fewest other lines use, and a tie goes to the first.
    */
   color: zod.nullToUndefined(color.refZ),
   /** strokeWidth is the line stroke width in pixels. */
@@ -151,8 +151,9 @@ export const ruleZ = z.object({
   /** label is the human-readable label rendered alongside the rule. */
   label: z.string(),
   /**
-   * color is the display color of the rule, a named color or a fixed color. When null,
-   * the Console assigns one at render time.
+   * color is the display color of the rule, a named color or a fixed color. A write
+   * with no color gets the series color that the fewest other rules use, and a tie goes
+   * to the first.
    */
   color: zod.nullToUndefined(color.refZ),
   /** axis is the axis the rule is anchored to. */

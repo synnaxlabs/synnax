@@ -143,8 +143,9 @@ type Line struct {
 	// Label is the user-specified line label. Null means derive from the channel name
 	// at render time; non-null is an override.
 	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
-	// Color is the line color, a named color or a fixed color. When null, the Console
-	// assigns one at render time.
+	// Color is the line color, a named color or a fixed color. A write with no color
+	// gets the series color that the fewest other lines use, and a tie goes to the
+	// first.
 	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StrokeWidth is the line stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
@@ -200,8 +201,9 @@ type Rule struct {
 	Key string `json:"key" msgpack:"key"`
 	// Label is the human-readable label rendered alongside the rule.
 	Label string `json:"label" msgpack:"label"`
-	// Color is the display color of the rule, a named color or a fixed color. When
-	// null, the Console assigns one at render time.
+	// Color is the display color of the rule, a named color or a fixed color. A write
+	// with no color gets the series color that the fewest other rules use, and a tie
+	// goes to the first.
 	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Axis is the axis the rule is anchored to.
 	Axis AxisKey `json:"axis" msgpack:"axis"`

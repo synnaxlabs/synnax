@@ -173,8 +173,9 @@ class Line(BaseModel):
         x_channel: Is the channel plotted on the x-axis, or 0 to plot against time.
         label: Is the user-specified line label. Null means derive from the channel name
             at render time; non-null is an override.
-        color: Is the line color, a named color or a fixed color. When null, the Console
-            assigns one at render time.
+        color: Is the line color, a named color or a fixed color. A write with no color
+            gets the series color that the fewest other lines use, and a tie goes to the
+            first.
         stroke_width: Is the line stroke width in pixels.
         aggregation: Selects how the line reduces the samples of one pixel group.
         detail: Selects how many sample groups the line draws per pixel column.
@@ -197,8 +198,9 @@ class Rule(BaseModel):
     Attributes:
         key: Is the unique rule identifier within the line plot.
         label: Is the human-readable label rendered alongside the rule.
-        color: Is the display color of the rule, a named color or a fixed color. When
-            null, the Console assigns one at render time.
+        color: Is the display color of the rule, a named color or a fixed color. A write
+            with no color gets the series color that the fewest other rules use, and a
+            tie goes to the first.
         axis: Is the axis the rule is anchored to.
         line_width: Is the rule line width in pixels.
         line_dash: Is the dash length in pixels; 0 renders a solid line.
