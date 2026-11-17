@@ -983,8 +983,9 @@ Engine::plan_locked(const std::vector<SavedSlave> &saved) const {
                     errors::ACTIVATION_ERROR,
                     errors::sentence(
                         std::format(
-                            "{} and {} are both saved for module {} on {} with different "
-                            "settings, and the module did not give its serial number: {}",
+                            "{} and {} are both saved for module {} on {} with "
+                            "different settings, and the module did not give its "
+                            "serial number: {}",
                             first,
                             second,
                             *position,

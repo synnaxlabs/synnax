@@ -2401,8 +2401,9 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
     );
     EXPECT_EQ(
         res.second.data,
-        "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Inconsistent "
-        "settings. Fix the device, then stop every task on the network to try it again."
+        "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: "
+        "Inconsistent settings. Fix the device, then stop every task on the network to "
+        "try it again."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
     EXPECT_FALSE(this->engine->running());
@@ -3278,8 +3279,8 @@ TEST_F(EngineTest, WorkingCounterWarningNamesTheSlavesOutOfOP) {
     EXPECT_EQ(
         reader->warning(),
         "Bus cycles failed: working counter mismatch: expected 9, got 3. Module 1 "
-        "(Slave1) is not in OP: not responding. Module 2 (Slave2) is not in OP: SAFE-OP "
-        "+ ERROR: Sync manager watchdog."
+        "(Slave1) is not in OP: not responding. Module 2 (Slave2) is not in OP: "
+        "SAFE-OP + ERROR: Sync manager watchdog."
     );
 }
 

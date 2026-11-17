@@ -1410,9 +1410,9 @@ TEST_F(EtherCATReadTest, StartFailsWhenASlaveOnTheNetworkIsInvalid) {
     EXPECT_EQ(status.message, "Failed to start task");
     EXPECT_EQ(
         status.description,
-        "EL3102 has invalid properties. Every module on Ethernet 2 starts with the bus, "
-        "so fix them before you start the task.\nenabled: type must be boolean, but is "
-        "null"
+        "EL3102 has invalid properties. Every module on Ethernet 2 starts with the "
+        "bus, so fix them before you start the task.\nenabled: type must be boolean, "
+        "but is null"
     );
 }
 

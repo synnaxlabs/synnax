@@ -624,7 +624,8 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveDoesNotAnswerAStartupParameter) {
     EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
         err.data,
-        "module 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): no response"
+        "module 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): no "
+        "response"
     );
 }
 

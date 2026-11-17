@@ -1022,8 +1022,8 @@ describe("Read", () => {
       // The whole text matches only when the error carries no serial problem.
       expect(
         await screen.findByText(
-          "All modules must be on the same network. Found: eth0, eth1. Pick modules on " +
-            "one network.",
+          "All modules must be on the same network. Found: eth0, eth1. Pick modules " +
+            "on one network.",
         ),
       ).toBeTruthy();
     });
@@ -1112,8 +1112,8 @@ describe("Read", () => {
     expect(
       await screen.findByText(
         new RegExp(
-          `^Modules ${second.name} and ${first.name} are both at position ${position} ` +
-            "on eth0\\. Delete the one that is not on the network\\.$",
+          `^Modules ${second.name} and ${first.name} are both at position ` +
+            `${position} on eth0\\. Delete the one that is not on the network\\.$`,
         ),
       ),
     ).toBeTruthy();
@@ -1143,9 +1143,9 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        `Module ${other.name} in slot 4 has an identifier that gives the same channel ` +
-          `names as module ${slave.name} in slot 3. In Configure, change the identifier ` +
-          "of one of them.",
+        `Module ${other.name} in slot 4 has an identifier that gives the same ` +
+          `channel names as module ${slave.name} in slot 3. In Configure, change the ` +
+          "identifier of one of them.",
       ),
     ).toBeTruthy();
   });
@@ -1177,9 +1177,9 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        `Module ${second.name} in slot 4 has an identifier that gives the same channel ` +
-          `names as module ${first.name} in slot 3. In Configure, change the identifier ` +
-          "of one of them.",
+        `Module ${second.name} in slot 4 has an identifier that gives the same ` +
+          `channel names as module ${first.name} in slot 3. In Configure, change the ` +
+          "identifier of one of them.",
       ),
     ).toBeTruthy();
   });

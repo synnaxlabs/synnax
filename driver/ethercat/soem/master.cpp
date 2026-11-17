@@ -1019,8 +1019,9 @@ void Master::discover_slave_pdos(
             props.input_pdos.clear();
             props.output_pdos.clear();
             slave.status.pdo_discovery_error = std::format(
-                "SOEM cannot map this module because sync manager {} has fixed PDOs and "
-                "the other sync managers have assigned PDOs. Use IgH for this module",
+                "SOEM cannot map this module because sync manager {} has fixed PDOs "
+                "and the other sync managers have assigned PDOs. Use IgH for this "
+                "module",
                 fixed->index
             );
             // No esi::fill: SOEM would still leave the fixed sync manager unmapped.
@@ -1252,7 +1253,8 @@ std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() c
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
                     std::format(
-                        "module {} ({}) cannot run its DC mode at a bus cycle of {}: {}",
+                        "module {} ({}) cannot run its DC mode at a bus cycle of "
+                        "{}: {}",
                         props.position,
                         props.name,
                         period.to_string(),

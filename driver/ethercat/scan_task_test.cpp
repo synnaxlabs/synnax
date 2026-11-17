@@ -373,8 +373,8 @@ TEST_F(EtherCATScanProbeTest, ProbesAnEmptyInterfaceWithUnconfiguredDevices) {
 TEST_F(EtherCATScanProbeTest, ScansABlockedInterfaceWithConfiguredDevicesOnEachScan) {
     const auto blocked = x::errors::Error(
         errors::REPLIES_BLOCKED,
-        "No EtherCAT modules found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" is "
-        "on this adapter."
+        "No EtherCAT modules found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" "
+        "is on this adapter."
     );
     this->master->inject_scan_error(blocked);
     for (std::size_t i = 0; i < 7; ++i) {
@@ -422,8 +422,8 @@ class EtherCATScanFilterTest : public EtherCATScanTest {
 protected:
     const x::errors::Error blocked = x::errors::Error(
         errors::REPLIES_BLOCKED,
-        "No EtherCAT modules found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" is "
-        "on this adapter."
+        "No EtherCAT modules found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" "
+        "is on this adapter."
     );
     std::unique_ptr<Scanner> scanner;
     /// @brief the master of the adapter with the filter.
