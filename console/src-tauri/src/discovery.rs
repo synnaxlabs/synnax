@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 //! How scripts on this computer reach the embedded Core: its address in the discovery
-//! file, and the API key in the OS keychain. The client libraries read both.
+//! file, and the API key in the OS keychain. The client libraries read the key through
+//! the helper program that the discovery file names.
 
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -16,27 +17,33 @@ use std::path::{Path, PathBuf};
 
 use keyring_core::{Entry, Error};
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 
 /// The keychain service and account of the API key. The Python client reads the key
 /// with these names.
 pub const KEY_SERVICE: &str = "com.synnaxlabs.desktop";
 pub const KEY_ACCOUNT: &str = "api_key";
 
-/// What the discovery file holds. The fields match the options of the Python client.
+/// The file name of the program that prints the API key. Synnax Desktop installs it
+/// next to its own executable.
+pub const KEY_HELPER: &str = if cfg!(windows) {
+    "synnax-desktop-key.exe"
+} else {
+    "synnax-desktop-key"
+};
+
+/// What the discovery file holds. It holds no secret.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct File {
     pub host: String,
     pub port: u16,
     pub secure: bool,
+    /// The absolute path of the program that prints the API key.
+    pub api_key_helper: PathBuf,
 }
 
-/// The discovery file as read. Synnax Desktop 1.1 also wrote the API key in it.
-#[derive(Deserialize)]
-struct Legacy {
-    #[serde(flatten)]
-    file: File,
-    api_key: Option<String>,
-}
+/// The field where Synnax Desktop 1.1 saved the API key in the discovery file.
+const LEGACY_KEY: &str = "api_key";
 
 /// Returns the path of the discovery file in the given home directory.
 pub fn path(home: &Path) -> PathBuf {
@@ -61,22 +68,25 @@ pub fn key_entry() -> io::Result<Entry> {
 /// at `path`, or `None` when the file holds none. The caller revokes it in the Core and
 /// then calls [`forget_legacy_key`]. It never moves to the keychain.
 pub fn legacy_key(path: &Path) -> io::Result<Option<String>> {
-    Ok(read_file(path)?.and_then(|legacy| legacy.api_key))
+    Ok(read_file(path)?
+        .and_then(|mut fields| fields.remove(LEGACY_KEY))
+        .and_then(|key| key.as_str().map(str::to_string)))
 }
 
 /// Rewrites the discovery file at `path` without `api_key`, a key that Synnax Desktop
 /// 1.1 saved in it. Leaves the file alone when it holds another key or none.
 pub fn forget_legacy_key(path: &Path, api_key: &str) -> io::Result<()> {
-    match read_file(path)? {
-        Some(Legacy {
-            file,
-            api_key: Some(saved),
-        }) if saved == api_key => write(path, &file),
-        _ => Ok(()),
+    let Some(mut fields) = read_file(path)? else {
+        return Ok(());
+    };
+    if fields.get(LEGACY_KEY).and_then(|key| key.as_str()) != Some(api_key) {
+        return Ok(());
     }
+    fields.remove(LEGACY_KEY);
+    write(path, &fields)
 }
 
-fn read_file(path: &Path) -> io::Result<Option<Legacy>> {
+fn read_file(path: &Path) -> io::Result<Option<Map<String, Value>>> {
     match std::fs::read(path) {
         Ok(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
@@ -91,6 +101,19 @@ pub fn read_key(key: &Entry) -> io::Result<Option<String>> {
         Err(Error::NoEntry) => Ok(None),
         Err(err) => Err(io::Error::other(err)),
     }
+}
+
+/// Writes the API key saved in `key` to `out`, followed by a newline. Fails with
+/// [`io::ErrorKind::NotFound`] when none is saved. No error holds the key.
+pub fn print_key(key: &Entry, out: &mut impl Write) -> io::Result<()> {
+    let api_key = read_key(key)?.ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::NotFound,
+            "Synnax Desktop has saved no API key. Open Synnax Desktop to save one.",
+        )
+    })?;
+    writeln!(out, "{api_key}")?;
+    out.flush()
 }
 
 /// Saves `api_key` in the keychain and `file` to `path`, but only when the saved key is
@@ -115,7 +138,7 @@ pub fn swap(
 
 /// Writes `file` to `path`. The write goes to a temporary file first, so a reader never
 /// sees half a file.
-fn write(path: &Path, file: &File) -> io::Result<()> {
+fn write(path: &Path, file: &impl Serialize) -> io::Result<()> {
     let dir = path
         .parent()
         .ok_or_else(|| io::Error::other("the discovery file has no parent directory"))?;
@@ -154,6 +177,7 @@ mod tests {
             host: "127.0.0.1".to_string(),
             port: 4321,
             secure: false,
+            api_key_helper: PathBuf::from("/opt/synnax").join(KEY_HELPER),
         }
     }
 
@@ -183,7 +207,12 @@ mod tests {
         assert_eq!(read_key(&key).unwrap().as_deref(), Some("syk_secret"));
         assert_eq!(
             stored(&path),
-            serde_json::json!({"host": "127.0.0.1", "port": 4321, "secure": false})
+            serde_json::json!({
+                "host": "127.0.0.1",
+                "port": 4321,
+                "secure": false,
+                "api_key_helper": file().api_key_helper,
+            })
         );
     }
 
@@ -242,6 +271,40 @@ mod tests {
         );
         assert_eq!(legacy_key(&path).unwrap(), None);
         forget_legacy_key(&dir.path().join("missing.json"), "syk_old").unwrap();
+    }
+
+    #[test]
+    fn prints_the_saved_key_and_a_newline() {
+        let key = key();
+        key.set_password("syk_secret").unwrap();
+        let mut out = Vec::new();
+        print_key(&key, &mut out).unwrap();
+        assert_eq!(out, b"syk_secret\n");
+    }
+
+    #[test]
+    fn prints_nothing_when_no_key_is_saved() {
+        let mut out = Vec::new();
+        let err = print_key(&key(), &mut out).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::NotFound);
+        assert_eq!(
+            err.to_string(),
+            "Synnax Desktop has saved no API key. Open Synnax Desktop to save one."
+        );
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn prints_nothing_and_hides_the_key_when_the_keychain_fails() {
+        let key = key();
+        key.set_password("syk_secret").unwrap();
+        let mock: &keyring_core::mock::Cred = key.as_any().downcast_ref().unwrap();
+        mock.set_error(Error::NoStorageAccess("the keychain is locked".into()));
+        let mut out = Vec::new();
+        let err = print_key(&key, &mut out).unwrap_err().to_string();
+        assert!(err.contains("the keychain is locked"));
+        assert!(!err.contains("syk_secret"));
+        assert!(out.is_empty());
     }
 
     #[test]

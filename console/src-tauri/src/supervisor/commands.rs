@@ -17,7 +17,9 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, ExitRequestApi, Manager, RESTART_EXIT_CODE, Runtime, State};
 use tokio::sync::Mutex;
 
-use super::{Config, History, Status, Supervisor, diagnostics, discovery};
+use desktop::discovery;
+
+use super::{Config, History, Status, Supervisor, diagnostics};
 use crate::install;
 
 /// The event every window receives on each status change.
@@ -41,6 +43,8 @@ pub struct Paths {
 /// them.
 pub struct Discovery {
     path: PathBuf,
+    /// The absolute path of the program that prints the API key.
+    api_key_helper: PathBuf,
     /// Makes the compare and the write of each save one step.
     lock: Mutex<()>,
 }
@@ -116,11 +120,12 @@ pub struct Diagnostics {
 /// Starts the supervisor, manages it as app state, and forwards its status to every
 /// window.
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
-    // Tauri installs a sidecar next to the app executable.
-    let program = tauri::utils::platform::current_exe()?
+    // Tauri installs a sidecar and the key helper next to the app executable.
+    let bin_dir = tauri::utils::platform::current_exe()?
         .parent()
         .ok_or("the app executable has no parent directory")?
-        .join(PROGRAM);
+        .to_path_buf();
+    let program = bin_dir.join(PROGRAM);
     let local = app.path().app_local_data_dir()?;
     let log_dir = app.path().app_log_dir()?;
     let version = app.package_info().version.to_string();
@@ -147,6 +152,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
     });
     app.manage(Discovery {
         path: discovery_path,
+        api_key_helper: bin_dir.join(discovery::KEY_HELPER),
         lock: Mutex::new(()),
     });
     app.manage(Quit::default());
@@ -317,6 +323,7 @@ pub async fn supervisor_save_api_key(
         host: connection.host,
         port: connection.port,
         secure: false,
+        api_key_helper: discovery.api_key_helper.clone(),
     };
     let path = discovery.path.clone();
     let _guard = discovery.lock.lock().await;
