@@ -268,6 +268,33 @@ func (r *Runner) runRecovered(
 	return run(ctx)
 }
 
+// Fail stops the run, when there is one, and writes an error status with message and
+// description. Later answers to commands repeat the status until the next start. Fail
+// returns the error that ended the run, combined with the error of the status write.
+func (r *Runner) Fail(ctx context.Context, message, description string) error {
+	r.lifecycle.Lock()
+	defer r.lifecycle.Unlock()
+	_, err := r.halt()
+	return errors.Combine(err, r.status.Send(
+		ctx, NoCommand, status.VariantError, false, message, description,
+	))
+}
+
+// halt cancels the current run and waits for it to end. It returns false when no run
+// was active, and the error that ended the run. The caller holds r.lifecycle.
+func (r *Runner) halt() (bool, error) {
+	active := r.current()
+	if !r.release(active) {
+		return false, nil
+	}
+	active.cancel()
+	err := active.sCtx.Wait()
+	if errors.Is(err, context.Canceled) {
+		err = nil
+	}
+	return true, err
+}
+
 // stop returns the error that ended the run, and the error of the status write that
 // answers cmdKey.
 func (r *Runner) stop(
@@ -277,17 +304,12 @@ func (r *Runner) stop(
 ) (err, answerErr error) {
 	r.lifecycle.Lock()
 	defer r.lifecycle.Unlock()
-	active := r.current()
-	if !r.release(active) {
+	halted, err := r.halt()
+	if !halted {
 		if sendStatus {
 			return nil, r.status.Ack(ctx, cmdKey, false)
 		}
 		return nil, nil
-	}
-	active.cancel()
-	err = active.sCtx.Wait()
-	if errors.Is(err, context.Canceled) {
-		err = nil
 	}
 	if !sendStatus {
 		return err, nil
