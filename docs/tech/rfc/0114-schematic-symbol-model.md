@@ -33,14 +33,15 @@ or a connector.
 - **Look**: Paint, visibility, or motion on a part, optionally while a state has values.
 - **Interaction**: What a pointer gesture on a part does.
 - **Handle**: Where a pipe attaches, on a symbol or on a component.
-- **Mark**: A sign that Pluto draws on a symbol whose data is stale or unknown.
+- **Indicator**: A sign that Pluto draws on a symbol. The stale and unknown indicators,
+  for data that is stale or unknown, are the first two.
 - **Component**: A group of schematic items that acts as one item.
 
 ## 3 Principles
 
 1. **Each fact lives in the widest scope that it holds for**: The symbol owns what holds
    for every node, the node owns its channels, format, label, color, size, and rotation,
-   and Pluto owns the marks, pending, hover, pressed, and the hold fill.
+   and Pluto owns the indicators, pending, hover, pressed, and the hold fill.
 2. **A schematic asks and never computes**: Writes to several channels, coil
    coordination, hold times, and interlocks belong to Arc or the Driver.
 3. **Shapes grow by new kinds**: Every list entry has a key, and each open set is a
@@ -106,7 +107,7 @@ symbol extends LabeledConfig, ScaledConfig {
     color color.Ref?                // what `node` paint reads
     disabled bool = false, motion_disabled bool = false
     on_click_delay telem.TimeSpan = 0
-    staleness_timeout telem.TimeSpan = 5s   // stale is a mark, so no staleness_color
+    staleness_timeout telem.TimeSpan = 5s   // stale is an indicator: no staleness_color
     states StateBinding[], commands CommandBinding[], control ControlStateConfig?
 }
 StateBinding struct {
@@ -127,19 +128,19 @@ absent bound is open, and the Core refuses a band whose `lower` is above its `up
 The editor writes the band 0.9 to 1.1 on a new state with two entries. An enum state
 draws its `default` entry, such as Closed on a valve, while no data has arrived, for
 NaN, and, when it has an enum, for a value that equals no entry after its match. Pluto
-then adds the unknown mark. A band reads 0.5 as 0, so a valve at 0.5 shows Closed with
-no mark, as today. A state with no source draws its default entry with no mark. The
-binding holds the number format, as each readout does today
+then adds the unknown indicator. A band reads 0.5 as 0, so a valve at 0.5 shows Closed
+with no indicator, as today. A state with no source draws its default entry with no
+indicator. The binding holds the number format, as each readout does today
 (`schemas/synnax/schematic.oracle:1224-1249`).
 
 Looks apply in order, and a later look wins on each field it sets. Stale data keeps the
-last state's looks and adds the stale mark. Pluto then draws pending, hover, pressed,
-and the hold fill. A symbol stores no indicators: Pluto draws the marks and any other
-indicator on top of the looks. A number state drives motion as a fraction of its bounds,
-clamped to 0 to 1, and the Core refuses bounds whose lower value is not below the upper.
-Motion stops while its state is stale or unknown, under the operating system's Reduce
-motion setting, and on a node with `motion_disabled`. A blink stays under three flashes
-per second.
+last state's looks and adds the stale indicator. Pluto then draws pending, hover,
+pressed, and the hold fill. A symbol stores no indicators: Pluto draws the stale,
+unknown, and other indicators on top of the looks. A number state drives motion as a
+fraction of its bounds, clamped to 0 to 1, and the Core refuses bounds whose lower value
+is not below the upper. Motion stops while its state is stale or unknown, under the
+operating system's Reduce motion setting, and on a node with `motion_disabled`. A blink
+stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
@@ -226,8 +227,9 @@ those states or else Off and On, and `next` on the whole drawing.
 
 ## 5 What this RFC does not cover
 
-- **Indicators**: What Pluto draws on a symbol for control, tasks, devices, and data
-  faults. A later RFC designs them. This RFC needs only the stale and unknown marks.
+- **Other indicators**: Indicators for control, tasks, and devices, and how all
+  indicators sit on a symbol, get their own later RFC. This RFC defines only the stale
+  and unknown indicators.
 - **Component internals**: How a component stores and places its members.
 - **Symbol revisions and release gates**: A later design, for every kind of record at
   once.
@@ -247,10 +249,10 @@ after phase 5 in its own PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant, a Core migration, an
 export that bundles a schematic's custom symbols with their keys, an import that keeps
-those keys, a renderer with its marks, a form with the enum picker, and the deletion of
-86 variants. It is larger than a usual PR because no smaller step leaves one node shape
-in `main`. Phase 5 starts with the WebKit benchmark, and no built-in moves until it
-passes at 1,000 moving parts.
+those keys, a renderer with its indicators, a form with the enum picker, and the
+deletion of 86 variants. It is larger than a usual PR because no smaller step leaves one
+node shape in `main`. Phase 5 starts with the WebKit benchmark, and no built-in moves
+until it passes at 1,000 moving parts.
 
 | Phase | Scope                                                  | Touches                                                                                                               | Depends on |
 | ----- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -288,9 +290,9 @@ passes at 1,000 moving parts.
     such as a tank whose ends stay round at any size.
 12. **Parts name their shapes**: A selector by position breaks with no error when
     someone regroups the drawing.
-13. **Marks and a default entry, not an unknown look**: A symbol always shows a real
-    state, and the mark keeps the fault in view. The trade is real: apart from its mark,
-    bad data looks like the default entry.
+13. **Indicators and a default entry, not an unknown look**: A symbol always shows a
+    real state, and the unknown indicator keeps the fault in view. The trade is real:
+    apart from its indicator, bad data looks like the default entry.
 14. **A custom symbol in use refuses the delete**: `detach` breaks running schematics,
     and `inline` copies the design onto every node.
 15. **The number format is on the binding**: A built-in cannot know a channel's units.
