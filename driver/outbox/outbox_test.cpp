@@ -356,6 +356,21 @@ TEST_F(OutboxTest, RefusesRangeCall) {
     ASSERT_OCCURRED_AS_P(Outbox::open({.dir = this->dir}), UNKNOWN_VERSION);
 }
 
+/// @brief it should remove the temporary files that a crash left, and keep the rest.
+TEST_F(OutboxTest, RemovesStaleTemporaryFiles) {
+    {
+        const auto outbox = this->open_unreachable();
+        ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+    }
+    for (const auto *name: {"0.calls.tmp.12", "offset.tmp.34"})
+        std::ofstream(this->dir / name) << "partial";
+    const auto outbox = this->open_unreachable();
+    ASSERT_EQ(outbox->size(), 1);
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "0.calls.tmp.12"));
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "offset.tmp.34"));
+    ASSERT_TRUE(std::filesystem::exists(this->segment()));
+}
+
 /// @brief it should refuse to open a directory that another outbox has open.
 TEST_F(OutboxTest, RefusesLockedDirectory) {
     const auto outbox = this->open_unreachable();
