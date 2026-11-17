@@ -220,7 +220,7 @@ class AutomationPayload(Base):
 
     type: Literal["automation"] = "automation"
     program: program_.Program | None = None
-    changes: list[Change] | None = None
+    changes: list[Change] = Field(default_factory=list)
     calculations: list[Calculation] = Field(default_factory=list)
 
 
