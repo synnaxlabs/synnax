@@ -19,8 +19,8 @@ position, and a node holds no copy of a state color.
 
 ## 1 Motivation
 
-- **State colors are copies**: Each select, state indicator, light, and custom symbol
-  state keeps its own colors (`schemas/synnax/schematic.oracle:333-349`, `:535`;
+- **State colors are copies**: Each `select`, `state_indicator`, `light`, and custom
+  symbol state keeps its own colors (`schemas/synnax/schematic.oracle:333-349`, `:535`;
   `schemas/synnax/symbol.oracle:24-63`). A new fault red is an edit to every symbol.
 - **A pick stores paint**: A click on a picker preset stores a literal, also for a theme
   preset (`lyra/src/color/Swatches.tsx:50-56`, `:121`).
@@ -40,8 +40,8 @@ position, and a node holds no copy of a state color.
   label.
 - **Entry paint**: A look (RFC 0114) that paints a part with the color of its state's
   current entry.
-- **Mark**: A sign that Pluto draws on a symbol whose data is stale or unknown (RFC
-  0114).
+- **Indicator**: A sign that Pluto draws on a symbol (RFC 0114). The stale and unknown
+  indicators are the first two.
 - **Built-in**: A named color or an enum that Synnax ships with a fixed key.
 
 ## 3 Principles
@@ -123,7 +123,7 @@ a valve paints its symbol color, then the theme, as today.
 An absent `enum` on a state binding means the symbol's default enum. A built-in symbol
 names it in its Pluto file, and a custom symbol on its Core record. A state with no enum
 at either level, such as a new custom symbol state, has no entries: only no data and NaN
-give it the unknown mark, and its `entry` paint goes on to the symbol color. A node
+give it the unknown indicator, and its `entry` paint goes on to the symbol color. A node
 stores no look and no state color. It changes a look only through its enum, color,
 match, default, and bounds. An edit to a built-in enum changes every symbol that uses it
 by default.
@@ -134,18 +134,19 @@ Each state stores its match: `exact`, or `band`, which reads a value inside the 
 `pluto/src/schematic/node/common/telem/telem.ts:16`), and a node can change it. Each
 enum state names the value of a default entry, such as Closed on a valve. A state with a
 source but no data yet, NaN, and a value that equals no entry after its match draw the
-default entry, and Pluto adds the unknown mark. A band reads 0.5 as 0, so a valve at 0.5
-shows Closed with no mark, as today. A state with no source draws its default entry with
-no mark. When no entry has the default value, `entry` paint goes on to the symbol color.
-Stale data keeps its entry and gets the stale mark, and `staleness_color` leaves
-`StalenessConfig` for every symbol.
+default entry, and Pluto adds the unknown indicator. A band reads 0.5 as 0, so a valve
+at 0.5 shows Closed with no indicator, as today. A state with no source draws its
+default entry with no indicator. When no entry has the default value, `entry` paint goes
+on to the symbol color. Stale data keeps its entry and gets the stale indicator, and
+`staleness_color` leaves `StalenessConfig` for every symbol.
 
 The light gets the built-in "Light" enum (Off 0, On 1). Its threshold, or 0.9 to 1.1
 when it has none, becomes its band, and its `stroke_color` becomes the symbol color.
 
 A `select` or `state_indicator` has no symbol state, so it has no default entry. A value
-that matches no entry keeps today's look and gets the unknown mark: a state indicator
-shows its symbol color and the "Unknown" label, and a select shows `-`.
+that matches no entry keeps today's look and gets the unknown indicator: a
+`state_indicator` shows its symbol color and the "Unknown" label, and a select shows
+`-`.
 
 ### 4.4 Series colors
 
@@ -246,7 +247,7 @@ needs RFC 0114 phase 1.
 | 15    | Add enums to the clients and Pluto queries               | `client/ts`, `client/py`, `pluto/src/enum`                                                                                                        | 14             |
 | 16    | Add the Console enum editor with its checks              | `console/src/feature/enum`                                                                                                                        | 9, 15          |
 | 17    | Add Replace with for enums                               | `core/pkg/api/enum`, `console/src/feature/enum`                                                                                                   | 1, 16          |
-| 18    | Draw stale and unknown marks instead of colors           | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`                           | -              |
+| 18    | Draw stale and unknown indicators instead of colors      | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`                           | -              |
 | 19    | Add enum references to symbol states                     | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `core/pkg/service/schematic`                                                               | 13             |
 | 20    | Draw entry paint in Pluto                                | `pluto/src/schematic`                                                                                                                             | 15, 19         |
 | 21    | Add the enum picker to the symbol forms                  | `console/src/feature/schematic`                                                                                                                   | 16, 19         |
@@ -263,7 +264,7 @@ needs RFC 0114 phase 1.
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 2, only a
-select or state indicator can match no entry. Phase 19 also adds the `enum` field to
+`select` or `state_indicator` can match no entry. Phase 19 also adds the `enum` field to
 `select` and `state_indicator`, and phase 22 fills it. Phase 21 adds the enum picker to
 `select` and `state_indicator`. RFC 0114 phase 2 adds it to node state bindings, and RFC
 0114 phase 4 to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom
@@ -280,10 +281,10 @@ symbol looks from the start. In phase 29, the Driver writes range colors
    is real: a dark value deviates from RFC 0061 rule 4.
 3. **A node stores no look and no state color**: A per-state or per-look override brings
    the copies back.
-4. **A default entry and an unknown mark**: A symbol always shows a real state, and
-   Pluto's mark keeps the fault in view on every screen. A Core-wide unknown look showed
-   no state at all. The trade is real: apart from its mark, bad data looks like the
-   default entry.
+4. **A default entry and an unknown indicator**: A symbol always shows a real state, and
+   Pluto's unknown indicator keeps the fault in view on every screen. A Core-wide
+   unknown look showed no state at all. The trade is real: apart from its indicator, bad
+   data looks like the default entry.
 5. **Series colors by first unused key**: An index repaints on a remove. A hash gives a
    4-line plot a shared color 59% of the time with 8 colors.
 6. **A deleted named color becomes fixed**: Each user keeps the color, as with a deleted
@@ -316,8 +317,8 @@ symbol looks from the start. In phase 29, the Driver writes range colors
 15. **Exact values, and a stored band for two-state states**: Selects and buttons write
     one value, so an entry is one value. Valves, pumps, and lights store today's band on
     the state, so every number reads as today, and an enum edit never switches a valve
-    to exact matches. The trade is real: a valve stuck at 0.5 shows Closed with no mark,
-    as today. Ranges belong to the `limit` type.
+    to exact matches. The trade is real: a valve stuck at 0.5 shows Closed with no
+    indicator, as today. Ranges belong to the `limit` type.
 16. **Entry values are `float64`**: Every state symbol reads and writes numbers, and a
     `float64` holds each integer state code exactly. A value of any channel type adds a
     type to each entry and a conversion to each match. The trade is real: a string
