@@ -15,6 +15,8 @@ import json
 import threading
 from pathlib import Path
 
+from common import instance_prefix
+
 STATE_FILE = Path(__file__).with_name("registry.json")
 
 
@@ -37,9 +39,15 @@ class RunnerRegistry:
             return {r: set(labels) for r, labels in self.entries.items()}
 
     def add(self, labels: dict[str, set[str]]) -> None:
-        """Adds the runners GitHub lists and replaces their labels."""
+        """Adds the runners GitHub lists and replaces their labels. Drops the other
+        names of each listed runner's instance, so a renamed instance has one entry."""
         with self.lock:
-            self.entries |= {r: set(v) for r, v in labels.items()}
+            listed = {p for r in labels if (p := instance_prefix(r)) is not None}
+            self.entries = {
+                r: v
+                for r, v in self.entries.items()
+                if r in labels or instance_prefix(r) not in listed
+            } | {r: set(v) for r, v in labels.items()}
             # Replaced whole, so a stop mid-write leaves the previous file intact.
             tmp = self.path.with_suffix(".tmp")
             entries = {r: sorted(v) for r, v in sorted(self.entries.items())}

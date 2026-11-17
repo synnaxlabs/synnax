@@ -31,6 +31,17 @@ class TestRunnerRegistry:
         RunnerRegistry(path).add({"b": {"new"}})
         assert RunnerRegistry(path).labels() == {"a": {"pool"}, "b": {"new"}}
 
+    def test_should_drop_the_old_name_of_a_renamed_instance(
+        self, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "registry.json"
+        RunnerRegistry(path).add({"old-i-0aaa": {"old"}, "b-i-0bbb": {"pool"}})
+        RunnerRegistry(path).add({"new-i-0aaa": {"new"}})
+        assert RunnerRegistry(path).labels() == {
+            "new-i-0aaa": {"new"},
+            "b-i-0bbb": {"pool"},
+        }
+
     def test_should_read_a_file_of_names(self, tmp_path: Path) -> None:
         path = tmp_path / "registry.json"
         path.write_text(json.dumps(["a", "b"]))
