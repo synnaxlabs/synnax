@@ -655,6 +655,26 @@ describe("MQTT read form", () => {
     expect((await client.icds.retrieve(entry.icd)).messages[0].name).toBe(TOPIC);
   });
 
+  it("should number the name of a new message that the ICD already holds", async () => {
+    const { dev, draft } = await renderRead({
+      fields: [createField("temperature", "float")],
+    });
+    const input = await screen.findByDisplayValue(TOPIC);
+    fireEvent.change(input, { target: { value: "plant/kiln" } });
+    fireEvent.blur(input);
+    const entry = await waitFor(async () => {
+      const [first] = await retrieveEntries(draft.key);
+      expect(plainOf(first).topic).toBe("plant/kiln");
+      return plainOf(first);
+    });
+    await addField(dev.rack, TOPIC, "flow");
+    await waitFor(async () =>
+      expect(
+        (await client.icds.retrieve(entry.icd)).messages.map(({ name }) => name),
+      ).toEqual([TOPIC, `${TOPIC} 2`]),
+    );
+  });
+
   describe("channels", () => {
     it("should stop and start reading a field, keeping the channel of its pointer", async () => {
       const ch = await client.channels.create({
@@ -1155,6 +1175,29 @@ describe("MQTT read form", () => {
       expect(deployed.bindings[0].channel).toBe(channels["/mode"]);
       const ch = await client.channels.retrieve(channels["/mode"]);
       expect(ch.name).toBe(`${dev.name}_plant_oven_status_mode`);
+    });
+
+    it("should create a channel in place of a bound channel that was deleted", async () => {
+      const time = await createTimeChannel();
+      const temperatureCh = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        index: time.key,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature],
+        bound: { [temperature.key]: temperatureCh.key },
+      });
+      const { container, draft } = await renderRead({
+        entries: [entry],
+        beforeRender: () => client.channels.delete(temperatureCh.key),
+      });
+      const created = await deploy(container, draft.key);
+      const [binding] = plainOf(created.config.entries[0]).messages[0].bindings;
+      expect(binding.channel).not.toBe(temperatureCh.key);
+      const ch = await client.channels.retrieve(binding.channel);
+      expect(ch.dataType.equals(DataType.FLOAT64)).toBe(true);
     });
 
     it("should replace the stored channel of a field whose kind changed", async () => {

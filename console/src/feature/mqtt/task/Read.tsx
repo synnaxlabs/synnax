@@ -329,11 +329,21 @@ const appendFields = (
   return appended;
 };
 
-const createMessage = (topic: string, fields: icd.JSONField[]): icd.Message => ({
-  key: uuid.create(),
-  name: topic === "" ? "Untitled" : topic,
-  payload: { format: "json", fields },
-});
+/**
+ * @returns a message for the fields of a topic, named after the topic. A name that a
+ * message in taken holds gets a number, such as `plant/oven 2`.
+ */
+const createMessage = (
+  topic: string,
+  fields: icd.JSONField[],
+  taken: icd.Message[],
+): icd.Message => {
+  const names = new Set(taken.map(({ name }) => name));
+  const base = topic === "" ? "Untitled" : topic;
+  let name = base;
+  for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
+  return { key: uuid.create(), name, payload: { format: "json", fields } };
+};
 
 const entryOf = (
   icdKey: icd.Key,
@@ -369,7 +379,9 @@ const createICD = async (
   drafts: Draft[],
   bind: Bind,
 ): Promise<AddTopicsResult> => {
-  const messages = drafts.map(({ topic, fields }) => createMessage(topic, fields));
+  const messages: icd.Message[] = [];
+  for (const { topic, fields } of drafts)
+    messages.push(createMessage(topic, fields, messages));
   const { key } = await client.icds.create({ name, messages });
   const added = drafts.map((d, i) =>
     entryOf(key, d.topic, {
@@ -428,7 +440,7 @@ const addTopics = async ({
         continue;
       }
       const prior = messages.get(key) ?? [];
-      const created = createMessage(draft.topic, draft.fields);
+      const created = createMessage(draft.topic, draft.fields, prior);
       inserterOf(key).insert(PICD.formPath.messages, created, prior.at(-1)?.key);
       messages.set(key, [...prior, created]);
       const bindings = bind(draft, draft.fields, created.key);
@@ -1808,12 +1820,14 @@ const configureMessage = async (
     const suited = binding.dataType !== "" && ICD.converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // An edit of the field's kind or index role since the last deploy needs a new
-    // channel.
+    // A channel that is gone, or an edit of the field's kind or index role since the
+    // last deploy, needs a new channel.
     const stale =
-      ch != null &&
-      (!ICD.converts(f.type, ch.dataType.toString()) || ch.isIndex !== isIndex);
-    if (stale && stored[f.pointer] === ch.key) delete stored[f.pointer];
+      reused[i] !== 0 &&
+      (ch == null ||
+        !ICD.converts(f.type, ch.dataType.toString()) ||
+        ch.isIndex !== isIndex);
+    if (stale && stored[f.pointer] === reused[i]) delete stored[f.pointer];
     return {
       key: f.key,
       pointer: f.pointer,
