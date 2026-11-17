@@ -453,6 +453,20 @@ gone. Page with `limit` and `after`.
   Arcs, such as `range(i64(n), i64(100))`, but not where an argument reads a channel or
   a module value. Add the casts to those calls and to new Arc text.
 
+#### Driver state file
+
+On Linux and macOS, each `start`, `login`, and `clear` of a Driver sets the mode and
+owner of its state, and replaces the values that a setup step, such as an init
+container, gives them:
+
+- The state file gets mode `0600`, also at a `--state-file` path.
+- At the default path on Linux, when root runs the Driver and a `synnax` user exists,
+  the directory goes to root and the `synnax` group with mode `0751`. The state file and
+  the `opcua` directory go to the `synnax` user.
+- Else, at the default path, a state directory that the Driver user owns gets mode
+  `0700`. A state file that another user owns is replaced with a copy that the Driver
+  user owns.
+
 #### Hardware
 
 - EtherCAT on IgH counts positions from 1. After the upgrade, delete the EtherCAT
