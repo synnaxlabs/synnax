@@ -29,7 +29,6 @@ from agent_deploy import (
     run,
     scaler_paused,
 )
-from conftest import core
 from scaler import SCALER_CMD
 
 COMMIT = "a" * 40
@@ -341,7 +340,7 @@ class TestScalerPaused:
 
     def test_should_turn_the_scaler_off_for_the_block_and_on_after(self) -> None:
         client = Controller()
-        with scaler_paused(core(client)):
+        with scaler_paused(client):
             assert client.state is False
         assert client.written(SCALER_CMD) == [False, True]
 
@@ -350,13 +349,13 @@ class TestScalerPaused:
         self, state: bool | None
     ) -> None:
         client = Controller(state)
-        with scaler_paused(core(client)):
+        with scaler_paused(client):
             pass
         assert client.written(SCALER_CMD) == []
 
     def test_should_turn_the_scaler_on_again_when_the_block_fails(self) -> None:
         client = Controller()
-        with pytest.raises(RuntimeError, match="lost"), scaler_paused(core(client)):
+        with pytest.raises(RuntimeError, match="lost"), scaler_paused(client):
             raise RuntimeError("lost")
         assert client.written(SCALER_CMD) == [False, True]
 
@@ -366,7 +365,7 @@ class TestScalerPaused:
         monkeypatch.setattr(agent_deploy, "SWITCH_TIMEOUT", sy.TimeSpan(0))
         client = Controller()
         client.deaf = True
-        with pytest.raises(TimeoutError), scaler_paused(core(client)):
+        with pytest.raises(TimeoutError), scaler_paused(client):
             pass
         assert client.written(SCALER_CMD) == [False, True]
 

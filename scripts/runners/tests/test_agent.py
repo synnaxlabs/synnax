@@ -72,6 +72,17 @@ class Writer(conftest.Writer):
         super().write(frame)
 
 
+class Names(conftest.ChannelStore):
+    """Finds the channels that exist among names."""
+
+    def __init__(self, names: set[str]) -> None:
+        super().__init__()
+        self.names = names
+
+    def retrieve(self, names: list[str], /) -> list[SimpleNamespace]:
+        return [SimpleNamespace(name=n) for n in names if n in self.names]
+
+
 class Core(conftest.Client):
     """Adds the channel lookup and the close of a Synnax client. The first write to a
     channel in rejected fails."""
@@ -82,10 +93,7 @@ class Core(conftest.Client):
         self.rejected: set[str] = set()
         self.writers = 0
         self.closed = False
-        self.channels = SimpleNamespace(retrieve=self.retrieve)
-
-    def retrieve(self, names: list[str]) -> list[SimpleNamespace]:
-        return [SimpleNamespace(name=n) for n in names if n in self.names]
+        self.channels: Names = Names(self.names)
 
     def open_writer(
         self, start: sy.TimeStamp, *args: object, **kwargs: object
