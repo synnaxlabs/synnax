@@ -9,7 +9,8 @@
 
 import json
 import os
-from collections.abc import Mapping
+import subprocess
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -20,15 +21,12 @@ from synnax.config.clusters import (
     Cluster,
     Clusters,
     Keyring,
-    _unavailable,
 )
 from synnax.config.file import File
 from synnax.exceptions import ConfigurationError, ValidationError
 from synnax.options import Options
 
 __all__ = [
-    "DESKTOP_KEY_ACCOUNT",
-    "DESKTOP_KEY_SERVICE",
     "KEYCHAIN_UNAVAILABLE_MSG",
     "OLD_DESKTOP_MSG",
     "Cluster",
@@ -36,6 +34,7 @@ __all__ = [
     "File",
     "Keyring",
     "PartialOptions",
+    "RunHelper",
     "default_clusters",
     "load_desktop_options",
     "load_env_options",
@@ -51,13 +50,33 @@ def default_clusters() -> Clusters:
     return Clusters(File(config_dir=CONFIG_FILE_PATH), keyring.get_keyring())
 
 
-DESKTOP_KEY_SERVICE = "com.synnaxlabs.desktop"
-DESKTOP_KEY_ACCOUNT = "api_key"
-
 OLD_DESKTOP_MSG = (
     "Synnax Desktop saved its API key in an older format. Update Synnax Desktop and "
     "open it."
 )
+
+NO_KEY_HELPER_MSG = (
+    "Synnax Desktop saved no key helper. Update Synnax Desktop and open it."
+)
+
+# A locked keychain can make the key helper wait for a password.
+KEY_HELPER_TIMEOUT = 60
+
+RunHelper = Callable[[Path], subprocess.CompletedProcess[str]]
+"""Runs the key helper of Synnax Desktop. Raises OSError if the helper cannot start,
+and subprocess.TimeoutExpired if it does not exit in time.
+"""
+
+
+def _run_helper(path: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(path)],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=KEY_HELPER_TIMEOUT,
+        check=False,
+    )
 
 
 def _read_desktop_file(path: Path) -> dict[str, Any] | None:
@@ -68,34 +87,47 @@ def _read_desktop_file(path: Path) -> dict[str, Any] | None:
     return raw
 
 
+def _read_key(helper: Path, run: RunHelper) -> str:
+    try:
+        result = run(helper)
+    except OSError as e:
+        raise ConfigurationError(
+            f"Cannot run the key helper of Synnax Desktop at {helper}: {e.strerror}. "
+            "Update Synnax Desktop and open it."
+        ) from e
+    except subprocess.TimeoutExpired as e:
+        raise ConfigurationError(
+            f"The key helper of Synnax Desktop did not exit in {KEY_HELPER_TIMEOUT} "
+            "seconds. Unlock the keychain of your operating system and try again."
+        ) from e
+    if result.returncode != 0:
+        line = result.stderr.strip() or f"exit code {result.returncode}"
+        raise ConfigurationError(f"The key helper of Synnax Desktop failed: {line}")
+    if not (api_key := result.stdout.strip()):
+        raise ConfigurationError("The key helper of Synnax Desktop printed no API key.")
+    return api_key
+
+
 def load_desktop_options(
-    keychain: Keyring, path: Path = DESKTOP_FILE_PATH
+    path: Path = DESKTOP_FILE_PATH, run: RunHelper = _run_helper
 ) -> Options | None:
     """Loads the options that Synnax Desktop saved for scripts on this computer: the
-    address in a file, and the API key in the OS keychain.
+    address in a file, and the API key that the key helper named in the file prints.
 
-    :param keychain: The keychain that holds the API key.
     :param path: The file Synnax Desktop writes.
+    :param run: Runs the key helper.
     :returns: The options, or None if Synnax Desktop has saved none.
-    :raises ConfigurationError: If no OS keychain is available, or if an older Synnax
-        Desktop saved the key in the file.
+    :raises ConfigurationError: If the file names no key helper, if the key helper
+        fails, or if an older Synnax Desktop saved the key in the file.
     """
     raw = _read_desktop_file(path)
     if raw is None:
         return None
     if "api_key" in raw:
         raise ConfigurationError(OLD_DESKTOP_MSG)
-    try:
-        api_key = keychain.get_password(DESKTOP_KEY_SERVICE, DESKTOP_KEY_ACCOUNT)
-    except Exception as e:
-        if not _unavailable(e):
-            raise
-        raise ConfigurationError(
-            "Cannot read the API key of Synnax Desktop. " + KEYCHAIN_UNAVAILABLE_MSG
-        ) from e
-    if api_key is None:
-        return None
-    return Options.model_validate({**raw, "api_key": api_key})
+    if not (helper := raw.get("api_key_helper")):
+        raise ConfigurationError(NO_KEY_HELPER_MSG)
+    return Options.model_validate({**raw, "api_key": _read_key(Path(helper), run)})
 
 
 _TRUE = ("1", "true", "yes")
@@ -166,7 +198,7 @@ def _saved_by_desktop(opts: Options, path: Path) -> bool:
         # The file changes only the advice of errors, so a broken one must not break
         # a connection that names its Core.
         return False
-    # The address alone tells the Core, so the check needs no keychain.
+    # The address alone tells the Core, so the check runs no key helper.
     return raw is not None and (raw.get("host"), raw.get("port")) == (
         opts.host,
         opts.port,
@@ -203,6 +235,7 @@ def load_options(
     env: Mapping[str, str] | None = None,
     clusters: Clusters | None = None,
     desktop_file: Path = DESKTOP_FILE_PATH,
+    run_desktop_helper: RunHelper = _run_helper,
 ) -> tuple[Options, bool]:
     """Chooses each option from the first source that sets it: the argument, then its
     SYNNAX_* environment variable, then the default. When no argument or variable gives
@@ -214,12 +247,13 @@ def load_options(
     :param env: The environment variables, such as os.environ. Defaults to none.
     :param clusters: The saved logins. Defaults to those of the current user.
     :param desktop_file: The file where Synnax Desktop saves its options.
+    :param run_desktop_helper: Runs the key helper of Synnax Desktop.
     :returns: The options, and whether they connect to the Core of Synnax Desktop.
     :raises ValidationError: If the environment variables are not valid, or if no source
         gives a host or credentials.
     :raises ConfigurationError: If no OS keychain is available to read the key of the
-        saved login or of Synnax Desktop, or if an older Synnax Desktop left its key in
-        the discovery file.
+        saved login, if the key helper of Synnax Desktop fails, or if an older Synnax
+        Desktop left its key in the discovery file.
     """
     given = PartialOptions()
     if host:
@@ -245,7 +279,7 @@ def load_options(
         saved = (
             cluster.options
             if cluster is not None
-            else load_desktop_options(clusters.keyring, desktop_file)
+            else load_desktop_options(desktop_file, run_desktop_helper)
         )
         if saved is None:
             raise ValidationError(NO_OPTIONS_MSG)
