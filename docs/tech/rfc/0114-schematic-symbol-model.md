@@ -92,7 +92,7 @@ Look struct {
 Condition union on kind { equals { state string, values float64[] } }
 Paint union on kind { entry { state string }, node {}, color { color color.Ref } }
 Motion union on kind {
-    // rate: turns per second, times the value of the state that `by` names
+    // rate: cycles per second, times the `by` state's fraction of its bounds
     spin { rate telem.Rate = 0.5, by string? }
     flow { rate telem.Rate = 0.5, by string? }
     blink { period telem.TimeSpan = 1s }
