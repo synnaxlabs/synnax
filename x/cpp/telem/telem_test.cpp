@@ -746,6 +746,13 @@ TEST(RateTests, testJSON) {
     EXPECT_EQ(j.get<Rate>(), r);
 }
 
+/// @brief it should convert to a protobuf double in Hz and round-trip back.
+TEST(RateTests, testProto) {
+    const Rate r(50);
+    EXPECT_EQ(r.to_proto(), 50.0);
+    EXPECT_EQ(Rate::from_proto(r.to_proto()), r);
+}
+
 class DataTypeTests : public ::testing::Test {};
 
 struct TypeTestCase {
