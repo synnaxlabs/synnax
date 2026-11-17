@@ -138,6 +138,11 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   /** Takes the current values as the baseline, clearing the touched flag. */
   setCurrentStateAsInitialValues: () => void;
   getStatuses: () => Status.Crude[];
+  /**
+   * One context for each subtree that `Form.Fanout` edits as one. Each reads and writes
+   * its own subtree. Absent outside a Fanout.
+   */
+  subtrees?: () => ContextValue[];
 }
 
 const [Context, useCtx] = context.create<ContextValue | null>({

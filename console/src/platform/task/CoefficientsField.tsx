@@ -27,7 +27,16 @@ export const CoefficientsField = ({
   path,
   label,
 }: CoefficientsFieldProps): ReactElement => {
-  const { value, onChange, preview, status } = Form.useField(path);
+  const { value, onChange, preview, status, mixed } = Form.useField(path);
+  // An edit of one cell writes the whole list, so a mixed list is not editable.
+  if (mixed === true)
+    return (
+      <Input.Item
+        label={label}
+        helpText="Mixed. Select one channel to edit its coefficients."
+        padHelpText
+      />
+    );
   const rows = value.map((coeff) => [coeff]);
   return (
     <Input.Item

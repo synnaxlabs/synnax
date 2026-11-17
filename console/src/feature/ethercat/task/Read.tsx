@@ -26,6 +26,7 @@ import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem
 import {
   ReadChannelDetails,
   ReadDetailsTitle,
+  ReadMultiDetails,
 } from "@/feature/ethercat/task/ChannelDetails";
 import { ChannelUsage } from "@/feature/ethercat/task/ChannelUsage";
 import { slavesZ } from "@/feature/ethercat/task/checks";
@@ -123,6 +124,8 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const channelDetails = Component.renderProp(ReadChannelDetails);
 
+const multiDetails = Component.renderProp(ReadMultiDetails);
+
 const detailsTitle = Component.renderProp(ReadDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
@@ -166,6 +169,7 @@ const Form: FC = () => {
         path={path.config.channels}
         listItem={listItem}
         details={channelDetails}
+        multiDetails={multiDetails}
         detailsTitle={detailsTitle}
         createChannel={createReadChannel}
         contextMenuItems={contextMenuItems}

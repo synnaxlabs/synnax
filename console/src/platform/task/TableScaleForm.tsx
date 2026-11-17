@@ -131,6 +131,8 @@ export const TableScaleForm = ({ path }: TableScaleFormProps): ReactElement => {
   // A scale stored with unpaired columns renders zeros for the values it never held, so
   // name the problem before an edit commits them.
   const mismatch = lengthMismatch(preScaled.value, scaled.value);
+  // An edit of one point writes the whole table, so a mixed table only takes a CSV.
+  const mixed = preScaled.mixed === true || scaled.mixed === true;
   return (
     <>
       {preview !== true && (
@@ -170,24 +172,32 @@ export const TableScaleForm = ({ path }: TableScaleFormProps): ReactElement => {
           )}
         </>
       )}
-      <Input.Item
-        label="Values"
-        padHelpText
-        helpText={mismatch ?? status.message}
-        status={mismatch != null ? "error" : status.variant}
-      >
-        <Input.Table
-          value={rows}
-          onChange={handleRowsChange}
-          createRow={createRow}
-          preview={preview}
-          rowLabel={(index) => (index + 1).toString()}
-          resourceName="point"
+      {mixed ? (
+        <Input.Item
+          label="Values"
+          padHelpText
+          helpText="Mixed. Load a CSV to set every channel, or select one channel."
+        />
+      ) : (
+        <Input.Item
+          label="Values"
+          padHelpText
+          helpText={mismatch ?? status.message}
+          status={mismatch != null ? "error" : status.variant}
         >
-          <Input.TableColumn name="Pre-scaled" />
-          <Input.TableColumn name="Scaled" />
-        </Input.Table>
-      </Input.Item>
+          <Input.Table
+            value={rows}
+            onChange={handleRowsChange}
+            createRow={createRow}
+            preview={preview}
+            rowLabel={(index) => (index + 1).toString()}
+            resourceName="point"
+          >
+            <Input.TableColumn name="Pre-scaled" />
+            <Input.TableColumn name="Scaled" />
+          </Input.Table>
+        </Input.Item>
+      )}
     </>
   );
 };

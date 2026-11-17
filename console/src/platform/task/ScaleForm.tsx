@@ -94,18 +94,18 @@ export interface ScaleFormProps {
  */
 export const ScaleForm = ({ path }: ScaleFormProps) => {
   const scale = deep.widen(path);
-  const type = Form.useFieldValue(scale.type);
+  const { value: type, mixed } = Form.useFieldState(scale.type);
   const Params = PARAMS[type];
   return (
     <>
       <SelectType
         path={scale.type}
-        onChange={(value, { set }) => {
-          if (type !== value)
-            set(scale, task.SCALE_SCHEMAS[value].parse({ type: value }));
+        onChange={(value, { get, set }) => {
+          if (get(scale.type).value === value) return;
+          set(scale, task.SCALE_SCHEMAS[value].parse({ type: value }));
         }}
       />
-      <Params path={scale} />
+      {mixed !== true && <Params path={scale} />}
     </>
   );
 };

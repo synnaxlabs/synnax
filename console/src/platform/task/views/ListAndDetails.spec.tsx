@@ -9,6 +9,7 @@
 
 import { Component } from "@synnaxlabs/lyra/component";
 import { Select } from "@synnaxlabs/lyra/select";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -16,7 +17,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
-import { getIconButton } from "@/testutil";
+import { getIconButton, withControlHeld } from "@/testutil";
 
 const path = deep.path<{ config: { channels: Channel[]; endpoints: Channel[] } }>();
 
@@ -33,6 +34,12 @@ const Details = ({ path }: Task.Views.DetailsProps<Channel>) => (
 );
 
 const details = Component.renderProp(Details);
+
+const MultiDetails = ({ keys }: Task.Views.MultiDetailsProps) => (
+  <span>multi-details-for-{keys.join(",")}</span>
+);
+
+const multiDetails = Component.renderProp(MultiDetails);
 
 const resolve = () => null;
 
@@ -95,6 +102,32 @@ describe("layouts.ListAndDetails", () => {
       expect(screen.getByText("details-for-config.channels.b")).toBeTruthy(),
     );
     expect(screen.queryByText("details-for-config.channels.a")).toBeNull();
+  });
+
+  it("should show and copy every selected channel when several are selected", async () => {
+    const writeText = stubClipboardWriteText();
+    const channels = [
+      { key: "a", disabled: false },
+      { key: "b", disabled: true },
+    ];
+    const { container } = await renderInTaskForm(
+      <Task.Views.ListAndDetails<Channel>
+        path={path.config.channels}
+        createChannel={() => null}
+        listItem={listItem}
+        details={details}
+        multiDetails={multiDetails}
+        resolve={resolve}
+      />,
+      { values: { config: { channels } } },
+    );
+    fireEvent.click(await screen.findByText("item-a"));
+    withControlHeld(() => fireEvent.click(screen.getByText("item-b")));
+    expect(await screen.findByText("multi-details-for-a,b")).toBeTruthy();
+    expect(screen.getByText("2 channels")).toBeTruthy();
+    fireEvent.click(getIconButton(container, "json"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(writeText.mock.calls[0][0] as string)).toEqual(channels);
   });
 
   it("should read the channels at the path it gets", async () => {

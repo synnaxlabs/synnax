@@ -149,7 +149,7 @@ const SCALE_FORMS: { [K in ScaleType]: FC<ScaleProps<K>> } = {
 const ScaleFields = createTypeFields<Scale>(SCALE_FORMS);
 
 const CustomScaleForm = ({ path }: { path: deep.Path<Scale> }) => {
-  const type = Form.useFieldValue(path.type);
+  const { value: type, mixed } = Form.useFieldState(path.type);
   return (
     <>
       <SelectType
@@ -165,7 +165,7 @@ const CustomScaleForm = ({ path }: { path: deep.Path<Scale> }) => {
           } as Scale);
         }}
       />
-      <ScaleFields type={type} path={path} />
+      {mixed !== true && <ScaleFields type={type} path={path} />}
     </>
   );
 };

@@ -31,6 +31,22 @@ describe("layouts.DetailsHeader", () => {
     expect(JSON.parse(writeText.mock.calls[0][0] as string)).toEqual({ channels });
   });
 
+  it("should copy every selected item as a JSON list", async () => {
+    const writeText = stubClipboardWriteText();
+    const channels = [
+      { key: "a", disabled: false },
+      { key: "b", disabled: true },
+    ];
+    const list = deep.path<{ config: { channels: typeof channels } }>().config.channels;
+    const { container } = await renderInTaskForm(
+      <Task.Views.DetailsHeader path={list[0]} paths={[list[0], list[1]]} />,
+      { values: { config: { channels } } },
+    );
+    fireEvent.click(getIconButton(container, "json"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(writeText.mock.calls[0][0] as string)).toEqual(channels);
+  });
+
   it("should not nest a rich title inside a paragraph", async () => {
     const { container } = await renderInTaskForm(
       <Task.Views.DetailsHeader path={path.config}>

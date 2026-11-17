@@ -11,8 +11,8 @@ import { type ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as PSelect } from "@synnaxlabs/lyra/select";
-import { deep, record } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { deep, record, unique } from "@synnaxlabs/x";
+import { type FC, type ReactNode } from "react";
 
 import { Select } from "@/feature/ni/device/Select";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
@@ -56,6 +56,7 @@ import {
 import {
   allowedTypes,
   useAnalogInputPort,
+  useAnalogInputPorts,
   useChannelDevice,
 } from "@/feature/ni/task/usePort";
 import { Task } from "@/platform/task";
@@ -74,33 +75,43 @@ const SelectTerminalConfigField = Form.buildSelectField<TerminalConfig>({
   },
 });
 
-// The configurations the port takes, and "Default" named by what it gives there.
-const terminalConfigItems = (port: ni.AnalogInputPort, current: TerminalConfig) =>
-  TERMINAL_CONFIGS.filter(
-    (c) => c === "Cfg_Default" || c === current || accepts(port.terminalConfigs, c),
-  ).map((c) => {
-    const resolved = port.defaultTerminalConfig;
-    return (
-      <PSelect.Item<TerminalConfig> key={c} itemKey={c}>
-        {c !== "Cfg_Default" || resolved === "Cfg_Default"
-          ? TERMINAL_CONFIG_NAMES[c]
-          : `${TERMINAL_CONFIG_NAMES[c]} (${TERMINAL_CONFIG_NAMES[resolved]})`}
-      </PSelect.Item>
-    );
-  });
+// The configurations that every known port takes, and "Default" named by what it gives
+// when every port gives the same. A port not known takes every configuration.
+const terminalConfigItems = (
+  ports: (ni.AnalogInputPort | undefined)[],
+  current: TerminalConfig | undefined,
+) => {
+  const defaults = unique.unique(ports.map((p) => p?.defaultTerminalConfig));
+  const resolved = defaults.length === 1 ? defaults[0] : undefined;
+  return TERMINAL_CONFIGS.filter(
+    (c) =>
+      c === "Cfg_Default" ||
+      c === current ||
+      ports.every((p) => p == null || accepts(p.terminalConfigs, c)),
+  ).map((c) => (
+    <PSelect.Item<TerminalConfig> key={c} itemKey={c}>
+      {c !== "Cfg_Default" || resolved == null || resolved === "Cfg_Default"
+        ? TERMINAL_CONFIG_NAMES[c]
+        : `${TERMINAL_CONFIG_NAMES[c]} (${TERMINAL_CONFIG_NAMES[resolved]})`}
+    </PSelect.Item>
+  ));
+};
 
 const TerminalConfigField = ({
   path,
 }: {
   path: deep.Path<{ terminalConfig: TerminalConfig; device: string; port: number }>;
 }) => {
-  const port = useAnalogInputPort(path);
-  const current = Form.useFieldValue(path.terminalConfig);
-  if (port == null) return <SelectTerminalConfigField path={path.terminalConfig} />;
+  const ports = useAnalogInputPorts(path);
+  const { value, mixed } = Form.useFieldState(path.terminalConfig);
+  if (ports.every((p) => p == null))
+    return <SelectTerminalConfigField path={path.terminalConfig} />;
   return (
     <SelectTerminalConfigField
       path={path.terminalConfig}
-      inputProps={{ children: terminalConfigItems(port, current) }}
+      inputProps={{
+        children: terminalConfigItems(ports, mixed === true ? undefined : value),
+      }}
     />
   );
 };
@@ -449,23 +460,19 @@ const VelocitySensitivityUnitsField = Form.buildSelectField<VelocitySensitivityU
 });
 
 const ThermocoupleForm: FC<FormProps<"ai_thermocouple">> = ({ path }) => {
-  const cjcSource = Form.useFieldValue(path.cjc.source, {
-    optional: true,
-  });
-  const units = Form.useFieldValue(path.units, {
-    optional: true,
-  });
+  const cjcSource = Form.useFieldState(path.cjc.source, { optional: true });
+  const units = Form.useFieldState(path.units, { optional: true });
   return (
     <>
       <ThermocoupleTypeField path={path.thermocoupleType} />
       <CJCSourceField path={path.cjc} />
-      {cjcSource === "const_val" && (
+      {cjcSource?.mixed !== true && cjcSource?.value === "const_val" && (
         <Form.NumericField
           path={deep.variant(path.cjc, "source", "const_val").val}
           label="CJC value"
         />
       )}
-      {cjcSource === "chan" && (
+      {cjcSource?.mixed !== true && cjcSource?.value === "chan" && (
         <Form.NumericField
           path={deep.variant(path.cjc, "source", "chan").port}
           label="CJC port"
@@ -474,7 +481,11 @@ const ThermocoupleForm: FC<FormProps<"ai_thermocouple">> = ({ path }) => {
       <TemperatureUnitsField path={path.units} />
       <MinMaxValueFields
         path={path}
-        units={units == null ? undefined : TEMPERATURE_UNIT_SYMBOLS[units]}
+        units={
+          units == null || units.mixed === true
+            ? undefined
+            : TEMPERATURE_UNIT_SYMBOLS[units.value]
+        }
       />
     </>
   );
@@ -986,6 +997,24 @@ export interface AIChannelFormProps {
 
 const TypeFields = createTypeFields<AIChannel>(CHANNEL_FORMS);
 
+export interface AIChannelSettingsProps {
+  type: AIChannelType;
+  path: deep.Path<AIChannel>;
+  /** Shown first in the signal section. */
+  children?: ReactNode;
+}
+
+/** The signal fields of the type, and the custom scale. */
+export const AIChannelSettings = ({ type, path, children }: AIChannelSettingsProps) => (
+  <>
+    <Form.Section title="Signal">
+      {children}
+      <TypeFields type={type} path={path} />
+    </Form.Section>
+    <CustomScaleSection path={path} />
+  </>
+);
+
 export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) => {
   const device = useChannelDevice(path);
   const port = useAnalogInputPort(path);
@@ -1004,15 +1033,13 @@ export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) 
           />
         )}
       </Form.Section>
-      <Form.Section title="Signal">
+      <AIChannelSettings type={type} path={path}>
         <SelectAIChannelTypeField
           path={path}
           hardware={device?.properties.hardware}
           inputProps={{ allowNone: false, children: channelTypeItems(types) }}
         />
-        <TypeFields type={type} path={path} />
-      </Form.Section>
-      <CustomScaleSection path={path} />
+      </AIChannelSettings>
     </Form.Sections>
   );
 };

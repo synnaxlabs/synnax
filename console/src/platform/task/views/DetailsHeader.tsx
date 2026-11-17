@@ -21,16 +21,19 @@ import { Section } from "@/platform/section";
 export interface DetailsHeaderProps {
   /** The form path of the selected item, or null when nothing is selected. */
   path: deep.Target<unknown> | null;
+  /** Every selected item, when several are. The copy button copies them as a list. */
+  paths?: deep.Target<unknown>[];
   /** Names the selected item; shown in place of "Details" while one is selected. */
   children?: ReactNode;
   /** Rendered before the title. */
   start?: ReactNode;
 }
 
-export const DetailsHeader = ({ path, children, start }: DetailsHeaderProps) => {
+export const DetailsHeader = ({ path, paths, children, start }: DetailsHeaderProps) => {
   const { get } = Form.useContext();
-  const text =
-    path == null ? "" : () => binary.JSON_CODEC.encodeString(get(path).value);
+  const copied = (at: deep.Target<unknown>): unknown =>
+    paths == null ? get(at).value : paths.map((p) => get(p).value);
+  const text = path == null ? "" : () => binary.JSON_CODEC.encodeString(copied(path));
   return (
     <Section.Header>
       <Flex.Box x align="center" gap="small" className={CSS.BE("panes", "title")}>

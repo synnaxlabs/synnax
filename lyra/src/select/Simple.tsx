@@ -43,6 +43,8 @@ interface BaseSimpleProps
   searchName?: string;
   /** Leaves out the search field, for a list short enough to scan. */
   searchHidden?: boolean;
+  /** Shown while nothing is selected. Defaults to one built from `resourceName`. */
+  placeholder?: string;
   /** The options, as {@link Item}s. */
   children: ReactNode;
   /** Shown when the search hides every option. */
@@ -107,6 +109,7 @@ export const Simple = <K extends record.Key>({
   resourceName,
   searchName = resourceName,
   searchHidden,
+  placeholder: placeholderProp,
   value,
   onChange,
   multiple,
@@ -127,9 +130,10 @@ export const Simple = <K extends record.Key>({
   dialogProps,
   ...rest
 }: SimpleProps<K>): ReactElement => {
-  const placeholder = usePlaceholder(
+  const generated = usePlaceholder(
     multiple === true ? plural(resourceName) : resourceName,
   );
+  const placeholder = placeholderProp ?? generated;
   const triggerBase = {
     haulType,
     icon,

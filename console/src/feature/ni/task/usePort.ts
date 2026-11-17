@@ -9,9 +9,10 @@
 
 import { type ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { deep } from "@synnaxlabs/x";
+import { deep, primitive, unique } from "@synnaxlabs/x";
+import { useRef, useSyncExternalStore } from "react";
 
-import { useByKey } from "@/feature/ni/device/queries";
+import { useByKey, useByKeys } from "@/feature/ni/device/queries";
 import { type Device } from "@/feature/ni/device/types";
 import { accepts } from "@/feature/ni/task/ports";
 
@@ -36,6 +37,36 @@ export const useAnalogInputPort = (
   const device = useChannelDevice(path);
   const port = Form.useFieldValue(deep.widen(path).port, { optional: true });
   return device?.properties.hardware?.analogInputs.find((p) => p.port === port);
+};
+
+/**
+ * The analog input port of each channel that the field at the path edits, which is
+ * every channel under a `Form.Fanout`. An entry is undefined while its device loads, or
+ * when the device has no port list or lacks the port.
+ */
+export const useAnalogInputPorts = (
+  path: deep.Target<ChannelSource>,
+): (ni.AnalogInputPort | undefined)[] => {
+  const ctx = Form.useContext();
+  const source = deep.widen(path);
+  const cached = useRef<ChannelSource[]>([]);
+  const getSnapshot = () => {
+    const next = (ctx.subtrees?.() ?? [ctx]).map((c) => ({
+      device: c.get(source.device, { optional: true })?.value ?? "",
+      port: c.get(source.port, { optional: true })?.value,
+    }));
+    if (!deep.equal(next, cached.current)) cached.current = next;
+    return cached.current;
+  };
+  const sources = useSyncExternalStore(ctx.bind, getSnapshot, getSnapshot);
+  const devices = useByKeys(
+    unique.unique(sources.map((s) => s.device)).filter(primitive.isNonZero),
+  );
+  return sources.map(({ device, port }) =>
+    devices
+      ?.find((d) => d.key === device)
+      ?.properties.hardware?.analogInputs.find((p) => p.port === port),
+  );
 };
 
 /**

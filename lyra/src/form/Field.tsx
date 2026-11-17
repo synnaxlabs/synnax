@@ -24,14 +24,20 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 
 interface FieldChild<I, O>
-  extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "preview"> {}
+  extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "preview"> {
+  /** "Mixed" when the subtrees that `Form.Fanout` edits differ here. */
+  placeholder?: string;
+}
 
 /** Props for {@link Field}. */
 export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
     /** The path into the form values. */
     path: deep.Target<I>;
-    /** Renders the input. Defaults to a text input. */
+    /**
+     * Renders the input. Defaults to a text input. Under `Form.Fanout`, a mixed field
+     * passes an undefined value and the placeholder "Mixed".
+     */
     children?: RenderProp<FieldChild<I, O>>;
     /** Whether to hold room for help text, so the layout does not jump. */
     padHelpText?: boolean;
@@ -74,8 +80,12 @@ export const Field = <I = string | number, O = I>({
   const key = String(path);
   if (label == null) label = caseconv.toSentence(deep.element(key, -1));
   const helpText = field.status.message;
-  const { onChange: fieldOnChange, value } = field;
-  const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
+  const { onChange: fieldOnChange, value, mixed } = field;
+  // A mixed field shows no value, so any value entered goes to every subtree.
+  const childrenProps: FieldChild<I, O> =
+    mixed === true
+      ? { onChange: fieldOnChange, value: undefined as I, placeholder: "Mixed" }
+      : { onChange: fieldOnChange, value };
   if (field.preview != null) childrenProps.preview = field.preview;
   return (
     <Input.Item
@@ -190,11 +200,12 @@ export const CheckboxField = ({
   ...rest
 }: CheckboxFieldProps): ReactElement | null => (
   <Field<boolean> {...rest} path={path as deep.Target<boolean>}>
-    {({ value, onChange, ...p }) => (
+    {({ value, onChange, placeholder, ...p }) => (
       <Input.Checkbox
         {...p}
+        indeterminate={placeholder != null}
         {...inputProps}
-        value={inverted ? !value : value}
+        value={placeholder != null ? false : inverted ? !value : value}
         onChange={(v) => onChange(inverted ? !v : v)}
       />
     )}
