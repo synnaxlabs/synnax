@@ -33,7 +33,7 @@ const Latest = v6.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 	switch env.Version {
 	case v1.Version:
-		t1, err := env.Decode[v1.Table](ctx)
+		t1, err := env.Decode[v1.Table]()
 		if err != nil {
 			return Table{}, err
 		}
@@ -59,7 +59,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		}
 		return t6, nil
 	case v2.Version:
-		t2, err := env.Decode[v2.Table](ctx)
+		t2, err := env.Decode[v2.Table]()
 		if err != nil {
 			return Table{}, err
 		}
@@ -81,7 +81,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		}
 		return t6, nil
 	case v3.Version:
-		t3, err := env.Decode[v3.Table](ctx)
+		t3, err := env.Decode[v3.Table]()
 		if err != nil {
 			return Table{}, err
 		}
@@ -99,7 +99,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		}
 		return t6, nil
 	case v4.Version:
-		t4, err := env.Decode[v4.Table](ctx)
+		t4, err := env.Decode[v4.Table]()
 		if err != nil {
 			return Table{}, err
 		}
@@ -113,7 +113,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		}
 		return t6, nil
 	case v5.Version:
-		t5, err := env.Decode[v5.Table](ctx)
+		t5, err := env.Decode[v5.Table]()
 		if err != nil {
 			return Table{}, err
 		}
@@ -123,7 +123,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		}
 		return t6, nil
 	case v6.Version:
-		return env.Decode[Table](ctx)
+		return env.Decode[Table]()
 	}
 	return Table{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

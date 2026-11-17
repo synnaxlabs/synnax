@@ -172,7 +172,7 @@ func (t frameIteratorResponseTranslator) Forward(
 		Command: int32(msg.Command),
 		Ack:     msg.Ack,
 		SeqNum:  int32(msg.SeqNum),
-		Error:   fgrpc.EncodeError(ctx, msg.Error, false),
+		Error:   fgrpc.EncodeError(msg.Error, false),
 	}
 	if t.codec.Initialized() &&
 		msg.Variant == framer.IteratorResponseVariantData &&

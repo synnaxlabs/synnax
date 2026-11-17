@@ -11,6 +11,7 @@ package freighter
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/x/middleware"
 )
@@ -23,8 +24,15 @@ type (
 	Next = func(Context) (Context, error)
 )
 
-// MDFromContext returns the freighter metadata from the given context.
-func MDFromContext(ctx context.Context) Context { return ctx.(Context) }
+// MDFromContext returns the freighter metadata from the given context. It panics if ctx
+// is not a Context.
+func MDFromContext(ctx context.Context) Context {
+	md, ok := ctx.(Context)
+	if !ok {
+		panic(fmt.Sprintf("%T is not a freighter.Context", ctx))
+	}
+	return md
+}
 
 // MiddlewareCollector is a chain of middleware that can be executed sequentially.
 // It extends the middleware.Chain type to embed request metadata as a context value.

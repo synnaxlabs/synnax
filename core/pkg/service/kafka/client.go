@@ -40,7 +40,6 @@ func decodeProperties(dev device.Device) (Properties, error) {
 			err, "parsing properties of device %s", dev.Key,
 		)
 	}
-	props.ApplyDefaults()
 	if err := validateProperties(props); err != nil {
 		return Properties{}, err
 	}

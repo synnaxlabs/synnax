@@ -272,7 +272,9 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, snap Snapshot) error
 }
 
 // Exists returns true if any record passes the filter. When every requested key must
-// have an entry (see SkipMissingKeys), it returns true only if every key exists.
+// have an entry (see SkipMissingKeys), it returns true only if every key exists. A
+// query with only bare keys does not decode the entries, so it is correct for any
+// stored shape of E.
 func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error) {
 	checkForNilTx("Retriever.Exists", snap)
 	if err := r.resolveFilter(ctx, snap); err != nil {
@@ -282,6 +284,9 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error)
 		keys := r.filter.keys.Keys()
 		if len(keys) == 0 {
 			return false, nil
+		}
+		if r.IsBareKeys() && r.prefix == nil && len(r.validators) == 0 {
+			return r.keysExist(snap, keys)
 		}
 		e := make([]E, 0, len(keys))
 		r.entries.bindMultiple(&e)
@@ -300,6 +305,24 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error)
 		return false, err
 	}
 	return len(e) > 0, nil
+}
+
+func (r Retrieve[K, E]) keysExist(snap Snapshot, keys []K) (bool, error) {
+	reader := wrapReader[K, E](snap, r.keyPrefix)
+	found := 0
+	for _, k := range keys {
+		ok, err := reader.has(k)
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			found++
+		}
+	}
+	if r.keysRequired() {
+		return found == len(keys), nil
+	}
+	return found > 0, nil
 }
 
 // Count returns the number of records matching the query.
@@ -322,7 +345,14 @@ func (r Retrieve[K, E]) Count(
 		}
 		return len(r.entries.All()), nil
 	}
+	return r.countScan(ctx, snap)
+}
 
+// countScan counts the matching records by iterating over every entry in the table.
+func (r Retrieve[K, E]) countScan(
+	ctx context.Context,
+	snap Snapshot,
+) (count int, err error) {
 	reader := wrapReader[K, E](snap, r.keyPrefix)
 	iter, err := reader.OpenIterator(
 		IterOptions{prefix: r.prefix, after: r.encodedAfter()},
@@ -348,7 +378,7 @@ func (r Retrieve[K, E]) Count(
 		if !rawMatched {
 			continue
 		}
-		v := iter.Value(ctx)
+		v := iter.Value()
 		if err = iter.Error(); err != nil {
 			return 0, err
 		}
@@ -430,7 +460,7 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 			break
 		}
 		e = zero
-		b, closer, err := reader.get(ctx, k, &e)
+		b, closer, err := reader.get(k, &e)
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				notFound = append(notFound, k)
@@ -529,7 +559,7 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err err
 		if !rawMatched {
 			continue
 		}
-		v := iter.Value(ctx)
+		v := iter.Value()
 		if err = iter.Error(); err != nil {
 			return err
 		}
@@ -565,6 +595,28 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err err
 // filter that rejects most entries does not cost one index lock per entry.
 const minWalkBatch = 128
 
+// readMatch decodes the entry with key k into e and reports whether it exists and
+// matches the filter.
+func (r *Retrieve[K, E]) readMatch(
+	ctx Context,
+	reader *Reader[K, E],
+	k K,
+	e *E,
+) (bool, error) {
+	b, closer, err := reader.get(k, e)
+	if err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	match, mErr := r.matchEval(ctx, e, nil, b)
+	if cErr := closer.Close(); mErr != nil || cErr != nil {
+		return false, errors.Combine(mErr, cErr)
+	}
+	return match, nil
+}
+
 // execOrdered walks the configured OrderQuery, fetching entries per-key in walk order
 // and matching each against the filter until it collects the limit.
 func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
@@ -587,16 +639,9 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 			continue
 		}
 		var e E
-		b, closer, err := reader.get(ctx, k, &e)
+		match, err := r.readMatch(gorpCtx, &reader, k, &e)
 		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
 			return err
-		}
-		match, mErr := r.matchEval(gorpCtx, &e, nil, b)
-		if cErr := closer.Close(); mErr != nil || cErr != nil {
-			return errors.Combine(mErr, cErr)
 		}
 		if !match {
 			continue

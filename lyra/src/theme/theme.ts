@@ -92,6 +92,8 @@ export const themeZ = z
   .object({
     name: z.string(),
     key: z.string(),
+    /** True when the theme draws on a dark canvas. */
+    dark: z.boolean().default(false),
     colors: z.object({
       border: color.colorZ,
       primary: scaleZ,
@@ -163,6 +165,32 @@ export const themeZ = z
 
 export type ThemeSpec = z.input<typeof themeZ>;
 export type Theme = z.infer<typeof themeZ>;
+
+/** A color with a value for each theme mode. */
+export interface Pair {
+  light: color.Crude;
+  /** When absent, the dark value is the light value in the theme's symbol band. */
+  dark?: color.Crude;
+}
+
+/**
+ * @returns the color with its OKLCH lightness clamped into the theme's symbol band, so
+ * it reads on the theme's background. Hue, chroma, and alpha stay.
+ */
+export const legible = (c: color.Crude, t: Theme): color.Color => {
+  const { lMin, lMax, lExtreme, cThresh } = t.symbol;
+  const [l, ch, h, a] = color.oklch(c);
+  const gray = Math.min(1, Math.max(0, (cThresh - ch) / cThresh));
+  const clamped = Math.min(lMax, Math.max(lMin, l)) * (1 - gray) + lExtreme * gray;
+  return color.fromOKLCH([clamped, ch, h, a]);
+};
+
+/** @returns the value of the pair for the mode of the theme. */
+export const resolve = (pair: Pair, t: Theme): color.Color => {
+  if (!t.dark) return color.construct(pair.light);
+  if (pair.dark != null) return color.construct(pair.dark);
+  return legible(pair.light, t);
+};
 
 const fontFamily = '"Inter Variable", sans-serif';
 const codeFontFamily = '"Geist Mono", monospace';
@@ -348,6 +376,7 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
   ...SYNNAX_BASE,
   key: "synnaxDark",
   name: "Synnax Dark",
+  dark: true,
   colors: {
     ...SYNNAX_BASE.colors,
     gray: DARK_GRAY_SCALE,

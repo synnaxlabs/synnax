@@ -229,6 +229,53 @@ describe("Synchronizer.use", () => {
     expect(destroyed).toBe(true);
   });
 
+  it("should tell a listener that its client closed", async () => {
+    const closing = createTestClient();
+    let ended: (() => boolean) | undefined;
+    const { wrapper } = await createConsoleWrapper({ client: closing });
+    renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "listener",
+            use: () => ({
+              listen: (params) => {
+                ended = params.ended;
+                return () => {};
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(ended?.()).toBe(false));
+    await closing.close();
+    expect(ended?.()).toBe(true);
+  });
+
+  it("should tell a listener that it was torn down", async () => {
+    let ended: (() => boolean) | undefined;
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { unmount } = renderHook(
+      () =>
+        Synchronizer.use([
+          {
+            name: "listener",
+            use: () => ({
+              listen: (params) => {
+                ended = params.ended;
+                return () => {};
+              },
+            }),
+          },
+        ]),
+      { wrapper },
+    );
+    await waitFor(() => expect(ended?.()).toBe(false));
+    unmount();
+    expect(ended?.()).toBe(true);
+  });
+
   it("should report verified only after a full pass completes", async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((resolve) => (release = resolve));

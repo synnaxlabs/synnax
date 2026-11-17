@@ -459,7 +459,7 @@ func (s *Service) Decode(
 				validate.ErrValidation, "bundle holds no %s", manifestFileName,
 			)
 		}
-		members, err := legacy.Members(ctx, layout, files)
+		members, err := legacy.Members(layout, files)
 		if err != nil {
 			return Bundle{}, err
 		}

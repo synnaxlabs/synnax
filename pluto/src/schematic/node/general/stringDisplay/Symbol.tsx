@@ -39,7 +39,7 @@ export const Symbol = ({
   BaseStringValue.use({
     aetherKey: nodeKey,
     box: content.box,
-    telem: telem.streamChannelStringValue({ channel: channel ?? 0 }),
+    telem: telem.streamChannelStringValue({ channel }),
     level,
     color: textColor,
     stalenessColor,

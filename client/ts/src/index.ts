@@ -25,6 +25,7 @@ export {
   type SynnaxParams,
   synnaxParamsZ,
 } from "@/client";
+export { color } from "@/color";
 export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";

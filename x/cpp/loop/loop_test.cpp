@@ -29,6 +29,8 @@ namespace x::loop {
 constexpr double RATE_TOLERANCE = 0.05;
 /// @brief Wall time each rate is measured over.
 constexpr int SPAN_SECONDS = 1;
+/// @brief Number of windows each rate is measured over.
+constexpr int WINDOWS = 5;
 
 /// @brief Logs the timer resolution a sleep on this machine rounds up to. Windows
 /// defaults to 15.625 ms, but any process raising it changes what every other process
@@ -99,12 +101,25 @@ measure_deviation(Wait wait, const telem::TimeSpan &target, const int count) {
     return median(periods);
 }
 
-/// @brief Logs the rate wait holds at rate_hz and checks it against the tolerance.
+/// @brief Logs the rate wait holds at rate_hz and checks it against the tolerance. A
+/// single period rounds to the tick of an OS sleep, but the timer holds its deadlines,
+/// so the mean period of a window holds the rate. The median of the windows rejects a
+/// window with a stall.
 /// @param wait the wait to measure.
 /// @param rate_hz the rate the timer holds.
 template<typename Wait>
 void expect_rate(Wait wait, const int rate_hz) {
-    const auto period = median(measure_periods(wait, rate_hz * SPAN_SECONDS));
+    const int count = std::max(1, rate_hz * SPAN_SECONDS / WINDOWS);
+    std::vector<telem::TimeSpan> windows;
+    windows.reserve(WINDOWS);
+    wait();
+    for (int i = 0; i < WINDOWS; i++) {
+        const auto start = hs_clock::now();
+        for (int j = 0; j < count; j++)
+            wait();
+        windows.emplace_back(telem::TimeSpan(hs_clock::now() - start) / count);
+    }
+    const auto period = median(windows);
     const double measured = 1 / period.seconds();
     const double error = (measured - rate_hz) / rate_hz * 100;
     std::cout << std::fixed << std::setprecision(1);

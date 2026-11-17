@@ -12,6 +12,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 )
 
 var (
-	// Colors
+	// Colors.
 	purple  = lipgloss.Color("#9D4EDD")
 	pink    = lipgloss.Color("#FF6B9D")
 	cyan    = lipgloss.Color("#00D9FF")
@@ -29,7 +30,7 @@ var (
 	red     = lipgloss.Color("#FF4757")
 	dimGray = lipgloss.Color("#6B7280")
 
-	// Styles
+	// Styles.
 	successStyle = lipgloss.NewStyle().Bold(true).Foreground(green)
 	errorStyle   = lipgloss.NewStyle().Bold(true).Foreground(red)
 	infoStyle    = lipgloss.NewStyle().Foreground(cyan)
@@ -39,7 +40,7 @@ var (
 	countStyle   = lipgloss.NewStyle().Bold(true).Foreground(purple)
 )
 
-// Symbols for output
+// Symbols for output.
 const (
 	symbolSuccess = "✓"
 	symbolError   = "✗"
@@ -82,7 +83,7 @@ func printDim(msg string) {
 
 func printPluginDone(plugin string, fileCount int) {
 	p := pluginStyle.Render(plugin)
-	c := countStyle.Render(fmt.Sprintf("%d", fileCount))
+	c := countStyle.Render(strconv.Itoa(fileCount))
 	word := "file"
 	if fileCount != 1 {
 		word = "files"
@@ -103,7 +104,7 @@ func printFileWritten(plugin, path string) {
 }
 
 func printSchemaCount(count int) {
-	c := countStyle.Render(fmt.Sprintf("%d", count))
+	c := countStyle.Render(strconv.Itoa(count))
 	word := "schema"
 	if count != 1 {
 		word = "schemas"
@@ -120,7 +121,7 @@ func printSyncedCount(written, unchanged int) {
 		)
 		return
 	}
-	w := countStyle.Render(fmt.Sprintf("%d", written))
+	w := countStyle.Render(strconv.Itoa(written))
 	word := "file"
 	if written != 1 {
 		word = "files"
@@ -145,7 +146,7 @@ func printDiagnostics(diagnosticStr string) {
 }
 
 func printFormattingStart(count int) {
-	c := countStyle.Render(fmt.Sprintf("%d", count))
+	c := countStyle.Render(strconv.Itoa(count))
 	word := "schema"
 	if count != 1 {
 		word = "schemas"
@@ -162,7 +163,7 @@ func printFormattingDone(formatted int) {
 		)
 		return
 	}
-	c := countStyle.Render(fmt.Sprintf("%d", formatted))
+	c := countStyle.Render(strconv.Itoa(formatted))
 	word := "file"
 	if formatted != 1 {
 		word = "files"
@@ -270,7 +271,7 @@ func countWord(n int, singular string) string {
 	if n != 1 {
 		noun = singular + "s"
 	}
-	return countStyle.Render(fmt.Sprintf("%d", n)) + " " + noun
+	return countStyle.Render(strconv.Itoa(n)) + " " + noun
 }
 
 // fmtDuration renders a duration in a tight, human-friendly form: ms

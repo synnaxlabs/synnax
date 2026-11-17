@@ -30,14 +30,16 @@ var _ = Describe("FieldProcessor", func() {
 		mgr = includes.NewManager()
 	})
 
-	process := func(ctx SpecContext, source, field string) json.FieldData {
+	process := func(source, field string) json.FieldData {
 		GinkgoHelper()
-		req := MustGenerateRequest(ctx, source, "test", loader)
+		req := MustGenerateRequest(source, "test", loader)
 		item := req.Resolutions.MustGet("test.Item")
-		f := MustBeOk(item.Form.(resolution.StructForm).Field(field))
+		form, ok := item.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		f := MustBeOk(form.Field(field))
 		fp := &json.FieldProcessor{
 			Includes:   mgr,
-			Namespace:  "test",
+			FilePath:   item.FilePath,
 			OutputPath: "client/cpp/test",
 			Table:      req.Resolutions,
 			JSONPaths:  MustSucceed(json.ContentPaths(req)),
@@ -45,8 +47,8 @@ var _ = Describe("FieldProcessor", func() {
 		return fp.ProcessField(f, item)
 	}
 
-	It("Should read and write a required field", func(ctx SpecContext) {
-		fd := process(ctx, `
+	It("Should read and write a required field", func() {
+		fd := process(`
 			@cpp output "client/cpp/test"
 
 			Item struct {
@@ -58,10 +60,8 @@ var _ = Describe("FieldProcessor", func() {
 		Expect(fd.ToJSONExpr).To(Equal(`j["key"] = this->key;`))
 	})
 
-	It("Should write an optional field only when it holds a value", func(
-		ctx SpecContext,
-	) {
-		fd := process(ctx, `
+	It("Should write an optional field only when it holds a value", func() {
+		fd := process(`
 			@cpp output "client/cpp/test"
 
 			Item struct {
@@ -76,8 +76,8 @@ var _ = Describe("FieldProcessor", func() {
 		)
 	})
 
-	It("Should qualify the codec of a union in the namespace", func(ctx SpecContext) {
-		fd := process(ctx, `
+	It("Should qualify the codec of a union in the namespace", func() {
+		fd := process(`
 			@cpp output "client/cpp/test"
 
 			Shape union on type {
@@ -96,9 +96,7 @@ var _ = Describe("FieldProcessor", func() {
 		)
 	})
 
-	It("Should include the JSON header of a type in another namespace", func(
-		ctx SpecContext,
-	) {
+	It("Should include the JSON header of a type in another namespace", func() {
 		loader.Add("schemas/patch", `
 			@cpp output "x/cpp/patch"
 
@@ -106,7 +104,7 @@ var _ = Describe("FieldProcessor", func() {
 				value string
 			}
 		`)
-		fd := process(ctx, `
+		fd := process(`
 			import "schemas/patch"
 
 			@cpp output "client/cpp/test"

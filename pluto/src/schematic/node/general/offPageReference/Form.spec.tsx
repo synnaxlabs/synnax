@@ -183,7 +183,7 @@ describe("OffPageReferenceForm", () => {
     const before = getColor();
     fireEvent.click(await findByLabelText(`Clear ${targetName}`));
     await waitFor(() =>
-      expect(getMethods().get(path.page, { optional: true })?.value).toBeUndefined(),
+      expect(getMethods().get(path.page).value).toEqual({ type: "lineplot", key: "" }),
     );
     expect(getColor()).toBe(before);
   });

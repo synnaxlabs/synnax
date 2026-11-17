@@ -24,12 +24,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -58,7 +60,6 @@ var _ = Describe("Change channels", func() {
 		GinkgoHelper()
 		return createUserGranted(
 			ctx,
-			access.ActionRetrieve,
 			append(svcframer.ResourceIDs(channel.Keys{ch.Key()}), granted...)...,
 		)
 	}
@@ -110,6 +111,19 @@ var _ = Describe("Change channels", func() {
 	}
 	newLabel := func() label.Label {
 		return label.Label{Key: uuid.New(), Name: "change-channel"}
+	}
+	createColors := func(ctx SpecContext, named ...color.Named) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Color.NewWriter(tx).CreateMany(ctx, named)
+		})).To(Succeed())
+	}
+	newColor := func() color.Named {
+		return color.Named{
+			Key:   uuid.New(),
+			Name:  "change-channel",
+			Light: MustSucceed(xcolor.Parse("#ff0000")),
+		}
 	}
 	newRange := func(ctx SpecContext) ranger.Range {
 		GinkgoHelper()
@@ -181,6 +195,49 @@ var _ = Describe("Change channels", func() {
 					GinkgoHelper()
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.Label.NewWriter(tx).Delete(
+							ctx,
+							readable.Key,
+							denied.Key,
+						)
+					})).To(Succeed())
+				}
+			},
+		),
+		Entry(
+			"a named color set",
+			"sy_color_set",
+			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newColor(), newColor()
+				return color.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					createColors(ctx, readable, denied)
+				}
+			},
+		),
+		Entry(
+			"a named color action",
+			"sy_color_action_set",
+			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newColor(), newColor()
+				return color.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					createColors(ctx, readable, denied)
+				}
+			},
+		),
+		Entry(
+			"a named color delete",
+			"sy_color_delete",
+			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newColor(), newColor()
+				createColors(ctx, readable, denied)
+				return color.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Color.NewWriter(tx).Delete(
 							ctx,
 							readable.Key,
 							denied.Key,

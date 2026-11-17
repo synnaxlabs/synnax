@@ -1,0 +1,122 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/group"
+import "schemas/x/color"
+import "schemas/x/filter"
+import "schemas/x/patch"
+
+@go output "core/pkg/service/color"
+@py output "client/py/synnax/color"
+@ts output "client/ts/src/color"
+
+Key = uuid {
+    @doc value "is the key of a named color."
+}
+
+Named struct {
+    key      Key = create {
+        @doc value "is the key of the named color."
+        @key
+    }
+    name     string       {
+        @doc value           "is the name of the color."
+        @index sorted
+        @patch
+        @search
+        @validate min_length 1
+    }
+    light    color.Color  {
+        @doc value "is the color in the light theme."
+        @patch
+    }
+    dark     color.Color? {
+        @doc value "is the color in the dark theme. When absent, the theme derives it."
+        @patch
+    }
+    group    group.Key?   {
+        @doc value     "is the palette that holds the color, if any."
+        @group scope   color
+        @patch
+        @ref kind      place
+        @ref on_delete detach
+    }
+    position string?      {
+        @doc value """
+            is where the color sits in its palette, as a fractional index. A palette
+            sorts its colors by position, compared by code point, and a color with none
+            comes last.
+        """
+        @patch
+    }
+
+    action Create {
+        named Named
+
+        @doc value """
+            replaces the named color with the given created state. Emitted by the Core
+            when a named color is created; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
+
+    @create
+    @doc value     """
+        is a color with a name. A record that uses it holds its key, so an edit to the
+        color changes each user.
+    """
+    @go marshal
+    @go migrate
+    @resource type "color"
+    @retrieve
+    @retrieve noun "color"
+}
+
+Where filter Named {
+    key
+    name
+    groups  group.Key[] {
+        @doc value "matches the named colors in any of the given palettes."
+    }
+    grouped bool        {
+        @doc value "matches the named colors in a palette, or in no palette when false."
+    }
+
+    @doc value         "is a filter that selects named colors."
+    @go request_output "core/pkg/api/color"
+}
+
+Ref union on type {
+    named {
+        key Key {
+            @doc value     "is the key of the named color."
+            @ref kind      use
+            @ref on_delete inline
+        }
+
+        @doc value "is a reference to a named color."
+    }
+    fixed {
+        value color.Color {
+            @doc value "is the color."
+        }
+
+        @doc value "is a color with no name."
+    }
+
+    @doc value  "is the color that a record shows: a named color or a fixed color."
+    @go marshal
+}

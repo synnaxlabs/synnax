@@ -49,7 +49,7 @@ type UndefinedSymbolError struct {
 
 // Error implements the error interface.
 func (e *UndefinedSymbolError) Error() string {
-	return fmt.Sprintf("undefined symbol: %s", e.Name)
+	return "undefined symbol: " + e.Name
 }
 
 func isUndefined(err error) bool {

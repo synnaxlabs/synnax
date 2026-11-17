@@ -76,16 +76,6 @@ type Spec struct {
 	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitzero" msgpack:"preview_viewport,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *Spec) ApplyDefaults() {
-	if s.Scale == 0 {
-		s.Scale = 1
-	}
-	if s.PreviewViewport != nil {
-		s.PreviewViewport.ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (s *Spec) SetDefaults() {
 	s.Scale = 1
@@ -133,11 +123,6 @@ type Symbol struct {
 	Data Spec `json:"data" msgpack:"data"`
 	// Group is the group the symbol sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *Symbol) ApplyDefaults() {
-	s.Data.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.

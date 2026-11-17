@@ -212,10 +212,10 @@ var _ = Describe("Check", func() {
 				canMessage("M", 1, fields...),
 			}})
 		}
-		overlapping := func(i int, name string) validate.Problem {
+		overlapping := func(i int) validate.Problem {
 			return validate.Problem{
 				Path:    fmt.Sprintf("messages.0.payload.fields.%d.start_bit", i),
-				Message: fmt.Sprintf("field overlaps the bits of field %q", name),
+				Message: `field overlaps the bits of field "a"`,
 			}
 		}
 		bigEndian := func(f icd.BinaryField) icd.BinaryField {
@@ -239,7 +239,7 @@ var _ = Describe("Check", func() {
 
 		It("Should find two fields that read the same bits", func() {
 			Expect(check(binaryField("a", 0, 8), binaryField("b", 4, 8))).
-				To(ConsistOf(overlapping(1, "a")))
+				To(ConsistOf(overlapping(1)))
 		})
 
 		It("Should report a field against the first field it overlaps", func() {
@@ -247,7 +247,7 @@ var _ = Describe("Check", func() {
 				binaryField("a", 0, 8),
 				binaryField("b", 8, 8),
 				binaryField("c", 4, 8),
-			)).To(ConsistOf(overlapping(2, "a")))
+			)).To(ConsistOf(overlapping(2)))
 		})
 
 		It("Should not find fields that only touch", func() {
@@ -256,7 +256,7 @@ var _ = Describe("Check", func() {
 
 		It("Should compare fields with different byte orders", func() {
 			Expect(check(binaryField("a", 0, 8), bigEndian(binaryField("b", 7, 8)))).
-				To(ConsistOf(overlapping(1, "a")))
+				To(ConsistOf(overlapping(1)))
 			Expect(check(bigEndian(binaryField("a", 7, 16)), binaryField("b", 16, 8))).
 				To(BeEmpty())
 		})
@@ -268,7 +268,7 @@ var _ = Describe("Check", func() {
 					mux,
 					binaryField("a", 8, 8),
 					multiplexed(binaryField("b", 8, 8), mux, 0),
-				)).To(ConsistOf(overlapping(2, "a")))
+				)).To(ConsistOf(overlapping(2)))
 			},
 		)
 
@@ -279,7 +279,7 @@ var _ = Describe("Check", func() {
 					mux,
 					multiplexed(binaryField("a", 8, 8), mux, 0),
 					binaryField("b", 8, 8),
-				)).To(ConsistOf(overlapping(2, "a")))
+				)).To(ConsistOf(overlapping(2)))
 			},
 		)
 
@@ -288,7 +288,7 @@ var _ = Describe("Check", func() {
 				mux,
 				multiplexed(binaryField("a", 8, 8), mux, 0, 1),
 				multiplexed(binaryField("b", 8, 8), mux, 1, 2),
-			)).To(ConsistOf(overlapping(2, "a")))
+			)).To(ConsistOf(overlapping(2)))
 		})
 
 		It(
