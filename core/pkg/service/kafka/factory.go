@@ -340,8 +340,8 @@ func resolveProperties(
 	return decodeProperties(dev)
 }
 
-// retrieveChannels resolves keys to their channel records. It returns an error
-// wrapping query.ErrNotFound when a key does not exist.
+// retrieveChannels resolves keys to their channel records. A key with no channel is
+// absent from the result.
 func retrieveChannels(
 	ctx context.Context,
 	db *gorp.DB,
@@ -352,6 +352,7 @@ func retrieveChannels(
 	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return svc.NewRetrieve().
 			Where(channel.MatchKeys(keys...)).
+			SkipMissingKeys().
 			Entries(&channels).
 			Exec(ctx, snap)
 	}); err != nil {

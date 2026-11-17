@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Read } from "@/feature/kafka/task/Read";
-import { READ_TYPE, WRITE_TYPE } from "@/feature/kafka/task/types";
+import { WRITE_TYPE } from "@/feature/kafka/task/types";
 import { Write } from "@/feature/kafka/task/Write";
 import { type Task } from "@/platform/task";
 
 export * from "@/feature/kafka/task/commands";
 export * from "@/feature/kafka/task/integration";
-export * from "@/feature/kafka/task/Read";
 export * from "@/feature/kafka/task/types";
 export * from "@/feature/kafka/task/Write";
 
-export const FORMS: Task.Forms = { [READ_TYPE]: Read, [WRITE_TYPE]: Write };
+export const FORMS: Task.Forms = { [WRITE_TYPE]: Write };

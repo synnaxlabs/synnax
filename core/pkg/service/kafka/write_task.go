@@ -193,7 +193,13 @@ func (t *writeTask) addChannels(channels map[channel.Key]channel.Channel) error 
 		if wc.Disabled {
 			continue
 		}
-		ch := channels[wc.Channel]
+		ch, ok := channels[wc.Channel]
+		if !ok {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"channel %q: channel %d does not exist", wc.Key, wc.Channel,
+			)
+		}
 		if err := validateTimestampChannel(wc, ch); err != nil {
 			return err
 		}

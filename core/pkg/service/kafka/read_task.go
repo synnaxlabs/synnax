@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"slices"
 	"sync"
@@ -215,7 +216,7 @@ func (f *Factory) buildReadRecords(
 			}
 		}
 	}
-	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, lo.Uniq(keys))
+	channels, err := f.readChannels(ctx, lo.Uniq(keys))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -245,6 +246,33 @@ func (f *Factory) buildReadRecords(
 		groups = append(groups, rd.groups...)
 	}
 	return records, groups, nil
+}
+
+// readChannels returns the channels of keys and the index channel of each, so that an
+// error can name an index channel that no binding names.
+func (f *Factory) readChannels(
+	ctx context.Context,
+	keys channel.Keys,
+) (map[channel.Key]channel.Channel, error) {
+	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys)
+	if err != nil {
+		return nil, err
+	}
+	var indexes channel.Keys
+	for _, ch := range channels {
+		if _, ok := channels[ch.Index()]; !ok && !ch.IsIndex && ch.Index() != 0 {
+			indexes = append(indexes, ch.Index())
+		}
+	}
+	if len(indexes) == 0 {
+		return channels, nil
+	}
+	found, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, lo.Uniq(indexes))
+	if err != nil {
+		return nil, err
+	}
+	maps.Copy(channels, found)
+	return channels, nil
 }
 
 // writers holds the channels that the groups of a read task write to.
@@ -368,7 +396,12 @@ func (g *readGroup) bind(
 	bindings := make([]codec.Binding, len(rm.Bindings))
 	for i, b := range rm.Bindings {
 		ch, ok := channels[b.Channel]
-		if !ok {
+		switch {
+		case b.Channel == 0:
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "binding %d has no channel", i,
+			)
+		case !ok:
 			return nil, errors.Wrapf(
 				validate.ErrValidation, "channel %d does not exist", b.Channel,
 			)

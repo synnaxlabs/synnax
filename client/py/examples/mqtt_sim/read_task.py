@@ -60,28 +60,41 @@ running = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
+# The ICD describes the payload. The read task binds its fields to channels.
+temperature_field = sy.icd.FloatJSONField(name="Temperature", pointer="/temperature")
+pressure_field = sy.icd.FloatJSONField(name="Pressure", pointer="/pressure")
+state_field = sy.icd.UnsignedJSONField(
+    name="Running",
+    pointer="/state",
+    enum_values=[
+        payload.UnsignedEntry(label="idle", value=payload.Unsigned(0)),
+        payload.UnsignedEntry(label="running", value=payload.Unsigned(1)),
+    ],
+)
+sensors = sy.icd.Message(
+    name="Sensors",
+    payload=sy.icd.JSONPayload(fields=[temperature_field, pressure_field, state_field]),
+)
+plant = client.icds.create(name="MQTT Plant", messages=[sensors])
+
 tsk = mqtt.ReadTask(
     name="MQTT Py - Read Task",
     device=dev.key,
     entries=[
         mqtt.PlainReadEntry(
             topic="plant/sensors",
-            fields=[
-                mqtt.FloatReadField(
-                    pointer="/temperature", channel=temperature.key, name="Temperature"
-                ),
-                mqtt.FloatReadField(
-                    pointer="/pressure", channel=pressure.key, name="Pressure"
-                ),
-                mqtt.UnsignedReadField(
-                    pointer="/state",
-                    channel=running.key,
-                    name="Running",
-                    enum_values=[
-                        payload.UnsignedEntry(label="idle", value=payload.Unsigned(0)),
-                        payload.UnsignedEntry(
-                            label="running", value=payload.Unsigned(1)
+            icd=plant.key,
+            messages=[
+                mqtt.ReadMessage(
+                    message=sensors.key,
+                    bindings=[
+                        mqtt.ReadBinding(
+                            field=temperature_field.key, channel=temperature.key
                         ),
+                        mqtt.ReadBinding(
+                            field=pressure_field.key, channel=pressure.key
+                        ),
+                        mqtt.ReadBinding(field=state_field.key, channel=running.key),
                     ],
                 ),
             ],
