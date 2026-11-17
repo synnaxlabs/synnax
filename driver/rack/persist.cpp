@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <string>
+#include <utility>
 
 #include "absl/log/log.h"
 
@@ -29,20 +30,31 @@ namespace {
 const std::string STATE_FILE = "persisted-state.json";
 }
 
-std::string get_persisted_state_path(x::args::Parser &parser) {
+std::pair<std::string, x::errors::Error>
+get_persisted_state_path(x::args::Parser &parser) {
     auto p_path = parser.field<std::string>("--state-file", "");
     // A bare file name has no parent directory to open.
-    if (!p_path.empty()) return fs::absolute(p_path).string();
-    auto dir = state::user_dir();
-    if (dir.empty() || parser.flag(MACHINE_STATE_FLAG)) dir = state::machine_dir();
-    return (dir / STATE_FILE).string();
+    if (!p_path.empty()) return {fs::absolute(p_path).string(), x::errors::NIL};
+    const auto dir = state::user_dir();
+    if (dir.empty() || parser.flag(MACHINE_STATE_FLAG))
+        return {(state::machine_dir() / STATE_FILE).string(), x::errors::NIL};
+    // Root never writes in the home of the user that ran sudo.
+    if (state::sudo())
+        return {
+            "",
+            x::errors::Error(
+                STATE_ERROR,
+                "Run synnax-driver without sudo. Sudo is needed only while the Driver "
+                "service is installed"
+            )
+        };
+    return {(dir / STATE_FILE).string(), x::errors::NIL};
 }
 
 x::errors::Error rack::Config::secure_persisted_state(x::args::Parser &args) {
-    return state::secure(
-        get_persisted_state_path(args),
-        args.field<std::string>("--state-file", "").empty()
-    );
+    const auto [path, err] = get_persisted_state_path(args);
+    if (err) return err;
+    return state::secure(path, args.field<std::string>("--state-file", "").empty());
 }
 
 x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
@@ -105,7 +117,8 @@ x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
 
 std::pair<std::shared_ptr<x::kv::KV>, x::errors::Error>
 open_kv(x::args::Parser &parser) {
-    const auto path = get_persisted_state_path(parser);
+    const auto [path, path_err] = get_persisted_state_path(parser);
+    if (path_err) return {nullptr, path_err};
     if (auto err = state::prepare(path)) return {nullptr, err};
     const auto dir = fs::path(path).parent_path();
     std::error_code dir_ec;
@@ -136,7 +149,9 @@ open_kv(x::args::Parser &parser) {
 }
 
 x::errors::Error rack::Config::load_persisted_state(x::args::Parser &args) {
-    this->state_dir = fs::path(get_persisted_state_path(args)).parent_path();
+    const auto [path, path_err] = get_persisted_state_path(args);
+    if (path_err) return path_err;
+    this->state_dir = fs::path(path).parent_path();
     auto [kv, open_err] = open_kv(args);
     if (open_err) return open_err;
 

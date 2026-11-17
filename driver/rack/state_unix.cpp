@@ -132,6 +132,10 @@ fs::path user_dir() {
     return {};
 }
 
+bool sudo() {
+    return geteuid() == 0 && std::getenv("SUDO_USER") != nullptr;
+}
+
 x::errors::Error prepare(const fs::path &path) {
     FD dir{open(
         path.parent_path().c_str(),

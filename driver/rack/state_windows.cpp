@@ -41,6 +41,10 @@ fs::path user_dir() {
     return {};
 }
 
+bool sudo() {
+    return false;
+}
+
 namespace {
 /// @brief the administrators own the directory. SYSTEM and the administrators have full
 /// access to it and everything in it, and no one else has access.

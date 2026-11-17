@@ -60,6 +60,42 @@ TEST(StateTest, UserStateWithoutService) {
     ASSERT_EQ(cfg.state_dir, expected);
 }
 
+/// @brief it should refuse the state of a user to root under sudo, before it changes
+/// anything, and use it for any other process.
+TEST(StateTest, RefuseUserStateUnderSudo) {
+#if defined(__linux__) || defined(_WIN32)
+    GTEST_SKIP() << "only macOS keeps the state of a user in the folder of that user";
+#else
+    const auto home = std::filesystem::temp_directory_path() / "rack-test-sudo-home";
+    std::filesystem::remove_all(home);
+    const char *previous = std::getenv("HOME");
+    const char *sudo_user = std::getenv("SUDO_USER");
+    x::defer::defer restore([&,
+                             previous = std::string(previous ? previous : ""),
+                             sudo_user = std::string(sudo_user ? sudo_user : "")] {
+        x::env::set("HOME", previous);
+        if (sudo_user.empty())
+            x::env::unset("SUDO_USER");
+        else
+            x::env::set("SUDO_USER", sudo_user);
+        std::filesystem::remove_all(home);
+    });
+    x::env::set("HOME", home.string());
+    // A user that does not exist keeps the state directory in HOME.
+    x::env::set("SUDO_USER", "rack-test-no-such-user");
+    auto args = x::args::Parser(std::vector<std::string>{"program"});
+    Config cfg;
+    if (geteuid() != 0) {
+        ASSERT_NIL(cfg.load_persisted_state(args));
+        return;
+    }
+    const auto err = cfg.load_persisted_state(args);
+    ASSERT_OCCURRED_AS(err, STATE_ERROR);
+    ASSERT_NE(err.message().find("without sudo"), std::string::npos);
+    ASSERT_FALSE(std::filesystem::exists(home));
+#endif
+}
+
 namespace fs = std::filesystem;
 
 /// @brief runs each spec with the default state path, and with --state-file.
