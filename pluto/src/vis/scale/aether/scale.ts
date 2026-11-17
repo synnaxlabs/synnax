@@ -37,11 +37,12 @@ export const scaleStateZ = staleness.configZ.extend({
   box: box.box,
   telem: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
   bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
-  color: color.colorZ.default(color.ZERO),
-  // Colors the bar outline, the spine, and the tick marks. Zero uses the theme.
-  axisColor: color.colorZ.default(color.ZERO),
-  // Colors the tick labels. Zero uses the theme.
-  textColor: color.colorZ.default(color.ZERO),
+  // Colors the fill. Absent uses the theme.
+  color: color.colorZ.optional(),
+  // Colors the bar outline, the spine, and the tick marks. Absent uses the theme.
+  axisColor: color.colorZ.optional(),
+  // Colors the tick labels. Absent uses the theme.
+  textColor: color.colorZ.optional(),
   direction: direction.directionZ.default("y"),
   // Fills the bar up to the value. Independent of the caret, so a symbol can show
   // either, both, or neither.
@@ -51,8 +52,8 @@ export const scaleStateZ = staleness.configZ.extend({
   showScale: z.boolean().default(true),
   // The side of the bar on which tick marks and labels are drawn.
   side: location.outerZ.default("right"),
-  // The direction the readout is offset from the value. A side along the bar has no edge
-  // to clear, so the readout sits inside the bar beside the fill edge.
+  // The direction the readout is offset from the value. A side along the bar has no
+  // edge to clear, so the readout sits inside the bar beside the fill edge.
   caretSide: location.outerZ.default("right"),
   // Appended to the readout, after the value.
   units: z.string().default(""),
@@ -156,12 +157,10 @@ export class Scale
     });
     i.requestRender = render.useOptionalRequestor(ctx);
 
-    i.fillColor = color.isZero(this.state.color)
-      ? levelColorFallback(i.theme)
-      : this.state.color;
     const { axisColor, textColor } = this.state;
-    i.axisColor = color.isZero(axisColor) ? axisColorFallback(i.theme) : axisColor;
-    i.textColor = color.isZero(textColor) ? textColorFallback(i.theme) : textColor;
+    i.fillColor = this.state.color ?? levelColorFallback(i.theme);
+    i.axisColor = axisColor ?? axisColorFallback(i.theme);
+    i.textColor = textColor ?? textColorFallback(i.theme);
     i.tickLevel = this.state.level;
 
     const { lower, upper } = this.state.bounds;

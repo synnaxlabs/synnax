@@ -33,6 +33,7 @@ import {
   type DIChannel,
   type DigitalChannel,
   type DOChannel,
+  isGenerated,
 } from "@/feature/ni/task/types";
 import { Task } from "@/platform/task";
 
@@ -93,11 +94,10 @@ export const createNextAOChannel = (
   device?: Device,
 ): AOChannel => {
   const hardware = device?.properties.hardware;
-  const next: AOChannel = {
-    ...template(channels, createAOChannel(), copy),
-    key: id.create(),
-    ...Task.WRITE_CHANNEL_OVERRIDE,
-  };
+  const base = template(channels, createAOChannel(), copy);
+  const next: AOChannel = isGenerated(base)
+    ? { ...base, key: id.create() }
+    : { ...base, key: id.create(), ...Task.WRITE_CHANNEL_OVERRIDE };
   next.port =
     port ??
     lowestFreePort(

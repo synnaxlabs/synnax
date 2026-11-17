@@ -8,8 +8,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// The operating systems each Driver integration runs on. With no integration, renders
-// the matrix of every integration; with one, lists where that integration runs.
+// The operating systems each integration runs on. MQTT and Kafka run in the Core, so they
+// run wherever the Core runs. With no integration, renders the matrix of every
+// integration; with one, lists where that integration runs.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
@@ -57,6 +58,18 @@ const INTEGRATIONS = {
             docker: true,
         },
     },
+    kafka: {
+        name: "Kafka",
+        href: "/reference/hardware/kafka/connect-cluster",
+        connects: "Kafka clusters",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: false,
+            docker: true,
+        },
+    },
     labjack: {
         name: "LabJack",
         href: "/reference/hardware/labjack/configure-device",
@@ -73,6 +86,18 @@ const INTEGRATIONS = {
         name: "Modbus",
         href: "/reference/hardware/modbus/connect-server",
         connects: "Modbus TCP and RTU servers, such as PLCs and I/O modules",
+        platforms: {
+            windows: true,
+            macos: true,
+            linux: true,
+            nilinuxrt: false,
+            docker: true,
+        },
+    },
+    mqtt: {
+        name: "MQTT",
+        href: "/reference/hardware/mqtt/connect-broker",
+        connects: "MQTT brokers, including Sparkplug B devices",
         platforms: {
             windows: true,
             macos: true,

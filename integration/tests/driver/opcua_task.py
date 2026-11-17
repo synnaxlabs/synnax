@@ -24,8 +24,7 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase[sy.opcua.ReadTask]):
 
     sim_classes = [OPCUASim]
     SAMPLE_RATE = 50 * sy.Rate.HZ
-    array_mode: bool = False
-    array_size: int = 5
+    sampling: sy.opcua.Sampling = sy.opcua.UnarySampling()
 
     @staticmethod
     @abstractmethod
@@ -50,8 +49,7 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase[sy.opcua.ReadTask]):
             device=device.key,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
-            array_mode=self.array_mode,
-            array_size=self.array_size,
+            sampling=self.sampling,
             channels=channels,
         )
 

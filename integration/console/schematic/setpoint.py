@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 
+from console.notifications import click_past
 from console.schematic.symbol import Symbol
 
 
@@ -19,10 +20,9 @@ class Setpoint(Symbol):
     def __init__(self, *, label: str, channel_name: str, symbol_type: str = "Setpoint"):
         """Initialize a setpoint symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the setpoint
-            symbol_type: The type of symbol (default: "Setpoint")
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the setpoint
+        :param symbol_type: The type of symbol (default: "Setpoint")
         """
         super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
@@ -44,7 +44,7 @@ class Setpoint(Symbol):
 
             # Navigate to Properties > Control tab
             self.open_properties_tab()
-            self.page.get_by_text("Control").last.click()
+            click_past(self.page.get_by_text("Control").last)
             self.set_channel(section="Command", channel_name=channel_name)
 
     def set_value(self, value: float) -> None:

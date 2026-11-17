@@ -18,18 +18,13 @@ The time-series engine is the core of the platform. It accepts writes, transport
 streams, and serves reads of time-series data. It also serves auxiliary roles such as
 user authentication, managing user interface configurations, and storing metadata. This
 engine, commonly referred to as "Synnax" or "the Core", is written completely in Go, and
-compiles to a single (~35 MB) binary. The Core is **horizontally scalable**, meaning
-that it can be run on multiple machines while still appearing as a single Core to
-clients accessing its data.
+compiles to a single (~35 MB) binary. A Core runs on one machine.
 
-### 2.0 Horizontal scale
+### 2.0 Nodes
 
-This collaboration between multiple computers forms an entity called a **cluster**. The
-machines that make up a cluster are called **nodes**. Formally, a Synnax **node** is a
-process running the Synnax binary. This process can be run on bare-metal machine, a
-virtual machine, in a container, and on edge devices. Synnax employs various
-synchronization algorithms to ensure that all nodes are in agreement about the state of
-the cluster.
+A Synnax **node** is a process that runs the Synnax binary. A Core runs one node, the
+host. Each channel key holds the key of the node that leases the channel. A node can run
+on a bare-metal machine, in a virtual machine, in a container, or on an edge device.
 
 ### 2.1 Layered architecture
 
@@ -90,67 +85,36 @@ If you're interested in reading more about Cesium, check out the following RFCs:
 
 ### 2.3 Layer 2 - Distribution
 
-The distribution layer composes the storage layers of several nodes to expose a
-distributed, monolithic data space to layers above. A monolithic data space allows a
-caller to access any piece of data in the cluster, without needing to know where it's
-located. This is a powerful abstraction that allows us to build a horizontally scalable
-system whose high level services are unaware of the underlying network complexity.
+The distribution layer turns the storage layer into the data plane that the layers above
+use. It holds the identity of the Core, assigns channel keys, and reads, writes, and
+streams frames of telemetry.
 
-The distribution layer exposes a similar interface to the storage layer, providing both
-an eventually consistent, cluster-wide metadata store and a time-series engine. It also
-exposes information about the cluster, such as the number of nodes, the health of each
-node, and the addresses of reachable nodes.
+#### 2.3.0 Gorp - Metadata storage
 
-#### 2.3.0 Aspen - Cluster membership, state synchronization, and distributed key-value storage
+The distribution layer opens [Gorp](../../gorp) on the Pebble store. Gorp keeps typed
+records, such as channels and users, in tables, and keeps indexes of them in memory. A
+write is a transaction that commits to Pebble in one batch. The distribution layer also
+reads the cluster key and the host key of the Core from the key-value store.
 
-Aspen is backbone of the distribution layer. It serves two primary roles: managing
-cluster membership and providing a distributed key-value store.
+If you're interested in reading more about Gorp, check out the following RFCs:
 
-At its core, Aspen implements a distributed pledging algorithm that determines whether a
-new Synnax process is allowed to join the cluster. Once a node is allowed to join, a
-distributed counter assigns a unique `uint16` key to the node. To keep cluster
-membership synchronized, Aspen implements an
-[SI gossip protocol](https://medium.com/dsp-labs/knowing-dsp-in-3-minutes-network-gossip-protocol-27a8ff7af3ff)
-that propagates cluster state at a 1 Hz interval. Various parameters are passed through
-gossip, the most relevant of which are node health and reachable node addresses over a
-network.
+- [RFC 0034 - Gorp in-memory indexes](rfc/0034-gorp-indexes.md)
 
-On-top of the cluster membership and gossip protocols, Aspen uses an additional **SIR**
-gossip protocol to synchronize key-value operations. These operations are propagated at
-a configurable (default 1 Hz) interval, meaning that Aspen's key-value store is
-**eventually** consistent. Each node in the cluster maintains a local copy of the
-key-value database, making Aspen heavily read-optimized. This suits our use-case well,
-as the key-value database is used primarily for metadata storage that is read much more
-often than it is written. Aspen uses [Pebble](#220-pebble---key-value-engine) as the
-underlying key-value store.
+#### 2.3.1 Framer - Time-series reads and writes
 
-If you're interested in reading more about Aspen, check out the following RFCs:
-
-- [RFC 0002 - Aspen - Gossip based key-value store](rfc/0002-aspen-distributed-storage.md)
-
-#### 2.3.1 Framer - Distributed time-series storage
-
-Using Aspen's cluster membership and host-resolution capabilities, the distribution
-layer extends the time-series engine on each node to provide distributed, strongly
-consistent time-series storage. Just like the storage layer time-series engine, the
-distribution layer writes frames through a `Writer` and reads them through an
-`Iterator`. The difference is that the distribution layer intelligently resolves the
-address of the nodes that own particular pieces of data, and routes requests to them
-accordingly.
-
-If you're interested in reading more about distributed frame reads and writes, check out
-the following RFCs:
-
-- [RFC 0003 - Delta - Segment distribution](rfc/0003-segment-distribution.md)
+The framer extends the time-series engine of the storage layer. Like Cesium, it writes
+frames through a `Writer` and reads them through an `Iterator`. It also streams live
+frames through a `Streamer`, and carries the frames of free virtual channels, which the
+storage layer does not store.
 
 ### 2.4 Layer 3 - Service
 
 The service layer implements the majority of Synnax's core functionality. This includes
 registering and authenticating users, managing channels, ranges, and other entities to
 name a few. As with the storage layer, the service layer is **network unaware**, and
-relies on the distribution layer to handle any distributed operations. While it plays a
-critical role in the Synnax ecosystem, the service layer holds little architectural
-significance and is not discussed in detail here.
+reads and writes telemetry through the distribution layer. While it plays a critical
+role in the Synnax ecosystem, the service layer holds little architectural significance
+and is not discussed in detail here.
 
 ### 2.5 Layer 4 - Interface
 

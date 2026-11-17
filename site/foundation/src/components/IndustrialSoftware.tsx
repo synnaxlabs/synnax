@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Box, DARK, Face, project, Wire } from "./IndustrialGeometry";
+import { Box, DARK, Face, project, Wire } from "@/components/IndustrialGeometry";
 
 const APPLICATIONS = [
   {

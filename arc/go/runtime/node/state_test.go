@@ -10,6 +10,8 @@
 package node_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -2128,7 +2130,7 @@ var _ = Describe("ProgramState", func() {
 			},
 		)
 
-		It("Should re-arm a self-write feeder only on Reset", func(ctx SpecContext) {
+		It("Should re-arm a self-write feeder only on Reset", func() {
 			// A reader writing back into its source variable is a cycle the
 			// analyzer rejects, so build the IR directly.
 			inter := ir.IR{
@@ -2300,7 +2302,7 @@ var _ = Describe("ProgramState", func() {
 
 		It(
 			"Should report an unedged reference input as unsourced",
-			func(ctx SpecContext) {
+			func() {
 				inter := ir.IR{Nodes: ir.Nodes{{
 					Key:  "reader",
 					Type: "reader",
@@ -2805,6 +2807,26 @@ var _ = Describe("ProgramState", func() {
 		It("Should return zero for an unknown input", func() {
 			Expect(build().Node("c").NumericInput[uint8]("nope")).To(BeZero())
 		})
+
+		It("Should decode a stored non-finite value", func() {
+			c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+				{Name: "high", Type: types.F64(), Value: "Infinity"},
+				{Name: "low", Type: types.F32(), Value: "-Infinity"},
+				{Name: "missing", Type: types.F64(), Value: "NaN"},
+			}}
+			n := node.New(ir.IR{Nodes: ir.Nodes{c}}).Node("c")
+			Expect(n.NumericInput[float64]("high")).To(Equal(math.Inf(1)))
+			Expect(n.NumericInput[float32]("low")).To(Equal(float32(math.Inf(-1))))
+			Expect(math.IsNaN(n.NumericInput[float64]("missing"))).To(BeTrue())
+		})
+	})
+
+	It("Should seed an unconnected input with its decoded stored value", func() {
+		c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+			{Name: "high", Type: types.F32(), Value: "Infinity"},
+		}}
+		n := node.New(ir.IR{Nodes: ir.Nodes{c}}).Node("c")
+		Expect(n.Input(0)).To(telem.MatchSeries(telem.NewSeriesV(float32(math.Inf(1)))))
 	})
 })
 
@@ -2915,7 +2937,7 @@ func newRefState(ctx SpecContext) *node.ProgramState {
 var _ = Describe("Gating and Absorb Edge Cases", func() {
 	It(
 		"Should gate a value-fed node on an edge into an undeclared param",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{
 				Nodes: ir.Nodes{
 					{
@@ -2954,7 +2976,7 @@ var _ = Describe("Gating and Absorb Edge Cases", func() {
 
 	It(
 		"Should skip reference and unsourced inputs when absorbing",
-		func(ctx SpecContext) {
+		func() {
 			prog := ir.IR{
 				Nodes: ir.Nodes{
 					{

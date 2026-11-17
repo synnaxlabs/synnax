@@ -11,6 +11,7 @@ package freightfluence_test
 
 import (
 	"context"
+	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,6 +29,18 @@ type errReceiver struct {
 }
 
 func (e *errReceiver) Receive() (int, error) { return 0, e.recvErr }
+
+// sliceReceiver returns its values in order, then io.EOF.
+type sliceReceiver struct{ values []int }
+
+func (s *sliceReceiver) Receive() (int, error) {
+	if len(s.values) == 0 {
+		return 0, io.EOF
+	}
+	v := s.values[0]
+	s.values = s.values[1:]
+	return v, nil
+}
 
 // blockingReceiver closes entered when Receive is called, then blocks until release
 // closes.
@@ -38,7 +52,7 @@ type blockingReceiver struct {
 func (b *blockingReceiver) Receive() (int, error) {
 	close(b.entered)
 	<-b.release
-	return 0, freighter.EOF
+	return 0, io.EOF
 }
 
 var _ = Describe("Receiver", func() {
@@ -69,7 +83,7 @@ var _ = Describe("Receiver", func() {
 			Expect(stream.Send(1)).To(Succeed())
 			Expect(stream.CloseSend()).To(Succeed())
 			By("Closing the network pipe on return")
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 			Expect(receivedValues).To(Equal([]int{1}))
 			By("Closing the receive server on exit")
 			Eventually(receiverStream.Outlet()).Should(BeClosed())
@@ -180,6 +194,47 @@ var _ = Describe("Receiver", func() {
 		),
 	)
 	Describe("TransformReceiver", func() {
+		flow := func(
+			ctx SpecContext,
+			transform confluence.TransformFunc[int, int],
+		) ([]int, error) {
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			receiver := &freightfluence.TransformReceiver[int, int]{
+				Receiver:  &sliceReceiver{values: []int{1, 2, 3, 4}},
+				Transform: transform,
+			}
+			outputStream := confluence.NewStream[int](4)
+			receiver.OutTo(outputStream)
+			receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			err := sCtx.Wait()
+			var sent []int
+			for v := range outputStream.Outlet() {
+				sent = append(sent, v)
+			}
+			return sent, err
+		}
+		It("Should skip a value that the transform does not send", func(
+			ctx SpecContext,
+		) {
+			sent := MustSucceed(
+				flow(ctx, func(_ context.Context, v int) (int, bool, error) {
+					return v, v%2 == 0, nil
+				}),
+			)
+			Expect(sent).To(Equal([]int{2, 4}))
+		})
+		DescribeTable(
+			"Should exit with the error of the transform",
+			func(ctx SpecContext, shouldSend bool) {
+				errTransform := errors.New("transform failed")
+				Expect(flow(ctx, func(context.Context, int) (int, bool, error) {
+					return 0, shouldSend, errTransform
+				})).Error().To(MatchError(errTransform))
+			},
+			Entry("when the transform sends the value", true),
+			Entry("when the transform does not send the value", false),
+		)
 		It(
 			"It should transform values before sending them through the channel",
 			func(ctx SpecContext) {
@@ -208,7 +263,7 @@ var _ = Describe("Receiver", func() {
 				Expect(stream.Send(1)).To(Succeed())
 				Expect(stream.CloseSend()).To(Succeed())
 				By("Closing the network pipe on return")
-				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+				Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 				Expect(receivedValues).To(Equal([]int{2}))
 				By("Closing the receive server on exit")
 				Eventually(receiverStream.Outlet()).Should(BeClosed())

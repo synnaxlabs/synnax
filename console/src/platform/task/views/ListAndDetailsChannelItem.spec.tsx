@@ -23,27 +23,29 @@ const path = deep.path<{ config: { channels: Channel[] } }>();
 // layouts List as its listItem render prop.
 const renderItem = (
   extra: Partial<Parameters<typeof Task.Views.ListAndDetailsChannelItem>[0]> = {},
-) =>
-  renderInTaskForm(
+) => {
+  const ChannelItem = (p: Task.ChannelListItemProps) => (
+    <Task.Views.ListAndDetailsChannelItem
+      {...p}
+      port="AI0"
+      portMaxChars={4}
+      canTare
+      channel={12}
+      path={path.config.channels[p.itemKey]}
+      hasTareButton
+      {...extra}
+    />
+  );
+  return renderInTaskForm(
     <Task.Views.List<Channel>
       path={path.config.channels}
       createChannel={() => null}
       resolve={() => null}
-      listItem={Component.renderProp((p) => (
-        <Task.Views.ListAndDetailsChannelItem
-          {...p}
-          port="AI0"
-          portMaxChars={4}
-          canTare
-          channel={12}
-          path={path.config.channels[p.itemKey]}
-          hasTareButton
-          {...extra}
-        />
-      ))}
+      listItem={Component.renderProp(ChannelItem)}
     />,
     { values: { config: { channels: [{ key: "a", disabled: false }] } } },
   );
+};
 
 describe("layouts.ListAndDetailsChannelItem", () => {
   it("should invoke onTare with the channel key when the tare button is pressed", async () => {
@@ -111,5 +113,20 @@ describe("layouts.ListAndDetailsChannelItem", () => {
     await waitFor(() => expect(screen.getByText("dev1_ao_0_cmd")).toBeTruthy());
     expect(screen.getByText("dev1_ao_0_state")).toBeTruthy();
     expect(screen.queryByText("No channel")).toBeNull();
+  });
+
+  it("should show no channel names when the item has no channel", async () => {
+    await renderItem({ channel: undefined, defaultName: "dev1_ao_0" });
+    await waitFor(() => expect(screen.getByText("AI0")).toBeTruthy());
+    expect(screen.queryByText("No channel")).toBeNull();
+    expect(screen.queryByText("dev1_ao_0")).toBeNull();
+  });
+
+  it("should not tare when the item has no channel", async () => {
+    const onTare = vi.fn();
+    const { container } = await renderItem({ channel: undefined, onTare });
+    await waitFor(() => expect(queryIconButton(container, "tare")).toBeTruthy());
+    fireEvent.click(getIconButton(container, "tare"));
+    expect(onTare).not.toHaveBeenCalled();
   });
 });

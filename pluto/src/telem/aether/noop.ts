@@ -149,7 +149,7 @@ class NoopColorSource extends Noop implements ColorSource {
   static readonly TYPE = "noop-color-source";
 
   value(): Result<color.Color> {
-    return success(color.ZERO);
+    return success(color.TRANSPARENT);
   }
 }
 

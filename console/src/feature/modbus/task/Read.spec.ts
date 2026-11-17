@@ -17,6 +17,7 @@ import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
+  clickFailedDeploy,
   commitFieldInput,
   createTaskReadOnlyClient,
   createWithHook,
@@ -25,6 +26,7 @@ import {
   type RenderTaskFormTabOptions,
   reportTaskStopped,
   selectFromDropdown,
+  START_FAILURE,
 } from "@/platform/task/testutil";
 import { getIconButton } from "@/testutil";
 
@@ -212,7 +214,7 @@ describe("Read", () => {
       ],
     });
     const { container } = await renderRead({ client, taskKey: draft.key });
-    await selectFromDropdown("uint16", "String");
+    await selectFromDropdown("Input register", "Input register string");
     commitFieldInput(
       await screen.findByLabelText<HTMLInputElement>("String length"),
       "6",
@@ -224,7 +226,7 @@ describe("Read", () => {
       Modbus.Task.READ_SCHEMAS,
     );
     const [str] = created.config.channels;
-    expect(str).toMatchObject({ dataType: "string", stringLength: 6 });
+    expect(str).toMatchObject({ type: "input_register_string", length: 6 });
     const ch = await client.channels.retrieve(str.channel);
     expect(ch.name).toBe(`${dev.name}_register_input_305_str`);
     expect(ch.dataType.toString()).toBe("string");
@@ -303,6 +305,28 @@ describe("Read", () => {
     commitFieldInput(address, "300004");
     await screen.findByText("300004");
     expect(address.getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("should leave an address that two channels read to its field on Start", async () => {
+    const dev = await createModbusDevice(client);
+    const holding = () =>
+      Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+        type: "holding_register",
+        key: id.create(),
+        address: 10,
+        dataType: "uint16",
+      });
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [holding(), holding()],
+    });
+    const onStatuses = vi.fn();
+    const { container } = await renderRead({ client, taskKey: draft.key, onStatuses });
+    await clickFailedDeploy(container);
+    const addresses = screen.getAllByLabelText("Address");
+    expect(addresses[1].getAttribute("aria-invalid")).toBe("true");
+    expect(onStatuses.mock.calls.flat(2)).not.toContainEqual(START_FAILURE);
   });
 
   describe("byte and word order", () => {
@@ -607,11 +631,10 @@ describe("Read", () => {
       },
       {
         last: "a string of seven characters",
-        channel: Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
-          type: "input_register",
+        channel: Modbus.Task.READ_CHANNEL_SCHEMAS.input_register_string.parse({
+          type: "input_register_string",
           address: 10,
-          dataType: "string",
-          stringLength: 7,
+          length: 7,
         }),
         next: { address: 14 },
       },

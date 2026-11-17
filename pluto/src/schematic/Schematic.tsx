@@ -162,7 +162,7 @@ export const Schematic = ({
 
   // Clicking a member selects its whole group; delete, copy, and cut then cover it.
   const handleSelectionChange = (keys: string[]) =>
-    onSelectionChange?.(Group.closure(keys, parentOfRef.current, configsRef.current));
+    onSelectionChange?.(Group.closure(keys, parentOfRef.current));
 
   // Double-clicking a grouped member drills in, selecting only that member.
   const handleNodeDoubleClick: NonNullable<
@@ -205,7 +205,7 @@ export const Schematic = ({
 
   const contextMenu = Menu.useContextMenu();
   const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (menuProps) => (
-    <Menu.Menu level="small" gap="small">
+    <Menu.Menu gap="small">
       {editable && (
         <>
           <BaseDiagram.Menu.ClipboardItems

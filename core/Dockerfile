@@ -11,7 +11,6 @@ COPY freighter/go/go.mod freighter/go/go.sum ./freighter/go/
 COPY alamos/go/go.mod alamos/go/go.sum ./alamos/go/
 COPY x/go/go.mod x/go/go.sum ./x/go/
 COPY cesium/go.mod cesium/go.sum ./cesium/
-COPY aspen/go.mod aspen/go.sum ./aspen/
 COPY arc/go/go.mod arc/go/go.sum ./arc/go/
 COPY gorp/go.mod gorp/go.sum ./gorp/
 
@@ -36,7 +35,6 @@ COPY freighter/go ./freighter/go
 COPY alamos/go ./alamos/go
 COPY x/go ./x/go
 COPY cesium ./cesium
-COPY aspen ./aspen
 COPY arc/go ./arc/go
 COPY gorp ./gorp
 COPY core ./core
@@ -101,7 +99,7 @@ ARG BUILD_DATE=unknown
 
 # OCI standard labels for image metadata
 LABEL org.opencontainers.image.title="Synnax"
-LABEL org.opencontainers.image.description="Horizontally-scalable observability and control platform for hardware telemetry systems"
+LABEL org.opencontainers.image.description="Observability and control platform for hardware telemetry systems"
 LABEL org.opencontainers.image.vendor="Synnax Labs, Inc."
 LABEL org.opencontainers.image.source="https://github.com/synnaxlabs/synnax"
 LABEL org.opencontainers.image.documentation="https://docs.synnaxlabs.com"

@@ -51,7 +51,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 	Describe("Generate", func() {
 		Context("structs without actions", func() {
-			It("Should emit no files", func(ctx SpecContext) {
+			It("Should emit no files", func() {
 				source := `
 					@go output "core/pkg/service/user"
 
@@ -60,13 +60,13 @@ var _ = Describe("Go Actions Plugin", func() {
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "user", loader, p)
+				resp := MustGenerate(source, "user", loader, p)
 				Expect(resp.Files).To(BeEmpty())
 			})
 		})
 
 		Context("unions with actions", func() {
-			It("Should emit actions that reduce the union", func(ctx SpecContext) {
+			It("Should emit actions that reduce the union", func() {
 				source := `
 					@go output "core/pkg/service/shape"
 
@@ -86,7 +86,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "shape", loader, p)
+				resp := MustGenerate(source, "shape", loader, p)
 				Expect(resp.Files).To(HaveLen(1))
 				ExpectContent(resp, "actions.gen.go").ToContain(
 					"package shape",
@@ -94,6 +94,9 @@ var _ = Describe("Go Actions Plugin", func() {
 					"type RenamePayload struct {",
 					"func Reduce(state Shape, actions ...Action) (Shape, error) {",
 					"state, err = a.Rename.Handle(state)",
+					"return Shape{}, union.MissingPayload(a.Type)",
+					"return Shape{}, union.UnknownVariant(a.Type)",
+					"return Shape{}, err",
 					"func NewRenameAction(p RenamePayload) Action {",
 				)
 			})
@@ -102,7 +105,7 @@ var _ = Describe("Go Actions Plugin", func() {
 		Context("structs with actions", func() {
 			It(
 				"Should emit a single action type constant on one line",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/counter"
 
@@ -115,7 +118,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "counter", loader, p)
+					resp := MustGenerate(source, "counter", loader, p)
 					ExpectContent(resp, "actions.gen.go").
 						ToContain(
 							"\n// ActionTypeSetValue is the Type of an Action that carries " +
@@ -125,7 +128,7 @@ var _ = Describe("Go Actions Plugin", func() {
 				},
 			)
 
-			It("Should emit a discriminated-union codec", func(ctx SpecContext) {
+			It("Should emit a discriminated-union codec", func() {
 				source := `
 					@go output "core/pkg/service/counter"
 
@@ -141,7 +144,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "counter", loader, p)
+				resp := MustGenerate(source, "counter", loader, p)
 				Expect(resp.Files).To(HaveLen(1))
 
 				content := ExpectContent(resp, "actions.gen.go")
@@ -164,8 +167,8 @@ var _ = Describe("Go Actions Plugin", func() {
 					"Increment *IncrementPayload",
 					"func Reduce(state Counter, actions ...Action) (Counter, error) {",
 					"case ActionTypeSetValue:",
-					`return state, union.MissingPayload(a.Type)`,
-					`return state, union.UnknownVariant(a.Type)`,
+					`return Counter{}, union.MissingPayload(a.Type)`,
+					`return Counter{}, union.UnknownVariant(a.Type)`,
 					"state, err = a.SetValue.Handle(state)",
 					"case ActionTypeIncrement:",
 					"state, err = a.Increment.Handle(state)",
@@ -183,7 +186,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 			It(
 				"Should flatten fields from an extended struct into the action payload",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/counter"
 
@@ -199,7 +202,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "counter", loader, p)
+					resp := MustGenerate(source, "counter", loader, p)
 					ExpectContent(resp, "actions.gen.go").
 						ToContain(
 							"type RenamePayload struct {",
@@ -210,8 +213,112 @@ var _ = Describe("Go Actions Plugin", func() {
 			)
 
 			It(
+				"Should declare the payload of an action alias over its struct",
+				func() {
+					loader.Add("schemas/patch", `
+						@go output "x/go/patch"
+
+						Set struct {
+							path string[]
+
+							@doc value "replaces the value at a path."
+						}
+					`)
+					source := `
+					import "schemas/patch"
+
+					@go output "core/pkg/service/counter"
+
+					Counter struct {
+						key uuid
+
+						action Set = patch.Set
+
+						action Reset {
+							@doc value "resets the counter."
+						}
+					}
+				`
+					resp := MustGenerate(source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.go").
+						ToContain(
+							"// SetPayload replaces the value at a path.\n"+
+								"type SetPayload patch.Set\n",
+							"// ResetPayload resets the counter.\n"+
+								"type ResetPayload struct {\n",
+							"Set *SetPayload",
+							"state, err = a.Set.Handle(state)",
+							"func NewSetAction(p SetPayload) Action {",
+						).
+						ToNotContain("type SetPayload struct")
+				},
+			)
+
+			It(
+				"Should write the own doc of an action alias",
+				func() {
+					loader.Add("schemas/patch", `
+						@go output "x/go/patch"
+
+						Set struct {
+							path string[]
+
+							@doc value "replaces the value at a path."
+						}
+					`)
+					source := `
+					import "schemas/patch"
+
+					@go output "core/pkg/service/counter"
+
+					Counter struct {
+						key uuid
+
+						action Set = patch.Set {
+							@doc value "replaces a value in the counter."
+						}
+					}
+				`
+					resp := MustGenerate(source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.go").
+						ToContain(
+							"// SetPayload replaces a value in the counter.\n" +
+								"type SetPayload patch.Set\n",
+						).
+						ToNotContain("// SetPayload replaces the value at a path.\n")
+				},
+			)
+
+			It(
+				"Should reduce a generic struct with any for each kept type parameter",
+				func() {
+					source := `
+					@go output "core/pkg/service/report"
+
+					Report struct<Details?, Extra?, Kind extends string = string> {
+						key     uuid
+						details Details
+						extra   Extra
+						kind    Kind
+
+						action Set {
+							report Report<any, any>
+						}
+					}
+				`
+					resp := MustGenerate(source, "report", loader, p)
+					ExpectContent(resp, "actions.gen.go").ToContain(
+						"Report Report[any, any] `json:\"report\" msgpack:\"report\"`",
+						"// Action is a discriminated union for all Report mutations.",
+						"func Reduce(state Report[any, any], actions ...Action) "+
+							"(Report[any, any], error) {",
+					)
+				},
+			)
+
+			It(
 				"Should snake_case action names with multiple words",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/board"
 
@@ -223,7 +330,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "board", loader, p)
+					resp := MustGenerate(source, "board", loader, p)
 					ExpectContent(resp, "actions.gen.go").
 						ToContain(
 							`ActionTypeSetNodePosition = "set_node_position"`,
@@ -234,7 +341,7 @@ var _ = Describe("Go Actions Plugin", func() {
 
 			It(
 				"Should not pointer-prefix slice, map, or record fields",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/service/bag"
 
@@ -247,7 +354,7 @@ var _ = Describe("Go Actions Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "bag", loader, p)
+					resp := MustGenerate(source, "bag", loader, p)
 					content := string(resp.Files[0].Content)
 					Expect(content).ToNot(ContainSubstring("*[]"))
 					Expect(content).ToNot(ContainSubstring("*msgpack.EncodedJSON"))

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { uuid, xy } from "@synnaxlabs/x";
@@ -36,15 +37,25 @@ class ImmediateResizeObserver {
   disconnect(): void {}
 }
 
-const renderSchematic = async (): Promise<{
+const PUMP: schematic.New["nodes"] = [
+  {
+    key: "n1",
+    position: { x: 0, y: 0 },
+    config: { variant: "tank", label: { label: "Pump" } },
+  },
+];
+
+const renderSchematic = async (
+  nodes: schematic.New["nodes"] = PUMP,
+): Promise<{
   key: string;
   utils: ReturnType<typeof render>;
 }> => {
   const project = await client.projects.create({ name: `project_${uuid.create()}` });
-  const { key } = await client.schematics.create(project.key, {
+  const { key } = await client.schematics.create({
+    project: project.key,
     name: "schematic",
-    nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
-    configs: { n1: { variant: "tank", label: { label: "Pump" } } },
+    nodes,
   });
   const wrapper = await createAsyncSynnaxWrapper({
     client,
@@ -111,15 +122,42 @@ describe("Schematic", () => {
         actions: [
           {
             type: "set",
-            set: { path: ["configs", "n1", "label", "label"], value: "Valve" },
+            set: {
+              path: ["nodes", "n1", "config", "label", "label"],
+              value: "Valve",
+            },
           },
         ],
       }),
     );
     await waitFor(async () =>
-      expect((await client.schematics.retrieve({ key })).configs.n1).toMatchObject({
-        label: { label: "Valve" },
-      }),
+      expect((await client.schematics.retrieve({ key })).nodes[0].config).toMatchObject(
+        { label: { label: "Valve" } },
+      ),
     );
+  });
+
+  it("should size a group box from the nodes it holds", async () => {
+    const { utils } = await renderSchematic([
+      { key: "g1", position: { x: -20, y: -40 }, config: { variant: "group_box" } },
+      {
+        key: "n1",
+        position: { x: 0, y: 0 },
+        config: { variant: "tank" },
+        parent: "g1",
+      },
+      {
+        key: "n2",
+        position: { x: 100, y: 60 },
+        config: { variant: "tank" },
+        parent: "g1",
+      },
+    ]);
+    // Nodes stay unmeasured, so the far corner is the position of n2.
+    await waitFor(() => {
+      const box = utils.container.querySelector<HTMLElement>(".pluto-group-box");
+      expect(box?.style.width).toBe("140px");
+      expect(box?.style.height).toBe("120px");
+    });
   });
 });

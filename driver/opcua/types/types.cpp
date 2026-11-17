@@ -170,7 +170,7 @@ std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str
     };
 
     NodeId result;
-    UA_NodeId &id = result.id_;
+    UA_NodeId &id = result.id;
     switch (upper(body[0])) {
         case 'I': {
             UA_UInt32 numeric = 0;
@@ -211,16 +211,16 @@ std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str
         default:
             return invalid();
     }
-    result.namespace_uri_ = std::move(uri);
+    result.uri = std::move(uri);
     return {std::move(result), x::errors::NIL};
 }
 
 std::optional<UA_NodeId>
 NodeId::resolve(const std::vector<std::string> &namespaces) const {
-    if (this->namespace_uri_.empty()) return this->id_;
+    if (this->uri.empty()) return this->id;
     for (std::size_t i = 0; i < namespaces.size(); ++i)
-        if (namespaces[i] == this->namespace_uri_) {
-            UA_NodeId resolved = this->id_;
+        if (namespaces[i] == this->uri) {
+            UA_NodeId resolved = this->id;
             resolved.namespaceIndex = static_cast<UA_UInt16>(i);
             return resolved;
         }
@@ -239,8 +239,8 @@ std::string NodeId::to_string(
 }
 
 std::string NodeId::to_string() const {
-    if (this->namespace_uri_.empty()) return to_string(this->id_);
-    return "nsu=" + percent_encode(this->namespace_uri_) + ";" + body(this->id_, false);
+    if (this->uri.empty()) return to_string(this->id);
+    return "nsu=" + percent_encode(this->uri) + ";" + body(this->id, false);
 }
 
 std::string NodeId::to_string(const UA_NodeId &node_id) {

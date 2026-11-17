@@ -45,16 +45,16 @@ var _ = Describe("Check", func() {
 	check := func(ctx SpecContext, lic *license.Service) connectivity.CheckResponse {
 		GinkgoHelper()
 		svc := MustSucceed(connectivity.NewService(connectivity.ServiceConfig{
-			Cluster: node.Cluster,
-			License: lic,
+			Identity: node.Identity,
+			License:  lic,
 		}))
 		return MustSucceed(svc.Check(ctx, struct{}{}))
 	}
 
 	It("Should describe the Core", func(ctx SpecContext) {
 		res := check(ctx, openLicense(ctx))
-		Expect(res.ClusterKey).To(Equal(node.Cluster.Key().String()))
-		Expect(res.NodeKey).To(Equal(node.Cluster.HostKey()))
+		Expect(res.ClusterKey).To(Equal(node.Identity.Key.String()))
+		Expect(res.NodeKey).To(Equal(node.Identity.HostKey))
 		Expect(res.NodeVersion).To(Equal(version.Get()))
 	})
 

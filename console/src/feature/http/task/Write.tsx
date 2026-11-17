@@ -32,6 +32,7 @@ import {
   type WriteSchemas,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
+import { Device } from "@/platform/device";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { type Selector } from "@/platform/selector";
@@ -47,15 +48,15 @@ const MethodSelect: FC<{ path: deep.Target<http.Method> }> = ({ path }) => (
   </PForm.Field>
 );
 
-const renderMethodSelect = Component.renderProp(
-  (p: Select.ButtonsProps<http.Method>) => (
-    <Select.Buttons<http.Method> {...p}>
-      <Select.Item<http.Method> itemKey="POST">POST</Select.Item>
-      <Select.Item<http.Method> itemKey="PUT">PUT</Select.Item>
-      <Select.Item<http.Method> itemKey="PATCH">PATCH</Select.Item>
-    </Select.Buttons>
-  ),
+const SelectMethod = (p: Select.ButtonsProps<http.Method>) => (
+  <Select.Buttons<http.Method> {...p}>
+    <Select.Item<http.Method> itemKey="POST">POST</Select.Item>
+    <Select.Item<http.Method> itemKey="PUT">PUT</Select.Item>
+    <Select.Item<http.Method> itemKey="PATCH">PATCH</Select.Item>
+  </Select.Buttons>
 );
+
+const renderMethodSelect = Component.renderProp(SelectMethod);
 
 /** The name deploying gives an endpoint's command channel while it has none. */
 const commandChannelName = (device: string, endpoint: string): string =>
@@ -215,7 +216,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
-  const saved = deep.copy(dev.properties);
+  const before = deep.copy(dev.properties);
   try {
     for (const ep of config.endpoints) {
       if (ep.disabled) continue;
@@ -233,7 +234,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       );
     }
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    await Device.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };

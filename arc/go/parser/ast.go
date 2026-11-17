@@ -10,6 +10,7 @@
 package parser
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -223,35 +224,52 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 	return false
 }
 
-// CollectIdentifiers returns the primary-expression identifier names in expr,
-// deduplicated, in source order.
-func CollectIdentifiers(expr IExpressionContext) []string {
+// ExpressionNameParts returns the head and tail of the name expr reads when expr is a
+// lone name, and ("", "") otherwise. A call or an index is not a lone name.
+func ExpressionNameParts(expr IExpressionContext) (head, tail string) {
+	postfix := getPostfixExpression(expr)
+	if postfix == nil || len(postfix.AllFunctionCallSuffix()) > 0 ||
+		len(postfix.AllIndexOrSlice()) > 0 || postfix.PrimaryExpression() == nil {
+		return "", ""
+	}
+	return PrimaryNameParts(postfix.PrimaryExpression())
+}
+
+// CollectNamedPrimaries returns the primary expressions in expr that read a name,
+// bare or qualified, one per name, in source order.
+func CollectNamedPrimaries(expr IExpressionContext) []IPrimaryExpressionContext {
 	var (
-		names []string
-		seen  = make(set.Set[string])
-		walk  func(t antlr.Tree)
+		primaries []IPrimaryExpressionContext
+		seen      = make(set.Set[string])
+		walk      func(t antlr.Tree)
 	)
 	walk = func(t antlr.Tree) {
 		if pe, ok := t.(IPrimaryExpressionContext); ok {
-			if id := pe.IDENTIFIER(); id != nil {
-				name := id.GetText()
-				if !seen.Contains(name) {
-					seen.Add(name)
-					names = append(names, name)
-				}
+			if name := PrimaryName(pe); name != "" && !seen.Contains(name) {
+				seen.Add(name)
+				primaries = append(primaries, pe)
 			}
 		}
-		for i := 0; i < t.GetChildCount(); i++ {
+		for i := range t.GetChildCount() {
 			walk(t.GetChild(i))
 		}
 	}
 	walk(expr)
-	return names
+	return primaries
 }
 
 // GetPrimaryExpression extracts the primary expression from an expression that has no
 // operators. Returns nil if the expression contains any binary or unary operators.
 func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
+	postfix := getPostfixExpression(expr)
+	if postfix == nil {
+		return nil
+	}
+	return postfix.PrimaryExpression()
+}
+
+// getPostfixExpression descends an operator-free expr to its postfix expression.
+func getPostfixExpression(expr IExpressionContext) IPostfixExpressionContext {
 	if expr == nil {
 		return nil
 	}
@@ -284,11 +302,52 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 	if pow == nil || pow.CARET() != nil {
 		return nil
 	}
-	postfix := pow.PostfixExpression()
-	if postfix == nil {
-		return nil
+	return pow.PostfixExpression()
+}
+
+// SoleOperand returns the primary expression node reduces to after removing
+// parentheses, f32 and f64 casts, and unary minus, and whether the minus signs negate
+// it. Returns nil if node contains any other operator.
+func SoleOperand(node antlr.Tree) (IPrimaryExpressionContext, bool) {
+	if primary, ok := node.(IPrimaryExpressionContext); ok {
+		if primary.LPAREN() != nil && primary.Expression() != nil {
+			return SoleOperand(primary.Expression())
+		}
+		if cast := primary.TypeCast(); cast != nil && isFloatType(cast.Type_()) {
+			return SoleOperand(cast.Expression())
+		}
+		return primary, false
 	}
-	return postfix.PrimaryExpression()
+	unary, isUnary := node.(IUnaryExpressionContext)
+	if isUnary && unary.NOT() != nil {
+		return nil, false
+	}
+	var sole antlr.Tree
+	for _, child := range node.GetChildren() {
+		if _, ok := child.(antlr.TerminalNode); ok {
+			continue
+		}
+		if sole != nil {
+			return nil, false
+		}
+		sole = child
+	}
+	if sole == nil {
+		return nil, false
+	}
+	primary, negated := SoleOperand(sole)
+	if primary != nil && isUnary && unary.MINUS() != nil {
+		negated = !negated
+	}
+	return primary, negated
+}
+
+func isFloatType(t ITypeContext) bool {
+	primitive := t.PrimitiveType()
+	if primitive == nil || primitive.NumericType() == nil {
+		return false
+	}
+	return primitive.NumericType().FloatType() != nil
 }
 
 // QualifiedNameParts returns the head and tail of a qualified identifier
@@ -296,9 +355,15 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 // directly so it works when either side is a lexer keyword (AUTHORITY on
 // the left, FOR on the right) and not just an IDENTIFIER.
 func QualifiedNameParts(qid IQualifiedIdentifierContext) (head, tail string) {
-	head = qid.GetChild(0).(antlr.TerminalNode).GetText()
-	tail = qid.GetChild(2).(antlr.TerminalNode).GetText()
-	return head, tail
+	return terminalText(qid, 0), terminalText(qid, 2)
+}
+
+func terminalText(qid IQualifiedIdentifierContext, i int) string {
+	node, ok := qid.GetChild(i).(antlr.TerminalNode)
+	if !ok {
+		panic(fmt.Sprintf("qualified identifier child %d is a %T", i, qid.GetChild(i)))
+	}
+	return node.GetText()
 }
 
 // FunctionNameParts returns the head and tail of a function context's

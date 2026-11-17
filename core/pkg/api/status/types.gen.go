@@ -11,7 +11,51 @@
 
 package status
 
-import servicestatus "github.com/synnaxlabs/synnax/pkg/service/status"
+import (
+	servicestatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/validate"
+)
+
+// Cursor is a position in an order of statuses: the sort value and the key of a status.
+type Cursor struct {
+	// Key is the key of the status at the position.
+	Key servicestatus.Key `json:"key" msgpack:"key"`
+	// Name is the name of the status at the position, when the order sorts by it.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// OrderField is a field that statuses can be sorted by.
+type OrderField string
+
+// OrderFieldName sorts the statuses by name.
+const OrderFieldName OrderField = "name"
+
+// IsValid reports whether o is one of the defined OrderField
+// values.
+func (o OrderField) IsValid() bool {
+	switch o {
+	case OrderFieldName:
+		return true
+	default:
+		return false
+	}
+}
+
+// Order is a sort of statuses.
+type Order struct {
+	// Field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `json:"field" msgpack:"field"`
+	// Descending sorts from the greatest value to the least.
+	Descending bool `json:"descending" msgpack:"descending"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Order) Validate() error {
+	v := validate.New("Order")
+	v.Ternaryf("field", !o.Field.IsValid(), "invalid field: %v", o.Field)
+	return v.Error()
+}
 
 // RetrieveRequest is a request to retrieve statuses.
 type RetrieveRequest struct {
@@ -19,12 +63,25 @@ type RetrieveRequest struct {
 	Where *servicestatus.Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the statuses that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Order sorts the statuses. An absent order sorts them by key.
+	Order *Order `json:"order,omitzero" msgpack:"order,omitempty"`
+	// After starts the statuses strictly past this position in their order.
+	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most statuses to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching statuses to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
-	// IncludeLabels includes the labels of each record.
-	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveRequest) Validate() error {
+	v := validate.New("RetrieveRequest")
+	if r.Where != nil {
+		v.Exec(func() error { return validate.PathedError(r.Where.Validate(), "where") })
+	}
+	if r.Order != nil {
+		v.Exec(func() error { return validate.PathedError(r.Order.Validate(), "order") })
+	}
+	return v.Error()
 }
 
 // RetrieveResponse holds the statuses a RetrieveRequest selects.

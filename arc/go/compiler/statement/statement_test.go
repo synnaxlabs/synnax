@@ -1005,6 +1005,10 @@ var _ = Describe("Statement Compiler", func() {
 
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			Expect(aCtx.Constraints.Unify()).To(Succeed())
+			for node, t := range aCtx.TypeMap {
+				aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(t)
+			}
 
 			ctx := context.NewRoot(
 				bCtx,
@@ -1207,9 +1211,11 @@ var _ = Describe("Statement Compiler", func() {
 					}
 					source := "test_ch = " + valueCode
 					bytecode := compileWithChannels(bCtx, source, resolver)
-					expected := []any{OpI32Const, int32(100)}
-					expected = append(expected, expectedValueOps...)
-					expected = append(expected, OpCall, uint32(0))
+					expected := slices.Concat(
+						[]any{OpI32Const, int32(100)},
+						expectedValueOps,
+						[]any{OpCall, uint32(0)},
+					)
 					Expect(bytecode).To(MatchOpcodes(expected...))
 				},
 				Entry("i8", "i8", types.I8(), "42", OpI32Const, int32(42)),
@@ -1835,7 +1841,13 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Chan-typed Input Parameter Operations", func() {
-		compileWithChanInput := func(bCtx SpecContext, source, inputName string, inputType types.Type) []byte {
+		// compileWithChanInput compiles source in a function with a chan-typed input
+		// "ch".
+		compileWithChanInput := func(
+			bCtx SpecContext,
+			source string,
+			inputType types.Type,
+		) []byte {
 			GinkgoHelper()
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
@@ -1848,7 +1860,7 @@ var _ = Describe("Statement Compiler", func() {
 			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
 			aCtx.Scope = fn
 			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
-				Name: inputName,
+				Name: "ch",
 				Kind: symbol.KindInput,
 				Type: inputType,
 			}))
@@ -1870,7 +1882,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`ch = 77.0`,
-					"ch", types.Chan(types.F32()),
+					types.Chan(types.F32()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1885,7 +1897,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`ch = 3.14`,
-					"ch", types.Chan(types.F64()),
+					types.Chan(types.F64()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1900,7 +1912,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`ch = 42`,
-					"ch", types.Chan(types.I32()),
+					types.Chan(types.I32()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1915,7 +1927,7 @@ var _ = Describe("Statement Compiler", func() {
 			func(bCtx SpecContext) {
 				bytecode := compileWithChanInput(bCtx,
 					`x f32 := ch`,
-					"ch", types.Chan(types.F32()),
+					types.Chan(types.F32()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1931,7 +1943,7 @@ var _ = Describe("Statement Compiler", func() {
 				bytecode := compileWithChanInput(bCtx,
 					`value f64 := ch
 				ch = value * 2.0`,
-					"ch", types.Chan(types.F64()),
+					types.Chan(types.F64()),
 				)
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0,
@@ -1971,6 +1983,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit => br $break
 				OpLocalGet, 0, // i
 				OpLocalGet, 1, // __for_limit
@@ -2021,6 +2034,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit => br $break
 				OpLocalGet, 0,
 				OpLocalGet, 1,
@@ -2067,6 +2081,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $continue
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// condition: running
 				OpLocalGet, 0,
 				OpI32Eqz,
@@ -2099,6 +2114,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $continue
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// break → br $break (label 1 from inside loop)
 				OpBr, uint32(1),
 				// br $continue (unreachable but emitted)
@@ -2135,6 +2151,7 @@ var _ = Describe("Statement Compiler", func() {
 					OpBlock, BlockTypeEmpty,
 					// loop $continue (depth 2)
 					OpLoop, BlockTypeEmpty,
+					LoopBudget(),
 					// condition: x
 					OpLocalGet, 0,
 					OpI32Eqz,
@@ -2180,6 +2197,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit
 				OpLocalGet, 0,
 				OpLocalGet, 1,
@@ -2231,6 +2249,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// direction-aware exit condition
 				OpLocalGet, 2, // step
 				OpI64Const, int64(0),
@@ -2252,6 +2271,26 @@ var _ = Describe("Statement Compiler", func() {
 				OpLocalSet, 3, // x
 				// end block $continue
 				OpEnd,
+				// exit when one more step reaches the limit
+				OpLocalGet, 2, // step
+				OpI64Const, int64(0),
+				OpI64GtS, // step > 0?
+				OpIf, BlockTypeI32,
+				OpLocalGet, 1, // limit
+				OpLocalGet, 0, // i
+				OpI64Sub,
+				OpLocalGet, 2, // step
+				OpI64LeU, // ascending: limit - i <= step
+				OpElse,
+				OpLocalGet, 0, // i
+				OpLocalGet, 1, // limit
+				OpI64Sub,
+				OpI64Const, int64(0),
+				OpLocalGet, 2, // step
+				OpI64Sub,
+				OpI64LeU, // descending: i - limit <= -step
+				OpEnd,
+				OpBrIf, uint32(1),
 				// i = i + step
 				OpLocalGet, 0,
 				OpLocalGet, 2, // __for_step
@@ -2318,6 +2357,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit
 				OpLocalGet, 0,
 				OpLocalGet, 1,

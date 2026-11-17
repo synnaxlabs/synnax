@@ -29,7 +29,10 @@ type (
 	frameWriterRequestTranslator    struct{ codec *codec.Codec }
 	frameWriterResponseTranslator   struct{}
 	frameIteratorRequestTranslator  struct{ codec *codec.Codec }
-	frameIteratorResponseTranslator struct{ codec *codec.Codec }
+	frameIteratorResponseTranslator struct {
+		codec *codec.Codec
+		errs  *errors.Codec
+	}
 	frameStreamerRequestTranslator  struct{ codec *codec.Codec }
 	frameStreamerResponseTranslator struct{ codec *codec.Codec }
 	frameDeleteRequestTranslator    struct{}
@@ -132,9 +135,10 @@ func (frameWriterResponseTranslator) Forward(
 	msg framer.WriterResponse,
 ) (*WriterResponse, error) {
 	return &WriterResponse{
-		Command: int32(msg.Command),
-		End:     int64(msg.End),
-		Error:   errors.TranslatePayloadForward(msg.Err),
+		Command:      int32(msg.Command),
+		End:          int64(msg.End),
+		Error:        errors.TranslatePayloadForward(msg.Err),
+		Unauthorized: !msg.Authorized,
 	}, nil
 }
 
@@ -169,10 +173,9 @@ func (t frameIteratorResponseTranslator) Forward(
 	res := &IteratorResponse{
 		Variant: int32(msg.Variant),
 		Command: int32(msg.Command),
-		NodeKey: int32(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int32(msg.SeqNum),
-		Error:   fgrpc.EncodeError(ctx, msg.Error, false),
+		Error:   fgrpc.EncodeError(t.errs, msg.Error, false),
 	}
 	if t.codec.Initialized() &&
 		msg.Variant == framer.IteratorResponseVariantData &&
@@ -277,6 +280,7 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 func New(
 	t *api.Transport,
 	channelResolver codec.ChannelResolver,
+	errs *errors.Codec,
 ) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
@@ -290,6 +294,7 @@ func New(
 						frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &FrameWriterService_ServiceDesc,
+				Errors:      errs,
 			},
 		}
 		is = &iteratorServer{
@@ -300,9 +305,10 @@ func New(
 				) {
 					codec := codec.NewDynamic(channelResolver)
 					return frameIteratorRequestTranslator{codec: codec},
-						frameIteratorResponseTranslator{codec: codec}
+						frameIteratorResponseTranslator{codec: codec, errs: errs}
 				},
 				ServiceDesc: &FrameIteratorService_ServiceDesc,
+				Errors:      errs,
 			},
 		}
 		ss = &streamerServer{
@@ -316,11 +322,13 @@ func New(
 						frameStreamerResponseTranslator{codec: codec}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,
+				Errors:      errs,
 			},
 		}
 		ds = &frameDeleteServer{
 			RequestTranslator: frameDeleteRequestTranslator{},
 			ServiceDesc:       &FrameDeleteService_ServiceDesc,
+			Errors:            errs,
 		}
 	)
 	t.FrameStreamer = ss

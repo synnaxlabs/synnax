@@ -103,6 +103,20 @@ describe("lib", () => {
     expect(emitted(root, "a.js")).toBe(false);
   });
 
+  it("should fully specify the imports of bundled declarations", async () => {
+    const root = createPackage({
+      "src/index.ts": 'export * from "@/a";\nexport * from "./dir";\n',
+      "src/a.ts": "export const a = 1;\n",
+      "src/dir/index.ts":
+        'export { a as b } from "@/a";\nexport type A = typeof import("..").a;\n',
+    });
+    await buildPackage(root, { name: "pkg" });
+    expect(read(root, "src/index.d.ts")).toContain('export * from "./a.js";');
+    expect(read(root, "src/index.d.ts")).toContain('export * from "./dir/index.js";');
+    expect(read(root, "src/dir/index.d.ts")).toContain('from "../a.js";');
+    expect(read(root, "src/dir/index.d.ts")).toContain('import("../index.js")');
+  });
+
   describe("transpiled", () => {
     it("should emit one JavaScript and declaration file per source file", async () => {
       const root = createPackage(FLAT, { transpiled: true });

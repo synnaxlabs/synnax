@@ -42,10 +42,10 @@ var _ = Describe("Flush", func() {
 		o.Notify(ctx, dataStruct{Value: []byte("world")})
 
 		// Flush writes on the calling goroutine, so both writes are already done.
-		b, closer := MustSucceed2(db.Get(ctx, []byte("key")))
+		b, closer := MustSucceed2(db.Get([]byte("key")))
 		DeferClose(closer)
 		var ds dataStruct
-		Expect(codec.Decode(ctx, b, &ds)).To(Succeed())
+		Expect(codec.Decode(b, &ds)).To(Succeed())
 		Expect(ds.Value).To(Equal([]byte("hello")))
 	})
 
@@ -60,10 +60,10 @@ var _ = Describe("Flush", func() {
 
 		flush.Flush(ctx, dataStruct{Value: []byte("hello")})
 
-		b, closer := MustSucceed2(db.Get(ctx, []byte("key")))
+		b, closer := MustSucceed2(db.Get([]byte("key")))
 		DeferClose(closer)
 		var ds dataStruct
-		Expect(codec.Decode(ctx, b, &ds)).To(Succeed())
+		Expect(codec.Decode(b, &ds)).To(Succeed())
 		Expect(ds.Value).To(Equal([]byte("hello")))
 	})
 })

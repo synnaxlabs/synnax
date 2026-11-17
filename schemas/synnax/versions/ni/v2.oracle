@@ -458,16 +458,20 @@ Scale union on type {
     }
     map {
         pre_scaled_min   float64 = 0 {
-            @doc value "is the lower bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the lower bound of the raw input range."
         }
         pre_scaled_max   float64 = 1 {
-            @doc value "is the upper bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the upper bound of the raw input range."
         }
         scaled_min       float64 = 0 {
-            @doc value "is the lower bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the lower bound of the scaled output range."
         }
         scaled_max       float64 = 1 {
-            @doc value "is the upper bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the upper bound of the scaled output range."
         }
         pre_scaled_units Units = volts {
             @doc value "are the units of the raw value before scaling."
@@ -520,10 +524,12 @@ Scale union on type {
 
 MinMaxVal struct {
     min_val float64 = 0 {
-        @doc value "is the minimum expected value, in scaled units."
+        @default group "range"
+        @doc value     "is the minimum expected value, in scaled units."
     }
     max_val float64 = 1 {
-        @doc value "is the maximum expected value, in scaled units."
+        @default group "range"
+        @doc value     "is the maximum expected value, in scaled units."
     }
 
     @doc value  "bounds the expected signal range in scaled units."
@@ -627,19 +633,23 @@ Table struct {
 
 TwoPointLin struct {
     first_electrical_val  float64 = 0 {
-        @doc value "is the first electrical calibration point."
+        @default group "electrical"
+        @doc value     "is the first electrical calibration point."
     }
     second_electrical_val float64 = 1 {
-        @doc value "is the second electrical calibration point."
+        @default group "electrical"
+        @doc value     "is the second electrical calibration point."
     }
     electrical_units      ElectricalUnits = m_volts_per_volt {
         @doc value "are the units of the electrical calibration points."
     }
     first_physical_val    float64 = 0 {
-        @doc value "is the physical value at the first electrical point."
+        @default group "physical"
+        @doc value     "is the physical value at the first electrical point."
     }
     second_physical_val   float64 = 1 {
-        @doc value "is the physical value at the second electrical point."
+        @default group "physical"
+        @doc value     "is the physical value at the second electrical point."
     }
 
     @doc value  """
@@ -1204,10 +1214,12 @@ BaseCIChannel struct {
 CIChannel union on type extends BaseCIChannel {
     ci_frequency extends CustomScale, MinMaxVal {
         min_val     = 2 {
-            @doc value "is the minimum expected frequency."
+            @default group "range"
+            @doc value     "is the minimum expected frequency."
         }
         max_val     = 100 {
-            @doc value "is the maximum expected frequency."
+            @default group "range"
+            @doc value     "is the maximum expected frequency."
         }
         units       CIFreqUnits = hz {
             @doc value "are the units of the frequency measurement."
@@ -1250,10 +1262,12 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_period extends CustomScale, MinMaxVal {
         min_val       = 0.000001 {
-            @doc value "is the minimum expected period, in the selected units."
+            @default group "range"
+            @doc value     "is the minimum expected period, in the selected units."
         }
         max_val       = 0.1 {
-            @doc value "is the maximum expected period, in the selected units."
+            @default group "range"
+            @doc value     "is the maximum expected period, in the selected units."
         }
         units         CITimeUnits = seconds {
             @doc value "are the units of the period measurement."
@@ -1280,10 +1294,12 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_pulse_width extends CustomScale, MinMaxVal {
         min_val       = 0.000001 {
-            @doc value "is the minimum expected pulse width, in the selected units."
+            @default group "range"
+            @doc value     "is the minimum expected pulse width, in the selected units."
         }
         max_val       = 0.1 {
-            @doc value "is the maximum expected pulse width, in the selected units."
+            @default group "range"
+            @doc value     "is the maximum expected pulse width, in the selected units."
         }
         units         CITimeUnits = seconds {
             @doc value "are the units of the pulse-width measurement."
@@ -1299,10 +1315,12 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_semi_period extends CustomScale, MinMaxVal {
         min_val  = 0.000001 {
-            @doc value "is the minimum expected semi-period, in the selected units."
+            @default group "range"
+            @doc value     "is the minimum expected semi-period, in the selected units."
         }
         max_val  = 0.1 {
-            @doc value "is the maximum expected semi-period, in the selected units."
+            @default group "range"
+            @doc value     "is the maximum expected semi-period, in the selected units."
         }
         units    CITimeUnits = seconds {
             @doc value "are the units of the semi-period measurement."
@@ -1315,10 +1333,12 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_two_edge_sep extends CustomScale, MinMaxVal {
         min_val         = 0.000001 {
-            @doc value "is the minimum expected separation, in the selected units."
+            @default group "range"
+            @doc value     "is the minimum expected separation, in the selected units."
         }
         max_val         = 1 {
-            @doc value "is the maximum expected separation, in the selected units."
+            @default group "range"
+            @doc value     "is the maximum expected separation, in the selected units."
         }
         units           CITimeUnits = seconds {
             @doc value "are the units of the two-edge-separation measurement."
@@ -1340,10 +1360,12 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_velocity_linear extends CustomScale, MinMaxVal {
         min_val        {
-            @doc value "is the minimum expected velocity."
+            @default group "range"
+            @doc value     "is the minimum expected velocity."
         }
         max_val        {
-            @doc value "is the maximum expected velocity."
+            @default group "range"
+            @doc value     "is the maximum expected velocity."
         }
         units          CILinearVelocityUnits = m_per_s {
             @doc value "are the units of the velocity measurement."
@@ -1365,10 +1387,12 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_velocity_angular extends CustomScale, MinMaxVal {
         min_val        {
-            @doc value "is the minimum expected velocity."
+            @default group "range"
+            @doc value     "is the minimum expected velocity."
         }
         max_val        {
-            @doc value "is the maximum expected velocity."
+            @default group "range"
+            @doc value     "is the maximum expected velocity."
         }
         units          CIAngularVelocityUnits = rpm {
             @doc value "are the units of the velocity measurement."
@@ -1434,10 +1458,12 @@ CIChannel union on type extends BaseCIChannel {
     }
     ci_duty_cycle extends CustomScale, MinMaxVal {
         min_val     = 2 {
-            @doc value "is the minimum expected duty-cycle frequency."
+            @default group "range"
+            @doc value     "is the minimum expected duty-cycle frequency."
         }
         max_val     = 10000 {
-            @doc value "is the maximum expected duty-cycle frequency."
+            @default group "range"
+            @doc value     "is the maximum expected duty-cycle frequency."
         }
         active_edge CIEdge = rising {
             @doc value "selects the edge the counter responds to."
@@ -1616,7 +1642,10 @@ CounterReadConfig struct extends task.ReadConfig {
 
 WriteConfig struct extends task.WriteConfig {
     state_rate telem.Rate = 10 {
-        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
+        @doc value   """
+            is the rate at which output state is reported to Synnax, in Hertz.
+        """
+        @validate gt 0
     }
 
     @doc value  "carries the configuration fields shared by NI write tasks."

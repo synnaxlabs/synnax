@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, JsonValue
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.http.types_gen import (
     Header,
     QueryParam,
@@ -127,7 +127,10 @@ class ReadTask(
                     index_key = field.channel
             read[ep.path] = {"index": index_key, "channels": channels}
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class WriteTask(
@@ -176,7 +179,10 @@ class WriteTask(
         for ep in self.config.endpoints:
             write[ep.path] = ep.channel.channel
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class Device(device.Device):
@@ -232,8 +238,8 @@ class Device(device.Device):
         auth: dict[str, Any] | None = None,
         health_check: HealthCheck | None = None,
         name: str = "",
-        rack: int = 0,
-        key: str = "",
+        rack: rack_.Key = 0,
+        key: device.Key = "",
         configured: bool = True,
     ):
         if not key:

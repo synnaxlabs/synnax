@@ -16,10 +16,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/status/pb"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -89,26 +90,18 @@ func (setRequestTranslator) Forward(
 	if err != nil {
 		return nil, err
 	}
-	return &SetRequest{Parent: msg.Parent.String(), Statuses: statuses}, nil
+	return &SetRequest{Statuses: statuses}, nil
 }
 
 func (setRequestTranslator) Backward(
 	_ context.Context,
 	msg *SetRequest,
 ) (status.SetRequest, error) {
-	var parent ontology.ID
-	if msg.Parent != "" {
-		var err error
-		parent, err = ontology.ParseID(msg.Parent)
-		if err != nil {
-			return status.SetRequest{}, err
-		}
-	}
 	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
 		return status.SetRequest{}, err
 	}
-	return status.SetRequest{Parent: parent, Statuses: statuses}, nil
+	return status.SetRequest{Statuses: statuses}, nil
 }
 
 func (setResponseTranslator) Forward(
@@ -192,6 +185,7 @@ func (setByKeyOrNameRequestTranslator) Forward(
 		KeyOrName: msg.KeyOrName,
 		Message:   msg.Message,
 		Variant:   string(msg.Variant),
+		Time:      int64(msg.Time),
 	}, nil
 }
 
@@ -203,6 +197,7 @@ func (setByKeyOrNameRequestTranslator) Backward(
 		KeyOrName: msg.KeyOrName,
 		Message:   msg.Message,
 		Variant:   svcstatus.Variant(msg.Variant),
+		Time:      telem.TimeStamp(msg.Time),
 	}, nil
 }
 
@@ -226,26 +221,30 @@ func (setByKeyOrNameResponseTranslator) Backward(
 	}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	s := &setServer{
 		RequestTranslator:  setRequestTranslator{},
 		ResponseTranslator: setResponseTranslator{},
 		ServiceDesc:        &StatusSetService_ServiceDesc,
+		Errors:             errs,
 	}
 	r := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &StatusRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &StatusDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	sbkn := &setByKeyOrNameServer{
 		RequestTranslator:  setByKeyOrNameRequestTranslator{},
 		ResponseTranslator: setByKeyOrNameResponseTranslator{},
 		ServiceDesc:        &StatusSetByKeyOrNameService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.StatusSet = s
 	t.StatusRetrieve = r

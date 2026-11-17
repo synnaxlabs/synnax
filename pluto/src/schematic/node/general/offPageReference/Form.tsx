@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, schematic } from "@synnaxlabs/client";
+import { resource, schematic } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
@@ -53,22 +53,22 @@ interface Sibling extends record.KeyedNamed {
   icon: Icon.ReactElement;
 }
 
-const selectKey = (page?: schematic.Page | null): string =>
-  page == null || page.key.length === 0 ? "" : ontology.idToString(page);
+const selectKey = (page: schematic.Page): string =>
+  page.key.length === 0 ? "" : resource.idToString(page);
 
 const useHandlePageChange = (): ((v: string | null) => void) => {
   const theme = Theming.use();
   const ctx = Base.useContext();
   return (v: string | null) => {
-    const prev = ctx.get(path.page, {
-      optional: true,
-    })?.value;
+    const prev = ctx.get(path.page).value;
     const cleared = v == null || v.length === 0;
     ctx.set(
       path.page,
-      cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
+      cleared
+        ? { ...prev, key: "" }
+        : schematic.pageZ.parse(resource.stringIDZ.parse(v)),
     );
-    const hadPage = prev != null && prev.key.length > 0;
+    const hadPage = prev.key.length > 0;
     if (!hadPage && !cleared)
       ctx.set(path.fillColor, color.construct(theme.colors.primary.z));
   };
@@ -82,17 +82,17 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     setSiblings([]);
     if (client == null || schematicKey == null) return;
     handleError(async () => {
-      const children = await Project.retrieveChildren(client, {
-        resourceID: schematic.ontologyID(schematicKey),
+      const retrieved = await Project.retrieveSiblings(client, {
+        resourceID: schematic.resourceID(schematicKey),
         types: [...schematic.PAGE_TYPES],
       });
       setSiblings(
-        children.flatMap(({ key, name, type }) => {
+        retrieved.flatMap(({ key, name, type }) => {
           const pageType = schematic.pageTypeZ.safeParse(type);
           if (!pageType.success) return [];
           const PageIcon = PAGE_ICONS[pageType.data];
           return {
-            key: ontology.idToString({ type: pageType.data, key }),
+            key: resource.idToString({ type: pageType.data, key }),
             name,
             icon: <PageIcon />,
           };
@@ -101,9 +101,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     }, "Failed to retrieve project pages");
   }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
-  const page = Base.useFieldValue(path.page, {
-    optional: true,
-  });
+  const page = Base.useFieldValue(path.page);
   return (
     <Base.Sections x>
       <Base.Section title="Label">
@@ -130,7 +128,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
           </Select.Simple>
         </Input.Item>
         <Base.Field
-          path={path.dblClickNavDisabled}
+          path={path.doubleClickNavigationDisabled}
           label="Click mode"
           padHelpText={false}
         >

@@ -18,12 +18,12 @@ import dateutil
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given, strategies as st
 from pydantic import ValidationError
 
 import x.telem as sy
 from x.exceptions import ContiguityError
+from x.testutil import untyped
 
 _now = sy.TimeStamp.now()
 
@@ -60,6 +60,13 @@ class TestTimeStamp:
         """Should return the current timestamp"""
         now = sy.TimeStamp.now() + sy.TimeSpan.SECOND
         assert now.datetime() > datetime.now().astimezone()
+
+    def test_now_nanosecond_precision(self) -> None:
+        """Should read the system clock without truncating it to microseconds"""
+        before = time.time_ns()
+        now = sy.TimeStamp.now()
+        after = time.time_ns()
+        assert before <= now <= after
 
     @pytest.mark.parametrize(
         ("crude", "expected"),
@@ -437,6 +444,17 @@ class TestTimeSpan:
         """Should correctly add two time spans"""
         assert sy.TimeSpan(2000) == sy.TimeSpan.MICROSECOND + sy.TimeSpan.MICROSECOND
 
+    def test_sum(self) -> None:
+        """Should sum time spans with the builtin sum"""
+        total = sum([sy.TimeSpan.SECOND, sy.TimeSpan.MILLISECOND])
+        assert isinstance(total, sy.TimeSpan)
+        assert total == sy.TimeSpan.SECOND + sy.TimeSpan.MILLISECOND
+
+    def test_zero_before(self) -> None:
+        """Should return the span when an int 0 is added before it"""
+        span = sy.TimeSpan.SECOND
+        assert 0 + span is span
+
     def test_sub(self) -> None:
         """Should correctly subtract two time spans"""
         assert sy.TimeSpan(0) == sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND
@@ -719,7 +737,7 @@ class TestRate:
     def test_invalid_init(self) -> None:
         """Should raise an exception if the rate is invalid"""
         with pytest.raises(TypeError):
-            sy.Rate(timedelta(seconds=1))  # type: ignore[arg-type]
+            untyped(sy.Rate)(timedelta(seconds=1))
 
     def test_sample_count(self) -> None:
         """Should return the number of samples"""
@@ -799,13 +817,19 @@ class TestRate:
             op(sy.Rate(10), number)
 
     @pytest.mark.parametrize("op", [operator.add, operator.sub])
-    @pytest.mark.parametrize("number", [5, 5.0])
+    @pytest.mark.parametrize("number", [5, 5.0, 0.0])
     def test_bare_number_before_rejected(
         self, op: Callable[[object, object], object], number: float
     ) -> None:
         """Should reject a bare int or float before a rate"""
         with pytest.raises(TypeError):
             op(number, sy.Rate(10))
+
+    def test_sum(self) -> None:
+        """Should sum rates with the builtin sum"""
+        total = sum([sy.Rate.KHZ, sy.Rate.HZ])
+        assert type(total) is sy.Rate
+        assert total == 1001.0
 
 
 @pytest.mark.telem

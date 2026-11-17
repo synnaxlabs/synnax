@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -25,10 +26,13 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -37,18 +41,26 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 )
 
 // graphNodeSpec describes a graph node along with its function type and configuration
@@ -79,45 +91,40 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.AutomationArc, err
 	return svcarc.AutomationArc{}, query.ErrNotFound
 }
 
+var errCommit = errors.New("commit failed")
+
 var _ = Describe("Task", Ordered, func() {
 	var (
-		db            *gorp.DB
-		statusSvc     *status.Service
-		channelSvc    *channel.Service
-		channelWriter channel.Writer
-		framerSvc     *framer.Service
-		rangerSvc     *ranger.Service
+		db         *gorp.DB
+		statusSvc  *status.Service
+		channelSvc *channel.Service
+		framerSvc  *framer.Service
+		rangerSvc  *ranger.Service
+		taskSvc    *task.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := testutil.NewNode(ctx)
+		st := DeferClose(storagetestutil.OpenLayer(ctx))
+		node := testutil.NewNode(ctx, distribution.LayerConfig{
+			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
+		})
 		db = node.DB
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
+			DB: node.DB,
 		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: node.DB,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Group:    groupSvc,
-			Ontology: otg,
-			Label:    labelSvc,
+			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
-		channelWriter = channelSvc.NewWriter(nil)
 		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:      node.DB,
 			Channel: channelSvc,
@@ -130,12 +137,45 @@ var _ = Describe("Task", Ordered, func() {
 			ChannelGraph: channelGraph,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
+			DB:    node.DB,
+			Group: groupSvc,
+		}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB: node.DB,
+		}))
+		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:         node.DB,
+			HostKey:    node.Identity.HostKey,
+			Status:     statusSvc,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+			// No Driver reports for the rack, so a check would overwrite task statuses.
+			HealthCheckInterval: telem.Hour,
+		}))
+		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+			DB: node.DB,
+		}))
+		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+			DB:      node.DB,
+			Rack:    rackSvc,
+			Status:  statusSvc,
+			Channel: channelSvc,
+			ImEx:    imex.NewService(),
+			Configs: MustSucceed(taskconfig.NewRegistry(arcTaskSvc.Stores()...)),
 		}))
 	})
+
+	// createTask stores t so that it can own a status. It skips task.Writer, which
+	// writes a status of its own, so a spec sees only the statuses the factory writes.
+	createTask := func(ctx context.Context, t task.Task) {
+		GinkgoHelper()
+		Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+			To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
+			})).To(Succeed())
+		})
+	}
 
 	newFactoryWith := func(
 		getModule func(context.Context, uuid.UUID) (svcarc.AutomationArc, error),
@@ -152,11 +192,14 @@ var _ = Describe("Task", Ordered, func() {
 		}}, cfgs...)...))
 	}
 
-	newGraphFactory := func(g graph.Graph) driver.Factory {
+	newGraphFactory := func(
+		g graph.Graph,
+		cfgs ...arctask.FactoryConfig,
+	) driver.Factory {
 		GinkgoHelper()
 		return newFactoryWith(
 			func(ctx context.Context, key uuid.UUID) (svcarc.AutomationArc, error) {
-				resolver := channelSvc.NewArcSymbolResolver(nil)
+				resolver := channelSvc.NewArcSymbolResolver(db)
 				root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 				module, err := arc.CompileGraph(ctx, g, root)
 				if err != nil {
@@ -169,6 +212,7 @@ var _ = Describe("Task", Ordered, func() {
 					Program: &module,
 				}, nil
 			},
+			cfgs...,
 		)
 	}
 
@@ -180,7 +224,7 @@ var _ = Describe("Task", Ordered, func() {
 		GinkgoHelper()
 		return newFactoryWith(
 			func(_ context.Context, _ uuid.UUID) (svcarc.AutomationArc, error) {
-				resolver := channelSvc.NewArcSymbolResolver(nil)
+				resolver := channelSvc.NewArcSymbolResolver(db)
 				root := arc.NewRoot(resolver, slices.Concat(
 					arcstatus.NewSymbols(), ranges.NewSymbols(),
 				)...)
@@ -201,7 +245,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	configToMap := func(cfg arctask.Config) map[string]any {
 		GinkgoHelper()
-		cfg.ApplyDefaults()
+		cfg = defaults.Fill(cfg)
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
@@ -216,6 +260,7 @@ var _ = Describe("Task", Ordered, func() {
 			Type:   arctask.Type,
 			Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 		}
+		createTask(ctx, svcTask)
 		return MustSucceed(factory.ConfigureTask(ctx, svcTask, "cmd-1"))
 	}
 
@@ -233,13 +278,15 @@ var _ = Describe("Task", Ordered, func() {
 			Virtual:  true,
 			DataType: dataType,
 		}
-		Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, ch)
+		})).To(Succeed())
 		return ch
 	}
 
 	openTestStreamer := func(ctx context.Context, keys channel.Keys, bufferSize int) (
 		responses <-chan framer.StreamerResponse,
-		close func(),
+		stop func(),
 	) {
 		GinkgoHelper()
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
@@ -265,13 +312,17 @@ var _ = Describe("Task", Ordered, func() {
 			IsIndex:  true,
 			DataType: telem.TimestampT,
 		}
-		Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &idx)
+		})).To(Succeed())
 		data = channel.Channel{
 			Name:       prefix + "_" + uuid.New().String()[:8],
 			LocalIndex: idx.LocalKey,
 			DataType:   telem.Uint8T,
 		}
-		Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &data)
+		})).To(Succeed())
 		return idx, data
 	}
 
@@ -369,6 +420,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   "not-arc",
 					Config: map[string]any{},
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 					To(MatchError(driver.ErrTaskNotHandled))
 			},
@@ -380,7 +432,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 			Expect(t).ToNot(BeNil())
 		})
@@ -399,6 +453,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
+			createTask(ctx, svcTask)
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 		})
@@ -417,6 +472,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
+			createTask(ctx, svcTask)
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 		})
@@ -434,6 +490,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 					To(MatchError(ContainSubstring(
 						"period must be positive, got 0s",
@@ -456,12 +513,13 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
+			createTask(ctx, svcTask)
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+				Entry(&stat).Exec(ctx, db)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
 			Expect(stat.Description).To(ContainSubstring("invalid uuid"))
@@ -483,16 +541,60 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
+			createTask(ctx, svcTask)
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+				Entry(&stat).Exec(ctx, db)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
 			Expect(stat.Description).To(ContainSubstring("not found"))
 			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		Describe("channel.ErrLookupsChanged", func() {
+			// changingGetter returns channel.ErrLookupsChanged for the first changes
+			// calls, and counts each call in calls.
+			changingGetter := func(changes int, calls *int) arctask.GetProgramFunc {
+				return func(
+					_ context.Context,
+					key uuid.UUID,
+				) (svcarc.AutomationArc, error) {
+					*calls++
+					if *calls <= changes {
+						return svcarc.AutomationArc{}, channel.ErrLookupsChanged
+					}
+					return svcarc.AutomationArc{Key: key}, nil
+				}
+			}
+
+			It("Should get the program again until the lookups hold", func(
+				ctx SpecContext,
+			) {
+				var calls int
+				Expect(newTask(ctx, newFactoryWith(changingGetter(2, &calls)))).
+					ToNot(BeNil())
+				Expect(calls).To(Equal(3))
+			})
+
+			It("Should fail the configure when the lookups keep changing", func(
+				ctx SpecContext,
+			) {
+				var calls int
+				factory := newFactoryWith(changingGetter(math.MaxInt, &calls))
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-lookups-changed",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					To(MatchError(channel.ErrLookupsChanged))
+				Expect(calls).To(Equal(3))
+			})
 		})
 
 		It(
@@ -503,13 +605,16 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-config-success",
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newGraphFactory(simpleGraph(ch.Key())).
 						ConfigureTask(ctx, svcTask, "cmd-1"),
@@ -518,8 +623,8 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -531,13 +636,16 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-start-ack",
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newGraphFactory(simpleGraph(ch.Key())).
 						ConfigureTask(ctx, svcTask, "cmd-1"),
@@ -551,8 +659,8 @@ var _ = Describe("Task", Ordered, func() {
 				})).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Name).To(Equal(svcTask.Name))
 				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
 				Expect(stat.Details.Running).To(BeTrue())
@@ -567,7 +675,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-auto-start",
@@ -577,6 +687,7 @@ var _ = Describe("Task", Ordered, func() {
 						ArcKey:    uuid.New(),
 					}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key()),
 				).
@@ -585,11 +696,40 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
+			},
+		)
+
+		It(
+			"Should answer the configuring command when an auto-start fails",
+			func(ctx SpecContext) {
+				ch := createVirtualCh(ctx, "auto_start_fail", telem.Float32T)
+				svcTask := task.Task{
+					Key:  uuid.New(),
+					Name: "test-auto-start-fail",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						AutoStart:   true,
+						ArcKey:      uuid.New(),
+						Performance: "unknown",
+					}),
+				}
+				createTask(ctx, svcTask)
+				Expect(newGraphFactory(simpleGraph(ch.Key())).
+					ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					To(MatchError(`unknown performance "unknown"`))
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
@@ -601,7 +741,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-silent-stop",
@@ -611,6 +753,7 @@ var _ = Describe("Task", Ordered, func() {
 						ArcKey:    uuid.New(),
 					}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key()),
 				).
@@ -619,15 +762,15 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t.Stop(false)).To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Message).To(Equal("Started task"))
 				Expect(stat.Details.Running).To(BeTrue())
 			},
 		)
 
 		It(
-			"Should not write a status when config is invalid at boot",
+			"Should write an error status when config is invalid at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 					DB:         db,
@@ -643,17 +786,21 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Variant).To(BeEquivalentTo("error"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
 		It(
-			"Should not write a status when GetProgram fails at boot",
+			"Should write an error status when GetProgram fails at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 					DB:         db,
@@ -669,12 +816,16 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Variant).To(BeEquivalentTo("error"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
@@ -698,12 +849,13 @@ var _ = Describe("Task", Ordered, func() {
 						ArcKey:    uuid.New(),
 					}),
 				}
+				createTask(ctx, svcTask)
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
 				Expect(stat.Message).To(Equal("Failed to configure task"))
 				Expect(stat.Description).To(ContainSubstring("not found"))
@@ -719,13 +871,16 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-boot-silent-success",
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key()),
 				).
@@ -734,8 +889,8 @@ var _ = Describe("Task", Ordered, func() {
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
-					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
+					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -745,7 +900,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			svcTask := task.Task{
 				Key:  uuid.New(),
 				Name: "test-boot-auto-start",
@@ -755,6 +912,7 @@ var _ = Describe("Task", Ordered, func() {
 					ArcKey:    uuid.New(),
 				}),
 			}
+			createTask(ctx, svcTask)
 			t := MustSucceed(newGraphFactory(
 				simpleGraph(ch.Key()),
 			).
@@ -763,8 +921,8 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+				Entry(&stat).Exec(ctx, db)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Started task"))
 			Expect(stat.Details.Running).To(BeTrue())
@@ -781,6 +939,7 @@ var _ = Describe("Task", Ordered, func() {
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 				Ranger:     rangerSvc,
 				Now:        telem.Now,
+				LoopBudget: 1000,
 			}
 		}
 
@@ -791,9 +950,9 @@ var _ = Describe("Task", Ordered, func() {
 
 			DescribeTable(
 				"Should fail when a required field is missing",
-				func(clear func(*arctask.FactoryConfig), field string) {
+				func(unset func(*arctask.FactoryConfig), field string) {
 					cfg := full()
-					clear(&cfg)
+					unset(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
 				Entry(
@@ -826,6 +985,11 @@ var _ = Describe("Task", Ordered, func() {
 					func(c *arctask.FactoryConfig) { c.Ranger = nil },
 					"ranger",
 				),
+				Entry(
+					"loop_budget",
+					func(c *arctask.FactoryConfig) { c.LoopBudget = 0 },
+					"loop_budget",
+				),
 			)
 		})
 
@@ -839,6 +1003,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
 				Expect(merged.GetProgram).ToNot(BeNil())
 				Expect(merged.Now).ToNot(BeNil())
+				Expect(merged.LoopBudget).To(Equal(src.LoopBudget))
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -861,7 +1026,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 			arcTask = newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 		})
 
@@ -885,7 +1052,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "stop"})).To(Succeed())
 		})
 
-		It("Should be idempotent on stop", func(ctx SpecContext) {
+		It("Should be idempotent on stop", func() {
 			Expect(arcTask.Stop(true)).To(Succeed())
 			Expect(arcTask.Stop(true)).To(Succeed())
 		})
@@ -916,6 +1083,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				Expect(
 					newGraphFactory(badNodeGraph).ConfigureTask(ctx, svcTask, "cmd-1"),
 				).
@@ -934,7 +1102,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-start-fail",
@@ -944,16 +1114,17 @@ var _ = Describe("Task", Ordered, func() {
 						Performance: "unknown",
 					}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
 					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
-					To(MatchError(`unknown performance "unknown"`))
+					To(Succeed())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](
-						svcTask.OntologyID().String(),
+					Where(status.MatchOwners[task.StatusDetails](
+						svcTask.ResourceID(),
 					)).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))
 				Expect(stat.Description).To(Equal(`unknown performance "unknown"`))
@@ -962,14 +1133,52 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 
-		It("Should fail to start when its context is canceled", func(ctx SpecContext) {
-			ch := createVirtualCh(ctx, "start_canceled", telem.Float32T)
-			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
-			cancelCtx, cancel := context.WithCancel(ctx)
-			cancel()
-			Expect(t.Exec(cancelCtx, task.Command{Type: "start"})).
-				To(MatchError(context.Canceled))
-		})
+		It("Should return the error from Exec for a start it could not answer",
+			func(ctx SpecContext) {
+				ch := createVirtualCh(ctx, "start_unanswered", telem.Float32T)
+				t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
+				DeferCleanup(func() { Expect(t.Stop(false)).To(Succeed()) })
+				cmdCtx := hookkv.WithHook(
+					ctx,
+					func(func() error) error { return errCommit },
+				)
+				Expect(t.Exec(cmdCtx, task.Command{Type: "start", Key: "cmd-start"})).
+					To(MatchError(errCommit))
+			},
+		)
+
+		It("Should return no error from Exec for a start answered before ctx ended",
+			func(ctx SpecContext) {
+				ch := createVirtualCh(ctx, "start_canceled", telem.Float32T)
+				svcTask := task.Task{
+					Key:  uuid.New(),
+					Name: "test-start-canceled",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						ArcKey:      uuid.New(),
+						Performance: "unknown",
+					}),
+				}
+				createTask(ctx, svcTask)
+				cmdCtx, cancel := context.WithCancel(ctx)
+				cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
+					err := commit()
+					cancel()
+					return err
+				})
+				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
+					ConfigureTask(ctx, svcTask, "cmd-1"))
+				Expect(t.Exec(cmdCtx, task.Command{Type: "start", Key: "cmd-start"})).
+					To(Succeed())
+				Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
+				var stat task.Status
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Message).To(Equal("Failed to start task"))
+				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
+			},
+		)
 	})
 
 	Describe("Alarm Flow", func() {
@@ -979,7 +1188,9 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, ch)
+			})).To(Succeed())
 
 			alarmNodes, alarmConfigs := buildGraphNodes(
 				graphNodeSpec{
@@ -1089,7 +1300,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == "ox_alarm", nil
 					})).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).Should(Succeed())
 		})
@@ -1118,6 +1329,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
+			createTask(ctx, svcTask)
 			t := MustSucceed(
 				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 			)
@@ -1141,7 +1353,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == name, nil
 					})).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				return stat
 			}
 
@@ -1150,7 +1362,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 						return s.Name == base+"_d", nil
 					})).
-					Entry(&status.Status[struct{}]{}).Exec(ctx, nil)).To(Succeed())
+					Entry(&status.Status[struct{}]{}).Exec(ctx, db)).To(Succeed())
 			}).Should(Succeed())
 
 			Expect(byName(base + "_b").Variant).To(BeEquivalentTo("error"))
@@ -1183,6 +1395,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1205,7 +1418,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1246,6 +1459,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1267,7 +1481,7 @@ var _ = Describe("Task", Ordered, func() {
 					GinkgoHelper()
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Count(ctx, nil)).To(Equal(1))
+						Count(ctx, db)).To(Equal(1))
 				}
 				Eventually(oneRange).Should(Succeed())
 
@@ -1308,6 +1522,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1330,7 +1545,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1380,6 +1595,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1406,7 +1622,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1457,6 +1673,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1483,7 +1700,7 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[struct{}], s *status.Status[struct{}]) (bool, error) {
 							return s.Name == name, nil
 						})).
-						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+						Entries(&rows).Exec(ctx, db)).To(Succeed())
 					g.Expect(rows).To(HaveLen(1))
 				}
 				Eventually(oneRow).Should(Succeed())
@@ -1522,6 +1739,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1537,7 +1755,7 @@ var _ = Describe("Task", Ordered, func() {
 					return func(g Gomega) {
 						g.Expect(rangerSvc.NewRetrieve().
 							Where(ranger.MatchNames(name)).
-							Count(ctx, nil)).To(Equal(want))
+							Count(ctx, db)).To(Equal(want))
 					}
 				}
 
@@ -1594,6 +1812,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1609,7 +1828,7 @@ var _ = Describe("Task", Ordered, func() {
 					return func(g Gomega) {
 						g.Expect(rangerSvc.NewRetrieve().
 							Where(ranger.MatchNames(name)).
-							Count(ctx, nil)).To(Equal(want))
+							Count(ctx, db)).To(Equal(want))
 					}
 				}
 
@@ -1671,6 +1890,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1686,7 +1906,7 @@ var _ = Describe("Task", Ordered, func() {
 					return func(g Gomega) {
 						g.Expect(rangerSvc.NewRetrieve().
 							Where(ranger.MatchNames(name)).
-							Count(ctx, nil)).To(Equal(want))
+							Count(ctx, db)).To(Equal(want))
 					}
 				}
 
@@ -1745,6 +1965,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1764,7 +1985,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
@@ -1817,6 +2038,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1840,7 +2062,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
@@ -1849,6 +2071,73 @@ var _ = Describe("Task", Ordered, func() {
 					var fr framer.StreamerResponse
 					Eventually(responses).Should(Receive(&fr))
 					for _, ser := range fr.Frame.Get(probe.Key()).Series {
+						for _, v := range ser.Unmarshal[string]() {
+							found = found || v == expected
+						}
+					}
+				}
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+
+		It(
+			"Should write the key of a range created by a computed initializer",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "computed_range_trig", telem.Uint8T)
+				out := createVirtualCh(ctx, "computed_range_out", telem.StringT)
+				name := "computed_range_" + uuid.New().String()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					sequence main {
+					    key := ranges.create("%s")
+					    key -> %s
+					}
+
+					%s => main
+				`, name, out.Name, trig.Name)}
+
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{out.Key()}, 10,
+				)
+				defer closeStreamer()
+				time.Sleep(10 * time.Millisecond)
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-computed-range-key",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+
+				var rng ranger.Range
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name)).
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
+				}).Should(Succeed())
+				expected := rng.Key.String()
+
+				found := false
+				for !found {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(out.Key()).Series {
 						for _, v := range ser.Unmarshal[string]() {
 							found = found || v == expected
 						}
@@ -1892,6 +2181,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -1915,7 +2205,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
@@ -1943,7 +2233,9 @@ var _ = Describe("Task", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
 
 				dupName := "dup_alarm_" + uuid.New().String()[:8]
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -2002,6 +2294,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -2018,12 +2311,11 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 				Expect(fw.Close()).To(Succeed())
 
-				taskKey := svcTask.OntologyID().String()
 				Eventually(func(g Gomega) {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](taskKey)).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 					g.Expect(stat.Name).To(Equal("test-status-report"))
 					g.Expect(stat.Message).To(Equal("Found duplicate status names"))
@@ -2042,13 +2334,17 @@ var _ = Describe("Task", Ordered, func() {
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			}
-			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, indexCh)
+			})).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "interval_data_" + uuid.New().String()[:8],
 				LocalIndex: indexCh.LocalKey,
 				DataType:   telem.Uint8T,
 			}
-			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+			})).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`
@@ -2104,7 +2400,7 @@ var _ = Describe("Task", Ordered, func() {
 					3,
 				)
 				defer closeStreamer()
-				t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, task.Task{
+				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "performance-task",
 					Type: arctask.Type,
@@ -2112,7 +2408,11 @@ var _ = Describe("Task", Ordered, func() {
 						ArcKey:      uuid.New(),
 						Performance: performance,
 					}),
-				}, "cmd-1"))
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
 				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				for range 3 {
@@ -2132,13 +2432,17 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxCh)
+				})).To(Succeed())
 				dataCh := &channel.Channel{
 					Name:       "timer_wall_data_" + uuid.New().String()[:8],
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+				})).To(Succeed())
 
 				prog := arc.Text{Raw: fmt.Sprintf(
 					"interval(period=50ms) -> %s\n", dataCh.Name,
@@ -2198,13 +2502,17 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxCh)
+				})).To(Succeed())
 				dataCh := &channel.Channel{
 					Name:       "stepped_data_" + uuid.New().String()[:8],
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Int64T,
 				}
-				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, dataCh)
+				})).To(Succeed())
 				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, dataCh.Name)}
 				responses, closeStreamer := openTestStreamer(
 					ctx, channel.Keys{idxCh.Key()}, 10,
@@ -2598,13 +2906,17 @@ var _ = Describe("Task", Ordered, func() {
 						IsIndex:  true,
 						DataType: telem.TimestampT,
 					}
-					Expect(channelWriter.Create(ctx, idx)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, idx)
+					})).To(Succeed())
 					ch := &channel.Channel{
 						Name:       prefix + "_" + uuid.New().String()[:8],
 						LocalIndex: idx.LocalKey,
 						DataType:   telem.Uint8T,
 					}
-					Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, ch)
+					})).To(Succeed())
 					return writeCh{ch: ch, idx: idx}
 				},
 			},
@@ -3368,6 +3680,87 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Runtime Error Handling", func() {
+		DescribeTable("Should stop a task whose cycle uses its whole loop budget", func(
+			ctx SpecContext,
+			source string,
+		) {
+			prog := arc.Text{Raw: source}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-tick-limit",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			factory := newTextFactory(
+				ctx,
+				prog,
+				arctask.FactoryConfig{LoopBudget: 1000},
+			)
+			t := MustSucceed(factory.ConfigureTask(ctx, svcTask, "cmd-1"))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Program ran too long"))
+				g.Expect(stat.Details.Running).To(BeFalse())
+			}).Should(Succeed())
+			Expect(t.Stop(false)).To(MatchError(runtime.ErrLoopBudget))
+		},
+			Entry("one looping node", `
+				func spin() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+			`),
+			Entry("two looping nodes on one trigger", `
+				func spin() {
+					for {}
+				}
+				func spin_again() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+				interval(period=10ms) -> spin_again()
+			`),
+		)
+
+		It("Should trap a cycle that makes too many strings", func(ctx SpecContext) {
+			prog := arc.Text{Raw: `
+				func grow() {
+					s := ""
+					for i := range(100000) {
+						s = s + "x"
+					}
+				}
+				interval(period=10ms) -> grow()
+			`}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-string-limit",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(
+				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+			)
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Message).To(Equal("Node failed"))
+				g.Expect(stat.Description).
+					To(ContainSubstring("too many strings in one cycle"))
+			}).Should(Succeed())
+		})
+
 		It(
 			"Should report WASM division by zero via status service",
 			func(ctx SpecContext) {
@@ -3389,6 +3782,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
+				createTask(ctx, svcTask)
 				t := MustSucceed(
 					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
@@ -3411,8 +3805,8 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 					g.Expect(stat.Message).To(Equal("Node failed"))
 					g.Expect(stat.Description).
@@ -3529,6 +3923,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
+			createTask(ctx, svcTask)
 			t := MustSucceed(
 				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 			)
@@ -3556,8 +3951,8 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
-					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Description).
 					To(ContainSubstring("integer divide by zero"))
@@ -3597,25 +3992,33 @@ var _ = Describe("Task", Ordered, func() {
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
-				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idxCh)
+				})).To(Succeed())
 				p3 := &channel.Channel{
 					Name:       "trig_align_p3_" + suffix,
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Float32T,
 				}
-				Expect(channelWriter.Create(ctx, p3)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, p3)
+				})).To(Succeed())
 				goCh := &channel.Channel{
 					Name:     "trig_align_go_" + suffix,
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, goCh)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, goCh)
+				})).To(Succeed())
 				marker := &channel.Channel{
 					Name:     "trig_align_marker_" + suffix,
 					Virtual:  true,
 					DataType: telem.Uint8T,
 				}
-				Expect(channelWriter.Create(ctx, marker)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, marker)
+				})).To(Succeed())
 
 				prog := arc.Text{
 					Raw: fmt.Sprintf(`
@@ -3928,7 +4331,7 @@ START => main
 					telem.NewSeries(stored),
 					telem.NewSeriesV[uint8](1, 2),
 				}))).To(BeTrue())
-				MustSucceed(ow.Commit())
+				MustCommit(ow)
 				Expect(ow.Close()).To(Succeed())
 
 				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, out.Name)}

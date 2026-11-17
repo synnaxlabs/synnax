@@ -9,7 +9,7 @@
 
 import {
   type panel,
-  project,
+  type project,
   query,
   schematic,
   type Synnax as Client,
@@ -38,8 +38,12 @@ import {
 
 const client = createTestClient();
 
-const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
-  await client.panels.create({
+const createPanel = async (projectKey: project.Key): Promise<panel.Panel> => {
+  const sch = await client.schematics.create({
+    name: uniqueName("schematic"),
+    project: projectKey,
+  });
+  return await client.panels.create({
     key: uuid.create(),
     name: uniqueName("panel"),
     root: {
@@ -48,12 +52,13 @@ const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
         {
           variant: "resource",
           key: uuid.create(),
-          resource: schematic.ontologyID(uuid.create()),
+          resource: schematic.resourceID(sch.key),
         },
       ],
     },
-    parent: project.ontologyID(projectKey),
+    project: projectKey,
   });
+};
 
 interface Harness {
   connect: ReturnType<typeof vi.fn>;
@@ -693,7 +698,7 @@ describe("useDeep", () => {
     assertDefined(panelKey);
     let live: boolean | null = null;
     h.handlers.range.mockImplementation(async ({ client: received }) => {
-      live = query.isLive(received.panels.getCached(panelKey));
+      live = query.isLive(received.panels.watch(panelKey).getCached());
     });
     h.openURL(["synnax://cluster/c1/range/r1"]);
     await waitFor(() => expect(h.handlers.range).toHaveBeenCalled());

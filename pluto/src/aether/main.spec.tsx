@@ -476,6 +476,51 @@ describe("Aether Main", () => {
       await waitFor(() => expect(captured.error).not.toBeNull());
       expect(captured.error?.message).toBe("Component deleted");
     });
+    it("should not resolve an invoke with the late answer of a replaced component", async () => {
+      const [Provider, root] = await newProvider();
+      const results = new Map<number, number>();
+      const failures = new Map<number, string>();
+      const C = ({ n }: { n: number }) => {
+        const [, , , methods] = Aether.use({
+          aetherKey: "same",
+          type: InvokeLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+          methods: invokeMethodsSchema,
+        });
+        useEffect(() => {
+          void methods
+            .slowEcho(n)
+            .then((r) => results.set(n, r))
+            .catch((e: unknown) => failures.set(n, errors.fromUnknown(e).message));
+        }, []);
+        return null;
+      };
+      const leaf = (): InvokeLeaf | undefined => root.children[0] as InvokeLeaf;
+      const { rerender } = render(
+        <Provider>
+          <C key="a" n={1} />
+        </Provider>,
+      );
+      await waitFor(() => expect(leaf()?.slowEchoResolvers).toHaveLength(1));
+      const first = leaf()!;
+      rerender(
+        <Provider>
+          <C key="b" n={2} />
+        </Provider>,
+      );
+      await waitFor(() => {
+        expect(leaf()).not.toBe(first);
+        expect(leaf()?.slowEchoResolvers).toHaveLength(1);
+      });
+      first.slowEchoResolvers[0]();
+      leaf()!.slowEchoResolvers[0]();
+      await waitFor(() => expect(results.has(2)).toBe(true));
+      expect(results.get(2)).toBe(2);
+      expect(failures.get(1)).toBe("Component deleted");
+      expect(failures.has(2)).toBe(false);
+    });
+
     it("should forward multiple positional args spread to the worker handler", async () => {
       const [Provider, root] = await newProvider();
       const captured: { result: [number, string] | null } = { result: null };
@@ -1789,9 +1834,9 @@ describe("Aether Main", () => {
       await waitFor(() => expect(root.children).toHaveLength(3));
     });
     it("should drop invokes queued before a detach rather than replay them on re-attach", async () => {
-      // An invoke issued before the create message flushes waits on the entry. Detaching
-      // rejects its caller, so replaying it after a StrictMode re-attach would run the
-      // side effect for a call the caller was already told had failed.
+      // An invoke issued before the create message flushes waits on the entry.
+      // Detaching rejects its caller, so replaying it after a StrictMode re-attach
+      // would run the side effect for a call the caller was already told had failed.
       const [workerSide, mainSide] = aether.createMockPair();
       const root = aether.render({ worker: workerSide, registry: REGISTRY });
       const store = new Aether.Store({ worker: mainSide });

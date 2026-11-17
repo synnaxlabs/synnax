@@ -13,6 +13,7 @@ import { filter, id, type optional, telem, TimeStamp, zod } from "@synnaxlabs/x"
 import { z } from "zod";
 
 import { label } from "@/label";
+import { resource } from "@/resource";
 
 export const VARIANTS = [
   "success",
@@ -30,6 +31,19 @@ export const errorVariantZ = z.literal("error");
 export const loadingVariantZ = z.literal("loading");
 export const disabledVariantZ = z.literal("disabled");
 export type Variant = z.infer<typeof variantZ>;
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** Order is a sort of statuses. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
@@ -52,7 +66,8 @@ export type StatusZodObject<
   message: z.ZodString;
   description: z.ZodDefault<z.ZodString>;
   time: z.ZodDefault<typeof telem.timeStampZ>;
-  labels: ReturnType<typeof zod.nullToUndefined<z.ZodArray<typeof label.labelZ>>>;
+  labels: z.ZodDefault<z.ZodArray<typeof label.keyZ>>;
+  owner: z.ZodOptional<typeof resource.idZ>;
   details: [Details] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : Details;
 }>;
 
@@ -84,7 +99,8 @@ export const statusZ: StatusZFunction = <
     description: z.string().default(""),
     time: telem.timeStampZ.default(() => TimeStamp.now()),
     details: details ?? z.unknown().optional(),
-    labels: zod.nullToUndefined(label.labelZ.array()),
+    labels: label.keyZ.array().default(() => []),
+    owner: resource.idZ.optional(),
   });
 export type Status<
   Details extends z.ZodType = z.ZodNever,
@@ -96,7 +112,8 @@ export type Status<
   message: string;
   description: string;
   time: telem.TimeStamp;
-  labels?: label.Label[];
+  labels: label.Key[];
+  owner?: resource.ID;
 } & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });
 
 /** Where is a filter that selects statuses. */
@@ -107,6 +124,7 @@ export type Where = {
   key?: filter.Set<typeof keyZ>;
   variant?: filter.Set<typeof variantZ>;
   labels?: label.Key[];
+  owners?: resource.ID[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -127,12 +145,28 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   variant: filter.setZ(variantZ).optional(),
   /** labels matches statuses that have any of the given labels. */
   labels: zod.nullToUndefined(label.keyZ.array()),
+  /** owners matches the statuses that the given resources own. */
+  owners: zod.nullToUndefined(resource.idZ.array()),
 });
+
+/**
+ * Cursor is a position in an order of statuses: the sort value and the key of a status.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the status at the position. */
+  key: keyZ,
+  /** name is the name of the status at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 export type New<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
 > = Omit<
-  optional.Optional<Status<Details, V>, "key" | "name" | "description" | "time">,
+  optional.Optional<
+    Status<Details, V>,
+    "key" | "name" | "description" | "time" | "labels"
+  >,
   "details"
 > &
   ([Details] extends [z.ZodNever] ? {} : { details: z.input<Details> });
@@ -152,11 +186,14 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the statuses that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the statuses. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the statuses strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most statuses to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching statuses to skip. */
-  offset: z.uint32().optional(),
-  /** includeLabels includes the labels of each record. */
-  includeLabels: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+export const resourceID = resource.createIDFactory<Key>("status");
+export const TYPE_RESOURCE_ID = resourceID("");

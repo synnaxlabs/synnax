@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -54,16 +53,8 @@ func newPublishedTag(
 	channels map[channel.Key]channel.Channel,
 ) (publishedTag, sparkplug.Tag, error) {
 	t := publishedTag{name: cfg.Name, channel: cfg.Channel}
-	if cfg.Name == "" {
-		return publishedTag{}, sparkplug.Tag{}, errors.Wrap(
-			validate.ErrValidation,
-			"tag: required",
-		)
-	}
-	if sparkplug.Reserved(cfg.Name) {
-		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
-			validate.ErrValidation, "tag %s: Sparkplug B reserves the name", cfg.Name,
-		)
+	if err := validateTagName(cfg.Name); err != nil {
+		return publishedTag{}, sparkplug.Tag{}, err
 	}
 	ch, ok := channels[cfg.Channel]
 	if !ok {
@@ -112,6 +103,19 @@ func newPublishedTag(
 	return t, declared, nil
 }
 
+// validateTagName checks that name is set and that Sparkplug B does not reserve it.
+func validateTagName(name string) error {
+	if name == "" {
+		return errors.Wrap(validate.ErrValidation, "tag: required")
+	}
+	if sparkplug.Reserved(name) {
+		return errors.Wrapf(
+			validate.ErrValidation, "tag %s: Sparkplug B reserves the name", name,
+		)
+	}
+	return nil
+}
+
 // edgeHealth is the state that the Health of an edge node reports.
 type edgeHealth struct {
 	// commandErr is the text of the error of the last command. Empty when the command
@@ -143,6 +147,7 @@ type edgeNode struct {
 	ins alamos.Instrumentation
 	// broker is the key of the broker device, whose edits the edge node follows.
 	broker    device.Key
+	db        *gorp.DB
 	devices   *device.Service
 	newClient clientFactory
 	// command is the topic of the NCMD messages to the edge node.
@@ -153,6 +158,9 @@ type edgeNode struct {
 	task      task.Task
 	authority control.Authority
 	edge      *sparkplug.Edge
+	// clock stamps commands in rising order across runs, since two writes at one
+	// timestamp conflict. Only the writeCommands of the open session uses it.
+	clock telem.MonoClock
 	// mu guards the sequence, which continues from one run to the next, and the state
 	// of the current run. A sequenced publish encodes its message and hands it to the
 	// client under mu, so messages leave the client in sequence order. The wait for the
@@ -279,10 +287,12 @@ func (n *edgeNode) brokerConfig(
 	current clientConfig,
 ) (clientConfig, bool, error) {
 	var dev device.Device
-	if err := n.devices.NewRetrieve().
-		Where(device.MatchKeys(n.broker)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+	if err := n.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return n.devices.NewRetrieve().
+			Where(device.MatchKeys(n.broker)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	}); err != nil {
 		return clientConfig{}, false, err
 	}
 	props, err := parseProperties(dev)
@@ -312,7 +322,7 @@ func (e *edgeSession) onDeviceChange(
 	r gorp.TxReader[device.Key, device.Device],
 ) {
 	for ch := range r {
-		if ch.Variant != change.VariantSet || ch.Key != e.broker {
+		if ch.Kind == gorp.ChangeDelete || ch.Key != e.broker {
 			continue
 		}
 		select {
@@ -595,7 +605,7 @@ func (e *edgeSession) writeCommand(ctx context.Context, cmd sparkplug.Command) e
 	var (
 		fr   framer.Frame
 		keys channel.Keys
-		now  = telem.Now()
+		now  = e.clock.Now()
 	)
 	for _, m := range cmd.Metrics {
 		t, ok := e.byName[m.Name]

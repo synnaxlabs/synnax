@@ -12,7 +12,7 @@ import { page } from "vitest/browser";
 
 import { Description } from "@/description";
 import { Icon } from "@/icon";
-import { renderThemed } from "@/styletest";
+import { renderThemed, selectedByTripleClick } from "@/styletest";
 
 const centerY = (el: Element): number => {
   const { top, height } = el.getBoundingClientRect();
@@ -35,5 +35,20 @@ describe("Description", () => {
     const label = page.getByRole("term").element();
     const value = page.getByRole("definition").element();
     expect(Math.abs(centerY(label) - centerY(value))).toBeLessThan(1);
+  });
+
+  it("should let a user select a value but not its label", async () => {
+    await renderThemed(
+      <Description.List>
+        <Description.Item>
+          <Description.Label>Serial number</Description.Label>
+          <Description.Value>01D4F2A1</Description.Value>
+        </Description.Item>
+      </Description.List>,
+    );
+    const label = page.getByRole("term").element();
+    const value = page.getByRole("definition").element();
+    expect(await selectedByTripleClick(value)).toContain("01D4F2A1");
+    expect(await selectedByTripleClick(label)).toBe("");
   });
 });

@@ -10,15 +10,22 @@
 import { describe, expect, it } from "vitest";
 
 import { access } from "@/access";
-import { type ontology } from "@/ontology";
+import { type resource } from "@/resource";
 
-const id = (type: ontology.ResourceType, key: string): ontology.ID => ({ type, key });
+const id = (type: resource.Type, key: string): resource.ID => ({ type, key });
 
 const policy = (
-  objects: ontology.ID[],
+  objects: resource.ID[],
   actions: access.Action[],
   key = crypto.randomUUID(),
-): access.policy.Policy => ({ key, name: "test", objects, actions, internal: false });
+): access.policy.Policy => ({
+  key,
+  name: "test",
+  objects,
+  actions,
+  internal: false,
+  role: crypto.randomUUID(),
+});
 
 describe("allowRequest", () => {
   describe("single object", () => {
@@ -160,6 +167,49 @@ describe("allowRequest", () => {
         policies,
       );
       expect(allowed).toBe(true);
+    });
+  });
+
+  describe("own records", () => {
+    const subject = id("user", "u1");
+
+    it("should allow the subject to retrieve itself alone", () => {
+      expect(
+        access.allowRequest({ subject, action: "retrieve", objects: subject }, []),
+      ).toBe(true);
+      expect(
+        access.allowRequest(
+          { subject, action: "retrieve", objects: [subject, id("user", "u2")] },
+          [],
+        ),
+      ).toBe(false);
+    });
+
+    it("should not allow the subject to update itself", () => {
+      expect(
+        access.allowRequest({ subject, action: "update", objects: subject }, []),
+      ).toBe(false);
+    });
+
+    it("should allow the subject to retrieve the policies of its roles alone", () => {
+      const own = policy([id("channel", "1")], ["update"]);
+      const policies = [own];
+      expect(
+        access.allowRequest(
+          { subject, action: "retrieve", objects: access.policy.resourceID(own.key) },
+          policies,
+        ),
+      ).toBe(true);
+      expect(
+        access.allowRequest(
+          {
+            subject,
+            action: "retrieve",
+            objects: access.policy.resourceID(crypto.randomUUID()),
+          },
+          policies,
+        ),
+      ).toBe(false);
     });
   });
 

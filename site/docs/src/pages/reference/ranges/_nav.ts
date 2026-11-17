@@ -38,20 +38,16 @@ export const RANGES_NAV: Nav.PageNavNode = {
       name: "Metadata and labels",
     },
     {
-      href: "/reference/ranges/aliases",
-      name: "Channel aliases",
-    },
-    {
-      href: "/reference/ranges/snapshots",
-      name: "Snapshots",
-    },
-    {
       href: "/reference/ranges/data",
       name: "Read and write range data",
     },
     {
       href: "/reference/ranges/export",
       name: "Export data",
+    },
+    {
+      href: "/reference/ranges/sift",
+      name: "Send data to Sift",
     },
     {
       href: "/reference/ranges/reference",

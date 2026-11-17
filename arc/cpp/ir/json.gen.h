@@ -197,7 +197,12 @@ inline Authorities Authorities::parse(x::json::Parser parser) {
 inline x::json::json Authorities::to_json() const {
     x::json::json j = x::json::json::object();
     if (this->default_.has_value()) j["default"] = *this->default_;
-    j["channels"] = this->channels;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->channels)
+            obj[std::to_string(key)] = item;
+        j["channels"] = obj;
+    }
     return j;
 }
 

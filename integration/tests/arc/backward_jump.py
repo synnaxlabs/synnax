@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_virtual_channel, hold
 from tests.arc.arc import ArcCase
 
 ARC_BACKWARD_JUMP_SOURCE = """
@@ -91,7 +91,7 @@ class BackwardJump(ArcCase):
             "bj_press_cmd would flip back to 1."
         )
         self.writer.write("bj_start_cmd", 1)
-        sy.sleep(2.0)
+        hold(2.0, reason="nothing may change")
         held_value = self.read_tlm("bj_press_cmd")
         if held_value is None:
             self.fail(

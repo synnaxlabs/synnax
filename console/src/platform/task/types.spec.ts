@@ -360,6 +360,34 @@ describe("Hardware Task Types", () => {
             ),
           ).toBe(true);
       });
+
+      it("should accept channels that have no channel fields", () => {
+        const noChannelsArrayZ = z.array(channelZ).check(Task.validateWriteChannels);
+        const channels = [
+          { ...ZERO_CHANNEL, key: "channel1" },
+          { ...ZERO_CHANNEL, key: "channel2" },
+        ];
+        expect(noChannelsArrayZ.safeParse(channels).success).toBe(true);
+      });
+
+      it("should check channels with channel fields next to channels with none", () => {
+        const mixedArrayZ = z
+          .array(z.union([writeChannelZ, channelZ]))
+          .check(Task.validateWriteChannels);
+        const channels = [
+          { ...ZERO_CHANNEL, key: "generated" },
+          { ...ZERO_WRITE_CHANNEL, key: "channel1", cmdChannelName: "cmd" },
+          { ...ZERO_WRITE_CHANNEL, key: "channel2", cmdChannelName: "cmd" },
+        ];
+        const issues = mixedArrayZ.safeParse(channels).error?.issues;
+        expect(issues).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: "Name cmd is used for multiple channels",
+            }),
+          ]),
+        );
+      });
     });
   });
 

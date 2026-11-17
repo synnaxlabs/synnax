@@ -13,12 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/x/defaults"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a LinePlot", func(ctx SpecContext) {
-		p := lineplot.LinePlot{Name: "test"}
-		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &p)).To(Succeed())
+		tx := DeferClose(db.OpenTx())
+		p := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: "test"})
+		Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 		var res lineplot.LinePlot
 		Expect(
 			svc.NewRetrieve().

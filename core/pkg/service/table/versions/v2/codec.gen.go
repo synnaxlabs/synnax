@@ -94,11 +94,11 @@ func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "text":
 		var v TextCellConfig
 		if v.Value, err = r.String(); err != nil {

@@ -20,14 +20,12 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	disttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
@@ -35,10 +33,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -57,12 +55,13 @@ type CoreConfig struct {
 	validateChannelNames *bool
 	memBacked            *bool
 	noDriver             *bool
+	updateBackupDisabled *bool
 	alamos.Instrumentation
 	dataPath             string
+	secretsKeyFile       string
 	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
-	peers                []address.Address
 	disabledIntegrations []string
 	enabledIntegrations  []string
 	certFactoryConfig    cert.FactoryConfig
@@ -72,14 +71,17 @@ type CoreConfig struct {
 	slowConsumerTimeout  time.Duration
 	sessionIdleTimeout   time.Duration
 	taskWorkerCount      uint8
+	secretsKey           secret.EncryptionKey
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
 
-var DefaultCoreConfig = CoreConfig{
-	certFactoryConfig: cert.DefaultFactoryConfig,
-	// a Core installed before the flag existed starts without it
-	sessionIdleTimeout: auth.DefaultIdleTimeout,
+func defaultCoreConfig() CoreConfig {
+	return CoreConfig{
+		certFactoryConfig: cert.DefaultFactoryConfig(),
+		// a Core installed before the flag existed starts without it
+		sessionIdleTimeout: auth.DefaultIdleTimeout,
+	}
 }
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
@@ -106,13 +108,14 @@ func (c CoreConfig) Validate() error {
 	v.NotNil("auto_cert", c.autoCert)
 	v.NotNil("mem_backed", c.memBacked)
 	v.Exec(c.listeners.Validate)
-	if c.insecure != nil && !*c.insecure && (len(c.peers) > 0 || c.driverEnabled()) {
+	if c.insecure != nil && !*c.insecure && c.driverEnabled() {
 		v.Exec(c.listeners.ValidateAdvertiseSource)
 	}
 	v.NotEmptyString("data_path", c.dataPath)
 	v.NonZero("slow_consumer_timeout", c.slowConsumerTimeout)
 	v.Positive("session_idle_timeout", c.sessionIdleTimeout)
 	v.NotNil("no_driver", c.noDriver)
+	v.NotNil("update_backup_disabled", c.updateBackupDisabled)
 	v.Exec(c.rootCredentials.Validate)
 	v.NonZero("task_op_timeout", c.taskOpTimeout)
 	v.NonZero("task_poll_interval", c.taskPollInterval)
@@ -133,8 +136,13 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		licenseKey:      override.String(c.licenseKey, other.licenseKey),
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
-		peers:           override.Slice(c.peers, other.peers),
 		dataPath:        override.String(c.dataPath, other.dataPath),
+		secretsKey: override.If(
+			c.secretsKey,
+			other.secretsKey,
+			other.secretsKey != secret.EncryptionKey{},
+		),
+		secretsKeyFile: override.String(c.secretsKeyFile, other.secretsKeyFile),
 		slowConsumerTimeout: override.Numeric(
 			c.slowConsumerTimeout,
 			other.slowConsumerTimeout,
@@ -144,7 +152,11 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			c.sessionIdleTimeout,
 			other.sessionIdleTimeout,
 		),
-		noDriver:      override.Nil(c.noDriver, other.noDriver),
+		noDriver: override.Nil(c.noDriver, other.noDriver),
+		updateBackupDisabled: override.Nil(
+			c.updateBackupDisabled,
+			other.updateBackupDisabled,
+		),
 		taskOpTimeout: override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
 		taskPollInterval: override.Numeric(
 			c.taskPollInterval,
@@ -174,6 +186,24 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 	}
 }
 
+const secretsKeyFileName = "secrets.key"
+
+// resolveSecretsKey returns the key that encrypts stored secrets: the key setting, the
+// key file setting, a random key for a Core in memory, or the key file in the data
+// directory. A missing key file gets a new random key.
+func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
+	if c.secretsKey != (secret.EncryptionKey{}) {
+		return c.secretsKey, nil
+	}
+	if c.secretsKeyFile != "" {
+		return secret.LoadEncryptionKey(c.secretsKeyFile)
+	}
+	if *c.memBacked {
+		return secret.NewEncryptionKey(), nil
+	}
+	return secret.LoadEncryptionKey(filepath.Join(c.dataPath, secretsKeyFileName))
+}
+
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
 // CoreConfigs.
@@ -182,7 +212,7 @@ func BootupCore(
 	onServerStarted chan struct{},
 	cfgs ...CoreConfig,
 ) (err error) {
-	cfg, err := config.New(DefaultCoreConfig, cfgs...)
+	cfg, err := config.New(defaultCoreConfig(), cfgs...)
 	if err != nil {
 		return err
 	}
@@ -205,19 +235,26 @@ func BootupCore(
 
 	// Any data stored on the node is considered sensitive, so we need to set the
 	// permission mask for all files appropriately.
-	disablePermissionBits()
+	DisablePermissionBits()
 
-	var closer xio.MultiCloser
-
+	var (
+		closer xio.MultiCloser
+		// update is the update of the data that this start did not commit yet.
+		update *storage.Update
+	)
 	cleanup, ok := xservice.NewOpener(ctx, &closer)
-	defer func() { err = cleanup(err) }()
+	defer func() {
+		if err = cleanup(err); err != nil && update != nil {
+			err = update.Undo(ctx, err)
+		}
+	}()
 
 	securityProvider, err := security.NewProvider(security.ProviderConfig{
 		LoaderConfig: cfg.certFactoryConfig.LoaderConfig,
 		Insecure:     cfg.insecure,
 	})
 	if !ok(err, nil) {
-		return err
+		return errors.Mark(err, validate.ErrValidation)
 	}
 
 	cacheDir, err := os.UserCacheDir()
@@ -232,35 +269,28 @@ func BootupCore(
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
 	storageLayer, err := storage.OpenLayer(ctx, storage.LayerConfig{
-		Instrumentation: cfg.Child("storage"),
-		InMemory:        cfg.memBacked,
-		Dirname:         cfg.dataPath,
+		Instrumentation:      cfg.Child("storage"),
+		InMemory:             cfg.memBacked,
+		Dirname:              cfg.dataPath,
+		Version:              vsn,
+		UpdateBackupDisabled: cfg.updateBackupDisabled,
 	})
 	if !ok(err, storageLayer) {
 		return err
 	}
-
-	grpcClientPool := configureClientGRPC(securityProvider, *cfg.insecure)
-	// Register the pool first so it closes LAST: every transport that
-	// references it must finish shutting down before its connections are
-	// torn down.
-	if !ok(nil, grpcClientPool) {
-		return ctx.Err()
-	}
-	var (
-		aspenTransport = aspentransport.New(grpcClientPool)
-		distTransport  = disttransport.New(grpcClientPool)
-	)
+	update = storageLayer.Update
 
 	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
-		PeerAddresses:    cfg.peers,
-		AspenTransport:   aspenTransport,
-		Transport:        distTransport,
 		Storage:          storageLayer,
 	})
 	if !ok(err, distributionLayer) {
+		return err
+	}
+
+	secretsKey, err := cfg.resolveSecretsKey()
+	if !ok(err, nil) {
 		return err
 	}
 
@@ -278,24 +308,44 @@ func BootupCore(
 			Loopback: new(cfg.listeners.Loopback()),
 		},
 		ValidateChannelNames: cfg.validateChannelNames,
+		SecretsKey:           secretsKey,
 	})
 	if !ok(err, serviceLayer) {
 		return err
 	}
 
+	// No client reaches the data before the commit, so an undo loses no writes.
+	if update != nil {
+		if err = serviceLayer.License.CheckUpdate(update.From); err != nil {
+			return err
+		}
+		if err = update.Commit(); err != nil {
+			return err
+		}
+		cfg.L.Info(
+			"committed the update",
+			zap.String("from", update.From),
+			zap.String("to", update.To),
+		)
+		update = nil
+	}
+
+	errs := api.NewErrorCodec()
 	apiLayer, err := api.NewLayer(api.LayerConfig{
 		Instrumentation: cfg.Child("api"),
 		Service:         serviceLayer,
 		Distribution:    distributionLayer,
+		Errors:          errs,
 	})
 	if !ok(err, nil) {
 		return err
 	}
 
-	// Configure the HTTP Layer AspenTransport.
 	var r *http.Router
-	if r, err = http.NewRouter(http.RouterConfig{
+	// ctx ends when shutdown starts, before the server drains in-flight requests.
+	if r, err = http.NewRouter(context.WithoutCancel(ctx), http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
+		Errors:              errs,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
 	}); !ok(err, nil) {
 		return err
@@ -310,7 +360,9 @@ func BootupCore(
 	}
 
 	var embeddedConsole *console.Console
-	if embeddedConsole, err = console.New(); !ok(err, nil) {
+	if embeddedConsole, err = console.New(
+		console.Config{Insecure: cfg.insecure},
+	); !ok(err, nil) {
 		return err
 	}
 
@@ -318,7 +370,6 @@ func BootupCore(
 		securityProvider,
 		cfg.certFactoryConfig,
 		*cfg.insecure,
-		len(cfg.peers) > 0 || len(distributionLayer.Cluster.Nodes()) > 1,
 		cfg.driverEnabled(),
 	)
 	if !ok(err, nil) {
@@ -331,11 +382,7 @@ func BootupCore(
 				&server.SecureHTTPBranch{
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
-				&server.GRPCBranch{Transports: append(
-					transportLayer.GRPC,
-					aspenTransport,
-					distTransport,
-				)},
+				&server.GRPCBranch{Transports: transportLayer.GRPC},
 				server.NewHTTPRedirectBranch(),
 			},
 			Debug:           cfg.debug,
@@ -364,9 +411,7 @@ func BootupCore(
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
-			// An unlicensed Core refuses the Driver's rack, so the Driver retries in
-			// the background.
-			Detached: new(!covered),
+			License:  serviceLayer.License,
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
@@ -375,6 +420,7 @@ func BootupCore(
 			Address:             cfg.listeners.AdvertiseAddress(),
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			Keys:                serviceLayer.APIKey,
+			DB:                  distributionLayer.DB,
 			KeyDirname:          lo.Ternary(*cfg.memBacked, "", cfg.dataPath),
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,

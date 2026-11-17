@@ -16,6 +16,23 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("MustForm", func() {
+	typ := resolution.Type{
+		QualifiedName: "rack.Rack",
+		Form:          resolution.StructForm{IsRecursive: true},
+	}
+
+	It("Should return the form when it has the requested type", func() {
+		Expect(resolution.MustForm[resolution.StructForm](typ).IsRecursive).
+			To(BeTrue())
+	})
+
+	It("Should panic with the type name when the form has another type", func() {
+		Expect(func() { resolution.MustForm[resolution.EnumForm](typ) }).
+			To(PanicWith(ContainSubstring("rack.Rack is a resolution.StructForm")))
+	})
+})
+
 var _ = Describe("RetrieveKey", func() {
 	withKey := func(name string) resolution.Type {
 		return resolution.Type{
@@ -46,6 +63,36 @@ var _ = Describe("RetrieveKey", func() {
 	It("Should keep a qualified name as written", func() {
 		Expect(MustBeOk(resolution.RetrieveKey(withKey("channel.Key")))).
 			To(Equal(resolution.TypeRef{Name: "channel.Key"}))
+	})
+})
+
+var _ = Describe("RetrieveNoun", func() {
+	withNoun := func(values ...resolution.ExpressionValue) resolution.Type {
+		return resolution.Type{
+			Domains: map[string]resolution.Domain{"retrieve": {
+				Name: "retrieve",
+				Expressions: resolution.Expressions{
+					{Name: "noun", Values: values},
+				},
+			}},
+		}
+	}
+
+	It("Should return the declared noun", func() {
+		Expect(MustBeOk(resolution.RetrieveNoun(withNoun(resolution.ExpressionValue{
+			Kind:        resolution.ValueKindString,
+			StringValue: "named color",
+		})))).To(Equal("named color"))
+	})
+
+	It("Should return false for a type with no @retrieve noun", func() {
+		_, ok := resolution.RetrieveNoun(resolution.Type{})
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should return false for a noun with no value", func() {
+		_, ok := resolution.RetrieveNoun(withNoun())
+		Expect(ok).To(BeFalse())
 	})
 })
 
@@ -402,6 +449,43 @@ var _ = Describe("Unified fields through aliases", func() {
 			Equal([]string{"label", "hidden", "on"}),
 		)
 	})
+	It("Should fill in the type arguments of a generic base and variant", func() {
+		param := resolution.TypeRef{TypeParam: &resolution.TypeParam{Name: "T"}}
+		generic := func(name, fieldName string) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: "t." + name,
+				Namespace:     "t",
+				Form: resolution.StructForm{
+					TypeParams: []resolution.TypeParam{{Name: "T"}},
+					Fields: []resolution.Field{
+						{Name: fieldName, Type: param},
+					},
+				},
+			})).To(Succeed())
+		}
+		generic("Head", "head")
+		generic("Body", "body")
+		union := resolution.Type{
+			Name:          "Node",
+			QualifiedName: "t.Node",
+			Namespace:     "t",
+			Form: resolution.UnionForm{
+				Discriminator: "variant",
+				Extends: []resolution.TypeRef{{
+					Name: "t.Head", TypeArgs: []resolution.TypeRef{ref("uint8")},
+				}},
+			},
+		}
+		variant := resolution.UnionVariant{Name: "valve", Type: resolution.TypeRef{
+			Name: "t.Body", TypeArgs: []resolution.TypeRef{ref("string")},
+		}}
+		fields := resolution.UnifiedVariantFields(union, variant, table)
+		Expect(fields).To(HaveLen(2))
+		Expect(fields[0].Type).To(Equal(ref("uint8")))
+		Expect(fields[1].Type).To(Equal(ref("string")))
+	})
 })
 
 var _ = Describe("InheritedFields", func() {
@@ -506,6 +590,23 @@ var _ = Describe("TypeArgMap", func() {
 		),
 		Entry("no arguments", nil, map[string]resolution.TypeRef{}),
 	)
+
+	It("Should give a missing argument its parameter's default", func() {
+		params := []resolution.TypeParam{
+			{Name: "K"},
+			{Name: "V", Default: &resolution.TypeRef{
+				Name: "Pair", TypeArgs: []resolution.TypeRef{{
+					TypeParam: &resolution.TypeParam{Name: "K"},
+				}},
+			}},
+		}
+		Expect(resolution.TypeArgMap(
+			params, []resolution.TypeRef{{Name: "string"}},
+		)).To(Equal(map[string]resolution.TypeRef{
+			"K": {Name: "string"},
+			"V": {Name: "Pair", TypeArgs: []resolution.TypeRef{{Name: "string"}}},
+		}))
+	})
 })
 
 var _ = Describe("MergeOverrideField", func() {
@@ -597,4 +698,25 @@ var _ = Describe("Type.Actions", func() {
 	It("Should return no actions for any other form", func() {
 		Expect(resolution.Type{Form: resolution.EnumForm{}}.Actions()).To(BeEmpty())
 	})
+})
+
+var _ = Describe("Action.IsAlias", func() {
+	DescribeTable(
+		"Should report whether the action uses an existing struct as its payload",
+		func(action resolution.Action, alias bool) {
+			Expect(action.IsAlias()).To(Equal(alias))
+		},
+		Entry("an alias of a struct", resolution.Action{
+			Name:  "Set",
+			Alias: resolution.TypeRef{Name: "patch.Set"},
+		}, true),
+		Entry("an action with its own payload", resolution.Action{
+			Name: "SetUsername",
+			Fields: []resolution.Field{{
+				Name: "username",
+				Type: resolution.TypeRef{Name: "string"},
+			}},
+		}, false),
+		Entry("an action with no payload", resolution.Action{Name: "Clear"}, false),
+	)
 })

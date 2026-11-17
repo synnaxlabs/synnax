@@ -162,7 +162,8 @@ struct ThermocoupleChan final : InputChan {
     const int type;
     /// @brief the AIN index the thermocouple's positive lead is wired to.
     const int pos_chan;
-    /// @brief the AIN port of the negative lead on T7 devices. 199 is single ended.
+    /// @brief the AIN port of the negative lead on T7 devices. LJM_GND is single
+    /// ended.
     const int neg_chan;
     /// @brief the source of the CJC temperature: TEMPERATURE_DEVICE_K,
     /// TEMPERATURE_AIR_K, or an AIN port wired to a temperature sensor.
@@ -187,7 +188,7 @@ struct ThermocoupleChan final : InputChan {
         InputChan(cfg),
         type(resolve_tc_type(parser, cfg.thermocouple_type)),
         pos_chan(resolve_ain_index(parser, cfg.port)),
-        neg_chan(cfg.neg_chan),
+        neg_chan(cfg.neg_chan.value_or(LJM_GND)),
         cjc_source(resolve_cjc_source(parser, cfg.cjc_source)),
         cjc_slope(cfg.cjc_slope),
         cjc_offset(cfg.cjc_offset),
@@ -288,13 +289,16 @@ struct AIChan final : InputChan {
     /// @brief the largest voltage magnitude the channel reads. The channel uses the
     /// smallest range of the device that covers it.
     const double range;
-    /// @brief the negative channel for differential readings. 199 is single ended.
+    /// @brief the negative channel for differential readings. LJM_GND is single ended.
     const int neg_chan;
     /// @brief the scale applied to raw samples after acquisition.
     const ::synnax::task::Scale scale_cfg;
 
     AIChan(const ::synnax::labjack::AnalogReadChannel &cfg, x::json::Parser &parser):
-        InputChan(cfg), range(cfg.range), neg_chan(cfg.neg_chan), scale_cfg(cfg.scale) {
+        InputChan(cfg),
+        range(cfg.range),
+        neg_chan(cfg.neg_chan.value_or(LJM_GND)),
+        scale_cfg(cfg.scale) {
         if (this->range <= 0)
             parser.field_err("range", "Max voltage must be greater than 0");
         transform::validate_scale(parser, "scale", this->scale_cfg);
@@ -372,16 +376,16 @@ inline std::unique_ptr<InputChan> parse_input_chan(x::json::Parser &cfg) {
     return nullptr;
 }
 
-/// @brief returns the scan backlog above which the task warns about skew. A zero
-/// or absent count means the caller has no preference, so the threshold falls back
-/// to seconds worth of scans at sample_rate.
+/// @brief returns the scan backlog above which the task warns about skew. An absent
+/// count falls back to seconds worth of scans at sample_rate.
 inline size_t parse_backlog_warn_on_count(
     x::json::Parser &parser,
     const std::string &field,
     const x::telem::Rate sample_rate,
     const float seconds
 ) {
-    if (const auto count = parser.field<size_t>(field, 0); count != 0) return count;
+    if (const auto count = parser.field<std::optional<std::uint32_t>>(field))
+        return *count;
     return static_cast<size_t>(sample_rate.hz() * seconds);
 }
 
@@ -692,7 +696,9 @@ public:
     }
 
     /// @brief claims the device and applies the channel settings.
-    x::errors::Error start() override { return this->connect(); }
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
+        return this->connect();
+    }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -875,7 +881,7 @@ class StreamSource final : public common::Source {
                 nullptr
             ))
             return err;
-        auto scan_rate = static_cast<double>(this->cfg.sample_rate.hz());
+        auto scan_rate = this->cfg.sample_rate.hz();
         if (const auto err = d->e_stream_start(
                 this->cfg.samples_per_chan,
                 addrs.size(),
@@ -911,7 +917,9 @@ public:
     }
 
     /// @brief claims the device and starts the stream.
-    x::errors::Error start() override { return this->restart(); }
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
+        return this->restart();
+    }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -952,7 +960,8 @@ public:
         if (res.error = this->dev->e_stream_read(
                 this->interleaved_buf.data(),
                 &device_scan_backlog,
-                &ljm_scan_backlog
+                &ljm_scan_backlog,
+                breaker
             );
             res.error) {
             if (res.error.matches(errors::TEMPORARY_HARDWARE_ERROR)) this->stop();

@@ -18,7 +18,7 @@ import (
 	legacyv1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -107,6 +107,24 @@ var _ = Describe("Migration", func() {
 			Name: "bare",
 			Data: map[string]any{"svg": "<svg/>", "variant": "sensor"},
 		})
+
+		Expect(retrieveMigrated(ctx, db, seed.Key).Data.Scale).To(Equal(1.0))
+	})
+
+	It("Should give a stored zero scale the default", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		seed := seedV0(ctx, db, v0.Symbol{
+			Key:  uuid.New(),
+			Name: "zero",
+			Data: map[string]any{"svg": "<svg/>", "scale": 0.0},
+		})
+
+		Expect(retrieveMigrated(ctx, db, seed.Key).Data.Scale).To(Equal(1.0))
+	})
+
+	It("Should default the scale of a symbol without data", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		seed := seedV0(ctx, db, v0.Symbol{Key: uuid.New(), Name: "empty"})
 
 		Expect(retrieveMigrated(ctx, db, seed.Key).Data.Scale).To(Equal(1.0))
 	})

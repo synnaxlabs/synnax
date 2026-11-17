@@ -26,7 +26,7 @@ inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
     const synnax::rack::Rack &rack,
     synnax::task::Task &task
 ) {
-    auto [existing, err] = rack.tasks.retrieve_by_type(std::vector{task.type});
+    auto [existing, err] = rack.tasks.retrieve(synnax::task::Where{.type = task.type});
     if (err) return {false, err};
     if (!existing.empty()) return {false, x::errors::NIL};
     return {true, rack.tasks.create(task)};
@@ -40,6 +40,7 @@ inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
 /// @param task_name Name to assign to the new task
 /// @param task_type Type identifier for the task
 /// @param integration_name Name of the integration for logging purposes
+/// @param cancel Passed to the configure of the new task
 /// @return Vector of pairs containing:
 ///         - synnax::task::Task: The created Synnax task configuration
 ///         - std::unique_ptr<task::Task>: The configured task implementation, or null
@@ -57,7 +58,8 @@ configure_initial_factory_tasks(
     const synnax::rack::Rack &rack,
     const std::string &task_name,
     const std::string &task_type,
-    const std::string &integration_name
+    const std::string &integration_name,
+    x::breaker::Breaker &cancel
 ) {
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>> tasks;
     auto sy_task = synnax::task::Task{
@@ -78,7 +80,12 @@ configure_initial_factory_tasks(
                 << " already exists on rack. Skipping creation.";
         return tasks;
     }
-    auto [task, _] = factory->configure_task(ctx, sy_task, driver::task::NO_COMMAND);
+    auto [task, _] = factory->configure_task(
+        ctx,
+        sy_task,
+        driver::task::NO_COMMAND,
+        cancel
+    );
     if (task == nullptr)
         VLOG(1) << "[" << integration_name
                 << "] failure to configure initial scan task";
@@ -100,7 +107,7 @@ inline x::errors::Error delete_legacy_task_by_type(
     const std::string &task_type,
     const std::string &integration_name
 ) {
-    auto [legacy, err] = rack.tasks.retrieve_by_type(std::vector{task_type});
+    auto [legacy, err] = rack.tasks.retrieve(synnax::task::Where{.type = task_type});
     if (err) return err;
     for (const auto &task: legacy)
         if (const auto del_err = rack.tasks.del(task.key))

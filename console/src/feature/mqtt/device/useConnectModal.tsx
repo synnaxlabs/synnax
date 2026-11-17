@@ -21,7 +21,7 @@ import { caseconv, deep } from "@synnaxlabs/x";
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
 import {
   type Device,
-  INTEGRATION,
+  INTEGRATION_KEY,
   MAKE,
   SCHEMAS,
   ZERO_PROPERTIES,
@@ -77,7 +77,6 @@ const beforeSave = async ({
     variant: "success",
     details: {
       rack: get(path.rack).value,
-      device: get(path.key).value,
       connected: true,
     },
   });
@@ -108,7 +107,7 @@ export const Connect = ({
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
   const reason = PlatformDevice.useBlockedReason({
-    integration: INTEGRATION,
+    integration: INTEGRATION_KEY,
     name: "MQTT",
     rack: rackKey,
   });
@@ -153,7 +152,7 @@ export const Connect = ({
                   inputProps={KEEP_ALIVE_INPUT_PROPS}
                 />
               </Flex.Box>
-              <PlatformDevice.RackField integration={INTEGRATION} />
+              <PlatformDevice.RackField integration={INTEGRATION_KEY} />
             </Form.Section>
             <Form.Section title="Authentication">
               <Flex.Box x>
@@ -244,19 +243,22 @@ export const Connect = ({
   );
 };
 
-export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
-
-const groupsRenderProp = Component.renderProp(
-  ({ value, onChange, ...rest }: Input.Control<string[]>) => (
-    <Input.Text
-      {...rest}
-      value={value.join(", ")}
-      onChange={(text) => onChange(parseGroups(text))}
-      onlyChangeOnBlur
-      placeholder="All groups"
-    />
-  ),
+export const useConnectModal = PlatformDevice.createConnectModal(
+  Connect,
+  INTEGRATION_KEY,
 );
+
+const GroupsInput = ({ value, onChange, ...rest }: Input.Control<string[]>) => (
+  <Input.Text
+    {...rest}
+    value={value.join(", ")}
+    onChange={(text) => onChange(parseGroups(text))}
+    onlyChangeOnBlur
+    placeholder="All groups"
+  />
+);
+
+const groupsRenderProp = Component.renderProp(GroupsInput);
 
 const parseGroups = (text: string): string[] =>
   text
@@ -303,10 +305,12 @@ const HOST_ID_INPUT_PROPS = { placeholder: "Passive host" } as const;
 
 const createOptionalNumericRenderProp = (
   props: Omit<Input.NumericProps, "value" | "onChange" | "onClear">,
-) =>
-  Component.renderProp((p: Input.Control<number | undefined>) => (
+) => {
+  const OptionalNumeric = (p: Input.Control<number | undefined>) => (
     <Input.Numeric {...p} {...props} onClear={() => p.onChange(undefined)} />
-  ));
+  );
+  return Component.renderProp(OptionalNumeric);
+};
 
 const renderPort = createOptionalNumericRenderProp(PORT_INPUT_PROPS);
 

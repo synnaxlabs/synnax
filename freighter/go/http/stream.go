@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/fasthttp/websocket"
@@ -76,6 +77,7 @@ func newStreamCore[RQ, RS freighter.Payload](
 
 type streamCoreConfig struct {
 	codec encoding.Codec
+	errs  *errors.Codec
 	conn  *websocket.Conn
 	alamos.Instrumentation
 	writeDeadline time.Duration
@@ -96,6 +98,8 @@ type streamCore[I, O freighter.Payload] struct {
 	streamCoreConfig
 }
 
+func (c *streamCore[I, O]) peerClosed() bool { return c.peerCloseErr != nil }
+
 func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
 	if c.writeDeadline > 0 {
 		if err := c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {
@@ -106,7 +110,7 @@ func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
 	if err != nil {
 		return err
 	}
-	err = c.codec.EncodeStream(context.TODO(), w, msg)
+	err = c.codec.EncodeStream(w, msg)
 	return errors.Combine(err, w.Close())
 }
 
@@ -116,7 +120,7 @@ func (c *streamCore[I, O]) receiveRaw() (WSMessage[I], error) {
 		return WSMessage[I]{}, err
 	}
 	var msg WSMessage[I]
-	return msg, c.codec.DecodeStream(context.TODO(), r, &msg)
+	return msg, c.codec.DecodeStream(r, &msg)
 }
 
 func (c *streamCore[I, O]) Receive() (I, error) {
@@ -126,18 +130,20 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 	}
 	msg, err := c.receiveRaw()
 	if err != nil {
-		if cause := c.forcedCause(); cause != nil {
+		cause := c.forcedCause()
+		switch {
+		case cause != nil:
 			c.peerCloseErr = cause
-		} else if websocket.IsCloseError(
+		case websocket.IsCloseError(
 			err,
 			websocket.CloseNormalClosure,
 			websocket.CloseNoStatusReceived,
 			websocket.CloseAbnormalClosure,
-		) {
-			c.peerCloseErr = freighter.EOF
-		} else if websocket.IsCloseError(err, contextCancelledCloseCode) {
+		):
+			c.peerCloseErr = io.EOF
+		case websocket.IsCloseError(err, contextCancelledCloseCode):
 			c.peerCloseErr = context.Canceled
-		} else {
+		default:
 			c.peerCloseErr = freighter.ErrStreamClosed
 		}
 		c.peerCloseErr = errors.WithStack(c.peerCloseErr)
@@ -145,9 +151,9 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 		return i, c.peerCloseErr
 	}
 	if msg.Type == WSMessageTypeClose {
-		c.peerCloseErr = errors.Decode(context.TODO(), msg.Err)
+		c.peerCloseErr = c.errs.Decode(msg.Err)
 		if c.peerCloseErr == nil {
-			c.peerCloseErr = freighter.EOF
+			c.peerCloseErr = io.EOF
 		}
 	}
 	return msg.Payload, c.peerCloseErr

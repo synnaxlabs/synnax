@@ -9,7 +9,7 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { computed } from "@synnaxlabs/lyra/styletest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { render } from "vitest-browser-react";
 
 import { Keys } from "@/components/keys/Keys";
@@ -40,6 +40,17 @@ describe("Keys", () => {
 
   it("should stay hidden under the hidden attribute", async () => {
     const { container } = await render(<Keys trigger={["Control", "K"]} hidden />);
+    expect(computed(find(container, ".docs-keys"), "display")).toBe("none");
+  });
+
+  it("should let a class hide it from a stylesheet that loads first", async () => {
+    const style = document.createElement("style");
+    style.textContent = ".hide-keys { display: none; }";
+    document.head.prepend(style);
+    onTestFinished(() => style.remove());
+    const { container } = await render(
+      <Keys trigger={["Control", "K"]} className="hide-keys" />,
+    );
     expect(computed(find(container, ".docs-keys"), "display")).toBe("none");
   });
 });

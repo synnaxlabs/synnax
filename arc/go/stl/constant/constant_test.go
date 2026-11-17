@@ -10,6 +10,8 @@
 package constant_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -198,6 +200,33 @@ var _ = Describe("Constant", func() {
 			times := outTime.Unmarshal[telem.TimeStamp]()
 			Expect(times[0]).To(Equal(now))
 		})
+
+		DescribeTable("Should emit a stored non-finite value",
+			func(ctx SpecContext, value string, expected float64) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "constant",
+						Inputs: types.Params{
+							{Name: "value", Type: types.F64(), Value: value},
+						},
+					},
+					State: s.Node("const"),
+				}
+				constNode := s.Node("const")
+				*constNode.Output(0) = telem.NewSeriesV[float64](0)
+				n := MustSucceed(factory.Create(cfg))
+				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+				got := constNode.Output(0).Unmarshal[float64]()[0]
+				if math.IsNaN(expected) {
+					Expect(math.IsNaN(got)).To(BeTrue())
+					return
+				}
+				Expect(got).To(Equal(expected))
+			},
+			Entry("NaN", "NaN", math.NaN()),
+			Entry("positive infinity", "Infinity", math.Inf(1)),
+			Entry("negative infinity", "-Infinity", math.Inf(-1)),
+		)
 
 		It("Should handle float64 constant", func(ctx SpecContext) {
 			cfg := node.Config{

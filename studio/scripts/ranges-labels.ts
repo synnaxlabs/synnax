@@ -19,7 +19,8 @@ const START = new TimeStamp(new Date(2025, 2, 14, 10, 0, 0));
 
 /**
  * Docs `client/ranges/labels`: on a range's overview page, create a new green
- * label through "New label", select it, then select a pre-made label.
+ * label through "Create label", which adds it to the range, then select a pre-made
+ * label.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   // Start from a bare workspace: only the Nominal and Anomaly labels survive.
@@ -44,9 +45,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       .locator(".lyra-list__item:not(.lyra-tree__item)")
       .filter({ hasText: name })
       .first();
-  // No labels are selected until the end, so the placeholder trigger opens the
-  // selector every time.
-  const openSelector = (): Promise<void> => session.click(trigger, { text: true });
   const pick = async (name: string): Promise<void> => {
     const item = listItem(name);
     await session.waitFor(item);
@@ -57,13 +55,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await session.waitFor(trigger);
 
-  // Script-local override: drop the sections unrelated to labels so the shot
-  // stays on the Details block.
+  // Script-local override: drop the lines that add other parts, so the shot stays on
+  // the header.
   await page.evaluate(() => {
-    const hide = ["Child ranges", "Metadata", "Snapshots"];
-    for (const el of document.querySelectorAll(".lyra-header"))
-      if (hide.includes(el.textContent?.trim() ?? ""))
-        el.parentElement?.style.setProperty("display", "none");
+    for (const el of document.querySelectorAll<HTMLElement>(
+      ".console-range-overview__add",
+    ))
+      el.style.setProperty("display", "none");
   });
 
   await session.moveTo({ x: 800, y: 450 });
@@ -71,39 +69,26 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   session.startRecording();
   await session.hold(1500);
 
-  // Create the new label through the selector's "New label" button.
-  await openSelector();
-  const newLabel = page
+  // Create the new label through the selector's "Create label" button.
+  await session.click(trigger, { text: true });
+  const create = page
     .locator(".lyra-dialog__dialog")
-    .getByText("New label", { exact: true })
+    .getByText("Create label", { exact: true })
     .first();
-  await session.waitFor(newLabel);
+  await session.waitFor(create);
   await session.hold(400);
-  await session.click(newLabel, { text: true });
+  await session.click(create, { text: true });
 
-  // The label editor opens; start a fresh label from its own "New label" row.
-  const modal = page.locator(".console-label__edit");
-  await session.waitFor(modal);
+  const modal = page.locator(capture.MODAL).first();
+  const nameInput = modal.getByPlaceholder("Label name", { exact: true });
+  await session.waitFor(nameInput);
   await session.hold(400);
   await session.zoom(modal);
-  await session.click(modal.getByText("New label", { exact: true }).first(), {
-    text: true,
-  });
 
-  const nameInput = modal.getByPlaceholder("Name").first();
-  await session.waitFor(nameInput);
-  await session.click(nameInput);
-  await session.type(NEW_LABEL, 40);
-  await session.hold(300);
-
-  // Set the color by hex, then close the picker so the swatch commits on blur.
-  const swatch = modal.locator(".lyra-color-swatch").first();
+  // Set the color by hex, then close the picker so the swatch commits.
+  const swatch = modal.getByLabel("Label color", { exact: true });
   await session.click(swatch);
-  const hex = page
-    .locator(
-      ".lyra-color-picker :is(input.lyra-color-hex-text, .lyra-color-hex-text input)",
-    )
-    .first();
+  const hex = page.locator(".lyra-color-picker").getByLabel("Hex", { exact: true });
   await session.waitFor(hex);
   await session.hold(200);
   await session.click(hex);
@@ -117,17 +102,22 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(swatch);
   await session.hold(300);
 
-  await session.click(modal.locator("button:has(.lyra-icon--check)").first());
-  await session.hold(400);
-  session.endZoom();
-  await session.click(modal.locator("button:has(.lyra-icon--close)").first());
+  await session.click(nameInput);
+  await session.type(NEW_LABEL, 40);
   await session.hold(300);
+  await session.click(modal.getByRole("button", { name: "Create" }));
+  await session.waitForHidden(modal);
+  session.endZoom();
+  await session.waitFor(
+    page.locator(".lyra-tag").filter({ hasText: NEW_LABEL }).first(),
+  );
+  await session.hold(600);
 
-  // Open the selector once and add both labels; multi-select stays open.
-  // The Details block of the range overview holds the label selector.
-  await session.zoom(page.locator(".console-range__overview > div > *").first());
-  await openSelector();
-  await pick(NEW_LABEL);
+  // The range holds a label now, so the selector opens from its add button. The
+  // header of the range overview holds the label selector.
+  await session.zoom(page.locator(".console-range-overview__header").first());
+  const labels = page.locator(".lyra-dialog__trigger").filter({ hasText: NEW_LABEL });
+  await session.click(labels.locator("button:has(.lyra-icon--add)").first());
   await pick("Nominal");
   session.endZoom();
   await session.press("Escape");

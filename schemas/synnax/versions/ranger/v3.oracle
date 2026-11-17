@@ -1,0 +1,75 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/label/v0"
+import "schemas/x/versions/color/v2"
+import "schemas/x/versions/filter/v0"
+import "schemas/x/versions/telem/v0"
+
+Key = v0.Key
+
+Range struct extends v2.Range {
+    has_children bool = false {
+        @doc value  """
+            is true when a range is nested in the range, derived on read and not
+            persisted.
+        """
+        @go marshal omit
+    }
+}
+
+Stage enum {
+    to_do       = "to_do" {
+        @doc value "is a range that has not started."
+    }
+    in_progress = "in_progress" {
+        @doc value "is a range that has started and not ended."
+    }
+    completed   = "completed" {
+        @doc value "is a range that has ended."
+    }
+
+    @doc value "is where a range stands against the current time."
+}
+
+Where filter Range {
+    key
+    name
+    overlaps telem.TimeRange {
+        @doc value "matches ranges whose time range overlaps the given range."
+    }
+    labels   label.Key[]     {
+        @doc value "matches ranges that have any of the given labels."
+    }
+    parents  Key[]           {
+        @doc value "matches the ranges nested in any of the given ranges."
+    }
+    nested   bool            {
+        @doc value """
+            matches the ranges nested in a range, or top-level ranges when false.
+        """
+    }
+    labeled  bool            {
+        @doc value "matches ranges that have a label, or ranges with none when false."
+    }
+    stages   Stage[]         {
+        @doc value "matches ranges in any of the given stages at the Core's clock."
+    }
+    recent   telem.TimeSpan  {
+        @doc value """
+            matches ranges that overlap the span ending now, or starting now if
+            negative.
+        """
+    }
+
+    @doc value  "is a filter that selects ranges."
+    @go marshal
+}
+
+Ref = v1.Ref

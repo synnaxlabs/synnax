@@ -12,56 +12,17 @@ package channel
 import (
 	"context"
 
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/unsafe"
 )
 
-type renameBatchEntry struct {
-	name string
-	key  Key
-}
-
-var _ proxy.Entry = renameBatchEntry{}
-
-func (r renameBatchEntry) Lease() node.Key { return r.key.Lease() }
-
-// Rename renames each storage channel keyed in renames to its corresponding new name,
-// routing each key to its leaseholder. Free channels have no storage registration and
-// are skipped.
+// Rename renames each storage channel keyed in renames to its corresponding new name.
+// Free channels have no storage registration and are skipped.
 func (s *Service) Rename(ctx context.Context, renames map[Key]string) error {
-	entries := lo.MapToSlice(renames, func(key Key, name string) renameBatchEntry {
-		return renameBatchEntry{key: key, name: name}
-	})
-	batch := s.renameRouter.Batch(entries)
-	for nodeKey, entries := range batch.Peers {
-		addr, err := s.cfg.HostResolver.Resolve(nodeKey)
-		if err != nil {
-			return err
-		}
-		_, err = s.cfg.Transport.RenameClient().
-			Send(ctx, addr, RenameRequest{Renames: zipRenameBatch(entries)})
-		if err != nil {
-			return err
+	stored := make(map[ts.ChannelKey]string, len(renames))
+	for key, name := range renames {
+		if !key.Free() {
+			stored[key.StorageKey()] = name
 		}
 	}
-	return s.cfg.TS.RenameChannels(ctx, storageRenames(zipRenameBatch(batch.Gateway)))
-}
-
-func (s *Service) renameHandler(
-	ctx context.Context, req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.cfg.TS.RenameChannels(ctx, storageRenames(req.Renames))
-}
-
-func zipRenameBatch(entries []renameBatchEntry) map[Key]string {
-	return lo.SliceToMap(entries, func(e renameBatchEntry) (Key, string) {
-		return e.key, e.name
-	})
-}
-
-func storageRenames(renames map[Key]string) map[ts.ChannelKey]string {
-	return unsafe.ReinterpretMapKeys[Key, ts.ChannelKey](renames)
+	return s.cfg.TS.RenameChannels(ctx, stored)
 }

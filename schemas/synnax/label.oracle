@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/ontology"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -29,11 +28,14 @@ Label struct {
     }
     name  string      {
         @doc value           "is a human-readable name for the label."
+        @index sorted
+        @patch
         @search
         @validate min_length 1
     }
     color color.Color {
         @doc value "is the display color for visual identification of the label."
+        @patch
     }
 
     action Create {
@@ -41,27 +43,17 @@ Label struct {
 
         @doc value """
             replaces the label with the given created state. Emitted by the Core when a
-            label is created or overwritten whole; clients never dispatch it.
+            label is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the label."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the label.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the label."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the label."
-    }
+    action Move = patch.Move
 
     @create
     @doc value       """
@@ -70,15 +62,13 @@ Label struct {
     """
     @go marshal
     @go migrate
+    @resource type   "label"
     @retrieve custom
 }
 
 Where filter Label {
     key
     name
-    for  ontology.ID {
-        @doc value "matches the labels attached to the given resource."
-    }
 
     @cpp omit
     @doc value         "is a filter that selects labels."

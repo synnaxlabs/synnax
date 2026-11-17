@@ -10,6 +10,9 @@
 package parser_test
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -90,6 +93,35 @@ var _ = Describe("Dashed identifier lexing", func() {
 })
 
 var _ = Describe("Parser", func() {
+	Describe("ParseExpressionAt", func() {
+		// at places rune i of a source at line 3, column 7 + 2i.
+		at := func(i int) (int, int) { return 3, 7 + 2*i }
+
+		It("Should give each token the position of its first rune", func() {
+			expr := MustSucceed(parser.ParseExpressionAt("a + b", at))
+			start := expr.GetStart()
+			Expect(start.GetLine()).To(Equal(3))
+			Expect(start.GetColumn()).To(Equal(7))
+			stop := expr.GetStop()
+			Expect(stop.GetText()).To(Equal("b"))
+			Expect(stop.GetColumn()).To(Equal(15))
+		})
+
+		It("Should report a parse error at its position in the source", func() {
+			_, diags := parser.ParseExpressionAt("a +", at)
+			Expect(*diags).To(HaveLen(1))
+			Expect((*diags)[0].Range.Start.Line).To(Equal(uint32(2)))
+			Expect((*diags)[0].Range.Start.Character).To(Equal(uint32(13)))
+		})
+
+		It("Should report a lexer error at its position in the source", func() {
+			_, diags := parser.ParseExpressionAt("a\n  # b", at)
+			Expect(*diags).ToNot(BeEmpty())
+			Expect((*diags)[0].Range.Start.Line).To(Equal(uint32(2)))
+			Expect((*diags)[0].Range.Start.Character).To(Equal(uint32(15)))
+		})
+	})
+
 	Describe("Expressions", func() {
 		Context("Numeric Literals", func() {
 			It("Should parse integer literals", func() {
@@ -2347,7 +2379,7 @@ func mustParseExpression(expr string) parser.IExpressionContext {
 	return MustSucceed(parser.ParseExpression(expr))
 }
 
-// AST Navigation Helpers - traverse the parse tree to access specific nodes
+// AST Navigation Helpers - traverse the parse tree to access specific nodes.
 func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
 	primary := parser.GetPrimaryExpression(expr)
 	return primary.Literal()
@@ -2407,4 +2439,76 @@ func allStageDecls(
 		}
 	}
 	return stages
+}
+
+var _ = Describe("Limits", func() {
+	const tooDeep = "nesting is deeper than the parser allows"
+	nested := func(open, closer string, n int) string {
+		return strings.Repeat(open, n) + "1" + strings.Repeat(closer, n)
+	}
+	DescribeTable("Should return a diagnostic for deep nesting", func(src string) {
+		Expect(parser.ParseExpression(src)).Error().
+			To(MatchError(ContainSubstring(tooDeep)))
+	},
+		Entry("parentheses", nested("(", ")", 100_000)),
+		Entry("brackets", "x"+nested("[", "]", 1_000)),
+		Entry("unary minus", strings.Repeat("-", 100_000)+"1"),
+		Entry("not", strings.Repeat("not ", 100_000)+"true"),
+		Entry("power", strings.Repeat("2^", 100_000)+"2"),
+		Entry("casts after unary minus", strings.Repeat("-f64(", 100_000)+"1"),
+	)
+
+	DescribeTable("Should return a diagnostic for a deep program", func(src string) {
+		Expect(parser.Parse(src)).Error().To(MatchError(ContainSubstring(tooDeep)))
+	},
+		Entry(
+			"blocks",
+			"func f() {"+strings.Repeat("if x {", 10_000)+strings.Repeat("}", 10_001),
+		),
+	)
+
+	It("Should return a diagnostic, not a crash, for stray closers", func() {
+		src := "func f() f64 { return " + strings.Repeat("x((x])", 10_000) + " }"
+		Expect(parser.Parse(src)).Error().
+			To(MatchError(ContainSubstring("extraneous input ']'")))
+	})
+
+	DescribeTable("Should parse source within the limits", func(src string) {
+		MustSucceed(parser.ParseExpression(src))
+	},
+		Entry("100 levels of parentheses", nested("(", ")", 100)),
+		Entry("100 unary minus", strings.Repeat("-", 100)+"1"),
+		Entry("a long chain of binary operators", strings.Repeat("1 - ", 10_000)+"1"),
+	)
+
+	It("Should parse nesting at the depth bound and stop one level past it", func() {
+		MustSucceed(parser.ParseExpression(nested("(", ")", 226)))
+		Expect(parser.ParseExpression(nested("(", ")", 227))).Error().
+			To(MatchError(ContainSubstring(tooDeep)))
+	})
+
+	It("Should parse source of exactly 1 MiB", func() {
+		MustSucceed(parser.Parse(strings.Repeat(" ", 1<<20)))
+	})
+
+	It("Should return a diagnostic for source past 1 MiB", func() {
+		Expect(parser.Parse(strings.Repeat(" ", 1<<20+1))).Error().
+			To(MatchError(ContainSubstring("more than the limit")))
+	})
+})
+
+func BenchmarkParse(b *testing.B) {
+	src := strings.Repeat(`
+		func control() {in f64} f64 {
+			if in > 10.0 and not (in < 0.0) {
+				return -(in * 2.0 + 1.0) ^ 2.0
+			}
+			return in
+		}
+	`, 50)
+	for b.Loop() {
+		if _, diag := parser.Parse(src); diag != nil {
+			b.Fatal(diag)
+		}
+	}
 }

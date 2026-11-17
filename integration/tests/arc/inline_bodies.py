@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_virtual_channel, hold
 from tests.arc.arc import ArcCase
 
 # trigger_1 (fired by the harness) drives the module-scope bodies and the named
@@ -601,7 +601,7 @@ class InlineBodies(ArcCase):
 
         self.log("Holding race_cond high; first stage must keep blocking")
         self.writer.write("race_cond", 100.0)
-        sy.sleep(0.5)
+        hold(0.5, reason="nothing may change")
         blocked = self.read_tlm("race_first_out")
         if blocked != 1:
             self.fail(
@@ -641,7 +641,7 @@ class InlineBodies(ArcCase):
 
         self.log("Exit stage must be deactivated; its write must not re-apply")
         self.writer.write("reentry_exit_out", 0)
-        sy.sleep(0.5)
+        hold(0.5, reason="nothing may change")
         exit_out = self.read_tlm("reentry_exit_out")
         if exit_out != 0:
             self.fail(

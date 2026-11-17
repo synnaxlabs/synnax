@@ -1,6 +1,7 @@
 {
   "installCommand": "npx --yes pnpm@12.14.0 install --frozen-lockfile",
   "buildCommand": "npx --yes pnpm@12.14.0 --dir ../.. build:portal && npm run db:migrate",
+  "ignoreCommand": "npx --yes turbo-ignore@2.11.9",
   "git": {
     "deploymentEnabled": {
       "**": false,
@@ -15,6 +16,10 @@
     {
       "path": "/api/cron/digest",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/audience",
+      "schedule": "0 12 * * *"
     },
     {
       "path": "/api/cron/sessions",

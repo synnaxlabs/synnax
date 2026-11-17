@@ -14,7 +14,7 @@ import { z } from "zod/v4";
 export const MAKE = "http";
 
 /** The name a rack lists in its integrations when its Driver runs this one. */
-export const INTEGRATION = "http";
+export const INTEGRATION_KEY = "http";
 const makeZ = z.literal(MAKE);
 const modelZ = z.literal("HTTP server");
 
@@ -91,6 +91,7 @@ export const checkDuplicateKeys =
       if (k === "") return;
       if (seen.has(k))
         ctx.issues.push({
+          continue: true,
           code: "custom",
           input: ctx.value,
           message: `Duplicate ${label} "${String(k)}"`,

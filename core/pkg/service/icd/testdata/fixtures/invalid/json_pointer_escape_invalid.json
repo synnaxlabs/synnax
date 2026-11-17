@@ -1,0 +1,34 @@
+{
+  "description": "A JSON field's pointer has a tilde that is not an escape.",
+  "codec_rejects": true,
+  "problems": [
+    {
+      "path": "messages.0.payload.fields.0.pointer",
+      "message": "invalid JSON Pointer \"/a~2\""
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "json",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "a",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/a~2",
+              "type": "number"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

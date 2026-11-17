@@ -9,8 +9,10 @@
 
 package versions
 
-import v0 "github.com/synnaxlabs/x/color/versions/v0"
+import v2 "github.com/synnaxlabs/x/color/versions/v2"
 
-// FromHex parses a hex color string into a Color. Supports 6 or 8 character hex
-// strings with or without a leading '#'.
-func FromHex(s string) (Color, error) { return v0.FromHex(s) }
+// Parse parses a color name, hex, rgb(), or hsl() color string. See v2.Parse.
+func Parse(s string) (Color, error) { return v2.Parse(s) }
+
+// FromUint32 unpacks a color from its 0xRRGGBBAA form.
+func FromUint32(v uint32) Color { return v2.FromUint32(v) }

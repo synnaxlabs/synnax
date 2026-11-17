@@ -9,7 +9,7 @@
 
 from synnax.schematic.symbol.client import Client
 from synnax.schematic.symbol.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Handle,
     Key,
     Region,
@@ -18,11 +18,11 @@ from synnax.schematic.symbol.types_gen import (
     Symbol,
     Where,
     WhereInput,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Client",
     "Handle",
     "Key",
@@ -32,5 +32,5 @@ __all__ = [
     "Symbol",
     "Where",
     "WhereInput",
-    "ontology_id",
+    "resource_id",
 ]

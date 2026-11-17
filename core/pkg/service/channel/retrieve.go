@@ -9,12 +9,7 @@
 
 package channel
 
-import (
-	"slices"
-
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/gorp"
-)
+import "github.com/synnaxlabs/gorp"
 
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or
 // are not virtual if virtual is false. Calculated channels are excluded from the
@@ -31,17 +26,4 @@ func MatchCalculated() Filter {
 	return Match(func(_ gorp.Context, _ Retrieve, ch *Channel) (bool, error) {
 		return ch.IsCalculated(), nil
 	})
-}
-
-// MatchIndexes returns a filter for channels whose index is any of the given keys.
-func MatchIndexes(indexes ...Key) Filter {
-	localKeys := lo.Map(indexes, func(k Key, _ int) LocalKey { return k.LocalKey() })
-	return func(r Retrieve) gorp.Filter[Key, Channel] {
-		return gorp.And(
-			r.indexes.localIndex.Filter(localKeys...),
-			gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
-				return slices.Contains(indexes, ch.Index()), nil
-			}),
-		)
-	}
 }

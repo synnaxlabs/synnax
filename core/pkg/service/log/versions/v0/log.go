@@ -11,6 +11,3 @@ package v0
 
 // GorpKey implements gorp.Entry.
 func (l Log) GorpKey() Key { return l.Key }
-
-// SetOptions implements gorp.Entry.
-func (Log) SetOptions() []any { return nil }

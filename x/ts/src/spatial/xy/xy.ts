@@ -86,8 +86,8 @@ export const equals = (a: Crude, b: Crude, threshold: number = 0): boolean => {
 export const isZero = (c: Crude): boolean => equals(c, ZERO);
 
 /**
- * @returns the given coordinate scaled by the given factors. If only one factor is given,
- * the y factor is assumed to be the same as the x factor.
+ * @returns the given coordinate scaled by the given factors. If only one factor is
+ * given, the y factor is assumed to be the same as the x factor.
  */
 export const scale = (c: Crude, x: number | Crude, y?: number): XY => {
   const p = construct(c);
@@ -223,8 +223,8 @@ export const dot = (ca: Crude, cb: Crude): number => {
 };
 
 /**
- * @returns the linear interpolation between the two coordinates at factor t, where t = 0
- * yields the first coordinate and t = 1 yields the second.
+ * @returns the linear interpolation between the two coordinates at factor t, where t =
+ * 0 yields the first coordinate and t = 1 yields the second.
  */
 export const lerp = (ca: Crude, cb: Crude, t: number): XY => {
   const a = construct(ca);
@@ -314,7 +314,8 @@ export const calculateMiters = (path: XY[], offset: number): XY[] => {
 
 /**
  * Swaps the x and y coordinates of a point.
- * @param a - The coordinate to swap. Can be provided in any supported format (couple, object, dimensions, etc.)
+ * @param a - The coordinate to swap. Can be provided in any supported format (couple,
+ * object, dimensions, etc.)
  * @returns A new XY coordinate with the x and y values swapped.
  * @example
  * swap([1, 2]) // returns { x: 2, y: 1 }
@@ -333,7 +334,8 @@ export const round = (a: Crude): XY => {
 
 /**
  * Reciprocal of a point.
- * @param a - The coordinate to invert. Can be provided in any supported format (couple, object, dimensions, etc.)
+ * @param a - The coordinate to invert. Can be provided in any supported format (couple,
+ * object, dimensions, etc.)
  * @returns A new XY coordinate with the x and y values inverted.
  * @example
  * reciprocal([1, 2]) // returns { x: 1, y: 0.5 }

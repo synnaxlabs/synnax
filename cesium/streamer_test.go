@@ -37,7 +37,7 @@ func openStreamer(ctx context.Context, db *cesium.DB, cfg cesium.StreamerConfig)
 	io.Closer,
 ) {
 	GinkgoHelper()
-	streamer := MustSucceed(db.NewStreamer(ctx, cfg))
+	streamer := MustSucceed(db.NewStreamer(cfg))
 	requests := confluence.NewStream[cesium.StreamerRequest](1)
 	responses := confluence.NewStream[cesium.StreamerResponse](2)
 	streamer.InFrom(requests)
@@ -372,7 +372,7 @@ var _ = Describe("Streamer Behavior", func() {
 							[]cesium.ChannelKey{idx},
 							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
 						)))
-						MustSucceed(idxW.Commit())
+						MustCommit(idxW)
 						Expect(idxW.Close()).To(Succeed())
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{data},
@@ -581,7 +581,7 @@ var _ = Describe("Streamer Behavior", func() {
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
-						Expect(subDB.NewStreamer(ctx, cesium.StreamerConfig{
+						Expect(subDB.NewStreamer(cesium.StreamerConfig{
 							Channels: []cesium.ChannelKey{key},
 						})).Error().To(MatchError(cesium.ErrDBClosed))
 

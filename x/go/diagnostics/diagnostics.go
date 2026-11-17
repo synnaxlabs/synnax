@@ -13,11 +13,17 @@ package diagnostics
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/x/errors"
 	"go.lsp.dev/protocol"
 )
+
+// ErrReported marks an error whose cause already has a diagnostic. Add drops a
+// diagnostic built from it, so one mistake reports once.
+var ErrReported = errors.New("already reported")
 
 // Advance returns the position reached by walking off bytes of body from pos, resetting
 // the character on each newline. Positions are 0-indexed, matching protocol.Position.
@@ -53,6 +59,14 @@ type HintProvider interface {
 	GetHint() string
 }
 
+// Fix is a change to the source that resolves a diagnostic.
+type Fix struct {
+	// Title names the change.
+	Title string `json:"title"`
+	// Edits are the replacements that make the change together.
+	Edits []protocol.TextEdit `json:"edits"`
+}
+
 // Diagnostic represents a single compiler diagnostic message.
 type Diagnostic struct {
 	Code     ErrorCode                               `json:"code"`
@@ -60,32 +74,36 @@ type Diagnostic struct {
 	Severity protocol.DiagnosticSeverity             `json:"severity"`
 	Range    protocol.Range                          `json:"range"`
 	Notes    []protocol.DiagnosticRelatedInformation `json:"notes"`
-	cause    error
+	// Fixes each resolve the diagnostic on their own.
+	Fixes []Fix `json:"fixes"`
+	cause error
+	// hinted is set when the first note is the hint of cause.
+	hinted bool
 }
 
-// SetRange sets the Range from an ANTLR parser rule context.
-func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
+func rangeOf(ctx antlr.ParserRuleContext) protocol.Range {
 	if ctx == nil {
-		return
+		return protocol.Range{}
 	}
 	start := ctx.GetStart()
 	stop := ctx.GetStop()
 	// ANTLR lines are 1-indexed; store 0-indexed to match protocol.Position.
-	d.Range.Start = protocol.Position{
+	r := protocol.Range{Start: protocol.Position{
 		Line:      uint32(start.GetLine() - 1),
 		Character: uint32(start.GetColumn()),
-	}
+	}}
 	if stop != nil {
-		d.Range.End = protocol.Position{
+		r.End = protocol.Position{
 			Line:      uint32(stop.GetLine() - 1),
 			Character: uint32(stop.GetColumn() + len(stop.GetText())),
 		}
 	} else {
-		d.Range.End = protocol.Position{
-			Line:      d.Range.Start.Line,
-			Character: d.Range.Start.Character + uint32(len(start.GetText())),
+		r.End = protocol.Position{
+			Line:      r.Start.Line,
+			Character: r.Start.Character + uint32(len(start.GetText())),
 		}
 	}
+	return r
 }
 
 // Error creates an error diagnostic from an existing error. If the error implements
@@ -94,15 +112,16 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 	d := Diagnostic{
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  err.Error(),
+		Range:    rangeOf(ctx),
 		cause:    err,
 	}
-	d.SetRange(ctx)
 	if hp, ok := err.(HintProvider); ok {
 		if hint := hp.GetHint(); hint != "" {
 			d.Notes = append(
 				d.Notes,
 				protocol.DiagnosticRelatedInformation{Message: hint},
 			)
+			d.hinted = true
 		}
 	}
 	return d
@@ -110,22 +129,20 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 
 // Errorf creates an error diagnostic with a formatted message.
 func Errorf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{
+	return Diagnostic{
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  fmt.Sprintf(format, args...),
+		Range:    rangeOf(ctx),
 	}
-	d.SetRange(ctx)
-	return d
 }
 
 // Warningf creates a warning diagnostic with a formatted message.
 func Warningf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{
+	return Diagnostic{
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  fmt.Sprintf(format, args...),
+		Range:    rangeOf(ctx),
 	}
-	d.SetRange(ctx)
-	return d
 }
 
 // WithCode returns a copy of the diagnostic with the given error code.
@@ -134,8 +151,8 @@ func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
 	return d
 }
 
-// WithRange returns a copy of the diagnostic with an explicit range, overriding any
-// range set by SetRange.
+// WithRange returns a copy of the diagnostic with an explicit range, overriding the
+// range of its context.
 func (d Diagnostic) WithRange(start, end protocol.Position) Diagnostic {
 	d.Range = protocol.Range{Start: start, End: end}
 	return d
@@ -149,6 +166,34 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 	return d
 }
 
+// WithFix attaches a fix that changes the code at ctx to newText, and its hint note.
+func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnostic {
+	at := rangeOf(ctx)
+	start, stop := ctx.GetStart(), ctx.GetStop()
+	note := protocol.DiagnosticRelatedInformation{Message: fmt.Sprintf(
+		"hint: change `%s` to `%s`",
+		start.GetInputStream().GetText(start.GetStart(), stop.GetStop()),
+		newText,
+	)}
+	if at != d.Range {
+		note.Location.Range = at
+	}
+	if d.hinted {
+		d.Notes, d.hinted = slices.Clone(d.Notes[1:]), false
+	}
+	d.Notes = append(d.Notes, note)
+	return d.WithEdits(
+		fmt.Sprintf("Change to `%s`", newText),
+		protocol.TextEdit{Range: at, NewText: newText},
+	)
+}
+
+// WithEdits returns a copy of the diagnostic with a fix of the title and edits.
+func (d Diagnostic) WithEdits(title string, edits ...protocol.TextEdit) Diagnostic {
+	d.Fixes = append(d.Fixes, Fix{Title: title, Edits: edits})
+	return d
+}
+
 // Diagnostics is a collection of diagnostic messages.
 type Diagnostics []Diagnostic
 
@@ -156,8 +201,8 @@ var _ error = (*Diagnostics)(nil)
 
 // Ok returns true if there are no error-level diagnostics. Warnings, info, and hints
 // are allowed.
-func (d Diagnostics) Ok() bool {
-	for _, diag := range d {
+func (d *Diagnostics) Ok() bool {
+	for _, diag := range *d {
 		if diag.Severity == protocol.DiagnosticSeverityError {
 			return false
 		}
@@ -166,16 +211,16 @@ func (d Diagnostics) Ok() bool {
 }
 
 // Empty returns true if there are no diagnostics at all.
-func (d Diagnostics) Empty() bool { return len(d) == 0 }
+func (d *Diagnostics) Empty() bool { return len(*d) == 0 }
 
 // Error implements the error interface.
-func (d Diagnostics) Error() string { return d.String() }
+func (d *Diagnostics) Error() string { return d.String() }
 
 // Unwrap returns the errors that the diagnostics were created from, so that errors.Is
 // matches them.
-func (d Diagnostics) Unwrap() []error {
+func (d *Diagnostics) Unwrap() []error {
 	var causes []error
-	for _, diag := range d {
+	for _, diag := range *d {
 		if diag.cause != nil {
 			causes = append(causes, diag.cause)
 		}
@@ -183,7 +228,12 @@ func (d Diagnostics) Unwrap() []error {
 	return causes
 }
 
+// Add appends diag unless its cause was already reported or an equal diagnostic sits
+// at the same position.
 func (d *Diagnostics) Add(diag Diagnostic) {
+	if errors.Is(diag.cause, ErrReported) {
+		return
+	}
 	for _, idx := range d.AtLocation(diag.Range.Start) {
 		existing := (*d)[idx]
 		if existing.Message == diag.Message {
@@ -216,9 +266,9 @@ func (d *Diagnostics) AtLocation(start protocol.Position) []int {
 }
 
 // Errors returns only error-level diagnostics.
-func (d Diagnostics) Errors() []Diagnostic {
+func (d *Diagnostics) Errors() []Diagnostic {
 	var errors []Diagnostic
-	for _, diag := range d {
+	for _, diag := range *d {
 		if diag.Severity == protocol.DiagnosticSeverityError {
 			errors = append(errors, diag)
 		}
@@ -228,12 +278,12 @@ func (d Diagnostics) Errors() []Diagnostic {
 
 // String formats all diagnostics as a human-readable string with line:column severity:
 // message format. The line:column prefix is omitted for diagnostics without a range.
-func (d Diagnostics) String() string {
-	if len(d) == 0 {
+func (d *Diagnostics) String() string {
+	if len(*d) == 0 {
 		return "analysis successful"
 	}
 	var sb strings.Builder
-	for i, diag := range d {
+	for i, diag := range *d {
 		if i > 0 {
 			sb.WriteString("\n")
 		}

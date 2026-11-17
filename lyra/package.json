@@ -80,6 +80,10 @@
       "types": "./dist/avatar/index.d.ts",
       "default": "./dist/avatar/index.js"
     },
+    "./badge": {
+      "types": "./dist/badge/index.d.ts",
+      "default": "./dist/badge/index.js"
+    },
     "./breadcrumb": {
       "types": "./dist/breadcrumb/index.d.ts",
       "default": "./dist/breadcrumb/index.js"

@@ -15,12 +15,21 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import Search from "@/components/search/Search.astro";
 import { Page } from "@/components/nav/Page";
+import VersionMenu from "@/components/version/Menu.astro";
 import { REFERENCE_PAGES } from "@/pages/_nav";
+import { rootOf, type Version } from "@/util/version";
 import Drawer from "@synnaxlabs/site-common/Drawer.astro";
 import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
+
+interface Props {
+    /** The docs version of the build, or null for an unversioned build. */
+    version: Version | null;
+}
+
+const { version } = Astro.props;
+const GITHUB = "https://github.com/synnaxlabs/synnax";
 const url = Astro.url.pathname;
-const version = await Astro.locals.releases.latest("core").catch(() => null);
-const label = version?.split(".").slice(0, -1).join(".");
+const root = rootOf(version);
 ---
 
 <Flex.Box className="main-header" justify="center" align="center" el="header" empty>
@@ -46,36 +55,33 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <Button.Button
                         variant="text"
                         className={`nav-link ${url.includes("blog") ? "nav-link--active" : ""}`}
-                        href="/blog/"
+                        href={`${root}/blog/`}
                     >
                         Blog
                     </Button.Button>
                     <Button.Button
                         variant="text"
                         className={`nav-link ${url.includes("releases") ? "nav-link--active" : ""}`}
-                        href="/releases/"
+                        href={`${root}/releases/`}
                     >
                         Releases
                     </Button.Button>
                     <Button.Button
                         variant="text"
                         className={`nav-link ${url.includes("reliability") ? "nav-link--active" : ""}`}
-                        href="/reliability/"
+                        href={`${root}/reliability/`}
                     >
                         Reliability
+                    </Button.Button>
+                    <Button.Button variant="text" className="nav-link" href={GITHUB}>
+                        GitHub
+                        <Icon.OpenExternal className="nav-link__external" />
                     </Button.Button>
                 </Flex.Box>
             </Flex.Box>
             <Flex.Box direction="x" align="center" gap="small">
                 <Search />
-                <Button.Button
-                    className="version-button"
-                    variant="outlined"
-                    href="https://github.com/synnaxlabs/synnax"
-                >
-                    <p class="version">{label}</p>
-                    <Icon.Logo.Github />
-                </Button.Button>
+                {version != null && <VersionMenu version={version} />}
                 <Button.Button
                     className="login-button"
                     variant="filled"
@@ -89,14 +95,17 @@ const label = version?.split(".").slice(0, -1).join(".");
                         <a href="/reference/" class="mobile-drawer-link">
                             Reference
                         </a>
-                        <a href="/blog/" class="mobile-drawer-link">
+                        <a href={`${root}/blog/`} class="mobile-drawer-link">
                             Blog
                         </a>
-                        <a href="/releases/" class="mobile-drawer-link">
+                        <a href={`${root}/releases/`} class="mobile-drawer-link">
                             Releases
                         </a>
-                        <a href="/reliability/" class="mobile-drawer-link">
+                        <a href={`${root}/reliability/`} class="mobile-drawer-link">
                             Reliability
+                        </a>
+                        <a href={GITHUB} class="mobile-drawer-link">
+                            GitHub
                         </a>
                         <Divider.Divider x className="mobile-drawer-divider" />
                         <span class="mobile-drawer-section-label">Reference</span>
@@ -184,21 +193,11 @@ const label = version?.split(".").slice(0, -1).join(".");
             font-weight: 500;
         }
 
-        .version-button {
-            text-decoration: none;
-
-            & p {
-                color: var(--pluto-gray-l8);
-                font-size: var(--pluto-small-size);
-                font-weight: 400;
-                text-decoration: none;
-            }
-
-            & .lyra-icon {
-                color: var(--pluto-gray-l9);
-                height: 2.5rem;
-                width: 2.5rem;
-            }
+        .nav-link__external {
+            width: 1.75rem;
+            height: 1.75rem;
+            margin-left: -0.5rem;
+            color: var(--pluto-gray-l7);
         }
 
         .mobile-menu-btn,
@@ -259,7 +258,7 @@ const label = version?.split(".").slice(0, -1).join(".");
                 display: none;
             }
 
-            .version-button {
+            .version-menu {
                 display: none;
             }
 

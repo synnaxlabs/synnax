@@ -40,6 +40,38 @@ describe("Input.TimeSpan", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  describe("precision", () => {
+    const field = (): HTMLInputElement => screen.getByRole<HTMLInputElement>("textbox");
+    const CYCLE = 62_500;
+
+    it("should show and commit a value to the nanosecond", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.TimeSpan
+          inline
+          precision={TimeSpan.NANOSECOND}
+          value={CYCLE}
+          onChange={onChange}
+        />,
+      );
+      expect(field().value).toBe("62μs 500ns");
+      fireEvent.focus(field());
+      fireEvent.change(field(), { target: { value: "62.6us" } });
+      fireEvent.blur(field());
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(62_600);
+    });
+
+    it("should round a value to the microsecond by default", () => {
+      const onChange = vi.fn();
+      render(<Input.TimeSpan inline value={CYCLE} onChange={onChange} />);
+      expect(field().value).toBe("63μs");
+      fireEvent.focus(field());
+      fireEvent.change(field(), { target: { value: "62.6us" } });
+      fireEvent.blur(field());
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
+
   it("should advance an elapsed readout every second", () => {
     // A float64 holds the nanoseconds of a whole second exactly.
     vi.useFakeTimers({ now: new Date(2026, 0, 1, 12) });
@@ -123,6 +155,45 @@ describe("Input.TimeSpan", () => {
       render(<Input.TimeSpan inline preview value={HOUR} onChange={vi.fn()} />);
       expect(screen.queryByRole("textbox")).toBeNull();
       expect(screen.getByText("1h")).toBeTruthy();
+    });
+
+    it("should name the field by its aria-label", () => {
+      render(
+        <Input.TimeSpan
+          inline
+          value={HOUR}
+          onChange={vi.fn()}
+          aria-label="SYNC0 cycle"
+        />,
+      );
+      expect(screen.getByRole("textbox", { name: "SYNC0 cycle" })).toBeTruthy();
+    });
+
+    it("should show the end content inside the field", () => {
+      const { container } = render(
+        <Input.TimeSpan
+          inline
+          value={undefined}
+          onChange={vi.fn()}
+          endContent={<Input.AutoBadge />}
+        />,
+      );
+      const field = container.querySelector(".lyra-time-editor__field");
+      expect(field?.contains(screen.getByText("Auto"))).toBe(true);
+    });
+
+    it("should show a button after the field that a click reaches", () => {
+      const onClick = vi.fn();
+      render(
+        <Input.TimeSpan
+          inline
+          value={HOUR}
+          onChange={vi.fn()}
+          after={<Input.AutoButton onClick={onClick} />}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button"));
+      expect(onClick).toHaveBeenCalledOnce();
     });
 
     it("should show why a span fails its check and not commit it", () => {

@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/x",
-  "version": "0.60.0",
+  "version": "0.0.0",
   "type": "module",
   "sideEffects": [
     "./dist/zod/parse.js"
@@ -15,6 +15,9 @@
     "telemetry",
     "control systems"
   ],
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "build": "vite build",
     "check-types": "tsc --noEmit",

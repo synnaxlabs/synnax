@@ -31,6 +31,7 @@ import {
   useDownloadAsCSV,
 } from "@/feature/lineplot/useDownloadAsCSV";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
+import { Sift } from "@/feature/sift";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
@@ -56,7 +57,7 @@ const RangeAnnotationContextMenu = ({
   const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
   const openTab = Panel.useOpenTab();
   const handleViewDetails = () => {
-    openTab({ variant: "resource", resource: ranger.ontologyID(range.key) });
+    openTab({ variant: "resource", resource: ranger.resourceID(range.key) });
   };
   return (
     <ContextMenu.Menu>
@@ -73,6 +74,7 @@ const RangeAnnotationContextMenu = ({
         <Icon.CSV />
         Download as CSV
       </Menu.Item>
+      <Sift.Range.UploadMenuItem rangeKey={range.key} rangeName={range.name} />
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
@@ -95,7 +97,7 @@ const ContextMenuContent = ({
   const { redo, canRedo } = Base.useRedo({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
   const openCreateRange = Range.useCreateModal();
-  const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = async (): Promise<TimeRange> => {
@@ -168,6 +170,7 @@ const ContextMenuContent = ({
           <Menu.Item itemKey="download" onClick={handleDownloadCSV}>
             <Icon.CSV /> Download region as CSV
           </Menu.Item>
+          <Sift.Range.UploadRegionMenuItem name={name} getTimeRange={getTimeRange} />
           <Menu.Divider />
         </>
       )}
@@ -181,7 +184,7 @@ const Internal = (): ReactElement => {
   const visible = Session.Panel.useSelectIsTabVisible();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
-  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(lineplot.resourceID(key));
   const windows = Session.Range.useResolveWindows(Base.useRanges());
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();

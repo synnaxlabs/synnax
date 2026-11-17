@@ -10,22 +10,38 @@
 package apikey_test
 
 import (
+	"context"
 	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-func subject() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+func create(
+	ctx context.Context,
+	svc *apikey.Service,
+	sub resource.ID,
+	name string,
+) (apikey.APIKey, string) {
+	GinkgoHelper()
+	var (
+		k     apikey.APIKey
+		token string
+	)
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		k, token, err = svc.NewWriter(tx).Create(ctx, sub, name)
+		return err
+	})).To(Succeed())
+	return k, token
 }
 
 func proof(key string) auth.Proof {
@@ -68,25 +84,28 @@ var _ = Describe("Service", func() {
 	Describe("Create", func() {
 		It("Should return a key that starts with syk_", func(ctx SpecContext) {
 			sub := subject()
-			k, token := MustSucceed2(svc.NewWriter(nil).Create(ctx, sub, "ci"))
+			k, token := create(ctx, svc, sub, "ci")
 			Expect(token).To(HavePrefix("syk_"))
 			Expect(k.Subject).To(Equal(sub))
 			Expect(k.Name).To(Equal("ci"))
 			Expect(k.Created).ToNot(BeZero())
 			var stored apikey.APIKey
 			Expect(svc.NewRetrieve().Where(apikey.MatchKeys(k.Key)).Entry(&stored).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(stored.Hash).To(HaveLen(32))
 		})
 		It("Should reject an invalid subject", func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Create(ctx, ontology.ID{}, "")).Error().
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, _, err := svc.NewWriter(tx).Create(ctx, resource.ID{}, "")
+				return err
+			})).
 				To(MatchError(ContainSubstring("subject")))
 		})
 	})
 	Describe("Authenticate", func() {
 		It("Should prove the key's subject and credential", func(ctx SpecContext) {
 			sub := subject()
-			k, token := MustSucceed2(svc.NewWriter(nil).Create(ctx, sub, ""))
+			k, token := create(ctx, svc, sub, "")
 			Expect(svc.Authenticate(ctx, proof(token))).To(Equal(auth.Identity{
 				Subject:    sub,
 				Credential: k.Key,
@@ -94,7 +113,7 @@ var _ = Describe("Service", func() {
 			}))
 		})
 		It("Should reject a wrong secret", func(ctx SpecContext) {
-			k, _ := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject(), ""))
+			k, _ := create(ctx, svc, subject(), "")
 			wrong, _ := MustSucceed2(auth.NewToken("syk_", k.Key))
 			Expect(svc.Authenticate(ctx, proof(wrong))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
@@ -105,7 +124,7 @@ var _ = Describe("Service", func() {
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should reject a malformed key", func(ctx SpecContext) {
-			_, token := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject(), ""))
+			_, token := create(ctx, svc, subject(), "")
 			session := strings.Replace(token, "syk_", "sys_", 1)
 			Expect(svc.Authenticate(ctx, proof(session))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
@@ -121,42 +140,46 @@ var _ = Describe("Service", func() {
 	})
 	Describe("Version", func() {
 		It("Should return when the key was created", func(ctx SpecContext) {
-			k, _ := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject(), ""))
-			Expect(svc.Version(ctx, nil, k.Key)).To(Equal(k.Created))
+			k, _ := create(ctx, svc, subject(), "")
+			Expect(svc.Version(ctx, db, k.Key)).To(Equal(k.Created))
 		})
 		It("Should return a not found error for an unknown key", func(ctx SpecContext) {
-			Expect(svc.Version(ctx, nil, uuid.New())).Error().
+			Expect(svc.Version(ctx, db, uuid.New())).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("Delete", func() {
 		It("Should remove only the given keys", func(ctx SpecContext) {
 			sub := subject()
-			w := svc.NewWriter(nil)
-			gone, goneToken := MustSucceed2(w.Create(ctx, sub, "gone"))
-			_, keptToken := MustSucceed2(w.Create(ctx, sub, "kept"))
-			Expect(w.Delete(ctx, gone.Key)).To(Succeed())
+			gone, goneToken := create(ctx, svc, sub, "gone")
+			_, keptToken := create(ctx, svc, sub, "kept")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, gone.Key)
+			})).To(Succeed())
 			Expect(svc.NewRetrieve().Where(apikey.MatchKeys(gone.Key)).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			Expect(svc.Authenticate(ctx, proof(goneToken))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 			MustSucceed(svc.Authenticate(ctx, proof(keptToken)))
 		})
 		It("Should ignore unknown keys", func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, uuid.New())).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, uuid.New())
+			})).To(Succeed())
 		})
 	})
-	Describe("DeleteFor", func() {
-		It("Should remove every key of the given subjects", func(ctx SpecContext) {
+	Describe("Subject", func() {
+		It("Should delete every key of a subject when the subject is deleted", func(
+			ctx SpecContext,
+		) {
 			gone, kept := subject(), subject()
-			w := svc.NewWriter(nil)
-			MustSucceed2(w.Create(ctx, gone, "a"))
-			MustSucceed2(w.Create(ctx, gone, "b"))
-			MustSucceed2(w.Create(ctx, kept, "c"))
-			Expect(svc.DeleteFor(ctx, nil, gone)).To(Succeed())
+			create(ctx, svc, gone, "a")
+			create(ctx, svc, gone, "b")
+			create(ctx, svc, kept, "c")
+			deleteSubject(ctx, gone)
 			var keys []apikey.APIKey
 			Expect(svc.NewRetrieve().Where(apikey.MatchSubjects(gone, kept)).
-				Entries(&keys).Exec(ctx, nil)).To(Succeed())
+				Entries(&keys).Exec(ctx, db)).To(Succeed())
 			Expect(keys).To(HaveLen(1))
 			Expect(keys[0].Subject).To(Equal(kept))
 		})

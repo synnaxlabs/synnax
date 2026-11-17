@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/set"
 )
@@ -36,6 +37,7 @@ type Dependencies struct {
 
 func retrieveChannels(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	channelSvc *channel.Service,
 	keys []channel.Key,
 ) ([]channel.Channel, error) {
@@ -43,7 +45,7 @@ func retrieveChannels(
 	if err := channelSvc.NewRetrieve().
 		Where(channel.MatchKeys(keys...)).
 		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+		Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	indexes := lo.FilterMap(channels, func(
@@ -55,7 +57,7 @@ func retrieveChannels(
 	indexChannels := make([]channel.Channel, 0, len(indexes))
 	if err := channelSvc.NewRetrieve().
 		Where(channel.MatchKeys(indexes...)).
-		Entries(&indexChannels).Exec(ctx, nil); err != nil {
+		Entries(&indexChannels).Exec(ctx, snap); err != nil {
 		return nil, err
 	}
 	return slices.Concat(channels, indexChannels), nil
@@ -63,9 +65,11 @@ func retrieveChannels(
 
 // NewDependencies derives the read/write channel sets and digests for a compiled
 // program. Non-virtual channels pull in their index channels so the executor can align
-// samples. It returns an error if any referenced channel cannot be retrieved.
+// samples. It looks up channels in snap, and returns an error if any referenced channel
+// cannot be retrieved.
 func NewDependencies(
 	ctx context.Context,
+	snap gorp.Snapshot,
 	channelSvc *channel.Service,
 	prog arc.Program,
 ) (Dependencies, error) {
@@ -86,6 +90,7 @@ func NewDependencies(
 	}
 	channels, err := retrieveChannels(
 		ctx,
+		snap,
 		channelSvc,
 		slices.Concat(reads.Slice(), writes.Slice()),
 	)

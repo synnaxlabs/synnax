@@ -1,25 +1,32 @@
 ---
 layout: "@/layouts/Reference.astro"
-flag: "mqtt"
 title: "Sparkplug B"
-description: "Learn how to read and command Sparkplug B tags with Synnax."
+description:
+  "Read and command Sparkplug B tags, and publish Synnax channels as a Sparkplug B edge
+  node."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
-import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Sparkplug B is a specification on top of MQTT that SCADA systems and industrial gateways
 use, such as Ignition with the Cirrus Link modules. It sets the topics, a binary
-payload, and the rules for the state of each edge node. Synnax acts as a Sparkplug B
-host application: the MQTT read task reads tags, and the MQTT write task sends commands
-for them. The same tasks can hold plain topics and Sparkplug B tags together.
+payload, and the rules for the state of each edge node. Synnax works with it in two
+ways:
+
+- **Host application** -> the [MQTT read task](/reference/hardware/mqtt/read-task) reads
+  tags, and the [MQTT write task](/reference/hardware/mqtt/write-task) sends commands
+  for them. The same tasks can hold plain topics and tags together.
+- **Edge node** -> the Sparkplug edge node task publishes Synnax channels as tags, so a
+  SCADA system sees them.
+
+Before you start, [connect an MQTT broker](/reference/hardware/mqtt/connect-broker).
 
 <Divider.Divider x />
 
@@ -27,228 +34,89 @@ for them. The same tasks can hold plain topics and Sparkplug B tags together.
 
 An edge node publishes tags for itself and for its devices. Four values identify a tag:
 
-| Parameter   | Type   | Required | Description                                             |
-| ----------- | ------ | -------- | ------------------------------------------------------- |
-| `group`     | string | Yes      | Group ID of the edge node                               |
-| `edge_node` | string | Yes      | Edge node ID                                            |
-| `device`    | string | No       | Device ID. Leave empty for a tag of the edge node       |
-| `tag`       | string | Yes      | Name of the tag, which may hold `/` (e.g., `Motor/RPM`) |
+- **Group** -> the group ID of the edge node.
+- **Edge node** -> the edge node ID.
+- **Device** -> the device ID. Leave it empty for a tag of the edge node.
+- **Tag** -> the name of the tag, which can hold `/`, such as `Motor/RPM`.
 
-The IDs may not hold `/`, `+`, or `#`.
+The IDs cannot hold `/`, `+`, or `#`.
 
 <Divider.Divider x />
 
 ## Host application ID
 
-Two optional settings of the broker device control the host application:
+The **Sparkplug B** settings of the broker control the host application:
 
-| Parameter | Type   | Default | Description                                                   |
-| --------- | ------ | ------- | ------------------------------------------------------------- |
-| `host_id` | string | `""`    | Host application ID. Empty makes Synnax a passive host        |
-| `groups`  | array  | `[]`    | Group IDs that the tag browser searches. Empty is all of them |
+- **Host ID** -> with an ID, Synnax publishes the retained message
+  `spBv1.0/STATE/<host_id>`. It says that Synnax is online while the Core has a
+  connection to the broker. Empty makes Synnax a passive host that publishes nothing.
+- **Groups** -> the group IDs that the **Add data** dialog searches. Empty searches all
+  groups.
 
-With a `host_id`, Synnax publishes the retained message `spBv1.0/STATE/<host_id>`. It
-says that Synnax is online while the Core has a connection to the broker, and the broker
-changes it to offline when the connection is lost. Set a `host_id` only when your edge
-nodes name Synnax as their primary host, and they hold their data until that host is
-online. Each host ID must be in use by one application only.
+Set a host ID only when your edge nodes name Synnax as their primary host and hold their
+data until that host is online. Each host ID must be in use by one application only.
 
 <Divider.Divider x />
 
-## Read tags
+## Births, deaths, and history
 
-Add an entry of type `"sparkplug"` to the `entries` of a
-[read task](/reference/hardware/mqtt/read-task).
-
-| Parameter   | Type    | Required | Default     | Description                           |
-| ----------- | ------- | -------- | ----------- | ------------------------------------- |
-| `type`      | string  | Yes      | -           | `"sparkplug"`                         |
-| `group`     | string  | Yes      | -           | See [Identify a tag](#identify-a-tag) |
-| `edge_node` | string  | Yes      | -           | See [Identify a tag](#identify-a-tag) |
-| `device`    | string  | No       | `""`        | See [Identify a tag](#identify-a-tag) |
-| `tag`       | string  | Yes      | -           | See [Identify a tag](#identify-a-tag) |
-| `channel`   | integer | Yes      | -           | Key of the Synnax channel to write to |
-| `data_type` | string  | No       | `"float64"` | Data type of the channel              |
-| `disabled`  | boolean | No       | `false`     | Excludes the entry from the task      |
-
-Each value of a tag carries the time at which the edge node took it, and the task writes
-that time to the index channel of `channel`. Tags change at different times, so give
-each tag an index channel of its own. The task drops a value whose timestamp is not
-after the last one it wrote, and shows a warning.
-
-An edge node can store values while it is offline and send them after its next birth,
-marked as historical. The task writes each one into the outage that it belongs to, or
-into the time before the task started. These values reach stored data but not live
-plots. The task writes them after the first live value of the tag, which usually comes
-in the birth, or when the task stops.
-
-The task drops a historical value whose timestamp is not inside an outage, and shows a
-warning. A task with data saving off and a tag on a virtual channel store nothing, so
-they drop historical values with no warning.
-
-The task converts each value to the data type of the channel. It supports the integer,
-`float`, `double`, `boolean`, `string`, `text`, `uuid`, and `date_time` data types of
-Sparkplug B. It does not support `data_set`, `bytes`, `file`, `template`, and array
-tags.
-
-### Births, deaths, and rebirths
-
-An edge node declares its tags in a birth message. When the task starts, it asks each
+An edge node declares its tags in a birth message. When a read task starts, it asks each
 edge node for a new birth, so that it starts from the current value of each tag. It asks
 again when it finds a gap in the sequence numbers of an edge node, or a tag that the
 last birth did not declare. It sends at most one request every 5 seconds to each edge
 node.
 
-The task shows a warning in these conditions, and it clears the warning when the
-condition ends:
+Each value of a tag carries the time at which the edge node took it, and the task writes
+that time to the index channel of the tag. Tags change at different times, so give each
+tag an index channel of its own.
 
-- An edge node or a device is offline: it published a death message, or it did not
-  answer the rebirth request.
-- A tag of the task is not in the birth of its edge node or device.
-
-<Divider.Divider x />
-
-## Command tags
-
-Add a target of type `"sparkplug"` to the `targets` of a
-[write task](/reference/hardware/mqtt/write-task). Each value written to the command
-channel becomes one `NCMD` message, or one `DCMD` message for a tag of a device.
-
-| Parameter   | Type    | Required | Default    | Description                                       |
-| ----------- | ------- | -------- | ---------- | ------------------------------------------------- |
-| `type`      | string  | Yes      | -          | `"sparkplug"`                                     |
-| `group`     | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
-| `edge_node` | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
-| `device`    | string  | No       | `""`       | See [Identify a tag](#identify-a-tag)             |
-| `tag`       | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
-| `channel`   | integer | Yes      | -          | Key of the command channel                        |
-| `tag_type`  | string  | No       | `"double"` | Data type that the edge node declares for the tag |
-| `disabled`  | boolean | No       | `false`    | Excludes the target from the task                 |
-
-`tag_type` is one of `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`,
-`uint64`, `float`, `double`, `boolean`, `string`, or `date_time`. The task rejects a
-command channel whose data type can never fit, such as a string channel for a `double`
-tag. It drops a value that is out of range for the type, and shows a warning.
-
-<Note.Note variant="info" className="compact">
-  Sparkplug B sends every command at quality of service 0, and it has no reply. To
-  confirm a command, read the tag back with a read task.
-</Note.Note>
+An edge node can store values while it is offline and send them after its next birth,
+marked as historical. The task writes each one into the outage that it belongs to, or
+into the time before the task started. These values reach stored data but not live
+plots. The task writes them after the first live value of the tag, which usually comes
+in the birth, or when the task stops. A task with data saving off, and a tag on a
+virtual channel, store nothing, so they drop historical values with no warning.
 
 <Divider.Divider x />
 
-## Run an edge node
-
-The edge node task, of type `mqtt_sparkplug_edge`, makes the Core one Sparkplug B edge
-node. Each tag publishes one Synnax channel. A SCADA system such as Ignition then sees
-the channels as tags, with their births, deaths, and sequence numbers.
-
-| Parameter    | Type    | Required | Default | Description                                                        |
-| ------------ | ------- | -------- | ------- | ------------------------------------------------------------------ |
-| `device`     | string  | Yes      | -       | Key of the broker device                                           |
-| `group`      | string  | Yes      | -       | Group ID of the edge node                                          |
-| `edge_node`  | string  | Yes      | -       | Edge node ID                                                       |
-| `authority`  | integer | No       | `0`     | Control authority, from 0 to 255, of the writes that commands make |
-| `tags`       | array   | Yes      | -       | List of tags                                                       |
-| `auto_start` | boolean | No       | `false` | Start the task when it is configured and when the Core starts      |
-
-Each tag:
-
-| Parameter         | Type    | Required | Default    | Description                                                          |
-| ----------------- | ------- | -------- | ---------- | -------------------------------------------------------------------- |
-| `name`            | string  | Yes      | -          | Name of the tag (e.g., `Motor/RPM`)                                  |
-| `channel`         | integer | Yes      | -          | Key of the Synnax channel that the tag publishes                     |
-| `tag_type`        | string  | No       | `"double"` | Data type that the tag declares                                      |
-| `command_channel` | integer | No       | `0`        | Key of the channel that takes commands for the tag. `0` rejects them |
-| `disabled`        | boolean | No       | `false`    | Excludes the tag from the task                                       |
-
-Every birth declares the tags `bdSeq` and `Node Control/Rebirth`, so no tag of the task
-can use these names.
-
-The task publishes each sample written to a channel as an `NDATA` message, with the
-timestamp of the sample. Its birth message declares every tag with its data type. A tag
-whose channel has had no sample since the task started is null in the birth.
-
-The task is its own MQTT client, so that the broker sends its death message when the
-connection drops. It publishes its birth again when a host asks for a rebirth, and after
-it connects again. The task does not start when the broker refuses to subscribe to its
-commands. If the broker refuses them after the task connects again, the task shows a
-warning.
-
-A command for a tag writes the value to the `command_channel` of that tag, with the
-`authority` of the task. A tag with no command channel rejects commands. A Synnax writer
-with a higher authority on the channel keeps control: the command is dropped, and the
-task shows a warning.
-
-<Divider.Divider x />
-
-## How-to
+## Read tags
 
 <Client.Tabs exclude={["typescript"]}>
   <Fragment slot="console">
 
-1. Open the command palette and run **Create MQTT read task**, then select the broker.
+1. In the devices toolbar, right-click the broker and select **Create read task**.
 2. Click **Add data**, then select **Sparkplug B**. The dialog lists the edge nodes that
    publish now.
 3. Select an edge node to see its tags. The Console asks the edge node for a rebirth to
    get them.
-4. Select the tags to record, then click the **Add** button. For a tag that is not
-   listed, use **Add a tag by name**.
-5. Click **Start**. The Console creates a channel and an index channel for each tag, and
-   starts the task.
+4. Select the tags to record. For a tag that is not listed, click **Add a tag by name**.
+5. Click **Add** _N_ **channels**.
+6. Click <Icon.Play /> (**Start**).
 
-To send commands, run **Create MQTT write task**, click **Add targets**, and select tags
-in the same way.
+The Console creates a channel and an index channel for each tag.
 
-To run an edge node, run **Create Sparkplug edge node**. Click **Add tag** for each
-channel to publish, pick the channel, and set the name and the data type of the tag. To
-let a host write to a tag, right-click it and select **Add command channel**.
+<Video id="hardware/mqtt/sparkplug-read" />
 
   </Fragment>
   <Fragment slot="python">
 
-<Details open>
-<Text.Text slot="summary" level="p"><Icon.Play /> Read tags</Text.Text>
+Python does not create channels. Give each tag a channel with its own index.
 
 ```python
 import synnax as sy
 
-client = sy.Synnax()
-
-broker = client.devices.retrieve(name="Plant Broker")
-
-
-def create_tag_channel(name: str, data_type: sy.DataType) -> sy.Channel:
-    # Each tag carries its own timestamp, so each channel gets its own index
-    index = client.channels.create(
-        name=f"{name}_time",
-        is_index=True,
-        data_type=sy.DataType.TIMESTAMP,
-        retrieve_if_name_exists=True,
-    )
-    return client.channels.create(
-        name=name,
-        index=index.key,
-        data_type=data_type,
-        retrieve_if_name_exists=True,
-    )
-
-
-temperature = create_tag_channel("line1_temperature", sy.DataType.FLOAT64)
-speed = create_tag_channel("pump1_speed", sy.DataType.FLOAT32)
+broker = client.devices.retrieve(name="Plant broker")
+time = client.channels.create(
+    name="pump1_speed_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+speed = client.channels.create(
+    name="pump1_speed", index=time.key, data_type=sy.DataType.FLOAT32
+)
 
 task = sy.mqtt.ReadTask(
-    name="Line 1 Tags",
+    name="Line 1 tags",
     device=broker.key,
     entries=[
-        sy.mqtt.SparkplugReadEntry(
-            group="Plant",
-            edge_node="Line1",
-            tag="temperature",
-            channel=temperature.key,
-            data_type="float64",
-        ),
-        # A tag of the device Pump1
         sy.mqtt.SparkplugReadEntry(
             group="Plant",
             edge_node="Line1",
@@ -256,44 +124,53 @@ task = sy.mqtt.ReadTask(
             tag="speed",
             channel=speed.key,
             data_type="float32",
-        ),
+        )
     ],
 )
 client.tasks.configure(task)
-
-with task.run():
-    with client.open_streamer(["line1_temperature", "pump1_speed"]) as streamer:
-        for frame in streamer:
-            print(frame)
+task.start()
 ```
 
-</Details>
+  </Fragment>
+</Client.Tabs>
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Command a tag</Text.Text>
+<Divider.Divider x />
+
+## Command tags
+
+Each value written to the command channel becomes one `NCMD` message, or one `DCMD`
+message for a tag of a device. Sparkplug B sends each command at quality of service 0,
+with no reply. To confirm a command, read the tag back with a read task.
+
+<Client.Tabs exclude={["typescript"]}>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the broker and select **Create write task**.
+2. Click **Add targets**, then select **Sparkplug B**.
+3. Select an edge node, then select the tags to command.
+4. Click **Add** _N_ **targets**.
+5. Select a target and check its **Sparkplug B type**. It must match the type that the
+   edge node declares.
+6. Click <Icon.Play /> (**Start**).
+
+The Console creates a command channel for each tag.
+
+  </Fragment>
+  <Fragment slot="python">
 
 ```python
 import synnax as sy
 
-client = sy.Synnax()
-
-broker = client.devices.retrieve(name="Plant Broker")
-
+broker = client.devices.retrieve(name="Plant broker")
 cmd_time = client.channels.create(
-    name="pump1_setpoint_cmd_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
+    name="pump1_setpoint_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
 )
 cmd = client.channels.create(
-    name="pump1_setpoint_cmd",
-    index=cmd_time.key,
-    data_type=sy.DataType.FLOAT64,
-    retrieve_if_name_exists=True,
+    name="pump1_setpoint_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT64
 )
 
 task = sy.mqtt.WriteTask(
-    name="Pump 1 Commands",
+    name="Pump 1 commands",
     device=broker.key,
     targets=[
         sy.mqtt.SparkplugWriteTarget(
@@ -303,60 +180,60 @@ task = sy.mqtt.WriteTask(
             tag="setpoint",
             channel=cmd.key,
             tag_type="double",
-        ),
+        )
     ],
 )
 client.tasks.configure(task)
-
-with task.run():
-    with client.open_writer(
-        start=sy.TimeStamp.now(), channels=[cmd_time.key, cmd.key]
-    ) as writer:
-        writer.write({cmd_time.key: sy.TimeStamp.now(), cmd.key: 1500.0})
+task.start()
 ```
 
-</Details>
+  </Fragment>
+</Client.Tabs>
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Run an edge node</Text.Text>
+<Divider.Divider x />
+
+## Run an edge node
+
+The edge node task makes the Core one Sparkplug B edge node. Each tag publishes one
+Synnax channel, and a SCADA system such as Ignition sees the channels as tags, with
+their births, deaths, and sequence numbers.
+
+<Client.Tabs exclude={["typescript"]}>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the broker and select **Create Sparkplug edge
+   node**. You can also run the "Create Sparkplug edge node" command.
+2. Enter the **Group** and the **Edge node** ID.
+3. Click **Add tag**, then select the channel to publish. The tag takes the name of the
+   channel. Set the name and the Sparkplug B type of the tag.
+4. To let a host write to a tag, right-click it and select **Add command channel**.
+5. Set **Authority**, the control authority of the writes that commands make.
+6. Click <Icon.Play /> (**Start**).
+
+<Video id="hardware/mqtt/edge-node" />
+
+  </Fragment>
+  <Fragment slot="python">
 
 ```python
 import synnax as sy
 
-client = sy.Synnax()
-
-broker = client.devices.retrieve(name="Plant Broker")
-
-# The channels to publish exist already
+broker = client.devices.retrieve(name="Plant broker")
 temperature = client.channels.retrieve("line1_temperature")
 setpoint = client.channels.retrieve("line1_setpoint")
-
-# A command for the setpoint tag is written to this channel
-setpoint_cmd_time = client.channels.create(
-    name="line1_setpoint_cmd_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
-)
-setpoint_cmd = client.channels.create(
-    name="line1_setpoint_cmd",
-    index=setpoint_cmd_time.key,
-    data_type=sy.DataType.FLOAT64,
-    retrieve_if_name_exists=True,
-)
+setpoint_cmd = client.channels.retrieve("line1_setpoint_cmd")
 
 task = sy.mqtt.EdgeTask(
-    name="Line 1 Edge Node",
+    name="Line 1 edge node",
     device=broker.key,
     group="Plant",
     edge_node="Line1",
     authority=200,
     tags=[
-        sy.mqtt.EdgeTag(name="temperature", channel=temperature.key, tag_type="double"),
+        sy.mqtt.EdgeTag(name="temperature", channel=temperature.key),
         sy.mqtt.EdgeTag(
             name="setpoint",
             channel=setpoint.key,
-            tag_type="double",
             command_channel=setpoint_cmd.key,
         ),
     ],
@@ -365,28 +242,113 @@ client.tasks.configure(task)
 task.start()
 ```
 
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Set a host application ID</Text.Text>
-
-```python
-import synnax as sy
-
-client = sy.Synnax()
-
-rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)[0]
-broker = sy.mqtt.Device(
-    name="Plant Broker",
-    host="192.168.1.50",
-    rack=rack.key,
-    host_id="synnax",
-    groups=["Plant"],
-)
-client.devices.create(broker)
-```
-
-</Details>
-
   </Fragment>
 </Client.Tabs>
+
+The task publishes each sample written to a channel as an `NDATA` message, with the
+timestamp of the sample. Its birth declares every tag with its data type. A tag whose
+channel has had no sample since the task started is null in the birth.
+
+The task is its own MQTT client, so the broker sends its death message when the
+connection drops. It publishes its birth again when a host asks for a rebirth, and after
+it connects again.
+
+A command for a tag writes the value to the command channel of that tag, with the
+authority of the task. A tag with no command channel rejects commands. A writer with a
+higher authority on the channel keeps control, so the command is dropped with a warning.
+
+<Divider.Divider x />
+
+## Tag reference
+
+A tag in a read task has these settings:
+
+| Setting                              | Default   | Notes                                  |
+| ------------------------------------ | --------- | -------------------------------------- |
+| Group <small>`group`</small>         |           | See [identify a tag](#identify-a-tag). |
+| Edge node <small>`edge_node`</small> |           | See [identify a tag](#identify-a-tag). |
+| Device <small>`device`</small>       | Empty     | Empty for a tag of the edge node.      |
+| Tag <small>`tag`</small>             |           | The name of the tag.                   |
+| Channel <small>`channel`</small>     |           | The channel that records the value.    |
+| Data type <small>`data_type`</small> | `float64` | The data type of the channel.          |
+
+In code, a tag to read is `SparkplugReadEntry`, of type `"sparkplug"`. A tag to command
+is `SparkplugWriteTarget`, with the same identity fields, a command `channel`, and
+**Sparkplug B type** (`tag_type`), which is `double` by default.
+
+The edge node task, of type `mqtt_sparkplug_edge`, has these settings:
+
+| Setting                                | Default | Notes                                              |
+| -------------------------------------- | ------- | -------------------------------------------------- |
+| Group <small>`group`</small>           |         | The group ID of the edge node.                     |
+| Edge node <small>`edge_node`</small>   |         | The edge node ID.                                  |
+| Authority <small>`authority`</small>   | 0       | 0 to 255. The authority of the writes of commands. |
+| Auto start <small>`auto_start`</small> | Off     | Starts the task each time the Core starts.         |
+
+Each of its tags (`EdgeTag`) has a `name`, a `channel`, a `tag_type` (`double` by
+default), and a `command_channel` (0 rejects commands). Every birth declares the tags
+`bdSeq` and `Node Control/Rebirth`, so no tag of the task can use these names.
+
+### Data types
+
+The read task converts each value to the data type of the channel. It reads the integer,
+`float`, `double`, `boolean`, `string`, `text`, `uuid`, and `date_time` types of
+Sparkplug B. It does not read `data_set`, `bytes`, `file`, `template`, or array tags.
+
+A **Sparkplug B type** is one of `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`,
+`uint32`, `uint64`, `float`, `double`, `boolean`, `string`, or `date_time`. The task
+rejects a channel whose data type can never fit, such as a string channel for a `double`
+tag, and drops a value that is out of range for the type with a warning.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"... is offline"}>
+<Problem.Cause>
+
+An edge node or a device published a death message, or did not answer the rebirth
+request. The warning clears when it publishes a birth.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that the edge node runs and has a connection to the broker.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... is not in the birth of its ..."}>
+<Problem.Cause>
+
+A tag of the task is not in the last birth of its edge node or device. The name can be
+wrong, or the edge node no longer publishes the tag.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the **Group**, **Edge node**, **Device**, and **Tag** against the tags in the
+**Add data** dialog. Names are case sensitive.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["tags: tag ... appears more than once", "tags: tag ... and tag ... write to the same command channel ..."]}>
+<Problem.Cause>
+
+Two tags of an edge node task have the same name, or share one command channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give each tag its own name and its own command channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For problems with the connection, see
+[Connect an MQTT broker](/reference/hardware/mqtt/connect-broker#troubleshooting).

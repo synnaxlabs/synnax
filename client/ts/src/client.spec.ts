@@ -8,10 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { afterEach, assert, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type connection } from "@/connection";
-import { AuthError, DisconnectedError, type Synnax } from "@/index";
+import {
+  DisconnectedError,
+  InvalidCredentialsError,
+  Synnax,
+  ValidationError,
+} from "@/index";
 import { label } from "@/label";
 import {
   createTestClient,
@@ -31,6 +36,47 @@ const FAST_RETRY = {
   maxRetries: 2,
 };
 
+describe("constructor", () => {
+  beforeEach(() => {
+    vi.stubEnv("SYNNAX_HOST", "core.env");
+    vi.stubEnv("SYNNAX_PORT", "9091");
+    vi.stubEnv("SYNNAX_API_KEY", "syk_env");
+    vi.stubEnv("SYNNAX_SECURE", "true");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("should fill the missing options from the variables", async () => {
+    const client = new Synnax();
+    expect(client.params).toMatchObject({
+      host: "core.env",
+      port: 9091,
+      apiKey: "syk_env",
+      secure: true,
+    });
+    await client.close();
+  });
+
+  it("should use an argument over its variable", async () => {
+    const client = new Synnax({ host: "rig", port: 1 });
+    expect(client.params).toMatchObject({
+      host: "rig",
+      port: 1,
+      apiKey: "syk_env",
+      secure: true,
+    });
+    await client.close();
+  });
+
+  it("should throw when neither an argument nor a variable gives a host", () => {
+    vi.stubEnv("SYNNAX_HOST", "");
+    expect(() => new Synnax()).toThrow(ValidationError);
+    expect(() => new Synnax()).toThrow("give a host, or set SYNNAX_HOST");
+  });
+});
+
 describe("connect", () => {
   it("should await the client's first success", async () => {
     const client = createTestClient();
@@ -48,9 +94,9 @@ describe("connect", () => {
     await client.close();
   });
 
-  it("should reject with AuthError on bad credentials", async () => {
+  it("should reject with InvalidCredentialsError on bad credentials", async () => {
     const client = createTestClient({ password: "definitely-wrong" });
-    await expect(client.connect()).rejects.toThrow(AuthError);
+    await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);
     await client.close();
   });
 
@@ -62,7 +108,7 @@ describe("connect", () => {
 
   it("should recover from an auth failure via reauthenticate", async () => {
     const client = createTestClient({ password: "definitely-wrong" });
-    await expect(client.connect()).rejects.toThrow(AuthError);
+    await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);
     expect(reasonOf(client.connection.status)).toEqual("auth");
     client.reauthenticate(TEST_CREDENTIALS);
     const state = await client.connect();
@@ -72,7 +118,7 @@ describe("connect", () => {
 
   it("should reject bad credentials without a change stream", async () => {
     const client = createTestClient({ password: "definitely-wrong", cache: false });
-    await expect(client.connect()).rejects.toThrow(AuthError);
+    await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);
     expect(reasonOf(client.connection.status)).toEqual("auth");
     await client.close();
   });
@@ -103,7 +149,7 @@ describe("denied change stream", () => {
     const root = createTestClient();
     const restricted = await createTestClientWithPolicy(root, {
       name: "test",
-      objects: [label.ontologyID("")],
+      objects: [label.resourceID("")],
       actions: ["retrieve"],
     });
     const status = await restricted.connect();

@@ -18,36 +18,36 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var (
 	db      *gorp.DB
-	otg     *ontology.Ontology
 	g       *group.Service
 	svc     *policy.Service
 	roleSvc *role.Service
+	// owner is the role that holds each policy a spec creates.
+	owner role.Role
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-	}))
-	svc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
+		DB: db,
 	}))
 	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
+		DB: db,
 	}))
+	svc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+		DB:   db,
+		Role: roleSvc,
+	}))
+	owner = role.Role{Name: "owner"}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return roleSvc.NewWriter(tx, true).Create(ctx, &owner)
+	})).To(Succeed())
 })
 
 func TestPolicy(t *testing.T) {

@@ -28,8 +28,6 @@ func autoMigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, 
 	return ReadConfig{
 		ReadConfig: old.ReadConfig,
 		Device:     old.Device,
-		ArrayMode:  old.ArrayMode,
-		ArraySize:  old.ArraySize,
 		Channels:   channels,
 	}, nil
 }

@@ -32,8 +32,8 @@ const text = (node: Element): string =>
     .trim();
 
 const RELEASES: Release[] = [
-  { tag_name: "core/v0.60.0", prerelease: false, draft: false },
-  { tag_name: "desktop/v1.0.0", prerelease: false, draft: false },
+  { tag_name: "core/v0.60.0", prerelease: false, draft: false, published_at: null },
+  { tag_name: "desktop/v1.0.0", prerelease: false, draft: false, published_at: null },
 ];
 
 const listing = async (): Promise<Response> => new Response(JSON.stringify(RELEASES));

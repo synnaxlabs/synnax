@@ -12,6 +12,7 @@ import "@/feature/version/Guard.css";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
 import {
@@ -25,6 +26,7 @@ import { Shell } from "@/feature/shell";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
+import { Version } from "@/platform/version";
 import { Session } from "@/session";
 
 const UPDATE_DOCS_URL =
@@ -38,6 +40,13 @@ interface MismatchProps {
 const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement => {
   const target = Session.Core.useSelectSelected();
   const logout = Core.useLogout();
+  const check = Version.useCheck();
+  // A breaking update moves the Console past the Core, so it cannot fix the mismatch.
+  const updatable =
+    check.variant === "success" &&
+    check.available != null &&
+    check.available.variant !== "breaking";
+  const openInfo = Version.useInfoModal();
   const url =
     target == null
       ? undefined
@@ -64,6 +73,12 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
           <Text.Text level="p" color={9} className={CSS.BE("version-mismatch", "text")}>
             The Console and the Core must have the same minor version.
           </Text.Text>
+          {check.variant === "blocked" && (
+            <Status.Summary
+              className={CSS.BE("version-mismatch", "text")}
+              status={check.status}
+            />
+          )}
           <Button.Button
             variant="text"
             size="small"
@@ -75,8 +90,19 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
           </Button.Button>
         </Flex.Box>
         <Flex.Box y gap="small" full="x">
+          {updatable && (
+            <Button.Button
+              variant="filled"
+              size="large"
+              full="x"
+              justify="center"
+              onClick={() => openInfo()}
+            >
+              Update Console
+            </Button.Button>
+          )}
           <Button.Button
-            variant="filled"
+            variant={updatable ? "outlined" : "filled"}
             size="large"
             full="x"
             justify="center"

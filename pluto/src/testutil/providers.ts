@@ -64,8 +64,8 @@ export interface ProviderOptions {
   instrumentation?: Instrumentation;
 }
 
-/** Provider instances mounted by {@link buildStack}, by name. A field is `null` when its
- * provider was disabled. */
+/** Provider instances mounted by {@link buildStack}, by name. A field is `null` when
+ * its provider was disabled. */
 export interface MountedProviders {
   alamos: alamos.Provider | null;
   status: status.Aggregator | null;

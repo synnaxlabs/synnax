@@ -19,6 +19,9 @@ import { Media } from "@/components/media";
 import { start } from "@/components/media/lightbox";
 import Lightbox from "@/components/media/Lightbox.astro";
 import { REDUCED_MOTION } from "@/components/media/video";
+import versions from "@/components/media/videos.json";
+
+const [ID] = Object.keys(versions);
 
 let dialogHTML = "";
 let duration = 10;
@@ -41,7 +44,7 @@ const dialog = (): HTMLDialogElement => find(".docs-lightbox");
 const control = (name: string): HTMLElement => find(`.docs-lightbox__${name}`);
 
 const openVideo = (): HTMLVideoElement => {
-  show(renderToString(<Media.Video id="clip" />));
+  show(renderToString(<Media.Video id={ID} />));
   const video = find<HTMLVideoElement>("video");
   video.click();
   return video;

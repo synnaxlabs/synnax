@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -82,6 +83,41 @@ TEST(BreakerTests, testInfiniteRetries) {
     EXPECT_FALSE(b.running());
 }
 
+/// @brief it should retry past the maximum retry count on an unlimited wait, and keep
+/// the full retry limit for the limited waits that follow.
+TEST(BreakerTests, UnlimitedWaitIgnoresTheRetryLimit) {
+    auto b = Breaker(Config{"my-breaker", telem::TimeSpan::ZERO(), 2, 1});
+    ASSERT_TRUE(b.start());
+    for (int i = 0; i < 5; i++)
+        EXPECT_TRUE(b.wait_unlimited(errors::UNKNOWN));
+    EXPECT_EQ(b.retry_count(), 0);
+    EXPECT_TRUE(b.wait("limited"));
+    EXPECT_TRUE(b.wait("limited"));
+    EXPECT_FALSE(b.wait("limited"));
+    EXPECT_TRUE(b.stop());
+}
+
+/// @brief it should restart the back-off of unlimited waits on reset_unlimited(), and
+/// keep the retry count of limited waits.
+TEST(BreakerTests, ResetUnlimitedKeepsTheRetryCount) {
+    auto b = Breaker(Config{"my-breaker", telem::MILLISECOND, 2, 1000, telem::MINUTE});
+    ASSERT_TRUE(b.start());
+    EXPECT_TRUE(b.wait("limited"));
+    EXPECT_TRUE(b.wait_unlimited(errors::UNKNOWN));
+    b.reset_unlimited();
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_TRUE(b.wait_unlimited(errors::UNKNOWN));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+    EXPECT_EQ(b.retry_count(), 1);
+    EXPECT_TRUE(b.stop());
+}
+
+/// @brief it should return false from an unlimited wait on a stopped breaker.
+TEST(BreakerTests, UnlimitedWaitReturnsFalseWhenStopped) {
+    auto b = Breaker(Config{"my-breaker", telem::TimeSpan::ZERO(), 2, 1});
+    EXPECT_FALSE(b.wait_unlimited(errors::UNKNOWN));
+}
+
 /// @brief it should return false when attempting to start a breaker that was
 /// already running.
 TEST(BreakerTests, testStartAlreadyRunning) {
@@ -127,6 +163,33 @@ TEST(BreakerTest, testNextRetry) {
     b.reset();
     EXPECT_EQ(b.next_retry(), "retry 1/2 in 0.1 s");
     EXPECT_TRUE(b.stop());
+}
+
+/// @brief it should wait the base interval after the first failure, scale the wait
+/// after each next one, and stop at the maximum interval.
+TEST(BreakerTest, IntervalScalesUpToTheMaximum) {
+    const Config cfg{
+        .base_interval = 100 * telem::MILLISECOND,
+        .scale = 2,
+        .max_interval = telem::SECOND,
+    };
+    EXPECT_EQ(cfg.interval(1), 100 * telem::MILLISECOND);
+    EXPECT_EQ(cfg.interval(2), 200 * telem::MILLISECOND);
+    EXPECT_EQ(cfg.interval(4), 800 * telem::MILLISECOND);
+    EXPECT_EQ(cfg.interval(5), telem::SECOND);
+    EXPECT_EQ(cfg.interval(10'000), telem::SECOND);
+}
+
+/// @brief it should wait the base interval first even when it is longer than the
+/// maximum interval.
+TEST(BreakerTest, IntervalStartsAtABaseAboveTheMaximum) {
+    const Config cfg{
+        .base_interval = 2 * telem::SECOND,
+        .scale = 2,
+        .max_interval = telem::SECOND,
+    };
+    EXPECT_EQ(cfg.interval(1), 2 * telem::SECOND);
+    EXPECT_EQ(cfg.interval(2), telem::SECOND);
 }
 
 /// @brief it should show an unbounded retry count when the breaker retries infinitely.

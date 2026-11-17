@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -111,16 +112,16 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 				BaseWriteField: http.BaseWriteField{
 					Key: "source", Pointer: "/meta/source",
 				},
-				JSONType: http.JSONTypeString,
+				JSONType: payload.JSONTypeString,
 				Value:    "synnax",
 			}},
 			{Variant: http.GeneratedWriteField{
 				BaseWriteField: http.BaseWriteField{Key: "id", Pointer: "/id"},
-				Generator:      http.GeneratorTypeUUID,
+				Generator:      payload.GeneratorTypeUUID,
 			}},
 		}
 	}
-	t := newTask(kafka.WriteTaskType, cfg)
+	t := newTask(ctx, kafka.WriteTaskType, cfg)
 	dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 	DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).

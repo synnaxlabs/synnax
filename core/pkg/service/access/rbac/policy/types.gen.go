@@ -13,7 +13,8 @@ package policy
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
@@ -23,8 +24,8 @@ import (
 type Key = versions.Key
 
 // Policy is an access control policy that defines which actions are permitted on which
-// resources. Policies are attached to roles, and roles are assigned to users via
-// ontology relationships.
+// resources. Each policy belongs to one role, and a subject holds the policies of each
+// role in its roles.
 type Policy = versions.Policy
 
 // Where is a filter that selects policies.
@@ -40,7 +41,9 @@ type Where struct {
 	// Internal selects by internal.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
 	// Subjects matches the policies of the roles that any of the given subjects hold.
-	Subjects []ontology.ID `json:"subjects,omitzero" msgpack:"subjects,omitempty"`
+	Subjects []resource.ID `json:"subjects,omitzero" msgpack:"subjects,omitempty"`
+	// Roles matches the policies of any of the given roles.
+	Roles []role.Key `json:"roles,omitzero" msgpack:"roles,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

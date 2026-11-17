@@ -48,6 +48,11 @@ const loadTable = async (
   await utils.findByTestId("loaded");
 };
 
+const textCell = (key: string) => ({
+  key,
+  config: { variant: "text" as const, value: key },
+});
+
 describe("table DefaultContextMenu", () => {
   let wrapper: React.FC<PropsWithChildren>;
   let key: table.Key;
@@ -56,19 +61,17 @@ describe("table DefaultContextMenu", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
     const project = await client.projects.create({ name: "menu_project" });
     // Migrated rows and columns carry keys with dashes, which indicator ids embed.
-    const created = await client.tables.create(project.key, {
+    const created = await client.tables.create({
+      project: project.key,
       name: "menu_table",
       rows: [
-        { key: "row-0", size: 36, cells: ["a", "b"] },
-        { key: "row-1", size: 36, cells: ["c", "d"] },
+        { key: "row-0", size: 36, cells: [textCell("a"), textCell("b")] },
+        { key: "row-1", size: 36, cells: [textCell("c"), textCell("d")] },
       ],
       columns: [
         { key: "col-0", size: 72 },
         { key: "col-1", size: 72 },
       ],
-      cells: Object.fromEntries(
-        ["a", "b", "c", "d"].map((k) => [k, { variant: "text", value: k }]),
-      ),
     });
     key = created.key;
     await loadTable(wrapper, key);

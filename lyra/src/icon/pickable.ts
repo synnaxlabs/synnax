@@ -44,7 +44,6 @@ import {
   MdSettings,
   MdStar,
   MdStorage,
-  MdTableChart,
   MdTerminal,
   MdTimer,
   MdVerifiedUser,
@@ -58,7 +57,16 @@ import { Device } from "@/icon/Device";
 import { type FC, wrapSVGIcon } from "@/icon/Icon";
 import { Pump } from "@/icon/Pump";
 import { Rack } from "@/icon/Rack";
-import { Arc, LinePlot, Range, Schematic, Task } from "@/icon/registry";
+import {
+  Arc,
+  Library,
+  LinePlot,
+  Log,
+  Range,
+  Schematic,
+  Table,
+  Task,
+} from "@/icon/registry";
 import { Tank } from "@/icon/Tank";
 import { Units } from "@/icon/Units";
 import { Valve } from "@/icon/Valve";
@@ -113,6 +121,18 @@ export const PICKABLE: readonly Pickable[] = [
     icon: Range,
   },
   {
+    key: "log",
+    name: "Log",
+    tags: ["stream", "messages", "events", "text"],
+    icon: Log,
+  },
+  {
+    key: "library",
+    name: "Library",
+    tags: ["ICD", "interface control document", "books", "reference"],
+    icon: Library,
+  },
+  {
     key: "bar-chart",
     name: "Bar chart",
     tags: ["histogram", "graph", "statistics"],
@@ -128,7 +148,7 @@ export const PICKABLE: readonly Pickable[] = [
     key: "table",
     name: "Table",
     tags: ["grid", "spreadsheet", "values", "readings"],
-    icon: wrapSVGIcon(MdTableChart, "table"),
+    icon: Table,
   },
   {
     key: "terminal",

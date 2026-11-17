@@ -35,7 +35,6 @@ const (
 
 type SetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Parent        string                 `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
 	Statuses      []*pb.Status           `protobuf:"bytes,2,rep,name=statuses,proto3" json:"statuses,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -69,13 +68,6 @@ func (x *SetRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use SetRequest.ProtoReflect.Descriptor instead.
 func (*SetRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_status_status_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *SetRequest) GetParent() string {
-	if x != nil {
-		return x.Parent
-	}
-	return ""
 }
 
 func (x *SetRequest) GetStatuses() []*pb.Status {
@@ -222,6 +214,7 @@ type SetByKeyOrNameRequest struct {
 	KeyOrName     string                 `protobuf:"bytes,1,opt,name=key_or_name,json=keyOrName,proto3" json:"key_or_name,omitempty"`
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	Variant       string                 `protobuf:"bytes,3,opt,name=variant,proto3" json:"variant,omitempty"`
+	Time          int64                  `protobuf:"varint,4,opt,name=time,proto3" json:"time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -275,6 +268,13 @@ func (x *SetByKeyOrNameRequest) GetVariant() string {
 		return x.Variant
 	}
 	return ""
+}
+
+func (x *SetByKeyOrNameRequest) GetTime() int64 {
+	if x != nil {
+		return x.Time
+	}
+	return 0
 }
 
 type SetByKeyOrNameResponse struct {
@@ -333,22 +333,22 @@ var File_core_pkg_transport_grpc_status_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_status_status_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/status/status.proto\x12\vgrpc.status\x1a#core/pkg/api/status/pb/status.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bgoogle/protobuf/empty.proto\"[\n" +
+	"+core/pkg/transport/grpc/status/status.proto\x12\vgrpc.status\x1a#core/pkg/api/status/pb/status.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bgoogle/protobuf/empty.proto\"Q\n" +
 	"\n" +
-	"SetRequest\x12\x16\n" +
-	"\x06parent\x18\x01 \x01(\tR\x06parent\x125\n" +
-	"\bstatuses\x18\x02 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"D\n" +
+	"SetRequest\x125\n" +
+	"\bstatuses\x18\x02 \x03(\v2\x19.service.status.pb.StatusR\bstatusesJ\x04\b\x01\x10\x02R\x06parent\"D\n" +
 	"\vSetResponse\x125\n" +
 	"\bstatuses\x18\x01 \x03(\v2\x19.service.status.pb.StatusR\bstatuses\"\xb1\x01\n" +
 	"\x0fRetrieveRequest\x128\n" +
 	"\arequest\x18\t \x01(\v2\x1e.api.status.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\tR\x04keysR\vsearch_termR\x06offsetR\x05limitR\x0einclude_labelsR\n" +
 	"has_labelsR\bvariantsR\x16ignore_not_found_error\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\"k\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"\x7f\n" +
 	"\x15SetByKeyOrNameRequest\x12\x1e\n" +
 	"\vkey_or_name\x18\x01 \x01(\tR\tkeyOrName\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x18\n" +
-	"\avariant\x18\x03 \x01(\tR\avariant\"U\n" +
+	"\avariant\x18\x03 \x01(\tR\avariant\x12\x12\n" +
+	"\x04time\x18\x04 \x01(\x03R\x04time\"U\n" +
 	"\x16SetByKeyOrNameResponse\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
 	"\x10multiple_matches\x18\x02 \x01(\bR\x0fmultipleMatches2O\n" +

@@ -10,7 +10,7 @@
 import {
   access,
   framer,
-  type ontology,
+  type resource,
   type Synnax as Client,
   user,
 } from "@synnaxlabs/client";
@@ -20,14 +20,14 @@ import { uuid } from "@synnaxlabs/x";
 // Every console surface resolves the subject and its policies before it renders, and
 // the flux store needs the frame stream to receive any live update at all.
 const BASELINE = [
-  user.TYPE_ONTOLOGY_ID,
-  access.role.TYPE_ONTOLOGY_ID,
-  access.policy.TYPE_ONTOLOGY_ID,
-  framer.TYPE_ONTOLOGY_ID,
+  user.TYPE_RESOURCE_ID,
+  access.role.TYPE_RESOURCE_ID,
+  access.policy.TYPE_RESOURCE_ID,
+  framer.TYPE_RESOURCE_ID,
 ];
 
 /** The types the subject may act on, keyed by action. */
-export type Grants = Partial<Record<access.Action, ontology.ID[]>>;
+export type Grants = Partial<Record<access.Action, resource.ID[]>>;
 
 /**
  * Creates a client granted exactly these actions on these types, on top of the reads

@@ -1257,7 +1257,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -1488,7 +1488,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -1719,7 +1719,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -1950,7 +1950,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -2181,7 +2181,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -2412,7 +2412,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -2643,7 +2643,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -2874,7 +2874,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -3105,7 +3105,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -3336,7 +3336,7 @@ var _ = Describe("Frame", func() {
 				series := make([]telem.Series, 256)
 				for i := range int32(256) {
 					keys[i] = i
-					series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+					series[i] = telem.NewSeriesV(i, i+1, i+2)
 				}
 				fr := telem.MultiFrame(keys, series)
 
@@ -3871,7 +3871,7 @@ var _ = Describe("Frame", func() {
 	Describe("Encode + Decode", func() {
 		codecs := []encoding.Codec{json.Codec, msgpack.Codec}
 		for _, codec := range codecs {
-			It("Should encode and decode a frame", func(ctx SpecContext) {
+			It("Should encode and decode a frame", func() {
 				original := telem.MultiFrame(
 					[]int32{1, 2},
 					[]telem.Series{
@@ -3879,13 +3879,13 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int64](3, 4),
 					},
 				)
-				buf := MustSucceed(codec.Encode(ctx, original))
+				buf := MustSucceed(codec.Encode(original))
 				var decoded telem.Frame[int32]
-				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(codec.Decode(buf, &decoded)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			})
 
-			It("Should respect masking", func(ctx SpecContext) {
+			It("Should respect masking", func() {
 				original := telem.MultiFrame(
 					[]int32{1, 2},
 					[]telem.Series{
@@ -3893,16 +3893,16 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int64](3, 4),
 					},
 				).KeepKeys(set.New[int32](1))
-				buf := MustSucceed(codec.Encode(ctx, original))
+				buf := MustSucceed(codec.Encode(original))
 				var decoded telem.Frame[int32]
-				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(codec.Decode(buf, &decoded)).To(Succeed())
 				Expect(decoded).To(Equal(telem.UnaryFrame[int32](
 					1,
 					telem.NewSeriesV[int64](1, 2),
 				)))
 			})
 
-			It("Should clear a mask left on the receiver", func(ctx SpecContext) {
+			It("Should clear a mask left on the receiver", func() {
 				full := telem.MultiFrame(
 					[]int32{1, 2, 3},
 					[]telem.Series{
@@ -3915,17 +3915,17 @@ var _ = Describe("Frame", func() {
 				// it decodes next.
 				decoded := full.KeepKeys(set.New[int32](1))
 				Expect(decoded.Count()).To(Equal(1))
-				buf := MustSucceed(codec.Encode(ctx, full))
-				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				buf := MustSucceed(codec.Encode(full))
+				Expect(codec.Decode(buf, &decoded)).To(Succeed())
 				Expect(decoded.Count()).To(Equal(3))
 				Expect(decoded.KeysSlice()).To(Equal([]int32{1, 2, 3}))
 			})
 
-			It("Should encode and decode an empty frame", func(ctx SpecContext) {
+			It("Should encode and decode an empty frame", func() {
 				original := telem.Frame[int32]{}
-				buf := MustSucceed(codec.Encode(ctx, original))
+				buf := MustSucceed(codec.Encode(original))
 				var decoded telem.Frame[int32]
-				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(codec.Decode(buf, &decoded)).To(Succeed())
 				Expect(decoded.Empty()).To(BeTrue())
 				Expect(decoded.Count()).To(Equal(0))
 				Expect(decoded.Len()).To(Equal(int64(0)))

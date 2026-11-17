@@ -17,6 +17,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ni/daqmx/mock.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/write_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
@@ -24,6 +25,8 @@
 namespace driver::ni {
 class SingleChannelAnalogWriteTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
@@ -74,7 +77,7 @@ protected:
         const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
         auto dev = synnax::device::Device{
-            .key = "abc123",
+            .key = make_unique_channel_name("ni"),
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
@@ -167,7 +170,7 @@ TEST_F(SingleChannelAnalogWriteTest, testStartClaimsFreshHardware) {
     );
     auto wt = create_task(std::make_unique<hardware::mock::Writer<double>>());
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(make_hw_calls, 1);
     // The fixture and the running sink both hold the mock.
@@ -178,7 +181,7 @@ TEST_F(SingleChannelAnalogWriteTest, testStartClaimsFreshHardware) {
     // The stop released the sink's claim on the hardware.
     EXPECT_EQ(mock_hw.use_count(), 1);
 
-    wt->start("start_cmd_2");
+    wt->start("start_cmd_2", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     EXPECT_EQ(make_hw_calls, 2);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
@@ -200,6 +203,7 @@ public:
 
     x::errors::Error start() override { return x::errors::NIL; }
     x::errors::Error stop() override { return x::errors::NIL; }
+    x::errors::Error abort() override { return x::errors::NIL; }
     x::errors::Error write(const std::vector<T> &) override { return x::errors::NIL; }
 };
 
@@ -220,9 +224,9 @@ TEST_F(SingleChannelAnalogWriteTest, testStartNeverBuildsOverALiveClaim) {
         }
     );
 
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     EXPECT_EQ(live->load(), 1);
-    ASSERT_NIL(sink->start());
+    ASSERT_NIL(sink->start("start_cmd", this->cancel));
     EXPECT_EQ(builds, 2);
     EXPECT_EQ(live_at_build, 0);
     EXPECT_EQ(live->load(), 1);
@@ -245,12 +249,11 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
         std::make_unique<hardware::mock::Writer<double>>(written_data)
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(
@@ -266,9 +269,8 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     wt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     ASSERT_EQ(second_state.message, "Stopped task");
 
@@ -306,7 +308,7 @@ TEST_F(SingleChannelAnalogWriteTest, testLastWriteWins) {
         std::make_unique<hardware::mock::Writer<double>>(written_data)
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -320,6 +322,117 @@ TEST_F(SingleChannelAnalogWriteTest, testLastWriteWins) {
     wt->stop("stop_cmd", true);
 }
 
+/// @brief creates a function generator channel with no Synnax channels.
+x::json::json func_gen_channel(const int port) {
+    return {
+        {"type", "ao_func_gen"},
+        {"key", "gen" + std::to_string(port)},
+        {"port", port},
+        {"disabled", false},
+        {"wave_type", "Sine"},
+        {"frequency", 100},
+        {"amplitude", 1},
+        {"offset", 0}
+    };
+}
+
+/// @brief it should configure a task of only function generators with no Synnax
+/// channels, and apply each generator to DAQmx.
+TEST(WriteTaskConfigTest, testOnlyFunctionGenerators) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    auto dev = synnax::device::Device{
+        .key = "func_gen_only",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "ELVIS II",
+        .name = "my_device",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    const x::json::json j{
+        {"state_rate", 25},
+        {"device", dev.key},
+        {"channels", x::json::json::array({func_gen_channel(0), func_gen_channel(1)})}
+    };
+    auto p = x::json::Parser(j);
+    const WriteTaskConfig cfg(client, p, "ni_analog_write");
+    ASSERT_NIL(p.error());
+    EXPECT_TRUE(cfg.channels.empty());
+    EXPECT_TRUE(cfg.buf_indexes.empty());
+    EXPECT_TRUE(cfg.output_channels().empty());
+
+    auto mock = std::make_shared<daqmx::MockAPI>();
+    const auto dmx = std::make_shared<daqmx::SugaredAPI>(mock);
+    ASSERT_NIL(cfg.apply(dmx, nullptr));
+    const auto calls = mock->calls_to("CreateAOFuncGenChan");
+    ASSERT_EQ(calls.size(), 2);
+    EXPECT_EQ(calls[0]["args"]["physicalChannel"], "dev1/ao0");
+    EXPECT_EQ(calls[1]["args"]["physicalChannel"], "dev1/ao1");
+}
+
+/// @brief it should give a function generator beside a commanded output no command or
+/// state channel, and leave its write slot unused after the commanded value.
+TEST_F(SingleChannelAnalogWriteTest, testFunctionGeneratorIsNotCommanded) {
+    client = std::make_shared<synnax::Synnax>(new_test_client());
+    ASSERT_NIL(client->channels.create(state_idx_ch));
+    state_ch_1.index = state_idx_ch.key;
+    ASSERT_NIL(client->channels.create(state_ch_1));
+    ASSERT_NIL(client->channels.create(cmd_ch_1));
+    const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    auto dev = synnax::device::Device{
+        .key = "func_gen_mixed",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "ELVIS II",
+        .name = "my_device",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    const x::json::json j{
+        {"state_rate", 25},
+        {"device", dev.key},
+        {"channels",
+         x::json::json::array(
+             {func_gen_channel(0),
+              {{"type", "ao_voltage"},
+               {"key", "voltage"},
+               {"port", 1},
+               {"disabled", false},
+               {"min_val", 0},
+               {"max_val", 5},
+               {"state_channel", state_ch_1.key},
+               {"cmd_channel", cmd_ch_1.key},
+               {"custom_scale", {{"type", "none"}}}}}
+         )}
+    };
+    auto p = x::json::Parser(j);
+    cfg = std::make_unique<WriteTaskConfig>(client, p, "ni_analog_write");
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(cfg->output_channels().size(), 1);
+    ASSERT_EQ(cfg->buf_indexes.size(), 1);
+    EXPECT_EQ(cfg->buf_indexes.at(cmd_ch_1.key), 0);
+
+    ctx = std::make_shared<driver::task::MockContext>(client);
+    mock_writer_factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    constexpr double v = 3;
+    reads->emplace_back(cmd_ch_1.key, x::telem::Series(v, x::telem::FLOAT64_T));
+    mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
+        {cmd_ch_1.key},
+        reads
+    );
+    auto written_data = std::make_shared<std::vector<std::vector<double>>>();
+    auto wt = create_task(
+        std::make_unique<hardware::mock::Writer<double>>(written_data)
+    );
+    wt->start("start_cmd", this->cancel);
+    ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 2);
+    wt->stop("stop_cmd", true);
+    ASSERT_EQ(written_data->size(), 1);
+    EXPECT_EQ(written_data->at(0), (std::vector<double>{3, 0}));
+}
+
 /// @brief Test that an invalid channel type in the configuration is properly detected
 /// and reported
 TEST(WriteTaskConfigTest, testInvalidChannelType) {
@@ -328,7 +441,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
 
     // Create a device
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -385,6 +498,8 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
 /// writing to a live Core.
 class SharedIndexWriteTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     struct Run {
         std::shared_ptr<task::MockContext> ctx;
         std::shared_ptr<pipeline::testutil::CoreWriterFactory> writers;
@@ -483,12 +598,12 @@ TEST_F(SharedIndexWriteTest, testSecondTaskFails) {
     Run first, second;
     this->create_task("first_task", 0, first);
     this->create_task("second_task", 1, second);
-    first.write_task->start("start_first");
+    first.write_task->start("start_first", this->cancel);
     ASSERT_EVENTUALLY_EQ(
         first.writers->writers_open.load(std::memory_order_acquire),
         1
     );
-    second.write_task->start("start_second");
+    second.write_task->start("start_second", this->cancel);
     ASSERT_EVENTUALLY_GE(second.ctx->snapshot().size(), 2);
     const auto failed = second.ctx->snapshot().back();
     EXPECT_EQ(failed.variant, synnax::status::VARIANT_ERROR);
@@ -509,14 +624,14 @@ TEST_F(SharedIndexWriteTest, testRestartIgnoresReleasedWriter) {
     this->create_task("first_task", 0, first);
     this->create_task("second_task", 1, second);
     for (size_t i = 1; i <= 3; i++) {
-        first.write_task->start("start_first");
+        first.write_task->start("start_first", this->cancel);
         ASSERT_EVENTUALLY_EQ(
             first.writers->writers_open.load(std::memory_order_acquire),
             i
         );
         first.write_task->stop("stop_first", true);
     }
-    second.write_task->start("start_second");
+    second.write_task->start("start_second", this->cancel);
     ASSERT_EVENTUALLY_EQ(
         second.writers->writers_open.load(std::memory_order_acquire),
         1

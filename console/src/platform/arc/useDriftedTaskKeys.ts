@@ -21,10 +21,10 @@ export const useDriftedTaskKeys = (keys: arc.Key[]): task.Key[] => {
   const tasks = Store.useItems({
     keys,
     subscribe: (listener, key) =>
-      client?.arcs.task.onChange(key, listener) ?? destructor.NOOP,
+      client?.arcs.task.watch(key).onChange(listener) ?? destructor.NOOP,
     getItem: (arcKeys) =>
       arcKeys
-        .map((key) => client?.arcs.task.getCached(key))
+        .map((key) => client?.arcs.task.watch(key).getCached())
         .filter((tsk): tsk is task.Task => query.isLive(tsk) && tsk != null),
   });
   return tasks.filter((tsk) => task.drifted(tsk)).map(({ key }) => key);

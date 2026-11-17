@@ -11,18 +11,9 @@ package v1
 
 import (
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 var _ gorp.Entry[Key] = Range{}
 
 // GorpKey implements gorp.Entry.
 func (r Range) GorpKey() Key { return r.Key }
-
-// SetOptions implements gorp.Entry.
-func (Range) SetOptions() []any { return nil }
-
-// OntologyID returns the semantic ID for this range to look it up from within the
-func (r Range) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRange, Key: r.Key.String()}
-}

@@ -81,3 +81,15 @@ export const Section = ({
     <div className={CSS.BE("form-section", "body")}>{children}</div>
   </Flex.Box>
 );
+
+export interface AlignedProps extends Flex.BoxProps {}
+
+/** Lines up its content with the controls of stacked sections, not their labels. */
+export const Aligned = ({ className, ...rest }: AlignedProps): ReactElement => (
+  <Flex.Box
+    className={CSS.cls(CSS.BE("form-section", "aligned"), className)}
+    y
+    empty
+    {...rest}
+  />
+);

@@ -30,10 +30,7 @@ type ReporterConfig struct {
 	Filter EnvironmentFilter
 }
 
-var (
-	_                     config.Config[ReporterConfig] = ReporterConfig{}
-	defaultReporterConfig                               = ReporterConfig{}
-)
+var _ config.Config[ReporterConfig] = ReporterConfig{}
 
 // Validate implements config.Config.
 func (r ReporterConfig) Validate() error {
@@ -60,24 +57,11 @@ type Reporter struct {
 // configurations are provided, the function will return an error. To use a no-op
 // reporter, simply pass a nil-pointer.
 func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
-	cfg, err := config.New(defaultReporterConfig, configs...)
+	cfg, err := config.New(ReporterConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Reporter{config: cfg}, nil
-}
-
-// Prod attaches the given ReportProvider to the Reporter with the given key in the
-// production (Prod) environment. The Report is lazily evaluated, and will only be
-// called when the instrumentation report is generated.
-func (r *Reporter) Prod(key string, report ReportProvider) {
-	if r == nil {
-		return
-	}
-	if r.reports == nil {
-		r.reports = make(map[string]ReportProvider)
-	}
-	r.reports[key] = report
 }
 
 // Report is key-value Metadata that can be attached to an Instrumentation. All values

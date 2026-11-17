@@ -12,6 +12,7 @@ package fs
 import (
 	"os"
 	"path"
+	"path/filepath"
 )
 
 type defaultFS struct{ perm os.FileMode }
@@ -20,7 +21,7 @@ var Default FS = &defaultFS{perm: defaultPerm}
 
 // Open implements FS.
 func (d *defaultFS) Open(name string, flag int) (File, error) {
-	return os.OpenFile(name, flag, d.perm)
+	return os.OpenFile(filepath.Clean(name), flag, d.perm)
 }
 
 // Sub implements FS.

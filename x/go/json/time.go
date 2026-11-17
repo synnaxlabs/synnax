@@ -11,6 +11,7 @@ package json
 
 import (
 	"bytes"
+	"fmt"
 	"math"
 	"strconv"
 	"time"
@@ -65,6 +66,15 @@ func ParseTimeFormat(text string) (TimeFormat, error) {
 // String returns the config form of f.
 func (f TimeFormat) String() string { return timeFormatNames[f] }
 
+// MarshalText implements encoding.TextMarshaler.
+func (f TimeFormat) MarshalText() ([]byte, error) { return []byte(f.String()), nil }
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (f *TimeFormat) UnmarshalText(text []byte) (err error) {
+	*f, err = ParseTimeFormat(string(text))
+	return err
+}
+
 // nanosExponent returns the base 10 logarithm of the nanoseconds in one unit of a
 // numeric format.
 func (f TimeFormat) nanosExponent() int {
@@ -75,9 +85,11 @@ func (f TimeFormat) nanosExponent() int {
 		return 6
 	case UnixMicrosecond:
 		return 3
-	default:
+	case UnixNanosecond:
 		return 0
+	case ISO8601:
 	}
+	panic(fmt.Sprintf("json: %s is not a numeric time format", f))
 }
 
 func (f TimeFormat) nanosPerUnit() int64 {

@@ -7,15 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type http, kafka, type task } from "@synnaxlabs/client";
-import { type CrudeDataType, DataType, json, record } from "@synnaxlabs/x";
+import { kafka, type task } from "@synnaxlabs/client";
+import {
+  type CrudeDataType,
+  DataType,
+  json,
+  type payload,
+  record,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
 
 export const PREFIX = "kafka";
 
-export type TimeFormat = http.TimeFormat;
+export type TimeFormat = payload.TimeFormat;
 
 const topicZ = z.string().min(1, "Topic is required");
 
@@ -59,6 +65,7 @@ const validateRecordKeys = (ctx: z.core.ParsePayload<ReadRecord[]>) => {
       return;
     }
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: ctx.value,
       message:

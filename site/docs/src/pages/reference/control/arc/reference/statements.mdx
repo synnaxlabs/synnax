@@ -23,8 +23,8 @@ if condition { ... } else if condition { ... } else { ... }
 ```
 
 The braces are necessary. The `else if` and `else` clauses are optional. The condition
-is a `bool`. A numeric condition compiles with the warning
-`numeric conditions are deprecated; use an explicit comparison like x != 0`.
+is a `bool`. A numeric condition gives the warning
+[ARC2005](/reference/control/arc/reference/errors#arc2005).
 
 ```arc bodies="band"
 func band(v f64) i64 {
@@ -79,9 +79,13 @@ or past `end`, the body does not run.
 | `range(10, 0, -3)` | 10, 7, 4, 1   |
 | `range(10, 5)`     | None          |
 
-The type of `i` is the integer type of the arguments, or `i64` for literals. Mixing
-integer types fails with `type mismatch: cannot use i32 and i64 in range()`. Arc reads
-`end` and `step` once, before the first pass. A float argument fails with
+The type of `i` is the integer type of the arguments, or `i64` for literals. An `i64`
+index into a series compiles, but the automation fails to start (known bug). To index a
+series with `i`, use `range(i32(n))`. Typed arguments must all have the same integer
+type: `range(n, i64(100))` with an `i32` `n` fails with
+`type mismatch: cannot use i32 and i64 in range()`. Cast them to one type, as in
+`range(i64(n), i64(100))`. Arc reads `end` and `step` once, before the first pass. A
+float argument fails with
 `range() argument 1 must be an integer type, got exact integer float`. Do not use a step
 of 0: the compiler accepts it, and the loop can run forever.
 

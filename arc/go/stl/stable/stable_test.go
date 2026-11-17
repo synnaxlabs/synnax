@@ -110,7 +110,7 @@ var _ = Describe("StableFor", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			source.MarkFresh(0)
-			n, _ := module.Create(cfg)
+			n := MustSucceed(module.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -131,7 +131,7 @@ var _ = Describe("StableFor", func() {
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
 				source.MarkFresh(0)
-				n, _ := module.Create(cfg)
+				n := MustSucceed(module.Create(cfg))
 				outputs := make(set.Set[int])
 				n.Next(
 					node.Context{
@@ -174,7 +174,7 @@ var _ = Describe("StableFor", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			source.MarkFresh(0)
-			n, _ := module.Create(cfg)
+			n := MustSucceed(module.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{
@@ -228,7 +228,7 @@ var _ = Describe("StableFor", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
 			source.MarkFresh(0)
-			n, _ := module.Create(cfg)
+			n := MustSucceed(module.Create(cfg))
 			n.Next(
 				node.Context{
 					Context:     ctx,
@@ -306,7 +306,7 @@ var _ = Describe("StableFor", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			source.MarkFresh(0)
-			n, _ := module.Create(cfg)
+			n := MustSucceed(module.Create(cfg))
 			n.Next(
 				node.Context{
 					Context:     ctx,
@@ -365,7 +365,7 @@ var _ = Describe("StableFor", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
 			source.MarkFresh(0)
-			n, _ := module.Create(cfg)
+			n := MustSucceed(module.Create(cfg))
 			n.Next(
 				node.Context{
 					Context:     ctx,
@@ -447,7 +447,7 @@ var _ = Describe("StableFor", func() {
 				telem.SecondTS*2/5,  // 0.4s = 400ms
 			)
 			source.MarkFresh(0)
-			n, _ := module.Create(cfg)
+			n := MustSucceed(module.Create(cfg))
 			n.Next(
 				node.Context{
 					Context:     ctx,
@@ -498,7 +498,7 @@ var _ = Describe("StableFor", func() {
 				*source.Output(0) = telem.NewSeriesV[uint8](5)
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 				source.MarkFresh(0)
-				n, _ := module.Create(cfg)
+				n := MustSucceed(module.Create(cfg))
 				n.Next(
 					node.Context{
 						Context:     ctx,
@@ -553,7 +553,7 @@ var _ = Describe("StableFor", func() {
 				telem.SecondTS*3/10, // 0.3s = 300ms
 			)
 			source.MarkFresh(0)
-			n, _ := module.Create(cfg)
+			n := MustSucceed(module.Create(cfg))
 			n.Next(
 				node.Context{
 					Context:     ctx,

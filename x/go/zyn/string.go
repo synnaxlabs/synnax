@@ -10,6 +10,7 @@
 package zyn
 
 import (
+	"encoding"
 	"reflect"
 	"strconv"
 	"uuid"
@@ -52,7 +53,7 @@ func (s StringZ) Validate(data any) error {
 }
 
 // validateDestinationValue validates that the destination is compatible with string
-// data
+// data.
 func (s StringZ) validateDestinationValue(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(s.dataType), dest)
@@ -90,6 +91,7 @@ func UUID() StringZ { return String().UUID() }
 //   - string values
 //   - numeric values (converted to string)
 //   - boolean values (converted to string)
+//   - encoding.TextMarshaler values (converted with MarshalText)
 func (s StringZ) Dump(data any) (any, error) {
 	if data == nil {
 		if s.optional {
@@ -108,39 +110,17 @@ func (s StringZ) Dump(data any) (any, error) {
 		val = val.Elem()
 	}
 	if s.expectedType != nil && s.expectedType == reflect.TypeFor[uuid.UUID]() {
-		switch val.Kind() {
-		case reflect.String:
-			if _, err := uuid.Parse(val.String()); err != nil {
-				return nil, errors.Wrap(
-					validate.ErrValidation,
-					"invalid UUID format: must be a valid UUID string",
-				)
-			}
-			return val.String(), nil
-		case reflect.Array:
-			if val.Type() == reflect.TypeFor[uuid.UUID]() {
-				return val.Interface().(uuid.UUID).String(), nil
-			}
-			fallthrough
-		default:
-			return nil, validate.NewInvalidTypeError(
-				"UUID or string",
-				types.ValueName(val),
-			)
-		}
+		return dumpUUID(val)
 	}
-	switch val.Kind() {
-	case reflect.String:
-		return val.String(), nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return strconv.FormatInt(val.Int(), 10), nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return strconv.FormatUint(val.Uint(), 10), nil
-	case reflect.Float32, reflect.Float64:
-		return strconv.FormatFloat(val.Float(), 'f', -1, 64), nil
-	case reflect.Bool:
-		return strconv.FormatBool(val.Bool()), nil
-	default:
+	if str, ok := formatScalar(val); ok {
+		return str, nil
+	}
+	if m, ok := reflect.TypeAssert[encoding.TextMarshaler](val); ok {
+		text, err := m.MarshalText()
+		if err != nil {
+			return nil, err
+		}
+		return string(text), nil
 	}
 	return nil, invalidStringTypeError(val)
 }
@@ -182,19 +162,7 @@ func (s StringZ) Parse(data, dest any) error {
 			}
 			dataVal = dataVal.Elem()
 		}
-		switch dataVal.Kind() {
-		case reflect.String:
-			strData = dataVal.String()
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			strData = strconv.FormatInt(dataVal.Int(), 10)
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
-			reflect.Uint64:
-			strData = strconv.FormatUint(dataVal.Uint(), 10)
-		case reflect.Float32, reflect.Float64:
-			strData = strconv.FormatFloat(dataVal.Float(), 'f', -1, 64)
-		case reflect.Bool:
-			strData = strconv.FormatBool(dataVal.Bool())
-		default:
+		if strData, ok = formatScalar(dataVal); !ok {
 			return invalidStringTypeError(dataVal)
 		}
 	}
@@ -206,24 +174,70 @@ func (s StringZ) Parse(data, dest any) error {
 		}
 		destVal = destVal.Elem()
 	}
-	// If UUID type is expected, handle both string and UUID destinations
 	if s.expectedType != nil && s.expectedType == reflect.TypeFor[uuid.UUID]() {
-		parsedUUID, err := uuid.Parse(strData)
-		if err != nil {
-			return invalidUUIDStringError()
-		}
-		if destVal.Kind() == reflect.String {
-			destVal.SetString(parsedUUID.String())
-			return nil
-		}
-		if destVal.Type() == reflect.TypeFor[uuid.UUID]() {
-			destVal.Set(reflect.ValueOf(parsedUUID))
-			return nil
-		}
-		return NewInvalidDestinationTypeError(s.expectedType.String(), destVal)
+		return s.setUUID(destVal, strData)
 	}
 	destVal.SetString(strData)
 	return nil
+}
+
+// setUUID parses str as a UUID and stores it in a string or UUID destination.
+func (s StringZ) setUUID(destVal reflect.Value, str string) error {
+	parsedUUID, err := uuid.Parse(str)
+	if err != nil {
+		return invalidUUIDStringError()
+	}
+	if destVal.Kind() == reflect.String {
+		destVal.SetString(parsedUUID.String())
+		return nil
+	}
+	if destVal.Type() == reflect.TypeFor[uuid.UUID]() {
+		destVal.Set(reflect.ValueOf(parsedUUID))
+		return nil
+	}
+	return NewInvalidDestinationTypeError(s.expectedType.String(), destVal)
+}
+
+func dumpUUID(val reflect.Value) (any, error) {
+	switch val.Kind() {
+	case reflect.String:
+		if _, err := uuid.Parse(val.String()); err != nil {
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"invalid UUID format: must be a valid UUID string",
+			)
+		}
+		return val.String(), nil
+	case reflect.Array:
+		if id, ok := reflect.TypeAssert[uuid.UUID](val); ok {
+			return id.String(), nil
+		}
+		fallthrough
+	default:
+		return nil, validate.NewInvalidTypeError(
+			"UUID or string",
+			types.ValueName(val),
+		)
+	}
+}
+
+// formatScalar formats a string, number, or boolean value as a string. It returns false
+// for any other kind.
+func formatScalar(val reflect.Value) (string, bool) {
+	switch val.Kind() {
+	case reflect.String:
+		return val.String(), true
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(val.Int(), 10), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return strconv.FormatUint(val.Uint(), 10), true
+	case reflect.Float32, reflect.Float64:
+		return strconv.FormatFloat(val.Float(), 'f', -1, 64), true
+	case reflect.Bool:
+		return strconv.FormatBool(val.Bool()), true
+	default:
+	}
+	return "", false
 }
 
 func invalidUUIDStringError() error {

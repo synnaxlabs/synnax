@@ -10,15 +10,7 @@
  */
 
 /* Violet keeps auto apart from the primary blue of focus and selection. */
-.lyra-input-auto-chip {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    height: 3rem;
-    padding: 0 1rem;
-    border-radius: var(--pluto-border-radius-small);
-    font-size: var(--pluto-tiny-size);
-    line-height: 1;
+.lyra-input-auto-badge {
     color: var(--pluto-auto-text);
     background: var(--pluto-auto-z-15);
 }

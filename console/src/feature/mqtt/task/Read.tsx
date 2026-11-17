@@ -254,9 +254,11 @@ const DISCOVER_KIND: Kind<ReadEntry> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-const entryLabel = Component.renderProp(
-  ({ path }: Task.Views.GroupProps<ReadEntry>) => <EntryLabel path={path} />,
+const GroupLabel = ({ path }: Task.Views.GroupProps<ReadEntry>) => (
+  <EntryLabel path={path} />
 );
+
+const entryLabel = Component.renderProp(GroupLabel);
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const entries = PForm.useFieldValue(root.config.entries);
@@ -325,7 +327,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
-  const saved = deep.copy(dev.properties);
+  const before = deep.copy(dev.properties);
   try {
     for (const entry of config.entries) {
       if (entry.disabled) continue;
@@ -362,7 +364,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };

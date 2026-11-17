@@ -292,6 +292,58 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
     ASSERT_TRUE(err.message().contains("test_writer_1"));
 }
 
+/// @brief it should read a commit response without the unauthorized field as
+/// authorized.
+TEST(WriterTests, testCommitResultFromProto) {
+    grpc::framer::WriterResponse res;
+    res.set_end(5);
+    const auto authorized = synnax::framer::CommitResult::from_proto(res);
+    ASSERT_TRUE(authorized.authorized);
+    ASSERT_EQ(authorized.end, x::telem::TimeStamp(5));
+    res.set_unauthorized(true);
+    ASSERT_FALSE(synnax::framer::CommitResult::from_proto(res).authorized);
+}
+
+/// @brief it should report a commit without control and keep the writer open.
+TEST(WriterTests, testCommitResultReportsControl) {
+    auto client = new_test_client();
+    auto time = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("commit_result_time"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    const auto start = x::telem::TimeStamp::now();
+    auto config = [&](const x::control::Authority authority, const std::string &key) {
+        return synnax::framer::WriterConfig{
+            .channels = std::vector{time.key},
+            .start = start,
+            .authorities = std::vector{authority},
+            .subject = x::control::Subject{key},
+            .enable_auto_commit = false,
+        };
+    };
+    auto frame_at = [&](const x::telem::TimeSpan offset) {
+        return x::telem::Frame(time.key, x::telem::Series(start + offset));
+    };
+    auto low = ASSERT_NIL_P(client.telem.open_writer(config(1, "low")));
+    ASSERT_NIL(low.write(frame_at(x::telem::SECOND)));
+    // The acknowledged command orders the write before the next writer opens.
+    ASSERT_NIL(low.set_authority(1));
+    auto high = ASSERT_NIL_P(
+        client.telem.open_writer(config(x::control::AUTHORITY_ABSOLUTE, "high"))
+    );
+    const auto denied = ASSERT_NIL_P(low.commit_result());
+    ASSERT_FALSE(denied.authorized);
+    ASSERT_EQ(denied.end, x::telem::TimeStamp(0));
+    ASSERT_NIL(high.close());
+    ASSERT_NIL(low.write(frame_at(2 * x::telem::SECOND)));
+    const auto granted = ASSERT_NIL_P(low.commit_result());
+    ASSERT_TRUE(granted.authorized);
+    ASSERT_EQ(granted.end, start + 2 * x::telem::SECOND + 1);
+    ASSERT_NIL(low.close());
+}
+
 /// @brief it should return an error when two writers share only an index channel and
 /// err_on_unauthorized is true.
 TEST(WriterTests, testWriteErrOnUnauthorizedSharedIndex) {

@@ -29,10 +29,14 @@ BaseReadChannel struct {
         @doc value "is true when the channel is excluded from acquisition."
     }
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that raw samples are written to."
+        @doc value     "is the Synnax channel that raw samples are written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     device   device.Key = "" {
-        @doc value "is the key of the slave device the channel reads from."
+        @doc value     "is the key of the slave device the channel reads from."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "carries the fields every EtherCAT read channel shares."
@@ -41,15 +45,27 @@ BaseReadChannel struct {
 
 ReadChannel union on type extends BaseReadChannel {
     entry {
-        index     uint16         {
+        index      uint16         {
             @doc value "is the CoE object dictionary index of the PDO entry."
         }
-        sub_index uint8          {
+        sub_index  uint8          {
             @doc value "is the CoE object dictionary sub-index of the PDO entry."
         }
-        data_type telem.DataType {
+        data_type  telem.DataType {
             @doc value "is the data type of the PDO entry."
             @ts type   "string"
+        }
+        calibrated bool = false {
+            @doc value """
+                is true when the Driver turns the raw counts of the entry into physical
+                values, with the gain and offset that the slave stores for the entry.
+            """
+        }
+        scale      task.Scale = none {
+            @doc value """
+                is the scale applied to raw samples after acquisition. A scaled channel
+                writes to a float Synnax channel.
+            """
         }
 
         @doc value "addresses a PDO entry by its CoE index and sub-index."
@@ -84,10 +100,14 @@ BaseWriteChannel struct {
         @doc value "is true when the channel is excluded from the task."
     }
     cmd_channel        channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     state_channel      channel.Key = 0 {
-        @doc value "is the Synnax channel the output state is written to."
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     cmd_channel_name   string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -96,7 +116,9 @@ BaseWriteChannel struct {
         @doc value "is the human-readable name of the state channel."
     }
     device             device.Key = "" {
-        @doc value "is the key of the slave device the channel writes to."
+        @doc value     "is the key of the slave device the channel writes to."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "carries the fields every EtherCAT write channel shares."
@@ -105,15 +127,21 @@ BaseWriteChannel struct {
 
 WriteChannel union on type extends BaseWriteChannel {
     entry {
-        index     uint16         {
+        index      uint16         {
             @doc value "is the CoE object dictionary index of the PDO entry."
         }
-        sub_index uint8          {
+        sub_index  uint8          {
             @doc value "is the CoE object dictionary sub-index of the PDO entry."
         }
-        data_type telem.DataType {
+        data_type  telem.DataType {
             @doc value "is the data type of the PDO entry."
             @ts type   "string"
+        }
+        stop_value float64 = 0 {
+            @doc value """
+                is the value the entry takes when the task stops. The bus sends it
+                before the slaves leave OP.
+            """
         }
 
         @doc value "addresses a PDO entry by its CoE index and sub-index."
@@ -137,39 +165,50 @@ WriteChannel union on type extends BaseWriteChannel {
 }
 
 ReadConfig struct extends task.ReadConfig {
-    channels ReadChannel[] {
+    channels           ReadChannel[]            {
         @doc value "are the channels the task acquires."
     }
+    startup_parameters SlaveStartupParameters[] = [] {
+        @doc value "are the startup parameters the task writes to its slaves."
+    }
 
-    @doc value  """
+    @doc value           """
         configures an EtherCAT read task. Each channel addresses a PDO entry on its own
         slave; all slaves must share one network interface.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 WriteConfig struct extends task.PersistConfig {
     state_rate     telem.Rate = 25 {
-        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
-        @ts type   "number"
+        @doc value   """
+            is the rate at which output state is reported to Synnax, in Hertz.
+        """
+        @ts type     "number"
+        @validate gt 0
     }
     execution_rate telem.Rate = 1000 {
-        @doc value "is the rate at which commands are applied to the bus, in Hertz."
-        @ts type   "number"
+        @doc value   "is the rate at which commands are applied to the bus, in Hertz."
+        @ts type     "number"
+        @validate gt 0
     }
     channels       WriteChannel[] {
         @doc value "are the channels the task drives."
     }
 
-    @doc value  """
+    @doc value           """
         configures an EtherCAT write task. Each channel addresses a PDO entry on its own
         slave; all slaves must share one network interface.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -177,4 +216,44 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
+}
+
+StartupParameter struct {
+    index     uint16         {
+        @doc value "is the CoE object dictionary index of the object."
+    }
+    sub_index uint8          {
+        @doc value "is the CoE object dictionary sub-index of the object."
+    }
+    data_type telem.DataType {
+        @doc value "is the data type of the object, which sets the size of the write."
+        @ts type   "string"
+    }
+    value     float64        {
+        @doc value "is the value written to the object."
+    }
+    name      string = "" {
+        @doc value "is what the parameter sets, for display."
+    }
+
+    @doc value  """
+        is a CoE object that the Driver writes to a slave in PRE-OP, before the slave
+        moves to SAFE-OP.
+    """
+    @go marshal
+}
+
+SlaveStartupParameters struct {
+    device     device.Key = "" {
+        @doc value     "is the key of the slave device the parameters are written to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    parameters StartupParameter[] = [] {
+        @doc value "are the parameters written to the slave, in order."
+    }
+
+    @doc value  "holds the startup parameters that a read task writes to one slave."
+    @go marshal
 }

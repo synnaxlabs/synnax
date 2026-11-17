@@ -26,13 +26,14 @@ type Host struct{}
 // NewHost constructs a variable Host.
 func NewHost() *Host { return &Host{} }
 
-// Create dispatches on shape: a value-carrying first input makes a register;
-// an edge-fed one an exprRead deref.
+// Create dispatches on shape: a `variable` whose first input has no value makes an
+// exprRead deref. Any other shape makes a register.
 func (*Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName && cfg.Node.Type != statefulSymbolName {
 		return nil, query.ErrNotFound
 	}
-	if len(cfg.Node.Inputs) > 0 && cfg.Node.Inputs[0].Value == nil {
+	if cfg.Node.Type == symbolName && len(cfg.Node.Inputs) > 0 &&
+		cfg.Node.Inputs[0].Value == nil {
 		selIdx := -1
 		if idx, err := cfg.State.ResolveInput("sel"); err == nil {
 			selIdx = idx
@@ -47,12 +48,13 @@ func (*Host) Create(cfg node.Config) (node.Node, error) {
 
 // stampNow overwrites ts with a single sample of now, reusing its buffer.
 func stampNow(ts *telem.Series, now telem.TimeStamp) {
-	ts.Resize(1)
+	*ts = ts.Resized(1)
 	ts.SetValueAt(0, now)
 }
 
 // register holds what its variable is mapped to: a value, a channel key, or a
-// derivation index. Writes are last-wins; the unedged f0 holds the initial value.
+// derivation index. Writes are last-wins. f0 holds the initial value, edge-fed for a
+// computed `$=`.
 type register struct {
 	*node.State
 	stateful bool
@@ -67,7 +69,8 @@ func (v *register) Reset(ctx node.Context) {
 		return
 	}
 	v.AbsorbInputs()
-	v.Output(0).CopyFrom(v.Input(0))
+	out := v.Output(0)
+	*out = out.CopiedFrom(v.Input(0))
 	stampNow(v.OutputTime(0), ctx.Now)
 	v.MarkFresh(0)
 }
@@ -79,7 +82,8 @@ func (v *register) Next(ctx node.Context) {
 	}
 	// Feeders reuse their output buffers in place; the register value must not alias
 	// them.
-	v.Output(0).CopyFrom(data)
+	out := v.Output(0)
+	*out = out.CopiedFrom(data)
 	stampNow(v.OutputTime(0), ctx.Now)
 	v.Emit(ctx, 0)
 }
@@ -109,7 +113,8 @@ func (v *exprRead) Next(ctx node.Context) {
 	if !ok || repointed {
 		return
 	}
-	v.Output(0).CopyFrom(data)
+	out := v.Output(0)
+	*out = out.CopiedFrom(data)
 	stampNow(v.OutputTime(0), ctx.Now)
 	v.Emit(ctx, 0)
 }

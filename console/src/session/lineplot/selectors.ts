@@ -110,7 +110,7 @@ export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   return () => {
     const panelKey = getSelectedPanel();
     if (panelKey == null) return undefined;
-    const cached = synnax?.panels.getCached(panelKey);
+    const cached = synnax?.panels.watch(panelKey).getCached();
     return focusedKey(query.isLive(cached) ? cached : undefined, getFocusedTabKey());
   };
 };

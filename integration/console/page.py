@@ -10,13 +10,17 @@
 import os
 from typing import Literal, Self
 
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
+    FloatRect,
+    Locator,
+    Page,
+    ViewportSize,
+)
 from pydantic import JsonValue
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.notifications import click_past
 from framework.utils import read_json_object, read_latest_value
 
 PageType = (
@@ -92,13 +96,10 @@ class ConsolePage:
         Use this factory method when a page has already been opened (e.g., via
         drag_page_to_mosaic or open_page) and you need to create a typed wrapper.
 
-        Args:
-            layout: LayoutClient instance
-            client: Synnax client instance
-            name: Name of the page
-
-        Returns:
-            Instance of the page class
+        :param layout: LayoutClient instance
+        :param client: Synnax client instance
+        :param name: Name of the page
+        :returns: Instance of the page class
         """
         pane = layout.page.locator(cls.pluto_label)
         pane.first.wait_for(state="visible", timeout=10000)
@@ -129,13 +130,12 @@ class ConsolePage:
         Think of this as "wrapping" or "binding" to an existing UI element, similar to
         how Playwright locators bind to DOM elements.
 
-        Args:
-            layout: LayoutClient for UI operations (includes notifications)
-            client: Synnax client instance
-            page_name: Name of the existing page to wrap
-            pane_locator: Playwright locator for the page's pane element.
-                This locator identifies which UI page this Python object represents.
-                Must be provided when creating the wrapper.
+        :param layout: LayoutClient for UI operations (includes notifications)
+        :param client: Synnax client instance
+        :param page_name: Name of the existing page to wrap
+        :param pane_locator: Playwright locator for the page's pane element. This
+            locator identifies which UI page this Python object represents. Must be
+            provided when creating the wrapper.
         """
         self.client = client
         self.page = layout.page
@@ -181,8 +181,7 @@ class ConsolePage:
     def rename(self, new_name: str) -> None:
         """Rename the page by double-clicking the tab name.
 
-        Args:
-            new_name: The new name for the page
+        :param new_name: The new name for the page
         """
         self.layout.rename_tab(old_name=self.page_name, new_name=new_name)
         self.page_name = new_name
@@ -315,8 +314,7 @@ class ConsolePage:
     def get_title(self) -> str:
         """Get the current page title from the Properties tab.
 
-        Returns:
-            The current page title
+        :returns: The current page title
         """
         self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
         return self.layout.get_input_field("Title")
@@ -324,16 +322,12 @@ class ConsolePage:
     def copy_link(self) -> str:
         """Copy link to the page via the toolbar link button.
 
-        Returns:
-            The copied link from clipboard (empty string if clipboard access fails).
+        :returns: The copied link from clipboard (empty string if clipboard access
+            fails).
         """
         self.layout.show_visualization_toolbar()
         link_button = self.page.get_by_role("button", name="Copy link", exact=True)
-        try:
-            self.notifications.close_all()
-            link_button.click(timeout=5000)
-        except (PlaywrightTimeoutError, PlaywrightError):
-            link_button.dispatch_event("click")
+        click_past(link_button)
         return self.layout.read_clipboard()
 
     def export_json(self) -> dict[str, JsonValue]:
@@ -341,8 +335,7 @@ class ConsolePage:
 
         The file is saved to the tests/results directory with the page name.
 
-        Returns:
-            The exported JSON content as a dictionary.
+        :returns: The exported JSON content as a dictionary.
         """
         self.layout.show_visualization_toolbar()
         export_button = self.page.get_by_role(
@@ -350,11 +343,7 @@ class ConsolePage:
         )
 
         with self.page.expect_download(timeout=5000) as download_info:
-            try:
-                self.notifications.close_all()
-                export_button.click(timeout=5000)
-            except (PlaywrightTimeoutError, PlaywrightError):
-                export_button.dispatch_event("click")
+            click_past(export_button)
 
         download = download_info.value
         save_path = str(self.layout.results_dir / f"{self.page_name}.json")

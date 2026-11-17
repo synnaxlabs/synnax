@@ -12,7 +12,6 @@ package testutil
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -53,12 +52,6 @@ func (c InstrumentationConfig) Override(
 	return c
 }
 
-var defaultInstrumentationConfig = InstrumentationConfig{
-	Trace:  new(false),
-	Log:    new(false),
-	Report: new(false),
-}
-
 func serviceName() string { return lo.Must(os.Hostname()) }
 
 const devDSN = "http://synnax_dev@localhost:14317/2"
@@ -96,19 +89,24 @@ func newReports() *alamos.Reporter {
 // within a Ginkgo node (a spec, BeforeEach, BeforeAll, BeforeSuite, etc.).
 func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
 	ginkgo.GinkgoHelper()
-	cfg, err := config.New(defaultInstrumentationConfig, cfgs...)
+	cfg, err := config.New(InstrumentationConfig{
+		Trace:  new(false),
+		Log:    new(false),
+		Report: new(false),
+	}, cfgs...)
 	if err != nil {
 		zap.S().Fatal(err)
 	}
 	var options []alamos.Option
 	if *cfg.Trace {
 		options = append(options, alamos.WithTracer(newTracer(serviceName())))
-		// uptrace.Shutdown flushes buffered spans and metrics to the dev collector
-		// (devDSN) as it stops the SDK. That collector is not running during tests, so
-		// the flush fails with a connection error — but the SDK's background goroutines
-		// stop regardless, which is all this cleanup needs. Drop the upload error so a
-		// clean teardown does not fail the suite.
-		ginkgo.DeferCleanup(func(ctx context.Context) { _ = uptrace.Shutdown(ctx) })
+		// The dev collector does not run during tests, so the final flush fails. The
+		// SDK still stops, which is all this cleanup needs.
+		ginkgo.DeferCleanup(func(ctx context.Context) {
+			if err := uptrace.Shutdown(ctx); err != nil {
+				ginkgo.GinkgoWriter.Printf("failed to flush telemetry: %v\n", err)
+			}
+		})
 	}
 	if *cfg.Log {
 		options = append(options, alamos.WithLogger(newLogger()))
@@ -141,7 +139,7 @@ func PanicLogger() alamos.Instrumentation {
 	cfg.Level.SetLevel(zap.PanicLevel)
 	l := testutil.MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg}))
 	return alamos.New(
-		fmt.Sprintf("synnax-testing-%s", uuid.New().String()),
+		"synnax-testing-"+uuid.New().String(),
 		alamos.WithLogger(l),
 	)
 }

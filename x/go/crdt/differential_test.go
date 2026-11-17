@@ -103,7 +103,7 @@ var _ = Describe("Differential against the per-character reference", func() {
 			for i := range pairs {
 				pairs[i] = newPair(uint32(i + 1))
 			}
-			var log []recorded
+			log := make([]recorded, 0, replicas*rounds)
 			for round := range rounds {
 				var roundOps []recorded
 				for i, pr := range pairs {

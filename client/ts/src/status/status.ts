@@ -9,15 +9,17 @@
 
 import {
   errors,
-  id,
   narrow,
   type optional,
   primitive,
   record,
   TimeStamp,
+  uuid,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type label } from "@/label";
+import { type resource } from "@/resource";
 import { type Status, type Variant } from "@/status/types.gen";
 
 // Input type for creating statuses - uses conditional typing for optional details
@@ -28,13 +30,15 @@ type Base<V extends Variant> = {
   message: string;
   description?: string;
   time: TimeStamp;
+  labels: label.Key[];
+  owner?: resource.ID;
 };
 
-/** A status before it is stamped with a key, a time, and a name. */
+/** A status before it is stamped with a key, a time, a name, and labels. */
 export type Crude<
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
-> = optional.Optional<Base<V>, "key" | "time" | "name"> &
+> = optional.Optional<Base<V>, "key" | "time" | "name" | "labels"> &
   ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
 /**
@@ -244,7 +248,7 @@ export const toError = (s: Status): Error & Custom => {
   return err;
 };
 
-/** Stamps a {@link Crude} status with a fresh key and the current time. */
+/** Stamps a {@link Crude} status with a fresh key, the current time, and no labels. */
 export const create = <
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
@@ -252,9 +256,10 @@ export const create = <
   spec: Crude<DetailsSchema, V>,
 ): Status<DetailsSchema, z.ZodType<V>> =>
   ({
-    key: id.create(),
+    key: uuid.create(),
     time: TimeStamp.now(),
     name: "",
+    labels: [] as label.Key[],
     ...spec,
     description: spec.description ?? "",
   }) as Status<DetailsSchema, z.ZodType<V>>;

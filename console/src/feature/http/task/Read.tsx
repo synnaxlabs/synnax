@@ -33,6 +33,7 @@ import {
   type ReadSchemas,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
+import { Device } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -324,19 +325,23 @@ const createEndpoints = async (): Promise<ReadEndpoint[]> => [
 
 const createField = (): Omit<ReadField, "key"> => http.readFieldZ.parse({});
 
-const endpointLabel = Component.renderProp(
-  ({ path }: Task.Views.GroupProps<ReadEndpoint>) => <EndpointLabel path={path} />,
+const GroupLabel = ({ path }: Task.Views.GroupProps<ReadEndpoint>) => (
+  <EndpointLabel path={path} />
 );
 
-const endpointDetails = Component.renderProp(
-  ({ path }: Task.Views.GroupProps<ReadEndpoint>) => <EndpointDetails path={path} />,
+const endpointLabel = Component.renderProp(GroupLabel);
+
+const GroupDetails = ({ path }: Task.Views.GroupProps<ReadEndpoint>) => (
+  <EndpointDetails path={path} />
 );
 
-const fieldDetails = Component.renderProp(
-  ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => (
-    <FieldPane endpoint={root.config.endpoints[groupKey]} path={path} />
-  ),
+const endpointDetails = Component.renderProp(GroupDetails);
+
+const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => (
+  <FieldPane endpoint={root.config.endpoints[groupKey]} path={path} />
 );
+
+const fieldDetails = Component.renderProp(FieldDetails);
 
 const Form: FC = () => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
@@ -382,7 +387,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     schemas: SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
-  const saved = deep.copy(dev.properties);
+  const before = deep.copy(dev.properties);
   try {
     for (const ep of config.endpoints)
       await Task.configureReadChannels({
@@ -395,7 +400,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         indexed: (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
       });
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    await Device.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };

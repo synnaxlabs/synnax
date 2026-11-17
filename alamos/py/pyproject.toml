@@ -9,10 +9,10 @@
 
 [project]
 name = "alamos"
-version = "0.60.0"
+version = "0.0.0"
 readme = "README.md"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 dependencies = [
     "opentelemetry-api>=1.45.1,<2",
     "opentelemetry-sdk>=1.45.1,<2",
@@ -33,9 +33,11 @@ dev = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
 select = [
     "F",
     "I",
@@ -45,6 +47,7 @@ select = [
     "E7",
     "E9",
     "PLE",
+    "PLW1514",
     "UP",
     "SIM",
     "C4",
@@ -58,9 +61,10 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 
 [tool.ruff.lint.isort]
 known-first-party = ["alamos"]
+combine-as-imports = true
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true

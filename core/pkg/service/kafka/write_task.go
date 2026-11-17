@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
+	"time"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -28,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -87,10 +90,12 @@ func (r *recordSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 		return append(dst, r.wc.name...), nil
 	case slotTimestamp:
 		return xjson.AppendTimeStamp(dst, r.ts, s.format), nil
-	default:
+	case slotUUID:
 		dst = append(dst, '"')
 		dst, err := uuid.New().AppendText(dst)
 		return append(dst, '"'), err
+	default:
+		return nil, errors.Newf("unknown slot kind %d", s.kind)
 	}
 }
 
@@ -116,6 +121,9 @@ type writeTask struct {
 	closer io.Closer
 	// sCtx is the streamer's context. A streamer that fails cancels it.
 	sCtx signal.Context
+	// promises counts produced records whose promise has not returned. The client
+	// calls promises from its own goroutines, even after it closes.
+	promises sync.WaitGroup
 	// mu guards lastErr, which produce callbacks update from client goroutines.
 	mu sync.Mutex
 	// lastErr is the last produce error reported, so a repeat is not rewritten.
@@ -132,34 +140,25 @@ func (f *factory) configureWrite(
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
-	cfg.ApplyDefaults()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	if cfg.Topic == "" {
 		return nil, errors.Wrap(validate.ErrValidation, "topic: must not be empty")
 	}
-	if _, err := resolveProperties(ctx, f.cfg.Device, cfg.Device); err != nil {
+	if _, err := resolveProperties(
+		ctx,
+		f.cfg.DB,
+		f.cfg.Device,
+		cfg.Device,
+	); err != nil {
 		return nil, err
 	}
-	var keys channel.Keys
-	for _, wc := range cfg.Channels {
-		if wc.Disabled {
-			continue
-		}
-		if wc.Channel == 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "channel %q: channel must be set", wc.Key,
-			)
-		}
-		keys = append(keys, wc.Channel)
+	keys, err := enabledWriteKeys(cfg.Channels)
+	if err != nil {
+		return nil, err
 	}
-	if len(keys) == 0 {
-		return nil, errors.Wrap(
-			validate.ErrValidation, "channels: at least one must be enabled",
-		)
-	}
-	channels, err := retrieveChannels(ctx, f.cfg.Channel, keys)
+	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -180,39 +179,81 @@ func (f *factory) configureWrite(
 		template:   tmpl,
 		slots:      recordSlots{slots: slots},
 	}
-	streamed := make(set.Set[channel.Key], len(keys))
-	for _, wc := range cfg.Channels {
+	if err = wt.addChannels(channels); err != nil {
+		return nil, err
+	}
+	return wt, nil
+}
+
+// addChannels adds the enabled channels of the task to t and streams each of them and
+// its index. channels holds the channel of each enabled one.
+func (t *writeTask) addChannels(channels map[channel.Key]channel.Channel) error {
+	streamed := make(set.Set[channel.Key], len(channels))
+	for _, wc := range t.cfg.Channels {
 		if wc.Disabled {
 			continue
 		}
 		ch := channels[wc.Channel]
-		if ch.DataType == telem.TimestampT {
-			if wc.TimeFormat == nil {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"channel %q: time_format is required for timestamp channel %s",
-					wc.Key, ch.Name,
-				)
-			}
-			if wc.JSONType != http.JSONTypeNumber || len(wc.EnumValues) > 0 {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"channel %q: time_format alone encodes timestamp channel %s",
-					wc.Key, ch.Name,
-				)
-			}
+		if err := validateTimestampChannel(wc, ch); err != nil {
+			return err
 		}
-		if wt.channels[wc.Channel], err = newWriteChannel(cfg, wc, ch); err != nil {
-			return nil, err
+		var err error
+		if t.channels[wc.Channel], err = newWriteChannel(t.cfg, wc, ch); err != nil {
+			return err
 		}
 		for _, k := range []channel.Key{ch.Key(), ch.Index()} {
 			if k != 0 && !streamed.Contains(k) {
 				streamed.Add(k)
-				wt.keys = append(wt.keys, k)
+				t.keys = append(t.keys, k)
 			}
 		}
 	}
-	return wt, nil
+	return nil
+}
+
+// enabledWriteKeys returns the channels of the enabled write channels.
+func enabledWriteKeys(channels []WriteChannel) (channel.Keys, error) {
+	var keys channel.Keys
+	for _, wc := range channels {
+		if wc.Disabled {
+			continue
+		}
+		if wc.Channel == 0 {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "channel %q: channel must be set", wc.Key,
+			)
+		}
+		keys = append(keys, wc.Channel)
+	}
+	if len(keys) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "channels: at least one must be enabled",
+		)
+	}
+	return keys, nil
+}
+
+// validateTimestampChannel checks that wc encodes ch with a time format alone when ch
+// is a timestamp channel.
+func validateTimestampChannel(wc WriteChannel, ch channel.Channel) error {
+	if ch.DataType != telem.TimestampT {
+		return nil
+	}
+	if wc.TimeFormat == nil {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"channel %q: time_format is required for timestamp channel %s",
+			wc.Key, ch.Name,
+		)
+	}
+	if wc.JSONType != payload.JSONTypeNumber || len(wc.EnumValues) > 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"channel %q: time_format alone encodes timestamp channel %s",
+			wc.Key, ch.Name,
+		)
+	}
+	return nil
 }
 
 func newWriteChannel(
@@ -227,6 +268,12 @@ func newWriteChannel(
 	f := xjson.Field{DataType: ch.DataType, Enums: enums(wc.EnumValues)}
 	if f.Type, err = xjson.ParseType(string(wc.JSONType)); err != nil {
 		return nil, errors.Wrapf(err, "channel %q", wc.Key)
+	}
+	if len(f.Enums) > 0 && f.Type != xjson.String {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"channel %q: enum values require the string JSON type", wc.Key,
+		)
 	}
 	if wc.TimeFormat != nil {
 		if f.TimeFormat, err = xjson.ParseTimeFormat(
@@ -294,40 +341,47 @@ func templateFields(rec Record) ([]xjson.TemplateField, []slot, error) {
 		}
 	}
 	for _, field := range rec.Fields {
-		var (
-			base    http.BaseWriteField
-			literal []byte
-			s       slot
-			err     error
-		)
-		switch v := field.Variant.(type) {
-		case http.StaticWriteField:
-			base = v.BaseWriteField
-			literal, err = xjson.Marshal(v.Value)
-		case http.GeneratedWriteField:
-			base = v.BaseWriteField
-			s, err = generatorSlot(v)
-		default:
-			return nil, nil, errors.Newf("unknown write field variant %T", v)
-		}
-		label := fmt.Sprintf("field %q", base.Key)
+		base, literal, s, err := fieldSlot(field)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, label)
+			return nil, nil, err
 		}
-		if err = add(label, base.Pointer, literal, s); err != nil {
+		if err = add(
+			fmt.Sprintf("field %q", base.Key), base.Pointer, literal, s,
+		); err != nil {
 			return nil, nil, err
 		}
 	}
 	return fields, slots, nil
 }
 
+// fieldSlot returns the base of field and either its literal value or the slot that
+// fills it.
+func fieldSlot(
+	field http.WriteField,
+) (base http.BaseWriteField, literal []byte, s slot, err error) {
+	switch v := field.Variant.(type) {
+	case http.StaticWriteField:
+		if literal, err = xjson.Marshal(v.Value); err != nil {
+			return base, nil, s, errors.Wrapf(err, "field %q", v.Key)
+		}
+		return v.BaseWriteField, literal, s, nil
+	case http.GeneratedWriteField:
+		if s, err = generatorSlot(v); err != nil {
+			return base, nil, s, errors.Wrapf(err, "field %q", v.Key)
+		}
+		return v.BaseWriteField, nil, s, nil
+	default:
+		return base, nil, s, errors.Newf("unknown write field variant %T", v)
+	}
+}
+
 // generatorSlot returns the slot that fills a generated field.
 func generatorSlot(field http.GeneratedWriteField) (slot, error) {
 	switch field.Generator {
-	case http.GeneratorTypeUUID:
+	case payload.GeneratorTypeUUID:
 		return slot{kind: slotUUID}, nil
-	case http.GeneratorTypeTimestamp:
-		s := slot{kind: slotTimestamp, format: xjson.UnixNanosecond}
+	case payload.GeneratorTypeTimestamp:
+		s := slot{kind: slotTimestamp, format: xjson.ISO8601}
 		if field.TimeFormat != nil {
 			var err error
 			if s.format, err = xjson.ParseTimeFormat(
@@ -344,22 +398,34 @@ func generatorSlot(field http.GeneratedWriteField) (slot, error) {
 	}
 }
 
-// Exec implements driver.Task. Every command it handles ends in a status carrying the
-// command key, so a caller waiting on the command always resolves.
+// Exec implements driver.Task. Start and stop answer the command with a status,
+// failures included, so Exec returns an error only when that status was not written.
 func (t *writeTask) Exec(ctx context.Context, cmd task.Command) error {
+	var err, answerErr error
 	switch cmd.Type {
 	case "start":
-		return t.start(ctx, cmd.Key)
+		err, answerErr = t.start(ctx, cmd.Key)
 	case "stop":
-		return t.stop(ctx, cmd.Key, true)
+		err, answerErr = t.stop(ctx, cmd.Key, true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
+	if answerErr != nil {
+		return errors.Combine(err, answerErr)
+	}
+	if err != nil {
+		t.factoryCfg.L.Error("failed to execute command",
+			zap.Stringer("task", t.task.Key),
+			zap.Stringer("command", cmd),
+			zap.Error(err),
+		)
+	}
+	return nil
 }
 
 // Stop implements driver.Task.
 func (t *writeTask) Stop(sendStatus bool) error {
-	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
+	return errors.Combine(t.stop(context.TODO(), driver.NoCommand, sendStatus))
 }
 
 // isRunning reports whether the streamer is up. A streamer that failed on its own
@@ -373,10 +439,11 @@ func (t *writeTask) release() error {
 	return err
 }
 
-func (t *writeTask) start(ctx context.Context, cmdKey string) error {
+// start returns the error that kept the producer from starting, and the error of the
+// status write that answers cmdKey.
+func (t *writeTask) start(ctx context.Context, cmdKey string) (err, answerErr error) {
 	if t.isRunning() {
-		t.ackCurrent(ctx, cmdKey, true)
-		return nil
+		return nil, t.status.Ack(ctx, cmdKey, true)
 	}
 	if t.closer != nil {
 		if err := t.release(); err != nil {
@@ -386,8 +453,8 @@ func (t *writeTask) start(ctx context.Context, cmdKey string) error {
 			)
 		}
 	}
-	if err := t.open(ctx); err != nil {
-		t.setStatus(
+	if err = t.open(ctx); err != nil {
+		return err, t.status.Send(
 			ctx,
 			cmdKey,
 			status.VariantError,
@@ -395,49 +462,47 @@ func (t *writeTask) start(ctx context.Context, cmdKey string) error {
 			"Failed to start task",
 			err.Error(),
 		)
-		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
-	return nil
+	if answerErr = t.status.Send(
+		ctx, cmdKey, status.VariantSuccess, true, "Started task", "",
+	); answerErr != nil {
+		// The caller sees the start fail, so the producer must not outlive it.
+		return t.release(), answerErr
+	}
+	return nil, nil
 }
 
-func (t *writeTask) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
+// stop returns the error that ended the producer, and the error of the status write
+// that answers cmdKey.
+func (t *writeTask) stop(
+	ctx context.Context,
+	cmdKey string,
+	sendStatus bool,
+) (err, answerErr error) {
 	if t.closer == nil {
 		if sendStatus {
-			t.ackCurrent(ctx, cmdKey, false)
+			return nil, t.status.Ack(ctx, cmdKey, false)
 		}
-		return nil
+		return nil, nil
 	}
-	err := t.release()
+	err = t.release()
 	if !sendStatus {
-		return err
+		return err, nil
 	}
 	if err != nil {
-		t.setStatus(
-			ctx,
-			cmdKey,
-			status.VariantError,
-			false,
-			"Failed to stop task",
-			err.Error(),
+		return err, t.status.Send(
+			ctx, cmdKey, status.VariantError, false, "Failed to stop task", err.Error(),
 		)
-		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
-	return nil
+	return nil, t.status.Send(
+		ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "",
+	)
 }
 
 // open connects the producer and streams the channels into it. It writes no
 // statuses: start owns them.
 func (t *writeTask) open(ctx context.Context) (err error) {
-	props, err := resolveProperties(ctx, t.factoryCfg.Device, t.cfg.Device)
-	if err != nil {
-		return err
-	}
-	cl, err := openClient(props,
-		kgo.DefaultProduceTopic(t.cfg.Topic),
-		kgo.AllowAutoTopicCreation(),
-	)
+	cl, err := t.openProducer(ctx)
 	if err != nil {
 		return err
 	}
@@ -473,42 +538,109 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	// Start succeeds only once the relay streams the channels, so no early sample is
-	// missed.
+	if err = awaitStreamerOpen(ctx, responses.Outlet(), cancel, shutdown); err != nil {
+		return err
+	}
+	t.client = cl
+	t.sCtx = sCtx
+	t.lastErr = ""
+	t.closer = xio.MultiCloser{
+		xio.CloserFunc(t.closeClient),
+		xio.CloserFunc(func() error { return t.drain(shutdown, cancel) }),
+	}
+	sCtx.Go(func(ctx context.Context) error {
+		t.produceAll(ctx, responses.Outlet())
+		return nil
+	}, signal.RecoverWithErrOnPanic())
+	return nil
+}
+
+// openProducer returns a client that produces to the topic of the task.
+func (t *writeTask) openProducer(ctx context.Context) (*kgo.Client, error) {
+	props, err := resolveProperties(
+		ctx,
+		t.factoryCfg.DB,
+		t.factoryCfg.Device,
+		t.cfg.Device,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return openClient(props,
+		kgo.DefaultProduceTopic(t.cfg.Topic),
+		kgo.AllowAutoTopicCreation(),
+	)
+}
+
+// awaitStreamerOpen waits for the open acknowledgement of a streamer, so that start
+// succeeds only once the relay streams the channels and no early sample is missed. On
+// failure, it cancels the streamer and closes shutdown.
+func awaitStreamerOpen(
+	ctx context.Context,
+	responses <-chan framer.StreamerResponse,
+	cancel context.CancelFunc,
+	shutdown io.Closer,
+) error {
 	select {
 	case <-ctx.Done():
 		// Nothing drains the responses yet, so the streamer only exits on cancel.
 		cancel()
 		return errors.Join(ctx.Err(), shutdown.Close())
-	case _, ok := <-responses.Outlet():
+	case _, ok := <-responses:
 		if !ok {
 			return errors.Join(
 				errors.New("streamer closed before opening"),
 				shutdown.Close(),
 			)
 		}
-	}
-	t.client = cl
-	t.sCtx = sCtx
-	t.lastErr = ""
-	t.closer = append(xio.MultiCloser{xio.CloserFunc(t.closeClient)}, shutdown...)
-	sCtx.Go(func(ctx context.Context) error {
-		// The client has finished with a record by the time it calls the promise.
-		promise := func(rec *kgo.Record, err error) {
-			if err != nil {
-				t.reportError(ctx, "Produce failed: "+err.Error())
-			}
-			t.records.Put(rec)
-		}
-		for res := range responses.Outlet() {
-			t.produce(ctx, res.Frame, promise)
-		}
 		return nil
-	}, signal.RecoverWithErrOnPanic())
-	return nil
+	}
 }
 
-// closeClient flushes the buffered records and closes the producer.
+// drain closes shutdown, which waits for the producer to finish, and cancels the
+// producer when it takes longer than the ping timeout.
+func (t *writeTask) drain(shutdown io.Closer, cancel context.CancelFunc) error {
+	// Produce blocks on a full buffer until its context ends, so a lost cluster would
+	// hold the graceful wait forever. The first of the drain and the deadline to
+	// settle decides the outcome.
+	timeout := t.factoryCfg.PingTimeout.Duration()
+	var settled atomic.Bool
+	deadline := time.AfterFunc(timeout, func() {
+		if settled.CompareAndSwap(false, true) {
+			cancel()
+		}
+	})
+	err := shutdown.Close()
+	deadline.Stop()
+	if settled.CompareAndSwap(false, true) {
+		return err
+	}
+	return errors.Join(
+		errors.Newf("timed out producing records after %s", timeout),
+		errors.Skip(err, context.Canceled),
+	)
+}
+
+// produceAll produces the frame of each response until responses closes.
+func (t *writeTask) produceAll(
+	ctx context.Context,
+	responses <-chan framer.StreamerResponse,
+) {
+	// The client has finished with a record by the time it calls the promise.
+	promise := func(rec *kgo.Record, err error) {
+		defer t.promises.Done()
+		if err != nil {
+			t.reportError(ctx, "Produce failed: "+err.Error())
+		}
+		t.records.Put(rec)
+	}
+	for res := range responses {
+		t.produce(ctx, res.Frame, promise)
+	}
+}
+
+// closeClient flushes the buffered records, closes the producer, and waits for every
+// promise to return.
 func (t *writeTask) closeClient() error {
 	ctx, cancel := context.WithTimeout(
 		context.Background(), t.factoryCfg.PingTimeout.Duration(),
@@ -516,6 +648,10 @@ func (t *writeTask) closeClient() error {
 	defer cancel()
 	err := t.client.Flush(ctx)
 	t.client.Close()
+	// Close fails the buffered records without waiting for their promises, and a
+	// promise that reports after the stop status would overwrite it. The closer runs
+	// this after the relay exits, so nothing adds to promises during the wait.
+	t.promises.Wait()
 	return err
 }
 
@@ -553,6 +689,7 @@ func (t *writeTask) produce(
 				t.reportError(ctx, "Record build failed: "+err.Error())
 				continue
 			}
+			t.promises.Add(1)
 			t.client.Produce(ctx, rec, promise)
 		}
 	}
@@ -604,18 +741,6 @@ func (t *writeTask) reportError(ctx context.Context, description string) {
 		"Failed to produce record",
 		description,
 	)
-}
-
-// ackCurrent answers cmdKey with the task's current status, for a command that needs
-// no work.
-func (t *writeTask) ackCurrent(ctx context.Context, cmdKey string, running bool) {
-	if err := t.status.Ack(ctx, cmdKey, running); err != nil {
-		t.factoryCfg.L.Error("failed to acknowledge command",
-			zap.Stringer("task", t.task.Key),
-			zap.String("cmd", cmdKey),
-			zap.Error(err),
-		)
-	}
 }
 
 func (t *writeTask) setStatus(

@@ -7,15 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
+#include <limits>
+#include <string>
+#include <variant>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/types/types.h"
 
 /// @brief it should correctly round-trip a simple Type through protobuf
 TEST(TypesTest, testTypeProtobufRoundTrip) {
     ASSERT_TRUE(true);
+}
+
+/// @brief it should read NaN and infinity text for float types only.
+TEST(ToSampleValue, NonFiniteFloatsFromText) {
+    using arc::types::to_sample_value;
+    arc::types::Type f32, f64, str;
+    f32.kind = arc::types::Kind::F32;
+    f64.kind = arc::types::Kind::F64;
+    str.kind = arc::types::Kind::String;
+    EXPECT_TRUE(std::isnan(std::get<float>(to_sample_value("NaN", f32).value())));
+    EXPECT_TRUE(std::isnan(std::get<double>(to_sample_value("NaN", f64).value())));
+    EXPECT_EQ(
+        std::get<float>(to_sample_value("Infinity", f32).value()),
+        std::numeric_limits<float>::infinity()
+    );
+    EXPECT_EQ(
+        std::get<double>(to_sample_value("-Infinity", f64).value()),
+        -std::numeric_limits<double>::infinity()
+    );
+    EXPECT_EQ(std::get<double>(to_sample_value(1.5, f64).value()), 1.5);
+    EXPECT_FALSE(to_sample_value("other", f64).has_value());
+    EXPECT_EQ(std::get<std::string>(to_sample_value("NaN", str).value()), "NaN");
 }
 
 TEST(ToSampleValue, I64FromNumber) {
@@ -134,4 +162,21 @@ TEST(TypesTest, BoolTelem) {
     arc::types::Type t;
     t.kind = arc::types::Kind::Bool;
     ASSERT_EQ(t.telem(), x::telem::BOOLEAN_T);
+}
+
+/// @brief it should round-trip Channels through JSON as objects with string keys.
+TEST(TypesTest, ChannelsJSONRoundTrip) {
+    arc::types::Channels original;
+    original.read[1] = "channel_a";
+    original.write[3] = "channel_c";
+    const auto j = original.to_json();
+    ASSERT_EQ(
+        j,
+        x::json::json::parse(R"({"read":{"1":"channel_a"},"write":{"3":"channel_c"}})")
+    );
+    x::json::Parser parser(j);
+    const auto parsed = arc::types::Channels::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(parsed.read.at(1), "channel_a");
+    ASSERT_EQ(parsed.write.at(3), "channel_c");
 }

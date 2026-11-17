@@ -155,7 +155,7 @@ describe("Primitive.SVG", () => {
       const { container } = render(
         <Primitive.SVG
           dimensions={{ width: 10, height: 10 }}
-          strokeColor={color.ZERO}
+          strokeColor={color.TRANSPARENT}
         />,
       );
       const svg = container.querySelector("svg") as SVGSVGElement;
@@ -169,11 +169,11 @@ describe("Primitive.SVG", () => {
       const { container } = render(
         <Primitive.SVG
           dimensions={{ width: 10, height: 10 }}
-          strokeColor={[255, 0, 0, 0.5]}
+          strokeColor={[255, 0, 0, 51]}
         />,
       );
       const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 0.5");
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 0.2");
     });
   });
 

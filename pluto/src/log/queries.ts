@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type log, type project } from "@synnaxlabs/client";
-import { compare, uuid, verbs } from "@synnaxlabs/x";
+import { compare, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Scope } from "@/log/scope";
@@ -25,8 +25,9 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
 >({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.logs.retrieve(query.key),
-  onChange: ({ client, query }, handler) => client.logs.onChange(query.key, handler),
-  getCached: ({ client, query }) => client.logs.getCached(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.logs.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.logs.watch(query.key).getCached(),
   awaitCreation: true,
 });
 
@@ -100,14 +101,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
 });
 
 export interface CreateParams extends log.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, log.Log>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.logs.create(data.project ?? uuid.ZERO, data, {
+    await client.logs.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });
@@ -117,9 +118,8 @@ export interface RenameParams extends Pick<log.Log, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await onOptimisticComplete(data);
     await client.logs.rename(key, name);
     return data;
   },

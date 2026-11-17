@@ -86,9 +86,6 @@ func MatchWhere(w Where) (Filter, error) {
 			}))
 		}
 	}
-	if l := w.For; l != nil {
-		fs = append(fs, MatchFor(*l))
-	}
 	return And(fs...), nil
 }
 

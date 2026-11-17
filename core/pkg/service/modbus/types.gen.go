@@ -40,6 +40,12 @@ const (
 	// InputRegisterReadChannelType reads a typed value from one or more input
 	// registers.
 	InputRegisterReadChannelType ReadChannelType = versions.InputRegisterReadChannelType
+	// HoldingRegisterStringReadChannelType reads a string from consecutive holding
+	// registers.
+	HoldingRegisterStringReadChannelType ReadChannelType = versions.HoldingRegisterStringReadChannelType
+	// InputRegisterStringReadChannelType reads a string from consecutive input
+	// registers.
+	InputRegisterStringReadChannelType ReadChannelType = versions.InputRegisterStringReadChannelType
 	// HoldingRegisterBitReadChannelType reads one bit of a holding register.
 	HoldingRegisterBitReadChannelType ReadChannelType = versions.HoldingRegisterBitReadChannelType
 	// InputRegisterBitReadChannelType reads one bit of an input register.
@@ -57,6 +63,12 @@ type HoldingRegisterReadChannel = versions.HoldingRegisterReadChannel
 
 // InputRegisterReadChannel reads a typed value from one or more input registers.
 type InputRegisterReadChannel = versions.InputRegisterReadChannel
+
+// HoldingRegisterStringReadChannel reads a string from consecutive holding registers.
+type HoldingRegisterStringReadChannel = versions.HoldingRegisterStringReadChannel
+
+// InputRegisterStringReadChannel reads a string from consecutive input registers.
+type InputRegisterStringReadChannel = versions.InputRegisterStringReadChannel
 
 // HoldingRegisterBitReadChannel reads one bit of a holding register.
 type HoldingRegisterBitReadChannel = versions.HoldingRegisterBitReadChannel
@@ -107,3 +119,6 @@ type ScanConfig = versions.ScanConfig
 
 // RegisterBit addresses one bit of a 16-bit register.
 type RegisterBit = versions.RegisterBit
+
+// RegisterString interprets consecutive 16-bit registers as a fixed-length string.
+type RegisterString = versions.RegisterString

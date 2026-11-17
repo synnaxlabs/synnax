@@ -126,4 +126,11 @@ public:
         std::optional<std::vector<T>>(std::vector<T>{T(std::forward<V>(value))}) {}
 };
 // NOLINTEND(misc-explicit-constructor)
+
+/// @brief One is the type of one.
+struct One {};
+
+/// @brief one goes before the options of a retrieve to return one record instead of a
+/// list. The retrieve fails when no record or more than one record matches.
+inline constexpr One one{};
 }

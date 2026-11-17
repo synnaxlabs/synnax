@@ -29,7 +29,17 @@ void write(const std::filesystem::path &path, const std::string &data) {
 
 class CertificateTest : public ::testing::Test {
 protected:
+    /// @brief an identity that the tests share, since making a key takes seconds.
+    static inline Identity identity;
+    /// @brief an identity with the same name as identity and a different key.
+    static inline Identity other;
+
     std::filesystem::path dir;
+
+    static void SetUpTestSuite() {
+        identity = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
+        other = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
+    }
 
     void SetUp() override {
         this->dir = std::filesystem::temp_directory_path() /
@@ -61,20 +71,18 @@ TEST_F(CertificateTest, CreateSetsIdentityFields) {
 
 /// @brief it should give the same certificate after a PEM round trip.
 TEST_F(CertificateTest, PemRoundTrip) {
-    const auto id = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
-    const auto pem = id.certificate.pem();
+    const auto pem = identity.certificate.pem();
     ASSERT_TRUE(Certificate::is_pem(pem));
     const auto parsed = ASSERT_NIL_P(Certificate::parse(pem));
-    ASSERT_EQ(parsed, id.certificate);
-    const auto from_der = ASSERT_NIL_P(Certificate::parse(id.certificate.der()));
-    ASSERT_EQ(from_der, id.certificate);
-    ASSERT_FALSE(Certificate::is_pem(id.certificate.der()));
+    ASSERT_EQ(parsed, identity.certificate);
+    const auto from_der = ASSERT_NIL_P(Certificate::parse(identity.certificate.der()));
+    ASSERT_EQ(from_der, identity.certificate);
+    ASSERT_FALSE(Certificate::is_pem(identity.certificate.der()));
 }
 
 /// @brief it should give a thumbprint of 40 uppercase hex characters.
 TEST_F(CertificateTest, ThumbprintFormat) {
-    const auto id = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
-    const auto thumbprint = id.certificate.thumbprint();
+    const auto thumbprint = identity.certificate.thumbprint();
     ASSERT_EQ(thumbprint.size(), 40);
     for (const char c: thumbprint)
         ASSERT_TRUE((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')) << thumbprint;
@@ -82,10 +90,8 @@ TEST_F(CertificateTest, ThumbprintFormat) {
 
 /// @brief it should give two certificates with the same name different thumbprints.
 TEST_F(CertificateTest, ThumbprintsDiffer) {
-    const auto a = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
-    const auto b = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
-    ASSERT_NE(a.certificate.thumbprint(), b.certificate.thumbprint());
-    ASSERT_FALSE(a.certificate == b.certificate);
+    ASSERT_NE(identity.certificate.thumbprint(), other.certificate.thumbprint());
+    ASSERT_FALSE(identity.certificate == other.certificate);
 }
 
 /// @brief it should reject data that holds no certificate.
@@ -104,8 +110,7 @@ TEST_F(CertificateTest, ParseRejectsGarbage) {
 
 /// @brief it should report the validity period.
 TEST_F(CertificateTest, ValidAt) {
-    const auto id = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
-    const auto &cert = id.certificate;
+    const auto &cert = identity.certificate;
     ASSERT_TRUE(cert.valid_at(x::telem::TimeStamp::now()));
     ASSERT_FALSE(cert.valid_at(cert.not_after() + x::telem::SECOND));
     ASSERT_FALSE(cert.valid_at(cert.not_before() - x::telem::SECOND));
@@ -113,35 +118,32 @@ TEST_F(CertificateTest, ValidAt) {
 
 /// @brief it should encode the public description as JSON.
 TEST_F(CertificateTest, InfoToJson) {
-    const auto id = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
-    const auto j = id.certificate.info().to_json();
-    ASSERT_EQ(j["pem"], id.certificate.pem());
-    ASSERT_EQ(j["thumbprint"], id.certificate.thumbprint());
+    const auto j = identity.certificate.info().to_json();
+    ASSERT_EQ(j["pem"], identity.certificate.pem());
+    ASSERT_EQ(j["thumbprint"], identity.certificate.thumbprint());
     ASSERT_EQ(j["subject"], "CN=Test Client");
-    ASSERT_EQ(j["not_after"], id.certificate.not_after().iso8601());
+    ASSERT_EQ(j["not_after"], identity.certificate.not_after().iso8601());
 }
 
 /// @brief it should load an identity from certificate and key files.
 TEST_F(CertificateTest, LoadFromFiles) {
-    const auto id = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
-    write(this->dir / "cert.pem", id.certificate.pem());
-    write(this->dir / "key.pem", id.private_key);
+    write(this->dir / "cert.pem", identity.certificate.pem());
+    write(this->dir / "key.pem", identity.private_key);
     const auto loaded = ASSERT_NIL_P(
         Identity::load(this->dir / "cert.pem", this->dir / "key.pem")
     );
-    ASSERT_EQ(loaded.certificate, id.certificate);
-    ASSERT_EQ(loaded.private_key, id.private_key);
+    ASSERT_EQ(loaded.certificate, identity.certificate);
+    ASSERT_EQ(loaded.private_key, identity.private_key);
 }
 
 /// @brief it should load a DER certificate file.
 TEST_F(CertificateTest, LoadDerCertificate) {
-    const auto id = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
-    write(this->dir / "cert.der", id.certificate.der());
-    write(this->dir / "key.pem", id.private_key);
+    write(this->dir / "cert.der", identity.certificate.der());
+    write(this->dir / "key.pem", identity.private_key);
     const auto loaded = ASSERT_NIL_P(
         Identity::load(this->dir / "cert.der", this->dir / "key.pem")
     );
-    ASSERT_EQ(loaded.certificate, id.certificate);
+    ASSERT_EQ(loaded.certificate, identity.certificate);
 }
 
 /// @brief it should reject a certificate file that does not exist.
@@ -154,8 +156,7 @@ TEST_F(CertificateTest, LoadMissingCertificate) {
 
 /// @brief it should reject a key file that does not exist.
 TEST_F(CertificateTest, LoadMissingKey) {
-    const auto id = ASSERT_NIL_P(create(URI, "Test Client", "", x::telem::DAY));
-    write(this->dir / "cert.pem", id.certificate.pem());
+    write(this->dir / "cert.pem", identity.certificate.pem());
     ASSERT_OCCURRED_AS_P(
         Identity::load(this->dir / "cert.pem", this->dir / "missing.pem"),
         errors::CLIENT_CERTIFICATE_INVALID
@@ -164,10 +165,8 @@ TEST_F(CertificateTest, LoadMissingKey) {
 
 /// @brief it should reject a key that does not match the certificate.
 TEST_F(CertificateTest, LoadMismatchedKey) {
-    const auto a = ASSERT_NIL_P(create(URI, "Client A", "", x::telem::DAY));
-    const auto b = ASSERT_NIL_P(create(URI, "Client B", "", x::telem::DAY));
-    write(this->dir / "cert.pem", a.certificate.pem());
-    write(this->dir / "key.pem", b.private_key);
+    write(this->dir / "cert.pem", identity.certificate.pem());
+    write(this->dir / "key.pem", other.private_key);
     const auto key = this->dir / "key.pem";
     const auto err = Identity::load(this->dir / "cert.pem", key).second;
     ASSERT_MATCHES(err, errors::CLIENT_CERTIFICATE_INVALID);

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax import task
+from synnax import secret, task
 from synnax.pagerduty.types_gen import Alert, TaskConfig
 
 
@@ -21,7 +21,8 @@ class AlertTask(
 
     :param internal: An existing task for deserialization.
     :param name: A human-readable name for the task.
-    :param routing_key: The 32-character PagerDuty Integration Key.
+    :param routing_key: The key of the secret that holds the 32-character PagerDuty
+        Integration Key.
     :param auto_start: Whether to start the task automatically when configured.
     :param alerts: The alerts the task evaluates.
     """
@@ -34,7 +35,7 @@ class AlertTask(
         internal: task.Task | None = None,
         *,
         name: str = "",
-        routing_key: str = "",
+        routing_key: secret.Key | None = None,
         auto_start: bool = False,
         alerts: list[Alert] | None = None,
     ) -> None:

@@ -1,0 +1,154 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+
+import { NEXT, ROOT, type Version } from "@/util/version";
+
+interface Props {
+    version: Version;
+}
+
+const { version } = Astro.props;
+const path = Astro.url.pathname;
+// Only the newest train's site is sure to be rebuilt when a newer train ships, so
+// every other site names the root as Latest, not by its train.
+const latest = version.status === "latest";
+const nameOf = (name: string, url: string): string => {
+    if (name === NEXT) return "Next";
+    if (url === ROOT && !latest) return "Latest";
+    return `v${name}`;
+};
+const current = version.release == null ? "Next" : `v${version.release}`;
+---
+
+<details class="version-menu">
+    <summary class="version-menu__trigger" aria-label="Docs version">
+        <span>{current}</span>
+        <Icon.Caret.Down className="version-menu__caret" />
+    </summary>
+    <ul class="version-menu__list">
+        {version.versions.map(({ name, url }) => (
+            <li>
+                <a
+                    href={url + path}
+                    data-origin={url}
+                    aria-current={name === version.name ? "true" : undefined}
+                >
+                    <span>{nameOf(name, url)}</span>
+                    {name === NEXT && <span class="version-menu__tag">Unreleased</span>}
+                    {url === ROOT && latest && (
+                        <span class="version-menu__tag">Latest</span>
+                    )}
+                </a>
+            </li>
+        ))}
+    </ul>
+</details>
+
+<script>
+    import { start } from "@/components/version/menu";
+
+    // The header persists across page loads, so each link follows the current page.
+    start(".version-menu");
+</script>
+
+<style>
+    .version-menu {
+        position: relative;
+
+        & > summary {
+            list-style: none;
+
+            &::-webkit-details-marker {
+                display: none;
+            }
+        }
+
+        & .version-menu__trigger {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            height: var(--pluto-height-medium);
+            padding: 0 1.5rem 0 2rem;
+            border: var(--pluto-border-width) solid var(--pluto-gray-l7);
+            border-radius: var(--pluto-border-radius);
+            background: var(--pluto-fill-rest);
+            color: var(--pluto-gray-l8);
+            font-size: var(--pluto-small-size);
+            cursor: pointer;
+            user-select: none;
+
+            &:hover {
+                border-color: var(--pluto-gray-l8);
+                background: var(--pluto-fill-hover);
+                color: var(--pluto-gray-l10);
+            }
+
+            &:focus-visible {
+                outline: 1px solid var(--pluto-primary-z);
+                outline-offset: var(--pluto-focus-ring-offset);
+            }
+
+            & :global(.version-menu__caret) {
+                width: 2rem;
+                height: 2rem;
+                color: var(--pluto-gray-l8);
+            }
+        }
+
+        & .version-menu__list {
+            position: absolute;
+            top: calc(100% + 0.75rem);
+            right: 0;
+            z-index: 10;
+            min-width: 24rem;
+            margin: 0;
+            padding: 0.75rem;
+            list-style: none;
+            border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+            border-radius: var(--pluto-border-radius-medium);
+            background: var(--pluto-gray-l1);
+            box-shadow: var(--pluto-shadow-overlay);
+
+            & li {
+                margin: 0;
+            }
+
+            & a {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 2rem;
+                padding: 1rem 1.5rem;
+                border-radius: var(--pluto-border-radius);
+                color: var(--pluto-gray-l9);
+                font-size: var(--pluto-small-size);
+                text-decoration: none;
+
+                &:hover {
+                    background: var(--pluto-gray-l3);
+                    color: var(--pluto-gray-l11);
+                }
+
+                &[aria-current] {
+                    color: var(--pluto-gray-l11);
+                    font-weight: 500;
+                }
+            }
+        }
+
+        & .version-menu__tag {
+            color: var(--pluto-gray-l7);
+            font-size: var(--pluto-tiny-size);
+            font-weight: 400;
+        }
+    }
+</style>

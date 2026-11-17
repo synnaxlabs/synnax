@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -22,70 +23,57 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type benchIterEnv struct {
-	ctx           context.Context
-	node          testutil.Node
-	closer        io.MultiCloser
-	channelSvc    *channel.Service
-	channelWriter channel.Writer
-	iteratorSvc   *iterator.Service
+	ctx         context.Context
+	node        testutil.Node
+	closer      io.MultiCloser
+	channelSvc  *channel.Service
+	iteratorSvc *iterator.Service
 }
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
+	b.Helper()
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 
-	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
-	if err != nil {
-		b.Fatalf("failed to open ontology: %v", err)
-	}
-
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
 	}
 
 	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
+		DB: node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
 	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		DB:      node.DB,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
+		DB:      node.DB,
 		Framer:  node.Framer,
 		Channel: channelSvc,
 	})
@@ -97,15 +85,15 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		ctx:  b.Context(),
 		node: node,
 		closer: io.MultiCloser{
-			node, otg, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
-		channelSvc:    channelSvc,
-		channelWriter: channelSvc.NewWriter(nil),
-		iteratorSvc:   iteratorSvc,
+		channelSvc:  channelSvc,
+		iteratorSvc: iteratorSvc,
 	}
 }
 
 func (e *benchIterEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
@@ -116,12 +104,15 @@ func (e *benchIterEnv) createChannels(
 	prefix string,
 	numDataChannels int,
 ) (*channel.Channel, []*channel.Channel) {
+	b.Helper()
 	indexCh := &channel.Channel{
 		Name:     prefix + "_time",
 		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
-	if err := e.channelWriter.Create(e.ctx, indexCh); err != nil {
+	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+		return e.channelSvc.NewWriter(tx).Create(e.ctx, indexCh)
+	}); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -131,7 +122,9 @@ func (e *benchIterEnv) createChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.channelWriter.Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+			return e.channelSvc.NewWriter(tx).Create(e.ctx, dataChannels[i])
+		}); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -144,6 +137,7 @@ func (e *benchIterEnv) writeData(
 	dataChannels []*channel.Channel,
 	samplesPerChannel int,
 ) {
+	b.Helper()
 	keys := make([]channel.Key, len(dataChannels)+1)
 	keys[0] = indexCh.Key()
 	for i, ch := range dataChannels {
@@ -184,12 +178,15 @@ func (e *benchIterEnv) createCalculation(
 	b *testing.B,
 	name, expression string,
 ) *channel.Channel {
+	b.Helper()
 	calc := &channel.Channel{
 		Name:       name,
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := e.channelWriter.Create(e.ctx, calc); err != nil {
+	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+		return e.channelSvc.NewWriter(tx).Create(e.ctx, calc)
+	}); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc
@@ -219,7 +216,7 @@ func BenchmarkIteratorCalc_SingleResponse(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	iter.SeekFirst()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		for iter.Next(iterator.AutoSpan) {
 			_ = iter.Value()
 		}
@@ -262,7 +259,7 @@ func BenchmarkIteratorCalc_ManyChannels(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			iter.SeekFirst()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				for iter.Next(iterator.AutoSpan) {
 					_ = iter.Value()
 				}
@@ -307,7 +304,7 @@ func BenchmarkIteratorCalc_LargeFrames(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			iter.SeekFirst()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				for iter.Next(iterator.AutoSpan) {
 					_ = iter.Value()
 				}
@@ -359,7 +356,7 @@ func BenchmarkIteratorCalc_CalculatorChain(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			iter.SeekFirst()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				for iter.Next(iterator.AutoSpan) {
 					_ = iter.Value()
 				}
@@ -373,6 +370,66 @@ func BenchmarkIteratorCalc_CalculatorChain(b *testing.B) {
 	}
 }
 
+// createDomainChannels creates an index channel and a float32 data channel on it, both
+// named with prefix, and returns their keys.
+func (e *benchIterEnv) createDomainChannels(b *testing.B, prefix string) []channel.Key {
+	b.Helper()
+	indexCh := &channel.Channel{
+		Name:     prefix + "_time",
+		DataType: telem.TimestampT,
+		IsIndex:  true,
+	}
+	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+		return e.channelSvc.NewWriter(tx).Create(e.ctx, indexCh)
+	}); err != nil {
+		b.Fatalf("failed to create index channel: %v", err)
+	}
+	dataCh := &channel.Channel{
+		Name:       prefix + "_sensor",
+		DataType:   telem.Float32T,
+		LocalIndex: indexCh.LocalKey,
+	}
+	if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
+		return e.channelSvc.NewWriter(tx).Create(e.ctx, dataCh)
+	}); err != nil {
+		b.Fatalf("failed to create data channel: %v", err)
+	}
+	return []channel.Key{indexCh.Key(), dataCh.Key()}
+}
+
+// writeDomains writes 50 samples to each of numDomains domains of keys, an index
+// channel and its data channel.
+func (e *benchIterEnv) writeDomains(b *testing.B, keys []channel.Key, numDomains int) {
+	b.Helper()
+	for d := range numDomains {
+		startTS := telem.TimeStamp(d*1000+1) * telem.SecondTS
+		w, err := e.node.Framer.OpenWriter(e.ctx, framer.WriterConfig{
+			Start:            startTS,
+			Keys:             keys,
+			EnableAutoCommit: new(true),
+		})
+		if err != nil {
+			b.Fatalf("failed to open writer: %v", err)
+		}
+		timestamps := make([]telem.TimeStamp, 50)
+		data := make([]float32, 50)
+		for i := range 50 {
+			timestamps[i] = telem.TimeStamp(d*1000+i+1) * telem.SecondTS
+			data[i] = float32(d*100 + i)
+		}
+		fr := frame.NewMulti(keys, []telem.Series{
+			telem.NewSeriesV(timestamps...),
+			telem.NewSeriesV(data...),
+		})
+		if _, err := w.Write(fr); err != nil {
+			b.Fatalf("failed to write: %v", err)
+		}
+		if err := w.Close(); err != nil {
+			b.Fatalf("failed to close writer: %v", err)
+		}
+	}
+}
+
 func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 	for _, numDomains := range []int{1, 3, 30} {
 		b.Run(fmt.Sprintf("domains=%d", numDomains), func(b *testing.B) {
@@ -380,51 +437,8 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			defer env.close(b)
 
 			prefix := fmt.Sprintf("domain%d", numDomains)
-			indexCh := &channel.Channel{
-				Name:     prefix + "_time",
-				DataType: telem.TimestampT,
-				IsIndex:  true,
-			}
-			if err := env.channelWriter.Create(env.ctx, indexCh); err != nil {
-				b.Fatalf("failed to create index channel: %v", err)
-			}
-			dataCh := &channel.Channel{
-				Name:       prefix + "_sensor",
-				DataType:   telem.Float32T,
-				LocalIndex: indexCh.LocalKey,
-			}
-			if err := env.channelWriter.Create(env.ctx, dataCh); err != nil {
-				b.Fatalf("failed to create data channel: %v", err)
-			}
-
-			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			for d := range numDomains {
-				startTS := telem.TimeStamp(d*1000+1) * telem.SecondTS
-				w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
-					Start:            startTS,
-					Keys:             keys,
-					EnableAutoCommit: new(true),
-				})
-				if err != nil {
-					b.Fatalf("failed to open writer: %v", err)
-				}
-				timestamps := make([]telem.TimeStamp, 50)
-				data := make([]float32, 50)
-				for i := range 50 {
-					timestamps[i] = telem.TimeStamp(d*1000+i+1) * telem.SecondTS
-					data[i] = float32(d*100 + i)
-				}
-				fr := frame.NewMulti(keys, []telem.Series{
-					telem.NewSeriesV(timestamps...),
-					telem.NewSeriesV(data...),
-				})
-				if _, err := w.Write(fr); err != nil {
-					b.Fatalf("failed to write: %v", err)
-				}
-				if err := w.Close(); err != nil {
-					b.Fatalf("failed to close writer: %v", err)
-				}
-			}
+			keys := env.createDomainChannels(b, prefix)
+			env.writeDomains(b, keys, numDomains)
 
 			calc := env.createCalculation(
 				b,
@@ -447,7 +461,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			iter.SeekFirst()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				for iter.Next(iterator.AutoSpan) {
 					_ = iter.Value()
 				}
@@ -492,7 +506,7 @@ func BenchmarkIteratorCalc_TwoInputAdd(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	iter.SeekFirst()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		for iter.Next(iterator.AutoSpan) {
 			_ = iter.Value()
 		}
@@ -538,7 +552,7 @@ func BenchmarkIteratorCalc_MixedConcreteAndCalc(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	iter.SeekFirst()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		for iter.Next(iterator.AutoSpan) {
 			_ = iter.Value()
 		}

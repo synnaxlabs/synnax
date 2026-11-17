@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
@@ -75,11 +76,12 @@ func (retrieveResponseTranslator) Forward(
 }
 
 // New binds the control retrieve server onto t and returns it for gRPC registration.
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	r := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &ControlRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.ControlRetrieve = r
 	return r

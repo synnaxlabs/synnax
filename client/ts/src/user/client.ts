@@ -8,13 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type observe } from "@synnaxlabs/x";
+import { array, filter, type observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type role } from "@/access/role";
+import { actions } from "@/actions";
+import { type batch } from "@/batch";
 import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
-import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { resource } from "@/resource";
+import { createOf, reduceAll } from "@/user/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  setUsername,
+} from "@/user/actions.gen";
 import { Current } from "@/user/current";
 import {
   type Key,
@@ -27,12 +39,22 @@ import {
   type User,
   userZ,
 } from "@/user/types.gen";
-import { type Lines, matches, retrieveInputZ, serverComputed } from "@/user/where.gen";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/user/where.gen";
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
-  retrieveRequestZ,
-  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
 ]);
 
 const keyRetrieveRequestZ = z
@@ -59,16 +81,16 @@ export type RetrieveParams =
 
 const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });
-const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
-const changeUsernameResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-const LINES: Lines = { usernames: null };
+// The username lives on the user's password, so only the Core can match it.
+const LINES: Lines = {
+  usernames: null,
+  roles: (u, roles) => roles.includes(u.role),
+};
 
-export const SET_CHANNEL_NAME = "sy_user_set";
+export const ACTION_CHANNEL_NAME = "sy_user_action_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
 type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
@@ -85,7 +107,7 @@ const singleIdentifier = (params: SingleParams): string =>
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
+  batch: batch.Client;
   connection: connection.Client;
   /** Carries the user after each login, and undefined when the credentials change. */
   identity: observe.Observable<User | undefined>;
@@ -101,30 +123,41 @@ export class Client extends query.Retriever<
 > {
   /** The signed-in user. */
   readonly current: Current;
+  /** The users that the client holds, by key. */
+  readonly store: query.Table<Key, User>;
+  private readonly dispatcher: actions.Controller<Key, User, Action>;
   private readonly cfg: ClientConfig;
-  private readonly store: query.Table<Key, User>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, User>({
       name: "users",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, userZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a user reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, User, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(cfg.unary, "/user/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     const single = cache.queries<SingleParams, User, Key, User>({
       name: "user",
       table: store,
-      fetch: async (params) => {
-        // A user written after since keeps that write, since the fetch predates it.
-        const since = store.stamp();
-        const users = await this.execRetrieve(params);
-        checkSingle(params, users);
-        store.ingest(users, { since });
-        return users.map((u) => u.key);
-      },
+      // A user written after since keeps that write, since the fetch predates it.
+      fetch: async (params) =>
+        await store.track(async (since) => {
+          const users = await this.execRetrieve(params);
+          checkSingle(params, users);
+          store.ingest(users, { since });
+          return users.map((u) => u.key);
+        }),
       compose: (records) => records[0],
       keyOf: (params) => ("key" in params ? params.key : null),
       single: true,
@@ -133,6 +166,7 @@ export class Client extends query.Retriever<
       name: "user",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (u, req) => matches(LINES, u, req.where),
@@ -142,6 +176,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
     this.current = new Current({
       users: this,
       table: store,
@@ -165,37 +200,50 @@ export class Client extends query.Retriever<
   }
 
   async changeUsername(key: Key, newUsername: string): Promise<void> {
-    await this.cfg.unary.send(
-      "/user/change-username",
-      { key, username: newUsername },
-      changeUsernameReqZ,
-      changeUsernameResZ,
+    await this.dispatch(key, setUsername({ username: newUsername }));
+  }
+
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Gives the role to the users with the given keys in one transaction.
+   * @throws {ValidationError} if a user is a root user or the role does not exist.
+   * @throws {NotFoundError} if a user does not exist.
+   * @throws {AccessDeniedError} if the caller cannot update the users, the role, or the
+   * roles the users hold now.
+   */
+  async setRole(keys: Key | Key[], role: role.Key): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const action = set({ path: ["role"], value: role });
+    // A batch prefixes its errors with the request index, so one user skips it.
+    if (keysArr.length === 1) return await this.dispatch(keysArr[0], action);
+    await this.cfg.batch.send(
+      keysArr.map((key) => ({
+        endpoint: "/user/dispatch",
+        payload: { key, actions: [action] },
+        apply: () => query.partialUpdate(this.store, key, { role }),
+      })),
     );
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    await query.optimistic({
-      rollbacks: [
-        query.partialUpdate(this.store, key, { name }),
-        this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-      ],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/user/rename",
-          { key, name },
-          renameReqZ,
-          renameResZ,
-        ),
-    });
+  /**
+   * Applies the actions to the cached user until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached user.
+   * @throws {Error} if the cached user cannot hold an action, before any send.
+   * @throws {ValidationError} if the user cannot hold an action.
+   * @throws {NotFoundError} if the user does not exist.
+   * @throws {AccessDeniedError} if the caller cannot update the user.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -230,5 +278,5 @@ const checkSingle = (params: SingleParams, users: User[]): void => {
     );
 };
 
-export const ontologyID = ontology.createIDFactory<Key>("user");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const resourceID = resource.createIDFactory<Key>("user");
+export const TYPE_RESOURCE_ID = resourceID("");

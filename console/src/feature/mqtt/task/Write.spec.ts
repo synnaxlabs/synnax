@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
+import { Device } from "@/platform/device";
 import {
   clickDeploy,
   createChannelReadOnlyClient,
@@ -41,7 +42,7 @@ const ZERO_DRAFT: task.New<MQTT.Task.WriteSchemas> = {
   config: MQTT.Task.WRITE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: MQTT.Task.WritePayload["config"]) =>
+const createDraft = async (client: Synnax, config: mqtt.WriteConfig) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, MQTT.Task.WRITE_SCHEMAS);
 
 const createWriteTarget = (
@@ -75,7 +76,7 @@ const retrieveTargets = async (key: task.Key) =>
 const createWriteConfig = (
   device: string,
   targets: MQTT.Task.WriteTarget[],
-): MQTT.Task.WritePayload["config"] => ({
+): mqtt.WriteConfig => ({
   ...MQTT.Task.WRITE_SCHEMAS.config.parse({}),
   device,
   targets,
@@ -514,9 +515,10 @@ describe("MQTT Write form", () => {
       let statuses: Status.NotificationSpec[] = [];
       await renderWrite([], { onStatuses: (s) => (statuses = s) });
       const dialog = await openAddTargets();
-      await dialog.findByText(/not found/i);
+      const missing = /Found no task where rack = \d+ and type = "mqtt_scan"/;
+      await dialog.findByText(missing);
       fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
-      await waitFor(() => expect(dialog.getAllByText(/not found/i)).toHaveLength(2));
+      await waitFor(() => expect(dialog.getAllByText(missing)).toHaveLength(2));
       expect(statuses).toHaveLength(0);
     });
 
@@ -669,11 +671,16 @@ describe("MQTT Write form", () => {
         dataType: "float64",
         virtual: true,
       });
-      dev.properties = {
+      const properties = {
         ...MQTT.Device.ZERO_PROPERTIES,
         write: { "spBv1.0/plant/line1//setpoint": storedCh.key },
       };
-      await client.devices.create(dev, MQTT.Device.SCHEMAS);
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
       const config = createWriteConfig(dev.key, [createTagTarget("s1", "setpoint")]);
       const draft = await createDraft(client, config);
       const { container } = await renderTaskFormTab(MQTT.Task.Write, {
@@ -746,11 +753,16 @@ describe("MQTT Write form", () => {
         dataType: "string",
         virtual: true,
       });
-      dev.properties = {
+      const properties = {
         ...MQTT.Device.ZERO_PROPERTIES,
         write: { "plant/stored": storedCh.key },
       };
-      await client.devices.create(dev, MQTT.Device.SCHEMAS);
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties },
+        MQTT.Device.ZERO_PROPERTIES,
+        MQTT.Device.SCHEMAS,
+      );
       const config = createWriteConfig(dev.key, [
         createWriteTarget("t1", "plant/cmd", { channel: configuredCh.key }),
         createWriteTarget("t2", "plant/stored"),

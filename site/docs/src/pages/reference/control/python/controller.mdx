@@ -16,8 +16,9 @@ export const components = mdxOverrides;
 writers share a channel, see [control authority](/reference/control/authority).
 
 A channel argument is a channel name or key. All exception classes are in the `synnax`
-module. A method that writes raises a `ValidationError` when `write` is empty. A method
-that reads raises a `ValidationError` when `read` is empty.
+module, and each one derives from `sy.Error`. Catch `sy.Error` to catch all of them. A
+method that writes raises a `ValidationError` when `write` is empty. A method that reads
+raises a `ValidationError` when `read` is empty.
 
 <Divider.Divider x />
 
@@ -26,7 +27,9 @@ that reads raises a `ValidationError` when `read` is empty.
 ### `acquire`
 
 ```python
-client.control.acquire(name, *, read, write, write_authorities=255) -> Controller
+client.control.acquire(
+    name, *, read, write, write_authorities=255
+) -> Controller
 ```
 
 <Field.List>

@@ -10,7 +10,7 @@
 from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_virtual_channel, hold
 from tests.arc.arc import ArcCase
 
 ARC_BANG_BANG_SOURCE = """
@@ -153,7 +153,7 @@ class BangBangAuthority(ArcCase):
         # Wait beyond the stop wait{250ms} to ensure yield is active, then assert
         # the valve has not returned to 1 (which would indicate spurious re-entry).
         self.log("Phase 3: Asserting no re-entry from stale start signal...")
-        sy.sleep(0.4)
+        hold(0.4, reason="nothing may change")
         self.wait_for_eq("press_vlv_state", 0, timeout=0)
         self.log("Sequence correctly remains in yield")
 

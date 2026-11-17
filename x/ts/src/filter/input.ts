@@ -11,11 +11,12 @@ import { z } from "zod";
 
 import { boolZ, containsZ, orderedZ, setZ, stringZ } from "@/filter/types.gen";
 
+// Value arms come first, so a value of the wrong type reports the type of the line.
 const shorthandZ = <O extends z.ZodType, T extends z.ZodType>(op: O, t: T) =>
   z.union([
-    op,
-    t.array().transform((values) => ({ in: values })),
     t.transform((value) => ({ eq: value })),
+    t.array().transform((values) => ({ in: values })),
+    op,
   ]);
 
 /** Reads a set line written as a value, a list of values, or a set operator. */
@@ -31,8 +32,8 @@ export const stringInputZ = shorthandZ(stringZ, z.string());
 
 /** Reads a bool line written as a value or a bool operator. */
 export const boolInputZ = z.union([
-  boolZ,
   z.boolean().transform((value) => ({ eq: value })),
+  boolZ,
 ]);
 
 /**
@@ -41,14 +42,31 @@ export const boolInputZ = z.union([
  */
 export const containsInputZ = <T extends z.ZodType>(t: T) =>
   z.union([
-    containsZ(t),
-    t.array().transform((values) => ({ any: values })),
     t.transform((value) => ({ any: [value] })),
+    t.array().transform((values) => ({ any: values })),
+    containsZ(t),
   ]);
 
 /** Reads a typed line that takes a list, written as a value or a list of values. */
 export const listInputZ = <T extends z.ZodType>(t: T) =>
   z.union([t.array(), t.transform((value) => [value])]);
+
+const holdsWhere = (value: unknown): boolean =>
+  typeof value === "object" && value !== null && "where" in value;
+
+/**
+ * Reads a request written with a where tree, or with filter fields beside its options.
+ * The presence of where picks the schema, so an error names the field at fault in the
+ * form that the caller wrote.
+ */
+export const requestInputZ = <RequestOut, RequestIn, FieldsOut, FieldsIn>(
+  request: z.ZodType<RequestOut, RequestIn>,
+  fields: z.ZodType<FieldsOut, FieldsIn>,
+) =>
+  z.union([
+    z.custom<FieldsIn>((value) => !holdsWhere(value), { abort: true }).pipe(fields),
+    z.custom<RequestIn>(holdsWhere, { abort: true }).pipe(request),
+  ]);
 
 /** Input is the partial record that a shape of line schemas reads. */
 export type Input<S extends Record<string, z.ZodType>> = {
@@ -62,16 +80,15 @@ export type Input<S extends Record<string, z.ZodType>> = {
 export const split = <T extends object, F extends keyof T>(
   input: T,
   fields: readonly F[],
-): Omit<T, F> & { where?: Pick<T, F> } => {
-  const rest: Partial<T> = { ...input };
-  const where: Partial<T> = {};
+  // Extract keeps the emitted declarations valid when T is generic: tsc cannot prove
+  // that the field names it writes for F are keys of a deferred T.
+): Omit<T, F> & { where?: Partial<Pick<T, Extract<F, keyof T>>> } => {
+  const rest = { ...input };
+  const where: Partial<Pick<T, F>> = {};
   for (const f of fields) {
     if (input[f] === undefined) continue;
     where[f] = input[f];
     delete rest[f];
   }
-  return {
-    ...(rest as Omit<T, F>),
-    where: Object.keys(where).length > 0 ? (where as Pick<T, F>) : undefined,
-  };
+  return { ...rest, where: Object.keys(where).length > 0 ? where : undefined };
 };

@@ -69,6 +69,7 @@
             .lyra-menu-item,
             .lyra-tabs__tab,
             .lyra-dialog__trigger,
+            .lyra-select-multiple-trigger-placeholder,
             .lyra-select-btns *
         )
     ) {
@@ -272,6 +273,35 @@
 
             --pluto-bg: var(--pluto-gray-l2);
             --pluto-border-color: var(--pluto-gray-l4);
+        }
+    }
+
+    /* A field that reads as its value: no box at rest, the outlined box on hover and
+       press. An open shadow button keeps its box, so its dialog points at it. A status
+       colors only the text. */
+    &.lyra-btn--shadow {
+        --pluto-bg: transparent;
+        --pluto-hover-bg: var(--pluto-fill-hover);
+        --pluto-active-bg: var(--pluto-fill-press);
+        --pluto-border-color: transparent;
+        --pluto-hover-border-color: var(--pluto-gray-l7);
+        --pluto-active-border-color: var(--pluto-gray-l8);
+
+        &[aria-expanded="true"] {
+            --pluto-bg: var(--pluto-fill-hover);
+            --pluto-border-color: var(--pluto-gray-l7);
+        }
+
+        &.lyra--status-warning {
+            color: var(--pluto-warning-z);
+        }
+
+        &.lyra--status-error {
+            color: var(--pluto-error-p1);
+        }
+
+        &.lyra--disabled {
+            color: var(--pluto-text-disabled);
         }
     }
 

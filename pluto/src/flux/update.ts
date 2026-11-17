@@ -52,15 +52,15 @@ export type CreateUpdateParams<
   ) => Promise<Output | false>;
 } & InitialStatusDetailsContainer<StatusDetails>;
 
-/** Return value for `useObservableUpdate`. */
-export interface UseObservableUpdateReturn<Input extends query.Data> {
+/** The callbacks that run an update. */
+export interface UpdateMethods<Input extends query.Data> {
   /** Runs the update and reports a failure as an error status. */
   update: (data: Input, opts?: query.FetchOptions) => void;
   /** Runs the update and resolves to whether it succeeded. */
   updateAsync: (data: Input, opts?: query.FetchOptions) => Promise<boolean>;
 }
 
-export interface UseObservableUpdateParams<
+interface ObservableUpdateParams<
   Input extends query.Data,
   Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
@@ -104,23 +104,13 @@ export interface UseDirectUpdateParams<
   Input extends query.Data,
   Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-> extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "onChange"> {}
+> extends Omit<ObservableUpdateParams<Input, Output, StatusDetails>, "onChange"> {}
 
 /** Return value for `useUpdate`: the update callbacks plus its own result state. */
 export type UseDirectUpdateReturn<
   Input extends query.Data,
   StatusDetails extends z.ZodType = z.ZodNever,
-> = Result<Input | undefined, StatusDetails> & UseObservableUpdateReturn<Input>;
-
-export interface UseObservableUpdate<
-  Input extends query.Data,
-  Output extends query.Data = Input,
-  StatusDetails extends z.ZodType = z.ZodNever,
-> {
-  (
-    params: UseObservableUpdateParams<Input, Output, StatusDetails>,
-  ): UseObservableUpdateReturn<Input>;
-}
+> = Result<Input | undefined, StatusDetails> & UpdateMethods<Input>;
 
 export interface UseUpdate<
   Input extends query.Data,
@@ -138,7 +128,6 @@ export interface CreateUpdateReturn<
   Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 > {
-  useObservableUpdate: UseObservableUpdate<Input, Output, StatusDetails>;
   useUpdate: UseUpdate<Input, Output, StatusDetails>;
 }
 
@@ -146,7 +135,7 @@ interface RunParams<
   Input extends query.Data,
   Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-> extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "debounce"> {
+> extends Omit<ObservableUpdateParams<Input, Output, StatusDetails>, "debounce"> {
   client: Client | null;
   addStatus: Status.Adder;
   name: string;
@@ -260,9 +249,9 @@ const useObservable = <
   Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 >(
-  params: UseObservableUpdateParams<Input, Output, StatusDetails> &
+  params: ObservableUpdateParams<Input, Output, StatusDetails> &
     CreateUpdateParams<Input, Output, StatusDetails>,
-): UseObservableUpdateReturn<Input> => {
+): UpdateMethods<Input> => {
   const {
     onChange,
     update,
@@ -342,13 +331,6 @@ export const createUpdate = <
 >(
   createParams: CreateUpdateParams<Input, Output, StatusDetails>,
 ): CreateUpdateReturn<Input, Output, StatusDetails> => ({
-  useObservableUpdate: (
-    params: UseObservableUpdateParams<Input, Output, StatusDetails>,
-  ) =>
-    useObservable<Input, Output, StatusDetails>({
-      ...params,
-      ...createParams,
-    }),
   useUpdate: (params: UseDirectUpdateParams<Input, Output, StatusDetails> = {}) =>
     useDirect<Input, Output, StatusDetails>({
       ...params,

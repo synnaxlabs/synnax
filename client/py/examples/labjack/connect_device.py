@@ -68,7 +68,11 @@ if device is None:
     print("  - No other software (such as Kipling) has the device open.")
     exit(1)
 
-device.name = DEVICE_NAME
-device.configured = True
-device = client.devices.create(device)
-print(f"✓ Connected {device.name} (model {device.model}, serial {device.key}).")
+client.devices.dispatch(
+    device.key,
+    [
+        sy.device.set(sy.device.SetPayload(path=["name"], value=DEVICE_NAME)),
+        sy.device.set(sy.device.SetPayload(path=["configured"], value=True)),
+    ],
+)
+print(f"✓ Connected {DEVICE_NAME} (model {device.model}, serial {device.key}).")

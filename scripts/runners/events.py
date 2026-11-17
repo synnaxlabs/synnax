@@ -14,7 +14,7 @@ from collections.abc import Callable
 
 import synnax as sy
 
-from common import Channels, channel_name, warn
+from common import Channels, Writes, channel_name, warn
 from publisher import Publisher
 
 SOURCE = "events"
@@ -31,7 +31,7 @@ class Events:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Writes,
         channels: Channels,
         runners: set[str],
         report: Callable[[str, Exception], None] = warn,
@@ -73,7 +73,7 @@ class Events:
             stamp = self.last.get(runner, self.start)
             stamps = []
             for _ in texts:
-                stamp = max(now, stamp + 1)
+                stamp = max(now, stamp + sy.TimeSpan.NANOSECOND)
                 stamps.append(stamp)
             last[runner] = stamp
             frame[channel_name(SOURCE, runner=runner)] = texts

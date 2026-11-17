@@ -28,16 +28,31 @@ class TestTable:
         t = table.Table.model_validate(
             {
                 "name": "Readings",
-                "rows": [{"key": "r", "cells": ["a", "b"]}],
+                "rows": [
+                    {
+                        "key": "r",
+                        "cells": [
+                            {
+                                "key": "a",
+                                "config": {"variant": "text", "value": "Pressure"},
+                            },
+                            {
+                                "key": "b",
+                                "config": {
+                                    "variant": "value",
+                                    "channel": 1,
+                                    "units": "psi",
+                                },
+                            },
+                        ],
+                    }
+                ],
                 "columns": [{"key": "c1"}, {"key": "c2", "size": 100}],
-                "cells": {
-                    "a": {"variant": "text", "value": "Pressure"},
-                    "b": {"variant": "value", "channel": 1, "units": "psi"},
-                },
             }
         )
-        assert isinstance(t.cells["a"], table.TextCellConfig)
-        assert isinstance(t.cells["b"], table.ValueCellConfig)
+        a, b = t.rows[0].cells
+        assert isinstance(a.config, table.TextCellConfig)
+        assert isinstance(b.config, table.ValueCellConfig)
         assert t.rows[0].size == 36
         assert t.columns[0].size == 72
         assert table.Table.model_validate_json(t.model_dump_json()) == t
@@ -53,11 +68,11 @@ class TestTable:
         with pytest.raises(ValidationError):
             table.Row(size=0)
 
-    def test_ontology_id(self) -> None:
-        """Should build the ontology ID of a table."""
+    def test_resource_id(self) -> None:
+        """Should build the resource ID of a table."""
         key = uuid4()
-        assert table.ontology_id(key).type == table.ONTOLOGY_TYPE.type
-        assert table.ontology_id(key).key == str(key)
+        assert table.resource_id(key).type == table.TYPE_RESOURCE_ID.type
+        assert table.resource_id(key).key == str(key)
         t = table.Table(name="Readings")
         assert hash(t) == hash(t.key)
 
@@ -66,50 +81,70 @@ class TestTable:
 class TestClient:
     def test_create(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create an empty table from a name."""
-        t = client.tables.create(project.key, name="Test Table")
+        t = client.tables.create(name="Test Table", project=project.key)
         assert t.name == "Test Table"
+        assert t.project == project.key
         assert t.rows == []
 
     def test_create_from_object(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should persist the rows, columns, and cells of a table."""
-        row = table.Row(cells=["a", "b"])
+        row = table.Row(
+            cells=[
+                table.Cell(key="a", config=table.TextCellConfig(value="Pressure")),
+                table.Cell(key="b", config=table.ValueCellConfig(units="psi")),
+            ]
+        )
         t = client.tables.create(
-            project.key,
             table.Table(
                 name="Full Table",
                 rows=[row],
                 columns=[table.Column(), table.Column(size=120)],
-                cells={
-                    "a": table.TextCellConfig(value="Pressure"),
-                    "b": table.ValueCellConfig(units="psi"),
-                },
+                project=project.key,
             ),
         )
         retrieved = client.tables.retrieve(key=t.key)
         assert retrieved.rows == [row]
         assert retrieved.columns[1].size == 120
-        assert retrieved.cells["a"] == table.TextCellConfig(value="Pressure")
-        assert retrieved.cells["b"] == table.ValueCellConfig(units="psi")
 
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple tables."""
         tables = client.tables.create(
-            project.key,
-            [table.Table(name="Multi 1"), table.Table(name="Multi 2")],
+            [
+                table.Table(name="Multi 1", project=project.key),
+                table.Table(name="Multi 2", project=project.key),
+            ],
         )
         assert [t.name for t in tables] == ["Multi 1", "Multi 2"]
 
     def test_retrieve_by_keys(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve multiple tables by key."""
-        t1 = client.tables.create(project.key, name="Table A")
-        t2 = client.tables.create(project.key, name="Table B")
+        t1 = client.tables.create(name="Table A", project=project.key)
+        t2 = client.tables.create(name="Table B", project=project.key)
         tables = client.tables.retrieve(keys=[t1.key, t2.key])
         assert {t.key for t in tables} == {t1.key, t2.key}
 
+    def test_retrieve_by_project(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve only the tables the project owns."""
+        a = client.tables.create(name="Child A", project=project.key)
+        b = client.tables.create(name="Child B", project=project.key)
+        other = client.projects.create(name="Other Project")
+        client.tables.create(name="Other", project=other.key)
+        retrieved = client.tables.retrieve(projects=[project.key])
+        assert {r.key for r in retrieved} == {a.key, b.key}
+
+    def test_retrieve_by_group(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should filter the tables by group."""
+        made = client.tables.create(name="Ungrouped", project=project.key)
+        g = client.groups.create("Empty", parent=sy.project.resource_id(project.key))
+        assert client.tables.retrieve(groups=g.key) == []
+        ungrouped = client.tables.retrieve(projects=project.key, grouped=False)
+        assert [r.key for r in ungrouped] == [made.key]
+        assert client.tables.retrieve(projects=project.key, grouped=True) == []
+
     def test_retrieve_where(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should keep the tables that match the where and the other filters."""
-        a = client.tables.create(project.key, name="A")
-        b = client.tables.create(project.key, name="B")
+        a = client.tables.create(name="A", project=project.key)
+        b = client.tables.create(name="B", project=project.key)
         where = table.Where(not_=table.Where(key=sy.filter.Set[table.Key](eq=a.key)))
         res = client.tables.retrieve(where=where, keys=[a.key, b.key, uuid4()])
         assert [r.key for r in res] == [b.key]
@@ -121,7 +156,7 @@ class TestClient:
 
     def test_retrieve_key_list(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should return a list for a list of keys, even with one key."""
-        a = client.tables.create(project.key, name="A")
+        a = client.tables.create(name="A", project=project.key)
         res = client.tables.retrieve(key=[a.key])
         assert [r.key for r in res] == [a.key]
 
@@ -129,27 +164,27 @@ class TestClient:
         self, client: sy.Synnax, project: sy.Project
     ) -> None:
         """Should return one table for a plain key beside other fields."""
-        a = client.tables.create(project.key, name="A")
+        a = client.tables.create(name="A", project=project.key)
         assert client.tables.retrieve(key=a.key, not_={"key": uuid4()}).key == a.key
-        with pytest.raises(NotFoundError, match=r"Table matching .* not found"):
+        with pytest.raises(NotFoundError, match=r"Found no table where .+"):
             client.tables.retrieve(key=a.key, not_={"key": a.key})
 
     def test_retrieve_or(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should retrieve the tables that match any filter in or_."""
-        a = client.tables.create(project.key, name="A")
-        b = client.tables.create(project.key, name="B")
+        a = client.tables.create(name="A", project=project.key)
+        b = client.tables.create(name="B", project=project.key)
         res = client.tables.retrieve(or_=[{"key": a.key}, {"key": [b.key]}])
         assert {r.key for r in res} == {a.key, b.key}
 
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a table."""
-        t = client.tables.create(project.key, name="Before Rename")
+        t = client.tables.create(name="Before Rename", project=project.key)
         client.tables.rename(t.key, "After Rename")
         assert client.tables.retrieve(key=t.key).name == "After Rename"
 
     def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete multiple tables."""
-        t1 = client.tables.create(project.key, name="Delete 1")
-        t2 = client.tables.create(project.key, name="Delete 2")
+        t1 = client.tables.create(name="Delete 1", project=project.key)
+        t2 = client.tables.create(name="Delete 2", project=project.key)
         client.tables.delete([t1.key, t2.key])
         assert client.tables.retrieve(keys=[t1.key, t2.key]) == []

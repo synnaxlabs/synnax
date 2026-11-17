@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { combineReducers, type Store } from "@reduxjs/toolkit";
-import { panel, project, type Synnax } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, type project, type Synnax } from "@synnaxlabs/client";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -631,7 +631,7 @@ describe("panel selectors", () => {
             name: "panel",
             root: { variant: "leaf", tabs: [{ variant: "view", key: TAB, type: "t" }] },
           }),
-          parent: await createPanelParent(client),
+          project: await createPanelProject(client),
         });
       });
       expect(result.current).toBe(true);
@@ -644,9 +644,11 @@ describe("panel selectors", () => {
     // siblings lose their selection, and only then does the window overlay.
     it("should focus the tab against its live leaf and overlay the window", async () => {
       const client = createTestClient();
+      // Another spec creates a panel under PANEL.
+      const key = uuid.create();
       const { Wrapper, store } = await setup({ client });
       const doc = panel.panelZ.parse({
-        key: PANEL,
+        key,
         name: "panel",
         root: {
           variant: "leaf",
@@ -656,18 +658,18 @@ describe("panel selectors", () => {
           ],
         },
       });
-      await client.panels.create({ ...doc, parent: await createPanelParent(client) });
-      await client.panels.retrieve(PANEL);
-      const { result } = renderHook(() => Panel.useStartOverlaying(PANEL), {
+      await client.panels.create({ ...doc, project: await createPanelProject(client) });
+      await client.panels.retrieve(key);
+      const { result } = renderHook(() => Panel.useStartOverlaying(key), {
         wrapper: Wrapper,
       });
       act(() => {
-        selectTab(store, PANEL, OTHER_TAB);
+        selectTab(store, key, OTHER_TAB);
       });
       act(() => {
         result.current(TAB);
       });
-      expect(Panel.selectSelectedTabs(store.getState(), PANEL)).toEqual([TAB]);
+      expect(Panel.selectSelectedTabs(store.getState(), key)).toEqual([TAB]);
       expect(Panel.selectActiveWindow(store.getState())?.state.isOverlaid).toBe(true);
     });
 
@@ -692,7 +694,7 @@ describe("panel selectors", () => {
       const { key: created } = await client.panels.create({
         key,
         name: uniqueName("panel"),
-        parent: project.ontologyID(projectKey),
+        project: projectKey,
         root: { variant: "leaf", tabs: [] },
       });
       return created;

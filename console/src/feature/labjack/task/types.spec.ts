@@ -390,7 +390,7 @@ describe("deploy configs", () => {
 });
 
 describe("deploy negative channels", () => {
-  const deploy = (port: string, negChan: number) =>
+  const deploy = (port: string, negChan?: number) =>
     LabJack.Task.deployReadConfigZ.safeParse({
       device: "labjack",
       sampleRate: 10,
@@ -406,11 +406,16 @@ describe("deploy negative channels", () => {
       ],
     });
 
-  it.each([
-    ["AIN2", 199],
-    ["AIN2", 3],
-  ])("should accept %s against channel %d", (port, negChan) => {
-    expect(deploy(port, negChan).success).toBe(true);
+  it("should accept a port that reads against ground", () => {
+    expect(deploy("AIN3").success).toBe(true);
+  });
+
+  it("should accept a port against its pair", () => {
+    expect(deploy("AIN2", 3).success).toBe(true);
+  });
+
+  it("should refuse a negative channel above AIN127", () => {
+    expect(deploy("AIN2", 199).success).toBe(false);
   });
 
   it("should name the pair of a port that reads differentially", () => {

@@ -22,11 +22,8 @@ import { type Payload, payloadZ } from "@/task/types.gen";
 // The cache decodes every task with the generic schema, so actions convert with it.
 const PAYLOAD_Z = payloadZ();
 
-const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult => {
-  const inverse = actions.applyPath(state, action, PAYLOAD_Z);
-  if (inverse.length === 0) return actions.NO_OP_RESULT;
-  return { inverse, targets: [patch.pathOf(action).join(".")] };
-};
+const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult =>
+  actions.applyPath(state, action, PAYLOAD_Z);
 
 const handlers: Handlers = {
   create: (state, { task }) => {

@@ -9,13 +9,13 @@
 
 import "@/feature/auth/ConnectionGuard.css";
 
-import { AccessDeniedError, type connection } from "@synnaxlabs/client";
+import { type connection } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Errors, Synnax, User } from "@synnaxlabs/pluto";
+import { Errors, Synnax } from "@synnaxlabs/pluto";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -59,11 +59,7 @@ const PermissionsFallback = ({
   retry,
   ...props
 }: Access.PermissionsFallbackProps): ReactElement => {
-  const { error } = props;
   const logout = Core.useLogout();
-  // A denial is an expected state, not a crash, so it gets a calm surface.
-  if (AccessDeniedError.matches(error) || AccessDeniedError.matches(error.cause))
-    return <Denied retry={retry} />;
   return (
     <Errors.Fallback {...props}>
       <Button.Button variant="outlined" onClick={logout}>
@@ -75,45 +71,6 @@ const PermissionsFallback = ({
         Retry
       </Button.Button>
     </Errors.Fallback>
-  );
-};
-
-interface DeniedProps {
-  retry: () => void;
-}
-
-const Denied = ({ retry }: DeniedProps): ReactElement => {
-  const logout = Core.useLogout();
-  const target = Session.Core.useSelectSelected();
-  const { data: name } = User.useResultName({});
-  const subject = name != null ? ` for ${name}` : "";
-  return (
-    <Shell.Frame className={CSS.B("connection")} connection={target}>
-      <Flex.Box
-        y
-        align="center"
-        justify="center"
-        gap={8}
-        className={CSS.cls(CSS.BE("connection", "body"), CSS.M("revealed"))}
-      >
-        <Status.Orbital core={<PlatformShell.Mark />} />
-        <Status.Summary
-          variant="warning"
-          message="Console access denied"
-          description={`Check role permissions${subject}.`}
-        />
-        <Flex.Box x gap="small">
-          <Button.Button variant="outlined" onClick={logout}>
-            <Icon.Logout />
-            Log out
-          </Button.Button>
-          <Button.Button variant="filled" onClick={retry}>
-            <Icon.Refresh />
-            Retry
-          </Button.Button>
-        </Flex.Box>
-      </Flex.Box>
-    </Shell.Frame>
   );
 };
 

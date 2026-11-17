@@ -9,20 +9,22 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-device__list-item-name {
-    min-width: 0;
-
-    & p:last-child {
-        flex-shrink: 0;
-    }
+/* ITEM_HEIGHT in Select.tsx matches the height. */
+.pluto-device__list-item {
+    gap: 1.5rem;
+    height: 8rem;
+    padding-block: 0;
 }
 
-.pluto-device__list-item-label {
+.pluto-device__list-item-text {
+    gap: 0.5rem;
     min-width: 0;
 }
 
+.pluto-device__list-item-name,
 .pluto-device__list-item-location {
-    flex-shrink: 0;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .pluto-device-select__dialog {

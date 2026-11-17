@@ -26,6 +26,7 @@
 namespace driver::modbus {
 /// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
+    x::breaker::Breaker cancel;
     auto slave = testutil::Slave(testutil::SlaveConfig{.port = 1664});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
@@ -55,13 +56,14 @@ TEST(ScanTask, testConnection) {
         .args = cmd_args
     };
 
-    scan_task->exec(cmd);
+    cancel.start();
+    scan_task->exec(cmd, cancel);
+    cancel.stop();
     ASSERT_EQ(ctx->statuses.size(), 1);
     auto first = ctx->statuses[0];
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first.key, synnax::task::status_key(t));
+    EXPECT_EQ(first.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(first.details.cmd, cmd.key);
-    EXPECT_EQ(first.details.task, t.key);
     EXPECT_EQ(first.message, "Connected to device");
 }
 
@@ -195,9 +197,7 @@ scan(Scanner &scanner, const synnax::device::Device &dev) {
     std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
     common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices;
-    auto [out, err] = scanner.scan(scan_ctx);
-    EXPECT_FALSE(err) << err;
-    return out;
+    return ASSERT_NIL_P(scanner.scan(scan_ctx));
 }
 }
 

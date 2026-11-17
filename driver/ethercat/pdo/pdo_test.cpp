@@ -110,26 +110,6 @@ TEST(PDOKeyTest, WorksInUnorderedMap) {
     EXPECT_EQ(offsets[lookup].byte, 0);
 }
 
-/// @brief it should correctly round up bit lengths to bytes.
-TEST(PDOEntryTest, ByteLengthCalculation) {
-    Entry entry;
-
-    entry.bit_length = 8;
-    EXPECT_EQ(entry.byte_length(), 1);
-
-    entry.bit_length = 1;
-    EXPECT_EQ(entry.byte_length(), 1);
-
-    entry.bit_length = 16;
-    EXPECT_EQ(entry.byte_length(), 2);
-
-    entry.bit_length = 9;
-    EXPECT_EQ(entry.byte_length(), 2);
-
-    entry.bit_length = 32;
-    EXPECT_EQ(entry.byte_length(), 4);
-}
-
 /// @brief it should correctly round up bit lengths to bytes for Properties.
 TEST(PDOPropertiesTest, ByteLengthCalculation) {
     Properties props{
@@ -230,7 +210,7 @@ TEST(FindOffset, ReturnsMappingErrorForAnotherBitLength) {
     ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
         err.data,
-        "PDO 0x6000:01 on slave 1 is 16 bits, not 32. Scan the network again"
+        "PDO 0x6000:01 on slave 1 is 16 bits, not 32. Scan the network again."
     );
 }
 
@@ -240,8 +220,8 @@ TEST(FindOffset, ReturnsMappingErrorForMissingEntry) {
     Offsets offsets;
     Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
     const auto err = find_offset(offsets, entry).second;
-    ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
-    EXPECT_EQ(err.data, "PDO 0x6000:01 is not in the process image of slave 1");
+    ASSERT_OCCURRED_AS(err, errors::PDO_NOT_MAPPED);
+    EXPECT_EQ(err.data, "PDO 0x6000:01 is not in the process image of slave 1.");
 }
 
 TEST(ComputeOffsetsProperties, ByteAlignedOffsets) {
@@ -294,6 +274,23 @@ TEST(ComputeOffsetsProperties, BaseOffsetPropagation) {
     EXPECT_EQ(offsets[k1].bit, 0);
 }
 
+/// @brief it should start at the given bit and carry later entries into the next byte.
+TEST(ComputeOffsetsProperties, StartBitCarriesIntoTheNextByte) {
+    Offsets offsets;
+    const std::vector<Properties> pdos = {
+        {.index = 0x6000, .sub_index = 1, .bit_length = 2},
+        {.index = 0x6000, .sub_index = 2, .bit_length = 2},
+    };
+    compute_offsets(offsets, 1, pdos, true, 3, 6);
+
+    const Key k1{1, 0x6000, 1, true};
+    const Key k2{1, 0x6000, 2, true};
+    EXPECT_EQ(offsets[k1].byte, 3);
+    EXPECT_EQ(offsets[k1].bit, 6);
+    EXPECT_EQ(offsets[k2].byte, 4);
+    EXPECT_EQ(offsets[k2].bit, 0);
+}
+
 TEST(ComputeOffsetsProperties, EmptyPdoList) {
     Offsets offsets;
     std::vector<Properties> pdos;
@@ -316,57 +313,6 @@ TEST(ComputeOffsetsProperties, MultiSlave) {
     const Key k2{2, 0x6000, 1, true};
     EXPECT_EQ(offsets[k1].byte, 0);
     EXPECT_EQ(offsets[k2].byte, 10);
-}
-
-TEST(ComputeOffsetsEntries, InputOutputDistinction) {
-    Offsets offsets;
-    std::vector<Entry> entries = {
-        {.slave_position = 1,
-         .index = 0x6000,
-         .sub_index = 1,
-         .bit_length = 16,
-         .is_input = true},
-        {.slave_position = 1,
-         .index = 0x7000,
-         .sub_index = 1,
-         .bit_length = 8,
-         .is_input = false},
-        {.slave_position = 1,
-         .index = 0x6000,
-         .sub_index = 2,
-         .bit_length = 32,
-         .is_input = true},
-    };
-    compute_offsets(offsets, entries, 0, 50);
-
-    const Key ki1{1, 0x6000, 1, true};
-    const Key ko1{1, 0x7000, 1, false};
-    const Key ki2{1, 0x6000, 2, true};
-    EXPECT_EQ(offsets[ki1].byte, 0);
-    EXPECT_EQ(offsets[ko1].byte, 50);
-    EXPECT_EQ(offsets[ki2].byte, 2);
-}
-
-TEST(ComputeOffsetsEntries, BaseOffsets) {
-    Offsets offsets;
-    std::vector<Entry> entries = {
-        {.slave_position = 1,
-         .index = 0x6000,
-         .sub_index = 1,
-         .bit_length = 8,
-         .is_input = true},
-        {.slave_position = 1,
-         .index = 0x7000,
-         .sub_index = 1,
-         .bit_length = 16,
-         .is_input = false},
-    };
-    compute_offsets(offsets, entries, 10, 20);
-
-    const Key ki{1, 0x6000, 1, true};
-    const Key ko{1, 0x7000, 1, false};
-    EXPECT_EQ(offsets[ki].byte, 10);
-    EXPECT_EQ(offsets[ko].byte, 20);
 }
 
 /// @brief it should preserve values through JSON parse and serialize round-trip.
@@ -458,5 +404,37 @@ TEST(TotalBits, CountsPadding) {
         {.index = 0x6000, .sub_index = 17, .bit_length = 16},
     };
     EXPECT_EQ(total_bits(pdos), 24);
+}
+
+/// @brief it should append each object with its name, its data type, and the name of
+/// its PDO, and keep padding.
+TEST(AppendTest, AppendsObjectsAndPadding) {
+    std::vector<pdo::Properties> pdos;
+    append(
+        pdos,
+        true,
+        {
+            .index = 0x1A00,
+            .entries =
+                {{.index = 0x6000,
+                  .sub_index = 1,
+                  .bit_length = 16,
+                  .name = "Value",
+                  .type = telem::DataType::EC_INTEGER16},
+                 {.index = 0, .sub_index = 0, .bit_length = 8},
+                 {.index = 0, .sub_index = 0, .bit_length = 0},
+                 {.index = 0x6000, .sub_index = 2, .bit_length = 32}},
+            .name = "Channel 1",
+        }
+    );
+    ASSERT_EQ(pdos.size(), 3);
+    EXPECT_EQ(pdos[0].name, "Value");
+    EXPECT_EQ(pdos[0].data_type, x::telem::INT16_T);
+    EXPECT_EQ(pdos[0].pdo_index, 0x1A00);
+    EXPECT_EQ(pdos[0].pdo_name, "Channel 1");
+    EXPECT_TRUE(pdos[1].is_padding());
+    EXPECT_EQ(pdos[1].bit_length, 8);
+    EXPECT_EQ(pdos[2].name, "Input (uint32) 0x6000:02");
+    EXPECT_EQ(pdos[2].data_type, x::telem::UINT32_T);
 }
 }

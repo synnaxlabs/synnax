@@ -37,7 +37,7 @@ var _ = Describe("Delete", func() {
 			BeforeEach(func(ctx SpecContext) {
 				By("Creating channels")
 				fs = openFS()
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -49,7 +49,7 @@ var _ = Describe("Delete", func() {
 					},
 					Instrumentation: PanicLogger(),
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -61,10 +61,6 @@ var _ = Describe("Delete", func() {
 					Instrumentation: PanicLogger(),
 				}))
 				dataDB.SetIndex(indexDB.Index())
-			})
-			AfterEach(func() {
-				Expect(dataDB.Close()).To(Succeed())
-				Expect(indexDB.Close()).To(Succeed())
 			})
 
 			Describe("Single-domain deletion", func() {
@@ -384,7 +380,9 @@ var _ = Describe("Delete", func() {
 							End:   19*telem.SecondTS + 1,
 						})).To(Succeed())
 
-						i, _ := dataDB.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+						i := MustSucceed(
+							dataDB.OpenIterator(unary.IterRange(telem.TimeRangeMax)),
+						)
 						Expect(i.SeekFirst(ctx)).To(BeFalse())
 						Expect(i.Close()).To(Succeed())
 					})
@@ -623,9 +621,9 @@ var _ = Describe("Delete", func() {
 							End:   19*telem.SecondTS + 1,
 						})).To(Succeed())
 
-						i, _ := indexDB.OpenIterator(
+						i := MustSucceed(indexDB.OpenIterator(
 							unary.IterRange(telem.TimeRangeMax),
-						)
+						))
 						Expect(i.SeekFirst(ctx)).To(BeFalse())
 						Expect(i.Close()).To(Succeed())
 					})
@@ -769,9 +767,9 @@ var _ = Describe("Delete", func() {
 							func(ctx SpecContext) {
 								By("Writing data to the channel")
 								for i := 1; i <= 9; i++ {
-									var data []telem.TimeStamp
-									for j := 0; j <= 9; j++ {
-										data = append(data, telem.TimeStamp(i*10+j))
+									data := make([]telem.TimeStamp, 10)
+									for j := range data {
+										data[j] = telem.TimeStamp(i*10 + j)
 									}
 									Expect(
 										unary.Write(
@@ -825,9 +823,9 @@ var _ = Describe("Delete", func() {
 							func(ctx SpecContext) {
 								By("Writing data to the channel")
 								for i := 1; i <= 9; i++ {
-									var data []telem.TimeStamp
-									for j := 0; j <= 9; j++ {
-										data = append(data, telem.TimeStamp(i*10+j))
+									data := make([]telem.TimeStamp, 10)
+									for j := range data {
+										data[j] = telem.TimeStamp(i*10 + j)
 									}
 									Expect(
 										unary.Write(
@@ -878,11 +876,11 @@ var _ = Describe("Delete", func() {
 							func(ctx SpecContext) {
 								By("Writing data to the channel")
 								for i := 1; i <= 9; i++ {
-									var index []telem.TimeStamp
-									var content []int64
-									for j := 0; j <= 9; j++ {
-										index = append(index, telem.TimeStamp(i*10+j))
-										content = append(content, int64(i*100+j*10))
+									index := make([]telem.TimeStamp, 10)
+									content := make([]int64, 10)
+									for j := range index {
+										index[j] = telem.TimeStamp(i*10 + j)
+										content[j] = int64(i*100 + j*10)
 									}
 									Expect(
 										unary.Write(
@@ -938,11 +936,11 @@ var _ = Describe("Delete", func() {
 							func(ctx SpecContext) {
 								By("Writing data to the channel")
 								for i := 1; i <= 9; i++ {
-									var index []telem.TimeStamp
-									var content []int64
-									for j := 0; j <= 9; j++ {
-										index = append(index, telem.TimeStamp(i*10+j))
-										content = append(content, int64(i*100+j*10))
+									index := make([]telem.TimeStamp, 10)
+									content := make([]int64, 10)
+									for j := range index {
+										index[j] = telem.TimeStamp(i*10 + j)
+										content[j] = int64(i*100 + j*10)
 									}
 									Expect(
 										unary.Write(

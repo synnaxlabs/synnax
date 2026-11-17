@@ -89,12 +89,15 @@ describe("OffPageReferenceForm", () => {
     const client = createTestClient();
     const SynnaxWrapper = await createAsyncSynnaxWrapper({ client });
     const proj = await client.projects.create({ name: "off_page_form" });
-    const source = await client.schematics.create(proj.key, { name: "source" });
+    const source = await client.schematics.create({
+      project: proj.key,
+      name: "source",
+    });
     const targetName = `target_${uuid.create().slice(0, 8)}`;
     const target =
       targetType === "schematic"
-        ? await client.schematics.create(proj.key, { name: targetName })
-        : await client.lineplots.create(proj.key, { name: targetName });
+        ? await client.schematics.create({ project: proj.key, name: targetName })
+        : await client.lineplots.create({ project: proj.key, name: targetName });
     const initialColor = "#000000";
     let methods: Form.UseReturn<typeof CONFIG_Z> | undefined;
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
@@ -180,7 +183,7 @@ describe("OffPageReferenceForm", () => {
     const before = getColor();
     fireEvent.click(await findByLabelText(`Clear ${targetName}`));
     await waitFor(() =>
-      expect(getMethods().get(path.page, { optional: true })?.value).toBeUndefined(),
+      expect(getMethods().get(path.page).value).toEqual({ type: "lineplot", key: "" }),
     );
     expect(getColor()).toBe(before);
   });

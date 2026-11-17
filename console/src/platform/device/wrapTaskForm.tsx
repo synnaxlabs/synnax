@@ -18,7 +18,6 @@ import {
   type NoneSelectedParams,
   Unconfigured,
 } from "@/platform/device/Empty";
-import { Task } from "@/platform/task";
 
 const path = deep.path<{ config: { device: device.Key } }>();
 
@@ -48,15 +47,14 @@ export const wrapTaskForm = <
   Content,
 }: WrapTaskFormParams<D>): FC<{}> => {
   const Configured = ({ deviceKey }: { deviceKey: device.Key }) => {
-    const isSnapshot = Task.useIsSnapshot();
-    const canUpdate = Access.useUpdateGranted(device.ontologyID(deviceKey));
+    const canUpdate = Access.useUpdateGranted(device.resourceID(deviceKey));
     const configure = useConfigure();
     const dev = use({ key: deviceKey });
     if (!dev.configured)
       return (
         <Unconfigured
           device={dev}
-          canConfigure={!isSnapshot && canUpdate}
+          canConfigure={canUpdate}
           onConfigure={(deviceKey) => configure({ deviceKey })}
         />
       );

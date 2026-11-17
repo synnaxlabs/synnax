@@ -72,7 +72,8 @@ export const renderLog = async (
     additionalRegistry,
   }: RenderLogOptions = {},
 ) => {
-  const created = await client.logs.create(await project(), {
+  const created = await client.logs.create({
+    project: await project(),
     name: "Test Log",
     ...logOverrides,
   });
@@ -84,7 +85,7 @@ export const renderLog = async (
   await loadLog(Wrapper, created.key);
   const { panelKey, tabKey } = await createResourceTab(
     client,
-    clientLog.ontologyID(created.key),
+    clientLog.resourceID(created.key),
   );
   await primePanel(Wrapper, panelKey);
   // The toolbar suspends on channel fetches; a tree that suspends inside a sync

@@ -12,49 +12,51 @@ package expression
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// EmitFmtSegments lowers parsed format segments into WASM on ctx.Writer:
-// literals emit string.from_literal, placeholders compile their expression.
-// Assumes the analyzer has already run literal.FmtStrValidateSpec on every
-// placeholder spec; the compiler emits spec bytes verbatim without revalidation.
+// EmitFmtSegments lowers the segments the analyzer stored for strTerm into WASM on
+// ctx.Writer: literals emit string.from_literal, and placeholders compile the
+// expressions the analyzer parsed and typed. Assumes the analyzer has already run
+// literal.FmtStrValidateSpec on every placeholder spec; the compiler emits spec bytes
+// verbatim without revalidation.
 func EmitFmtSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	segments []literal.FmtStrSegment,
+	strTerm antlr.TerminalNode,
 ) (types.Type, error) {
+	segments, ok := ctx.FmtStrings[strTerm]
+	if !ok {
+		return types.Type{}, errors.Newf(
+			"format string %s was not analyzed",
+			strTerm.GetText(),
+		)
+	}
 	if len(segments) == 0 {
 		emitLiteralSegment(ctx, "")
 		return types.String(), nil
 	}
-	if err := emitFmtSegment(ctx, segments[0]); err != nil {
-		return types.Type{}, err
-	}
-	for _, seg := range segments[1:] {
+	for i, seg := range segments {
 		if err := emitFmtSegment(ctx, seg); err != nil {
 			return types.Type{}, err
 		}
-		ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
+		if i > 0 {
+			ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
+		}
 	}
 	return types.String(), nil
 }
 
 func emitFmtSegment[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	seg literal.FmtStrSegment,
+	seg parser.FmtSegment,
 ) error {
-	if !seg.IsPlaceholder {
+	if seg.Expr == nil {
 		emitLiteralSegment(ctx, seg.Text)
 		return nil
 	}
-	expr, diags := parser.ParseExpression(seg.Text, ctx.Config)
-	if diags != nil && !diags.Ok() {
-		return errors.Newf("invalid placeholder %q: %s", seg.Text, diags.String())
-	}
-	t, err := Compile(ctx.Child(expr).WithHint(types.Type{}))
+	t, err := Compile(ctx.Child(seg.Expr).WithHint(types.Type{}))
 	if err != nil {
 		return err
 	}

@@ -47,6 +47,10 @@ func collectFoldingRanges(scope *symbol.Symbol, ranges *[]protocol.FoldingRange)
 			}
 		}
 	}
+	// An import's children are the module's members, positioned in the module's text.
+	if scope.Kind == symbol.KindModuleAlias {
+		return
+	}
 	for _, child := range scope.Children() {
 		collectFoldingRanges(child, ranges)
 	}
@@ -56,7 +60,11 @@ func isFoldableKind(kind symbol.Kind) bool {
 	switch kind {
 	case symbol.KindFunction, symbol.KindSequence, symbol.KindStage, symbol.KindLoop:
 		return true
-	default:
+	case symbol.KindVariable, symbol.KindStatefulVariable, symbol.KindChannel,
+		symbol.KindBlock, symbol.KindInput, symbol.KindOutput, symbol.KindConstant,
+		symbol.KindLoopVariable, symbol.KindModule, symbol.KindModuleAlias,
+		symbol.KindAmbient:
 		return false
 	}
+	panic("unknown symbol kind " + kind.String())
 }

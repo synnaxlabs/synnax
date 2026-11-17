@@ -36,12 +36,12 @@ func (p *stubPlugin) Domains() []string           { return nil }
 func (p *stubPlugin) Requires() []string          { return nil }
 func (p *stubPlugin) Check(*plugin.Request) error { return nil }
 func (p *stubPlugin) Generate(req *plugin.Request) (*plugin.Response, error) {
-	files := []plugin.File{}
-	for _, t := range req.Resolutions.Types {
-		files = append(files, plugin.File{
+	files := make([]plugin.File, len(req.Resolutions.Types))
+	for i, t := range req.Resolutions.Types {
+		files[i] = plugin.File{
 			Path:    "out/" + t.Namespace + "_" + t.Name + ".gen.go",
 			Content: []byte("package out\n// " + t.QualifiedName + "\n"),
-		})
+		}
 	}
 	return &plugin.Response{Files: files}, nil
 }
@@ -422,18 +422,16 @@ Thing struct {
 	})
 
 	It("rejects empty schema set", func(ctx SpecContext) {
-		_, err := pipeline.Run(ctx, pipeline.Options{
+		Expect(pipeline.Run(ctx, pipeline.Options{
 			RepoRoot: repoRoot,
 			Schemas:  nil,
-		})
-		Expect(err).To(MatchError(ContainSubstring("at least one schema")))
+		})).Error().To(MatchError(ContainSubstring("at least one schema")))
 	})
 
 	It("rejects empty repo root", func(ctx SpecContext) {
-		_, err := pipeline.Run(ctx, pipeline.Options{
+		Expect(pipeline.Run(ctx, pipeline.Options{
 			Schemas: []string{"schemas/x.oracle"},
-		})
-		Expect(err).To(MatchError(ContainSubstring("RepoRoot is required")))
+		})).Error().To(MatchError(ContainSubstring("RepoRoot is required")))
 	})
 })
 

@@ -64,9 +64,11 @@ const Properties = () => (
 
 const AUTHORITY_INPUT_PROPS = { bounds: { lower: 0, upper: 255 } } as const;
 
-const renderSelectChannel = Component.renderProp((p: PChannel.SelectSingleProps) => (
+const SelectChannel = (p: PChannel.SelectSingleProps) => (
   <PChannel.SelectSingle {...p} location="bottom" />
-));
+);
+
+const renderSelectChannel = Component.renderProp(SelectChannel);
 
 const TagListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
@@ -108,7 +110,13 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
         showHelpText={false}
         className={CSS.B("field-data-type")}
       />
-      <Flex.Box x align="center" grow justify="end">
+      <Flex.Box
+        x
+        align="center"
+        grow
+        justify="end"
+        className={CSS.BE("mqtt-tag", "command")}
+      >
         {commandChannel === 0 && commandChannelName == null ? (
           <Text.Text level="small" color={9}>
             No command channel
@@ -141,8 +149,8 @@ const deriveCommandChannelName = ({ name }: EdgeTag): string =>
 const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>) => {
   const handleError = Status.useErrorHandler();
   const { set } = PForm.useContext();
-  const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
-  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+  const canCreate = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
+  const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   const withoutCommands = channels.filter((tag) => !isWritable(tag));
   const withCommands = channels.filter(isWritable);
 
@@ -231,7 +239,7 @@ const getInitialValues: Task.GetInitialValues<EdgeSchemas> = ({
 
 const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
-  const saved = deep.copy(dev.properties);
+  const before = deep.copy(dev.properties);
   const { group, edgeNode } = config;
   try {
     for (const tag of config.tags) {
@@ -253,7 +261,7 @@ const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, conf
       );
     }
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };

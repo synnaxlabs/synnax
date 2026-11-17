@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
@@ -26,8 +27,9 @@ import { createTestStore, renderWithConsole } from "@/testutil";
 const client = createTestClient();
 
 const renderCopyItem = async (
-  ids: ontology.ID[],
-  resources: ontology.Resource[],
+  ids: resource.ID[],
+  resources: Tree.Resource[],
+  properties: unknown = {},
 ): Promise<void> => {
   const store = await createTestStore();
   const props: Tree.ContextMenuProps = {
@@ -37,34 +39,50 @@ const renderCopyItem = async (
   };
   await renderWithConsole(
     <PMenu.Menu>
-      <Tree.CopyPropertiesContextMenuItem {...props} />
+      <Tree.CopyPropertiesContextMenuItem
+        {...props}
+        retrieve={async () => await Promise.resolve(properties)}
+      />
     </PMenu.Menu>,
     { store },
   );
 };
 
 describe("CopyPropertiesContextMenuItem", () => {
-  const chID = ontology.idZ.parse("channel:1");
+  const chID = resource.idZ.parse("channel:1");
   const properties = { rate: 25, virtual: false };
-  const resource = createResource(chID, "my_channel", properties);
+  const ch = createResource(chID, "my_channel");
   let writeText: Mock;
 
   beforeEach(() => {
     writeText = stubClipboardWriteText();
   });
 
-  it("should copy the resource's properties as JSON when clicked", async () => {
-    await renderCopyItem([chID], [resource]);
+  it("should copy the retrieved properties as JSON when clicked", async () => {
+    await renderCopyItem([chID], [ch], properties);
     fireEvent.click(screen.getByText("Copy properties"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(JSON.stringify(properties)),
     );
   });
 
+  it("should copy properties that hold a timestamp", async () => {
+    const rackID = resource.idZ.parse("rack:65537");
+    const rack = createResource(rackID, "my_rack");
+    await renderCopyItem([rackID], [rack], {
+      key: 65537,
+      status: { time: new TimeStamp(1000n) },
+    });
+    fireEvent.click(screen.getByText("Copy properties"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('{"key":65537,"status":{"time":"1000"}}'),
+    );
+  });
+
   it("should render nothing when more than one resource is selected", async () => {
-    const otherID = ontology.idZ.parse("channel:2");
-    const other = createResource(otherID, "other_channel", {});
-    await renderCopyItem([chID, otherID], [resource, other]);
+    const otherID = resource.idZ.parse("channel:2");
+    const other = createResource(otherID, "other_channel");
+    await renderCopyItem([chID, otherID], [ch, other]);
     expect(screen.queryByText("Copy properties")).toBeNull();
   });
 

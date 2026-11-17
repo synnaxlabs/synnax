@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type panel, project } from "@synnaxlabs/client";
+import { type panel, project, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -45,7 +45,7 @@ const SEED: Panel.Tab = { Content: SeedContent, Name: SeedName, Icon: SeedIcon }
 // render one.
 const REGISTRY: Panel.Tabs = { seed: SEED, log: SEED };
 
-const resourceIDs = (node: panel.Node): ontology.ID[] =>
+const resourceIDs = (node: panel.Node): resource.ID[] =>
   node.variant === "leaf"
     ? node.tabs.flatMap((tab) => (tab.variant === "resource" ? [tab.resource] : []))
     : [...resourceIDs(node.first), ...resourceIDs(node.last)];
@@ -64,7 +64,7 @@ describe("Mosaic file drop", () => {
       panelKey: existing.key,
       project: proj.key,
     });
-    await awaitGranted(client, project.ontologyID(proj.key), "update");
+    await awaitGranted(client, project.resourceID(proj.key), "update");
     await primePanel(Console, existing.key);
     const Harness = ({ children }: PropsWithChildren): ReactElement => (
       <Console>

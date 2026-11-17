@@ -43,7 +43,7 @@ var _ = Describe("Default Registry", func() {
 			os.Remove(filepath.Join(repoRoot, "licenses/headers/template.txt")),
 		).To(Succeed())
 		Expect(
-			format.Default(repoRoot),
+			format.Default(repoRoot, 2026, nil),
 		).Error().
 			To(MatchError(ContainSubstring("license template")))
 	})
@@ -59,8 +59,10 @@ var _ = Describe("Default Registry", func() {
 
 	DescribeTable("Should register every supported extension",
 		func(ext string) {
-			r := MustSucceed(format.Default(repoRoot))
-			Expect(r.Format(canceled(), []byte("x"), "/x/file"+ext)).Error().
+			r := MustSucceed(format.Default(repoRoot, 2026, nil))
+			Expect(
+				r.Format(canceled(), []byte("x"), filepath.Join(repoRoot, "file"+ext)),
+			).Error().
 				To(SatisfyAny(
 					MatchError(context.Canceled),
 					MatchError(exec.ErrNotFound),
@@ -81,8 +83,10 @@ var _ = Describe("Default Registry", func() {
 	DescribeTable(
 		"Should not route unknown extensions through any formatter",
 		func(ext string) {
-			r := MustSucceed(format.Default(repoRoot))
-			Expect(r.Format(canceled(), []byte("x"), "/x/file"+ext)).
+			r := MustSucceed(format.Default(repoRoot, 2026, nil))
+			Expect(
+				r.Format(canceled(), []byte("x"), filepath.Join(repoRoot, "file"+ext)),
+			).
 				To(Equal([]byte("x")))
 		},
 		Entry("Rust", ".rs"),

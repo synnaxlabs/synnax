@@ -13,6 +13,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { Border } from "@/schematic/node/common/border";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
@@ -45,10 +46,10 @@ const calculatePolygonVertices = (
 const generateRoundedPolygonPath = (
   vertices: { x: number; y: number }[],
   sideLength: number,
-  cornerRounding: number,
+  borderRadius: number,
 ): string => {
   const path: string[] = [];
-  const r = Math.min(cornerRounding, sideLength / 2);
+  const r = Math.min(borderRadius, sideLength / 2);
 
   const len = vertices.length;
   if (len < 3 || r <= 0)
@@ -95,13 +96,13 @@ export const Polygon = ({
   strokeColor,
   fillColor,
   className,
-  cornerRounding,
-  strokeWidth,
+  borderRadius,
+  strokeWidth = Border.DEFAULT_STROKE_WIDTH,
 }: RenderProps): ReactElement => {
   const theme = Theming.use();
-  const padding = 2 * ((strokeWidth ?? 2) + 1);
+  const padding = 2 * (strokeWidth + 1);
   const vertices = calculatePolygonVertices(numSides, sideLength, rotation, padding);
-  const path = generateRoundedPolygonPath(vertices, sideLength, cornerRounding ?? 0);
+  const path = generateRoundedPolygonPath(vertices, sideLength, borderRadius ?? 0);
   const size = 2 * (sideLength / (2 * Math.sin(Math.PI / numSides))) + padding;
   return (
     <Primitive.Div className={CSS.cls(className, CSS.B("polygon"))}>
@@ -112,7 +113,7 @@ export const Polygon = ({
         <Primitive.Path
           d={path}
           fill={color.cssString(fillColor ?? fillFallback(theme))}
-          strokeWidth={strokeWidth ?? 2}
+          strokeWidth={strokeWidth}
         />
       </Primitive.SVG>
     </Primitive.Div>

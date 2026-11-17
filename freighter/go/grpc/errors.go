@@ -9,23 +9,11 @@
 
 package grpc
 
-import (
-	"context"
+import "github.com/synnaxlabs/x/errors"
 
-	"github.com/synnaxlabs/x/errors"
-)
-
-// EncodeError encodes the given error into a protobuf error payload. If the type of
-// the error cannot be determined, returns a payload with type TypeUnknown and the error
-// message. If the error is nil, returns a payload with type TypeNil.
-func EncodeError(ctx context.Context, err error, internal bool) *errors.PBPayload {
-	pld := errors.Encode(ctx, err, internal)
+// EncodeError encodes err with codec into a protobuf error payload. See
+// errors.Codec.Encode for the payload of an error that codec does not handle.
+func EncodeError(codec *errors.Codec, err error, internal bool) *errors.PBPayload {
+	pld := codec.Encode(err, internal)
 	return &errors.PBPayload{Type: pld.Type, Data: pld.Data}
-}
-
-// DecodeError decodes the given protobuf error payload into an error. If the payload's
-// type is TypeUnknown, returns an error with the payload's data as the message. If the
-// payload's type is TypeNil, returns nil.
-func DecodeError(ctx context.Context, pld *errors.PBPayload) error {
-	return errors.Decode(ctx, errors.Payload{Type: pld.Type, Data: pld.Data})
 }

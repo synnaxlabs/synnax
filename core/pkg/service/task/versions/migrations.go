@@ -13,22 +13,19 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 )
 
 // MigrationsConfig configures the stored-task migration chain.
 type MigrationsConfig struct {
-	// Status backfills unknown statuses for tasks missing them.
+	// Status writes the statuses of tasks that the migrations change.
 	Status *status.Service
-	// Ontology defines the task resources the config-record migration creates and
-	// removes.
-	Ontology *ontology.Ontology
 	// Configs routes each task type to the store that owns its config records.
 	Configs config.Registry
 }
@@ -40,12 +37,19 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 		v0.NewMigrations(v0.MigrationConfig{Status: cfg.Status}),
 		[]gorp.Migration{
 			v1.Migration,
-			v2.Migration,
+			v2.NewMigration(v2.MigrationConfig{Status: cfg.Status}),
 			v3.NewMigration(v3.MigrationConfig{
-				Ontology: cfg.Ontology,
-				Configs:  cfg.Configs,
+				Status:  cfg.Status,
+				Configs: cfg.Configs,
 			}),
 			v2.NameMigration,
+			v3.Migration,
+			v3.RangeMigration,
+			v4.NewSnapshotMigration(v3.MigrationConfig{
+				Status:  cfg.Status,
+				Configs: cfg.Configs,
+			}),
+			v4.Migration,
 		},
 	)
 }

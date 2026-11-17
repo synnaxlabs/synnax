@@ -334,6 +334,14 @@ var _ = Describe("Function Analyzer", func() {
 				).To(Equal(types.Param{Name: "b", Type: types.F64()}))
 			})
 		})
+		DescribeTable("should report a parameter type that does not infer",
+			func(bCtx SpecContext, src string) {
+				analyzeExpectError(bCtx, src, nil, Equal("unknown unit: bogus"))
+			},
+			Entry("an input", `func foo(x f32 bogus) {}`),
+			Entry("a trigger", `func foo() {x f32 bogus} {}`),
+			Entry("an output", `func foo() (a f32 bogus) { a = 1.0 }`),
+		)
 		Describe("error conditions", func() {
 			It("should fail on duplicate function names", func(bCtx SpecContext) {
 				ctx := analyzeProgram(bCtx, `func foo() {} func foo() {}`, nil)

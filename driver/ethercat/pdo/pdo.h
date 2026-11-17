@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#pragma once
+
 #include <cstdint>
 #include <format>
 #include <functional>
@@ -14,8 +16,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#pragma once
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -75,9 +75,6 @@ struct Entry {
     bool is_input = true;
     /// @brief actual hardware data type from the PDO.
     x::telem::DataType data_type = x::telem::UNKNOWN_T;
-
-    /// @brief returns the size of this PDO entry in bytes (rounded up from bits).
-    [[nodiscard]] size_t byte_length() const { return (bit_length + 7) / 8; }
 };
 
 /// @brief information about a single PDO entry discovered during slave enumeration. An
@@ -137,8 +134,8 @@ struct Properties {
 };
 
 /// @brief looks up the offset for a PDO entry in a precomputed offset map. Returns
-/// errors::PDO_MAPPING_ERROR when the map does not hold the entry or maps it with
-/// another bit length.
+/// errors::PDO_NOT_MAPPED when the map does not hold the entry, and
+/// errors::PDO_MAPPING_ERROR when it maps the entry with another bit length.
 inline std::pair<Offset, x::errors::Error>
 find_offset(const Offsets &offsets, const Entry &entry) {
     const Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
@@ -150,7 +147,7 @@ find_offset(const Offsets &offsets, const Entry &entry) {
             x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
-                    "PDO {} on slave {} is {} bits, not {}. Scan the network again",
+                    "PDO {} on slave {} is {} bits, not {}. Scan the network again.",
                     telem::format_index_sub_index(entry.index, entry.sub_index),
                     entry.slave_position,
                     it->second.bit_length,
@@ -162,9 +159,9 @@ find_offset(const Offsets &offsets, const Entry &entry) {
     return {
         {},
         x::errors::Error(
-            errors::PDO_MAPPING_ERROR,
+            errors::PDO_NOT_MAPPED,
             std::format(
-                "PDO {} is not in the process image of slave {}",
+                "PDO {} is not in the process image of slave {}.",
                 telem::format_index_sub_index(entry.index, entry.sub_index),
                 entry.slave_position
             )
@@ -173,16 +170,17 @@ find_offset(const Offsets &offsets, const Entry &entry) {
 }
 
 /// @brief computes bit-granularity offsets for a slave's PDO properties list,
-/// accumulating from a base byte offset. Padding counts toward later offsets and gets
-/// no offset of its own.
+/// accumulating from start_bit of the byte at base_byte_offset. Padding counts toward
+/// later offsets and gets no offset of its own.
 inline void compute_offsets(
     Offsets &offsets,
     const uint16_t slave_position,
     const std::vector<Properties> &pdos,
     const bool is_input,
-    const size_t base_byte_offset
+    const size_t base_byte_offset,
+    const uint8_t start_bit = 0
 ) {
-    size_t bit_offset = 0;
+    size_t bit_offset = start_bit;
     for (const auto &pdo: pdos) {
         if (!pdo.is_padding())
             offsets[Key{slave_position, pdo.index, pdo.sub_index, is_input}] = {
@@ -203,25 +201,78 @@ inline size_t total_bits(const std::vector<Properties> &pdos) {
     return bits;
 }
 
-/// @brief computes byte-granularity offsets for registered PDO entries,
-/// splitting inputs and outputs from separate base offsets.
-inline void compute_offsets(
-    Offsets &offsets,
-    const std::vector<Entry> &entries,
-    const size_t input_base_offset,
-    const size_t output_base_offset
-) {
-    size_t input_byte_offset = input_base_offset;
-    size_t output_byte_offset = output_base_offset;
-    for (const auto &entry: entries) {
-        Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
-        if (entry.is_input) {
-            offsets[key] = {input_byte_offset, 0, entry.bit_length};
-            input_byte_offset += entry.byte_length();
-        } else {
-            offsets[key] = {output_byte_offset, 0, entry.bit_length};
-            output_byte_offset += entry.byte_length();
+/// @brief an object that a PDO maps.
+struct Object {
+    /// @brief the index of the object.
+    uint16_t index;
+    /// @brief the sub-index of the object.
+    uint8_t sub_index;
+    /// @brief the number of bits the PDO maps.
+    uint8_t bit_length;
+    /// @brief the name of the object, or empty when the slave gives none.
+    std::string name;
+    /// @brief the CoE data type of the object.
+    telem::DataType type = telem::DataType::EC_UNKNOWN;
+};
+
+/// @brief a PDO and the objects it maps, in order.
+struct PDO {
+    /// @brief the index of the PDO, such as 0x1A00.
+    uint16_t index;
+    /// @brief the objects the PDO maps.
+    std::vector<Object> entries;
+    /// @brief the name of the PDO, when the slave gives one.
+    std::optional<std::string> name;
+};
+
+/// @brief a process data sync manager and the PDOs it carries.
+struct Sync {
+    /// @brief the number of the sync manager.
+    uint8_t index;
+    /// @brief whether the sync manager carries inputs.
+    bool is_input;
+    /// @brief the PDOs the sync manager carries, in order.
+    std::vector<PDO> pdos;
+    /// @brief the slave has no PDO assign object for the sync manager, so its PDOs are
+    /// the ones its EEPROM lists.
+    bool fixed = false;
+};
+
+/// @brief appends the objects that pdo maps to pdos, as padding where the PDO maps no
+/// object. Infers a data type from the bit length when the CoE type is unknown.
+void append(std::vector<pdo::Properties> &pdos, bool is_input, const PDO &pdo);
+inline void
+append(std::vector<pdo::Properties> &pdos, const bool is_input, const PDO &pdo) {
+    for (const auto &entry: pdo.entries) {
+        if (entry.index == 0) {
+            if (entry.bit_length > 0)
+                pdos.push_back({
+                    .pdo_index = pdo.index,
+                    .bit_length = entry.bit_length,
+                    .is_input = is_input,
+                });
+            continue;
         }
+        const auto data_type = telem::map_ethercat_to_synnax(
+            entry.type,
+            entry.bit_length
+        );
+        pdos.push_back({
+            .pdo_index = pdo.index,
+            .index = entry.index,
+            .sub_index = entry.sub_index,
+            .bit_length = entry.bit_length,
+            .is_input = is_input,
+            .name = telem::generate_pdo_entry_name(
+                entry.name,
+                entry.index,
+                entry.sub_index,
+                is_input,
+                data_type
+            ),
+            .data_type = data_type,
+            .pdo_name = pdo.name,
+        });
     }
 }
 }

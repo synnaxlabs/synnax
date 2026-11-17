@@ -29,7 +29,7 @@ import {
 } from "@/testutil";
 
 interface RenderNavigateParams {
-  configs?: Record<string, schematic.ElementConfig>;
+  configs?: Record<string, schematic.NodeConfig>;
   editable?: boolean;
 }
 
@@ -38,8 +38,11 @@ const renderNavigateHook = async ({
   editable = false,
 }: RenderNavigateParams) => {
   const source = await createSchematic({
-    nodes: Object.keys(configs).map((key) => ({ key, position: { x: 0, y: 0 } })),
-    configs,
+    nodes: Object.entries(configs).map(([key, config]) => ({
+      key,
+      position: { x: 0, y: 0 },
+      config,
+    })),
   });
   const hook = await renderHookWithConsole(
     () => ({
@@ -58,8 +61,8 @@ const renderNavigateHook = async ({
 const offPageConfig = (
   page: schematic.Page | undefined,
   overrides: Record<string, unknown> = {},
-): schematic.ElementConfig =>
-  schematic.offPageReferenceElementConfigZ.parse({
+): schematic.NodeConfig =>
+  schematic.offPageReferenceNodeConfigZ.parse({
     variant: "off_page_reference",
     label: { label: "Target Ref" },
     page,
@@ -83,7 +86,7 @@ const expectNotOpened = async (store: TestStore, key: string): Promise<void> => 
   const panelKey = Session.Panel.selectSelected(store.getState());
   if (panelKey == null) return;
   const doc = await client.panels.retrieve(panelKey);
-  expect(panel.findTabByResource(doc.root, schematic.ontologyID(key))).toBeUndefined();
+  expect(panel.findTabByResource(doc.root, schematic.resourceID(key))).toBeUndefined();
 };
 
 describe("Schematic.useHandleNodeClickAction", () => {
@@ -97,7 +100,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
   });
 
   it("navigates to a referenced line plot", async () => {
-    const target = await client.lineplots.create(await testProjectKey(), {
+    const target = await client.lineplots.create({
+      project: await testProjectKey(),
       name: uniqueName("target"),
     });
     const { result, store } = await renderNavigateHook({
@@ -108,7 +112,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
   });
 
   it("navigates to a referenced log", async () => {
-    const target = await client.logs.create(await testProjectKey(), {
+    const target = await client.logs.create({
+      project: await testProjectKey(),
       name: uniqueName("target"),
     });
     const { result, store } = await renderNavigateHook({
@@ -119,7 +124,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
   });
 
   it("navigates to a referenced table", async () => {
-    const target = await client.tables.create(await testProjectKey(), {
+    const target = await client.tables.create({
+      project: await testProjectKey(),
       name: uniqueName("target"),
     });
     const { result, store } = await renderNavigateHook({
@@ -150,7 +156,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
       configs: {
         n1: offPageConfig(
           { type: "schematic", key: target.key },
-          { dblClickNavDisabled: true },
+          { doubleClickNavigationDisabled: true },
         ),
       },
     });
@@ -184,7 +190,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { result, store } = await renderNavigateHook({
       configs: {
-        n1: schematic.valveElementConfigZ.parse({ variant: "valve" }),
+        n1: schematic.valveNodeConfigZ.parse({ variant: "valve" }),
         ctl: offPageConfig({ type: "schematic", key: control.key }),
       },
     });

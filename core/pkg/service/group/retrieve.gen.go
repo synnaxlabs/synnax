@@ -13,15 +13,20 @@ package group
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 )
+
+// tableName names the Group table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "group"
 
 // Retrieve is used to retrieve Group records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Group]
 	indexes indexes
 }
@@ -31,6 +36,8 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name   *gorp.SortedIndex[Key, Group, string]
+	parent *gorp.TargetReference[Key, Group]
 	search *gorp.SearchIndex[Key, Group]
 }
 
@@ -39,6 +46,23 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Group, string](
+			"name",
+			func(e *Group) string { return compare.TextKey(string(e.Name)) },
+		),
+		parent: gorp.NewTargetReference(gorp.TargetReferenceConfig[Key, Group]{
+			Name:     "parent",
+			Tables:   []string{"group", "project", "rack"},
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Acyclic:  true,
+			Targets: func(e *Group) []gorp.Target {
+				if e.Parent == nil {
+					return nil
+				}
+				return []gorp.Target{resourceTarget(*e.Parent)}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Group](
 			"search",
 			func(e *Group) []string {
@@ -52,8 +76,22 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Group] {
 	return []gorp.Index[Key, Group]{
+		i.name,
 		i.search,
 	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Group] {
+	return []gorp.Reference[Key, Group]{
+		i.parent,
+	}
+}
+
+// resourceTarget returns the gorp.Target of the resource that id identifies.
+func resourceTarget(id resource.ID) gorp.Target {
+	return gorp.Target{Table: string(id.Type), Key: id.Key}
 }
 
 // MatchSearch matches the groups whose text matches term.
@@ -61,6 +99,37 @@ func (i indexes) all() []gorp.Index[Key, Group] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Group] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Group]
+
+// OrderBy walks the groups in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Group] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Group] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -120,10 +189,51 @@ func MatchKeys(keys ...Key) Filter {
 // groups whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Group] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		want := set.New(vals...)
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
+				return want.Contains(e.Name), nil
+			}),
+		)
+	}
+}
+
+// MatchScopes returns a filter for
+// groups whose Scope matches any of the
+// provided values.
+func MatchScopes(vals ...resource.Type) Filter {
 	return func(Retrieve) gorp.Filter[Key, Group] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
+			return want.Contains(e.Scope), nil
 		})
+	}
+}
+
+// MatchParents returns a filter for groups
+// whose Parent matches any of the provided
+// values.
+func MatchParents(vals ...resource.ID) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Group] {
+		targets := make([]gorp.Target, len(vals))
+		for i, v := range vals {
+			targets[i] = resourceTarget(v)
+		}
+		return r.indexes.parent.Filter(targets...)
+	}
+}
+
+// MatchHasParent returns a filter for groups whose
+// Parent holds a target when has is true, and holds none when has is false.
+func MatchHasParent(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Group] {
+		return r.indexes.parent.FilterHolding(has)
 	}
 }
 
@@ -154,10 +264,10 @@ func (r Retrieve) Entries(es *[]Group) Retrieve {
 // Limit sets the maximum number of groups to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the groups to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 
@@ -168,17 +278,19 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of groups matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of groups in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any groups match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any groups in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

@@ -14,6 +14,7 @@ package v2
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // TemperatureUnits are the engineering units for a temperature measurement.
@@ -128,21 +130,20 @@ type AnalogReadChannel struct {
 
 func (AnalogReadChannel) isReadChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AnalogReadChannel) ApplyDefaults() {
-	if a.Port == "" {
-		a.Port = "AIN0"
-	}
-	if a.Range == 0 {
-		a.Range = 10
-	}
-	if a.NegChan == 0 {
-		a.NegChan = 199
-	}
-	if a.Scale.Variant == nil {
-		a.Scale.Variant = task.NoneScale{}
-	}
-	a.Scale.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogReadChannel) SetDefaults() {
+	a.Port = "AIN0"
+	a.Range = 10
+	a.NegChan = 199
+	a.Scale.Variant = task.NoneScale{}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AnalogReadChannel) Validate() error {
+	v := validate.New("AnalogReadChannel")
+	v.Exec(func() error { return validate.PathedError(a.Scale.Validate(), "scale") })
+	return v.Error()
 }
 
 // DigitalReadChannel reads a digital input line.
@@ -152,11 +153,9 @@ type DigitalReadChannel struct {
 
 func (DigitalReadChannel) isReadChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DigitalReadChannel) ApplyDefaults() {
-	if d.Port == "" {
-		d.Port = "DIO4"
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DigitalReadChannel) SetDefaults() {
+	d.Port = "DIO4"
 }
 
 // ThermocoupleReadChannel reads temperature from a thermocouple.
@@ -184,30 +183,15 @@ type ThermocoupleReadChannel struct {
 
 func (ThermocoupleReadChannel) isReadChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ThermocoupleReadChannel) ApplyDefaults() {
-	if t.Port == "" {
-		t.Port = "AIN0"
-	}
-	if t.ThermocoupleType == "" {
-		t.ThermocoupleType = ThermocoupleTypeK
-	}
-	if t.NegChan == 0 {
-		t.NegChan = 199
-	}
-	if t.CjcSource == "" {
-		t.CjcSource = "TEMPERATURE_DEVICE_K"
-	}
-	if t.CjcSlope == 0 {
-		t.CjcSlope = 1
-	}
-	if t.Units == "" {
-		t.Units = TemperatureUnitsKelvin
-	}
-	if t.Scale.Variant == nil {
-		t.Scale.Variant = task.NoneScale{}
-	}
-	t.Scale.ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (t *ThermocoupleReadChannel) SetDefaults() {
+	t.Port = "AIN0"
+	t.ThermocoupleType = ThermocoupleTypeK
+	t.NegChan = 199
+	t.CjcSource = "TEMPERATURE_DEVICE_K"
+	t.CjcSlope = 1
+	t.Units = TemperatureUnitsKelvin
+	t.Scale.Variant = task.NoneScale{}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -216,6 +200,7 @@ func (t ThermocoupleReadChannel) Validate() error {
 	v := validate.New("ThermocoupleReadChannel")
 	v.Ternaryf("thermocouple_type", !t.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", t.ThermocoupleType)
 	v.Ternaryf("units", !t.Units.IsValid(), "invalid units: %v", t.Units)
+	v.Exec(func() error { return validate.PathedError(t.Scale.Validate(), "scale") })
 	return v.Error()
 }
 
@@ -275,6 +260,7 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadChannelType `json:"type"`
 			AnalogReadChannel
 		}
+		v.AnalogReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -284,6 +270,7 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadChannelType `json:"type"`
 			DigitalReadChannel
 		}
+		v.DigitalReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -293,6 +280,7 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadChannelType `json:"type"`
 			ThermocoupleReadChannel
 		}
+		v.ThermocoupleReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -320,30 +308,18 @@ func (u ReadChannel) Type() ReadChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadChannel) ApplyDefaults() {
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case AnalogReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case DigitalReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
+		v.Exec(variant.Validate)
 	case ThermocoupleReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
+		v.Exec(variant.Validate)
 	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
-func (u ReadChannel) Validate() error {
-	switch variant := u.Variant.(type) {
-	case ThermocoupleReadChannel:
-		return variant.Validate()
-	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -416,11 +392,9 @@ type AnalogWriteChannel struct {
 
 func (AnalogWriteChannel) isWriteChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AnalogWriteChannel) ApplyDefaults() {
-	if a.Port == "" {
-		a.Port = "DAC0"
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogWriteChannel) SetDefaults() {
+	a.Port = "DAC0"
 }
 
 // DigitalWriteChannel drives a digital output line on a DIO port.
@@ -430,11 +404,9 @@ type DigitalWriteChannel struct {
 
 func (DigitalWriteChannel) isWriteChannelVariant() {}
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DigitalWriteChannel) ApplyDefaults() {
-	if d.Port == "" {
-		d.Port = "DIO4"
-	}
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DigitalWriteChannel) SetDefaults() {
+	d.Port = "DIO4"
 }
 
 // WriteChannel is a single LabJack write channel. The type field selects the output
@@ -488,6 +460,7 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteChannelType `json:"type"`
 			AnalogWriteChannel
 		}
+		v.AnalogWriteChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -497,6 +470,7 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type WriteChannelType `json:"type"`
 			DigitalWriteChannel
 		}
+		v.DigitalWriteChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -522,17 +496,12 @@ func (u WriteChannel) Type() WriteChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case AnalogWriteChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case DigitalWriteChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteChannel) Validate() error {
+	v := validate.New("WriteChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -575,18 +544,35 @@ type ReadConfig struct {
 	LjmScanBacklogWarnOnCount uint32 `json:"ljm_scan_backlog_warn_on_count" msgpack:"ljm_scan_backlog_warn_on_count"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
+	v.Exec(r.ReadConfig.Validate)
 	for i := range r.Channels {
 		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -602,14 +588,39 @@ type WriteConfig struct {
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	if w.StateRate == 0 {
-		w.StateRate = 10
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteConfig) SetDefaults() {
+	w.StateRate = 10
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	v.GreaterThan("state_rate", w.StateRate, 0)
 	for i := range w.Channels {
-		w.Channels[i].ApplyDefaults()
+		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
+	return v.Error()
 }
 
 // ScanConfig configures a LabJack scan task.
@@ -620,10 +631,35 @@ type ScanConfig struct {
 	TCPScanMultiplier int32 `json:"tcp_scan_multiplier" msgpack:"tcp_scan_multiplier"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	if s.TCPScanMultiplier == 0 {
-		s.TCPScanMultiplier = 10
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+	s.TCPScanMultiplier = 10
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
 	}
-	s.ScanConfig.ApplyDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

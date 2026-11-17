@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { color, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
 import { createTestClient, waitForStreamLive } from "@/testutil";
+import { view } from "@/view";
 
 describe("View", () => {
   describe("create", () => {
@@ -175,6 +176,39 @@ describe("View", () => {
     });
   });
 
+  describe("dispatch", () => {
+    it("should apply the action to the view", async () => {
+      const client = createTestClient();
+      const v = await client.views.create({
+        name: "view-dispatch",
+        type: "status",
+        where: { variant: { eq: "error" } },
+      });
+      const where = { variant: { eq: "warning" } };
+      await client.views.dispatch(v.key, view.set({ path: ["where"], value: where }));
+      const stored = await createTestClient().views.retrieve({ key: v.key });
+      expect(stored.where).toEqual(where);
+    });
+
+    it("should set the display fields of a range view", async () => {
+      const client = createTestClient();
+      const v = await client.views.create({ name: "view-display", type: "range" });
+      await client.views.dispatch(v.key, [
+        view.set({ path: ["icon"], value: "star" }),
+        view.set({ path: ["color"], value: "#ff0000" }),
+        view.set({ path: ["sort"], value: "oldest" }),
+        view.set({ path: ["layout"], value: "timeline" }),
+      ]);
+      const stored = await createTestClient().views.retrieve({ key: v.key });
+      expect(stored).toMatchObject({
+        icon: "star",
+        color: color.construct("#ff0000"),
+        sort: "oldest",
+        layout: "timeline",
+      });
+    });
+  });
+
   describe("delete", () => {
     it("should delete a single view", async () => {
       const client = createTestClient();
@@ -194,7 +228,7 @@ describe("View", () => {
       ]);
       const keys = views.map((v) => v.key);
       await client.views.delete(keys);
-      expect(await client.views.retrieve({ where: { key: { in: keys } } })).toEqual([]);
+      expect(await client.views.retrieve({ key: keys })).toEqual([]);
     });
   });
 });

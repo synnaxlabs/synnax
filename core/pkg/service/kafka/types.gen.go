@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"reflect"
 )
 
 // StartOffset is where a consumer group with no committed offset starts reading a
@@ -236,6 +238,14 @@ func (u SASL) Mechanism() SASLType {
 	return ""
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u SASL) Validate() error {
+	v := validate.New("SASL")
+	v.Ternary("mechanism", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Properties configures the connection to a Kafka cluster device.
 type Properties struct {
 	// Brokers contains the bootstrap broker addresses, as host:port.
@@ -249,9 +259,34 @@ type Properties struct {
 	Sasl SASL `json:"sasl" msgpack:"sasl"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *Properties) ApplyDefaults() {
-	if p.Sasl.Variant == nil {
-		p.Sasl.Variant = NoneSASL{}
+// SetDefaults sets every field that has a schema default to that default.
+func (p *Properties) SetDefaults() {
+	p.Sasl.Variant = NoneSASL{}
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (p *Properties) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Properties
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(p))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (p *Properties) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Properties
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return dec.Decode((*plain)(p))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p Properties) Validate() error {
+	v := validate.New("Properties")
+	v.Exec(func() error { return validate.PathedError(p.Sasl.Validate(), "sasl") })
+	return v.Error()
 }

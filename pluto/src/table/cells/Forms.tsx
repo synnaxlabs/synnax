@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, deep, type notation } from "@synnaxlabs/x";
+import { color, deep, notation, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -29,7 +29,7 @@ const textPath = deep.path<table.TextCellConfig>();
 /** The colors a cell paints while one of its colors is absent. */
 export const colorFallbacks = {
   textColor: (theme: Theming.Theme): color.Color => theme.colors.gray.l11,
-  fillColor: (): color.Color => color.ZERO,
+  fillColor: (): color.Color => color.TRANSPARENT,
 };
 
 /** Props for a cell variant's form. */
@@ -69,13 +69,14 @@ const TelemForm = () => {
         <Input.Item label="Precision" padHelpText={false}>
           <Input.Numeric
             value={value.precision ?? 2}
-            bounds={{ lower: 0, upper: 10 }}
             onChange={(precision) => onChange({ ...value, precision })}
+            integer
+            bounds={notation.PRECISION_BOUNDS}
           />
         </Input.Item>
       </Form.Section>
       <Form.Section title="Staleness">
-        <Staleness.Fields />
+        <Staleness.Fields unit={TimeSpan.SECOND} />
       </Form.Section>
     </>
   );

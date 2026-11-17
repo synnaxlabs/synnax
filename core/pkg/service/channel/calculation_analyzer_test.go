@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,13 +38,15 @@ func (failingResolver) Search(context.Context, string) ([]*symbol.Symbol, error)
 }
 
 var _ = Describe("Analyze", func() {
-	It("Should return an error of the resolver", func(ctx SpecContext) {
+	It("Should return the error of a failed read instead of diagnostics", func(
+		ctx SpecContext,
+	) {
 		a := channel.NewCalculationAnalyzer(failingResolver{})
 		res, err := a.Analyze(ctx, channel.Channel{
 			Name:       "calc",
 			Expression: "return sensor + 1",
 		})
-		Expect(err).To(MatchError(context.Canceled))
+		Expect(err).To(BeIdenticalTo(context.Canceled))
 		Expect(res.Unresolved).To(BeEmpty())
 	})
 
@@ -298,6 +301,30 @@ var _ = Describe("Analyze", func() {
 		)
 
 		It(
+			"Should resolve a name to a stored channel before an unstored one",
+			func(ctx SpecContext) {
+				r := StaticResolver{
+					{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   10,
+					},
+				}
+				a := channel.NewCalculationAnalyzer(r)
+				MustSucceed(a.Analyze(ctx, channel.Channel{
+					Name:       "sensor",
+					Expression: "return 1",
+				}))
+				res := MustSucceed(a.Analyze(ctx, channel.Channel{
+					Name:       "calc",
+					Expression: "return sensor * 2.0",
+				}))
+				Expect(res.Deps).To(ConsistOf(channel.Key(10)))
+			},
+		)
+
+		It(
 			"Should still resolve by name when the channel has key 0",
 			func(ctx SpecContext) {
 				a := channel.NewCalculationAnalyzer(StaticResolver{})
@@ -335,7 +362,10 @@ var _ = Describe("Analyze", func() {
 					Expression: "return nonexistent + 1",
 				}
 				res, err := a.Analyze(ctx, ch)
-				Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
+				Expect(err).To(And(
+					BeAssignableToTypeOf(&diagnostics.Diagnostics{}),
+					MatchError(ContainSubstring("undefined symbol")),
+				))
 				Expect(res.Unresolved).To(ConsistOf("nonexistent"))
 			},
 		)

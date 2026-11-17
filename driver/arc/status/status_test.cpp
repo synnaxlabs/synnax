@@ -193,11 +193,11 @@ TEST(StatusModuleTest, ReturnsNotFoundForUnknownType) {
     auto st = ASSERT_NIL_P(s.node("status"));
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     Module module(client, noopReporter());
-    auto [created, err] = module.create(
-        ::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))
+    const auto created = ASSERT_OCCURRED_AS_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st))),
+        x::errors::NOT_FOUND
     );
     EXPECT_EQ(created, nullptr);
-    EXPECT_EQ(err, x::errors::NOT_FOUND);
 }
 
 TEST(SetStatusTest, ReadsAVarBoundMessageAtFireTime) {
@@ -233,7 +233,8 @@ TEST(SetStatusTest, NextWritesResolvedKeyToOutput) {
     const auto preset_key = ASSERT_NIL_P(client->statuses.set_by_key_or_name(
                                              name,
                                              "initial",
-                                             "info"
+                                             "info",
+                                             x::telem::TimeStamp()
                                          ))
                                 .key;
 
@@ -252,10 +253,43 @@ TEST(SetStatusTest, NextWritesResolvedKeyToOutput) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
-    auto [retrieved, err] = client->statuses.retrieve(preset_key);
-    ASSERT_NIL(err);
+    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(preset_key));
     EXPECT_EQ(retrieved.message, "the message");
     EXPECT_EQ(retrieved.variant, "info");
+}
+
+/// @brief it should stamp the status with the time the node runs.
+TEST(SetStatusTest, NextStampsTimeWhenItRuns) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto name = unique_name("set_time_");
+    const auto preset_key = ASSERT_NIL_P(client->statuses.set_by_key_or_name(
+                                             name,
+                                             "initial",
+                                             "info",
+                                             x::telem::TimeStamp(1)
+                                         ))
+                                .key;
+
+    auto node = make_set_ir_node(preset_key, "the message", "info");
+    auto ir = build_ir(node);
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("status"));
+    Module module(client, noopReporter());
+    auto created = ASSERT_NIL_P(
+        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+
+    auto ctx = make_context();
+    const auto before = x::telem::TimeStamp::now();
+    ASSERT_NIL(created->next(ctx));
+    const auto after = x::telem::TimeStamp::now();
+
+    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(preset_key));
+    EXPECT_GE(retrieved.time, before);
+    EXPECT_LE(retrieved.time, after);
 }
 
 TEST(SetStatusTest, NextRepeatedCallsKeepWriting) {
@@ -265,7 +299,8 @@ TEST(SetStatusTest, NextRepeatedCallsKeepWriting) {
     const auto preset_key = ASSERT_NIL_P(client->statuses.set_by_key_or_name(
                                              name,
                                              "initial",
-                                             "info"
+                                             "info",
+                                             x::telem::TimeStamp()
                                          ))
                                 .key;
 
@@ -285,8 +320,7 @@ TEST(SetStatusTest, NextRepeatedCallsKeepWriting) {
     ASSERT_NIL(created->next(ctx));
     ASSERT_NIL(created->next(ctx));
     ASSERT_NIL(created->next(ctx));
-    auto [retrieved, err] = client->statuses.retrieve(preset_key);
-    ASSERT_NIL(err);
+    const auto retrieved = ASSERT_NIL_P(client->statuses.retrieve(preset_key));
     EXPECT_EQ(retrieved.message, "msg");
 }
 

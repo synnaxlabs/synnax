@@ -845,7 +845,8 @@ type AOChannelType = v3.AOChannelType
 const (
 	// AOCurrentChannelType drives a current output.
 	AOCurrentChannelType AOChannelType = v3.AOCurrentChannelType
-	// AOFuncGenChannelType drives a function-generator output.
+	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
+	// commands.
 	AOFuncGenChannelType AOChannelType = v3.AOFuncGenChannelType
 	// AOVoltageChannelType drives a voltage output.
 	AOVoltageChannelType AOChannelType = v3.AOVoltageChannelType
@@ -854,7 +855,7 @@ const (
 // AOCurrentChannel drives a current output.
 type AOCurrentChannel = v3.AOCurrentChannel
 
-// AOFuncGenChannel drives a function-generator output.
+// AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
 type AOFuncGenChannel = v3.AOFuncGenChannel
 
 // AOVoltageChannel drives a voltage output.
@@ -903,3 +904,7 @@ const (
 	// per inch per second squared.
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = v3.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
+
+// CommandedAOChannel carries the command and state channels of a commanded analog
+// output.
+type CommandedAOChannel = v3.CommandedAOChannel

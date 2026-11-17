@@ -53,10 +53,9 @@ describe("Select.Single", () => {
         "data" | "value" | "onChange" | "children" | "resourceName"
       >,
     ) => {
-      const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
+      const { data, getItem, search } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { search } = List.usePager({ retrieve });
       const [value, setValue] = useState<string | undefined>(undefined);
       const handleChange = (key: string | undefined) => {
         setValue(key);
@@ -208,10 +207,9 @@ describe("Select.Single", () => {
   it("should work with initial value", () => {
     const onChange = vi.fn();
     const SelectSingle = () => {
-      const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
+      const { data, getItem, search } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { search } = List.usePager({ retrieve });
       return (
         <Select.Single<string, TestEntry>
           getItem={getItem}

@@ -11,8 +11,8 @@ import { type Store } from "@reduxjs/toolkit";
 import {
   DisconnectedError,
   imex,
-  type ontology,
   project,
+  type resource,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -37,7 +37,7 @@ interface ImportContext {
 const importEntry = async (
   entry: FileSystemEntry,
   { client, importBundle, projectKey, store }: ImportContext,
-): Promise<void | ontology.ID> => {
+): Promise<void | resource.ID> => {
   if (FS.isDirectoryEntry(entry)) {
     const bundle = zipFiles(await FS.readDirectoryFiles(entry));
     return await importBundle(entry.name, bundle, { client, store });
@@ -52,7 +52,7 @@ const importEntry = async (
   return await client.imex.import(file, {
     ...imex.JSON_OPTIONS,
     fileName: file.name,
-    parent: project.ontologyID(projectKey),
+    parent: project.resourceID(projectKey),
   });
 };
 

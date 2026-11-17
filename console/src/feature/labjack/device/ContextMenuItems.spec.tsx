@@ -39,7 +39,7 @@ const renderItems = async () => {
   });
   store.dispatch(Session.Project.select(proj.key));
   const dev = await createTestDevice(client, { name: uniqueName("lj_dev") });
-  const resource = createDeviceResource({ ...dev, configured: true });
+  const resource = createDeviceResource(dev);
   const props: Device.ContextMenuItemsProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
@@ -63,7 +63,7 @@ describe("LabJack device ContextMenuItems", () => {
     fireEvent.click(await screen.findByText("Create read task"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(LabJack.Task.READ_TYPE);
     expect(created.config).toMatchObject({ device: key });
@@ -74,7 +74,7 @@ describe("LabJack device ContextMenuItems", () => {
     fireEvent.click(await screen.findByText("Create write task"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    expect(tab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(LabJack.Task.WRITE_TYPE);
     expect(created.config).toMatchObject({ device: key });

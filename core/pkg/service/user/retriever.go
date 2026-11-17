@@ -12,13 +12,11 @@ package user
 import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 // Retrieve is used to retrieve User records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX   gorp.Tx
 	gorp     gorp.Retrieve[Key, User]
 	indexes  indexes
 	password *password.Service
@@ -33,15 +31,12 @@ func MatchUsernames(usernames ...string) Filter {
 			if err := r.password.NewRetrieve().
 				Where(password.MatchUsernames(usernames...)).
 				Entries(&passwords).
-				Exec(ctx, ctx.Tx); err != nil {
+				Exec(ctx, ctx.Snapshot); err != nil {
 				return nil, err
 			}
 			keys := make([]Key, 0, len(passwords))
 			for _, p := range passwords {
-				if p.Subject.Type != ontology.ResourceTypeUser {
-					continue
-				}
-				key, err := KeyFromOntologyID(p.Subject)
+				key, err := KeyFromResourceID(p.Subject)
 				if err != nil {
 					return nil, err
 				}

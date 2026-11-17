@@ -80,7 +80,7 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 		}
 	}
 	if flags.Format {
-		segments, err := FmtStrParse(value)
+		segments, err := FmtStrSplit(body, flags)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid format string %s", text)
 		}
@@ -104,13 +104,13 @@ func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	return ParseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
+	return parseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
 }
 
-// ParseNumericSigned parses numLit's magnitude and applies negate before the range
+// parseNumericSigned parses numLit's magnitude and applies negate before the range
 // check and unit scaling, so type minimums like -128 for i8 fit and negated units keep
 // sign.
-func ParseNumericSigned(
+func parseNumericSigned(
 	numLit parser.INumericLiteralContext,
 	negate bool,
 	targetType types.Type,
@@ -284,10 +284,13 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 		return ParsedValue{Value: float32(intValue), Type: types.F32()}, nil
 	case types.KindF64:
 		return ParsedValue{Value: float64(intValue), Type: types.F64()}, nil
-	default:
-		// Default to i64 if type not recognized
-		return ParsedValue{Value: intValue, Type: types.I64()}, nil
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
 	}
+	return ParsedValue{Value: intValue, Type: types.I64()}, nil
 }
 
 // parseFloatLiteral converts a float value to the target type.
@@ -398,9 +401,13 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 			)
 		}
 		return ParsedValue{Value: uint64(value), Type: types.U64()}, nil
-	default:
-		return ParsedValue{Value: value, Type: types.F64()}, nil
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
 	}
+	return ParsedValue{Value: value, Type: types.F64()}, nil
 }
 
 // convertToTargetKind converts a float64 value to the target type's kind. Uses Go-like
@@ -425,6 +432,11 @@ func convertToTargetKind(
 		}
 		// Round to nearest integer to clean up floating-point precision issues
 		value = math.Round(value)
+	case types.KindInvalid, types.KindF32, types.KindF64, types.KindString,
+		types.KindChan, types.KindSeries, types.KindVariable, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef, types.KindBool:
 	}
 
 	switch targetType.Kind {
@@ -484,10 +496,14 @@ func convertToTargetKind(
 		return ParsedValue{Value: float32(value), Type: resultType}, nil
 	case types.KindF64:
 		return ParsedValue{Value: value, Type: resultType}, nil
-	default:
-		resultType.Kind = types.KindF64
-		return ParsedValue{Value: value, Type: resultType}, nil
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
 	}
+	resultType.Kind = types.KindF64
+	return ParsedValue{Value: value, Type: resultType}, nil
 }
 
 // IsExactInteger checks if a float64 value is very close to an integer.
@@ -519,7 +535,7 @@ func ParseConst(
 	if parser.IsNegatedLiteral(expr) {
 		if lit := parser.GetLiteral(expr); lit != nil {
 			if numLit := lit.NumericLiteral(); numLit != nil {
-				return ParseNumericSigned(numLit, true, targetType)
+				return parseNumericSigned(numLit, true, targetType)
 			}
 		}
 	}

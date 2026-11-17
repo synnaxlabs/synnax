@@ -14,6 +14,7 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/thread/thread.h"
@@ -52,6 +53,22 @@ protected:
     ):
         thread_name(std::move(thread_name)), breaker(breaker_config) {}
 
+    /// @brief backs off after a request to the Core fails with err. Waits with no
+    /// retry limit while the Core is unreachable, and within the limit for any other
+    /// temporarily unavailable error.
+    /// @returns true if the pipeline should retry, false if it should stop.
+    bool wait_for_core(const x::errors::Error &err) {
+        if (synnax::errors::is_unreachable(err))
+            return this->breaker.wait_unlimited(err);
+        return synnax::errors::is_temporarily_unavailable(err) &&
+               this->breaker.wait(err);
+    }
+
+    /// @brief unblocks a pipeline thread that waits in a call the breaker cannot wake,
+    /// such as a hardware read. Called by a stop() from another thread that stops the
+    /// breaker, before it joins the pipeline thread.
+    virtual void interrupt() {}
+
 public:
     virtual ~Base() = default;
 
@@ -85,9 +102,11 @@ public:
     /// the thread.
     virtual bool stop() {
         const auto stopped = this->breaker.stop();
-        if (this->thread.get_id() != std::this_thread::get_id() &&
-            this->thread.joinable())
-            this->thread.join();
+        if (this->thread.get_id() == std::this_thread::get_id() ||
+            !this->thread.joinable())
+            return stopped;
+        if (stopped) this->interrupt();
+        this->thread.join();
         return stopped;
     }
 

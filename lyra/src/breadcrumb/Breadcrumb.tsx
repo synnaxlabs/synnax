@@ -56,7 +56,8 @@ export const Segment = <E extends Generic.ElementType = "span">({
 /**
  * A path rendered as segments with carets between them.
  *
- * @example <Breadcrumb.Breadcrumb highlightVariant="last">{parts}</Breadcrumb.Breadcrumb>
+ * @example
+ * <Breadcrumb.Breadcrumb highlightVariant="last">{parts}</Breadcrumb.Breadcrumb>
  */
 export const Breadcrumb = ({
   children,

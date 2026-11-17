@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -27,6 +28,7 @@ import (
 )
 
 var (
+	db            *gorp.DB
 	channelSvc    *svcchannel.Service
 	apiChannelSvc *channel.Service
 	transport     api.Transport
@@ -41,17 +43,19 @@ func TestFramer(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	channelSvc = svc.Channel
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
+		DB:      db,
 		RBAC:    svc.RBAC,
 		Channel: svc.Channel,
 		Status:  svc.Status,
-		Alias:   svc.Alias,
 	}))
 	var pool *fgrpc.Pool
 	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
-		bindable = grpcframer.New(&transport, apiChannelSvc)
+		bindable = grpcframer.New(&transport, apiChannelSvc, api.NewErrorCodec())
 		bindable.BindTo(reg)
 		pool = p
 	})

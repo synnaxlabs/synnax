@@ -93,13 +93,12 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
             });
         return result;
     }();
-    result.device_scan_backlog_warn_on_count = parser.field<std::uint32_t>(
-        "device_scan_backlog_warn_on_count",
-        0
+    result
+        .device_scan_backlog_warn_on_count = parser.field<std::optional<std::uint32_t>>(
+        "device_scan_backlog_warn_on_count"
     );
-    result.ljm_scan_backlog_warn_on_count = parser.field<std::uint32_t>(
-        "ljm_scan_backlog_warn_on_count",
-        0
+    result.ljm_scan_backlog_warn_on_count = parser.field<std::optional<std::uint32_t>>(
+        "ljm_scan_backlog_warn_on_count"
     );
     return result;
 }
@@ -115,8 +114,11 @@ inline x::json::json ReadConfig::to_json() const {
             arr.push_back(::synnax::labjack::to_json(item));
         j["channels"] = arr;
     }
-    j["device_scan_backlog_warn_on_count"] = this->device_scan_backlog_warn_on_count;
-    j["ljm_scan_backlog_warn_on_count"] = this->ljm_scan_backlog_warn_on_count;
+    if (this->device_scan_backlog_warn_on_count.has_value())
+        j["device_scan_backlog_warn_on_count"] =
+            *this->device_scan_backlog_warn_on_count;
+    if (this->ljm_scan_backlog_warn_on_count.has_value())
+        j["ljm_scan_backlog_warn_on_count"] = *this->ljm_scan_backlog_warn_on_count;
     return j;
 }
 
@@ -159,7 +161,7 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     static_cast<::synnax::task::ScanConfig &>(
         result
     ) = ::synnax::task::ScanConfig::parse(parser);
-    result.tcp_scan_multiplier = parser.field<std::int32_t>("tcp_scan_multiplier", 10);
+    result.tcp_scan_multiplier = parser.field<std::uint32_t>("tcp_scan_multiplier", 10);
     return result;
 }
 
@@ -176,7 +178,7 @@ inline AnalogReadChannel AnalogReadChannel::parse(x::json::Parser parser) {
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.port = parser.field<std::string>("port", "AIN0");
     result.range = parser.field<double>("range", 10);
-    result.neg_chan = parser.field<std::int32_t>("neg_chan", 199);
+    result.neg_chan = parser.field<std::optional<std::uint16_t>>("neg_chan");
     result.scale = parser.has("scale")
                      ? ::synnax::task::parse_scale(parser.child("scale"))
                      : ::synnax::task::Scale{::synnax::task::NoneScale{}};
@@ -190,7 +192,7 @@ inline x::json::json AnalogReadChannel::to_json() const {
         j.update(parent);
     j["port"] = this->port;
     j["range"] = this->range;
-    j["neg_chan"] = this->neg_chan;
+    if (this->neg_chan.has_value()) j["neg_chan"] = *this->neg_chan;
     j["scale"] = ::synnax::task::to_json(this->scale);
     j["type"] = this->type;
     return j;
@@ -218,7 +220,7 @@ inline ThermocoupleReadChannel ThermocoupleReadChannel::parse(x::json::Parser pa
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.port = parser.field<std::string>("port", "AIN0");
     result.thermocouple_type = parser.field<std::string>("thermocouple_type", "K");
-    result.neg_chan = parser.field<std::int32_t>("neg_chan", 199);
+    result.neg_chan = parser.field<std::optional<std::uint16_t>>("neg_chan");
     result.cjc_source = parser.field<std::string>("cjc_source", "TEMPERATURE_DEVICE_K");
     result.cjc_slope = parser.field<double>("cjc_slope", 1);
     result.cjc_offset = parser.field<double>("cjc_offset", 0);
@@ -236,7 +238,7 @@ inline x::json::json ThermocoupleReadChannel::to_json() const {
         j.update(parent);
     j["port"] = this->port;
     j["thermocouple_type"] = this->thermocouple_type;
-    j["neg_chan"] = this->neg_chan;
+    if (this->neg_chan.has_value()) j["neg_chan"] = *this->neg_chan;
     j["cjc_source"] = this->cjc_source;
     j["cjc_slope"] = this->cjc_slope;
     j["cjc_offset"] = this->cjc_offset;

@@ -22,7 +22,24 @@ var _ = Describe("TimeStamp", func() {
 		It("Should return the current time", func() {
 			Expect(
 				telem.Now().Time(),
-			).To(BeTemporally("~", time.Now(), time.Millisecond))
+			).To(BeTemporally("~", time.Now(), 20*time.Millisecond))
+		})
+
+		It("Should advance in steps finer than 0.1 ms", func() {
+			const limit = 100 * telem.Microsecond
+			// A paused goroutine lengthens one step, so only the finest step counts. A
+			// CI VM clock can tick coarsely for a few milliseconds, so the budget is
+			// clock time, not a sample count.
+			finest := telem.TimeSpanMax
+			start := time.Now()
+			prev := telem.Now()
+			for finest >= limit && time.Since(start) < time.Second {
+				now := telem.Now()
+				if step := prev.Span(now); step > 0 {
+					finest, prev = min(finest, step), now
+				}
+			}
+			Expect(finest).To(BeNumerically("<", limit))
 		})
 	})
 

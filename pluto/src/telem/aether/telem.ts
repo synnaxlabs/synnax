@@ -106,6 +106,7 @@ const statusOf = (variant: status.Variant): status.Status => ({
   message: "",
   description: "",
   time: TimeStamp.ZERO,
+  labels: [],
 });
 
 export const SUCCESS_STATUS: status.Status = statusOf("success");

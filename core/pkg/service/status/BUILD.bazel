@@ -15,7 +15,7 @@ proto_library(
     srcs = ["pb/status.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//core/pkg/service/label:label_proto",
+        "//core/pkg/service/resource:resource_proto",
         "@protobuf//:any_proto",
     ],
 )
@@ -26,6 +26,6 @@ cpp_grpc_library(
     protos = [":status_proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//core/pkg/service/label:label_grpc",
+        "//core/pkg/service/resource:resource_grpc",
     ],
 )

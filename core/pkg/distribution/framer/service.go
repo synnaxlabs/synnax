@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -47,14 +46,6 @@ type Service struct {
 
 // ServiceConfig is the configuration for the Service.
 type ServiceConfig struct {
-	// Transport is the network transport for moving telemetry across Cores.
-	//
-	// [REQUIRED]
-	Transport Transport
-	// HostResolver is used to resolve address information about hosts on the network.
-	//
-	// [REQUIRED]
-	HostResolver cluster.HostResolver
 	// TS is the underlying storage time-series database for reading and writing
 	// telemetry.
 	//
@@ -72,8 +63,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer")
 	v.NotNil("ts", c.TS)
-	v.NotNil("transport", c.Transport)
-	v.NotNil("host_resolver", c.HostResolver)
 	return v.Error()
 }
 
@@ -81,8 +70,6 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.TS = override.Nil(c.TS, other.TS)
-	c.Transport = override.Nil(c.Transport, other.Transport)
-	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	return c
 }
 
@@ -107,8 +94,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.iterator, err = iterator.NewService(iterator.ServiceConfig{
 		Instrumentation: cfg.Child("iterator"),
 		TS:              cfg.TS,
-		HostResolver:    cfg.HostResolver,
-		Transport:       cfg.Transport.Iterator(),
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -116,8 +101,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
 		TS:              cfg.TS,
-		HostResolver:    cfg.HostResolver,
-		Transport:       cfg.Transport.Relay(),
 		FreeWrites:      freeWrites,
 	}); !ok(err, s.relay) {
 		return nil, err
@@ -125,25 +108,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.writer, err = writer.NewService(writer.ServiceConfig{
 		Instrumentation: cfg.Child("writer"),
 		TS:              cfg.TS,
-		HostResolver:    cfg.HostResolver,
-		Transport:       cfg.Transport.Writer(),
 		FreeWrites:      freeWrites,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	if s.deleter, err = deleter.NewService(deleter.ServiceConfig{
-		HostResolver: cfg.HostResolver,
-		TSChannel:    cfg.TS,
-		Transport:    cfg.Transport.Deleter(),
+		TS: cfg.TS,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
 }
 
-// OpenIterator opens a new iterator for reading historical data from a Synnax cluster.
-// If the returned error is nil, the iterator must be closed after use. For information
-// on configuration parameters, see the IteratorConfig struct.
+// OpenIterator opens a new iterator for reading historical data from channels. If the
+// returned error is nil, the iterator must be closed after use. For information on
+// configuration parameters, see the IteratorConfig struct.
 //
 // The returned iterator uses a synchronous, method-based model. For a channel-based
 // iterator model, use NewStreamIterator.
@@ -154,10 +133,10 @@ func (s *Service) OpenIterator(
 	return s.iterator.Open(ctx, cfg)
 }
 
-// NewStreamIterator returns an iterator for reading historical data from a Synnax
-// cluster. The returned StreamIterator is a confluence.Segment that uses a
-// channel-based interface, where requests are sent through an input stream, and
-// responses are received through an output stream.
+// NewStreamIterator returns an iterator for reading historical data from channels. The
+// returned StreamIterator is a confluence.Segment that uses a channel-based interface,
+// where requests are sent through an input stream, and responses are received through
+// an output stream.
 func (s *Service) NewStreamIterator(
 	ctx context.Context,
 	cfg IteratorConfig,
@@ -165,8 +144,8 @@ func (s *Service) NewStreamIterator(
 	return s.iterator.NewStream(ctx, cfg)
 }
 
-// OpenWriter opens a new writer for writing data to a Synnax cluster. If the returned
-// error is nil, the writer must be closed after use. For information on configuration
+// OpenWriter opens a new writer for writing data to channels. If the returned error is
+// nil, the writer must be closed after use. For information on configuration
 // parameters, see the WriterConfig struct.
 //
 // The returned writer uses a synchronous, method-based model. For a channel-based
@@ -175,10 +154,9 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 	return s.writer.Open(ctx, cfg)
 }
 
-// NewStreamWriter returns a writer for writing data to a Synnax cluster. The returned
-// writer is a confluence.Segment that uses a channel-based interface, where requests
-// are sent through an input stream, and responses are received through an output
-// stream.
+// NewStreamWriter returns a writer for writing data to channels. The returned writer is
+// a confluence.Segment that uses a channel-based interface, where requests are sent
+// through an input stream, and responses are received through an output stream.
 func (s *Service) NewStreamWriter(
 	ctx context.Context,
 	cfg WriterConfig,

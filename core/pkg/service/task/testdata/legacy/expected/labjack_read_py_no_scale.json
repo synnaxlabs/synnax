@@ -42,8 +42,6 @@
   ],
   "data_saving_disabled": true,
   "device": "fixture-labjack-device",
-  "device_scan_backlog_warn_on_count": 0,
-  "ljm_scan_backlog_warn_on_count": 0,
   "sample_rate": 875,
   "stream_rate": 87
 }

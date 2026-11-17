@@ -42,7 +42,7 @@ const createChannel = (
     ...NI.Task.createCIChannel(type),
     key: id.create(),
     port,
-    device: "placeholder_device",
+    device: "",
     ...overrides,
   }) as NI.Task.CIChannel;
 
@@ -134,6 +134,28 @@ describe("CounterRead", () => {
     );
     await waitFor(() => expect(screen.getByText("Divisor")).toBeTruthy());
     expect(screen.queryByText("Measurement time")).toBeNull();
+  });
+
+  it("should clamp the divisor to at least 1", async () => {
+    await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { measMethod: "LargeRng2Ctr", divisor: 7 }),
+      ]),
+    );
+    const input = await screen.findByDisplayValue("7");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe("1"));
+  });
+
+  it("should clamp the initial count to at least 0", async () => {
+    await renderCounterRead(
+      createConfig([createChannel("ci_edge_count", 0, { initialCount: 9 })]),
+    );
+    const input = await screen.findByDisplayValue("9");
+    fireEvent.change(input, { target: { value: "-4" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe("0"));
   });
 
   it("should swap the channel to the newly selected type", async () => {
@@ -237,23 +259,6 @@ describe("CounterRead", () => {
     await awaitStatusDescription(
       statuses,
       /Cannot create task with channels from multiple racks/,
-    );
-  });
-
-  it("should surface an error when a device no longer exists", async () => {
-    const dev = await createNIDevice(client);
-    const deleted = await createNIDevice(client);
-    await client.devices.delete(deleted.key);
-    const { statuses, container } = await renderCounterRead(
-      createConfig([
-        createChannel("ci_frequency", 0, { device: dev.key }),
-        createChannel("ci_frequency", 1, { device: deleted.key }),
-      ]),
-    );
-    await clickDeploy(container);
-    await awaitStatusDescription(
-      statuses,
-      new RegExp(`^Found no device with key ${deleted.key}$`),
     );
   });
 

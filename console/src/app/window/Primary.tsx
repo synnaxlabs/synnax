@@ -20,8 +20,10 @@ import { Notifications } from "@/app/notifications";
 import { Triggers } from "@/app/triggers";
 import { Guard } from "@/app/window/Guard";
 import { Device } from "@/feature/device";
+import { EtherCAT } from "@/feature/ethercat";
 import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
@@ -34,6 +36,11 @@ const SideEffect = (): null => {
   return null;
 };
 
+const EtherCATReplaceSideEffect = (): null => {
+  EtherCAT.Device.useListenForReplacements();
+  return null;
+};
+
 // Mounts inside the guard: tear-off reads the required project selectors, and the
 // Monaco preload waits until the workspace has started.
 const ProjectSideEffect = (): null => {
@@ -43,8 +50,8 @@ const ProjectSideEffect = (): null => {
 };
 
 /**
- * The center of it all. This is the main layout for the Synnax Console. Try to keep this
- * component as simple, presentational, and navigable as possible.
+ * The center of it all. This is the main layout for the Synnax Console. Try to keep
+ * this component as simple, presentational, and navigable as possible.
  */
 export const Primary = (): ReactElement => {
   const os = OS.use();
@@ -52,6 +59,7 @@ export const Primary = (): ReactElement => {
   return (
     <>
       <SideEffect />
+      {FLAGS.ethercatReplace && <EtherCATReplaceSideEffect />}
       <Guard>
         <ProjectSideEffect />
         <div

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/access/rbac/role"
 @py output "client/py/synnax/access/role"
@@ -27,6 +28,7 @@ Role struct {
             is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
         """
         @filter
+        @index sorted
         @search
         @validate required
     }
@@ -40,6 +42,23 @@ Role struct {
         @filter
     }
 
+    action Create {
+        role Role
+
+        @doc value """
+            replaces the role with the given created state. Emitted by the Core when a
+            role is created; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
+
     @create
     @doc value     """
         is a named collection of policies that can be assigned to users, enabling
@@ -48,7 +67,7 @@ Role struct {
     """
     @go marshal
     @go migrate
-    @ontology type "role"
+    @resource type "role"
     @retrieve
 }
 

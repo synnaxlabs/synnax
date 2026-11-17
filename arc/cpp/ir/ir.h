@@ -45,6 +45,20 @@ inline bool is_entry_node(const IR &ir, const Node &n) {
     return ir.edges_to(n.key).empty() && n.channels.read.empty();
 }
 
+/// @brief reports whether n is an entry node that initializes a stateful
+/// variable. A once node fires on the first activation of its scope only.
+inline bool is_once_node(const IR &ir, const Node &n) {
+    if (!is_entry_node(ir, n)) return false;
+    for (const auto &e: ir.edges) {
+        if (e.source.node != n.key) continue;
+        const auto *target = find_node(ir, e.target.node);
+        if (target != nullptr && target->type == "stateful_variable" &&
+            !target->inputs.empty() && e.target.param == target->inputs[0].name)
+            return true;
+    }
+    return false;
+}
+
 /// @brief builds a leaf Member referencing the node with the given key.
 inline Member node_member(std::string key) {
     Member m;

@@ -11,7 +11,7 @@ import re
 from collections.abc import Sequence
 from typing import Final, Literal, TypeAlias, get_args, override
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.labjack.types_gen import (
     ReadChannel,
     ReadConfig,
@@ -112,7 +112,10 @@ class ReadTask(
             )
             channels[_port_key(ch.type, ch.port)] = ch.channel
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class WriteTask(
@@ -175,7 +178,10 @@ class WriteTask(
                 "state": ch.state_channel,
             }
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class Device(device.Device):
@@ -197,7 +203,7 @@ class Device(device.Device):
         serial_number: int,
         name: str = "",
         location: str = "",
-        rack: int = 0,
+        rack: rack_.Key = 0,
         configured: bool = False,
     ):
         valid_models = get_args(SUPPORTED_MODELS)

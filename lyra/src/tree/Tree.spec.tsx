@@ -238,6 +238,17 @@ describe("Tree expansion", () => {
     });
   });
 
+  it("should show the expanded keys its caller holds", () => {
+    const onExpandedChange = vi.fn();
+    const { result } = renderHook(() =>
+      use({ nodes: NODES, expanded: ["a"], onExpandedChange }),
+    );
+    act(() => result.current.expand("b"));
+    expect(onExpandedChange).toHaveBeenLastCalledWith(["a", "b"]);
+    expect(result.current.expanded).toEqual(["a"]);
+    expect(result.current.shape.keys).toEqual(["a", "a1", "b"]);
+  });
+
   it("should toggle a node that its collapsed parent hides", () => {
     const onExpand = vi.fn();
     const { result } = renderHook(() =>

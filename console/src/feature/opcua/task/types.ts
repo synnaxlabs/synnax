@@ -38,6 +38,7 @@ const validateNodeIDs = ({
   channels.forEach((ch, i) => {
     if (ch.nodeId.length === 0 || (counts.get(nodeIdentity(ch)) ?? 0) < 2) return;
     issues.push({
+      continue: true,
       code: "custom",
       path: [i, "nodeId"],
       message:
@@ -66,6 +67,7 @@ const validateIndexChannels = ({
   if (indexChannelIndexes.length <= 1) return;
   indexChannelIndexes.forEach((i) => {
     issues.push({
+      continue: true,
       code: "custom",
       message: "Only one channel can be marked as an index channel",
       path: [i, "isIndex"],
@@ -74,10 +76,20 @@ const validateIndexChannels = ({
   });
 };
 
+const ARRAY_SIZE_ERROR = "Array size must be a positive integer";
+
+const deploySamplingZ = z.discriminatedUnion("type", [
+  opcua.unarySamplingZ,
+  opcua.arraySamplingZ.extend({
+    size: z.uint32({ error: ARRAY_SIZE_ERROR }).min(1, { error: ARRAY_SIZE_ERROR }),
+  }),
+]);
+
 export const deployReadConfigZ = opcua.readConfigZ
   .extend({
     device: Task.deviceKeyZ,
     sampleRate: z.number().positive().max(10000),
+    sampling: deploySamplingZ,
     channels: opcua.readChannelZ
       .array()
       .check(Task.validateReadChannels)
@@ -87,26 +99,21 @@ export const deployReadConfigZ = opcua.readConfigZ
   })
   .check((ctx) => {
     const { value, issues } = ctx;
-    const { arrayMode, arraySize, channels, sampleRate, streamRate } = value;
-    if (arrayMode) {
+    const { sampling, channels, sampleRate, streamRate } = value;
+    if (sampling.type === "array") {
       channels.forEach(({ disabled, field }, i) => {
         if (disabled || field === "") return;
         issues.push({
+          continue: true,
           code: "custom",
           message: "Array sampling cannot read structure fields",
           path: ["channels", i, "nodeId"],
           input: value,
         });
       });
-      if (!Number.isInteger(arraySize) || arraySize <= 0)
+      if (sampleRate < sampling.size)
         issues.push({
-          code: "custom",
-          message: "Array size must be a positive integer",
-          path: ["arraySize"],
-          input: value,
-        });
-      else if (sampleRate < arraySize)
-        issues.push({
+          continue: true,
           code: "custom",
           message: "Sample rate must be greater than or equal to the array size",
           path: ["sampleRate"],
@@ -116,6 +123,7 @@ export const deployReadConfigZ = opcua.readConfigZ
     }
     if (streamRate <= 0 || streamRate > 10000)
       issues.push({
+        continue: true,
         code: "custom",
         message: "Stream rate must be between 0 and 10000",
         path: ["streamRate"],
@@ -153,8 +161,20 @@ export const deployWriteConfigZ = opcua.writeConfigZ.extend({
         const index = channelsToIndexMap.get(cmdChannel) as number;
         const code = "custom";
         const message = `Synnax channel with key ${cmdChannel} is used for multiple channels`;
-        issues.push({ code, message, path: [index, "cmdChannel"], input: channels });
-        issues.push({ code, message, path: [i, "cmdChannel"], input: channels });
+        issues.push({
+          continue: true,
+          code,
+          message,
+          path: [index, "cmdChannel"],
+          input: channels,
+        });
+        issues.push({
+          continue: true,
+          code,
+          message,
+          path: [i, "cmdChannel"],
+          input: channels,
+        });
       });
     })
     .check(validateNodeIDs),

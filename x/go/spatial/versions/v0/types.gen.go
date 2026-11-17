@@ -11,7 +11,14 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/validate"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+)
 
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
@@ -46,6 +53,14 @@ type XY struct {
 	X float64 `json:"x" msgpack:"x"`
 	// Y is the vertical coordinate.
 	Y float64 `json:"y" msgpack:"y"`
+}
+
+// Dimensions is a 2D size with width and height values.
+type Dimensions struct {
+	// Width is the width in pixels.
+	Width float64 `json:"width" msgpack:"width"`
+	// Height is the height in pixels.
+	Height float64 `json:"height" msgpack:"height"`
 }
 
 // Direction is a 2D axis direction.
@@ -180,20 +195,31 @@ type StickyXY struct {
 	Units StickyUnits `json:"units" msgpack:"units"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StickyXY) ApplyDefaults() {
-	if s.Root.X == "" {
-		s.Root.X = XLocationLeft
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StickyXY) SetDefaults() {
+	s.Root.X = XLocationLeft
+	s.Root.Y = YLocationTop
+	s.Units.X = StickyUnitPx
+	s.Units.Y = StickyUnitPx
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *StickyXY) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain StickyXY
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
 	}
-	if s.Root.Y == "" {
-		s.Root.Y = YLocationTop
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *StickyXY) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain StickyXY
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
 	}
-	if s.Units.X == "" {
-		s.Units.X = StickyUnitPx
-	}
-	if s.Units.Y == "" {
-		s.Units.Y = StickyUnitPx
-	}
+	return dec.Decode((*plain)(s))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -205,14 +231,6 @@ func (s StickyXY) Validate() error {
 	return v.Error()
 }
 
-// Dimensions is a 2D size with width and height values.
-type Dimensions struct {
-	// Width is the width in pixels.
-	Width float64 `json:"width" msgpack:"width"`
-	// Height is the height in pixels.
-	Height float64 `json:"height" msgpack:"height"`
-}
-
 // Viewport is the camera state of a viewport.
 type Viewport struct {
 	// Zoom is the zoom level where 1.0 equals 100%.
@@ -221,11 +239,42 @@ type Viewport struct {
 	Position XY `json:"position" msgpack:"position"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (vi *Viewport) ApplyDefaults() {
-	if vi.Zoom == 0 {
-		vi.Zoom = 1
+// SetDefaults sets every field that has a schema default to that default.
+func (vi *Viewport) SetDefaults() {
+	vi.Zoom = 1
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (vi *Viewport) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Viewport
+	if reflect.ValueOf(*vi).IsZero() {
+		vi.SetDefaults()
 	}
+	return json.UnmarshalDecode(dec, (*plain)(vi))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (vi *Viewport) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Viewport
+	if reflect.ValueOf(*vi).IsZero() {
+		vi.SetDefaults()
+	}
+	return dec.Decode((*plain)(vi))
+}
+
+// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
+// such as a container's extent.
+type Decimal = float64
+
+// Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
+// The TypeScript binding is generic over T so callers can express bounds over either
+// number or bigint values; other languages emit a concrete float64-based type.
+type Bounds struct {
+	// Lower is the inclusive lower bound.
+	Lower float64 `json:"lower" msgpack:"lower"`
+	// Upper is the exclusive upper bound.
+	Upper float64 `json:"upper" msgpack:"upper"`
 }
 
 // Location is a position indicator covering the four outer edges of a container and its
@@ -250,6 +299,23 @@ const (
 func (l Location) IsValid() bool {
 	switch l {
 	case LocationTop, LocationRight, LocationBottom, LocationLeft, LocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
+// CenterLocation is a location at the center of a container.
+type CenterLocation string
+
+// CenterLocationCenter is the center of the container.
+const CenterLocationCenter CenterLocation = "center"
+
+// IsValid reports whether c is one of the defined CenterLocation
+// values.
+func (c CenterLocation) IsValid() bool {
+	switch c {
+	case CenterLocationCenter:
 		return true
 	default:
 		return false
@@ -317,18 +383,4 @@ func (l LocationXY) Validate() error {
 	v.Ternaryf("x", !l.X.IsValid(), "invalid x: %v", l.X)
 	v.Ternaryf("y", !l.Y.IsValid(), "invalid y: %v", l.Y)
 	return v.Error()
-}
-
-// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
-// such as a container's extent.
-type Decimal = float64
-
-// Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
-// The TypeScript binding is generic over T so callers can express bounds over either
-// number or bigint values; other languages emit a concrete float64-based type.
-type Bounds struct {
-	// Lower is the inclusive lower bound.
-	Lower float64 `json:"lower" msgpack:"lower"`
-	// Upper is the exclusive upper bound.
-	Upper float64 `json:"upper" msgpack:"upper"`
 }

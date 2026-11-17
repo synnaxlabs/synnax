@@ -114,8 +114,9 @@ await task.start();
   </Fragment>
 </Client.Tabs>
 
-The OPC UA write task has one option, **Auto start** (`auto_start`), which starts the
-task each time the Driver starts. For node IDs, see
+The OPC UA write task has the option **Auto start** (`auto_start`), which starts the
+task each time the Driver starts. The task tab also shows **Data saving**, but an OPC UA
+write task has no state channels, so it has no effect. For node IDs, see
 [node IDs](/reference/hardware/opc-ua/read-task#node-ids). When a frame has more
 commands than the server accepts in one request, the Driver splits the write into
 smaller requests.

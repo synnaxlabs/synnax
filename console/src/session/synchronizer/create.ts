@@ -31,6 +31,12 @@ export interface Params<S, A extends Action> {
   client: Synnax;
   /** Session store, for state pulls, subscriptions, and dispatch. */
   store: Store<S, A>;
+  /**
+   * Whether the callback's work ended because the client changed or closed, or, for a
+   * reconcile, because the Core reset. The store may then hold another Core's state, so
+   * a callback checks it before it dispatches or reports a failure after an await.
+   */
+  ended: () => boolean;
 }
 
 /**
@@ -70,7 +76,9 @@ export interface Synchronizer<S, A extends Action> {
  */
 export type Synchronizers<S, A extends Action> = Synchronizer<S, A>[];
 
-/** The slice of a domain client a remover needs: delete events and an existence sweep. */
+/**
+ * The slice of a domain client a remover needs: delete events and an existence sweep.
+ */
 export interface Removable<K extends record.Key> {
   onDelete: (handler: (key: K) => void) => destructor.Destructor;
   /** Retrieves the records that match a filter on keys. */

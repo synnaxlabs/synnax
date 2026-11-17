@@ -12,11 +12,11 @@ package relay
 import (
 	"context"
 	"slices"
+	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/override"
@@ -34,7 +34,9 @@ type streamer struct {
 	addr          address.Address
 	sendOpenAck   bool
 	excludeGroups []uint32
-	keys          set.Set[channel.Key]
+	// keys holds the streamer's channels. The relay's delta reads it to skip frames
+	// before they reach the streamer's buffer.
+	keys atomic.Pointer[set.Set[channel.Key]]
 }
 
 // StreamerConfig is the configuration for creating a new streamer.
@@ -83,20 +85,45 @@ func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &streamer{
+	s := &streamer{
 		sendOpenAck:   *cfg.SendOpenAck,
 		excludeGroups: cfg.ExcludeGroups,
-		keys:          set.New(cfg.Keys...),
 		addr:          address.Rand(),
 		demands:       r.demands,
 		relay:         r,
-	}, nil
+	}
+	s.setKeys(cfg.Keys)
+	return s, nil
+}
+
+func (s *streamer) setKeys(keys channel.Keys) {
+	k := set.New(keys...)
+	s.keys.Store(&k)
+}
+
+// accepts reports whether r holds any of the streamer's channels and comes from a
+// group the streamer does not exclude.
+func (s *streamer) accepts(r Response) bool {
+	if r.Group != 0 && slices.Contains(s.excludeGroups, r.Group) {
+		return false
+	}
+	keys := *s.keys.Load()
+	for k := range r.Frame.Keys() {
+		if keys.Contains(k) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
 	ctx.Go(func(ctx context.Context) error {
+		// A canceled request can outlive the relay, whose closed demands would panic.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		s.demands.Acquire(1)
 		// We only set demands when we start the streamer, avoiding unnecessary overhead
 		// when the streamer is not in use. We also need to make sure we send these
@@ -108,103 +135,96 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		if s.sendOpenAck {
 			ack = make(chan struct{})
 		}
-		s.demands.Inlet() <- demand{
-			Variant: change.VariantSet,
-			Key:     s.addr,
-			Value:   Request{Keys: s.keys.Slice()},
-			ack:     ack,
-		}
+		s.demands.Inlet() <- demand{addr: s.addr, keys: s.keys.Load().Slice(), ack: ack}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
-		responses, disconnect := s.relay.connectToDelta(1)
+		responses, disconnect := s.relay.connectToDelta(s.accepts)
 		defer func() {
 			// Disconnect from the relay and drain the response channel. Important that
 			// we do this before updating our demands, otherwise we may deadlock.
 			disconnect()
 			// Tell the tapper that we are no longer requesting any channels.
-			s.demands.Inlet() <- demand{Variant: change.VariantDelete, Key: s.addr}
+			s.demands.Inlet() <- demand{addr: s.addr, removed: true}
 			// If we add this in AttachClosables, it may not be closed at the end of if
 			// the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
 			s.demands.Close()
 		}()
 		if s.sendOpenAck {
-			// Wait for the relay to confirm our demand has been applied before
-			// signaling readiness. For channels served from local storage (host-leased
-			// and free channels alike) this is a true happens-before barrier:
-			// updateTaps opens the gateway tap with the demanded keys or sends the
-			// updated key set before the ack fires, and the cesium streamer applies
-			// pending key updates to every frame written afterward, so a write issued
-			// after the open ack is guaranteed to be delivered. Peer taps receive key
-			// updates asynchronously and are not covered by this barrier.
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-ack:
-			}
-			if err := signal.SendUnderContext(
-				ctx,
-				s.Out.Inlet(),
-				Response{},
-			); err != nil {
+			if err := s.awaitOpenAck(ctx, ack); err != nil {
 				return err
 			}
 		}
-		// pendingAcks holds the ack channels of key updates the tapper has not applied
-		// yet. The tapper applies demands in order, so the head always closes first.
-		// Waiting here instead of blocking on the send keeps frames for live keys
-		// flowing while an update propagates.
-		var pendingAcks []chan struct{}
-		for {
-			var nextAck chan struct{}
-			if len(pendingAcks) > 0 {
-				nextAck = pendingAcks[0]
+		return s.forward(ctx, responses)
+	}, o.Signal...)
+}
+
+// awaitOpenAck waits for the relay to confirm the opening demand, then signals
+// readiness. This is a true happens-before barrier: updateTaps opens the storage tap
+// with the demanded keys or sends the updated key set before the ack fires, and the
+// cesium streamer applies pending key updates to every frame written afterward, so a
+// write issued after the open ack is guaranteed to be delivered.
+func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ack:
+	}
+	return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{})
+}
+
+// forward applies key updates from the inlet and sends matching frames from responses
+// until the context is canceled or the inlet closes.
+func (s *streamer) forward(ctx context.Context, responses <-chan Response) error {
+	// pendingAcks holds the ack channels of key updates the tapper has not applied
+	// yet. The tapper applies demands in order, so the head always closes first.
+	// Waiting here instead of blocking on the send keeps frames for live keys flowing
+	// while an update propagates.
+	var pendingAcks []chan struct{}
+	for {
+		var nextAck chan struct{}
+		if len(pendingAcks) > 0 {
+			nextAck = pendingAcks[0]
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-nextAck:
+			pendingAcks = pendingAcks[1:]
+			if err := signal.SendUnderContext(
+				ctx,
+				s.Out.Inlet(),
+				Response{Ack: true},
+			); err != nil {
+				return err
 			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-nextAck:
-				pendingAcks = pendingAcks[1:]
-				if err := signal.SendUnderContext(
-					ctx,
-					s.Out.Inlet(),
-					Response{Ack: true},
-				); err != nil {
-					return err
-				}
-			case req, ok := <-s.In.Outlet():
-				if !ok {
-					return nil
-				}
-				req.Keys = lo.Uniq(req.Keys)
-				s.keys = set.New(req.Keys...)
-				d := demand{Variant: change.VariantSet, Key: s.addr, Value: req}
-				if req.AckRequested {
-					d.ack = make(chan struct{})
-					pendingAcks = append(pendingAcks, d.ack)
-				}
-				if err := signal.SendUnderContext(
-					ctx,
-					s.demands.Inlet(),
-					d,
-				); err != nil {
-					return err
-				}
-			case r := <-responses.Outlet():
-				if r.Group != 0 && slices.Contains(s.excludeGroups, r.Group) {
-					continue
-				}
-				if filtered := r.Frame.KeepKeys(s.keys); !filtered.Empty() {
-					res := Response{Frame: filtered, Group: r.Group}
-					if err := signal.SendUnderContext(
-						ctx,
-						s.Out.Inlet(),
-						res,
-					); err != nil {
-						return err
-					}
-				}
+		case req, ok := <-s.In.Outlet():
+			if !ok {
+				return nil
+			}
+			req.Keys = lo.Uniq(req.Keys)
+			// The keys must change before the demand, so the delta accepts frames for
+			// an added channel as soon as the relay taps it.
+			s.setKeys(req.Keys)
+			d := demand{addr: s.addr, keys: req.Keys}
+			if req.AckRequested {
+				d.ack = make(chan struct{})
+				pendingAcks = append(pendingAcks, d.ack)
+			}
+			if err := signal.SendUnderContext(ctx, s.demands.Inlet(), d); err != nil {
+				return err
+			}
+		case r := <-responses:
+			// A frame buffered before a key update can hold channels the streamer no
+			// longer wants.
+			filtered := r.Frame.KeepKeys(*s.keys.Load())
+			if filtered.Empty() {
+				continue
+			}
+			res := Response{Frame: filtered, Group: r.Group}
+			if err := signal.SendUnderContext(ctx, s.Out.Inlet(), res); err != nil {
+				return err
 			}
 		}
-	}, o.Signal...)
+	}
 }

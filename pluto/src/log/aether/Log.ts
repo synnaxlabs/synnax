@@ -58,7 +58,7 @@ export const logStateZ = log.logZ
     channelDataTypes: z.record(z.string(), z.string()).default({}),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
-    color: color.colorZ.default(color.ZERO),
+    color: color.colorZ.optional(),
     overshoot: xy.xyZ.default({ x: 0, y: 0 }),
     // position is the time of the entry at the bottom of a paused view: a decimal count
     // of nanoseconds, since a number cannot hold it exactly. Empty while live.
@@ -76,9 +76,17 @@ const lineZ = z.object({ text: z.string(), color: z.string() });
 /** A selected line as a copy writes it. An empty color follows the theme. */
 export interface Line extends z.infer<typeof lineZ> {}
 
+const selectionZ = z.object({ lines: z.array(lineZ), partial: z.boolean() });
+
+/**
+ * The selected lines as a copy writes them. partial is true when the selection is a
+ * select-all and the channels store values the log does not hold.
+ */
+export interface Selection extends z.infer<typeof selectionZ> {}
+
 export const methodsZ = {
-  /** Returns the selected lines at the time of the call. */
-  selectedLines: z.function({ input: z.tuple([]), output: z.array(lineZ) }),
+  /** Returns the selection at the time of the call. */
+  selection: z.function({ input: z.tuple([]), output: selectionZ }),
 };
 
 /**
@@ -182,7 +190,7 @@ const ZERO_SCROLLBACK: ScrollbackState = {
 };
 
 const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
-  const p = theme.key === "synnaxDark" ? DARK_PREFIX : LIGHT_PREFIX;
+  const p = theme.dark ? DARK_PREFIX : LIGHT_PREFIX;
   const [h, s, l, a] = color.hsla(c);
   return color.fromHSLA([
     Math.min(360, Math.round(h * p.hue)),
@@ -204,8 +212,8 @@ const dayText = ({ timestamp }: LogEntry, timeZone: TimeZone): string =>
 const sameDay = (a: LogEntry, b: LogEntry, timeZone: TimeZone): boolean =>
   new TimeStamp(a.timestamp).isSameDay(new TimeStamp(b.timestamp), timeZone);
 
-// East Asian characters take two columns of a monospace font. An emoji takes two already,
-// as a surrogate pair.
+// East Asian characters take two columns of a monospace font. An emoji takes two
+// already, as a surrogate pair.
 const WIDE =
   /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6]/;
 
@@ -307,8 +315,7 @@ export class Log
         this.seeking = BigInt(this.state.position);
     }
 
-    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l11;
-    else i.textColor = this.state.color;
+    i.textColor = this.state.color ?? i.theme.colors.gray.l11;
 
     i.lineHeight = i.theme.typography[this.state.font].size * i.theme.sizes.base;
     i.charWidth = i.draw2d.measureCharWidth(this.state.font);
@@ -319,9 +326,7 @@ export class Log
     const channelEntries = this.state.channels;
     const prevEntries = this.prevState.channels;
     const channelsChanged = channelEntries !== prevEntries;
-    const channelKeys = channelEntries
-      .map((e) => e.channel)
-      .filter((ch): ch is number => typeof ch === "number");
+    const channelKeys = channelEntries.map((e) => e.channel);
     const configs: Record<string, log.ChannelEntry> = {};
     for (const entry of channelEntries) configs[entry.channel] = entry;
 
@@ -332,19 +337,19 @@ export class Log
       i.prefixColors = {};
       i.valueColors = {};
       for (const [key, cfg] of Object.entries(configs))
-        if (!color.isZero(cfg.color)) {
+        if (cfg.color != null) {
           i.prefixColors[key] = muteColor(cfg.color, i.theme);
           i.valueColors[key] = color.construct(cfg.color);
         }
     }
     i.configs = configs;
 
-    i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
+    i.selectionColor = color.setOpacity(i.theme.colors.primary.z, 0.25);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
-    // Always call setChannels — the source short-circuits if unchanged.
-    // This handles both initial setup (where prevState === state) and subsequent changes.
+    // Always call setChannels — the source short-circuits if unchanged. This handles
+    // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
     const { data } = i.telem.value();
     this.entries = data;
@@ -737,13 +742,15 @@ export class Log
   }
 
   // A selection endpoint past the last entry anchors to the last entry, unless it is
-  // SELECT_ALL_END, which stays open.
+  // SELECT_ALL_END, which stays open. A select-all leaves its start open too, so it
+  // covers the entries that older pages add.
   private setAnchors(selectionStart: number, selectionEnd: number): void {
     const last = this.entries.length - 1;
     const anchor = (i: number): LogEntry | undefined =>
       i === SELECT_ALL_END ? undefined : this.entries[Math.min(i, last)];
+    const all = selectionStart === 0 && selectionEnd === SELECT_ALL_END;
     this.anchors = {
-      start: anchor(selectionStart),
+      start: all ? undefined : anchor(selectionStart),
       end: anchor(selectionEnd),
       scroll: this.state.scrolling
         ? this.entries[this.scrollState.offset - 1]
@@ -799,8 +806,8 @@ export class Log
     this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
   }
 
-  // Waits at the oldest entry while older pages can still reach the time. When no stored
-  // sample does, the view stays there. Entries that share the time all show.
+  // Waits at the oldest entry while older pages can still reach the time. When no
+  // stored sample does, the view stays there. Entries that share the time all show.
   private seek(time: bigint): void {
     const { lineHeight, telem } = this.internal;
     this.moveView(0, lineHeight);
@@ -870,9 +877,12 @@ export class Log
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
     if (isTimestampChannel) {
-      const { format, tz } = cfg?.timestamp ?? { format: "preciseDate", tz: "local" };
+      const { format, timeZone: valueTimeZone } = cfg?.timestampConfig ?? {
+        format: "preciseDate",
+        timeZone: "local",
+      };
       try {
-        value = new TimeStamp(BigInt(value)).toString(format, tz);
+        value = new TimeStamp(BigInt(value)).toString(format, valueTimeZone);
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }
@@ -895,17 +905,23 @@ export class Log
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 
-  selectedLines(): Line[] {
+  selection(): Selection {
     const { selectionStart, selectionEnd } = this.state;
-    if (selectionStart < 0 || selectionEnd < 0) return [];
+    if (selectionStart < 0 || selectionEnd < 0) return { lines: [], partial: false };
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
-    const { valueColors } = this.internal;
-    return this.entries.slice(selMin, selMax + 1).map((entry) => {
+    const { valueColors, telem } = this.internal;
+    const lines = this.entries.slice(selMin, selMax + 1).map((entry) => {
       const { line, channelKey } = this.formatEntry(entry, true);
       const lineColor = valueColors[channelKey];
       return { text: line, color: lineColor == null ? "" : color.hex(lineColor) };
     });
+    const { exhausted, live } = telem.wrapped;
+    const partial =
+      selMin === 0 &&
+      selMax === SELECT_ALL_END &&
+      (exhausted === false || live === false);
+    return { lines, partial };
   }
 
   private renderElements(draw2D: Draw2D, rows: Row[], lh: number): void {

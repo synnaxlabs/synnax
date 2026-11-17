@@ -11,14 +11,19 @@ package rack
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/rack/pb"
+	svcrack "github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -41,6 +46,12 @@ type (
 		struct{},
 		*emptypb.Empty,
 	]
+	dispatchServer = grpc.UnaryServer[
+		rack.DispatchRequest,
+		*DispatchRequest,
+		struct{},
+		*emptypb.Empty,
+	]
 )
 
 type (
@@ -49,6 +60,7 @@ type (
 	retrieveRequestTranslator  struct{}
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
+	dispatchRequestTranslator  struct{}
 )
 
 var (
@@ -57,6 +69,7 @@ var (
 	_ grpc.Translator[rack.RetrieveRequest, *RetrieveRequest]      = retrieveRequestTranslator{}
 	_ grpc.Translator[rack.RetrieveResponse, *pb.RetrieveResponse] = retrieveResponseTranslator{}
 	_ grpc.Translator[rack.DeleteRequest, *DeleteRequest]          = deleteRequestTranslator{}
+	_ grpc.Translator[rack.DispatchRequest, *DispatchRequest]      = dispatchRequestTranslator{}
 )
 
 func (createRequestTranslator) Forward(
@@ -158,25 +171,74 @@ func (deleteRequestTranslator) Backward(
 	}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &RackCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &RackRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &RackDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.RackDelete = del
+	dispatch := &dispatchServer{
+		RequestTranslator:  dispatchRequestTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
+		ServiceDesc:        &RackDispatchService_ServiceDesc,
+		Errors:             errs,
+	}
+	t.RackDispatch = dispatch
 
-	return grpc.CompoundBindableTransport{create, retrieve, del}
+	return grpc.CompoundBindableTransport{create, retrieve, del, dispatch}
+}
+
+func (dispatchRequestTranslator) Forward(
+	ctx context.Context,
+	req rack.DispatchRequest,
+) (*DispatchRequest, error) {
+	acts := make([][]byte, len(req.Actions))
+	for i, a := range req.Actions {
+		var err error
+		if acts[i], err = json.Codec.Encode(a); err != nil {
+			return nil, err
+		}
+	}
+	return &DispatchRequest{
+		Key:         uint32(req.Key),
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
+}
+
+func (dispatchRequestTranslator) Backward(
+	ctx context.Context,
+	req *DispatchRequest,
+) (rack.DispatchRequest, error) {
+	acts := make([]svcrack.Action, len(req.Actions))
+	for i, b := range req.Actions {
+		if err := json.Codec.Decode(b, &acts[i]); err != nil {
+			return rack.DispatchRequest{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, err.Error()),
+				"actions",
+				strconv.Itoa(i),
+			)
+		}
+	}
+	return rack.DispatchRequest{
+		Key:         svcrack.Key(req.Key),
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
 }

@@ -140,11 +140,11 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "analog":
 		var v AnalogReadChannel
 		if err := v.BaseReadChannel.DecodeOrc(r); err != nil {
@@ -337,11 +337,11 @@ func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "analog":
 		var v AnalogWriteChannel
 		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {

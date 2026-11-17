@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/resource"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/internal/defaults"
@@ -218,15 +218,16 @@ func (p *Plugin) generateFile(
 	aliases []resolution.Type,
 	table *resolution.Table,
 ) ([]byte, error) {
-	namespace := ""
-	if len(structs) > 0 {
-		namespace = structs[0].Namespace
-	} else if len(typeDefs) > 0 {
-		namespace = typeDefs[0].Namespace
-	} else if len(aliases) > 0 {
-		namespace = aliases[0].Namespace
-	} else if len(enums) > 0 {
-		namespace = enums[0].Namespace
+	var namespace, filePath string
+	switch {
+	case len(structs) > 0:
+		namespace, filePath = structs[0].Namespace, structs[0].FilePath
+	case len(typeDefs) > 0:
+		namespace, filePath = typeDefs[0].Namespace, typeDefs[0].FilePath
+	case len(aliases) > 0:
+		namespace, filePath = aliases[0].Namespace, aliases[0].FilePath
+	case len(enums) > 0:
+		namespace, filePath = enums[0].Namespace, enums[0].FilePath
 	}
 
 	data := &templateData{
@@ -236,18 +237,18 @@ func (p *Plugin) generateFile(
 		SortedDecls: make([]sortedDeclData, 0),
 		Manager:     includes.NewManager(),
 		table:       table,
-		rawNs:       namespace,
+		filePath:    filePath,
 	}
 
 	declaredNames := make(set.Set[string])
 
 	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsSkipped(e, "cpp") {
+		if e.FilePath == filePath && !omit.IsSkipped(e, "cpp") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
 
-	data.Ontology = p.extractOntology(structs, table, data)
+	data.Resource = p.extractResource(structs, table, data)
 
 	var combinedTypes []resolution.Type
 	combinedTypes = append(combinedTypes, typeDefs...)
@@ -257,8 +258,10 @@ func (p *Plugin) generateFile(
 	if namespace != "" {
 		allNamespaceTypes := table.TypesInNamespace(namespace)
 		existingQNames := make(set.Set[string])
+		files := make(set.Set[string])
 		for _, t := range combinedTypes {
 			existingQNames.Add(t.QualifiedName)
+			files.Add(t.FilePath)
 		}
 		for _, t := range allNamespaceTypes {
 			// Synthetic inline variant payloads flatten into their variant
@@ -266,9 +269,11 @@ func (p *Plugin) generateFile(
 			if existingQNames.Contains(t.QualifiedName) || t.Synthetic {
 				continue
 			}
-			// Types routed to a different file by a per-type @cpp output
-			// override belong to that file, not this one.
-			if p := output.GetPath(t, "cpp"); p != "" && p != outputPath {
+			// A type belongs to the file its @cpp output names. One with no output
+			// belongs here only when its schema does, since two schemas with one file
+			// name share a namespace.
+			if p := output.GetPath(t, "cpp"); p != outputPath &&
+				(p != "" || !files.Contains(t.FilePath)) {
 				continue
 			}
 			combinedTypes = append(combinedTypes, t)
@@ -526,7 +531,7 @@ func (p *Plugin) aliasTargetToCpp(
 		}
 	}
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		if isOmitted || targetOutputPath == "" {
 			if cppInclude != "" {
 				data.AddInternal(cppInclude)
@@ -652,6 +657,15 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 
 	if entry.Filter != nil {
 		sd.IsFilter = true
+		data.AddSystem("utility")
+	}
+
+	if where, ok := requestFilter(entry, data.table); ok {
+		sd.Where = where.Name
+		sd.OptionsName = strings.TrimSuffix(sd.Name, "Request") + "Options"
+		sd.Options = lo.Filter(sd.Fields, func(f fieldData, _ int) bool {
+			return f.Name != "where"
+		})
 		data.AddSystem("utility")
 	}
 
@@ -902,6 +916,16 @@ func (p *Plugin) processField(
 	}
 }
 
+// requestFilter returns the filter that derives entry as its retrieve request.
+func requestFilter(
+	entry resolution.Type,
+	table *resolution.Table,
+) (resolution.Type, bool) {
+	return lo.Find(table.StructTypes(), func(t resolution.Type) bool {
+		return t.Filter != nil && t.Filter.Request == entry.QualifiedName
+	})
+}
+
 // filterLineType returns the C++ type of a line of the filter entry, which takes a
 // plain value or a list in a designated initializer. A bare line holds an operator in
 // an x::filter::Field, and a typed list line is an x::filter::List. It returns false
@@ -935,11 +959,12 @@ func (p *Plugin) filterLineType(
 
 func (p *Plugin) defaultRenderer(data *templateData) defaults.Renderer {
 	return defaults.Renderer{
-		Table:     data.table,
-		Namespace: data.rawNs,
+		Table:    data.table,
+		FilePath: data.filePath,
 		TypeName: func(typeRef resolution.TypeRef) string {
 			return p.typeRefToCpp(typeRef, data)
 		},
+		Include: data.AddInternal,
 	}
 }
 
@@ -1002,7 +1027,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 // name, adding the cross-namespace include when the union lives elsewhere.
 func (p *Plugin) resolveUnionType(resolved resolution.Type, data *templateData) string {
 	name := domain.GetName(resolved, "cpp")
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
@@ -1058,7 +1083,7 @@ func (p *Plugin) resolveStructType(
 
 	targetOutputPath := output.GetPath(resolved, "cpp")
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		if isOmitted || targetOutputPath == "" {
 			if cppInclude != "" {
 				data.AddInternal(cppInclude)
@@ -1094,7 +1119,7 @@ func (p *Plugin) resolveEnumType(
 
 	name := resolved.Name
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := enum.FindOutputPath(resolved, data.table, "cpp")
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
@@ -1140,7 +1165,7 @@ func (p *Plugin) resolveDistinctType(
 ) string {
 	name := domain.GetName(resolved, "cpp")
 
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			includePath := explicitInclude(resolved)
@@ -1162,7 +1187,7 @@ func (p *Plugin) resolveAliasType(
 	data *templateData,
 ) string {
 	name := domain.GetName(resolved, "cpp")
-	if resolved.Namespace != data.rawNs {
+	if resolved.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			includePath := explicitInclude(resolved)
@@ -1244,20 +1269,20 @@ func isCppTemplateWithAllDefaults(t resolution.Type) bool {
 }
 
 type templateData struct {
-	Ontology *ontologyData
+	Resource *resourceData
 	*includes.Manager
 	table        *resolution.Table
 	OutputPath   string
 	Namespace    string
-	rawNs        string
+	filePath     string
 	ForwardDecls []string
 	Enums        []enumData
 	SortedDecls  []sortedDeclData
 }
 
-// ontologyData contains information for generating ontology ID support.
-type ontologyData struct {
-	// TypeName is the ontology type name (e.g., "channel", "device", "task").
+// resourceData contains information for generating resource ID support.
+type resourceData struct {
+	// TypeName is the resource type name (e.g., "channel", "device", "task").
 	TypeName string
 	// KeyType is the C++ type name (e.g., "Key").
 	KeyType string
@@ -1320,6 +1345,12 @@ type structData struct {
 	HasExtends        bool
 	// IsFilter is true for the Where of a filter, which combines with &&, ||, and !.
 	IsFilter bool
+	// Where is the filter of a retrieve request, and is empty for any other struct.
+	Where string
+	// OptionsName names the struct that holds Options.
+	OptionsName string
+	// Options are the fields of a retrieve request other than where.
+	Options []fieldData
 }
 
 // inheritedDefaultData assigns a new default to a member declared by a base struct.
@@ -1383,7 +1414,7 @@ func (p *Plugin) resolveExtendsType(
 	name := domain.GetName(parent, "cpp")
 
 	// Check for cross-namespace reference
-	if parent.Namespace != data.rawNs {
+	if parent.FilePath != data.filePath {
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
 			// Add include for the parent's header
@@ -1399,32 +1430,32 @@ func (p *Plugin) resolveExtendsType(
 	return p.buildGenericType(name, extendsRef.TypeArgs, &parent, data)
 }
 
-// extractOntology extracts ontology metadata from the struct or union with an @ontology
+// extractResource extracts resource metadata from the struct or union with a @resource
 // domain, keyed by a struct field with an @key annotation. Returns nil if no suitable
 // type is found.
-func (p *Plugin) extractOntology(
+func (p *Plugin) extractResource(
 	structs []resolution.Type,
 	table *resolution.Table,
 	data *templateData,
-) *ontologyData {
+) *resourceData {
 	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "cpp") }
 	rawKeyFields := key.Collect(structs, table, skip)
 	unions := lo.Filter(table.UnionTypes(), func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "cpp") == data.OutputPath
 	})
-	ontData := ontology.Extract(
+	resData := resource.Extract(
 		slices.Concat(structs, unions),
 		rawKeyFields,
 		skip,
 		table,
 	)
-	if ontData == nil {
+	if resData == nil {
 		return nil
 	}
-	keyType := p.typeRefToCpp(ontData.KeyField.Type, data)
+	keyType := p.typeRefToCpp(resData.KeyField.Type, data)
 
 	// Determine key conversion based on the underlying primitive type
-	primitive := ontData.KeyField.Primitive
+	primitive := resData.KeyField.Primitive
 	var keyConversion string
 	switch primitive {
 	case "string":
@@ -1438,11 +1469,11 @@ func (p *Plugin) extractOntology(
 		keyConversion = "std::to_string(key)"
 	}
 
-	// Add the ontology include
-	data.AddInternal("client/cpp/ontology/id.h")
+	// Add the resource ID include
+	data.AddInternal("client/cpp/resource/id.h")
 
-	return &ontologyData{
-		TypeName:      ontData.TypeName,
+	return &resourceData{
+		TypeName:      resData.TypeName,
 		KeyType:       keyType,
 		KeyConversion: keyConversion,
 	}
@@ -1624,6 +1655,18 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- $s := $d.Struct}}
 {{if or $i (gt (len $.Enums) 0)}}
 {{end}}
+{{- if $s.Options}}
+/// @brief {{$s.OptionsName}} holds every field of a {{$s.Name}} except where.
+struct {{$s.OptionsName}} {
+{{- range $s.Options}}
+{{- if .Doc}}
+    {{formatDoc .Name .Doc 4 | printf "%s"}}
+{{- end}}
+    {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
+{{- end}}
+};
+
+{{end}}
 {{- if $s.Doc}}
 {{formatDoc $s.Name $s.Doc}}
 {{end}}
@@ -1675,6 +1718,19 @@ using {{$td.Name}} = {{$td.CppType}};
         return w;
     }
 {{- end}}
+{{- if $s.Options}}
+
+    /// @brief returns a request for the records that where selects.
+    static {{$s.Name}}
+    from({{$s.Where}} where, const {{$s.OptionsName}} &options = {}) {
+        return {
+            .where = std::move(where),
+{{- range $s.Options}}
+            .{{.Name}} = options.{{.Name}},
+{{- end}}
+        };
+    }
+{{- end}}
 
     static {{$s.Name}} parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1722,12 +1778,12 @@ std::pair<{{$u.Name}}, x::errors::Error> {{$u.SnakeName}}_from_proto(const {{$u.
 inline {{$d.TypeDef.Name}}::{{$d.TypeDef.Name}}() = default;
 {{- end}}
 {{- end}}
-{{- if .Ontology}}
+{{- if .Resource}}
 
-const synnax::ontology::ID ONTOLOGY_TYPE("{{.Ontology.TypeName}}", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("{{.Resource.TypeName}}", "");
 
-inline synnax::ontology::ID ontology_id(const {{.Ontology.KeyType}}& key) {
-    return synnax::ontology::ID("{{.Ontology.TypeName}}", {{.Ontology.KeyConversion}});
+inline synnax::resource::ID resource_id(const {{.Resource.KeyType}}& key) {
+    return synnax::resource::ID("{{.Resource.TypeName}}", {{.Resource.KeyConversion}});
 }
 {{- end}}
 }

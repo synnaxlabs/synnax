@@ -10,7 +10,9 @@
 package lsp_test
 
 import (
+	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -195,6 +197,21 @@ var _ = Describe("Server Diagnostics", func() {
 
 				Expect(client.Diagnostics()).To(HaveLen(1))
 				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("ARC3001"))
+			},
+		)
+
+		It(
+			"Should include error code for an extra function argument",
+			func(ctx SpecContext) {
+				OpenArcDocument(
+					server,
+					ctx,
+					docURI,
+					"func add() {x i64} i64 { return x }\nfunc test() { z := add(1, 2) }",
+				)
+
+				Expect(client.Diagnostics()).To(HaveLen(1))
+				Expect(DiagnosticCode(client.Diagnostics()[0])).To(Equal("ARC3003"))
 			},
 		)
 
@@ -477,7 +494,7 @@ var _ = Describe("External Change Notifications", func() {
 			Expect(
 				DiagnosticMessage(client.Diagnostics()[0]),
 			).To(ContainSubstring("undefined symbol: my_channel"))
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "my_channel",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -490,12 +507,31 @@ var _ = Describe("External Change Notifications", func() {
 	)
 
 	It(
+		"Should republish diagnostics after the context of the change ends",
+		func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := my_channel\n}")
+			Expect(client.Diagnostics()).To(HaveLen(1))
+			resolver = resolver.With(symbol.Symbol{
+				Name: "my_channel",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+			})
+			changeCtx, cancel := context.WithCancel(ctx)
+			cancel()
+			observer.Notify(changeCtx, struct{}{})
+			Eventually(
+				func() []protocol.Diagnostic { return client.Diagnostics() },
+			).Should(BeEmpty())
+		},
+	)
+
+	It(
 		"Should refresh semantic tokens when external state changes",
 		func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := my_channel\n}")
 			baseline := client.SemanticRefreshCount()
 
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "my_channel",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -511,14 +547,14 @@ var _ = Describe("External Change Notifications", func() {
 	It(
 		"Should show errors when a previously valid symbol is removed",
 		func(ctx SpecContext) {
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "sensor",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F64()),
 			})
 			OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := sensor\n}")
 			Expect(client.Diagnostics()).To(BeEmpty())
-			resolver.Remove("sensor")
+			resolver = resolver.Without("sensor")
 			observer.Notify(ctx, struct{}{})
 			Eventually(func() int { return len(client.Diagnostics()) }).Should(Equal(1))
 			Expect(
@@ -534,12 +570,12 @@ var _ = Describe("External Change Notifications", func() {
 			OpenArcDocument(server, ctx, docURI, "func test1() {\n\tx := channel_a\n}")
 			OpenArcDocument(server, ctx, docURI2, "func test2() {\n\ty := channel_b\n}")
 			Expect(client.Diagnostics()).To(HaveLen(1))
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "channel_a",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.I32()),
 			})
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "channel_b",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.I64()),
@@ -554,7 +590,7 @@ var _ = Describe("External Change Notifications", func() {
 	It(
 		"Should not race feature queries against a concurrent republish",
 		func(ctx SpecContext) {
-			resolver.Add(symbol.Symbol{
+			resolver = resolver.With(symbol.Symbol{
 				Name: "my_channel",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -567,6 +603,7 @@ var _ = Describe("External Change Notifications", func() {
 			wg.Add(workers)
 			for range workers {
 				go func() {
+					defer GinkgoRecover()
 					defer wg.Done()
 					params := &protocol.PrepareRenameParams{
 						TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -577,9 +614,9 @@ var _ = Describe("External Change Notifications", func() {
 						case <-done:
 							return
 						default:
-							// Errors are irrelevant here; the assertion is the race
-							// detector observing no concurrent access to the IR.
-							_, _ = server.PrepareRename(ctx, params)
+							// The race detector checks that no query reads the IR as it
+							// changes.
+							MustSucceed(server.PrepareRename(ctx, params))
 						}
 					}
 				}()
@@ -591,6 +628,77 @@ var _ = Describe("External Change Notifications", func() {
 			wg.Wait()
 		},
 	)
+})
+
+var _ = Describe("Analysis Panics", func() {
+	It(
+		"Should publish an error diagnostic when analysis panics during a republish",
+		func(ctx SpecContext) {
+			var panicking atomic.Bool
+			observer := observe.New[struct{}]()
+			server, docURI, client := SetupTestServerWithClient(lsp.Config{
+				NewRoot: func() *symbol.Symbol {
+					if panicking.Load() {
+						panic("analyzer failure")
+					}
+					return NewRoot(StaticResolver{})
+				},
+				OnExternalChange: observer,
+			})
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(server.Shutdown(ctx)).To(Succeed())
+			})
+			OpenArcDocument(server, ctx, docURI, "func test() {}")
+			Expect(client.Diagnostics()).To(BeEmpty())
+			panicking.Store(true)
+			observer.Notify(ctx, struct{}{})
+			Eventually(client.Diagnostics).Should(ConsistOf(
+				WithTransform(DiagnosticMessage, ContainSubstring("internal error")),
+			))
+		},
+	)
+
+	It("Should return an error when completion panics", func(ctx SpecContext) {
+		var panicking atomic.Bool
+		server, docURI := SetupTestServer(lsp.Config{
+			NewRoot: func() *symbol.Symbol {
+				if panicking.Load() {
+					panic("analyzer failure")
+				}
+				return NewRoot(StaticResolver{})
+			},
+		})
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(server.Shutdown(ctx)).To(Succeed())
+		})
+		OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := \n}")
+		panicking.Store(true)
+		Expect(server.Completion(ctx, &protocol.CompletionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: 1, Character: 6},
+		})).Error().To(MatchError(lsp.ErrAnalysisPanic))
+	})
+
+	It("Should return an error when hover panics", func(ctx SpecContext) {
+		var panicking atomic.Bool
+		server, docURI := SetupTestServer(lsp.Config{
+			NewRoot: func() *symbol.Symbol {
+				if panicking.Load() {
+					panic("analyzer failure")
+				}
+				return NewRoot(StaticResolver{})
+			},
+		})
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(server.Shutdown(ctx)).To(Succeed())
+		})
+		OpenArcDocument(server, ctx, docURI, "func test( {\n\tmy_value\n}")
+		panicking.Store(true)
+		Expect(server.Hover(ctx, &protocol.HoverParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: 1, Character: 3},
+		})).Error().To(MatchError(lsp.ErrAnalysisPanic))
+	})
 })
 
 var _ = Describe("Server Lifecycle", func() {

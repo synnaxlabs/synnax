@@ -36,8 +36,8 @@ interface InternalState {
 }
 
 // Toggle is a component that acts as a switch, commanding a boolean telemetry sink to
-// change its value when clicked. It also listens to a boolean telemetry source to update
-// its toggled state.
+// change its value when clicked. It also listens to a boolean telemetry source to
+// update its toggled state.
 export class Toggle
   extends aether.Leaf<typeof toggleStateZ, InternalState, typeof toggleMethodsZ>
   implements diagram.Element, aether.HandlersFromSchema<typeof toggleMethodsZ>

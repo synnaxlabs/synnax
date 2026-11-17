@@ -24,9 +24,8 @@ type Delete[K Key, E Entry[K]] struct {
 	// guards is the chain of GuardFuncs checked against each matched entry; any non-nil
 	// error aborts the delete.
 	guards guards[K, E]
-	// indexes is the set of secondary indexes the query stages deletions against. Nil
-	// means deletions are not staged.
-	indexes []Index[K, E]
+	// table is the Table the query deletes from. Nil for a query that no Table built.
+	table *Table[K, E]
 }
 
 // NewDelete opens a new Delete query.
@@ -41,19 +40,10 @@ func (d Delete[K, E]) Where(filter Filter[K, E]) Delete[K, E] {
 	return d
 }
 
-// WherePrefix narrows the underlying scan to entries whose pebble key starts with the
-// given prefix. Combine with Where to skip ranges of the keyspace that cannot possibly
-// match.
-func (d Delete[K, E]) WherePrefix(prefix []byte) Delete[K, E] {
-	d.retrieve = d.retrieve.WherePrefix(prefix)
-	return d
-}
-
 // WhereRaw adds a raw byte filter that runs against each entry's pebble key and encoded
 // value before decoding. Returning false skips the entry without allocating a decoded
-// value, so a key-shaped predicate can drop most rows without paying decode cost. Use
-// in tandem with WherePrefix when the keyspace itself can be narrowed.
-func (d Delete[K, E]) WhereRaw(filter RawFilter) Delete[K, E] {
+// value, so a key-shaped predicate can drop most rows without paying decode cost.
+func (d Delete[K, E]) WhereRaw(filter rawFilter) Delete[K, E] {
 	d.retrieve = d.retrieve.WhereRaw(filter)
 	return d
 }
@@ -72,10 +62,18 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 // Exec executes the query against the provided transaction. If the resolved filter is
 // bounded by primary keys and any of those keys do not exist, Delete will assume the
 // missing keys do not need to be deleted and continue with the keys that do exist.
+//
+// A Delete built by a Table also applies the OnDelete of every Reference that points
+// at a deleted entry: it cascades, refuses, or detaches before it changes anything.
+// Guards run only on the entries the query matches, never on cascaded ones.
 func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Delete.Exec", tx)
+	return inTx(ctx, tx, func(tx Tx) error { return d.exec(ctx, tx) })
+}
+
+func (d Delete[K, E]) exec(ctx context.Context, tx Tx) error {
 	var (
-		queryCtx = Context{Context: ctx, Tx: tx}
+		queryCtx = newContext(ctx, tx)
 		entries  []E
 		q        = d.retrieve.Entries(&entries)
 	)
@@ -86,7 +84,10 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
-	w := wrapWriter(tx, d.retrieve.keyPrefix, d.indexes)
+	if d.table != nil {
+		return d.table.delete(ctx, tx, keys)
+	}
+	w := wrapWriter[K, E](tx, "", d.retrieve.keyPrefix, nil)
 	return w.Delete(ctx, keys...)
 }
 

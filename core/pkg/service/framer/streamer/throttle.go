@@ -45,42 +45,54 @@ func (t *throttle) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-ticker.C:
-				if t.fr.Len() > 0 {
-					if err := signal.SendUnderContext(
-						sCtx,
-						t.Out.Inlet(),
-						Response{Frame: t.fr},
-					); err != nil {
-						return err
-					}
-					t.fr = frame.Alloc(t.fr.Count())
+				if err := t.flush(sCtx); err != nil {
+					return err
 				}
 			case res, ok := <-t.In.Outlet():
-				if ok && res.Ack {
-					if err := signal.SendUnderContext(
-						sCtx,
-						t.Out.Inlet(),
-						res,
-					); err != nil {
-						return err
-					}
-					continue
+				if open, err := t.handle(sCtx, res, ok, &first); err != nil || !open {
+					return err
 				}
-				if first && res.Frame.Empty() {
-					first = false
-					if err := signal.SendUnderContext(
-						sCtx,
-						t.Out.Inlet(),
-						res,
-					); err != nil {
-						return err
-					}
-				}
-				if !ok {
-					return nil
-				}
-				t.fr = t.fr.Extend(res.Frame)
 			}
 		}
 	}, o.Signal...)
+}
+
+// flush sends the buffered frame, if it holds any samples, and starts a new buffer.
+func (t *throttle) flush(sCtx signal.Context) error {
+	if t.fr.Len() == 0 {
+		return nil
+	}
+	if err := signal.SendUnderContext(
+		sCtx,
+		t.Out.Inlet(),
+		Response{Frame: t.fr},
+	); err != nil {
+		return err
+	}
+	t.fr = frame.Alloc(t.fr.Count())
+	return nil
+}
+
+// handle forwards acks and the first empty response, and buffers the frame of any
+// other response. It returns false when the inlet is closed.
+func (t *throttle) handle(
+	sCtx signal.Context,
+	res Response,
+	ok bool,
+	first *bool,
+) (bool, error) {
+	if ok && res.Ack {
+		return true, signal.SendUnderContext(sCtx, t.Out.Inlet(), res)
+	}
+	if *first && res.Frame.Empty() {
+		*first = false
+		if err := signal.SendUnderContext(sCtx, t.Out.Inlet(), res); err != nil {
+			return false, err
+		}
+	}
+	if !ok {
+		return false, nil
+	}
+	t.fr = t.fr.Extend(res.Frame)
+	return true, nil
 }

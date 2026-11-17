@@ -89,22 +89,20 @@ describe("control client", () => {
     });
   });
 
-  describe("onChange", () => {
-    it("should deliver a live transfer when no keys are given", async () => {
+  describe("watch", () => {
+    it("should deliver a live transfer of a watched key", async () => {
       const ch = await createVirtual();
-      const all: control.RetrieveMultipleParams = {};
-      const off = client.control.onChange(all, () => {});
+      const live = client.control.watch([ch.key]);
+      const off = live.onChange(() => {});
       try {
-        await client.control.retrieve(all);
+        expect(await live.retrieve()).toHaveLength(0);
         const w = await client.openWriter({
           start: TimeStamp.now(),
           channels: [ch.key],
           controlSubject: { key: "helena", name: "helena" },
         });
         try {
-          await expect
-            .poll(() => keysOf(client.control.getCached(all)))
-            .toContain(ch.key);
+          await expect.poll(() => keysOf(live.getCached())).toContain(ch.key);
         } finally {
           await w.close();
         }
@@ -115,35 +113,31 @@ describe("control client", () => {
 
     it("should not deliver a live transfer for an empty key set", async () => {
       const ch = await createVirtual();
-      const none: channel.Key[] = [];
-      const all: control.RetrieveMultipleParams = {};
+      const none = client.control.watch([]);
+      const witness = client.control.watch([ch.key]);
       const delivered: channel.Key[][] = [];
-      const offNone = client.control.onChange(none, (states) =>
-        delivered.push(keysOf(states)),
-      );
-      const offAll = client.control.onChange(all, () => {});
+      const offNone = none.onChange((states) => delivered.push(keysOf(states)));
+      const offWitness = witness.onChange(() => {});
       try {
-        expect(await client.control.retrieve(none)).toHaveLength(0);
-        await client.control.retrieve(all);
+        expect(await none.retrieve()).toHaveLength(0);
+        await witness.retrieve();
         const w = await client.openWriter({
           start: TimeStamp.now(),
           channels: [ch.key],
           controlSubject: { key: "missoula", name: "missoula" },
         });
         try {
-          // The unfiltered query witnesses the transfer landing in the table, which
-          // rechecks every subscribed query in the same batch.
-          await expect
-            .poll(() => keysOf(client.control.getCached(all)))
-            .toContain(ch.key);
-          expect(keysOf(client.control.getCached(none))).toEqual([]);
+          // The witness sees the transfer land in the table, which rechecks every
+          // subscribed query in the same batch.
+          await expect.poll(() => keysOf(witness.getCached())).toContain(ch.key);
+          expect(keysOf(none.getCached())).toEqual([]);
           expect(delivered.flat()).toEqual([]);
         } finally {
           await w.close();
         }
       } finally {
         offNone();
-        offAll();
+        offWitness();
       }
     });
   });

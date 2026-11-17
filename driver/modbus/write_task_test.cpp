@@ -22,12 +22,15 @@
 namespace driver::modbus {
 class ModbusWriteTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<pipeline::testutil::StreamerFactory> mock_streamer_factory;
     std::shared_ptr<device::Manager> devs;
+    synnax::device::Device dev;
     synnax::channel::Channel coil_ch;
     synnax::channel::Channel reg_ch;
 
@@ -56,8 +59,8 @@ protected:
               {"swap_words", false}}}
         };
 
-        synnax::device::Device dev{
-            .key = "modbus_test_dev",
+        this->dev = synnax::device::Device{
+            .key = make_unique_channel_name("modbus_test_dev"),
             .rack = rack.key,
             .location = "dev1",
             .make = MAKE,
@@ -65,7 +68,7 @@ protected:
             .name = "modbus_test_dev",
             .properties = properties,
         };
-        ASSERT_NIL(client->devices.create(dev));
+        ASSERT_NIL(client->devices.create(this->dev));
 
         task = synnax::task::Task{
             .rack = rack.key,
@@ -118,7 +121,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "coil"},
@@ -156,7 +159,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -204,7 +207,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     ));
 
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "holding_register"},
@@ -262,7 +265,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -293,7 +296,7 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     cfg = std::make_unique<WriteTaskConfig>(client, p1);
     ASSERT_OCCURRED_AS(p1.error(), x::errors::VALIDATION);
 
-    task_cfg["device"] = "modbus_test_dev";
+    task_cfg["device"] = this->dev.key;
     task_cfg["channels"][0]["type"] = "invalid_type";
     auto p2 = x::json::Parser(task_cfg);
     cfg = std::make_unique<WriteTaskConfig>(client, p2);
@@ -320,7 +323,7 @@ TEST_F(ModbusWriteTest, testUnboundDisabledChannel) {
     this->setup_task_config();
 
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "coil"},
@@ -370,7 +373,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     ));
 
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "coil"},
@@ -420,7 +423,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -447,7 +450,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "coil"},
@@ -489,7 +492,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     ASSERT_EQ(slave.get_coil(0), 0);
     ASSERT_EQ(slave.get_holding_register(1), 0);
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -500,8 +503,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
-    EXPECT_EQ(first_state.details.task, task.key);
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
 
@@ -509,8 +511,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
-    EXPECT_EQ(second_state.details.task, task.key);
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
 }
@@ -528,7 +529,7 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "coil"},
@@ -567,7 +568,7 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -610,7 +611,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     ));
 
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "holding_register"},
@@ -656,7 +657,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
         mock_streamer_factory
     );
 
-    wt->start("start_cmd");
+    wt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -679,7 +680,7 @@ TEST_F(ModbusWriteTest, testRetriesAfterDroppedConnection) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "coil"}, {"address", 0}, {"channel", coil_ch.key}}}
@@ -689,7 +690,7 @@ TEST_F(ModbusWriteTest, testRetriesAfterDroppedConnection) {
     cfg = std::make_unique<WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
     WriteTaskSink sink(devs, std::move(*cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
 
     x::telem::Frame on(1);
     on.emplace(coil_ch.key, x::telem::Series(static_cast<uint8_t>(1)));
@@ -708,7 +709,7 @@ TEST_F(ModbusWriteTest, testRetriesAfterDroppedConnection) {
 TEST_F(ModbusWriteTest, testOverlappingRegistersRejected) {
     this->setup_task_config();
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "holding_register"},
@@ -734,7 +735,7 @@ TEST_F(ModbusWriteTest, testOverlappingRegistersRejected) {
 TEST_F(ModbusWriteTest, testUnsupportedDataTypeRejected) {
     this->setup_task_config();
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "holding_register"},
@@ -771,7 +772,7 @@ TEST_F(ModbusWriteTest, testRegisterBitOverlaps) {
             };
         };
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "holding_register"},
@@ -809,7 +810,7 @@ TEST_F(ModbusWriteTest, testRegisterBitWrite) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     x::json::json task_cfg{
-        {"device", "modbus_test_dev"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"type", "holding_register_bit"},
@@ -822,7 +823,7 @@ TEST_F(ModbusWriteTest, testRegisterBitWrite) {
     cfg = std::make_unique<WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
     WriteTaskSink sink(devs, std::move(*cfg));
-    ASSERT_NIL(sink.start());
+    ASSERT_NIL(sink.start("start_cmd", this->cancel));
     x::telem::Frame on(1);
     on.emplace(coil_ch.key, x::telem::Series(static_cast<uint8_t>(1)));
     ASSERT_NIL(sink.write(on));

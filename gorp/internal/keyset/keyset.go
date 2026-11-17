@@ -64,6 +64,9 @@ func Ranked[K comparable](keys []K) Set[K] {
 	return s
 }
 
+// Ranked reports whether s holds its keys in rank order.
+func (s Set[K]) Ranked() bool { return s.ranked }
+
 // Bounded reports whether s constrains keys.
 func (s Set[K]) Bounded() bool { return s.keys != nil }
 
@@ -85,6 +88,15 @@ func (s Set[K]) Contains(k K) bool {
 	}
 	s.hash.once.Do(func() { s.hash.set = set.New(s.keys...) })
 	return s.hash.set.Contains(k)
+}
+
+// Probe returns a predicate that reports whether s contains a key in constant time.
+// Build it once and call it for each candidate.
+func (s Set[K]) Probe() func(K) bool {
+	if s.keys != nil && s.hash == nil {
+		s = Hashed(s.keys)
+	}
+	return s.Contains
 }
 
 // ranks returns the position of each key of a ranked Set.

@@ -14,18 +14,23 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("CreateDriverRole", func() {
-	It("Should define the role in the ontology", func(ctx SpecContext) {
+	It("Should create the role", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		k := MustSucceed(racktestutil.CreateDriverRole(ctx, otg))
-		Expect(otg.NewRetrieve().WhereIDs(role.OntologyID(k)).Exists(ctx, nil)).
-			To(BeTrue())
+		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+			DB: db,
+		}))
+		k := MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles))
+		var r role.Role
+		Expect(roles.NewRetrieve().
+			Where(role.MatchKeys(k)).
+			Entry(&r).
+			Exec(ctx, db)).To(Succeed())
+		Expect(r.Name).To(Equal("Driver"))
 	})
 })

@@ -12,8 +12,9 @@
 import { control, filter, telem, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { node } from "@/node";
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 import { status } from "@/status";
 
 export const keyZ = z.uint32().or(
@@ -30,6 +31,10 @@ export type LocalKey = z.infer<typeof localKeyZ>;
 export const OPERATION_TYPES = ["min", "max", "avg", "none", "derivative"] as const;
 export const operationTypeZ = z.enum(OPERATION_TYPES);
 export type OperationType = z.infer<typeof operationTypeZ>;
+
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
 
 /**
  * Operation defines an aggregation operation applied to channel data. Operations
@@ -52,6 +57,16 @@ export const operationZ = z.object({
 });
 export interface Operation extends z.infer<typeof operationZ> {}
 
+/**
+ * CountLimitedResponse holds the count of the channels that count against the license
+ * channel limit (not internal, not virtual).
+ */
+export const countLimitedResponseZ = z.object({
+  /** count is how many channels count against the license channel limit. */
+  count: z.uint32(),
+});
+export interface CountLimitedResponse extends z.infer<typeof countLimitedResponseZ> {}
+
 /** Where is a filter that selects channels. */
 export type Where = {
   and?: Where[];
@@ -64,6 +79,8 @@ export type Where = {
   isIndex?: filter.Bool;
   internal?: filter.Bool;
   virtual?: boolean;
+  groups?: group.Key[];
+  grouped?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -95,7 +112,20 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
    * when false.
    */
   virtual: z.boolean().optional(),
+  /** groups matches the channels in any of the given groups. */
+  groups: zod.nullToUndefined(group.keyZ.array()),
+  /** grouped matches the channels in a group, or in no group when false. */
+  grouped: z.boolean().optional(),
 });
+
+/** Order is a sort of channels. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const nameZ = z.string().min(1, "Name is required");
 export type Name = z.infer<typeof nameZ>;
@@ -103,20 +133,17 @@ export type Name = z.infer<typeof nameZ>;
 export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 
-/** RetrieveRequest is a request to retrieve channels. */
-export const retrieveRequestZ = z.strictObject({
-  /** where selects the channels to retrieve. An absent where selects all of them. */
-  where: whereZ.optional(),
-  /** searchTerm keeps the channels that match the term, closest match first. */
-  searchTerm: z.string().optional(),
-  /** limit is the most channels to return. */
-  limit: z.uint32().optional(),
-  /** offset is the number of matching channels to skip. */
-  offset: z.uint32().optional(),
-  /** includeStatus includes the status of each record. */
-  includeStatus: z.boolean().optional(),
+/**
+ * Cursor is a position in an order of channels: the sort value and the key of a
+ * channel.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the channel at the position. */
+  key: keyZ,
+  /** name is the name of the channel at the position, when the order sorts by it. */
+  name: nameZ.optional(),
 });
-export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /**
  * Payload is a logical collection of samples emitted by or representing values from a
@@ -151,8 +178,6 @@ export const payloadZ = z.object({
    * with a timestamp.
    */
   index: keyZ.default(0),
-  /** alias is an optional alternate name for the channel within a specific context. */
-  alias: z.string().optional(),
   /**
    * virtual is true if this channel does not store data in the database but can still
    * be used for streaming purposes.
@@ -177,8 +202,27 @@ export const payloadZ = z.object({
   concurrency: control.concurrencyZ.default(control.Concurrency.exclusive),
   /** status is the current operational status of the channel. */
   status: statusZ.optional(),
+  /** group is the group the channel sits in, if any. */
+  group: group.keyZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
+
+/** RetrieveRequest is a request to retrieve channels. */
+export const retrieveRequestZ = z.strictObject({
+  /** where selects the channels to retrieve. An absent where selects all of them. */
+  where: whereZ.optional(),
+  /** searchTerm keeps the channels that match the term, closest match first. */
+  searchTerm: z.string().optional(),
+  /** order sorts the channels. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the channels strictly past this position in their order. */
+  after: cursorZ.optional(),
+  /** limit is the most channels to return. */
+  limit: z.uint32().optional(),
+  /** includeStatus includes the status of each record. */
+  includeStatus: z.boolean().optional(),
+});
+export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof payloadZ> {}
 
 /** RetrieveResponse holds the channels a RetrieveRequest selects. */
@@ -188,5 +232,5 @@ export const retrieveResponseZ = z.object({
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("channel");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
+export const resourceID = resource.createIDFactory<Key>("channel");
+export const TYPE_RESOURCE_ID = resourceID(0);

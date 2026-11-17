@@ -14,12 +14,14 @@ package v6
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -201,6 +203,14 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u CustomRange) Validate() error {
+	v := validate.New("CustomRange")
+	v.Ternary("variant", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Ranges binds range keys to each x-axis.
 type Ranges struct {
 	// X1 are the range keys plotted against the x1 axis. Range keys are opaque strings
@@ -212,6 +222,16 @@ type Ranges struct {
 	X2 []string `json:"x2" msgpack:"x2"`
 	// Custom is the window the "custom" range key resolves to.
 	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Ranges) Validate() error {
+	v := validate.New("Ranges")
+	if r.Custom != nil {
+		v.Exec(func() error { return validate.PathedError(r.Custom.Validate(), "custom") })
+	}
+	return v.Error()
 }
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
@@ -258,17 +278,30 @@ type LinePlot struct {
 	Rules []Rule `json:"rules" msgpack:"rules"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinePlot) SetDefaults() {
+	l.Title.SetDefaults()
+	l.Legend.SetDefaults()
+	l.Axes.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
 	}
+	return dec.Decode((*plain)(l))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -277,6 +310,7 @@ func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
+	v.Exec(func() error { return validate.PathedError(l.Ranges.Validate(), "ranges") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
 	for i := range l.Lines {
 		v.Exec(func() error { return validate.PathedError(l.Lines[i].Validate(), "lines", strconv.Itoa(i)) })

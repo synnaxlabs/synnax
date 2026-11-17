@@ -154,6 +154,7 @@ func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
 			key:     n.Key,
 			idx:     i,
 			entry:   n.IsEntryNode(prog.Edges),
+			once:    n.IsOnceNode(prog.Nodes, prog.Edges),
 			done:    -1,
 			Node:    runtimeNodes[n.Key],
 			outputs: make([]outputResolved, 0, len(n.Outputs)),
@@ -266,6 +267,10 @@ func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 			for _, m := range stratum {
 				state.members = append(state.members, buildMember(m))
 			}
+		}
+	case ir.ScopeModeUnspecified:
+		if !sc.IsZero() {
+			panic("scope " + sc.Key + " has no mode")
 		}
 	}
 	state.memberByKey = make(map[string]int, len(state.members))

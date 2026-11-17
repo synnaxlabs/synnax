@@ -20,20 +20,6 @@ export const searchAndClickLabel = async (name: string): Promise<void> => {
   await searchAndClickLabelOption(name);
 };
 
-/**
- * Like searchAndClickLabel, but opens the last mounted label select trigger, for label
- * selects nested inside another open dialog (e.g. a filter menu).
- */
-export const searchAndClickNestedLabel = async (name: string): Promise<void> => {
-  const trigger = await waitFor(() => {
-    const triggers = document.querySelectorAll<HTMLElement>(".lyra-dialog__trigger");
-    if (triggers.length === 0) throw new Error("no dialog trigger found");
-    return triggers[triggers.length - 1];
-  });
-  fireEvent.click(trigger);
-  await searchAndClickLabelOption(name);
-};
-
 /** Narrows the open label select dialog down to name and clicks the matching option. */
 export const searchAndClickLabelOption = async (name: string): Promise<void> => {
   const search = await waitFor(() => screen.getByPlaceholderText("Search labels..."));

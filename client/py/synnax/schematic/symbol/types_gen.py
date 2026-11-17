@@ -11,14 +11,20 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, TypedDict
-from typing import override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax.ontology.payload import ID
+from synnax import group as group_
+from synnax.resource import ID
 from x import color, filter, spatial
+from x.filter import shorthand
+
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
 
 Key: TypeAlias = UUID
 
@@ -56,6 +62,18 @@ class Handle(BaseModel):
     orientation: spatial.OuterLocation
 
 
+class Order(BaseModel):
+    """Is a sort of symbols.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
+
+
 class Where(BaseModel):
     """Is a filter that selects schematic symbols.
 
@@ -64,6 +82,8 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
+        groups: Matches the symbols in any of the given groups.
+        grouped: Matches the symbols in a group, or in no group when false.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -72,6 +92,13 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
+    groups: list[group_.Key] | None = None
+    grouped: bool | None = None
+
+    @field_validator("groups", mode="before")
+    @classmethod
+    def _read_lists(cls, value: Any) -> Any:
+        return shorthand.read_list(value)
 
 
 # WhereInput is a Where written as a partial record.
@@ -83,9 +110,23 @@ WhereInput = TypedDict(
         "or": list["WhereInput"],
         "not": "WhereInput",
         "key": filter.SetInput[Key],
+        "groups": group_.Key | list[group_.Key],
+        "grouped": bool,
     },
     total=False,
 )
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of symbols: the sort value and the key of a symbol.
+
+    Attributes:
+        key: Is the key of the symbol at the position.
+        name: Is the name of the symbol at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
 
 
 class State(BaseModel):
@@ -108,16 +149,18 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the symbols to retrieve. An absent where selects all of them.
         search_term: Keeps the symbols that match the term, closest match first.
+        order: Sorts the symbols. An absent order sorts them by key.
+        after: Starts the symbols strictly past this position in their order.
         limit: Is the most symbols to return.
-        offset: Is the number of matching symbols to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class Spec(BaseModel):
@@ -151,11 +194,13 @@ class Symbol(BaseModel):
         key: Is the unique identifier for this symbol.
         name: Is a human-readable name for the symbol.
         data: Is the complete symbol specification.
+        group: Is the group the symbol sits in, if any.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     data: Spec
+    group: group_.Key | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -175,8 +220,8 @@ class RetrieveResponse(BaseModel):
 Where.model_rebuild()
 
 
-ONTOLOGY_TYPE = ID(type="schematic_symbol")
+TYPE_RESOURCE_ID = ID(type="schematic_symbol")
 
 
-def ontology_id(key: Key) -> ID:
+def resource_id(key: Key) -> ID:
     return ID(type="schematic_symbol", key=str(key))

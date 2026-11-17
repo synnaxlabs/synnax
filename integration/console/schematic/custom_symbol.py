@@ -32,12 +32,11 @@ class CustomSymbol(Symbol):
     ):
         """Initialize a custom symbol with configuration.
 
-        Args:
-            label: Display label for the symbol instance
-            symbol_name: Name of the custom symbol in the library
-            group_name: Name of the user-created group containing this symbol
-            command_channel: Optional command channel name for actuator control
-                           (also used as state channel)
+        :param label: Display label for the symbol instance
+        :param symbol_name: Name of the custom symbol in the library
+        :param group_name: Name of the user-created group containing this symbol
+        :param command_channel: Optional command channel name for actuator control (also
+            used as state channel)
         """
         super().__init__(label=label, symbol_type=symbol_name, rotatable=False)
         self._symbol_group = group_name
@@ -59,8 +58,8 @@ class CustomSymbol(Symbol):
     ) -> None:
         """Set custom symbol properties including command channel for actuator control.
 
-        Args:
-            channel_name: Command channel name for actuator control (also used as state)
+        :param channel_name: Command channel name for actuator control (also used as
+            state)
         """
 
         self.locator.wait_for(state="visible", timeout=2000)

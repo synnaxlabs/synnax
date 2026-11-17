@@ -113,3 +113,17 @@ describe("escapeInvalidName", () => {
     expect(result).toBe("_");
   });
 });
+
+describe("singleWhere", () => {
+  it("should select a key by key", () => {
+    expect(channel.singleWhere(12)).toEqual({ key: { eq: 12 } });
+  });
+
+  it("should select a name by name", () => {
+    expect(channel.singleWhere("sensor")).toEqual({ name: { eq: "sensor" } });
+  });
+
+  it("should read a string with leading digits as a key, as the retrieve does", () => {
+    expect(channel.singleWhere("12abc")).toEqual({ key: { eq: 12 } });
+  });
+});

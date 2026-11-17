@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from console.notifications import click_past
 from console.schematic.symbol import Properties, Symbol
 
 _MODE_LABELS: dict[sy.schematic.ButtonMode, str] = {
@@ -34,14 +35,13 @@ class Button(Symbol):
     ):
         """Initialize a button symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the button
-            activation_delay: Milliseconds the button must be held before it
-                fires (optional)
-            show_control_chip: Whether to show the control chip (optional)
-            mode: Button mode (optional)
-            symbol_type: The type of symbol (default: "Button")
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the button
+        :param activation_delay: Milliseconds the button must be held before it fires
+            (optional)
+        :param show_control_chip: Whether to show the control chip (optional)
+        :param mode: Button mode (optional)
+        :param symbol_type: The type of symbol (default: "Button")
         """
         super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
@@ -74,7 +74,7 @@ class Button(Symbol):
 
         # Navigate to Properties > Control tab
         self.open_properties_tab()
-        self.page.get_by_text("Control").last.click()
+        click_past(self.page.get_by_text("Control").last)
 
         if channel_name is not None:
             self.set_channel(section="Command", channel_name=channel_name)

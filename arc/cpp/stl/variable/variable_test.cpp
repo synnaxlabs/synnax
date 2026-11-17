@@ -444,6 +444,28 @@ TEST(RegisterStatefulTest, LeavesPendingFeederValuesConsumableAfterReset) {
     EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{7});
 }
 
+/// @brief it should stay a register when its first input has no value.
+TEST(RegisterStatefulTest, StaysARegisterWhenItsFirstInputHasNoValue) {
+    Program p(register_ir(types::Kind::I64, 42));
+    std::vector<size_t> marked;
+    auto ctx = mark_context(marked);
+    Module module;
+    const auto ir_node = make_node(
+        "v",
+        "stateful_variable",
+        {param("f0", types::Kind::I64)},
+        {}
+    );
+    const auto n = ASSERT_NIL_P(
+        module.create(runtime::node::Config(p.ir(), ir_node, p.node("v")))
+    );
+    emit(p.node("f"), int64_t(7), seconds(10));
+    n->reset(ctx);
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(marked, std::vector<size_t>{0});
+    EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{7});
+}
+
 // ----- Register with a string variable -----
 
 TEST(RegisterStringTest, InitializesAndEmitsStringValues) {

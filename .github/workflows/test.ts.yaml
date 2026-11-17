@@ -31,6 +31,13 @@ on:
         description: The directory containing the package
         required: true
         type: string
+      examples_package:
+        description:
+          The pnpm package whose examples script runs against the Core, or empty for
+          none
+        required: false
+        type: string
+        default: ""
       freighter_image:
         description:
           Freighter integration server image to test against, or empty for none
@@ -51,6 +58,11 @@ on:
         description: The pnpm package name
         required: true
         type: string
+      packed:
+        description: Whether to check the types of the packed package with attw
+        required: false
+        type: boolean
+        default: false
       shards:
         description: How many jobs split the test files on each OS, from 1 to 4
         required: false
@@ -66,6 +78,11 @@ on:
         required: false
         type: string
         default: ""
+      test_timeout:
+        description: Minutes the Test step can run; an unsharded Console run needs more
+        required: false
+        type: number
+        default: 20
       ubuntu:
         description: Whether to test on Ubuntu
         required: false
@@ -176,6 +193,18 @@ jobs:
           PACKAGE: ${{ inputs.package }}
         run: pnpm lint:"$PACKAGE"
 
+      # The packages are ES modules only, so the profile skips CommonJS and node10.
+      - name: Check the packed types
+        if: matrix.lint && inputs.packed
+        shell: bash
+        env:
+          PACKAGE: ${{ inputs.package }}
+          DIRECTORY: ${{ inputs.directory }}
+        run: |
+          pnpm build:"$PACKAGE"
+          pnpm -C "$DIRECTORY" pack --pack-destination "$RUNNER_TEMP/packed"
+          pnpm exec attw --profile esm-only "$RUNNER_TEMP"/packed/*.tgz
+
       # Without a limit, a stuck mirror holds the merge queue for up to 6 hours.
       - name: Install browsers
         if: inputs.test && inputs.browsers
@@ -184,10 +213,14 @@ jobs:
         with:
           package: ${{ inputs.package }}
 
+      # Without a limit, a hung test run holds the job for up to 6 hours. Turbo holds a
+      # task's output until the task ends, so a run that hits the limit shows nothing
+      # unless the output streams. A task prefix would break Vitest's annotations.
       - name: Test
         if: inputs.test
         # The reporters feed the coverage upload, which only vitest packages have.
         shell: bash
+        timeout-minutes: ${{ inputs.test_timeout }}
         env:
           PACKAGE: ${{ inputs.package }}
           TEST_ARGS: ${{ inputs.test_args }}
@@ -199,14 +232,28 @@ jobs:
             inputs.shards) || '' }}
         run: |
           read -ra args <<< "$COVERAGE_ARGS $SHARD_ARG $TEST_ARGS"
-          pnpm cov:"$PACKAGE" -- "${args[@]}"
+          pnpm cov:"$PACKAGE" --log-order=stream --log-prefix=none -- "${args[@]}"
+
+      - name: Run the examples
+        if:
+          inputs.test && inputs.examples_package != '' && runner.os == 'Linux' &&
+          inputs.core_image != ''
+        shell: bash
+        timeout-minutes: 5
+        env:
+          PACKAGE: ${{ inputs.examples_package }}
+        run:
+          pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
       - name: Test in WebKit
         if: inputs.test && inputs.browsers
         shell: bash
+        timeout-minutes: 10
         env:
           PACKAGE: ${{ inputs.package }}
-        run: pnpm test:"$PACKAGE" -- --run --project webkit
+        run: >-
+          pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run --project
+          webkit
 
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != ''

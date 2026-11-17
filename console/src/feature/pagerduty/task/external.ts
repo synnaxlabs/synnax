@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Alert, AlertSelectable } from "@/feature/pagerduty/task/Alert";
+import { Alert } from "@/feature/pagerduty/task/Alert";
 import { ALERT_TYPE } from "@/feature/pagerduty/task/types";
-import { type Selector } from "@/platform/selector";
 import { type Task } from "@/platform/task";
 
 export * from "@/feature/pagerduty/task/Alert";
 export * from "@/feature/pagerduty/task/commands";
+export * from "@/feature/pagerduty/task/integration";
 export * from "@/feature/pagerduty/task/types";
 
 export const FORMS: Task.Forms = { [ALERT_TYPE]: Alert };
-
-export const SELECTABLES: Selector.Selectable[] = [AlertSelectable];

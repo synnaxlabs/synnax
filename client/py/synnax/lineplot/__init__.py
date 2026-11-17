@@ -9,7 +9,7 @@
 
 from synnax.lineplot.client import Client
 from synnax.lineplot.types_gen import (
-    ONTOLOGY_TYPE,
+    TYPE_RESOURCE_ID,
     Aggregation,
     Axes,
     Axis,
@@ -28,11 +28,11 @@ from synnax.lineplot.types_gen import (
     WhereInput,
     XAxisKey,
     YAxisKey,
-    ontology_id,
+    resource_id,
 )
 
 __all__ = [
-    "ONTOLOGY_TYPE",
+    "TYPE_RESOURCE_ID",
     "Aggregation",
     "Axes",
     "Axis",
@@ -52,5 +52,5 @@ __all__ = [
     "WhereInput",
     "XAxisKey",
     "YAxisKey",
-    "ontology_id",
+    "resource_id",
 ]

@@ -11,7 +11,6 @@ package orc_test
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -69,37 +68,10 @@ func (r *benchRecord) DecodeOrc(rd *orc.Reader) error {
 		return err
 	}
 	defer rd.PopDepth()
+	if err := r.decodeNumbers(rd); err != nil {
+		return err
+	}
 	var err error
-	if r.U8, err = rd.Uint8(); err != nil {
-		return err
-	}
-	if r.U16, err = rd.Uint16(); err != nil {
-		return err
-	}
-	if r.U32, err = rd.Uint32(); err != nil {
-		return err
-	}
-	if r.U64, err = rd.Uint64(); err != nil {
-		return err
-	}
-	if r.I8, err = rd.Int8(); err != nil {
-		return err
-	}
-	if r.I16, err = rd.Int16(); err != nil {
-		return err
-	}
-	if r.I32, err = rd.Int32(); err != nil {
-		return err
-	}
-	if r.I64, err = rd.Int64(); err != nil {
-		return err
-	}
-	if r.F32, err = rd.Float32(); err != nil {
-		return err
-	}
-	if r.F64, err = rd.Float64(); err != nil {
-		return err
-	}
 	if r.Flag, err = rd.Bool(); err != nil {
 		return err
 	}
@@ -136,6 +108,41 @@ func (r *benchRecord) DecodeOrc(rd *orc.Reader) error {
 	return r.Child.DecodeOrc(rd)
 }
 
+func (r *benchRecord) decodeNumbers(rd *orc.Reader) error {
+	var err error
+	if r.U8, err = rd.Uint8(); err != nil {
+		return err
+	}
+	if r.U16, err = rd.Uint16(); err != nil {
+		return err
+	}
+	if r.U32, err = rd.Uint32(); err != nil {
+		return err
+	}
+	if r.U64, err = rd.Uint64(); err != nil {
+		return err
+	}
+	if r.I8, err = rd.Int8(); err != nil {
+		return err
+	}
+	if r.I16, err = rd.Int16(); err != nil {
+		return err
+	}
+	if r.I32, err = rd.Int32(); err != nil {
+		return err
+	}
+	if r.I64, err = rd.Int64(); err != nil {
+		return err
+	}
+	if r.F32, err = rd.Float32(); err != nil {
+		return err
+	}
+	if r.F64, err = rd.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func benchInput() *benchRecord {
 	return &benchRecord{
 		U8:    8,
@@ -159,7 +166,7 @@ func benchInput() *benchRecord {
 
 func benchPayload(b *testing.B) []byte {
 	b.Helper()
-	data, err := orc.Codec.Encode(context.Background(), benchInput())
+	data, err := orc.Codec.Encode(benchInput())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -167,29 +174,27 @@ func benchPayload(b *testing.B) []byte {
 }
 
 func BenchmarkCodecEncode(b *testing.B) {
-	ctx := context.Background()
 	in := benchInput()
-	if _, err := orc.Codec.Encode(ctx, in); err != nil {
+	if _, err := orc.Codec.Encode(in); err != nil {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := orc.Codec.Encode(ctx, in); err != nil {
+		if _, err := orc.Codec.Encode(in); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
 
 func BenchmarkCodecDecode(b *testing.B) {
-	ctx := context.Background()
 	data := benchPayload(b)
 	out := &benchRecord{}
-	if err := orc.Codec.Decode(ctx, data, out); err != nil {
+	if err := orc.Codec.Decode(data, out); err != nil {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := orc.Codec.Decode(ctx, data, out); err != nil {
+		if err := orc.Codec.Decode(data, out); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -198,12 +203,11 @@ func BenchmarkCodecDecode(b *testing.B) {
 // BenchmarkCodecDecodeMiss measures the magic-header rejection path, which the decode
 // fallback in Gorp hits for every row written by another codec.
 func BenchmarkCodecDecodeMiss(b *testing.B) {
-	ctx := context.Background()
 	data := []byte{0x00, 0x01, 0x02, 0x03}
 	out := &benchRecord{}
 	b.ReportAllocs()
 	for b.Loop() {
-		if err := orc.Codec.Decode(ctx, data, out); err == nil {
+		if err := orc.Codec.Decode(data, out); err == nil {
 			b.Fatal("expected magic mismatch error")
 		}
 	}

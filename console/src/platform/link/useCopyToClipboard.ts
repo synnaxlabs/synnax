@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type resource } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 
 import { Clipboard } from "@/platform/clipboard";
-import { PREFIX } from "@/platform/link/types";
+import { create } from "@/platform/link/types";
 
 export interface CopyToClipboardParams {
   /** The cluster the link opens. A Core caches it on its first connection. */
   clusterKey?: string;
   name: string;
-  ontologyID?: ontology.ID;
+  resourceID?: resource.ID;
 }
 
 export interface CopyToClipboard {
@@ -27,7 +27,7 @@ export interface CopyToClipboard {
 export const useCopyToClipboard = (): CopyToClipboard => {
   const copy = Clipboard.useCopy();
   const addStatus = Status.useAdder();
-  return ({ clusterKey, name, ontologyID }) => {
+  return ({ clusterKey, name, resourceID }) => {
     if (clusterKey == null) {
       addStatus({
         variant: "error",
@@ -37,8 +37,6 @@ export const useCopyToClipboard = (): CopyToClipboard => {
       });
       return;
     }
-    let url = `${PREFIX}${clusterKey}`;
-    if (ontologyID != null) url += `/${ontologyID.type}/${ontologyID.key}`;
-    return copy(url, "link", name);
+    return copy(create(clusterKey, resourceID), "link", name);
   };
 };

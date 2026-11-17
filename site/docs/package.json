@@ -7,6 +7,7 @@
     "start": "astro dev",
     "build": "astro check && astro build",
     "check-site": "tsx src/util/checks/main.ts",
+    "plan-deploy": "tsx src/util/deploy/main.ts",
     "check-site:build": "astro build --config astro.check.config.ts",
     "check-types": "astro check",
     "preview": "astro preview",

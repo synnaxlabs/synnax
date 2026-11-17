@@ -26,7 +26,7 @@ export const UtilityButtons = () => {
   const taskKey = useKey();
   const getName = () => ctx.get(formPath.name).value;
   const export_ = Export.useResource();
-  const handleExport = () => taskKey != null && export_(task.ontologyID(taskKey));
+  const handleExport = () => taskKey != null && export_(task.resourceID(taskKey));
   const getTypeScriptCode = () =>
     `
       // Retrieve ${getName()}
@@ -44,7 +44,7 @@ export const UtilityButtons = () => {
   const copyLink = Core.useCopyLinkToClipboard();
   const handleCopyLink = () => {
     if (taskKey == null) return;
-    copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
+    copyLink({ name: getName(), resourceID: task.resourceID(taskKey) });
   };
   const hasKey = !primitive.isZero(taskKey);
   return (

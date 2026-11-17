@@ -13,8 +13,8 @@ import { pickComponent } from "./common/create-component";
 
 /**
  * Docs `control/arc/get-started/create-automation`: from an empty panel, open
- * the component selector with "+", pick Arc automation, name it, choose the
- * Text editor mode, and create it; the Arc text editor opens.
+ * the component selector with "+", pick Arc automation, name it, and create it;
+ * the Arc text editor opens.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -36,14 +36,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await session.click(name);
   await session.type("Tank Pressure Guard");
-  await session.hold(600);
-
-  await session.click(
-    modal
-      .locator(".console-arc-create-modal__mode-select-button")
-      .filter({ hasText: "Text" })
-      .first(),
-  );
   await session.hold(800);
 
   await capture.clickButton(session, "Create");

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { crdt, type record } from "@synnaxlabs/x";
+import { crdt, type record, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -46,6 +46,8 @@ const textOf = (a: arc.Arc): arc.text.Text => {
 const apply = (state: arc.Arc, ...actions: arc.Action[]): arc.Arc =>
   arc.reduceAll(state, actions).next;
 
+const setName = (name: string): arc.Action => arc.set({ path: ["name"], value: name });
+
 describe("arc reducer", () => {
   describe("mode", () => {
     it.each([
@@ -64,9 +66,12 @@ describe("arc reducer", () => {
     });
   });
 
-  describe("rename", () => {
-    it("should set the module name to the payload name", () => {
-      expect(apply(empty({}, "old"), arc.rename({ name: "new" })).name).toEqual("new");
+  describe("set of the name", () => {
+    it("should set the module name to the value", () => {
+      expect(apply(empty({}, "old"), setName("new")).name).toEqual("new");
+    });
+    it("should set the name of a text Arc", () => {
+      expect(apply(emptyText(), setName("new")).name).toEqual("new");
     });
     it("should leave the graph untouched", () => {
       const state = empty({
@@ -80,9 +85,18 @@ describe("arc reducer", () => {
           },
         ],
       });
-      const out = apply(state, arc.rename({ name: "new" }));
+      const out = apply(state, setName("new"));
       expect(graphOf(out).nodes).toEqual(graphOf(state).nodes);
       expect(graphOf(out).edges).toEqual(graphOf(state).edges);
+    });
+  });
+
+  describe("setDirectory", () => {
+    it("should move the Arc into the directory", () => {
+      const directory = uuid.create();
+      expect(apply(empty(), arc.setDirectory({ directory })).directory).toEqual(
+        directory,
+      );
     });
   });
 
@@ -455,15 +469,25 @@ describe("arc reducer inverses", () => {
     expect(graphOf(restored).inputs).toEqual(graphOf(state).inputs);
   };
 
-  describe("rename", () => {
+  describe("set of the name", () => {
     it("should invert to restore the prior name", () => {
-      expectRoundTrip(empty({}, "old"), [arc.rename({ name: "new" })]);
+      expectRoundTrip(empty({}, "old"), [setName("new")]);
     });
-    it("should report the arc key as a target", () => {
-      const state = empty({}, "a");
-      expect(arc.reduceAll(state, [arc.rename({ name: "b" })]).targets).toEqual([
-        state.key,
-      ]);
+    it("should target the name", () => {
+      expect(arc.reduceAll(empty({}, "a"), [setName("b")]).targets).toEqual(["name"]);
+    });
+  });
+
+  describe("setDirectory", () => {
+    it("should invert to restore the prior directory", () => {
+      const state = { ...empty(), directory: uuid.create() };
+      expectRoundTrip(state, [arc.setDirectory({ directory: uuid.create() })]);
+    });
+    it("should produce an empty inverse when the Arc has no directory", () => {
+      expect(
+        arc.reduceAll(empty(), [arc.setDirectory({ directory: uuid.create() })])
+          .inverse,
+      ).toEqual([]);
     });
   });
 
@@ -566,7 +590,7 @@ describe("arc reducer inverses", () => {
 
   describe("isUndoable", () => {
     it("should report every Arc action as undoable", () => {
-      expect(arc.isUndoable(arc.rename({ name: "x" }))).toBe(true);
+      expect(arc.isUndoable(setName("x"))).toBe(true);
       expect(arc.isUndoable(arc.setNode({ node: node("n1", 0, 0) }))).toBe(true);
       expect(
         arc.isUndoable(arc.setNodePosition({ key: "n1", position: { x: 0, y: 0 } })),

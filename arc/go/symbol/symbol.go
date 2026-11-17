@@ -107,7 +107,8 @@ const (
 	KindSequence
 	// KindStage represents a stage within a sequence.
 	KindStage
-	// KindConstant represents a pure literal value in a flow statement.
+	// KindConstant represents a pure literal value in a flow statement, or a module
+	// member whose DefaultValue is a fixed value, such as math.nan.
 	KindConstant
 	// KindLoop represents a loop scope (for break/continue validation).
 	KindLoop
@@ -122,7 +123,7 @@ const (
 	KindModule
 	// KindModuleAlias represents an import alias bound in a file's root. The
 	// Target field points at the underlying module symbol; member lookups on
-	// the alias indirect through Target.
+	// the alias indirect through Target. Target is nil when the import failed.
 	KindModuleAlias
 	// KindAmbient represents the prelude scope that sits as Parent of the
 	// program root. It holds STL bare globals (deprecated aliases,
@@ -153,6 +154,16 @@ func (s *Symbol) IsReactive() bool {
 // IsLiteral reports whether s is a value variable holding a literal, not a channel.
 func (s *Symbol) IsLiteral() bool {
 	return s.IsValueVariable() && s.Type.Kind != types.KindChan
+}
+
+// IsComputed reports whether s is a flow-level value variable whose initializer
+// is neither a literal nor a channel, so its value exists only at runtime.
+func (s *Symbol) IsComputed() bool {
+	if !s.IsLiteral() || s.SourceID != nil || s.DefaultValue != nil {
+		return false
+	}
+	_, err := s.ClosestAncestorOfKind(KindFunction)
+	return errors.Is(err, query.ErrNotFound)
 }
 
 // Symbol is a named entity in an Arc program and, when it has Children, a
@@ -278,6 +289,9 @@ func WithModules(r Resolver) RootOption {
 // ErrModuleNotFound is returned by a module resolver when no module has the path.
 var ErrModuleNotFound = errors.New("module not found")
 
+// ModuleResolver returns the resolver installed by WithModules, nil if none.
+func (s *Symbol) ModuleResolver() Resolver { return s.Root().moduleResolver }
+
 // ResolveModule returns the module at path, or ErrModuleNotFound.
 func (s *Symbol) ResolveModule(ctx context.Context, path string) (*Symbol, error) {
 	r := s.Root().moduleResolver
@@ -391,14 +405,7 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 			return nil, err
 		}
 		if err == nil && existing.AST != nil {
-			tok := existing.AST.GetStart()
-			return nil, errors.Newf(
-				"name %s conflicts with existing %s at line %d, col %d",
-				sym.Name,
-				existing.Kind.noun(),
-				tok.GetLine(),
-				tok.GetColumn(),
-			)
+			return nil, existing.NameConflict()
 		}
 	}
 	child := &Symbol{}
@@ -425,9 +432,51 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 		}
 	case KindInput, KindOutput, KindLoopVariable:
 		child.ID = s.addIndex()
+	case KindChannel, KindFunction, KindBlock, KindSequence, KindStage, KindConstant,
+		KindLoop, KindModule, KindModuleAlias, KindAmbient:
 	}
 	s.children = append(s.children, child)
 	return child, nil
+}
+
+// NameConflict returns the error for a declaration that reuses the name of s.
+func (s *Symbol) NameConflict() error {
+	tok := s.AST.GetStart()
+	return errors.Newf(
+		"name %s conflicts with existing %s at line %d, col %d",
+		s.Name,
+		s.Kind.noun(),
+		tok.GetLine(),
+		tok.GetColumn(),
+	)
+}
+
+// Shadowers returns the nested declarations that reuse the name of s.
+func (s *Symbol) Shadowers() []*Symbol {
+	var shadowers []*Symbol
+	for _, sibling := range s.Parent.children {
+		shadowers = sibling.appendValues(s.Name, shadowers)
+	}
+	return shadowers
+}
+
+func (s *Symbol) appendValues(name string, values []*Symbol) []*Symbol {
+	for _, child := range s.children {
+		switch child.Kind {
+		case KindVariable,
+			KindStatefulVariable,
+			KindLoopVariable,
+			KindInput,
+			KindOutput:
+			if child.Name == name && child.AST != nil && !child.Internal {
+				values = append(values, child)
+			}
+		case KindChannel, KindFunction, KindBlock, KindSequence, KindStage,
+			KindConstant, KindLoop, KindModule, KindModuleAlias, KindAmbient:
+		}
+		values = child.appendValues(name, values)
+	}
+	return values
 }
 
 // noun returns a human-readable noun for k, used in diagnostics so a
@@ -452,9 +501,9 @@ func (k Kind) noun() string {
 		return "constant"
 	case KindModule, KindModuleAlias:
 		return "import"
-	default:
-		return "symbol"
+	case KindBlock, KindLoop, KindAmbient:
 	}
+	return "symbol"
 }
 
 // AddChild appends each already-constructed child to s.children and sets
@@ -543,8 +592,8 @@ func (s *Symbol) Root() *Symbol {
 // an alias-prefixed form because the symbol tree itself has already
 // resolved aliases via Target indirection.
 func (s *Symbol) QualifiedName() string {
-	if s.Parent != nil && s.Parent.Kind == KindModule {
-		return s.Parent.Name + "." + s.Name
+	if p := s.Parent; p != nil && (p.Kind == KindModule || p.UserDefined) {
+		return p.Name + "." + s.Name
 	}
 	return s.Name
 }
@@ -607,6 +656,20 @@ func (s *Symbol) Resolve(
 	return s.resolve(ctx, name, opts, s)
 }
 
+// ResolveMember resolves head, then tail as a member of head when tail is not empty.
+// options apply to head only, so a module member stays subject to export.
+func (s *Symbol) ResolveMember(
+	ctx context.Context,
+	head, tail string,
+	options ...ResolveOption,
+) (*Symbol, error) {
+	sym, err := s.Resolve(ctx, head, options...)
+	if err != nil || tail == "" {
+		return sym, err
+	}
+	return sym.Resolve(ctx, tail)
+}
+
 // resolve does the actual lexical walk. origin is the scope the caller
 // invoked Resolve on; it is propagated unchanged through the parent walk
 // so that UndefinedSymbolError reports the original scope (where "did
@@ -631,7 +694,10 @@ func (s *Symbol) resolve(
 	opts resolveOpts,
 	origin *Symbol,
 ) (*Symbol, error) {
-	if s.Kind == KindModuleAlias && s.Target != nil {
+	if s.Kind == KindModuleAlias {
+		if s.Target == nil {
+			return nil, ErrImportFailed
+		}
 		return s.Target.resolveMember(ctx, name, opts)
 	}
 	if s.Kind == KindModule {
@@ -647,9 +713,11 @@ func (s *Symbol) resolveMember(
 	opts resolveOpts,
 ) (*Symbol, error) {
 	child := s.FindChild(name)
-	if child == nil || (!opts.includeInternal &&
-		(child.Internal || (s.UserDefined && !child.Exported))) {
+	if child == nil || (!opts.includeInternal && child.Internal) {
 		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+	}
+	if !opts.includeInternal && s.UserDefined && !child.Exported {
+		return nil, &notExportedError{Name: name, Module: s.Name}
 	}
 	return child, nil
 }

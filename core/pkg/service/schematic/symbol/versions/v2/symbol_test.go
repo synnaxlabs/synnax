@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 )
 
@@ -26,17 +26,11 @@ var _ = Describe("Symbol", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v2.Symbol{}.SetOptions()).To(BeNil())
-		})
-	})
-
-	Describe("OntologyID", func() {
-		It("Should return the symbol ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the symbol resource identifier", func() {
 			k := uuid.New()
-			Expect(v2.Symbol{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeSchematicSymbol, Key: k.String(),
+			Expect(v2.Symbol{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeSchematicSymbol, Key: k.String(),
 			}))
 		})
 	})

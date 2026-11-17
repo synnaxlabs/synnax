@@ -18,8 +18,7 @@ import synnax.channel.payload as channel
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import Alignment, DataType, Series, TimeRange
-from x.codec import Codec as XCodec
-from x.codec import JSONCodec
+from x.codec import Codec as XCodec, JSONCodec
 
 _EXTENDED_FLAG_POS = 7
 _MULTIPLES_PRESENT_FLAG_POS = 6

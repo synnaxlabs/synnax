@@ -57,6 +57,28 @@ describe("Form", () => {
       expect(label.getBoundingClientRect().right).toBeLessThanOrEqual(b.left);
     });
 
+    it("should line up an aligned child with the controls, not the labels", async () => {
+      const { getByRole, getByText } = await renderThemed(
+        <Form.Sections>
+          <Form.Section title="General">
+            <Input.Item label="A long label">
+              <Input.Text value="" onChange={() => {}} />
+            </Input.Item>
+            <Form.Aligned>
+              <span>Aligned note</span>
+            </Form.Aligned>
+          </Form.Section>
+        </Form.Sections>,
+      );
+      const input = getByRole("textbox")
+        .element()
+        .closest(`.${CSS.B("input")}`)!;
+      const aligned = getByText("Aligned note").element();
+      expect(aligned.getBoundingClientRect().left).toBe(
+        input.getBoundingClientRect().left,
+      );
+    });
+
     it("should rule a hairline after each section title", async () => {
       const { sections } = await renderSections(false);
       const header = sections[0].querySelector(`.${CSS.BE("form-section", "header")}`)!;

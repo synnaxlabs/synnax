@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // scanTaskName is the name of the internal scan task the factory creates on its rack.
@@ -34,7 +33,7 @@ const scanTaskName = "Kafka Scanner"
 
 // FactoryConfig is the configuration for the Kafka task factory.
 type FactoryConfig struct {
-	// DB opens the transactions that status writes run in.
+	// DB holds the records that the factory reads, and stores task statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -104,6 +103,14 @@ type factory struct{ cfg FactoryConfig }
 
 var _ driver.Factory = (*factory)(nil)
 
+func (f *factory) reporter() driver.ConfigReporter {
+	return driver.ConfigReporter{
+		DB:              f.cfg.DB,
+		Status:          f.cfg.Status,
+		Instrumentation: f.cfg.Instrumentation,
+	}
+}
+
 // NewFactory creates a driver.Factory for the Kafka scan, read, and write task types.
 func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
@@ -135,7 +142,7 @@ func (f *factory) ConfigureTask(
 	case ScanTaskType:
 		st, autoStart, err := f.configureScan(t)
 		if err != nil {
-			f.reportConfigError(ctx, t, cmdKey, err)
+			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
 		// Start writes its own status when it fails.
@@ -148,13 +155,13 @@ func (f *factory) ConfigureTask(
 	case ReadTaskType:
 		rt, err := f.configureRead(ctx, t)
 		if err != nil {
-			f.reportConfigError(ctx, t, cmdKey, err)
+			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
 		// A successful configure writes no status, so a start answers the command. An
 		// auto-start that fails must answer it too, since no start follows.
 		if rt.cfg.AutoStart {
-			if err := rt.start(ctx, cmdKey); err != nil {
+			if err := errors.Combine(rt.start(ctx, cmdKey)); err != nil {
 				return nil, err
 			}
 		}
@@ -162,11 +169,11 @@ func (f *factory) ConfigureTask(
 	case WriteTaskType:
 		wt, err := f.configureWrite(ctx, t)
 		if err != nil {
-			f.reportConfigError(ctx, t, cmdKey, err)
+			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
 		if wt.cfg.AutoStart {
-			if err := wt.start(ctx, cmdKey); err != nil {
+			if err := errors.Combine(wt.start(ctx, cmdKey)); err != nil {
 				return nil, err
 			}
 		}
@@ -176,48 +183,21 @@ func (f *factory) ConfigureTask(
 	}
 }
 
-// reportConfigError answers cmdKey with err, or logs it when nothing waits on the
-// configure.
-func (f *factory) reportConfigError(
-	ctx context.Context,
-	t task.Task,
-	cmdKey string,
-	err error,
-) {
-	if cmdKey == driver.NoCommand {
-		f.cfg.L.Warn("failed to configure task",
-			zap.Stringer("task", t),
-			zap.Error(err),
-		)
-		return
-	}
-	if sErr := driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t).Send(
-		ctx,
-		cmdKey,
-		status.VariantError,
-		false,
-		"Failed to configure task",
-		err.Error(),
-	); sErr != nil {
-		f.cfg.L.Error("failed to set configuration status",
-			zap.Stringer("task", t),
-			zap.Error(sErr),
-		)
-	}
-}
-
 // resolveProperties retrieves the Kafka cluster device key and decodes its connection
 // properties.
 func resolveProperties(
 	ctx context.Context,
+	db *gorp.DB,
 	svc *device.Service,
 	key device.Key,
 ) (Properties, error) {
 	var dev device.Device
-	if err := svc.NewRetrieve().
-		Where(device.MatchKeys(key)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return svc.NewRetrieve().
+			Where(device.MatchKeys(key)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	}); err != nil {
 		return Properties{}, errors.Wrapf(err, "retrieving device %s", key)
 	}
 	return decodeProperties(dev)
@@ -227,14 +207,17 @@ func resolveProperties(
 // wrapping query.ErrNotFound when a key does not exist.
 func retrieveChannels(
 	ctx context.Context,
+	db *gorp.DB,
 	svc *channel.Service,
 	keys channel.Keys,
 ) (map[channel.Key]channel.Channel, error) {
 	var channels []channel.Channel
-	if err := svc.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return svc.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	byKey := make(map[channel.Key]channel.Channel, len(channels))

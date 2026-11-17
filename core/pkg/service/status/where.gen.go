@@ -86,6 +86,9 @@ func MatchWhere[Details any](w Where) (Filter[Details], error) {
 	if l := w.Labels; l != nil {
 		fs = append(fs, MatchLabels[Details](l...))
 	}
+	if l := w.Owners; l != nil {
+		fs = append(fs, MatchOwners[Details](l...))
+	}
 	return And[Details](fs...), nil
 }
 

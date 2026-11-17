@@ -11,9 +11,10 @@ import { lineplot, ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
+import { Access, type Flux, LinePlot, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 
+import { Sift } from "@/feature/sift";
 import { Analytics } from "@/platform/analytics";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
@@ -22,18 +23,6 @@ import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
-
-const AddToNewPlotIcon = Icon.createComposite(Icon.LinePlot, {
-  topRight: Icon.Add,
-});
-
-const AddToActivePlotIcon = Icon.createComposite(Icon.LinePlot, {
-  topRight: Icon.Range,
-});
-
-export const CreateChildRangeIcon = Icon.createComposite(Icon.Range, {
-  topRight: Icon.Add,
-});
 
 const useDelete = () => {
   const dispatch = Session.useDispatch();
@@ -80,15 +69,15 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const dispatch = Session.useDispatch();
   const client = Synnax.use();
   const ranges = Range.useResolveMultiple();
-  const id = ranger.ontologyID(key ?? "");
-  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
+  const id = ranger.resourceID(key ?? "");
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const hasUpdatePermission = Access.useUpdateGranted(id);
   const hasDeletePermission = Access.useDeleteGranted(id);
   const hasLinePlotUpdatePermission = Access.useUpdateGranted(
-    lineplot.TYPE_ONTOLOGY_ID,
+    lineplot.TYPE_RESOURCE_ID,
   );
   const hasLinePlotCreatePermission = Access.useCreateGranted(
-    lineplot.TYPE_ONTOLOGY_ID,
+    lineplot.TYPE_RESOURCE_ID,
   );
 
   const handleRemove = (keys: string[]): void => {
@@ -136,7 +125,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
             <Menu.Item
               itemKey="details"
               onClick={() =>
-                openTab({ variant: "resource", resource: ranger.ontologyID(rng.key) })
+                openTab({ variant: "resource", resource: ranger.resourceID(rng.key) })
               }
             >
               <Icon.Details />
@@ -149,20 +138,20 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           )}
           {hasCreatePermission && rng.variant === "persisted" && (
             <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
-              <CreateChildRangeIcon key="plot" />
+              <Ranger.CreateIcon />
               Create child range
             </Menu.Item>
           )}
           <Menu.Divider />
           {linePlotFocused && hasLinePlotUpdatePermission && (
             <Menu.Item itemKey="addToActivePlot" onClick={() => addToActivePlot([key])}>
-              <AddToActivePlotIcon key="plot" />
+              <Icon.LinePlot />
               Add to active plot
             </Menu.Item>
           )}
           {hasLinePlotCreatePermission && (
             <Menu.Item itemKey="addToNewPlot" onClick={() => addToNewPlot([key])}>
-              <AddToNewPlotIcon key="plot" />
+              <LinePlot.CreateIcon />
               Add to new plot
             </Menu.Item>
           )}
@@ -174,9 +163,13 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
           )}
           <Menu.Divider />
           {rng.variant === "persisted" && (
+            <Sift.Range.UploadMenuItem rangeKey={rng.key} rangeName={rng.name} />
+          )}
+          <Menu.Divider />
+          {rng.variant === "persisted" && (
             <Link.CopyContextMenuItem
               onClick={() =>
-                handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
+                handleLink({ name: rng.name, resourceID: ranger.resourceID(rng.key) })
               }
             />
           )}

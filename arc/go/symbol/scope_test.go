@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -684,7 +685,7 @@ var _ = Describe("Scope", func() {
 			It("Should hide a member that is not exported", func(bCtx SpecContext) {
 				alias := buildAlias(bCtx, buildSourceModule())
 				Expect(alias.Resolve(bCtx, "h")).Error().
-					To(MatchError(ContainSubstring("undefined symbol: h")))
+					To(MatchError(`'h' is not exported by module "m"`))
 			})
 
 			It(
@@ -698,6 +699,16 @@ var _ = Describe("Scope", func() {
 					).To(Equal("h"))
 				},
 			)
+
+			It("Should fail a lookup through an alias whose import failed", func(
+				bCtx SpecContext,
+			) {
+				alias := buildAlias(bCtx, nil)
+				Expect(alias.Resolve(bCtx, "f")).Error().
+					To(MatchError(symbol.ErrImportFailed))
+				Expect(alias.Resolve(bCtx, "f")).Error().
+					To(MatchError(diagnostics.ErrReported))
+			})
 
 			It(
 				"Should not reach the module's ambient through an alias",
@@ -737,12 +748,63 @@ var _ = Describe("Scope", func() {
 						To(MatchError(symbol.ErrModuleNotFound))
 				},
 			)
+
+			It(
+				"Should return the module resolver installed on the root",
+				func(bCtx SpecContext) {
+					resolver := StaticResolver{{Name: "lib.m", Kind: symbol.KindModule}}
+					root := symbol.NewRoot(nil, nil, symbol.WithModules(resolver))
+					child := MustSucceed(root.Add(bCtx, symbol.Symbol{
+						Name: "s", Kind: symbol.KindSequence,
+					}))
+					Expect(root.ModuleResolver()).To(Equal(resolver))
+					Expect(child.ModuleResolver()).To(Equal(resolver))
+					Expect(symbol.NewRoot(nil, nil).ModuleResolver()).To(BeNil())
+				},
+			)
+
+			Describe("ResolveMember", func() {
+				It("Should resolve a bare name like Resolve", func(bCtx SpecContext) {
+					alias := buildAlias(bCtx, buildSourceModule())
+					Expect(
+						MustSucceed(alias.Parent.ResolveMember(bCtx, "m", "")),
+					).To(BeIdenticalTo(alias))
+				})
+
+				It(
+					"Should resolve the tail as a member of the head",
+					func(bCtx SpecContext) {
+						alias := buildAlias(bCtx, buildSourceModule())
+						Expect(
+							MustSucceed(
+								alias.Parent.ResolveMember(bCtx, "m", "f"),
+							).Name,
+						).To(Equal("f"))
+					},
+				)
+
+				It(
+					"Should keep a member subject to export when options are passed",
+					func(bCtx SpecContext) {
+						alias := buildAlias(bCtx, buildSourceModule())
+						Expect(alias.Parent.ResolveMember(
+							bCtx, "m", "h", symbol.IncludeInternal,
+						)).Error().To(MatchError(`'h' is not exported by module "m"`))
+					},
+				)
+
+				It("Should report an undefined head", func(bCtx SpecContext) {
+					alias := buildAlias(bCtx, buildSourceModule())
+					Expect(alias.Parent.ResolveMember(bCtx, "x", "f")).Error().
+						To(MatchError(ContainSubstring("undefined symbol: x")))
+				})
+			})
 		})
 
 		Describe("Module aliases", func() {
 			// buildAmbientRoot constructs a root with a synthetic ambient
 			// prelude that has a single "time" module containing "now".
-			buildAmbientRoot := func(bCtx SpecContext) *symbol.Symbol {
+			buildAmbientRoot := func() *symbol.Symbol {
 				timeMod := &symbol.Symbol{Name: "time", Kind: symbol.KindModule}
 				timeMod.AddChild(&symbol.Symbol{
 					Name: "now", Kind: symbol.KindFunction, Type: types.F64(),
@@ -777,7 +839,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should fail head lookup when no alias exists for the module",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					Expect(resolveQualified(bCtx, rootScope, "time", "now")).Error().
 						To(MatchError(ContainSubstring("undefined symbol")))
 				},
@@ -786,7 +848,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should resolve a qualified lookup through a same-name alias",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					timeMod := rootScope.Parent.FindChild("time")
 					MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 						Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -801,7 +863,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should resolve a qualified lookup through a renamed alias",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					timeMod := rootScope.Parent.FindChild("time")
 					MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 						Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -816,7 +878,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should mark the alias as used on head resolution",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					timeMod := rootScope.Parent.FindChild("time")
 					alias := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 						Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -829,7 +891,7 @@ var _ = Describe("Scope", func() {
 			It(
 				"Should leave the alias unused when usage tracking is suppressed",
 				func(bCtx SpecContext) {
-					rootScope := buildAmbientRoot(bCtx)
+					rootScope := buildAmbientRoot()
 					timeMod := rootScope.Parent.FindChild("time")
 					alias := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 						Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -842,7 +904,7 @@ var _ = Describe("Scope", func() {
 			)
 
 			It("Should not find members past the module seal", func(bCtx SpecContext) {
-				rootScope := buildAmbientRoot(bCtx)
+				rootScope := buildAmbientRoot()
 				timeMod := rootScope.Parent.FindChild("time")
 				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -1485,4 +1547,76 @@ var _ = Describe("Name conflicts", func() {
 		Entry("module alias", symbol.KindModuleAlias, "import"),
 		Entry("block falls back to symbol", symbol.KindBlock, "symbol"),
 	)
+
+	Describe("NameConflict", func() {
+		It("Should name the symbol and its position", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.ParseStatement("x := 1"))
+			sym := MustSucceed(symbol.NewRoot(nil, nil).Add(bCtx, symbol.Symbol{
+				Name: "dup", Kind: symbol.KindVariable, AST: ast,
+			}))
+			Expect(sym.NameConflict()).To(MatchError(
+				"name dup conflicts with existing variable at line 1, col 0",
+			))
+		})
+	})
+
+	Describe("Shadowers", func() {
+		var (
+			ast   antlr.ParserRuleContext
+			root  *symbol.Symbol
+			stage *symbol.Symbol
+		)
+		declare := func(bCtx SpecContext, scope *symbol.Symbol, sym symbol.Symbol) *symbol.Symbol {
+			GinkgoHelper()
+			sym.Name, sym.Type = "dup", types.I32()
+			return MustSucceed(scope.Add(bCtx, sym))
+		}
+		BeforeEach(func(bCtx SpecContext) {
+			ast = MustSucceed(parser.ParseStatement("x := 1"))
+			root = symbol.NewRoot(nil, nil)
+			seq := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "main", Kind: symbol.KindSequence, AST: ast,
+			}))
+			stage = MustSucceed(seq.Add(bCtx, symbol.Symbol{
+				Name: "hold", Kind: symbol.KindStage, AST: ast,
+			}))
+		})
+
+		DescribeTable("Should return a nested declaration of the name",
+			func(bCtx SpecContext, kind symbol.Kind) {
+				nested := declare(bCtx, stage, symbol.Symbol{Kind: kind, AST: ast})
+				outer := declare(bCtx, root, symbol.Symbol{AST: ast})
+				Expect(outer.Shadowers()).To(ConsistOf(nested))
+			},
+			Entry("variable", symbol.KindVariable),
+			Entry("stateful variable", symbol.KindStatefulVariable),
+			Entry("loop variable", symbol.KindLoopVariable),
+			Entry("input parameter", symbol.KindInput),
+			Entry("output parameter", symbol.KindOutput),
+		)
+
+		It("Should return each nested declaration", func(bCtx SpecContext) {
+			fn := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "scale", Kind: symbol.KindFunction, AST: ast,
+			}))
+			inStage := declare(bCtx, stage, symbol.Symbol{AST: ast})
+			inFunction := declare(bCtx, fn, symbol.Symbol{AST: ast})
+			outer := declare(bCtx, root, symbol.Symbol{AST: ast})
+			Expect(outer.Shadowers()).To(ConsistOf(inStage, inFunction))
+		})
+
+		It("Should skip a built-in and a declaration with another name",
+			func(bCtx SpecContext) {
+				declare(bCtx, stage, symbol.Symbol{})
+				MustSucceed(stage.Add(bCtx, symbol.Symbol{Name: "other", AST: ast}))
+				outer := declare(bCtx, root, symbol.Symbol{AST: ast})
+				Expect(outer.Shadowers()).To(BeEmpty())
+			},
+		)
+
+		It("Should skip a scope that has the name", func(bCtx SpecContext) {
+			outer := MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "hold", AST: ast}))
+			Expect(outer.Shadowers()).To(BeEmpty())
+		})
+	})
 })

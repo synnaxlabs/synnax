@@ -20,18 +20,20 @@ import {
 
 import { UNSET } from "@/ranger/move";
 
-export const STAGES = ["to_do", "in_progress", "completed"] as const;
-
-export type Stage = (typeof STAGES)[number];
-
-export const sortByStage = (a: ranger.Range, b: ranger.Range): number =>
-  STAGES.indexOf(getStage(a.timeRange)) - STAGES.indexOf(getStage(b.timeRange));
+/** @returns the filter that matches the ranges `getStage` puts in `stage` at `now`. */
+export const stageWhere = (stage: ranger.Stage, now: TimeStamp): ranger.Where => {
+  const next = now.add(TimeSpan.nanoseconds(1));
+  if (stage === "to_do")
+    return { not: { overlaps: new TimeRange(TimeStamp.MIN, next) } };
+  if (stage === "in_progress") return { overlaps: new TimeRange(now, next) };
+  return { not: { overlaps: new TimeRange(now, TimeStamp.MAX) } };
+};
 
 /** @returns the stage `timeRange` is in at `now`. */
 export const getStage = (
   timeRange: CrudeTimeRange,
   now: TimeStamp = TimeStamp.now(),
-): Stage => {
+): ranger.Stage => {
   const tr = new TimeRange(timeRange).makeValid();
   if (now.before(tr.start)) return "to_do";
   if (now.afterEq(tr.end)) return "completed";
@@ -67,13 +69,13 @@ export const useClock = (timeRange: CrudeTimeRange): TimeStamp => {
   return useNow((now) => nextBoundary(start, end, now));
 };
 
-export const STAGE_ICONS: Record<Stage, Icon.FC> = {
+export const STAGE_ICONS: Record<ranger.Stage, Icon.FC> = {
   to_do: Icon.ToDo,
   in_progress: Icon.InProgress,
   completed: Icon.Completed,
 };
 
-export const STAGE_NAMES: Record<Stage, string> = {
+export const STAGE_NAMES: Record<ranger.Stage, string> = {
   to_do: "To do",
   in_progress: "In progress",
   completed: "Completed",
@@ -86,7 +88,7 @@ export const STAGE_NAMES: Record<Stage, string> = {
  */
 export const moveToStage = (
   value: NumericTimeRange,
-  stage: Stage,
+  stage: ranger.Stage,
   at: TimeStamp = TimeStamp.now(),
 ): NumericTimeRange => {
   // We subtract a millisecond here to avoid weird issues where you select "completed"

@@ -10,7 +10,9 @@
 package validate_test
 
 import (
+	"math"
 	"runtime"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -132,6 +134,39 @@ var _ = Describe("Validate", func() {
 			Expect(pathErr.Path).To(Equal([]string{"parent", "child_field"}))
 		})
 
+		It("Should mark the Ternary error as a validation error", func() {
+			v.Ternary("field", true, "wrong")
+			Expect(v.Error()).To(MatchError(validate.ErrValidation))
+			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
+		})
+
+		It("Should mark the Errorf error as a validation error", func() {
+			err := validate.Errorf("wrong: %d", 1)
+			Expect(err).To(MatchError("wrong: 1"))
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(errors.CheapIs(err, validate.ErrValidation)).To(BeTrue())
+		})
+
+		It("Should mark the Ternaryf error as a validation error", func() {
+			v.Ternaryf("field", true, "wrong: %d", 1)
+			Expect(v.Error()).To(MatchError(validate.ErrValidation))
+			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
+		})
+
+		DescribeTable("Should decode a failure with its exact text", func(err error) {
+			codec := errors.NewCodec(validate.ErrorProvider())
+			decoded := codec.Decode(codec.Encode(err, false))
+			Expect(decoded).To(MatchError(validate.ErrValidation))
+			Expect(decoded.Error()).To(Equal(err.Error()))
+		},
+			Entry("a Ternary failure", func() error {
+				v := validate.New("test")
+				v.Ternary("field", true, "100% wrong")
+				return v.Error()
+			}()),
+			Entry("an Errorf failure", validate.Errorf("%d%% wrong", 100)),
+		)
+
 		It("Should keep an earlier failure through a passing check", func() {
 			v.Ternary("first", true, "failed")
 			Expect(v.Ternary("second", false, "passed")).To(BeTrue())
@@ -239,6 +274,50 @@ var _ = Describe("Validate", func() {
 			})
 		})
 
+		Describe("Non-finite values", func() {
+			positive := func(value float64) bool { return v.Positive("field", value) }
+			inBounds := func(value float64) bool {
+				return v.InBounds("field", value, math.Inf(-1), math.Inf(1))
+			}
+			greaterThan := func(value float64) bool {
+				return v.GreaterThan("field", value, math.Inf(-1))
+			}
+			greaterThanEq := func(value float64) bool {
+				return v.GreaterThanEq("field", value, math.Inf(-1))
+			}
+			lessThanEq := func(value float64) bool {
+				return v.LessThanEq("field", value, math.Inf(1))
+			}
+			DescribeTable("Should reject non-finite values in every numeric comparison",
+				func(check func(value float64) bool, value float64) {
+					Expect(check(value)).To(BeTrue())
+					Expect(v.Error()).To(MatchError(ContainSubstring("field: must")))
+				},
+				Entry("Positive with NaN", positive, math.NaN()),
+				Entry("Positive with +Inf", positive, math.Inf(1)),
+				Entry("Positive with -Inf", positive, math.Inf(-1)),
+				Entry("InBounds with NaN", inBounds, math.NaN()),
+				Entry("InBounds with +Inf", inBounds, math.Inf(1)),
+				Entry("InBounds with -Inf", inBounds, math.Inf(-1)),
+				Entry("GreaterThan with NaN", greaterThan, math.NaN()),
+				Entry("GreaterThan with +Inf", greaterThan, math.Inf(1)),
+				Entry("GreaterThan with -Inf", greaterThan, math.Inf(-1)),
+				Entry("GreaterThanEq with NaN", greaterThanEq, math.NaN()),
+				Entry("GreaterThanEq with +Inf", greaterThanEq, math.Inf(1)),
+				Entry("GreaterThanEq with -Inf", greaterThanEq, math.Inf(-1)),
+				Entry("LessThanEq with NaN", lessThanEq, math.NaN()),
+				Entry("LessThanEq with +Inf", lessThanEq, math.Inf(1)),
+				Entry("LessThanEq with -Inf", lessThanEq, math.Inf(-1)),
+			)
+
+			It("Should accept the integer extremes", func() {
+				Expect(v.GreaterThanEq("field", int64(math.MaxInt64), 0)).To(BeFalse())
+				Expect(v.LessThanEq("field", uint64(math.MaxUint64), math.MaxUint64)).
+					To(BeFalse())
+				Expect(v.Error()).ToNot(HaveOccurred())
+			})
+		})
+
 		Describe("Collection Validations", func() {
 			Describe("NotEmptySlice", func() {
 				It("Should validate non-empty slices", func() {
@@ -314,6 +393,28 @@ var _ = Describe("Validate", func() {
 					Entry("a family emoji, which is five code points", "👨‍👩‍👧"),
 				)
 			})
+		})
+
+		Describe("NonZero", func() {
+			DescribeTable("Should accept a non-zero value", func(check func() bool) {
+				Expect(check()).To(BeFalse())
+				Expect(v.Error()).NotTo(HaveOccurred())
+			},
+				Entry("number", func() bool { return v.NonZero("field", 42) }),
+				Entry("string", func() bool { return v.NonZero("field", "a") }),
+				Entry("UUID", func() bool { return v.NonZero("field", uuid.New()) }),
+			)
+
+			DescribeTable("Should catch a zero value", func(check func() bool) {
+				Expect(check()).To(BeTrue())
+				Expect(
+					v.Error(),
+				).To(MatchError(ContainSubstring("field: must be non-zero")))
+			},
+				Entry("number", func() bool { return v.NonZero("field", 0) }),
+				Entry("string", func() bool { return v.NonZero("field", "") }),
+				Entry("UUID", func() bool { return v.NonZero("field", uuid.Nil()) }),
+			)
 		})
 
 		Describe("Zeroable", func() {

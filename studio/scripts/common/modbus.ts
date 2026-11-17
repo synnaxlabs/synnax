@@ -12,7 +12,7 @@ import { type Locator } from "playwright";
 import { type capture } from "@/index";
 
 /** CHANNEL is the selector of each channel in a Modbus task form. */
-export const CHANNEL = ".console-channel-item";
+export const CHANNEL = ".console-list-channel-item";
 
 /**
  * choose opens the select in a channel that shows `current`, searches, and picks
@@ -46,7 +46,7 @@ export const setAddress = async (
   channel: Locator,
   address: string,
 ): Promise<void> => {
-  await session.click(channel.locator("input").first());
+  await session.click(channel.locator(".console-modbus__address input").first());
   await session.press("ControlOrMeta+a");
   await session.type(address);
   await session.press("Enter");

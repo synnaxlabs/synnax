@@ -35,7 +35,7 @@ const writeCalculatedStatus = async (variant: status.Variant): Promise<string> =
     virtual: true,
     expression: `return ${source.name} * 2`,
   });
-  return await writeStatus(client, channel.statusKey(calculated.key), variant);
+  return await writeStatus(client, channel.resourceID(calculated.key), variant);
 };
 
 describe("Channel.NOTIFICATION_RULE", () => {

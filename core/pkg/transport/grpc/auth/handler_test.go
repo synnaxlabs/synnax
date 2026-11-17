@@ -20,8 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	grpcauth "github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -107,60 +106,57 @@ func matchAPIKey(k auth.APIKey) types.GomegaMatcher {
 }
 
 var (
-	bob    = user.User{Key: uuid.New()}
+	bob    = auth.User{Key: uuid.New()}
 	apiKey = auth.APIKey{
 		Key:     uuid.New(),
-		Subject: bob.OntologyID(),
+		Subject: bob.ResourceID(),
 		Name:    "ci",
 		Created: telem.TimeStamp(9),
 	}
 	session = svcauth.Session{
 		Key:        uuid.New(),
-		Subject:    bob.OntologyID(),
+		Subject:    bob.ResourceID(),
 		Credential: uuid.New(),
 		LastActive: telem.TimeStamp(42),
 	}
 )
 
 var _ = Describe("Auth", func() {
-	var (
-		transport   api.Transport
-		bindable    = grpcauth.New(&transport).(grpc.CompoundBindableTransport)
-		login       = transport.AuthLogin.(*loginServer)
-		create      = transport.AuthSessionCreate.(*sessionCreateServer)
-		renew       = transport.AuthSessionRenew.(*sessionRenewServer)
-		retrieve    = transport.AuthSessionRetrieve.(*sessionRetrieveServer)
-		del         = transport.AuthSessionDelete.(*sessionDeleteServer)
-		keyCreate   = transport.AuthKeyCreate.(*keyCreateServer)
-		keyRetrieve = transport.AuthKeyRetrieve.(*keyRetrieveServer)
-		keyDelete   = transport.AuthKeyDelete.(*keyDeleteServer)
-	)
+	var transport api.Transport
+	bindable, ok := grpcauth.New(
+		&transport,
+		api.NewErrorCodec(),
+	).(grpc.CompoundBindableTransport)
+	Expect(ok).To(BeTrue())
+	login, ok := transport.AuthLogin.(*loginServer)
+	Expect(ok).To(BeTrue())
+	create, ok := transport.AuthSessionCreate.(*sessionCreateServer)
+	Expect(ok).To(BeTrue())
+	renew, ok := transport.AuthSessionRenew.(*sessionRenewServer)
+	Expect(ok).To(BeTrue())
+	retrieve, ok := transport.AuthSessionRetrieve.(*sessionRetrieveServer)
+	Expect(ok).To(BeTrue())
+	del, ok := transport.AuthSessionDelete.(*sessionDeleteServer)
+	Expect(ok).To(BeTrue())
+	keyCreate, ok := transport.AuthKeyCreate.(*keyCreateServer)
+	Expect(ok).To(BeTrue())
+	keyRetrieve, ok := transport.AuthKeyRetrieve.(*keyRetrieveServer)
+	Expect(ok).To(BeTrue())
+	keyDelete, ok := transport.AuthKeyDelete.(*keyDeleteServer)
+	Expect(ok).To(BeTrue())
 
 	Describe("New", func() {
 		It("Should bind every auth server onto the API transport", func() {
-			Expect(bindable).To(HaveLen(8))
-			Expect(transport.AuthLogin).To(BeIdenticalTo(bindable[0].(*loginServer)))
-			Expect(
-				transport.AuthSessionCreate,
-			).To(BeIdenticalTo(bindable[1].(*sessionCreateServer)))
-			Expect(
-				transport.AuthSessionRenew,
-			).To(BeIdenticalTo(bindable[2].(*sessionRenewServer)))
-			Expect(
-				transport.AuthSessionRetrieve,
-			).To(BeIdenticalTo(bindable[3].(*sessionRetrieveServer)))
-			Expect(
-				transport.AuthSessionDelete,
-			).To(BeIdenticalTo(bindable[4].(*sessionDeleteServer)))
-			Expect(
-				transport.AuthKeyCreate,
-			).To(BeIdenticalTo(bindable[5].(*keyCreateServer)))
-			Expect(
-				transport.AuthKeyRetrieve,
-			).To(BeIdenticalTo(bindable[6].(*keyRetrieveServer)))
-			Expect(
-				transport.AuthKeyDelete,
-			).To(BeIdenticalTo(bindable[7].(*keyDeleteServer)))
+			Expect(bindable).To(HaveExactElements(
+				BeIdenticalTo(login),
+				BeIdenticalTo(create),
+				BeIdenticalTo(renew),
+				BeIdenticalTo(retrieve),
+				BeIdenticalTo(del),
+				BeIdenticalTo(keyCreate),
+				BeIdenticalTo(keyRetrieve),
+				BeIdenticalTo(keyDelete),
+			))
 		})
 	})
 
@@ -283,20 +279,20 @@ var _ = Describe("Auth", func() {
 
 	Describe("SessionRetrieveRequest", func() {
 		It("Should translate the subjects", func(ctx SpecContext) {
-			id := bob.OntologyID()
+			id := bob.ResourceID()
 			Expect(MustSucceed(retrieve.RequestTranslator.Backward(
 				ctx,
 				&grpcauth.SessionRetrieveRequest{Subjects: []*grpcauth.Subject{
 					{Type: string(id.Type), Key: id.Key},
 				}},
-			)).Subjects).To(Equal([]ontology.ID{id}))
+			)).Subjects).To(Equal([]resource.ID{id}))
 		})
 		It("Should read a missing subject as the zero ID", func(ctx SpecContext) {
 			res := MustSucceed(retrieve.RequestTranslator.Backward(
 				ctx,
 				&grpcauth.SessionRetrieveRequest{Subjects: []*grpcauth.Subject{nil}},
 			))
-			Expect(res.Subjects).To(Equal([]ontology.ID{{}}))
+			Expect(res.Subjects).To(Equal([]resource.ID{{}}))
 		})
 	})
 
@@ -328,7 +324,7 @@ var _ = Describe("Auth", func() {
 
 	Describe("KeyCreateRequest", func() {
 		It("Should translate the subject and name", func(ctx SpecContext) {
-			id := bob.OntologyID()
+			id := bob.ResourceID()
 			Expect(MustSucceed(keyCreate.RequestTranslator.Backward(
 				ctx,
 				&grpcauth.KeyCreateRequest{
@@ -352,13 +348,13 @@ var _ = Describe("Auth", func() {
 
 	Describe("KeyRetrieveRequest", func() {
 		It("Should translate the subjects", func(ctx SpecContext) {
-			id := bob.OntologyID()
+			id := bob.ResourceID()
 			Expect(MustSucceed(keyRetrieve.RequestTranslator.Backward(
 				ctx,
 				&grpcauth.KeyRetrieveRequest{Subjects: []*grpcauth.Subject{
 					{Type: string(id.Type), Key: id.Key},
 				}},
-			)).Subjects).To(Equal([]ontology.ID{id}))
+			)).Subjects).To(Equal([]resource.ID{id}))
 		})
 	})
 

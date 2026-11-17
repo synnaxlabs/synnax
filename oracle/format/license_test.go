@@ -45,8 +45,10 @@ var _ = Describe("License", func() {
 	It(
 		"Should prepend a slash header to a Go file with no header",
 		func(ctx SpecContext) {
-			l := MustSucceed(format.NewLicense(repoRoot))
-			out := MustSucceed(l.Format(ctx, []byte("package x\n"), "/abs/foo.go"))
+			l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
+			out := MustSucceed(
+				l.Format(ctx, []byte("package x\n"), filepath.Join(repoRoot, "foo.go")),
+			)
 			Expect(string(out)).To(HavePrefix("// Copyright"))
 			Expect(string(out)).To(ContainSubstring("Synnax Labs, Inc."))
 			Expect(string(out)).To(HaveSuffix("package x\n"))
@@ -54,16 +56,26 @@ var _ = Describe("License", func() {
 	)
 
 	It("Should prepend a hash header to a Python file", func(ctx SpecContext) {
-		l := MustSucceed(format.NewLicense(repoRoot))
-		out := MustSucceed(l.Format(ctx, []byte("def foo(): pass\n"), "/abs/foo.py"))
+		l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
+		out := MustSucceed(
+			l.Format(
+				ctx,
+				[]byte("def foo(): pass\n"),
+				filepath.Join(repoRoot, "foo.py"),
+			),
+		)
 		Expect(string(out)).To(HavePrefix("#  Copyright"))
 		Expect(strings.Contains(string(out), "#  Governed by BSL.")).To(BeTrue())
 	})
 
 	It("Should prepend a block header to a CSS file", func(ctx SpecContext) {
-		l := MustSucceed(format.NewLicense(repoRoot))
+		l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
 		out := MustSucceed(
-			l.Format(ctx, []byte(".cls { color: red; }\n"), "/abs/foo.css"),
+			l.Format(
+				ctx,
+				[]byte(".cls { color: red; }\n"),
+				filepath.Join(repoRoot, "foo.css"),
+			),
 		)
 		Expect(string(out)).To(HavePrefix("/*\n * Copyright"))
 		Expect(string(out)).To(ContainSubstring(" */\n\n.cls"))
@@ -72,19 +84,23 @@ var _ = Describe("License", func() {
 	It(
 		"Should be idempotent on a file with the correct header already",
 		func(ctx SpecContext) {
-			l := MustSucceed(format.NewLicense(repoRoot))
-			first := MustSucceed(l.Format(ctx, []byte("package x\n"), "/abs/foo.go"))
-			second := MustSucceed(l.Format(ctx, first, "/abs/foo.go"))
+			l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
+			first := MustSucceed(
+				l.Format(ctx, []byte("package x\n"), filepath.Join(repoRoot, "foo.go")),
+			)
+			second := MustSucceed(
+				l.Format(ctx, first, filepath.Join(repoRoot, "foo.go")),
+			)
 			Expect(string(first)).To(Equal(string(second)))
 		},
 	)
 
 	It("Should replace a stale-year header", func(ctx SpecContext) {
-		l := MustSucceed(format.NewLicense(repoRoot))
+		l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
 		stale := []byte(
 			"// Copyright 1999 Synnax Labs, Inc.\n//\n// Governed by BSL.\n\npackage x\n",
 		)
-		out := MustSucceed(l.Format(ctx, stale, "/abs/foo.go"))
+		out := MustSucceed(l.Format(ctx, stale, filepath.Join(repoRoot, "foo.go")))
 		Expect(string(out)).ToNot(ContainSubstring("1999"))
 		Expect(string(out)).To(HaveSuffix("package x\n"))
 	})
@@ -92,28 +108,30 @@ var _ = Describe("License", func() {
 	It(
 		"Should leave files with non-Synnax leading comments alone",
 		func(ctx SpecContext) {
-			l := MustSucceed(format.NewLicense(repoRoot))
+			l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
 			raw := []byte("// some unrelated comment\npackage x\n")
-			out := MustSucceed(l.Format(ctx, raw, "/abs/foo.go"))
+			out := MustSucceed(l.Format(ctx, raw, filepath.Join(repoRoot, "foo.go")))
 			Expect(string(out)).To(HavePrefix("// Copyright"))
 			Expect(string(out)).To(ContainSubstring("// some unrelated comment"))
 		},
 	)
 
 	It("Should pass through unsupported extensions unchanged", func(ctx SpecContext) {
-		l := MustSucceed(format.NewLicense(repoRoot))
-		out := MustSucceed(l.Format(ctx, []byte("body"), "/abs/foo.unknown"))
+		l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
+		out := MustSucceed(
+			l.Format(ctx, []byte("body"), filepath.Join(repoRoot, "foo.unknown")),
+		)
 		Expect(string(out)).To(Equal("body"))
 	})
 
 	It(
 		"Should refresh a header on a file that is nothing but the header",
 		func(ctx SpecContext) {
-			l := MustSucceed(format.NewLicense(repoRoot))
+			l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
 			stub := []byte(
 				"// Copyright 1999 Synnax Labs, Inc.\n//\n// Governed by BSL.\n",
 			)
-			out := MustSucceed(l.Format(ctx, stub, "/abs/foo.go"))
+			out := MustSucceed(l.Format(ctx, stub, filepath.Join(repoRoot, "foo.go")))
 			Expect(string(out)).ToNot(ContainSubstring("1999"))
 			Expect(string(out)).To(HavePrefix("// Copyright"))
 		},
@@ -122,11 +140,11 @@ var _ = Describe("License", func() {
 	It(
 		"Should replace a stale block-comment header on a CSS file",
 		func(ctx SpecContext) {
-			l := MustSucceed(format.NewLicense(repoRoot))
+			l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
 			stale := []byte(
 				"/*\n * Copyright 1999 Synnax Labs, Inc.\n *\n * Governed by BSL.\n */\n\n.cls { color: red; }\n",
 			)
-			out := MustSucceed(l.Format(ctx, stale, "/abs/foo.css"))
+			out := MustSucceed(l.Format(ctx, stale, filepath.Join(repoRoot, "foo.css")))
 			Expect(string(out)).ToNot(ContainSubstring("1999"))
 			Expect(string(out)).To(HavePrefix("/*\n * Copyright"))
 			Expect(string(out)).To(HaveSuffix(".cls { color: red; }\n"))
@@ -136,11 +154,11 @@ var _ = Describe("License", func() {
 	It(
 		"Should preserve a generated-code banner that follows a stale header",
 		func(ctx SpecContext) {
-			l := MustSucceed(format.NewLicense(repoRoot))
+			l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
 			stale := []byte(
 				"// Copyright 1999 Synnax Labs, Inc.\n//\n// Governed by BSL.\n\n// Code generated by protoc-gen-go. DO NOT EDIT.\n// versions:\n// \tprotoc-gen-go v1.36.11\n\npackage x\n",
 			)
-			out := MustSucceed(l.Format(ctx, stale, "/abs/foo.go"))
+			out := MustSucceed(l.Format(ctx, stale, filepath.Join(repoRoot, "foo.go")))
 			Expect(string(out)).ToNot(ContainSubstring("1999"))
 			Expect(
 				string(out),
@@ -149,10 +167,73 @@ var _ = Describe("License", func() {
 		},
 	)
 
+	It("Should fail for a file outside the repository root", func(ctx SpecContext) {
+		l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
+		outside := filepath.Join(filepath.Dir(repoRoot), "foo.go")
+		Expect(l.Format(ctx, []byte("package x\n"), outside)).Error().
+			To(MatchError(ContainSubstring("escapes")))
+	})
+
+	Describe("Year", func() {
+		var path string
+		BeforeEach(func() { path = filepath.Join(repoRoot, "foo.gen.go") })
+
+		It(
+			"Should keep the year of an existing file when the year changes",
+			func(ctx SpecContext) {
+				l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
+				existing := MustSucceed(l.Format(ctx, []byte("package x\n"), path))
+				Expect(os.WriteFile(path, existing, 0o644)).To(Succeed())
+				next := MustSucceed(format.NewLicense(repoRoot, 2027, nil))
+				out := MustSucceed(next.Format(ctx, []byte("package x\n"), path))
+				Expect(out).To(Equal(existing))
+				Expect(MustSucceed(next.Format(ctx, existing, path))).
+					To(Equal(existing))
+			},
+		)
+
+		It(
+			"Should keep the prior year of a file rewritten without a header",
+			func(ctx SpecContext) {
+				l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
+				existing := MustSucceed(l.Format(ctx, []byte("package x\n"), path))
+				Expect(os.WriteFile(path, existing, 0o644)).To(Succeed())
+				next := MustSucceed(format.NewLicense(repoRoot, 2027, []string{path}))
+				Expect(os.WriteFile(path, []byte("package x\n"), 0o644)).To(Succeed())
+				out := MustSucceed(next.Format(ctx, []byte("package x\n"), path))
+				Expect(out).To(Equal(existing))
+			},
+		)
+
+		It("Should give a new file the injected year", func(ctx SpecContext) {
+			l := MustSucceed(format.NewLicense(repoRoot, 2031, nil))
+			out := MustSucceed(l.Format(ctx, []byte("package x\n"), path))
+			Expect(string(out)).To(HavePrefix("// Copyright 2031 Synnax Labs, Inc.\n"))
+		})
+
+		DescribeTable(
+			"Should give an existing file without a valid header the injected year",
+			func(ctx SpecContext, existing string) {
+				Expect(os.WriteFile(path, []byte(existing), 0o644)).To(Succeed())
+				l := MustSucceed(format.NewLicense(repoRoot, 2031, nil))
+				out := MustSucceed(l.Format(ctx, []byte("package x\n"), path))
+				Expect(string(out)).To(Equal(
+					"// Copyright 2031 Synnax Labs, Inc.\n//\n// Governed by BSL.\n\n" +
+						"package x\n",
+				))
+			},
+			Entry("no header", "package x\n"),
+			Entry(
+				"a malformed header",
+				"// Copyright 2024 Synnax Labs, Inc.\n// Other terms.\n\npackage x\n",
+			),
+		)
+	})
+
 	It("Should leave a non-Synnax block comment alone in CSS", func(ctx SpecContext) {
-		l := MustSucceed(format.NewLicense(repoRoot))
+		l := MustSucceed(format.NewLicense(repoRoot, 2026, nil))
 		raw := []byte("/* Reset */\n.cls { color: red; }\n")
-		out := MustSucceed(l.Format(ctx, raw, "/abs/foo.css"))
+		out := MustSucceed(l.Format(ctx, raw, filepath.Join(repoRoot, "foo.css")))
 		Expect(string(out)).To(HavePrefix("/*\n * Copyright"))
 		Expect(string(out)).To(ContainSubstring("/* Reset */"))
 	})

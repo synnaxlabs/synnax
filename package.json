@@ -25,7 +25,7 @@
     "check-types": "turbo check-types",
     "check-types:alamos": "turbo check-types --filter @synnaxlabs/alamos",
     "check-types:arc": "turbo check-types --filter @synnaxlabs/arc",
-    "check-types:client": "turbo check-types --filter @synnaxlabs/client",
+    "check-types:client": "turbo check-types --filter @synnaxlabs/client --filter @synnaxlabs/client-examples",
     "check-types:console": "turbo check-types --filter @synnaxlabs/console",
     "check-types:docs": "turbo check-types --filter @synnaxlabs/docs",
     "check-types:eslint-config": "turbo check-types --filter @synnaxlabs/eslint-config",
@@ -162,6 +162,7 @@
     "knip:x": "knip --workspace x/ts"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "catalog:",
     "@prettier/plugin-xml": "catalog:",
     "knip": "catalog:",
     "prettier": "catalog:",

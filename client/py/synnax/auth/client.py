@@ -22,7 +22,7 @@ from freighter import (
     Next,
     UnaryClient,
 )
-from synnax import ontology
+from synnax import resource
 from synnax.auth.types_gen import Proof, Session, SessionKey
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
@@ -65,7 +65,7 @@ class _SessionRenewResponse(BaseModel):
 
 
 class _SessionRetrieveRequest(BaseModel):
-    subjects: list[ontology.ID] = []
+    subjects: list[resource.ID] = []
 
 
 class _SessionRetrieveResponse(BaseModel):
@@ -81,7 +81,7 @@ class APIKey(BaseModel):
 
     key: UUID
     """The unique identifier for this API key."""
-    subject: ontology.ID
+    subject: resource.ID
     """The user or rack the key logs in as."""
     name: str
     """A label that tells the subject's keys apart."""
@@ -90,7 +90,7 @@ class APIKey(BaseModel):
 
 
 class _KeyCreateRequest(BaseModel):
-    subject: ontology.ID | None = None
+    subject: resource.ID | None = None
     name: str
 
 
@@ -100,7 +100,7 @@ class _KeyCreateResponse(BaseModel):
 
 
 class _KeyRetrieveRequest(BaseModel):
-    subjects: list[ontology.ID] = []
+    subjects: list[resource.ID] = []
 
 
 class _KeyRetrieveResponse(BaseModel):
@@ -168,7 +168,7 @@ class Client:
         self.authenticated = True
 
     @property
-    def subject(self) -> ontology.ID | None:
+    def subject(self) -> resource.ID | None:
         """The subject the client logged in as, once logged in."""
         return None if self.session is None else self.session.subject
 
@@ -184,7 +184,7 @@ class Client:
         return res.session
 
     def retrieve_sessions(
-        self, subjects: list[ontology.ID] | None = None
+        self, subjects: list[resource.ID] | None = None
     ) -> list[Session]:
         """Lists the caller's sessions, or those of the given subjects when the caller
         may retrieve them.
@@ -207,7 +207,7 @@ class Client:
         )
 
     def create_key(
-        self, name: str, subject: ontology.ID | None = None
+        self, name: str, subject: resource.ID | None = None
     ) -> tuple[str, APIKey]:
         """Creates an API key for the subject, or for the caller when none is given.
 
@@ -223,7 +223,7 @@ class Client:
         )
         return res.token, res.key
 
-    def retrieve_keys(self, subjects: list[ontology.ID] | None = None) -> list[APIKey]:
+    def retrieve_keys(self, subjects: list[resource.ID] | None = None) -> list[APIKey]:
         """Lists the caller's API keys, or those of the given subjects when the caller
         may retrieve them.
         """

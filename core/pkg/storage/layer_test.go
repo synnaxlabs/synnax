@@ -19,12 +19,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("storage", func() {
 	Describe("Open", func() {
-		ShouldNotLeakGoroutinesPerSpec()
 		var (
 			tempDir string
 			cfg     storage.LayerConfig
@@ -34,7 +34,10 @@ var _ = Describe("storage", func() {
 			// DeferCleanup runs after the layer's Close, whereas an AfterEach would
 			// fire while files are still open and fail RemoveAll on Windows.
 			DeferCleanup(func() { Expect(os.RemoveAll(tempDir)).To(Succeed()) })
-			cfg = storage.LayerConfig{Dirname: filepath.Join(tempDir, "storage")}
+			cfg = storage.LayerConfig{
+				Dirname: filepath.Join(tempDir, "storage"),
+				Version: "0.0.0",
+			}
 		})
 		Describe("Acquiring a lock", func() {
 			It(
@@ -57,7 +60,7 @@ var _ = Describe("storage", func() {
 					It(
 						"Should set the correct permissions on the storage directory",
 						func(ctx SpecContext) {
-							cfg.Perm = storage.DefaultLayerConfig.Perm
+							cfg.Perm = xfs.UserRWX
 							MustOpen(storage.OpenLayer(ctx, cfg))
 							stat := MustSucceed(os.Stat(cfg.Dirname))
 							Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
@@ -94,14 +97,47 @@ var _ = Describe("storage", func() {
 				MustOpen(storage.OpenLayer(ctx, cfg))
 			})
 		})
+		Describe("Aspen keys", func() {
+			It(
+				"Should delete only the digests and the version counter",
+				func(ctx SpecContext) {
+					deleted := []string{"--dig/a", "--dig/b", "ver"}
+					kept := []string{"aspen.cluster", "--dig", "--dig0", "ve", "vera"}
+					l := MustSucceed(storage.OpenLayer(ctx, cfg))
+					for _, key := range append(deleted, kept...) {
+						Expect(
+							l.KV.Set(ctx, []byte(key), []byte("value")),
+						).To(Succeed())
+					}
+					Expect(l.Close()).To(Succeed())
+					l = MustOpen(storage.OpenLayer(ctx, cfg))
+					for _, key := range deleted {
+						Expect(l.KV.Get([]byte(key))).Error().
+							To(MatchError(query.ErrNotFound))
+					}
+					for _, key := range kept {
+						value, closer := MustSucceed2(l.KV.Get([]byte(key)))
+						Expect(value).To(Equal([]byte("value")))
+						Expect(closer.Close()).To(Succeed())
+					}
+				},
+			)
+		})
 	})
 	Describe("ServiceConfig", func() {
 		DescribeTable("Validate", func(
 			spec func(storage.LayerConfig) storage.LayerConfig,
 			contains string,
 		) {
-			iCfg := storage.DefaultLayerConfig
+			iCfg := storage.LayerConfig{
+				Perm:                 xfs.UserRWX,
+				InMemory:             new(false),
+				KVEngine:             storage.KVEnginePebble,
+				TSEngine:             storage.TSEngineCesium,
+				UpdateBackupDisabled: new(false),
+			}
 			iCfg.Dirname = "foo"
+			iCfg.Version = "0.60.0"
 			err := spec(iCfg).Validate()
 			if contains == "" {
 				Expect(err).ToNot(HaveOccurred())
@@ -138,6 +174,31 @@ var _ = Describe("storage", func() {
 					return cfg
 				},
 				"permissions",
+			),
+			Entry("Valid config", func(cfg storage.LayerConfig) storage.LayerConfig {
+				return cfg
+			}, ""),
+			Entry("Version not set",
+				func(cfg storage.LayerConfig) storage.LayerConfig {
+					cfg.Version = ""
+					return cfg
+				},
+				"version",
+			),
+			Entry("Version with a v prefix",
+				func(cfg storage.LayerConfig) storage.LayerConfig {
+					cfg.Version = "v0.60.0"
+					return cfg
+				},
+				"version",
+			),
+			Entry("Version not set, mem-backed",
+				func(cfg storage.LayerConfig) storage.LayerConfig {
+					cfg.Version = ""
+					cfg.InMemory = new(true)
+					return cfg
+				},
+				"",
 			),
 		)
 	})

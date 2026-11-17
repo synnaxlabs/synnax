@@ -1,0 +1,321 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/filter"
+import "schemas/x/patch"
+import "schemas/x/payload"
+
+@go output "core/pkg/service/icd"
+@py output "client/py/synnax/icd"
+@ts output "client/ts/src/icd"
+
+Key = uuid {
+    @doc value "is a unique identifier for an ICD."
+}
+
+MessageKey = uuid {
+    @doc value "is a unique identifier for a message within an ICD."
+}
+
+FieldKey = uuid {
+    @doc value "is a unique identifier for a field within a message."
+}
+
+ByteOrder enum {
+    little_endian = "little_endian"
+    big_endian    = "big_endian"
+
+    @doc value "is the byte order of a multi-byte binary field."
+}
+
+Identifier union on type {
+    can {
+        id               uint32 = 0 {
+            @doc value "is the CAN arbitration identifier."
+        }
+        extended         bool = false {
+            @doc value "is true when the identifier is a 29-bit extended identifier."
+        }
+        fd               bool = false {
+            @doc value "is true when the message is sent as a CAN FD frame."
+        }
+        bitrate_switched bool = false {
+            @doc value "is true when a CAN FD frame switches to the data bitrate."
+        }
+        mask             uint32? {
+            @doc value """
+                is the bit mask applied to both identifiers before matching. When absent
+                the identifiers must match exactly.
+            """
+        }
+
+        @doc value "matches a CAN frame by arbitration identifier."
+    }
+    field {
+        field FieldKey {
+            @doc value "is the key of the message field that holds the identifier."
+        }
+        value int32 = 0 {
+            @doc value "is the raw value the field must hold."
+        }
+
+        @doc value "matches a binary frame by the raw value of one of its fields."
+    }
+
+    @doc value  "selects which frames on a bus belong to a binary message."
+    @go marshal
+}
+
+BaseField struct {
+    key    FieldKey = create {
+        @doc value "is the unique identifier for the field within its message."
+    }
+    name   string   {
+        @doc value           "is the name of the field, unique within its message."
+        @validate min_length 1
+    }
+    scale  float64 = 1 {
+        @doc value "multiplies the raw value on decode."
+    }
+    offset float64 = 0 {
+        @doc value "is added to the scaled value on decode."
+    }
+    units  string = "" {
+        @doc value "is the engineering unit of the decoded value."
+    }
+    min    float64? {
+        @doc value """
+            is the smallest decoded value a write task accepts. When absent the field's
+            encoding sets the limit.
+        """
+    }
+    max    float64? {
+        @doc value """
+            is the largest decoded value a write task accepts. When absent the field's
+            encoding sets the limit.
+        """
+    }
+
+    @doc value  "carries the parts every message field shares."
+    @go marshal
+}
+
+BinaryField struct extends BaseField {
+    start_bit        uint16 = 0 {
+        @doc value """
+            is the bit where the field starts, numbered as in a DBC file: the least
+            significant bit for little-endian fields and the most significant bit for
+            big-endian fields.
+        """
+    }
+    bit_length       uint8 = 8 {
+        @doc value    "is the number of bits in the field, from 1 to 64."
+        @validate max 64
+        @validate min 1
+    }
+    byte_order       ByteOrder = little_endian {
+        @doc value "is the byte order of the field."
+    }
+    signed           bool = false {
+        @doc value "is true when the raw value is two's complement."
+    }
+    float            bool = false {
+        @doc value "is true when the raw bits are an IEEE 754 float of 32 or 64 bits."
+    }
+    multiplexor      FieldKey? {
+        @doc value """
+            is the key of the field that selects whether this field is present. When
+            absent the field is always present.
+        """
+    }
+    multiplex_values int32[] = [] {
+        @doc value """
+            are the raw values of the multiplexor for which this field is present.
+        """
+    }
+
+    @doc value  "is a field read from a bit range of a binary payload."
+    @go marshal
+}
+
+TextField union on encoding extends BaseField {
+    delimited {
+        position uint32 = 0 {
+            @doc value "is the zero-based item index after splitting on the delimiter."
+        }
+
+        @doc value "is a field read from one item of a delimited text line."
+    }
+    tagged {
+        tag string {
+            @doc value "is the text that comes just before the value in the line."
+        }
+
+        @doc value "is a field read from the text that follows a tag."
+    }
+
+    @doc value  "is a field read from a text line."
+    @go marshal
+}
+
+JSONBaseField struct extends BaseField {
+    pointer string = "" {
+        @doc value """
+            is the JSON Pointer to the value in the document. An empty pointer is the
+            whole document.
+        """
+    }
+
+    @doc value  "carries the parts every JSON field shares."
+    @go marshal
+}
+
+JSONField union on type extends JSONBaseField {
+    number {
+        @doc value "is a JSON number."
+    }
+    string {
+        @doc value "is a JSON string."
+    }
+    boolean {
+        @doc value "is a JSON boolean."
+    }
+    timestamp {
+        format payload.TimeFormat {
+            @doc value "is the encoding of the timestamp."
+        }
+
+        @doc value "is a timestamp held in a JSON number or string."
+    }
+
+    @doc value  "is a field read from a JSON document."
+    @go marshal
+}
+
+Payload union on format {
+    binary {
+        length     uint16?       {
+            @doc value """
+                is the payload length in bytes. When absent the length is variable.
+            """
+        }
+        identifier Identifier?   {
+            @doc value """
+                selects the frames that belong to the message. When absent every frame
+                on the bus belongs to it.
+            """
+        }
+        fields     BinaryField[] = [] {
+            @doc value "are the values the payload carries."
+        }
+
+        @doc value "is a payload of raw bytes."
+    }
+    text {
+        delimiter string = "," {
+            @doc value           "splits the items of the line."
+            @validate min_length 1
+        }
+        prefix    string = "" {
+            @doc value """
+                is the text a line must start with to belong to the message. An empty
+                prefix matches every line.
+            """
+        }
+        fields    TextField[] = [] {
+            @doc value "are the values the line carries."
+        }
+
+        @doc value "is a payload of one text line."
+    }
+    json {
+        fields JSONField[] = [] {
+            @doc value "are the values the document carries."
+        }
+
+        @doc value "is a payload of one JSON document."
+    }
+
+    @doc value  "is the layout of a message's payload."
+    @go marshal
+}
+
+Message struct {
+    key     MessageKey = create {
+        @doc value "is the unique identifier for the message within its ICD."
+    }
+    name    string     {
+        @doc value           "is the name of the message, unique within its ICD."
+        @validate min_length 1
+    }
+    payload Payload    {
+        @doc value "is the layout of the message's payload."
+    }
+
+    @doc value  "is the layout of one message a system sends or receives."
+    @go marshal
+}
+
+ICD struct {
+    key      Key = create {
+        @doc value "is the unique identifier for the ICD."
+        @key
+    }
+    name     string    {
+        @doc value           "is a human-readable name for the ICD."
+        @search
+        @validate min_length 1
+    }
+    messages Message[] = [] {
+        @doc value "are the messages the ICD holds."
+    }
+
+    action Create {
+        icd ICD
+
+        @doc value """
+            replaces the ICD with the given created state. Emitted by the Core when an
+            ICD is created or imported; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the ICD."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value "removes an entry from a list or a field from an object in the ICD."
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the ICD."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the ICD."
+    }
+
+    @create
+    @doc value     """
+        is an interface control document: the messages a system sends and receives, and
+        how to parse each one.
+    """
+    @go imex
+    @go marshal
+    @go migrate
+    @resource type "icd"
+    @retrieve
+}
+
+Where filter ICD {
+    key
+
+    @doc value         "is a filter that selects ICDs."
+    @go request_output "core/pkg/api/icd"
+}

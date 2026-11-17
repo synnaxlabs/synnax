@@ -16,20 +16,17 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil/channel"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// validServiceConfig opens an in-memory single-node cluster and returns a fully
-// populated ServiceConfig backed by its host resolver, key-value store, time-series
-// database, and a fresh in-memory channel transport.
+// validServiceConfig opens an in-memory node and returns a ServiceConfig backed by its
+// host key, key-value store, and time-series database.
 func validServiceConfig(ctx context.Context) channel.ServiceConfig {
 	node := testutil.NewNode(ctx)
 	return channel.ServiceConfig{
-		HostResolver: node.Cluster,
-		KV:           node.DB,
-		TS:           node.Storage.TS,
-		Transport:    tmock.NewNetwork().New("mock"),
+		HostKey: node.Identity.HostKey,
+		KV:      node.DB,
+		TS:      node.Storage.TS,
 	}
 }
 
@@ -50,10 +47,9 @@ var _ = Describe("ServiceConfig", Ordered, func() {
 					MatchError(ContainSubstring(field)),
 				)
 			},
-			Entry("host resolver", "host_resolver: must be non-nil"),
+			Entry("host key", "host_key: must be non-zero"),
 			Entry("kv", "kv: must be non-nil"),
 			Entry("time-series database", "ts: must be non-nil"),
-			Entry("transport", "transport: must be non-nil"),
 		)
 	})
 
@@ -77,10 +73,9 @@ var _ = Describe("Service", Ordered, func() {
 	It("Should return an error with an invalid configuration", func(ctx SpecContext) {
 		Expect(channel.NewService(ctx, channel.ServiceConfig{})).Error().To(
 			MatchError(SatisfyAll(
-				ContainSubstring("host_resolver: must be non-nil"),
+				ContainSubstring("host_key: must be non-zero"),
 				ContainSubstring("kv: must be non-nil"),
 				ContainSubstring("ts: must be non-nil"),
-				ContainSubstring("transport: must be non-nil"),
 			)),
 		)
 	})

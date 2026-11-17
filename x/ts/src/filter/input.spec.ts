@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { filter } from "@/filter";
+import { zod } from "@/zod";
 
 describe("filter input", () => {
   describe("setInputZ", () => {
@@ -28,8 +29,8 @@ describe("filter input", () => {
       expect(keyZ.parse({ in: [1], eq: 1 })).toEqual({ in: [1], eq: 1 });
     });
 
-    it("should reject a value of the wrong type", () => {
-      expect(() => keyZ.parse("12")).toThrow();
+    it("should report the type of the line for a value of the wrong type", () => {
+      expect(() => zod.parse(keyZ, "12")).toThrow('× expected number, received "12"');
     });
 
     it("should reject an unknown operator", () => {
@@ -81,6 +82,12 @@ describe("filter input", () => {
     it("should reject a list", () => {
       expect(() => filter.boolInputZ.parse([true])).toThrow();
     });
+
+    it("should report a value that is not a boolean", () => {
+      expect(() => zod.parse(filter.boolInputZ, "yes")).toThrow(
+        '× expected boolean, received "yes"',
+      );
+    });
   });
 
   describe("containsInputZ", () => {
@@ -99,6 +106,12 @@ describe("filter input", () => {
     it("should keep an operator", () => {
       expect(integrationsZ.parse({ any: ["ni"] })).toEqual({ any: ["ni"] });
     });
+
+    it("should report a value of the wrong type", () => {
+      expect(() => zod.parse(integrationsZ, 5)).toThrow(
+        "× expected string, received 5",
+      );
+    });
   });
 
   describe("listInputZ", () => {
@@ -110,6 +123,58 @@ describe("filter input", () => {
 
     it("should keep a list", () => {
       expect(labelsZ.parse(["a", "b"])).toEqual(["a", "b"]);
+    });
+  });
+
+  describe("requestInputZ", () => {
+    const requestZ = z.strictObject({
+      where: z
+        .strictObject({ name: filter.stringZ.optional(), on: filter.boolZ.optional() })
+        .optional(),
+      limit: z.number().optional(),
+    });
+    const fieldsZ = z
+      .strictObject({
+        name: filter.stringInputZ.optional(),
+        on: filter.boolInputZ.optional(),
+        limit: z.number().optional(),
+      })
+      .transform((input) => filter.split(input, ["name", "on"]));
+    const inputZ = filter.requestInputZ(requestZ, fieldsZ);
+
+    it("should read filter fields beside the options", () => {
+      expect(inputZ.parse({ name: "a", limit: 2 })).toEqual({
+        where: { name: { eq: "a" } },
+        limit: 2,
+      });
+    });
+
+    it("should read a where tree", () => {
+      expect(inputZ.parse({ where: { name: { eq: "a" } } })).toEqual({
+        where: { name: { eq: "a" } },
+      });
+    });
+
+    it("should name the operator at fault in a where tree", () => {
+      expect(() => zod.parse(inputZ, { where: { name: { eq: 5 } } })).toThrow(
+        /at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/,
+      );
+    });
+
+    it("should reject a filter field beside a where tree", () => {
+      expect(() => zod.parse(inputZ, { where: {}, name: "a" })).toThrow(
+        '✗ "name": "a"  × unexpected key',
+      );
+    });
+
+    it("should name the filter field at fault", () => {
+      expect(() => zod.parse(inputZ, { on: "yes" })).toThrow(
+        '✗ "on": "yes"  × expected boolean',
+      );
+    });
+
+    it("should report a value that is not an object", () => {
+      expect(() => zod.parse(inputZ, "x")).toThrow('× expected object, received "x"');
     });
   });
 

@@ -10,8 +10,9 @@
 import synnax as sy
 
 from common import Channels
-from conftest import Client, core
-from controller import Toggle, wait_for_cmds
+from conftest import Client
+from controller import FAILED_POLLS, Health, Toggle, wait_for_cmds
+from gate import Gate
 from heartbeat import Heartbeat
 from log import Log
 from scaler import SCALER_CMD, Scaler
@@ -22,24 +23,58 @@ class TestWaitForCmds:
     """Tests for reading the switches between polls."""
 
     def test_should_read_switches_when_no_time_remains(self, client: Client) -> None:
-        channels = Channels(client=core(client), enabled=False)
+        channels = Channels(client=client, enabled=False)
         scaler = Scaler(
-            client=core(client),
+            client=client,
             cooldown=sy.TimeSpan(0),
             boot_grace=sy.TimeSpan(0),
-            log=Log(client=core(client), channels=channels, channel="log"),
+            log=Log(client=client, channels=channels, channel="log"),
+            gate=Gate(
+                client=client,
+                channels=channels,
+                log=Log(client=client, channels=channels, channel="gh_log"),
+            ),
         )
         beat = Heartbeat(
-            client=core(client),
+            client=client,
             channels=channels,
             name="enabled",
             value=lambda: scaler.enabled,
         )
         toggles: dict[str, Toggle] = {SCALER_CMD: (scaler, beat, "scaler")}
         client.streamed.append({SCALER_CMD: [False]})
-        commands = Subscription(
-            client=core(client), name="switches", channels=[SCALER_CMD]
-        )
+        commands = Subscription(client=client, name="switches", channels=[SCALER_CMD])
         wait_for_cmds(commands, remaining=-sy.TimeSpan.SECOND, toggles=toggles)
         beat.stop()
         assert not scaler.enabled
+
+
+class TestHealth:
+    """Tests for the poll health behind the controller heartbeat."""
+
+    def test_should_stay_healthy_below_the_failure_limit(self) -> None:
+        health = Health()
+        for _ in range(FAILED_POLLS - 1):
+            health.record(failed=True)
+        assert health.healthy()
+
+    def test_should_turn_unhealthy_at_the_failure_limit(self) -> None:
+        health = Health()
+        for _ in range(FAILED_POLLS):
+            health.record(failed=True)
+        assert not health.healthy()
+
+    def test_should_count_only_consecutive_failures(self) -> None:
+        health = Health()
+        for _ in range(FAILED_POLLS - 1):
+            health.record(failed=True)
+        health.record(failed=False)
+        health.record(failed=True)
+        assert health.healthy()
+
+    def test_should_recover_after_a_successful_poll(self) -> None:
+        health = Health()
+        for _ in range(FAILED_POLLS):
+            health.record(failed=True)
+        health.record(failed=False)
+        assert health.healthy()

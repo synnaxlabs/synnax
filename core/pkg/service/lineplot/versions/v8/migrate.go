@@ -11,7 +11,7 @@ package v8
 
 import (
 	"context"
-	"crypto/sha1"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -19,11 +19,15 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
+	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	xuuid "github.com/synnaxlabs/x/uuid"
 )
 
 // lineNamespace is the UUID namespace that line keys are derived in.
@@ -35,14 +39,7 @@ var lineNamespace = uuid.MustParse("a708aa30-81f8-4cf6-82fd-146c35663a6b")
 func LineKey(plot Key, yAxis YAxisKey, yChannel, xChannel channel.Key) string {
 	name := plot.String() + "---" + string(yAxis) + "---" + yChannel.String() + "---" +
 		xChannel.String()
-	h := sha1.New()
-	h.Write(lineNamespace[:])
-	h.Write([]byte(name))
-	var id uuid.UUID
-	copy(id[:], h.Sum(nil))
-	id[6] = (id[6] & 0x0f) | 0x50
-	id[8] = (id[8] & 0x3f) | 0x80
-	return id.String()
+	return xuuid.NewV5(lineNamespace, name).String()
 }
 
 var yAxisKeys = []YAxisKey{YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4}
@@ -76,8 +73,9 @@ func ReconcileLines(plot Key, channels Channels, existing []Line) []Line {
 			kept.Add(id)
 			l, ok := byIdentity[id]
 			if !ok {
-				l = Line{YAxis: yAxis, YChannel: yChannel, XChannel: channels.X1}
-				l.ApplyDefaults()
+				l = Line{}
+				l.SetDefaults()
+				l.YAxis, l.YChannel, l.XChannel = yAxis, yChannel, channels.X1
 			}
 			l.Key = LineKey(plot, yAxis, yChannel, channels.X1)
 			lines = append(lines, l)
@@ -102,17 +100,17 @@ func yAxisChannels(c Channels, k YAxisKey) []channel.Key {
 
 // builtInSpans are the rolling windows the Console offered as range keys before v8.
 var builtInSpans = map[string]telem.TimeSpan{
-	"recent":     telem.TimeSpan(30 * telem.Second),
-	"rolling1m":  telem.TimeSpan(telem.Minute),
-	"rolling5m":  telem.TimeSpan(5 * telem.Minute),
-	"rolling15m": telem.TimeSpan(15 * telem.Minute),
-	"rolling30m": telem.TimeSpan(30 * telem.Minute),
-	"rolling1h":  telem.TimeSpan(telem.Hour),
-	"rolling6h":  telem.TimeSpan(6 * telem.Hour),
-	"rolling12h": telem.TimeSpan(12 * telem.Hour),
-	"rolling1d":  telem.TimeSpan(telem.Day),
-	"rolling7d":  telem.TimeSpan(7 * telem.Day),
-	"rolling30d": telem.TimeSpan(30 * telem.Day),
+	"recent":     30 * telem.Second,
+	"rolling1m":  telem.Minute,
+	"rolling5m":  5 * telem.Minute,
+	"rolling15m": 15 * telem.Minute,
+	"rolling30m": 30 * telem.Minute,
+	"rolling1h":  telem.Hour,
+	"rolling6h":  6 * telem.Hour,
+	"rolling12h": 12 * telem.Hour,
+	"rolling1d":  telem.Day,
+	"rolling7d":  7 * telem.Day,
+	"rolling30d": 30 * telem.Day,
 }
 
 // customKey is the v7 range key that resolved to the plot's custom window.
@@ -188,14 +186,15 @@ func windowRef(w telem.Window) ranger.Ref {
 }
 
 func migrateCustom(c v7.CustomRange) telem.Window {
-	if s, ok := c.Variant.(v7.StaticCustomRange); ok {
+	switch v := c.Variant.(type) {
+	case v7.StaticCustomRange:
 		return telem.Window{Variant: telem.StaticWindow{
-			TimeRange: telem.TimeRange{Start: s.Start, End: s.End},
+			TimeRange: telem.TimeRange{Start: v.Start, End: v.End},
 		}}
+	case v7.DynamicCustomRange:
+		return telem.Window{Variant: telem.DynamicWindow{TimeSpan: v.Span}}
 	}
-	return telem.Window{
-		Variant: telem.DynamicWindow{TimeSpan: c.Variant.(v7.DynamicCustomRange).Span},
-	}
+	panic(fmt.Sprintf("unknown custom range variant %T", c.Variant))
 }
 
 // v7LineKey is the decoded form of a v7 line key.
@@ -261,4 +260,25 @@ func RaiseStrokeWidths(_ context.Context, lp LinePlot) (LinePlot, error) {
 var StrokeWidthMigration = migrate.NewEntry(
 	"v61_min_line_stroke_width",
 	RaiseStrokeWidths,
+)
+
+// MembersMigration sets the group of each stored lineplot from the ontology edge that
+// placed it in a group.
+var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, LinePlot]{
+	Name:         "v61_lineplot_group_membership",
+	Type:         resource.TypeLineplot,
+	SetGroup:     func(e *LinePlot, g groupv1.Key) { e.Group = &g },
+	ProjectOwned: true,
+})
+
+// OwnersMigration sets the project or range of each stored line plot from the ontology
+// edge that owned it, and deletes each line plot with no owner.
+var OwnersMigration = projectv3.NewOwnersMigration(
+	projectv3.OwnersConfig[Key, LinePlot]{
+		Name:     "v61_lineplot_owner",
+		Type:     resource.TypeLineplot,
+		Owned:    func(e LinePlot) bool { return e.Project != nil || e.Range != nil },
+		NameOf:   func(e LinePlot) string { return e.Name },
+		SetOwner: func(e *LinePlot, p, r *uuid.UUID) { e.Project, e.Range = p, r },
+	},
 )

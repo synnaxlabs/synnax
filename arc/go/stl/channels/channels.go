@@ -228,7 +228,7 @@ func firstAtOrAfter(time telem.Series, stamp telem.TimeStamp) int {
 func (s *source) Init(node.Context) {}
 
 // rebindTo re-points the source at key. A rebind is not a value:
-// only values arriving afterward fire
+// only values arriving afterward fire.
 func (s *source) rebindTo(key uint32) {
 	s.currKey = key
 	s.highWaterMark = 0
@@ -350,12 +350,12 @@ func (s *sink) Next(ctx node.Context) {
 	s.state.writeChannel(key, data, time)
 	lastTS := time.ValueAt[telem.TimeStamp](-1)
 	out := s.Output(0)
-	out.Resize(1)
+	*out = out.Resized(1)
 	out.SetValueAt[uint8](0, 1)
 	out.Alignment = data.Alignment
 	out.TimeRange = data.TimeRange
 	outTime := s.OutputTime(0)
-	outTime.Resize(1)
+	*outTime = outTime.Resized(1)
 	outTime.SetValueAt(0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange

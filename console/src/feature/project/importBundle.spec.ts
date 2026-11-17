@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { project, type Synnax } from "@synnaxlabs/client";
+import { type project, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it } from "vitest";
 
@@ -28,7 +28,7 @@ describe("Project.importBundle", () => {
     const src = await client.projects.create({
       name: uniqueName("import"),
     });
-    await client.logs.create(src.key, { name: "Metrics" });
+    await client.logs.create({ project: src.key, name: "Metrics" });
     const bundle = await exportBundle(src.key);
     const { store } = await createConsoleWrapper({ client });
     await Project.importBundle(`${src.name}.zip`, bundle, { client, store });
@@ -36,9 +36,7 @@ describe("Project.importBundle", () => {
     expect(imported).not.toEqual(src.key);
     const proj = await client.projects.retrieve(imported);
     expect(proj.name).toEqual(src.name);
-    const children = await client.ontology.retrieveChildren(
-      project.ontologyID(imported),
-    );
-    expect(children.map(({ name }) => name)).toEqual(["Metrics"]);
+    const logs = await client.logs.retrieve({ projects: [imported] });
+    expect(logs.map(({ name }) => name)).toEqual(["Metrics"]);
   });
 });

@@ -10,7 +10,11 @@
 package json
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json/jsontext"
+	"fmt"
+	"math"
 	"strconv"
 	"uuid"
 
@@ -56,14 +60,73 @@ func (t Type) String() string {
 		return "string"
 	case Boolean:
 		return "boolean"
+	case Number:
+		return "number"
 	}
-	return "number"
+	panic(fmt.Sprintf("json: invalid type %d", t))
 }
 
-// Enum pairs a JSON string label with the value of a numeric sample.
+// MarshalText implements encoding.TextMarshaler.
+func (t Type) MarshalText() ([]byte, error) { return []byte(t.String()), nil }
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (t *Type) UnmarshalText(text []byte) (err error) {
+	*t, err = ParseType(string(text))
+	return err
+}
+
+// Enum pairs a JSON string label with one sample. A numeric or boolean sample converts
+// to an integer or boolean data type that holds it exactly, or to the nearest value of
+// a float data type, failing past its range. A string sample converts only to a
+// string.
 type Enum struct {
-	Label string
-	Value float64
+	label    string
+	dataType telem.DataType
+	// sample has no length prefix.
+	sample []byte
+}
+
+// NewEnum returns an Enum that labels v.
+func NewEnum[T telem.Sample](label string, v T) Enum {
+	s := telem.NewSeriesV(v)
+	sample := s.Data
+	if s.DataType.IsVariable() {
+		sample, _ = telem.UnmarshalVariableSample(s.Data)
+	}
+	return Enum{label: label, dataType: s.DataType, sample: sample}
+}
+
+func encodeEnums(enums []Enum, dt telem.DataType) ([]Enum, error) {
+	out := make([]Enum, len(enums))
+	for i, en := range enums {
+		sample, err := encodeEnum(en, dt)
+		if err != nil {
+			return nil, errors.Wrapf(err, "enum label %q", en.label)
+		}
+		out[i] = Enum{label: en.label, dataType: dt, sample: sample}
+	}
+	return out, nil
+}
+
+func encodeEnum(en Enum, dt telem.DataType) ([]byte, error) {
+	from := en.dataType
+	switch {
+	case dt == telem.StringT && from == telem.StringT:
+		return en.sample, nil
+	case numeric(dt) && numeric(from):
+		n := sampleNumber(from, en.sample)
+		if err := checkFits(n, dt); err != nil {
+			return nil, err
+		}
+		if f := n.float(); dt == telem.BooleanT && f != 0 && f != 1 {
+			return nil, errors.Wrapf(validate.ErrValidation, "%s is not a boolean", n)
+		}
+		return appendNumber(nil, dt, n), nil
+	default:
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "a %s value does not convert to %s", from, dt,
+		)
+	}
 }
 
 // Field is how the values at one place in a JSON document convert to and from samples.
@@ -75,13 +138,19 @@ type Field struct {
 	// Type is the JSON type an Encoder writes a sample as. Timestamp samples take
 	// TimeFormat instead.
 	Type Type
-	// Enums label the values of numeric samples. A Decoder reads a label as its value,
-	// and an Encoder writes a value as its label when Type is String.
+	// Enums label the samples of a numeric, boolean, or string data type. A Decoder
+	// reads a label as its sample. An Encoder writes a sample as the label of the first
+	// entry that matches it, whatever the Type. Floats match by value, and a NaN entry
+	// matches any NaN.
 	Enums []Enum
 }
 
 // variablePrefix is the size of the length prefix of a variable-density sample.
 const variablePrefix = 4
+
+// strictBase64 rejects base64 with padding bits that are not zero. It still skips line
+// breaks.
+var strictBase64 = base64.StdEncoding.Strict()
 
 // rejectDuplicateNames overrides the leniency of jsontext.Value.Compact.
 var rejectDuplicateNames = []jsontext.Options{jsontext.AllowDuplicateNames(false)}
@@ -90,30 +159,38 @@ var rejectDuplicateNames = []jsontext.Options{jsontext.AllowDuplicateNames(false
 // not safe for concurrent use.
 type Decoder struct {
 	field Field
+	enums []Enum
 	// text is scratch space for a string that is not stored as text.
 	text []byte
 }
 
 // NewDecoder returns a Decoder for f. It returns an error wrapping
-// validate.ErrValidation when no JSON value converts to f.DataType.
+// validate.ErrValidation when no JSON value converts to f.DataType, or an enum value
+// does not convert to it.
 func NewDecoder(f Field) (*Decoder, error) {
 	switch dt := f.DataType; {
 	case dt == telem.TimestampT, dt == telem.StringT, dt == telem.JSONT,
-		dt == telem.UUIDT, numeric(dt):
-		return &Decoder{field: f}, nil
+		dt == telem.UUIDT, dt == telem.BytesT, numeric(dt):
 	default:
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "cannot convert a JSON value to %s", dt,
 		)
 	}
+	enums, err := encodeEnums(f.Enums, f.DataType)
+	if err != nil {
+		return nil, err
+	}
+	return &Decoder{field: f, enums: enums}, nil
 }
 
 // Append appends the sample of raw, one JSON value, to dst. A variable-density sample
 // starts with its length.
 //   - A timestamp takes a string in ISO8601 format, and a number or a string holding
 //     one in a Unix format.
-//   - A string takes a string. JSON takes any value, compacted but spelled as raw.
+//   - A string takes a string, or the label of an enum. JSON takes any value,
+//     compacted but spelled as raw.
 //   - A UUID takes its string form.
+//   - Bytes take a string of standard, padded base64.
 //   - A numeric or boolean sample takes a number that it can hold exactly, a boolean
 //     as 0 or 1, or the label of an enum.
 //
@@ -127,46 +204,114 @@ func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
 		}
 		return telem.ByteOrder.AppendUint64(dst, uint64(ts)), nil
 	case telem.StringT:
-		if raw.Kind() != '"' {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "expected a string, got %s", kindName(raw),
-			)
-		}
-		start := len(dst)
-		dst = append(dst, make([]byte, variablePrefix)...)
-		var err error
-		if dst, err = jsontext.AppendUnquote(dst, raw); err != nil {
-			return nil, errors.Wrap(validate.ErrValidation, err.Error())
-		}
-		return endVariable(dst, start), nil
+		return d.appendString(dst, raw)
 	case telem.JSONT:
-		start := len(dst)
-		dst = append(dst, make([]byte, variablePrefix)...)
-		dst = append(dst, raw...)
-		if kind := raw.Kind(); kind == '{' || kind == '[' {
-			v := jsontext.Value(dst[start+variablePrefix:])
-			if err := v.Compact(rejectDuplicateNames...); err != nil {
-				return nil, errors.Wrap(validate.ErrValidation, err.Error())
-			}
-			dst = dst[:start+variablePrefix+len(v)]
-		}
-		return endVariable(dst, start), nil
+		return appendJSON(dst, raw)
 	case telem.UUIDT:
-		if raw.Kind() != '"' {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"expected a UUID string, got %s",
-				kindName(raw),
-			)
-		}
+		return d.appendUUID(dst, raw)
+	case telem.BytesT:
+		return d.appendBytes(dst, raw)
+	case telem.Float64T, telem.Float32T, telem.BooleanT,
+		telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
+		return d.appendNumeric(dst, raw)
+	case telem.UnknownT:
+	}
+	panic(fmt.Sprintf("json: no decoder for data type %q", d.field.DataType))
+}
+
+func (d *Decoder) appendString(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() != '"' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "expected a string, got %s", kindName(raw),
+		)
+	}
+	if len(d.enums) > 0 {
 		if err := d.unquote(raw); err != nil {
 			return nil, err
 		}
-		var id uuid.UUID
-		if err := id.UnmarshalText(d.text); err != nil {
-			return nil, errors.Wrapf(validate.ErrValidation, "invalid UUID %q", d.text)
+		if sample, ok := d.enum(); ok {
+			dst = telem.ByteOrder.AppendUint32(dst, uint32(len(sample)))
+			return append(dst, sample...), nil
 		}
-		return append(dst, id[:]...), nil
+	}
+	start := len(dst)
+	dst = append(dst, make([]byte, variablePrefix)...)
+	var err error
+	if dst, err = jsontext.AppendUnquote(dst, raw); err != nil {
+		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return endVariable(dst, start), nil
+}
+
+func appendJSON(dst []byte, raw jsontext.Value) ([]byte, error) {
+	start := len(dst)
+	dst = append(dst, make([]byte, variablePrefix)...)
+	dst = append(dst, raw...)
+	if kind := raw.Kind(); kind == '{' || kind == '[' {
+		v := jsontext.Value(dst[start+variablePrefix:])
+		if err := v.Compact(rejectDuplicateNames...); err != nil {
+			return nil, errors.Wrap(validate.ErrValidation, err.Error())
+		}
+		dst = dst[:start+variablePrefix+len(v)]
+	}
+	return endVariable(dst, start), nil
+}
+
+func (d *Decoder) appendUUID(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() != '"' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"expected a UUID string, got %s",
+			kindName(raw),
+		)
+	}
+	if err := d.unquote(raw); err != nil {
+		return nil, err
+	}
+	var id uuid.UUID
+	if err := id.UnmarshalText(d.text); err != nil {
+		return nil, errors.Wrapf(validate.ErrValidation, "invalid UUID %q", d.text)
+	}
+	return append(dst, id[:]...), nil
+}
+
+func (d *Decoder) appendBytes(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() != '"' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"expected a base64 string, got %s",
+			kindName(raw),
+		)
+	}
+	if err := d.unquote(raw); err != nil {
+		return nil, err
+	}
+	if bytes.ContainsAny(d.text, "\r\n") {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "base64 must not hold a line break",
+		)
+	}
+	start := len(dst)
+	dst = append(dst, make([]byte, variablePrefix)...)
+	var err error
+	if dst, err = strictBase64.AppendDecode(dst, d.text); err != nil {
+		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return endVariable(dst, start), nil
+}
+
+func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() == '"' {
+		if err := d.unquote(raw); err != nil {
+			return nil, err
+		}
+		if sample, ok := d.enum(); ok {
+			return append(dst, sample...), nil
+		}
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "unknown enum label %q", d.text,
+		)
 	}
 	n, err := d.number(raw)
 	if err != nil {
@@ -192,18 +337,6 @@ func (d *Decoder) number(raw jsontext.Value) (number, error) {
 		return number{kind: intNumber}, nil
 	case '0':
 		return parseNumber(raw)
-	case '"':
-		if err := d.unquote(raw); err != nil {
-			return number{}, err
-		}
-		for _, e := range d.field.Enums {
-			if e.Label == string(d.text) {
-				return number{kind: floatNumber, f: e.Value}, nil
-			}
-		}
-		return number{}, errors.Wrapf(
-			validate.ErrValidation, "unknown enum label %q", d.text,
-		)
 	default:
 		return number{}, errors.Wrapf(
 			validate.ErrValidation,
@@ -211,6 +344,15 @@ func (d *Decoder) number(raw jsontext.Value) (number, error) {
 			kindName(raw),
 		)
 	}
+}
+
+func (d *Decoder) enum() ([]byte, bool) {
+	for _, e := range d.enums {
+		if e.label == string(d.text) {
+			return e.sample, true
+		}
+	}
+	return nil, false
 }
 
 func (d *Decoder) timeStamp(raw jsontext.Value) (telem.TimeStamp, error) {
@@ -272,12 +414,13 @@ func kindName(raw jsontext.Value) string {
 // safe for concurrent use.
 type Encoder struct {
 	field Field
-	// labels[i] is the label of field.Enums[i] as a JSON string.
-	labels [][]byte
+	// enums hold each label as a JSON string.
+	enums []Enum
 }
 
 // NewEncoder returns an Encoder for f. It returns an error wrapping
-// validate.ErrValidation when f.Type cannot hold a sample of f.DataType.
+// validate.ErrValidation when f.Type cannot hold a sample of f.DataType, or an enum
+// value does not convert to f.DataType.
 func NewEncoder(f Field) (*Encoder, error) {
 	dt := f.DataType
 	if dt != telem.TimestampT && !numeric(dt) && f.Type != String {
@@ -285,21 +428,33 @@ func NewEncoder(f Field) (*Encoder, error) {
 			validate.ErrValidation, "data type %s only serializes as a string", dt,
 		)
 	}
-	e := &Encoder{field: f, labels: make([][]byte, len(f.Enums))}
-	for i, en := range f.Enums {
-		var err error
-		if e.labels[i], err = jsontext.AppendQuote(nil, en.Label); err != nil {
-			return nil, errors.Wrapf(validate.ErrValidation, "enum label %q", en.Label)
-		}
+	enums, err := encodeEnums(f.Enums, dt)
+	if err != nil {
+		return nil, err
 	}
-	return e, nil
+	for i := range enums {
+		label := enums[i].label
+		quoted, err := jsontext.AppendQuote(nil, label)
+		if err != nil {
+			return nil, errors.Wrapf(validate.ErrValidation, "enum label %q", label)
+		}
+		enums[i].label = string(quoted)
+	}
+	return &Encoder{field: f, enums: enums}, nil
 }
 
 // Append appends the JSON value of sample to dst. A variable-density sample is its data
-// alone, without a length. It returns an error wrapping validate.ErrValidation when
-// sample has no JSON value: a NaN or infinite number, or a value no enum labels.
+// alone, without a length. Bytes are standard, padded base64. A sample that matches no
+// enum and is a NaN or infinite number writes as NaN, Infinity, or -Infinity when Type
+// is String. It returns an error wrapping validate.ErrValidation when sample has no
+// JSON value: a NaN or infinite number, or a NaN boolean.
 func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	dt := e.field.DataType
+	for _, en := range e.enums {
+		if matches(dt, en.sample, sample) {
+			return append(dst, en.label...), nil
+		}
+	}
 	switch {
 	case dt == telem.TimestampT:
 		ts := telem.TimeStamp(telem.ByteOrder.Uint64(sample))
@@ -311,30 +466,40 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 			return nil, err
 		}
 		return append(dst, '"'), nil
+	case dt == telem.BytesT:
+		dst = base64.StdEncoding.AppendEncode(append(dst, '"'), sample)
+		return append(dst, '"'), nil
 	case !numeric(dt):
 		return jsontext.AppendQuote(dst, sample)
 	}
 	n := sampleNumber(dt, sample)
 	switch e.field.Type {
 	case Boolean:
+		if n.kind == floatNumber && math.IsNaN(n.f) {
+			return nil, errors.Wrap(validate.ErrValidation, "NaN is not a JSON boolean")
+		}
 		return strconv.AppendBool(dst, n.float() != 0), nil
 	case String:
-		if len(e.field.Enums) == 0 {
-			dst = append(dst, '"')
-			return append(n.appendText(dst), '"'), nil
-		}
-		f := n.float()
-		for i, en := range e.field.Enums {
-			if en.Value == f {
-				return append(dst, e.labels[i]...), nil
-			}
-		}
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"no enum label for value %s",
-			n,
-		)
-	default:
+		dst = append(dst, '"')
+		return append(n.appendText(dst), '"'), nil
+	case Number:
 		return appendJSONNumber(dst, n)
 	}
+	panic(fmt.Sprintf("json: invalid type %d", e.field.Type))
+}
+
+// matches reports whether a and b, samples of dt, are equal. Floats are equal by value,
+// and any two NaNs are equal.
+func matches(dt telem.DataType, a, b []byte) bool {
+	switch dt {
+	case telem.Float64T, telem.Float32T:
+		x, y := sampleNumber(dt, a).f, sampleNumber(dt, b).f
+		return x == y || (math.IsNaN(x) && math.IsNaN(y))
+	case telem.BooleanT:
+		return (a[0] != 0) == (b[0] != 0)
+	case telem.UnknownT, telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T, telem.TimestampT,
+		telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT:
+	}
+	return bytes.Equal(a, b)
 }
