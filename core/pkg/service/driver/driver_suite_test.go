@@ -151,6 +151,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 					},
 				),
 			},
+			HashedTables: []string{"status"},
 			HashReferences: func(
 				ctx context.Context,
 				snap gorp.Snapshot,

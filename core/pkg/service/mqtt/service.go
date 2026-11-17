@@ -150,6 +150,7 @@ func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
 		PatchEntry:     (*ReadConfig).Patch,
 		HashEntry:      (*ReadConfig).HashContent,
 		HashReferences: resolver.hash,
+		HashedTables:   []string{"icd"},
 		ResolveEntry:   resolver.resolve,
 		ValidateEntry:  (*ReadConfig).Validate,
 	}
