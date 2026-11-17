@@ -85,6 +85,25 @@ var _ = Describe("storage", func() {
 			StartRun(l.Gorp.Run)
 			Expect(l.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
 		})
+
+		It("Should stop the Gorp DB when the time-series engine fails", func(
+			ctx SpecContext,
+		) {
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				InMemory: new(true),
+			}))
+			StartRun(l.TS.Run)
+			Expect(l.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+			Expect(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+				DB: l.Gorp,
+				Indexes: []gorp.Index[int32, entry]{
+					gorp.NewLookupIndex(
+						"name",
+						func(e *entry) string { return e.Name },
+					),
+				},
+			})).Error().To(MatchError(ContainSubstring("after DB.Run stopped")))
+		})
 	})
 
 	Describe("Open", func() {
