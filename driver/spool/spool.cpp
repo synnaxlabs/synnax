@@ -35,7 +35,7 @@ constexpr std::uint8_t FRAME_TYPE = 2;
 using Types = std::unordered_map<std::uint32_t, x::telem::DataType>;
 
 x::errors::Error fs_error(const std::string &msg, const std::error_code &ec) {
-    return x::errors::Error(ERROR, msg + ": " + ec.message());
+    return x::errors::Error(BASE_ERROR, msg + ": " + ec.message());
 }
 
 std::string bytes_of(const x::uuid::UUID &id) {
@@ -75,7 +75,7 @@ Types types_of(const Header &header) {
 
 std::pair<std::string, x::errors::Error> encode_header(const Header &header) {
     if (const auto msg = check(header); !msg.empty())
-        return {"", x::errors::Error(ERROR, msg)};
+        return {"", x::errors::Error(BASE_ERROR, msg)};
     pb::Header pb;
     pb.set_cluster(bytes_of(header.cluster));
     for (std::size_t i = 0; i < header.channels.size(); i++) {
@@ -134,7 +134,7 @@ encode_frame(const x::telem::Frame &frame, const Types &types) {
             return {
                 "",
                 x::errors::Error(
-                    ERROR,
+                    BASE_ERROR,
                     "channel " + std::to_string(key) + " is not in the header"
                 )
             };
@@ -142,7 +142,7 @@ encode_frame(const x::telem::Frame &frame, const Types &types) {
             return {
                 "",
                 x::errors::Error(
-                    ERROR,
+                    BASE_ERROR,
                     "channel " + std::to_string(key) + " has data type " +
                         series.data_type().name() + ", not " + it->second.name()
                 )
@@ -176,16 +176,19 @@ std::pair<x::telem::Frame, x::errors::Error>
 decode_frame(const std::string &payload, const Types &types) {
     pb::Frame pb;
     if (!pb.ParseFromString(payload))
-        return {{}, x::errors::Error(CORRUPT, "frame is not valid")};
+        return {x::telem::Frame(), x::errors::Error(CORRUPT, "frame is not valid")};
     if (pb.channels_size() != pb.series_size())
-        return {{}, x::errors::Error(CORRUPT, "frame has a series count mismatch")};
+        return {
+            x::telem::Frame(),
+            x::errors::Error(CORRUPT, "frame has a series count mismatch")
+        };
     x::telem::Frame frame(static_cast<std::size_t>(pb.channels_size()));
     for (int i = 0; i < pb.channels_size(); i++) {
         const auto key = pb.channels(i);
         const auto it = types.find(key);
         if (it == types.end())
             return {
-                {},
+                x::telem::Frame(),
                 x::errors::Error(
                     CORRUPT,
                     "frame channel " + std::to_string(key) + " is not in the header"
@@ -194,7 +197,7 @@ decode_frame(const std::string &payload, const Types &types) {
         auto *s = pb.mutable_series(i);
         if (!whole_samples(s->data(), it->second))
             return {
-                {},
+                x::telem::Frame(),
                 x::errors::Error(
                     CORRUPT,
                     "series of channel " + std::to_string(key) +
@@ -209,7 +212,7 @@ decode_frame(const std::string &payload, const Types &types) {
         wire.mutable_time_range()->set_start(s->start());
         wire.mutable_time_range()->set_end(s->end());
         auto [series, err] = x::telem::Series::from_proto(wire);
-        if (err) return {{}, err};
+        if (err) return {x::telem::Frame(), err};
         frame.emplace(key, std::move(series));
     }
     return {std::move(frame), x::errors::NIL};
@@ -247,9 +250,18 @@ Writer::Writer(Spool &spool, Header header, const std::uint64_t key):
 }
 
 Writer::~Writer() {
-    if (this->size == 0) return;
+    this->close();
+}
+
+x::errors::Error Writer::close() {
+    if (this->closed) return x::errors::NIL;
+    this->closed = true;
+    if (!this->failed) this->failed = x::errors::Error(BASE_ERROR, "writer is closed");
+    if (this->size == 0) return x::errors::NIL;
+    const auto err = this->file->close();
     this->file.reset();
     this->spool.close(this->key, this->size);
+    return err;
 }
 
 x::errors::Error Writer::write(const x::telem::Frame &frame) {
@@ -322,7 +334,7 @@ std::pair<std::optional<x::telem::Frame>, x::errors::Error> Reader::read() {
     auto [record, err] = this->file->next();
     if (err) return {std::nullopt, err};
     if (!record) {
-        this->spool.cut_count += this->file->cut();
+        this->spool.count_cut(this->key, this->file->cut());
         // Closed, so the spool can remove the segment on Windows.
         this->file.reset();
         return {std::nullopt, x::errors::NIL};
@@ -503,7 +515,7 @@ x::errors::Error Spool::remove(const std::uint64_t key) {
         std::lock_guard lock(this->mu);
         if (!this->closed.contains(key))
             return x::errors::Error(
-                ERROR,
+                BASE_ERROR,
                 "segment " + std::to_string(key) + " is not closed"
             );
     }
@@ -513,7 +525,13 @@ x::errors::Error Spool::remove(const std::uint64_t key) {
     if (it == this->closed.end()) return x::errors::NIL;
     this->used -= it->second;
     this->closed.erase(it);
+    this->cut_segments.erase(key);
     return x::errors::NIL;
+}
+
+void Spool::count_cut(const std::uint64_t key, const std::uint64_t bytes) {
+    std::lock_guard lock(this->mu);
+    if (this->cut_segments.insert(key).second) this->cut_count += bytes;
 }
 
 std::uint64_t Spool::refused() const {
