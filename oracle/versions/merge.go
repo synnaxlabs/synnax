@@ -156,10 +156,10 @@ func MergeLive(
 		rendered.Add(name)
 	}
 
-	liveUsed := make(set.Set[string])
+	liveNames := make(set.Set[string])
 	useLive := func(src ...string) {
 		for _, s := range src {
-			liveUsed.Add(analyzer.Qualifiers(s).Slice()...)
+			liveNames.Add(analyzer.QualifiedNames(s).Slice()...)
 		}
 	}
 	useLive(lc.fileDomains...)
@@ -201,7 +201,11 @@ func MergeLive(
 		)
 	}
 	importList, err := liveImportList(
-		lc.imports, referenced, analyzer.UsedNamespaces(bodyAST), liveUsed,
+		lc.imports,
+		referenced,
+		analyzer.UsedNamespaces(bodyAST),
+		liveNames,
+		func(path string) (set.Set[string], error) { return declaredNames(r.loader, path) },
 	)
 	if err != nil {
 		return "", err
@@ -265,13 +269,17 @@ func checkErasedDocs(
 }
 
 // liveImportList returns the sorted imports of a merged live file: each referenced
-// dependency path, plus each import of the existing live file whose namespace the
-// live-owned text uses, or the merged file uses and no referenced path takes. A live
-// import can share a namespace with another import, and the analyzer then requires each
-// to declare a name that the file uses. It returns an error when two referenced paths
-// share a namespace.
+// dependency path, plus each import of the existing live file that the file still
+// needs. A live import in a namespace that no referenced path takes is needed when the
+// merged file uses the namespace. One in a taken namespace is needed only when the
+// live-owned text uses a name that it declares and the referenced path does not, which
+// is the analyzer's test for two imports of one namespace. declared returns the names
+// that the schema at a path declares. liveImportList returns an error when two
+// referenced paths share a namespace.
 func liveImportList(
-	own []string, referenced, used, liveUsed set.Set[string],
+	own []string,
+	referenced, used, liveNames set.Set[string],
+	declared func(path string) (set.Set[string], error),
 ) ([]string, error) {
 	byNS := make(map[string]string)
 	for _, p := range slices.Sorted(maps.Keys(referenced)) {
@@ -286,12 +294,56 @@ func liveImportList(
 	imports := referenced.Copy()
 	for _, p := range own {
 		ns := resourceOf(p)
-		_, taken := byNS[ns]
-		if liveUsed.Contains(ns) || (used.Contains(ns) && !taken) {
+		taker, taken := byNS[ns]
+		if !taken {
+			if used.Contains(ns) {
+				imports.Add(p)
+			}
+			continue
+		}
+		var members []string
+		for name := range liveNames {
+			if member, ok := strings.CutPrefix(name, ns+"."); ok {
+				members = append(members, member)
+			}
+		}
+		if p == taker || len(members) == 0 {
+			continue
+		}
+		mine, err := declared(p)
+		if err != nil {
+			return nil, err
+		}
+		theirs, err := declared(taker)
+		if err != nil {
+			return nil, err
+		}
+		if slices.ContainsFunc(members, func(m string) bool {
+			return mine.Contains(m) && !theirs.Contains(m)
+		}) {
 			imports.Add(p)
 		}
 	}
 	return slices.Sorted(maps.Keys(imports)), nil
+}
+
+// declaredNames returns the names of the top-level declarations in the schema at path.
+func declaredNames(loader analyzer.FileLoader, path string) (set.Set[string], error) {
+	src, _, err := loader.Load(path)
+	if err != nil {
+		return nil, err
+	}
+	ast, diag := parser.Parse(src)
+	if diag != nil && !diag.Ok() {
+		return nil, errors.Newf("failed to parse %s.oracle: %s", path, diag.String())
+	}
+	names := make(set.Set[string])
+	for _, def := range ast.AllDefinition() {
+		if name, ok := definitionName(def); ok {
+			names.Add(name)
+		}
+	}
+	return names, nil
 }
 
 // importsByVersion maps each version of a chain to the live path of each dependency its
