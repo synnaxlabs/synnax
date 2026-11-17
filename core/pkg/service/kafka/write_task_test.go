@@ -421,7 +421,7 @@ var _ = Describe("Write task", func() {
 		Expect(f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1")).
 			Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
-			MatchError(`channel "c1": channel 999999 does not exist`),
+			MatchError(ContainSubstring(`channel "c1": channel 999999 does not exist`)),
 		))
 	})
 

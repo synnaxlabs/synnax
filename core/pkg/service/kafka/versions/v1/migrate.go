@@ -271,8 +271,8 @@ func NoteLift(ins alamos.Instrumentation, key uuid.UUID) func(path, change strin
 // NewReadMigration returns the migration that lifts stored v0 read configs to v1. It
 // resolves each config as ResolveReadConfig does, with the name of its task, creates
 // the ICD with create, and logs each change to a field. The config of a snapshot task
-// stays inline and gets no ICD, because the task service deletes snapshots after this
-// migration runs.
+// gets no ICD and keeps no records, because the task service deletes snapshots after
+// this migration runs.
 func NewReadMigration(channels Channels, create CreateICD) gorp.Migration {
 	return migrate.New(
 		"v62_kafka_read_icd",
