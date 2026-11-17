@@ -3824,115 +3824,202 @@ TEST(ArcFactory, BootConfigureErrorWritesStatus) {
     EXPECT_FALSE(statuses[0].details.running);
 }
 
-/// @brief it should move a stage on a calculated channel that it computes from base
-/// inputs while the Core is unreachable.
-TEST(ArcTests, ComputesCalculatedChannelWhileCoreIsUnreachable) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto start = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("start"), x::telem::UINT8_T)
-    );
-    const auto pressure = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("pressure"),
-        x::telem::FLOAT32_T
-    ));
-    const auto valve = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("valve"), x::telem::INT64_T)
-    );
-    synnax::channel::Channel doubled{
-        .name = make_unique_channel_name("doubled"),
-        .data_type = x::telem::FLOAT32_T,
-        .is_virtual = true,
-        .expression = "return " + pressure.name + " * 2",
-    };
-    ASSERT_NIL(client->channels.create(doubled));
+/// @brief runs Arc tasks whose Core streamer is always unreachable, so their input
+/// comes only from the bypass bus.
+class OutageTest : public ::testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> client;
+    std::shared_ptr<bypass::Bus> bus;
+    std::shared_ptr<pipeline::testutil::WriterFactory> mock_writer;
+    std::shared_ptr<pipeline::testutil::StreamerFactory> unreachable;
+    std::shared_ptr<task::MockContext> ctx;
 
-    synnax::arc::AutomationArc arc_prog{
-        {.name = make_unique_channel_name("calculated_outage_test")}
-    };
-    arc_prog.source = synnax::arc::TextSource{
-        .text = ::arc::text::Text{
-            .raw = "sequence main {\n"
-                   "    stage pressurize {\n"
-                   "        1 -> " +
-                   valve.name + "\n        " + doubled.name + " -> " + doubled.name +
-                   " > 50 => next\n"
-                   "    }\n"
-                   "    stage idle {\n"
-                   "        0 -> " +
-                   valve.name +
-                   "\n"
-                   "    }\n"
-                   "}\n" +
-                   start.name + " => main\n"
-        }
-    };
-    ASSERT_NIL(create_automation(client, arc_prog));
-    auto rack = ASSERT_NIL_P(
-        client->racks.create(make_unique_channel_name("arc_calculated_rack"))
-    );
-    synnax::task::Task task_meta{
-        .rack = rack.key,
-        .name = "arc_calculated_test",
-        .type = "arc_runtime",
-    };
-    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
-    auto parser = x::json::Parser(task_meta.config);
-    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
-
-    auto unreachable = std::make_shared<pipeline::testutil::StreamerFactory>(
-        std::vector(10000, freighter::UNREACHABLE),
-        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
-            std::vector<pipeline::testutil::StreamerConfig>{
-                {std::make_shared<std::vector<x::telem::Frame>>(), {}, x::errors::NIL}
-            }
-        )
-    );
-    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
-    auto bus = std::make_shared<bypass::Bus>();
-    bus->register_channels({start.key, pressure.key});
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto task = ASSERT_NIL_P(
-        arc::Task::create(
-            task_meta,
-            ctx,
-            task_cfg,
-            std::make_shared<bypass::pipeline::WriterFactory>(
-                mock_writer,
-                bus,
-                std::make_shared<control::States>(),
-                0
-            ),
-            std::make_shared<bypass::pipeline::StreamerFactory>(
-                unreachable,
-                bus,
-                x::control::Subject{},
-                x::breaker::Config{
-                    .name = "arc_test",
-                    .base_interval = x::telem::MILLISECOND,
-                    .max_retries = 2,
-                    .scale = 1,
-                    .max_interval = x::telem::MILLISECOND,
+    void SetUp() override {
+        this->client = std::make_shared<synnax::Synnax>(new_test_client());
+        this->bus = std::make_shared<bypass::Bus>();
+        this->mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
+        this->unreachable = std::make_shared<pipeline::testutil::StreamerFactory>(
+            std::vector(10000, freighter::UNREACHABLE),
+            std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
+                std::vector<pipeline::testutil::StreamerConfig>{
+                    {std::make_shared<std::vector<x::telem::Frame>>(),
+                     {},
+                     x::errors::NIL}
                 }
             )
-        )
-    );
-    const auto wrote = [&](const int64_t value) {
+        );
+        this->ctx = std::make_shared<task::MockContext>(this->client);
+    }
+
+    /// @brief creates a virtual channel.
+    [[nodiscard]] synnax::channel::Channel
+    create_channel(const std::string &name, const x::telem::DataType &data_type) const {
+        return ASSERT_NIL_P(
+            this->client->channels.create(make_unique_channel_name(name), data_type)
+        );
+    }
+
+    /// @brief creates a calculated float32 channel that returns expression.
+    [[nodiscard]] synnax::channel::Channel
+    create_calculated(const std::string &name, const std::string &expression) const {
+        synnax::channel::Channel ch{
+            .name = make_unique_channel_name(name),
+            .data_type = x::telem::FLOAT32_T,
+            .is_virtual = true,
+            .expression = "return " + expression,
+        };
+        EXPECT_NIL(this->client->channels.create(ch));
+        return ch;
+    }
+
+    /// @brief creates a task that runs source and reads inputs from the bus.
+    [[nodiscard]] std::unique_ptr<arc::Task> create_task(
+        const std::string &source,
+        const std::vector<synnax::channel::Key> &inputs,
+        const std::int64_t loop_budget = ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET
+    ) const {
+        synnax::arc::AutomationArc arc_prog{
+            {.name = make_unique_channel_name("outage_test")}
+        };
+        arc_prog.source = synnax::arc::TextSource{
+            .text = ::arc::text::Text{.raw = source}
+        };
+        EXPECT_NIL(create_automation(this->client, arc_prog));
+        const auto rack = ASSERT_NIL_P(
+            this->client->racks.create(make_unique_channel_name("arc_outage_rack"))
+        );
+        synnax::task::Task task_meta{
+            .rack = rack.key,
+            .name = "arc_outage_test",
+            .type = "arc_runtime",
+        };
+        task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+        auto parser = x::json::Parser(task_meta.config);
+        auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(this->client, parser));
+        task_cfg.loop_budget = loop_budget;
+        this->bus->register_channels(inputs);
+        return ASSERT_NIL_P(
+            arc::Task::create(
+                task_meta,
+                this->ctx,
+                task_cfg,
+                std::make_shared<bypass::pipeline::WriterFactory>(
+                    this->mock_writer,
+                    this->bus,
+                    std::make_shared<control::States>(),
+                    0
+                ),
+                std::make_shared<bypass::pipeline::StreamerFactory>(
+                    this->unreachable,
+                    this->bus,
+                    x::control::Subject{},
+                    x::breaker::Config{
+                        .name = "arc_test",
+                        .base_interval = x::telem::MILLISECOND,
+                        .max_retries = 2,
+                        .scale = 1,
+                        .max_interval = x::telem::MILLISECOND,
+                    }
+                )
+            )
+        );
+    }
+
+    /// @brief starts task and waits until its streamer reads the bus.
+    void start(arc::Task &task) const {
+        const auto opens = this->unreachable->streamer_opens.load();
+        task.start("test_start");
+        ASSERT_EVENTUALLY_GE(this->unreachable->streamer_opens.load(), opens + 5);
+    }
+
+    /// @brief publishes a single sample of key to the bus.
+    template<typename T>
+    void publish(const synnax::channel::Key key, const T value) const {
+        this->bus->publish(x::telem::Frame(key, x::telem::Series(value)));
+    }
+
+    /// @brief returns true if the task wrote value to key.
+    template<typename T>
+    [[nodiscard]] bool wrote(const synnax::channel::Key key, const T value) const {
         return std::ranges::any_of(
-            mock_writer->writes->snapshot(),
+            this->mock_writer->writes->snapshot(),
             [&](const auto &fr) {
-                return fr.contains(valve.key) &&
-                       fr.template at<int64_t>(valve.key, 0) == value;
+                return fr.contains(key) && fr.template at<T>(key, 0) == value;
             }
         );
-    };
+    }
+};
 
-    task->start("test_start");
-    ASSERT_EVENTUALLY_GE(unreachable->streamer_opens.load(), 1);
-    bus->publish(x::telem::Frame(start.key, x::telem::Series(static_cast<uint8_t>(1))));
-    ASSERT_EVENTUALLY_TRUE(wrote(1));
-    bus->publish(x::telem::Frame(pressure.key, x::telem::Series(10.0f)));
-    bus->publish(x::telem::Frame(pressure.key, x::telem::Series(30.0f)));
-    ASSERT_EVENTUALLY_TRUE(wrote(0));
+/// @brief it should move a stage on a calculated channel that it computes from base
+/// inputs while the Core is unreachable.
+TEST_F(OutageTest, MovesStageOnCalculatedChannel) {
+    const auto start = this->create_channel("start", x::telem::UINT8_T);
+    const auto pressure = this->create_channel("pressure", x::telem::FLOAT32_T);
+    const auto valve = this->create_channel("valve", x::telem::INT64_T);
+    const auto doubled = this->create_calculated("doubled", pressure.name + " * 2");
+    const auto task = this->create_task(
+        "sequence main {\n"
+        "    stage pressurize {\n"
+        "        1 -> " +
+            valve.name + "\n        " + doubled.name + " -> " + doubled.name +
+            " > 50 => next\n"
+            "    }\n"
+            "    stage idle {\n"
+            "        0 -> " +
+            valve.name + "\n    }\n}\n" + start.name + " => main\n",
+        {start.key, pressure.key}
+    );
+    this->start(*task);
+    this->publish(start.key, static_cast<uint8_t>(1));
+    ASSERT_EVENTUALLY_TRUE(this->wrote(valve.key, int64_t{1}));
+    this->publish(pressure.key, 10.0f);
+    this->publish(pressure.key, 30.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(valve.key, int64_t{0}));
+    task->stop("test_stop", true);
+}
+
+/// @brief it should compute a calculated channel only from inputs read since the last
+/// start.
+TEST_F(OutageTest, RestartClearsCalculations) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto b = this->create_channel("b", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto sum = this->create_calculated("sum", a.name + " + " + b.name);
+    const auto task = this->create_task(sum.name + " -> " + out.name, {a.key, b.key});
+    this->start(*task);
+    this->publish(a.key, 40.0f);
+    this->publish(b.key, 5.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 45.0f));
+    task->stop("test_stop", true);
+    this->start(*task);
+    this->publish(b.key, 20.0f);
+    this->publish(a.key, 1.0f);
+    ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 21.0f));
+    ASSERT_FALSE(this->wrote(out.key, 60.0f));
+    task->stop("test_stop", true);
+}
+
+/// @brief it should warn and keep running when a calculation fails.
+TEST_F(OutageTest, WarnsOnFailedCalculation) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto doubled = this->create_calculated("doubled", a.name + " * 2");
+    const auto task = this->create_task(doubled.name + " -> " + out.name, {a.key}, 1);
+    this->start(*task);
+    this->publish(a.key, 1.0f);
+    ASSERT_EVENTUALLY_TRUE([&] {
+        auto statuses = this->ctx->snapshot();
+        return find_status_by_variant(statuses, synnax::status::VARIANT_WARNING) !=
+               nullptr;
+    }());
+    auto statuses = this->ctx->snapshot();
+    const auto *warning = find_status_by_variant(
+        statuses,
+        synnax::status::VARIANT_WARNING
+    );
+    expect_status(*warning, synnax::status::VARIANT_WARNING, true);
+    EXPECT_EQ(warning->message, "Failed to run calculation");
+    EXPECT_EQ(find_status_by_variant(statuses, synnax::status::VARIANT_ERROR), nullptr);
     task->stop("test_stop", true);
 }
 }
