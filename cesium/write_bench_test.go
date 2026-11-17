@@ -10,7 +10,6 @@
 package cesium_test
 
 import (
-	"context"
 	"sync"
 	"testing"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 // BenchmarkWrite writes and commits 100 samples to an index and a data channel per
@@ -87,12 +87,9 @@ func openBenchDB(b *testing.B, mem bool) *cesium.DB {
 	if err != nil {
 		b.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(b.Context())
-	ran := make(chan error, 1)
-	go func() { ran <- db.Run(ctx) }()
+	stop := testutil.GoRun(b.Context(), db.Run)
 	b.Cleanup(func() {
-		cancel()
-		if err := errors.Join(<-ran, db.Close()); err != nil {
+		if err := errors.Join(stop(), db.Close()); err != nil {
 			b.Error(err)
 		}
 	})

@@ -87,3 +87,17 @@ var _ = Describe("StartRun", func() {
 		})
 	})
 })
+
+var _ = Describe("GoRun", func() {
+	It("returns the error of the run from every stop", func(ctx SpecContext) {
+		var blocked atomic.Bool
+		stop := GoRun(ctx, func(ctx context.Context) error {
+			blocked.Store(true)
+			<-ctx.Done()
+			return errors.New("stopped")
+		})
+		Expect(blocked.Load()).To(BeTrue())
+		Expect(stop()).To(MatchError("stopped"))
+		Expect(stop()).To(MatchError("stopped"))
+	})
+})
