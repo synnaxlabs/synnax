@@ -80,10 +80,11 @@ public:
     }
 
     /// @brief counts a set the outbox refused, without waiting on the Core.
-    void refuse(const std::string &reason) {
+    /// @returns true when no other refused set waits for a report.
+    bool refuse(const std::string &reason) {
         std::lock_guard lock(this->keys_mu);
-        this->refused_sets++;
         this->refused_reason = reason;
+        return this->refused_sets++ == 0;
     }
 
     /// @brief reports the sets refused since the last call, if any. It can wait on the
@@ -112,7 +113,8 @@ public:
 };
 
 /// @brief queues a status set stamped with the current time, and reports a failure
-/// through sets. Never waits for the Core.
+/// through sets. Reports a set the outbox refuses from the send thread of the outbox.
+/// Never waits for the Core.
 /// @returns the key of the last resolved set of key_or_name, or "" before the first.
 inline std::string queue_set(
     ::driver::outbox::Outbox &outbox,
@@ -134,7 +136,6 @@ inline std::string queue_set(
         ) {
             const auto sets = weak.lock();
             if (sets == nullptr) return;
-            sets->report_refused();
             if (err) {
                 LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
                            << " error=" << err.data;
@@ -149,7 +150,10 @@ inline std::string queue_set(
             sets->resolve(key_or_name, res.key);
         }
     );
-    if (err) sets->refuse(err.data);
+    if (err && sets->refuse(err.data))
+        outbox.post([weak = std::weak_ptr(sets)] {
+            if (const auto sets = weak.lock(); sets != nullptr) sets->report_refused();
+        });
     return sets->key(key_or_name);
 }
 
