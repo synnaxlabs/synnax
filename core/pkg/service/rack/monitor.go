@@ -263,6 +263,12 @@ func (m *monitor) copyOutages(ctx context.Context) {
 	}
 }
 
+// watched returns false for the embedded rack of a Core that runs without its embedded
+// Driver.
+func (m *monitor) watched(key Key) bool {
+	return !m.svc.EmbeddedDriverDisabled || key != m.svc.EmbeddedKey
+}
+
 // outageStarted returns true when a rack has been silent for a health check interval
 // and its outage is not yet written.
 func (m *monitor) outageStarted(state rackState, now telem.TimeStamp) bool {
@@ -310,6 +316,9 @@ func (m *monitor) handleRackStatus(owner resource.ID, stat status.Status[any]) {
 	key, err := KeyFromResourceID(owner)
 	if err != nil {
 		m.L.Error("failed to decode status owner", zap.Error(err))
+		return
+	}
+	if !m.watched(key) {
 		return
 	}
 	alive := storedDetails(stat.Details).Running
@@ -396,7 +405,9 @@ func openMonitor(
 	}
 	s.mu.handlers = make(map[int]SuspectHandler)
 	for _, r := range racks {
-		s.mu.racks[r.Key] = rackState{lastUpdated: now}
+		if s.watched(r.Key) {
+			s.mu.racks[r.Key] = rackState{lastUpdated: now}
+		}
 	}
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
 	signal.GoTick(
