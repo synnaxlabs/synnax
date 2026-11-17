@@ -275,19 +275,19 @@ func (r Read) Reconcile(dt telem.DataType, index bool) (Read, []string) {
 		out.Number = c.numbers(r.Number)
 	case k == KindBoolean && isNumeric(r.Kind):
 		out.Boolean = c.booleans(r.Number)
-	case k == r.Kind && k == KindString:
+	case k == KindString && r.Kind == KindString:
 		out.String.Fill = r.String.Fill
 		out.String.EnumValues = lo.Filter(
 			r.String.EnumValues,
 			func(e StringEntry, _ int) bool { return c.unique(e.Label) },
 		)
-	case k == r.Kind && k == KindBoolean:
+	case k == KindBoolean && r.Kind == KindBoolean:
 		out.Boolean.Fill = r.Boolean.Fill
 		out.Boolean.EnumValues = lo.Filter(
 			r.Boolean.EnumValues,
 			func(e BooleanEntry, _ int) bool { return c.unique(e.Label) },
 		)
-	case k == r.Kind && k == KindTimestamp:
+	case k == KindTimestamp && r.Kind == KindTimestamp:
 		out.Timestamp = r.Timestamp
 	default:
 		if n := len(r.labels()); n > 0 {
@@ -426,6 +426,7 @@ func (r Read) Field(dt telem.DataType) (xjson.Field, error) {
 		if f.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
 			return xjson.Field{}, err
 		}
+	case KindJSON, KindUUID, KindBytes:
 	}
 	return f, nil
 }
