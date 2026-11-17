@@ -191,10 +191,10 @@ The schematic cutover ships in one release:
   and "Replace with..." merges them later. When a list repeats a value, the first entry
   stays.
 - RFC 0114 phase 1 adds the function that turns a state list into an enumeration. Phase
-  21 calls it to give each `select` and `state_indicator` that has no `enumeration` an
-  `enumeration` key for its `options`. A node that already has one keeps it. Phase 21
+  22 calls it to give each `select` and `state_indicator` that has no `enumeration` an
+  `enumeration` key for its `options`. A node that already has one keeps it. Phase 22
   removes `options` from every node, and an empty list gets no enumeration. The RFC 0114
-  phase 2 node migration, which merges after phase 21, calls the function to give a
+  phase 2 node migration, which merges after phase 22, calls the function to give a
   state binding an `enumeration` key when its node had its own non-empty state list, an
   `on_color`, or `state_overrides` that change the entry colors, and removes those
   fields.
@@ -260,11 +260,12 @@ PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`
 #5625 (WCAG contrast), #5626 (custom strokes through the band), #5627 (table cells in
 rows), and #5632 (`on_delete inline` in Oracle) are merged.
 
-Phase 16 ships behind a flag in `console/src/flags.ts` until phase 22 deletes it. Phases
-9 and 20, and the node picker of RFC 0114 phase 2, ship without a flag. Phases 10 and 11
-ship in one release, and phase 21 in one release with RFC 0114 phase 2. RFC 0114 phase 1
-needs phases 13 to 15, phases 19 and 21 need RFC 0114 phase 1, and RFC 0114 phase 2
-needs phase 23.
+Phase 16 ships behind a flag in `console/src/flags.ts`. Phase 21 deletes the flag after
+the editor's stable Desktop release, and phase 22 and RFC 0114 phase 2 wait for phase
+21, so the Console never loses a way to edit states. Phases 9 and 20, and the node
+picker of RFC 0114 phase 2, ship without a flag. Phases 10 and 11 ship in one release,
+and phase 22 in one release with RFC 0114 phase 2. RFC 0114 phase 1 needs phases 13 to
+15, phases 19 and 22 need RFC 0114 phase 1, and RFC 0114 phase 2 needs phase 23.
 
 | Phase | Scope                                                      | Touches                                                                                                                                | Depends on     |
 | ----- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -288,8 +289,8 @@ needs phase 23.
 | 18    | Draw stale and unknown indicators instead of colors        | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`, `integration` | -              |
 | 19    | Add and bundle enumeration keys on selects and indicators  | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/service/imex`, `core/pkg/service/enumeration`                                | 14             |
 | 20    | Pick and draw enumerations in selects and state indicators | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                 | 16, 19         |
-| 21    | Migrate inline state colors to enumerations                | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20             |
-| 22    | Delete the enumeration editor flag                         | `console/src/flags.ts`                                                                                                                 | 21             |
+| 21    | Delete the enumeration editor flag                         | `console/src/flags.ts`                                                                                                                 | 16             |
+| 22    | Migrate inline state colors to enumerations                | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20, 21         |
 | 23    | Carry color references in multi-edit                       | `console/src/platform/multiedit`                                                                                                       | 8              |
 | 24    | Store color references in the other schematic node colors  | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                               | 3, 23          |
 | 25    | Store color references in table colors                     | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                                                                   | 3, 23          |
@@ -304,11 +305,11 @@ schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `select` or `state_indicator` can match no entry. Phase 19 adds the `enumeration` field
 to `select` and `state_indicator`, and moves the schematic export off the generated
 single-record `Export` (`core/pkg/service/schematic/imex.gen.go`), on the Oracle `imex`
-option of RFC 0114 phase 1, so that it bundles enumerations. Phase 21 fills the field,
+option of RFC 0114 phase 1, so that it bundles enumerations. Phase 22 fills the field,
 and RFC 0114 phase 1 adds it to symbol states. Phase 20 adds the enumeration picker to
 the Pluto forms of `select` and `state_indicator`, and Pluto draws each from its
 `enumeration`, or from `options` when it has none. The picker leaves `options` as they
-are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 2 adds the
+are, so clearing the picker goes back to them until phase 22. RFC 0114 phase 2 adds the
 picker to node state bindings, and RFC 0114 phase 4 to custom symbol states. RFC 0114
 phase 1 stores a `color.Ref` in custom symbol looks from the start, and RFC 0114 phase 2
 in the `color` of a `symbol` node, which the schematic multi-edit panel edits through
