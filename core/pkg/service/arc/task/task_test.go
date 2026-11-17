@@ -105,9 +105,12 @@ var _ = Describe("Task", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		st := DeferClose(storagetestutil.OpenLayer(ctx))
+		st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+		hookedKV := hookkv.Wrap(st.KV)
+		hookedDB := gorp.Wrap(hookedKV)
+		StartRun(hookedDB.Run)
 		node := testutil.NewNode(ctx, distribution.LayerConfig{
-			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
+			Storage: &storage.Layer{KV: hookedKV, TS: st.TS, Gorp: hookedDB},
 		})
 		db = node.DB
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -3812,7 +3815,7 @@ var _ = Describe("Task", Ordered, func() {
 					g.Expect(stat.Description).
 						To(HavePrefix("The divide_test node failed: "))
 					g.Expect(stat.Description).
-						To(ContainSubstring("integer divide by zero"))
+						To(HaveSuffix(": integer divide by zero"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 			},

@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -163,6 +164,7 @@ var _ = Describe("FramerCodec", func() {
 				return channelSvc.NewWriter(tx).Create(ctx, &ch)
 			})).To(Succeed())
 			router := MustSucceed(http.NewRouter(ctx, http.RouterConfig{
+				Errors:                 errors.NewCodec(),
 				StreamMessageSizeLimit: 1 << 10,
 			}))
 			server := router.NewStreamServer[framer.WriterRequest, framer.WriterResponse](

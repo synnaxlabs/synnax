@@ -42,14 +42,14 @@ var _ = Describe("Modules", func() {
 		It("Should reject an authority block in a module", func(bCtx SpecContext) {
 			ctx := analyze(bCtx, "authority 255", true)
 			Expect(ctx.Diagnostics.String()).To(
-				ContainSubstring("a module cannot have an authority block"),
+				ContainSubstring("[E4006]: a module cannot have an authority block"),
 			)
 		})
 
 		It("Should reject a top-level flow in a module", func(bCtx SpecContext) {
 			ctx := analyze(bCtx, "in -> out", true)
 			Expect(ctx.Diagnostics.String()).To(
-				ContainSubstring("a module cannot have a top-level flow"),
+				ContainSubstring("[E4007]: a module cannot have a top-level flow"),
 			)
 		})
 

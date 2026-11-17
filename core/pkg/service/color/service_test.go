@@ -32,6 +32,7 @@ var _ = Describe("OpenService", func() {
 	})
 	It("Should refuse a config with no group service", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(
 			color.OpenService(ctx, color.ServiceConfig{DB: db}),
 		).Error().
@@ -45,6 +46,7 @@ var _ = Describe("OpenService", func() {
 var _ = Describe("Changes", func() {
 	It("Should return the named color that a commit creates", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		svc := MustOpen(
 			color.OpenService(ctx, color.ServiceConfig{DB: db, Group: groups}),

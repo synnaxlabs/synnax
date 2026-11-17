@@ -438,6 +438,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		"Should keep the line plots of a group in its project during concurrent moves",
 		func(ctx SpecContext) {
 			moveDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(moveDB.Run)
 			var plots *lineplot.Service
 			groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB: moveDB,

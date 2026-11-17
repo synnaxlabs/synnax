@@ -40,6 +40,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
@@ -82,6 +83,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func newRolesConfig() rbac.RolesConfig {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	return rbac.RolesConfig{DB: db}
 }
 

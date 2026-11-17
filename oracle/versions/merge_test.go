@@ -176,6 +176,38 @@ Channel struct {
 		},
 	)
 
+	It("Should carry live-only annotations on union variants", func(ctx SpecContext) {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Scale union on type {
+    linear {
+        slope float64
+    }
+    none {}
+
+    @go marshal
+}
+`)
+		liveSource := `@go output "core/pkg/service/channel"
+@pb
+
+Scale union on type {
+    linear {
+        slope float64 {
+            @pb number 2
+        }
+
+        @pb reserved 1
+    }
+    none {}
+}
+`
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, liveSource))
+		Expect(merged).To(ContainSubstring("@pb reserved 1"))
+		Expect(strings.Count(merged, "@pb reserved 1")).To(Equal(1))
+		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
+	})
+
 	It("Should carry live-owned action declarations through the merge", func(
 		ctx SpecContext,
 	) {

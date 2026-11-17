@@ -90,6 +90,11 @@ export interface Result<V> {
   aggregation?: Aggregation;
   /** True when the samples of each series in data ascend. */
   sorted?: boolean;
+  /**
+   * True when the bounds in data end at the newest sample and span a window that moves
+   * as samples arrive.
+   */
+  rolling?: boolean;
   /** The time of the newest sample. */
   time?: TimeStamp;
   /**

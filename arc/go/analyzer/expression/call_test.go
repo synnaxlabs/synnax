@@ -51,15 +51,15 @@ var _ = Describe("AnalyzeCall", func() {
 			Entry("missing required argument", `
 				func add() {x i32, y i32} i32 { return x + y }
 				func main() { result := add(5) }
-			`, "missing required argument for parameter 'y' of func 'add'"),
+			`, "missing required argument: parameter 'y' of func 'add'"),
 			Entry("missing the only required argument", `
 				func getValue() {x i32} i32 { return x }
 				func main() { result := getValue() }
-			`, "missing required argument for parameter 'x' of func 'getValue'"),
+			`, "missing required argument: parameter 'x' of func 'getValue'"),
 			Entry("too many arguments", `
 				func add() {x i32, y i32} i32 { return x + y }
 				func main() { result := add(5, 10, 15) }
-			`, "too many arguments for func 'add': expected at most 2"),
+			`, "too many arguments: func 'add' takes at most 2"),
 		)
 	})
 

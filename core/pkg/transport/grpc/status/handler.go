@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/status/pb"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -220,26 +221,30 @@ func (setByKeyOrNameResponseTranslator) Backward(
 	}, nil
 }
 
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	s := &setServer{
 		RequestTranslator:  setRequestTranslator{},
 		ResponseTranslator: setResponseTranslator{},
 		ServiceDesc:        &StatusSetService_ServiceDesc,
+		Errors:             errs,
 	}
 	r := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &StatusRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	d := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &StatusDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	sbkn := &setByKeyOrNameServer{
 		RequestTranslator:  setByKeyOrNameRequestTranslator{},
 		ResponseTranslator: setByKeyOrNameResponseTranslator{},
 		ServiceDesc:        &StatusSetByKeyOrNameService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.StatusSet = s
 	t.StatusRetrieve = r

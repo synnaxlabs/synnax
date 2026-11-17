@@ -93,6 +93,7 @@ func Analyze(
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
 	validatePatternRules(table, diag)
+	validateRuleRanges(table, diag)
 	return table, diag
 }
 
@@ -128,6 +129,7 @@ func AnalyzeSeeded(
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
 	validatePatternRules(table, diag)
+	validateRuleRanges(table, diag)
 	return diag
 }
 
@@ -892,7 +894,7 @@ func collectStructDecl(
 			)
 		}
 		for _, d := range body.AllDomain() {
-			addDomain(decl.domains, collectDomain(c, d))
+			addBodyDomain(c, decl.domains, collectDomain(c, d))
 		}
 	}
 	return copyStruct(c, def, decl, below)
@@ -905,6 +907,25 @@ func addDomain(domains map[string]resolution.Domain, d resolution.Domain) {
 	} else {
 		domains[d.Name] = d
 	}
+}
+
+// addBodyDomain adds d to the domains of a declaration body. Merging keeps one
+// expression per name, so a second @pb reserved fails instead of replacing the first.
+func addBodyDomain(
+	c *analysisCtx,
+	domains map[string]resolution.Domain,
+	d resolution.Domain,
+) {
+	if existing, ok := domains[d.Name]; ok && d.Name == "pb" {
+		_, had := existing.Expressions.Find("reserved")
+		if e, has := d.Expressions.Find("reserved"); had && has {
+			c.report(diagnostics.Errorf(
+				e.AST,
+				"repeated @pb reserved: list every number on one line",
+			))
+		}
+	}
+	addDomain(domains, d)
 }
 
 // mergeDomains returns child merged over parent. A domain in both takes child's
@@ -1566,8 +1587,7 @@ func collectInlineVariantDecl(
 			c.report(d)
 		}
 		for _, d := range body.AllDomain() {
-			de := collectDomain(c, d)
-			decl.variant.Domains[de.Name] = de
+			addBodyDomain(c, decl.variant.Domains, collectDomain(c, d))
 		}
 	}
 	return decl
@@ -1604,6 +1624,11 @@ func registerVariant(
 	domains := make(map[string]resolution.Domain)
 	maps.Copy(domains, c.fileDomains)
 	inheritOmits(domains, unionDomains)
+	// Protobuf emits the payload as its own message, so the variant's @pb applies to
+	// it.
+	if pb, ok := variant.Domains["pb"]; ok {
+		domains["pb"] = pb.Merge(domains["pb"])
+	}
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,

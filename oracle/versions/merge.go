@@ -103,6 +103,12 @@ func MergeLive(
 			}
 			return nil
 		},
+		ExtraVariantLines: func(name, variant string) []string {
+			if ex, ok := lc.extras[name]; ok {
+				return ex.variantLines[variant]
+			}
+			return nil
+		},
 		ExtraBodyBlocks: func(name string) []string {
 			if ex, ok := lc.extras[name]; ok {
 				return ex.actionBlocks
@@ -473,6 +479,8 @@ type declExtras struct {
 	typeLines  []string
 	fieldLines map[string][]string
 	valueLines map[string][]string
+	// variantLines are keyed by union variant name.
+	variantLines map[string][]string
 	// actionBlocks are the declaration's action definitions, verbatim. Actions are
 	// live-owned: they are wire mutations, not persisted content.
 	actionBlocks []string
@@ -564,8 +572,9 @@ func extractLive(source string) (*liveContent, error) {
 		lc.order = append(lc.order, name)
 		lc.raw[name] = text(def)
 		ex := &declExtras{
-			fieldLines: make(map[string][]string),
-			valueLines: make(map[string][]string),
+			fieldLines:   make(map[string][]string),
+			valueLines:   make(map[string][]string),
+			variantLines: make(map[string][]string),
 		}
 		lc.extras[name] = ex
 		lc.declared.Add(name)
@@ -657,25 +666,32 @@ func extractLive(source string) (*liveContent, error) {
 				for _, ad := range body.AllActionDef() {
 					ex.actionBlocks = append(ex.actionBlocks, text(ad))
 				}
-				ignore := func(string) {}
 				for _, v := range body.AllUnionVariant() {
+					var variant string
+					add := func(line string) {
+						ex.variantLines[variant] = append(
+							ex.variantLines[variant], line,
+						)
+					}
 					switch uv := v.(type) {
 					case *parser.NamedVariantContext:
-						path := name + "." + uv.VariantName().GetText()
+						variant = uv.VariantName().GetText()
+						path := name + "." + variant
 						lc.declared.Add(path)
 						if vb := uv.UnionVariantBody(); vb != nil {
 							for _, d := range vb.AllDomain() {
-								liveOwned(d, path, ignore)
+								liveOwned(d, path, add)
 							}
 						}
 					case *parser.InlineVariantContext:
-						path := name + "." + uv.VariantName().GetText()
+						variant = uv.VariantName().GetText()
+						path := name + "." + variant
 						lc.declared.Add(path)
 						if uv.StructBody() == nil {
 							continue
 						}
 						for _, d := range uv.StructBody().AllDomain() {
-							liveOwned(d, path, ignore)
+							liveOwned(d, path, add)
 						}
 						for _, fd := range uv.StructBody().AllFieldDef() {
 							collectField(fd, ex, uv.VariantName().GetText()+".")
