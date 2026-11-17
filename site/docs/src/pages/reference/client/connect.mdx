@@ -207,11 +207,10 @@ nothing, and exits with code 1. Run `sy login` again to change the values.
 `sy login` never saves the key in a file. When the session has no keychain, the command
 fails and saves nothing. See [Connect without a keychain](#connect-without-a-keychain).
 
-With no host, `sy.Synnax()` first reads the
-[environment variables](#connect-with-environment-variables), then the saved login, then
-[Synnax Desktop](#connect-to-synnax-desktop). When none of them is set, it raises
-`sy.ValidationError`. When you give no host and no API key, the client ignores the other
-arguments.
+When no argument or [environment variable](#connect-with-environment-variables) gives a
+host, `sy.Synnax()` uses the saved login, then
+[Synnax Desktop](#connect-to-synnax-desktop). The arguments and variables that you set
+override its values.
 
 <Divider.Divider x />
 
@@ -228,43 +227,49 @@ password.
 | `SYNNAX_SECURE`  | `true` or `1` to use TLS. The default is `false`.                 |
 | `SYNNAX_CA_CERT` | The path to the CA certificate of the Core, for TLS. Python only. |
 
+Each client takes each option from the first source that sets it: the argument, then its
+variable, then its default.
+
+| Python    | TypeScript | Variable         | Default |
+| --------- | ---------- | ---------------- | ------- |
+| `host`    | `host`     | `SYNNAX_HOST`    | None    |
+| `port`    | `port`     | `SYNNAX_PORT`    | `9090`  |
+| `api_key` | `apiKey`   | `SYNNAX_API_KEY` | None    |
+| `secure`  | `secure`   | `SYNNAX_SECURE`  | False   |
+| `ca_cert` |            | `SYNNAX_CA_CERT` | None    |
+
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
-When you give no host, `sy.Synnax()` reads the variables. Set `SYNNAX_HOST` and
-`SYNNAX_API_KEY` together.
+When no argument or variable gives a host, the saved Core comes before the default. The
+saved Core is the login that `sy login` saved, else Synnax Desktop on this computer.
+
+Two groups come whole from the first source that sets one of their options:
+
+- The credentials: `api_key`, `username`, and `password`. A `username` and `password`
+  replace the API key of a variable or of the saved Core.
+- TLS: `secure` and `ca_cert`. `secure=True` with no `ca_cert` uses the CA certificates
+  of the computer, even when `SYNNAX_CA_CERT` is set. A `ca_cert` with no `secure` turns
+  TLS on.
+
+To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
+
+```python
+client = sy.Synnax(host="core.example.com", port=9090)
+```
 
 ```bash
-export SYNNAX_HOST=core.example.com
 export SYNNAX_API_KEY=syk_...
 python my_script.py
 ```
 
-The client uses the first source that it finds, in this order:
-
-1. The arguments to `sy.Synnax()`, when they include a host.
-2. The environment variables.
-3. The login that `sy login` saved.
-4. Synnax Desktop on this computer.
-
-When only one of `SYNNAX_HOST` and `SYNNAX_API_KEY` is set, or when `SYNNAX_PORT` or
-`SYNNAX_SECURE` has a value that is not valid, the client raises `sy.ValidationError`
-and names the variable.
+When no source gives a host or credentials, or when `SYNNAX_PORT` or `SYNNAX_SECURE` has
+a value that is not valid, the client raises `sy.ValidationError`.
 
   </Fragment>
 
   <Fragment slot="typescript">
-
-The client fills each option that you do not give from its variable, then from its
-default:
-
-| Option   | 1. Argument | 2. Variable      | 3. Default |
-| -------- | ----------- | ---------------- | ---------- |
-| `host`   | `host`      | `SYNNAX_HOST`    | None       |
-| `port`   | `port`      | `SYNNAX_PORT`    | `9090`     |
-| `apiKey` | `apiKey`    | `SYNNAX_API_KEY` | None       |
-| `secure` | `secure`    | `SYNNAX_SECURE`  | `false`    |
 
 To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
 
@@ -416,9 +421,8 @@ A Node.js script does not exit until you close the client.
 <Field.List>
 
 <Field.Item name="host" id="python-host" type="str">
-  The hostname or IP address of the Core. With no host, the client uses the `SYNNAX_*`
-  environment variables, the values that `sy login` saved, or Synnax Desktop, in that
-  order.
+  The hostname or IP address of the Core. See the [order of the
+  options](#connect-with-environment-variables).
 </Field.Item>
 
 <Field.Item name="port" id="python-port" type="int">
@@ -426,8 +430,7 @@ A Node.js script does not exit until you close the client.
 </Field.Item>
 
 <Field.Item name="api_key" id="python-api-key" type="str">
-  The API key to log in with. Needs a host. See [Connect with an API
-  key](#connect-with-an-api-key).
+  The API key to log in with. See [Connect with an API key](#connect-with-an-api-key).
 </Field.Item>
 
 <Field.Item name="username" id="python-username" type="str">
@@ -444,8 +447,8 @@ A Node.js script does not exit until you close the client.
 
 <Field.Item name="ca_cert" id="python-ca-cert" type="str">
   The path to the CA certificate that signs the certificate of the Core. With `ca_cert`
-  and no `secure`, the client raises `ValueError`. With no path, the client trusts the
-  CA certificates of the computer.
+  and no `secure`, the client uses TLS. With `secure=False`, the client raises
+  `ValueError`. With no path, the client trusts the CA certificates of the computer.
 </Field.Item>
 
 <Field.Item
