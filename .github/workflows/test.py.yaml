@@ -96,19 +96,15 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        # oldest is the lower bound of requires-python. Only Ubuntu runs oldest and
-        # 3.14t.
+        # The versions follow SPEC 0. oldest is the lower bound of requires-python. Only
+        # Ubuntu runs 3.14t.
         python:
           ${{ fromJSON(inputs.lowest && '["oldest"]' || inputs.free_threaded &&
-          '["3.14", "oldest", "3.14t"]' || '["3.14", "oldest"]') }}
+          '["oldest", "3.14", "3.15", "3.14t"]' || '["oldest", "3.14", "3.15"]') }}
         exclude:
           - os: ${{ !inputs.macos && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
           - os: ${{ !inputs.windows && 'windows-latest' }}
-          - os: macos-latest
-            python: oldest
-          - os: windows-latest
-            python: oldest
           - os: macos-latest
             python: 3.14t
           - os: windows-latest
@@ -122,9 +118,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Start Core
-        if:
-          runner.os == 'Linux' && inputs.core_image != '' && (inputs.lowest ||
-          matrix.python != 'oldest')
+        if: runner.os == 'Linux' && inputs.core_image != ''
         uses: ./.github/actions/start-service
         env:
           SYNNAX_VERBOSE: true
@@ -176,15 +170,15 @@ jobs:
 
       # Ruff output depends on the Ruff version, so only the locked one checks it.
       - name: Lint
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.15' && !inputs.lowest
         run: uv run ruff check .
 
       - name: Check docstrings
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.15' && !inputs.lowest
         run: uv run python "$GITHUB_WORKSPACE/scripts/check_docstrings_py.py"
 
       - name: Check formatting
-        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.14' && !inputs.lowest
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.15' && !inputs.lowest
         run: |
           uv run ruff format --check --diff . ||
             { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
@@ -205,17 +199,15 @@ jobs:
         shell: bash
         run: echo 'PYTEST_ADDOPTS=-m "not core"' >> "$GITHUB_ENV"
 
-      # Without a limit, a hung test run holds the job for up to 6 hours. Only the newest
-      # Python measures coverage.
+      # Without a limit, a hung test run holds the job for up to 6 hours. Only Python
+      # 3.15 measures coverage.
       - name: Test
-        if:
-          inputs.test && (inputs.coverage_module == '' || matrix.python != '3.14') &&
-          (inputs.lowest || matrix.python != 'oldest' || inputs.core_image == '')
+        if: inputs.test && (inputs.coverage_module == '' || matrix.python != '3.15')
         timeout-minutes: 5
         run: uv run pytest
 
       - name: Test with coverage
-        if: inputs.test && inputs.coverage_module != '' && matrix.python == '3.14'
+        if: inputs.test && inputs.coverage_module != '' && matrix.python == '3.15'
         shell: bash
         timeout-minutes: 5
         env:
@@ -223,7 +215,7 @@ jobs:
         run: uv run pytest --cov="$COVERAGE_MODULE" --cov-report=xml
 
       - name: Upload coverage
-        if: inputs.test && inputs.coverage_flag != '' && matrix.python == '3.14'
+        if: inputs.test && inputs.coverage_flag != '' && matrix.python == '3.15'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov
