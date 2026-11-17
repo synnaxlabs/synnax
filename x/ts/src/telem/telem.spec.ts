@@ -13,6 +13,8 @@ import { binary } from "@/binary";
 import { math } from "@/math";
 import { primitive } from "@/primitive";
 import {
+  Clock,
+  type ClockSources,
   convertDataType,
   type CrudeDataType,
   DataType,
@@ -62,6 +64,25 @@ describe("TimeStamp", () => {
       .add(TimeSpan.microseconds(900));
     const tsString = ts.toString();
     expect(tsString).toEqual("1970-04-01T00:20:00.283Z");
+  });
+
+  test("now should advance in steps finer than a millisecond", () => {
+    // A paused thread lengthens one step, so only the finest step counts. A CI VM
+    // clock can tick coarsely for a few milliseconds, so the budget is clock time.
+    let finest = TimeSpan.MAX;
+    const start = Date.now();
+    let prev = TimeStamp.now();
+    while (
+      finest.greaterThanOrEqual(TimeSpan.MILLISECOND) &&
+      Date.now() - start < 1000
+    ) {
+      const now = TimeStamp.now();
+      if (!now.after(prev)) continue;
+      const step = prev.span(now);
+      if (step.lessThan(finest)) finest = step;
+      prev = now;
+    }
+    expect(finest.lessThan(TimeSpan.MILLISECOND)).toBe(true);
   });
 
   test("encode", () => {
@@ -1131,6 +1152,47 @@ describe("TimeStamp", () => {
     it("satisfies primitive.isHashable", () => {
       expect(primitive.isHashable(new TimeStamp(0n))).toBe(true);
     });
+  });
+});
+
+describe("Clock", () => {
+  const MS = TimeSpan.MILLISECOND.valueOf();
+  const create = (): ClockSources => ({
+    wall: () => 1000,
+    monotonic: () => 0,
+    origin: 1000.5,
+  });
+
+  it("should add the monotonic time to the origin", () => {
+    const sources = create();
+    sources.monotonic = () => 0.25;
+    expect(new Clock(sources).now().valueOf()).toBe(1000n * MS + 750_000n);
+  });
+
+  it("should keep the monotonic time while it is within the drift bound", () => {
+    const sources = create();
+    const clock = new Clock(sources, TimeSpan.milliseconds(2));
+    sources.wall = () => 1001;
+    sources.monotonic = () => 2.2;
+    expect(clock.now().valueOf()).toBe(1002n * MS + 700_000n);
+  });
+
+  it("should move to the wall clock when it steps forward", () => {
+    const sources = create();
+    const clock = new Clock(sources, TimeSpan.milliseconds(2));
+    sources.wall = () => 60_000;
+    sources.monotonic = () => 1;
+    expect(clock.now().valueOf()).toBe(60_000n * MS);
+    sources.monotonic = () => 1.5;
+    expect(clock.now().valueOf()).toBe(60_000n * MS + 500_000n);
+  });
+
+  it("should move to the wall clock when it steps backward", () => {
+    const sources = create();
+    const clock = new Clock(sources, TimeSpan.milliseconds(2));
+    sources.wall = () => 500;
+    sources.monotonic = () => 1;
+    expect(clock.now().valueOf()).toBe(500n * MS);
   });
 });
 
