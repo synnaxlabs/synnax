@@ -445,12 +445,14 @@ adds the function that turns a state list into an enumeration (RFC 0112 §4.6), 
 migration writes the default enumeration of each custom symbol with it. A symbol import
 of an old file decodes the old state list beside the converted symbol, and its write
 step (`core/pkg/service/schematic/symbol/imex.go:45-55`) makes the enumeration with the
-same function in its transaction, as a schematic import does (RFC 0112 §4.6). Pluto
-draws `entry` paint from the start, so no migrated symbol changes its look. It moves the
-symbol editor and the clients to the new shape, and phase 3 redesigns the editor. Until
-phase 2 deletes them, it keeps `variant`, which picks the node variant on placement, and
-today's state shape, under its own name, for `state_overrides`. Phase 2 ships in one
-release with RFC 0112 phase 21. Each family is redesigned after phase 5 in its own PR.
+same function in its transaction, as a schematic import does (RFC 0112 §4.6). A symbol
+export bundles each enumeration that its states name, also inside a schematic file, and
+an import reuses or adds each by the rule of RFC 0112 §4.6. Pluto draws `entry` paint
+from the start, so no migrated symbol changes its look. It moves the symbol editor and
+the clients to the new shape, and phase 3 redesigns the editor. Until phase 2 deletes
+them, it keeps `variant`, which picks the node variant on placement, and today's state
+shape, under its own name, for `state_overrides`. Phase 2 ships in one release with RFC
+0112 phase 21. Each family is redesigned after phase 5 in its own PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant with channel references,
 its checks with the Core list of built-ins and its route, the removal of the bindings
