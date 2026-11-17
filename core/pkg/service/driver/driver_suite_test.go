@@ -26,6 +26,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	kafkaversions "github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
@@ -39,6 +41,7 @@ import (
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -126,7 +129,49 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:     node.DB,
 		Secret: secrets,
 	}))
-	configs := MustSucceed(taskconfig.NewRegistry(pd.Stores()...))
+	watched := MustOpen(taskconfig.OpenService(
+		ctx,
+		taskconfig.ServiceConfig[kafka.WriteConfig]{
+			DB:          node.DB,
+			Type:        watchedType,
+			Ladder:      kafkaversions.WriteConfigLadder,
+			SetEntryKey: (*kafka.WriteConfig).SetKey,
+			PatchEntry:  (*kafka.WriteConfig).Patch,
+			HashEntry:   (*kafka.WriteConfig).HashContent,
+			References: []gorp.Reference[uuid.UUID, kafka.WriteConfig]{
+				gorp.NewKeyReference(
+					gorp.KeyReferenceConfig[uuid.UUID, kafka.WriteConfig, string]{
+						Name:     "device",
+						Table:    "status",
+						OnDelete: gorp.Restrict,
+						Kind:     gorp.Use,
+						Targets: func(c *kafka.WriteConfig) []string {
+							return []string{string(c.Device)}
+						},
+					},
+				),
+			},
+			HashReferences: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				c *kafka.WriteConfig,
+				h *content.Hash,
+			) error {
+				var st status.Status[any]
+				if err := statusSvc.NewRetrieve[any]().
+					Where(status.MatchKeys[any](string(c.Device))).
+					Entry(&st).
+					Exec(ctx, snap); err != nil {
+					return err
+				}
+				h.String(st.Message)
+				return nil
+			},
+		},
+	))
+	configs := MustSucceed(taskconfig.NewRegistry(
+		append(pd.Stores(), taskconfig.Store(watched))...,
+	))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      node.DB,
 		Rack:    rackService,
