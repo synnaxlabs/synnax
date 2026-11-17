@@ -288,9 +288,12 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
         return FULL;
     }
     if (this->size == 0) {
-        auto [file, o_err] = journal::Writer::open(
-            {.path = this->spool.segment_path(this->key), .magic = SEGMENT_MAGIC}
-        );
+        auto [file, o_err] = journal::Writer::open({
+            .path = this->spool.segment_path(this->key),
+            .magic = SEGMENT_MAGIC,
+            .sync_interval = this->spool.cfg.sync_interval,
+            .on_sync = this->spool.cfg.on_sync,
+        });
         if (o_err) return this->fail(o_err, bytes);
         this->file = std::move(file);
         if (const auto w_err = this->file->write(
@@ -314,8 +317,15 @@ x::errors::Error Writer::sync_if_due() {
 
 x::errors::Error
 Writer::fail(const x::errors::Error &err, const std::uint64_t reserved) {
-    this->spool.release(reserved);
     this->failed = err;
+    // The journal appends a record before it syncs, so after a failed sync the frame
+    // is in the segment.
+    const auto end = this->size + reserved;
+    if (this->file != nullptr && this->file->pos() == end) {
+        this->size = end;
+        return this->failed;
+    }
+    this->spool.release(reserved);
     if (this->size > 0) return this->failed;
     // A segment without frames is useless to readers.
     this->file.reset();

@@ -9,7 +9,9 @@
 
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iterator>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -19,6 +21,7 @@
 
 #include "driver/journal/journal.h"
 #include "driver/spool/spool.h"
+#include "driver/spool/spool.pb.h"
 
 namespace driver::spool {
 namespace {
@@ -48,6 +51,20 @@ x::uuid::UUID uuid_of(const std::uint8_t first) {
     for (std::size_t i = 0; i < bytes.size(); i++)
         bytes[i] = static_cast<std::uint8_t>(first + i);
     return x::uuid::UUID(bytes);
+}
+
+/// @brief returns a valid header for channels 1 and 2, after edit changes it.
+std::string header_payload(const std::function<void(pb::Header &)> &edit) {
+    pb::Header pb;
+    pb.set_cluster(std::string(16, '\x01'));
+    pb.set_task(std::string(16, '\x02'));
+    for (const std::uint32_t ch: {1, 2}) {
+        pb.add_channels(ch);
+        pb.add_indexes(0);
+        pb.add_data_types("float32");
+    }
+    edit(pb);
+    return pb.SerializeAsString();
 }
 
 x::telem::Frame frame_of(const float value) {
@@ -555,6 +572,124 @@ TEST_F(SpoolTest, FailsOnUndecodableHeader) {
         Spool::open(Config{.dir = this->dir, .cap = DEFAULT_CAP}),
         CORRUPT
     );
+}
+
+/// @brief it should fail to open on a header with a cluster that is not a UUID.
+TEST_F(SpoolTest, FailsOnHeaderWithShortCluster) {
+    std::filesystem::create_directories(this->dir);
+    append_record(
+        this->dir / "0.seg",
+        {.type = 1,
+         .payload = header_payload([](pb::Header &h) { h.set_cluster("short"); })}
+    );
+    ASSERT_OCCURRED_AS_P(Spool::open(Config{.dir = this->dir}), CORRUPT);
+}
+
+/// @brief it should fail to open on a header with a task that is not a UUID.
+TEST_F(SpoolTest, FailsOnHeaderWithShortTask) {
+    std::filesystem::create_directories(this->dir);
+    append_record(
+        this->dir / "0.seg",
+        {.type = 1, .payload = header_payload([](pb::Header &h) { h.clear_task(); })}
+    );
+    ASSERT_OCCURRED_AS_P(Spool::open(Config{.dir = this->dir}), CORRUPT);
+}
+
+/// @brief it should fail to open on a header without a data type for each channel.
+TEST_F(SpoolTest, FailsOnHeaderWithMissingDataType) {
+    std::filesystem::create_directories(this->dir);
+    append_record(
+        this->dir / "0.seg",
+        {.type = 1, .payload = header_payload([](pb::Header &h) {
+                        h.mutable_data_types()->RemoveLast();
+                    })}
+    );
+    ASSERT_OCCURRED_AS_P(Spool::open(Config{.dir = this->dir}), CORRUPT);
+}
+
+/// @brief it should fail on a frame with a channel that is not in the header.
+TEST_F(SpoolTest, FailsOnFrameWithUnknownChannel) {
+    const auto path = this->write_segment();
+    pb::Frame frame;
+    frame.add_channels(9);
+    frame.add_series()->set_data(std::string(4, '\0'));
+    append_record(path, {.type = 2, .payload = frame.SerializeAsString()});
+    const auto spool = this->open_spool();
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+    ASSERT_OCCURRED_AS_P(reader->read(), CORRUPT);
+}
+
+/// @brief it should fail on a frame with more channels than series.
+TEST_F(SpoolTest, FailsOnFrameWithMissingSeries) {
+    const auto path = this->write_segment();
+    pb::Frame frame;
+    frame.add_channels(1);
+    frame.add_channels(2);
+    frame.add_series()->set_data(std::string(4, '\0'));
+    append_record(path, {.type = 2, .payload = frame.SerializeAsString()});
+    const auto spool = this->open_spool();
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+    ASSERT_OCCURRED_AS_P(reader->read(), CORRUPT);
+}
+
+/// @brief it should fail to open on a segment file whose name is not a key.
+TEST_F(SpoolTest, FailsOnInvalidSegmentName) {
+    std::filesystem::create_directories(this->dir);
+    append_file(this->dir / "abc.seg", "");
+    ASSERT_OCCURRED_AS_P(Spool::open(Config{.dir = this->dir}), CORRUPT);
+}
+
+/// @brief it should keep a frame whose sync fails, and fail every later write.
+TEST_F(SpoolTest, KeepsFrameWhenSyncFails) {
+    auto failing = std::make_shared<bool>(false);
+    const auto sync_err = x::errors::Error(journal::BASE_ERROR, "disk failed");
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(
+            Config{
+                .dir = this->dir,
+                .sync_interval = x::telem::TimeSpan(0),
+                .on_sync = [failing, sync_err](const x::errors::Error &err) {
+                    return *failing ? sync_err : err;
+                },
+            }
+        )
+    );
+    {
+        const auto writer = spool->open_writer(header_of(1));
+        ASSERT_NIL(writer->write(frame_of(0)));
+        *failing = true;
+        ASSERT_MATCHES(writer->write(frame_of(1)), journal::BASE_ERROR);
+        ASSERT_MATCHES(writer->write(frame_of(2)), journal::BASE_ERROR);
+    }
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    for (int i = 0; i < 2; i++) {
+        const auto frame = ASSERT_NIL_P(reader->read());
+        ASSERT_EQ(value_of(frame.value()), static_cast<float>(i));
+    }
+    ASSERT_FALSE(ASSERT_NIL_P(reader->read()).has_value());
+    ASSERT_NIL(spool->remove(0));
+}
+
+/// @brief it should remove a segment whose first sync fails before a frame lands.
+TEST_F(SpoolTest, RemovesSegmentWhenFirstSyncFails) {
+    const auto sync_err = x::errors::Error(journal::BASE_ERROR, "disk failed");
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(
+            Config{
+                .dir = this->dir,
+                .sync_interval = x::telem::TimeSpan(0),
+                .on_sync = [sync_err](const x::errors::Error &) { return sync_err; },
+            }
+        )
+    );
+    ASSERT_MATCHES(
+        spool->open_writer(header_of(1))->write(frame_of(0)),
+        journal::BASE_ERROR
+    );
+    ASSERT_TRUE(spool->segments().empty());
+    ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
 }
 
 /// @brief it should fail to open on a segment that starts with a frame.
