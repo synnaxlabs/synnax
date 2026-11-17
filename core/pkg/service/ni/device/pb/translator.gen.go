@@ -1228,8 +1228,8 @@ func AnalogInputPortFromPB(pb *AnalogInputPort) (device.AnalogInputPort, error) 
 	return r, nil
 }
 
-// AnalogInputPortsToPB converts a slice of AnalogInputPort to AnalogInputPort.
-func AnalogInputPortsToPB(rs []device.AnalogInputPort) ([]*AnalogInputPort, error) {
+// AnalogInputPortListToPB converts a slice of AnalogInputPort to AnalogInputPort.
+func AnalogInputPortListToPB(rs []device.AnalogInputPort) ([]*AnalogInputPort, error) {
 	result := make([]*AnalogInputPort, len(rs))
 	for i := range rs {
 		var err error
@@ -1241,8 +1241,8 @@ func AnalogInputPortsToPB(rs []device.AnalogInputPort) ([]*AnalogInputPort, erro
 	return result, nil
 }
 
-// AnalogInputPortsFromPB converts a slice of AnalogInputPort to AnalogInputPort.
-func AnalogInputPortsFromPB(pbs []*AnalogInputPort) ([]device.AnalogInputPort, error) {
+// AnalogInputPortListFromPB converts a slice of AnalogInputPort to AnalogInputPort.
+func AnalogInputPortListFromPB(pbs []*AnalogInputPort) ([]device.AnalogInputPort, error) {
 	result := make([]device.AnalogInputPort, len(pbs))
 	for i, pb := range pbs {
 		var err error
@@ -1423,7 +1423,7 @@ func DigitalPortsFromPB(pbs []*DigitalPort) ([]device.DigitalPort, error) {
 
 // HardwareToPB converts Hardware to Hardware.
 func HardwareToPB(r device.Hardware) (*Hardware, error) {
-	analogInputsVal, err := AnalogInputPortsToPB(r.AnalogInputs)
+	analogInputsVal, err := AnalogInputPortListToPB(r.AnalogInputs)
 	if err != nil {
 		return nil, err
 	}
@@ -1489,7 +1489,7 @@ func HardwareFromPB(pb *Hardware) (device.Hardware, error) {
 	}
 	defaults.Prefill(&r)
 	var err error
-	r.AnalogInputs, err = AnalogInputPortsFromPB(pb.AnalogInputs)
+	r.AnalogInputs, err = AnalogInputPortListFromPB(pb.AnalogInputs)
 	if err != nil {
 		return device.Hardware{}, err
 	}
