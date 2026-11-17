@@ -89,10 +89,20 @@ class TestCommand:
             assert proc.stderr is not None
             # The first prompt line shows that the command waits for input.
             proc.stdout.readline()
-            proc.send_signal(signal.SIGINT)
             # stdin stays open until the exit, or the command can read end of input
-            # before it handles the signal.
-            proc.wait(timeout=60)
+            # before it handles the signal. A SIGINT that lands before input() starts
+            # its read only sets a flag, and the read then blocks, so it is sent again
+            # until the command exits, as a user presses Ctrl+C again.
+            for _ in range(120):
+                proc.send_signal(signal.SIGINT)
+                try:
+                    proc.wait(timeout=0.5)
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+            else:
+                proc.kill()
+                proc.wait()
             stderr = proc.stderr.read()
         assert proc.returncode == 130
         assert "Traceback" not in stderr
