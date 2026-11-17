@@ -563,6 +563,15 @@ describe("AnalogRead with several selected channels", () => {
     );
   });
 
+  it("should show no unit on the range of channels with different units", async () => {
+    await renderSelected([
+      createChannel("ai_thermocouple", 0, { name: "chan_a", units: "DegC" }),
+      createChannel("ai_thermocouple", 1, { name: "chan_b", units: "DegF" }),
+    ]);
+    expect(await screen.findByLabelText("Minimum value")).toBeTruthy();
+    expect(screen.queryByText(/°[CF]/)).toBeNull();
+  });
+
   it("should not edit coefficients that the selected channels hold apart", async () => {
     const polynomial = (forwardCoeffs: number[]) =>
       NI.Task.SCALE_SCHEMAS.polynomial.parse({ type: "polynomial", forwardCoeffs });

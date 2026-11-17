@@ -400,7 +400,7 @@ describe("Read", () => {
     /** Renders a channel on each of two strain slaves and selects both channels. */
     const renderTwoSelected = async (
       startupParameters: (slaves: device.Key[]) => ethercat.SlaveStartupParameters[],
-      scales: task.Scale[] = [],
+      scales: (task.Scale | undefined)[] = [],
     ) => {
       const slaves = [await createStrainSlave(), await createStrainSlave()];
       const rendered = await renderRead({
@@ -507,6 +507,22 @@ describe("Read", () => {
         expect(storedZ.parse(config).channels.map((c) => c.scale)).toEqual([
           { type: "linear", slope: 2, offset: 0 },
           { type: "linear", slope: 1, offset: 0 },
+        ]);
+      });
+    });
+    it("should keep the scale of a channel that holds the picked type", async () => {
+      const fivefold = task.SCALE_SCHEMAS.linear.parse({ type: "linear", slope: 5 });
+      const { draft } = await renderTwoSelected(() => [], [undefined, fivefold]);
+      fireEvent.click(await findDialogTriggerByText("Mixed"));
+      fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
+      // The saves of the two channels land apart, so the spec reads the form first.
+      const slope = await screen.findByLabelText<HTMLInputElement>("Slope");
+      expect([slope.value, slope.placeholder]).toEqual(["", "Mixed"]);
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.channels).toMatchObject([
+          { scale: { type: "linear", slope: 1, offset: 0 } },
+          { scale: { type: "linear", slope: 5, offset: 0 } },
         ]);
       });
     });

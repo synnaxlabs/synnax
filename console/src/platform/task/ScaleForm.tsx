@@ -100,9 +100,9 @@ export const ScaleForm = ({ path }: ScaleFormProps) => {
     <>
       <SelectType
         path={scale.type}
-        onChange={(value, { set }) => {
-          if (type !== value)
-            set(scale, task.SCALE_SCHEMAS[value].parse({ type: value }));
+        onChange={(value, { get, set }) => {
+          if (get(scale.type).value === value) return;
+          set(scale, task.SCALE_SCHEMAS[value].parse({ type: value }));
         }}
       />
       {mixed !== true && <Params path={scale} />}

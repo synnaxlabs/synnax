@@ -461,9 +461,7 @@ const VelocitySensitivityUnitsField = Form.buildSelectField<VelocitySensitivityU
 
 const ThermocoupleForm: FC<FormProps<"ai_thermocouple">> = ({ path }) => {
   const cjcSource = Form.useFieldState(path.cjc.source, { optional: true });
-  const units = Form.useFieldValue(path.units, {
-    optional: true,
-  });
+  const units = Form.useFieldState(path.units, { optional: true });
   return (
     <>
       <ThermocoupleTypeField path={path.thermocoupleType} />
@@ -483,7 +481,11 @@ const ThermocoupleForm: FC<FormProps<"ai_thermocouple">> = ({ path }) => {
       <TemperatureUnitsField path={path.units} />
       <MinMaxValueFields
         path={path}
-        units={units == null ? undefined : TEMPERATURE_UNIT_SYMBOLS[units]}
+        units={
+          units == null || units.mixed === true
+            ? undefined
+            : TEMPERATURE_UNIT_SYMBOLS[units.value]
+        }
       />
     </>
   );
