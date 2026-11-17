@@ -269,7 +269,8 @@ func BootupCore(
 		ctx, cancel := context.WithTimeout(root, storageStopTimeout)
 		defer cancel()
 		stopErr := lifetimes.Stop(ctx)
-		err = errors.Combine(err, stopErr)
+		// A failed run is the cause of the errors it leads to, so it comes first.
+		err = errors.Combine(stopErr, err)
 		// The storage layer may still run, so it stays open, and the next start undoes
 		// the update.
 		if errors.Is(stopErr, context.DeadlineExceeded) {
