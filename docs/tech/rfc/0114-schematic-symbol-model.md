@@ -299,8 +299,9 @@ shipped key never changes, and a shipped built-in name never changes.
 
 ### 4.4 Edits and customization
 
-A save that changes states, commands, or interactions lists the schematics that use the
-symbol (`core/pkg/service/resource/resource.go:59-74`) and shows which of them are under
+A save that changes the spec of a symbol in use, such as its looks, parts, drawing,
+states, commands, or interactions, lists the schematics that use the symbol
+(`core/pkg/service/resource/resource.go:59-74`) and shows which of them are under
 control, then asks to confirm. The save carries the list that the user confirmed, and
 the Core refuses the save when the list, or which of them are under control, changed, so
 the dialog asks again. The custom `symbol.Ref` uses `@ref on_delete restrict`, so a
@@ -440,17 +441,17 @@ and overrides that a symbol save orphans, a Core migration, an export that bundl
 schematic's custom symbols with their keys, an import that keeps those keys, a renderer
 with its indicators, a form with the enumeration picker, and the deletion of 86
 variants. It is larger than a usual PR because no smaller step leaves one node shape in
-`main`. Phase 4 lists the removed bindings and overrides in the save confirm. Phase 5
-starts with the WebKit benchmark, and no built-in moves until it passes at 1,000 moving
-parts.
+`main`. Phase 3 adds the save confirm, and phase 4 lists the removed bindings and
+overrides in it. Phase 5 starts with the WebKit benchmark, and no built-in moves until
+it passes at 1,000 moving parts.
 
-| Phase | Scope                                                  | Touches                                                                                                                                         | Depends on |
-| ----- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Store parts, states, commands, and looks on all specs  | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`, `console/src/feature/schematic/symbol`, `client/ts`, `client/py`  | -          |
-| 2     | Replace equipment variants with one `symbol` variant   | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/api/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature` | 1          |
-| 3     | Edit parts and looks, and duplicate built-ins          | `console/src/feature/schematic/symbol`                                                                                                          | 1          |
-| 4     | Edit states, commands, and clicks, with a save confirm | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                     | 2, 3       |
-| 5     | Benchmark motion in WebKit, then draw it               | `pluto/src/schematic/node/common/custom`                                                                                                        | 2          |
+| Phase | Scope                                                    | Touches                                                                                                                                         | Depends on |
+| ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Store parts, states, commands, and looks on all specs    | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `pluto/src/schematic`, `console/src/feature/schematic/symbol`, `client/ts`, `client/py`  | -          |
+| 2     | Replace equipment variants with one `symbol` variant     | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/api/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature` | 1          |
+| 3     | Edit parts and looks, duplicate built-ins, confirm saves | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                     | 1          |
+| 4     | Edit states, commands, and clicks                        | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                     | 2, 3       |
+| 5     | Benchmark motion in WebKit, then draw it                 | `pluto/src/schematic/node/common/custom`                                                                                                        | 2          |
 
 ## 7 Resolved decisions
 
