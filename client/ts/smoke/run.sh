@@ -29,7 +29,7 @@ done
 # The overrides keep pnpm from fetching the Synnax dependencies from the registry. A
 # hoisted node_modules is the layout that npm makes.
 cd "$work"
-cp "$smoke/smoke.mjs" "$smoke/index.html" .
+cp "$smoke/smoke.mjs" "$smoke/index.html" "$smoke/importmap.html" .
 cat > package.json << EOF
 { "type": "module", "dependencies": { "@synnaxlabs/client": "file:client.tgz" } }
 EOF
@@ -50,8 +50,7 @@ node smoke.mjs
 echo "Node.js 22.12.0"
 pnpm --package=node@runtime:22.12.0 dlx node smoke.mjs
 deno --version | head -1
-# Immer reads NODE_ENV when it loads.
-deno run --allow-net --allow-env=NODE_ENV,SYNNAX_TEST_HOST,SYNNAX_TEST_PORT smoke.mjs
+deno run --allow-net --allow-env=SYNNAX_TEST_HOST,SYNNAX_TEST_PORT smoke.mjs
 echo "Bun $(bun --version)"
 bun smoke.mjs
 node "$smoke/browser.mjs" "$work"

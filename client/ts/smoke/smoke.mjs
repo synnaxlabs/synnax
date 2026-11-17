@@ -9,9 +9,11 @@
 
 import { Synnax } from "@synnaxlabs/client";
 
+// Browsers have no process, so browser.mjs sets smokeEnv.
+const env = globalThis.process?.env ?? globalThis.smokeEnv;
 const client = new Synnax({
-  host: process.env.SYNNAX_TEST_HOST ?? "localhost",
-  port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
+  host: env.SYNNAX_TEST_HOST ?? "localhost",
+  port: Number(env.SYNNAX_TEST_PORT ?? 9090),
   username: "synnax",
   password: "seldon",
   secure: false,
