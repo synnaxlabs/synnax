@@ -7,11 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import cast
+import datetime as dt
+from typing import Literal, cast
 
 import numpy as np
 import pytest
 import synnax as sy
+from mypy_boto3_secretsmanager.type_defs import (
+    FilterTypeDef,
+    SecretListEntryTypeDef,
+    TagTypeDef,
+)
+
+from logins import Listed, Secret
 
 
 class Writer:
@@ -95,12 +103,16 @@ class SecretsExceptions:
         pass
 
 
+class Deleted(Secret):
+    DeletedDate: dt.datetime
+
+
 class Secrets:
     """Stands in for Secrets Manager: the tags of each secret by name. Writes fail
     while failing is set. A secret in deleted is scheduled for deletion, and one in
     gone is listed but no longer exists."""
 
-    exceptions = SecretsExceptions
+    exceptions = SecretsExceptions()
 
     def __init__(self) -> None:
         self.tags: dict[str, dict[str, str]] = {}
@@ -108,36 +120,41 @@ class Secrets:
         self.gone: set[str] = set()
         self.failing = False
 
-    def get_paginator(self, operation: str) -> "Secrets":
-        assert operation == "list_secrets"
+    def get_paginator(self, operation: Literal["list_secrets"]) -> "Secrets":
         return self
 
-    def paginate(self, Filters: list[dict]) -> list[dict]:
+    def paginate(self, *, Filters: list[FilterTypeDef]) -> list[Listed]:
         prefix = Filters[0]["Values"][0]
         # The list carries no tags, so a read that trusts it sees none.
-        listed = [
+        listed: list[SecretListEntryTypeDef] = [
             {"Name": name, "ARN": f"arn:{name}", "Tags": []}
             for name in self.tags
             if name.startswith(prefix)
         ]
         return [{"SecretList": listed}]
 
-    def describe_secret(self, SecretId: str) -> dict:
+    def describe_secret(self, *, SecretId: str) -> Secret:
         name = SecretId.removeprefix("arn:")
         if name in self.gone:
             raise self.exceptions.ResourceNotFoundException(name)
-        tags = [{"Key": k, "Value": v} for k, v in self.tags[name].items()]
-        secret = {"Name": name, "ARN": SecretId, "Tags": tags}
+        tags: list[TagTypeDef] = [
+            {"Key": k, "Value": v} for k, v in self.tags[name].items()
+        ]
         if name in self.deleted:
-            secret["DeletedDate"] = "2026-11-15"
-        return secret
+            return Deleted(
+                Name=name,
+                ARN=SecretId,
+                Tags=tags,
+                DeletedDate=dt.datetime(2026, 11, 15, tzinfo=dt.UTC),
+            )
+        return {"Name": name, "ARN": SecretId, "Tags": tags}
 
-    def tag_resource(self, SecretId: str, Tags: list[dict]) -> None:
+    def tag_resource(self, *, SecretId: str, Tags: list[TagTypeDef]) -> None:
         if self.failing:
             raise PermissionError("not authorized")
         self.tags[SecretId.removeprefix("arn:")] |= {t["Key"]: t["Value"] for t in Tags}
 
-    def untag_resource(self, SecretId: str, TagKeys: list[str]) -> None:
+    def untag_resource(self, *, SecretId: str, TagKeys: list[str]) -> None:
         if self.failing:
             raise PermissionError("not authorized")
         for key in TagKeys:
