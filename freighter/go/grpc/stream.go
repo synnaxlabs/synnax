@@ -144,9 +144,7 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 					return oCtx, hdrErr
 				}
 				if errVals := md.Get("error"); len(errVals) > 0 {
-					p := &errors.Payload{}
-					p.Unmarshal(errVals[0])
-					return oCtx, errors.Decode(*p)
+					return oCtx, errors.Decode(errors.ParsePayload(errVals[0]))
 				}
 				stream = s.adaptStream(grpcClient)
 				return oCtx, nil
@@ -348,9 +346,7 @@ func translateGRPCError(err error) error {
 	if s.Code() == codes.Canceled {
 		return context.Canceled
 	}
-	p := &errors.Payload{}
-	p.Unmarshal(s.Message())
-	if decoded := errors.Decode(*p); decoded != nil {
+	if decoded := errors.Decode(errors.ParsePayload(s.Message())); decoded != nil {
 		return decoded
 	}
 	return errors.WithStackDepth(err, 1)

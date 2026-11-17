@@ -81,29 +81,29 @@ type Diagnostic struct {
 	hinted bool
 }
 
-// SetRange sets the Range from an ANTLR parser rule context.
-func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
+func rangeOf(ctx antlr.ParserRuleContext) protocol.Range {
 	if ctx == nil {
-		return
+		return protocol.Range{}
 	}
 	start := ctx.GetStart()
 	stop := ctx.GetStop()
 	// ANTLR lines are 1-indexed; store 0-indexed to match protocol.Position.
-	d.Range.Start = protocol.Position{
+	r := protocol.Range{Start: protocol.Position{
 		Line:      uint32(start.GetLine() - 1),
 		Character: uint32(start.GetColumn()),
-	}
+	}}
 	if stop != nil {
-		d.Range.End = protocol.Position{
+		r.End = protocol.Position{
 			Line:      uint32(stop.GetLine() - 1),
 			Character: uint32(stop.GetColumn() + len(stop.GetText())),
 		}
 	} else {
-		d.Range.End = protocol.Position{
-			Line:      d.Range.Start.Line,
-			Character: d.Range.Start.Character + uint32(len(start.GetText())),
+		r.End = protocol.Position{
+			Line:      r.Start.Line,
+			Character: r.Start.Character + uint32(len(start.GetText())),
 		}
 	}
+	return r
 }
 
 // Error creates an error diagnostic from an existing error. If the error implements
@@ -112,9 +112,9 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 	d := Diagnostic{
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  err.Error(),
+		Range:    rangeOf(ctx),
 		cause:    err,
 	}
-	d.SetRange(ctx)
 	if hp, ok := err.(HintProvider); ok {
 		if hint := hp.GetHint(); hint != "" {
 			d.Notes = append(
@@ -129,22 +129,20 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 
 // Errorf creates an error diagnostic with a formatted message.
 func Errorf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{
+	return Diagnostic{
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  fmt.Sprintf(format, args...),
+		Range:    rangeOf(ctx),
 	}
-	d.SetRange(ctx)
-	return d
 }
 
 // Warningf creates a warning diagnostic with a formatted message.
 func Warningf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{
+	return Diagnostic{
 		Severity: protocol.DiagnosticSeverityWarning,
 		Message:  fmt.Sprintf(format, args...),
+		Range:    rangeOf(ctx),
 	}
-	d.SetRange(ctx)
-	return d
 }
 
 // WithCode returns a copy of the diagnostic with the given error code.
@@ -153,8 +151,8 @@ func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
 	return d
 }
 
-// WithRange returns a copy of the diagnostic with an explicit range, overriding any
-// range set by SetRange.
+// WithRange returns a copy of the diagnostic with an explicit range, overriding the
+// range of its context.
 func (d Diagnostic) WithRange(start, end protocol.Position) Diagnostic {
 	d.Range = protocol.Range{Start: start, End: end}
 	return d
@@ -170,16 +168,15 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 
 // WithFix attaches a fix that changes the code at ctx to newText, and its hint note.
 func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnostic {
-	var at Diagnostic
-	at.SetRange(ctx)
+	at := rangeOf(ctx)
 	start, stop := ctx.GetStart(), ctx.GetStop()
 	note := protocol.DiagnosticRelatedInformation{Message: fmt.Sprintf(
 		"hint: change `%s` to `%s`",
 		start.GetInputStream().GetText(start.GetStart(), stop.GetStop()),
 		newText,
 	)}
-	if at.Range != d.Range {
-		note.Location.Range = at.Range
+	if at != d.Range {
+		note.Location.Range = at
 	}
 	if d.hinted {
 		d.Notes, d.hinted = slices.Clone(d.Notes[1:]), false
@@ -187,7 +184,7 @@ func (d Diagnostic) WithFix(ctx antlr.ParserRuleContext, newText string) Diagnos
 	d.Notes = append(d.Notes, note)
 	return d.WithEdits(
 		fmt.Sprintf("Change to `%s`", newText),
-		protocol.TextEdit{Range: at.Range, NewText: newText},
+		protocol.TextEdit{Range: at, NewText: newText},
 	)
 }
 
