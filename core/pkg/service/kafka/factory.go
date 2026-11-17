@@ -121,6 +121,9 @@ type Factory struct {
 	// edited holds the ICDs that changed since the last reconfigure.
 	edited struct {
 		icds set.Set[icd.Key]
+		// watches collect the ICDs that change while a read task configures, before
+		// the factory can route a change to it.
+		watches set.Set[*set.Set[icd.Key]]
 		sync.Mutex
 	}
 	// wake signals that edited holds a key.
@@ -156,6 +159,7 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 	}
 	f := &Factory{cfg: cfg, wake: make(chan struct{}, 1)}
 	f.edited.icds = make(set.Set[icd.Key])
+	f.edited.watches = make(set.Set[*set.Set[icd.Key]])
 	f.reads.tasks = make(set.Set[*readTask])
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	sCtx.Go(f.reconfigureEdited, signal.RecoverWithErrOnPanic())
@@ -176,11 +180,46 @@ func (f *Factory) onICDChange(_ context.Context, r gorp.TxReader[icd.Key, icd.IC
 	f.edited.Lock()
 	for ch := range r {
 		f.edited.icds.Add(ch.Key)
+		for w := range f.edited.watches {
+			w.Add(ch.Key)
+		}
 	}
 	f.edited.Unlock()
+	f.signal()
+}
+
+// signal wakes reconfigureEdited, and never waits.
+func (f *Factory) signal() {
 	select {
 	case f.wake <- struct{}{}:
 	default:
+	}
+}
+
+// watchEdits starts to collect the ICDs that change. Pass the result to endWatch.
+func (f *Factory) watchEdits() *set.Set[icd.Key] {
+	w := make(set.Set[icd.Key])
+	f.edited.Lock()
+	defer f.edited.Unlock()
+	f.edited.watches.Add(&w)
+	return &w
+}
+
+// endWatch stops w and hands reconfigureEdited each ICD of reads that changed during w.
+// Call it after f.reads holds the task that reads them, so no change falls in between.
+func (f *Factory) endWatch(w *set.Set[icd.Key], reads set.Set[icd.Key]) {
+	f.edited.Lock()
+	f.edited.watches.Remove(w)
+	missed := false
+	for k := range *w {
+		if reads.Contains(k) {
+			f.edited.icds.Add(k)
+			missed = true
+		}
+	}
+	f.edited.Unlock()
+	if missed {
+		f.signal()
 	}
 }
 
@@ -298,14 +337,17 @@ func (f *Factory) ConfigureTask(
 		}
 		return st, nil
 	case ReadTaskType:
+		w := f.watchEdits()
 		rt, err := f.configureRead(ctx, t)
 		if err != nil {
+			f.endWatch(w, nil)
 			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
 		f.reads.Lock()
 		f.reads.tasks.Add(rt)
 		f.reads.Unlock()
+		f.endWatch(w, rt.icds)
 		// A successful configure writes no status, so a start answers the command. An
 		// auto-start that fails must answer it too, since no start follows.
 		if rt.cfg.AutoStart {
