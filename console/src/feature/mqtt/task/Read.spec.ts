@@ -1177,29 +1177,6 @@ describe("MQTT read form", () => {
       expect(ch.name).toBe(`${dev.name}_plant_oven_status_mode`);
     });
 
-    it("should create a channel in place of a bound channel that was deleted", async () => {
-      const time = await createTimeChannel();
-      const temperatureCh = await client.channels.create({
-        name: uniqueName("temperature"),
-        dataType: DataType.FLOAT64,
-        index: time.key,
-      });
-      const temperature = createField("temperature", "float");
-      const entry = await createEntry({
-        fields: [temperature],
-        bound: { [temperature.key]: temperatureCh.key },
-      });
-      const { container, draft } = await renderRead({
-        entries: [entry],
-        beforeRender: () => client.channels.delete(temperatureCh.key),
-      });
-      const created = await deploy(container, draft.key);
-      const [binding] = plainOf(created.config.entries[0]).messages[0].bindings;
-      expect(binding.channel).not.toBe(temperatureCh.key);
-      const ch = await client.channels.retrieve(binding.channel);
-      expect(ch.dataType.equals(DataType.FLOAT64)).toBe(true);
-    });
-
     it("should replace the stored channel of a field whose kind changed", async () => {
       const time = await createTimeChannel();
       const [temperatureCh, countCh] = await client.channels.create([

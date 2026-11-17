@@ -1820,14 +1820,12 @@ const configureMessage = async (
     const suited = binding.dataType !== "" && ICD.converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // A channel that is gone, or an edit of the field's kind or index role since the
-    // last deploy, needs a new channel.
+    // An edit of the field's kind or index role since the last deploy needs a new
+    // channel.
     const stale =
-      reused[i] !== 0 &&
-      (ch == null ||
-        !ICD.converts(f.type, ch.dataType.toString()) ||
-        ch.isIndex !== isIndex);
-    if (stale && stored[f.pointer] === reused[i]) delete stored[f.pointer];
+      ch != null &&
+      (!ICD.converts(f.type, ch.dataType.toString()) || ch.isIndex !== isIndex);
+    if (stale && stored[f.pointer] === ch.key) delete stored[f.pointer];
     return {
       key: f.key,
       pointer: f.pointer,
