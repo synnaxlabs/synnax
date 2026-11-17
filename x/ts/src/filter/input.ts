@@ -80,7 +80,9 @@ export type Input<S extends Record<string, z.ZodType>> = {
 export const split = <T extends object, F extends keyof T>(
   input: T,
   fields: readonly F[],
-): Omit<T, F> & { where?: Pick<T, F> } => {
+  // Extract keeps the emitted declarations valid when T is generic: tsc cannot prove
+  // that the field names it writes for F are keys of a deferred T.
+): Omit<T, F> & { where?: Pick<T, Extract<F, keyof T>> } => {
   const rest: Partial<T> = { ...input };
   const where: Partial<T> = {};
   for (const f of fields) {
@@ -90,6 +92,9 @@ export const split = <T extends object, F extends keyof T>(
   }
   return {
     ...(rest as Omit<T, F>),
-    where: Object.keys(where).length > 0 ? (where as Pick<T, F>) : undefined,
+    where:
+      Object.keys(where).length > 0
+        ? (where as Pick<T, Extract<F, keyof T>>)
+        : undefined,
   };
 };
