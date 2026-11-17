@@ -28,15 +28,14 @@ var payloadType = reflect.TypeFor[Payload]()
 // Error implements the error interface.
 func (p Payload) Error() string { return p.Type + "---" + p.Data }
 
-func (p *Payload) Unmarshal(d string) {
+// ParsePayload parses the text of Payload.Error. Text in any other form becomes the
+// data of a payload of type TypeUnknown.
+func ParsePayload(d string) Payload {
 	a := strings.Split(d, "---")
 	if len(a) != 2 {
-		p.Type = TypeUnknown
-		p.Data = d
-	} else {
-		p.Type = a[0]
-		p.Data = a[1]
+		return Payload{Type: TypeUnknown, Data: d}
 	}
+	return Payload{Type: a[0], Data: a[1]}
 }
 
 var _registry = newRegistry()

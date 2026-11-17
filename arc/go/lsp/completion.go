@@ -535,25 +535,29 @@ func allowedCategories(
 	completionCtx CompletionContext,
 	nesting nestingKind,
 ) completionCategory {
-	if nesting == nestingSequenceBody {
+	allowed := getAllowedCategories(completionCtx)
+	statementStart := completionCtx == ContextStatementStart ||
+		completionCtx == ContextUnknown
+	switch nesting {
+	case nestingSequenceBody:
 		// A sequence body accepts `stage` / nested `sequence` declarations
 		// plus flow statements and single invocations (per the grammar's
 		// `sequenceItem`). That allows channel references, flow / exec-both
 		// functions, constants, and module-qualified members alongside the
 		// stage keyword.
 		return categorySequenceKeyword | categoryValue | categoryFunction
-	}
-	allowed := getAllowedCategories(completionCtx)
-	if completionCtx != ContextStatementStart && completionCtx != ContextUnknown {
-		return allowed
-	}
-	switch nesting {
 	case nestingTopLevel:
-		allowed |= categoryTopLevelKeyword
+		if statementStart {
+			allowed |= categoryTopLevelKeyword
+		}
 	case nestingFunction:
-		allowed |= categoryFunctionKeyword
+		if statementStart {
+			allowed |= categoryFunctionKeyword
+		}
 	case nestingStageBody:
-		allowed |= categoryStageKeyword
+		if statementStart {
+			allowed |= categoryStageKeyword
+		}
 	}
 	return allowed
 }
@@ -691,9 +695,10 @@ func getAllowedCategories(ctx CompletionContext) completionCategory {
 		return categoryValue | categoryFunction | categoryUnit
 	case ContextStatementStart:
 		return categoryValue | categoryFunction
-	default:
-		return categoryFunction | categoryUnit | categoryValue
+	case ContextUnknown, ContextComment, ContextInputParamName, ContextInputParamValue,
+		contextAuthorityEntry, contextImportPath, ContextNone:
 	}
+	return categoryFunction | categoryUnit | categoryValue
 }
 
 func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {

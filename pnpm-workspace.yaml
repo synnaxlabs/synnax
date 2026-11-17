@@ -11,6 +11,7 @@ packages:
   - alamos/ts
   - arc/ts
   - client/ts
+  - client/ts/examples/node
   - configs/**
   - console
   - drift
@@ -80,6 +81,7 @@ allowBuilds:
   sharp: true
 
 catalog:
+  '@arethetypeswrong/cli': ^0.18.5
   '@astrojs/check': ^0.9.10
   '@astrojs/markdown-satteri': ^0.4.10
   '@astrojs/mdx': ^8.1.0
@@ -180,6 +182,7 @@ catalog:
   eslint-plugin-simple-import-sort: ^14.0.0
   fake-indexeddb: ^6.2.6
   fflate: ^0.8.3
+  fractional-indexing: 3.2.0
   globals: ^17.13.0
   gray-matter: ^4.0.3
   hast-util-from-html: ^2.0.3

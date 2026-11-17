@@ -89,7 +89,7 @@ func (i indexes) references() []gorp.Reference[Key, Named] {
 	}
 }
 
-// MatchSearch matches the nameds whose text matches term.
+// MatchSearch matches the colors whose text matches term.
 // The closest match comes first.
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Named] {
@@ -100,7 +100,7 @@ func MatchSearch(term string) Filter {
 // Order is a sort that OrderBy applies. An OrderBy function builds one.
 type Order func(r Retrieve) gorp.OrderQuery[Key, Named]
 
-// OrderBy walks the nameds in the order o defines.
+// OrderBy walks the colors in the order o defines.
 func (r Retrieve) OrderBy(o Order) Retrieve {
 	r.gorp = r.gorp.OrderBy(o(r))
 	return r
@@ -160,7 +160,7 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Named](f)
 }
 
-// Search filters the nameds to those whose text matches
+// Search filters the colors to those whose text matches
 // term, closest match first. An empty term adds no filter.
 func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
@@ -170,7 +170,7 @@ func (r Retrieve) Search(term string) Retrieve {
 }
 
 // MatchKeys returns a filter that restricts results to
-// nameds whose key matches any of the provided
+// colors whose key matches any of the provided
 // values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
@@ -181,7 +181,7 @@ func MatchKeys(keys ...Key) Filter {
 }
 
 // MatchNames returns a filter for
-// nameds whose Name matches any of the
+// colors whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Named] {
@@ -199,7 +199,7 @@ func MatchNames(vals ...string) Filter {
 	}
 }
 
-// MatchGroups returns a filter for nameds
+// MatchGroups returns a filter for colors
 // whose Group matches any of the provided
 // values.
 func MatchGroups(vals ...group.Key) Filter {
@@ -208,7 +208,7 @@ func MatchGroups(vals ...group.Key) Filter {
 	}
 }
 
-// MatchHasGroup returns a filter for nameds whose
+// MatchHasGroup returns a filter for colors whose
 // Group holds a target when has is true, and holds none when has is false.
 func MatchHasGroup(has bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Named] {
@@ -217,7 +217,7 @@ func MatchHasGroup(has bool) Filter {
 }
 
 // setGroup returns an update that sets the Group of the
-// nameds with keys to v.
+// colors with keys to v.
 func setGroup(
 	table *gorp.Table[Key, Named],
 	v *group.Key,
@@ -240,22 +240,22 @@ func (r Retrieve) Where(filter Filter) Retrieve {
 	return r
 }
 
-// Entry binds the provided named as the result container for the
-// query. If multiple nameds match, the first one is
+// Entry binds the provided color as the result container for the
+// query. If multiple colors match, the first one is
 // used.
 func (r Retrieve) Entry(e *Named) Retrieve {
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of nameds as the
+// Entries binds the provided slice of colors as the
 // result container for the query.
 func (r Retrieve) Entries(es *[]Named) Retrieve {
 	r.gorp = r.gorp.Entries(es)
 	return r
 }
 
-// Limit sets the maximum number of nameds to return.
+// Limit sets the maximum number of colors to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
 // After starts the query strictly past key in key order. It panics on a query with an
@@ -265,7 +265,7 @@ func (r Retrieve) After(key Key) Retrieve {
 	return r
 }
 
-// SkipMissingKeys makes Exec treat a key with no named as a
+// SkipMissingKeys makes Exec treat a key with no color as a
 // non-match instead of returning query.ErrNotFound.
 func (r Retrieve) SkipMissingKeys() Retrieve {
 	r.gorp = r.gorp.SkipMissingKeys()
@@ -277,13 +277,13 @@ func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
 	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of nameds in snap that match
+// Count returns the number of colors in snap that match
 // the query. It panics when snap is nil.
 func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
 	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any nameds in snap match the
+// Exists checks whether any colors in snap match the
 // query. It panics when snap is nil.
 func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
 	return r.gorp.Exists(ctx, snap)

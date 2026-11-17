@@ -197,6 +197,7 @@ import {
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
   PiSlidersHorizontalBold,
+  PiSwatches,
   PiTreeViewBold,
   PiUploadSimple,
   PiWaveformBold,
@@ -527,6 +528,7 @@ export const Type = wrapSVGIcon(MdTypeSpecimen, "type");
 export const Array = wrapSVGIcon(MdDataArray, "array");
 export const Label = wrapSVGIcon(MdLabel, "label");
 export const Library = wrapSVGIcon(PiBooks, "library");
+export const Swatches = wrapSVGIcon(PiSwatches, "swatches");
 export const Sliders = wrapSVGIcon(PiSlidersHorizontalBold, "sliders");
 export const Details = wrapSVGIcon(MdOutlineTableRows, "details");
 export const LinkExternal = wrapSVGIcon(BiLinkExternal, "link-external");
@@ -732,6 +734,7 @@ const icons = {
   Array,
   Label,
   Library,
+  Swatches,
   Details,
   LinkExternal,
   Access,

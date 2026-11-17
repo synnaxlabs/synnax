@@ -194,4 +194,25 @@ var _ = Describe("Ferrors", Ordered, func() {
 			)
 		})
 	})
+
+	Describe("ParsePayload", func() {
+		It("Should parse the text of Payload.Error", func() {
+			p := errors.Payload{Type: "sy.validation", Data: "bad field"}
+			Expect(errors.ParsePayload(p.Error())).To(Equal(p))
+		})
+
+		It("Should parse text in any other form as an unknown payload", func() {
+			Expect(errors.ParsePayload("connection reset")).To(Equal(errors.Payload{
+				Type: errors.TypeUnknown,
+				Data: "connection reset",
+			}))
+		})
+
+		It("Should parse text with more than one separator as unknown", func() {
+			Expect(errors.ParsePayload("a---b---c")).To(Equal(errors.Payload{
+				Type: errors.TypeUnknown,
+				Data: "a---b---c",
+			}))
+		})
+	})
 })

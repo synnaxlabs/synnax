@@ -1,12 +1,17 @@
 {
-  "name": "examples",
-  "type": "module",
-  "main": "index.js",
+  "name": "@synnaxlabs/client-examples",
   "private": true,
+  "type": "module",
   "scripts": {
-    "main": "node index.js"
+    "check-types": "tsc --noEmit",
+    "examples": "node basicReadWrite.js && node createChannels.js && node createRange.js && node readLatest.js && node seriesAndFrames.js"
   },
   "dependencies": {
-    "@synnaxlabs/client": "^0.58.1"
+    "@synnaxlabs/client": "catalog:"
+  },
+  "devDependencies": {
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
   }
 }

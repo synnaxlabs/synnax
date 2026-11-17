@@ -405,14 +405,7 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 			return nil, err
 		}
 		if err == nil && existing.AST != nil {
-			tok := existing.AST.GetStart()
-			return nil, errors.Newf(
-				"name %s conflicts with existing %s at line %d, col %d",
-				sym.Name,
-				existing.Kind.noun(),
-				tok.GetLine(),
-				tok.GetColumn(),
-			)
+			return nil, existing.NameConflict()
 		}
 	}
 	child := &Symbol{}
@@ -439,9 +432,51 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 		}
 	case KindInput, KindOutput, KindLoopVariable:
 		child.ID = s.addIndex()
+	case KindChannel, KindFunction, KindBlock, KindSequence, KindStage, KindConstant,
+		KindLoop, KindModule, KindModuleAlias, KindAmbient:
 	}
 	s.children = append(s.children, child)
 	return child, nil
+}
+
+// NameConflict returns the error for a declaration that reuses the name of s.
+func (s *Symbol) NameConflict() error {
+	tok := s.AST.GetStart()
+	return errors.Newf(
+		"name %s conflicts with existing %s at line %d, col %d",
+		s.Name,
+		s.Kind.noun(),
+		tok.GetLine(),
+		tok.GetColumn(),
+	)
+}
+
+// Shadowers returns the nested declarations that reuse the name of s.
+func (s *Symbol) Shadowers() []*Symbol {
+	var shadowers []*Symbol
+	for _, sibling := range s.Parent.children {
+		shadowers = sibling.appendValues(s.Name, shadowers)
+	}
+	return shadowers
+}
+
+func (s *Symbol) appendValues(name string, values []*Symbol) []*Symbol {
+	for _, child := range s.children {
+		switch child.Kind {
+		case KindVariable,
+			KindStatefulVariable,
+			KindLoopVariable,
+			KindInput,
+			KindOutput:
+			if child.Name == name && child.AST != nil && !child.Internal {
+				values = append(values, child)
+			}
+		case KindChannel, KindFunction, KindBlock, KindSequence, KindStage,
+			KindConstant, KindLoop, KindModule, KindModuleAlias, KindAmbient:
+		}
+		values = child.appendValues(name, values)
+	}
+	return values
 }
 
 // noun returns a human-readable noun for k, used in diagnostics so a
@@ -466,9 +501,9 @@ func (k Kind) noun() string {
 		return "constant"
 	case KindModule, KindModuleAlias:
 		return "import"
-	default:
-		return "symbol"
+	case KindBlock, KindLoop, KindAmbient:
 	}
+	return "symbol"
 }
 
 // AddChild appends each already-constructed child to s.children and sets

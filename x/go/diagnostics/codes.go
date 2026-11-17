@@ -32,13 +32,12 @@ type Kind struct {
 
 // At returns a diagnostic of the kind at ctx. args fill the verbs of Message.
 func (k Kind) At(ctx antlr.ParserRuleContext, args ...any) Diagnostic {
-	d := Diagnostic{
+	return Diagnostic{
 		Code:     k.Code,
 		Severity: k.Severity,
 		Message:  fmt.Sprintf(k.Message, args...),
+		Range:    rangeOf(ctx),
 	}
-	d.SetRange(ctx)
-	return d
 }
 
 // Wrap returns a diagnostic of the kind at ctx with the message of err.

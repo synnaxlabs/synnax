@@ -13,6 +13,7 @@ import (
 	"embed"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,12 +84,13 @@ func assertMigrated(fixture string, got v1.Table) {
 	)
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
-	p := filepath.Join("testdata", stem+".migrated.json")
+	name := stem + ".migrated.json"
+	p := filepath.Join("testdata", name)
 	if os.Getenv("UPDATE_MIGRATED") == "1" {
 		Expect(os.WriteFile(p, pretty, 0o644)).To(Succeed())
 		return
 	}
-	expected := MustSucceed(os.ReadFile(p))
+	expected := MustSucceed(fs.ReadFile(os.DirFS("testdata"), name))
 	Expect(pretty).To(MatchJSON(expected),
 		"%s drifted from its canonical migrated form — review the diff and rerun with UPDATE_MIGRATED=1 if intentional", fixture)
 }

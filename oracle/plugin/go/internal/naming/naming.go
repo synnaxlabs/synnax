@@ -112,13 +112,14 @@ func LowerFirst(s string) string {
 	if i == 0 {
 		return s
 	}
-	if i == 1 {
+	switch {
+	case i == 1:
 		runes[0] = unicode.ToLower(runes[0])
-	} else if i == len(runes) {
+	case i == len(runes):
 		for j := range runes {
 			runes[j] = unicode.ToLower(runes[j])
 		}
-	} else {
+	default:
 		for j := range i - 1 {
 			runes[j] = unicode.ToLower(runes[j])
 		}

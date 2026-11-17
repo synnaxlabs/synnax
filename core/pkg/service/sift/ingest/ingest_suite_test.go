@@ -104,8 +104,8 @@ func write(
 	data map[channel.Key]telem.Series,
 ) {
 	GinkgoHelper()
-	keys := channel.Keys{idx.Key()}
-	series := []telem.Series{telem.NewSeries(stamps)}
+	keys := append(make(channel.Keys, 0, 1+len(data)), idx.Key())
+	series := append(make([]telem.Series, 0, 1+len(data)), telem.NewSeries(stamps))
 	for key, s := range data {
 		keys = append(keys, key)
 		series = append(series, s)

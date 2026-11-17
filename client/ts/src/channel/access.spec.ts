@@ -144,8 +144,7 @@ describe("channel", () => {
       });
       await expect(userClient.channels.delete(ch.key)).rejects.toThrow(
         new ValidationError(
-          `cannot delete channel ${ch.name} because task ${task.key} uses it: ` +
-            "validation error",
+          `cannot delete channel ${ch.name} because task ${task.key} uses it`,
         ),
       );
       await client.tasks.delete(task.key);

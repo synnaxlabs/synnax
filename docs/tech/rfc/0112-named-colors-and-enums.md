@@ -66,6 +66,12 @@ deviates from RFC 0061 rule 4 (`docs/tech/rfc/0061-theme-resolved-color.md:59-60
 stays Synnax-blind (RFC 0070 §3): it resolves a light and dark pair that its caller
 passes, and the picker shows the groups that its caller passes.
 
+A named color has an optional `position`, a fractional index key. A palette sorts its
+colors by position, compared by code point, and a color with none comes last. A move
+writes a key between its two neighbors, so it changes only the moved color, as in Figma
+([Figma](https://www.figma.com/blog/realtime-editing-of-ordered-sequences/)). The Core
+refuses a key that is not valid. Palettes sort by name.
+
 Built-in named colors are normal records with fixed keys. At startup, the Core makes
 each built-in that is missing, as it makes a missing built-in role
 (`core/pkg/service/access/rbac/builtin/provision.go:117-119`). Unlike a built-in role, a
@@ -150,14 +156,16 @@ that matches no entry keeps today's look and gets the unknown indicator: a
 
 ### 4.4 Series colors
 
-Eight built-in named colors, each with a light and a dark value, replace the 14. Each
-value has 3:1 contrast on the canvas of its theme. Under normal vision and each color
-vision deficiency that `color.simulate` models, no two of the eight are closer than 0.05
-in OKLab, in either theme. The eight keep the hues of `#DC136C`, `#20A4F3`, `#FE5F55`,
-`#8075FF`, `#F7AEF8`, `#F18F01`, `#791E94`, and `#52FFB8` from today's list, and a hue
-moves only to pass a check. A new line gets the first series color that no other line in
-its plot uses, and stores its key. Past eight lines, it gets the series color used least
-in its plot, and a tie goes to the first in order. A user can pick any color.
+Sixteen built-in named colors in a palette named "Series", each with a light and a dark
+value, replace the 14. Each value has 3:1 contrast on the canvas of its theme. Under
+normal vision and each color vision deficiency that `color.simulate` models, no two of
+the first eight are closer than 0.05 in OKLab, in either theme. The first eight keep the
+hues of `#DC136C`, `#20A4F3`, `#52FFB8`, `#F18F01`, `#FE5F55`, `#8075FF`, `#F7AEF8`, and
+`#791E94` from today's list, and a hue moves only to pass a check. The last eight fill
+the hue gaps and pass only the contrast check: a repeated color is a sure mix-up, and a
+near color only a possible one. A new line gets the first series color that no other
+line in its plot uses, and stores its key. Past 16 lines, it gets the series color used
+least in its plot, and a tie goes to the first by position. A user can pick any color.
 
 ### 4.5 Editor checks
 
@@ -225,9 +233,9 @@ PRs #4260 (color v2), #5621 (configs on nodes, group membership as `Node.parent`
 #5625 (WCAG contrast), #5626 (custom strokes through the band), #5627 (table cells in
 rows), and #5632 (`on_delete inline` in Oracle) are merged.
 
-Phases 9, 16, and 21 ship behind one flag in `console/src/flags.ts`. Phases 10 and 11
-ship in one release, and phases 19 to 22 in one release with RFC 0114 phase 2. Phase 19
-needs RFC 0114 phase 1.
+Phases 16 and 21 ship behind one flag in `console/src/flags.ts`. Phase 9 ships without a
+flag. Phases 10 and 11 ship in one release, and phases 19 to 22 in one release with RFC
+0114 phase 2. Phase 19 needs RFC 0114 phase 1.
 
 | Phase | Scope                                                    | Touches                                                                                                                                           | Depends on     |
 | ----- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
@@ -239,7 +247,7 @@ needs RFC 0114 phase 1.
 | 6     | Add named colors to the clients and Pluto queries        | `client/ts/src/color`, `client/py/synnax/color`, `pluto/src/color`                                                                                | 4              |
 | 7     | Resolve a light and dark pair for the theme mode in Lyra | `lyra/src/theme`, `lyra/src/color`                                                                                                                | -              |
 | 8     | Store a color reference from the color picker            | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`                                                                                            | 7              |
-| 9     | Add the Console named color toolbar and editor           | `console/src/feature/color`, `console/src/flags.ts`                                                                                               | 3, 6, 8        |
+| 9     | Add the Console named color toolbar and editor           | `console/src/feature/color`                                                                                                                       | 3, 6, 8        |
 | 10    | Store color references on line plot lines and rules      | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`                                                                                        | 5              |
 | 11    | Resolve and write line color references in Pluto         | `pluto/src/lineplot`, `console/src/feature/lineplot`                                                                                              | 6, 7, 10       |
 | 12    | Read every data color from the series colors             | `lyra/src/theme`, `pluto/src`                                                                                                                     | 5, 6, 7, 8, 11 |
@@ -314,7 +322,7 @@ the start. In phase 29, the Driver writes range colors
     is in two places and can drift.
 12. **One migration at upgrade**: A manual "Make enum" action keeps two code paths.
 13. **The plot migration writes fixed colors**: Series keys by position recolor old
-    plots, because 8 colors replace 14.
+    plots, because 16 colors replace 14.
 14. **Built-ins keep a vibrant look**: Gray until abnormal changes every schematic.
 15. **Exact values, and a stored band for two-state states**: Selects and buttons write
     one value, so an entry is one value. Valves, pumps, and lights store today's band on
@@ -333,7 +341,12 @@ the start. In phase 29, the Driver writes range colors
     a swatch, and the `named` variant names a `color.Named`. The trade is real: the
     Synnax `color` schema shares its name with the x value type, so Oracle aliases one
     import where a file uses both.
-20. **Node overrides move into symbol copies**: Overrides that an enum cannot carry go
+20. **Colors keep a stored position**: The series order picks the color of each new
+    line. A name order lets a rename or a new color change that pick, so a name binds
+    the color. Figma stores the order of its styles the same way. The trade is real: no
+    other record stores an order that a user sets, and the Console needs a drag to
+    reorder.
+21. **Node overrides move into symbol copies**: Overrides that an enum cannot carry go
     to a copy of the symbol, so no node repaints at upgrade. Dropping them repaints
     nodes that users colored by hand. The trade is real: the symbol tree gains copies,
     and a copied node misses later edits to its source symbol's drawing, commands, and

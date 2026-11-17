@@ -9,6 +9,10 @@
 
 from __future__ import annotations
 
+# On Python 3.15 and later, pandas loads on first use. Older versions ignore this.
+__lazy_modules__ = ["pandas"]
+
+import sys
 import uuid
 from datetime import UTC, datetime, timedelta, tzinfo
 from fractions import Fraction
@@ -64,7 +68,9 @@ def _int64(value: int, name: str) -> int:
 def _stamp_nanoseconds(value: CrudeTimeStamp) -> int:
     if isinstance(value, str):
         return int(value)
-    if isinstance(value, pd.Timestamp):
+    # A value cannot be a pandas object while pandas is not loaded, and the check
+    # keeps pandas unloaded.
+    if "pandas" in sys.modules and isinstance(value, pd.Timestamp):
         return int(value.value)
     if isinstance(value, datetime):
         return _timedelta_nanoseconds(value.astimezone() - _EPOCH)
@@ -82,7 +88,7 @@ def _stamp_nanoseconds(value: CrudeTimeStamp) -> int:
 def _span_nanoseconds(value: CrudeTimeSpan) -> int:
     if isinstance(value, str):
         return int(value)
-    if isinstance(value, pd.Timedelta):
+    if "pandas" in sys.modules and isinstance(value, pd.Timedelta):
         return int(value.value)
     if isinstance(value, timedelta):
         return _timedelta_nanoseconds(value)

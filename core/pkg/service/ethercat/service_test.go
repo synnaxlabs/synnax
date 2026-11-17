@@ -230,20 +230,21 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			var applied []gorp.Migration
-			for _, key := range []string{
+			keys := []string{
 				"normalize_keys",
 				"v0.status_backfill",
 				"msgpack_to_orc",
 				"v54_drop_status_parent",
 				"v59_http_health_check_lists",
-			} {
-				applied = append(applied, migrate.New(
+			}
+			applied := make([]gorp.Migration, len(keys))
+			for i, key := range keys {
+				applied[i] = migrate.New(
 					key,
 					func(context.Context, gorp.Tx, alamos.Instrumentation) error {
 						return nil
 					},
-				))
+				)
 			}
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
@@ -300,9 +301,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose one store per EtherCAT task type", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf(
 				"ethercat_read",
