@@ -2126,6 +2126,58 @@ var _ = Describe("Read task", func() {
 				Expect(again.Description).To(Equal(stat.Description))
 			})
 
+			It("Should keep the status of a failed configure after a stop command",
+				func(ctx SpecContext) {
+					topic, dt, t := begin(ctx, ic, m, index, data)
+					Eventually(latest(ctx, topic, data)).Should(Equal(2.0))
+					removeValue(ctx)
+					Eventually(func() string { return taskStatus(ctx, t).Message }).
+						Should(Equal("Failed to configure task"))
+					Expect(dt.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
+						To(Succeed())
+					stat := taskStatus(ctx, t)
+					Expect(stat.Message).To(Equal("Failed to configure task"))
+					Expect(stat.Variant).To(Equal(status.VariantError))
+					Expect(stat.Details.Cmd).To(Equal("stop"))
+				},
+			)
+
+			It("Should start after a save fixes the ICD that broke it",
+				func(ctx SpecContext) {
+					topic, dt, t := begin(ctx, ic, m, index, data)
+					Eventually(latest(ctx, topic, data)).Should(Equal(2.0))
+					removeValue(ctx)
+					Eventually(func() string { return taskStatus(ctx, t).Message }).
+						Should(Equal("Failed to configure task"))
+					after := fieldKey(m, 0).String()
+					editICD(ctx, ic.Key, icd.NewInsertAction(icd.InsertPayload{
+						Path:  fieldsPath(m),
+						Value: m.Payload.Variant.(icd.JSONPayload).Fields[1],
+						After: &after,
+					}))
+					// The factory rebuilds the records on its own goroutine.
+					Eventually(func(g Gomega) {
+						g.Expect(dt.Exec(ctx, task.Command{Type: "start", Key: "fixed"})).
+							To(Succeed())
+						g.Expect(taskStatus(ctx, t).Message).To(Equal("Started task"))
+					}).Should(Succeed())
+					Eventually(latest(ctx, topic, data)).Should(Equal(2.0))
+				},
+			)
+
+			It("Should start a task stopped across a save with the new definition",
+				func(ctx SpecContext) {
+					topic, dt, _ := begin(ctx, ic, m, index, data)
+					Eventually(latest(ctx, topic, data)).Should(Equal(2.0))
+					Expect(dt.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
+						To(Succeed())
+					setScale(ctx, 10)
+					Expect(dt.Exec(ctx, task.Command{Type: "start", Key: "start"})).
+						To(Succeed())
+					Eventually(latest(ctx, topic, data)).Should(Equal(20.0))
+				},
+			)
+
 			It("Should leave a task that reads another ICD untouched",
 				func(ctx SpecContext) {
 					otherMsg := stampedMessage("Reading", nil)

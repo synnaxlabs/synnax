@@ -247,7 +247,22 @@ func (f *Factory) reconfigureRead(ctx context.Context, t *readTask) {
 			zap.Error(stopErr),
 		)
 	}
-	f.reporter().Report(ctx, t.task, driver.NoCommand, err)
+	// The task's own handler records the failure, so a later stop does not restore the
+	// status that it held before.
+	if sErr := t.status.Send(
+		ctx,
+		driver.NoCommand,
+		status.VariantError,
+		false,
+		"Failed to configure task",
+		err.Error(),
+	); sErr != nil {
+		f.cfg.L.Error(
+			"failed to set configuration status",
+			zap.Stringer("task", t.task.Key),
+			zap.Error(sErr),
+		)
+	}
 }
 
 // Name implements driver.Factory.
