@@ -49,9 +49,8 @@ export interface ChannelSettingsProps {
 /**
  * Edits the settings that the read task writes to the input that the channel reads, as
  * the catalog of the channel's slave describes them. Channels that read one input share
- * its settings. For a slave that other software sets up, shows the values that the
- * input held at the scan, and the user cannot change them. Renders nothing for an entry
- * that the catalog does not describe.
+ * its settings. For a slave that other software sets up, shows the values from the
+ * scan, read only. Renders nothing for an entry that the catalog does not describe.
  */
 export const ChannelSettings = ({
   path,

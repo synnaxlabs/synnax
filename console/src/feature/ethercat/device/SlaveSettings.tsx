@@ -43,9 +43,8 @@ const setParameter = (
 
 /**
  * Edits the fields of the whole slave that its catalog describes. Each field is a
- * startup parameter. For a slave that other software sets up, shows the values that
- * the slave held at the scan, and the user cannot change them. Renders nothing for a
- * slave whose catalog describes none.
+ * startup parameter. For a slave that other software sets up, shows the values from the
+ * scan, read only. Renders nothing for a slave whose catalog describes none.
  */
 export const SlaveSettings = (): ReactElement | null => {
   const properties = Form.useFieldValue(PATH);

@@ -434,6 +434,12 @@ describe("Read", () => {
     const measurement = screen.getByRole("button", { name: /^Measurement/ });
     expect(measurement.getAttribute("aria-disabled")).toBe("true");
     expect(measurement.textContent).toContain("Bridge");
+    expect(screen.getByLabelText<HTMLInputElement>("Excitation voltage").disabled).toBe(
+      true,
+    );
+    expect(
+      screen.queryByText("A bridge needs an excitation voltage above 0 V."),
+    ).toBeNull();
   });
 
   it("should show no value for a setting that the scan did not read on a slave that DewesoftX sets up", async () => {

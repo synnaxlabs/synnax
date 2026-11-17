@@ -164,8 +164,6 @@ const stopTasks = async (tasks: task.Task[]): Promise<void> => {
 const isRunning = (t: task.Task): boolean =>
   (t.type === READ_TYPE || t.type === WRITE_TYPE) && t.status?.details.running === true;
 
-const taskDevices = (t: task.Task): device.Key[] => devicesOf(t.config);
-
 /** @returns the tasks with a channel on a slave of the network. */
 const onNetwork = (
   tasks: task.Task[],
@@ -175,7 +173,7 @@ const onNetwork = (
   const keys = new Set(
     slaves.filter((s) => s.properties.network === network).map((s) => s.key),
   );
-  return tasks.filter((t) => taskDevices(t).some((k) => keys.has(k)));
+  return tasks.filter((t) => devicesOf(t.config).some((k) => keys.has(k)));
 };
 
 /**
@@ -191,7 +189,7 @@ const stopTasksOnNetwork = async (
   const running = (await client.tasks.retrieve({ rack, includeStatus: true })).filter(
     isRunning,
   );
-  const keys = unique.unique(running.flatMap(taskDevices));
+  const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
   const slaves =
     keys.length === 0
       ? []
@@ -217,7 +215,8 @@ export const useRunningOnNetwork = (
       where: { rack: { eq: rackKey }, type: { in: [READ_TYPE, WRITE_TYPE] } },
     }).data ?? [];
   const running = tasks.filter(isRunning);
-  const slaves = useSlavesByKeys(unique.unique(running.flatMap(taskDevices))) ?? [];
+  const slaves =
+    useSlavesByKeys(unique.unique(running.flatMap((t) => devicesOf(t.config)))) ?? [];
   return onNetwork(running, slaves, network);
 };
 
