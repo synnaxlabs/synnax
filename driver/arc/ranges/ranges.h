@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -44,9 +45,13 @@ class Calls {
     /// @brief held while a report runs, which can wait on the Core.
     std::mutex report_mu;
     Reporter reporter;
+    struct Refused {
+        size_t count = 0;
+        std::string reason;
+    };
     std::mutex refused_mu;
-    size_t refused_creates = 0;
-    std::string refused_reason;
+    /// @brief the refused calls by the message that reports them.
+    std::map<std::string, Refused> refused;
 
 public:
     explicit Calls(Reporter reporter): reporter(std::move(reporter)) {}
@@ -57,28 +62,31 @@ public:
         if (this->reporter != nullptr) this->reporter(message, description);
     }
 
-    /// @brief counts a create the outbox refused, without waiting on the Core.
-    void refuse(const std::string &reason) {
+    /// @brief counts a call the outbox refused, to report later as message, without
+    /// waiting on the Core.
+    /// @returns true when no other refused call waits for a report.
+    bool refuse(const std::string &message, const std::string &reason) {
         std::lock_guard lock(this->refused_mu);
-        this->refused_creates++;
-        this->refused_reason = reason;
+        const bool first = this->refused.empty();
+        auto &r = this->refused[message];
+        r.count++;
+        r.reason = reason;
+        return first;
     }
 
-    /// @brief reports the creates refused since the last call, if any. It can wait on
+    /// @brief reports the calls refused since the last call, if any. It can wait on
     /// the Core, so only the outbox thread calls it.
     void report_refused() {
-        size_t count = 0;
-        std::string reason;
+        std::map<std::string, Refused> reports;
         {
             std::lock_guard lock(this->refused_mu);
-            count = std::exchange(this->refused_creates, 0);
-            reason = this->refused_reason;
+            std::swap(reports, this->refused);
         }
-        if (count == 0) return;
-        this->report(
-            CREATE_FAILURE_MSG,
-            reason + " Dropped " + std::to_string(count) + " creates."
-        );
+        for (const auto &[message, r]: reports)
+            this->report(
+                message,
+                r.reason + " Dropped " + std::to_string(r.count) + " calls."
+            );
     }
 
     /// @brief stops reports, and waits for a report in progress, so the reporter can
@@ -94,10 +102,22 @@ inline ::driver::outbox::RangeDone
 on_done(const std::shared_ptr<Calls> &calls, const std::string &message) {
     return [weak = std::weak_ptr(calls), message](const x::errors::Error &err) {
         const auto calls = weak.lock();
-        if (calls == nullptr) return;
-        calls->report_refused();
-        if (err) calls->report(message, err.data);
+        if (calls != nullptr && err) calls->report(message, err.data);
     };
+}
+
+/// @brief counts a call the outbox refused, and reports it from the send thread of
+/// the outbox.
+inline void refuse(
+    ::driver::outbox::Outbox &outbox,
+    const std::shared_ptr<Calls> &calls,
+    const std::string &message,
+    const std::string &reason
+) {
+    if (!calls->refuse(message, reason)) return;
+    outbox.post([weak = std::weak_ptr(calls)] {
+        if (const auto calls = weak.lock(); calls != nullptr) calls->report_refused();
+    });
 }
 
 /// @brief queues the create of an open range that starts now, and reports failures
@@ -149,7 +169,7 @@ inline std::string queue_create(
         r.parent = uid;
     }
     if (const auto err = outbox.create_range(r, on_done(calls, CREATE_FAILURE_MSG))) {
-        calls->refuse(err.data);
+        refuse(outbox, calls, CREATE_FAILURE_MSG, err.data);
         return "";
     }
     return r.key.to_string();
@@ -176,8 +196,7 @@ inline std::string queue_end(
             x::telem::TimeStamp::now(),
             on_done(calls, END_FAILURE_MSG)
         )) {
-        // The range stays open, so the task warns at once.
-        calls->report(END_FAILURE_MSG, err.data);
+        refuse(outbox, calls, END_FAILURE_MSG, err.data);
         return "";
     }
     return uid.to_string();
