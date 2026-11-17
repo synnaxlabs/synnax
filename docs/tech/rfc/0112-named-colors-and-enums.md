@@ -214,20 +214,21 @@ The schematic cutover ships in one release:
   symbol's entry colors sets the colors of the node's enumeration. When any stroke or
   fill would then show a color other than its override, such as a second `entry` look
   whose override kept the symbol's colors, the node moves to a copy of the symbol that
-  keeps each such paint as a `color` look. Nodes share one copy only when they have the
-  same source symbol and the same overrides. A node whose overrides equal its symbol
-  needs neither, so no node changes its look.
+  keeps each such paint as a `color` look. Within one upgrade run, nodes share one copy
+  only when they have the same source symbol and the same overrides. A node whose
+  overrides equal its symbol needs neither, so no node changes its look.
 - The upgrade runs as a composition migration, as panels do
   (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
   state lists beside the converted schematic, and its write step
   (`core/pkg/service/schematic/imex.go:45-64`) makes the enumerations and the symbol
   copies with the same function as the upgrade. An import reuses an enumeration with
-  equal content, or a symbol copy with the same source symbol and equal content, among
-  the records that the importer can retrieve, as the upgrade shares them, and adds a new
-  one otherwise. A copy goes into the group of its source symbol. The import needs
-  retrieve access on the source symbol of each copy that it adds, create access for each
-  record that it adds, and update access on the group of each copy. A node that gets
-  `missing` (RFC 0114 §4.5) keeps no overrides.
+  equal content among the records that the importer can retrieve. It reuses a stored
+  symbol only when the importer can retrieve it and its whole spec is equal (drawing,
+  parts, states, commands, looks, and interactions), so no copy stores a link to its
+  source. Otherwise the import adds a new record. A copy goes into the group of its
+  source symbol. The import needs retrieve access on the source symbol of each copy that
+  it adds, create access for each record that it adds, and update access on the group of
+  each copy. A node that gets `missing` (RFC 0114 §4.5) keeps no overrides.
 - From phase 19, a schematic export bundles every enumeration that its nodes name. RFC
   0114 phase 1 adds the same to symbol files, and RFC 0114 phase 2 to the custom symbols
   and state bindings of a schematic file. An import matches a bundled enumeration by its
