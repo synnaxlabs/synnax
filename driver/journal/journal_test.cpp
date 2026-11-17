@@ -244,6 +244,15 @@ TEST_F(JournalTest, LengthPastEndEndsLog) {
 /// @brief it should return CORRUPT for a valid record with type 0.
 TEST_F(JournalTest, TypeZeroIsCorrupt) {
     this->write({});
+    append_file(this->path, encode(0, "a"));
+    const auto reader = this->open_reader();
+    ASSERT_OCCURRED_AS_P(reader->next(), CORRUPT);
+    ASSERT_OCCURRED_AS_P(Writer::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
+}
+
+/// @brief it should return CORRUPT for a valid record with only the SKIPPABLE bit.
+TEST_F(JournalTest, SkippableTypeZeroIsCorrupt) {
+    this->write({});
     append_file(this->path, encode(SKIPPABLE, "a"));
     const auto reader = this->open_reader();
     ASSERT_OCCURRED_AS_P(reader->next(), CORRUPT);
