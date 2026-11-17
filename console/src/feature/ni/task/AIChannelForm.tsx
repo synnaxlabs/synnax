@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { deep, record } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, type ReactNode } from "react";
 
 import { Select } from "@/feature/ni/device/Select";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
@@ -449,9 +449,7 @@ const VelocitySensitivityUnitsField = Form.buildSelectField<VelocitySensitivityU
 });
 
 const ThermocoupleForm: FC<FormProps<"ai_thermocouple">> = ({ path }) => {
-  const cjcSource = Form.useFieldValue(path.cjc.source, {
-    optional: true,
-  });
+  const cjcSource = Form.useFieldState(path.cjc.source, { optional: true });
   const units = Form.useFieldValue(path.units, {
     optional: true,
   });
@@ -459,13 +457,13 @@ const ThermocoupleForm: FC<FormProps<"ai_thermocouple">> = ({ path }) => {
     <>
       <ThermocoupleTypeField path={path.thermocoupleType} />
       <CJCSourceField path={path.cjc} />
-      {cjcSource === "const_val" && (
+      {cjcSource?.mixed !== true && cjcSource?.value === "const_val" && (
         <Form.NumericField
           path={deep.variant(path.cjc, "source", "const_val").val}
           label="CJC value"
         />
       )}
-      {cjcSource === "chan" && (
+      {cjcSource?.mixed !== true && cjcSource?.value === "chan" && (
         <Form.NumericField
           path={deep.variant(path.cjc, "source", "chan").port}
           label="CJC port"
@@ -986,6 +984,24 @@ export interface AIChannelFormProps {
 
 const TypeFields = createTypeFields<AIChannel>(CHANNEL_FORMS);
 
+export interface AIChannelSettingsProps {
+  type: AIChannelType;
+  path: deep.Path<AIChannel>;
+  /** Shown first in the signal section. */
+  children?: ReactNode;
+}
+
+/** The signal fields of the type, and the custom scale. */
+export const AIChannelSettings = ({ type, path, children }: AIChannelSettingsProps) => (
+  <>
+    <Form.Section title="Signal">
+      {children}
+      <TypeFields type={type} path={path} />
+    </Form.Section>
+    <CustomScaleSection path={path} />
+  </>
+);
+
 export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) => {
   const device = useChannelDevice(path);
   const port = useAnalogInputPort(path);
@@ -1004,15 +1020,13 @@ export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) 
           />
         )}
       </Form.Section>
-      <Form.Section title="Signal">
+      <AIChannelSettings type={type} path={path}>
         <SelectAIChannelTypeField
           path={path}
           hardware={device?.properties.hardware}
           inputProps={{ allowNone: false, children: channelTypeItems(types) }}
         />
-        <TypeFields type={type} path={path} />
-      </Form.Section>
-      <CustomScaleSection path={path} />
+      </AIChannelSettings>
     </Form.Sections>
   );
 };

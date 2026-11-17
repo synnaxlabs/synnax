@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { NI } from "@/feature/ni";
 import {
@@ -34,6 +35,7 @@ import {
   getInputTable,
   getLabeledInput,
   uniqueName,
+  withControlHeld,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -438,6 +440,137 @@ describe("AnalogRead", () => {
       { deviceKey: dev.key },
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
+  });
+});
+
+describe("AnalogRead with several selected channels", () => {
+  const renderSelected = async (channels: NI.Task.AIChannel[]) => {
+    const rendered = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels,
+    });
+    fireEvent.click(await findChannelListItem(channels[0].name));
+    withControlHeld(() => {
+      for (const ch of channels.slice(1)) fireEvent.click(screen.getByText(ch.name));
+    });
+    expect(await screen.findByText(`${channels.length} channels`)).toBeTruthy();
+    return rendered;
+  };
+
+  it("should set the range of every selected channel", async () => {
+    const { draft } = await renderSelected([
+      createChannel("ai_voltage", 0, { name: "chan_a", minVal: -10 }),
+      createChannel("ai_voltage", 1, { name: "chan_b", minVal: -5 }),
+    ]);
+    expect(await screen.findByText("Mixed")).toBeTruthy();
+    commitFieldInput(screen.getByLabelText<HTMLInputElement>("Minimum value"), "-2");
+    await waitFor(() => expect(screen.queryByText("Mixed")).toBeNull());
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.ANALOG_READ_SCHEMAS,
+      });
+      const mins = saved.config.channels.map((c) =>
+        c.type === "ai_voltage" ? c.minVal : null,
+      );
+      expect(mins).toEqual([-2, -2]);
+    });
+  });
+
+  // Specs read the stored config raw, since the schemas fill a missing slope or value.
+  const storedChannelsZ = z.object({
+    channels: z.array(
+      z.object({
+        customScale: z.record(z.string(), z.unknown()).optional(),
+        cjc: z.record(z.string(), z.unknown()).optional(),
+      }),
+    ),
+  });
+
+  const storedChannels = async (key: task.Key) =>
+    storedChannelsZ.parse((await client.tasks.retrieve({ key })).config).channels;
+
+  const NEWTONS = NI.Task.SCALE_SCHEMAS.linear.parse({
+    type: "linear",
+    slope: 2,
+    scaledUnits: "Newtons",
+  });
+  const POUNDS = NI.Task.SCALE_SCHEMAS.map.parse({
+    type: "map",
+    scaledUnits: "Pounds",
+  });
+
+  it("should give a whole scale to a channel that lacks the picked type", async () => {
+    const { draft } = await renderSelected([
+      createChannel("ai_voltage", 0, { name: "chan_a", customScale: NEWTONS }),
+      createChannel("ai_voltage", 1, { name: "chan_b", customScale: POUNDS }),
+    ]);
+    // The fields of one scale type would write into the scale of the other channel.
+    await findDialogTriggerByText("Select scale type");
+    expect(screen.queryByLabelText("Slope")).toBeNull();
+    await selectFromDropdown("Select scale type", "Linear");
+    expect(await screen.findByLabelText("Slope")).toBeTruthy();
+    await waitFor(async () => {
+      const [a, b] = await storedChannels(draft.key);
+      expect(a.customScale).toEqual(NEWTONS);
+      expect(b.customScale).toEqual({
+        ...NI.Task.createScale("linear"),
+        scaledUnits: "Pounds",
+      });
+    });
+  });
+
+  it("should keep the units of each channel when picking a new scale type", async () => {
+    const { draft } = await renderSelected([
+      createChannel("ai_voltage", 0, { name: "chan_a", customScale: NEWTONS }),
+      createChannel("ai_voltage", 1, { name: "chan_b", customScale: POUNDS }),
+    ]);
+    await selectFromDropdown("Select scale type", "Polynomial");
+    await waitFor(async () =>
+      expect(
+        (await storedChannels(draft.key)).map((c) => [
+          c.customScale?.type,
+          c.customScale?.scaledUnits,
+        ]),
+      ).toEqual([
+        ["polynomial", "Newtons"],
+        ["polynomial", "Pounds"],
+      ]),
+    );
+  });
+
+  it("should give a whole CJC source to a channel that lacks the picked source", async () => {
+    const { draft } = await renderSelected([
+      createChannel("ai_thermocouple", 0, {
+        name: "chan_a",
+        cjc: { source: "const_val", val: 5 },
+      }),
+      createChannel("ai_thermocouple", 1, {
+        name: "chan_b",
+        cjc: { source: "built_in" },
+      }),
+    ]);
+    await findDialogTriggerByText("Select CJC source");
+    expect(screen.queryByLabelText("CJC value")).toBeNull();
+    await selectFromDropdown("Select CJC source", "Constant value");
+    expect(await screen.findByLabelText("CJC value")).toBeTruthy();
+    await waitFor(async () =>
+      expect((await storedChannels(draft.key)).map((c) => c.cjc)).toEqual([
+        { source: "const_val", val: 5 },
+        { source: "const_val", val: 0 },
+      ]),
+    );
+  });
+
+  it("should ask for channels of one type when the selected types differ", async () => {
+    await renderSelected([
+      createChannel("ai_voltage", 0, { name: "chan_volts" }),
+      createChannel("ai_thermocouple", 1, { name: "chan_temp" }),
+    ]);
+    expect(
+      await screen.findByText("Select channels of one type to edit them together."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Thermocouple type")).toBeNull();
   });
 });
 

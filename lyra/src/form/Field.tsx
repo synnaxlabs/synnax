@@ -18,7 +18,12 @@ import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
+import {
+  useField,
+  type UseFieldOptions,
+  type UseFieldReturn,
+  useFieldState,
+} from "@/form/useField";
 import { useStatusDisplay } from "@/form/useStatusDisplay";
 import { Input } from "@/input";
 import { Select } from "@/select";
@@ -73,7 +78,10 @@ export const Field = <I = string | number, O = I>({
   if (field == null || !visible) return null;
   const key = String(path);
   if (label == null) label = caseconv.toSentence(deep.element(key, -1));
-  const helpText = field.status.message;
+  const helpText =
+    field.mixed === true && field.status.variant === "success"
+      ? "Mixed"
+      : field.status.message;
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
   if (field.preview != null) childrenProps.preview = field.preview;
@@ -265,9 +273,35 @@ export type SelectFieldProps<K extends record.Key> = BuiltFieldProps<
   Select.SingleSimpleProps<K>,
   "children" | "resourceName"
 >;
-export const buildSelectField = <K extends record.Key>(
-  props: FieldBuilderProps<K, K, Select.SingleSimpleProps<K>>,
-) =>
-  fieldBuilder<K, K, Select.SingleSimpleProps<K>, "children" | "resourceName">(
-    Select.Simple<K>,
-  )(props);
+/**
+ * Binds a select to a form field. Under `Form.Fanout`, a select whose subtrees differ
+ * shows no option, so a pick of any option applies to every subtree.
+ */
+export const buildSelectField = <K extends record.Key>({
+  fieldProps,
+  inputProps: baseInputProps,
+}: FieldBuilderProps<K, K, Select.SingleSimpleProps<K>>) => {
+  const C = ({
+    inputProps,
+    path,
+    ...rest
+  }: BuiltFieldProps<K, K, Select.SingleSimpleProps<K>>) => {
+    const target = path as deep.Target<K>;
+    const mixed = useFieldState(target, { optional: true })?.mixed === true;
+    return (
+      <Field<K, K> {...fieldProps} {...rest} path={target}>
+        {(cp) => (
+          <Select.Simple<K>
+            {...cp}
+            {...baseInputProps}
+            {...(inputProps as Select.SingleSimpleProps<K>)}
+            value={mixed ? undefined : cp.value}
+          />
+        )}
+      </Field>
+    );
+  };
+  return C as FC<
+    BuiltFieldProps<K, K, Select.SingleSimpleProps<K>, "children" | "resourceName">
+  >;
+};

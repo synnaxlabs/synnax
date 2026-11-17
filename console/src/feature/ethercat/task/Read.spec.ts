@@ -23,7 +23,7 @@ import { type Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { type z } from "zod";
+import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -55,6 +55,7 @@ import {
   createTestClientWithGrants,
   findDialogTriggerByText,
   uniqueName,
+  withControlHeld,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -391,6 +392,97 @@ describe("Read", () => {
           ],
         },
       ]);
+    });
+  });
+
+  describe("several selected channels", () => {
+    /** Renders a channel on each of two strain slaves and selects both channels. */
+    const renderTwoSelected = async (
+      startupParameters: (slaves: device.Key[]) => ethercat.SlaveStartupParameters[],
+      scales: task.Scale[] = [],
+    ) => {
+      const slaves = [await createStrainSlave(), await createStrainSlave()];
+      const rendered = await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: slaves.map((s, i) => ({
+          ...EtherCAT.Task.createEntryReadChannel(s.key, STRAIN_ENTRY),
+          ...(scales[i] == null ? {} : { scale: scales[i] }),
+        })),
+        startupParameters: startupParameters(slaves.map((s) => s.key)),
+      });
+      const [first, second] = await screen.findAllByRole("option", {
+        name: /0x6030:01/,
+      });
+      fireEvent.click(first);
+      withControlHeld(() => fireEvent.click(second));
+      expect(await screen.findByText("2 channels")).toBeTruthy();
+      return { ...rendered, slaves };
+    };
+
+    const retrieveSaved = async (key: task.Key) =>
+      await client.tasks.retrieve({ key, schemas: EtherCAT.Task.READ_SCHEMAS });
+
+    it("should save a setting picked once to the input of each channel", async () => {
+      const { draft, slaves } = await renderTwoSelected(() => []);
+      fireEvent.click(await screen.findByRole("button", { name: /^Measurement/ }));
+      fireEvent.click(await screen.findByRole("option", { name: /Bridge/ }));
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.startupParameters).toEqual(
+          slaves.map((device) => ({
+            device: device.key,
+            parameters: [
+              { ...MEASUREMENT, value: 6 },
+              { ...RANGE, value: 0 },
+              { ...EXCITATION, value: 0 },
+            ],
+          })),
+        );
+      });
+    });
+
+    it("should show Mixed for a setting that the inputs hold apart", async () => {
+      await renderTwoSelected(([bridged]) => [
+        { device: bridged, parameters: [{ ...MEASUREMENT, value: 6 }] },
+      ]);
+      const measurement = await screen.findByRole("button", { name: /^Measurement/ });
+      expect(await within(measurement).findByText("Mixed")).toBeTruthy();
+      expect(screen.queryByText("Excitation voltage")).toBeNull();
+    });
+
+    it("should save a scale picked once to each channel", async () => {
+      const { draft } = await renderTwoSelected(() => []);
+      fireEvent.click(screen.getByRole("button", { name: /None/ }));
+      fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
+      await waitFor(async () => {
+        const saved = await retrieveSaved(draft.key);
+        expect(saved.config.channels).toMatchObject([
+          { scale: { type: "linear", slope: 1, offset: 0 } },
+          { scale: { type: "linear", slope: 1, offset: 0 } },
+        ]);
+      });
+    });
+
+    it("should give a linear scale to a channel that lacks one", async () => {
+      const doubled = task.SCALE_SCHEMAS.linear.parse({ type: "linear", slope: 2 });
+      const { draft } = await renderTwoSelected(() => [], [doubled]);
+      await findDialogTriggerByText("Select scale type");
+      // The slope of the first channel would write into the scale of the second.
+      expect(screen.queryByLabelText("Slope")).toBeNull();
+      fireEvent.click(await findDialogTriggerByText("Select scale type"));
+      fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
+      expect(await screen.findByLabelText("Slope")).toBeTruthy();
+      // The schema fills a missing slope on read, so the spec reads the stored scales.
+      const storedZ = z.object({
+        channels: z.array(z.object({ scale: z.record(z.string(), z.unknown()) })),
+      });
+      await waitFor(async () => {
+        const { config } = await client.tasks.retrieve({ key: draft.key });
+        expect(storedZ.parse(config).channels.map((c) => c.scale)).toEqual([
+          { type: "linear", slope: 2, offset: 0 },
+          { type: "linear", slope: 1, offset: 0 },
+        ]);
+      });
     });
   });
 

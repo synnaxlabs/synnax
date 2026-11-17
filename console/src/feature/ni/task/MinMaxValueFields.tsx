@@ -17,23 +17,28 @@ export interface MinMaxValueFieldsProps {
   units?: string;
 }
 
-export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => (
-  <Input.Item label="Range">
-    <Flex.Box x gap="small">
-      <Form.NumericField
-        path={path.minVal}
-        label="Minimum value"
-        showLabel={false}
-        showHelpText={false}
-        inputProps={{ endContent: units, grow: true, "aria-label": "Minimum value" }}
-      />
-      <Form.NumericField
-        path={path.maxVal}
-        label="Maximum value"
-        showLabel={false}
-        showHelpText={false}
-        inputProps={{ endContent: units, grow: true, "aria-label": "Maximum value" }}
-      />
-    </Flex.Box>
-  </Input.Item>
-);
+export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
+  const min = Form.useFieldState(path.minVal);
+  const max = Form.useFieldState(path.maxVal);
+  const mixed = min.mixed === true || max.mixed === true;
+  return (
+    <Input.Item label="Range" helpText={mixed ? "Mixed" : undefined}>
+      <Flex.Box x gap="small">
+        <Form.NumericField
+          path={path.minVal}
+          label="Minimum value"
+          showLabel={false}
+          showHelpText={false}
+          inputProps={{ endContent: units, grow: true, "aria-label": "Minimum value" }}
+        />
+        <Form.NumericField
+          path={path.maxVal}
+          label="Maximum value"
+          showLabel={false}
+          showHelpText={false}
+          inputProps={{ endContent: units, grow: true, "aria-label": "Maximum value" }}
+        />
+      </Flex.Box>
+    </Input.Item>
+  );
+};

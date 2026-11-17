@@ -94,7 +94,7 @@ export interface ScaleFormProps {
  */
 export const ScaleForm = ({ path }: ScaleFormProps) => {
   const scale = deep.widen(path);
-  const type = Form.useFieldValue(scale.type);
+  const { value: type, mixed } = Form.useFieldState(scale.type);
   const Params = PARAMS[type];
   return (
     <>
@@ -105,7 +105,7 @@ export const ScaleForm = ({ path }: ScaleFormProps) => {
             set(scale, task.SCALE_SCHEMAS[value].parse({ type: value }));
         }}
       />
-      <Params path={scale} />
+      {mixed !== true && <Params path={scale} />}
     </>
   );
 };

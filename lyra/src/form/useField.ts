@@ -62,7 +62,8 @@ export const useField = (<I, O = I>(
   const { get, bind, set, setStatus } = ctx;
 
   const handleChange = (value: O) => {
-    onChange?.(value, ctx);
+    // Under Form.Fanout, a handler that reads the form gets the values of one subtree.
+    if (onChange != null) for (const c of ctx.subtrees?.() ?? [ctx]) onChange(value, c);
     set(path, value as unknown as I);
   };
 
