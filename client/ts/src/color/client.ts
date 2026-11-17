@@ -12,6 +12,7 @@ import { array, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
+import { type batch } from "@/batch";
 import { createOf, encode, reduceAll } from "@/color/actions";
 import {
   type Action,
@@ -174,6 +175,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
         await this.unary.send("/color/delete", { keys: keysArr }, deleteReqZ, emptyZ),
     });
     drop();
+  }
+
+  /** Builds a batch entry that deletes the named colors. */
+  deleteRequest(keys: Key | Key[]): batch.Request<z.infer<typeof deleteReqZ>> {
+    const payload = { keys: array.toArray(keys) };
+    return {
+      endpoint: "/color/delete",
+      payload,
+      apply: () => this.store.delete(payload.keys),
+    };
   }
 
   /**
