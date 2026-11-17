@@ -140,19 +140,9 @@ func renderEncoderCodecFile(
 			owner:       e.Type.QualifiedName,
 		}
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
-			uc, err := buildUnionCodec(e.Type, uform, b)
-			if err != nil {
-				return nil, errors.Wrapf(
-					err,
-					"failed to generate union codec for %s",
-					e.GoName,
-				)
+			if err := fo.addUnionCodec(e, uform, b); err != nil {
+				return nil, err
 			}
-			if b.needsJSON {
-				fo.NeedsJSON = true
-			}
-			uc.Recursive = typeIsRecursive(e.Type, table)
-			fo.ConcreteCodecs = append(fo.ConcreteCodecs, uc)
 			continue
 		}
 		form, ok := e.Type.Form.(resolution.StructForm)
@@ -194,6 +184,24 @@ func (fo *encoderFileOutput) addFlex(flex []flexCodec) error {
 	fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = ""
 	fo.ExtraImports["github.com/synnaxlabs/x/encoding/msgpack"] = "xmsgpack"
 	fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
+	return nil
+}
+
+// addUnionCodec adds the codec for the union entry e.
+func (fo *encoderFileOutput) addUnionCodec(
+	e codecEntry,
+	uform resolution.UnionForm,
+	b *encoderBuilder,
+) error {
+	uc, err := buildUnionCodec(e.Type, uform, b)
+	if err != nil {
+		return errors.Wrapf(err, "failed to generate union codec for %s", e.GoName)
+	}
+	if b.needsJSON {
+		fo.NeedsJSON = true
+	}
+	uc.Recursive = typeIsRecursive(e.Type, b.table)
+	fo.ConcreteCodecs = append(fo.ConcreteCodecs, uc)
 	return nil
 }
 
@@ -760,65 +768,20 @@ func (b *encoderBuilder) processOptional(
 	// Optional arrays/maps
 	if bg, ok := actual.Form.(resolution.BuiltinGenericForm); ok &&
 		(bg.Name == "Array" || bg.Name == "Map") {
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("if %s != nil {", getPath),
-			ind+"\tw.Bool(true)",
-		)
-		b.decodeLines = append(b.decodeLines,
-			ind+"{ present, err := r.Bool(); if err != nil { return err }",
-			ind+"if present {",
-		)
-		b.depth++
-		b.inBlock++
-		b.skipNilCheck = true
-		derefGet := "(*" + getPath + ")"
-		if err := b.processValueByType(
+		return b.processOptionalValue(
+			f,
 			resolved,
-			f.Type,
-			derefGet,
+			"(*"+getPath+")",
+			getPath,
 			setPath,
-		); err != nil {
-			return err
-		}
-		b.skipNilCheck = false
-		b.inBlock--
-		b.depth--
-		b.encodeLines = append(
-			b.encodeLines,
-			ind+"} else {",
-			ind+"\tw.Bool(false)",
-			ind+"}",
+			true,
 		)
-		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
-		return nil
 	}
 
 	// Optional json/any
 	if prim, ok := actual.Form.(resolution.PrimitiveForm); ok &&
 		(prim.Name == "record" || prim.Name == "any") {
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("if %s != nil {", getPath),
-			ind+"\tw.Bool(true)",
-		)
-		b.decodeLines = append(b.decodeLines,
-			ind+"{ present, err := r.Bool(); if err != nil { return err }",
-			ind+"if present {",
-		)
-		b.depth++
-		b.inBlock++
-		if err := b.processValueByType(resolved, f.Type, getPath, setPath); err != nil {
-			return err
-		}
-		b.inBlock--
-		b.depth--
-		b.encodeLines = append(
-			b.encodeLines,
-			ind+"} else {",
-			ind+"\tw.Bool(false)",
-			ind+"}",
-		)
-		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
-		return nil
+		return b.processOptionalValue(f, resolved, getPath, getPath, setPath, false)
 	}
 
 	// Optional other (pointer to struct/primitive)
@@ -854,6 +817,47 @@ func (b *encoderBuilder) processOptional(
 		ind+"}",
 		ind+"}",
 	)
+	return nil
+}
+
+// processOptionalValue writes a presence bit for the nilable field f and, when the
+// value is present, the value read from valuePath. skipNilCheck marks the value as
+// known non-nil inside the guard.
+func (b *encoderBuilder) processOptionalValue(
+	f resolution.Field,
+	resolved resolution.Type,
+	valuePath, getPath, setPath string,
+	skipNilCheck bool,
+) error {
+	ind := b.indent()
+	b.encodeLines = append(b.encodeLines,
+		ind+fmt.Sprintf("if %s != nil {", getPath),
+		ind+"\tw.Bool(true)",
+	)
+	b.decodeLines = append(b.decodeLines,
+		ind+"{ present, err := r.Bool(); if err != nil { return err }",
+		ind+"if present {",
+	)
+	b.depth++
+	b.inBlock++
+	if skipNilCheck {
+		b.skipNilCheck = true
+	}
+	if err := b.processValueByType(resolved, f.Type, valuePath, setPath); err != nil {
+		return err
+	}
+	if skipNilCheck {
+		b.skipNilCheck = false
+	}
+	b.inBlock--
+	b.depth--
+	b.encodeLines = append(
+		b.encodeLines,
+		ind+"} else {",
+		ind+"\tw.Bool(false)",
+		ind+"}",
+	)
+	b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 	return nil
 }
 
