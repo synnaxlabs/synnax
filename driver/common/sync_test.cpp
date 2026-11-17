@@ -143,8 +143,8 @@ TEST(Sync, CreatesNewHardware) {
     ASSERT_NIL(sync->init());
     ASSERT_NIL(sync->sync({found("01A")}));
     ASSERT_EQ(store->stored.size(), 1);
-    ASSERT_EQ(sync->get("01A")->key, "key-01A");
-    ASSERT_EQ(store->statuses.at(0).status->message, "Device present");
+    ASSERT_EQ(sync->get("01A").value().key, "key-01A");
+    ASSERT_EQ(store->statuses.at(0).status.value().message, "Device present");
 }
 
 /// @brief it should write only the identity group of tracked hardware that changed,
@@ -185,8 +185,11 @@ TEST(Sync, MarksMissingHardwareDisconnected) {
     ASSERT_NIL(sync->sync({}));
     ASSERT_EQ(store->stored.size(), 1);
     ASSERT_EQ(store->statuses.size(), 1);
-    ASSERT_EQ(store->statuses.at(0).status->variant, synnax::status::VARIANT_WARNING);
-    ASSERT_EQ(store->statuses.at(0).status->message, "Device disconnected");
+    ASSERT_EQ(
+        store->statuses.at(0).status.value().variant,
+        synnax::status::VARIANT_WARNING
+    );
+    ASSERT_EQ(store->statuses.at(0).status.value().message, "Device disconnected");
 }
 
 /// @brief it should move hardware from another rack whose status is stale.
@@ -258,7 +261,7 @@ TEST(Sync, KeepsLastSeenTimeOfMissingHardware) {
     auto [sync, store] = new_sync({stored});
     ASSERT_NIL(sync->init());
     ASSERT_NIL(sync->sync({}));
-    ASSERT_EQ(store->statuses.at(0).status->time, last_seen);
+    ASSERT_EQ(store->statuses.at(0).status.value().time, last_seen);
 }
 
 /// @brief it should keep the status that the scanner reports for found hardware.
@@ -270,8 +273,11 @@ TEST(Sync, KeepsScannerStatus) {
         .message = "Failed to connect",
     };
     ASSERT_NIL(sync->sync({res}));
-    ASSERT_EQ(store->statuses.at(0).status->variant, synnax::status::VARIANT_WARNING);
-    ASSERT_EQ(store->statuses.at(0).status->message, "Failed to connect");
+    ASSERT_EQ(
+        store->statuses.at(0).status.value().variant,
+        synnax::status::VARIANT_WARNING
+    );
+    ASSERT_EQ(store->statuses.at(0).status.value().message, "Failed to connect");
 }
 
 /// @brief it should keep the stored identity when the identity update fails, and
@@ -283,8 +289,8 @@ TEST(Sync, KeepsStoredIdentityWhenUpdateFails) {
     ASSERT_NIL(sync->init());
     store->update_err = x::errors::Error(x::errors::INTERNAL, "timeout");
     ASSERT_OCCURRED_AS(sync->sync({found("01A", "9211")}), x::errors::INTERNAL);
-    ASSERT_EQ(sync->get("01A")->model, "9205");
-    ASSERT_EQ(store->statuses.at(0).status->message, "Device present");
+    ASSERT_EQ(sync->get("01A").value().model, "9205");
+    ASSERT_EQ(store->statuses.at(0).status.value().message, "Device present");
 }
 
 /// @brief it should leave hardware with the other rack when the takeover fails, so
@@ -303,7 +309,7 @@ TEST(Sync, RetriesFailedTakeover) {
     ASSERT_TRUE(store->statuses.empty());
     store->update_err = x::errors::NIL;
     ASSERT_NIL(sync->sync({found("01A")}));
-    ASSERT_EQ(sync->get("01A")->rack, RACK);
+    ASSERT_EQ(sync->get("01A").value().rack, RACK);
 }
 
 /// @brief it should skip hardware that it cannot look up, and return the error.
@@ -344,8 +350,8 @@ TEST(Sync, KeepsTrackedStatusOnSet) {
     stored.status.reset();
     stored.name = "Renamed";
     sync->on_set(stored);
-    ASSERT_EQ(sync->get("01A")->status->message, "Device present");
-    ASSERT_EQ(sync->get("01A")->name, "Renamed");
+    ASSERT_EQ(sync->get("01A").value().status.value().message, "Device present");
+    ASSERT_EQ(sync->get("01A").value().name, "Renamed");
 }
 
 /// @brief it should keep a configuration that a set signal writes while a scan calls
@@ -361,8 +367,8 @@ TEST(Sync, KeepsConfigurationSetDuringScan) {
     store->during_update = [s, renamed] { s->on_set(renamed); };
     ASSERT_NIL(sync->sync({found("01A", "9211")}));
     const auto got = sync->get("01A");
-    ASSERT_EQ(got->name, "Renamed");
-    ASSERT_EQ(got->model, "9211");
+    ASSERT_EQ(got.value().name, "Renamed");
+    ASSERT_EQ(got.value().model, "9211");
 }
 
 /// @brief it should not track again a resource that a delete signal drops while a
