@@ -416,22 +416,39 @@ TEST_F(RangesTest, RefusesCreateButNotEndWhenFull) {
     EXPECT_TRUE(reports->snapshot().empty());
 }
 
-/// @brief it should report the refused calls of each message once, with their count
-/// and reason.
-TEST(CallsTest, ReportsRefusedCallsOnce) {
+/// @brief it should warn at once when the full outbox refuses an end.
+TEST_F(RangesTest, WarnsAtOnceOnRefusedEnd) {
+    this->open_unreachable(1);
+    const auto reports = std::make_shared<Reports>();
+    Module module(this->outbox, recordingReporter(reports));
+    auto ctx = make_context();
+    const auto create = create_spec().config({unique_name("cpp_full_end_"), "", ""});
+    auto create_node = ASSERT_NIL_P(module.create(create.make_config()));
+    ASSERT_NIL(create_node->next(ctx));
+    const auto end = end_spec().config({output_of(create)});
+    auto end_node = ASSERT_NIL_P(module.create(end.make_config()));
+    ASSERT_NIL(end_node->next(ctx));
+    ASSERT_NIL(end_node->next(ctx));
+    EXPECT_EQ(output_of(end), "");
+    EXPECT_EQ(this->outbox->refused(), 1);
+    const auto calls = reports->snapshot();
+    ASSERT_EQ(calls.size(), 1u);
+    EXPECT_EQ(calls[0].message, "Failed to end range");
+    EXPECT_FALSE(calls[0].description.empty());
+}
+
+/// @brief it should report the refused creates once, with their count and reason.
+TEST(CallsTest, ReportsRefusedCreatesOnce) {
     const auto reports = std::make_shared<Reports>();
     Calls calls(recordingReporter(reports));
-    calls.refuse(CREATE_FAILURE_MSG, "outbox is full.");
-    calls.refuse(CREATE_FAILURE_MSG, "outbox is full.");
-    calls.refuse(END_FAILURE_MSG, "outbox is full.");
+    calls.refuse("outbox is full.");
+    calls.refuse("outbox is full.");
     calls.report_refused();
     calls.report_refused();
     const auto got = reports->snapshot();
-    ASSERT_EQ(got.size(), 2u);
+    ASSERT_EQ(got.size(), 1u);
     EXPECT_EQ(got[0].message, CREATE_FAILURE_MSG);
-    EXPECT_EQ(got[0].description, "outbox is full. Dropped 2 calls.");
-    EXPECT_EQ(got[1].message, END_FAILURE_MSG);
-    EXPECT_EQ(got[1].description, "outbox is full. Dropped 1 calls.");
+    EXPECT_EQ(got[0].description, "outbox is full. Dropped 2 creates.");
 }
 
 #ifndef _WIN32
@@ -504,7 +521,7 @@ TEST_F(RangesTest, ReportsRefusedCreatesOnceSent) {
     ASSERT_EVENTUALLY_EQ(reports->snapshot().size(), 1u);
     const auto calls = reports->snapshot();
     EXPECT_EQ(calls[0].message, "Failed to create range");
-    EXPECT_TRUE(calls[0].description.ends_with(" Dropped 1 calls."));
+    EXPECT_TRUE(calls[0].description.ends_with(" Dropped 1 creates."));
     EXPECT_FALSE(this->retrieve(output_of(first)).name.empty());
     this->outbox.reset();
 }

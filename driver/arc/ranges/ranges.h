@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -45,14 +44,9 @@ class Calls {
     /// @brief held while a report runs, which can wait on the Core.
     std::mutex report_mu;
     Reporter reporter;
-    /// @brief the reports of refused calls, as the count and last reason of each
-    /// message.
-    struct Refused {
-        size_t count = 0;
-        std::string reason;
-    };
     std::mutex refused_mu;
-    std::map<std::string, Refused> refused;
+    size_t refused_creates = 0;
+    std::string refused_reason;
 
 public:
     explicit Calls(Reporter reporter): reporter(std::move(reporter)) {}
@@ -63,28 +57,28 @@ public:
         if (this->reporter != nullptr) this->reporter(message, description);
     }
 
-    /// @brief counts a call the outbox refused, to report later as message, without
-    /// waiting on the Core.
-    void refuse(const std::string &message, const std::string &reason) {
+    /// @brief counts a create the outbox refused, without waiting on the Core.
+    void refuse(const std::string &reason) {
         std::lock_guard lock(this->refused_mu);
-        auto &r = this->refused[message];
-        r.count++;
-        r.reason = reason;
+        this->refused_creates++;
+        this->refused_reason = reason;
     }
 
-    /// @brief reports the calls refused since the last call, if any. It can wait on
+    /// @brief reports the creates refused since the last call, if any. It can wait on
     /// the Core, so only the outbox thread calls it.
     void report_refused() {
-        std::map<std::string, Refused> reports;
+        size_t count = 0;
+        std::string reason;
         {
             std::lock_guard lock(this->refused_mu);
-            std::swap(reports, this->refused);
+            count = std::exchange(this->refused_creates, 0);
+            reason = this->refused_reason;
         }
-        for (const auto &[message, r]: reports)
-            this->report(
-                message,
-                r.reason + " Dropped " + std::to_string(r.count) + " calls."
-            );
+        if (count == 0) return;
+        this->report(
+            CREATE_FAILURE_MSG,
+            reason + " Dropped " + std::to_string(count) + " creates."
+        );
     }
 
     /// @brief stops reports, and waits for a report in progress, so the reporter can
@@ -155,7 +149,7 @@ inline std::string queue_create(
         r.parent = uid;
     }
     if (const auto err = outbox.create_range(r, on_done(calls, CREATE_FAILURE_MSG))) {
-        calls->refuse(CREATE_FAILURE_MSG, err.data);
+        calls->refuse(err.data);
         return "";
     }
     return r.key.to_string();
@@ -182,7 +176,8 @@ inline std::string queue_end(
             x::telem::TimeStamp::now(),
             on_done(calls, END_FAILURE_MSG)
         )) {
-        calls->refuse(END_FAILURE_MSG, err.data);
+        // The range stays open, so the task warns at once.
+        calls->report(END_FAILURE_MSG, err.data);
         return "";
     }
     return uid.to_string();
