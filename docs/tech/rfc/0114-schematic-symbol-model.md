@@ -102,7 +102,7 @@ Action union on kind { fire { command string }, next { commands string[] } }
 
 // schemas/synnax/schematic.oracle, a NodeConfig variant
 symbol extends LabeledConfig, ScaledConfig {
-    symbol symbol.Ref               // builtin { name } | custom { key } (restrict)
+    symbol symbol.Ref   // builtin { name } | custom { key } (restrict) | missing { key }
     color color.Ref?                // what `node` paint reads
     disabled bool = false, motion_disabled bool = false
     on_click_delay telem.TimeSpan = 0
@@ -123,12 +123,12 @@ CommandBinding struct { key string, channel channel.Key }  // a command with no 
 
 A state reads its source, then its match. `band` reads a value from `lower` up to, but
 not including, `upper` as 1, as today's threshold does, and keeps other values. An
-absent bound is open, and a band with `lower` at or above `upper` holds no value. The
-editor writes the band 0.9 to 1.1 on a new state with two entries. An enum state draws
-its `default` entry, such as Closed on a valve, while no data has arrived and when the
-value equals no entry, such as NaN or 0.5. Pluto then adds the unknown mark, and 0 still
-shows Closed. A state with no source draws its default entry with no mark. The binding
-holds the number format, as each readout does today
+absent bound is open, and the Core refuses a band whose `lower` is above its `upper`.
+The editor writes the band 0.9 to 1.1 on a new state with two entries. An enum state
+draws its `default` entry, such as Closed on a valve, while no data has arrived and when
+the value equals no entry, such as NaN or 0.5. Pluto then adds the unknown mark, and 0
+still shows Closed. A state with no source draws its default entry with no mark. The
+binding holds the number format, as each readout does today
 (`schemas/synnax/schematic.oracle:1224-1249`).
 
 Looks apply in order, and a later look wins on each field it sets. Stale data keeps the
@@ -186,23 +186,24 @@ only to those.
 | 7 local toggles    | `builtin` of the variant                    | `position` from `local` `enabled`, `disabled` from `!clickable` |
 | `light`            | `builtin`                                   | `on` from `channel`, with the band of `threshold`               |
 | `custom_actuator`  | `custom` of `spec_key`                      | `state` as a live toggle                                        |
-| `custom_static`    | `custom` of `spec_key`                      | `state` from `local` 0                                          |
+| `custom_static`    | `custom` of `spec_key`                      | `state` with no source and no `command`                         |
 
 A toggle's source comes from `state_channel`, else `command_channel`, and its `command`
 from `command_channel`. A light with no `threshold` gets the band 0.9 to 1.1, as it
-reads today, and its `on_color` moves to an enum. `stroke_color` becomes `color`,
-`staleness_color` goes, the time fields keep their values, and `state_overrides` become
-enums by RFC 0112 §4.6. A node whose custom symbol does not exist becomes the built-in
-`missing` symbol, which draws today's "Missing custom symbol" look, and keeps its
-bindings. An import applies the same rule.
+reads today. An inverted `threshold` is swapped, as today's check swaps it. The light's
+`on_color` moves to an enum. `stroke_color` becomes `color`, `staleness_color` goes, the
+time fields keep their values, and `state_overrides` become enums by RFC 0112 §4.6.
+
+The migration and an import give a node whose custom symbol does not exist `missing`
+with the old key, and keep its bindings. Pluto draws today's "Missing custom symbol"
+look, and a later import of a symbol with that key turns the node back into `custom`.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each region becomes a part,
 state `i` becomes value `i` of one state `state` with default 0, and each region color
 becomes a look on that value. A selector that is not a name resolves against the
-drawing, and each match gets a `data-region-id`. The node variant, not the stored one,
-decides the commands: a symbol that a `custom_actuator` node uses gets `fixed` commands
-for values 0 and 1, named after those states or else Off and On, and `next` on the whole
-drawing.
+drawing, and each match gets a `data-region-id`. A stored actuator, and a static symbol
+that a `custom_actuator` node uses, get `fixed` commands for values 0 and 1, named after
+those states or else Off and On, and `next` on the whole drawing.
 
 ## 5 What this RFC does not cover
 
@@ -218,10 +219,11 @@ drawing.
 The renderer parity work (SY-6054) is done: every built-in except `light` and `switch`
 draws through `Custom.Drawing` from a built-in spec, and phase 1 adds specs for those
 two. The named color record (RFC 0112 phase 3) is merged, so phase 1 waits on nothing
-outstanding. Phase 1 stores every field of §4.1 except `enum`, which RFC 0112 phase 19
-adds with the enum record. It keeps today's state shape, under its own name, for
-`state_overrides` until phase 2 deletes both. Phase 2 needs RFC 0112 phase 19 and ships
-with RFC 0112 phases 19 to 22. Each family is redesigned after phase 5 in its own PR.
+outstanding. Phase 1 stores the `Spec` fields of §4.1 except `enum`, which RFC 0112
+phase 19 adds with the enum record. Until phase 2 deletes them, it keeps `variant`,
+which picks the node variant on placement, and today's state shape, under its own name,
+for `state_overrides`. Phase 2 needs RFC 0112 phase 19 and ships with RFC 0112 phases 19
+to 22. Each family is redesigned after phase 5 in its own PR.
 
 Phase 2 is one cutover of the stored node shape: a node variant, a Core migration, a
 renderer with its marks, a form, and the deletion of 86 variants. It is larger than a
