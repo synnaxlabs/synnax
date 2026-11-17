@@ -17,13 +17,41 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("storage", func() {
+	Describe("Run", func() {
+		It("Should run the time-series engine until its context ends", func(
+			ctx SpecContext,
+		) {
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				InMemory: new(true),
+			}))
+			StartRun(l.Run)
+			streamer := MustSucceed(l.TS.NewStreamer(cesium.StreamerConfig{
+				SendOpenAck: true,
+			}))
+			requests := confluence.NewStream[cesium.StreamerRequest]()
+			responses := confluence.NewStream[cesium.StreamerResponse](1)
+			streamer.InFrom(requests)
+			streamer.OutTo(responses)
+			sCtx, cancel := signal.WithCancel(ctx)
+			DeferCleanup(cancel)
+			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			// The streamer acknowledges its open only once the relay runs.
+			Eventually(responses.Outlet()).Should(Receive())
+			requests.Close()
+			Eventually(sCtx.Stopped()).Should(BeClosed())
+		})
+	})
+
 	Describe("Open", func() {
 		var (
 			tempDir string

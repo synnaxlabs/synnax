@@ -75,14 +75,13 @@ func TestKafka(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	st := DeferClose(storagetestutil.OpenLayer(ctx))
+	st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 	hookedKV = hookkv.Wrap(st.KV)
 	faultyFS = WrapFaultyFS(xfs.NewMem())
+	tsDB := DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS})))
+	StartRun(tsDB.Run)
 	node := testutil.NewNode(ctx, distribution.LayerConfig{
-		Storage: &storage.Layer{
-			KV: hookedKV,
-			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
-		},
+		Storage: &storage.Layer{KV: hookedKV, TS: tsDB},
 	})
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{

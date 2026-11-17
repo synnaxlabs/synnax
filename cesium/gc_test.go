@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"path"
@@ -58,6 +59,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger())))
+					StartRun(db.Run)
 				})
 
 				It(
@@ -163,6 +165,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						cesium.WithFS(fs),
 						cesium.WithFileSizeCap(899*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger())))
+					StartRun(db.Run)
 				})
 				It(
 					"Should only garbage collect after a certain amount garbage has accumulated",
@@ -286,6 +289,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						cesium.WithFileSizeCap(49*telem.Byte),
 						cesium.WithInstrumentation(PanicLogger()),
 					))
+					StartRun(db.Run)
 				})
 				It(
 					"Should only garbage collect after a certain amount garbage has accumulated",
@@ -452,6 +456,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							cesium.WithFileSizeCap(89*telem.Byte),
 							cesium.WithInstrumentation(ins),
 						))
+						StartRun(failing.Run)
 						Expect(failing.CreateChannel(
 							ctx,
 							cesium.Channel{
@@ -497,7 +502,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 		})
 	}
 
-	It("Should collect no further channel once the DB closes", func(ctx SpecContext) {
+	It("Should collect no further channel once the run stops", func(ctx SpecContext) {
 		fs := WrapFaultyFS(FileSystems["memFS"]())
 		gcConfig := func(interval time.Duration) cesium.Option {
 			return cesium.WithGCConfig(cesium.GCConfig{
@@ -562,12 +567,15 @@ var _ = Describe("Garbage collection", Ordered, func() {
 		// The first write from here on is the first collection's copy.
 		fs.SetOptions(WithBeforeWrite(hold))
 		DeferCleanup(func() { fs.SetOptions() })
+		runCtx, stop := context.WithCancel(ctx)
+		ran := make(chan error, 1)
+		go func() { ran <- db.Run(runCtx) }()
 		Eventually(writing).WithTimeout(5 * time.Second).Should(BeClosed())
-		closed := make(chan error, 1)
-		go func() { closed <- db.Close() }()
-		Consistently(closed).WithTimeout(100 * time.Millisecond).ShouldNot(Receive())
+		stop()
+		Consistently(ran).WithTimeout(100 * time.Millisecond).ShouldNot(Receive())
 		release()
-		Eventually(closed).WithTimeout(10 * time.Second).Should(Receive(Succeed()))
+		Eventually(ran).WithTimeout(10 * time.Second).Should(Receive(Succeed()))
+		Expect(db.Close()).To(Succeed())
 		after := sizes()
 		var rewritten int
 		for i := range keys {
