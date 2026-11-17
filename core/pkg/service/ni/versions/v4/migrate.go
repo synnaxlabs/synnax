@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
+	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
 
@@ -57,7 +58,14 @@ var AnalogWriteMigration = migrate.NewInstrumentedEntry(
 			if !ok {
 				continue
 			}
-			n := cfg.Channels[i].Variant.(AOFuncGenChannel)
+			n, ok := cfg.Channels[i].Variant.(AOFuncGenChannel)
+			if !ok {
+				return AnalogWriteConfig{}, errors.Newf(
+					"channel %s migrated to %T",
+					o.Key,
+					cfg.Channels[i].Variant,
+				)
+			}
 			if n.Frequency == o.Frequency {
 				continue
 			}
