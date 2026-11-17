@@ -51,7 +51,7 @@ import psutil
 import synnax as sy
 
 from agent_log import RUNNER_DIRS, Log
-from gh_runner import Runner
+from gh_runner import Runner, Sink
 
 INTERVAL = 5 * sy.TimeSpan.SECOND
 # The runner starts anyway if Synnax stays unreachable this long after boot.
@@ -99,6 +99,21 @@ def close_quietly(resource: Closeable | None) -> None:
         resource.close()
     except Exception:
         pass
+
+
+class Control(Protocol):
+    """Starts and stops the GitHub runner on this machine, as gh_runner.Runner does."""
+
+    state: bool | None
+    sink: Sink | None
+
+    def apply(self, enabled: bool, why: str) -> None: ...
+
+    def listen(self, client: sy.Synnax, name: str, state: str, sink: Sink) -> None: ...
+
+    def tick(self) -> None: ...
+
+    def stop_listening(self) -> None: ...
 
 
 class ParameterStore(Protocol):
@@ -164,7 +179,7 @@ def deprioritize() -> None:
 def connect(
     args: argparse.Namespace,
     names: dict[str, str],
-    control: Runner | None,
+    control: Control | None,
     store: ParameterStore,
 ) -> sy.Synnax:
     """Connects and resolves the channels, retrying forever; a booting machine must not
@@ -205,7 +220,7 @@ def run(
     args: argparse.Namespace,
     names: dict[str, str],
     runner: str,
-    control: Runner | None,
+    control: Control | None,
     store: ParameterStore,
 ) -> None:
     """One connected session, sampling until something breaks. Returning hands control
