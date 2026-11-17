@@ -79,6 +79,9 @@ root runs them:
 - At a `--state-file` path on Linux, when a `synnax` user exists, `login` gives only the
   state file to the `synnax` user with mode `0600`. It does not change its directory.
 
+A root `login` makes the checks above before it makes these changes. It makes the
+changes also when a check fails, and then fails.
+
 On macOS without the service, run `login` without `sudo` if the Driver runs as your
 user: a `sudo` login leaves the state file, and a state directory that it creates, to
 root, and `start` fails until you give them back with `chown`.
