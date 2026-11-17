@@ -52,6 +52,10 @@ type Config struct {
 
 var _ config.Config[Config] = Config{}
 
+// ErrCycle is returned when a calculated channel would read itself through other
+// calculated channels.
+var ErrCycle = errors.New("circular dependency detected")
+
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -478,10 +482,7 @@ func (g *Graph) moveGroup(
 // dependency.
 func (g *Graph) checkCircularDependency(source, target channel.Key) error {
 	if source == target {
-		err := errors.Newf(
-			"circular dependency detected: channel %v depends on itself",
-			source,
-		)
+		err := errors.Wrapf(ErrCycle, "channel %v depends on itself", source)
 		g.L.Info("circular dependency detected",
 			zap.String("channel", source.String()),
 			zap.String("dependency_chain", fmt.Sprintf("%s → %s", source, source)),
@@ -502,10 +503,7 @@ func (g *Graph) checkCircularDependency(source, target channel.Key) error {
 				chainStrs = append(chainStrs, k.String())
 			}
 			chainStrs = append(chainStrs, source.String())
-			err := errors.Newf(
-				"circular dependency detected involving channel %v",
-				source,
-			)
+			err := errors.Wrapf(ErrCycle, "channel %v", source)
 			g.L.Info("circular dependency detected",
 				zap.String("channel", source.String()),
 				zap.String("dependency_chain", strings.Join(chainStrs, " → ")),
@@ -588,10 +586,7 @@ func (g *Graph) addInternal(
 ) error {
 	if info := g.channels[ch.Key()]; info != nil {
 		if info.processing {
-			return errors.Newf(
-				"circular dependency detected involving channel %v",
-				ch.Key(),
-			)
+			return errors.Wrapf(ErrCycle, "channel %v", ch.Key())
 		}
 		return nil
 	}
@@ -952,7 +947,7 @@ func (g *Graph) CalculateFlat() []compiler.Module {
 			return nil
 		}
 		if inStack.Contains(key) {
-			return errors.Newf("circular dependency detected involving channel %v", key)
+			return errors.Wrapf(ErrCycle, "channel %v", key)
 		}
 		inStack.Add(key)
 		for _, dep := range graph[key] {
@@ -1050,7 +1045,7 @@ func (g *Graph) topologicalSortGroup(
 			return nil
 		}
 		if inStack.Contains(key) {
-			return errors.Newf("circular dependency detected in group %v", groupKey)
+			return errors.Wrapf(ErrCycle, "group %v", groupKey)
 		}
 		inStack.Add(key)
 		for _, dep := range graph[key] {
