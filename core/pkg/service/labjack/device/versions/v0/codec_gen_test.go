@@ -62,6 +62,21 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("CommandStatePair", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.CommandStatePair) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.CommandStatePair
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.CommandStatePair{Command: channel.Key(2), State: channel.Key(3)}),
+			Entry("zero values", v0.CommandStatePair{Command: channel.Key(0), State: channel.Key(0)}),
+		)
+	})
 	Describe("Device", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.Device) {
@@ -73,9 +88,27 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("t4 variant", v0.Device{Variant: v0.T4Device{Base: fullyPopulatedBase}}),
-			Entry("t7 variant", v0.Device{Variant: v0.T7Device{Base: fullyPopulatedBase}}),
-			Entry("t8 variant", v0.Device{Variant: v0.T8Device{Base: fullyPopulatedBase}}),
+			Entry("t4 variant", v0.Device{Variant: v0.T4Device{
+				Base:          fullyPopulatedBase,
+				AnalogInput:   map[v0.T4AnalogInputPort]channel.Key{v0.T4AnalogInputPort("AIN0"): channel.Key(2)},
+				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+				DigitalInput:  map[v0.T4DigitalPort]channel.Key{v0.T4DigitalPort("DIO4"): channel.Key(6)},
+				DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(8), State: channel.Key(9)}},
+			}}),
+			Entry("t7 variant", v0.Device{Variant: v0.T7Device{
+				Base:          fullyPopulatedBase,
+				AnalogInput:   map[v0.T7AnalogInputPort]channel.Key{v0.T7AnalogInputPort("AIN0"): channel.Key(2)},
+				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+				DigitalInput:  map[v0.T7DigitalPort]channel.Key{v0.T7DigitalPort("DIO0"): channel.Key(6)},
+				DigitalOutput: map[v0.T7DigitalPort]v0.CommandStatePair{v0.T7DigitalPort("DIO0"): {Command: channel.Key(8), State: channel.Key(9)}},
+			}}),
+			Entry("t8 variant", v0.Device{Variant: v0.T8Device{
+				Base:          fullyPopulatedBase,
+				AnalogInput:   map[v0.T8AnalogInputPort]channel.Key{v0.T8AnalogInputPort("AIN0"): channel.Key(2)},
+				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+				DigitalInput:  map[v0.T8DigitalPort]channel.Key{v0.T8DigitalPort("DIO0"): channel.Key(6)},
+				DigitalOutput: map[v0.T8DigitalPort]v0.CommandStatePair{v0.T8DigitalPort("DIO0"): {Command: channel.Key(8), State: channel.Key(9)}},
+			}}),
 		)
 	})
 })
@@ -97,8 +130,31 @@ func BenchmarkEncodeDecodeBase(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeCommandStatePair(b *testing.B) {
+	seed := v0.CommandStatePair{Command: channel.Key(2), State: channel.Key(3)}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.CommandStatePair
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeDevice(b *testing.B) {
-	seed := v0.Device{Variant: v0.T4Device{Base: fullyPopulatedBase}}
+	seed := v0.Device{Variant: v0.T4Device{
+		Base:          fullyPopulatedBase,
+		AnalogInput:   map[v0.T4AnalogInputPort]channel.Key{v0.T4AnalogInputPort("AIN0"): channel.Key(2)},
+		AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+		DigitalInput:  map[v0.T4DigitalPort]channel.Key{v0.T4DigitalPort("DIO4"): channel.Key(6)},
+		DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(8), State: channel.Key(9)}},
+	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -162,9 +218,54 @@ func FuzzDecodeBase(f *testing.F) {
 	})
 }
 
+func FuzzDecodeCommandStatePair(f *testing.F) {
+	{
+		seed := v0.CommandStatePair{Command: channel.Key(2), State: channel.Key(3)}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.CommandStatePair{Command: channel.Key(0), State: channel.Key(0)}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.CommandStatePair
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.CommandStatePair
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeDevice(f *testing.F) {
 	{
-		seed := v0.Device{Variant: v0.T4Device{Base: fullyPopulatedBase}}
+		seed := v0.Device{Variant: v0.T4Device{
+			Base:          fullyPopulatedBase,
+			AnalogInput:   map[v0.T4AnalogInputPort]channel.Key{v0.T4AnalogInputPort("AIN0"): channel.Key(2)},
+			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+			DigitalInput:  map[v0.T4DigitalPort]channel.Key{v0.T4DigitalPort("DIO4"): channel.Key(6)},
+			DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(8), State: channel.Key(9)}},
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -172,7 +273,13 @@ func FuzzDecodeDevice(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Device{Variant: v0.T7Device{Base: fullyPopulatedBase}}
+		seed := v0.Device{Variant: v0.T7Device{
+			Base:          fullyPopulatedBase,
+			AnalogInput:   map[v0.T7AnalogInputPort]channel.Key{v0.T7AnalogInputPort("AIN0"): channel.Key(2)},
+			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+			DigitalInput:  map[v0.T7DigitalPort]channel.Key{v0.T7DigitalPort("DIO0"): channel.Key(6)},
+			DigitalOutput: map[v0.T7DigitalPort]v0.CommandStatePair{v0.T7DigitalPort("DIO0"): {Command: channel.Key(8), State: channel.Key(9)}},
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -180,7 +287,13 @@ func FuzzDecodeDevice(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Device{Variant: v0.T8Device{Base: fullyPopulatedBase}}
+		seed := v0.Device{Variant: v0.T8Device{
+			Base:          fullyPopulatedBase,
+			AnalogInput:   map[v0.T8AnalogInputPort]channel.Key{v0.T8AnalogInputPort("AIN0"): channel.Key(2)},
+			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+			DigitalInput:  map[v0.T8DigitalPort]channel.Key{v0.T8DigitalPort("DIO0"): channel.Key(6)},
+			DigitalOutput: map[v0.T8DigitalPort]v0.CommandStatePair{v0.T8DigitalPort("DIO0"): {Command: channel.Key(8), State: channel.Key(9)}},
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -42,6 +42,231 @@ Connection enum {
     """
 }
 
+AnalogOutputPort enum {
+    dac0 = "DAC0"
+    dac1 = "DAC1"
+
+    @doc value "is an analog output port of a LabJack device."
+}
+
+T4AnalogInputPort enum {
+    ain0  = "AIN0"
+    ain1  = "AIN1"
+    ain2  = "AIN2"
+    ain3  = "AIN3"
+    ain4  = "AIN4"
+    ain5  = "AIN5"
+    ain6  = "AIN6"
+    ain7  = "AIN7"
+    ain8  = "AIN8"
+    ain9  = "AIN9"
+    ain10 = "AIN10"
+    ain11 = "AIN11"
+
+    @doc value "is an analog input port of a T4."
+}
+
+T4DigitalPort enum {
+    dio4  = "DIO4"
+    dio5  = "DIO5"
+    dio6  = "DIO6"
+    dio7  = "DIO7"
+    dio8  = "DIO8"
+    dio9  = "DIO9"
+    dio10 = "DIO10"
+    dio11 = "DIO11"
+    dio12 = "DIO12"
+    dio13 = "DIO13"
+    dio14 = "DIO14"
+    dio15 = "DIO15"
+    dio16 = "DIO16"
+    dio17 = "DIO17"
+    dio18 = "DIO18"
+    dio19 = "DIO19"
+    dio20 = "DIO20"
+    dio21 = "DIO21"
+    dio22 = "DIO22"
+
+    @doc value "is a digital port of a T4."
+}
+
+T7AnalogInputPort enum {
+    ain0   = "AIN0"
+    ain1   = "AIN1"
+    ain2   = "AIN2"
+    ain3   = "AIN3"
+    ain4   = "AIN4"
+    ain5   = "AIN5"
+    ain6   = "AIN6"
+    ain7   = "AIN7"
+    ain8   = "AIN8"
+    ain9   = "AIN9"
+    ain10  = "AIN10"
+    ain11  = "AIN11"
+    ain12  = "AIN12"
+    ain13  = "AIN13"
+    ain48  = "AIN48"
+    ain49  = "AIN49"
+    ain50  = "AIN50"
+    ain51  = "AIN51"
+    ain52  = "AIN52"
+    ain53  = "AIN53"
+    ain54  = "AIN54"
+    ain55  = "AIN55"
+    ain56  = "AIN56"
+    ain57  = "AIN57"
+    ain58  = "AIN58"
+    ain59  = "AIN59"
+    ain60  = "AIN60"
+    ain61  = "AIN61"
+    ain62  = "AIN62"
+    ain63  = "AIN63"
+    ain64  = "AIN64"
+    ain65  = "AIN65"
+    ain66  = "AIN66"
+    ain67  = "AIN67"
+    ain68  = "AIN68"
+    ain69  = "AIN69"
+    ain70  = "AIN70"
+    ain71  = "AIN71"
+    ain72  = "AIN72"
+    ain73  = "AIN73"
+    ain74  = "AIN74"
+    ain75  = "AIN75"
+    ain76  = "AIN76"
+    ain77  = "AIN77"
+    ain78  = "AIN78"
+    ain79  = "AIN79"
+    ain80  = "AIN80"
+    ain81  = "AIN81"
+    ain82  = "AIN82"
+    ain83  = "AIN83"
+    ain84  = "AIN84"
+    ain85  = "AIN85"
+    ain86  = "AIN86"
+    ain87  = "AIN87"
+    ain88  = "AIN88"
+    ain89  = "AIN89"
+    ain90  = "AIN90"
+    ain91  = "AIN91"
+    ain92  = "AIN92"
+    ain93  = "AIN93"
+    ain94  = "AIN94"
+    ain95  = "AIN95"
+    ain96  = "AIN96"
+    ain97  = "AIN97"
+    ain98  = "AIN98"
+    ain99  = "AIN99"
+    ain100 = "AIN100"
+    ain101 = "AIN101"
+    ain102 = "AIN102"
+    ain103 = "AIN103"
+    ain104 = "AIN104"
+    ain105 = "AIN105"
+    ain106 = "AIN106"
+    ain107 = "AIN107"
+    ain108 = "AIN108"
+    ain109 = "AIN109"
+    ain110 = "AIN110"
+    ain111 = "AIN111"
+    ain112 = "AIN112"
+    ain113 = "AIN113"
+    ain114 = "AIN114"
+    ain115 = "AIN115"
+    ain116 = "AIN116"
+    ain117 = "AIN117"
+    ain118 = "AIN118"
+    ain119 = "AIN119"
+    ain120 = "AIN120"
+    ain121 = "AIN121"
+    ain122 = "AIN122"
+    ain123 = "AIN123"
+    ain124 = "AIN124"
+    ain125 = "AIN125"
+    ain126 = "AIN126"
+    ain127 = "AIN127"
+
+    @doc value "is an analog input port of a T7. AIN48 and up need a Mux80."
+}
+
+T7DigitalPort enum {
+    dio0  = "DIO0"
+    dio1  = "DIO1"
+    dio2  = "DIO2"
+    dio3  = "DIO3"
+    dio4  = "DIO4"
+    dio5  = "DIO5"
+    dio6  = "DIO6"
+    dio7  = "DIO7"
+    dio8  = "DIO8"
+    dio9  = "DIO9"
+    dio10 = "DIO10"
+    dio11 = "DIO11"
+    dio12 = "DIO12"
+    dio13 = "DIO13"
+    dio14 = "DIO14"
+    dio15 = "DIO15"
+    dio16 = "DIO16"
+    dio17 = "DIO17"
+    dio18 = "DIO18"
+    dio19 = "DIO19"
+    dio20 = "DIO20"
+    dio21 = "DIO21"
+    dio22 = "DIO22"
+
+    @doc value "is a digital port of a T7."
+}
+
+T8AnalogInputPort enum {
+    ain0 = "AIN0"
+    ain1 = "AIN1"
+    ain2 = "AIN2"
+    ain3 = "AIN3"
+    ain4 = "AIN4"
+    ain5 = "AIN5"
+    ain6 = "AIN6"
+    ain7 = "AIN7"
+
+    @doc value "is an analog input port of a T8."
+}
+
+T8DigitalPort enum {
+    dio0  = "DIO0"
+    dio1  = "DIO1"
+    dio2  = "DIO2"
+    dio3  = "DIO3"
+    dio4  = "DIO4"
+    dio5  = "DIO5"
+    dio6  = "DIO6"
+    dio7  = "DIO7"
+    dio8  = "DIO8"
+    dio9  = "DIO9"
+    dio10 = "DIO10"
+    dio11 = "DIO11"
+    dio12 = "DIO12"
+    dio13 = "DIO13"
+    dio14 = "DIO14"
+    dio15 = "DIO15"
+    dio16 = "DIO16"
+    dio17 = "DIO17"
+    dio18 = "DIO18"
+    dio19 = "DIO19"
+
+    @doc value "is a digital port of a T8."
+}
+
+CommandStatePair struct {
+    command channel.Key = 0 {
+        @doc value "is the channel that commands the port."
+    }
+    state   channel.Key = 0 {
+        @doc value "is the channel that holds the state of the port."
+    }
+
+    @doc value  "is the pair of channels that writes to one port."
+    @go marshal
+}
+
 StatusDetails struct {
     rack   rack.Key {
         @doc value "is the key of the rack the device belongs to."
@@ -97,12 +322,51 @@ Base struct {
 
 Device union on model Model extends Base {
     t4 {
+        analog_input   map<T4AnalogInputPort, channel.Key> = {} {
+            @doc value "maps an analog input port to the channel that holds its samples."
+        }
+        analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
+            @doc value "maps an analog output port to the channels that write to it."
+        }
+        digital_input  map<T4DigitalPort, channel.Key> = {} {
+            @doc value "maps a digital port to the channel that holds its samples."
+        }
+        digital_output map<T4DigitalPort, CommandStatePair> = {} {
+            @doc value "maps a digital port to the channels that write to it."
+        }
+
         @doc value "is a T4."
     }
     t7 {
+        analog_input   map<T7AnalogInputPort, channel.Key> = {} {
+            @doc value "maps an analog input port to the channel that holds its samples."
+        }
+        analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
+            @doc value "maps an analog output port to the channels that write to it."
+        }
+        digital_input  map<T7DigitalPort, channel.Key> = {} {
+            @doc value "maps a digital port to the channel that holds its samples."
+        }
+        digital_output map<T7DigitalPort, CommandStatePair> = {} {
+            @doc value "maps a digital port to the channels that write to it."
+        }
+
         @doc value "is a T7."
     }
     t8 {
+        analog_input   map<T8AnalogInputPort, channel.Key> = {} {
+            @doc value "maps an analog input port to the channel that holds its samples."
+        }
+        analog_output  map<AnalogOutputPort, CommandStatePair> = {} {
+            @doc value "maps an analog output port to the channels that write to it."
+        }
+        digital_input  map<T8DigitalPort, channel.Key> = {} {
+            @doc value "maps a digital port to the channel that holds its samples."
+        }
+        digital_output map<T8DigitalPort, CommandStatePair> = {} {
+            @doc value "maps a digital port to the channels that write to it."
+        }
+
         @doc value "is a T8."
     }
 

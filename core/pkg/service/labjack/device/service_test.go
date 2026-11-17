@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/device"
@@ -126,6 +127,33 @@ var _ = Describe("Service", func() {
 			d := create(ctx)
 			Expect(d.Base().Key).ToNot(Equal(uuid.Nil()))
 			Expect(retrieve(ctx, d.Base().Key).Base().Serial).To(Equal(d.Base().Serial))
+		})
+
+		It("Should store the port maps of a device", func(ctx SpecContext) {
+			d := device.Device{Variant: device.T7Device{
+				Base: device.Base{
+					Rack:       rackKey,
+					Name:       "T7-0002",
+					Serial:     nextSerial(),
+					Connection: device.ConnectionUSB,
+				},
+				AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+					device.T7AnalogInputPortAin0:  1,
+					device.T7AnalogInputPortAin48: 2,
+				},
+				AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{
+					device.AnalogOutputPortDac1: {Command: 3, State: 4},
+				},
+				DigitalInput: map[device.T7DigitalPort]channel.Key{
+					device.T7DigitalPortDio0: 5,
+				},
+				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+					device.T7DigitalPortDio22: {Command: 6, State: 7},
+				},
+			}}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			got := retrieve(ctx, d.Base().Key)
+			Expect(got.Variant).To(Equal(d.Variant))
 		})
 
 		It("Should keep a key the caller sets", func(ctx SpecContext) {
