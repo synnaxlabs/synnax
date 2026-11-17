@@ -344,7 +344,7 @@ func BootupCore(
 		},
 		ValidateChannelNames:   cfg.validateChannelNames,
 		SecretsKey:             secretsKey,
-		EmbeddedDriverDisabled: !cfg.driverEnabled(),
+		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
 	if !ok(err, serviceLayer) {
 		return err

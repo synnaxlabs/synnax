@@ -946,6 +946,42 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 		It(
+			"Should not create the embedded rack when the embedded Driver is disabled",
+			func(ctx SpecContext) {
+				disabledDB := DeferClose(gorp.Wrap(memkv.New()))
+				s := DeferClose(openStack(
+					ctx,
+					disabledDB,
+					rack.ServiceConfig{EmbeddedDriverDisabled: true},
+				))
+				Expect(s.rack.EmbeddedKey).To(BeZero())
+				Expect(MustSucceed(s.rack.NewRetrieve().
+					Where(rack.MatchEmbedded(true)).
+					Exists(ctx, disabledDB))).To(BeFalse())
+			},
+		)
+		It(
+			"Should delete the embedded rack when the embedded Driver is disabled",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(before.Close()).To(Succeed())
+				disabled := openStack(
+					ctx,
+					restartDB,
+					rack.ServiceConfig{EmbeddedDriverDisabled: true},
+				)
+				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return disabled.rack.NewWriter(tx).Delete(ctx, nil, key)
+				})).To(Succeed())
+				Expect(disabled.Close()).To(Succeed())
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(after.rack.EmbeddedKey).ToNot(BeZero())
+				Expect(after.rack.EmbeddedKey).ToNot(Equal(key))
+			},
+		)
+		It(
 			"Should give the embedded rack a disabled status when its Driver is disabled",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
@@ -963,6 +999,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(before.Close()).To(Succeed())
 				cfg.EmbeddedDriverDisabled = true
 				after := DeferClose(openStack(ctx, restartDB, cfg))
+				Expect(after.rack.EmbeddedKey).To(Equal(key))
 				var copied atomic.Pointer[rack.Outage]
 				DeferCleanup(after.rack.OnSuspect(
 					func(_ context.Context, o rack.Outage) error {

@@ -199,6 +199,21 @@ class TestRackClient:
         cached_rack = client.racks.retrieve_embedded_rack()
         assert rack.key == cached_rack.key
 
+    def test_retrieve_embedded_rack_by_integration(self, client: sy.Synnax) -> None:
+        """Should retrieve the embedded rack that runs an integration."""
+        rack = client.racks.retrieve_embedded_rack("pagerduty")
+        assert rack.embedded
+        assert "pagerduty" in rack.integrations
+
+    def test_retrieve_embedded_rack_missing_integration(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise when no embedded rack runs the integration."""
+        with pytest.raises(
+            sy.NotFoundError, match="No embedded rack runs the missing integration"
+        ):
+            client.racks.retrieve_embedded_rack("missing")
+
     def test_retrieve_with_status(self, client: sy.Synnax) -> None:
         """Should attach the rack status when asked for it."""
         rack = client.racks.create(name=str(uuid4()))

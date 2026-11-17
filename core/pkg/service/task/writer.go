@@ -285,8 +285,8 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 }
 
 // DeleteRacks deletes the racks with keys, their statuses, and the internal tasks they
-// hold. It returns a validation error when a rack is embedded, holds a device, or holds
-// a task that is not internal.
+// hold. It returns a validation error when a rack holds a device or a task that is not
+// internal, or when it is embedded and is not the rack of a disabled embedded Driver.
 func (w Writer) DeleteRacks(ctx context.Context, keys ...rack.Key) error {
 	return w.racks.Delete(ctx, w.guardRack, keys...)
 }
