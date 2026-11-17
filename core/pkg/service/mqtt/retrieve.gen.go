@@ -12,10 +12,12 @@
 package mqtt
 
 import (
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 )
 
@@ -40,8 +42,35 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 			},
 		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, icd.Key]{
+			Name:     "entries.icd",
+			Table:    "icd",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *ReadConfig) []icd.Key {
+				var targets []icd.Key
+				for _, v1 := range e.Entries {
+					switch v2 := v1.Variant.(type) {
+					case PlainReadEntry:
+						targets = append(targets, v2.ICD)
+					}
+				}
+				return targets
+			},
+			Detach: func(e *ReadConfig, t icd.Key) {
+				e.Entries = slices.DeleteFunc(e.Entries, func(v3 ReadEntry) bool {
+					switch v4 := v3.Variant.(type) {
+					case PlainReadEntry:
+						if v4.ICD == t {
+							return true
+						}
+					}
+					return false
+				})
+			},
+		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
-			Name:     "entries.fields.channel",
+			Name:     "entries.messages.bindings.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
@@ -50,41 +79,8 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				for _, v1 := range e.Entries {
 					switch v2 := v1.Variant.(type) {
 					case PlainReadEntry:
-						for _, v3 := range v2.Fields {
-							switch v4 := v3.Variant.(type) {
-							case FloatReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case IntegerReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case UnsignedReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case StringReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case BooleanReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case TimestampReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case JSONReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case UuidReadField:
-								if v4.Channel != 0 {
-									targets = append(targets, v4.Channel)
-								}
-							case BytesReadField:
+						for _, v3 := range v2.Messages {
+							for _, v4 := range v3.Bindings {
 								if v4.Channel != 0 {
 									targets = append(targets, v4.Channel)
 								}
@@ -98,53 +94,11 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				for i5 := range e.Entries {
 					switch v6 := e.Entries[i5].Variant.(type) {
 					case PlainReadEntry:
-						for i7 := range v6.Fields {
-							switch v8 := v6.Fields[i7].Variant.(type) {
-							case FloatReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
+						for i7 := range v6.Messages {
+							for i8 := range v6.Messages[i7].Bindings {
+								if v6.Messages[i7].Bindings[i8].Channel == t {
+									v6.Messages[i7].Bindings[i8].Channel = 0
 								}
-								v6.Fields[i7].Variant = v8
-							case IntegerReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case UnsignedReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case StringReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case BooleanReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case TimestampReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case JSONReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case UuidReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
-							case BytesReadField:
-								if v8.Channel == t {
-									v8.Channel = 0
-								}
-								v6.Fields[i7].Variant = v8
 							}
 						}
 						e.Entries[i5].Variant = v6
