@@ -191,6 +191,19 @@ var _ = Describe("DB", func() {
 			Expect(runDB.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
 		})
 
+		It("Should fail a Run after an earlier Run returns", func(ctx SpecContext) {
+			StartRun(runDB.Run)()
+			Expect(runDB.Run(ctx)).To(MatchError(ContainSubstring("Run called twice")))
+		})
+
+		It("Should fail a Run after Close", func(ctx SpecContext) {
+			closed := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
+			Expect(closed.Close()).To(Succeed())
+			Expect(
+				closed.Run(ctx),
+			).To(MatchError(ContainSubstring("Run called after Close")))
+		})
+
 		It("Should fail Close while Run runs", func() {
 			// The cleanup closes runDB after Run returns, and asserts that it succeeds.
 			StartRun(runDB.Run)

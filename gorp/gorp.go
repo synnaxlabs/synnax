@@ -65,10 +65,21 @@ type DB struct {
 	run runState
 }
 
+// runStage is the stage of DB.Run.
+type runStage uint8
+
+const (
+	runIdle runStage = iota
+	runRunning
+	runStopped
+)
+
 // runState is the state of DB.Run.
 type runState struct {
-	started atomic.Bool
-	running atomic.Bool
+	// mu orders the start of Run against Close.
+	mu     sync.Mutex
+	stage  runStage
+	closed bool
 	// populates receives the index populates of tables while Run runs.
 	populates chan func(context.Context)
 	// stopped closes when Run stops receiving populates.
@@ -165,13 +176,25 @@ func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 // waits for the populates in progress to stop and returns nil. A populate that ctx ends
 // leaves its indexes invalid. OpenTable for a table with indexes or references waits
 // for Run to start and fails after Run stops. Commits to a table wait for its indexes
-// to populate. Call Run once, and Close only after Run returns.
+// to populate. Call Run once, and Close only after Run returns. A second Run, or a Run
+// after Close, returns an error.
 func (db *DB) Run(ctx context.Context) error {
-	if !db.run.started.CompareAndSwap(false, true) {
+	db.run.mu.Lock()
+	if db.run.closed {
+		db.run.mu.Unlock()
+		return errors.New("[gorp] - Run called after Close")
+	}
+	if db.run.stage != runIdle {
+		db.run.mu.Unlock()
 		return errors.New("[gorp] - Run called twice")
 	}
-	db.run.running.Store(true)
-	defer db.run.running.Store(false)
+	db.run.stage = runRunning
+	db.run.mu.Unlock()
+	defer func() {
+		db.run.mu.Lock()
+		db.run.stage = runStopped
+		db.run.mu.Unlock()
+	}()
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	defer close(db.run.stopped)
@@ -216,9 +239,13 @@ func (db *DB) goPopulate(ctx context.Context, populate func(context.Context)) er
 // Close closes the underlying DB. Call it only after Run returns: while Run runs, Close
 // returns an error and closes nothing.
 func (db *DB) Close() error {
-	if db.run.running.Load() {
+	db.run.mu.Lock()
+	if db.run.stage == runRunning {
+		db.run.mu.Unlock()
 		return errors.New("[gorp] - Close called while Run runs")
 	}
+	db.run.closed = true
+	db.run.mu.Unlock()
 	return db.DB.Close()
 }
 
