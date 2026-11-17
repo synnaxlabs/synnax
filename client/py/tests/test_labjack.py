@@ -695,6 +695,21 @@ class TestLabJackDeviceResource:
         assert isinstance(device, sy.labjack.device.T7Device)
         assert device.identifier == ""
         assert device.read_index == 0
+        assert device.analog_input == {}
+        assert device.digital_output == {}
+
+    def test_parses_the_port_maps(self) -> None:
+        """Should parse the port maps of a device."""
+        device = TypeAdapter(sy.labjack.device.Device).validate_python(
+            {
+                **self.DEVICE,
+                "analog_input": {"AIN0": 1, "AIN48": 2},
+                "digital_output": {"DIO22": {"command": 3, "state": 4}},
+            }
+        )
+        assert isinstance(device, sy.labjack.device.T7Device)
+        assert device.analog_input == {"AIN0": 1, "AIN48": 2}
+        assert device.digital_output["DIO22"].state == 4
 
     @pytest.mark.parametrize(
         "change",
@@ -702,10 +717,13 @@ class TestLabJackDeviceResource:
             {"model": "t9"},
             {"connection": "LJM_ctWIFI"},
             {"serial": None},
+            {"model": "t4", "digital_input": {"DIO0": 5}},
         ],
     )
     def test_rejects_an_invalid_device(self, change: dict[str, object]) -> None:
-        """Should reject an unknown model or connection and a missing serial."""
+        """Should reject an unknown model or connection, a missing serial, and a port
+        of another model.
+        """
         data = {k: v for k, v in {**self.DEVICE, **change}.items() if v is not None}
         with pytest.raises(ValidationError):
             TypeAdapter(sy.labjack.device.Device).validate_python(data)

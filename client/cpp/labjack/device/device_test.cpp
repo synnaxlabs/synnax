@@ -60,6 +60,8 @@ TEST(Device, RoundTrips) {
     t4.serial = 440010002;
     t4.connection = CONNECTION_TCP;
     t4.identifier = "lj";
+    t4.analog_input = {{"AIN11", 3}};
+    t4.digital_output = {{"DIO4", CommandStatePair{.command = 4, .state = 5}}};
     const Device device = t4;
     x::json::Parser parser(to_json(device));
     const auto parsed = parse_device(parser);
@@ -68,5 +70,9 @@ TEST(Device, RoundTrips) {
     ASSERT_EQ(base(parsed).key, t4.key);
     ASSERT_EQ(base(parsed).connection, CONNECTION_TCP);
     ASSERT_EQ(base(parsed).identifier, "lj");
+    const auto &got = std::get<T4Device>(parsed);
+    ASSERT_EQ(got.analog_input.at("AIN11"), 3);
+    ASSERT_EQ(got.digital_output.at("DIO4").command, 4);
+    ASSERT_EQ(got.digital_output.at("DIO4").state, 5);
 }
 }
