@@ -92,12 +92,14 @@ Look struct {
 Condition union on kind { equals { state string, values float64[] } }
 Paint union on kind { entry { state string }, node {}, color { color color.Ref } }
 Motion union on kind {
-    spin { rate Rate }, blink { period float64 = 1 }, flow { rate Rate }
+    // rate: cycles per second, times the `by` number state's fraction of its bounds
+    spin { rate telem.Rate = 0.5, by string? }
+    flow { rate telem.Rate = 0.5, by string? }
+    blink { period telem.TimeSpan = 1s }
     level { state string, side spatial.OuterLocation = bottom }
     rotate { state string, from, to float64 }
     move { state string, from, to spatial.XY }
 }
-Rate struct { value float64 = 0.5, by string? }   // cycles per second, times `by`
 Interaction struct { key string, part string?, action Action }
 Action union on kind { fire { command string }, next { commands string[] } }
 
@@ -129,18 +131,24 @@ The editor writes the band 0.9 to 1.1 on a new state with two entries. An enum s
 draws its `default` entry, such as Closed on a valve, while no data has arrived, for
 NaN, and, when it has an enum, for a value that equals no entry after its match. Pluto
 then adds the unknown indicator. A band reads 0.5 as 0, so a valve at 0.5 shows Closed
-with no indicator, as today. A state with no source draws its default entry with no
-indicator. The binding holds the number format, as each readout does today
-(`schemas/synnax/schematic.oracle:1224-1249`).
+with no indicator, as today. A state with no source draws its default entry, or fraction
+0 for a number state, with no indicator. The binding holds the number format, as each
+readout does today (`schemas/synnax/schematic.oracle:1224-1249`).
 
 Looks apply in order, and a later look wins on each field it sets. Stale data keeps the
 last state's looks and adds the stale indicator. Pluto then draws pending, hover,
 pressed, and the hold fill. A symbol stores no indicators: Pluto draws the stale,
-unknown, and other indicators on top of the looks. A number state drives motion as a
-fraction of its bounds, clamped to 0 to 1, and the Core refuses bounds whose lower value
-is not below the upper. Motion stops while its state is stale or unknown, under the
-operating system's Reduce motion setting, and on a node with `motion_disabled`. A blink
-stays under three flashes per second.
+unknown, and other indicators on top of the looks. Only a number state drives motion,
+and the Core refuses a motion whose `state` or `by` names an enum state. A number state
+drives motion as a fraction of its bounds, clamped to 0 to 1, and the Core refuses
+bounds whose lower value is not below the upper. A number state is unknown for no data
+and NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink` stop while
+a state that their look reads, in `when` or `by`, is stale or unknown, under the
+operating system's Reduce motion setting, and on a node with `motion_disabled`. Under
+these two settings, a `level`, `rotate`, or `move` jumps to each new fraction with no
+transition. While its state is stale, it keeps its last fraction. While it is unknown,
+it draws fraction 0, which is `from` or an empty `level`, with the unknown indicator. A
+blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
@@ -304,6 +312,10 @@ until it passes at 1,000 moving parts.
     all of its nodes, as today. A copy for each import splits the nodes across
     duplicates. The trade is real: the bundled design is not applied when the Core
     already has the symbol, and only a warning reports the difference.
+18. **An unknown number state draws fraction 0**: A `level`, `rotate`, or `move` with no
+    data or NaN draws fraction 0, as an enum state draws its default entry, and never
+    shows an old value as current. The trade is real: an empty-looking part can be
+    misread at a glance, so the unknown indicator carries the warning.
 
 ## 8 Open questions
 
