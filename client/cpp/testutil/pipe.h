@@ -31,7 +31,7 @@
 #include <csignal>
 
 #include <netinet/in.h>
-#include <sys/select.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
@@ -104,17 +104,14 @@ class CorePipe {
 
     /// @brief waits up to 50 ms for a connection on the listener.
     [[nodiscard]] bool readable() const {
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(this->listener, &fds);
-        timeval timeout{.tv_sec = 0, .tv_usec = 50000};
-        return select(
-                   static_cast<int>(this->listener) + 1,
-                   &fds,
-                   nullptr,
-                   nullptr,
-                   &timeout
-               ) > 0;
+        pollfd fd{};
+        fd.fd = this->listener;
+        fd.events = POLLIN;
+#ifdef _WIN32
+        return WSAPoll(&fd, 1, 50) > 0;
+#else
+        return poll(&fd, 1, 50) > 0;
+#endif
     }
 
     void accept_loop() {
