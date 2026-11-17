@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Bounds } from "@/spatial/base";
+import { type bounds } from "@/spatial";
 
 const LARGE_SPAN_DECIMAL_PLACES = 2;
 const MEDIUM_SPAN_DECIMAL_PLACES = 3;
@@ -25,7 +25,7 @@ const MIN_SPAN_THRESHOLD = 1e-10;
  * otherwise uses significant figures.
  * @returns The rounded number.
  */
-export const smartRound = (value: number, b?: Bounds<number>): number => {
+export const smartRound = (value: number, b?: bounds.Bounds<number>): number => {
   if (Number.isNaN(value) || !Number.isFinite(value)) return value;
   const absValue = Math.abs(value);
   if (absValue === 0) return 0;

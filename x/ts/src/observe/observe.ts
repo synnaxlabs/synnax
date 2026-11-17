@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor } from "@/destructor";
-import { withTimeout } from "@/sync/timeout";
+import { sync } from "@/sync";
 import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 /** Handler is called when the value of an Observable changes. */
@@ -51,7 +51,7 @@ export const until = async <V>(
   try {
     if (timeout == null) return await satisfied;
     const span = new TimeSpan(timeout);
-    return await withTimeout(
+    return await sync.withTimeout(
       satisfied,
       span,
       () => new Error(`timed out after ${span.toString()}`),

@@ -10,11 +10,11 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { toArray } from "@/zod/toArray";
+import { zod } from "@/zod";
 
 describe("toArray", () => {
   describe("with string schema", () => {
-    const schema = toArray(z.string());
+    const schema = zod.toArray(z.string());
 
     it("should accept an array of strings", () => {
       const result = schema.parse(["hello", "world"]);
@@ -41,7 +41,7 @@ describe("toArray", () => {
   });
 
   describe("with number schema", () => {
-    const schema = toArray(z.number());
+    const schema = zod.toArray(z.number());
 
     it("should accept an array of numbers", () => {
       const result = schema.parse([1, 2, 3]);
@@ -69,7 +69,7 @@ describe("toArray", () => {
       name: z.string(),
       age: z.number(),
     });
-    const schema = toArray(objSchema);
+    const schema = zod.toArray(objSchema);
 
     it("should accept an array of objects", () => {
       const input = [
@@ -94,7 +94,7 @@ describe("toArray", () => {
   });
 
   describe("with optional schema", () => {
-    const schema = toArray(z.string().optional());
+    const schema = zod.toArray(z.string().optional());
 
     it("should handle undefined in array", () => {
       const result = schema.parse([undefined, "hello", undefined]);
@@ -108,7 +108,7 @@ describe("toArray", () => {
   });
 
   describe("with union schema", () => {
-    const schema = toArray(z.union([z.string(), z.number()]));
+    const schema = zod.toArray(z.union([z.string(), z.number()]));
 
     it("should accept mixed types in array", () => {
       const result = schema.parse(["hello", 42, "world", 123]);
@@ -131,7 +131,7 @@ describe("toArray", () => {
   });
 
   describe("with nullable schema", () => {
-    const schema = toArray(z.string().nullable());
+    const schema = zod.toArray(z.string().nullable());
 
     it("should handle null in array", () => {
       const result = schema.parse([null, "hello", null]);
@@ -146,7 +146,7 @@ describe("toArray", () => {
 
   describe("with transformed schema", () => {
     const baseSchema = z.string().transform((val) => val.toUpperCase());
-    const schema = toArray(baseSchema);
+    const schema = zod.toArray(baseSchema);
 
     it("should apply transformation to array elements", () => {
       const result = schema.parse(["hello", "world"]);
@@ -161,7 +161,7 @@ describe("toArray", () => {
 
   describe("edge cases", () => {
     it("should handle deeply nested arrays", () => {
-      const schema = toArray(toArray(z.number()));
+      const schema = zod.toArray(zod.toArray(z.number()));
       const result = schema.parse([
         [1, 2],
         [3, 4],
@@ -173,13 +173,13 @@ describe("toArray", () => {
     });
 
     it("should convert single value to nested array", () => {
-      const schema = toArray(toArray(z.number()));
+      const schema = zod.toArray(zod.toArray(z.number()));
       const result = schema.parse(5);
       expect(result).toEqual([[5]]);
     });
 
     it("should return equal array when input is already an array", () => {
-      const schema = toArray(z.string());
+      const schema = zod.toArray(z.string());
       const input = ["test"];
       const result = schema.parse(input);
       expect(result).toEqual(input);

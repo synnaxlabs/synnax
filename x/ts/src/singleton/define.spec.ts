@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { define } from "@/singleton/define";
+import { singleton } from "@/singleton";
 
 describe("define", () => {
   it("should create and return a singleton instance", () => {
@@ -21,7 +21,7 @@ describe("define", () => {
       return { value: "singleton-value" };
     };
 
-    const getInstance = define(key, createInstance);
+    const getInstance = singleton.define(key, createInstance);
     const instance1 = getInstance();
 
     expect(constructorCallCount).toBe(1);
@@ -36,8 +36,8 @@ describe("define", () => {
     const key1 = "test-singleton-2";
     const key2 = "test-singleton-3";
 
-    const getInstance1 = define(key1, () => ({ id: 1 }));
-    const getInstance2 = define(key2, () => ({ id: 2 }));
+    const getInstance1 = singleton.define(key1, () => ({ id: 1 }));
+    const getInstance2 = singleton.define(key2, () => ({ id: 2 }));
 
     const instance1 = getInstance1();
     const instance2 = getInstance2();
@@ -56,7 +56,7 @@ describe("define", () => {
       return { id: constructorCallCount };
     };
 
-    const getInstance1 = define(key, createInstance1);
+    const getInstance1 = singleton.define(key, createInstance1);
     const firstInstance = getInstance1();
     expect(firstInstance).toEqual({ id: 1 });
     expect(constructorCallCount).toBe(1);
@@ -67,7 +67,7 @@ describe("define", () => {
       return { id: 999 }; // Different value
     };
 
-    const getInstance2 = define(key, createInstance2);
+    const getInstance2 = singleton.define(key, createInstance2);
     const secondInstance = getInstance2();
 
     expect(secondInstance).toBe(firstInstance);
@@ -84,7 +84,7 @@ describe("define", () => {
     }
 
     const key = "test-singleton-5";
-    const getInstance = define(key, () => new TestClass(42));
+    const getInstance = singleton.define(key, () => new TestClass(42));
 
     const instance = getInstance();
     expect(instance).toBeInstanceOf(TestClass);

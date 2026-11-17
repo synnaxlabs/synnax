@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Notifier } from "@/sync/notifier";
+import { sync } from "@/sync";
 import { TimeSpan } from "@/telem";
 
 const settled = async <V>(promise: Promise<V>): Promise<boolean> => {
@@ -21,7 +21,7 @@ const settled = async <V>(promise: Promise<V>): Promise<boolean> => {
 
 describe("Notifier", () => {
   it("should release a waiter on notify", async () => {
-    const notifier = new Notifier();
+    const notifier = new sync.Notifier();
     const wait = notifier.wait(null);
     expect(await settled(wait)).toBe(false);
     notifier.notify();
@@ -29,37 +29,37 @@ describe("Notifier", () => {
   });
 
   it("should return immediately when a notify is already pending", async () => {
-    const notifier = new Notifier();
+    const notifier = new sync.Notifier();
     notifier.notify();
     await expect(notifier.wait(null)).resolves.toBeUndefined();
   });
 
   it("should consume a pending notify exactly once", async () => {
-    const notifier = new Notifier();
+    const notifier = new sync.Notifier();
     notifier.notify();
     await notifier.wait(null);
     expect(await settled(notifier.wait(null))).toBe(false);
   });
 
   it("should release a waiter when its span elapses", async () => {
-    const notifier = new Notifier();
+    const notifier = new sync.Notifier();
     await expect(notifier.wait(TimeSpan.milliseconds(5))).resolves.toBeUndefined();
   });
 
   it("should wait indefinitely on a null span", async () => {
-    const notifier = new Notifier();
+    const notifier = new sync.Notifier();
     expect(await settled(notifier.wait(null))).toBe(false);
   });
 
   it("should wake every current waiter", async () => {
-    const notifier = new Notifier();
+    const notifier = new sync.Notifier();
     const waits = [notifier.wait(null), notifier.wait(null), notifier.wait(null)];
     notifier.notify();
     await expect(Promise.all(waits)).resolves.toHaveLength(3);
   });
 
   it("should not leave a notify pending when waiters consumed it", async () => {
-    const notifier = new Notifier();
+    const notifier = new sync.Notifier();
     const wait = notifier.wait(null);
     notifier.notify();
     await wait;
@@ -67,7 +67,7 @@ describe("Notifier", () => {
   });
 
   it("should drop a timed-out waiter rather than wake it twice", async () => {
-    const notifier = new Notifier();
+    const notifier = new sync.Notifier();
     await notifier.wait(TimeSpan.milliseconds(1));
     notifier.notify();
     // the notify found no waiters, so it sticks for the next one

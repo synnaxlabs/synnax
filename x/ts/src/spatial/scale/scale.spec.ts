@@ -10,14 +10,14 @@
 import { describe, expect, it, test } from "vitest";
 
 import { box } from "@/spatial/box";
-import { Scale, XY } from "@/spatial/scale/scale";
+import { scale } from "@/spatial/scale";
 
-type ScaleSpec = [name: string, scale: Scale<number>, i: number, o: number];
+type ScaleSpec = [name: string, scale: scale.Scale<number>, i: number, o: number];
 
 describe("Scale", () => {
-  const simpleScale = Scale.scale<number>(0, 10).scale(0, 1);
-  const translateScale = Scale.scale<number>(0, 10).translate(5).scale(0, 1);
-  const translateMagnifyScale = Scale.scale<number>(0, 10)
+  const simpleScale = scale.Scale.scale<number>(0, 10).scale(0, 1);
+  const translateScale = scale.Scale.scale<number>(0, 10).translate(5).scale(0, 1);
+  const translateMagnifyScale = scale.Scale.scale<number>(0, 10)
     .translate(5)
     .magnify(2)
     .scale(0, 1);
@@ -60,7 +60,7 @@ describe("Scale", () => {
   });
   describe("XYScale", () => {
     test("converting a DOM rect to decimal coordinates", () => {
-      const s = XY.scale(box.construct(100, 100, 1000, 1000)).scale(box.DECIMAL);
+      const s = scale.XY.scale(box.construct(100, 100, 1000, 1000)).scale(box.DECIMAL);
       const b1 = s.box(box.construct(100, 100, 1000, 1000));
       expect(box.bottomLeft(b1)).toEqual({ x: 0, y: 0 });
       const b2 = s.box(box.construct(200, 200, 200, 200));
@@ -70,13 +70,13 @@ describe("Scale", () => {
   });
   describe("transform", () => {
     it("should return the correct transform", () => {
-      const s = Scale.scale<number>(0, 10).translate(5).magnify(2).scale(0, 1);
+      const s = scale.Scale.scale<number>(0, 10).translate(5).magnify(2).scale(0, 1);
       const t = s.transform;
       expect(t.scale).toBe(0.2);
       expect(t.offset).toBe(1);
     });
     it("should return the correct transform for an XY scale", () => {
-      const s = XY.translate({ x: 5, y: 5 }).magnify({ x: 2, y: 2 });
+      const s = scale.XY.translate({ x: 5, y: 5 }).magnify({ x: 2, y: 2 });
       const t = s.transform;
       expect(t.scale).toEqual({ x: 2, y: 2 });
       expect(t.offset).toEqual({ x: 10, y: 10 });
