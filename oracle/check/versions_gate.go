@@ -671,8 +671,7 @@ func surfaceMembers(f *versions.File, names []string) *versions.File {
 		}
 		members.Defined = append(members.Defined, t)
 		// An inline variant's payload is a synthetic declaration the surface leaves
-		// out,
-		// so its fields join through the union.
+		// out, so its fields join through the union.
 		u, isUnion := t.Form.(resolution.UnionForm)
 		if !isUnion {
 			continue
@@ -897,9 +896,8 @@ func checkAliasedRules(
 
 // checkReachedRules fails a live-only rule on a dependency that a frozen definer
 // reaches at the dependency's current version. A frozen definer's package calls every
-// dependency
-// its pins reach, directly or through the dependencies' own pins, by the dependency's
-// version file, so a live-only rule there never runs.
+// dependency its pins reach, directly or through the dependencies' own pins, by the
+// dependency's version file, so a live-only rule there never runs.
 func checkReachedRules(
 	r *GateReport,
 	res *pipeline.Result,
