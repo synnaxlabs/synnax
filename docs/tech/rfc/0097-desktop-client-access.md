@@ -24,9 +24,9 @@ and a button that replaces the key.
 
 ## 2 Principles
 
-1. **Zero configuration for Python**: `sy.Synnax()` connects to Desktop with no
-   arguments. A saved `sy login` comes first, so a person who logged in to another Core
-   keeps that behavior.
+1. **Zero configuration for scripts**: `sy.Synnax()` and `new Synnax()` in Node.js, Bun,
+   and Deno connect to Desktop with no arguments. A saved `sy login` comes first in
+   Python, so a person who logged in to another Core keeps that behavior.
 2. **No secret on disk**: The OS keychain holds the API key, never the launch password.
    The discovery file holds only the address and the path of the key helper.
 3. **Desktop makes the key through the public API**: The Console creates the key after
@@ -56,8 +56,8 @@ so a moved app or a new AppImage mount gets the correct path.
 
 The supervisor reads the port from the `core.json` of the last launch and binds it again
 when it is free (`console/src-tauri/src/supervisor/launch.rs`). When another program
-holds it, the supervisor picks a free port, as before. Python reads the new port from
-the file; copied TypeScript code needs it again.
+holds it, the supervisor picks a free port, as before. The clients read the new port
+from the file; copied TypeScript code needs it again.
 
 ### 3.2 The key
 
@@ -110,9 +110,9 @@ Python loader.
    logs in as root with no way to revoke it apart from the others.
 3. **A fixed port**: Rejected again for RFC 0063 §8 decision 5. The last port is a
    preference, not a promise.
-4. **A Node loader for TypeScript**: Rejected. Most TypeScript runs in a browser, which
-   cannot read the file. The dialog gives code to copy. The trade is real: copied code
-   breaks when the port changes or the key resets.
+4. **A Node loader for TypeScript**: Accepted. In Node.js, Bun, and Deno, the client
+   reads the file and runs the key helper. A browser cannot read the file, so the dialog
+   still gives code to copy.
 5. **A setting to turn access off**: Rejected. The file gives no access that the same
    user lacks. "Reset key" ends every session.
 
