@@ -129,8 +129,8 @@ Each state stores its match: `exact`, or `band`, which reads a value inside the 
 0.9 to 1.1 on every toggle (`DEFAULT_THRESHOLD`,
 `pluto/src/schematic/node/common/telem/telem.ts:16`), and a node can change it. Each
 enum state names the value of a default entry, such as Closed on a valve. A state with a
-source but no data yet, NaN, and, with an `exact` match, a value that matches no entry,
-draw the default entry, and Pluto adds the unknown mark. With a band, 0.5 on a valve
+source but no data yet, NaN, and a value that equals no entry after its match draw the
+default entry, and Pluto adds the unknown mark. A band reads 0.5 as 0, so a valve at 0.5
 shows Closed with no mark, as today. A state with no source draws its default entry with
 no mark. When no entry has the default value, `entry` paint goes on to the symbol color.
 Stale data keeps its entry and gets the stale mark, and `staleness_color` leaves
@@ -140,8 +140,8 @@ The light gets the built-in "Light" enum (Off 0, On 1). Its threshold, or 0.9 to
 when it has none, becomes its band, and its `stroke_color` becomes the symbol color.
 
 A `select` or `state_indicator` has no symbol state, so it has no default entry. A value
-that matches no entry shows the symbol color and the "Unknown" label, as today, with the
-unknown mark.
+that matches no entry keeps today's look and gets the unknown mark: a state indicator
+shows its symbol color and the "Unknown" label, and a select shows `-`.
 
 ### 4.4 Series colors
 
@@ -173,10 +173,11 @@ The schematic cutover is one migration in one release:
   `options`. RFC 0114 phase 2 writes these with this section's function. The old fields
   are removed.
 - In a custom symbol, RFC 0114 phase 1 made each state index a value with default 0, and
-  each region color a look on that value. A part whose looks paint one color for every
-  value keeps one `color` look. A part whose color changes gets one `entry` look, and
-  its colors move to the entries. When two changing parts differ in one value, the first
-  wins and the Core logs the symbol name.
+  each region color a `color` look on that value. The first stroke or fill whose color
+  changes between values sets the entry colors. Each stroke or fill whose colors equal
+  the entries at every value where it is set becomes one `entry` look, with a `when` for
+  those values. Every other stroke or fill keeps its `color` looks, so no stored symbol
+  changes its look.
 - The upgrade runs as a composition migration, as panels do
   (`core/pkg/service/panel/versions/v0/composition.go:41-55`). An import passes the old
   state lists beside the converted schematic, and its write step
@@ -225,7 +226,7 @@ needs RFC 0114 phase 1.
 | 16    | Add the Console enum editor with its checks              | `console/src/feature/enum`                                                                             | 9, 15          |
 | 17    | Add Replace with for enums                               | `core/pkg/api/enum`, `console/src/feature/enum`                                                        | 1, 16          |
 | 18    | Draw stale and unknown marks instead of colors           | `pluto/src/schematic`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic` | -              |
-| 19    | Add enum references to symbol states                     | `schemas/synnax`, `core/pkg/service/schematic/symbol`                                                  | 13             |
+| 19    | Add enum references to symbol states                     | `schemas/synnax`, `core/pkg/service/schematic/symbol`, `core/pkg/service/schematic`                    | 13             |
 | 20    | Draw entry paint in Pluto                                | `pluto/src/schematic`                                                                                  | 15, 19         |
 | 21    | Add the enum picker to the symbol forms                  | `console/src/feature/schematic`                                                                        | 16, 19         |
 | 22    | Migrate inline state colors to enums                     | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`                       | 20, 21         |
@@ -240,8 +241,9 @@ needs RFC 0114 phase 1.
 
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Before RFC 0114 phase 2, only
-a select or state indicator can match no entry. Phase 22 adds the `enum` field to
-`select` and `state_indicator`. RFC 0114 phase 1 stores a `color.Ref` in custom symbol
+a select or state indicator can match no entry. Phase 19 also adds the `enum` field to
+`select` and `state_indicator`, and phase 22 fills it. Phase 21's picker for node state
+bindings needs RFC 0114 phase 2. RFC 0114 phase 1 stores a `color.Ref` in custom symbol
 looks from the start. In phase 29, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
@@ -292,8 +294,7 @@ looks from the start. In phase 29, the Driver writes range colors
     one value, so an entry is one value. Valves, pumps, and lights store today's band on
     the state, so every number reads as today, and an enum edit never switches a valve
     to exact matches. The trade is real: a valve stuck at 0.5 shows Closed with no mark,
-    as today, and only NaN or missing data gets the unknown mark. Ranges belong to the
-    `limit` type.
+    as today. Ranges belong to the `limit` type.
 16. **Entry values are `float64`**: Every state symbol reads and writes numbers, and a
     `float64` holds each integer state code exactly. A value of any channel type adds a
     type to each entry and a conversion to each match. The trade is real: a string
