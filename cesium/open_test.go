@@ -29,7 +29,7 @@ var _ = Describe("Close", func() {
 		// The cleanup closes db after Run returns, and asserts that it succeeds.
 		db := DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs.NewMem()))))
 		StartRun(db.Run)
-		Expect(db.Close()).To(MatchError(cesium.ErrRunning))
+		Expect(db.Close()).To(MatchError(ContainSubstring("while Run runs")))
 	})
 })
 
