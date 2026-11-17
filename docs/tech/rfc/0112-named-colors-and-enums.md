@@ -154,8 +154,9 @@ its entry and gets the stale indicator, and `staleness_color` leaves `StalenessC
 for every symbol.
 
 The light gets the built-in "Light" enumeration (Off 0, On 1). A light whose threshold
-differs from the bounds of its spec gets that threshold as its node's `within` match,
-and its `stroke_color` becomes the symbol color.
+differs from the bounds of its spec gets that threshold as its node's `within` match, by
+the swap and empty threshold rules of RFC 0114 §4.5, and its `stroke_color` becomes the
+symbol color.
 
 A `select` or `state_indicator` has no symbol state, so it has no default entry. A value
 that matches no entry keeps today's look and gets the unknown indicator: a
@@ -245,40 +246,40 @@ rows), and #5632 (`on_delete inline` in Oracle) are merged.
 
 Phase 16 ships behind a flag in `console/src/flags.ts` until phase 22 deletes it. Phases
 9 and 20, and the node picker of RFC 0114 phase 2, ship without a flag. Phases 10 and 11
-ship in one release, and phases 19 to 21 in one release with RFC 0114 phase 2. RFC 0114
-phase 1 needs phases 13 to 15, and phase 21 needs RFC 0114 phase 1.
+ship in one release, and phase 21 in one release with RFC 0114 phase 2. RFC 0114 phase 1
+needs phases 13 to 15, and phase 21 needs RFC 0114 phase 1.
 
-| Phase | Scope                                                    | Touches                                                                                                                                | Depends on     |
-| ----- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| 1     | Add a Gorp retarget that rewrites every reference        | `x/go/gorp`                                                                                                                            | -              |
-| 2     | Generate two schemas that share a name                   | `oracle`                                                                                                                               | -              |
-| 3     | Add the named color record and the color reference       | `schemas/synnax/color.oracle`, `core/pkg/service/color`                                                                                | 2              |
-| 4     | Add the named color API, access, search, and signals     | `core/pkg/api/color`, `core/pkg/service/color`                                                                                         | 3              |
-| 5     | Add built-in named colors                                | `core/pkg/service/color`                                                                                                               | 4              |
-| 6     | Add named colors to the clients and Pluto queries        | `client/ts/src/color`, `client/py/synnax/color`, `pluto/src/color`                                                                     | 4              |
-| 7     | Resolve a light and dark pair for the theme mode in Lyra | `lyra/src/theme`, `lyra/src/color`                                                                                                     | -              |
-| 8     | Store a color reference from the color picker            | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`                                                                                 | 7              |
-| 9     | Add the Console named color toolbar and editor           | `console/src/feature/color`                                                                                                            | 3, 6, 8        |
-| 10    | Store color references on line plot lines and rules      | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`                                                                             | 5              |
-| 11    | Resolve and write line color references in Pluto         | `pluto/src/lineplot`, `console/src/feature/lineplot`                                                                                   | 6, 7, 10       |
-| 12    | Read every data color from the series colors             | `lyra/src/theme`, `pluto/src`                                                                                                          | 5, 6, 7, 8, 11 |
-| 13    | Add the enumeration record                               | `schemas/synnax`, `core/pkg/service/enumeration`                                                                                       | 3              |
-| 14    | Add the enumeration API, used-by list, and built-ins     | `core/pkg/api/enumeration`, `core/pkg/service/enumeration`                                                                             | 5, 13          |
-| 15    | Add enumerations to the clients and Pluto queries        | `client/ts`, `client/py`, `pluto/src/enumeration`                                                                                      | 14             |
-| 16    | Add the Console enumeration editor with its checks       | `console/src/feature/enumeration`                                                                                                      | 9, 15          |
-| 17    | Add Replace with for enumerations                        | `core/pkg/api/enumeration`, `console/src/feature/enumeration`                                                                          | 1, 16          |
-| 18    | Draw stale and unknown indicators instead of colors      | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`, `integration` | -              |
-| 19    | Add enumeration keys to selects and state indicators     | `schemas/synnax`, `core/pkg/service/schematic`                                                                                         | 13             |
-| 20    | Add the enumeration picker to the symbol forms           | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                 | 16, 19         |
-| 21    | Migrate inline state colors to enumerations              | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20             |
-| 22    | Delete the enumeration editor flag                       | `console/src/flags.ts`                                                                                                                 | 21             |
-| 23    | Carry color references in multi-edit                     | `console/src/platform/multiedit`                                                                                                       | 8              |
-| 24    | Store color references in schematic symbol colors        | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                               | 3, 23          |
-| 25    | Store color references in table colors                   | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                                                                   | 3, 23          |
-| 26    | Store color references in log colors                     | `schemas/synnax`, `core/pkg/service/log`, `client/ts`, `client/py`                                                                     | 3, 23          |
-| 27    | Store color references in label colors                   | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                                                                   | 3, 23          |
-| 28    | Store color references in range colors                   | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc`                                                    | 3, 23          |
-| 29    | Store color references in panel colors                   | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                                                                   | 3, 23          |
+| Phase | Scope                                                      | Touches                                                                                                                                | Depends on     |
+| ----- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| 1     | Add a Gorp retarget that rewrites every reference          | `x/go/gorp`                                                                                                                            | -              |
+| 2     | Generate two schemas that share a name                     | `oracle`                                                                                                                               | -              |
+| 3     | Add the named color record and the color reference         | `schemas/synnax/color.oracle`, `core/pkg/service/color`                                                                                | 2              |
+| 4     | Add the named color API, access, search, and signals       | `core/pkg/api/color`, `core/pkg/service/color`                                                                                         | 3              |
+| 5     | Add built-in named colors                                  | `core/pkg/service/color`                                                                                                               | 4              |
+| 6     | Add named colors to the clients and Pluto queries          | `client/ts/src/color`, `client/py/synnax/color`, `pluto/src/color`                                                                     | 4              |
+| 7     | Resolve a light and dark pair for the theme mode in Lyra   | `lyra/src/theme`, `lyra/src/color`                                                                                                     | -              |
+| 8     | Store a color reference from the color picker              | `lyra/src/color`, `docs/tech/rfc/0070-color-picker.md`                                                                                 | 7              |
+| 9     | Add the Console named color toolbar and editor             | `console/src/feature/color`                                                                                                            | 3, 6, 8        |
+| 10    | Store color references on line plot lines and rules        | `schemas/synnax`, `core/pkg/service/lineplot`, `client/ts`                                                                             | 5              |
+| 11    | Resolve and write line color references in Pluto           | `pluto/src/lineplot`, `console/src/feature/lineplot`                                                                                   | 6, 7, 10       |
+| 12    | Read every data color from the series colors               | `lyra/src/theme`, `pluto/src`                                                                                                          | 5, 6, 7, 8, 11 |
+| 13    | Add the enumeration record                                 | `schemas/synnax`, `core/pkg/service/enumeration`                                                                                       | 3              |
+| 14    | Add the enumeration API, used-by list, and built-ins       | `core/pkg/api/enumeration`, `core/pkg/service/enumeration`                                                                             | 5, 13          |
+| 15    | Add enumerations to the clients and Pluto queries          | `client/ts`, `client/py`, `pluto/src/enumeration`                                                                                      | 14             |
+| 16    | Add the Console enumeration editor with its checks         | `console/src/feature/enumeration`                                                                                                      | 9, 15          |
+| 17    | Add Replace with for enumerations                          | `core/pkg/api/enumeration`, `console/src/feature/enumeration`                                                                          | 1, 16          |
+| 18    | Draw stale and unknown indicators instead of colors        | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`, `integration` | -              |
+| 19    | Add enumeration keys to selects and state indicators       | `schemas/synnax`, `core/pkg/service/schematic`                                                                                         | 13             |
+| 20    | Pick and draw enumerations in selects and state indicators | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                 | 16, 19         |
+| 21    | Migrate inline state colors to enumerations                | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20             |
+| 22    | Delete the enumeration editor flag                         | `console/src/flags.ts`                                                                                                                 | 21             |
+| 23    | Carry color references in multi-edit                       | `console/src/platform/multiedit`                                                                                                       | 8              |
+| 24    | Store color references in schematic symbol colors          | `schemas/synnax`, `core/pkg/service/schematic`, `client/ts`, `client/py`                                                               | 3, 23          |
+| 25    | Store color references in table colors                     | `schemas/synnax`, `core/pkg/service/table`, `client/ts`, `client/py`                                                                   | 3, 23          |
+| 26    | Store color references in log colors                       | `schemas/synnax`, `core/pkg/service/log`, `client/ts`, `client/py`                                                                     | 3, 23          |
+| 27    | Store color references in label colors                     | `schemas/synnax`, `core/pkg/service/label`, `client/ts`, `client/py`                                                                   | 3, 23          |
+| 28    | Store color references in range colors                     | `schemas/synnax`, `core/pkg/service/ranger`, `client/ts`, `client/py`, `driver/arc`                                                    | 3, 23          |
+| 29    | Store color references in panel colors                     | `schemas/synnax`, `core/pkg/service/panel`, `client/ts`, `client/py`                                                                   | 3, 23          |
 
 Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 mints a
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
@@ -286,8 +287,9 @@ schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `select` or `state_indicator` can match no entry. Phase 19 adds the `enumeration` field
 to `select` and `state_indicator`, phase 21 fills it, and RFC 0114 phase 1 adds it to
 symbol states. Phase 20 adds the enumeration picker to the Pluto forms of `select` and
-`state_indicator`. RFC 0114 phase 2 adds it to node state bindings, and RFC 0114 phase 4
-to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks
+`state_indicator`, and Pluto draws each from its `enumeration`, or from `options` when
+it has none. RFC 0114 phase 2 adds the picker to node state bindings, and RFC 0114 phase
+4 to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks
 from the start. In phase 28, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
