@@ -406,6 +406,9 @@ var _ = Describe("Python Types Plugin", func() {
 
 				Serial = uint32
 				Make = string
+				Name = string {
+					@validate required
+				}
 
 				Device struct {
 					key    uint32 {
@@ -417,6 +420,7 @@ var _ = Describe("Python Types Plugin", func() {
 					owner  uuid @validate required
 					serial Serial @validate required
 					count  uint16 @validate required
+					alias  Name?
 					label  string @validate {
 						required
 						min_length 3
@@ -431,6 +435,7 @@ var _ = Describe("Python Types Plugin", func() {
 					"owner: UUID\n",
 					`serial: Serial = Field(gt=0, le=4294967295)`,
 					`count: int = Field(gt=0, le=65535)`,
+					"alias: Name | None = None\n",
 					`label: str = Field(min_length=3)`,
 				)
 			},

@@ -159,7 +159,7 @@ class Cursor(BaseModel):
     """
 
     key: Key = Field(ge=0, le=4294967295)
-    name: Name | None = Field(default=None, min_length=1)
+    name: Name | None = None
 
 
 class Payload(BaseModel):

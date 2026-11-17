@@ -968,13 +968,14 @@ func processField(
 	}
 
 	baseType := typeToPython(field.Type, table, data)
-	// The Core mints a key, so a client sends its zero value on create.
+	// The Core mints a key, so a client sends its zero value on create. An optional
+	// field is never required.
 	_, isKey := field.Domains["key"]
 	fieldConstraints := collectValidation(
 		validation.FieldRules(field, table),
 		field.Default,
 		field.Type,
-		!isKey,
+		!isKey && !field.Optional,
 		table,
 		data,
 	)
