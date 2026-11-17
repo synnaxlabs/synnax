@@ -680,7 +680,9 @@ Wire struct {
 			Expect(merged).ToNot(ContainSubstring(`import "schemas/x/label"`))
 		})
 
-		It("Should reject live imports that share a namespace", func(ctx SpecContext) {
+		It("Should keep two live imports of one namespace that live text uses", func(
+			ctx SpecContext,
+		) {
 			live := `import "schemas/x/telem"
 import "schemas/y/telem"
 
@@ -693,11 +695,36 @@ Wire struct {
 }
 `
 			r, chain := resolver()
-			Expect(versions.MergeLive(ctx, r, chain, live)).Error().To(MatchError(
-				"namespace telem is ambiguous between schemas/x/telem and " +
-					"schemas/y/telem",
-			))
+			merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+			Expect(merged).To(ContainSubstring(`import "schemas/x/telem"`))
+			Expect(merged).To(ContainSubstring(`import "schemas/y/telem"`))
 		})
+
+		It(
+			"Should keep a live import that a live action uses in a taken namespace",
+			func(
+				ctx SpecContext,
+			) {
+				live := `import "schemas/x/status"
+
+Channel struct {
+	key uuid @key
+	level status.Level
+
+	action SetCode {
+		code status.Code
+	}
+
+	@go marshal
+}
+`
+				r, chain := resolver()
+				merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+				Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+				Expect(merged).To(ContainSubstring(`import "schemas/x/status"`))
+				Expect(merged).To(ContainSubstring("code status.Code"))
+			},
+		)
 	})
 
 	It("Should carry live-owned enum value annotations", func(ctx SpecContext) {

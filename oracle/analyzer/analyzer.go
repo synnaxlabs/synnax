@@ -161,6 +161,23 @@ func UsedNamespaces(ast parser.ISchemaContext) set.Set[string] {
 	return usedNamespaces(ast, defaultTokens(ast))
 }
 
+// Qualifiers returns the namespaces that src references, where src is any run of
+// Oracle source, such as a declaration or one line of one.
+func Qualifiers(src string) set.Set[string] {
+	lexer := parser.NewOracleLexer(antlr.NewInputStream(src))
+	lexer.RemoveErrorListeners()
+	var toks []antlr.Token
+	for {
+		t := lexer.NextToken()
+		if t.GetTokenType() == antlr.TokenEOF {
+			return usedQualifiers([][]antlr.Token{toks})
+		}
+		if t.GetChannel() == antlr.TokenDefaultChannel {
+			toks = append(toks, t)
+		}
+	}
+}
+
 // usedNamespaces returns the qualifiers that runs reference, plus the filter namespace
 // when ast declares a filter, whose bare lines read the filter schema's types.
 func usedNamespaces(ast parser.ISchemaContext, runs [][]antlr.Token) set.Set[string] {
