@@ -70,6 +70,8 @@ func ParseEncryptionKey(s string) (EncryptionKey, error) {
 // returns it. When another process creates the file first, it returns the key in that
 // file.
 func LoadEncryptionKey(path string) (EncryptionKey, error) {
+	// The read, the temporary file, and the link must all use the same path.
+	path = filepath.Clean(path)
 	k, err := readEncryptionKey(path)
 	if !errors.Is(err, os.ErrNotExist) {
 		return k, err
@@ -86,7 +88,7 @@ func LoadEncryptionKey(path string) (EncryptionKey, error) {
 }
 
 func readEncryptionKey(path string) (EncryptionKey, error) {
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return EncryptionKey{}, err
 	}

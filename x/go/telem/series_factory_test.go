@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -347,11 +348,11 @@ var _ = Describe("SeriesFactory", func() {
 		})
 
 		It("Should produce output readable by Series.At", func() {
-			samples := [][]byte{[]byte("foo"), []byte("barbaz"), []byte("")}
-			var data []byte
-			for _, s := range samples {
-				data = append(data, telem.MarshalVariableSample(s)...)
-			}
+			data := slices.Concat(
+				telem.MarshalVariableSample([]byte("foo")),
+				telem.MarshalVariableSample([]byte("barbaz")),
+				telem.MarshalVariableSample([]byte("")),
+			)
 			series := telem.Series{DataType: telem.StringT, Data: data}
 			Expect(series.Len()).To(Equal(int64(3)))
 			Expect(series.At(0)).To(Equal([]byte("foo")))
@@ -361,9 +362,10 @@ var _ = Describe("SeriesFactory", func() {
 
 		It("Should produce the same encoding as NewSeriesV", func() {
 			fromFactory := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5})
-			var manual []byte
-			manual = append(manual, telem.MarshalVariableSample([]byte{1, 2})...)
-			manual = append(manual, telem.MarshalVariableSample([]byte{3, 4, 5})...)
+			manual := slices.Concat(
+				telem.MarshalVariableSample([]byte{1, 2}),
+				telem.MarshalVariableSample([]byte{3, 4, 5}),
+			)
 			Expect(manual).To(Equal(fromFactory.Data))
 		})
 	})

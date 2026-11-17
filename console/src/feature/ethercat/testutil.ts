@@ -315,7 +315,8 @@ export const createUnresolvedWriteChannel = (
  * Creates an EtherCAT slave device on the live Core. `properties` are merged over
  * ZERO_SLAVE_PROPERTIES; `properties.name` doubles as the device name when set. Each
  * slave gets a random position unless `properties.position` sets one, since two slaves
- * at one position on a network cannot run in a task.
+ * at one position on a network cannot run in a task. Its location names the slot, as a
+ * scan does.
  */
 export const createSlaveDevice = async (
   client: Synnax,
@@ -324,19 +325,20 @@ export const createSlaveDevice = async (
   configured = true,
 ): Promise<SlaveDevice> => {
   const key = id.create();
+  const position = properties.position ?? Math.floor(Math.random() * 2 ** 31);
   return await client.devices.create(
     {
       key,
       name: properties.name ?? `EtherCAT Slave ${key}`,
       rack: rackKey,
-      location: "test-location",
+      location: `soem:eth0.Slot ${position}`,
       make: MAKE,
       model: SLAVE_MODEL,
       configured,
       properties: {
         ...ZERO_SLAVE_PROPERTIES,
-        position: Math.floor(Math.random() * 2 ** 31),
         ...properties,
+        position,
       },
     },
     SLAVE_SCHEMAS,

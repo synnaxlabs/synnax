@@ -56,10 +56,10 @@ func ruleZone(rule string) []byte {
 	return b.Bytes()
 }
 
-// eachVector calls check with the fields of every data line in the vector file.
-func eachVector(path string, check func(fields []string)) int {
+// eachVector calls check with the fields of every data line in the named testdata file.
+func eachVector(name string, check func(fields []string)) int {
 	GinkgoHelper()
-	f := MustSucceed(os.Open(path))
+	f := MustSucceed(os.DirFS("testdata").Open(name))
 	DeferCleanup(f.Close)
 	scanner := bufio.NewScanner(f)
 	count := 0
@@ -143,7 +143,7 @@ var _ = Describe("Database", func() {
 		It("Should list every zone in sorted order", func() {
 			names := db.Names()
 			vectorZones := set.New[string]()
-			eachVector("testdata/vectors.tsv", func(fields []string) {
+			eachVector("vectors.tsv", func(fields []string) {
 				vectorZones.Add(fields[0])
 			})
 			Expect(names).To(HaveLen(len(vectorZones)))
@@ -166,7 +166,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("Should agree with the zone vectors the C++ reader checks", func() {
-		count := eachVector("testdata/vectors.tsv", func(fields []string) {
+		count := eachVector("vectors.tsv", func(fields []string) {
 			sec := MustSucceed(strconv.ParseInt(fields[1], 10, 64))
 			name, offset := zoneAt(MustSucceed(db.Load(fields[0])), time.Unix(sec, 0))
 			Expect([]string{strconv.Itoa(offset), name}).
@@ -176,7 +176,7 @@ var _ = Describe("Database", func() {
 	})
 
 	It("Should agree with the rule string vectors the C++ reader checks", func() {
-		count := eachVector("testdata/rules.tsv", func(fields []string) {
+		count := eachVector("rules.tsv", func(fields []string) {
 			loc := MustSucceed(time.LoadLocationFromTZData("rule", ruleZone(fields[0])))
 			sec := MustSucceed(strconv.ParseInt(fields[1], 10, 64))
 			name, offset := zoneAt(loc, time.Unix(sec, 0))

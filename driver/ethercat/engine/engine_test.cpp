@@ -681,6 +681,76 @@ TEST_F(EngineTest, LastWriterToCloseSendsItsStopValuesBeforeTheBusStops) {
     EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
 }
 
+/// @brief it should take each frame in flight when the bus stops, so the last receive
+/// is of the stop values.
+TEST_F(EngineTest, StopTakesEachFrameInFlight) {
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, static_cast<int16_t>(-7)}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    writer.reset();
+    ASSERT_FALSE(this->engine->running());
+    const auto log = this->master->call_log();
+    EXPECT_EQ(std::ranges::count(log, "receive"), std::ranges::count(log, "send"));
+}
+
+/// @brief it should send the stop values only after it takes each frame in flight, as
+/// a master that keeps no frames in flight takes the frames of all its sends at once.
+TEST_F(EngineTest, StopSendsTheStopValuesAfterEachFrameInFlight) {
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, static_cast<int16_t>(-7)}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    writer.reset();
+    ASSERT_FALSE(this->engine->running());
+    std::vector<std::string> cycles;
+    for (const auto &call: this->master->call_log())
+        if (call == "send" || call == "receive") cycles.push_back(call);
+    const auto two_sends = std::ranges::adjacent_find(
+        cycles,
+        [](const auto &a, const auto &b) { return a == "send" && b == "send"; }
+    );
+    EXPECT_EQ(two_sends, cycles.end());
+}
+
+/// @brief it should wait for a frame still in flight when the bus stops, then send the
+/// stop values and take the late frame and the stop frame.
+TEST_F(EngineTest, StopWaitsForAFrameStillInFlight) {
+    this->master->stall();
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, static_cast<int16_t>(-7)}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->wait_until_stalled();
+    // The bus stops during the stalled cycle, so its send is the last before the stop.
+    this->master->hold_frame();
+    this->master->clear_call_log();
+    std::thread stopper([&writer] { writer.reset(); });
+    x::defer::defer join([&] {
+        this->master->resume();
+        if (stopper.joinable()) stopper.join();
+    });
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    this->master->resume();
+    stopper.join();
+    std::vector<std::string> cycles;
+    for (const auto &call: this->master->call_log())
+        if (call == "send" || call == "receive") cycles.push_back(call);
+    ASSERT_GE(cycles.size(), 5);
+    EXPECT_EQ(cycles[0], "receive");
+    EXPECT_EQ(cycles[1], "send");
+    const auto stop = std::find(cycles.begin() + 2, cycles.end(), "send");
+    EXPECT_GT(std::count(cycles.begin() + 2, stop, "receive"), 1);
+    EXPECT_EQ(
+        std::vector(stop, cycles.end()),
+        (std::vector<std::string>{"send", "receive", "receive"})
+    );
+    EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
+}
+
 /// @brief it should keep the stop value a closed writer left on an output until a new
 /// writer commands the output.
 TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {
@@ -823,6 +893,45 @@ TEST_F(EngineLockTest, ShortCyclesKeepSampleTimesInOrder) {
     ASSERT_EQ(times.size(), SAMPLES);
     for (size_t i = 1; i < SAMPLES; ++i)
         EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
+    EXPECT_EQ(reader->warning(), "");
+}
+
+/// @brief it should give a reader every sample, one period apart, when a frame comes
+/// back a cycle late, since the master keeps it in flight.
+TEST_F(EngineLockTest, ReaderTakesALateFrameAsTheSampleOfItsOwnCycle) {
+    constexpr size_t SAMPLES = 9;
+    this->master->set_host_dc(1.0);
+    const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        SAMPLES,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    // One receive more than the samples, for the receive that finds the frame in
+    // flight.
+    for (size_t r = 0; r <= SAMPLES; ++r) {
+        this->master->wait_until_stalled();
+        if (r == 3) this->master->hold_frame();
+        this->master->step();
+    }
+    const auto times = this->read_times(*reader, SAMPLES);
+    ASSERT_EQ(times.size(), SAMPLES);
+    for (size_t i = 1; i < SAMPLES; ++i)
+        EXPECT_EQ(
+            x::telem::TimeSpan(times.at<int64_t>(i) - times.at<int64_t>(i - 1)),
+            this->period
+        );
     EXPECT_EQ(reader->warning(), "");
 }
 

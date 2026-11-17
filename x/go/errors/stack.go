@@ -57,11 +57,12 @@ func (s *StackTrace) StringBuilder(b *strings.Builder) {
 		}
 		mustPrintf(b, "\n\t")
 
-		if f.Filename != "" {
+		switch {
+		case f.Filename != "":
 			mustPrintf(b, "%s", f.Filename)
-		} else if f.AbsPath != "" {
+		case f.AbsPath != "":
 			mustPrintf(b, "%s", f.AbsPath)
-		} else {
+		default:
 			mustPrintf(b, "<unknown file>")
 		}
 

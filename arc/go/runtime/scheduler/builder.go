@@ -268,6 +268,10 @@ func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 				state.members = append(state.members, buildMember(m))
 			}
 		}
+	case ir.ScopeModeUnspecified:
+		if !sc.IsZero() {
+			panic("scope " + sc.Key + " has no mode")
+		}
 	}
 	state.memberByKey = make(map[string]int, len(state.members))
 	for i, m := range state.members {

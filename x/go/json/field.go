@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json/jsontext"
+	"fmt"
 	"math"
 	"strconv"
 	"uuid"
@@ -59,8 +60,10 @@ func (t Type) String() string {
 		return "string"
 	case Boolean:
 		return "boolean"
+	case Number:
+		return "number"
 	}
-	return "number"
+	panic(fmt.Sprintf("json: invalid type %d", t))
 }
 
 // MarshalText implements encoding.TextMarshaler.
@@ -216,8 +219,13 @@ func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
 		return d.appendUUID(dst, raw)
 	case telem.BytesT:
 		return d.appendBytes(dst, raw)
+	case telem.Float64T, telem.Float32T, telem.BooleanT,
+		telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
+		return d.appendNumeric(dst, raw)
+	case telem.UnknownT:
 	}
-	return d.appendNumeric(dst, raw)
+	panic(fmt.Sprintf("json: no decoder for data type %q", d.field.DataType))
 }
 
 func (d *Decoder) appendString(dst []byte, raw jsontext.Value) ([]byte, error) {
@@ -507,9 +515,10 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	case String:
 		dst = append(dst, '"')
 		return append(n.appendText(dst), '"'), nil
-	default:
+	case Number:
 		return appendJSONNumber(dst, n)
 	}
+	panic(fmt.Sprintf("json: invalid type %d", e.field.Type))
 }
 
 // matches reports whether a and b, samples of dt, are equal. Floats are equal by value,
@@ -521,7 +530,9 @@ func matches(dt telem.DataType, a, b []byte) bool {
 		return x == y || (math.IsNaN(x) && math.IsNaN(y))
 	case telem.BooleanT:
 		return (a[0] != 0) == (b[0] != 0)
-	default:
-		return bytes.Equal(a, b)
+	case telem.UnknownT, telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T, telem.TimestampT,
+		telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT:
 	}
+	return bytes.Equal(a, b)
 }

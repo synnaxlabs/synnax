@@ -11,7 +11,7 @@ from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from console.case import ConsoleCase
-from framework.utils import create_virtual_channel
+from framework.utils import create_virtual_channel, hold
 from tests.arc.arc import ArcCase
 from x import random_name
 
@@ -233,7 +233,7 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.log("signal_ctrl entered yield stage")
 
         # Wait then confirm no spurious re-entry from the stale start signal.
-        sy.sleep(0.501)  # noqa: TID251 hold, > 2 * time.wait{250ms}
+        hold(0.501, reason="hold, > 2 * time.wait{250ms}")
         self.wait_for_eq("signal_stage_log", "yield")
 
         # Confirm a fresh start signal correctly re-enters start.

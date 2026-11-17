@@ -53,8 +53,7 @@ var _ = Describe("Freshen", func() {
 	})
 
 	It("Should copy function types", func() {
-		inputs := types.Params{}
-		inputs = append(inputs, types.Param{Name: "x", Type: types.I64()})
+		inputs := types.Params{{Name: "x", Type: types.I64()}}
 		fnType := types.Function(types.FunctionProperties{Inputs: inputs})
 		fresh := types.Freshen(fnType, "node5")
 		Expect(fresh.Kind).To(Equal(types.KindFunction))
@@ -135,12 +134,12 @@ var _ = Describe("Freshen", func() {
 
 	It("Should handle function with mixed generic and concrete parameters", func() {
 		tv := types.Variable("T", nil)
-		inputs := types.Params{}
-		inputs = append(inputs, types.Param{Name: "generic", Type: tv})
-		inputs = append(inputs, types.Param{Name: "concrete", Type: types.I64()})
+		inputs := types.Params{
+			{Name: "generic", Type: tv},
+			{Name: "concrete", Type: types.I64()},
+		}
 
-		outputs := types.Params{}
-		outputs = append(outputs, types.Param{Name: "result", Type: tv})
+		outputs := types.Params{{Name: "result", Type: tv}}
 
 		fnType := types.Function(types.FunctionProperties{
 			Inputs:  inputs,
@@ -177,9 +176,7 @@ var _ = Describe("Freshen", func() {
 		tvA := types.Variable("A", nil)
 		tvB := types.Variable("B", nil)
 
-		inputs := types.Params{}
-		inputs = append(inputs, types.Param{Name: "a", Type: tvA})
-		inputs = append(inputs, types.Param{Name: "b", Type: tvB})
+		inputs := types.Params{{Name: "a", Type: tvA}, {Name: "b", Type: tvB}}
 
 		fnType := types.Function(types.FunctionProperties{Inputs: inputs})
 		fresh := types.Freshen(fnType, "node")
