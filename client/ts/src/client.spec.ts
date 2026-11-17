@@ -11,7 +11,7 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { type connection } from "@/connection";
-import { DisconnectedError, InvalidCredentialsError, type Synnax } from "@/index";
+import { DisconnectedError, InvalidCredentialsError, Synnax } from "@/index";
 import { label } from "@/label";
 import {
   createTestClient,
@@ -30,6 +30,24 @@ const FAST_RETRY = {
   scale: 1,
   maxRetries: 2,
 };
+
+describe("constructor", () => {
+  it("should keep the resolved connection options in params", async () => {
+    const client = new Synnax({
+      host: "rig",
+      port: 1,
+      apiKey: "syk_key",
+      secure: true,
+    });
+    expect(client.params).toMatchObject({
+      host: "rig",
+      port: 1,
+      apiKey: "syk_key",
+      secure: true,
+    });
+    await client.close();
+  });
+});
 
 describe("connect", () => {
   it("should await the client's first success", async () => {
