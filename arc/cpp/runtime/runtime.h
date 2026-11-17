@@ -255,6 +255,32 @@ public:
     }
 
     bool read(Output &out) { return this->outputs.pop(out); }
+
+    /// @brief runs the program on frame on the caller's thread, one cycle after
+    /// another until a cycle writes nothing. Call it only on a runtime that is not
+    /// started. A node error goes to the node error handler. A loop budget overrun
+    /// ends the computation, and the next call runs again.
+    /// @param frame the input. Its series move into the runtime.
+    /// @returns the frame that the program wrote.
+    x::telem::Frame compute(const x::telem::Frame &frame) {
+        this->state->ingest(frame);
+        this->mod->resume();
+        x::telem::Frame out;
+        while (true) {
+            const node::Cycle cycle{
+                .now = this->clock.now(),
+                .elapsed = this->stopwatch.elapsed(),
+                .reason = node::RunReason::ChannelInput,
+            };
+            this->time_module->set_now(cycle.now);
+            this->mod->reset_loop_budget();
+            this->clock.advance(this->scheduler->next(cycle));
+            if (this->mod->loop_budget_used()) return out;
+            const auto size = out.size();
+            this->clock.advance(this->state->flush_into(out, cycle.now));
+            if (out.size() == size) return out;
+        }
+    }
 };
 
 /// @brief Builds a per-channel authority vector from the static Authorities

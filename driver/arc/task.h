@@ -27,6 +27,7 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "driver/arc/calculator.h"
 #include "driver/arc/ranges/ranges.h"
 #include "driver/arc/status/status.h"
 #include "driver/bypass/pipeline/factory.h"
@@ -42,6 +43,8 @@ namespace driver::arc {
 struct TaskConfig : ::synnax::task::PersistConfig {
     x::uuid::UUID arc_key;
     ::arc::program::Program program;
+    /// @brief the calculated channels that the program reads, dependencies first.
+    std::vector<synnax::arc::Calculation> calculations;
     ::arc::runtime::loop::Config loop;
     /// @brief loop iterations and function calls that the program can run in one
     /// cycle. Not read from the task's JSON config.
@@ -51,6 +54,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
         ::synnax::task::PersistConfig(std::move(other)),
         arc_key(other.arc_key),
         program(std::move(other.program)),
+        calculations(std::move(other.calculations)),
         loop(other.loop),
         loop_budget(other.loop_budget) {}
 
@@ -91,6 +95,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
                 )
             };
         cfg.program = *automation->program;
+        cfg.calculations = automation->calculations;
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -98,6 +103,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
 /// @brief arc runtime task that manages both read and write pipelines.
 class Task final : public task::Task {
     std::shared_ptr<::arc::runtime::Runtime> runtime;
+    Calculator calculator;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
     /// @brief guards state, opening, and pending_starts, which the command, pipeline,
@@ -158,6 +164,7 @@ class Task final : public task::Task {
 
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
+            this->task.calculator.compute(frame);
             const auto err = this->task.runtime->write(std::move(frame));
             // A runtime that stopped itself already reported why, so the frame drops.
             if (err.matches(::arc::runtime::errors::CLOSED)) return x::errors::NIL;
@@ -298,6 +305,22 @@ public:
         if (err) return {nullptr, err};
 
         task->runtime = std::move(rt);
+        auto [calculator, calc_err] = Calculator::load(
+            cfg.calculations,
+            runtime_cfg,
+            [task_ptr = task.get()](
+                const ::arc::ir::Node &node,
+                const x::errors::Error &err
+            ) {
+                std::lock_guard lock(task_ptr->state_mu);
+                task_ptr->state.send_warning(
+                    "Failed to run calculation",
+                    "The " + node.type + " node failed: " + err.data
+                );
+            }
+        );
+        if (calc_err) return {nullptr, calc_err};
+        task->calculator = std::move(calculator);
 
         if (!writer_factory)
             writer_factory = bypass::pipeline::create_writer_factory(ctx);
@@ -335,7 +358,7 @@ public:
             task->control = std::make_unique<pipeline::Control>(
                 streamer_factory,
                 synnax::framer::StreamerConfig{
-                    .channels = task->runtime->read_channels,
+                    .channels = task->calculator.streamed(task->runtime->read_channels),
                 },
                 std::move(sink),
                 x::breaker::default_config("arc_control"),

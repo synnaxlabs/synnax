@@ -20,6 +20,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
+#include "freighter/cpp/freighter.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
@@ -3821,5 +3822,117 @@ TEST(ArcFactory, BootConfigureErrorWritesStatus) {
     EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(statuses[0].message, "Failed to configure task");
     EXPECT_FALSE(statuses[0].details.running);
+}
+
+/// @brief it should move a stage on a calculated channel that it computes from base
+/// inputs while the Core is unreachable.
+TEST(ArcTests, ComputesCalculatedChannelWhileCoreIsUnreachable) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto start = ASSERT_NIL_P(
+        client->channels.create(make_unique_channel_name("start"), x::telem::UINT8_T)
+    );
+    const auto pressure = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("pressure"),
+        x::telem::FLOAT32_T
+    ));
+    const auto valve = ASSERT_NIL_P(
+        client->channels.create(make_unique_channel_name("valve"), x::telem::INT64_T)
+    );
+    synnax::channel::Channel doubled{
+        .name = make_unique_channel_name("doubled"),
+        .data_type = x::telem::FLOAT32_T,
+        .is_virtual = true,
+        .expression = "return " + pressure.name + " * 2",
+    };
+    ASSERT_NIL(client->channels.create(doubled));
+
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("calculated_outage_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "sequence main {\n"
+                   "    stage pressurize {\n"
+                   "        1 -> " +
+                   valve.name + "\n        " + doubled.name + " -> " + doubled.name +
+                   " > 50 => next\n"
+                   "    }\n"
+                   "    stage idle {\n"
+                   "        0 -> " +
+                   valve.name +
+                   "\n"
+                   "    }\n"
+                   "}\n" +
+                   start.name + " => main\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_calculated_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_calculated_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto unreachable = std::make_shared<pipeline::testutil::StreamerFactory>(
+        std::vector(10000, freighter::UNREACHABLE),
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
+            std::vector<pipeline::testutil::StreamerConfig>{
+                {std::make_shared<std::vector<x::telem::Frame>>(), {}, x::errors::NIL}
+            }
+        )
+    );
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
+    auto bus = std::make_shared<bypass::Bus>();
+    bus->register_channels({start.key, pressure.key});
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<bypass::pipeline::WriterFactory>(
+                mock_writer,
+                bus,
+                std::make_shared<control::States>(),
+                0
+            ),
+            std::make_shared<bypass::pipeline::StreamerFactory>(
+                unreachable,
+                bus,
+                x::control::Subject{},
+                x::breaker::Config{
+                    .name = "arc_test",
+                    .base_interval = x::telem::MILLISECOND,
+                    .max_retries = 2,
+                    .scale = 1,
+                    .max_interval = x::telem::MILLISECOND,
+                }
+            )
+        )
+    );
+    const auto wrote = [&](const int64_t value) {
+        return std::ranges::any_of(
+            mock_writer->writes->snapshot(),
+            [&](const auto &fr) {
+                return fr.contains(valve.key) &&
+                       fr.template at<int64_t>(valve.key, 0) == value;
+            }
+        );
+    };
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(unreachable->streamer_opens.load(), 1);
+    bus->publish(x::telem::Frame(start.key, x::telem::Series(static_cast<uint8_t>(1))));
+    ASSERT_EVENTUALLY_TRUE(wrote(1));
+    bus->publish(x::telem::Frame(pressure.key, x::telem::Series(10.0f)));
+    bus->publish(x::telem::Frame(pressure.key, x::telem::Series(30.0f)));
+    ASSERT_EVENTUALLY_TRUE(wrote(0));
+    task->stop("test_stop", true);
 }
 }
