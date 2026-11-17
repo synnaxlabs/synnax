@@ -33,8 +33,8 @@ on:
         type: string
       examples_package:
         description:
-          The pnpm package whose test script runs examples against the Core, or empty
-          for none
+          The pnpm package whose examples script runs against the Core, or empty for
+          none
         required: false
         type: string
         default: ""
@@ -225,7 +225,8 @@ jobs:
         timeout-minutes: 5
         env:
           PACKAGE: ${{ inputs.examples_package }}
-        run: pnpm turbo test --filter "$PACKAGE" --log-order=stream --log-prefix=none
+        run:
+          pnpm turbo examples --filter "$PACKAGE" --log-order=stream --log-prefix=none
 
       - name: Test in WebKit
         if: inputs.test && inputs.browsers
