@@ -39,6 +39,7 @@ _COMMENT = re.compile(
     r"|pyright:\s*(?:basic|report\w+\s*=\s*(?:false|none)))\b",
     re.IGNORECASE,
 )
+_OLD = re.compile(r"^--- a/(.+)$")
 _FILE = re.compile(r"^\+\+\+ b/(.+)$")
 _HUNK = re.compile(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@")
 _TYPING = {"typing", "typing_extensions"}
@@ -52,6 +53,7 @@ _DIFF = [
     "--src-prefix=a/",
     "--dst-prefix=b/",
     "--unified=0",
+    "--find-renames",
     "--diff-filter=d",
 ]
 
@@ -76,6 +78,20 @@ def added_lines(diff: str) -> dict[str, set[int]]:
             count = 1 if m.group(2) is None else int(m.group(2))
             added.setdefault(path, set()).update(range(start, start + count))
     return added
+
+
+def old_paths(diff: str) -> dict[str, str]:
+    """Returns the path at the base of each file in a unified diff, by its new path."""
+    old: dict[str, str] = {}
+    source = ""
+    for line in diff.splitlines():
+        if m := _OLD.match(line):
+            source = m.group(1)
+        elif m := _FILE.match(line):
+            if source:
+                old[m.group(1)] = source
+            source = ""
+    return old
 
 
 def _generated(source: str) -> bool:
@@ -181,14 +197,16 @@ def _base(root: Path, base: str, path: str) -> str:
 
 def check(base: str, *, root: Path) -> list[Finding]:
     """Returns the suppressions that the working tree adds against base."""
-    added = added_lines(_git(root, *_DIFF, base, "--", "*.py"))
+    diff = _git(root, *_DIFF, base, "--", "*.py")
+    added = added_lines(diff)
+    old = old_paths(diff)
     untracked = _git(root, "ls-files", "--others", "--exclude-standard", "--", "*.py")
     findings = []
     for path in sorted(added.keys() | set(untracked.splitlines())):
         source = (root / path).read_text(encoding="utf-8")
         if path in added:
             lines = added[path]
-            base_source = _base(root, base, path)
+            base_source = _base(root, base, old.get(path, path))
         else:
             lines = set(range(1, source.count("\n") + 2))
             base_source = ""

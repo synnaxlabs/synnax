@@ -10,7 +10,7 @@
 import subprocess
 from pathlib import Path
 
-from check_suppressions_py import added_lines, check, check_source
+from check_suppressions_py import added_lines, check, check_source, old_paths
 
 SOURCE = """from typing import cast
 from typing import cast as c
@@ -59,6 +59,15 @@ class TestAddedLines:
             "+++ b/b.py\n@@ -4 +4 @@\n-old\n+new\n@@ -9,2 +8,0 @@\n-gone\n-gone\n"
         )
         assert added_lines(diff) == {"a.py": {2, 3, 4}, "b.py": {4}}
+
+
+class TestOldPaths:
+    def test_should_map_a_renamed_file_to_its_old_path(self) -> None:
+        diff = (
+            "--- a/old.py\n+++ b/new.py\n@@ -1 +1 @@\n-x\n+y\n"
+            "--- /dev/null\n+++ b/added.py\n@@ -0,0 +1 @@\n+z\n"
+        )
+        assert old_paths(diff) == {"new.py": "old.py"}
 
 
 class TestCheckSource:
@@ -118,3 +127,16 @@ class TestCheck:
         _git(tmp_path, "add", "b.py")
         findings = check("HEAD", root=tmp_path)
         assert [(f.path, f.line) for f in findings] == [("a.py", 2), ("c.py", 1)]
+
+    def test_should_compare_a_moved_file_with_its_old_path(
+        self, tmp_path: Path
+    ) -> None:
+        _git(tmp_path, "init", "-q", "-b", "main")
+        body = "".join(f"v{i} = {i}\n" for i in range(10))
+        (tmp_path / "old.py").write_text(f"x = f()  # noqa\n{body}")
+        _git(tmp_path, "add", ".")
+        _git(tmp_path, "commit", "-qm", "base")
+        _git(tmp_path, "mv", "old.py", "new.py")
+        (tmp_path / "new.py").write_text(f"x = g()  # noqa\n{body}")
+        _git(tmp_path, "add", ".")
+        assert check("HEAD", root=tmp_path) == []
