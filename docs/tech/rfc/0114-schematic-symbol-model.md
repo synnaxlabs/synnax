@@ -131,9 +131,9 @@ The editor writes the band 0.9 to 1.1 on a new state with two entries. An enum s
 draws its `default` entry, such as Closed on a valve, while no data has arrived, for
 NaN, and, when it has an enum, for a value that equals no entry after its match. Pluto
 then adds the unknown indicator. A band reads 0.5 as 0, so a valve at 0.5 shows Closed
-with no indicator, as today. A state with no source draws its default entry with no
-indicator. The binding holds the number format, as each readout does today
-(`schemas/synnax/schematic.oracle:1224-1249`).
+with no indicator, as today. A state with no source draws its default entry, or fraction
+0 for a number state, with no indicator. The binding holds the number format, as each
+readout does today (`schemas/synnax/schematic.oracle:1224-1249`).
 
 Looks apply in order, and a later look wins on each field it sets. Stale data keeps the
 last state's looks and adds the stale indicator. Pluto then draws pending, hover,
@@ -142,11 +142,13 @@ unknown, and other indicators on top of the looks. Only a number state drives mo
 and the Core refuses a motion whose `state` or `by` names an enum state. A number state
 drives motion as a fraction of its bounds, clamped to 0 to 1, and the Core refuses
 bounds whose lower value is not below the upper. A number state is unknown for no data
-and NaN, but not for a value outside its bounds. Motion stops while its state is stale
-or unknown, under the operating system's Reduce motion setting, and on a node with
-`motion_disabled`. While its state is stale, a `level`, `rotate`, or `move` keeps its
-last fraction. While it is unknown, it draws fraction 0, which is `from` or an empty
-`level`, with the unknown indicator. A blink stays under three flashes per second.
+and NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink` stop while
+a state that their look reads, in `when` or `by`, is stale or unknown, under the
+operating system's Reduce motion setting, and on a node with `motion_disabled`. Under
+these two settings, a `level`, `rotate`, or `move` jumps to each new fraction with no
+transition. While its state is stale, it keeps its last fraction. While it is unknown,
+it draws fraction 0, which is `from` or an empty `level`, with the unknown indicator. A
+blink stays under three flashes per second.
 
 ### 4.3 Clicks and writes
 
