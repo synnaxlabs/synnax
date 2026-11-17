@@ -103,12 +103,26 @@ var _ = Describe("DB", func() {
 			},
 		)
 
+		It("Should wait for Run to start to open a table with indexes", func(
+			ctx SpecContext,
+		) {
+			opened := make(chan error, 1)
+			go func() {
+				_, err := openTable(ctx)
+				opened <- err
+			}()
+			Consistently(opened).ShouldNot(Receive())
+			StartRun(runDB.Run)
+			Eventually(opened).Should(Receive(BeNil()))
+		})
+
 		It(
-			"Should fail to open a table with indexes before Run starts, and leave its "+
-				"indexes unused",
+			"Should fail to open a table with indexes when its context ends before Run "+
+				"starts, and leave its indexes unused",
 			func(ctx SpecContext) {
-				Expect(openTable(ctx)).Error().
-					To(MatchError(ContainSubstring("before DB.Run started")))
+				canceled, cancel := context.WithCancel(ctx)
+				cancel()
+				Expect(openTable(canceled)).Error().To(MatchError(context.Canceled))
 				StartRun(runDB.Run)
 				MustOpen(openTable(ctx))
 				Expect(gorp.WrapWriter[int32, indexedEntry](runDB).

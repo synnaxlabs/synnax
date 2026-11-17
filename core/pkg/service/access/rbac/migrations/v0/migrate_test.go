@@ -63,6 +63,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			// format pre-Orc servers persisted.
 			kvDB := DeferClose(memkv.New())
 			db := gorp.Wrap(kvDB)
+			StartRun(db.Run)
 			legacyDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 			passwordSvc := MustOpen(
 				password.OpenService(ctx, password.ServiceConfig{DB: db}),

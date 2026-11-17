@@ -51,11 +51,9 @@ var _ = Describe("Where", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		cfg, _ := serviceConfig(
-			ctx,
-			testutil.NewNode(ctx),
-			DeferClose(gorp.Wrap(memkv.New())),
-		)
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		cfg, _ := serviceConfig(ctx, testutil.NewNode(ctx), db)
 		chs := make([]channel.Channel, 0, len(v.Records))
 		for alias, r := range v.Records {
 			byName[r.Name] = alias

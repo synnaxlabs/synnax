@@ -163,9 +163,9 @@ func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 
 // Run populates the indexes of the tables that open on the DB until ctx ends. It then
 // waits for the populates in progress to stop and returns nil. A populate that ctx ends
-// leaves its indexes invalid. OpenTable fails for a table with indexes while Run is not
-// running, and commits to a table wait for its indexes to populate. Call Run once,
-// before opening tables with indexes, and before Close.
+// leaves its indexes invalid. OpenTable for a table with indexes waits for Run to start
+// and fails after Run stops. Commits to a table wait for its indexes to populate. Call
+// Run once, and Close only after Run returns.
 func (db *DB) Run(ctx context.Context) error {
 	if !db.run.started.CompareAndSwap(false, true) {
 		return errors.New("[gorp] - Run called twice")
@@ -187,17 +187,27 @@ func (db *DB) Run(ctx context.Context) error {
 	}
 }
 
-// goPopulate hands populate to Run. It returns an error when Run has not started or has
-// stopped.
-func (db *DB) goPopulate(populate func(context.Context)) error {
-	if !db.run.started.Load() {
-		return errors.New("[gorp] - a table with indexes opened before DB.Run started")
-	}
-	select {
-	case db.run.populates <- populate:
-		return nil
-	case <-db.run.stopped:
-		return errors.New("[gorp] - a table with indexes opened after DB.Run stopped")
+// goPopulate hands populate to Run. It waits for Run to start, and returns an error
+// when Run has stopped or ctx ends first.
+func (db *DB) goPopulate(ctx context.Context, populate func(context.Context)) error {
+	warn := time.NewTimer(waitWarning)
+	defer warn.Stop()
+	for {
+		select {
+		case db.run.populates <- populate:
+			return nil
+		case <-db.run.stopped:
+			return errors.New(
+				"[gorp] - a table with indexes opened after DB.Run stopped",
+			)
+		case <-ctx.Done():
+			return errors.Wrap(
+				ctx.Err(),
+				"[gorp] - a table with indexes waited for DB.Run",
+			)
+		case <-warn.C:
+			db.Instrumentation.L.Warn("gorp table open waited long for DB.Run to start")
+		}
 	}
 }
 
