@@ -1131,6 +1131,37 @@ var _ = Describe("Go PB Plugin", func() {
 						ToContain("AuthoritiesListFromPB(pb.Authorities)")
 				},
 			)
+
+			It("Should use List suffix when the plural names another type", func() {
+				source := `
+					@go output "core/pkg/service/ni/device"
+					@pb
+
+					AnalogInputPorts struct {
+						index uint32
+					}
+
+					AnalogInputPort struct {
+						port uint16
+					}
+
+					Device struct {
+						analog_input  AnalogInputPorts
+						analog_inputs AnalogInputPort[]
+					}
+				`
+				resp := MustGenerate(source, "device", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func AnalogInputPortsToPB(r device.AnalogInputPorts)",
+						"func AnalogInputPortListToPB(rs []device.AnalogInputPort)",
+						"func AnalogInputPortListFromPB(pbs []*AnalogInputPort)",
+						"AnalogInputPortListToPB(r.AnalogInputs)",
+						"AnalogInputPortListFromPB(pb.AnalogInputs)",
+					).
+					ToNotContain("func AnalogInputPortsToPB(rs []")
+			})
 		})
 
 		Context("nested array of struct", func() {

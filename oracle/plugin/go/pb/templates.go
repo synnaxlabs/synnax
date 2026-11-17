@@ -13,22 +13,30 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/pluralize"
 )
 
 var templateFuncs = template.FuncMap{
-	"join":      strings.Join,
-	"lcFirst":   lcFirst,
-	"pluralize": pluralizeDistinct,
+	"join":    strings.Join,
+	"lcFirst": lcFirst,
 }
 
-// pluralizeDistinct returns the plural form of a name for use as a slice function name.
-// If the plural is the same as the singular (already-plural words like "Channels",
-// "Properties"), it appends "List" to avoid name collisions.
-func pluralizeDistinct(name string) string {
+// sliceName returns the name of the slice translators for a type that translates as
+// name in namespace. It is the plural of name, or name plus "List" when the plural is
+// name itself or names the translators of another type in namespace.
+func sliceName(name, namespace string, table *resolution.Table) string {
 	plural := pluralize.String(name)
 	if plural == name {
 		return name + "List"
+	}
+	for _, t := range table.TypesInNamespace(namespace) {
+		switch t.Form.(type) {
+		case resolution.StructForm, resolution.UnionForm, resolution.EnumForm:
+			if translatorName(t) == plural {
+				return name + "List"
+			}
+		}
 	}
 	return plural
 }
@@ -277,8 +285,8 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	return r, nil
 }
 
-// {{pluralize .Name}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
-func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
+// {{.SliceName}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.SliceName}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
 	result := make([]*{{.PBType}}, len(rs))
 	for i := range rs {
 		var err error
@@ -290,8 +298,8 @@ func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
 	return result, nil
 }
 
-// {{pluralize .Name}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
-func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
+// {{.SliceName}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.SliceName}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
 	result := make([]{{.GoType}}, len(pbs))
 	for i, pb := range pbs {
 		var err error
@@ -365,8 +373,8 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	return r, nil
 }
 
-// {{pluralize .Name}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
-func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
+// {{.SliceName}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.SliceName}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
 	result := make([]*{{.PBType}}, len(rs))
 	for i := range rs {
 		var err error
@@ -378,8 +386,8 @@ func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
 	return result, nil
 }
 
-// {{pluralize .Name}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
-func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
+// {{.SliceName}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.SliceName}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
 	result := make([]{{.GoType}}, len(pbs))
 	for i, pb := range pbs {
 		var err error
@@ -662,8 +670,8 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	return r, nil
 }
 
-// {{pluralize .Name}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
-func {{pluralize .Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
+// {{.SliceName}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.SliceName}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	rs []{{.GoType}},
 {{- range .TypeParams}}
 	translate{{.Name}} func({{.Name}}) (*anypb.Any, error),
@@ -680,8 +688,8 @@ func {{pluralize .Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{
 	return result, nil
 }
 
-// {{pluralize .Name}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
-func {{pluralize .Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
+// {{.SliceName}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.SliceName}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	pbs []*{{.PBType}},
 {{- range .TypeParams}}
 	translate{{.Name}} func(*anypb.Any) ({{.Name}}, error),

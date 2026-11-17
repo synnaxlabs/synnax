@@ -367,6 +367,7 @@ func (p *Plugin) generateFile(
 			// naming would collide.
 			memberName := casing.VariantTypeName(goName, v.Name)
 			pt.Name = memberName
+			pt.SliceName = sliceName(memberName, u.Namespace, data.table)
 			pt.GoType = fmt.Sprintf("%s.%s", data.parentAlias, memberName)
 			pt.GoTypeShort = memberName
 			data.Translators = append(data.Translators, *pt)
@@ -436,6 +437,7 @@ func (p *Plugin) generateFile(
 // sealed-interface form and its protobuf oneof wrapper message.
 type unionTranslatorData struct {
 	Name        string
+	SliceName   string
 	GoType      string
 	PBType      string
 	GoTypeShort string
@@ -494,6 +496,7 @@ func (p *Plugin) processUnionForTranslation(
 	}
 	ut := &unionTranslatorData{
 		Name:        pbName,
+		SliceName:   sliceName(pbName, u.Namespace, data.table),
 		GoType:      fmt.Sprintf("%s.%s", data.parentAlias, goName),
 		PBType:      pbName,
 		GoTypeShort: goName,
@@ -606,6 +609,7 @@ func (p *Plugin) processStructForTranslation(
 
 	translator := &translatorData{
 		Name:           pbName,
+		SliceName:      sliceName(pbName, s.Namespace, data.table),
 		GoType:         fmt.Sprintf("%s.%s", data.parentAlias, goName),
 		PBType:         pbName,
 		GoTypeShort:    goName,
@@ -995,6 +999,7 @@ func (p *Plugin) processGenericStructForTranslation(
 
 	translator := &genericTranslatorData{
 		Name:            pbName,
+		SliceName:       sliceName(pbName, s.Namespace, data.table),
 		GoType:          goTypeWithParams,
 		PBType:          pbName,
 		GoTypeShort:     goName,
@@ -1532,6 +1537,7 @@ func (p *Plugin) addInstance(inst instance.Instance, data *templateData) {
 	goType := p.instanceGoType(inst, data)
 	translator := translatorData{
 		Name:        inst.Name,
+		SliceName:   sliceName(inst.Name, data.Namespace, data.table),
 		GoType:      goType,
 		PBType:      inst.Name,
 		GoTypeShort: goType,
@@ -1803,7 +1809,7 @@ func (p *Plugin) generateArrayConversion(
 
 	if inst, ok := instance.Of(elemType, data.Namespace, data.table); ok {
 		p.addInstance(inst, data)
-		name := pluralizeDistinct(inst.Name)
+		name := sliceName(inst.Name, data.Namespace, data.table)
 		return fmt.Sprintf("%sToPB(%s)", name, goField),
 			fmt.Sprintf("%sFromPB(%s)", name, pbField),
 			true, true
@@ -1825,17 +1831,14 @@ func (p *Plugin) generateArrayConversion(
 		}
 		if _, isUnion := elem.Form.(resolution.UnionForm); isUnion {
 			prefix, name := p.resolveUnionTranslatorName(elem, data)
-			pluralName := pluralizeDistinct(name)
+			pluralName := sliceName(name, elem.Namespace, data.table)
 			return fmt.Sprintf("%s%sToPB(%s)", prefix, pluralName, goField),
 				fmt.Sprintf("%s%sFromPB(%s)", prefix, pluralName, pbField),
 				true, true
 		}
 		if structForm, isStruct := elem.Form.(resolution.StructForm); isStruct {
-			translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(
-				elem,
-				data,
-			)
-			pluralName := pluralizeDistinct(translatorStructName)
+			translatorPrefix, _ := p.resolvePBTranslatorInfo(elem, data)
+			pluralName := structSliceName(elem, data.table)
 
 			if structForm.IsGeneric() && len(elemRef.TypeArgs) > 0 {
 				forward, backward, goTypes := p.typeArgConverters(
@@ -2045,11 +2048,8 @@ func (p *Plugin) generateStructNestedArrayConversion(
 		return "", "", false
 	}
 
-	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(
-		innerElemResolved,
-		data,
-	)
-	pluralName := pluralizeDistinct(translatorStructName)
+	translatorPrefix, _ := p.resolvePBTranslatorInfo(innerElemResolved, data)
+	pluralName := structSliceName(innerElemResolved, data.table)
 
 	// If the outer typeRef resolves to a distinct named type (e.g., Strata), use its
 	// qualified Go name so the IIFE's make() and return types match the field exactly.
@@ -2148,6 +2148,24 @@ func getPBName(s resolution.Type) string {
 		}
 	}
 	return ""
+}
+
+// translatorName returns the name that the translators of t carry: its pb name, or
+// its schema name when it has none.
+func translatorName(t resolution.Type) string {
+	if name := getPBName(t); name != "" {
+		return name
+	}
+	return t.Name
+}
+
+// structSliceName returns the slice translator name of a struct, which translates
+// through its first ancestor with a pb output.
+func structSliceName(s resolution.Type, table *resolution.Table) string {
+	if pbStruct, _ := findStructWithPB(s, table); pbStruct != nil {
+		s = *pbStruct
+	}
+	return sliceName(translatorName(s), s.Namespace, table)
 }
 
 func findStructWithPB(
@@ -2324,6 +2342,7 @@ type templateData struct {
 // translatorData holds data for a single type's translators.
 type translatorData struct {
 	Name        string
+	SliceName   string
 	GoType      string
 	PBType      string
 	GoTypeShort string
@@ -2418,7 +2437,8 @@ type enumValueTranslatorData struct {
 // translator functions with type parameters that accept converter functions for each
 // type parameter.
 type genericTranslatorData struct {
-	Name string
+	Name      string
+	SliceName string
 	// GoType is the full generic type with parameters (e.g., "status.Status[D]").
 	GoType      string
 	PBType      string
