@@ -40,6 +40,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -279,7 +282,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.KV, err = openKV(cfg, kvFS, cache); !ok(err, l.KV) {
 		return nil, err
 	}
-	l.Gorp = gorp.Wrap(l.KV)
+	l.Gorp = gorp.Wrap(
+		l.KV,
+		gorp.WithCodec(encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec)),
+		gorp.WithInstrumentation(cfg.Child("gorp")),
+	)
 
 	// Open the time-series engine.
 	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(err, l.TS) {
