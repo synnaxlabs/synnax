@@ -391,7 +391,7 @@ func (f *Factory) configureRead(
 		broker:     dev.Key,
 		queueSize:  f.cfg.QueueSize,
 		birthGrace: f.cfg.BirthGrace,
-		topics:     make(map[string]topicReader),
+		topics:     make(map[string]*readTopic),
 		tags:       make(map[tagID]readTag),
 		lastStamp:  make(map[channel.Key]telem.TimeStamp),
 		framer:     f.cfg.Framer,
