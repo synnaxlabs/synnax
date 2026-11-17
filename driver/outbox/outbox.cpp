@@ -27,6 +27,8 @@ const std::string OFFSET_FILE = "offset";
 constexpr std::size_t SEGMENT_CALLS = 1000;
 /// @brief the maximum time between a write and the sync that follows it.
 const auto SYNC_INTERVAL = x::telem::SECOND;
+/// @brief the time between the checks of the sync thread for a due sync.
+const auto SYNC_CHECK_INTERVAL = 250 * x::telem::MILLISECOND;
 
 x::errors::Error fs_error(const std::string &msg, const std::error_code &ec) {
     return x::errors::Error(ERROR, msg + ": " + ec.message());
@@ -107,7 +109,12 @@ std::pair<std::unique_ptr<Outbox>, x::errors::Error> Outbox::open(Config cfg) {
     }
     if (const auto err = outbox->remove_sent()) return {nullptr, err};
     outbox->breaker.start();
-    outbox->sender = std::thread([ptr = outbox.get()] { ptr->run(); });
+    outbox->sender = std::thread([ptr = outbox.get()] {
+        ptr->run();
+        if (const auto err = ptr->save_offset())
+            LOG(ERROR) << "[outbox] failed to save the offset: " << err;
+    });
+    outbox->syncer = std::thread([ptr = outbox.get()] { ptr->run_syncs(); });
     return {std::move(outbox), x::errors::NIL};
 }
 
@@ -149,9 +156,9 @@ Outbox::~Outbox() {
         this->stopped = true;
     }
     this->cv.notify_all();
+    this->sync_cv.notify_all();
     this->sender.join();
-    if (const auto err = this->save_offset())
-        LOG(ERROR) << "[outbox] failed to save the offset: " << err;
+    this->syncer.join();
 }
 
 x::errors::Error Outbox::set_status(
@@ -188,9 +195,10 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
             .end = end,
         });
         if (++this->tail_calls == SEGMENT_CALLS) {
-            if (const auto close_err = this->writer->close())
+            const auto close_err = this->writer->close();
+            if (close_err)
                 LOG(ERROR) << "[outbox] failed to close a segment: " << close_err;
-            this->end_tail();
+            this->end_tail(static_cast<bool>(close_err));
         }
     }
     this->cv.notify_one();
@@ -213,24 +221,35 @@ std::pair<std::uint64_t, x::errors::Error> Outbox::append(const pb::Call &reques
         .payload = request.SerializeAsString(),
     });
     if (err) {
-        this->end_tail();
+        this->end_tail(true);
         return {0, err};
     }
     return {this->writer->pos(), x::errors::NIL};
 }
 
-void Outbox::end_tail() {
+void Outbox::end_tail(const bool failed) {
+    if (failed) this->unsynced.insert(this->tail);
     this->writer.reset();
     ++this->tail;
     this->tail_calls = 0;
 }
 
-void Outbox::sync_tail(const bool forced) {
-    if (this->writer == nullptr) return;
+x::errors::Error Outbox::sync_tail(const bool forced) {
+    if (this->writer == nullptr) return x::errors::NIL;
     const auto err = forced ? this->writer->sync() : this->writer->sync_if_due();
-    if (!err) return;
-    LOG(ERROR) << "[outbox] failed to sync a segment: " << err;
-    this->end_tail();
+    if (err) this->end_tail(true);
+    return err;
+}
+
+void Outbox::run_syncs() {
+    std::unique_lock lock(this->mu);
+    while (!this->stopped) {
+        if (const auto err = this->sync_tail(false))
+            LOG(ERROR) << "[outbox] failed to sync a segment: " << err;
+        this->sync_cv.wait_for(lock, SYNC_CHECK_INTERVAL.chrono(), [this] {
+            return this->stopped;
+        });
+    }
 }
 
 void Outbox::run() {
@@ -238,20 +257,14 @@ void Outbox::run() {
         Call call;
         {
             std::unique_lock lock(this->mu);
-            this->sync_tail(false);
-            const auto ready = this->cv.wait_for(lock, SYNC_INTERVAL.chrono(), [this] {
+            this->cv.wait(lock, [this] {
                 return this->stopped || !this->calls.empty();
             });
             if (this->stopped) return;
-            if (!ready) continue;
             call = this->calls.front();
         }
         const auto err = this->send(call);
         if (synnax::errors::is_temporarily_unavailable(err)) {
-            {
-                std::lock_guard lock(this->mu);
-                this->sync_tail(true);
-            }
             if (!this->breaker.wait_unlimited(err)) return;
             continue;
         }
@@ -293,12 +306,21 @@ x::errors::Error Outbox::commit(const Call &call) {
 
 x::errors::Error Outbox::save_offset() {
     if (!this->unsaved.has_value()) return x::errors::NIL;
+    const auto offset = this->unsaved.value();
+    this->unsaved.reset();
+    {
+        std::lock_guard lock(this->mu);
+        // A saved offset must never pass segment bytes that are not on the disk, or
+        // a power loss leaves an offset past the end of its segment.
+        if (this->unsynced.contains(offset.segment)) return x::errors::NIL;
+        if (offset.segment == this->tail)
+            if (const auto err = this->sync_tail(true)) return err;
+    }
     const auto err = journal::commit_offset(
         this->cfg.dir / OFFSET_FILE,
         OFFSET_MAGIC,
-        *this->unsaved
+        offset
     );
-    this->unsaved.reset();
     this->last_save = x::telem::TimeStamp::now();
     if (err) return err;
     std::lock_guard lock(this->mu);
@@ -312,6 +334,7 @@ x::errors::Error Outbox::remove_sent() {
                 this->segment_path(*this->segments.begin())
             ))
             return err;
+        this->unsynced.erase(*this->segments.begin());
         this->segments.erase(this->segments.begin());
     }
     return x::errors::NIL;

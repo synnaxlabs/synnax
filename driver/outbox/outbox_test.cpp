@@ -377,7 +377,7 @@ TEST_F(OutboxTest, RefusesLockedDirectory) {
     ASSERT_OCCURRED_AS_P(Outbox::open({.dir = this->dir}), journal::LOCKED);
 }
 
-/// @brief v1 segments must stay readable by every later Driver.
+/// @brief it should send the calls of a v1 segment.
 TEST_F(OutboxTest, SendsV1Segment) {
     std::filesystem::create_directories(this->dir);
     std::filesystem::copy_file(TESTDATA / "v1_segment.bin", this->segment());
@@ -393,7 +393,7 @@ TEST_F(OutboxTest, SendsV1Segment) {
     }
 }
 
-/// @brief v1 offsets must stay readable by every later Driver.
+/// @brief it should send only the calls after a v1 offset.
 TEST_F(OutboxTest, SendsV1SegmentFromV1Offset) {
     std::filesystem::create_directories(this->dir);
     std::filesystem::copy_file(TESTDATA / "v1_segment.bin", this->segment());
