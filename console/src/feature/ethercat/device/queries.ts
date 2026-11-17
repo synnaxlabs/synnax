@@ -265,7 +265,7 @@ const REPLACE: verbs.Verbs = {
  * stop, or the write to the old slave fails. The slaves then stay as they are, and the
  * stopped tasks start again.
  * @throws {Error} if the delete of the new slave fails. The error tells the user to
- * start the stopped tasks.
+ * delete the new slave and start the stopped tasks.
  */
 export const { useUpdate: useReplace } = Flux.createUpdate<
   ReplaceParams,
@@ -309,10 +309,11 @@ export const { useUpdate: useReplace } = Flux.createUpdate<
       if (!moved) await startTasks(stopped);
     }
     await client.devices.delete(slave.key).catch((e: unknown) => {
-      const then = stopped.length === 0 ? "" : " Start your tasks again.";
-      throw new Error(`Failed to delete ${slave.name} after the move.${then}`, {
-        cause: e,
-      });
+      const then = stopped.length === 0 ? "" : " Then start your tasks again.";
+      throw new Error(
+        `Failed to delete ${slave.name} after the move. Delete it yourself.${then}`,
+        { cause: e },
+      );
     });
     return { old, stopped };
   },
