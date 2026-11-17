@@ -1177,7 +1177,7 @@ func analyzeNamedRef(
 	if isRootLevelScope(sym) {
 		if seqDecl, ok := sym.AST.(parser.ISequenceDeclarationContext); ok {
 			if len(seqDecl.AllSequenceItem()) == 0 {
-				ctx.Diagnostics.Add(codes.SequenceDeclaration.Atf(
+				ctx.Diagnostics.Add(codes.EmptySequence.Atf(
 					ctx.AST, "sequence '%s' has no steps", sym.Name,
 				))
 				return transitionIntent{}, false
@@ -2363,7 +2363,8 @@ func (p *inputParser) parseName(
 		}
 	}
 	if sym.Type.Kind == types.KindChan {
-		p.ctx.Diagnostics.Add(codes.ChannelExpected.Atf(
+		// SY-5823: This error goes away when the fix lands, so it has no code.
+		p.ctx.Diagnostics.Add(diagnostics.Errorf(
 			expr,
 			"input value for '%s' cannot be a channel",
 			paramName,

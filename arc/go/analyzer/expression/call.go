@@ -78,7 +78,7 @@ func bindArguments[T antlr.ParserRuleContext](
 			continue
 		}
 		if supplied.Contains(param.Name) {
-			ctx.Diagnostics.Add(codes.FuncArgName.Atf(
+			ctx.Diagnostics.Add(codes.FuncArgDuplicate.Atf(
 				arg.AST,
 				"duplicate argument for parameter '%s' of func '%s'",
 				param.Name,
@@ -106,7 +106,7 @@ func matchParam[T antlr.ParserRuleContext](
 	if arg.Name != "" {
 		param, ok := fnType.Inputs.Get(arg.Name)
 		if !ok {
-			ctx.Diagnostics.Add(codes.FuncArgName.Atf(arg.AST,
+			ctx.Diagnostics.Add(codes.FuncArgUnknown.Atf(arg.AST,
 				"unknown parameter '%s' for func '%s'", arg.Name, fnName).
 				WithNote("signature: " + signature))
 			return types.Param{}, false

@@ -180,7 +180,7 @@ func parseNumericWithUnit(
 ) (ParsedValue, error) {
 	unit, ok := units.Resolve(unitName)
 	if !ok {
-		return ParsedValue{}, codes.UnknownType.Errorf("unknown unit: %s", unitName)
+		return ParsedValue{}, codes.UnknownUnit.Errorf("unknown unit: %s", unitName)
 	}
 
 	// If target type has a unit, convert to target unit's scale

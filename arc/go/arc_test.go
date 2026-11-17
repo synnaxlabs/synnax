@@ -625,7 +625,7 @@ flag -> select() => {
 `}
 			Expect(arc.CompileText(ctx, t, root)).Error().To(
 				MatchError(
-					ContainSubstring("[E5003]: '=>' cannot feed a routing table"),
+					ContainSubstring("[E5006]: '=>' cannot feed a routing table"),
 				),
 			)
 		},
@@ -1092,7 +1092,7 @@ var _ = DescribeTable(
 	Entry(
 		"zero interval period",
 		"import time\n\ntime.interval(period=0ms) -> out",
-		"[E3004]: period must be positive, got 0s",
+		"[E3005]: period must be positive, got 0s",
 	),
 	Entry(
 		"negative interval period",

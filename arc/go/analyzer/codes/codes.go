@@ -82,8 +82,8 @@ var (
 		Code:     "E2001",
 		Severity: protocol.DiagnosticSeverityError,
 	}
-	// UnknownType is a type name or a unit name that does not exist.
-	UnknownType = diagnostics.Kind{
+	// UnknownUnit is a unit name that does not exist.
+	UnknownUnit = diagnostics.Kind{
 		Code:     "E2002",
 		Severity: protocol.DiagnosticSeverityError,
 	}
@@ -164,54 +164,59 @@ var (
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "too many arguments for func '%s': expected at most %d",
 	}
-	// FuncArgName is a named argument that is a duplicate or has no parameter.
-	FuncArgName = diagnostics.Kind{
+	// FuncArgDuplicate is a call with two arguments of the same name.
+	FuncArgDuplicate = diagnostics.Kind{
 		Code:     "E3003",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// FuncArgUnknown is a named argument that the function has no parameter for.
+	FuncArgUnknown = diagnostics.Kind{
+		Code:     "E3004",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// FuncArgValue is a constant argument with a value the function rejects.
 	FuncArgValue = diagnostics.Kind{
-		Code:     "E3004",
+		Code:     "E3005",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// ParamOrder is a required parameter after an optional parameter.
 	ParamOrder = diagnostics.Kind{
-		Code:     "E3005",
+		Code:     "E3006",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// ReturnValue is a return with a value missing or a value not allowed.
 	ReturnValue = diagnostics.Kind{
-		Code:     "E3006",
+		Code:     "E3007",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// BreakOutsideLoop is a break or a continue that is not in a for loop.
 	BreakOutsideLoop = diagnostics.Kind{
-		Code:     "E3007",
+		Code:     "E3008",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// StatefulVariable is a stateful variable in a place that does not allow one.
 	StatefulVariable = diagnostics.Kind{
-		Code:     "E3008",
+		Code:     "E3009",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// AssignmentTarget is an assignment to a target that does not accept it.
 	AssignmentTarget = diagnostics.Kind{
-		Code:     "E3009",
+		Code:     "E3010",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// CircularCall is a function that calls itself through a chain of calls.
 	CircularCall = diagnostics.Kind{
-		Code:     "E3010",
+		Code:     "E3011",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// InvalidStatusVariant is a status variant that is not one of the allowed values.
 	InvalidStatusVariant = diagnostics.Kind{
-		Code:     "E3011",
+		Code:     "E3012",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// InvalidColor is a color argument in a form that Arc does not accept.
 	InvalidColor = diagnostics.Kind{
-		Code:     "E3012",
+		Code:     "E3013",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// OutputNeverAssigned is a named output that no path of its function sets.
@@ -283,64 +288,84 @@ var (
 		Message:  "'%s' is deprecated, use '%s' instead",
 	}
 
-	// Authority is an authority block that is malformed or out of place.
-	Authority = diagnostics.Kind{
+	// AuthorityPlacement is an authority block after a function, flow, or sequence.
+	AuthorityPlacement = diagnostics.Kind{
 		Code:     "E5000",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// AuthorityDefault is an authority block with two default values.
+	AuthorityDefault = diagnostics.Kind{
+		Code:     "E5001",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// AuthorityDuplicate is an authority block that names a channel two times.
+	AuthorityDuplicate = diagnostics.Kind{
+		Code:     "E5002",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// AuthorityValue is an authority value that is not an integer from 0 to 255.
+	AuthorityValue = diagnostics.Kind{
+		Code:     "E5003",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// FlowConnection is a flow node with an output or input that cannot connect.
 	FlowConnection = diagnostics.Kind{
-		Code:     "E5001",
+		Code:     "E5004",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// TransitionTarget is a transition to a target that the code cannot reach.
 	TransitionTarget = diagnostics.Kind{
-		Code:     "E5002",
+		Code:     "E5005",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// FlowOperator is a => where the flow needs a ->.
 	FlowOperator = diagnostics.Kind{
-		Code:     "E5003",
+		Code:     "E5006",
 		Severity: protocol.DiagnosticSeverityError,
 	}
-	// SequenceDeclaration is a sequence that is empty or has a name it cannot have.
-	SequenceDeclaration = diagnostics.Kind{
-		Code:     "E5004",
+	// EmptySequence is a sequence that has no steps.
+	EmptySequence = diagnostics.Kind{
+		Code:     "E5007",
+		Severity: protocol.DiagnosticSeverityError,
+	}
+	// NamedInlineBody is an inline stage or sequence that has a name.
+	NamedInlineBody = diagnostics.Kind{
+		Code:     "E5008",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// TriggerBinding is a function input with two sources or a missing parameter.
 	TriggerBinding = diagnostics.Kind{
-		Code:     "E5005",
+		Code:     "E5009",
 		Severity: protocol.DiagnosticSeverityError,
 	}
-	// ChannelExpected is a value where a channel is needed, or the reverse.
+	// ChannelExpected is a value where the code needs a channel.
 	ChannelExpected = diagnostics.Kind{
-		Code:     "E5006",
+		Code:     "E5010",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// ReadOnlyWrite is a write to a name that the code can only read.
 	ReadOnlyWrite = diagnostics.Kind{
-		Code:     "E5007",
+		Code:     "E5011",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// RoutingTable is a routing table that is malformed or out of place.
 	RoutingTable = diagnostics.Kind{
-		Code:     "E5008",
+		Code:     "E5012",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// RoutingName is a routing table entry that names a missing output or input.
 	RoutingName = diagnostics.Kind{
-		Code:     "E5009",
+		Code:     "E5013",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// DataflowCycle is a set of flows that feed each other in a loop.
 	DataflowCycle = diagnostics.Kind{
-		Code:     "E5010",
+		Code:     "E5014",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// ChannelLimit is a program with more local channels than Arc allows.
 	ChannelLimit = diagnostics.Kind{
-		Code:     "E5011",
+		Code:     "E5015",
 		Severity: protocol.DiagnosticSeverityError,
 	}
 	// DeclarationAfterStep is a variable declared after a step of its scope.
@@ -365,7 +390,7 @@ var All = []diagnostics.Kind{
 	SubtractionSpacing,
 	DivisionByZero,
 	TypeMismatch,
-	UnknownType,
+	UnknownUnit,
 	UnresolvedType,
 	InvalidOperand,
 	InvalidCast,
@@ -380,7 +405,8 @@ var All = []diagnostics.Kind{
 	NotCallable,
 	FuncArgMissing,
 	FuncArgExtra,
-	FuncArgName,
+	FuncArgDuplicate,
+	FuncArgUnknown,
 	FuncArgValue,
 	ParamOrder,
 	ReturnValue,
@@ -403,11 +429,15 @@ var All = []diagnostics.Kind{
 	UnnamedExport,
 	UnusedImport,
 	DeprecatedSymbol,
-	Authority,
+	AuthorityPlacement,
+	AuthorityDefault,
+	AuthorityDuplicate,
+	AuthorityValue,
 	FlowConnection,
 	TransitionTarget,
 	FlowOperator,
-	SequenceDeclaration,
+	EmptySequence,
+	NamedInlineBody,
 	TriggerBinding,
 	ChannelExpected,
 	ReadOnlyWrite,

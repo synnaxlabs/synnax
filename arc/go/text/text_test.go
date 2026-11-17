@@ -7871,7 +7871,7 @@ time.wait(duration=500ms) -> output`
 							ID:   10081,
 						},
 					},
-					"[E5002]: 'next' used outside of a sequence",
+					"[E5005]: 'next' used outside of a sequence",
 				),
 				Entry("next inside inline routing stage body",
 					`

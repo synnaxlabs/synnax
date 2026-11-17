@@ -198,13 +198,13 @@ func registerInlineBody(
 	)
 	switch d := decl.(type) {
 	case parser.IStageDeclarationContext:
-		id, kind = d.IDENTIFIER(), "stages"
+		id, kind = d.IDENTIFIER(), "stage"
 	case parser.ISequenceDeclarationContext:
-		id, kind = d.IDENTIFIER(), "sequences"
+		id, kind = d.IDENTIFIER(), "sequence"
 	}
 	if id != nil {
-		ctx.Diagnostics.Add(codes.SequenceDeclaration.Atf(decl,
-			"inline routing case body %s must be anonymous; remove name %q",
+		ctx.Diagnostics.Add(codes.NamedInlineBody.Atf(decl,
+			"an inline %s cannot have a name; remove %q",
 			kind, id.GetText()))
 		return nil
 	}

@@ -588,7 +588,7 @@ src_chan -> demux() -> {
 			},
 			Entry("unknown named argument",
 				`len(unknown=label) -> count`,
-				"[E3003]: unknown parameter 'unknown' for func 'len'"),
+				"[E3004]: unknown parameter 'unknown' for func 'len'"),
 			Entry("too many positional arguments",
 				`len(label, label) -> count`,
 				"too many arguments for func 'len': expected at most 1"),
@@ -2134,7 +2134,7 @@ sequence main {
 				msgs = append(msgs, d.Message)
 			}
 			Expect(msgs).To(ContainElement(SatisfyAll(
-				ContainSubstring("inline routing case body stages must be anonymous"),
+				ContainSubstring("an inline stage cannot have a name"),
 				ContainSubstring(`"my_step"`),
 			)), "diagnostics: %v", msgs)
 		})
@@ -2174,7 +2174,7 @@ sequence main {
 			}
 			Expect(msgs).To(ContainElement(SatisfyAll(
 				ContainSubstring(
-					"inline routing case body sequences must be anonymous",
+					"an inline sequence cannot have a name",
 				),
 				ContainSubstring(`"my_seq"`),
 			)), "diagnostics: %v", msgs)
@@ -2673,7 +2673,7 @@ sequence main {
 				}
 				Expect(msgs).To(ContainElement(SatisfyAll(
 					ContainSubstring(
-						"inline routing case body stages must be anonymous",
+						"an inline stage cannot have a name",
 					),
 					ContainSubstring(`"my_step"`),
 				)), "diagnostics: %v", msgs)
@@ -2706,7 +2706,7 @@ sequence main {
 				}
 				Expect(msgs).To(ContainElement(SatisfyAll(
 					ContainSubstring(
-						"inline routing case body sequences must be anonymous",
+						"an inline sequence cannot have a name",
 					),
 					ContainSubstring(`"my_seq"`),
 				)), "diagnostics: %v", msgs)
@@ -3568,7 +3568,7 @@ var _ = Describe("Trigger call-site conflict", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-				"[E5005]: parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
+				"[E5009]: parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
 			))
 		},
 	)

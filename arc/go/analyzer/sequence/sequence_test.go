@@ -680,7 +680,7 @@ var _ = Describe("Sequence Analyzer", func() {
 				analyzer.AnalyzeProgram(ctx)
 				Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 				Expect((*ctx.Diagnostics)[0].Code).
-					To(Equal(codes.SequenceDeclaration.Code))
+					To(Equal(codes.NamedInlineBody.Code))
 			},
 		)
 
@@ -697,7 +697,7 @@ var _ = Describe("Sequence Analyzer", func() {
 						}
 					}
 				}
-			`, `inline routing case body stages must be anonymous; remove name "my_stage"`),
+			`, `an inline stage cannot have a name; remove "my_stage"`),
 			Entry("named inline sequence", `
 				sequence main {
 					stage hold {
@@ -706,7 +706,7 @@ var _ = Describe("Sequence Analyzer", func() {
 						}
 					}
 				}
-			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
+			`, `an inline sequence cannot have a name; remove "my_seq"`),
 		)
 	})
 
@@ -790,14 +790,14 @@ var _ = Describe("Sequence Analyzer", func() {
 						start_cmd -> stage my_stage { 1 -> abort_btn }
 					}
 				}
-			`, `inline routing case body stages must be anonymous; remove name "my_stage"`),
+			`, `an inline stage cannot have a name; remove "my_stage"`),
 			Entry("named inline sequence", `
 				sequence main {
 					stage hold {
 						start_cmd -> sequence my_seq { 1 -> abort_btn }
 					}
 				}
-			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
+			`, `an inline sequence cannot have a name; remove "my_seq"`),
 		)
 	})
 

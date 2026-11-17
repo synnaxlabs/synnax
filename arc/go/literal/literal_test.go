@@ -393,7 +393,7 @@ var _ = Describe("Literal Parser", func() {
 				Expect(err).To(MatchError(ContainSubstring("unknown unit")))
 				Expect(
 					diagnostics.Error(err, nil).Code,
-				).To(Equal(codes.UnknownType.Code))
+				).To(Equal(codes.UnknownUnit.Code))
 			})
 
 			It("Should return error for range overflow", func() {

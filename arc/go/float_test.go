@@ -225,7 +225,7 @@ var _ = Describe("NaN and infinity", func() {
 		Entry(
 			"constant as a sink",
 			"x -> math.nan",
-			"[E5006]: math.nan is not a channel",
+			"[E5010]: math.nan is not a channel",
 		),
 		Entry(
 			"a flow literal by its generated name",

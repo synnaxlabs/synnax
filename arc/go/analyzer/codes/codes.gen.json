@@ -74,7 +74,7 @@
   "E2002": {
     "severity": "error",
     "message": "invalid default value for input parameter x: unknown unit: zzz",
-    "problem": "A type name or a unit name does not exist.",
+    "problem": "A unit name does not exist.",
     "example": "func f(x f64 = 5zzz) {\n}"
   },
   "E2003": {
@@ -145,59 +145,65 @@
   },
   "E3003": {
     "severity": "error",
-    "message": "unknown parameter 'unknown' for func 'len'",
-    "problem": "A named argument has the same name as a different argument of the call, or the function has no parameter with that name.",
-    "example": "len(unknown=label) -> count"
+    "message": "duplicate argument for parameter 'input' of func 'len'",
+    "problem": "Two arguments of a call have the same name.",
+    "example": "len(input=label, input=label) -> count"
   },
   "E3004": {
+    "severity": "error",
+    "message": "unknown parameter 'unknown' for func 'len'",
+    "problem": "A call names a parameter that the function does not have.",
+    "example": "len(unknown=label) -> count"
+  },
+  "E3005": {
     "severity": "error",
     "message": "period must be positive, got 0s",
     "problem": "A constant argument has a value that the function does not accept.",
     "example": "import time\n\ntime.interval(period=0ms) -> valve_cmd"
   },
-  "E3005": {
+  "E3006": {
     "severity": "error",
     "message": "required input parameter b cannot follow optional input parameters",
     "problem": "A parameter that has no default value comes after a parameter that has one.",
     "example": "func f(a i32 = 1, b i32) {\n}"
   },
-  "E3006": {
+  "E3007": {
     "severity": "error",
     "message": "cannot return a value from a function with no return type",
     "problem": "A `return` has no value in a function that returns one, a `return` has a value in a function that returns none, or a path through a function ends with no `return`.",
     "example": "func f() {\n    return 1\n}"
   },
-  "E3007": {
+  "E3008": {
     "severity": "error",
     "message": "break can only be used inside a for loop",
     "problem": "A `break` or a `continue` is not in a `for` loop.",
     "example": "func f() {\n    break\n}"
   },
-  "E3008": {
+  "E3009": {
     "severity": "error",
     "message": "stateful variables cannot be declared at the top level",
     "problem": "A stateful variable is in a place that does not allow one, such as the top level of a program.",
     "example": "count_total $= 0"
   },
-  "E3009": {
+  "E3010": {
     "severity": "error",
     "message": "cannot assign to loop variable 'i'",
     "problem": "An assignment has a target that does not accept it, such as a loop variable or a slice.",
     "example": "func f() {\n    for i := range(3) {\n        i = 1\n    }\n}"
   },
-  "E3010": {
+  "E3011": {
     "severity": "error",
     "message": "circular function call: a -> b -> a",
     "problem": "A function calls itself through a circular chain of calls.",
     "example": "func a() {\n    b()\n}\n\nfunc b() {\n    a()\n}"
   },
-  "E3011": {
+  "E3012": {
     "severity": "error",
     "message": "",
     "problem": "The `variant` of a `status.set` call is not one of the allowed values.",
     "example": ""
   },
-  "E3012": {
+  "E3013": {
     "severity": "error",
     "message": "",
     "problem": "A color is not a valid value (name, hex, `rgb()`, `rgba()`, `hsl()`, `hsla()`).",
@@ -265,71 +271,95 @@
   },
   "E5000": {
     "severity": "error",
-    "message": "multiple default authority values",
-    "problem": "An authority block is not before the first function, flow, or sequence, has two default values, names a channel two times, or has a value that is not from 0 to 255.",
-    "example": "authority 200\nauthority 100"
+    "message": "authority declaration must appear before function, flow, and sequence declarations",
+    "problem": "An authority block comes after a function, a flow, or a sequence.",
+    "example": "func f() {\n}\n\nauthority 100"
   },
   "E5001": {
+    "severity": "error",
+    "message": "multiple default authority values",
+    "problem": "An authority block has two default values.",
+    "example": "authority 200\nauthority 100"
+  },
+  "E5002": {
+    "severity": "error",
+    "message": "duplicate authority for 'valve_cmd'",
+    "problem": "An authority block names a channel two times.",
+    "example": "authority (valve_cmd 100 valve_cmd 150)"
+  },
+  "E5003": {
+    "severity": "error",
+    "message": "authority value must be an integer in range 0-255, got '300'",
+    "problem": "An authority value is not an integer from 0 to 255.",
+    "example": "authority 300"
+  },
+  "E5004": {
     "severity": "error",
     "message": "func 'source' has no return value but 'sink' expects an input parameter",
     "problem": "An output or an input of a node in a flow cannot connect.",
     "example": "func source() {\n}\n\nfunc sink() {v u8} {\n}\n\nsource() -> sink()"
   },
-  "E5002": {
+  "E5005": {
     "severity": "error",
     "message": "'next' used outside of a sequence",
     "problem": "A transition has a target that the code cannot reach from there, such as `next` outside a sequence or in the last stage.",
     "example": "sensor > 10 => next"
   },
-  "E5003": {
+  "E5006": {
     "severity": "error",
     "message": "'=>' cannot feed a routing table, use '->'",
     "problem": "A `=>` sends values into `select` or into a routing table.",
     "example": "sensor -> select() => {\n    true: 1 -> valve_cmd,\n    false: 0 -> valve_cmd\n}"
   },
-  "E5004": {
+  "E5007": {
     "severity": "error",
     "message": "sequence 'main' has no steps",
-    "problem": "A sequence has no steps, or an inline stage or sequence in a routing table has a name.",
+    "problem": "A sequence has no steps.",
     "example": "sequence main {\n}\n\nsensor > 10 => main"
   },
-  "E5005": {
+  "E5008": {
+    "severity": "error",
+    "message": "an inline stage or sequence cannot have a name",
+    "problem": "An inline stage or sequence has a name.",
+    "example": "sequence main {\n    stage a {\n        sensor -> select() -> {\n            true: stage my_stage { 1 -> valve_cmd }\n        }\n    }\n    stage b {\n        1 -> valve_cmd\n    }\n}\n\nsensor > 1 => main"
+  },
+  "E5009": {
     "severity": "error",
     "message": "parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire",
     "problem": "A function input has two sources.",
     "example": "func consumer() {v f64} {\n}\n\nsensor -> consumer(v=5.0)"
   },
-  "E5006": {
+  "E5010": {
     "severity": "error",
     "message": "math.nan is not a channel",
-    "problem": "The code has a value where it needs a channel, or a channel where it needs a value.",
+    "problem": "The code has a value where it needs a channel.",
     "example": "import math\n\nsensor -> math.nan"
   },
-  "E5007": {
+  "E5011": {
     "severity": "error",
     "message": "cannot write to channel-read variable v; it is read-only",
     "problem": "The code writes to a name that is read-only.",
     "example": "sequence main {\n    stage first {\n        v := sensor * 2.0\n        1.0 -> v\n    }\n}"
   },
-  "E5008": {
+  "E5012": {
     "severity": "error",
     "message": "output routing table must follow a func invocation",
     "problem": "A routing table is malformed or out of place.",
     "example": "func target(v f64) {\n}\n\nsensor -> {\n    v: target()\n}"
   },
-  "E5009": {
+  "E5013": {
     "severity": "error",
     "message": "func 'split' does not have output 'middle'",
     "problem": "A routing table names an output or a parameter that does not exist.",
     "example": "func split() {v f64} (low f64, high f64) {\n    low = v\n    high = v\n}\n\nsensor -> split() -> {\n    low: 1.0 -> sensor_avg,\n    middle: 1.0 -> sensor_avg\n}"
   },
-  "E5010": {
+  "E5014": {
     "severity": "error",
     "message": "",
     "problem": "A set of flows feed each other in a loop, so no flow can run first.",
     "example": ""
   },
-  "E5011": {
+  "E5015": {
     "severity": "error",
     "message": "",
     "problem": "A program has more top-level variables than Arc allows.",
