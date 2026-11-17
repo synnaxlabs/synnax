@@ -271,6 +271,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			query string,
 			subprotocols ...string,
 		) *http.Response {
+			GinkgoHelper()
 			headers := http.Header{}
 			headers.Set(fiber.HeaderContentType, "application/json")
 			dialer := &ws.Dialer{Subprotocols: subprotocols}
