@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from freighter.exceptions import Unreachable
 from synnax.config import (
     DESKTOP_NOT_RUNNING_MSG,
     KEYCHAIN_UNAVAILABLE_MSG,
@@ -164,8 +165,9 @@ class TestLoadDesktopOptions:
         an AppImage helper is after Synnax Desktop closes.
         """
         write_desktop_file(desktop_file, port=4321, helper=tmp_path / "missing")
-        with pytest.raises(ConfigurationError, match=DESKTOP_NOT_RUNNING_MSG):
+        with pytest.raises(Unreachable, match=DESKTOP_NOT_RUNNING_MSG) as e:
             load_desktop_options(desktop_file)
+        assert e.value.target == "127.0.0.1:4321"
 
     def test_helper_cannot_start(self, desktop_file: Path) -> None:
         """Should name the helper when it exists but cannot start."""

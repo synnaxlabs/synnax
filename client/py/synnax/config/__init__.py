@@ -16,6 +16,7 @@ from typing import Any, TypedDict
 
 import keyring
 
+from freighter.exceptions import Unreachable
 from synnax.config.clusters import (
     KEYCHAIN_UNAVAILABLE_MSG,
     Cluster,
@@ -92,12 +93,12 @@ def _read_desktop_file(path: Path) -> dict[str, Any] | None:
     return raw
 
 
-def _read_key(helper: Path, run: RunHelper) -> str:
+def _read_key(helper: Path, run: RunHelper, target: str) -> str:
     try:
         result = run(helper)
     except FileNotFoundError as e:
         # The helper of an AppImage goes away with its mount when Synnax Desktop closes.
-        raise ConfigurationError(DESKTOP_NOT_RUNNING_MSG) from e
+        raise Unreachable(target=target, message=DESKTOP_NOT_RUNNING_MSG) from e
     except OSError as e:
         raise ConfigurationError(
             f"Cannot run the key helper of Synnax Desktop at {helper}: {e.strerror}. "
@@ -127,6 +128,8 @@ def load_desktop_options(
     :returns: The options, or None if Synnax Desktop has saved none.
     :raises ConfigurationError: If the file names no key helper, if the key helper
         fails, or if an older Synnax Desktop saved the key in the file.
+    :raises Unreachable: If the key helper is gone, as an AppImage helper is after
+        Synnax Desktop closes.
     """
     raw = _read_desktop_file(path)
     if raw is None:
@@ -135,7 +138,9 @@ def load_desktop_options(
         raise ConfigurationError(OLD_DESKTOP_MSG)
     if not (helper := raw.get("api_key_helper")):
         raise ConfigurationError(NO_KEY_HELPER_MSG)
-    return Options.model_validate({**raw, "api_key": _read_key(Path(helper), run)})
+    target = f"{raw.get('host')}:{raw.get('port')}"
+    api_key = _read_key(Path(helper), run, target)
+    return Options.model_validate({**raw, "api_key": api_key})
 
 
 _TRUE = ("1", "true", "yes")
@@ -257,6 +262,7 @@ def load_options(
     :raises ConfigurationError: If no OS keychain is available to read the key of the
         saved login, if the key helper of Synnax Desktop fails, or if an older Synnax
         Desktop left its key in the discovery file.
+    :raises Unreachable: If the key helper of Synnax Desktop is gone.
     """
     given = PartialOptions()
     if host:
