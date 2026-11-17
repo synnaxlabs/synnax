@@ -369,10 +369,13 @@ TEST_F(JournalTest, WriterMissingDirectoryIsError) {
     );
 }
 
-/// @brief it should return CORRUPT for a file start that is cut off.
-TEST_F(JournalTest, CutOffFileStartIsCorrupt) {
+/// @brief it should read a file start that is cut off as a log with no records.
+TEST_F(JournalTest, CutOffFileStartIsEmptyLog) {
     write_file(this->path, "SYTE");
-    ASSERT_OCCURRED_AS_P(Reader::open({.path = this->path, .magic = SEGMENT}), CORRUPT);
+    const auto reader = this->open_reader();
+    EXPECT_FALSE(ASSERT_NIL_P(reader->next()).has_value());
+    EXPECT_EQ(reader->cut(), 4);
+    EXPECT_EQ(reader->pos(), 0);
 }
 
 /// @brief it should sync when sync_interval passes or sync_bytes are written.
