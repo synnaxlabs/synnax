@@ -71,7 +71,9 @@ var _ = Describe("Change propagation", Ordered, func() {
 			Where(arc.MatchKeys(key)).
 			Entry(&stored).
 			Exec(ctx, db)).To(Succeed())
-		doc := stored.Base().Source.Variant.(arc.TextSource).Text.Doc
+		src, ok := stored.Base().Source.Variant.(arc.TextSource)
+		Expect(ok).To(BeTrue())
+		doc := src.Text.Doc
 		editor++
 		client := crdt.New(editor)
 		client.Load(doc.Inserts, doc.Deletes)

@@ -12,6 +12,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -27,9 +28,9 @@ export const Circle = ({
   strokeColor,
   fillColor,
   className,
-  strokeWidth,
+  strokeWidth = Border.DEFAULT_STROKE_WIDTH,
 }: RenderProps): ReactElement => {
-  const padding = (strokeWidth ?? 2) + 1;
+  const padding = strokeWidth + 1;
   const diameter = radius * 2;
   const width = diameter + 2 * padding;
   const height = diameter + 2 * padding;
@@ -71,7 +72,7 @@ export const Circle = ({
           cx={width / 2}
           cy={height / 2}
           r={radius}
-          strokeWidth={strokeWidth ?? 2}
+          strokeWidth={strokeWidth}
           fill={color.cssString(fillColor)}
         />
       </Primitive.SVG>

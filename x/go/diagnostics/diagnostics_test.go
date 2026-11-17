@@ -1022,53 +1022,53 @@ var _ = Describe("Diagnostics", func() {
 	})
 })
 
-var _ = Describe("Diagnostic.SetRange", func() {
+var _ = Describe("Diagnostic.Range", func() {
 	It("Should convert 1-indexed ANTLR lines to a 0-indexed range", func() {
-		var d diagnostics.Diagnostic
-		d.SetRange(ruleCtxAt(
+		d := diagnostics.Errorf(ruleCtxAt(
 			&fakeToken{line: 3, column: 4, text: "foo"},
 			&fakeToken{line: 5, column: 2, text: "bar"},
-		))
+		), "msg")
 		Expect(d.Range.Start).To(Equal(protocol.Position{Line: 2, Character: 4}))
 		Expect(d.Range.End).To(Equal(protocol.Position{Line: 4, Character: 5}))
 	})
 
 	It("Should derive the end from the start token when stop is missing", func() {
-		var d diagnostics.Diagnostic
-		d.SetRange(ruleCtxAt(&fakeToken{line: 2, column: 1, text: "name"}, nil))
+		d := diagnostics.Errorf(
+			ruleCtxAt(&fakeToken{line: 2, column: 1, text: "name"}, nil),
+			"msg",
+		)
 		Expect(d.Range.Start).To(Equal(protocol.Position{Line: 1, Character: 1}))
 		Expect(d.Range.End).To(Equal(protocol.Position{Line: 1, Character: 5}))
 	})
 
 	It("Should count the stop token's characters, not its bytes", func() {
-		var d diagnostics.Diagnostic
-		d.SetRange(ruleCtxAt(
+		d := diagnostics.Errorf(ruleCtxAt(
 			&fakeToken{line: 1, column: 0, text: "x"},
 			&fakeToken{line: 1, column: 4, text: `"°C"`},
-		))
+		), "msg")
 		Expect(d.Range.End).To(Equal(protocol.Position{Line: 0, Character: 8}))
 	})
 
 	It("Should end a multi-line stop token on its last line", func() {
-		var d diagnostics.Diagnostic
-		d.SetRange(ruleCtxAt(
+		d := diagnostics.Errorf(ruleCtxAt(
 			&fakeToken{line: 1, column: 0, text: "x"},
 			&fakeToken{line: 1, column: 4, text: "`ab\ncd`"},
-		))
+		), "msg")
 		Expect(d.Range.End).To(Equal(protocol.Position{Line: 1, Character: 3}))
 	})
 
 	It("Should end a multi-line start token on its last line when stop is missing",
 		func() {
-			var d diagnostics.Diagnostic
-			d.SetRange(ruleCtxAt(&fakeToken{line: 1, column: 4, text: "`ab\ncd`"}, nil))
+			d := diagnostics.Errorf(
+				ruleCtxAt(&fakeToken{line: 1, column: 4, text: "`ab\ncd`"}, nil),
+				"msg",
+			)
 			Expect(d.Range.End).To(Equal(protocol.Position{Line: 1, Character: 3}))
 		},
 	)
 
 	It("Should leave the range zero for a nil context", func() {
-		var d diagnostics.Diagnostic
-		d.SetRange(nil)
+		d := diagnostics.Errorf(nil, "msg")
 		Expect(d.Range).To(Equal(protocol.Range{}))
 	})
 })

@@ -73,9 +73,9 @@ var _ = Describe("Stopper", func() {
 		})
 		DescribeTable(
 			"Should fail when a field is missing",
-			func(clear func(*task.StopperConfig), msg string) {
+			func(unset func(*task.StopperConfig), msg string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 				Expect(task.NewStopper(cfg)).Error().To(MatchError(msg))
 			},

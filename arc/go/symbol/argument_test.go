@@ -22,7 +22,7 @@ func findNode[T antlr.Tree](t antlr.Tree) T {
 	if found, ok := t.(T); ok {
 		return found
 	}
-	for i := 0; i < t.GetChildCount(); i++ {
+	for i := range t.GetChildCount() {
 		if found := findNode[T](t.GetChild(i)); any(found) != nil {
 			return found
 		}

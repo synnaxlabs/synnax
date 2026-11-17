@@ -12,7 +12,6 @@
 package marshal
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -81,13 +80,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// types/vN; the rewrite shifts every affected path at once so cross-package codec
 	// references stay version-pinned.
 	rewritten, _, _, err := versioning.RewriteCurrent(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
 	}
 	pins, err := versioning.NewPins(
-		context.Background(), req.Resolutions, req.Versions,
+		req.Resolutions, req.Versions,
 	)
 	if err != nil {
 		return nil, err
@@ -132,7 +131,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if goPath == "" {
 			continue
 		}
-		form := dt.Form.(resolution.DistinctForm)
+		form := resolution.MustForm[resolution.DistinctForm](dt)
 		goName := naming.GetGoName(dt)
 		flexByPkg[goPath] = append(flexByPkg[goPath], flexCodec{
 			GoName:   goName,
@@ -297,8 +296,8 @@ func sortedImports(m map[string]string) []importEntry {
 	return entries
 }
 
-func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
-	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
+func resolveGoImportPath(outputPath, repoRoot string) string {
+	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix)
 }
 
 // isVersionedPath reports whether goPath is a versions/vN package (its parent directory

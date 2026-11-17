@@ -63,9 +63,9 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 }
 
 // NewRouter constructs a Router from the given configs. Servers registered through the
-// returned Router will be bound to a fiber.App by calling Router.BindTo. Returns an
-// error if the merged config fails to validate.
-func NewRouter(configs ...RouterConfig) (*Router, error) {
+// returned Router will be bound to a fiber.App by calling Router.BindTo. Streams end
+// when life ends. Returns an error if the merged config fails to validate.
+func NewRouter(life context.Context, configs ...RouterConfig) (*Router, error) {
 	cfg, err := config.New(
 		RouterConfig{
 			StreamWriteDeadline:    10 * time.Second,
@@ -76,7 +76,7 @@ func NewRouter(configs ...RouterConfig) (*Router, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(life)
 	return &Router{
 		cfg:           cfg,
 		streamCtx:     ctx,
@@ -91,10 +91,9 @@ func NewRouter(configs ...RouterConfig) (*Router, error) {
 // drain.
 type Router struct {
 	cfg RouterConfig
-	// fiber doesn't manage the lifecycle of websocket connections (streams), so we need
-	// to manage them ourselves. We'll pass in a context object that gets cancelled when
-	// the app is shut down, and we'll use a WaitGroup to wait for all streams to close.
-	// streamCtx is the context object that gets cancelled when the app is shut down.
+	// fiber doesn't manage the lifecycle of websocket connections (streams), so the
+	// router cancels streamCtx when its lifetime ends or the app shuts down, and waits
+	// for streams to close on streamWg.
 	streamCtx context.Context
 	// cancelStreams cancels the streamCtx.
 	cancelStreams context.CancelFunc
@@ -106,9 +105,9 @@ type Router struct {
 
 var _ BindableTransport = (*Router)(nil)
 
-// Context returns a context that the router cancels after the app it is bound to shuts
-// down and its in-flight requests drain. Work that outlives a request, such as a
-// streamed response body, can run under it.
+// Context returns a context that ends when the router's lifetime ends, or after the app
+// it is bound to shuts down and its in-flight requests drain. Work that outlives a
+// request, such as a streamed response body, can run under it.
 func (r *Router) Context() context.Context { return r.streamCtx }
 
 // BindTo binds the router and all of its routes to the given fiber app.

@@ -31,7 +31,8 @@ const std::string STATE_FILE = "persisted-state.json";
 
 std::string get_persisted_state_path(x::args::Parser &parser) {
     auto p_path = parser.field<std::string>("--state-file", "");
-    if (!p_path.empty()) return p_path;
+    // A bare file name has no parent directory to open.
+    if (!p_path.empty()) return fs::absolute(p_path).string();
     auto dir = state::user_dir();
     if (dir.empty() || parser.flag(MACHINE_STATE_FLAG)) dir = state::machine_dir();
     return (dir / STATE_FILE).string();
@@ -104,16 +105,15 @@ x::errors::Error rack::Config::move_user_state(x::args::Parser &args) {
 
 std::pair<std::shared_ptr<x::kv::KV>, x::errors::Error>
 open_kv(x::args::Parser &parser) {
-    if (auto err = rack::Config::secure_persisted_state(parser)) return {nullptr, err};
-    auto [kv, err] = x::kv::JSONFile::open_file(
+    const auto path = get_persisted_state_path(parser);
+    if (auto err = state::prepare(path)) return {nullptr, err};
+    return x::kv::JSONFile::open_file(
         x::kv::JSONFileConfig{
-            .path = get_persisted_state_path(parser),
+            .path = path,
             .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
             .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
         }
     );
-    if (!err) err = rack::Config::secure_persisted_state(parser);
-    return {kv, err};
 }
 
 x::errors::Error rack::Config::load_persisted_state(x::args::Parser &args) {

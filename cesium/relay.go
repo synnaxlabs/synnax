@@ -33,7 +33,7 @@ const (
 	// defaultRelayBufferSize is the default buffer size for the relay's main streaming
 	// pipe. All written frames are moved through this pipe, so the value is relatively
 	// large.
-	// 1000 * 72 bytes = 72kb
+	// 1000 * 72 bytes = 72kb.
 	defaultRelayBufferSize = 1000
 	// defaultStreamBufferSize is the default buffer size for each streamer's
 	// connection to the relay. A smaller buffer absorbs a brief consumer stall while

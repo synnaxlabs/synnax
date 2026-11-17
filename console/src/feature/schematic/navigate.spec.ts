@@ -156,7 +156,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
       configs: {
         n1: offPageConfig(
           { type: "schematic", key: target.key },
-          { dblClickNavDisabled: true },
+          { doubleClickNavigationDisabled: true },
         ),
       },
     });

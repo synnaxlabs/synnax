@@ -15,6 +15,7 @@ import (
 	"math"
 	"math/bits"
 	"slices"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -178,11 +179,11 @@ func decodeTDMSTimeStamps(o tdmsObject) []telem.TimeStamp {
 }
 
 func tdmsPath(names ...string) string {
-	path := ""
+	var path strings.Builder
 	for _, name := range names {
-		path += fmt.Sprintf("/'%s'", name)
+		path.WriteString("/'" + name + "'")
 	}
-	return path
+	return path.String()
 }
 
 // tdmsObjectAt returns the object at path in seg.

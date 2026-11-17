@@ -138,7 +138,6 @@ var _ = Describe("Framer", func() {
 		keys := channel.KeysFromChannels(readable)
 		u := createUserGranted(
 			ctx,
-			access.ActionRetrieve,
 			svcframer.ResourceIDs(keys)...,
 		)
 		return subjectCtx(ctx, u.ResourceID())
@@ -405,7 +404,6 @@ var _ = Describe("Framer", func() {
 			) {
 				u := createUserGranted(
 					ctx,
-					access.ActionRetrieve,
 					svcframer.ResourceIDs(channel.Keys{data.Key()})...,
 				)
 				Expect(apiSvc.Read(
@@ -423,7 +421,6 @@ var _ = Describe("Framer", func() {
 				func(ctx SpecContext) {
 					u := createUserGranted(
 						ctx,
-						access.ActionRetrieve,
 						svcframer.ResourceIDs(channel.Keys{data.Key()})...,
 					)
 					res := MustSucceed(apiSvc.Read(
@@ -442,7 +439,6 @@ var _ = Describe("Framer", func() {
 			) {
 				u := createUserGranted(
 					ctx,
-					access.ActionRetrieve,
 					svcframer.ResourceIDs(channel.Keys{data.Key(), index.Key()})...,
 				)
 				res := MustSucceed(apiSvc.Read(
@@ -674,7 +670,6 @@ var _ = Describe("Framer", func() {
 			}))
 			u := createUserGranted(
 				ctx,
-				access.ActionRetrieve,
 				append(svcframer.ResourceIDs(keys), readable)...,
 			)
 			var server apiframer.StreamerStream

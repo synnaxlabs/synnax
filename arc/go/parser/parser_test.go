@@ -2379,7 +2379,7 @@ func mustParseExpression(expr string) parser.IExpressionContext {
 	return MustSucceed(parser.ParseExpression(expr))
 }
 
-// AST Navigation Helpers - traverse the parse tree to access specific nodes
+// AST Navigation Helpers - traverse the parse tree to access specific nodes.
 func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
 	primary := parser.GetPrimaryExpression(expr)
 	return primary.Literal()
@@ -2443,8 +2443,8 @@ func allStageDecls(
 
 var _ = Describe("Limits", func() {
 	const tooDeep = "nesting is deeper than the parser allows"
-	nested := func(open, close string, n int) string {
-		return strings.Repeat(open, n) + "1" + strings.Repeat(close, n)
+	nested := func(open, closer string, n int) string {
+		return strings.Repeat(open, n) + "1" + strings.Repeat(closer, n)
 	}
 	DescribeTable("Should return a diagnostic for deep nesting", func(src string) {
 		Expect(parser.ParseExpression(src)).Error().

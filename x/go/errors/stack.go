@@ -34,8 +34,8 @@ func (s *StackTrace) String() string {
 	return b.String()
 }
 
-func mustPrintf(w io.Writer, format string, a ...any) int {
-	return lo.Must1(fmt.Fprintf(w, format, a...))
+func mustPrintf(w io.Writer, format string, a ...any) {
+	lo.Must1(fmt.Fprintf(w, format, a...))
 }
 
 func (s *StackTrace) StringBuilder(b *strings.Builder) {
@@ -57,11 +57,12 @@ func (s *StackTrace) StringBuilder(b *strings.Builder) {
 		}
 		mustPrintf(b, "\n\t")
 
-		if f.Filename != "" {
+		switch {
+		case f.Filename != "":
 			mustPrintf(b, "%s", f.Filename)
-		} else if f.AbsPath != "" {
+		case f.AbsPath != "":
 			mustPrintf(b, "%s", f.AbsPath)
-		} else {
+		default:
 			mustPrintf(b, "<unknown file>")
 		}
 

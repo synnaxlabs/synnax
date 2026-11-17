@@ -256,9 +256,9 @@ func FromTelem(t telem.DataType) Type {
 		return String()
 	case telem.TimestampT:
 		return TimeStamp()
-	default:
-		return Type{Kind: KindInvalid}
+	case telem.UnknownT, telem.BytesT:
 	}
+	return Type{Kind: KindInvalid}
 }
 
 // Zero returns the value a Param carries for the zero of t: 0 for numeric kinds,

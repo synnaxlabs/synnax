@@ -33,7 +33,7 @@ struct JSONFileConfig {
     std::filesystem::path path;
     /// @brief the mode to set the directory to if it doesn't exist.
     std::filesystem::perms dir_mode;
-    /// @brief the mode the file is set to when it is opened.
+    /// @brief the mode to set the file to if it doesn't exist.
     std::filesystem::perms file_mode;
 };
 

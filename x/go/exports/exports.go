@@ -270,44 +270,66 @@ func check(ctx context.Context, cfg Config) (findings []Finding, err error) {
 	if err != nil {
 		return nil, err
 	}
-	merged := map[string]*Finding{}
-	kept, internal := set.Set[string]{}, set.Set[string]{}
+	m := merge{
+		findings: map[string]*Finding{},
+		kept:     set.Set[string]{},
+		internal: set.Set[string]{},
+	}
 	for _, goos := range cfg.GOOS {
 		syms, err := load(ctx, work, goos, modules)
 		if err != nil {
 			return nil, err
 		}
-		for k, s := range syms {
-			if s.kept {
-				kept.Add(k)
-				continue
-			}
-			f, ok := merged[k]
-			if !ok {
-				f = &Finding{
-					Position: s.pos,
-					Package:  s.pkg,
-					Kind:     s.kind,
-					Name:     s.obj.Name(),
-				}
-				if s.kind == "method" {
-					f.Receiver = receiver(s.obj.(*types.Func)).Name()
-				}
-				merged[k] = f
-			}
-			f.TestsOnly = f.TestsOnly || s.tested
-			if s.internal {
-				internal.Add(k)
-			}
-		}
+		m.add(syms)
 	}
-	findings = make([]Finding, 0, len(merged))
-	for k, f := range merged {
-		if kept.Contains(k) {
+	return m.list(cfg.Modules)
+}
+
+// merge combines the symbols that each GOOS build loads into one finding per symbol.
+type merge struct {
+	findings map[string]*Finding
+	// kept holds the keys of the symbols that any build keeps exported.
+	kept set.Set[string]
+	// internal holds the keys of the symbols that any build uses outside tests.
+	internal set.Set[string]
+}
+
+func (m merge) add(syms map[string]*symbol) {
+	for k, s := range syms {
+		if s.kept {
+			m.kept.Add(k)
 			continue
 		}
-		f.TestsOnly = f.TestsOnly && !internal.Contains(k)
-		if f.Module, err = module(cfg.Modules, f.Position.Filename); err != nil {
+		f, ok := m.findings[k]
+		if !ok {
+			f = &Finding{
+				Position: s.pos,
+				Package:  s.pkg,
+				Kind:     s.kind,
+				Name:     s.obj.Name(),
+			}
+			if s.kind == "method" {
+				f.Receiver = receiver(s.method()).Name()
+			}
+			m.findings[k] = f
+		}
+		f.TestsOnly = f.TestsOnly || s.tested
+		if s.internal {
+			m.internal.Add(k)
+		}
+	}
+}
+
+// list returns the findings that no build keeps, sorted by position.
+func (m merge) list(modules []string) ([]Finding, error) {
+	findings := make([]Finding, 0, len(m.findings))
+	for k, f := range m.findings {
+		if m.kept.Contains(k) {
+			continue
+		}
+		f.TestsOnly = f.TestsOnly && !m.internal.Contains(k)
+		var err error
+		if f.Module, err = module(modules, f.Position.Filename); err != nil {
 			return nil, err
 		}
 		findings = append(findings, *f)
@@ -360,6 +382,15 @@ type symbol struct {
 	kept     bool
 	tested   bool
 	internal bool
+}
+
+// method returns the method that s, a symbol of kind "method", declares.
+func (s *symbol) method() *types.Func {
+	fn, ok := s.obj.(*types.Func)
+	if !ok {
+		panic(fmt.Sprintf("method symbol %s is a %T", s.obj.Name(), s.obj))
+	}
+	return fn
 }
 
 var versionsPattern = regexp.MustCompile(`/versions/(.+/)?v[0-9]+$`)
@@ -437,47 +468,59 @@ func isTestVariant(p *packages.Package) bool {
 }
 
 func declare(p *packages.Package, generated set.Set[string], syms map[string]*symbol) {
-	add := func(id *ast.Ident, kind, group string) {
-		obj := p.TypesInfo.Defs[id]
-		if obj == nil || !id.IsExported() {
-			return
-		}
-		pos := p.Fset.Position(obj.Pos())
-		syms[key(pos, obj)] = &symbol{
-			obj: obj, pkg: p.PkgPath, kind: kind, group: group, pos: pos,
-		}
-	}
+	d := declarer{p: p, syms: syms}
 	for _, f := range p.Syntax {
 		file := p.Fset.File(f.Pos()).Name()
 		if generated.Contains(file) || strings.HasSuffix(file, "_test.go") {
 			continue
 		}
 		for _, decl := range f.Decls {
-			switch d := decl.(type) {
-			case *ast.FuncDecl:
-				if d.Recv == nil {
-					add(d.Name, "func", "")
-				} else if fn, ok := p.TypesInfo.Defs[d.Name].(*types.Func); ok &&
-					receiverExported(fn) {
-					add(d.Name, "method", "")
-				}
-			case *ast.GenDecl:
-				group := ""
-				if d.Tok == token.CONST && d.Lparen.IsValid() {
-					group = fmt.Sprintf("%s:%d", file, p.Fset.Position(d.Pos()).Line)
-				}
-				for _, spec := range d.Specs {
-					switch s := spec.(type) {
-					case *ast.TypeSpec:
-						add(s.Name, "type", "")
-					case *ast.ValueSpec:
-						for _, n := range s.Names {
-							add(n, d.Tok.String(), group)
-						}
-					}
+			d.decl(file, decl)
+		}
+	}
+}
+
+// declarer adds the exported identifiers that the declarations of p declare to syms.
+type declarer struct {
+	p    *packages.Package
+	syms map[string]*symbol
+}
+
+func (d declarer) decl(file string, decl ast.Decl) {
+	switch decl := decl.(type) {
+	case *ast.FuncDecl:
+		if decl.Recv == nil {
+			d.add(decl.Name, "func", "")
+		} else if fn, ok := d.p.TypesInfo.Defs[decl.Name].(*types.Func); ok &&
+			receiverExported(fn) {
+			d.add(decl.Name, "method", "")
+		}
+	case *ast.GenDecl:
+		group := ""
+		if decl.Tok == token.CONST && decl.Lparen.IsValid() {
+			group = fmt.Sprintf("%s:%d", file, d.p.Fset.Position(decl.Pos()).Line)
+		}
+		for _, spec := range decl.Specs {
+			switch s := spec.(type) {
+			case *ast.TypeSpec:
+				d.add(s.Name, "type", "")
+			case *ast.ValueSpec:
+				for _, n := range s.Names {
+					d.add(n, decl.Tok.String(), group)
 				}
 			}
 		}
+	}
+}
+
+func (d declarer) add(id *ast.Ident, kind, group string) {
+	obj := d.p.TypesInfo.Defs[id]
+	if obj == nil || !id.IsExported() {
+		return
+	}
+	pos := d.p.Fset.Position(obj.Pos())
+	d.syms[key(pos, obj)] = &symbol{
+		obj: obj, pkg: d.p.PkgPath, kind: kind, group: group, pos: pos,
 	}
 }
 
@@ -568,8 +611,8 @@ func keepRest(fset *token.FileSet, pkgs []*packages.Package, syms map[string]*sy
 		switch {
 		case groups.Contains(s.group):
 			s.kept = true
-		case s.kind == "method" && (ifaces.satisfied(s.obj.(*types.Func)) ||
-			templated.Contains(receiver(s.obj.(*types.Func)))):
+		case s.kind == "method" && (ifaces.satisfied(s.method()) ||
+			templated.Contains(receiver(s.method()))):
 			s.kept = true
 		}
 	}

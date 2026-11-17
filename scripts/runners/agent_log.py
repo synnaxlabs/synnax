@@ -84,8 +84,7 @@ class Log:
 
     def write(self) -> None:
         if lines := self.queue + self.read():
-            # CrudeFrame's annotation omits name-keyed dicts, which write accepts.
-            self.writer.write({self.name: lines})  # pyright: ignore[reportArgumentType]
+            self.writer.write({self.name: lines})
             self.queue.clear()
 
     def close(self) -> None:

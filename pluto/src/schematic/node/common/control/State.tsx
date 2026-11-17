@@ -9,11 +9,10 @@
 
 import { type channel, schematic } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { direction, primitive } from "@synnaxlabs/x";
+import { control as xControl, direction, primitive } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
-import { Telem } from "@/schematic/node/common/telem";
 import { Control } from "@/telem/control";
 import { control } from "@/telem/control/aether";
 
@@ -22,27 +21,28 @@ export type StateConfig = schematic.ControlStateConfig;
 
 export const STATE_CLASS = CSS.B("control-state");
 
-const DEFAULT_CONFIG = stateConfigZ.parse({});
-
 export interface State {
-  config?: StateConfig;
-  channel?: channel.Key;
+  config: StateConfig;
+  channel: channel.Key;
   onChange?: (next: { control: StateConfig }) => void;
 }
 
 interface InternalProps extends Flex.BoxProps {
   config: StateConfig;
-  channel?: channel.Key;
+  channel: channel.Key;
 }
 
 const Internal = ({
   config: { hidden, chipHidden, indicatorHidden, authority, orientation },
-  channel = 0,
+  channel,
   ...rest
 }: InternalProps) => {
   const chip = {
     source: control.authoritySource({ channel }),
-    sink: Telem.chipSink({ channel, authority }),
+    sink: control.acquireChannelControl({
+      channel,
+      authority: authority ?? xControl.ABSOLUTE_AUTHORITY,
+    }),
   };
   const indicator = { statusSource: control.authoritySource({ channel }) };
   return (
@@ -63,12 +63,10 @@ export const State = Grid.createItem<State>(({ config, channel, onChange }) => {
   // The chip and the indicator report control of the channel, so with no channel
   // there is nothing to show.
   if (!primitive.isNonZero(channel)) return null;
-  config ??= DEFAULT_CONFIG;
-  const orientation = config.orientation ?? "bottom";
   return (
     <Grid.Item
       itemKey="control"
-      location={orientation}
+      location={config.orientation}
       onLocationChange={(loc) =>
         onChange?.({ control: { ...config, orientation: loc } })
       }

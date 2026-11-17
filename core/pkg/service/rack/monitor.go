@@ -33,7 +33,23 @@ import (
 
 // SuspectHandler copies the outage of a rack onto what the rack runs. When it returns
 // an error, the monitor calls it again with the same outage on the next health check.
-type SuspectHandler = func(ctx context.Context, outage Status) error
+type SuspectHandler = func(ctx context.Context, outage Outage) error
+
+// Outage is the status of a rack that stopped reporting, as a SuspectHandler gets it.
+type Outage struct {
+	Status
+	// seen holds the time on the last status of each task that the monitor saw before
+	// the copy started.
+	seen map[status.Key]telem.TimeStamp
+}
+
+// Reported returns true when the task status with key and time at is not one that the
+// monitor saw before the copy started. Such a status is a report from the Driver that
+// ended the outage, so the copy must keep it.
+func (o Outage) Reported(key status.Key, at telem.TimeStamp) bool {
+	seen, ok := o.seen[key]
+	return !ok || seen != at
+}
 
 type rackState struct {
 	lastUpdated telem.TimeStamp
@@ -201,6 +217,9 @@ func (m *monitor) copyOutages(ctx context.Context) {
 		handlers map[int]SuspectHandler
 	}
 	m.mu.Lock()
+	// A report can commit before a handler opens its transaction and reach the monitor
+	// after it, so each handler compares the statuses it reads with this copy.
+	seen := maps.Clone(m.mu.taskTimes)
 	var jobs []copyJob
 	for k, state := range m.mu.racks {
 		if len(state.pending) == 0 {
@@ -224,7 +243,8 @@ func (m *monitor) copyOutages(ctx context.Context) {
 	for _, job := range jobs {
 		var copied []int
 		for h, handler := range job.handlers {
-			if err := handler(ctx, *job.outage); err != nil {
+			outage := Outage{Status: *job.outage, seen: seen}
+			if err := handler(ctx, outage); err != nil {
 				m.L.Error(
 					"failed to copy rack outage",
 					zap.String("rack", job.outage.Name),
@@ -270,6 +290,18 @@ func (m *monitor) handleChange(
 			m.handleRackStatus(*owner, ch.Value)
 		case resource.TypeTask:
 			m.handleTaskStatus(ch.Key, ch.Value)
+		case resource.TypeArc, resource.TypeBuiltin, resource.TypeChannel,
+			resource.TypeDevice, resource.TypeFramer, resource.TypeGroup,
+			resource.TypeLabel, resource.TypeLineplot, resource.TypeLog,
+			resource.TypeNode, resource.TypePanel, resource.TypePolicy,
+			resource.TypeProject, resource.TypeRange, resource.TypeRangeAlias,
+			resource.TypeRole, resource.TypeSchematic, resource.TypeSchematicSymbol,
+			resource.TypeStatus, resource.TypeTable, resource.TypeUser,
+			resource.TypeView, resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+			resource.TypeHTTPServer, resource.TypeLabjackDevice,
+			resource.TypeModbusServer, resource.TypeNiChassis, resource.TypeNiDevice,
+			resource.TypeOpcuaServer, resource.TypeArcDirectory, resource.TypeSecret,
+			resource.TypeCertificate, resource.TypeColor, resource.TypeICD:
 		}
 	}
 }
@@ -326,9 +358,24 @@ func openMonitor(
 	ins alamos.Instrumentation,
 	svc *Service,
 ) (*monitor, error) {
-	var racks []Rack
+	var (
+		racks        []Rack
+		taskStatuses []status.Status[any]
+	)
 	if err := svc.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return svc.NewRetrieve().Entries(&racks).Exec(ctx, snap)
+		if err := svc.NewRetrieve().Entries(&racks).Exec(ctx, snap); err != nil {
+			return err
+		}
+		return svc.Status.NewRetrieve[any]().
+			Where(status.Match(func(
+				_ gorp.Context,
+				_ status.Retrieve[any],
+				s *status.Status[any],
+			) (bool, error) {
+				return s.Owner != nil && s.Owner.Type == resource.TypeTask, nil
+			})).
+			Entries(&taskStatuses).
+			Exec(ctx, snap)
 	}); err != nil {
 		return nil, err
 	}
@@ -341,7 +388,12 @@ func openMonitor(
 	}
 	now := svc.Now()
 	s.mu.racks = make(map[Key]rackState, len(racks))
-	s.mu.taskTimes = make(map[status.Key]telem.TimeStamp)
+	// A task status stored before the Core started is one the monitor has seen, so an
+	// outage copies it.
+	s.mu.taskTimes = make(map[status.Key]telem.TimeStamp, len(taskStatuses))
+	for _, stat := range taskStatuses {
+		s.mu.taskTimes[stat.Key] = stat.Time
+	}
 	s.mu.handlers = make(map[int]SuspectHandler)
 	for _, r := range racks {
 		s.mu.racks[r.Key] = rackState{lastUpdated: now}

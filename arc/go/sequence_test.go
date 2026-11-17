@@ -5532,10 +5532,10 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Reactive locals through late declarations", func() {
-		// drainI64 collects every i64 value flushed to a channel in order.
-		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+		// drainOut collects every i64 value flushed to the out channel in order.
+		drainOut := func(fr telem.Frame[uint32]) []int64 {
 			var out []int64
-			for _, ser := range fr.Get(key).Series {
+			for _, ser := range fr.Get(102).Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5563,16 +5563,16 @@ var _ = Describe("Sequence", func() {
 				h.Ingest(100, telem.NewSeriesV[int64](1))
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+				Expect(drainOut(out)).To(Equal([]int64{3}))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(BeEmpty(), "no new data, no new write")
+				Expect(drainOut(out)).To(BeEmpty(), "no new data, no new write")
 				h.Ingest(100, telem.NewSeriesV[int64](2))
 				advance(h, ctx, telem.Millisecond)
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{5}))
+				Expect(drainOut(out)).To(Equal([]int64{5}))
 			},
 		)
 
@@ -5587,11 +5587,11 @@ var _ = Describe("Sequence", func() {
 
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(BeEmpty(), "no sample yet, no write")
+				Expect(drainOut(out)).To(BeEmpty(), "no sample yet, no write")
 				h.Ingest(100, telem.NewSeriesV[int64](1))
 				advance(h, ctx, telem.Millisecond)
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+				Expect(drainOut(out)).To(Equal([]int64{3}))
 			},
 		)
 	})
@@ -5934,10 +5934,10 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Computed call inputs", func() {
-		// drainI64 collects every i64 value flushed to a channel in order.
-		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+		// drainOut collects every i64 value flushed to the out channel in order.
+		drainOut := func(fr telem.Frame[uint32]) []int64 {
 			var out []int64
-			for _, ser := range fr.Get(key).Series {
+			for _, ser := range fr.Get(102).Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5962,13 +5962,13 @@ var _ = Describe("Sequence", func() {
 			startedAt := int64(h.cycleNow)
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
-			first := drainI64(out, 102)
+			first := drainOut(out)
 			Expect(first).To(HaveLen(1))
 			Expect(first[0]).To(BeNumerically(">", startedAt),
 				"the input must be computed when the trigger fires, not at start")
 			trigger(h, ctx, 100)
 			out, _ = h.Flush()
-			second := drainI64(out, 102)
+			second := drainOut(out)
 			Expect(second).To(HaveLen(1))
 			Expect(second[0]).To(BeNumerically(">", first[0]))
 		})
@@ -5990,7 +5990,7 @@ var _ = Describe("Sequence", func() {
 
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
-			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+			Expect(drainOut(out)).To(Equal([]int64{6}))
 		})
 
 		It("Passes a bare call result to a function input", func(ctx SpecContext) {
@@ -6012,7 +6012,7 @@ var _ = Describe("Sequence", func() {
 
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
-			Expect(drainI64(out, 102)).To(Equal([]int64{1}))
+			Expect(drainOut(out)).To(Equal([]int64{1}))
 		})
 
 		It(
@@ -6034,13 +6034,13 @@ var _ = Describe("Sequence", func() {
 
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(BeEmpty(), "no sample yet, no call")
+				Expect(drainOut(out)).To(BeEmpty(), "no sample yet, no call")
 				h.Ingest(100, telem.NewSeriesV[int64](5))
 				advance(h, ctx, telem.Millisecond)
 				h.Ingest(100, telem.NewSeriesV[int64](7))
 				advance(h, ctx, telem.Millisecond)
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{10, 14}))
+				Expect(drainOut(out)).To(Equal([]int64{10, 14}))
 			},
 		)
 
@@ -6063,10 +6063,10 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(100, telem.NewSeriesV[int64](5))
 			advance(h, ctx, telem.Millisecond)
 			out, _ := h.Flush()
-			Expect(drainI64(out, 102)).To(BeEmpty(), "count alone must not fire f")
+			Expect(drainOut(out)).To(BeEmpty(), "count alone must not fire f")
 			trigger(h, ctx, 99)
 			out, _ = h.Flush()
-			Expect(drainI64(out, 102)).To(Equal([]int64{10}))
+			Expect(drainOut(out)).To(Equal([]int64{10}))
 		})
 
 		It("Advances past a bare call with a computed input", func(ctx SpecContext) {
@@ -6090,7 +6090,7 @@ var _ = Describe("Sequence", func() {
 
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
-			Expect(drainI64(out, 102)).To(Equal([]int64{7}))
+			Expect(drainOut(out)).To(Equal([]int64{7}))
 		})
 
 		It("Passes a computed input to a routed call", func(ctx SpecContext) {
@@ -6115,7 +6115,7 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(100, telem.NewSeriesV(true))
 			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
-			got := drainI64(out, 102)
+			got := drainOut(out)
 			Expect(got).To(HaveLen(1))
 			Expect(got[0]).To(BeNumerically(">", startedAt))
 		})
@@ -6147,7 +6147,7 @@ var _ = Describe("Sequence", func() {
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ := h.Flush()
-				return drainI64(out, 102)
+				return drainOut(out)
 			}
 
 			DescribeTable(
@@ -6184,8 +6184,8 @@ var _ = Describe("Sequence", func() {
 				    return raw
 				}`, []int64{6, 8}),
 				Entry("a channel alias", `
-				a := raw
-				f(a * 2 + 1) -> out`, []int64{11, 15}),
+				r := raw
+				f(r * 2 + 1) -> out`, []int64{11, 15}),
 			)
 
 			It("Keeps a triggered call on its trigger alone", func(ctx SpecContext) {
@@ -6197,7 +6197,7 @@ var _ = Describe("Sequence", func() {
 				Expect(sendRaw(h, ctx, 5)).To(BeEmpty(), "raw alone must not fire f")
 				trigger(h, ctx, 99)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{11}))
+				Expect(drainOut(out)).To(Equal([]int64{11}))
 			})
 
 			It("Fires from a reactive variable in a stage", func(ctx SpecContext) {
@@ -6254,7 +6254,7 @@ var _ = Describe("Sequence", func() {
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ := h.Flush()
-				return drainI64(out, 102)
+				return drainOut(out)
 			}
 
 			DescribeTable(
@@ -6325,13 +6325,13 @@ var _ = Describe("Sequence", func() {
 					advance(h, ctx, telem.Millisecond)
 					trigger(h, ctx, 99)
 					out, _ := h.Flush()
-					Expect(drainI64(out, 102)).To(BeEmpty())
+					Expect(drainOut(out)).To(BeEmpty())
 					for _, v := range []int64{5, 7} {
 						h.Ingest(100, telem.NewSeriesV(v))
 						advance(h, ctx, telem.Millisecond)
 					}
 					out, _ = h.Flush()
-					Expect(drainI64(out, 102)).To(Equal([]int64{expected, 9}))
+					Expect(drainOut(out)).To(Equal([]int64{expected, 9}))
 				},
 				Entry("a computed channel input", `
 				sequence main {
@@ -6369,13 +6369,13 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				trigger(h, ctx, 99)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(BeEmpty())
+				Expect(drainOut(out)).To(BeEmpty())
 				for _, v := range []int64{5, 7} {
 					h.Ingest(100, telem.NewSeriesV(v))
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{10, 9}))
+				Expect(drainOut(out)).To(Equal([]int64{10, 9}))
 			})
 
 			It("Runs a step with no channel input at once", func(ctx SpecContext) {
@@ -6388,7 +6388,7 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				trigger(h, ctx, 99)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{3, 9}))
+				Expect(drainOut(out)).To(Equal([]int64{3, 9}))
 			})
 		})
 	})

@@ -19,7 +19,12 @@ from pydantic import BaseModel, JsonValue, PrivateAttr
 
 from freighter import UnaryClient
 from synnax import channel, framer, label, node
-from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
+from synnax.exceptions import (
+    ConfigurationError,
+    MultipleFoundError,
+    NotFoundError,
+    ValidationError,
+)
 from synnax.framer.frame import K
 from synnax.ranger import actions_gen, kv
 from synnax.ranger.retrieve import Retriever
@@ -418,13 +423,16 @@ class Range(Payload):
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
         start = self.time_range.start
-        if series is None:
-            self._frame_client.write(start, cast(framer.CrudeFrame[K], channels))
+        if not isinstance(channels, (int, str, channel.Payload, Sequence)):
+            if series is not None:
+                raise TypeError(
+                    "channels must be a channel key, name, or list when series is "
+                    "provided"
+                )
+            self._frame_client.write(start, channels)
             return
-        if not isinstance(channels, (int, str, list, tuple, channel.Payload)):
-            raise TypeError(
-                "channels must be a channel key, name, or list when series is provided"
-            )
+        if series is None:
+            raise ValidationError(f"No series provided for channels {channels}")
         self._frame_client.write(start, channels, series)
 
     def create_child_range(

@@ -20,6 +20,7 @@ import (
 	"github.com/cockroachdb/pebble/v2/vfs"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -140,23 +141,32 @@ func (b *Backups) List() ([]Backup, error) {
 		backups = append(backups, Backup{
 			Name:    match[1],
 			Time:    time.Unix(seconds, 0),
-			Version: match[3],
+			Version: listedVersion(match[3]),
 		})
 	}
 	return backups, nil
 }
 
-// create archives the metadata in a new backup labeled with version, then removes all
+// listedVersion returns the version that a backup's name holds. A name without a
+// valid version, such as the "unknown" that 0.61 Cores wrote, holds UnknownVersion.
+func listedVersion(v string) string {
+	if version.Valid(v) {
+		return v
+	}
+	return UnknownVersion
+}
+
+// create archives the metadata in a new backup labeled with version v, then removes all
 // but the newest keptBackups backups.
-func (b *Backups) create(version string) (Backup, error) {
+func (b *Backups) create(v string) (Backup, error) {
 	if err := b.removePartial(); err != nil {
 		return Backup{}, err
 	}
 	now := time.Now()
 	backup := Backup{
-		Name:    fmt.Sprintf("%010d-%s", now.Unix(), version),
+		Name:    fmt.Sprintf("%010d-%s", now.Unix(), v),
 		Time:    time.Unix(now.Unix(), 0),
-		Version: version,
+		Version: v,
 	}
 	ts, err := b.fs.Sub(cesiumDir)
 	if err != nil {

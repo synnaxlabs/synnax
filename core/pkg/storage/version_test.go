@@ -11,6 +11,7 @@ package storage_test
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -28,7 +29,7 @@ func openAt(ctx context.Context, dir, version string) {
 
 func recordedVersion(dir string) string {
 	GinkgoHelper()
-	return string(MustSucceed(os.ReadFile(filepath.Join(dir, "VERSION"))))
+	return string(MustSucceed(fs.ReadFile(os.DirFS(dir), "VERSION")))
 }
 
 // entries returns the names in dir, or nothing when dir does not exist.
@@ -69,7 +70,7 @@ var _ = Describe("Recorded version", func() {
 		openAt(ctx, dir, "0.60.0")
 		Expect(recordedVersion(dir)).To(Equal("0.60.0"))
 		Expect(entries(filepath.Join(dir, "backups"))).
-			To(ConsistOf(HaveSuffix("-unknown.tar")))
+			To(ConsistOf(HaveSuffix("-before-0.61.0.tar")))
 	})
 
 	DescribeTable(
@@ -123,7 +124,7 @@ var _ = Describe("Recorded version", func() {
 			openAt(ctx, dir, dev)
 			Expect(recordedVersion(dir)).To(Equal("0.60.1"))
 			Expect(entries(filepath.Join(dir, "backups"))).
-				To(ConsistOf(HaveSuffix("-unknown.tar")))
+				To(ConsistOf(HaveSuffix("-before-0.61.0.tar")))
 		},
 		Entry("unstamped", "0.0.0"),
 		Entry("dev build", "0.0.0-dev.0.60.1.abc1234"),
