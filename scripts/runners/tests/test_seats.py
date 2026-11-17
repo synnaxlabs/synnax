@@ -12,7 +12,7 @@ import synnax as sy
 from mypy_boto3_ec2.type_defs import TagTypeDef
 
 from common import RECOMMAND_DELAY, Channels
-from conftest import Client, Secrets, core
+from conftest import Client, Secrets
 from log import Log
 from logins import MAX_HOLDERS, PREFIX, Logins
 from seats import Seats, seat_labels
@@ -97,8 +97,8 @@ def secrets(*names: str, stored: sy.TimeStamp | None = None) -> Secrets:
 
 def seats(client: Client, aws: Instances, store: Secrets | None = None) -> Seats:
     log = Log(
-        client=core(client),
-        channels=Channels(client=core(client), enabled=False),
+        client=client,
+        channels=Channels(client=client, enabled=False),
         channel="log",
     )
     store = store or secrets("claude-1", "claude-2")
