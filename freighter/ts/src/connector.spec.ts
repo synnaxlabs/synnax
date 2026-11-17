@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { binary, url } from "@synnaxlabs/x";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 
@@ -54,9 +54,9 @@ describe("trustCA", () => {
         key: readFileSync(join(dir, "server.key")),
         cert: readFileSync(join(dir, "server.crt")),
       },
-      (_, res) => {
+      (req, res) => {
         res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ message: "hello" }));
+        req.pipe(res);
       },
     );
     wss = new WebSocketServer({ server });
@@ -78,16 +78,25 @@ describe("trustCA", () => {
     rmSync(dir, { recursive: true });
   });
 
+  const httpClient = () =>
+    new HTTPClient(endpoint, binary.JSON_CODEC, true, undefined, trustCA(ca));
+
   it("should send a request to a server that the CA signs", async () => {
-    const client = new HTTPClient(
-      endpoint,
-      binary.JSON_CODEC,
-      true,
-      undefined,
-      trustCA(ca),
-    );
-    const res = await client.send("/", { message: "" }, messageZ, messageZ);
-    expect(res).toEqual({ message: "hello" });
+    const res = await httpClient().send("/", { message: "hi" }, messageZ, messageZ);
+    expect(res).toEqual({ message: "hi" });
+  });
+
+  it("should upload a Blob to a server that the CA signs", async () => {
+    const body = new Blob([JSON.stringify({ message: "hi" })]);
+    const res = await httpClient().upload("/", body, { encoding: "JSON" }, messageZ);
+    expect(res).toEqual({ message: "hi" });
+  });
+
+  it("should download from a server that the CA signs", async () => {
+    const stream = await httpClient().download("/", { message: "hi" }, messageZ, {
+      encoding: "JSON",
+    });
+    expect(await new Response(stream).json()).toEqual({ message: "hi" });
   });
 
   it("should open a stream to a server that the CA signs", async () => {
@@ -103,10 +112,31 @@ describe("trustCA", () => {
     stream.closeSend();
   });
 
-  it("should reject a server that the CA signs without the CA", async () => {
+  it("should reject a request without the CA", async () => {
     const client = new HTTPClient(endpoint, binary.JSON_CODEC, true);
     await expect(
       client.send("/", { message: "" }, messageZ, messageZ),
     ).rejects.toMatchObject({ cause: { code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" } });
+  });
+
+  it("should reject a stream without the CA", async () => {
+    const client = new WebSocketClient(endpoint, binary.JSON_CODEC, true);
+    await expect(client.stream("/", messageZ, messageZ)).rejects.toThrow();
+  });
+
+  describe("in runtimes without a CA option for WebSockets", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("should tell a Deno user to run Deno with --cert", async () => {
+      vi.stubGlobal("Deno", { createHttpClient: () => ({}) });
+      await expect(trustCA(ca).dial("wss://127.0.0.1")).rejects.toThrow("--cert");
+    });
+
+    it("should throw in a browser", () => {
+      vi.stubGlobal("process", undefined);
+      expect(() => trustCA(ca)).toThrow("browser");
+    });
   });
 });

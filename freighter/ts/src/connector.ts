@@ -59,9 +59,19 @@ export const DEFAULT_CONNECTOR: Connector = {
   dial: async (url) => new WebSocket(url),
 };
 
+// A CA list replaces the default list in Node and Bun, so it must keep the defaults.
+const withDefaultCAs = async (ca: string): Promise<string[]> => {
+  const { getCACertificates, rootCertificates } = await import("node:tls");
+  // Node 22.15 added getCACertificates, which also keeps NODE_EXTRA_CA_CERTS.
+  const defaults =
+    getCACertificates == null ? rootCertificates : getCACertificates("default");
+  return [...defaults, ca];
+};
+
 const loadUndici = async (ca: string) => {
   const { Agent, fetch, WebSocket } = await import("undici");
-  return { fetch, WebSocket, dispatcher: new Agent({ connect: { ca } }) };
+  const connect = { ca: await withDefaultCAs(ca) };
+  return { fetch, WebSocket, dispatcher: new Agent({ connect }) };
 };
 
 const nodeConnector = (ca: string): Connector => {
@@ -94,18 +104,22 @@ const nodeConnector = (ca: string): Connector => {
   };
 };
 
-const bunConnector = (ca: string): Connector => ({
-  fetch: async (target, init) => {
-    const req: RequestInit & { tls: { ca: string } } = { ...init, tls: { ca } };
-    return await fetch(target, req);
-  },
-  dial: async (url) => {
-    // The DOM types do not have Bun's options argument.
-    const ws: unknown = Reflect.construct(WebSocket, [url, { tls: { ca } }]);
-    if (!(ws instanceof WebSocket)) throw new Error("Bun did not open a WebSocket");
-    return ws;
-  },
-});
+const bunConnector = (ca: string): Connector => {
+  let cas: Promise<string[]> | null = null;
+  const load = async () => ({ ca: await (cas ??= withDefaultCAs(ca)) });
+  return {
+    fetch: async (target, init) => {
+      const req: RequestInit & { tls: object } = { ...init, tls: await load() };
+      return await fetch(target, req);
+    },
+    dial: async (url) => {
+      // The DOM types do not have Bun's options argument.
+      const ws: unknown = Reflect.construct(WebSocket, [url, { tls: await load() }]);
+      if (!(ws instanceof WebSocket)) throw new Error("Bun did not open a WebSocket");
+      return ws;
+    },
+  };
+};
 
 const denoConnector = (deno: object, ca: string): Connector => {
   const createHttpClient: unknown = Reflect.get(deno, "createHttpClient");
