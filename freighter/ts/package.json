@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@synnaxlabs/x": "catalog:",
+    "undici": "catalog:node22",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -49,6 +50,10 @@
     "!**/*.bench.*",
     "!dist/eslint.config.*"
   ],
+  "browser": {
+    "node:tls": false,
+    "undici": false
+  },
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",

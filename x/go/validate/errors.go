@@ -101,10 +101,10 @@ const (
 	pathErrorType = baseErrorType + ".path"
 )
 
-func encode(err error) (errors.Payload, bool) {
+func encode(c *errors.Codec, err error) (errors.Payload, bool) {
 	var errPath PathError
 	if errors.As(err, &errPath) {
-		internal := errors.Encode(errPath.Err, false)
+		internal := c.Encode(errPath.Err, false)
 		return errors.Payload{
 			Type: pathErrorType,
 			Data: string(lo.Must(json.Marshal(encodedPathError{
@@ -124,7 +124,7 @@ func encode(err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decode(p errors.Payload) (error, bool) {
+func decode(c *errors.Codec, p errors.Payload) (error, bool) {
 	if !strings.HasPrefix(p.Type, baseErrorType) {
 		return nil, false
 	}
@@ -135,10 +135,13 @@ func decode(p errors.Payload) (error, bool) {
 		}
 		return PathError{
 			Path: errDecodedPath.Path,
-			Err:  errors.Decode(errDecodedPath.Error),
+			Err:  c.Decode(errDecodedPath.Error),
 		}, true
 	}
 	return ruleError{errors.New(p.Data)}, true
 }
 
-func init() { errors.Register(encode, decode) }
+// ErrorProvider encodes and decodes validation errors for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{Encode: encode, Decode: decode}
+}

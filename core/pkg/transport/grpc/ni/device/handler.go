@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ni/device/pb"
 	svcdevice "github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	devicepb "github.com/synnaxlabs/synnax/pkg/service/ni/device/pb"
+	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -133,29 +134,33 @@ func (deleteRequestTranslator) Backward(
 }
 
 // New binds the NI device routes to t and returns their gRPC transport.
-func New(t *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &NIDeviceCreateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.NIDeviceCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &NIDeviceRetrieveService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.NIDeviceRetrieve = retrieve
 	update := &updateServer{
 		RequestTranslator:  updateRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &NIDeviceUpdateService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.NIDeviceUpdate = update
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &NIDeviceDeleteService_ServiceDesc,
+		Errors:             errs,
 	}
 	t.NIDeviceDelete = del
 	return grpc.CompoundBindableTransport{create, retrieve, update, del}

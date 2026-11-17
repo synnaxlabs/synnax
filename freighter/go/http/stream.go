@@ -77,6 +77,7 @@ func newStreamCore[RQ, RS freighter.Payload](
 
 type streamCoreConfig struct {
 	codec encoding.Codec
+	errs  *errors.Codec
 	conn  *websocket.Conn
 	alamos.Instrumentation
 	writeDeadline time.Duration
@@ -150,7 +151,7 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 		return i, c.peerCloseErr
 	}
 	if msg.Type == WSMessageTypeClose {
-		c.peerCloseErr = errors.Decode(msg.Err)
+		c.peerCloseErr = c.errs.Decode(msg.Err)
 		if c.peerCloseErr == nil {
 			c.peerCloseErr = io.EOF
 		}

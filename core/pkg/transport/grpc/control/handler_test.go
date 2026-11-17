@@ -44,7 +44,7 @@ var states = []control.State{
 
 var _ = Describe("gRPC Control Translators", func() {
 	var transport api.Transport
-	bindable := grpccontrol.New(&transport)
+	bindable := grpccontrol.New(&transport, api.NewErrorCodec())
 	server, ok := transport.ControlRetrieve.(*retrieveServer)
 	Expect(ok).To(BeTrue())
 
