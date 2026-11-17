@@ -226,15 +226,18 @@ The schematic cutover ships in one release:
   its source symbol. The import needs retrieve access on the source symbol of each copy
   that it adds, create access for each record that it adds, and update access on the
   group of each copy. A node that gets `missing` (RFC 0114 §4.5) keeps no overrides.
-- From phase 19, a schematic export bundles every enumeration that its nodes name, and
-  from RFC 0114 phase 1, a symbol export bundles those of its states. An import follows
-  the symbol import rule and access of RFC 0114 §4.4. When the Core already has an
-  enumeration with a bundled key, the import uses it and reports a warning status that
-  names it if the two differ. Otherwise it adds the bundled enumeration under its
-  bundled key. An older file can name an enumeration key that is neither bundled nor on
-  the Core. When the node still has `options`, the import makes the enumeration from
-  them by the rule above, so the node keeps working. Otherwise the import drops the key,
-  and the warning status names the node.
+- From phase 19, a schematic export bundles every enumeration that its nodes name. RFC
+  0114 phase 1 adds the same to symbol files, and RFC 0114 phase 2 to the custom symbols
+  and state bindings of a schematic file. An import matches a bundled enumeration by its
+  key, never by its content. When the Core has the key, the import reuses that
+  enumeration and reports a warning status that names it if the entries differ. When the
+  Core lacks the key, the import adds the bundled enumeration under that key, so no key
+  is rewritten. A reuse needs retrieve access and an add needs create access, as RFC
+  0114 §4.4 says for symbols and groups. Only an enumeration made from an inline list
+  merges by content, by the rule above. An older file can name an enumeration key that
+  is neither bundled nor on the Core. When the node still has `options`, the import
+  makes the enumeration from them by the rule above, so the node keeps working.
+  Otherwise the import drops the key, and the warning status names the node.
 
 The line plot migration stores the color that each uncolored line and rule shows today
 as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
@@ -352,9 +355,9 @@ symbol looks from the start. In phase 28, the Driver writes range colors
 15. **Exact values, and a stored `within` match for two-state states**: Selects and
     buttons write one value, so an entry is one value. Valves, pumps, and lights store
     today's threshold as a `within` match on the state, so every number reads as today,
-    and an enumeration edit never switches a valve to exact matches. The trade is real:
-    a valve stuck at 0.5 shows Closed with no indicator, as today. Ranges belong to the
-    `limit` type.
+    except on a light with an empty threshold (RFC 0114 §4.5). An enumeration edit never
+    switches a valve to exact matches. The trade is real: a valve stuck at 0.5 shows
+    Closed with no indicator, as today. Ranges belong to the `limit` type.
 16. **Entry values are `float64`**: Every state symbol reads and writes numbers, and a
     `float64` holds each integer state code exactly. A value of any channel type adds a
     type to each entry and a conversion to each match. The trade is real: a string
