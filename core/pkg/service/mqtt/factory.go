@@ -241,8 +241,10 @@ func (f *Factory) onICDChange(_ context.Context, r gorp.TxReader[icd.Key, icd.IC
 	for ch := range r {
 		f.edited.icds.Add(ch.Key)
 	}
-	f.edited.Unlock()
+	// The count moves before the unlock, so a configure that misses the pass that takes
+	// these keys sees the new count.
 	f.icdChanges.Add(1)
+	f.edited.Unlock()
 	f.notify()
 }
 
