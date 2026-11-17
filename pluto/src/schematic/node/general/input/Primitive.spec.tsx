@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -32,7 +33,11 @@ describe("input symbol", () => {
     it("should swallow a click shorter than the delay", () => {
       const onSend = vi.fn();
       const { getByText } = render(
-        <Input value="hi" onSend={onSend} onClickDelay={500} />,
+        <Input
+          value="hi"
+          onSend={onSend}
+          onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+        />,
       );
       const btn = getByText("Set");
       fireEvent.mouseDown(btn);
@@ -45,7 +50,11 @@ describe("input symbol", () => {
     it("should send after the delay while the button stays held", () => {
       const onSend = vi.fn();
       const { getByText } = render(
-        <Input value="hi" onSend={onSend} onClickDelay={500} />,
+        <Input
+          value="hi"
+          onSend={onSend}
+          onClickDelay={TimeSpan.milliseconds(500).nanoseconds}
+        />,
       );
       fireEvent.mouseDown(getByText("Set"));
       act(() => {

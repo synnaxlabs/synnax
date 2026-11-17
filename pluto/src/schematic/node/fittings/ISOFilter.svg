@@ -1,0 +1,16 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 42">
+  <rect x="3" y="3" width="54" height="36" rx="3" ry="3" />
+  <line x1="30" y1="3" x2="30" y2="13" stroke-linecap="round" />
+  <line x1="30" y1="17" x2="30" y2="25" stroke-linecap="round" />
+  <line x1="30" y1="29" x2="30" y2="39" stroke-linecap="round" />
+</svg>

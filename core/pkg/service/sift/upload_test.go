@@ -86,7 +86,9 @@ var _ = Describe("Upload", func() {
 			"asset":    "stand",
 		})
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
-		return stat.Details.Data["status"].(string)
+		key, ok := stat.Details.Data["status"].(string)
+		Expect(ok).To(BeTrue())
+		return key
 	}
 
 	statusOf := func(ctx context.Context, key status.Key) AsyncAssertion {
@@ -125,7 +127,8 @@ var _ = Describe("Upload", func() {
 			"asset":      "stand",
 		})
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
-		key := stat.Details.Data["status"].(string)
+		key, ok := stat.Details.Data["status"].(string)
+		Expect(ok).To(BeTrue())
 		statusOf(ctx, key).Should(SatisfyAll(
 			HaveField("Name", "stand"),
 			HaveField("Variant", status.VariantSuccess),

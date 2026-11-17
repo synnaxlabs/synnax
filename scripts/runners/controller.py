@@ -7,16 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = [
-#     "boto3",
-#     "certifi>=2026.10.19",
-#     "PyJWT[crypto]>=2.10,<3",
-#     "synnax>=0.61,<0.62",
-# ]
-# ///
-
 """Polls GitHub and EC2 every --interval and writes the fleet's state to Synnax.
 Also runs the scaler, the gate, and the cost fetch, and creates every channel below
 plus the agents' channels, for each new runner too, unless --no-create-channels.

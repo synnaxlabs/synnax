@@ -48,7 +48,7 @@ describe("ButtonForm", () => {
       wrapper,
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
-    await waitFor(() => expect(value(path.commandChannel)).toBeUndefined());
+    await waitFor(() => expect(value(path.commandChannel)).toBe(0));
   });
 });
 

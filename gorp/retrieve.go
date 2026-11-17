@@ -345,7 +345,14 @@ func (r Retrieve[K, E]) Count(
 		}
 		return len(r.entries.All()), nil
 	}
+	return r.countScan(ctx, snap)
+}
 
+// countScan counts the matching records by iterating over every entry in the table.
+func (r Retrieve[K, E]) countScan(
+	ctx context.Context,
+	snap Snapshot,
+) (count int, err error) {
 	reader := wrapReader[K, E](snap, r.keyPrefix)
 	iter, err := reader.OpenIterator(
 		IterOptions{prefix: r.prefix, after: r.encodedAfter()},
@@ -453,7 +460,7 @@ func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, erro
 			break
 		}
 		e = zero
-		b, closer, err := reader.get(ctx, k, &e)
+		b, closer, err := reader.get(k, &e)
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				notFound = append(notFound, k)
@@ -588,6 +595,28 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err err
 // filter that rejects most entries does not cost one index lock per entry.
 const minWalkBatch = 128
 
+// readMatch decodes the entry with key k into e and reports whether it exists and
+// matches the filter.
+func (r *Retrieve[K, E]) readMatch(
+	ctx Context,
+	reader *Reader[K, E],
+	k K,
+	e *E,
+) (bool, error) {
+	b, closer, err := reader.get(k, e)
+	if err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	match, mErr := r.matchEval(ctx, e, nil, b)
+	if cErr := closer.Close(); mErr != nil || cErr != nil {
+		return false, errors.Combine(mErr, cErr)
+	}
+	return match, nil
+}
+
 // execOrdered walks the configured OrderQuery, fetching entries per-key in walk order
 // and matching each against the filter until it collects the limit.
 func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
@@ -610,16 +639,9 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 			continue
 		}
 		var e E
-		b, closer, err := reader.get(ctx, k, &e)
+		match, err := r.readMatch(gorpCtx, &reader, k, &e)
 		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
 			return err
-		}
-		match, mErr := r.matchEval(gorpCtx, &e, nil, b)
-		if cErr := closer.Close(); mErr != nil || cErr != nil {
-			return errors.Combine(mErr, cErr)
 		}
 		if !match {
 			continue
