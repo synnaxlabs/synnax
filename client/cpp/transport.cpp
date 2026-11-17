@@ -38,9 +38,12 @@
 #include "core/pkg/transport/grpc/task/task.pb.h"
 
 namespace synnax::details {
-Transport::Transport(const uint16_t port, const std::string &ip, const bool secure) {
+Transport::Transport(
+    const uint16_t port,
+    const std::string &ip,
+    const std::shared_ptr<freighter::grpc::Pool> &pool
+) {
     auto base_target = x::url::URL(ip, port, "").to_string();
-    auto pool = std::make_shared<freighter::grpc::Pool>(secure);
     this->auth_session_create = std::make_unique<freighter::grpc::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse,
