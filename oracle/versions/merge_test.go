@@ -705,6 +705,7 @@ Wire struct {
 			func(
 				ctx SpecContext,
 			) {
+				write("schemas/x/status.oracle", "Code = int64\n")
 				live := `import "schemas/x/status"
 
 Channel struct {
@@ -725,6 +726,29 @@ Channel struct {
 				Expect(merged).To(ContainSubstring("code status.Code"))
 			},
 		)
+
+		It("Should drop a live import whose live names the dependency declares", func(
+			ctx SpecContext,
+		) {
+			write("schemas/x/status.oracle", "Code = int64\n")
+			live := `import "schemas/x/status"
+
+Channel struct {
+	key uuid @key
+	level status.Level
+
+	action SetLevel {
+		level status.Level
+	}
+
+	@go marshal
+}
+`
+			r, chain := resolver()
+			merged := MustSucceed(versions.MergeLive(ctx, r, chain, live))
+			Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+			Expect(merged).ToNot(ContainSubstring(`import "schemas/x/status"`))
+		})
 	})
 
 	It("Should carry live-owned enum value annotations", func(ctx SpecContext) {

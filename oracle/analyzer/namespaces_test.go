@@ -23,7 +23,7 @@ var _ = Describe("Namespaces", func() {
 		parse := func(src string) parser.ISchemaContext {
 			GinkgoHelper()
 			ast, diag := parser.Parse(src)
-			Expect(diag).To(BeNil())
+			Expect(diag).ToNot(HaveOccurred())
 			return ast
 		}
 
@@ -48,17 +48,20 @@ var _ = Describe("Namespaces", func() {
 		})
 	})
 
-	Describe("Qualifiers", func() {
-		It("Should return the qualifiers of a fragment that does not parse", func() {
-			Expect(analyzer.Qualifiers(`action SetCode {
+	Describe("QualifiedNames", func() {
+		It(
+			"Should return the qualified names of a fragment that does not parse",
+			func() {
+				Expect(analyzer.QualifiedNames(`action SetCode {
 				code status.Code
 				span telem.TimeSpan
-			}`)).To(Equal(set.New("status", "telem")))
-		})
+			}`)).To(Equal(set.New("status.Code", "telem.TimeSpan")))
+			},
+		)
 
 		It("Should skip a dotted name inside a string", func() {
 			Expect(
-				analyzer.Qualifiers(`@doc value "see status.Code"`),
+				analyzer.QualifiedNames(`@doc value "see status.Code"`),
 			).To(BeEmpty())
 		})
 	})
