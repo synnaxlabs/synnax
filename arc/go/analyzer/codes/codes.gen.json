@@ -97,9 +97,9 @@
   },
   "E2006": {
     "severity": "error",
-    "message": "variable 'samples' of type series f64 cannot have a computed initializer",
+    "message": "cannot read 'k': its initializer is not a compile-time constant",
     "problem": "The code needs a constant, and the value is one that the compiler cannot compute. A variable outside a function also needs a constant when its type has no zero value, such as a series.",
-    "example": "samples series f64 := [1.0, 2.0]"
+    "example": "k := 1 + 2\nfunc f() i64 {\n    return k\n}"
   },
   "E2007": {
     "severity": "error",

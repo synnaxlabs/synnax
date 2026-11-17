@@ -66,7 +66,7 @@ import { InlineCode } from "@/components/text/InlineCode";
     start();
 </script>
 
-<style is:global>
+<style>
     .arc-kinds > li {
         padding: 0.75rem 0;
     }
@@ -83,7 +83,7 @@ import { InlineCode } from "@/components/text/InlineCode";
     }
 
     /* One width for each code puts the titles in one column. */
-    .arc-kinds .problem__label {
+    .arc-kinds :global(.problem__label) {
         flex: none;
         width: 3.75em;
         font-variant-numeric: tabular-nums;
@@ -102,11 +102,11 @@ import { InlineCode } from "@/components/text/InlineCode";
     .arc-kind__body {
         margin: 1.5rem 0 1rem;
 
-        & > :first-child {
+        & > :global(:first-child) {
             margin-top: 0;
         }
 
-        & > :last-child {
+        & > :global(:last-child) {
             margin-bottom: 0;
         }
     }
