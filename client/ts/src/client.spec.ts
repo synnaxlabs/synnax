@@ -91,10 +91,17 @@ describe("constructor", () => {
     await client.close();
   });
 
-  it("should throw when neither an argument nor a variable gives a host", () => {
+  it("should throw when no argument, variable, or Synnax Desktop gives a host", () => {
     vi.stubEnv("SYNNAX_HOST", "");
-    expect(() => new Synnax()).toThrow(ValidationError);
-    expect(() => new Synnax()).toThrow("give a host, or set SYNNAX_HOST");
+    const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
+    vi.stubEnv("HOME", home);
+    vi.stubEnv("USERPROFILE", home);
+    try {
+      expect(() => new Synnax()).toThrow(ValidationError);
+      expect(() => new Synnax()).toThrow(/^give a host, or set SYNNAX_HOST$/);
+    } finally {
+      rmSync(home, { recursive: true });
+    }
   });
 });
 

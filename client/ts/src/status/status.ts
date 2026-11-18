@@ -130,7 +130,7 @@ const cloneSafeValue = (v: unknown, depth: number): unknown => {
   if (depth <= 0) return errors.fromUnknown(v).message;
   try {
     if (Array.isArray(v)) return v.map((e) => cloneSafeValue(e, depth - 1));
-    if (typeof v === "object" && v != null) {
+    if (narrow.isObject(v)) {
       const out: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(v))
         if (typeof value !== "function" && typeof value !== "symbol")

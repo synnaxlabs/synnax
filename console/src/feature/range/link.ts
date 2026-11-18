@@ -19,7 +19,6 @@ export const useLink = (): Link.Handler => {
   return async ({ client, key }) => {
     const range = await client.ranges.retrieve(key);
     Session.Range.fromClient(range).forEach((r) => dispatch(Session.Range.add(r)));
-    dispatch(Session.Range.select(range.key));
     openTab({ variant: "resource", resource: ranger.resourceID(range.key) });
   };
 };

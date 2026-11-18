@@ -973,7 +973,7 @@ describe("Streamer", () => {
         { breaker: { baseInterval: TimeSpan.milliseconds(30), jitter: 0 } },
       );
       const pending = hardened.read().catch((e: unknown) => e);
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await sleep.sleep(TimeSpan.milliseconds(150));
       // a hot loop would dial hundreds of times in this window
       expect(opens).toBeLessThan(6);
       hardened.close();
@@ -1000,13 +1000,13 @@ describe("Streamer", () => {
       expect(await hardened.read()).toEqual(fr1);
       // drops, fails one reopen, then sleeps out the 60s backoff
       const pending = hardened.read().catch((e: unknown) => e);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const start = performance.now();
       hardened.close();
       expect(EOF.matches(await pending)).toBe(true);
       expect(performance.now() - start).toBeLessThan(1000);
       const settled = opens;
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(opens).toBe(settled);
     });
 
@@ -1038,7 +1038,7 @@ describe("Streamer", () => {
       // maxInterval also sets stableAfter, so a stream older than it counts as
       // healthy: the drop skips the pre-loop backoff and reaches the retry
       // loop's own, which still sleeps the full baseInterval on its first wait.
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const pending = hardened.read().catch((e: unknown) => e);
       await expect.poll(() => opens).toBe(2);
       hardened.close();
@@ -1065,7 +1065,7 @@ describe("Streamer", () => {
       );
       expect(await hardened.read()).toEqual(fr1);
       const pending = hardened.read().catch((e: unknown) => e);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(() => hardened.close()).not.toThrow();
       expect(() => hardened.close()).not.toThrow();
       expect(EOF.matches(await pending)).toBe(true);

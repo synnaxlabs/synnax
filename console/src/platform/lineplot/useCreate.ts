@@ -23,7 +23,6 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   params?: Partial<lineplot.New>,
 ) => void) => {
   const getActiveProject = Session.Project.useGetSelected();
-  const getSelectedRef = Session.Range.useGetSelectedRef();
   const openTab = Panel.useOpenTab();
   const { capture } = Analytics.use();
   const { update } = LinePlot.useCreate({
@@ -36,7 +35,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   return (params = {}) =>
     update({
       name: "Line plot",
-      ranges: [getSelectedRef()],
+      ranges: [Session.Range.RECENT_REF],
       ...params,
       project: project ?? getActiveProject(),
     });

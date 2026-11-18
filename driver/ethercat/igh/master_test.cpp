@@ -205,24 +205,13 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheMasterInfoCannotBeRead) {
     EXPECT_TRUE(this->api->released);
 }
 
-/// @brief it should release the master when it cannot create the output domain.
-TEST_F(IGHMasterTest, ScanFailsWhenTheOutputDomainFails) {
-    this->api->add_slave();
-    this->api->output_domain_fails = true;
-    const auto err = this->master.scan().second;
-    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "failed to create output domain");
-    EXPECT_TRUE(this->api->released);
-}
-
-/// @brief it should release the master when it cannot create the input domain.
-TEST_F(IGHMasterTest, ScanFailsWhenTheInputDomainFails) {
-    this->api->add_slave();
-    this->api->input_domain_fails = true;
-    const auto err = this->master.scan().second;
-    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "failed to create input domain");
-    EXPECT_TRUE(this->api->released);
+/// @brief it should fail activation when it cannot create the domain of a slave.
+TEST_F(IGHMasterTest, ActivateFailsWhenADomainCannotBeCreated) {
+    create_io(this->api->add_slave());
+    this->api->domain_fails = true;
+    const auto err = this->scan_and_activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "failed to create the domain of module 1 (TestSlave)");
 }
 
 /// @brief it should fail to initialize, and release the master, when it cannot read a
@@ -395,23 +384,38 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveCannotBeConfigured) {
 /// @brief it should give the cycle the domains, with the offset of each entry.
 TEST_F(IGHMasterTest, ActivateGivesTheProcessImage) {
     create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
     ASSERT_NIL(this->scan_and_activate());
-    EXPECT_EQ(this->image.outputs.size(), 2);
-    EXPECT_EQ(this->image.inputs.size(), 4);
-    ASSERT_NIL_P(this->image.offset(
-        {.slave_position = 1,
+    EXPECT_EQ(this->api->domains.size(), 2);
+    EXPECT_EQ(this->image.outputs.size(), 12);
+    EXPECT_EQ(this->image.inputs.size(), 12);
+    const auto output = ASSERT_NIL_P(this->image.offset(
+        {.slave_position = 2,
          .index = 0x7000,
          .sub_index = 0x01,
          .bit_length = 16,
          .is_input = false}
     ));
-    ASSERT_NIL_P(this->image.offset(
-        {.slave_position = 1,
+    EXPECT_EQ(output.byte, 6);
+    const auto input = ASSERT_NIL_P(this->image.offset(
+        {.slave_position = 2,
          .index = 0x6000,
          .sub_index = 0x01,
          .bit_length = 32,
          .is_input = true}
     ));
+    EXPECT_EQ(input.byte, 8);
+}
+
+/// @brief it should create no domain for a slave with no process data.
+TEST_F(IGHMasterTest, ActivateCreatesNoDomainForASlaveWithNoProcessData) {
+    this->api->add_slave();
+    create_io(this->api->add_slave());
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_EQ(this->api->domains.size(), 1);
+    EXPECT_EQ(this->api->slaves[1].domain, 0);
+    EXPECT_EQ(this->image.working_counter_shares.count(1), 0);
+    ASSERT_NIL(this->master.receive());
 }
 
 /// @brief it should start a bus whose slaves have no process data.
@@ -945,73 +949,93 @@ TEST_F(IGHMasterTest, ReceiveSucceedsOnACompleteWorkingCounter) {
     ASSERT_NIL(this->master.receive());
 }
 
-/// @brief it should fail when no slave answers a domain.
+/// @brief it should fail when no slave answers its domain, and report no slave as
+/// inputless, since no frame came back.
 TEST_F(IGHMasterTest, ReceiveFailsWhenNoSlaveAnswers) {
     create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
     ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state.wc_state = EC_WC_ZERO;
+    for (const auto &slave: this->api->slaves)
+        this->api->domain_of(slave).state.wc_state = EC_WC_ZERO;
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
     EXPECT_EQ(err.data, "no modules responded");
+    EXPECT_EQ(this->master.shortfall(), 6);
+    EXPECT_TRUE(this->master.inputless().empty());
 }
 
-/// @brief it should return a working counter error when a domain reports an incomplete
-/// working counter.
-TEST_F(IGHMasterTest, ReceiveFailsOnAnIncompleteWorkingCounter) {
+/// @brief it should report the shortfall of a slave that gives its inputs but does not
+/// take its outputs, and not report it as inputless.
+TEST_F(IGHMasterTest, ReceiveReportsThePartOfASlaveThatFellShort) {
     create_io(this->api->add_slave());
     ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state = {.working_counter = 1, .wc_state = EC_WC_INCOMPLETE};
-    this->api->inputs.state = {.working_counter = 2, .wc_state = EC_WC_COMPLETE};
+    this->api->domain_of(this->api->slaves[0]).state = {
+        .working_counter = 1,
+        .wc_state = EC_WC_INCOMPLETE,
+    };
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err.data, "incomplete working counter: output 1, input 2");
+    EXPECT_EQ(err.data, "incomplete working counter: 1 of 3");
+    EXPECT_EQ(this->master.shortfall(), 2);
+    EXPECT_TRUE(this->master.inputless().empty());
 }
 
-/// @brief it should report no shortfall before a complete cycle gives the full working
-/// counter.
-TEST_F(IGHMasterTest, ReceiveReportsNoShortfallBeforeACompleteCycle) {
+/// @brief it should report each slave whose domain gave nothing as inputless, one with
+/// only outputs too, and count its whole share in the shortfall.
+TEST_F(IGHMasterTest, ReceiveReportsEachSilentSlaveAsInputless) {
     create_io(this->api->add_slave());
-    ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
-    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(this->master.shortfall(), std::nullopt);
-}
-
-/// @brief it should report how far the working counter fell below the latest complete
-/// cycle.
-TEST_F(IGHMasterTest, ReceiveReportsTheShortfallBelowTheLatestCompleteCycle) {
     create_io(this->api->add_slave());
+    this->api->add_slave().syncs = {{EC_DIR_OUTPUT, {{0x1600, {{0x7000, 0x01, 8}}}}}};
     ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
-    this->api->inputs.state = {.working_counter = 1, .wc_state = EC_WC_COMPLETE};
+    this->api->domain_of(this->api->slaves[1]).state.wc_state = EC_WC_ZERO;
+    this->api->domain_of(this->api->slaves[2]).state.wc_state = EC_WC_ZERO;
+    const auto err = this->master.receive();
+    ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
+    EXPECT_EQ(err.data, "incomplete working counter: 3 of 7");
+    EXPECT_EQ(this->master.shortfall(), 4);
+    EXPECT_EQ(
+        std::vector(this->master.inputless().begin(), this->master.inputless().end()),
+        (std::vector<uint16_t>{2, 3})
+    );
+    this->api->domain_of(this->api->slaves[1]).state.wc_state = EC_WC_COMPLETE;
+    this->api->domain_of(this->api->slaves[2]).state.wc_state = EC_WC_COMPLETE;
     ASSERT_NIL(this->master.receive());
-    this->api->outputs.state = {.working_counter = 0, .wc_state = EC_WC_ZERO};
-    ASSERT_OCCURRED_AS(this->master.receive(), errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(this->master.shortfall(), 1);
+    EXPECT_EQ(this->master.shortfall(), std::nullopt);
+    EXPECT_TRUE(this->master.inputless().empty());
 }
 
-/// @brief it should give each enabled slave a working counter share of 1 in each domain
-/// that holds one of its entries.
+/// @brief it should give each enabled slave the working counter share that its own
+/// domain expects: 2 for its outputs and 1 for its inputs in one LRW datagram, or 1 for
+/// the one direction it maps.
 TEST_F(IGHMasterTest, ImageGivesTheWorkingCounterShareOfEachSlave) {
     create_io(this->api->add_slave());
     this->api->add_slave().syncs = {{EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}}};
+    this->api->add_slave().syncs = {{EC_DIR_OUTPUT, {{0x1600, {{0x7000, 0x01, 8}}}}}};
     ASSERT_NIL(this->scan_and_activate());
     EXPECT_EQ(
         this->image.working_counter_shares,
         (std::map<uint16_t, master::WorkingCounterShare>{
-            {1, {.outputs = 1, .inputs = 1}},
+            {1, {.outputs = 2, .inputs = 1}},
             {2, {.inputs = 1}},
+            {3, {.outputs = 1}},
         })
     );
 }
 
-/// @brief it should not count the zero working counter of an empty domain, which
-/// exchanges no data.
-TEST_F(IGHMasterTest, ReceiveIgnoresAnEmptyDomain) {
-    this->api->add_slave().syncs = {{EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}}};
+/// @brief it should copy the memory of each domain into the image inputs on receive,
+/// and copy the image outputs into each domain before it queues the domain.
+TEST_F(IGHMasterTest, CycleCopiesTheProcessDataOfEachDomain) {
+    create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
     ASSERT_NIL(this->scan_and_activate());
-    this->api->outputs.state.wc_state = EC_WC_ZERO;
+    auto &second = this->api->domain_of(this->api->slaves[1]);
+    second.data[2] = 0xAB;
     ASSERT_NIL(this->master.receive());
+    EXPECT_EQ(this->image.inputs[8], 0xAB);
+    this->image.outputs[6] = 0xCD;
+    ASSERT_NIL(this->master.send());
+    EXPECT_EQ(second.data[0], 0xCD);
+    EXPECT_EQ(this->api->queued, (std::vector<size_t>{0, 1}));
 }
 
 /// @brief it should fail when the master fails to receive frames.
@@ -1097,6 +1121,26 @@ TEST_F(IGHMasterTest, CheckReportsTheErrorFlagAsFaulted) {
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
     EXPECT_TRUE(health[0].faulted);
+}
+
+/// @brief it should keep the health of a slave whose domain answers, or that has no
+/// domain, while IgH scans the bus again, and report a slave whose domain gives nothing
+/// as lost.
+TEST_F(IGHMasterTest, CheckKeepsTheHealthOfAnAnsweringSlaveDuringAScan) {
+    create_io(this->api->add_slave());
+    create_io(this->api->add_slave());
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    const auto before = this->master.check(this->brk);
+    this->api->scanning = true;
+    this->api->domain_of(this->api->slaves[1]).state.wc_state = EC_WC_ZERO;
+    const auto health = this->master.check(this->brk);
+    ASSERT_EQ(health.size(), 3);
+    EXPECT_EQ(health[0], before[0]);
+    EXPECT_FALSE(health[0].lost);
+    EXPECT_EQ(health[0].state, slave::State::OP);
+    EXPECT_TRUE(health[1].lost);
+    EXPECT_EQ(health[2], before[2]);
 }
 
 /// @brief it should reset the master when the latest check found a faulted slave, so
@@ -1206,6 +1250,26 @@ TEST_F(IGHMasterTest, RecoverDoesNothingOnceTheBreakerStops) {
     this->brk.stop();
     this->master.recover(this->brk);
     EXPECT_EQ(this->api->resets, 0);
+}
+
+/// @brief it should keep the reset backoff while IgH scans the bus and a faulted slave
+/// keeps its health.
+TEST_F(IGHMasterTest, CheckKeepsTheResetBackoffThroughAScan) {
+    auto &slave = this->api->add_slave();
+    create_io(slave);
+    ASSERT_NIL(this->scan_and_activate());
+    slave.reaches = EC_AL_STATE_SAFEOP;
+    slave.refuses = true;
+    slave.info.error_flag = 1;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
+    this->api->scanning = true;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->api->scanning = false;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
 }
 
 /// @brief it should start the reset backoff over after a deactivate.
