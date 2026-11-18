@@ -7,78 +7,53 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { defaultGetter, findBestKey, getIndex, SEPARATOR } from "@/deep/path";
-import { errors } from "@/errors";
+import { get } from "@/deep/get";
+import { SEPARATOR } from "@/deep/path";
+import { getIndex, resolve } from "@/deep/resolve";
 import { type record } from "@/record";
 
-export const set = <V>(obj: V, path: string, value: unknown): void => {
-  const parts = path.split(SEPARATOR);
-  let result: record.Unknown = obj as record.Unknown;
-
-  let i = 0;
-  while (i < parts.length - 1) {
-    const best = findBestKey(result, parts.slice(i, parts.length - 1));
-    let part: string;
-    if (best != null) [part, i] = [best[0], i + best[1]];
-    else {
-      part = parts[i];
-      i++;
-    }
-    let v = defaultGetter(result, part);
-    if (v == null) {
-      const nextPart = parts[i];
-      let idx = getIndex(nextPart);
-      if (idx == null && nextPart.startsWith("-")) {
-        const negIndex = getIndex(nextPart.substring(1));
-        if (negIndex != null) idx = 0;
-      }
-      v = idx != null ? [] : {};
-      result[part] = v;
-    }
-    result = v as record.Unknown;
+// A part that names nothing becomes an index on an array and a key elsewhere.
+const add = (parent: unknown, part: string, value: unknown, path: string): void => {
+  if (!Array.isArray(parent)) {
+    (parent as record.Unknown)[part] = value;
+    return;
   }
-  try {
-    const lastPart = parts[parts.length - 1];
-
-    if (Array.isArray(result)) {
-      let index = getIndex(lastPart);
-      if (index == null) {
-        if (lastPart.startsWith("-")) {
-          const negIndex = getIndex(lastPart.substring(1));
-          if (negIndex != null) index = result.length - negIndex;
-        }
-
-        if (index == null) {
-          if (result.length === 0) {
-            const idx = getIndex(lastPart);
-            if (idx != null) {
-              result[idx] = value;
-              return;
-            }
-          }
-          const first = result[0];
-          if (typeof first === "object" && "key" in first) {
-            const objIndex = result.findIndex((o) => o.key === lastPart);
-            if (objIndex !== -1) {
-              result[objIndex] = value;
-              return;
-            }
-          }
-          return;
-        }
-      }
-      result[index] = value;
-      return;
-    }
-
-    const best = findBestKey(result, [lastPart]);
-    if (best != null) {
-      result[best[0]] = value;
-      return;
-    }
-    result[lastPart] = value;
-  } catch (e) {
-    console.error("failed to set value", value, "at path", path, "on object", obj);
-    throw errors.fromUnknown(e);
-  }
+  const index = getIndex(part);
+  if (index == null)
+    throw new Error(`Cannot set ${path}: the list holds no entry with the key ${part}`);
+  parent[index] = value;
 };
+
+// The value at the path, built when it is missing: an array when the next part is an
+// index, an object otherwise.
+const container = (obj: unknown, path: string, next: string, full: string): unknown => {
+  const existing = get(obj, path);
+  if (existing != null) return existing;
+  const created = getIndex(next) == null ? {} : [];
+  write(obj, path, created, full);
+  return created;
+};
+
+const write = (obj: unknown, path: string, value: unknown, full: string): void => {
+  const found = resolve(obj, path);
+  if (found != null) {
+    found.parent[found.key] = value;
+    return;
+  }
+  const cut = path.lastIndexOf(SEPARATOR);
+  const last = path.slice(cut + 1);
+  const parent = cut === -1 ? obj : container(obj, path.slice(0, cut), last, full);
+  add(parent, last, value, full);
+};
+
+/**
+ * Writes the value at a dot-separated path, found as {@link resolve} finds it. A
+ * missing last part becomes one key, and missing parents are built on the way: an array
+ * when the next part is an index, an object otherwise.
+ *
+ * @throws {Error} if the path goes into an array at a part that is neither an index nor
+ * the key of an entry, as when the entry was removed.
+ * @example deep.set(config, "task.channels.ai0.port", 2)
+ */
+export const set = <V>(obj: V, path: string, value: unknown): void =>
+  write(obj, path, value, path);
