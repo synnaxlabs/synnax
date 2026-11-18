@@ -1402,6 +1402,28 @@ describe("MQTT read form", () => {
       expect((await client.channels.retrieve(streamed)).name).toBe(`${name}_2`);
     });
 
+    it("should show a new channel for a streamed field once its message reads a number", async () => {
+      const mode = createField("mode", "string");
+      const { container, dev, draft } = await renderRead({
+        fields: [mode, createField("temperature", "float")],
+        bound: { [mode.key]: 0 },
+      });
+      await deploy(container, draft.key);
+      const item = () => screen.getByRole("treeitem", { name: /^mode/ });
+      const isNew = () => within(item()).queryByRole("img", { name: "New channel" });
+      await waitFor(() => expect(isNew()).toBeNull());
+      const temperature = await screen.findByRole("checkbox", {
+        name: "Read temperature",
+      });
+      fireEvent.click(temperature);
+      await waitFor(() => expect(isNew()).not.toBeNull());
+      await selectField("mode");
+      const name = await screen.findByDisplayValue(`${dev.name}_plant_oven_mode`);
+      await waitFor(() => expect((name as HTMLInputElement).disabled).toBe(true));
+      fireEvent.click(temperature);
+      await waitFor(() => expect(isNew()).toBeNull());
+    });
+
     it("should keep storing a message that comes to read only strings", async () => {
       const temperature = createField("temperature", "float");
       const label = createField("label", "string");

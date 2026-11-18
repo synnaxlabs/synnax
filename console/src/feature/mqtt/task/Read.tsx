@@ -30,7 +30,7 @@ import {
 import {
   type Dispatch,
   type FC,
-  type PropsWithChildren,
+  Fragment,
   type SetStateAction,
   useRef,
   useState,
@@ -528,23 +528,18 @@ const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
   return <ICD.FieldDetails {...rest} prefix={prefix} />;
 };
 
-interface PlanProviderProps extends PropsWithChildren, MessagePanelProps {}
+interface PlannerProps {
+  device: Device;
+  path: deep.Path<PlainReadEntry>;
+  /** The index of the message in the topic's reads. */
+  read: number;
+}
 
-/** Plans the channels of a message of a topic once, for the panes inside. */
-const PlanProvider = ({ device, path, read, format, children }: PlanProviderProps) => {
+/** Plans the channels of a message of a topic, for the tree and the panes. */
+const Planner = ({ device, path, read }: PlannerProps) => {
   const prefix = usePrefix(device.name, path, read);
   const propsOf = usePropsOf(device, path);
-  return (
-    <ICD.PlanProvider
-      path={path}
-      read={read}
-      format={format}
-      prefix={prefix}
-      propsOf={propsOf}
-    >
-      {children}
-    </ICD.PlanProvider>
-  );
+  return <ICD.Planner path={path} read={read} prefix={prefix} propsOf={propsOf} />;
 };
 
 interface TopicDetailsProps {
@@ -811,8 +806,6 @@ const Entries: FC<EntriesProps> = ({
   let details = null;
   let title = null;
   let detailsPath: deep.Target<unknown> | null = null;
-  // The read whose panes share one plan of its channels.
-  let planned: number | null = null;
   if (
     entry != null &&
     isPlain(entry) &&
@@ -824,7 +817,6 @@ const Entries: FC<EntriesProps> = ({
       ({ field }) => field === current.field.key,
     );
     detailsPath = i < 0 ? read : read.bindings[i];
-    planned = current.read;
     title = (
       <Text.Text level="p" weight={500} overflow="fade">
         {current.field.name}
@@ -842,7 +834,6 @@ const Entries: FC<EntriesProps> = ({
     );
   } else if (entry != null && current?.kind === "message" && entryFormat != null) {
     detailsPath = plainPath(entry.key).messages[current.read];
-    planned = current.read;
     title = <ICD.MessageLabel path={plainPath(entry.key)} read={current.read} />;
     details = (
       <MessageDetails
@@ -865,8 +856,7 @@ const Entries: FC<EntriesProps> = ({
           device={device}
         />
       );
-    else if (entryFormat != null) {
-      if (entry.messages.length === 1) planned = 0;
+    else if (entryFormat != null)
       details = (
         <TopicDetails
           key={entry.key}
@@ -877,20 +867,7 @@ const Entries: FC<EntriesProps> = ({
           onAddMessage={() => addMessage(entry.key)}
         />
       );
-    }
   }
-  if (entry != null && entryFormat != null && planned != null)
-    details = (
-      <PlanProvider
-        key={`${entry.key}:${planned}`}
-        path={plainPath(entry.key)}
-        read={planned}
-        format={entryFormat}
-        device={device}
-      >
-        {details}
-      </PlanProvider>
-    );
   return (
     <Task.Views.Panes
       listTitle="Entries"
@@ -931,7 +908,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
     return { channel: stored?.channels[""] ?? 0 };
   };
   const body = (
-    <>
+    <ICD.Plans>
       <Entries
         device={device}
         selected={selected}
@@ -941,10 +918,13 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
       />
       {plain.flatMap(({ key, messages }) =>
         messages.map(({ message }, read) => (
-          <ICD.SuitRead key={`${key}/${message}`} path={plainPath(key)} read={read} />
+          <Fragment key={`${key}/${message}`}>
+            <ICD.SuitRead path={plainPath(key)} read={read} />
+            <Planner device={device} path={plainPath(key)} read={read} />
+          </Fragment>
         )),
       )}
-    </>
+    </ICD.Plans>
   );
   return (
     <>
