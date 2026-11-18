@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -142,25 +143,29 @@ describe("toggle/aether/Toggle", () => {
     afterEach(() => vi.useRealTimers());
 
     it("should start out live", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       expect(h.state.stale).toBe(false);
     });
 
     it("should stay live before the source has ever sent", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       vi.advanceTimersByTime(10000);
       expect(h.state.stale).toBe(false);
     });
 
     it("should turn stale when the source stops sending", () => {
-      const { h, source } = setup({ stalenessTimeout: 1 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       source.setValue(true);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
     });
 
     it("should stay live while the source keeps sending", () => {
-      const { h, source } = setup({ stalenessTimeout: 5 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(5).nanoseconds,
+      });
       for (let i = 0; i < 10; i++) {
         vi.advanceTimersByTime(1000);
         source.setValue(i % 2 === 0);
@@ -169,14 +174,19 @@ describe("toggle/aether/Toggle", () => {
     });
 
     it("should turn live again when the source sends after going stale", () => {
-      const { h, source } = setup({ stalenessTimeout: 1 });
+      const { h, source } = setup({
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       vi.advanceTimersByTime(1250);
       source.setValue(true);
       expect(h.state.stale).toBe(false);
     });
 
     it("should keep reporting the last known enabled state while stale", () => {
-      const { h, source } = setup({ sourceValue: false, stalenessTimeout: 1 });
+      const { h, source } = setup({
+        sourceValue: false,
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+      });
       source.setValue(true);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
@@ -184,7 +194,7 @@ describe("toggle/aether/Toggle", () => {
     });
 
     it("should release its registration on delete", () => {
-      const { h } = setup({ stalenessTimeout: 1 });
+      const { h } = setup({ stalenessTimeout: TimeSpan.seconds(1).nanoseconds });
       h.unmount();
       vi.advanceTimersByTime(1250);
       expect(vi.getTimerCount()).toEqual(0);

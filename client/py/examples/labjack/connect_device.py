@@ -30,6 +30,7 @@ Configuration:
     Modify the constants below to match your LabJack device.
 """
 
+import sys
 import time
 
 import synnax as sy
@@ -45,7 +46,7 @@ client = sy.Synnax()
 existing_device = client.devices.retrieve(name=DEVICE_NAME, ignore_not_found=True)
 if existing_device is not None:
     print(f"✓ {DEVICE_NAME} is already connected (serial {existing_device.key}).")
-    exit(0)
+    sys.exit(0)
 
 
 def find() -> sy.Device | None:
@@ -66,7 +67,7 @@ if device is None:
     print("  - The Synnax Driver is running on this computer.")
     print("  - The LabJack LJM library is installed.")
     print("  - No other software (such as Kipling) has the device open.")
-    exit(1)
+    sys.exit(1)
 
 client.devices.dispatch(
     device.key,

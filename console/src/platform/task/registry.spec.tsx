@@ -17,6 +17,7 @@ import { Task } from "@/platform/task";
 const registry: Task.Registry = {
   getIcon: () => <Icon.Task />,
   parseType: (type: string) => type.replace("ni_", ""),
+  getPlotChannels: () => undefined,
 };
 
 const wrapper = ({ children }: PropsWithChildren): ReactElement => (

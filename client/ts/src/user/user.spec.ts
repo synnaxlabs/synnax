@@ -319,9 +319,7 @@ describe("User", () => {
         username: TEST_CREDENTIALS.username,
       });
       await expect(client.users.setRole(root.key, r.key)).rejects.toThrow(
-        new ValidationError(
-          `cannot change the role of root user ${root.name}: validation error`,
-        ),
+        new ValidationError(`cannot change the role of root user ${root.name}`),
       );
       expect(expectLive(client.users.watch(root.key).getCached()).role).toEqual(
         root.role,
@@ -354,7 +352,7 @@ describe("User", () => {
       const u = await createUser();
       const missing = uuid.create();
       await expect(client.users.setRole(u.key, missing)).rejects.toThrow(
-        `role: role ${missing} does not exist: validation error`,
+        `role: role ${missing} does not exist`,
       );
     });
     test("deny a subject that cannot update the role the user holds", async () => {

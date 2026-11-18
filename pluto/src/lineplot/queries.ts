@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, NotFoundError, type project } from "@synnaxlabs/client";
-import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, compare, DataType, type require, verbs } from "@synnaxlabs/x";
+import { type color, lineplot, NotFoundError, type project } from "@synnaxlabs/client";
+import { array, color as xcolor, DataType, type require, verbs } from "@synnaxlabs/x";
 
 import { Channel } from "@/channel";
+import { Color } from "@/color";
 import { Flux } from "@/flux";
 import { Scope } from "@/lineplot/scope";
 
@@ -62,7 +62,7 @@ const createAxisKeysSelector = <K extends lineplot.AxisKey>(keys: readonly K[]) 
   Scope.bindHook(
     createSelector(
       ({ channels }) => keys.filter((k) => shouldDisplayAxis(k, channels)),
-      compare.arraysEqual,
+      array.equal,
     ),
   );
 
@@ -81,8 +81,8 @@ export const useAxis = Scope.bindHook(
   createSelector<lineplot.Axis, AxisParams>(({ axes }, { axisKey }) => axes[axisKey]),
 );
 
-// DerivedLine is a stored line with its render color resolved to a concrete palette
-// color, ready for the chart and toolbar to consume directly.
+// DerivedLine is a stored line with its render color resolved for the theme, ready for
+// the chart and toolbar to consume directly.
 export interface DerivedLine extends Omit<lineplot.Line, "color">, ResolvedColor {
   // isDefaultLabel reports whether label is derived from the channel name rather
   // than a stored user override. The toolbar uses it to offer a reset affordance.
@@ -90,49 +90,88 @@ export interface DerivedLine extends Omit<lineplot.Line, "color">, ResolvedColor
 }
 
 export interface ResolvedColor {
-  // color is the color the element renders with: its picked color when set,
+  // color is the color the element renders with: its stored color when set,
   // otherwise its auto color.
-  color: color.Color;
-  // pickedColor is the stored color the user picked, or undefined when the
-  // element follows the palette.
-  pickedColor?: color.Color;
-  // autoColor is the palette color chosen by the element's position.
-  autoColor: color.Color;
+  color: xcolor.Color;
+  // pickedColor is the stored color reference, or undefined when the theme picks.
+  pickedColor?: color.Ref;
+  // autoColor is the series color that the element takes when it has no stored color.
+  autoColor: xcolor.Color;
 }
+
+interface Colors {
+  resolve: (ref: color.Ref) => xcolor.Color | undefined;
+  series: color.Key[];
+}
+
+const useColors = (): Colors => ({
+  resolve: Color.useResolve(),
+  series: Color.useSeries(),
+});
+
+// autoKeys returns the key of the series color that each element takes when it has no
+// stored color: the one that the fewest other elements use, with a tie going to the
+// first. Each element with no stored color counts as using the key it takes. The Core
+// picks the same keys when it fills in empty colors, so a color does not change when
+// the Core saves it.
+const autoKeys = (
+  stored: (color.Ref | undefined)[],
+  series: color.Key[],
+): (color.Key | undefined)[] => {
+  const uses = new Map<color.Key, number>();
+  const count = (key: color.Key): number => uses.get(key) ?? 0;
+  const add = (key: color.Key, n: number): void => {
+    uses.set(key, count(key) + n);
+  };
+  for (const ref of stored) if (ref?.type === "named") add(ref.key, 1);
+  return stored.map((ref) => {
+    const own = ref?.type === "named" ? ref.key : undefined;
+    if (own != null) add(own, -1);
+    let pick: color.Key | undefined;
+    for (const key of series) if (pick == null || count(key) < count(pick)) pick = key;
+    if (own != null) add(own, 1);
+    else if (ref == null && pick != null) add(pick, 1);
+    return pick;
+  });
+};
 
 // resolveColor resolves a line or rule color. Lines and rules both route through
 // it so the chart and the toolbar resolve an element to the same color.
 const resolveColor = (
-  stored: color.Color | undefined,
-  index: number,
-  palette: color.Crude[],
+  stored: color.Ref | undefined,
+  auto: color.Key | undefined,
+  colors: Colors,
 ): ResolvedColor => {
-  const autoColor = color.construct(
-    palette[index % Math.max(palette.length, 1)] ?? color.TRANSPARENT,
-  );
-  return { color: stored ?? autoColor, pickedColor: stored, autoColor };
+  const autoColor =
+    (auto == null ? undefined : colors.resolve({ type: "named", key: auto })) ??
+    xcolor.TRANSPARENT;
+  const resolved = stored == null ? undefined : colors.resolve(stored);
+  return { color: resolved ?? autoColor, pickedColor: stored, autoColor };
 };
 
 const useStoredLines = createSelector(({ lines }) => lines);
 
 const useLinesBase = (params: KeyParams): DerivedLine[] => {
   const lines = useStoredLines(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
+  const colors = useColors();
+  const auto = autoKeys(
+    lines.map((l) => l.color),
+    colors.series,
+  );
   return lines.map(({ color, ...line }, i) => ({
     ...line,
-    ...resolveColor(color, i, palette),
+    ...resolveColor(color, auto[i], colors),
     isDefaultLabel: line.label == null,
   }));
 };
 
-// useLines returns the plot's lines, each with its render color resolved from the
-// active palette (a line with no stored color is assigned one by its position).
-// Lines are materialized eagerly by the reducer, so this is the complete set of
-// styled lines.
+// useLines returns the plot's lines, each with its render color resolved for the
+// theme (a line with no stored color takes a series color). Lines are materialized
+// eagerly by the reducer, so this is the complete set of styled lines.
 export const useLines = Scope.bindHook(useLinesBase);
 
 export const useLineKeys = Scope.bindHook(
-  createSelector(({ lines }) => lines.map((l) => l.key), compare.arraysEqual),
+  createSelector(({ lines }) => lines.map((l) => l.key), array.equal),
 );
 
 export const useLineCount = Scope.bindHook(createSelector(({ lines }) => lines.length));
@@ -153,7 +192,7 @@ export interface XAxisParams {
 export const useYAxisChannels = Scope.bindHook(
   createSelector<lineplot.Channels[lineplot.YAxisKey], YAxisParams>(
     ({ channels }, { axisKey }) => channels[axisKey],
-    compare.arraysEqual,
+    array.equal,
   ),
 );
 
@@ -211,8 +250,8 @@ export const useYAxis = Scope.bindHook(
     },
     (a, b) =>
       a.axis == b.axis &&
-      compare.arraysEqual(a.channels, b.channels) &&
-      compare.arraysEqual(a.lineKeys, b.lineKeys),
+      array.equal(a.channels, b.channels) &&
+      array.equal(a.lineKeys, b.lineKeys),
   ),
 );
 
@@ -221,62 +260,73 @@ export interface LineParams {
   lineKey: string;
 }
 
-interface RawLine {
-  line: lineplot.Line;
-  index: number;
+interface SeriesParams {
+  series: color.Key[];
 }
 
-// useRawLine selects a single line and its position by key. The equality
-// compares the stored line reference (kept stable across unrelated edits by
-// Immer) and the index, so it re-renders only when that line or its position
-// changes, not when other lines on the plot do.
-const useRawLine = createSelector<RawLine, LineParams>(
-  ({ lines }, { lineKey }) => {
+interface RawLine {
+  line: lineplot.Line;
+  auto?: color.Key;
+}
+
+// useRawLine selects a single line and its auto color key. The equality compares the
+// stored line reference (kept stable across unrelated edits by Immer) and the key, so
+// it re-renders only when that line or its auto color changes, not when other lines
+// on the plot do.
+const useRawLine = createSelector<RawLine, LineParams & SeriesParams>(
+  ({ lines }, { lineKey, series }) => {
     const index = lines.findIndex((l) => l.key === lineKey);
     if (index === -1) throw new NotFoundError(`line with key ${lineKey} not found`);
-    return { line: lines[index], index };
+    const auto = autoKeys(
+      lines.map((l) => l.color),
+      series,
+    )[index];
+    return { line: lines[index], auto };
   },
-  (a, b) => a.line === b.line && a.index === b.index,
+  (a, b) => a.line === b.line && a.auto === b.auto,
 );
 
 const useLineBase = (params: LineParams): require.Require<DerivedLine, "label"> => {
-  const raw = useRawLine(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
+  const colors = useColors();
+  const raw = useRawLine({ ...params, series: colors.series });
   const { yChannel } = raw.line;
   const { data: chanName } = Channel.useResultName(
     yChannel > 0 ? { key: yChannel } : null,
   );
   return {
     ...raw.line,
-    ...resolveColor(raw.line.color, raw.index, palette),
+    ...resolveColor(raw.line.color, raw.auto, colors),
     label: raw.line.label ?? chanName ?? "",
     isDefaultLabel: raw.line.label == null,
   };
 };
 
-// useLine returns a single line with its color resolved by position the same way as
-// useLines, subscribing narrowly so it re-renders only when that line, its position,
-// or the palette changes.
+// useLine returns a single line with its color resolved the same way as useLines,
+// subscribing narrowly so it re-renders only when that line, its auto color, or a
+// named color changes.
 export const useLine = Scope.bindHook(useLineBase);
 
-// DerivedRule is a stored rule with its render color resolved to a concrete
-// palette color, ready for the chart and toolbar to consume directly.
+// DerivedRule is a stored rule with its render color resolved for the theme, ready
+// for the chart and toolbar to consume directly.
 export interface DerivedRule extends Omit<lineplot.Rule, "color">, ResolvedColor {}
 
 const useRawRules = createSelector(({ rules }) => rules);
 
 const useRulesBase = (params: KeyParams): DerivedRule[] => {
   const rules = useRawRules(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
+  const colors = useColors();
+  const auto = autoKeys(
+    rules.map((r) => r.color),
+    colors.series,
+  );
   return rules.map(({ color, ...rule }, i) => ({
     ...rule,
-    ...resolveColor(color, i, palette),
+    ...resolveColor(color, auto[i], colors),
   }));
 };
 
-// useRules returns the plot's rules, each with its render color resolved
-// from the active palette (a rule with no stored color is assigned one by its
-// position, the same way lines are).
+// useRules returns the plot's rules, each with its render color resolved for the
+// theme (a rule with no stored color takes a series color, as a line does).
 export const useRules = Scope.bindHook(useRulesBase);
 
 export interface RuleParams {
@@ -286,30 +336,31 @@ export interface RuleParams {
 
 interface RawRule {
   rule: lineplot.Rule;
-  index: number;
+  auto?: color.Key;
 }
 
-const useRawRule = createSelector<RawRule, RuleParams>(
-  ({ rules }, { ruleKey }) => {
+const useRawRule = createSelector<RawRule, RuleParams & SeriesParams>(
+  ({ rules }, { ruleKey, series }) => {
     const index = rules.findIndex((r) => r.key === ruleKey);
     if (index === -1) throw new NotFoundError(`rule with key ${ruleKey} not found`);
-    return { rule: rules[index], index };
+    const auto = autoKeys(
+      rules.map((r) => r.color),
+      series,
+    )[index];
+    return { rule: rules[index], auto };
   },
-  (a, b) => a.rule === b.rule && a.index === b.index,
+  (a, b) => a.rule === b.rule && a.auto === b.auto,
 );
 
 const useRuleBase = (params: RuleParams): DerivedRule => {
-  const raw = useRawRule(params);
-  const palette = Theming.use().colors.visualization.palettes.default;
-  return {
-    ...raw.rule,
-    ...resolveColor(raw.rule.color, raw.index, palette),
-  };
+  const colors = useColors();
+  const raw = useRawRule({ ...params, series: colors.series });
+  return { ...raw.rule, ...resolveColor(raw.rule.color, raw.auto, colors) };
 };
 
-// useRule returns a single rule with its color resolved by position the
-// same way as useRules. It throws NotFoundError when no rule with ruleKey
-// exists, so callers must only request rules they know are present.
+// useRule returns a single rule with its color resolved the same way as useRules. It
+// throws NotFoundError when no rule with ruleKey exists, so callers must only request
+// rules they know are present.
 export const useRule = Scope.bindHook(useRuleBase);
 
 export interface AxisRulesParams {
@@ -324,7 +375,7 @@ export const useAxisRuleKeys = Scope.bindHook(
   createSelector<string[], AxisRulesParams>(
     ({ rules }, { axisKey }) =>
       rules.filter((r) => r.axis === axisKey).map((r) => r.key),
-    compare.arraysEqual,
+    array.equal,
   ),
 );
 

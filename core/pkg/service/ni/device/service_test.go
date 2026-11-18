@@ -151,9 +151,9 @@ var _ = Describe("Service", func() {
 		})
 
 		DescribeTable("Should reject a device without a required field",
-			func(ctx SpecContext, field string, clear func(*device.Device)) {
+			func(ctx SpecContext, field string, unset func(*device.Device)) {
 				d := newDevice()
-				clear(&d)
+				unset(&d)
 				Expect(svc.NewWriter(tx).Create(ctx, &d)).
 					To(MatchError(ContainSubstring(field + ": required")))
 			},
@@ -495,10 +495,10 @@ var _ = Describe("Service", func() {
 		}
 
 		DescribeTable("Should reject an identity without a required field",
-			func(ctx SpecContext, field string, clear func(*device.Identity)) {
+			func(ctx SpecContext, field string, unset func(*device.Identity)) {
 				d := create(ctx)
 				identity := newIdentity()
-				clear(&identity)
+				unset(&identity)
 				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
 					Variant: device.IdentityUpdate{Identity: identity},
 				})).To(MatchError(ContainSubstring(field + ": required")))
@@ -526,6 +526,7 @@ var _ = Describe("Service", func() {
 		It("Should require an identity update before a migrated physical device is "+
 			"configured", func(ctx SpecContext) {
 			mDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(mDB.Run)
 			mStat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: mDB}))
 			MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: mDB}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: mDB}))

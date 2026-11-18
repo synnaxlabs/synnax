@@ -22,7 +22,6 @@ package pipeline
 import (
 	"context"
 	"maps"
-	"os"
 	"runtime"
 	"sort"
 	"sync"
@@ -133,14 +132,9 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		r.Versions = versions.NewResolver(chains, effective)
 	}
 
-	if err := analyze(ctx, r, effective); err != nil {
-		return r, err
-	}
-
+	analyze(r, effective)
 	if opts.Plugins != nil && r.Resolutions != nil {
-		if err := generate(ctx, r, opts, workers); err != nil {
-			return r, err
-		}
+		generate(ctx, r, opts, workers)
 	}
 
 	return r, nil
@@ -260,8 +254,7 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 			if err := gctx.Err(); err != nil {
 				return err
 			}
-			abs := paths.Resolve(rel, opts.RepoRoot)
-			raw, err := os.ReadFile(abs)
+			raw, err := paths.ReadFile(rel, opts.RepoRoot)
 			if err != nil {
 				return errors.Wrapf(err, "read schema %s", rel)
 			}
@@ -300,20 +293,19 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 	return nil
 }
 
-func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
+func analyze(r *Result, loader analyzer.FileLoader) {
 	// The loader already overlays the canonical in-memory bytes (formatted sources plus
 	// merged live projections), so analysis sees exactly what sync would write to disk.
-	table, diag := analyzer.Analyze(ctx, r.Schemas, loader)
+	table, diag := analyzer.Analyze(r.Schemas, loader)
 	if diag != nil {
 		r.Diagnostics.Combine(diag)
 	}
 	if r.Diagnostics.Ok() {
 		r.Resolutions = table
 	}
-	return nil
 }
 
-func generate(ctx context.Context, r *Result, opts Options, workers int) error {
+func generate(ctx context.Context, r *Result, opts Options, workers int) {
 	levels := topoLevels(opts.Plugins)
 	var mu sync.Mutex
 	for _, level := range levels {
@@ -324,38 +316,43 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) error {
 				if err := gctx.Err(); err != nil {
 					return err
 				}
-				req := &plugin.Request{
-					Resolutions: r.Resolutions,
-					RepoRoot:    opts.RepoRoot,
-					Versions:    r.Versions,
-				}
-				for _, depName := range p.Requires() {
-					if opts.Plugins.Get(depName) == nil {
-						return errors.Newf(
-							"plugin %q requires unknown plugin %q",
-							p.Name(), depName,
-						)
-					}
-				}
-				resp, err := p.Generate(req)
-				if err != nil {
-					return errors.Wrapf(err, "plugin %s", p.Name())
-				}
-				if resp != nil {
-					mu.Lock()
-					r.Outputs[p.Name()] = resp.Files
-					if len(resp.Deletions) > 0 {
-						r.Deletions[p.Name()] = resp.Deletions
-					}
-					mu.Unlock()
-				}
-				return nil
+				return runPlugin(r, opts, p, &mu)
 			})
 		}
 		if err := eg.Wait(); err != nil {
 			r.Diagnostics.Add(diagnostics.Error(err, nil))
-			return nil
+			return
 		}
+	}
+}
+
+// runPlugin runs one plugin and stores its outputs in r under mu.
+func runPlugin(r *Result, opts Options, p plugin.Plugin, mu *sync.Mutex) error {
+	req := &plugin.Request{
+		Resolutions: r.Resolutions,
+		RepoRoot:    opts.RepoRoot,
+		Versions:    r.Versions,
+	}
+	for _, depName := range p.Requires() {
+		if opts.Plugins.Get(depName) == nil {
+			return errors.Newf(
+				"plugin %q requires unknown plugin %q",
+				p.Name(), depName,
+			)
+		}
+	}
+	resp, err := p.Generate(req)
+	if err != nil {
+		return errors.Wrapf(err, "plugin %s", p.Name())
+	}
+	if resp == nil {
+		return nil
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	r.Outputs[p.Name()] = resp.Files
+	if len(resp.Deletions) > 0 {
+		r.Deletions[p.Name()] = resp.Deletions
 	}
 	return nil
 }

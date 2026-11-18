@@ -53,11 +53,11 @@ var _ = Describe("Domain", func() {
 					db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}),
 				)
 				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 16, 17).Data))
-				Expect(w.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
+				Expect(w.Commit(ctx, 17*telem.SecondTS+1, nil)).To(Succeed())
 				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(18, 19, 20, 22).Data))
-				Expect(w.Commit(ctx, 22*telem.SecondTS+1)).To(Succeed())
+				Expect(w.Commit(ctx, 22*telem.SecondTS+1, nil)).To(Succeed())
 				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(25, 26).Data))
-				Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
+				Expect(w.Commit(ctx, 26*telem.SecondTS+1, nil)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 				Expect(testutil.WriteDomain(
 					ctx,

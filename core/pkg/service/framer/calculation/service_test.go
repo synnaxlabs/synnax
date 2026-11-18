@@ -196,7 +196,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				bases = []channel.Channel{
 					{
 						Name:     UniqueChannelName(),
@@ -554,7 +554,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				calc1Name := UniqueChannelName()
 				bases = []channel.Channel{{
 					Name:     UniqueChannelName(),
@@ -762,7 +762,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					To(telem.MatchSeriesDataV[int64](7))
 			}
 
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				base = channel.Channel{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
@@ -787,7 +787,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s", base.Name),
+					Expression:  "return " + base.Name,
 					Operations: []channel.Operation{{
 						Type:         channel.OperationTypeMax,
 						ResetChannel: sig.Key(),
@@ -831,7 +831,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s", base.Name),
+					Expression:  "return " + base.Name,
 					Operations: []channel.Operation{{
 						Type:         channel.OperationTypeMax,
 						ResetChannel: resetCalc.Key(),
@@ -1093,7 +1093,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return 100 / %s", base.Name),
+					Expression:  "return 100 / " + base.Name,
 				}
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &dep)
@@ -1187,7 +1187,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return 100 / %s", bases[0].Name),
+					Expression:  "return 100 / " + bases[0].Name,
 				}}
 				var cancel context.CancelFunc
 				w, out, cancel = open(

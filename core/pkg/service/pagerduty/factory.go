@@ -99,11 +99,11 @@ func (f *factory) ConfigureTask(
 	}
 	var cfg TaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		f.reporter.Report(ctx, t, cmdKey, false, err)
+		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	if err := validateConfig(cfg); err != nil {
-		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
+		f.reporter.Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	pdTask, err := newAlertTask(f.cfg, t, cfg)

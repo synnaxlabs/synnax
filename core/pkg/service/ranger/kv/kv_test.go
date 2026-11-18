@@ -39,6 +39,7 @@ var _ = Describe("KV", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
@@ -255,6 +256,7 @@ var _ = Describe("Dispatch", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{

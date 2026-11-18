@@ -30,6 +30,36 @@ func (e *Edge) Patch(c patch.Cursor) error {
 func (e *Edge) PatchKey() string { return e.Key }
 
 // Patch applies the path action at c, which is not done, to the value.
+func (lc *LabelConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "label":
+		return patch.Value(&lc.Label, c.Next())
+	case "level":
+		return patch.Defaulted(&lc.Level, c.Next(), func(def *LabelConfig) {
+			lc.Level = def.Level
+		})
+	case "orientation":
+		return patch.Defaulted(&lc.Orientation, c.Next(), func(def *LabelConfig) {
+			lc.Orientation = def.Orientation
+		})
+	case "direction":
+		return patch.Defaulted(&lc.Direction, c.Next(), func(def *LabelConfig) {
+			lc.Direction = def.Direction
+		})
+	case "max_inline_size":
+		return patch.Defaulted(&lc.MaxInlineSize, c.Next(), func(def *LabelConfig) {
+			lc.MaxInlineSize = def.MaxInlineSize
+		})
+	case "align":
+		return patch.Defaulted(&lc.Align, c.Next(), func(def *LabelConfig) {
+			lc.Align = def.Align
+		})
+	default:
+		return c.UnknownField()
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (n *Node) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "config":
@@ -1955,19 +1985,16 @@ func (tnc *ThrusterNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&tnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&tnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&tnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&tnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&tnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || tnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&tnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&tnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *ThrusterNodeConfig) {
+				tnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *tnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		tnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return tnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&tnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -2328,13 +2355,9 @@ func (bnc *BoxNodeConfig) Patch(c patch.Cursor) error {
 		}
 		return bnc.Dimensions.Patch(c)
 	case "border_radius":
-		return patch.Defaulted(&bnc.BorderRadius, c.Next(), func(def *BoxNodeConfig) {
-			bnc.BorderRadius = def.BorderRadius
-		})
+		return patch.OptionalValue(&bnc.BorderRadius, c.Next())
 	case "stroke_width":
-		return patch.Defaulted(&bnc.StrokeWidth, c.Next(), func(def *BoxNodeConfig) {
-			bnc.StrokeWidth = def.StrokeWidth
-		})
+		return patch.OptionalValue(&bnc.StrokeWidth, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -2358,12 +2381,10 @@ func (bnc *ButtonNodeConfig) Patch(c patch.Cursor) error {
 		return patch.Defaulted(&bnc.Size, c.Next(), func(def *ButtonNodeConfig) {
 			bnc.Size = def.Size
 		})
-	case "level":
-		return patch.OptionalValue(&bnc.Level, c.Next())
 	case "on_click_delay":
 		return patch.Value(&bnc.OnClickDelay, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&bnc.CommandChannel, c.Next())
+		return patch.Value(&bnc.CommandChannel, c.Next())
 	case "mode":
 		return patch.Defaulted(&bnc.Mode, c.Next(), func(def *ButtonNodeConfig) {
 			bnc.Mode = def.Mode
@@ -2371,15 +2392,12 @@ func (bnc *ButtonNodeConfig) Patch(c patch.Cursor) error {
 	case "fill_color":
 		return patch.OptionalValue(&bnc.FillColor, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || bnc.Control == nil {
-			return patch.OptionalValue(&bnc.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&bnc.Control, c, func(def *ButtonNodeConfig) {
+				bnc.Control = def.Control
+			})
 		}
-		next := *bnc.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		bnc.Control = &next
-		return nil
+		return bnc.Control.Patch(c)
 	default:
 		return c.UnknownField()
 	}
@@ -2408,9 +2426,7 @@ func (cnc *CircleNodeConfig) Patch(c patch.Cursor) error {
 	case "fill_color":
 		return patch.OptionalValue(&cnc.FillColor, c.Next())
 	case "stroke_width":
-		return patch.Defaulted(&cnc.StrokeWidth, c.Next(), func(def *CircleNodeConfig) {
-			cnc.StrokeWidth = def.StrokeWidth
-		})
+		return patch.OptionalValue(&cnc.StrokeWidth, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -2431,9 +2447,11 @@ func (gnc *GaugeNodeConfig) Patch(c patch.Cursor) error {
 			gnc.LabeledConfig.Orientation = def.LabeledConfig.Orientation
 		})
 	case "channel":
-		return patch.OptionalValue(&gnc.NumericTelemConfig.Channel, c.Next())
+		return patch.Value(&gnc.NumericTelemConfig.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&gnc.NumericTelemConfig.RollingAverage, c.Next())
+		return patch.Defaulted(&gnc.NumericTelemConfig.RollingAverage, c.Next(), func(def *GaugeNodeConfig) {
+			gnc.NumericTelemConfig.RollingAverage = def.NumericTelemConfig.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&gnc.NumericTelemConfig.Precision, c.Next())
 	case "notation":
@@ -2447,15 +2465,12 @@ func (gnc *GaugeNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&gnc.StalenessConfig.StalenessColor, c.Next())
 	case "position":
-		if c = c.Next(); c.Done() || gnc.Position == nil {
-			return patch.OptionalValue(&gnc.Position, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&gnc.Position, c, func(def *GaugeNodeConfig) {
+				gnc.Position = def.Position
+			})
 		}
-		next := *gnc.Position
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		gnc.Position = &next
-		return nil
+		return gnc.Position.Patch(c)
 	case "stroke_color":
 		return patch.OptionalValue(&gnc.StrokeColor, c.Next())
 	case "bounds":
@@ -2509,19 +2524,16 @@ func (inc *InputNodeConfig) Patch(c patch.Cursor) error {
 			inc.Size = def.Size
 		})
 	case "command_channel":
-		return patch.OptionalValue(&inc.CommandChannel, c.Next())
+		return patch.Value(&inc.CommandChannel, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&inc.StateChannel, c.Next())
+		return patch.Value(&inc.StateChannel, c.Next())
 	case "dimensions":
-		if c = c.Next(); c.Done() || inc.Dimensions == nil {
-			return patch.OptionalValue(&inc.Dimensions, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&inc.Dimensions, c, func(def *InputNodeConfig) {
+				inc.Dimensions = def.Dimensions
+			})
 		}
-		next := *inc.Dimensions
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		inc.Dimensions = &next
-		return nil
+		return inc.Dimensions.Patch(c)
 	case "fill_color":
 		return patch.OptionalValue(&inc.FillColor, c.Next())
 	case "disabled":
@@ -2533,15 +2545,12 @@ func (inc *InputNodeConfig) Patch(c patch.Cursor) error {
 	case "on_click_delay":
 		return patch.Value(&inc.OnClickDelay, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || inc.Control == nil {
-			return patch.OptionalValue(&inc.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&inc.Control, c, func(def *InputNodeConfig) {
+				inc.Control = def.Control
+			})
 		}
-		next := *inc.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		inc.Control = &next
-		return nil
+		return inc.Control.Patch(c)
 	default:
 		return c.UnknownField()
 	}
@@ -2572,7 +2581,7 @@ func (lnc *LightNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&lnc.StalenessConfig.StalenessColor, c.Next())
 	case "channel":
-		return patch.OptionalValue(&lnc.Channel, c.Next())
+		return patch.Value(&lnc.Channel, c.Next())
 	case "threshold":
 		return patch.OptionalValue(&lnc.Threshold, c.Next())
 	case "stroke_color":
@@ -2629,17 +2638,14 @@ func (oprnc *OffPageReferenceNodeConfig) Patch(c patch.Cursor) error {
 	case "fill_color":
 		return patch.OptionalValue(&oprnc.FillColor, c.Next())
 	case "page":
-		if c = c.Next(); c.Done() || oprnc.Page == nil {
-			return patch.OptionalValue(&oprnc.Page, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&oprnc.Page, c, func(def *OffPageReferenceNodeConfig) {
+				oprnc.Page = def.Page
+			})
 		}
-		next := *oprnc.Page
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		oprnc.Page = &next
-		return nil
-	case "dbl_click_nav_disabled":
-		return patch.Value(&oprnc.DblClickNavDisabled, c.Next())
+		return oprnc.Page.Patch(c)
+	case "double_click_navigation_disabled":
+		return patch.Value(&oprnc.DoubleClickNavigationDisabled, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -2669,16 +2675,14 @@ func (pnc *PolygonNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "rotation":
 		return patch.Value(&pnc.Rotation, c.Next())
-	case "corner_rounding":
-		return patch.Value(&pnc.CornerRounding, c.Next())
+	case "border_radius":
+		return patch.Value(&pnc.BorderRadius, c.Next())
 	case "stroke_color":
 		return patch.OptionalValue(&pnc.StrokeColor, c.Next())
 	case "fill_color":
 		return patch.OptionalValue(&pnc.FillColor, c.Next())
 	case "stroke_width":
-		return patch.Defaulted(&pnc.StrokeWidth, c.Next(), func(def *PolygonNodeConfig) {
-			pnc.StrokeWidth = def.StrokeWidth
-		})
+		return patch.OptionalValue(&pnc.StrokeWidth, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -2709,9 +2713,9 @@ func (snc *SelectNodeConfig) Patch(c patch.Cursor) error {
 			snc.Size = def.Size
 		})
 	case "command_channel":
-		return patch.OptionalValue(&snc.CommandChannel, c.Next())
+		return patch.Value(&snc.CommandChannel, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&snc.StateChannel, c.Next())
+		return patch.Value(&snc.StateChannel, c.Next())
 	case "fill_color":
 		return patch.OptionalValue(&snc.FillColor, c.Next())
 	case "inline_size":
@@ -2725,15 +2729,12 @@ func (snc *SelectNodeConfig) Patch(c patch.Cursor) error {
 	case "on_click_delay":
 		return patch.Value(&snc.OnClickDelay, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || snc.Control == nil {
-			return patch.OptionalValue(&snc.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&snc.Control, c, func(def *SelectNodeConfig) {
+				snc.Control = def.Control
+			})
 		}
-		next := *snc.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		snc.Control = &next
-		return nil
+		return snc.Control.Patch(c)
 	default:
 		return c.UnknownField()
 	}
@@ -2754,9 +2755,11 @@ func (snc *ScaleNodeConfig) Patch(c patch.Cursor) error {
 			snc.LabeledConfig.Orientation = def.LabeledConfig.Orientation
 		})
 	case "channel":
-		return patch.OptionalValue(&snc.ScaleIndicatorConfig.NumericTelemConfig.Channel, c.Next())
+		return patch.Value(&snc.ScaleIndicatorConfig.NumericTelemConfig.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&snc.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage, c.Next())
+		return patch.Defaulted(&snc.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage, c.Next(), func(def *ScaleNodeConfig) {
+			snc.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage = def.ScaleIndicatorConfig.NumericTelemConfig.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&snc.ScaleIndicatorConfig.NumericTelemConfig.Precision, c.Next())
 	case "notation":
@@ -2800,15 +2803,12 @@ func (snc *ScaleNodeConfig) Patch(c patch.Cursor) error {
 			snc.ScaleIndicatorConfig.Level = def.ScaleIndicatorConfig.Level
 		})
 	case "position":
-		if c = c.Next(); c.Done() || snc.Position == nil {
-			return patch.OptionalValue(&snc.Position, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&snc.Position, c, func(def *ScaleNodeConfig) {
+				snc.Position = def.Position
+			})
 		}
-		next := *snc.Position
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		snc.Position = &next
-		return nil
+		return snc.Position.Patch(c)
 	case "dimensions":
 		if c = c.Next(); c.Done() {
 			return patch.Defaulted(&snc.Dimensions, c, func(def *ScaleNodeConfig) {
@@ -2846,19 +2846,16 @@ func (snc *SetpointNodeConfig) Patch(c patch.Cursor) error {
 			snc.Size = def.Size
 		})
 	case "command_channel":
-		return patch.OptionalValue(&snc.CommandChannel, c.Next())
+		return patch.Value(&snc.CommandChannel, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&snc.StateChannel, c.Next())
+		return patch.Value(&snc.StateChannel, c.Next())
 	case "dimensions":
-		if c = c.Next(); c.Done() || snc.Dimensions == nil {
-			return patch.OptionalValue(&snc.Dimensions, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&snc.Dimensions, c, func(def *SetpointNodeConfig) {
+				snc.Dimensions = def.Dimensions
+			})
 		}
-		next := *snc.Dimensions
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		snc.Dimensions = &next
-		return nil
+		return snc.Dimensions.Patch(c)
 	case "fill_color":
 		return patch.OptionalValue(&snc.FillColor, c.Next())
 	case "units":
@@ -2872,15 +2869,12 @@ func (snc *SetpointNodeConfig) Patch(c patch.Cursor) error {
 	case "on_click_delay":
 		return patch.Value(&snc.OnClickDelay, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || snc.Control == nil {
-			return patch.OptionalValue(&snc.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&snc.Control, c, func(def *SetpointNodeConfig) {
+				snc.Control = def.Control
+			})
 		}
-		next := *snc.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		snc.Control = &next
-		return nil
+		return snc.Control.Patch(c)
 	default:
 		return c.UnknownField()
 	}
@@ -2907,7 +2901,7 @@ func (sinc *StateIndicatorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&sinc.StalenessConfig.StalenessColor, c.Next())
 	case "channel":
-		return patch.OptionalValue(&sinc.Channel, c.Next())
+		return patch.Value(&sinc.Channel, c.Next())
 	case "stroke_color":
 		return patch.OptionalValue(&sinc.StrokeColor, c.Next())
 	case "inline_size":
@@ -2956,7 +2950,7 @@ func (sdnc *StringDisplayNodeConfig) Patch(c patch.Cursor) error {
 			sdnc.InlineSize = def.InlineSize
 		})
 	case "channel":
-		return patch.OptionalValue(&sdnc.Channel, c.Next())
+		return patch.Value(&sdnc.Channel, c.Next())
 	case "level":
 		return patch.Defaulted(&sdnc.Level, c.Next(), func(def *StringDisplayNodeConfig) {
 			sdnc.Level = def.Level
@@ -2991,19 +2985,16 @@ func (snc *SwitchNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&snc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&snc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&snc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&snc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&snc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || snc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&snc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&snc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *SwitchNodeConfig) {
+				snc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *snc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		snc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return snc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&snc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3029,9 +3020,9 @@ func (tbnc *TextBoxNodeConfig) Patch(c patch.Cursor) error {
 		})
 	case "text_color":
 		return patch.OptionalValue(&tbnc.TextColor, c.Next())
-	case "width":
-		return patch.Defaulted(&tbnc.Width, c.Next(), func(def *TextBoxNodeConfig) {
-			tbnc.Width = def.Width
+	case "inline_size":
+		return patch.Defaulted(&tbnc.InlineSize, c.Next(), func(def *TextBoxNodeConfig) {
+			tbnc.InlineSize = def.InlineSize
 		})
 	case "align":
 		return patch.Defaulted(&tbnc.Align, c.Next(), func(def *TextBoxNodeConfig) {
@@ -3044,9 +3035,7 @@ func (tbnc *TextBoxNodeConfig) Patch(c patch.Cursor) error {
 			tbnc.Level = def.Level
 		})
 	case "value":
-		return patch.Defaulted(&tbnc.Value, c.Next(), func(def *TextBoxNodeConfig) {
-			tbnc.Value = def.Value
-		})
+		return patch.Value(&tbnc.Value, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -3067,9 +3056,11 @@ func (vnc *ValueNodeConfig) Patch(c patch.Cursor) error {
 			vnc.LabeledConfig.Orientation = def.LabeledConfig.Orientation
 		})
 	case "channel":
-		return patch.OptionalValue(&vnc.NumericTelemConfig.Channel, c.Next())
+		return patch.Value(&vnc.NumericTelemConfig.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&vnc.NumericTelemConfig.RollingAverage, c.Next())
+		return patch.Defaulted(&vnc.NumericTelemConfig.RollingAverage, c.Next(), func(def *ValueNodeConfig) {
+			vnc.NumericTelemConfig.RollingAverage = def.NumericTelemConfig.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&vnc.NumericTelemConfig.Precision, c.Next())
 	case "notation":
@@ -3083,15 +3074,12 @@ func (vnc *ValueNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&vnc.StalenessConfig.StalenessColor, c.Next())
 	case "position":
-		if c = c.Next(); c.Done() || vnc.Position == nil {
-			return patch.OptionalValue(&vnc.Position, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&vnc.Position, c, func(def *ValueNodeConfig) {
+				vnc.Position = def.Position
+			})
 		}
-		next := *vnc.Position
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		vnc.Position = &next
-		return nil
+		return vnc.Position.Patch(c)
 	case "stroke_color":
 		return patch.OptionalValue(&vnc.StrokeColor, c.Next())
 	case "text_color":
@@ -3154,19 +3142,16 @@ func (anc *AgitatorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&anc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&anc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&anc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&anc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&anc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || anc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&anc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&anc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *AgitatorNodeConfig) {
+				anc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *anc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		anc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return anc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&anc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3201,19 +3186,16 @@ func (cbanc *CrossBeamAgitatorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&cbanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&cbanc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&cbanc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&cbanc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&cbanc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || cbanc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&cbanc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&cbanc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *CrossBeamAgitatorNodeConfig) {
+				cbanc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *cbanc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		cbanc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return cbanc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&cbanc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3248,19 +3230,16 @@ func (fbanc *FlatBladeAgitatorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&fbanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&fbanc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&fbanc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&fbanc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&fbanc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || fbanc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&fbanc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&fbanc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *FlatBladeAgitatorNodeConfig) {
+				fbanc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *fbanc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		fbanc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return fbanc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&fbanc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3370,19 +3349,16 @@ func (hanc *HelicalAgitatorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&hanc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&hanc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&hanc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&hanc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&hanc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || hanc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&hanc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&hanc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *HelicalAgitatorNodeConfig) {
+				hanc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *hanc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		hanc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return hanc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&hanc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3417,19 +3393,16 @@ func (panc *PaddleAgitatorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&panc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&panc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || panc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&panc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *PaddleAgitatorNodeConfig) {
+				panc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *panc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		panc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return panc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&panc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3464,19 +3437,16 @@ func (panc *PropellerAgitatorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&panc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&panc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || panc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&panc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&panc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *PropellerAgitatorNodeConfig) {
+				panc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *panc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		panc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return panc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&panc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3511,19 +3481,16 @@ func (rmnc *RotaryMixerNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&rmnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&rmnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&rmnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&rmnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&rmnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || rmnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&rmnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&rmnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *RotaryMixerNodeConfig) {
+				rmnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *rmnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		rmnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return rmnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&rmnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3583,19 +3550,16 @@ func (cpnc *CavityPumpNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&cpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&cpnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&cpnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&cpnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&cpnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || cpnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&cpnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&cpnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *CavityPumpNodeConfig) {
+				cpnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *cpnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		cpnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return cpnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&cpnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3630,19 +3594,16 @@ func (ccnc *CentrifugalCompressorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&ccnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&ccnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&ccnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&ccnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&ccnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || ccnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&ccnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&ccnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *CentrifugalCompressorNodeConfig) {
+				ccnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *ccnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		ccnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return ccnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&ccnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3677,19 +3638,16 @@ func (cnc *CompressorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&cnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&cnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&cnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&cnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&cnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || cnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&cnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&cnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *CompressorNodeConfig) {
+				cnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *cnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		cnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return cnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&cnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3724,19 +3682,16 @@ func (dpnc *DiaphragmPumpNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&dpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&dpnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&dpnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&dpnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&dpnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || dpnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&dpnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&dpnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *DiaphragmPumpNodeConfig) {
+				dpnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *dpnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		dpnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return dpnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&dpnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3771,19 +3726,16 @@ func (epnc *EjectionPumpNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&epnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&epnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&epnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&epnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&epnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || epnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&epnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&epnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *EjectionPumpNodeConfig) {
+				epnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *epnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		epnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return epnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&epnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3818,19 +3770,16 @@ func (ecnc *EjectorCompressorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&ecnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&ecnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&ecnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&ecnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&ecnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || ecnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&ecnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&ecnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *EjectorCompressorNodeConfig) {
+				ecnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *ecnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		ecnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return ecnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&ecnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3865,19 +3814,16 @@ func (lrcnc *LiquidRingCompressorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&lrcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&lrcnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&lrcnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&lrcnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&lrcnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || lrcnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&lrcnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&lrcnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *LiquidRingCompressorNodeConfig) {
+				lrcnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *lrcnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		lrcnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return lrcnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&lrcnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3912,19 +3858,16 @@ func (ppnc *PistonPumpNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&ppnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&ppnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&ppnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&ppnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&ppnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || ppnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&ppnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&ppnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *PistonPumpNodeConfig) {
+				ppnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *ppnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		ppnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return ppnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&ppnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -3959,19 +3902,16 @@ func (pnc *PumpNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&pnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&pnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&pnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&pnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&pnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || pnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&pnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&pnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *PumpNodeConfig) {
+				pnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *pnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		pnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return pnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&pnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4006,19 +3946,16 @@ func (rvcnc *RollerVaneCompressorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&rvcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&rvcnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&rvcnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&rvcnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&rvcnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || rvcnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&rvcnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&rvcnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *RollerVaneCompressorNodeConfig) {
+				rvcnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *rvcnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		rvcnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return rvcnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&rvcnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4053,19 +3990,16 @@ func (spnc *ScrewPumpNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&spnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&spnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&spnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&spnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&spnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || spnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&spnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&spnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *ScrewPumpNodeConfig) {
+				spnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *spnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		spnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return spnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&spnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4100,19 +4034,16 @@ func (tcnc *TurboCompressorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&tcnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&tcnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&tcnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&tcnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&tcnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || tcnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&tcnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&tcnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *TurboCompressorNodeConfig) {
+				tcnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *tcnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		tcnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return tcnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&tcnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4147,19 +4078,16 @@ func (vpnc *VacuumPumpNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&vpnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&vpnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&vpnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&vpnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&vpnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || vpnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&vpnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&vpnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *VacuumPumpNodeConfig) {
+				vpnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *vpnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		vpnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return vpnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&vpnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4369,19 +4297,16 @@ func (avnc *AngledValveNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&avnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&avnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&avnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&avnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&avnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || avnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&avnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&avnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *AngledValveNodeConfig) {
+				avnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *avnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		avnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return avnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&avnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4474,19 +4399,16 @@ func (bvnc *BallValveNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&bvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&bvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&bvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&bvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&bvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || bvnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&bvnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&bvnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *BallValveNodeConfig) {
+				bvnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *bvnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		bvnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return bvnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&bvnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4550,19 +4472,16 @@ func (bvonc *ButterflyValveOneNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&bvonc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&bvonc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&bvonc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&bvonc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&bvonc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || bvonc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&bvonc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&bvonc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *ButterflyValveOneNodeConfig) {
+				bvonc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *bvonc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		bvonc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return bvonc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&bvonc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4597,19 +4516,16 @@ func (bvtnc *ButterflyValveTwoNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&bvtnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&bvtnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&bvtnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&bvtnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&bvtnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || bvtnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&bvtnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&bvtnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *ButterflyValveTwoNodeConfig) {
+				bvtnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *bvtnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		bvtnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return bvtnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&bvtnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4744,19 +4660,16 @@ func (fwvnc *FourWayValveNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&fwvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&fwvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&fwvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&fwvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&fwvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || fwvnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&fwvnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&fwvnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *FourWayValveNodeConfig) {
+				fwvnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *fwvnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		fwvnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return fwvnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&fwvnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -4791,19 +4704,16 @@ func (gvnc *GateValveNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&gvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&gvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&gvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&gvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&gvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || gvnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&gvnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&gvnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *GateValveNodeConfig) {
+				gvnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *gvnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		gvnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return gvnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&gvnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -5000,19 +4910,16 @@ func (svnc *SolenoidValveNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&svnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&svnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&svnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&svnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&svnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || svnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&svnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&svnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *SolenoidValveNodeConfig) {
+				svnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *svnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		svnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return svnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&svnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -5078,19 +4985,16 @@ func (twvnc *ThreeWayValveNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&twvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&twvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&twvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&twvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&twvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || twvnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&twvnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&twvnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *ThreeWayValveNodeConfig) {
+				twvnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *twvnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		twvnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return twvnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&twvnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -5125,19 +5029,16 @@ func (twbvnc *ThreeWayBallValveNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&twbvnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&twbvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&twbvnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&twbvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&twbvnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || twbvnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&twbvnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&twbvnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *ThreeWayBallValveNodeConfig) {
+				twbvnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *twbvnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		twbvnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return twbvnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&twbvnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -5172,19 +5073,16 @@ func (vnc *ValveNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&vnc.ToggleSymbolConfig.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&vnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&vnc.ToggleSymbolConfig.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&vnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&vnc.ToggleSymbolConfig.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || vnc.ToggleSymbolConfig.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&vnc.ToggleSymbolConfig.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&vnc.ToggleSymbolConfig.ToggleConfig.Control, c, func(def *ValveNodeConfig) {
+				vnc.ToggleSymbolConfig.ToggleConfig.Control = def.ToggleSymbolConfig.ToggleConfig.Control
+			})
 		}
-		next := *vnc.ToggleSymbolConfig.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		vnc.ToggleSymbolConfig.ToggleConfig.Control = &next
-		return nil
+		return vnc.ToggleSymbolConfig.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&vnc.ToggleSymbolConfig.ToggleConfig.OnClickDelay, c.Next())
 	case "stroke_color":
@@ -5270,9 +5168,11 @@ func (tnc *TankNodeConfig) Patch(c patch.Cursor) error {
 			tnc.LabeledConfig.Orientation = def.LabeledConfig.Orientation
 		})
 	case "channel":
-		return patch.OptionalValue(&tnc.Channel, c.Next())
+		return patch.Value(&tnc.Channel, c.Next())
 	case "rolling_average":
-		return patch.OptionalValue(&tnc.RollingAverage, c.Next())
+		return patch.Defaulted(&tnc.RollingAverage, c.Next(), func(def *TankNodeConfig) {
+			tnc.RollingAverage = def.RollingAverage
+		})
 	case "precision":
 		return patch.OptionalValue(&tnc.Precision, c.Next())
 	case "notation":
@@ -5308,15 +5208,12 @@ func (tnc *TankNodeConfig) Patch(c patch.Cursor) error {
 			tnc.Level = def.Level
 		})
 	case "position":
-		if c = c.Next(); c.Done() || tnc.Position == nil {
-			return patch.OptionalValue(&tnc.Position, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&tnc.Position, c, func(def *TankNodeConfig) {
+				tnc.Position = def.Position
+			})
 		}
-		next := *tnc.Position
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		tnc.Position = &next
-		return nil
+		return tnc.Position.Patch(c)
 	case "stroke_color":
 		return patch.OptionalValue(&tnc.StrokeColor, c.Next())
 	case "fill_color":
@@ -5329,9 +5226,7 @@ func (tnc *TankNodeConfig) Patch(c patch.Cursor) error {
 		}
 		return tnc.Dimensions.Patch(c)
 	case "border_radius":
-		return patch.Defaulted(&tnc.BorderRadius, c.Next(), func(def *TankNodeConfig) {
-			tnc.BorderRadius = def.BorderRadius
-		})
+		return patch.OptionalValue(&tnc.BorderRadius, c.Next())
 	case "caret_visible":
 		return patch.Value(&tnc.CaretVisible, c.Next())
 	case "scale_visible":
@@ -5395,19 +5290,16 @@ func (canc *CustomActuatorNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&canc.ToggleConfig.StalenessConfig.StalenessColor, c.Next())
 	case "state_channel":
-		return patch.OptionalValue(&canc.ToggleConfig.StateChannel, c.Next())
+		return patch.Value(&canc.ToggleConfig.StateChannel, c.Next())
 	case "command_channel":
-		return patch.OptionalValue(&canc.ToggleConfig.CommandChannel, c.Next())
+		return patch.Value(&canc.ToggleConfig.CommandChannel, c.Next())
 	case "control":
-		if c = c.Next(); c.Done() || canc.ToggleConfig.Control == nil {
-			return patch.OptionalValue(&canc.ToggleConfig.Control, c)
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&canc.ToggleConfig.Control, c, func(def *CustomActuatorNodeConfig) {
+				canc.ToggleConfig.Control = def.ToggleConfig.Control
+			})
 		}
-		next := *canc.ToggleConfig.Control
-		if err := next.Patch(c); err != nil {
-			return err
-		}
-		canc.ToggleConfig.Control = &next
-		return nil
+		return canc.ToggleConfig.Control.Patch(c)
 	case "on_click_delay":
 		return patch.Value(&canc.ToggleConfig.OnClickDelay, c.Next())
 	case "spec_key":

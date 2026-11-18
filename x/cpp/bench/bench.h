@@ -10,21 +10,12 @@
 #pragma once
 
 #include <atomic>
-#include <cstdint>
 
 #include "benchmark/benchmark.h"
 
-namespace x::bench {
-// Atomic counters incremented by the global operator new/new[] overrides in
-// bench.cpp. Benchmarks snapshot these before and after the measurement loop
-// to derive per-iteration allocation stats that surface in state.counters,
-// matching Go's testing.B.ReportAllocs format.
-// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the global operator
-// new counts into these.
-extern std::atomic<int64_t> alloc_count;
-extern std::atomic<int64_t> alloc_bytes;
-// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
+#include "x/cpp/bench/alloc.h"
 
+namespace x::bench {
 /// @brief records allocations attributed to the benchmark loop body and
 /// publishes them as state.counters so the default console reporter
 /// displays per-iteration allocs and bytes alongside time/op.

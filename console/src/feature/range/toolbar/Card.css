@@ -1,0 +1,167 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-range-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 46rem;
+    padding: 0.5rem 0;
+    color: var(--pluto-gray-l10);
+    font-family: var(--pluto-font-family);
+    font-size: var(--pluto-small-size);
+    font-variant-numeric: tabular-nums;
+}
+
+.console-range-card__mark {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 2px;
+    background: var(--console-range-color, var(--pluto-gray-l7));
+}
+
+.console-range-card__head {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.console-range-card__name {
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+    color: var(--pluto-gray-l11);
+    font-size: var(--pluto-p-size);
+    font-weight: 500;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.console-range-card__stage {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--pluto-gray-l9);
+    font-size: var(--pluto-tiny-size);
+
+    & svg {
+        width: 1.75rem;
+        height: 1.75rem;
+    }
+}
+
+.console-range-card__path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    margin-top: -0.5rem;
+    padding-left: 2.75rem;
+    color: var(--pluto-gray-l9);
+
+    & svg {
+        width: 1.5rem;
+        height: 1.5rem;
+        color: var(--pluto-gray-l8);
+    }
+}
+
+.console-range-card__time {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+
+    & > span:first-child {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    & svg {
+        width: 1.5rem;
+        height: 1.5rem;
+        color: var(--pluto-gray-l8);
+    }
+}
+
+.console-range-card__total {
+    color: var(--pluto-gray-l11);
+    font-weight: 500;
+}
+
+/* Each child sits at its place in time inside the range. */
+.console-range-card__strip {
+    position: relative;
+    height: 1rem;
+    border-radius: 2px;
+    background: var(--pluto-gray-l4);
+
+    & > span {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-radius: 2px;
+        background: var(--console-range-color, var(--pluto-gray-l7));
+    }
+}
+
+.console-range-card__children {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.console-range-card__child {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    color: var(--pluto-gray-l9);
+
+    & .console-range-card__mark {
+        width: 1.25rem;
+        height: 1.25rem;
+        opacity: 0.8;
+    }
+}
+
+.console-range-card__child-name {
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+    color: var(--pluto-gray-l10);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.console-range-card__child--live {
+    & .console-range-card__mark {
+        opacity: 1;
+    }
+
+    & > span:last-child {
+        color: var(--pluto-gray-l11);
+    }
+}
+
+.console-range-card__more {
+    padding-left: 2.5rem;
+}
+
+.console-range-card__labels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}

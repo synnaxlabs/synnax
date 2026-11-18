@@ -84,7 +84,7 @@ func (s *Service) Create(
 	if err := w.CreateMany(ctx, &req.Policies); err != nil {
 		return CreateRequest{}, err
 	}
-	return CreateResponse(req), nil
+	return req, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single policy. DispatchKey

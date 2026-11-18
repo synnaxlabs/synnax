@@ -322,7 +322,7 @@ func isDeclarationKeyword(t int) bool {
 }
 
 func visibleTokens(tokens []antlr.Token) []antlr.Token {
-	var out []antlr.Token
+	out := make([]antlr.Token, 0, len(tokens))
 	for _, t := range tokens {
 		switch t.GetTokenType() {
 		case antlr.TokenEOF, parser.ArcLexerWS,

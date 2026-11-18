@@ -101,7 +101,7 @@ var _ = Describe("WriteConfig", func() {
 	It("Should create a config file on fresh install", func() {
 		Expect(service.WriteConfig()).To(Succeed())
 		Expect(configPath).To(BeAnExistingFile())
-		data := testutil.MustSucceed(os.ReadFile(configPath))
+		data := testutil.MustSucceed(os.ReadFile(filepath.Clean(configPath)))
 		Expect(string(data)).To(ContainSubstring("listen"))
 	})
 
@@ -113,7 +113,7 @@ var _ = Describe("WriteConfig", func() {
 		viper.Set("listen", "localhost:9999")
 		Expect(service.WriteConfig()).To(Succeed())
 
-		data := testutil.MustSucceed(os.ReadFile(configPath))
+		data := testutil.MustSucceed(os.ReadFile(filepath.Clean(configPath)))
 		Expect(string(data)).To(Equal(string(originalContent)))
 	})
 })

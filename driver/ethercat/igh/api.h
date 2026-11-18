@@ -10,10 +10,13 @@
 #pragma once
 
 #include <cerrno>
+#include <cstdint>
+#include <span>
 #include <string>
 #include <system_error>
 
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "x/cpp/lib/lib.h"
@@ -35,14 +38,31 @@ inline const driver::LibraryInfo LIBRARY_INFO = {
 /// @brief error returned when the IgH library cannot be loaded.
 inline const auto LOAD_ERROR = driver::errors::missing_lib(LIBRARY_INFO);
 
+/// @brief the private ioctl interface of the IgH master device, which the ethercat tool
+/// uses for what libethercat does not give. The request number holds the size of its
+/// struct, so a kernel module with another layout rejects it with ENOTTY.
+namespace ioctl {
+struct SII {
+    uint16_t slave_position;
+    uint16_t offset;
+    uint32_t nwords;
+    uint16_t *words;
+};
+
+/// @brief reads words of a slave's SII from the copy that IgH read at its scan.
+const auto SII_READ = _IOWR(0xa4, 0x10, SII);
+}
+
 /// @brief API wrapper for IgH EtherCAT master library functions with dynamic loading.
 class API {
     /// @brief function pointers to the IgH EtherCAT library functions.
     struct FunctionPointers {
-        decltype(&ecrt_request_master) request_master;
+        decltype(&ecrt_open_master) open_master;
+        decltype(&ecrt_master_reserve) master_reserve;
         decltype(&ecrt_release_master) release_master;
         decltype(&ecrt_master_activate) master_activate;
         decltype(&ecrt_master_deactivate) master_deactivate;
+        decltype(&ecrt_master_reset) master_reset;
         decltype(&ecrt_master_create_domain) master_create_domain;
         decltype(&ecrt_domain_size) domain_size;
         decltype(&ecrt_domain_data) domain_data;
@@ -65,6 +85,11 @@ class API {
         decltype(&ecrt_master_get_sync_manager) master_get_sync_manager;
         decltype(&ecrt_master_get_pdo) master_get_pdo;
         decltype(&ecrt_master_get_pdo_entry) master_get_pdo_entry;
+        decltype(&ecrt_slave_config_dc) slave_config_dc;
+        decltype(&ecrt_master_application_time) master_application_time;
+        decltype(&ecrt_master_sync_reference_clock_to) master_sync_reference_clock_to;
+        decltype(&ecrt_master_sync_slave_clocks) master_sync_slave_clocks;
+        decltype(&ecrt_master_reference_clock_time) master_reference_clock_time;
     };
 
     /// @brief shared library handle.
@@ -97,10 +122,12 @@ public:
             fn = reinterpret_cast<F>(const_cast<void *>(lib->get_func_ptr(name)));
             if (fn == nullptr && missing.empty()) missing = name;
         };
-        resolve(f.request_master, "ecrt_request_master");
+        resolve(f.open_master, "ecrt_open_master");
+        resolve(f.master_reserve, "ecrt_master_reserve");
         resolve(f.release_master, "ecrt_release_master");
         resolve(f.master_activate, "ecrt_master_activate");
         resolve(f.master_deactivate, "ecrt_master_deactivate");
+        resolve(f.master_reset, "ecrt_master_reset");
         resolve(f.master_create_domain, "ecrt_master_create_domain");
         resolve(f.domain_size, "ecrt_domain_size");
         resolve(f.domain_data, "ecrt_domain_data");
@@ -126,6 +153,14 @@ public:
         resolve(f.master_get_sync_manager, "ecrt_master_get_sync_manager");
         resolve(f.master_get_pdo, "ecrt_master_get_pdo");
         resolve(f.master_get_pdo_entry, "ecrt_master_get_pdo_entry");
+        resolve(f.slave_config_dc, "ecrt_slave_config_dc");
+        resolve(f.master_application_time, "ecrt_master_application_time");
+        resolve(
+            f.master_sync_reference_clock_to,
+            "ecrt_master_sync_reference_clock_to"
+        );
+        resolve(f.master_sync_slave_clocks, "ecrt_master_sync_slave_clocks");
+        resolve(f.master_reference_clock_time, "ecrt_master_reference_clock_time");
         if (!missing.empty())
             return {
                 nullptr,
@@ -166,12 +201,21 @@ public:
         );
     }
 
-    /// @brief requests an EtherCAT master for realtime operation.
-    [[nodiscard]] virtual ec_master_t *request_master(unsigned int master_index) const {
-        return this->func_ptrs.request_master(master_index);
+    /// @brief opens an EtherCAT master without reserving it, so IgH keeps scanning the
+    /// bus. Returns nullptr when the master cannot be opened.
+    [[nodiscard]] virtual ec_master_t *open_master(unsigned int master_index) const {
+        return this->func_ptrs.open_master(master_index);
     }
 
-    /// @brief releases a requested EtherCAT master.
+    /// @brief reserves an open master for realtime operation. It waits for a scan that
+    /// IgH runs, and IgH scans the bus again only after activation.
+    /// @returns -EBUSY when another program reserved the master, or -ENODEV when no
+    /// network port is attached to it.
+    [[nodiscard]] virtual int master_reserve(ec_master_t *master) const {
+        return this->func_ptrs.master_reserve(master);
+    }
+
+    /// @brief closes a master and ends its reservation.
     virtual void release_master(ec_master_t *master) const {
         this->func_ptrs.release_master(master);
     }
@@ -184,6 +228,13 @@ public:
     /// @brief deactivates the master.
     [[nodiscard]] virtual int master_deactivate(ec_master_t *master) const {
         return this->func_ptrs.master_deactivate(master);
+    }
+
+    /// @brief requests OP for each configured slave and clears its AL error flag, so
+    /// the master configures a slave that refused a state again. The master does this
+    /// in the background after the call returns.
+    [[nodiscard]] virtual int master_reset(ec_master_t *master) const {
+        return this->func_ptrs.master_reset(master);
     }
 
     /// @brief creates a new process data domain.
@@ -397,6 +448,77 @@ public:
             entry_pos,
             entry
         );
+    }
+
+    /// @brief configures the DC sync of a slave. IgH writes the cycles as given, so
+    /// sync1_cycle is the value of register 0x09A4.
+    [[nodiscard]] virtual int slave_config_dc(
+        ec_slave_config_t *sc,
+        uint16_t assign_activate,
+        uint32_t sync0_cycle,
+        int32_t sync0_shift,
+        uint32_t sync1_cycle,
+        int32_t sync1_shift
+    ) const {
+        return this->func_ptrs.slave_config_dc(
+            sc,
+            assign_activate,
+            sync0_cycle,
+            sync0_shift,
+            sync1_cycle,
+            sync1_shift
+        );
+    }
+
+    /// @brief gives the time in nanoseconds of the cycle that the next send starts. IgH
+    /// aligns the SYNC0 events of each slave to the first time it gets.
+    [[nodiscard]] virtual int
+    master_application_time(ec_master_t *master, uint64_t app_time) const {
+        return this->func_ptrs.master_application_time(master, app_time);
+    }
+
+    /// @brief queues a datagram that moves the reference clock toward sync_time.
+    [[nodiscard]] virtual int
+    master_sync_reference_clock_to(ec_master_t *master, uint64_t sync_time) const {
+        return this->func_ptrs.master_sync_reference_clock_to(master, sync_time);
+    }
+
+    /// @brief queues a datagram that moves the clock of each slave toward the reference
+    /// clock.
+    [[nodiscard]] virtual int master_sync_slave_clocks(ec_master_t *master) const {
+        return this->func_ptrs.master_sync_slave_clocks(master);
+    }
+
+    /// @brief reads the low 32 bits of the reference clock time that the latest
+    /// received master_sync_slave_clocks datagram carried.
+    [[nodiscard]] virtual int
+    master_reference_clock_time(const ec_master_t *master, uint32_t *time) const {
+        return this->func_ptrs.master_reference_clock_time(master, time);
+    }
+
+    /// @brief reads words from the SII of the slave at position, which counts from 0,
+    /// starting at word offset. IgH reads the SII at its scan, so this makes no bus
+    /// traffic.
+    /// @returns 0, or a negative error code: -EINVAL when the words run past the end of
+    /// the SII.
+    [[nodiscard]] virtual int sii_read(
+        unsigned int master_index,
+        uint16_t position,
+        uint16_t offset,
+        std::span<uint16_t> words
+    ) const {
+        const std::string path = "/dev/EtherCAT" + std::to_string(master_index);
+        const int fd = ::open(path.c_str(), O_RDONLY);
+        if (fd < 0) return -errno;
+        ioctl::SII sii{
+            .slave_position = position,
+            .offset = offset,
+            .nwords = static_cast<uint32_t>(words.size()),
+            .words = words.data(),
+        };
+        const int ret = ::ioctl(fd, ioctl::SII_READ, &sii) < 0 ? -errno : 0;
+        ::close(fd);
+        return ret;
     }
 };
 }

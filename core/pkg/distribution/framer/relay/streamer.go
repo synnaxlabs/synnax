@@ -151,81 +151,80 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			s.demands.Close()
 		}()
 		if s.sendOpenAck {
-			// Wait for the relay to confirm our demand has been applied before
-			// signaling readiness. This is a true happens-before barrier: updateTaps
-			// opens the storage tap with the demanded keys or sends the updated key set
-			// before the ack fires, and the cesium streamer applies pending key updates
-			// to every frame written afterward, so a write issued after the open ack is
-			// guaranteed to be delivered.
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-ack:
-			}
-			if err := signal.SendUnderContext(
-				ctx,
-				s.Out.Inlet(),
-				Response{},
-			); err != nil {
+			if err := s.awaitOpenAck(ctx, ack); err != nil {
 				return err
 			}
 		}
-		// pendingAcks holds the ack channels of key updates the tapper has not applied
-		// yet. The tapper applies demands in order, so the head always closes first.
-		// Waiting here instead of blocking on the send keeps frames for live keys
-		// flowing while an update propagates.
-		var pendingAcks []chan struct{}
-		for {
-			var nextAck chan struct{}
-			if len(pendingAcks) > 0 {
-				nextAck = pendingAcks[0]
+		return s.forward(ctx, responses)
+	}, o.Signal...)
+}
+
+// awaitOpenAck waits for the relay to confirm the opening demand, then signals
+// readiness. This is a true happens-before barrier: updateTaps opens the storage tap
+// with the demanded keys or sends the updated key set before the ack fires, and the
+// cesium streamer applies pending key updates to every frame written afterward, so a
+// write issued after the open ack is guaranteed to be delivered.
+func (s *streamer) awaitOpenAck(ctx context.Context, ack chan struct{}) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ack:
+	}
+	return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{})
+}
+
+// forward applies key updates from the inlet and sends matching frames from responses
+// until the context is canceled or the inlet closes.
+func (s *streamer) forward(ctx context.Context, responses <-chan Response) error {
+	// pendingAcks holds the ack channels of key updates the tapper has not applied
+	// yet. The tapper applies demands in order, so the head always closes first.
+	// Waiting here instead of blocking on the send keeps frames for live keys flowing
+	// while an update propagates.
+	var pendingAcks []chan struct{}
+	for {
+		var nextAck chan struct{}
+		if len(pendingAcks) > 0 {
+			nextAck = pendingAcks[0]
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-nextAck:
+			pendingAcks = pendingAcks[1:]
+			if err := signal.SendUnderContext(
+				ctx,
+				s.Out.Inlet(),
+				Response{Ack: true},
+			); err != nil {
+				return err
 			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-nextAck:
-				pendingAcks = pendingAcks[1:]
-				if err := signal.SendUnderContext(
-					ctx,
-					s.Out.Inlet(),
-					Response{Ack: true},
-				); err != nil {
-					return err
-				}
-			case req, ok := <-s.In.Outlet():
-				if !ok {
-					return nil
-				}
-				req.Keys = lo.Uniq(req.Keys)
-				// The keys must change before the demand, so the delta accepts frames
-				// for an added channel as soon as the relay taps it.
-				s.setKeys(req.Keys)
-				d := demand{addr: s.addr, keys: req.Keys}
-				if req.AckRequested {
-					d.ack = make(chan struct{})
-					pendingAcks = append(pendingAcks, d.ack)
-				}
-				if err := signal.SendUnderContext(
-					ctx,
-					s.demands.Inlet(),
-					d,
-				); err != nil {
-					return err
-				}
-			case r := <-responses:
-				// A frame buffered before a key update can hold channels the streamer
-				// no longer wants.
-				if filtered := r.Frame.KeepKeys(*s.keys.Load()); !filtered.Empty() {
-					res := Response{Frame: filtered, Group: r.Group}
-					if err := signal.SendUnderContext(
-						ctx,
-						s.Out.Inlet(),
-						res,
-					); err != nil {
-						return err
-					}
-				}
+		case req, ok := <-s.In.Outlet():
+			if !ok {
+				return nil
+			}
+			req.Keys = lo.Uniq(req.Keys)
+			// The keys must change before the demand, so the delta accepts frames for
+			// an added channel as soon as the relay taps it.
+			s.setKeys(req.Keys)
+			d := demand{addr: s.addr, keys: req.Keys}
+			if req.AckRequested {
+				d.ack = make(chan struct{})
+				pendingAcks = append(pendingAcks, d.ack)
+			}
+			if err := signal.SendUnderContext(ctx, s.demands.Inlet(), d); err != nil {
+				return err
+			}
+		case r := <-responses:
+			// A frame buffered before a key update can hold channels the streamer no
+			// longer wants.
+			filtered := r.Frame.KeepKeys(*s.keys.Load())
+			if filtered.Empty() {
+				continue
+			}
+			res := Response{Frame: filtered, Group: r.Group}
+			if err := signal.SendUnderContext(ctx, s.Out.Inlet(), res); err != nil {
+				return err
 			}
 		}
-	}, o.Signal...)
+	}
 }

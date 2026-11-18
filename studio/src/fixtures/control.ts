@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/client";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -70,7 +71,7 @@ export const echoValve = async ({
   const heartbeat = (async () => {
     while (running) {
       await writer.write({ [stateTime.key]: TimeStamp.now(), [state.key]: current });
-      await new Promise((resolve) => setTimeout(resolve, periodMs));
+      await sleep.sleep(TimeSpan.milliseconds(periodMs));
     }
     await writer.close();
   })();

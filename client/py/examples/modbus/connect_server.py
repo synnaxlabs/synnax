@@ -29,6 +29,8 @@ Configuration:
     Modify the constants below to match your Modbus server configuration.
 """
 
+import sys
+
 import synnax as sy
 
 # Configuration
@@ -58,7 +60,7 @@ if existing_device is not None:
     print()
     print("No action needed - server is ready to use.")
     print("=" * 70)
-    exit(0)
+    sys.exit(0)
 
 # Server not found - prompt user for connection method
 print("Server not found")
@@ -77,7 +79,7 @@ if response in ("", "y", "yes"):
 
     try:
         # Get the embedded rack (local driver rack)
-        rack = client.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack("modbus")
         print(f"Using rack: {rack.name} (key={rack.key})")
 
         device = sy.modbus.Device(
@@ -100,7 +102,7 @@ if response in ("", "y", "yes"):
         print()
         print("Server is ready to use.")
         print("=" * 70)
-        exit(0)
+        sys.exit(0)
 
     except Exception as e:
         print(f"✗ Failed to connect server: {e}")
@@ -118,4 +120,4 @@ if response in ("n", "no") or response not in ("", "y", "yes"):
     print(f"   - Host: {HOST}")
     print(f"   - Port: {PORT}")
     print("=" * 70)
-    exit(1)
+    sys.exit(1)

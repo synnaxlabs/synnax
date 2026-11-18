@@ -23,6 +23,10 @@ on:
         required: false
         type: boolean
         default: false
+    outputs:
+      core_image:
+        description: The Core image the tests ran against, pinned by digest
+        value: ${{ jobs.core-image.outputs.image }}
     secrets:
       APPLE_CERTIFICATE:
         required: false
@@ -146,6 +150,7 @@ jobs:
       protobuf: ${{ steps.filter.outputs.protobuf }}
       py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      suppressions_py: ${{ steps.filter.outputs.suppressions_py }}
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
@@ -264,7 +269,9 @@ jobs:
       coverage_flag: alamos-ts
       directory: alamos/ts
       macos: *full
+      node_lts: true
       package: alamos
+      packed: true
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -374,7 +381,10 @@ jobs:
       coverage_flag: client-py
       coverage_module: synnax
       directory: client/py
+      free_threaded: true
+      macos: *full
       type_check_dir: ./synnax ./examples ./tests
+      windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -406,7 +416,13 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-ts
       directory: client/ts
+      examples_package: "@synnaxlabs/client-examples"
+      macos: *full
+      node_lts: true
       package: client
+      packed: true
+      runtimes: true
+      windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -463,6 +479,21 @@ jobs:
     with:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
+
+  # Fails a pull request that adds a runtime or development dependency with a high or
+  # critical advisory. A merge group has no diff to review, so the job skips it. The
+  # dependency graph does not cover Bazel, so security.yaml audits the C++ dependencies.
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime, development
 
   desktop-shell:
     needs: changes
@@ -716,6 +747,26 @@ jobs:
       - name: Check names that are public without need
         run: uv run --project scripts scripts/check_exports_py.py
 
+  # Fails on any Python suppression in the repository: `# type: ignore`, `# noqa`,
+  # `# pyright: ignore`, `cast` calls, and `TYPE_CHECKING`.
+  suppressions-py:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.suppressions_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'suppressions-py')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - name: Check for Python suppressions
+        run: uv run --project scripts scripts/check_suppressions_py.py
+
   format:
     uses: ./.github/workflows/test.format.yaml
 
@@ -849,7 +900,9 @@ jobs:
       coverage_flag: freighter-ts
       directory: freighter/ts
       freighter_image: ${{ needs.freighter-image.outputs.image }}
+      node_lts: true
       package: freighter
+      packed: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -869,7 +922,8 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # A merge group that changes only unit tests skips integration.
+  # A merge group that changes only unit tests skips integration. A merge group tests on
+  # Ubuntu alone, as Windows runners cost about twice as much. A full run adds Windows.
   integration:
     needs: changes
     if:
@@ -883,7 +937,8 @@ jobs:
       packages: write
     uses: ./.github/workflows/test.integration.yaml
     with:
-      ubuntu: *full
+      ubuntu: true
+      windows: *full
     secrets:
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -1241,6 +1296,7 @@ jobs:
       coverage_flag: x-py
       coverage_module: x
       directory: x/py
+      free_threaded: true
       macos: *full
       windows: *full
     secrets:
@@ -1270,7 +1326,9 @@ jobs:
       coverage_flag: x-ts
       directory: x/ts
       macos: *full
+      node_lts: true
       package: x
+      packed: true
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -1339,6 +1397,7 @@ jobs:
       - copyright
       - core
       - core-image
+      - dependency-review
       - desktop-shell
       - docs
       - docs-site
@@ -1377,6 +1436,7 @@ jobs:
       - soem
       - stylelint
       - stylelint-config
+      - suppressions-py
       - vite-plugin
       - www
       - www-site

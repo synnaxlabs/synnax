@@ -80,6 +80,19 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 		})
 
+		It("Should accept a tab that displays a view", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			root := leafNode(panel.Tab{Variant: panel.ResourceTab{
+				Key: uuid.New(),
+				Resource: resource.ID{
+					Type: resource.TypeView,
+					Key:  uuid.New().String(),
+				},
+			}})
+			p := panel.Panel{Name: "view", Root: root, Project: &proj.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		})
+
 		DescribeTable("Should reject a caller-provided tree that violates invariants",
 			func(ctx SpecContext, root func() panel.Node, expected string) {
 				tx := DeferClose(db.OpenTx())

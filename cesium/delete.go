@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"time"
 
@@ -102,7 +103,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) error {
 		uDB, ok := db.mu.dbs.unary[ch]
 		return !ok || !uDB.Channel().IsIndex
 	})
-	chs = append(data, indexes...)
+	chs = slices.Concat(data, indexes)
 	deleting := set.New(chs...)
 	for i, ch := range chs {
 		if err := db.markClosed(ch, deleting); err != nil {
@@ -300,8 +301,10 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 		sCtx.Go(func(ctx context.Context) error {
 			for uDB := range pending {
 				// A collection rewrites files and does not stop for ctx.
-				if ctx.Err() != nil {
+				select {
+				case <-ctx.Done():
 					return nil
+				default:
 				}
 				if err := uDB.GarbageCollect(ctx); err != nil {
 					return err

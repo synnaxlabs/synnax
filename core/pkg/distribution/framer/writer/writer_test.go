@@ -82,7 +82,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			node := testutil.OpenNode(ctx)
+			node := testutil.OpenNode(GinkgoT().Context())
 			idxCh = channel.Channel{
 				Name:     "variable_time",
 				IsIndex:  true,
@@ -1086,7 +1086,7 @@ func newChannelSet() []channel.Channel {
 func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	node := testutil.OpenNode(ctx)
+	node := testutil.OpenNode(GinkgoT().Context())
 	channels = MustSucceed(node.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
@@ -1100,7 +1100,7 @@ func storageScenario(ctx context.Context) scenario {
 func freeWriterScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	dist := testutil.OpenNode(ctx)
+	dist := testutil.OpenNode(GinkgoT().Context())
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true

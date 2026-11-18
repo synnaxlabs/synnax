@@ -18,5 +18,5 @@ import "crypto/tls"
 // configuration.
 type Source interface {
 	// GetCertificate returns the certificate for the given handshake.
-	GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error)
+	GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error)
 }

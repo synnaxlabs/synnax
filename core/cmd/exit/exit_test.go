@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd/exit"
+	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -30,6 +31,11 @@ var _ = Describe("Code", func() {
 				storage.ErrRefused,
 			),
 			exit.DataRefused,
+		),
+		Entry(
+			"a Driver that cannot load",
+			errors.Mark(errors.New("GLIBC_2.39 not found"), driver.ErrNotLoaded),
+			exit.Unavailable,
 		),
 		Entry(
 			"locked data",

@@ -22,7 +22,7 @@ MIN_GAP = 900 * sy.TimeSpan.MILLISECOND
 
 def _warnings_for_task(
     frame: sy.Frame, task_key: sy.task.Key
-) -> Generator[sy.task.Status, None, None]:
+) -> Generator[sy.task.Status]:
     if "sy_status_set" not in frame:
         return
     for i in range(len(frame["sy_status_set"])):

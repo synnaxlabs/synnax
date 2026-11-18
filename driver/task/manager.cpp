@@ -864,7 +864,10 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     // disables Start and Stop while a start is loading. One that stops a running task
     // leaves it shown as running, with no data.
     const bool loading = tsk.status->variant == synnax::status::VARIANT_LOADING;
-    if (!loading && !tsk.status->details.running) return;
+    // The Core marks a running task as stopped responding while its Driver is down.
+    const bool running = tsk.status->details.running ||
+                         tsk.status->message == STOPPED_RESPONDING_MESSAGE;
+    if (!loading && !running) return;
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;

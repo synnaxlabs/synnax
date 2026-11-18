@@ -24,6 +24,7 @@ import (
 var _ = Describe("Migration", func() {
 	It("Should delete each range-owned Panel and lift the rest", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Panel]{DB: db}))
 		proj := uuid.New()
 		root := v3.Node{Variant: v3.LeafNode{}}

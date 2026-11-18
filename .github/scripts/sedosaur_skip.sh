@@ -14,11 +14,10 @@
 # the review's check run, `<pr>:<base ref>`. Exits non-zero only when the GitHub API
 # fails.
 #
-# A fork's code never reaches a runner. A replay and a repeat always run, and only a
-# manual dispatch asks for one. Sessions often ask again for a review of a head that
-# has one. The reviews of one pull request take turns, so a head needs no other review
-# when its last review for this pull request and base succeeded under the current rules.
-# Their check runs carry RULES.
+# A fork's code never reaches a runner. A replay and a repeat always run. Sessions often
+# ask again for a review of a head that has one. The reviews of one pull request take
+# turns, so a head needs no other review when its last review for this pull request and
+# base succeeded under the current rules. Their check runs carry RULES.
 
 set -euo pipefail
 

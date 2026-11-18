@@ -24,5 +24,4 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Pr
 	Type:         resource.TypeProject,
 	SetGroup:     func(e *Project, g groupv1.Key) { e.Group = &g },
 	ProjectOwned: false,
-	Holds:        func(_ *Project, top *resource.ID) bool { return top == nil },
 })

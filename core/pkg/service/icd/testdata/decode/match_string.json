@@ -1,0 +1,106 @@
+{
+  "description": "String match rules pick the message by the text at one pointer, and a string rule matches no other JSON type.",
+  "messages": [
+    {
+      "name": "status",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "string",
+          "pointer": "/type",
+          "value": "status"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "event",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "string",
+          "pointer": "/type",
+          "value": "event"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": { "type": "status", "v": 1 },
+      "message": "status",
+      "samples": [1]
+    },
+    {
+      "document": { "type": "event", "v": 2 },
+      "message": "event",
+      "samples": [2]
+    },
+    {
+      "document": { "type": "st\u0061tus", "v": 3 },
+      "message": "status",
+      "samples": [3]
+    },
+    {
+      "document": { "type": "alarm", "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "type": 1, "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "type": 1e999, "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "type": true, "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "type": null, "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "type": "event" },
+      "error": "message event: field v: no value at /v: validation error"
+    }
+  ]
+}

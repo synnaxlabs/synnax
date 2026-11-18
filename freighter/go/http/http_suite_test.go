@@ -10,6 +10,7 @@
 package http_test
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"testing"
@@ -18,12 +19,18 @@ import (
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+func errorCodec() *errors.Codec {
+	return errors.NewCodec(freighter.ErrorProvider(), testutil.ErrorProvider())
+}
 
 // newFiberApp builds a fiber app whose fasthttp worker-pool janitor wakes every 100ms
 // instead of the default 10s. The janitor only observes shutdown between sleeps, so
@@ -58,8 +65,15 @@ func TestHTTP(t *testing.T) {
 	RunSpecs(t, "HTTP Suite", SuiteConfig())
 }
 
+// pollHealth sends one GET to url and gives up after a second.
 func pollHealth(url string) error {
-	res, err := http.Get(url)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}

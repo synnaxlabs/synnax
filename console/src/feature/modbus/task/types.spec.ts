@@ -47,6 +47,72 @@ describe("Modbus Read Task Types", () => {
       dataType,
     });
 
+  describe("nextOpenChannel", () => {
+    const { nextOpenChannel, readsOverlap, writesOverlap } = Modbus.Task;
+
+    it("should place the channel after the channel to copy, not the last one", () => {
+      const next = nextOpenChannel(
+        [holding("a", 10, "float32"), holding("b", 40, "uint16")],
+        readsOverlap,
+        "a",
+      );
+      expect(next).toMatchObject({ address: 12, dataType: "float32" });
+    });
+
+    it("should skip the addresses that another channel of the type takes", () => {
+      const next = nextOpenChannel(
+        [holding("a", 10, "uint16"), holding("b", 11, "uint16")],
+        readsOverlap,
+        "a",
+      );
+      expect(next?.address).toBe(12);
+    });
+
+    it("should skip the addresses that a string of the same registers reads", () => {
+      const string = Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register_string.parse({
+        type: "holding_register_string",
+        key: "b",
+        address: 11,
+        length: 4,
+      });
+      const next = nextOpenChannel(
+        [holding("a", 10, "uint16"), string],
+        readsOverlap,
+        "a",
+      );
+      expect(next?.address).toBe(13);
+    });
+
+    it("should skip the register that a bit channel of a write task writes", () => {
+      const register = Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+        type: "holding_register",
+        key: "a",
+        address: 10,
+        dataType: "uint16",
+      });
+      const bit = Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register_bit.parse({
+        type: "holding_register_bit",
+        key: "b",
+        address: 11,
+        bit: 0,
+      });
+      const next = nextOpenChannel([register, bit], writesOverlap, "a");
+      expect(next?.address).toBe(12);
+    });
+
+    it("should place the channel after the last channel with no key to copy", () => {
+      const next = nextOpenChannel(
+        [holding("a", 10, "uint16"), holding("b", 40, "uint16")],
+        readsOverlap,
+      );
+      expect(next?.address).toBe(41);
+    });
+
+    it("should return null with no channels", () => {
+      expect(nextOpenChannel([], readsOverlap)).toBeNull();
+    });
+  });
+
   describe("addressSpan", () => {
     it("should span one address for a coil", () => {
       const coil = Modbus.Task.READ_CHANNEL_SCHEMAS.coil.parse({

@@ -21,7 +21,7 @@ actionlint:
 
 bazel: &bazel
   - .bazelignore
-  - .bazeliskrc
+  - .bazelversion
   - .bazelrc
   - .gitmodules
   - MODULE.bazel
@@ -415,6 +415,9 @@ scripts:
   - *py
   - client/py/**
   - scripts/**
+
+suppressions_py:
+  - "**/*.py"
 
 runners:
   - *py

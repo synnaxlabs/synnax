@@ -42,44 +42,50 @@ var _ = Describe("MigrateSchematic", func() {
 	}
 
 	It("Should fill the defaults of the fields v10 adds", func(ctx SpecContext) {
-		setpoint := lifted(ctx, msgpack.EncodedJSON{
+		setpoint, ok := lifted(ctx, msgpack.EncodedJSON{
 			"variant": "setpoint",
 		}).(v10.SetpointElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(setpoint.InlineSize).To(BeEquivalentTo(100))
 		Expect(setpoint.StalenessTimeout).To(BeEquivalentTo(5))
 		Expect(setpoint.StateChannel).To(BeNil())
-		input := lifted(ctx, msgpack.EncodedJSON{
+		input, ok := lifted(ctx, msgpack.EncodedJSON{
 			"variant": "input",
 		}).(v10.InputElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(input.InlineSize).To(BeEquivalentTo(150))
 		Expect(input.StalenessTimeout).To(BeEquivalentTo(5))
-		sel := lifted(ctx, msgpack.EncodedJSON{
+		sel, ok := lifted(ctx, msgpack.EncodedJSON{
 			"variant": "select",
 		}).(v10.SelectElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(sel.StalenessTimeout).To(BeEquivalentTo(5))
 	})
 
 	It("Should keep every value the v9 config carries, zero included", func(
 		ctx SpecContext,
 	) {
-		value := lifted(ctx, msgpack.EncodedJSON{
+		value, ok := lifted(ctx, msgpack.EncodedJSON{
 			"variant":   "value",
 			"precision": 0.0,
 			"units":     "kPa",
 		}).(v10.ValueElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(value.Precision).To(BeEquivalentTo(0))
 		Expect(value.Units).To(Equal("kPa"))
-		sel := lifted(ctx, msgpack.EncodedJSON{
+		sel, ok := lifted(ctx, msgpack.EncodedJSON{
 			"variant":     "select",
 			"inline_size": 240.0,
 		}).(v10.SelectElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(sel.InlineSize).To(BeEquivalentTo(240))
 	})
 
 	It("Should keep the units a v9 symbol showed by default", func(ctx SpecContext) {
-		value := lifted(ctx, msgpack.EncodedJSON{
+		value, ok := lifted(ctx, msgpack.EncodedJSON{
 			"variant": "value",
 		}).(v10.ValueElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(value.Units).To(Equal("psi"))
 	})
 
@@ -94,7 +100,8 @@ var _ = Describe("MigrateSchematic", func() {
 					}},
 				},
 			}))
-			polygon := out.Configs["n1"].Variant.(v10.PolygonElementConfig)
+			polygon, ok := out.Configs["n1"].Variant.(v10.PolygonElementConfig)
+			Expect(ok).To(BeTrue())
 			Expect(polygon.NumSides).To(Equal(6.0))
 			Expect(polygon.SideLength).To(Equal(30.0))
 			Expect(polygon.Rotation).To(BeZero())
@@ -130,7 +137,8 @@ var _ = Describe("MigrateElementConfig", func() {
 				OnClickDelay:   250,
 			},
 		}))
-		setpoint := out.Variant.(v10.SetpointElementConfig)
+		setpoint, ok := out.Variant.(v10.SetpointElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(setpoint.CommandChannel).To(HaveValue(Equal(cmd)))
 		Expect(setpoint.Units).To(Equal("kPa"))
 		Expect(setpoint.Disabled).To(BeTrue())
@@ -149,6 +157,7 @@ var _ = Describe("MigrateElementConfig", func() {
 var _ = Describe("Migration", func() {
 	It("Should lift stored schematics to v10", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		old := v9.Schematic{
 			Key:  uuid.New(),
 			Name: "Feed system",
@@ -169,7 +178,8 @@ var _ = Describe("Migration", func() {
 			Where(gorp.MatchKeys[v10.Key, v10.Schematic](old.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Name).To(Equal("Feed system"))
-		setpoint := got.Configs["n1"].Variant.(v10.SetpointElementConfig)
+		setpoint, ok := got.Configs["n1"].Variant.(v10.SetpointElementConfig)
+		Expect(ok).To(BeTrue())
 		Expect(setpoint.Units).To(Equal("mV"))
 		Expect(setpoint.InlineSize).To(BeEquivalentTo(100))
 	})

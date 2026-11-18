@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
@@ -31,18 +32,26 @@ const openMenu = async (): Promise<HTMLElement> => {
   return dialog;
 };
 
-const openSelect = async (): Promise<HTMLElement> => {
+interface OpenSelectProps {
+  data?: string[];
+  footer?: ReactNode;
+}
+
+const openSelect = async ({
+  data = ["low", "high"],
+  footer,
+}: OpenSelectProps = {}): Promise<HTMLElement> => {
   await renderThemed(
     <Dialog.Frame initialVisible>
       <Select.Frame<string, undefined>
         multiple
-        data={["low", "high"]}
-        value={["low", "high"]}
+        data={data}
+        value={data}
         onChange={() => {}}
       >
         <Dialog.Trigger>Labels</Dialog.Trigger>
         <Select.Dialog surface="menu">
-          <Select.Body<string> resourceName="label" onSearch={() => {}}>
+          <Select.Body<string> resourceName="label" onSearch={() => {}} footer={footer}>
             {({ key, ...p }) => (
               <Select.Item key={key} {...p}>
                 {key}
@@ -128,6 +137,23 @@ describe("Menu.Dialog", () => {
       );
       expect(computed(low, "border-bottom-left-radius")).toBe("0px");
       expect(computed(high, "border-top-left-radius")).toBe("0px");
+    });
+
+    it("should draw a list with a footer with no frame", async () => {
+      const dialog = await openSelect({
+        footer: <Select.Item itemKey="none">None</Select.Item>,
+      });
+      const body = dialog.querySelector(".lyra-select__body") as HTMLElement;
+      expect(computed(body, "border-top-width")).toBe("0px");
+      expect(computed(body, "border-top-left-radius")).toBe("0px");
+    });
+
+    it("should give an empty list the height of one item", async () => {
+      const dialog = await openSelect({ data: [] });
+      const scroll = dialog.querySelector(".lyra-list__scroll") as HTMLElement;
+      expect(computed(scroll, "min-height")).toBe(
+        resolve("var(--pluto-height-medium)", "min-height"),
+      );
     });
   });
 });

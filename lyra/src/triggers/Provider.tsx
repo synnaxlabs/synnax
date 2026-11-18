@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
+import { array, type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect, useRef } from "react";
 
 import { context } from "@/context";
@@ -45,9 +45,7 @@ export { useContext };
 
 /** @returns whether the host keeps trigger for itself, so no hint should show it. */
 export const useReserved = (trigger: Trigger): boolean =>
-  useContext().reserved.some(
-    (r) => compare.unorderedPrimitiveArrays(r, trigger) === compare.EQUAL,
-  );
+  useContext().reserved.some((r) => array.equalUnordered(r, trigger));
 
 interface RefState {
   next: Trigger;

@@ -13,7 +13,7 @@ import {
   type UnaryClient,
   Unreachable,
 } from "@synnaxlabs/freighter";
-import { type breaker, observe, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
+import { type breaker, observe, sleep, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -35,12 +35,12 @@ import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
-  const transport = new Transport(
-    new url.URL({
+  const transport = new Transport({
+    url: new url.URL({
       host: TEST_CLIENT_PARAMS.host,
       port: Number(TEST_CLIENT_PARAMS.port),
     }),
-  );
+  });
   const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
   transport.use(client.middleware());
   return transport.unary;
@@ -210,9 +210,6 @@ const createClient = (
     heartbeatInterval,
     ...overrides,
   });
-
-const sleep = async (span: TimeSpan): Promise<void> =>
-  await new Promise((resolve) => setTimeout(resolve, span.milliseconds));
 
 describe("connection", () => {
   describe("version compatibility", () => {
@@ -982,10 +979,10 @@ describe("connection", () => {
       );
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBe(calls);
       client.retryNow();
-      await sleep(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBeGreaterThan(calls);
       await client.close();
     });
@@ -1001,12 +998,12 @@ describe("connection", () => {
       const send = unary.send as ReturnType<typeof vi.fn>;
       // the mode switch into heartbeat may fire one buffered check; settle
       // before measuring quiescence
-      await sleep(TimeSpan.milliseconds(30));
+      await sleep.sleep(TimeSpan.milliseconds(30));
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(30));
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBe(calls);
       client.retryNow();
-      await sleep(TimeSpan.milliseconds(30));
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBeGreaterThan(calls);
       await client.close();
     });
@@ -1023,7 +1020,7 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("disabled");
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBe(calls);
     });
 
@@ -1225,7 +1222,7 @@ describe("connection", () => {
       client.notify({ type: "auth.failure", error: new AuthError("bad password") });
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(60));
+      await sleep.sleep(TimeSpan.milliseconds(60));
       expect(send.mock.calls.length).toBe(calls);
       await client.close();
     });
@@ -1241,7 +1238,7 @@ describe("connection", () => {
       client.notify({ type: "auth.failure", error: new AuthError("bad password") });
       const send = unary.send as ReturnType<typeof vi.fn>;
       const calls = send.mock.calls.length;
-      await sleep(TimeSpan.milliseconds(30));
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(send.mock.calls.length).toBe(calls);
       client.notify({ type: "credentials.replaced" });
       await observe.until(
@@ -1271,7 +1268,7 @@ describe("connection", () => {
         TimeSpan.seconds(60),
       );
       const send = unary.send as ReturnType<typeof vi.fn>;
-      while (send.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      while (send.mock.calls.length === 0) await sleep.sleep(TimeSpan.milliseconds(1));
       // the stream opens behind the auth middleware, so a login lands first
       client.notify({ type: "auth.success", session: "session" });
       client.notify({ type: "stream.live" });
@@ -1279,7 +1276,7 @@ describe("connection", () => {
       // the check issued before the stream came up fails late: it was aimed
       // at the old state and must not degrade the new one
       rejectCheck?.(new Unreachable({ message: "stale" }));
-      await sleep(TimeSpan.milliseconds(20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(client.status.variant).toEqual("success");
       const closing = client.close();
       rejectCheck?.(new Unreachable({ message: "shutdown" }));
@@ -1315,7 +1312,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (calls.length < 2) await sleep(TimeSpan.milliseconds(1));
+      while (calls.length < 2) await sleep.sleep(TimeSpan.milliseconds(1));
       expect(calls.slice(0, 2)).toEqual(["reset", "ensure"]);
       await client.close();
     });
@@ -1332,7 +1329,8 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.authenticated,
       );
-      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      while (ensured.mock.calls.length === 0)
+        await sleep.sleep(TimeSpan.milliseconds(1));
       expect(client.status.variant).toEqual("loading");
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
@@ -1347,10 +1345,11 @@ describe("connection", () => {
         stream: { reset: async () => {}, ensure: ensured },
       });
       const send = unary.send as ReturnType<typeof vi.fn>;
-      while (send.mock.calls.length < 3) await sleep(TimeSpan.milliseconds(1));
+      while (send.mock.calls.length < 3) await sleep.sleep(TimeSpan.milliseconds(1));
       expect(ensured).not.toHaveBeenCalled();
       unary.setLicense("ok");
-      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      while (ensured.mock.calls.length === 0)
+        await sleep.sleep(TimeSpan.milliseconds(1));
       await client.close();
     });
 
@@ -1383,7 +1382,7 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("warning");
       expect(probes).toEqual(1);
       const checksAtDenial = checks;
-      while (probes < 2) await sleep(TimeSpan.milliseconds(1));
+      while (probes < 2) await sleep.sleep(TimeSpan.milliseconds(1));
       expect(checks - checksAtDenial).toBeGreaterThanOrEqual(3);
       expect(internal).toHaveLength(1);
       expect(AccessDeniedError.matches(internal[0])).toBe(true);
@@ -1401,8 +1400,9 @@ describe("connection", () => {
         stream: { reset: async () => {}, ensure: ensured },
         onInternalError: (error) => internal.push(error),
       });
-      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
-      await sleep(TimeSpan.milliseconds(5));
+      while (ensured.mock.calls.length === 0)
+        await sleep.sleep(TimeSpan.milliseconds(1));
+      await sleep.sleep(TimeSpan.milliseconds(5));
       expect(internal).toEqual([]);
       await client.close();
     });
@@ -1477,7 +1477,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (internal.length === 0) await sleep(TimeSpan.milliseconds(1));
+      while (internal.length === 0) await sleep.sleep(TimeSpan.milliseconds(1));
       expect(internal[0].message).toEqual(
         "failed to reset cache after cluster replacement",
       );
@@ -1580,10 +1580,11 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      while (calls.length === 0) await sleep.sleep(TimeSpan.milliseconds(1));
       const send = unary.send as ReturnType<typeof vi.fn>;
       const sent = send.mock.calls.length;
-      while (send.mock.calls.length < sent + 3) await sleep(TimeSpan.milliseconds(1));
+      while (send.mock.calls.length < sent + 3)
+        await sleep.sleep(TimeSpan.milliseconds(1));
       expect(calls).toEqual(["reset"]);
       await client.close();
     });

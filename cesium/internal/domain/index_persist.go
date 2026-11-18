@@ -164,8 +164,6 @@ func (p *pointerPersist) load() ([]pointer, error) {
 	return p.decode(b), nil
 }
 
-var byteOrder = binary.LittleEndian
-
 type pointerCodec struct{}
 
 // encode returns the encoded pointers from start on, in buf's memory when it fits.
@@ -175,11 +173,11 @@ func (f *pointerCodec) encode(buf []byte, start int, ptrs []pointer) []byte {
 	for i := start; i < len(ptrs); i++ {
 		ptr := ptrs[i]
 		base := (i - start) * pointerByteSize
-		byteOrder.PutUint64(b[base:base+8], uint64(ptr.Start))
-		byteOrder.PutUint64(b[base+8:base+16], uint64(ptr.End))
-		byteOrder.PutUint16(b[base+16:base+18], ptr.fileKey)
-		byteOrder.PutUint32(b[base+18:base+22], ptr.offset)
-		byteOrder.PutUint32(b[base+22:base+26], ptr.size)
+		binary.LittleEndian.PutUint64(b[base:base+8], uint64(ptr.Start))
+		binary.LittleEndian.PutUint64(b[base+8:base+16], uint64(ptr.End))
+		binary.LittleEndian.PutUint16(b[base+16:base+18], ptr.fileKey)
+		binary.LittleEndian.PutUint32(b[base+18:base+22], ptr.offset)
+		binary.LittleEndian.PutUint32(b[base+22:base+26], ptr.size)
 	}
 
 	return b
@@ -194,11 +192,11 @@ func (f *pointerCodec) decode(b []byte) []pointer {
 	for i := range len(b) / pointerByteSize {
 		base := i * pointerByteSize
 		pointers[i] = pointer{
-			Start:   telem.TimeStamp(byteOrder.Uint64(b[base : base+8])),
-			End:     telem.TimeStamp(byteOrder.Uint64(b[base+8 : base+16])),
-			fileKey: byteOrder.Uint16(b[base+16 : base+18]),
-			offset:  byteOrder.Uint32(b[base+18 : base+22]),
-			size:    byteOrder.Uint32(b[base+22 : base+26]),
+			Start:   telem.TimeStamp(binary.LittleEndian.Uint64(b[base : base+8])),
+			End:     telem.TimeStamp(binary.LittleEndian.Uint64(b[base+8 : base+16])),
+			fileKey: binary.LittleEndian.Uint16(b[base+16 : base+18]),
+			offset:  binary.LittleEndian.Uint32(b[base+18 : base+22]),
+			size:    binary.LittleEndian.Uint32(b[base+22 : base+26]),
 		}
 	}
 	return pointers

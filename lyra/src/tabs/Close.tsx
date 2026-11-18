@@ -11,11 +11,19 @@ import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Haul } from "@/haul";
 
 /** Props for {@link Close}. */
 export interface CloseProps extends Button.CloseProps {}
 
+// A tab's drag preview copies the tab without its close button.
+const OMIT = { [Haul.OMIT_ATTRIBUTE]: "" };
+
 /** A close button sized and placed for use inside a {@link Tab}. */
 export const Close = ({ className, ...rest }: CloseProps): ReactElement => (
-  <Button.Close className={CSS.cls(CSS.BE("tabs", "close"), className)} {...rest} />
+  <Button.Close
+    className={CSS.cls(CSS.BE("tabs", "close"), className)}
+    {...OMIT}
+    {...rest}
+  />
 );

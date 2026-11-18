@@ -9,9 +9,7 @@
 
 import json
 import zipfile
-from collections.abc import Callable
 from pathlib import Path
-from typing import cast
 from uuid import uuid4
 
 import pydantic
@@ -21,7 +19,7 @@ import synnax as sy
 from synnax import project
 from synnax.exceptions import NotFoundError
 from x import filter
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 @pytest.mark.project
@@ -132,7 +130,7 @@ class TestProject:
 
     def test_retrieve_rejects_author(self, client: sy.Synnax) -> None:
         """Should reject the removed author filter."""
-        retrieve = cast(Callable[..., object], client.projects.retrieve)
+        retrieve = untyped(client.projects.retrieve)
         with pytest.raises(pydantic.ValidationError, match="author"):
             retrieve(author=uuid4())
 

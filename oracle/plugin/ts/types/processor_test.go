@@ -29,9 +29,9 @@ var _ = Describe("FieldProcessor", func() {
 		mgr = imports.NewManager()
 	})
 
-	processorFor := func(ctx SpecContext, source string) (*types.FieldProcessor, resolution.Type, resolution.Field) {
+	processorFor := func(source string) (*types.FieldProcessor, resolution.Type, resolution.Field) {
 		GinkgoHelper()
-		req := MustGenerateRequest(ctx, source, "schema", loader)
+		req := MustGenerateRequest(source, "schema", loader)
 		fp := &types.FieldProcessor{
 			Imports:    mgr,
 			Namespace:  "schema",
@@ -41,7 +41,8 @@ var _ = Describe("FieldProcessor", func() {
 		structs := req.Resolutions.StructTypes()
 		Expect(structs).ToNot(BeEmpty())
 		typ := structs[0]
-		form := typ.Form.(resolution.StructForm)
+		form, ok := typ.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
 		Expect(form.Fields).ToNot(BeEmpty())
 		return fp, typ, form.Fields[0]
 	}
@@ -49,7 +50,7 @@ var _ = Describe("FieldProcessor", func() {
 	Describe("ProcessField", func() {
 		It(
 			"Should produce zod and TS representations for a primitive field",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "client/ts/src/schema"
 
@@ -57,7 +58,7 @@ var _ = Describe("FieldProcessor", func() {
 					name string
 				}
 			`
-				fp, typ, field := processorFor(ctx, source)
+				fp, typ, field := processorFor(source)
 				fd := fp.ProcessField(field, typ)
 				Expect(fd.Name).To(Equal("name"))
 				Expect(fd.TSName).To(Equal("name"))
@@ -67,7 +68,7 @@ var _ = Describe("FieldProcessor", func() {
 
 		It(
 			"Should add a same-namespace zod import when a field references another schema type",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "client/ts/src/schema"
 
@@ -79,7 +80,7 @@ var _ = Describe("FieldProcessor", func() {
 					tile Tile
 				}
 			`
-				req := MustGenerateRequest(ctx, source, "schema", loader)
+				req := MustGenerateRequest(source, "schema", loader)
 				structs := req.Resolutions.StructTypes()
 				var board resolution.Type
 				for _, s := range structs {
@@ -96,7 +97,9 @@ var _ = Describe("FieldProcessor", func() {
 					OutputPath: "client/ts/src/schema",
 					Request:    req,
 				}
-				tileField := board.Form.(resolution.StructForm).Fields[0]
+				form, ok := board.Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				tileField := form.Fields[0]
 				fp.CollectTypeImports(&tileField.Type)
 				internal := mgr.InternalNamedImports()
 				Expect(internal).ToNot(BeEmpty())
@@ -119,7 +122,7 @@ var _ = Describe("FieldProcessor", func() {
 			Expect(mgr.SynnaxImports()).To(BeNil())
 		})
 
-		It("Should recurse through type args", func(ctx SpecContext) {
+		It("Should recurse through type args", func() {
 			source := `
 				@ts output "client/ts/src/schema"
 
@@ -131,7 +134,7 @@ var _ = Describe("FieldProcessor", func() {
 					tiles Tile[]
 				}
 			`
-			req := MustGenerateRequest(ctx, source, "schema", loader)
+			req := MustGenerateRequest(source, "schema", loader)
 			var board resolution.Type
 			for _, s := range req.Resolutions.StructTypes() {
 				if s.Name == "Board" {
@@ -146,7 +149,9 @@ var _ = Describe("FieldProcessor", func() {
 				OutputPath: "client/ts/src/schema",
 				Request:    req,
 			}
-			tilesField := board.Form.(resolution.StructForm).Fields[0]
+			form, ok := board.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			tilesField := form.Fields[0]
 			fp.CollectTypeImports(&tilesField.Type)
 			internal := mgr.InternalNamedImports()
 			Expect(internal).ToNot(BeEmpty())
@@ -155,7 +160,7 @@ var _ = Describe("FieldProcessor", func() {
 
 		It(
 			"Should not add imports for cross-namespace references",
-			func(ctx SpecContext) {
+			func() {
 				source := `
 				@ts output "client/ts/src/schema"
 
@@ -163,7 +168,7 @@ var _ = Describe("FieldProcessor", func() {
 					name string
 				}
 			`
-				req := MustGenerateRequest(ctx, source, "schema", loader)
+				req := MustGenerateRequest(source, "schema", loader)
 				fp := &types.FieldProcessor{
 					Imports:    mgr,
 					Namespace:  "other",

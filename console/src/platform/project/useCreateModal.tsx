@@ -48,6 +48,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       close();
     },
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame>

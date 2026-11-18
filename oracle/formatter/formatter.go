@@ -93,7 +93,7 @@ func (f *formatter) write(s string) { f.sb.WriteString(s) }
 func (f *formatter) writeLine(s string) { f.sb.WriteString(s); f.sb.WriteString("\n") }
 
 func (f *formatter) writeIndent() {
-	for i := 0; i < f.currentIndent; i++ {
+	for range f.currentIndent {
 		f.sb.WriteString(indent)
 	}
 }
@@ -298,15 +298,16 @@ func (f *formatter) formatExpressionAligned(
 }
 
 func (f *formatter) formatDefinition(ctx parser.IDefinitionContext) {
-	if ctx.StructDef() != nil {
+	switch {
+	case ctx.StructDef() != nil:
 		f.formatStructDef(ctx.StructDef())
-	} else if ctx.EnumDef() != nil {
+	case ctx.EnumDef() != nil:
 		f.formatEnumDef(ctx.EnumDef())
-	} else if ctx.TypeDefDef() != nil {
+	case ctx.TypeDefDef() != nil:
 		f.formatTypeDefDef(ctx.TypeDefDef())
-	} else if ctx.UnionDef() != nil {
+	case ctx.UnionDef() != nil:
 		f.formatUnionDef(ctx.UnionDef())
-	} else if ctx.FilterDef() != nil {
+	case ctx.FilterDef() != nil:
 		f.formatFilterDef(ctx.FilterDef())
 	}
 }
@@ -1390,17 +1391,18 @@ func (f *formatter) writeWrappedDoc(value string) {
 }
 
 func (f *formatter) formatExpressionValue(ctx parser.IExpressionValueContext) {
-	if ctx.TRIPLE_STRING_LIT() != nil {
+	switch {
+	case ctx.TRIPLE_STRING_LIT() != nil:
 		f.write(ctx.TRIPLE_STRING_LIT().GetText())
-	} else if ctx.STRING_LIT() != nil {
+	case ctx.STRING_LIT() != nil:
 		f.write(ctx.STRING_LIT().GetText())
-	} else if ctx.INT_LIT() != nil {
+	case ctx.INT_LIT() != nil:
 		f.write(ctx.INT_LIT().GetText())
-	} else if ctx.FLOAT_LIT() != nil {
+	case ctx.FLOAT_LIT() != nil:
 		f.write(ctx.FLOAT_LIT().GetText())
-	} else if ctx.BOOL_LIT() != nil {
+	case ctx.BOOL_LIT() != nil:
 		f.write(ctx.BOOL_LIT().GetText())
-	} else if ctx.QualifiedIdent() != nil {
+	case ctx.QualifiedIdent() != nil:
 		f.formatQualifiedIdent(ctx.QualifiedIdent())
 	}
 }

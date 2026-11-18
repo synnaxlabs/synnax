@@ -48,6 +48,7 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 				RequestTranslator:  requestBackwardTranslator{},
 				ResponseTranslator: responseForwardTranslator{},
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
+				Errors:             errorCodec(),
 				Internal:           true,
 			}
 			uServer.BindHandler(
@@ -64,6 +65,7 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 				RequestTranslator:  requestBackwardTranslator{},
 				ResponseTranslator: responseForwardTranslator{},
 				ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+				Errors:             errorCodec(),
 				Internal:           true,
 			}
 			sServer.BindHandler(func(
@@ -91,6 +93,7 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 				ResponseTranslator: responseTranslator{},
 				Pool:               pool,
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
+				Errors:             errorCodec(),
 				Exec: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,
@@ -107,6 +110,7 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 				ResponseTranslator: responseTranslator{},
 				Pool:               pool,
 				ServiceDesc:        &v1.TestStreamService_ServiceDesc,
+				Errors:             errorCodec(),
 				ClientFunc: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,

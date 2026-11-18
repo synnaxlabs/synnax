@@ -31,6 +31,7 @@ import (
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	xtestutil "github.com/synnaxlabs/x/testutil"
 )
@@ -74,6 +75,7 @@ func BenchmarkStreamKeyChange(b *testing.B) {
 		Framer:  layer.Framer,
 		Channel: layer.Channel,
 		RBAC:    layer.RBAC,
+		Errors:  errors.NewCodec(),
 	}))
 	for _, calculated := range []int{0, 1, 10, 100} {
 		b.Run(fmt.Sprintf("calculated=%d", calculated), func(b *testing.B) {

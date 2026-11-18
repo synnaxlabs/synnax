@@ -51,8 +51,10 @@ starts the default names of the
 device, such as `dev1_ai_0`. A name that you enter for a channel replaces the default.
 
 An identifier has 2 to 12 characters. It starts with a letter, and then holds only
-letters, numbers, and underscores. The Console suggests short identifiers from the
-device name.
+letters, numbers, and underscores. The Console suggests short identifiers from where the
+device is: the NI MAX name of an NI device, such as `cdaq1mod1`, and the slot of an
+EtherCAT module, such as `s3`. For a LabJack device, it suggests them from the model and
+serial number, such as `t7` and `t7_0002`.
 
 **Change identifier** changes the prefix of channels that tasks create later. Existing
 channels keep their names.

@@ -12,6 +12,7 @@ package json_test
 import (
 	"encoding/json/v2"
 	"fmt"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -117,7 +118,7 @@ var _ = Describe("Infer", func() {
 	})
 
 	It("Should give one shape to many sources of one value and one time", func() {
-		var docs []xjson.Document
+		docs := make([]xjson.Document, 0, 10)
 		for ch := range 5 {
 			docs = append(docs, documents(
 				fmt.Sprintf("sensor-%d", ch),
@@ -237,7 +238,7 @@ var _ = Describe("Infer", func() {
 	})
 
 	It("Should not take a time-named field that mixes formats as a timestamp", func() {
-		times := []string{`"2026-01-02T03:04:05Z"`, fmt.Sprint(t0Seconds)}
+		times := []string{`"2026-01-02T03:04:05Z"`, strconv.FormatInt(t0Seconds, 10)}
 		shapes := xjson.Infer(documents("a", 2, func(i int) string {
 			return `{"time":` + times[i] + `}`
 		}))

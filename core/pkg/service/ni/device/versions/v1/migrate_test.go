@@ -27,6 +27,7 @@ var _ = Describe("Migration", func() {
 	migrate := func(ctx context.Context, old v0.Device) v1.Device {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Device]().Entry(&old).Exec(ctx, db)).
 			To(Succeed())
