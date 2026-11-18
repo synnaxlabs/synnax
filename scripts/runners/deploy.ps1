@@ -31,8 +31,10 @@ $Uv = 'C:\Program Files\Python313\Scripts\uv.exe'
 $Cert = 'C:\ProgramData\Synnax\certs\ca.crt'
 $UvCache = 'C:\Windows\system32\config\systemprofile\AppData\Local\uv'
 $Repo = 'https://raw.githubusercontent.com/synnaxlabs/synnax'
-# uv keys a script's environment on its path, so each deploy reuses this one path.
+# The project environment lives in .venv here, so each deploy reuses this one path.
 $Staging = Join-Path $env:TEMP 'runners-staging'
+# The files that pin the dependencies every script runs with.
+$Project = 'pyproject.toml', 'uv.lock'
 $Tasks = [ordered]@{
     'Runner controller' = @{
         Args = "controller.py --username controller --secure --ca-cert $Cert --scale enabled"
@@ -55,9 +57,10 @@ function Get-Launcher($Name) {
 switch ($Step) {
     'download' {
         # Defender scans of the files uv writes made a deploy take minutes of both CPUs.
-        Add-MpPreference -ExclusionPath $Dir, $UvCache
-        Remove-Item $Staging -Recurse -Force -ErrorAction Ignore
+        Add-MpPreference -ExclusionPath $Dir, $UvCache, $Staging
+        # Keeps .venv, so a deploy installs only the dependencies that changed.
         New-Item -ItemType Directory -Force $Staging | Out-Null
+        Get-ChildItem $Staging -File | Remove-Item -Force
         $names = $Files -split ','
         foreach ($f in $names) {
             $url = "$Repo/$Sha/scripts/runners/$f"
@@ -65,13 +68,14 @@ switch ($Step) {
         }
         # Resolves each script's dependencies and imports, so a bad commit fails here.
         foreach ($script in $Checked) {
-            & $Uv run (Join-Path $Staging $script) --help | Out-Null
+            & $Uv run --project $Staging --locked --no-dev `
+                (Join-Path $Staging $script) --help | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "$script --help failed" }
         }
         "Downloaded $($names.Count) scripts at $Sha"
     }
     'stop-agents' {
-        & $Uv run $AgentDeploy stop
+        & $Uv run --project $Staging --locked --no-dev $AgentDeploy stop
         if ($LASTEXITCODE -ne 0) { throw 'The agents did not all stop' }
     }
     'stop' {
@@ -91,6 +95,7 @@ switch ($Step) {
     }
     'start' {
         Copy-Item (Join-Path $Staging '*.py') $Dir -Force
+        foreach ($f in $Project) { Copy-Item (Join-Path $Staging $f) $Dir -Force }
         Remove-Item (Join-Path $Dir 'gh_token.txt') -ErrorAction SilentlyContinue
         foreach ($name in $Tasks.Keys) {
             $task = $Tasks[$name]
@@ -100,7 +105,8 @@ switch ($Step) {
             Set-Content -Path "$base.once.cmd" -Encoding ascii -Value @(
                 '@echo off'
                 "cd /d `"$Dir`""
-                "`"$Uv`" run $($task.Args) > $($task.Log) 2>&1"
+                ("`"$Uv`" run --project . --locked --no-dev $($task.Args) " +
+                    "> $($task.Log) 2>&1")
             )
             # Relaunches a script that exits. The wait doubles from 10 s to 5 min.
             Set-Content -Path "$base.ps1" -Encoding ascii -Value @(
@@ -150,8 +156,8 @@ switch ($Step) {
         if ($failed) { throw "Exited after start: $($failed -join ', ')" }
     }
     'deploy-agents' {
-        & $Uv run $AgentDeploy install --commit $Sha `
-            --username controller --secure --ca-cert $Cert
+        & $Uv run --project $Staging --locked --no-dev $AgentDeploy install `
+            --commit $Sha --username controller --secure --ca-cert $Cert
         if ($LASTEXITCODE -ne 0) { throw 'The agent install failed on a runner' }
     }
     default { throw "Unknown step '$Step'" }

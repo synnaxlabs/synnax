@@ -27,7 +27,7 @@ const (
 	CommandWrite
 	// CommandCommit represents a call to Writer.Commit.
 	CommandCommit
-	// CommandSetAuthority represents a call to Writer.SetAuthority
+	// CommandSetAuthority represents a call to Writer.SetAuthority.
 	CommandSetAuthority
 	// CommandEndDomain represents a call to Writer.EndDomain.
 	CommandEndDomain

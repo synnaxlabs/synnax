@@ -86,7 +86,8 @@ class Sequence(BaseModel):
     """Runs on the first Core after every other sequence ends, with nothing else
     running, as a timing test needs."""
     independent: bool = False
-    """No test needs another test of the sequence, so shards can split it."""
+    """No test needs another test of the sequence, so shards can split it and a retry
+    runs only its failed tests."""
     tests: list[TestDefinition] = Field(default_factory=list)
 
 

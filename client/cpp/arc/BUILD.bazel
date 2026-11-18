@@ -28,6 +28,7 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/program",
         "//arc/cpp/text",
+        "//client/cpp/channel",
         "//client/cpp/errors",
         "//client/cpp/resource",
         "//client/cpp/status",

@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	"uuid"
@@ -125,7 +126,7 @@ var _ = Describe("Discover", func() {
 			cl := newKafkaClient()
 			before := telem.Now()
 			for i := range 3 {
-				produceJSON(ctx, cl, jsonTopic, fmt.Sprint(i), map[string]int{"v": i})
+				produceJSON(ctx, cl, jsonTopic, strconv.Itoa(i), map[string]int{"v": i})
 			}
 			Expect(cl.ProduceSync(ctx, &kgo.Record{
 				Topic: srTopic,

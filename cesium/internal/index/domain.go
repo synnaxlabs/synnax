@@ -32,7 +32,8 @@ type Domain struct {
 	Channel channel.Channel
 }
 
-var sampleDensity = telem.TimestampT.Density()
+// sampleDensity is the density of telem.TimestampT.
+const sampleDensity = telem.Bit64
 
 func sampleCount(size telem.Size) int64 {
 	return sampleDensity.SampleCount(size)
@@ -73,33 +74,8 @@ func (i *Domain) Distance(
 	iter := i.DB.OpenIterator(domain.IteratorConfig{Bounds: tr})
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 
-	if !iter.SeekFirst(ctx) {
-		// If the domain with the given time range doesn't exist in the database, then
-		// no data exists for that time range, so it's impossible to approximate a
-		// distance.
-		err = newDiscontinuousTRError(tr)
-		return approx, err
-	}
-
-	effectiveDomainTR, _ := resolveForwardEffectiveDomainTR(iter)
-	if !iter.SeekFirst(ctx) {
-		// Reset the iterator position after using it to determine effective bound.
-		// A result of false in this case should be impossible, as we already validated
-		// the iterator by calling SeekFirst in a previous call.
-		i.L.DPanic("iterator seekFirst failed in stamp")
-		return approx, err
-	}
-
-	// If the time range is not contained within the effective domain, then it's
-	// discontinuous, and we return early if the user doesn't want discontinuous
-	// results.
-	if !effectiveDomainTR.ContainsRange(tr) && continuous {
-		err = newDiscontinuousTRError(tr)
-		return approx, err
-	}
-
-	// If the time range is zero, then the distance is zero.
-	if tr.Span().IsZero() {
+	effectiveDomainTR, ok, err := i.seekDistanceStart(ctx, iter, tr, continuous)
+	if err != nil || !ok {
 		return approx, err
 	}
 
@@ -110,9 +86,7 @@ func (i *Domain) Distance(
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 
-	var startApprox, endApprox Approximation[int64]
-
-	startApprox, err = i.search(tr.Start, r)
+	startApprox, err := i.search(tr.Start, r)
 	if err != nil {
 		return approx, err
 	}
@@ -121,66 +95,134 @@ func (i *Domain) Distance(
 	if iter.TimeRange().ContainsStamp(tr.End) || tr.End == iter.TimeRange().End {
 		// If the current domain contains the end of the time range, then everything
 		// is continuous and within the current domain.
-		endApprox, err = i.search(tr.End, r)
-		approx.Approximation = Between(
-			endApprox.Lower-startApprox.Upper,
-			endApprox.Upper-startApprox.Lower,
+		approx.Approximation, approx.EndExact, err = i.searchEnd(
+			tr.End,
+			r,
+			Between(-startApprox.Upper, -startApprox.Lower),
 		)
-		approx.EndExact = endApprox.Exact()
-		return approx, err
-	} else if continuous &&
-		!effectiveDomainTR.ContainsStamp(tr.End) &&
-		effectiveDomainTR.End != tr.End {
-		// Otherwise, unless the effective domain contains the end of the time range
-		// the distance is discontinuous
-		err = newDiscontinuousTRError(tr)
 		return approx, err
 	}
 
-	var (
-		// Length of the current domain
-		domainLen = sampleCount(r.Size())
-		// the total number of samples traversed as we move through domains
-		totalTraversed int64
-		// Distance from the end of the domain to the start approximation.
-		startToFirstEnd = Between(
-			domainLen-startApprox.Upper,
-			domainLen-startApprox.Lower,
-		)
+	startToDomain, found, err := seekEnd(
+		iter,
+		tr,
+		startApprox,
+		sampleCount(r.Size()),
+		effectiveDomainTR,
+		continuous,
 	)
+	if err != nil || !found {
+		approx.Approximation = startToDomain
+		return approx, err
+	}
+	if r, err = reopenReader(ctx, iter, r); err != nil {
+		return approx, err
+	}
+	approx.Approximation, approx.EndExact, err = i.searchEnd(tr.End, r, startToDomain)
+	return approx, err
+}
 
+// searchEnd searches r for end and returns the distance to it from a start that lies
+// startToDomain samples before the start of r's domain. It also returns whether end is
+// in the index.
+func (i *Domain) searchEnd(
+	end telem.TimeStamp,
+	r *domain.Reader,
+	startToDomain Approximation[int64],
+) (Approximation[int64], bool, error) {
+	endApprox, err := i.search(end, r)
+	if err != nil {
+		return Approximation[int64]{}, false, err
+	}
+	return Between(
+		startToDomain.Lower+endApprox.Lower,
+		startToDomain.Upper+endApprox.Upper,
+	), endApprox.Exact(), nil
+}
+
+// seekDistanceStart moves iter to the first domain in tr and returns the effective
+// domain that holds it. It returns false if tr is empty or iter cannot move back to
+// that domain.
+func (i *Domain) seekDistanceStart(
+	ctx context.Context,
+	iter *domain.Iterator,
+	tr telem.TimeRange,
+	continuous continuousPolicy,
+) (telem.TimeRange, bool, error) {
+	if !iter.SeekFirst(ctx) {
+		// If the domain with the given time range doesn't exist in the database, then
+		// no data exists for that time range, so it's impossible to approximate a
+		// distance.
+		return telem.TimeRange{}, false, newDiscontinuousTRError(tr)
+	}
+
+	effectiveDomainTR, _ := resolveForwardEffectiveDomainTR(iter)
+	if !iter.SeekFirst(ctx) {
+		// Reset the iterator position after using it to determine effective bound.
+		// A result of false in this case should be impossible, as we already validated
+		// the iterator by calling SeekFirst in a previous call.
+		i.L.DPanic("iterator seekFirst failed in stamp")
+		return effectiveDomainTR, false, nil
+	}
+
+	// If the time range is not contained within the effective domain, then it's
+	// discontinuous, and we return early if the user doesn't want discontinuous
+	// results.
+	if !effectiveDomainTR.ContainsRange(tr) && continuous {
+		return telem.TimeRange{}, false, newDiscontinuousTRError(tr)
+	}
+	// If the time range is zero, then the distance is zero.
+	return effectiveDomainTR, !tr.Span().IsZero(), nil
+}
+
+// seekEnd moves iter forward onto the domain that holds tr.End, where startApprox is
+// the position of tr.Start in the current domain of domainLen samples. It returns the
+// distance from tr.Start to the start of the domain it stops on, and false if no
+// domain holds tr.End.
+func seekEnd(
+	iter *domain.Iterator,
+	tr telem.TimeRange,
+	startApprox Approximation[int64],
+	domainLen int64,
+	effectiveDomainTR telem.TimeRange,
+	continuous continuousPolicy,
+) (Approximation[int64], bool, error) {
+	// Unless the effective domain contains the end of the time range, the distance is
+	// discontinuous.
+	if continuous &&
+		!effectiveDomainTR.ContainsStamp(tr.End) &&
+		effectiveDomainTR.End != tr.End {
+		return Approximation[int64]{}, false, newDiscontinuousTRError(tr)
+	}
+	traversed := Between(domainLen-startApprox.Upper, domainLen-startApprox.Lower)
 	for {
 		if !iter.Next() ||
 			(continuous && !effectiveDomainTR.ContainsRange(iter.TimeRange())) {
 			if continuous {
-				err = newDiscontinuousTRError(tr)
-				return approx, err
+				return Approximation[int64]{}, false, newDiscontinuousTRError(tr)
 			}
-			approx.Approximation = Between(
-				startToFirstEnd.Lower+totalTraversed,
-				startToFirstEnd.Upper+totalTraversed,
-			)
-			return approx, err
+			return traversed, false, nil
 		}
 		if iter.TimeRange().ContainsStamp(tr.End) {
-			if err = r.Close(); err != nil {
-				return approx, err
-			}
-			if r, err = iter.OpenReader(ctx); err != nil {
-				return approx, err
-			}
-			if endApprox, err = i.search(tr.End, r); err != nil {
-				return approx, err
-			}
-			approx.EndExact = endApprox.Exact()
-			approx.Approximation = Between(
-				startToFirstEnd.Lower+totalTraversed+endApprox.Lower,
-				startToFirstEnd.Upper+totalTraversed+endApprox.Upper,
-			)
-			return approx, err
+			return traversed, true, nil
 		}
-		totalTraversed += sampleCount(iter.Size())
+		size := sampleCount(iter.Size())
+		traversed.Lower += size
+		traversed.Upper += size
 	}
+}
+
+// reopenReader closes r and opens a reader on the domain at iter. It returns r when
+// closing it fails.
+func reopenReader(
+	ctx context.Context,
+	iter *domain.Iterator,
+	r *domain.Reader,
+) (*domain.Reader, error) {
+	if err := r.Close(); err != nil {
+		return r, err
+	}
+	return iter.OpenReader(ctx)
 }
 
 // Segment is a run of consecutive samples that lie in one domain of an index.
@@ -316,11 +358,12 @@ func (i *Domain) Stamp(
 		}
 		err = span.EndWith(err, ErrDiscontinuous)
 	}()
-	if offset == 0 {
+	switch {
+	case offset == 0:
 		approx, err = i.zeroStamp(ctx, ref)
-	} else if offset < 0 {
+	case offset < 0:
 		approx, err = i.backwardStamp(ctx, ref, offset, continuous)
-	} else {
+	default:
 		approx, err = i.forwardStamp(ctx, ref, offset, continuous)
 	}
 	return approx, err
@@ -424,22 +467,9 @@ func (i *Domain) forwardStamp(
 	iter := i.DB.OpenIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 
-	if !iter.SeekFirst(ctx) {
-		err = NewDiscontinuousStampError(ref)
+	effectiveDomainLen, err := i.seekFirstDomain(ctx, iter, ref, offset, continuous)
+	if err != nil {
 		return approx, err
-	}
-
-	effectiveDomainBounds, effectiveDomainLen := resolveForwardEffectiveDomainTR(iter)
-
-	if !effectiveDomainBounds.ContainsStamp(ref) ||
-		(continuous && offset >= effectiveDomainLen) {
-		err = newDiscontinuousOffsetError(offset, effectiveDomainLen)
-		return approx, err
-	}
-
-	if !iter.SeekFirst(ctx) {
-		// Reset the iterator position after using it to determine effective bound.
-		i.L.DPanic("iterator seekFirst failed in stamp")
 	}
 
 	r, err := iter.OpenReader(ctx)
@@ -462,41 +492,25 @@ func (i *Domain) forwardStamp(
 	// lower is out of the file, the stamp is discontinuous.
 	// If they are not exact, and the lower bound is the last sample, then the upper
 	// bound must be discontinuous as well.
-	if continuous {
-		if (startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen) ||
-			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen-1) {
-			err = newDiscontinuousOffsetError(
-				startApprox.Upper+offset,
-				effectiveDomainLen,
-			)
-			return approx, err
-		}
+	if continuous &&
+		((startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen) ||
+			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen-1)) {
+		err = newDiscontinuousOffsetError(startApprox.Upper+offset, effectiveDomainLen)
+		return approx, err
 	}
 
-	totalTraversed := domainLen
 	if endOffset >= domainLen {
-		for {
-			if !iter.Next() {
-				if continuous {
-					err = newDiscontinuousOffsetError(endOffset, effectiveDomainLen)
-					return approx, err
-				}
-				approx = Between(iter.TimeRange().End, telem.TimeStampMax)
+		var found bool
+		if endOffset, found = seekForward(iter, endOffset, domainLen); !found {
+			if continuous {
+				err = newDiscontinuousOffsetError(endOffset, effectiveDomainLen)
 				return approx, err
 			}
-			domainLen = sampleCount(iter.Size())
-			totalTraversed += domainLen
-			if endOffset < totalTraversed {
-				if err = r.Close(); err != nil {
-					return approx, err
-				}
-				r, err = iter.OpenReader(ctx)
-				if err != nil {
-					return approx, err
-				}
-				endOffset -= totalTraversed - domainLen
-				break
-			}
+			approx = Between(iter.TimeRange().End, telem.TimeStampMax)
+			return approx, err
+		}
+		if r, err = reopenReader(ctx, iter, r); err != nil {
+			return approx, err
 		}
 	}
 
@@ -504,6 +518,51 @@ func (i *Domain) forwardStamp(
 	lowerTSOffset := endOffset - startApprox.Span()
 	lowerTSByteOffset := byteSize(lowerTSOffset)
 	return i.approximateStamp(ctx, r, iter, upperTSByteOffset, lowerTSByteOffset)
+}
+
+// seekFirstDomain moves iter to the first domain at or after ref and returns the
+// length of the effective domain that holds ref.
+func (i *Domain) seekFirstDomain(
+	ctx context.Context,
+	iter *domain.Iterator,
+	ref telem.TimeStamp,
+	offset int64,
+	continuous bool,
+) (int64, error) {
+	if !iter.SeekFirst(ctx) {
+		return 0, NewDiscontinuousStampError(ref)
+	}
+
+	effectiveDomainBounds, effectiveDomainLen := resolveForwardEffectiveDomainTR(iter)
+
+	if !effectiveDomainBounds.ContainsStamp(ref) ||
+		(continuous && offset >= effectiveDomainLen) {
+		return 0, newDiscontinuousOffsetError(offset, effectiveDomainLen)
+	}
+
+	if !iter.SeekFirst(ctx) {
+		// Reset the iterator position after using it to determine effective bound.
+		i.L.DPanic("iterator seekFirst failed in stamp")
+	}
+	return effectiveDomainLen, nil
+}
+
+// seekForward moves iter forward from a domain of domainLen samples until a domain
+// holds the sample offset samples after the start of that first domain. It returns the
+// offset of the sample within the domain it stops on, and false when no domain holds
+// it.
+func seekForward(iter *domain.Iterator, offset, domainLen int64) (int64, bool) {
+	totalTraversed := domainLen
+	for {
+		if !iter.Next() {
+			return offset, false
+		}
+		domainLen = sampleCount(iter.Size())
+		totalTraversed += domainLen
+		if offset < totalTraversed {
+			return offset - (totalTraversed - domainLen), true
+		}
+	}
 }
 
 // approximateStamp brackets the stamp between the timestamps at upperTSByteOffset and
@@ -568,31 +627,13 @@ func (i *Domain) backwardStamp(
 ) (approx TimeStampApproximation, err error) {
 	ctx, span := i.T.Bench(ctx, "backward_stamp")
 	defer func() { err = span.EndWith(err, ErrDiscontinuous) }()
-	absOffset := -offset
 
 	iter := i.DB.OpenIterator(domain.IterRange(telem.TimeStamp(0).Range(ref + 1)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 
-	if !iter.SeekLast(ctx) {
-		err = NewDiscontinuousStampError(ref)
+	ref, effectiveDomainLen, err := i.seekLastDomain(ctx, iter, ref, offset, continuous)
+	if err != nil {
 		return approx, err
-	}
-
-	effectiveDomainBounds, effectiveDomainLen := resolveBackwardEffectiveDomainTR(iter)
-
-	if ref == effectiveDomainBounds.End {
-		ref -= 1
-	}
-
-	if (!effectiveDomainBounds.ContainsStamp(ref)) ||
-		(continuous && absOffset >= effectiveDomainLen) {
-		err = newDiscontinuousOffsetError(offset, effectiveDomainLen)
-		return approx, err
-	}
-
-	if !iter.SeekLast(ctx) {
-		// Reset the iterator position after using it to determine effective bound.
-		i.L.DPanic("iterator seekFirst failed in stamp")
 	}
 
 	r, err := iter.OpenReader(ctx)
@@ -620,38 +661,84 @@ func (i *Domain) backwardStamp(
 		return approx, err
 	}
 
-	totalTraversed := domainLen
 	// endOffset counts backwards from the end of the domain, so an offset of exactly
 	// domainLen still lands on the domain's first sample.
 	if endOffset > domainLen {
-		for {
-			if !iter.Prev() {
-				if continuous {
-					err = newDiscontinuousOffsetError(endOffset, domainLen)
-					return approx, err
-				}
-				approx = Between(telem.TimeStampMin, iter.TimeRange().Start)
+		var found bool
+		if endOffset, domainLen, found = seekBackward(
+			iter,
+			endOffset,
+			domainLen,
+		); !found {
+			if continuous {
+				err = newDiscontinuousOffsetError(endOffset, domainLen)
 				return approx, err
 			}
-			domainLen = sampleCount(iter.Size())
-			totalTraversed += domainLen
-			if endOffset <= totalTraversed {
-				if err = r.Close(); err != nil {
-					return approx, err
-				}
-				r, err = iter.OpenReader(ctx)
-				if err != nil {
-					return approx, err
-				}
-				endOffset -= totalTraversed - domainLen
-				break
-			}
+			approx = Between(telem.TimeStampMin, iter.TimeRange().Start)
+			return approx, err
+		}
+		if r, err = reopenReader(ctx, iter, r); err != nil {
+			return approx, err
 		}
 	}
 
 	upperTSByteOffset := iter.Size() - byteSize(endOffset)
 	lowerTSByteOffset := iter.Size() - byteSize(endOffset+startApprox.Span())
 	return i.approximateStamp(ctx, r, iter, upperTSByteOffset, lowerTSByteOffset)
+}
+
+// seekLastDomain moves iter to the last domain at or before ref and returns the
+// length of the effective domain that holds ref. It moves ref off the end of that
+// domain onto its last possible sample.
+func (i *Domain) seekLastDomain(
+	ctx context.Context,
+	iter *domain.Iterator,
+	ref telem.TimeStamp,
+	offset int64,
+	continuous bool,
+) (telem.TimeStamp, int64, error) {
+	absOffset := -offset
+	if !iter.SeekLast(ctx) {
+		return 0, 0, NewDiscontinuousStampError(ref)
+	}
+
+	effectiveDomainBounds, effectiveDomainLen := resolveBackwardEffectiveDomainTR(iter)
+
+	if ref == effectiveDomainBounds.End {
+		ref -= 1
+	}
+
+	if (!effectiveDomainBounds.ContainsStamp(ref)) ||
+		(continuous && absOffset >= effectiveDomainLen) {
+		return 0, 0, newDiscontinuousOffsetError(offset, effectiveDomainLen)
+	}
+
+	if !iter.SeekLast(ctx) {
+		// Reset the iterator position after using it to determine effective bound.
+		i.L.DPanic("iterator seekFirst failed in stamp")
+	}
+	return ref, effectiveDomainLen, nil
+}
+
+// seekBackward moves iter backward from a domain of domainLen samples until a domain
+// holds the sample offset samples before the end of that first domain. It returns the
+// offset of the sample from the end of the domain it stops on, the length of that
+// domain, and false when no domain holds it.
+func seekBackward(
+	iter *domain.Iterator,
+	offset, domainLen int64,
+) (int64, int64, bool) {
+	totalTraversed := domainLen
+	for {
+		if !iter.Prev() {
+			return offset, domainLen, false
+		}
+		domainLen = sampleCount(iter.Size())
+		totalTraversed += domainLen
+		if offset <= totalTraversed {
+			return offset - (totalTraversed - domainLen), domainLen, true
+		}
+	}
 }
 
 // resolveForwardEffectiveDomainTR returns the TimeRange and length of the underlying
@@ -719,11 +806,12 @@ func (i *Domain) search(
 		if midTs, err = read(r, byteSize(mid)); err != nil {
 			return Exactly[int64](0), err
 		}
-		if ts == midTs {
+		switch {
+		case ts == midTs:
 			return Exactly(mid), nil
-		} else if midTs < ts {
+		case midTs < ts:
 			start = mid + 1
-		} else {
+		default:
 			end = mid - 1
 		}
 	}

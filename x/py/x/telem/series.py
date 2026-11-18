@@ -9,8 +9,12 @@
 
 from __future__ import annotations
 
+# On Python 3.15 and later, pandas loads on first use. Older versions ignore this.
+__lazy_modules__ = ["pandas"]
+
 import copy
 import json
+import sys
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime
@@ -22,6 +26,8 @@ from typing import (
     NoReturn,
     Protocol,
     TypeAlias,
+    TypeIs,
+    TypeVar,
     Union,
     get_args,
     get_origin,
@@ -34,7 +40,6 @@ import numpy.typing as npt
 import pandas as pd
 from pydantic import BaseModel, GetCoreSchemaHandler, JsonValue, TypeAdapter
 from pydantic_core import core_schema
-from typing_extensions import TypeIs, TypeVar
 
 from x.interop import ArrayOperators
 from x.params import deprecate_positional
@@ -351,14 +356,12 @@ class Series(ArrayOperators, Generic[T]):
                     "converted to a Series"
                 )
             data_type = data_type or data.data_type
-        elif isinstance(data, (pd.Series, np.ndarray)):
-            if isinstance(data, pd.Series) and isinstance(
-                data.dtype, pd.DatetimeTZDtype
-            ):
+        elif isinstance(data, np.ndarray) or _is_pandas_series(data):
+            if _is_pandas_series(data) and isinstance(data.dtype, pd.DatetimeTZDtype):
                 data = data.dt.tz_convert(None)
             if data_type is None and not isinstance(data.dtype, np.dtype):
                 raise TypeError(f"Cannot convert {data.dtype} to DataType")
-            arr = data.to_numpy() if isinstance(data, pd.Series) else data
+            arr = data.to_numpy() if _is_pandas_series(data) else data
             data_type = data_type or DataType(arr.dtype)
             if arr.dtype.kind == "M":
                 arr = arr.astype("datetime64[ns]")
@@ -562,7 +565,13 @@ class Series(ArrayOperators, Generic[T]):
         return [pd.Timestamp(t).to_pydatetime() for t in self.__array__()]
 
 
-TypedCrudeSeries: TypeAlias = Series | pd.Series | np.ndarray
+def _is_pandas_series(data: object) -> TypeIs[pd.Series]:
+    # A value cannot be a pandas Series while pandas is not loaded, and the check keeps
+    # pandas unloaded.
+    return "pandas" in sys.modules and isinstance(data, pd.Series)
+
+
+type TypedCrudeSeries = Series | pd.Series | np.ndarray
 
 
 def to_float(value: SampleValue) -> float:
@@ -598,12 +607,8 @@ CrudeSample: TypeAlias = (
 )
 """A single sample that a Series can be built from."""
 
-CrudeSeries: TypeAlias = (
-    Series
-    | bytes
-    | pd.Series
-    | np.ndarray
-    | list[float]
+_CrudeSampleList: TypeAlias = (
+    list[float]
     | list[int]
     | list[bool]
     | list[str]
@@ -612,8 +617,29 @@ CrudeSeries: TypeAlias = (
     | list[uuid.UUID]
     | list[TimeStamp]
     | list[np.datetime64]
-    | CrudeSample
 )
+
+type CrudeSeries = (
+    Series | bytes | pd.Series | np.ndarray | _CrudeSampleList | CrudeSample
+)
+
+# Built from the aliases above, so it cannot drift from them. It does not read
+# CrudeSeries, because evaluating that alias loads pandas.
+_CRUDE_SAMPLE_TYPES: tuple[type, ...] = tuple(
+    {get_origin(t) or t for t in get_args(CrudeSample)}
+    | {get_origin(s) or s for t in get_args(_CrudeSampleList) for s in get_args(t)}
+)
+
+
+def is_crude_series(series: CrudeSeries | list[CrudeSeries]) -> TypeIs[CrudeSeries]:
+    """Returns whether series is one crude series rather than a list of them.
+
+    A list is one series when every element is a sample: a member of CrudeSample, or
+    an element type of a list member of CrudeSeries.
+    """
+    return not isinstance(series, list) or all(
+        isinstance(s, _CRUDE_SAMPLE_TYPES) for s in series
+    )
 
 
 def elapsed_seconds(d: npt.NDArray[np.int64]) -> npt.NDArray[np.float64]:

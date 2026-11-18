@@ -42,11 +42,11 @@ import {
 } from "@/feature/ethercat/task/types";
 import { Task } from "@/platform/task";
 
-const renderSelectDataType = Component.renderProp(
-  (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideVariableDensity />
-  ),
+const SelectDataType = (props: Telem.SelectDataTypeProps) => (
+  <Telem.SelectDataType {...props} hideVariableDensity />
 );
+
+const renderSelectDataType = Component.renderProp(SelectDataType);
 
 export interface ChannelDetailsProps {
   path: deep.Path<Channel>;

@@ -14,7 +14,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Ranger } from "@synnaxlabs/pluto";
-import { link } from "@synnaxlabs/x";
+import { compare, link } from "@synnaxlabs/x";
 import { type KeyboardEvent, type ReactElement } from "react";
 
 import {
@@ -144,7 +144,7 @@ const PairDraft = ({ rangeKey, onClose }: DraftProps): ReactElement => {
   );
 };
 
-const byKey = (a: ranger.kv.Pair, b: ranger.kv.Pair) => a.key.localeCompare(b.key);
+const byKey = compare.by((p: ranger.kv.Pair) => p.key);
 
 interface MetaDataProps extends RangeKeyProps {
   pairs: ranger.kv.Pair[];

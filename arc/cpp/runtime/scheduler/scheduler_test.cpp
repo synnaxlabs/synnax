@@ -7,6 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "absl/log/scoped_mock_log.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 #include "x/cpp/errors/errors.h"
@@ -531,6 +539,170 @@ TEST_F(SchedulerTest, AccumulatesMultipleErrors) {
     const auto s = build_with_handler(std::move(ir), h.handler);
     s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(h.errors.size(), 2);
+}
+
+/// @brief captures the lines that the scheduler logs for node errors.
+class ErrorLogTest : public SchedulerTest {
+    absl::ScopedMockLog log{absl::MockLogDefault::kIgnoreUnexpected};
+    std::vector<std::string> lines;
+
+protected:
+    void SetUp() override {
+        EXPECT_CALL(
+            this->log,
+            Log(testing::_, testing::_, testing::HasSubstr("[arc.scheduler] node"))
+        )
+            .WillRepeatedly([this](
+                                absl::LogSeverity,
+                                const std::string &,
+                                const std::string &line
+                            ) { this->lines.push_back(line); });
+        this->log.StartCapturingLogs();
+    }
+
+public:
+    const x::errors::Error divide_by_zero{errors::WASM_TRAP, "integer divide by zero"};
+
+    /// @brief returns the number of captured lines that contain text.
+    [[nodiscard]] size_t count(const std::string &text) const {
+        return std::ranges::count_if(this->lines, [&](const std::string &line) {
+            return line.contains(text);
+        });
+    }
+
+    /// @brief makes the node at key report, on each cycle, the error that make returns
+    /// for the number of that cycle.
+    void fail(const std::string &key, std::function<x::errors::Error(int)> make) {
+        this->mock(key).on_next = [make = std::move(make),
+                                   cycle = 0](node::Context &ctx) mutable {
+            ctx.report_error(make(cycle++));
+            ctx.mark_self_changed();
+        };
+    }
+
+    /// @brief makes the node at key report err on each cycle.
+    void fail(const std::string &key, const x::errors::Error &err) {
+        this->fail(key, [err](int) { return err; });
+    }
+
+    /// @brief builds a scheduler that runs the nodes at keys in the root scope.
+    std::unique_ptr<Scheduler> build_root(
+        const std::vector<std::string> &keys,
+        ErrorHandler handler = noop_handler
+    ) {
+        ir::IR ir;
+        std::vector<ir::Member> members;
+        for (const auto &key: keys) {
+            ir.nodes.push_back(ir_node(key));
+            members.push_back(ir::node_member(key));
+        }
+        ir.root = root_scope(std::move(members));
+        return this->build_with_handler(std::move(ir), std::move(handler));
+    }
+
+    /// @brief runs count cycles 1 ms apart, the first at the elapsed time start.
+    static void
+    run(Scheduler &s,
+        const int count,
+        const x::telem::TimeSpan start = x::telem::MILLISECOND) {
+        for (int i = 0; i < count; i++)
+            s.next(
+                {.elapsed = start + i * x::telem::MILLISECOND,
+                 .reason = node::RunReason::TimerTick}
+            );
+    }
+};
+
+/// @brief it should log one line for a node that fails with one error on each cycle.
+TEST_F(ErrorLogTest, LogsRepeatedErrorOnce) {
+    fail("A", divide_by_zero);
+    const auto s = build_root({"A"});
+    run(*s, 100);
+    EXPECT_EQ(count("node A"), 1);
+}
+
+/// @brief it should log an error again after 5 s, with the count of failures that it
+/// did not log.
+TEST_F(ErrorLogTest, LogsRepeatedErrorAgainAfterInterval) {
+    fail("A", divide_by_zero);
+    const auto s = build_root({"A"});
+    run(*s, 100);
+    run(*s, 1, 6 * x::telem::SECOND);
+    EXPECT_EQ(count("node A"), 2);
+    EXPECT_EQ(count("(99 not logged)"), 1);
+}
+
+/// @brief it should log each of two errors that one node alternates between.
+TEST_F(ErrorLogTest, LogsEachErrorOfOneNode) {
+    fail("A", [](const int cycle) {
+        return x::errors::Error(
+            errors::WASM_TRAP,
+            cycle % 2 == 0 ? "integer divide by zero" : "index out of range"
+        );
+    });
+    const auto s = build_root({"A"});
+    run(*s, 100);
+    EXPECT_EQ(count("integer divide by zero"), 1);
+    EXPECT_EQ(count("index out of range"), 1);
+}
+
+/// @brief it should log at most 10 different errors of one node inside 5 s.
+TEST_F(ErrorLogTest, LogsAtMostTenErrorsOfOneNode) {
+    fail("A", [](const int cycle) {
+        return x::errors::Error(errors::WASM_TRAP, "failure " + std::to_string(cycle));
+    });
+    const auto s = build_root({"A"});
+    run(*s, 100);
+    EXPECT_EQ(count("node A"), 10);
+}
+
+/// @brief it should log a new error after 5 s for a node that logged 10 errors.
+TEST_F(ErrorLogTest, LogsNewErrorAfterIntervalWhenFull) {
+    fail("A", [](const int cycle) {
+        return x::errors::Error(errors::WASM_TRAP, "failure " + std::to_string(cycle));
+    });
+    const auto s = build_root({"A"});
+    run(*s, 100);
+    run(*s, 1, 6 * x::telem::SECOND);
+    EXPECT_EQ(count("node A"), 11);
+    EXPECT_EQ(count("failure 100"), 1);
+}
+
+/// @brief it should limit the lines of each node apart from the other nodes.
+TEST_F(ErrorLogTest, LogsErrorsOfEachNode) {
+    fail("A", divide_by_zero);
+    fail("B", divide_by_zero);
+    const auto s = build_root({"A", "B"});
+    run(*s, 100);
+    EXPECT_EQ(count("node A"), 1);
+    EXPECT_EQ(count("node B"), 1);
+}
+
+/// @brief it should log the first error after a reset.
+TEST_F(ErrorLogTest, LogsErrorAgainAfterReset) {
+    fail("A", divide_by_zero);
+    const auto s = build_root({"A"});
+    run(*s, 100);
+    (*s).reset();
+    run(*s, 1);
+    EXPECT_EQ(count("node A"), 2);
+}
+
+/// @brief it should log one line for a node that reports one warning on each cycle.
+TEST_F(ErrorLogTest, LogsRepeatedWarningOnce) {
+    fail("A", x::errors::Error(errors::WARNING, "The period is zero."));
+    const auto s = build_root({"A"});
+    run(*s, 100);
+    EXPECT_EQ(count("reported a warning"), 1);
+}
+
+/// @brief it should send each error to the handler, also the errors it does not log.
+TEST_F(ErrorLogTest, SendsEachErrorToHandler) {
+    MockErrorHandler h;
+    fail("A", divide_by_zero);
+    const auto s = build_root({"A"}, h.handler);
+    run(*s, 100);
+    EXPECT_EQ(h.errors.size(), 100);
 }
 
 TEST_F(SchedulerTest, ZeroElapsedTimeAccepted) {

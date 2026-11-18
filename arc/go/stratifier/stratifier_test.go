@@ -10,8 +10,6 @@
 package stratifier_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
@@ -66,7 +64,7 @@ func collectNodes(members []ir.Member, out *[]ir.Node) {
 // run stratifies prog and returns the resulting root scope. Fails the spec
 // on any diagnostic. The program is mutated in place; the returned value is
 // prog.Root after stratification.
-func run(ctx context.Context, prog ir.IR) ir.Scope {
+func run(prog ir.IR) ir.Scope {
 	diag := &diagnostics.Diagnostics{}
 	diag = stratifier.Stratify(&prog, diag)
 	ExpectWithOffset(1, diag.Ok()).To(BeTrue(), diag.String())
@@ -97,30 +95,41 @@ func totalMembers(s ir.Scope) int {
 
 var _ = Describe("Stratify", func() {
 	Describe("Empty input", func() {
-		It("Should return a zero scope when the root is empty", func(ctx SpecContext) {
+		It("Should return a zero scope when the root is empty", func() {
 			prog := ir.IR{}
-			root := run(ctx, prog)
+			root := run(prog)
 			Expect(root.IsZero()).To(BeTrue())
 		})
 
-		It("Should preserve a parallel scope with no members", func(ctx SpecContext) {
-			root := run(ctx, programOf(nil, nil))
+		It("Should panic when a non-empty scope has no mode", func() {
+			prog := ir.IR{Root: ir.Scope{Key: "main"}}
+			Expect(func() {
+				Expect(
+					stratifier.Stratify(&prog, &diagnostics.Diagnostics{}),
+				).To(BeNil())
+			}).To(
+				PanicWith("scope main has no mode"),
+			)
+		})
+
+		It("Should preserve a parallel scope with no members", func() {
+			root := run(programOf(nil, nil))
 			Expect(root.Mode).To(Equal(ir.ScopeModeParallel))
 			Expect(root.Strata).To(BeEmpty())
 		})
 	})
 
 	Describe("Flat parallel scope", func() {
-		It("Should place a single source node in phase 0", func(ctx SpecContext) {
-			root := run(ctx, programOf([]ir.Member{{NodeKey: new("source")}}, nil))
+		It("Should place a single source node in phase 0", func() {
+			root := run(programOf([]ir.Member{{NodeKey: new("source")}}, nil))
 			Expect(totalMembers(root)).To(Equal(1))
 			Expect(stratumOf(root, "source")).To(Equal(0))
 		})
 
 		It(
 			"Should keep independent sources in phase 0 together",
-			func(ctx SpecContext) {
-				root := run(ctx, programOf(
+			func() {
+				root := run(programOf(
 					[]ir.Member{
 						{NodeKey: new("a")},
 						{NodeKey: new("b")},
@@ -133,8 +142,8 @@ var _ = Describe("Stratify", func() {
 			},
 		)
 
-		It("Should chain two dependent nodes across phases", func(ctx SpecContext) {
-			root := run(ctx, programOf(
+		It("Should chain two dependent nodes across phases", func() {
+			root := run(programOf(
 				[]ir.Member{{NodeKey: new("sensor")}, {NodeKey: new("process")}},
 				[]ir.Edge{edge("sensor", "process")},
 			))
@@ -144,8 +153,8 @@ var _ = Describe("Stratify", func() {
 
 		It(
 			"Should respect the longest path through a three-link chain",
-			func(ctx SpecContext) {
-				root := run(ctx, programOf(
+			func() {
+				root := run(programOf(
 					[]ir.Member{
 						{NodeKey: new("a")},
 						{NodeKey: new("b")},
@@ -163,8 +172,8 @@ var _ = Describe("Stratify", func() {
 
 		It(
 			"Should fan out from a single source into sibling phase-1 members",
-			func(ctx SpecContext) {
-				root := run(ctx, programOf(
+			func() {
+				root := run(programOf(
 					[]ir.Member{
 						{NodeKey: new("src")},
 						{NodeKey: new("a")},
@@ -179,11 +188,11 @@ var _ = Describe("Stratify", func() {
 			},
 		)
 
-		It("Should use the longest path in a diamond graph", func(ctx SpecContext) {
+		It("Should use the longest path in a diamond graph", func() {
 			// a -> b -> d and a -> c -> d: both paths have length 2, so d
 			// lands in phase 2 regardless of how the algorithm schedules the
 			// middle hops.
-			root := run(ctx, programOf(
+			root := run(programOf(
 				[]ir.Member{
 					{NodeKey: new("a")},
 					{NodeKey: new("b")},
@@ -203,10 +212,10 @@ var _ = Describe("Stratify", func() {
 			Expect(stratumOf(root, "d")).To(Equal(2))
 		})
 
-		It("Should push late joins to the deeper phase", func(ctx SpecContext) {
+		It("Should push late joins to the deeper phase", func() {
 			// a -> c; b -> c; c depends on both, lands after the deeper of
 			// the two sources (both at phase 0).
-			root := run(ctx, programOf(
+			root := run(programOf(
 				[]ir.Member{
 					{NodeKey: new("a")},
 					{NodeKey: new("b")},
@@ -219,10 +228,10 @@ var _ = Describe("Stratify", func() {
 
 		It(
 			"Should ignore dataflow edges whose endpoints fall outside the scope",
-			func(ctx SpecContext) {
+			func() {
 				// Edges reference nodes not in the scope; they must not force
 				// any reordering.
-				root := run(ctx, programOf(
+				root := run(programOf(
 					[]ir.Member{{NodeKey: new("a")}, {NodeKey: new("b")}},
 					[]ir.Edge{edge("ghost", "a"), edge("b", "phantom")},
 				))
@@ -233,7 +242,7 @@ var _ = Describe("Stratify", func() {
 	})
 
 	Describe("Cycle detection", func() {
-		It("Should report a cycle between two members", func(ctx SpecContext) {
+		It("Should report a cycle between two members", func() {
 			prog := programOf(
 				[]ir.Member{{NodeKey: new("a")}, {NodeKey: new("b")}},
 				[]ir.Edge{edge("a", "b"), edge("b", "a")},
@@ -241,10 +250,12 @@ var _ = Describe("Stratify", func() {
 			diag := &diagnostics.Diagnostics{}
 			diag = stratifier.Stratify(&prog, diag)
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("cycle detected"))
+			Expect(
+				diag.String(),
+			).To(ContainSubstring("[E5014]: dataflow cycle: cycle detected"))
 		})
 
-		It("Should report a cycle across three members", func(ctx SpecContext) {
+		It("Should report a cycle across three members", func() {
 			prog := programOf(
 				[]ir.Member{
 					{NodeKey: new("a")},
@@ -256,14 +267,16 @@ var _ = Describe("Stratify", func() {
 			diag := &diagnostics.Diagnostics{}
 			diag = stratifier.Stratify(&prog, diag)
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("cycle detected"))
+			Expect(
+				diag.String(),
+			).To(ContainSubstring("[E5014]: dataflow cycle: cycle detected"))
 		})
 	})
 
 	Describe("Nested scopes", func() {
 		It(
 			"Should treat a nested scope as atomic when phasing its parent",
-			func(ctx SpecContext) {
+			func() {
 				// sensor -> gated_stage (containing inner nodes). The stage sits
 				// atomically in phase 1 of the root scope.
 				stage := ir.Scope{
@@ -275,7 +288,7 @@ var _ = Describe("Stratify", func() {
 						ir.Member{NodeKey: new("inner_b")},
 					}},
 				}
-				root := run(ctx, programOf(
+				root := run(programOf(
 					[]ir.Member{{NodeKey: new("sensor")}, {Scope: new(stage)}},
 					[]ir.Edge{edge("sensor", "inner_a")},
 				))
@@ -286,7 +299,7 @@ var _ = Describe("Stratify", func() {
 
 		It(
 			"Should re-phase a nested parallel scope's members independently",
-			func(ctx SpecContext) {
+			func() {
 				// Inner stage has two dependent nodes; the parent can't see the
 				// inner dependency, but the stratifier recurses.
 				inner := ir.Scope{
@@ -302,7 +315,7 @@ var _ = Describe("Stratify", func() {
 					[]ir.Member{{Scope: new(inner)}},
 					[]ir.Edge{edge("a", "b")},
 				)
-				root := run(ctx, prog)
+				root := run(prog)
 				stage := root.Strata[0][0].Scope
 				Expect(stage).ToNot(BeNil())
 				Expect(stratumOf(*stage, "a")).To(Equal(0))
@@ -312,7 +325,7 @@ var _ = Describe("Stratify", func() {
 
 		It(
 			"Should leave sequential scopes' member order untouched",
-			func(ctx SpecContext) {
+			func() {
 				// Sequential scopes are ordered by source position, not by
 				// dataflow. The stratifier must not reorder their Members.
 				seq := ir.Scope{
@@ -331,7 +344,7 @@ var _ = Describe("Stratify", func() {
 					// re-phase sequential scopes it would violate source order.
 					[]ir.Edge{edge("step_2", "step_0"), edge("step_1", "step_0")},
 				)
-				root := run(ctx, prog)
+				root := run(prog)
 				seqOut := root.Strata[0][0].Scope
 				Expect(seqOut).ToNot(BeNil())
 				Expect(seqOut.Steps).To(HaveLen(3))
@@ -343,7 +356,7 @@ var _ = Describe("Stratify", func() {
 
 		It(
 			"Should recurse into sequential scope's nested parallel children",
-			func(ctx SpecContext) {
+			func() {
 				// seq contains a parallel child whose members have an internal
 				// dependency. The stratifier must descend through the sequence.
 				parallelChild := ir.Scope{
@@ -365,7 +378,7 @@ var _ = Describe("Stratify", func() {
 					[]ir.Member{{Scope: new(seq)}},
 					[]ir.Edge{edge("n1", "n2")},
 				)
-				root := run(ctx, prog)
+				root := run(prog)
 				stageScope := root.Strata[0][0].Scope.Steps[0].Scope
 				Expect(stageScope).ToNot(BeNil())
 				Expect(stratumOf(*stageScope, "n1")).To(Equal(0))
@@ -375,7 +388,7 @@ var _ = Describe("Stratify", func() {
 
 		It(
 			"Should project cross-boundary edges onto the outer scope's members",
-			func(ctx SpecContext) {
+			func() {
 				// A root-level sensor feeds a node buried inside a nested scope.
 				// At the outer level, the edge is projected onto the nested
 				// scope as a whole, pushing it into phase 1.
@@ -387,7 +400,7 @@ var _ = Describe("Stratify", func() {
 						ir.Member{NodeKey: new("deep")},
 					}},
 				}
-				root := run(ctx, programOf(
+				root := run(programOf(
 					[]ir.Member{{NodeKey: new("sensor")}, {Scope: new(inner)}},
 					[]ir.Edge{edge("sensor", "deep")},
 				))
@@ -400,7 +413,7 @@ var _ = Describe("Stratify", func() {
 	Describe("Re-phasing existing layouts", func() {
 		It(
 			"Should discard a pre-existing phase split and rebuild from edges",
-			func(ctx SpecContext) {
+			func() {
 				// The input presents sensor and process already in separate
 				// phases (but swapped); the stratifier should rewrite from the
 				// actual dataflow.
@@ -416,7 +429,7 @@ var _ = Describe("Stratify", func() {
 						},
 					},
 				}
-				root := run(ctx, prog)
+				root := run(prog)
 				Expect(stratumOf(root, "sensor")).To(Equal(0))
 				Expect(stratumOf(root, "process")).To(Equal(1))
 			},
@@ -426,7 +439,7 @@ var _ = Describe("Stratify", func() {
 	Describe("Inline routing synth activation", func() {
 		It(
 			"Should bump an inline synth past its non-inline activator",
-			func(ctx SpecContext) {
+			func() {
 				outerHandle := ir.Handle{Node: "outer_select", Param: "true"}
 				synth := ir.Scope{
 					Key:      "__inline_0",
@@ -443,7 +456,7 @@ var _ = Describe("Stratify", func() {
 					Liveness: ir.LivenessGated,
 					Steps:    ir.Members{ir.Member{NodeKey: new("outer_select")}},
 				}
-				root := run(ctx, programOf(
+				root := run(programOf(
 					[]ir.Member{{Scope: new(synth)}, {Scope: new(main)}},
 					nil,
 				))
@@ -454,7 +467,7 @@ var _ = Describe("Stratify", func() {
 
 		It(
 			"Should bump a nested inline synth past its outer-inline activator",
-			func(ctx SpecContext) {
+			func() {
 				// When one inline synth activates another, the inner synth must
 				// land one stratum past the outer so it runs after the outer
 				// fires the activation handle in the same cycle.
@@ -474,7 +487,7 @@ var _ = Describe("Stratify", func() {
 					},
 					Strata: []ir.Members{{ir.Member{NodeKey: new("inner_body")}}},
 				}
-				root := run(ctx, programOf(
+				root := run(programOf(
 					[]ir.Member{{Scope: new(inner)}, {Scope: new(outer)}},
 					nil,
 				))
@@ -485,7 +498,7 @@ var _ = Describe("Stratify", func() {
 
 		It(
 			"Should chain N-level inline synths across consecutive strata",
-			func(ctx SpecContext) {
+			func() {
 				// A chain of inline synths each activated by the previous level
 				// must land one stratum apart so each inner body runs in the
 				// cycle immediately after its outer activates.
@@ -525,7 +538,7 @@ var _ = Describe("Stratify", func() {
 					},
 					Strata: []ir.Members{{ir.Member{NodeKey: new("innermost_body")}}},
 				}
-				root := run(ctx, programOf(
+				root := run(programOf(
 					[]ir.Member{
 						{Scope: new(s3)},
 						{Scope: new(s2)},
@@ -560,8 +573,8 @@ var _ = Describe("Constant dispatch floor", func() {
 
 	It(
 		"Should floor an edge-fed constant behind its variable source",
-		func(ctx SpecContext) {
-			root := run(ctx, typedProgram(
+		func() {
+			root := run(typedProgram(
 				[]ir.Node{
 					typed("v", "variable"),
 					typed("c", "constant"),
@@ -582,8 +595,8 @@ var _ = Describe("Constant dispatch floor", func() {
 
 	It(
 		"Should floor an edge-fed constant behind a stateful variable",
-		func(ctx SpecContext) {
-			root := run(ctx, typedProgram(
+		func() {
+			root := run(typedProgram(
 				[]ir.Node{typed("sv", "stateful_variable"), typed("c", "constant")},
 				[]ir.Member{{NodeKey: new("sv")}, {NodeKey: new("c")}},
 				[]ir.Edge{edge("sv", "c")},
@@ -593,8 +606,8 @@ var _ = Describe("Constant dispatch floor", func() {
 		},
 	)
 
-	It("Should keep an entry constant in stratum zero", func(ctx SpecContext) {
-		root := run(ctx, typedProgram(
+	It("Should keep an entry constant in stratum zero", func() {
+		root := run(typedProgram(
 			[]ir.Node{typed("c", "constant")},
 			[]ir.Member{{NodeKey: new("c")}},
 			nil,
@@ -602,8 +615,8 @@ var _ = Describe("Constant dispatch floor", func() {
 		Expect(stratumOf(root, "c")).To(Equal(0))
 	})
 
-	It("Should keep a variable-fed poller in stratum zero", func(ctx SpecContext) {
-		root := run(ctx, typedProgram(
+	It("Should keep a variable-fed poller in stratum zero", func() {
+		root := run(typedProgram(
 			[]ir.Node{typed("v", "variable"), typed("w", "")},
 			[]ir.Member{{NodeKey: new("v")}, {NodeKey: new("w")}},
 			[]ir.Edge{edge("v", "w")},
@@ -612,8 +625,8 @@ var _ = Describe("Constant dispatch floor", func() {
 		Expect(stratumOf(root, "w")).To(Equal(0))
 	})
 
-	It("Should not order a write into a variable", func(ctx SpecContext) {
-		root := run(ctx, typedProgram(
+	It("Should not order a write into a variable", func() {
+		root := run(typedProgram(
 			[]ir.Node{typed("f", ""), typed("v", "variable")},
 			[]ir.Member{{NodeKey: new("f")}, {NodeKey: new("v")}},
 			[]ir.Edge{edge("f", "v")},
@@ -624,8 +637,8 @@ var _ = Describe("Constant dispatch floor", func() {
 
 	It(
 		"Should not report a cycle for read-write feedback through a variable",
-		func(ctx SpecContext) {
-			root := run(ctx, typedProgram(
+		func() {
+			root := run(typedProgram(
 				[]ir.Node{typed("v", "variable"), typed("c", "constant")},
 				[]ir.Member{{NodeKey: new("v")}, {NodeKey: new("c")}},
 				[]ir.Edge{edge("v", "c"), edge("c", "v")},
@@ -636,7 +649,7 @@ var _ = Describe("Constant dispatch floor", func() {
 
 	It(
 		"Should floor a constant fed by a variable across a scope boundary",
-		func(ctx SpecContext) {
+		func() {
 			stage := ir.Scope{
 				Key:      "stage",
 				Mode:     ir.ScopeModeParallel,
@@ -646,7 +659,7 @@ var _ = Describe("Constant dispatch floor", func() {
 					ir.Member{NodeKey: new("w")},
 				}},
 			}
-			root := run(ctx, typedProgram(
+			root := run(typedProgram(
 				[]ir.Node{
 					typed("v", "variable"),
 					typed("c", "constant"),
@@ -673,14 +686,14 @@ var _ = Describe("Constant dispatch floor", func() {
 
 	It(
 		"Should floor a constant fed by a timer across a scope boundary",
-		func(ctx SpecContext) {
+		func() {
 			stage := ir.Scope{
 				Key:      "stage",
 				Mode:     ir.ScopeModeParallel,
 				Liveness: ir.LivenessGated,
 				Strata:   []ir.Members{{ir.Member{NodeKey: new("c")}}},
 			}
-			root := run(ctx, typedProgram(
+			root := run(typedProgram(
 				[]ir.Node{typed("timer", ""), typed("c", "constant")},
 				[]ir.Member{{NodeKey: new("timer")}, {Scope: new(stage)}},
 				[]ir.Edge{edge("timer", "c")},
@@ -698,8 +711,8 @@ var _ = Describe("Constant dispatch floor", func() {
 		},
 	)
 
-	It("Should stack same-scope ordering on top of the floor", func(ctx SpecContext) {
-		root := run(ctx, typedProgram(
+	It("Should stack same-scope ordering on top of the floor", func() {
+		root := run(typedProgram(
 			[]ir.Node{
 				typed("src", ""), typed("mid", ""),
 				typed("c", "constant"), typed("w", ""),

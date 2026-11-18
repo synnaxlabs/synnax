@@ -10,7 +10,6 @@
 package versioning_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 
@@ -63,18 +62,18 @@ var _ = Describe("Versioning", func() {
 			res  *versions.Resolver
 		)
 
-		analyzeLive := func(ctx context.Context, source string) *resolution.Table {
+		analyzeLive := func(source string) *resolution.Table {
 			GinkgoHelper()
 			table := resolution.NewTable()
 			diag := analyzer.AnalyzeSeeded(
-				ctx, source, "schemas/synnax/channel.oracle", "channel",
+				source, "schemas/synnax/channel.oracle", "channel",
 				analyzer.NewStandardFileLoader(root), table,
 			)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			return table
 		}
 
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
 			root = GinkgoT().TempDir()
 			full := filepath.Join(root, "schemas/synnax/versions/channel")
 			Expect(os.MkdirAll(full, 0o755)).To(Succeed())
@@ -106,28 +105,28 @@ Wire struct {
 `
 
 		It("Should map member output paths to the chain's current version",
-			func(ctx SpecContext) {
-				table := analyzeLive(ctx, live)
+			func() {
+				table := analyzeLive(live)
 				entries, members := MustSucceed2(
-					versioning.Survey(ctx, table, res),
+					versioning.Survey(table, res),
 				)
 				Expect(entries).To(Equal(map[string]int{"out": 0}))
 				Expect(members.Contains("channel.Channel")).To(BeTrue())
 				Expect(members.Contains("channel.Wire")).To(BeFalse())
 			})
 
-		It("Should return nothing without a resolver", func(ctx SpecContext) {
-			table := analyzeLive(ctx, live)
-			entries, members := MustSucceed2(versioning.Survey(ctx, table, nil))
+		It("Should return nothing without a resolver", func() {
+			table := analyzeLive(live)
+			entries, members := MustSucceed2(versioning.Survey(table, nil))
 			Expect(entries).To(BeEmpty())
 			Expect(members).To(BeEmpty())
 		})
 
 		It("Should rewrite member outputs and leave transient types",
-			func(ctx SpecContext) {
-				table := analyzeLive(ctx, live)
+			func() {
+				table := analyzeLive(live)
 				rewritten, pathMap, members, err := versioning.RewriteCurrent(
-					ctx, table, res,
+					table, res,
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pathMap).To(Equal(map[string]string{"out": "out/versions/v0"}))
@@ -139,8 +138,8 @@ Wire struct {
 			})
 
 		It("Should drop a live omit on a member and keep it on a transient type",
-			func(ctx SpecContext) {
-				table := analyzeLive(ctx, `
+			func() {
+				table := analyzeLive(`
 @go output "out"
 
 Channel struct {
@@ -160,7 +159,7 @@ Note struct {
 	text string
 }
 `)
-				rewritten, _, _, err := versioning.RewriteCurrent(ctx, table, res)
+				rewritten, _, _, err := versioning.RewriteCurrent(table, res)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(omit.IsType(rewritten.MustGet("channel.Channel"), "go")).
 					To(BeFalse())
@@ -168,9 +167,9 @@ Note struct {
 					To(BeTrue())
 			})
 
-		It("Should return the table unchanged with no chains", func(ctx SpecContext) {
-			table := analyzeLive(ctx, live)
-			rewritten, pathMap, _, err := versioning.RewriteCurrent(ctx, table, nil)
+		It("Should return the table unchanged with no chains", func() {
+			table := analyzeLive(live)
+			rewritten, pathMap, _, err := versioning.RewriteCurrent(table, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rewritten).To(BeIdenticalTo(table))
 			Expect(pathMap).To(BeEmpty())
@@ -190,10 +189,10 @@ Note struct {
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
 		}
 
-		analyzeLive := func(ctx context.Context) *resolution.Table {
+		analyzeLive := func() *resolution.Table {
 			GinkgoHelper()
 			table := resolution.NewTable()
-			diag := analyzer.AnalyzeSeeded(ctx, `
+			diag := analyzer.AnalyzeSeeded(`
 import "schemas/x/color"
 
 @go output "out"
@@ -273,9 +272,9 @@ Channel struct {
 		})
 
 		It("Should resolve a reference through the version its declaring file imports",
-			func(ctx SpecContext) {
-				table := analyzeLive(ctx)
-				pins := MustSucceed(versioning.NewPins(ctx, table, res))
+			func() {
+				table := analyzeLive()
+				pins := MustSucceed(versioning.NewPins(table, res))
 				Expect(MustBeOk(pins.Path("channel.Note", color(table)))).
 					To(Equal("colorout/versions/v0"))
 				Expect(MustBeOk(pins.Path("channel.Channel", color(table)))).
@@ -283,18 +282,18 @@ Channel struct {
 			})
 
 		It("Should resolve a current declaration through its schema's current pins",
-			func(ctx SpecContext) {
-				table := analyzeLive(ctx)
-				pins := MustSucceed(versioning.NewPins(ctx, table, res))
+			func() {
+				table := analyzeLive()
+				pins := MustSucceed(versioning.NewPins(table, res))
 				Expect(MustBeOk(pins.CurrentPath(
 					"schemas/synnax/channel", color(table),
 				))).To(Equal("colorout/versions/v1"))
 			})
 
 		It("Should not resolve a reference its declaring file does not pin",
-			func(ctx SpecContext) {
-				table := analyzeLive(ctx)
-				pins := MustSucceed(versioning.NewPins(ctx, table, res))
+			func() {
+				table := analyzeLive()
+				pins := MustSucceed(versioning.NewPins(table, res))
 				note := MustBeOk(table.Get("channel.Note"))
 				Expect(pins.Path("channel.Channel", note)).Error().To(BeFalse())
 				Expect(pins.Path("channel.Unknown", color(table))).Error().To(BeFalse())
@@ -302,16 +301,16 @@ Channel struct {
 					To(BeFalse())
 			})
 
-		It("Should resolve nothing without a resolver", func(ctx SpecContext) {
-			table := analyzeLive(ctx)
-			pins := MustSucceed(versioning.NewPins(ctx, table, nil))
+		It("Should resolve nothing without a resolver", func() {
+			table := analyzeLive()
+			pins := MustSucceed(versioning.NewPins(table, nil))
 			Expect(pins.Path("channel.Note", color(table))).Error().To(BeFalse())
 		})
 
-		It("Should return the error from reading a surface", func(ctx SpecContext) {
-			table := analyzeLive(ctx)
+		It("Should return the error from reading a surface", func() {
+			table := analyzeLive()
 			write("schemas/synnax/versions/channel/v1.oracle", "Channel struct {")
-			Expect(versioning.NewPins(ctx, table, res)).Error().
+			Expect(versioning.NewPins(table, res)).Error().
 				To(MatchError(ContainSubstring("mismatched input '<EOF>'")))
 		})
 	})

@@ -49,7 +49,7 @@ class EtherCATRefusedStartupParameter(TestCase):
             self.client, self.tsk, "a missing address", timeout=REJECT_TIMEOUT
         )
         expected = (
-            f"Failed to start task: Slave {STGS[0]} ({SLAVES[STGS[0] - 1]}) rejected "
+            f"Failed to start task: Module {STGS[0]} ({SLAVES[STGS[0] - 1]}) rejected "
             "startup parameter 0x8040:FF: Subindex does not exist."
         )
         if text != expected:

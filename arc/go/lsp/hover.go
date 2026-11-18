@@ -588,67 +588,67 @@ func (s *Server) getUserSymbolHover(
 			kindDesc += " (deprecated)"
 		}
 		d = doc.New(doc.TitleWithKind(displayName, kindDesc))
-		d.Add(doc.Divider())
-		d.Add(doc.Code("arc", formatFunctionSignatureContent(sym)))
+		d = d.With(doc.Divider())
+		d = d.With(doc.Code("arc", formatFunctionSignatureContent(sym)))
 		if sym.Trigger.Target != "" {
-			d.Add(doc.Detail("Trigger", sym.Trigger.Target, true))
+			d = d.With(doc.Detail("Trigger", sym.Trigger.Target, true))
 		}
 	case symbol.KindModule, symbol.KindModuleAlias:
 		d = doc.New(doc.TitleWithKind(displayName, "Module"))
 		if members := formatModuleMembersList(sym); len(members) > 0 {
-			d.Add(doc.Paragraph("Members: " + strings.Join(members, ", ")))
+			d = d.With(doc.Paragraph("Members: " + strings.Join(members, ", ")))
 		}
 	case symbol.KindConstant:
 		d = doc.New(doc.TitleWithKind(displayName, "Constant"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		d = d.With(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindVariable:
 		d = doc.New(doc.TitleWithKind(displayName, "Variable"))
-		d.Add(doc.Detail("Type", variableTypeDetail(sym), true))
+		d = d.With(doc.Detail("Type", variableTypeDetail(sym), true))
 	case symbol.KindStatefulVariable:
 		d = doc.New(doc.TitleWithKind(displayName, "Stateful Variable"))
-		d.Add(doc.Paragraph("Persists across executions"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		d = d.With(doc.Paragraph("Persists across executions"))
+		d = d.With(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindInput:
 		d = doc.New(doc.TitleWithKind(displayName, "Input Parameter"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		d = d.With(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindOutput:
 		d = doc.New(doc.TitleWithKind(displayName, "Output Parameter"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		d = d.With(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindChannel:
 		d = doc.New(doc.TitleWithKind(displayName, "Channel"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		d = d.With(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindSequence:
 		d = doc.New(doc.TitleWithKind(displayName, "Sequence"))
 		if stages := formatSequenceStagesList(sym); len(stages) > 0 {
-			d.Add(doc.Paragraph("Stages: " + strings.Join(stages, ", ")))
+			d = d.With(doc.Paragraph("Stages: " + strings.Join(stages, ", ")))
 		}
 	case symbol.KindStage:
 		d = doc.New(doc.TitleWithKind(displayName, "Stage"))
-	default:
+	case symbol.KindBlock, symbol.KindLoop, symbol.KindLoopVariable, symbol.KindAmbient:
 		d = doc.New(doc.Title(displayName))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
+		d = d.With(doc.Detail("Type", sym.Type.String(), true))
 	}
 	docSrc := sym
 	if sym.Kind == symbol.KindModuleAlias && sym.Target != nil {
 		docSrc = sym.Target
 	}
 	if docSrc.Deprecated != nil {
-		d.Add(doc.Divider())
-		d.Add(doc.Paragraph(fmt.Sprintf(
+		d = d.With(doc.Divider())
+		d = d.With(doc.Paragraph(fmt.Sprintf(
 			"**Deprecated.** Use `%s` instead.",
 			docSrc.Deprecated.QualifiedName(),
 		)))
 		if blocks := docSrc.Deprecated.Doc.Blocks(); len(blocks) > 0 {
-			d.Add(doc.Divider())
-			d.Add(blocks...)
+			d = d.With(doc.Divider())
+			d = d.With(blocks...)
 		}
 	} else if blocks := docSrc.Doc.Blocks(); len(blocks) > 0 {
-		d.Add(doc.Divider())
-		d.Add(blocks...)
+		d = d.With(doc.Divider())
+		d = d.With(blocks...)
 	}
 	if docComment != "" {
-		d.Add(doc.Divider())
-		d.Add(doc.Paragraph(docComment))
+		d = d.With(doc.Divider())
+		d = d.With(doc.Paragraph(docComment))
 	}
 	return d.Render()
 }
@@ -730,7 +730,7 @@ func formatModuleMembersList(sym *symbol.Symbol) []string {
 	return members
 }
 
-// symbolToLocation converts a symbol to an LSP Location pointing to its definition
+// symbolToLocation converts a symbol to an LSP Location pointing to its definition.
 func (s *Server) symbolToLocation(
 	docURI uri.URI,
 	sym *symbol.Symbol,

@@ -23,6 +23,7 @@ from pydantic import ValidationError
 
 import x.telem as sy
 from x.exceptions import ContiguityError
+from x.testutil import untyped
 
 _now = sy.TimeStamp.now()
 
@@ -59,6 +60,13 @@ class TestTimeStamp:
         """Should return the current timestamp"""
         now = sy.TimeStamp.now() + sy.TimeSpan.SECOND
         assert now.datetime() > datetime.now().astimezone()
+
+    def test_now_nanosecond_precision(self) -> None:
+        """Should read the system clock without truncating it to microseconds"""
+        before = time.time_ns()
+        now = sy.TimeStamp.now()
+        after = time.time_ns()
+        assert before <= now <= after
 
     @pytest.mark.parametrize(
         ("crude", "expected"),
@@ -729,7 +737,7 @@ class TestRate:
     def test_invalid_init(self) -> None:
         """Should raise an exception if the rate is invalid"""
         with pytest.raises(TypeError):
-            sy.Rate(timedelta(seconds=1))  # type: ignore[arg-type]
+            untyped(sy.Rate)(timedelta(seconds=1))
 
     def test_sample_count(self) -> None:
         """Should return the number of samples"""

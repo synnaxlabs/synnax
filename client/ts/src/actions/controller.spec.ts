@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { observe, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { observe, scheduler, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -1122,7 +1122,7 @@ describe("actions.Controller", () => {
         done = true;
       });
       return async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await scheduler.flushTaskQueue();
         return done;
       };
     };
@@ -1244,7 +1244,7 @@ describe("actions.Controller", () => {
         const fetch = vi.fn(async () => []);
         const { controller } = setupStore({ fetch, listed });
         controller.applyRemote("missing", 1, "f-1", [set("a", 1)]);
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        await sleep.sleep(TimeSpan.milliseconds(30));
         expect(fetch).not.toHaveBeenCalled();
       });
 
@@ -1301,7 +1301,7 @@ describe("actions.Controller", () => {
       it("ignores a doc deleted before its fetch", async () => {
         const { controller, errors } = setupStore({ fetch: async () => [], listed });
         controller.applyRemote("gone", 1, "f-1", [set("name", 1)]);
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        await sleep.sleep(TimeSpan.milliseconds(30));
         expect(errors).toEqual([]);
       });
 
@@ -1312,7 +1312,7 @@ describe("actions.Controller", () => {
         const { controller, errors } = setupStore({ fetch, listed });
         controller.applyRemote("denied", 1, "f-1", [set("name", 1)]);
         await expect.poll(() => fetch.mock.calls.length).toBe(1);
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        await sleep.sleep(TimeSpan.milliseconds(30));
         expect(errors).toEqual([]);
       });
     });

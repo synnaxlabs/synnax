@@ -79,8 +79,7 @@ class IndexCase:
 
 # Each series holds 3 values. Consecutive expectations on one output differ, so each
 # wait proves a new write landed. Each out-of-range index is unique, so its status
-# traces to one case. The out-of-range cases come last because a Driver stops the task
-# on the first one.
+# traces to one case.
 CASES = [
     IndexCase("ReadFirst", "series_read_idx", "series_read_out", 0, 1.5),
     IndexCase("ReadLast", "series_read_idx", "series_read_out", -1, 3.5),
@@ -184,6 +183,5 @@ class SeriesIndex(ArcCase):
                 last[case.out_ch] = case.expected
                 continue
             self._expect_out_of_bounds(case, last[case.out_ch])
-            # A Driver stops the task on a runtime error. The Core keeps it running.
             if not self.task_is_running(key):
-                return
+                self.fail(f"[{case.label}] the task stopped")

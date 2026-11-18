@@ -127,7 +127,7 @@ var _ = Describe("Debounce", func() {
 		It("Should fire the callback once the delay has elapsed", func() {
 			clk := &timetestutil.Clock{}
 			var called atomic.Int32
-			d := MustSucceed(debounce.New(debounce.Config{
+			d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 				Delay:    5 * time.Millisecond,
 				Clock:    clk,
 				Callback: func(context.Context) { called.Add(1) },
@@ -142,7 +142,7 @@ var _ = Describe("Debounce", func() {
 		It("Should coalesce rapid triggers into a single invocation", func() {
 			clk := &timetestutil.Clock{}
 			var called atomic.Int32
-			d := MustSucceed(debounce.New(debounce.Config{
+			d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 				Delay:    20 * time.Millisecond,
 				Clock:    clk,
 				Callback: func(context.Context) { called.Add(1) },
@@ -164,7 +164,7 @@ var _ = Describe("Debounce", func() {
 				started   = make(chan struct{})
 				cancelled atomic.Bool
 			)
-			d := MustSucceed(debounce.New(debounce.Config{
+			d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 				Delay: 5 * time.Millisecond,
 				Clock: clk,
 				Callback: func(ctx context.Context) {
@@ -186,7 +186,7 @@ var _ = Describe("Debounce", func() {
 		It("Should clamp the delay when the cap would otherwise be exceeded", func() {
 			clk := &timetestutil.Clock{}
 			var called atomic.Int32
-			d := MustSucceed(debounce.New(debounce.Config{
+			d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 				Delay:    time.Hour,
 				MaxDelay: 30 * time.Millisecond,
 				Clock:    clk,
@@ -204,7 +204,7 @@ var _ = Describe("Debounce", func() {
 		It("Should fire immediately when the cap is fully elapsed", func() {
 			clk := &timetestutil.Clock{}
 			var called atomic.Int32
-			d := MustSucceed(debounce.New(debounce.Config{
+			d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 				Delay:    time.Hour,
 				MaxDelay: 30 * time.Millisecond,
 				Clock:    clk,
@@ -222,7 +222,7 @@ var _ = Describe("Debounce", func() {
 			func() {
 				clk := &timetestutil.Clock{}
 				var called atomic.Int32
-				d := MustSucceed(debounce.New(debounce.Config{
+				d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 					Delay:    5 * time.Millisecond,
 					MaxDelay: time.Hour,
 					Clock:    clk,
@@ -240,7 +240,7 @@ var _ = Describe("Debounce", func() {
 		It("Should prevent a pending trigger from firing", func() {
 			clk := &timetestutil.Clock{}
 			var called atomic.Int32
-			d := MustSucceed(debounce.New(debounce.Config{
+			d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 				Delay:    20 * time.Millisecond,
 				Clock:    clk,
 				Callback: func(context.Context) { called.Add(1) },
@@ -258,7 +258,7 @@ var _ = Describe("Debounce", func() {
 				started   = make(chan struct{})
 				cancelled atomic.Bool
 			)
-			d := MustSucceed(debounce.New(debounce.Config{
+			d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 				Delay: 5 * time.Millisecond,
 				Clock: clk,
 				Callback: func(ctx context.Context) {
@@ -271,11 +271,35 @@ var _ = Describe("Debounce", func() {
 			clk.Advance(5 * time.Millisecond)
 			Eventually(started).Should(BeClosed())
 			d.Stop()
-			Eventually(cancelled.Load).Should(BeTrue())
+			Expect(cancelled.Load()).To(BeTrue())
+		})
+
+		It("Should cancel in-flight work when ctx ends", func(ctx SpecContext) {
+			clk := &timetestutil.Clock{}
+			var (
+				started   = make(chan struct{})
+				cancelled = make(chan struct{})
+			)
+			parent, cancel := context.WithCancel(ctx)
+			d := MustSucceed(debounce.New(parent, debounce.Config{
+				Delay: 5 * time.Millisecond,
+				Clock: clk,
+				Callback: func(ctx context.Context) {
+					close(started)
+					<-ctx.Done()
+					close(cancelled)
+				},
+			}))
+			DeferCleanup(d.Stop)
+			d.Trigger()
+			clk.Advance(5 * time.Millisecond)
+			Eventually(started).Should(BeClosed())
+			cancel()
+			Eventually(cancelled).Should(BeClosed())
 		})
 
 		It("Should be safe to call multiple times", func() {
-			d := MustSucceed(debounce.New(debounce.Config{
+			d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 				Delay:    20 * time.Millisecond,
 				Callback: noopCallback,
 			}))
@@ -286,7 +310,7 @@ var _ = Describe("Debounce", func() {
 		It("Should reset MaxDelay tracking so the next Trigger is not clamped", func() {
 			clk := &timetestutil.Clock{}
 			var called atomic.Int32
-			d := MustSucceed(debounce.New(debounce.Config{
+			d := MustSucceed(debounce.New(GinkgoT().Context(), debounce.Config{
 				Delay:    5 * time.Millisecond,
 				MaxDelay: time.Hour,
 				Clock:    clk,

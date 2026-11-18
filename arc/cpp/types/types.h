@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "arc/cpp/types/json.gen.h"
 #include "arc/cpp/types/proto.gen.h"
 #include "arc/cpp/types/types.gen.h"
@@ -19,4 +21,9 @@ using ChannelKey = std::uint32_t;
 /// @brief Converts a JSON value to a SampleValue based on the given type.
 std::optional<x::telem::SampleValue>
 to_sample_value(const x::json::json &value, const Type &type);
+
+/// @brief returns what to multiply a variable by to get the unit of the input that
+/// reads it, and what to divide it by. A variable in s read by an input in ns gives 1e9
+/// and 1e-9.
+std::pair<double, double> input_scale(const Type &type);
 }

@@ -35,7 +35,7 @@ func (b BoolZ) Validate(data any) error {
 	return b.Parse(data, &dest)
 }
 
-// validateDestination validates that the destination is compatible with boolean data
+// validateDestination validates that the destination is compatible with boolean data.
 func (b BoolZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
 		return NewInvalidDestinationTypeError(string(BoolT), dest)

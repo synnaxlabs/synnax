@@ -175,15 +175,11 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
   );
 };
 
-const channelSelectRenderProp = Component.renderProp(
-  (p: Channel.SelectMultipleProps) => (
-    <Channel.SelectMultiple
-      triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
-      full="x"
-      {...p}
-    />
-  ),
+const SelectChannels = (p: Channel.SelectMultipleProps) => (
+  <Channel.SelectMultiple triggerProps={CHANNEL_SELECT_TRIGGER_PROPS} full="x" {...p} />
 );
+
+const channelSelectRenderProp = Component.renderProp(SelectChannels);
 
 const formatTimeRange = (start: number, end: number): string => {
   const startStr =

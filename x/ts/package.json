@@ -15,6 +15,9 @@
     "telemetry",
     "control systems"
   ],
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "build": "vite build",
     "check-types": "tsc --noEmit",

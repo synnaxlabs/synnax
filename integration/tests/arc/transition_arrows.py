@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_virtual_channel, hold
 from tests.arc.arc import ArcCase
 
 ARC_TRANSITION_ARROWS_SOURCE = """
@@ -57,7 +57,7 @@ class TransitionArrows(ArcCase):
     def verify_sequence_execution(self) -> None:
         self.log("Writing ta_start_cmd=0; main must not start")
         self.writer.write("ta_start_cmd", 0)
-        sy.sleep(2.0)  # noqa: TID251 hold: nothing may change
+        hold(2.0, reason="nothing may change")
         state = self.read_tlm("ta_state")
         if state is not None:
             self.fail(f"ta_state={state} after ta_start_cmd=0; main started on false")
@@ -68,7 +68,7 @@ class TransitionArrows(ArcCase):
 
         self.log("Writing ta_abort_cmd=0; abort must not start")
         self.writer.write("ta_abort_cmd", 0)
-        sy.sleep(2.0)  # noqa: TID251 hold: nothing may change
+        hold(2.0, reason="nothing may change")
         state = self.read_tlm("ta_state")
         if state != 1:
             self.fail(f"ta_state={state} after ta_abort_cmd=0; abort started on false")

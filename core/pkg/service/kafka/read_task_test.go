@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
@@ -505,10 +506,14 @@ var _ = Describe("Read task", func() {
 		cluster.ControlKey(
 			int16(kmsg.Fetch),
 			func(req kmsg.Request) (kmsg.Response, error, bool) {
-				fetch := req.(*kmsg.FetchRequest)
+				fetch, ok := req.(*kmsg.FetchRequest)
+				if !ok {
+					return nil, errors.Newf("fetch request is a %T", req), true
+				}
 				if fetch.SessionEpoch > 0 && len(fetch.Topics) == 0 {
 					cluster.KeepControl()
-					res := req.ResponseKind().(*kmsg.FetchResponse)
+					res := kmsg.NewPtrFetchResponse()
+					res.Version = fetch.Version
 					res.ErrorCode = kerr.FetchSessionIDNotFound.Code
 					return res, nil, true
 				}
@@ -522,7 +527,8 @@ var _ = Describe("Read task", func() {
 					return nil, nil, false
 				}
 				cluster.DropControl()
-				res := req.ResponseKind().(*kmsg.FetchResponse)
+				res := kmsg.NewPtrFetchResponse()
+				res.Version = fetch.Version
 				for _, rt := range fetch.Topics {
 					st := kmsg.NewFetchResponseTopic()
 					st.Topic, st.TopicID = rt.Topic, rt.TopicID
@@ -789,9 +795,9 @@ var _ = Describe("Read task", func() {
 		index, data := createIndexed(ctx, telem.Float64T)
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
-		var recs []*kgo.Record
-		for range 3 {
-			recs = append(recs, &kgo.Record{Topic: topic, Value: []byte(`{"ts": 1}`)})
+		recs := make([]*kgo.Record, 3)
+		for i := range recs {
+			recs[i] = &kgo.Record{Topic: topic, Value: []byte(`{"ts": 1}`)}
 		}
 		Expect(producer.ProduceSync(ctx, recs...).FirstErr()).To(Succeed())
 		dt, t := configure(ctx, kafka.ReadConfig{
@@ -1009,7 +1015,10 @@ var _ = Describe("Read task", func() {
 		cluster.ControlKey(
 			int16(kmsg.Fetch),
 			func(req kmsg.Request) (kmsg.Response, error, bool) {
-				fetch := req.(*kmsg.FetchRequest)
+				fetch, ok := req.(*kmsg.FetchRequest)
+				if !ok {
+					return nil, errors.Newf("fetch request is a %T", req), true
+				}
 				i := slices.IndexFunc(
 					fetch.Topics,
 					func(rt kmsg.FetchRequestTopic) bool {

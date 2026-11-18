@@ -16,7 +16,7 @@ import pytest
 import synnax as sy
 from synnax import rack
 from x import filter
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 @pytest.mark.rack
@@ -82,6 +82,17 @@ class TestRackClient:
         finally:
             client.racks.rename(rack.key, rack.name)
 
+    def test_rename_embedded_by_integration(self, client: sy.Synnax) -> None:
+        """Should return the new name of an embedded rack retrieved by integration
+        after a rename."""
+        rack = client.racks.retrieve_embedded_rack("pagerduty")
+        try:
+            client.racks.rename(rack.key, "After Rename")
+            renamed = client.racks.retrieve_embedded_rack("pagerduty")
+            assert renamed.name == "After Rename"
+        finally:
+            client.racks.rename(rack.key, rack.name)
+
     def test_retrieve_by_name_multiple_found(self, client: sy.Synnax) -> None:
         """Should raise when more than one rack has the name"""
         name = str(uuid4())
@@ -113,7 +124,7 @@ class TestRackClient:
         )
         with pytest.raises(
             sy.ValidationError,
-            match="cannot delete rack test because device test uses it as its rack",
+            match=r"^cannot delete rack test because device test uses it as its rack$",
         ):
             client.racks.delete([rack.key])
 
@@ -128,7 +139,10 @@ class TestRackClient:
             type="pagerduty_alert",
             config={"routing_key": str(create_routing_key())},
         )
-        with pytest.raises(sy.ValidationError, match="still holds tasks"):
+        with pytest.raises(
+            sy.ValidationError,
+            match=r"^cannot delete rack test because it still holds tasks$",
+        ):
             client.racks.delete([rack.key])
 
     def test_create_with_integrations(self, client: sy.Synnax) -> None:
@@ -196,6 +210,21 @@ class TestRackClient:
         cached_rack = client.racks.retrieve_embedded_rack()
         assert rack.key == cached_rack.key
 
+    def test_retrieve_embedded_rack_by_integration(self, client: sy.Synnax) -> None:
+        """Should retrieve the embedded rack that runs an integration."""
+        rack = client.racks.retrieve_embedded_rack("pagerduty")
+        assert rack.embedded
+        assert "pagerduty" in rack.integrations
+
+    def test_retrieve_embedded_rack_missing_integration(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise when no embedded rack runs the integration."""
+        with pytest.raises(
+            sy.NotFoundError, match="No embedded rack runs the missing integration"
+        ):
+            client.racks.retrieve_embedded_rack("missing")
+
     def test_retrieve_with_status(self, client: sy.Synnax) -> None:
         """Should attach the rack status when asked for it."""
         rack = client.racks.create(name=str(uuid4()))
@@ -248,12 +277,12 @@ class TestRackClient:
         """Should reject a plain name beside a limit, since a page could hide a
         match."""
         with pytest.raises(sy.ValidationError, match="cannot set a limit"):
-            client.racks.retrieve(name="test", limit=1)  # type: ignore[call-overload]
+            untyped(client.racks.retrieve)(name="test", limit=1)
 
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every rack."""
         with pytest.raises(sy.ValidationError, match="embedded is None"):
-            client.racks.retrieve(embedded=None)  # type: ignore[call-overload]
+            untyped(client.racks.retrieve)(embedded=None)
 
     def test_retrieve_single_with_status_typed(self, client: sy.Synnax) -> None:
         """Should return one rack when a key or name is given."""

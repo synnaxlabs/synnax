@@ -10,7 +10,7 @@
 from dataclasses import dataclass
 
 import synnax as sy
-from framework.utils import create_indexed_pair, create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel, hold
 from tests.arc.arc import ArcCase
 
 ARC_STL_MATH_SOURCE = """
@@ -288,7 +288,7 @@ class StlMath(ArcCase):
         for i, val in enumerate(values):
             self.writer.write(channel, val)
             if i < len(values) - 1:
-                sy.sleep(dt_ms / 1000.0)  # noqa: TID251 paces the writes
+                hold(dt_ms / 1000.0, reason="paces the writes")
 
     def verify_sequence_execution(self) -> None:
         self._verify_pow_const_const()
@@ -416,7 +416,7 @@ class StlMath(ArcCase):
         self._write_many("stat_dur_in", [1.0, 2.0, 3.0, 4.0, 5.0])
         self.wait_for_eq("stat_max_dur_out", 5.0)
 
-        sy.sleep(0.6)  # noqa: TID251 waits out the 500 ms window
+        hold(0.6, reason="waits out the 500 ms window")
 
         self._write_many("stat_dur_in", [100.0, 200.0, 300.0])
 

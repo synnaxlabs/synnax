@@ -239,7 +239,12 @@ const Legend = ({
     editable && dispatch({ key, actions: [lineplot.setLegendPosition({ position })] });
   const handleLineColorChange = (lineKey: string, color: color.Color) =>
     editable &&
-    dispatch({ key, actions: [lineplot.setLineColor({ key: lineKey, color })] });
+    dispatch({
+      key,
+      actions: [
+        lineplot.setLineColor({ key: lineKey, color: { type: "fixed", value: color } }),
+      ],
+    });
   const handleLineLabelChange = (lineKey: string, label: string) =>
     editable &&
     dispatch({ key, actions: [lineplot.setLineLabel({ key: lineKey, label })] });

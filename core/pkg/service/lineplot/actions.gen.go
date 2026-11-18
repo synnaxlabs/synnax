@@ -13,8 +13,8 @@ package lineplot
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
@@ -236,11 +236,11 @@ type SetLineLabelPayload struct {
 	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
 }
 
-// SetLineColorPayload sets the color of the line identified by key. Null resets it to a
-// palette color assigned at render time.
+// SetLineColorPayload sets the color of the line identified by key to a named or a
+// fixed color. Null gives the line the series color that the fewest other lines use.
 type SetLineColorPayload struct {
-	Key   string       `json:"key" msgpack:"key"`
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	Key   string     `json:"key" msgpack:"key"`
+	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // SetLineStrokeWidthPayload sets the stroke width, in pixels, of the line identified by
@@ -283,11 +283,11 @@ type SetRuleLabelPayload struct {
 	Label string `json:"label" msgpack:"label"`
 }
 
-// SetRuleColorPayload sets the color of the rule identified by key. Null resets it to a
-// default color assigned at render time.
+// SetRuleColorPayload sets the color of the rule identified by key to a named or a
+// fixed color. Null gives the rule the series color that the fewest other rules use.
 type SetRuleColorPayload struct {
-	Key   string       `json:"key" msgpack:"key"`
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+	Key   string     `json:"key" msgpack:"key"`
+	Color *color.Ref `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // SetRuleAxisPayload sets the axis the rule identified by key is anchored to.

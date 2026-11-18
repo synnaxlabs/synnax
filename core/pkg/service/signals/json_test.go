@@ -49,9 +49,9 @@ var _ = Describe("JSON", func() {
 
 			DescribeTable(
 				"Should fail when a required field is missing",
-				func(clear func(*signals.JSONPublisherConfig[jsonPayload]), field string) {
+				func(unset func(*signals.JSONPublisherConfig[jsonPayload]), field string) {
 					cfg := full()
-					clear(&cfg)
+					unset(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
 				Entry(

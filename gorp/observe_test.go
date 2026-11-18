@@ -28,6 +28,7 @@ var _ = Describe("Observe", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(OpenGorpMsgpackDB())
+		StartRun(db.Run)
 		entryTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
 		)
@@ -201,6 +202,7 @@ var _ = Describe("Changes", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(OpenGorpMsgpackDB())
+		StartRun(db.Run)
 		entryTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
 		)

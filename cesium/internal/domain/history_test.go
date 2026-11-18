@@ -59,10 +59,10 @@ var _ = Describe("OnHistoryChange", func() {
 		cfg := domain.WriterConfig{Start: 10 * telem.SecondTS}
 		w := MustOpen(db.OpenWriter(ctx, cfg))
 		MustSucceed(w.Write([]byte{1, 2}))
-		Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
+		Expect(w.Commit(ctx, 15*telem.SecondTS, nil)).To(Succeed())
 		write(ctx, 30, 40)
 		MustSucceed(w.Write([]byte{3, 4}))
-		Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
+		Expect(w.Commit(ctx, 20*telem.SecondTS, nil)).To(Succeed())
 		Expect(changes).To(Equal([]telem.TimeRange{
 			(15 * telem.SecondTS).Range(20 * telem.SecondTS),
 		}))

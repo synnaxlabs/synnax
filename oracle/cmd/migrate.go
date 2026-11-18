@@ -10,7 +10,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -75,7 +74,7 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 		if err := os.WriteFile(target, []byte(out), 0o644); err != nil {
 			return errors.Wrapf(err, "failed to write %s", next)
 		}
-		printDim(fmt.Sprintf("  ✏️  %s", next))
+		printDim("  ✏️  " + next)
 	}
 	printDim(
 		"convert the changed types to full declarations, then run `oracle sync`",

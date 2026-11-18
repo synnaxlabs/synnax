@@ -10,13 +10,20 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/fittings/OrificePlate.svg?raw";
 
 export interface OrificePlateProps
   extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
-const DIMENSIONS = { width: 72, height: 36 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.03125, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.96875, y: 0.5 }, orientation: "right" },
+  ],
+});
 
 export const OrificePlate = ({
   className,
@@ -26,16 +33,12 @@ export const OrificePlate = ({
   ...rest
 }: OrificePlateProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("orifice_plate"), className)} {...rest}>
-    <Handle.Linear orientation={orientation} left={3.125} right={96.875} />
-    <Primitive.SVG
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
-      dimensions={DIMENSIONS}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Rect x="2.5" y="2" width="67" height="31" rx="2" />
-      <Primitive.Path d="M24.5 2V7.5V13" strokeLinecap="round" />
-      <Primitive.Path d="M24.5 33V22" strokeLinecap="round" />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

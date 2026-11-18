@@ -52,7 +52,13 @@ const renderMenu = async (
   });
   await renderSuspended(
     <>
-      {List.contextMenu({ keys, visible: true, position: xy.ZERO, cursor: xy.ZERO })}
+      {List.contextMenu({
+        keys,
+        visible: true,
+        position: xy.ZERO,
+        cursor: xy.ZERO,
+        target: null,
+      })}
       <Modals.Stack />
     </>,
     { wrapper },

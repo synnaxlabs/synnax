@@ -18,6 +18,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { compare } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/platform/button";
@@ -42,7 +43,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const handleLink = Link.useCopyToClipboard();
   const copy = Clipboard.useCopy();
   const openConnect = useConnectModal();
-  const allCores = cores.toSorted((a, b) => a.name.localeCompare(b.name));
+  const allCores = cores.toSorted(compare.by((c) => c.name));
   const keys = allCores.map((c) => c.key);
 
   const handleRemove = (key: string): void => {

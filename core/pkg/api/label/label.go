@@ -204,6 +204,18 @@ func (s *Service) Add(
 			return struct{}{}, w.ReplaceLabels(ctx, req.ID.Key, req.Labels)
 		}
 		return struct{}{}, w.AddLabels(ctx, req.ID.Key, req.Labels)
+	case resource.TypeArc, resource.TypeBuiltin, resource.TypeChannel,
+		resource.TypeDevice, resource.TypeFramer, resource.TypeGroup,
+		resource.TypeLabel, resource.TypeLineplot, resource.TypeLog, resource.TypeNode,
+		resource.TypePanel, resource.TypePolicy, resource.TypeProject,
+		resource.TypeRack, resource.TypeRangeAlias, resource.TypeRole,
+		resource.TypeSchematic, resource.TypeSchematicSymbol, resource.TypeTable,
+		resource.TypeTask, resource.TypeUser, resource.TypeView,
+		resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
+		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
+		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
+		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}
 	return struct{}{}, unlabeled(req.ID)
 }
@@ -231,6 +243,18 @@ func (s *Service) Remove(
 	case resource.TypeStatus:
 		return struct{}{}, s.status.NewWriter(tx).
 			RemoveLabels(ctx, req.ID.Key, req.Labels)
+	case resource.TypeArc, resource.TypeBuiltin, resource.TypeChannel,
+		resource.TypeDevice, resource.TypeFramer, resource.TypeGroup,
+		resource.TypeLabel, resource.TypeLineplot, resource.TypeLog, resource.TypeNode,
+		resource.TypePanel, resource.TypePolicy, resource.TypeProject,
+		resource.TypeRack, resource.TypeRangeAlias, resource.TypeRole,
+		resource.TypeSchematic, resource.TypeSchematicSymbol, resource.TypeTable,
+		resource.TypeTask, resource.TypeUser, resource.TypeView,
+		resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
+		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
+		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
+		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}
 	return struct{}{}, unlabeled(req.ID)
 }

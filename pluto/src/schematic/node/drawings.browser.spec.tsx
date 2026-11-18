@@ -11,7 +11,7 @@ import "@/schematic/Schematic.css";
 import "@xyflow/react/dist/base.css";
 
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
-import { type color, type location } from "@synnaxlabs/x";
+import { type color, type location, narrow } from "@synnaxlabs/x";
 import { type Node as RFNode, type NodeProps, ReactFlow } from "@xyflow/react";
 import { type FC, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -212,7 +212,7 @@ const draw = async (cases: Case[], record: Record<string, Fingerprint>) => {
 };
 
 const sortKeys = (_: string, value: unknown): unknown =>
-  value != null && typeof value === "object" && !Array.isArray(value)
+  narrow.isObject(value)
     ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1)))
     : value;
 

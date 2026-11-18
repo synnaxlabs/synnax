@@ -68,9 +68,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose one store per NI task type", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf(
 				"ni_analog_read",
@@ -82,6 +83,16 @@ var _ = Describe("Service", func() {
 			))
 		})
 	})
+
+	channel := func(data msgpack.EncodedJSON) map[string]any {
+		GinkgoHelper()
+		channels, ok := data["channels"].([]any)
+		Expect(ok).To(BeTrue())
+		Expect(channels).To(HaveLen(1))
+		ch, ok := channels[0].(map[string]any)
+		Expect(ok).To(BeTrue())
+		return ch
+	}
 
 	Describe("Write", func() {
 		It("Should store a decoded analog read config under the given key", func(
@@ -171,10 +182,11 @@ var _ = Describe("Service", func() {
 				}},
 			}))
 			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
-			ch := data["channels"].([]any)[0].(map[string]any)
+			ch := channel(data)
 			Expect(ch["min_val"]).To(BeNumerically("==", -10))
 			Expect(ch["max_val"]).To(BeNumerically("==", 0))
-			scale := ch["custom_scale"].(map[string]any)
+			scale, ok := ch["custom_scale"].(map[string]any)
+			Expect(ok).To(BeTrue())
 			Expect(scale["scaled_min"]).To(BeNumerically("==", -5))
 			Expect(scale["scaled_max"]).To(BeNumerically("==", 0))
 			// The untouched pre-scaled pair is all zero, so its group still fills.
@@ -188,7 +200,7 @@ var _ = Describe("Service", func() {
 				"channels": []any{map[string]any{"type": "ai_voltage"}},
 			}))
 			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
-			ch := data["channels"].([]any)[0].(map[string]any)
+			ch := channel(data)
 			Expect(ch["min_val"]).To(BeNumerically("==", 0))
 			Expect(ch["max_val"]).To(BeNumerically("==", 1))
 		})
@@ -204,7 +216,7 @@ var _ = Describe("Service", func() {
 				}},
 			}))
 			data := MustSucceed(svc.CounterRead.Read(ctx, db, key))
-			ch := data["channels"].([]any)[0].(map[string]any)
+			ch := channel(data)
 			Expect(ch["min_val"]).To(BeNumerically("==", -10))
 			Expect(ch["max_val"]).To(BeNumerically("==", 0))
 		})
@@ -216,7 +228,7 @@ var _ = Describe("Service", func() {
 				"channels": []any{map[string]any{"type": "ci_frequency"}},
 			}))
 			data := MustSucceed(svc.CounterRead.Read(ctx, db, key))
-			ch := data["channels"].([]any)[0].(map[string]any)
+			ch := channel(data)
 			Expect(ch["min_val"]).To(BeNumerically("==", 2))
 			Expect(ch["max_val"]).To(BeNumerically("==", 100))
 		})
@@ -323,13 +335,6 @@ var _ = Describe("Service", func() {
 		})
 	})
 	Describe("Explicit zeros", func() {
-		channel := func(data msgpack.EncodedJSON) map[string]any {
-			GinkgoHelper()
-			channels := data["channels"].([]any)
-			Expect(channels).To(HaveLen(1))
-			return channels[0].(map[string]any)
-		}
-
 		It("Should keep a linear custom scale slope of 0", func(ctx SpecContext) {
 			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{

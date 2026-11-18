@@ -35,11 +35,11 @@ func Truncate[T any](slice []T, maxDisplayValues int) (first, last []T) {
 // for the slice.
 //
 // Panics if the negative index is out of bounds.
-func ConvertNegativeIndex(i, len int) int {
+func ConvertNegativeIndex(i, length int) int {
 	if i < 0 {
-		adjusted := i + len
-		if adjusted > len || adjusted < 0 {
-			panic(fmt.Sprintf("index out of range [%v] with length %v", i, len))
+		adjusted := i + length
+		if adjusted > length || adjusted < 0 {
+			panic(fmt.Sprintf("index out of range [%v] with length %v", i, length))
 		}
 		return adjusted
 	}

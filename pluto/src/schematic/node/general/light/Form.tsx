@@ -30,7 +30,7 @@ const LightTelemForm = (): ReactElement => {
   const threshold = value.threshold ?? Telem.DEFAULT_THRESHOLD;
 
   const handleSourceChange = (v: channel.Key | null): void =>
-    onChange({ ...value, channel: v ?? undefined });
+    onChange({ ...value, channel: v ?? 0 });
 
   const handleThresholdChange = (bounds: { lower: number; upper: number }): void =>
     onChange({ ...value, threshold: bounds });
@@ -41,7 +41,7 @@ const LightTelemForm = (): ReactElement => {
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
-            value={value.channel ?? 0}
+            value={value.channel}
             onChange={handleSourceChange}
           />
         </Input.Item>

@@ -25,6 +25,15 @@ var _ = Describe("Parse", func() {
 		Expect(rules.Required).To(BeTrue())
 	})
 
+	It("should parse finite expression", func() {
+		domain := resolution.Domain{
+			Expressions: []resolution.Expression{{Name: "finite"}},
+		}
+		rules := validation.Parse(domain)
+		Expect(rules.Finite).To(BeTrue())
+		Expect(validation.IsEmpty(rules)).To(BeFalse())
+	})
+
 	It("should parse skip expression", func() {
 		domain := resolution.Domain{
 			Expressions: []resolution.Expression{{Name: "skip"}},
@@ -397,6 +406,13 @@ var _ = Describe("Merge", func() {
 		Expect(merged.Required).To(BeTrue())
 	})
 
+	It("should keep finite from either side", func() {
+		Expect(validation.Merge(parse("finite"), &validation.Rules{}).Finite).
+			To(BeTrue())
+		Expect(validation.Merge(&validation.Rules{}, parse("finite")).Finite).
+			To(BeTrue())
+	})
+
 	It("should take a pattern from the side that sets one", func() {
 		merged := validation.Merge(&validation.Rules{}, parse(
 			"pattern",
@@ -425,5 +441,21 @@ var _ = Describe("FieldRules", func() {
 			Domains: map[string]resolution.Domain{"validate": rule("skip")},
 		}
 		Expect(validation.FieldRules(field, newChainTable()).Skip).To(BeTrue())
+	})
+})
+
+var _ = Describe("Number", func() {
+	It("should compare integers past float precision exactly", func() {
+		big := validation.Number{Int: 9007199254740993, IsInt: true}
+		same := validation.Number{Int: 9007199254740993, IsInt: true}
+		less := validation.Number{Int: 9007199254740992, IsInt: true}
+		Expect(big.Compare(less)).To(Equal(1))
+		Expect(less.Compare(big)).To(Equal(-1))
+		Expect(big.Compare(same)).To(Equal(0))
+	})
+
+	It("should compare an integer with a float", func() {
+		one := validation.Number{Int: 1, IsInt: true}
+		Expect(one.Compare(validation.Number{Float: 0.5})).To(Equal(1))
 	})
 })

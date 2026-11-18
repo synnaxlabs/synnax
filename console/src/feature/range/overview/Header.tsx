@@ -10,19 +10,24 @@
 import { type label, lineplot, ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { color } from "@synnaxlabs/x";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Label } from "@/platform/label";
 import { Range } from "@/platform/range";
+import { Session } from "@/session";
 
 const path = Ranger.formPath;
 
@@ -50,7 +55,17 @@ const Crumbs = ({ rangeKey }: RangeKeyProps): ReactElement | null => {
         className={CSS.BE("range-overview", "crumb")}
         onClick={() => open(range.key)}
       >
-        {range.name}
+        <span
+          className={CSS.BE("range-overview", "crumb-color")}
+          style={
+            range.color == null
+              ? undefined
+              : ({ "--console-range-color": color.hex(range.color) } as CSSProperties)
+          }
+        />
+        <Text.Text el="span" overflow="fade" weight={500}>
+          {range.name}
+        </Text.Text>
       </Button.Button>
     </>
   );
@@ -67,7 +82,6 @@ const Labels = ({ rangeKey, preview }: RangeKeyProps & { preview: boolean }) => 
     });
   return (
     <Label.SelectMultiple
-      zIndex={100}
       variant="floating"
       className={CSS.BE("range-overview", "labels-select")}
       value={value}
@@ -77,6 +91,89 @@ const Labels = ({ rangeKey, preview }: RangeKeyProps & { preview: boolean }) => 
     />
   );
 };
+
+interface MoreProps {
+  rangeKey: ranger.Key;
+  name: string;
+  python: string;
+  typescript: string;
+  onCSV: () => void;
+}
+
+const MoreMenu = ({
+  rangeKey,
+  name,
+  python,
+  typescript,
+  onCSV,
+}: MoreProps): ReactElement => {
+  const { close } = Dialog.useContext();
+  const copyLink = Core.useCopyLinkToClipboard();
+  return (
+    <Menu.Menu
+      level="small"
+      gap="small"
+      onChange={{
+        python: close,
+        typescript: close,
+        csv: () => {
+          close();
+          onCSV();
+        },
+        link: () => {
+          close();
+          copyLink({ name, resourceID: ranger.resourceID(rangeKey) });
+        },
+      }}
+    >
+      <Menu.CopyItem
+        itemKey="python"
+        text={python}
+        successMessage={{ message: "Copied Python code to clipboard", name }}
+      >
+        <Icon.Python />
+        Copy Python code
+      </Menu.CopyItem>
+      <Menu.CopyItem
+        itemKey="typescript"
+        text={typescript}
+        successMessage={{ message: "Copied TypeScript code to clipboard", name }}
+      >
+        <Icon.TypeScript />
+        Copy TypeScript code
+      </Menu.CopyItem>
+      <Menu.Item itemKey="csv">
+        <Icon.CSV />
+        Download as CSV
+      </Menu.Item>
+      {!Session.Runtime.LINKS_DISABLED && (
+        <Menu.Item itemKey="link">
+          <Icon.Link />
+          Copy link
+        </Menu.Item>
+      )}
+    </Menu.Menu>
+  );
+};
+
+/** Holds the exports of the header once the pane is too narrow to show them. */
+const More = (props: MoreProps): ReactElement => (
+  <Dialog.Frame className={CSS.BE("range-overview", "more")}>
+    <Dialog.Trigger
+      hideCaret
+      variant="text"
+      textColor={9}
+      tooltip="More"
+      tooltipLocation="bottom"
+      aria-label="More"
+    >
+      <Icon.KebabMenu />
+    </Dialog.Trigger>
+    <Menu.Dialog>
+      <MoreMenu {...props} />
+    </Menu.Dialog>
+  </Dialog.Frame>
+);
 
 interface SwatchProps {
   range: ranger.Range;
@@ -116,49 +213,50 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
   const name = Form.useFieldValue(path.name, { ctx: form });
   const plot = Range.useAddToNewPlot();
   const openCSV = Framer.useDownloadCSVModal();
+  const python = Range.pythonCode(rangeKey);
+  const typescript = Range.typescriptCode(rangeKey);
+  const handleCSV = (): void =>
+    openCSV({
+      timeRange: form.get(path.timeRange).value,
+      name,
+      channels: [],
+      icon: <Icon.Range />,
+    });
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
-      <Flex.Box y className={CSS.BE("range-overview", "header")}>
+      <div className={CSS.BE("range-overview", "header")}>
         {range.parent != null && (
           <Flex.Box x align="center" className={CSS.BE("range-overview", "crumbs")}>
             <Crumbs rangeKey={range.parent} />
           </Flex.Box>
         )}
-        <Flex.Box x align="center" justify="between" gap="large">
-          <Form.TextField
-            path={path.name}
-            showLabel={false}
-            className={CSS.BE("range-overview", "name")}
-            inputProps={{
-              variant: "text",
-              level: "h1",
-              placeholder: "Name",
-              onlyChangeOnBlur: true,
-              resetOnBlurIfEmpty: true,
-            }}
-            padHelpText={false}
-          />
+        <Flex.Box
+          x
+          align="center"
+          gap="small"
+          className={CSS.BE("range-overview", "actions")}
+        >
+          {canPlot && (
+            <>
+              <Button.Button
+                variant="outlined"
+                gap="small"
+                onClick={() => plot([rangeKey])}
+              >
+                <Icon.LinePlot />
+                Plot
+              </Button.Button>
+              <Divider.Divider y />
+            </>
+          )}
           <Flex.Box
             x
             align="center"
             gap="small"
-            className={CSS.BE("range-overview", "actions")}
+            className={CSS.BE("range-overview", "exports")}
           >
-            {canPlot && (
-              <>
-                <Button.Button
-                  variant="outlined"
-                  gap="small"
-                  onClick={() => plot([rangeKey])}
-                >
-                  <Icon.LinePlot />
-                  Plot
-                </Button.Button>
-                <Divider.Divider y />
-              </>
-            )}
             <Button.Copy
-              text={() => `rng = client.ranges.retrieve(key="${rangeKey}")`}
+              text={python}
               tooltip="Copy Python code"
               tooltipLocation="bottom"
               variant="text"
@@ -167,7 +265,7 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
               <Icon.Python />
             </Button.Copy>
             <Button.Copy
-              text={() => `const rng = await client.ranges.retrieve("${rangeKey}");`}
+              text={typescript}
               tooltip="Copy TypeScript code"
               tooltipLocation="bottom"
               variant="text"
@@ -180,14 +278,7 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
               tooltipLocation="bottom"
               variant="text"
               textColor={9}
-              onClick={() =>
-                openCSV({
-                  timeRange: form.get(path.timeRange).value,
-                  name,
-                  channels: [],
-                  icon: <Icon.Range />,
-                })
-              }
+              onClick={handleCSV}
             >
               <Icon.CSV />
             </Button.Button>
@@ -198,9 +289,29 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
               tooltipLocation="bottom"
               textColor={9}
             />
-            <Range.FavoriteButton range={range} size="medium" />
           </Flex.Box>
+          <More
+            rangeKey={rangeKey}
+            name={name}
+            python={python}
+            typescript={typescript}
+            onCSV={handleCSV}
+          />
+          <Range.FavoriteButton range={range} size="medium" />
         </Flex.Box>
+        <Form.TextField
+          path={path.name}
+          showLabel={false}
+          className={CSS.BE("range-overview", "name")}
+          inputProps={{
+            variant: "text",
+            level: "h1",
+            placeholder: "Name",
+            onlyChangeOnBlur: true,
+            resetOnBlurIfEmpty: true,
+          }}
+          padHelpText={false}
+        />
         <Form.Field path={path.timeRange} padHelpText={false} showLabel={false}>
           {(p) => (
             <Ranger.Timeline
@@ -216,7 +327,7 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
           <Swatch range={range} preview={!canEdit} />
           <Labels rangeKey={rangeKey} preview={!canEdit} />
         </Flex.Box>
-      </Flex.Box>
+      </div>
     </Form.Form>
   );
 };

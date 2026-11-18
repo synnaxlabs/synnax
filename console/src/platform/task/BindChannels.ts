@@ -25,18 +25,28 @@ export interface BindChannelsProps<C extends record.Keyed<string>> {
    * before.
    */
   resolve: (entry: C) => Partial<C> | null;
+  /**
+   * Changes each bound entry to agree with the channels it binds. It runs on every
+   * pass, so it must return the entry itself when nothing changes.
+   */
+  match?: (entry: C, channels: channel.Channel[]) => C;
 }
 
 const isPlainObject = (value: unknown): value is object =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** @returns the channel keys that binding the patch to the entry would set. */
-const boundKeys = (entry: object, patch: object): channel.Key[] =>
+/**
+ * @returns the channel keys that binding the patch to the entry would set. When
+ * unchanged is true, it also returns each key the entry already holds.
+ */
+const boundKeys = (entry: object, patch: object, unchanged: boolean): channel.Key[] =>
   Object.entries(patch).flatMap(([k, value]) => {
     const current: unknown = (entry as Record<string, unknown>)[k];
     if (isPlainObject(value) && isPlainObject(current))
-      return boundKeys(current, value);
-    return typeof value === "number" && value !== 0 && value !== current ? [value] : [];
+      return boundKeys(current, value, unchanged);
+    return typeof value === "number" && value !== 0 && (unchanged || value !== current)
+      ? [value]
+      : [];
   });
 
 /** Sets each key the patch would bind that is not in found to zero. */
@@ -100,6 +110,7 @@ const bind = <T extends object>(
 export const BindChannels = <C extends record.Keyed<string>>({
   path,
   resolve,
+  match,
 }: BindChannelsProps<C>): null => {
   const { set } = Form.useContext();
   const state = Form.useFieldState(path, { optional: true });
@@ -109,7 +120,9 @@ export const BindChannels = <C extends record.Keyed<string>>({
   const patches = entries?.map(resolve) ?? [];
   const keys = unique.unique(
     patches.flatMap((patch, i) =>
-      patch == null || entries == null ? [] : boundKeys(entries[i], patch),
+      patch == null || entries == null
+        ? []
+        : boundKeys(entries[i], patch, match != null),
     ),
   );
   const { data: channels } = Channel.useResultMultiple(
@@ -129,10 +142,11 @@ export const BindChannels = <C extends record.Keyed<string>>({
       }
       const patch = dropMissing(entry, resolved, live);
       next.set(entry.key, patch);
-      return bind(entry, patch, before);
+      const bound = bind(entry, patch, before);
+      return match == null ? bound : match(bound, channels ?? []);
     });
     held.current = next;
     if (bound.some((entry, i) => entry !== entries[i])) set(path, bound);
-  }, [entries, patches, found, path, set]);
+  }, [entries, patches, found, channels, match, path, set]);
   return null;
 };

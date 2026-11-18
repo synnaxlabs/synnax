@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/batch"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -392,4 +393,23 @@ var _ = Describe("Layer", func() {
 			Expect(stored.Labels).To(Equal([]label.Key{l.Key}))
 		},
 	)
+})
+
+var _ = Describe("NewLayer", func() {
+	It("Should reject a config without an error codec", func() {
+		Expect(api.NewLayer(api.LayerConfig{
+			Service:      svc,
+			Distribution: node.Layer,
+		})).Error().To(MatchError(ContainSubstring("errors: must be non-nil")))
+	})
+
+	It("Should return the configured error codec", func() {
+		codec := api.NewErrorCodec()
+		l := MustSucceed(api.NewLayer(api.LayerConfig{
+			Service:      svc,
+			Distribution: node.Layer,
+			Errors:       codec,
+		}))
+		Expect(l.Errors()).To(BeIdenticalTo(codec))
+	})
 })

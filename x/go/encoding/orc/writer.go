@@ -29,7 +29,7 @@ type Writer struct {
 }
 
 // NewWriter creates a new Writer with the given initial capacity.
-func NewWriter(cap int) *Writer { return &Writer{buf: make([]byte, 0, cap)} }
+func NewWriter(capacity int) *Writer { return &Writer{buf: make([]byte, 0, capacity)} }
 
 // Reset clears the buffer for reuse without releasing the underlying memory.
 func (w *Writer) Reset() { w.buf = w.buf[:0] }

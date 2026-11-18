@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
@@ -78,6 +79,27 @@ describe("BindChannels", () => {
     );
     await waitFor(() => expect(channelOf(form, "a")).toBe(MAPPED[1]));
     expect(channelOf(form, "b")).toBe(0);
+  });
+
+  it("should match an entry whose binding does not change", async () => {
+    // Marks the entry once match can see the channel it binds.
+    const match = (entry: Entry, channels: channel.Channel[]): Entry =>
+      entry.port === 9 || !channels.some(({ key }) => key === entry.channel)
+        ? entry
+        : { ...entry, port: 9 };
+    const { form } = await renderInTaskFormWithClient(
+      <Task.BindChannels<Entry>
+        path={CHANNELS}
+        resolve={() => ({ channel: MAPPED[1] })}
+        match={match}
+      />,
+      {
+        client,
+        values: { config: { channels: [{ key: "a", port: 1, channel: MAPPED[1] }] } },
+      },
+    );
+    await waitFor(() => expect(form.current?.get(CHANNELS.a.port).value).toBe(9));
+    expect(channelOf(form, "a")).toBe(MAPPED[1]);
   });
 
   it("should leave every entry alone while the device is unknown", async () => {

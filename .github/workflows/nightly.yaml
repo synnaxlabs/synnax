@@ -53,6 +53,43 @@ jobs:
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
+  # Not in PR CI, so a date change never fails every open PR.
+  typescript-window:
+    name: Check the TypeScript support window
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: scripts
+
+      - name: Check the oldest supported TypeScript
+        run: scripts/check_declarations_ts.sh --window
+
+  # Outside CI, so a new Deno or Bun release fails neither PRs nor a Release that reuses
+  # this run.
+  latest-runtimes:
+    name: Smoke-test the client on the latest Deno and Bun
+    needs: ci
+    if: ${{ !cancelled() && needs.ci.outputs.core_image != '' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      core_image: ${{ needs.ci.outputs.core_image }}
+      directory: client/ts
+      latest_runtimes: true
+      lint: false
+      package: client
+      runtimes: true
+      test: false
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
   # Only this run saves the Go caches of most modules, and a failed run saves some.
   prune:
     name: Prune older caches
@@ -111,8 +148,6 @@ jobs:
       labels: review/bot
       timeout-minutes: 90
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}

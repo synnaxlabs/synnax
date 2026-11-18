@@ -17,6 +17,7 @@ from typing import Protocol
 
 import psutil
 import synnax as sy
+from freighter.websocket import ConnectionClosedError
 
 SERVICE = "github-runner.service"
 TASK = "GitHubActionsRunner"
@@ -36,6 +37,57 @@ class Sink(Protocol):
     def log(self, line: str) -> None: ...
 
 
+class Samples(Protocol):
+    def __len__(self) -> int: ...
+
+    def __getitem__(self, index: int, /) -> object: ...
+
+
+class Frame(Protocol):
+    def get(self, key: str | int, /) -> Samples | None: ...
+
+
+class Streamer(Protocol):
+    def read(self, *, timeout: sy.TimeSpan) -> Frame | None: ...
+
+    def close(self) -> object: ...
+
+
+class Closeable(Protocol):
+    def close(self) -> object: ...
+
+
+def close_quietly(resource: Closeable | None) -> None:
+    """Closes a resource whose failure was already reported. Raises any error other
+    than the Core or transport error that the close re-raises."""
+    if resource is None:
+        return
+    try:
+        resource.close()
+    except (sy.Error, ConnectionClosedError):
+        pass
+
+
+class Keyed(Protocol):
+    @property
+    def key(self) -> int: ...
+
+
+class Retriever(Protocol):
+    def retrieve(self, channel: str, /) -> Keyed: ...
+
+
+class Core(Protocol):
+    """The part of the Core that the runner reads its commands from."""
+
+    @property
+    def channels(self) -> Retriever: ...
+
+    def read(self, tr: sy.TimeRange, channel: str, /) -> Samples: ...
+
+    def open_streamer(self, channels: list[str], /) -> Streamer: ...
+
+
 class Runner:
     def __init__(self) -> None:
         self.sink: Sink | None = None
@@ -46,7 +98,7 @@ class Runner:
         self.stopping = threading.Event()
         self.thread: threading.Thread | None = None
 
-    def listen(self, client: sy.Synnax, name: str, state: str, sink: Sink) -> None:
+    def listen(self, client: Core, name: str, state: str, sink: Sink) -> None:
         """Applies the last state, then each write to the command channel from a
         thread until stop_listening()."""
         self.sink = sink
@@ -70,7 +122,7 @@ class Runner:
 
     def _listen(
         self,
-        client: sy.Synnax,
+        client: Core,
         name: str,
         labels: tuple[str, int],
         stopping: threading.Event,
@@ -90,18 +142,10 @@ class Runner:
                         break
             except Exception as e:
                 self.log(f"commands failed: {type(e).__name__}: {e}")
-                if streamer is not None:
-                    try:
-                        streamer.close()
-                    except Exception:
-                        pass
+                close_quietly(streamer)
                 streamer = None
                 stopping.wait(LISTEN_RETRY)
-        if streamer is not None:
-            try:
-                streamer.close()
-            except Exception:
-                pass
+        close_quietly(streamer)
 
     def stop_listening(self) -> None:
         self.stopping.set()

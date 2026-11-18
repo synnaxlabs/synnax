@@ -323,7 +323,7 @@ describe("Task", async () => {
     });
 
     it("should retrieve a task by its name", async () => {
-      const name = `test-${Date.now()}-${Math.random()}`;
+      const name = `test-${id.create()}`;
       const m = await testRack.createTask({
         name,
         config: { routingKey: ROUTING_KEY },
@@ -996,7 +996,7 @@ describe("Task", async () => {
     });
 
     it("should retrieve task by name with schemas", async () => {
-      const uniqueName = `schema-name-test-${Date.now()}`;
+      const uniqueName = `schema-name-test-${id.create()}`;
       await testRack.createTask(
         {
           name: uniqueName,

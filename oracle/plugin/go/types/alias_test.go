@@ -80,10 +80,9 @@ Couple<T, U = string> = base.Pair<T, U>
 
 var _ = Describe("Go aliases", func() {
 	DescribeTable("Should generate a use of an alias as a use of its target",
-		func(ctx SpecContext, use string, expected ...string) {
+		func(use string, expected ...string) {
 			loader := NewMockFileLoader().Add("schemas/base", aliasBase)
 			resp := MustGenerate(
-				ctx,
 				aliasHead+use,
 				"test",
 				loader,

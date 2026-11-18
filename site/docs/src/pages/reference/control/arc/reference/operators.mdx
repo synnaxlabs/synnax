@@ -31,15 +31,17 @@ This page lists the operators of Arc expressions. For `:=` and `$=`, see
 - Integer `/` truncates toward zero: `-10 / 3` is `-3`. `10.0 / 4.0` is `2.5`.
 - `%` takes integers only. A float `%` fails with `float modulo not yet implemented`.
 - `^` is right-associative: `2 ^ 3 ^ 2` is `2 ^ 9`.
-- `^` takes numbers only. A `bool` operand fails with `cannot use bool in ^ operation`.
-- Arc has no bitwise operators. `&` fails with `token recognition error at: '&'`.
+- `^` takes numbers only. A `bool` operand fails with
+  `invalid operand: cannot use bool in ^ operation`.
+- Arc has no bitwise operators. `&` fails with
+  `syntax error: token recognition error at: '&'`.
 
 ### Division by zero
 
 A float division by zero gives `+Inf`, `-Inf`, or `NaN`. To test for these values, see
 [NaN and infinity](#nan-and-infinity). An integer `/` or `%` by zero is a runtime error,
 and the compiler does not check for it. See
-[errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
+[runtime errors](/reference/control/arc/execution-model#runtime-errors).
 
 <Divider.Divider x />
 
@@ -81,7 +83,7 @@ sequence main {
 
 Use [`math.is_nan`](/reference/control/arc/standard-library/math#float-checks) to test
 for NaN. `x != math.nan` is always `true`, and `==`, `<`, `>`, `<=`, or `>=` with
-`math.nan` is always `false`. The compiler rejects each with error ARC2004: write
+`math.nan` is always `false`. The compiler rejects each with error E2010: write
 `math.is_nan(x)` and `not math.is_nan(x)`. `x != x` is `true` only for NaN, but the
 check is easier to read.
 
@@ -96,8 +98,8 @@ check is easier to read.
 | `not`    | Not       | `not true`       | `false` |
 
 Logical operators take `bool` only. `x and true` with an `f64` `x` fails with
-`cannot use f64 in and operation`. On single values, `and` and `or` stop when the left
-side gives the result, so the right side does not run:
+`invalid operand: cannot use f64 in and operation`. On single values, `and` and `or`
+stop when the left side gives the result, so the right side does not run:
 
 ```arc bodies="ratio_high"
 func ratio_high(a i64, b i64) bool {
@@ -110,8 +112,8 @@ func ratio_high(a i64, b i64) bool {
 ## Strings
 
 `+` joins two strings. `==` and `!=` compare them. Other operators fail, for example
-`cannot use str in - operation`. To join a number and a string, cast the number with
-`str(x)` or use a
+`invalid operand: cannot use str in - operation`. To join a number and a string, cast
+the number with `str(x)` or use a
 [format string](/reference/control/arc/reference/syntax#format-strings).
 
 <Divider.Divider x />
@@ -157,7 +159,7 @@ another:
 | `a + b`, `a u8` and `b i32`  | `type mismatch: cannot use u8 and i32 in + operation`                              |
 | `f64(x) + y`                 | `f64`                                                                              |
 | `x * 2`, `x f32`             | `f32`. The literal takes the type of `x`.                                          |
-| `x * 2.5`, `x i32`           | `type mismatch in * operands must be compatible: float is not compatible with i32` |
+| `x * 2.5`, `x i32`           | `type mismatch: float is not compatible with i32 in * operands must be compatible` |
 
 To mix types, cast one side. See [casts](/reference/control/arc/reference/types#casts).
 
@@ -167,7 +169,7 @@ To mix types, cast one side. See [casts](/reference/control/arc/reference/types#
 
 Before `=>`, a number is true when it is not zero. A `str` is true when it is not empty.
 A non-boolean value before `=>` or in an `if` condition gives the warning
-[ARC2005](/reference/control/arc/reference/errors#arc2005).
+[W2000](/reference/control/arc/reference/errors#w2000).
 
 In an `if`, a number works only when its type has 32 bits or less. An `i64`, `u64`,
 `f32`, or `f64` condition compiles with the warning, then fails to load with
