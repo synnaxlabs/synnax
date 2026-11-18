@@ -110,8 +110,8 @@ export interface FindResult {
 export interface DataBounds {
   bounds: bounds.Bounds;
   loading: boolean;
-  /** True when the bounds end at the newest sample and move as samples arrive. */
-  rolling?: boolean;
+  /** Set when the bounds end at the newest sample. */
+  edge?: telem.Edge;
 }
 
 export interface LineProps {
@@ -377,7 +377,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   xBounds(): DataBounds {
     const x = this.internal.xTelem.value();
-    return { bounds: x.data[0], loading: isLoading(x), rolling: x.rolling };
+    return { bounds: x.data[0], loading: isLoading(x), edge: x.edge };
   }
 
   /**

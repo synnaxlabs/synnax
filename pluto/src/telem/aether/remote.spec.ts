@@ -695,6 +695,61 @@ describe("remote", () => {
       });
       await settle(x);
       expect(x.value().data[0]).toEqual(HOME.numericBounds);
+      expect(x.value().edge).toBeUndefined();
+    });
+
+    describe("static window that streams", () => {
+      // A running range: it started a minute after the Core's first sample, and has no
+      // end.
+      const FROM = START.add(TimeSpan.minutes(1));
+      const OPEN = staticWindow(new TimeRange(FROM, TimeStamp.MAX));
+
+      it("should end its bounds at the newest sample and keep its start", async () => {
+        const core = createCore({ end: START.add(TimeSpan.minutes(5)) });
+        const { key } = core.data[0];
+        const x = create(connect(core), {
+          channel: key,
+          useIndexOfChannel: true,
+          window: OPEN,
+        });
+        await settle(x);
+        expect(x.value().data[0]).toEqual({
+          lower: ns(FROM),
+          upper: ns(newest(core, key).timeRange.end),
+        });
+        expect(x.value().edge).toBe("growing");
+      });
+
+      it("should grow its bounds as samples arrive", async () => {
+        const core = createCore();
+        const { key } = core.data[0];
+        const x = create(connect(core), {
+          channel: key,
+          useIndexOfChannel: true,
+          window: OPEN,
+        });
+        await settle(x);
+        core.advance(TimeSpan.seconds(1));
+        const upper = ns(newest(core, key).timeRange.end);
+        await expect.poll(() => x.value().data[0].upper, POLL).toBe(upper);
+        expect(x.value().data[0].lower).toBe(ns(FROM));
+      });
+
+      it("should end its bounds at the newest sample before a planned end", async () => {
+        const core = createCore();
+        const { key } = core.data[0];
+        const end = NOW.add(TimeSpan.hours(1));
+        const x = create(connect(core), {
+          channel: key,
+          useIndexOfChannel: true,
+          window: staticWindow(new TimeRange(FROM, end)),
+        });
+        await settle(x);
+        expect(x.value().data[0]).toEqual({
+          lower: ns(FROM),
+          upper: ns(newest(core, key).timeRange.end),
+        });
+      });
     });
 
     it("should bound a live index by the span before its newest sample", async () => {
@@ -737,7 +792,7 @@ describe("remote", () => {
         const upper = ns(newest(core, core.data[0].key).timeRange.end);
         const expected = { lower: upper - ns(new TimeStamp(SPAN)), upper };
         expect(x.value().data[0]).toEqual(expected);
-        expect(x.value().rolling).toBe(true);
+        expect(x.value().edge).toBe("rolling");
         core.advance(TimeSpan.minutes(1));
         await sleep.sleep(TimeSpan.milliseconds(50));
         expect(x.value().data[0]).toEqual(expected);
@@ -754,7 +809,7 @@ describe("remote", () => {
         const [x, y] = createLine(core);
         await settle(x);
         await settle(y);
-        expect(y.value().rolling).toBe(false);
+        expect(y.value().edge).toBeUndefined();
         const { upper } = x.value().data[0];
         const shown: ValueProps = {
           extremesKept: true,

@@ -20,6 +20,7 @@ import {
 import {
   type BooleanSourceSpec,
   type ColorSourceSpec,
+  type Edge,
   type NumberSourceSpec,
   type Result,
   type Source,
@@ -36,7 +37,7 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   status: status.Status = SUCCESS_STATUS;
   aggregation?: Aggregation;
   sorted?: boolean;
-  rolling?: boolean;
+  edge?: Edge;
   time?: TimeStamp;
   appended?: number;
   private _value: V;
@@ -50,8 +51,8 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   }
 
   value(_props?: ValueProps): Result<V> {
-    const { status, aggregation, sorted, rolling, time, appended } = this;
-    return { data: this._value, status, aggregation, sorted, rolling, time, appended };
+    const { status, aggregation, sorted, edge, time, appended } = this;
+    return { data: this._value, status, aggregation, sorted, edge, time, appended };
   }
 
   setValue(v: V): void {
