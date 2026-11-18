@@ -228,6 +228,75 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 		)
 	})
 
+	Describe("Diagnostics", func() {
+		It(
+			"Should place a diagnostic on the first line at its block position",
+			func(ctx SpecContext) {
+				client := &MockClient{}
+				server.SetClient(client)
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        generateBlockURI("diagnostic-test-1"),
+						LanguageID: "arc",
+						Version:    1,
+						Text:       "return missing * 2",
+					},
+				})).To(Succeed())
+				diags := client.Diagnostics()
+				Expect(diags).ToNot(BeEmpty())
+				Expect(diags[0].Range.Start).To(Equal(
+					protocol.Position{Line: 0, Character: 7},
+				))
+			},
+		)
+
+		It(
+			"Should place a parse error on the first line at its block position",
+			func(ctx SpecContext) {
+				client := &MockClient{}
+				server.SetClient(client)
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        generateBlockURI("diagnostic-test-2"),
+						LanguageID: "arc",
+						Version:    1,
+						Text:       "x := )",
+					},
+				})).To(Succeed())
+				diags := client.Diagnostics()
+				Expect(diags).ToNot(BeEmpty())
+				Expect(diags[0].Range.Start).To(Equal(
+					protocol.Position{Line: 0, Character: 5},
+				))
+			},
+		)
+
+		It(
+			"Should place a positioned note on the first line at its block position",
+			func(ctx SpecContext) {
+				client := &MockClient{}
+				server.SetClient(client)
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        generateBlockURI("diagnostic-test-3"),
+						LanguageID: "arc",
+						Version:    1,
+						Text:       "x := f32(1 > 0)",
+					},
+				})).To(Succeed())
+				diags := client.Diagnostics()
+				Expect(diags).To(HaveLen(1))
+				Expect(diags[0].RelatedInformation).To(HaveLen(1))
+				Expect(diags[0].RelatedInformation[0].Location.Range).To(Equal(
+					protocol.Range{
+						Start: protocol.Position{Line: 0, Character: 9},
+						End:   protocol.Position{Line: 0, Character: 14},
+					},
+				))
+			},
+		)
+	})
+
 	Describe("Definition", func() {
 		It(
 			"Should return nil for GlobalResolver symbols (no AST)",
