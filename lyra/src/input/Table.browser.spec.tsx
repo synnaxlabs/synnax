@@ -102,6 +102,33 @@ describe("Input.Table", () => {
     );
   });
 
+  it("should inset read-only text as far as editable text", async () => {
+    const { container } = await renderThemed(
+      <>
+        <Input.Table value={[["pump"]]} onChange={() => {}}>
+          <Input.TableColumn name="Name" type="string" />
+        </Input.Table>
+        <Input.Table value={[["pump"]]} onChange={() => {}} preview>
+          <Input.TableColumn name="Name" type="string" />
+        </Input.Table>
+      </>,
+    );
+    const [editable, readOnly] = Array.from(container.querySelectorAll("table"));
+    const textLeft = (el: Element | null): number => {
+      if (el == null) throw new Error("The cell has no text");
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return range.getBoundingClientRect().left;
+    };
+    const input = editable.querySelector("tbody input");
+    if (input == null) throw new Error("The editable cell has no input");
+    const inset =
+      input.getBoundingClientRect().left + parseFloat(computed(input, "padding-left"));
+    expect(
+      textLeft(readOnly.querySelector(`.${CSS.BE("input", "preview-value")}`)),
+    ).toBeCloseTo(inset, 0);
+  });
+
   describe.each<ColumnType>(["string", "number"])("%s cells", (type) => {
     it("should square a cell away from the corners of the box", async () => {
       const cells = await renderTable({ type, rows: 3, columns: 3, named: true });

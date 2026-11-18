@@ -12,6 +12,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { CSS } from "@/css";
 import { Input } from "@/input";
 import { type Status } from "@/status";
 
@@ -759,6 +760,17 @@ describe("Input.Table", () => {
       ]);
     });
 
+    it("should keep the first pasted row of a table with only text columns", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["on"]]} onChange={onChange}>
+          <Input.TableColumn name="Label" type="string" />
+        </Input.Table>,
+      );
+      paste(cell("Label", "1"), "Label\nON");
+      expect(onChange).toHaveBeenCalledWith([["Label"], ["ON"]]);
+    });
+
     it("should drop a heading row a text column would otherwise accept", () => {
       const onChange = renderMixed();
       paste(cell("Label", "1"), "Label\tValue\nON\t1\nOFF\t2");
@@ -792,12 +804,26 @@ describe("Input.Table", () => {
       return onChange;
     };
 
-    it("should default a boolean column to a switch", () => {
+    it("should default a boolean column to a checkbox", () => {
       renderFlags();
-      expect(cell("Enabled", "1").checked).toBe(true);
+      const box = cell("Enabled", "1");
+      expect(box.checked).toBe(true);
+      expect(box.classList).toContain(CSS.BE("input", "checkbox", "input"));
     });
 
-    it("should commit a toggled switch into its column", () => {
+    it("should show a read-only boolean cell as a disabled checkbox", () => {
+      render(
+        <Input.Table value={[["pump", true]]} onChange={vi.fn()} preview>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn name="Enabled" type="boolean" />
+        </Input.Table>,
+      );
+      const box = cell("Enabled", "1");
+      expect(box.checked).toBe(true);
+      expect(box.disabled).toBe(true);
+    });
+
+    it("should commit a toggled checkbox into its column", () => {
       const onChange = renderFlags();
       fireEvent.click(cell("Enabled", "1"));
       expect(onChange).toHaveBeenCalledWith([["pump", false]]);
@@ -826,14 +852,36 @@ describe("Input.Table", () => {
       ]);
     });
 
-    it("should keep and mark a boolean cell whose pasted text does not parse", () => {
+    it("should drop a heading row whose boolean cells do not parse", () => {
       const onChange = renderFlags();
-      paste(cell("Name", "1"), "valve\tmaybe\nvent\ttrue");
+      paste(cell("Name", "1"), "Name\tEnabled\nvalve\tfalse");
+      expect(onChange).toHaveBeenCalledWith([["valve", false]]);
+    });
+
+    it("should refuse pasted text that names an object property", () => {
+      const onChange = renderFlags([
+        ["pump", true],
+        ["fan", false],
+      ]);
+      paste(cell("Name", "1"), "valve\ttrue\nvent\tconstructor");
       expect(onChange).toHaveBeenCalledWith([
         ["valve", true],
-        ["vent", true],
+        ["vent", false],
       ]);
-      expect(marked(cell("Enabled", "1"))).toBe(true);
+      expect(marked(cell("Enabled", "2"))).toBe(true);
+    });
+
+    it("should keep and mark a boolean cell whose pasted text does not parse", () => {
+      const onChange = renderFlags([
+        ["pump", true],
+        ["fan", false],
+      ]);
+      paste(cell("Name", "1"), "valve\tfalse\nvent\tmaybe");
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", false],
+        ["vent", false],
+      ]);
+      expect(marked(cell("Enabled", "2"))).toBe(true);
     });
   });
 

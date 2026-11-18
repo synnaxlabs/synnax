@@ -28,7 +28,7 @@ import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { ItemContext, type ItemContextValue } from "@/input/scope";
-import { Switch } from "@/input/Switch";
+import { Checkbox } from "@/input/Checkbox";
 import { Text as InputText } from "@/input/Text";
 import { type Control, type Variant } from "@/input/types";
 import { type Status } from "@/status";
@@ -83,7 +83,7 @@ export type TableColumnProps<V = unknown> =
       type: "boolean";
       /** Reads pasted text, or returns null to refuse it. Defaults to true or false. */
       parse?: (text: string) => boolean | null;
-      /** Renders the cell. Defaults to a switch. */
+      /** Renders the cell. Defaults to a checkbox. */
       children?: RenderProp<TableCellProps<boolean>>;
     })
   | (BaseTableColumnProps & {
@@ -115,8 +115,11 @@ const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode 
     case "boolean": {
       const cell = { ...props, value: props.value === true };
       if (column.children != null) return column.children(cell);
-      // The grid draws the cell's frame, so the switch draws none of its own.
-      return <Switch {...cell} variant="text" justify="center" />;
+      // The grid draws the cell's frame, so the checkbox draws none of its own. A
+      // read-only box still shows its state as a control.
+      return (
+        <Checkbox {...cell} variant="text" preview={false} disabled={props.preview} />
+      );
     }
     case "custom":
       return column.children(props);
@@ -139,15 +142,16 @@ const emptyCell = (column: TableColumnProps): TableCell => {
   return 0;
 };
 
-const isNumber = (column: TableColumnProps): boolean =>
-  column.type == null || column.type === "number";
+/** Whether the column's default reader refuses words, as a heading holds. */
+const refusesWords = (column: TableColumnProps): boolean =>
+  column.type == null || column.type === "number" || column.type === "boolean";
 
-const BOOLEANS: Partial<Record<string, boolean>> = {
-  true: true,
-  false: false,
-  "1": true,
-  "0": false,
-};
+const BOOLEANS = new Map<string, boolean>([
+  ["true", true],
+  ["false", false],
+  ["1", true],
+  ["0", false],
+]);
 
 /**
  * Reads a pasted cell with its column's parse, or as the type its column holds.
@@ -161,7 +165,7 @@ const parseCell = (text: string, column: TableColumnProps): TableCell | null => 
     case "string":
       return text;
     case "boolean":
-      return BOOLEANS[text.trim().toLowerCase()] ?? null;
+      return BOOLEANS.get(text.trim().toLowerCase()) ?? null;
     case "custom":
       return null;
   }
@@ -176,12 +180,12 @@ interface PastedCell {
 }
 
 /**
- * A spreadsheet selection often carries a heading row: one with number cells, none of
- * which parse.
+ * A spreadsheet selection often carries a heading row: one with number or boolean
+ * cells, none of which parse.
  */
 const isHeading = (row: PastedCell[], columns: TableColumnProps[]): boolean => {
-  const numbers = row.filter((_, j) => isNumber(columns[j]));
-  return numbers.length > 0 && numbers.every(({ value }) => value == null);
+  const typed = row.filter((_, j) => refusesWords(columns[j]));
+  return typed.length > 0 && typed.every(({ value }) => value == null);
 };
 
 /**
