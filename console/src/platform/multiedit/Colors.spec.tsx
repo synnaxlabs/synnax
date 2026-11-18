@@ -72,7 +72,7 @@ describe("ColorField", () => {
       />,
       { wrapper },
     );
-    await waitFor(() => expect(getHexInput("Fill").placeholder).toBe(c.name));
+    await waitFor(() => expect(getHexInput("Fill").value).toBe(c.name));
   });
 
   it("should show Mixed when one element follows a named color and another holds its value", async () => {

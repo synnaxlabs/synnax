@@ -110,9 +110,7 @@ describe("Color.Field", () => {
     const { named } = await createInPalette();
     renderField({ type: "named", key: named.key });
     await waitFor(() =>
-      expect(screen.getByRole<HTMLInputElement>("textbox").placeholder).toBe(
-        named.name,
-      ),
+      expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(named.name),
     );
   });
 

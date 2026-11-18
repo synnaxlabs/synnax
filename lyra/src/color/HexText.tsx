@@ -11,6 +11,7 @@ import "@/color/HexText.css";
 
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { CSS } from "@/css";
 import { Input } from "@/input";
@@ -36,7 +37,7 @@ export interface HexTextProps extends Omit<
   Input.TextProps,
   "value" | "onChange" | "onBlur" | "onKeyDown" | "onPaste"
 > {
-  /** The hex digits to show while the user is not editing. */
+  /** The hex digits, or another text such as a name, to show while not editing. */
   text: string;
   /** The alpha a hex without alpha digits keeps. */
   alpha: number;
@@ -48,7 +49,7 @@ export interface HexTextProps extends Omit<
 /**
  * A text box for a hex color. A complete 6 or 8 digit hex applies as the user types,
  * a paste applies at once, and anything else applies on Enter or blur. With
- * `onlyChangeOnBlur`, everything applies on Enter or blur.
+ * `onlyChangeOnBlur`, everything applies on Enter or blur. Escape discards the edit.
  */
 export const HexText = ({
   text,
@@ -82,6 +83,8 @@ export const HexText = ({
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter" && draft != null) commit(draft);
+        // The input blurs on Escape after this returns, so the blur must see no draft.
+        if (e.key === "Escape") flushSync(() => setDraft(null));
       }}
       onPaste={(e) => {
         const parsed = parseHexInput(e.clipboardData.getData("text"), alpha);
