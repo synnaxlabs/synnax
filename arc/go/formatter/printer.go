@@ -282,17 +282,18 @@ func (p *printer) emitToken(
 	hasLeadingComments := len(leadingComments) > 0
 
 	if p.prevLine > 0 && tokLine > p.prevLine && !p.atLineStart {
-		if p.inAuthorityParenContext() {
+		switch {
+		case p.inAuthorityParenContext():
 			// Skip general newline handling inside authority blocks;
 			// entry formatting handles newlines independently.
-		} else if p.inCollapsedImportParen() {
+		case p.inCollapsedImportParen():
 			// A collapsed single-item import renders on one logical line
 			// regardless of how the user wrote it; suppress source-line
 			// preservation for the inner item and the matching RPAREN.
-		} else if (p.inlineTriggerList && p.inTriggerListContext()) ||
-			p.inInlineParenList() {
+		case (p.inlineTriggerList && p.inTriggerListContext()) ||
+			p.inInlineParenList():
 			// Skip - inline contexts don't break on original line positions.
-		} else if tokType != parser.ArcLexerRBRACE || hasLeadingComments {
+		case tokType != parser.ArcLexerRBRACE || hasLeadingComments:
 			p.writeNewline()
 			if !hasLeadingComments {
 				lineDiff := tokLine - p.prevLine
@@ -581,6 +582,7 @@ func (p *printer) inInlineParenList() bool {
 	switch p.parenContextStack[depth-1] {
 	case parenContextInputList, parenContextInputValues, parenContextMultiOutput:
 		return true
+	case parenContextDefault, parenContextAuthority, parenContextImport:
 	}
 	return false
 }
@@ -732,11 +734,12 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 
 	p.parenContextStack = append(p.parenContextStack, ctx)
 
-	if p.atLineStart {
+	switch {
+	case p.atLineStart:
 		p.writeIndent()
-	} else if p.prevToken != nil && p.isBinaryOperator(p.lastTokenType) {
+	case p.prevToken != nil && p.isBinaryOperator(p.lastTokenType):
 		p.writeSpace()
-	} else if p.needsSpaceBeforeParen(tokens[idx]) {
+	case p.needsSpaceBeforeParen(tokens[idx]):
 		p.writeSpace()
 	}
 
@@ -1128,15 +1131,10 @@ func (p *printer) needsNewlineAfter(tokType, idx int, tokens []antlr.Token) bool
 	nextTok := tokens[idx+1]
 	nextType := nextTok.GetTokenType()
 
-	switch tokType {
-	case parser.ArcLexerRBRACE:
-		if nextType == parser.ArcLexerFUNC || nextType == parser.ArcLexerSEQUENCE ||
+	return tokType == parser.ArcLexerRBRACE &&
+		(nextType == parser.ArcLexerFUNC || nextType == parser.ArcLexerSEQUENCE ||
 			nextType == parser.ArcLexerSTAGE || nextType == parser.ArcLexerAUTHORITY ||
-			nextType == antlr.TokenEOF {
-			return true
-		}
-	}
-	return false
+			nextType == antlr.TokenEOF)
 }
 
 func (p *printer) needsSpaceBefore(tok antlr.Token) bool {

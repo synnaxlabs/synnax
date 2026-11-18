@@ -16,10 +16,12 @@ cc_library(
         "@platforms//os:windows": [
             "error_windows.cpp",
             "serial_windows.cpp",
+            "tcp_windows.cpp",
         ],
         "//conditions:default": [
             "error_posix.cpp",
             "serial_posix.cpp",
+            "tcp_posix.cpp",
         ],
     }),
     hdrs = ["device.h"],

@@ -23,6 +23,7 @@ import { ChannelName } from "@/platform/task/ChannelName";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 import { useHoveredRef, useIsHovered } from "@/platform/task/port/Hovered";
+import { TareButton } from "@/platform/task/TareButton";
 import { type Channel } from "@/platform/task/types";
 
 /** The channel column that follows a task's own columns. */
@@ -55,6 +56,8 @@ export interface ListChannelItemProps extends List.ItemProps<string> {
   stateDefaultName?: string;
   /** Deploying the task skips the channel. */
   skipped?: boolean;
+  /** Shows a tare button for a float read channel. */
+  tareable?: boolean;
   /** One {@link List.Cell} for each of the task's own columns. */
   children: ReactNode;
 }
@@ -84,6 +87,7 @@ export const ListChannelItem = ({
   stateChannel,
   stateDefaultName,
   skipped,
+  tareable = false,
   children,
   className,
   ...rest
@@ -106,7 +110,10 @@ export const ListChannelItem = ({
           id={getChannelNameID(rest.itemKey)}
           icon={flow}
         />
-        {enabled}
+        <Flex.Box x align="center" gap="tiny">
+          {tareable && <TareButton channel={channel} disabled={disabled ?? false} />}
+          {enabled}
+        </Flex.Box>
       </ChannelCell>
     );
   else {

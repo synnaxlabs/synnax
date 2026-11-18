@@ -49,6 +49,8 @@ type enumCheckData struct {
 	FieldName string
 	// Optional is true for an optional field, which the check reads only when present.
 	Optional bool
+	// MapKey is true for a map keyed by the enum, whose check reads each key.
+	MapKey bool
 }
 
 // goDefaultFills returns the fills for a field's static default. A scalar default
@@ -213,7 +215,7 @@ func zeroFill(goName string, v resolution.ExpressionValue) (defaultFillData, boo
 		lit = "false"
 	case resolution.ValueKindArray:
 		lit = "nil"
-	default:
+	case resolution.ValueKindIdent, resolution.ValueKindStruct:
 		return defaultFillData{}, false
 	}
 	return defaultFillData{GoName: goName, Expr: lit}, true
@@ -398,8 +400,7 @@ func literalAssignments(
 			return nil, false
 		}
 		return append(setup, selector+" = "+expr), true
-	}
-	if v.Kind == resolution.ValueKindIdent {
+	case resolution.ValueKindIdent:
 		if expr, defaulted, ok := emptyVariant(v.IdentValue, typeRef, data); ok {
 			var lines []string
 			if defaulted {
@@ -416,6 +417,10 @@ func literalAssignments(
 			}
 			return append(lines, selector+".Variant = "+expr), true
 		}
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat,
+		resolution.ValueKindBool:
 	}
 	lit, ok := goLiteral(typeRef, &v, data)
 	if !ok {
@@ -549,7 +554,7 @@ func goLiteral(
 	case resolution.ValueKindString:
 		return strconv.Quote(v.StringValue), true
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", v.IntValue), true
+		return strconv.FormatInt(v.IntValue, 10), true
 	case resolution.ValueKindFloat:
 		return strconv.FormatFloat(v.FloatValue, 'g', -1, 64), true
 	case resolution.ValueKindBool:
@@ -560,6 +565,7 @@ func goLiteral(
 			return "", false
 		}
 		return enumConstRef(typeRef, ev, data), true
+	case resolution.ValueKindArray, resolution.ValueKindStruct:
 	}
 	return "", false
 }
@@ -589,7 +595,7 @@ func scalarFill(
 		}
 		return defaultFillData{
 			GoName: goName,
-			Expr:   fmt.Sprintf("%d", d.IntValue),
+			Expr:   strconv.FormatInt(d.IntValue, 10),
 		}, true
 	case resolution.ValueKindFloat:
 		if d.FloatValue == 0 {
@@ -627,6 +633,9 @@ func scalarFill(
 			GoName: goName,
 			Expr:   enumConstRef(typeRef, ev, data),
 		}, true
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return defaultFillData{}, false
 }
@@ -760,10 +769,16 @@ func numberLiteral(n *validation.Number) string {
 	return strconv.FormatFloat(n.Float, 'g', -1, 64)
 }
 
-// goEnumCheck returns an enum-membership validation for a field whose type is an enum.
-// An optional field is checked only when present.
+// goEnumCheck returns an enum-membership validation for a field whose type is an enum,
+// or for each key of a map keyed by an enum. An optional field is checked only when
+// present.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
-	resolved, _, ok := resolution.Dealias(field.Type, data.table)
+	ref, mapKey := field.Type, false
+	m := unaliasContainer(field.Type, data)
+	if m.Name == "Map" && len(m.TypeArgs) == 2 {
+		ref, mapKey = m.TypeArgs[0], true
+	}
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return enumCheckData{}, false
 	}
@@ -782,6 +797,7 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 		GoName:    naming.GetFieldName(field),
 		FieldName: field.Name,
 		Optional:  field.Optional,
+		MapKey:    mapKey,
 	}, true
 }
 
@@ -1126,6 +1142,9 @@ func groupMember(f resolution.Field, data *templateData) (groupMemberData, bool)
 			return groupMemberData{}, false
 		}
 		return groupMemberData{GoName: name, ZeroLit: `""`}, true
+	case resolution.ValueKindBool,
+		resolution.ValueKindArray,
+		resolution.ValueKindStruct:
 	}
 	return groupMemberData{}, false
 }

@@ -55,6 +55,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Pair{Range: uuid.New(), Key: "operator", Value: "ada"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,
@@ -99,6 +100,7 @@ var _ = Describe("RecoverKVPairKeys", func() {
 	BeforeEach(func(ctx SpecContext) {
 		kvDB = memkv.New()
 		db = DeferClose(gorp.Wrap(kvDB))
+		StartRun(db.Run)
 		for k, v := range kvPairRows {
 			Expect(kvDB.Set(
 				ctx,
@@ -123,7 +125,7 @@ var _ = Describe("RecoverKVPairKeys", func() {
 		Expect(table.NewRetrieve().Entries(&res).Exec(ctx, db)).To(Succeed())
 		return res
 	}
-	expectLegacyRowsDeleted := func(ctx SpecContext) {
+	expectLegacyRowsDeleted := func() {
 		GinkgoHelper()
 		for k := range kvPairRows {
 			Expect(kvDB.Get(MustSucceed(hex.DecodeString(k)))).Error().
@@ -140,7 +142,7 @@ var _ = Describe("RecoverKVPairKeys", func() {
 				v0.Pair{Range: kvPairRange, Key: "k", Value: "alpha"},
 				v0.Pair{Range: kvPairRange, Key: "empty", Value: ""},
 			))
-			expectLegacyRowsDeleted(ctx)
+			expectLegacyRowsDeleted()
 		},
 		Entry("when upgrading straight to the recovery", false),
 		Entry("when the store already ran the other migrations", true),
@@ -154,6 +156,6 @@ var _ = Describe("RecoverKVPairKeys", func() {
 			newer,
 			v0.Pair{Range: kvPairRange, Key: "empty", Value: ""},
 		))
-		expectLegacyRowsDeleted(ctx)
+		expectLegacyRowsDeleted()
 	})
 })

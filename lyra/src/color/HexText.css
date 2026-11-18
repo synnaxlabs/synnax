@@ -9,10 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Monospaced, so every hex code takes the same width. */
 .lyra-color-hex-text input {
+    font-family: var(--pluto-code-font-family);
     text-transform: uppercase;
 
     &::placeholder {
+        font-family: var(--pluto-font-family);
         text-transform: none;
     }
 }

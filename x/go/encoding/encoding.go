@@ -19,19 +19,19 @@ import (
 // Decoder decodes values from binary.
 type Decoder interface {
 	// Decode decodes data into a pointer value.
-	Decode([]byte, any) error
+	Decode(data []byte, value any) error
 	// DecodeStream decodes data from the given reader into a pointer value.
-	DecodeStream(io.Reader, any) error
+	DecodeStream(r io.Reader, value any) error
 }
 
 // Encoder encodes values into binary.
 type Encoder interface {
 	// Encode encodes the value into binary. It returns the encoded value along with any
 	// errors encountered.
-	Encode(any) ([]byte, error)
+	Encode(value any) ([]byte, error)
 	// EncodeStream encodes the value into binary and writes it to the given writer. It
 	// returns any errors encountered.
-	EncodeStream(io.Writer, any) error
+	EncodeStream(w io.Writer, value any) error
 }
 
 // FileEncoder is an Encoder that names the files its output belongs in, so a caller
@@ -53,7 +53,7 @@ type Codec interface {
 // result wraps base, so errors.Is matches base and the errors it wraps.
 func SugarDecodingError(value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	t := reflect.TypeOf(value)
 	if t != nil && t.Kind() == reflect.Pointer {
@@ -65,7 +65,7 @@ func SugarDecodingError(value any, base error) error {
 // SugarEncodingError adds additional context to encoding errors.
 func SugarEncodingError(value any, base error) error {
 	if base == nil {
-		return base
+		return nil
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(

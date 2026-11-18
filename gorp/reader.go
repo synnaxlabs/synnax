@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Reader wraps a key-value reader to provide a strongly typed interface for reading
@@ -51,7 +52,7 @@ func wrapReader[K Key, E Entry[K]](snap Snapshot, prefix []byte) Reader[K, E] {
 // query.ErrNotFound is returned.
 func (r *Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	var e E
-	_, closer, err := r.get(ctx, key, &e)
+	_, closer, err := r.get(key, &e)
 	if err != nil {
 		var zero E
 		return zero, err
@@ -60,7 +61,6 @@ func (r *Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 }
 
 func (r *Reader[K, E]) get(
-	ctx context.Context,
 	key K,
 	entry *E,
 ) ([]byte, io.Closer, error) {
@@ -72,6 +72,17 @@ func (r *Reader[K, E]) get(
 		return nil, nil, errors.Combine(err, closer.Close())
 	}
 	return b, closer, nil
+}
+
+func (r *Reader[K, E]) has(key K) (bool, error) {
+	_, closer, err := r.snap.Get(r.keyCodec.Encode(key))
+	if errors.Is(err, query.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, closer.Close()
 }
 
 // IterOptions configures a Reader iterator.

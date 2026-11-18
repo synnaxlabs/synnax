@@ -11,6 +11,7 @@ package release_test
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -88,9 +89,16 @@ var _ = Describe("Config", func() {
 		},
 		Entry("no URL", func(c *release.Config) { c.URL = "" }, "url"),
 		Entry(
+			"no public keys",
+			func(c *release.Config) { c.PublicKeys = nil },
+			"public_keys",
+		),
+		Entry(
 			"invalid public key",
-			func(c *release.Config) { c.PublicKey = "not a key" },
-			"public_key",
+			func(c *release.Config) {
+				c.PublicKeys = []string{c.PublicKeys[0], "not a key"}
+			},
+			"public_keys.1",
 		),
 		Entry(
 			"zero stall timeout",
@@ -104,17 +112,19 @@ var _ = Describe("Download", func() {
 	var (
 		files, dst string
 		signer     testutil.Signer
+		old        testutil.Signer
 		cfg        release.Config
 	)
 	BeforeEach(func() {
 		dir := GinkgoT().TempDir()
 		files = filepath.Join(dir, "files")
 		dst = filepath.Join(dir, "dst")
-		signer = testutil.NewSigner()
+		signer, old = testutil.NewSigner(), testutil.NewSigner()
 		server := httptest.NewServer(http.FileServer(http.Dir(files)))
 		DeferCleanup(server.Close)
 		cfg = release.DefaultConfig
-		cfg.URL, cfg.PublicKey = server.URL, signer.PublicKey
+		cfg.URL = server.URL
+		cfg.PublicKeys = []string{signer.PublicKey, old.PublicKey}
 	})
 
 	write := func(name string, data []byte) {
@@ -134,7 +144,7 @@ var _ = Describe("Download", func() {
 		write(name, []byte("core"))
 		write(name+".sig", signer.Sign(name, []byte("core")))
 		Expect(download(ctx)).To(Succeed())
-		Expect(os.ReadFile(dst)).To(Equal([]byte("core")))
+		Expect(os.ReadFile(filepath.Clean(dst))).To(Equal([]byte("core")))
 		mode := os.FileMode(0o600)
 		// Windows has no Unix permission bits, so Go reports a writable file as 0666.
 		if runtime.GOOS == "windows" {
@@ -143,13 +153,20 @@ var _ = Describe("Download", func() {
 		Expect(MustSucceed(os.Stat(dst)).Mode().Perm()).To(Equal(mode))
 	})
 
+	It("Should download a file signed with any of its keys", func(ctx SpecContext) {
+		write(name, []byte("core"))
+		write(name+".sig", old.Sign(name, []byte("core")))
+		Expect(download(ctx)).To(Succeed())
+		Expect(os.ReadFile(filepath.Clean(dst))).To(Equal([]byte("core")))
+	})
+
 	It("Should check a signature that the Tauri signer wrote", func(ctx SpecContext) {
-		write(name, MustSucceed(os.ReadFile(filepath.Join("testdata", name))))
+		write(name, MustSucceed(fs.ReadFile(os.DirFS("testdata"), name)))
 		write(
 			name+".sig",
-			MustSucceed(os.ReadFile(filepath.Join("testdata", name+".sig"))),
+			MustSucceed(fs.ReadFile(os.DirFS("testdata"), name+".sig")),
 		)
-		cfg.PublicKey = tauriPublicKey
+		cfg.PublicKeys = []string{tauriPublicKey}
 		Expect(download(ctx)).To(Succeed())
 	})
 
@@ -209,8 +226,8 @@ var _ = Describe("Download", func() {
 	)
 
 	It("Should return the error of an invalid config", func(ctx SpecContext) {
-		cfg.PublicKey = "not a key"
-		Expect(download(ctx)).To(MatchError(ContainSubstring("public_key")))
+		cfg.PublicKeys = []string{"not a key"}
+		Expect(download(ctx)).To(MatchError(ContainSubstring("public_keys")))
 	})
 
 	Describe("Stall", func() {
@@ -238,12 +255,14 @@ var _ = Describe("Download", func() {
 			serve(func(w http.ResponseWriter, _ *http.Request) {
 				for _, b := range data {
 					MustSucceed(w.Write([]byte{b}))
-					w.(http.Flusher).Flush()
+					flusher, ok := w.(http.Flusher)
+					Expect(ok).To(BeTrue())
+					flusher.Flush()
 					time.Sleep(50 * time.Millisecond)
 				}
 			})
 			Expect(download(ctx)).To(Succeed())
-			Expect(os.ReadFile(dst)).To(Equal(data))
+			Expect(os.ReadFile(filepath.Clean(dst))).To(Equal(data))
 		})
 
 		It("Should fail when the file sends no response", func(ctx SpecContext) {
@@ -256,7 +275,9 @@ var _ = Describe("Download", func() {
 			func(ctx SpecContext) {
 				serve(func(w http.ResponseWriter, r *http.Request) {
 					MustSucceed(w.Write(data[:1]))
-					w.(http.Flusher).Flush()
+					flusher, ok := w.(http.Flusher)
+					Expect(ok).To(BeTrue())
+					flusher.Flush()
 					<-r.Context().Done()
 				})
 				Expect(

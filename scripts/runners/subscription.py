@@ -13,7 +13,7 @@ from collections.abc import Callable
 
 import synnax as sy
 
-from common import close_quietly, warn
+from common import Frame, Streamer, Streams, close_quietly, warn
 
 
 class Subscription:
@@ -24,7 +24,7 @@ class Subscription:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Streams,
         name: str,
         channels: list[str],
         report: Callable[[str, Exception], None] = warn,
@@ -33,7 +33,7 @@ class Subscription:
         self.name = name
         self.channels = channels
         self.report = report
-        self.streamer: sy.Streamer | None = None
+        self.streamer: Streamer | None = None
 
     def retarget(self, channels: list[str]) -> None:
         """Moves to a different set of channels, reopening on the next read."""
@@ -41,7 +41,7 @@ class Subscription:
             self.channels = channels
             self.close()
 
-    def read(self, *, timeout: sy.TimeSpan) -> sy.Frame | None:
+    def read(self, *, timeout: sy.TimeSpan) -> Frame | None:
         try:
             if self.streamer is None:
                 self.streamer = self.client.open_streamer(self.channels)

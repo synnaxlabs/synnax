@@ -16,7 +16,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { DataType, deep, primitive } from "@synnaxlabs/x";
+import { array, DataType, deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
@@ -78,10 +78,7 @@ const TimestampFields: FC<{ path: deep.Path<PlainReadEntry> }> = ({ path }) => {
       set(path.fields, [...fields, indexField]);
       set(path.index, indexField.key);
     } else if (mode === "arrival" && index !== "") {
-      set(
-        path.fields,
-        fields.filter((f) => f.key !== index),
-      );
+      set(path.fields, array.removeKeyed(fields, index));
       set(path.index, "");
     }
   };
@@ -254,9 +251,11 @@ const DISCOVER_KIND: Kind<ReadEntry> = {
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
-const entryLabel = Component.renderProp(
-  ({ path }: Task.Views.GroupProps<ReadEntry>) => <EntryLabel path={path} />,
+const GroupLabel = ({ path }: Task.Views.GroupProps<ReadEntry>) => (
+  <EntryLabel path={path} />
 );
+
+const entryLabel = Component.renderProp(GroupLabel);
 
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const entries = PForm.useFieldValue(root.config.entries);

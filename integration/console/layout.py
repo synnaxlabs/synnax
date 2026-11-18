@@ -519,7 +519,7 @@ class LayoutClient:
         sy.sleep(0.1)
 
     @contextmanager
-    def _bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
+    def _bring_to_front(self, element: Locator) -> Generator[Locator]:
         """Context manager that temporarily brings an element to the front.
 
         Sets z-index to 9999 to ensure the element is clickable even if other
@@ -538,15 +538,16 @@ class LayoutClient:
         finally:
             element.evaluate(f"el => el.style.zIndex = '{original_z_index}'")
 
-    def get_tab(self, name: str) -> Locator:
+    def get_tab(self, name: str | re.Pattern[str]) -> Locator:
         """Get a tab locator by its name.
 
-        :param name: The name/title of the tab to find
+        :param name: The name/title of the tab to find, or a pattern it matches
         :returns: Locator for the tab element
         """
+        pattern = name if isinstance(name, re.Pattern) else f"^{re.escape(name)}$"
         return (
             self.page.locator(self.TAB_SELECTOR)
-            .filter(has_text=re.compile(f"^{re.escape(name)}$"))
+            .filter(has_text=re.compile(pattern))
             .filter(has=self.page.locator("[aria-label='Close']"))
             .first
         )
@@ -689,14 +690,20 @@ class LayoutClient:
         item.get_by_role("button", name="Cancel", exact=True).click()
         item.wait_for(state="hidden", timeout=5000)
 
-    def close_tab(self, name: str) -> None:
+    @staticmethod
+    def _tab_name_text(tab: Locator) -> Locator:
+        """Return the text of the tab's name. A name in parts, such as a saved view's,
+        ends with the part that a rename edits."""
+        return tab.locator("p").last
+
+    def close_tab(self, name: str | re.Pattern[str]) -> None:
         """Close a tab using a randomly selected modality.
 
         Randomly chooses between:
         - Click close button (X)
         - Context menu -> Close
 
-        :param name: Name of the tab to close
+        :param name: Name of the tab to close, or a pattern it matches
         """
         self.close_left_toolbar()
         tab = self.get_tab(name)
@@ -709,7 +716,7 @@ class LayoutClient:
             tab.hover()
             tab.get_by_label("Close", exact=True).click()
         else:
-            self.ctx_menu.action(tab.locator("p"), "Close", exact=False)
+            self.ctx_menu.action(self._tab_name_text(tab), "Close", exact=False)
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
@@ -736,14 +743,14 @@ class LayoutClient:
         renamed_from_menu = False
         if modality == "context_menu":
             # Only tabs backed by a resource carry a Rename item.
-            self.ctx_menu.open_on(tab.locator("p"))
+            self.ctx_menu.open_on(self._tab_name_text(tab))
             renamed_from_menu = self.ctx_menu.has_option("Rename", exact=False)
             if renamed_from_menu:
                 self.ctx_menu.click_option("Rename", exact=False)
             else:
                 self.ctx_menu.close()
         if not renamed_from_menu:
-            tab.locator("p").first.dblclick()
+            self._tab_name_text(tab).dblclick()
 
         # The tab name uses Text.Editable which becomes contentEditable (not an input)
         editable_text = tab.locator("p[contenteditable='true']").first
@@ -789,7 +796,7 @@ class LayoutClient:
         tab = self.get_read_only_tab(tab_name)
         tab.wait_for(state="visible", timeout=5000)
         tab.click()
-        self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
+        self.ctx_menu.action(self._tab_name_text(tab), "Focus", exact=False)
 
     def show_visualization_toolbar(self) -> Locator:
         """Show the bottom Component toolbar via its nav toggle.

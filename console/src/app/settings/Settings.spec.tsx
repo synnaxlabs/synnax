@@ -72,6 +72,7 @@ describe("Settings", () => {
       ...sections,
       "Users",
       "Labels",
+      "Colors",
       "Secrets",
       "Certificates",
       "License",
@@ -84,7 +85,14 @@ describe("Settings", () => {
   it("should hide the sections that a user cannot use", async () => {
     await renderSettings(await createLimitedClient());
     expect(await screen.findByRole("menuitem", { name: "Appearance" })).toBeTruthy();
-    for (const name of ["License", "Users", "Labels", "Secrets", "Certificates"])
+    for (const name of [
+      "License",
+      "Users",
+      "Labels",
+      "Colors",
+      "Secrets",
+      "Certificates",
+    ])
       expect(screen.queryByRole("menuitem", { name })).toBeNull();
   });
 

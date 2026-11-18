@@ -141,11 +141,12 @@ func mapTokenType(antlrType int, text string, prevWasAt, nameStart bool) *uint32
 	case parser.OracleLexerLINE_COMMENT, parser.OracleLexerBLOCK_COMMENT:
 		tokenType = semanticTokenTypeComment
 	case parser.OracleLexerIDENT:
-		if prevWasAt {
+		switch {
+		case prevWasAt:
 			tokenType = semanticTokenTypeFunction
-		} else if !nameStart && primitiveTypes.Contains(text) {
+		case !nameStart && primitiveTypes.Contains(text):
 			tokenType = semanticTokenTypeType
-		} else {
+		default:
 			tokenType = semanticTokenTypeProperty
 		}
 	default:

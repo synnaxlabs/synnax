@@ -80,6 +80,7 @@ var _ = Describe("Migration chain", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		a := rolev0.Role{Key: uuid.New(), Name: "a"}
 		b := rolev0.Role{Key: uuid.New(), Name: "b"}
 		Expect(gorp.WrapWriter[rolev0.Key, rolev0.Role](db).Set(ctx, a, b)).

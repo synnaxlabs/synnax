@@ -10,6 +10,7 @@
 package color_test
 
 import (
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,8 +37,11 @@ var _ = Describe("Writer", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groups = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
-		svc = MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
+		svc = MustOpen(
+			color.OpenService(ctx, color.ServiceConfig{DB: db, Group: groups}),
+		)
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
 		red = MustSucceed(xcolor.Parse("#ff0000"))
@@ -60,6 +64,47 @@ var _ = Describe("Writer", func() {
 	setGroup := func(v any) color.Action {
 		return color.NewSetAction(color.SetPayload{Path: []string{"group"}, Value: v})
 	}
+
+	Describe("Position", func() {
+		DescribeTable(
+			"Should store a fractional index",
+			func(ctx SpecContext, position string) {
+				n := color.Named{Name: "Breaker", Light: red, Position: &position}
+				Expect(w.Create(ctx, &n)).To(Succeed())
+				Expect(retrieve(ctx, n.Key).Position).To(Equal(&position))
+			},
+			Entry("an integer", "a0"),
+			Entry("a fraction", "a0V"),
+			Entry("a negative integer", "Zz"),
+			Entry("a longer integer", "b00"),
+		)
+		DescribeTable(
+			"Should refuse a position that is not a fractional index",
+			func(ctx SpecContext, position string) {
+				n := color.Named{Name: "Breaker", Light: red, Position: &position}
+				Expect(w.Create(ctx, &n)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("position: invalid fractional index")),
+				))
+			},
+			Entry("an empty string", ""),
+			Entry("a head with no digits", "a"),
+			Entry("an integer that is too short", "b0"),
+			Entry("a fraction that ends in zero", "a0V0"),
+			Entry("a digit outside base 62", "a0!"),
+			Entry("a head that is not a letter", "00"),
+			Entry("the smallest integer", "A"+strings.Repeat("0", 26)),
+		)
+		It("Should refuse a change to a position that is not valid", func(
+			ctx SpecContext,
+		) {
+			n := color.Named{Name: "Breaker", Light: red}
+			Expect(w.Create(ctx, &n)).To(Succeed())
+			Expect(w.Apply(ctx, n.Key, color.NewSetAction(
+				color.SetPayload{Path: []string{"position"}, Value: "a00"},
+			))).To(MatchError(ContainSubstring("position: invalid fractional index")))
+		})
+	})
 
 	Describe("Create", func() {
 		It("Should create a named color with a new key", func(ctx SpecContext) {

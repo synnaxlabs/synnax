@@ -99,10 +99,11 @@ var _ = Describe("Sparkplug B write targets", func() {
 	// metrics returns the one metric of each command that the edge node received.
 	metrics := func() []*pb.Payload_Metric {
 		GinkgoHelper()
-		var out []*pb.Payload_Metric
-		for _, c := range node.received() {
+		commands := node.received()
+		out := make([]*pb.Payload_Metric, len(commands))
+		for i, c := range commands {
 			Expect(c.payload.Metrics).To(HaveLen(1))
-			out = append(out, c.payload.Metrics[0])
+			out[i] = c.payload.Metrics[0]
 		}
 		return out
 	}

@@ -153,17 +153,24 @@ var _ = Describe("Alignment", func() {
 								)
 							}
 							return stamps
+						case telem.StringT:
+							stamps := make([]telem.TimeStamp, 0, s.Len())
+							for _, v := range s.Unmarshal[string]() {
+								stamps = append(
+									stamps,
+									telem.TimeStamp(
+										MustSucceed(strconv.Atoi(v)),
+									)*telem.SecondTS,
+								)
+							}
+							return stamps
+						case telem.UnknownT, telem.Uint8T, telem.Uint16T,
+							telem.Uint32T, telem.Uint64T, telem.Int8T, telem.Int16T,
+							telem.Float32T, telem.Float64T, telem.UUIDT, telem.BytesT,
+							telem.JSONT, telem.BooleanT:
 						}
-						stamps := make([]telem.TimeStamp, 0, s.Len())
-						for _, v := range s.Unmarshal[string]() {
-							stamps = append(
-								stamps,
-								telem.TimeStamp(
-									MustSucceed(strconv.Atoi(v)),
-								)*telem.SecondTS,
-							)
-						}
-						return stamps
+						Fail("unexpected data type " + string(s.DataType))
+						return nil
 					}
 					// write commits run three samples at a time, so the file size cap
 					// forces rollovers.
@@ -255,7 +262,7 @@ var _ = Describe("Alignment", func() {
 					})
 					DescribeTable(
 						"Reading",
-						func(ctx SpecContext, r alignmentRead) {
+						func(r alignmentRead) {
 							i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 								Bounds: r.bounds,
 								Channels: append(

@@ -30,8 +30,8 @@ func rackLink(k uint32) gorp.Link {
 	return gorp.Link{Target: gorp.NewTarget("rack", k), Kind: gorp.Place}
 }
 
-func parentLink(k string) gorp.Link {
-	return gorp.Link{Target: gorp.NewTarget("device", k), Kind: gorp.Place}
+func parentLink() gorp.Link {
+	return gorp.Link{Target: gorp.NewTarget("device", "a"), Kind: gorp.Place}
 }
 
 func labelLink(k string) gorp.Link {
@@ -56,11 +56,10 @@ var _ = Describe("Changes", func() {
 		db      *gorp.DB
 		records *gorp.Table[int32, entry]
 		record  = gorp.NewTarget("record", int32(1))
-		encode  = func(data string) []byte {
+		// encodeB returns the encoded entry 1 with data "b".
+		encodeB = func() []byte {
 			GinkgoHelper()
-			return MustSucceed(
-				msgpack.Codec.Encode(entry{ID: 1, Data: data}),
-			)
+			return MustSucceed(msgpack.Codec.Encode(entry{ID: 1, Data: "b"}))
 		}
 		create = func(data string) write {
 			return func(ctx SpecContext, tx gorp.Tx) error {
@@ -95,6 +94,7 @@ var _ = Describe("Changes", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		records = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
 			DB:   db,
 			Name: "record",
@@ -114,18 +114,18 @@ var _ = Describe("Changes", func() {
 			Expect(gorp.ChangesOf(tx)).To(Equal(want))
 		},
 		Entry("a create", false, []write{create("b")}, gorp.Changes{
-			{Record: record, Kind: gorp.ChangeCreate, Value: encode("b")},
+			{Record: record, Kind: gorp.ChangeCreate, Value: encodeB()},
 		}),
 		Entry(
 			"a create over an existing record",
 			true,
 			[]write{create("b")},
 			gorp.Changes{
-				{Record: record, Kind: gorp.ChangeUpdate, Value: encode("b")},
+				{Record: record, Kind: gorp.ChangeUpdate, Value: encodeB()},
 			},
 		),
 		Entry("an update", true, []write{update("b")}, gorp.Changes{
-			{Record: record, Kind: gorp.ChangeUpdate, Value: encode("b")},
+			{Record: record, Kind: gorp.ChangeUpdate, Value: encodeB()},
 		}),
 		Entry("a delete", true, []write{remove}, gorp.Changes{
 			{Record: record, Kind: gorp.ChangeDelete},
@@ -141,11 +141,11 @@ var _ = Describe("Changes", func() {
 			true,
 			[]write{remove, create("b")},
 			gorp.Changes{
-				{Record: record, Kind: gorp.ChangeUpdate, Value: encode("b")},
+				{Record: record, Kind: gorp.ChangeUpdate, Value: encodeB()},
 			},
 		),
 		Entry("a set through WrapWriter", false, []write{wrapped("b")}, gorp.Changes{
-			{Record: record, Kind: gorp.ChangeCreate, Value: encode("b")},
+			{Record: record, Kind: gorp.ChangeCreate, Value: encodeB()},
 		}),
 	)
 
@@ -398,8 +398,8 @@ var _ = Describe("Changes", func() {
 					Record:  gorp.NewTarget("device", "b"),
 					Kind:    gorp.ChangeDelete,
 					Derived: true,
-					Removed: []gorp.Link{rackLink(1), parentLink("a")},
-					Links:   []gorp.Link{rackLink(1), parentLink("a")},
+					Removed: []gorp.Link{rackLink(1), parentLink()},
+					Links:   []gorp.Link{rackLink(1), parentLink()},
 				},
 			))
 		})
@@ -421,8 +421,8 @@ var _ = Describe("Changes", func() {
 				Expect(gorp.ChangesOf(tx)).To(ContainElement(gorp.Change{
 					Record:  gorp.NewTarget("device", "b"),
 					Kind:    gorp.ChangeDelete,
-					Removed: []gorp.Link{rackLink(1), parentLink("a")},
-					Links:   []gorp.Link{rackLink(1), parentLink("a")},
+					Removed: []gorp.Link{rackLink(1), parentLink()},
+					Links:   []gorp.Link{rackLink(1), parentLink()},
 				}))
 			},
 		)
@@ -470,6 +470,7 @@ var _ = Describe("Changes", func() {
 				store = &failOnceDB{DB: kvs, err: errors.New("populate failed")}
 			}
 			linked := gorp.Wrap(store, gorp.WithCodec(msgpack.Codec))
+			StartRun(linked.Run)
 			refs := newDeviceRefs()
 			devices := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
 				DB:         linked,
@@ -523,6 +524,7 @@ var _ = Describe("Changes", func() {
 				kvs,
 				gorp.WithCodec(deviceRefusingCodec{Codec: msgpack.Codec}),
 			)
+			StartRun(linked.Run)
 			refs := newDeviceRefs()
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, refDevice]{
 				DB:         linked,

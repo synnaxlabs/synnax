@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/testutil/hookkv"
 )
@@ -551,7 +550,7 @@ var _ = Describe("StatusHandler", func() {
 			return driver.ConfigReporter{DB: db, Status: statusSvc}
 		}
 		It("should answer the command with an error status", func(ctx SpecContext) {
-			reporter().Report(ctx, t, "cmd-9", false, cfgErr)
+			reporter().Report(ctx, t, "cmd-9", cfgErr)
 			stat := retrieve(ctx)
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Message).To(Equal("Failed to configure task"))
@@ -559,24 +558,14 @@ var _ = Describe("StatusHandler", func() {
 			Expect(stat.Details.Cmd).To(Equal("cmd-9"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
-		It("should write an error status for a task that starts automatically",
-			func(ctx SpecContext) {
-				reporter().Report(ctx, t, driver.NoCommand, true, cfgErr)
-				stat := retrieve(ctx)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to configure task"))
-				Expect(stat.Description).To(Equal("bad config"))
-				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
-			},
-		)
-		It("should write no status at boot for a task that does not start",
-			func(ctx SpecContext) {
-				reporter().Report(ctx, t, driver.NoCommand, false, cfgErr)
-				Expect(statusSvc.NewRetrieve[any]().
-					Where(status.MatchOwners[any](t.ResourceID())).
-					Entry(new(status.Status[any])).
-					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
-			},
-		)
+		It("should write an error status at boot", func(ctx SpecContext) {
+			reporter().Report(ctx, t, driver.NoCommand, cfgErr)
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(Equal("bad config"))
+			Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
+			Expect(stat.Details.Running).To(BeFalse())
+		})
 	})
 })

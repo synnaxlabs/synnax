@@ -20,7 +20,7 @@ import {
   useState,
 } from "react";
 
-import { FormContext, useContext } from "@/platform/view/context";
+import { FormContext, useContext, useSearchContext } from "@/platform/view/context";
 
 const path = PView.formPath;
 
@@ -48,14 +48,15 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>>({
   onWhereChange,
   itemHeight,
 }: FormProps<K, E>): ReactElement | null => {
-  const { staticViews, getInitialView, searchTerm } = useContext("View.Form");
+  const { staticViews, getInitialView } = useContext("View.Form");
+  const { term } = useSearchContext("View.Form");
   // The list of a new view starts with no term.
   const searchedRef = useRef("");
   useEffect(() => {
-    if (searchTerm === searchedRef.current) return;
-    searchedRef.current = searchTerm;
-    search(searchTerm);
-  }, [searchTerm]);
+    if (term === searchedRef.current) return;
+    searchedRef.current = term;
+    search(term);
+  }, [term]);
   const { form } = PView.useForm({
     query: null,
     initialValues: getInitialView(),

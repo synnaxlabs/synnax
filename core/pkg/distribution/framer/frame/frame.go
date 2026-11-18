@@ -41,7 +41,7 @@ func NewMulti(keys []channel.Key, series []telem.Series) Frame {
 // Alloc allocates a new frame with a capacity that can hold up to the specified number
 // of series before a re-allocation, This is useful for pre-allocating frames when the
 // expected number of series is known.
-func Alloc(cap int) Frame { return Frame{telem.AllocFrame[channel.Key](cap)} }
+func Alloc(capacity int) Frame { return Frame{telem.AllocFrame[channel.Key](capacity)} }
 
 // SplitFree splits the frame into the series of channels that have storage and the
 // series of free channels.

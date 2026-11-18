@@ -247,16 +247,17 @@ func (w Writer) UpdateTask(
 			validate.ErrValidation, "a module cannot be bound to a rack",
 		)
 	}
-	if len(existing) > 0 {
+	switch {
+	case len(existing) > 0:
 		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {
 			return nil, err
 		}
-	} else if update.Rack == nil {
+	case update.Rack == nil:
 		return nil, errors.Wrap(
 			validate.ErrValidation,
 			"cannot set the performance of an arc with no rack",
 		)
-	} else {
+	default:
 		cfg.SetDefaults()
 	}
 	if update.Rack != nil {

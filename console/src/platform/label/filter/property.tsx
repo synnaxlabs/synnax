@@ -16,6 +16,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Flux, Label } from "@synnaxlabs/pluto";
+import { array, record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -83,7 +84,7 @@ const MATCH_NAMES: Record<KeyMatch, string> = {
   none: "has none of",
 };
 
-const KEY_MATCHES = Object.keys(MATCH_NAMES) as KeyMatch[];
+const KEY_MATCHES = record.keys(MATCH_NAMES);
 
 /** The option for resources with no labels. Only the picker holds this key. */
 const NO_LABELS = "no-labels";
@@ -108,7 +109,7 @@ const createPicker = (unlabeled: boolean) => {
     const handleChange = (next: label.Key[]): void => {
       if (next.includes(NO_LABELS) && !keys.includes(NO_LABELS))
         return onChange({ match: "empty", keys: [] });
-      const picked = next.filter((key) => key !== NO_LABELS);
+      const picked = array.remove(next, NO_LABELS);
       if (picked.length === 0) return onChange(null);
       const match = value == null || value.match === "empty" ? "any" : value.match;
       onChange({ match, keys: picked });

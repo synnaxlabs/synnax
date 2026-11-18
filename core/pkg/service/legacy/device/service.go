@@ -181,7 +181,7 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Device]] {
 	return s.table.Observe()
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Outage) error {
 	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
 	if err != nil {
 		return err

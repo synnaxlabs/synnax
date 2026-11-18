@@ -163,9 +163,10 @@ var _ = Describe("Sparkplug B host session", func() {
 				broker.collect(stateTopic)
 				states := func() []hostState {
 					GinkgoHelper()
-					var out []hostState
-					for _, m := range broker.collected() {
-						out = append(out, parseHostState(m.payload))
+					collected := broker.collected()
+					out := make([]hostState, len(collected))
+					for i, m := range collected {
+						out[i] = parseHostState(m.payload)
 					}
 					return out
 				}

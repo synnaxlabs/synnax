@@ -13,7 +13,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json/v2"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -68,9 +67,9 @@ var _ = Describe("Run", func() {
 			&fixedGate{name: "analyze", status: check.StatusPass},
 			&fixedGate{name: "generated", status: check.StatusPass},
 		}, nil)
-		names := []string{}
-		for _, g := range report.Gates {
-			names = append(names, g.Gate)
+		names := make([]string, len(report.Gates))
+		for i, g := range report.Gates {
+			names[i] = g.Gate
 		}
 		Expect(names).To(Equal([]string{"format", "analyze", "generated"}))
 	})
@@ -212,11 +211,9 @@ var _ = Describe("Render", func() {
 
 	It("returns an error for unknown formats", func() {
 		var buf bytes.Buffer
-		// FormatText path is the default fallback, so any unknown string just renders
-		// as text without error. Confirm the behavior is documented: unknown ->
-		// text-format render.
-		Expect(check.Render(&buf, r, check.Format("xml"), false)).To(Succeed())
-		Expect(strings.TrimSpace(buf.String())).NotTo(BeEmpty())
+		Expect(check.Render(&buf, r, check.Format("xml"), false)).
+			To(MatchError(`unknown format "xml"`))
+		Expect(buf.String()).To(BeEmpty())
 	})
 
 	It("renders skipped gates, positions, diffs, and long durations", func() {

@@ -39,12 +39,12 @@ sample rate of each read task, from 100 Hz to 10 kHz. If no such rate exists, fo
 example for read tasks at 3 kHz and 4 kHz, the task does not start. See
 [how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
 
-Each sample has the time of the network cycle that read it. Without IgH, if a module on
-the network has a distributed clock, the Driver measures that time with the distributed
-clock. The timestamps then show when the EtherCAT frame passed the modules, without the
-jitter of the computer clock, and they stay in line with the computer clock. When the
-computer is busy, a cycle can still run late, and its timestamp shows the delay. See
-[timing](/reference/hardware/tasks#timing).
+Each sample has the time of the network cycle that read it. If a module on the network
+has a distributed clock, the Driver measures that time with the distributed clock. With
+IgH, a module must also run in a DC sync mode. The timestamps then show when the
+EtherCAT frame passed the modules, without the jitter of the computer clock, and they
+stay in line with the computer clock. When the computer is busy, a cycle can still run
+late, and its timestamp shows the delay. See [timing](/reference/hardware/tasks#timing).
 
 <Divider.Divider x />
 
@@ -56,7 +56,9 @@ computer is busy, a cycle can still run late, and its timestamp shows the delay.
 1. In the devices toolbar, right-click a module and select **Create read task**. The
    task starts with a channel for each input of the module. On a module whose settings
    Synnax knows, such as a Dewesoft module, it starts with the measurement inputs only.
-   To remove a channel, right-click it and select **Remove**.
+   To read several modules of one network in one task, select them first. The Console
+   configures each module that is not configured yet. To remove a channel, right-click
+   it and select **Remove**.
 2. Set **Sample rate** and **Stream rate**.
 3. Click <Icon.Play /> (**Start**).
 
@@ -202,6 +204,17 @@ one of them, pass the name of the PDO that holds the entry as the third argument
 
   </Fragment>
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Tare channels
+
+Tare sets the current value of a `float32` or `float64` channel to zero, such as a
+[scaled](#scales) channel. The task must be running.
+
+1. In the channel list, click **Tare** on a float channel. To tare several channels,
+   select them, right-click, and select **Tare**.
+2. The values of those channels start from zero.
 
 <Divider.Divider x />
 

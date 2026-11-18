@@ -47,16 +47,17 @@ type FactoryConfig struct {
 	KeyAlgorithm KeyAlgorithm
 }
 
-var (
-	_ config.Config[FactoryConfig] = FactoryConfig{}
-	// DefaultFactoryConfig is the default configuration for a Factory.
-	DefaultFactoryConfig = FactoryConfig{
+var _ config.Config[FactoryConfig] = FactoryConfig{}
+
+// DefaultFactoryConfig returns the default configuration for a Factory.
+func DefaultFactoryConfig() FactoryConfig {
+	return FactoryConfig{
 		LoaderConfig:  DefaultLoaderConfig,
 		KeySize:       2048,
 		KeyAlgorithm:  KeyAlgorithmRSA,
 		AllowKeyReuse: new(false),
 	}
-)
+}
 
 // Override implements [config.Config].
 func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
@@ -87,7 +88,7 @@ type Factory struct {
 
 // NewFactory creates a new Factory.
 func NewFactory(configs ...FactoryConfig) (*Factory, error) {
-	cfg, err := config.New(DefaultFactoryConfig, configs...)
+	cfg, err := config.New(DefaultFactoryConfig(), configs...)
 	if err != nil {
 		return nil, err
 	}

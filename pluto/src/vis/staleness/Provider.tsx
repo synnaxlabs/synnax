@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { createContext, type PropsWithChildren, type ReactElement, use } from "react";
 
 import { Aether } from "@/aether";
 import { staleness } from "@/vis/staleness/aether";
@@ -21,16 +21,29 @@ export interface ProviderProps extends PropsWithChildren {
    * Bounds how late a transition can be reported; keep it well under the shortest
    * staleness timeout in use. */
   sweepInterval?: CrudeTimeSpan;
+  /** Whether a stale symbol shows a badge in place of the stale color. */
+  badged?: boolean;
 }
+
+const Context = createContext(false);
+Context.displayName = "Staleness.Context";
+
+/** Returns whether a stale symbol shows a badge in place of the stale color. */
+export const useBadged = (): boolean => use(Context);
 
 export const Provider = ({
   children,
   sweepInterval = DEFAULT_SWEEP_INTERVAL,
+  badged = false,
 }: ProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
     type: staleness.Provider.TYPE,
     schema: staleness.Provider.z,
     state: { sweepInterval: TimeSpan.fromMilliseconds(sweepInterval) },
   });
-  return <Aether.Composite path={path}>{children}</Aether.Composite>;
+  return (
+    <Context value={badged}>
+      <Aether.Composite path={path}>{children}</Aether.Composite>
+    </Context>
+  );
 };

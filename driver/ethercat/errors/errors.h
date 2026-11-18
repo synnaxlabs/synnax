@@ -57,6 +57,9 @@ const x::errors::Error SETTING_CONFLICT = BASE_ERROR.sub("setting_conflict");
 const x::errors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
 /// @brief error returned when the working counter does not match expected value.
 const x::errors::Error WORKING_COUNTER_ERROR = BASE_ERROR.sub("working_counter");
+/// @brief error returned when the oldest frame in flight has not come back, and the
+/// master keeps it in flight for a later receive.
+const x::errors::Error FRAME_IN_FLIGHT = BASE_ERROR.sub("frame_in_flight");
 /// @brief error returned when the cycle time cannot be maintained.
 const x::errors::Error CYCLE_OVERRUN = BASE_ERROR.sub("cycle_overrun");
 /// @brief error returned when a state machine transition fails.

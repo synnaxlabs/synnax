@@ -7,37 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/task/views/GroupTree.css";
-
 import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Menu } from "@synnaxlabs/lyra/menu";
+import { type Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Channel } from "@synnaxlabs/pluto";
-import { deep, id, primitive, type record } from "@synnaxlabs/x";
+import { deep, id, type record } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactNode, useState, useSyncExternalStore } from "react";
 
-import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
-import { Empty } from "@/platform/empty";
-import {
-  isMissing,
-  Message,
-  MISSING_DESCRIPTIONS,
-  NEW_DESCRIPTION,
-  STATE_MESSAGES,
-  StateIcon,
-} from "@/platform/task/ChannelState";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
+import { TareButton } from "@/platform/task/TareButton";
 import { READ_CHANNEL_OVERRIDE } from "@/platform/task/types";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { ContextMenu } from "@/platform/task/views/ContextMenu";
 import { Panes } from "@/platform/task/views/Panes";
+import { TreeFieldItem, TreeGroupItem, TreeList } from "@/platform/task/views/Tree";
 
 /** A value a group extracts into one channel. */
 export interface GroupField {
@@ -104,6 +93,8 @@ export interface GroupTreeProps<
   emptyPointerLabel?: string;
   /** Lets each group switch off through a `disabled` flag, which it must then hold. */
   groupsSwitchable?: boolean;
+  /** The fields with float channels can tare while the task runs. */
+  tareable?: boolean;
   /** Names a group in the tree and in its details header. */
   groupLabel: Component.RenderProp<GroupProps<G>>;
   groupDetails: Component.RenderProp<GroupProps<G>>;
@@ -190,38 +181,6 @@ const disabledPath = <F extends GroupField>(
     ? deep.present(groups[entry.groupKey].disabled)
     : deep.widen<GroupField>(entry.path).disabled;
 
-interface ChannelIconProps {
-  channel: deep.Target<number>;
-  /** Deploying the task skips the channel. */
-  skipped: boolean;
-}
-
-/** Marks an item whose channel deploying creates, or whose channel is gone. */
-const ChannelIcon = ({ channel, skipped }: ChannelIconProps) => {
-  const key = Form.useFieldValue(channel);
-  const result = Channel.useResultName(primitive.isNonZero(key) ? { key } : null);
-  if (!primitive.isNonZero(key))
-    return skipped ? null : (
-      <Message
-        variant="info"
-        message={STATE_MESSAGES.new}
-        description={NEW_DESCRIPTION}
-      >
-        <StateIcon state="new" />
-      </Message>
-    );
-  if (!isMissing(result)) return null;
-  return (
-    <Message
-      variant="warning"
-      message={STATE_MESSAGES.missing}
-      description={MISSING_DESCRIPTIONS[skipped ? "skips" : "creates"]}
-    >
-      <StateIcon state="missing" />
-    </Message>
-  );
-};
-
 interface GroupItemProps<G> extends Tree.ItemRenderProps<string> {
   path: deep.Path<G[]>;
   leaf: boolean;
@@ -244,23 +203,16 @@ const GroupItem = <G extends Group<GroupField> | Leaf>(props: GroupItemProps<G>)
     onAddField(itemKey);
   };
   return (
-    <Tree.Item
+    <TreeGroupItem
       {...itemProps}
-      className={CSS.cls(
-        CSS.B("group-item"),
-        leaf && CSS.M("leaf"),
-        off && CSS.M("off"),
-      )}
+      label={label({ groupKey: itemKey, path: path[itemKey] })}
+      channel={
+        leaf
+          ? deep.present(deep.widen<AnyGroup<GroupField>[]>(path)[itemKey].channel)
+          : undefined
+      }
+      off={off}
     >
-      {label({ groupKey: itemKey, path: path[itemKey] })}
-      {leaf && (
-        <ChannelIcon
-          channel={deep.present(
-            deep.widen<AnyGroup<GroupField>[]>(path)[itemKey].channel,
-          )}
-          skipped={off}
-        />
-      )}
       {!leaf && !isPreview && (
         <Button.Button
           onClick={handleAdd}
@@ -275,7 +227,7 @@ const GroupItem = <G extends Group<GroupField> | Leaf>(props: GroupItemProps<G>)
         </Button.Button>
       )}
       {children}
-    </Tree.Item>
+    </TreeGroupItem>
   );
 };
 
@@ -318,21 +270,33 @@ interface FieldItemProps extends Tree.ItemRenderProps<string> {
   /** The disabled flag of the field's group, which a group need not hold. */
   groupDisabled: deep.Target<boolean | undefined>;
   emptyLabel: string;
+  tareable: boolean;
 }
 
-const FieldItem = ({ path, groupDisabled, emptyLabel, ...props }: FieldItemProps) => {
-  const { disabled: disabledField, channel } = deep.widen(path);
+const FieldItem = ({
+  path,
+  groupDisabled,
+  emptyLabel,
+  tareable,
+  ...props
+}: FieldItemProps) => {
+  const { disabled: disabledField, channel, pointer } = deep.widen(path);
   const disabled = Form.useFieldValue(disabledField);
+  const label = Form.useFieldValue(pointer);
   const groupOff = Form.useFieldValue(groupDisabled, { optional: true }) === true;
+  const channelKey = Form.useFieldValue(channel);
   return (
-    <Tree.Item
+    <TreeFieldItem
       {...props}
-      className={CSS.cls(CSS.B("field-item"), disabled && CSS.M("off"))}
+      label={label}
+      emptyLabel={emptyLabel}
+      channel={channel}
+      off={disabled}
+      skipped={disabled || groupOff}
     >
-      <FieldLabel path={path} level="small" emptyLabel={emptyLabel} />
-      <ChannelIcon channel={channel} skipped={disabled || groupOff} />
+      {tareable && <TareButton channel={channelKey} disabled={disabled || groupOff} />}
       <EnabledCheckbox path={disabledField} />
-    </Tree.Item>
+    </TreeFieldItem>
   );
 };
 
@@ -343,8 +307,6 @@ const AdderItem = (props: Tree.ItemRenderProps<string>) => (
     Add field
   </Tree.Item>
 );
-
-const TREE_ITEM_HEIGHT = 36;
 
 const copyField = <F extends GroupField>(f: F, key: string = id.create()): F => ({
   ...f,
@@ -381,6 +343,7 @@ export const GroupTree = <
   createField,
   emptyPointerLabel = "New field",
   groupsSwitchable = false,
+  tareable = false,
   groupLabel,
   groupDetails,
   fieldDetails,
@@ -503,7 +466,6 @@ export const GroupTree = <
     if (first != null) setSelected([first]);
   };
 
-  const menuProps = Menu.useContextMenu();
   const menuRenderProp = (props: Menu.ContextMenuMenuProps) => {
     const keys = props.keys.filter((k) => !adders.has(k));
     const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
@@ -515,6 +477,13 @@ export const GroupTree = <
     });
     const setEnabled = (enabled: boolean) =>
       toggles.forEach((t) => ctx.set(t.path, !enabled));
+    const tareChannels = keys.flatMap((key) => {
+      const e = entries.get(key);
+      if (e?.kind !== "field") return [];
+      const f = ctx.get(e.path).value;
+      const groupOff = ctx.get(groups[e.groupKey]).value.disabled === true;
+      return f.disabled || groupOff ? [] : [f.channel];
+    });
     return (
       <ContextMenu
         keys={keys}
@@ -529,6 +498,7 @@ export const GroupTree = <
         onDisable={
           toggles.some((t) => !t.disabled) ? () => setEnabled(false) : undefined
         }
+        tareChannels={tareable ? tareChannels : undefined}
       />
     );
   };
@@ -544,6 +514,7 @@ export const GroupTree = <
           path={entry.path}
           groupDisabled={deep.widen<AnyGroup<F>[]>(path)[entry.groupKey].disabled}
           emptyLabel={emptyPointerLabel}
+          tareable={tareable}
         />
       );
     const itemProps = {
@@ -566,27 +537,16 @@ export const GroupTree = <
     <Panes
       listTitle={listTitle}
       list={
-        <>
-          <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
-            <Tree.Tree<string, record.Keyed<string>>
-              {...treeProps}
-              onSelect={handleSelect}
-              itemHeight={TREE_ITEM_HEIGHT}
-              className={CSS.cls(menuProps.className, CSS.B("group-tree"))}
-              onContextMenu={menuProps.open}
-              emptyContent={<Empty.Action message={emptyMessage} />}
-              allowNone={false}
-              autoSelectOnNone
-            >
-              {renderItem}
-            </Tree.Tree>
-          </Menu.ContextMenu>
-          {!isPreview && (
-            <PlatformButton.CreateListItem size="small" onClick={handleAddGroups}>
-              {addLabel}
-            </PlatformButton.CreateListItem>
-          )}
-        </>
+        <TreeList
+          {...treeProps}
+          onSelect={handleSelect}
+          menu={menuRenderProp}
+          emptyMessage={emptyMessage}
+          addLabel={addLabel}
+          onAdd={handleAddGroups}
+        >
+          {renderItem}
+        </TreeList>
       }
       detailsPath={current != null ? entryPath(path, current) : null}
       title={

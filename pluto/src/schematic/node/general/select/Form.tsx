@@ -46,7 +46,7 @@ const SelectTelemForm = (): ReactElement => {
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
-            value={value.commandChannel ?? 0}
+            value={value.commandChannel}
             onChange={handleSinkChange}
           />
         </Input.Item>

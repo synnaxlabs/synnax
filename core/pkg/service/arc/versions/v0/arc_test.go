@@ -80,6 +80,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(xmsgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Arc{Key: uuid.New(), Name: "Autosequence"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,
@@ -103,7 +104,7 @@ var _ = Describe("NormalizeKeys", func() {
 })
 
 var _ = Describe("Graph", func() {
-	It("Should decode a graph stored by a v0.53 Core", func(ctx SpecContext) {
+	It("Should decode a graph stored by a v0.53 Core", func() {
 		// An Arc as a v0.53.4 Core stored it: an "on" node wired to a "write" node.
 		stored := MustSucceed(hex.DecodeString(
 			"87a47465787482a3415354c0a3726177a0a776657273696f6ea0a46e616d65a96772" +

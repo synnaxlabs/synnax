@@ -8,11 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { deep } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Border } from "@/schematic/node/common/border";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
@@ -23,6 +26,20 @@ import { Properties } from "@/vis/properties";
 const path = deep.path<schematic.TankNodeConfig>();
 const boxPath = deep.path<schematic.BoxNodeConfig>();
 
+const BoxBorderRadiusNumeric = ({
+  value,
+  onChange,
+}: Input.Control<number | undefined>): ReactElement => (
+  <Input.Numeric
+    value={value ?? Border.DEFAULT_BOX_RADIUS}
+    onChange={onChange}
+    {...Form.DIMENSIONS_INPUT_PROPS}
+    integer
+  />
+);
+
+const BoxBorderRadiusInput = Component.renderProp(BoxBorderRadiusNumeric);
+
 export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
   showStrokeWidth?: boolean;
@@ -30,13 +47,11 @@ export interface TankFormProps extends NodeFormProps {
 }
 
 const FillForm = (): ReactElement => {
-  const channel = Base.useFieldValue(path.channel, {
-    optional: true,
-  });
+  const channel = Base.useFieldValue(path.channel);
   return (
     <Base.Sections x>
       <Scale.TelemForm allowNone />
-      {channel != null && (
+      {primitive.isNonZero(channel) && (
         <>
           <Base.Section title="Display">
             <Scale.DisplayFields>
@@ -78,21 +93,13 @@ export const TankForm = ({
         <Form.ColorField path={path.strokeColor} label="Stroke" />
         <Form.FillField />
         {showBorderRadius ? (
-          <Base.NumericField
-            path={boxPath.borderRadius}
-            label="Border radius"
-            inputProps={Form.DIMENSIONS_INPUT_PROPS}
-          />
+          <Base.Field path={boxPath.borderRadius} label="Border radius">
+            {BoxBorderRadiusInput}
+          </Base.Field>
         ) : (
           <Form.RadiusFields path={path.borderRadius} />
         )}
-        {showStrokeWidth && (
-          <Base.NumericField
-            path={boxPath.strokeWidth}
-            label="Border width"
-            inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-          />
-        )}
+        {showStrokeWidth && <Form.StrokeWidthField />}
       </Base.Section>
       <Base.Section title="Dimensions">
         <Base.NumericField

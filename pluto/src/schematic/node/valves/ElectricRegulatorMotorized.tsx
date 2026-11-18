@@ -10,11 +10,24 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/valves/ElectricRegulatorMotorized.svg?raw";
+
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 87, height: 102 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "2", position: { x: 0.356321, y: 0.1372549 }, orientation: "left" },
+    { key: "4", position: { x: 0.5, y: 0.0196078 }, orientation: "top" },
+    { key: "3", position: { x: 0.643679, y: 0.1372549 }, orientation: "right" },
+    { key: "1", position: { x: 0.241379, y: 0.46078 }, orientation: "left" },
+    { key: "5", position: { x: 0.758621, y: 0.46078 }, orientation: "right" },
+    { key: "6", position: { x: 0.022989, y: 0.7843137 }, orientation: "left" },
+    { key: "7", position: { x: 0.977011, y: 0.7843137 }, orientation: "right" },
+  ],
+});
 
 export const ElectricRegulatorMotorized = ({
   className,
@@ -28,69 +41,12 @@ export const ElectricRegulatorMotorized = ({
     {...rest}
     orientation={orientation}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={35.6321}
-        top={13.72549}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={1.96078}
-        id="2"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={64.3679}
-        top={13.72549}
-        id="3"
-      />
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={24.1379}
-        top={46.078}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={75.8621}
-        top={46.078}
-        id="5"
-      />
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={2.2989}
-        top={78.43137}
-        id="6"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={97.7011}
-        top={78.43137}
-        id="7"
-      />
-    </Handle.Boundary>
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
-      orientation={orientation}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
       strokeColor={strokeColor}
+      orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Path d="M43.5 80.5L6.35453 61.7035C4.35901 60.6937 2 62.1438 2 64.3803V96.6197C2 98.8562 4.35901 100.306 6.35453 99.2965L43.5 80.5ZM43.5 80.5L80.6455 61.7035C82.641 60.6937 85 62.1438 85 64.3803V96.6197C85 98.8562 82.641 100.306 80.6455 99.2965L43.5 80.5Z" />
-      <Primitive.Line x1="43" y1="80.5" x2="43" y2="56" />
-      <Primitive.Path d="M43 38V35.5C43 33.8431 44.3431 32.5 46 32.5H79C80.6569 32.5 82 33.8431 82 35.5V51.9281C82 52.9126 81.517 53.8344 80.7076 54.3947L43 80.5" />
-      <Primitive.Rect x="21" y="38" width="44" height="18" rx="2" />
-      <Primitive.Path d="M43 38V26" strokeLinecap="round" />
-      <Primitive.Circle cx="43" cy="14" r="12" />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

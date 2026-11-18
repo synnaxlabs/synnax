@@ -38,6 +38,10 @@ type Named struct {
 	Dark *color.Color `json:"dark,omitzero" msgpack:"dark,omitempty"`
 	// Group is the palette that holds the color, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Position is where the color sits in its palette, as a fractional index. A palette
+	// sorts its colors by position, compared by code point, and a color with none comes
+	// last.
+	Position *string `json:"position,omitzero" msgpack:"position,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

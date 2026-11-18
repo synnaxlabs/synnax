@@ -22,11 +22,12 @@ export interface ReadChannelContextMenuItemProps extends ContextMenuItemProps<Ch
 
 const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProps> = ({
   keys,
+  target,
 }) => {
   const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   if (keys.length !== 1 || !canRename) return null;
   const key = keys[0];
-  const handleRename = () => Text.edit(getChannelNameID(key));
+  const handleRename = () => Text.edit(getChannelNameID(key), target);
   return (
     <>
       <ContextMenu.RenameItem onClick={handleRename} />

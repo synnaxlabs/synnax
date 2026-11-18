@@ -163,11 +163,12 @@ func runStatus(c *cobra.Command, _ []string) error {
 func FormatStatus(c *cobra.Command, info StatusInfo) {
 	c.Printf("Service: %s\n", name)
 	c.Printf("Version: %s\n", version.Get())
-	if !info.Installed {
+	switch {
+	case !info.Installed:
 		c.Println("Status:  Not installed")
-	} else if info.ProcessID > 0 {
+	case info.ProcessID > 0:
 		c.Printf("Status:  %s (PID: %d)\n", info.State, info.ProcessID)
-	} else {
+	default:
 		c.Printf("Status:  %s\n", info.State)
 		if info.State == "Stopped" &&
 			(info.Win32ExitCode != 0 || info.ServiceSpecificExitCode != 0) {
@@ -186,9 +187,10 @@ func FormatStatus(c *cobra.Command, info StatusInfo) {
 	c.Println("Configuration:")
 	c.Printf("  Config file:  %s\n", info.ConfigPath)
 
-	if info.ConfigError != nil {
+	switch {
+	case info.ConfigError != nil:
 		c.Printf("  (Error reading config: %v)\n", info.ConfigError)
-	} else if info.DataDir != "" || info.LogFile != "" {
+	case info.DataDir != "" || info.LogFile != "":
 		if info.DataDir != "" {
 			c.Printf("  Data dir:     %s\n", info.DataDir)
 		}
@@ -202,7 +204,7 @@ func FormatStatus(c *cobra.Command, info StatusInfo) {
 			c.Printf("  Listen:       %s\n", info.Listen)
 		}
 		c.Printf("  Insecure:     %t\n", info.Insecure)
-	} else {
+	default:
 		c.Println("  (No config file found)")
 	}
 

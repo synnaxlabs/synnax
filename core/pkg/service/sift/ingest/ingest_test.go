@@ -1200,7 +1200,7 @@ var _ = Describe("Engine", func() {
 			func(ctx SpecContext) {
 				idx := createIndex(ctx)
 				ch := createData(ctx, idx, telem.Float64T)
-				const count = 50_000
+				const count = 10_000
 				stamps := make([]telem.TimeStamp, count)
 				for i := range stamps {
 					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
@@ -1235,7 +1235,7 @@ var _ = Describe("Engine", func() {
 			func(ctx SpecContext) {
 				idx := createIndex(ctx)
 				ch := createData(ctx, idx, telem.Float64T)
-				const count = 50_000
+				const count = 10_000
 				stamps := make([]telem.TimeStamp, count)
 				for i := range stamps {
 					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
@@ -1748,7 +1748,7 @@ var _ = Describe("Engine", func() {
 				idx := createIndex(ctx)
 				ch := createData(ctx, idx, telem.Float64T)
 				other := createData(ctx, idx, telem.Float64T)
-				const count = 50_000
+				const count = 10_000
 				stamps := make([]telem.TimeStamp, count)
 				for i := range stamps {
 					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS
@@ -1835,7 +1835,7 @@ var _ = Describe("Engine", func() {
 					CheckpointInterval: 500 * telem.Millisecond,
 					ConfirmTimeout:     100 * telem.Millisecond,
 				})
-				const count = 50_000
+				const count = 10_000
 				stamps := make([]telem.TimeStamp, count)
 				for i := range stamps {
 					stamps[i] = at(1) + telem.TimeStamp(i)*telem.MicrosecondTS

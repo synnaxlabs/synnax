@@ -13,6 +13,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { TareItem } from "@/platform/task/TareItem";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface ContextMenuProps {
@@ -23,6 +24,8 @@ export interface ContextMenuProps {
   onAddField?: () => void;
   onEnable?: () => void;
   onDisable?: () => void;
+  /** The channels that the Tare item tares. Undefined drops the item. */
+  tareChannels?: channel.Key[];
 }
 
 /** The context menu of a task's item list. Omitted handlers drop their items. */
@@ -34,6 +37,7 @@ export const ContextMenu = ({
   onAddField,
   onEnable,
   onDisable,
+  tareChannels,
 }: ContextMenuProps) => {
   const isPreview = useIsPreview();
   const canRenameChannel = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
@@ -69,6 +73,11 @@ export const ContextMenu = ({
               Duplicate
             </Menu.Item>
           )}
+        </>
+      )}
+      {tareChannels != null && <TareItem channels={tareChannels} />}
+      {!isPreview && canAct && (
+        <>
           <Menu.Divider />
           <Base.RemoveItem onClick={() => onRemove(keys)} />
           <Menu.Divider />

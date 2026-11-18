@@ -159,6 +159,12 @@ func (s *Service) list(
 	return resources, nil
 }
 
+// Provides reports whether the Service can search and retrieve records of type t.
+func (s *Service) Provides(t Type) bool {
+	_, ok := s.cfg.Providers[t]
+	return ok
+}
+
 // Retrieve returns the resources that ids name, in the order of ids. It leaves out each
 // ID that names no resource, and returns each resource once. Retrieve reads through
 // snap. An ID of a type with no Provider is a validation error.

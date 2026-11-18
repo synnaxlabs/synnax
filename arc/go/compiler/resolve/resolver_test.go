@@ -10,6 +10,9 @@
 package resolve_test
 
 import (
+	"maps"
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler/resolve"
@@ -113,10 +116,7 @@ var _ = Describe("Resolver", func() {
 			m := wasm.NewModule()
 			patches := r.Finalize(m)
 			Expect(m.ImportCount()).To(Equal(uint32(1)))
-			values := []uint32{}
-			for _, v := range patches {
-				values = append(values, v)
-			}
+			values := slices.Collect(maps.Values(patches))
 			Expect(values).To(ConsistOf(uint32(0), uint32(1)))
 		})
 

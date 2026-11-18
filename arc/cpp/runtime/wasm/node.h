@@ -221,8 +221,13 @@ public:
                             std::to_string(max_length) + ": " + err.data
                     )
                 );
+                // A trap drops the cycle, so output never depends on where it landed.
+                for (auto &offset: this->offsets)
+                    offset = 0;
+                for (auto &strings: string_results)
+                    strings.clear();
                 trapped = true;
-                continue;
+                break;
             }
 
             x::telem::TimeStamp ts{};

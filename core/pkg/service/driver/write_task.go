@@ -214,8 +214,10 @@ func (t *WriteTask) run(ctx context.Context, w Writer, s stream) (err error) {
 	s.sCtx.Go(func(context.Context) error {
 		for {
 			hErr := w.Health(healthCtx)
-			if healthCtx.Err() != nil {
+			select {
+			case <-healthCtx.Done():
 				return nil
+			default:
 			}
 			select {
 			case <-healthCtx.Done():
