@@ -227,6 +227,9 @@ A new line takes the first series color in that order that no other line uses.
 - Two text fields on one line, such as a username and a password, are equally wide. The
   second sits in the control of the first, not in the later field columns. An empty
   field shows what empty means: "Anonymous" for the username, "None" for the password.
+- Two number fields on one line, such as Scale and Offset, sit together at the start of
+  the control of the first, each 144 px wide, with the form's gap between them. They
+  never spread to the ends of the line.
 - A dialog shows its settings in sections, not tabs, while they fit with no scroll. The
   Modbus connect dialog has no tabs.
 - A section holds a whole topic, so a short topic joins its neighbor: the OPC UA login
