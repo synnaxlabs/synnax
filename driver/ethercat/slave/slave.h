@@ -614,7 +614,7 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
             a.position == b.position)
             return mismatch(
                 std::format(
-                    "{} and {} are both saved as slave {}.",
+                    "{} and {} are both saved as module {}.",
                     a.name,
                     b.name,
                     b.position
@@ -637,7 +637,7 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
             const auto &other = saved[unit - found.begin()];
             return mismatch(
                 std::format(
-                    "Slave {} ({}) is not on the bus. Slave {} is {} (serial {}).",
+                    "Module {} ({}) is not on the bus. Module {} is {} (serial {}).",
                     s.position,
                     s.name,
                     s.position,
@@ -653,13 +653,13 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
         );
         if (live == bus.end())
             return mismatch(
-                std::format("Slave {} ({}) is not on the bus.", s.position, s.name)
+                std::format("Module {} ({}) is not on the bus.", s.position, s.name)
             );
         const auto &props = live->properties;
         const bool vendor = props.vendor_id != s.vendor_id;
         return mismatch(
             std::format(
-                "Slave {} ({}): expected {} {:#010x}, found {:#010x}.",
+                "Module {} ({}): expected {} {:#010x}, found {:#010x}.",
                 s.position,
                 s.name,
                 vendor ? "vendor_id" : "product_code",

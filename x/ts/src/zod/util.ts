@@ -18,6 +18,7 @@ import {
 } from "zod/v4/core";
 
 import { deep } from "@/deep";
+import { getIndex, step } from "@/deep/resolve";
 import { narrow } from "@/narrow";
 
 export const functionOutput = <
@@ -95,7 +96,7 @@ const child = (values: unknown, part: string): unknown => {
   if (Array.isArray(values)) {
     const entry = values.find((e: unknown) => narrow.isObject(e) && e.key === part);
     if (entry != null) return entry;
-    const i = deep.getIndex(part);
+    const i = getIndex(part);
     return i == null ? undefined : values[i];
   }
   return narrow.isObject(values) ? values[part] : undefined;
@@ -122,10 +123,10 @@ const walk = (
       return schema;
     case "object": {
       const shape = def.shape as Record<string, $ZodType>;
-      const best = deep.findBestKey(shape, parts.slice(index));
+      const best = step(shape, parts, index);
       if (best != null) {
-        const [key, consumed] = best;
-        return walk(shape[key], parts, index + consumed, child(values, key), found);
+        const value = child(values, String(best.key));
+        return walk(best.value as $ZodType, parts, best.end, value, found);
       }
       if (def.catchall == null) return NOT_FOUND;
       const catchall = def.catchall as $ZodType;
@@ -140,7 +141,7 @@ const walk = (
         found,
       );
     case "tuple": {
-      const i = deep.getIndex(part);
+      const i = getIndex(part);
       if (i == null) return NOT_FOUND;
       const items = def.items as $ZodType[];
       const item = i < items.length ? items[i] : (def.rest as $ZodType | null);
