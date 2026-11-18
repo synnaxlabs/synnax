@@ -352,7 +352,7 @@ task. See [Where the Driver runs](/reference/hardware#where-the-driver-runs).
 task = client.tasks.retrieve(name="Tank sensors")
 tasks = client.tasks.retrieve(names=["Tank sensors", "Tank valves"])
 
-# List the tasks on the embedded Driver of the Core.
+# List the tasks on the racks embedded in the Core.
 for t in client.tasks.list():
     print(t.name, t.type)
 
@@ -363,8 +363,8 @@ copy = client.tasks.copy(key=task.key, name="Tank sensors copy")
 client.tasks.delete(copy.key)
 ```
 
-`list()` with no argument returns only the tasks on the embedded Driver of the Core. To
-list the tasks of another Driver, pass its rack key: `client.tasks.list(rack=key)`.
+`list()` with no argument returns the tasks on the racks embedded in the Core. To list
+the tasks of another Driver, pass its rack key: `client.tasks.list(rack=key)`.
 
   </Fragment>
   <Fragment slot="typescript">

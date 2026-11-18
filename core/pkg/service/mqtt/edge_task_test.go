@@ -571,6 +571,7 @@ var _ = Describe("Edge task", func() {
 					Framer:  framerSvc,
 					DB:      db,
 					Status:  statusSvc,
+					ICD:     icdSvc,
 					Now:     func() telem.TimeStamp { return stamp },
 				}))
 				_, cmdData := createIndexed(ctx, telem.Float64T)

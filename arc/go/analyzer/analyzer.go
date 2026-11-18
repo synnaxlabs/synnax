@@ -89,7 +89,7 @@ func before(a, b protocol.Position) bool {
 }
 
 // liftReassignedVarReads lifts reassigned-variable reads in synth expressions
-// into input params. Format-string placeholders lift from their parsed bodies.
+// into input params.
 func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
 	for _, c := range ctx.Scope.Root().Children() {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
@@ -97,10 +97,6 @@ func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
 		}
 		switch ast := c.AST.(type) {
 		case parser.IExpressionContext:
-			if parser.IsLiteral(ast) {
-				flow.LiftFmtStrVarReads(ctx, c, ast)
-				continue
-			}
 			flow.LiftVarReads(ctx, c, ast)
 		case parser.IFunctionContext:
 			for _, arg := range symbol.FunctionArguments(ast) {

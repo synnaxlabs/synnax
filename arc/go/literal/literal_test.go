@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -204,69 +205,20 @@ var _ = Describe("Literal Parser", func() {
 	)
 
 	Describe("Unit literals", func() {
-		Context("Type inference (no target type)", func() {
-			It(
-				"Should infer int64 for exact integer result from integer literal",
-				func() {
-					lit := getLiteral("10s")
-					parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-					Expect(
-						parsed.Value,
-					).To(Equal(int64(10000000000)))
-					// 10s = 10 billion ns
-					Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+		Context("With no target type", func() {
+			DescribeTable("Should keep the number as written",
+				func(text string, expected any, kind types.Kind) {
+					parsed := MustSucceed(literal.Parse(getLiteral(text), types.Type{}))
+					Expect(parsed.Value).To(Equal(expected))
+					Expect(parsed.Type.Kind).To(Equal(kind))
 					Expect(parsed.Type.Unit).ToNot(BeNil())
-					Expect(parsed.Type.Unit.Dimensions).To(Equal(types.DimTime))
 				},
+				Entry("an integer duration", "10s", telem.TimeSpan(10), types.KindI64),
+				Entry("an integer mass", "100kg", int64(100), types.KindI64),
+				Entry("an integer pressure", "100psi", int64(100), types.KindI64),
+				Entry("a float length", "5.0km", 5.0, types.KindF64),
+				Entry("a float mass", "100.5kg", 100.5, types.KindF64),
 			)
-
-			It("Should infer int64 for 100kg (SI value 100 is exact int)", func() {
-				lit := getLiteral("100kg")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(Equal(int64(100)))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
-			It("Should infer int64 for 100psi (SI value ~689476 is exact int)", func() {
-				lit := getLiteral("100psi")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(BeNumerically("~", int64(689476), 1))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
-			It("Should infer int64 for 5km (SI value 5000 is exact int)", func() {
-				lit := getLiteral("5km")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(Equal(int64(5000)))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
-			It(
-				"Should infer float64 for float literal even if SI value is exact int",
-				func() {
-					lit := getLiteral("5.0km")
-					parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-					Expect(parsed.Value).To(Equal(5000.0))
-					Expect(parsed.Type.Kind).To(Equal(types.KindF64))
-				},
-			)
-
-			It("Should infer int64 for 300ms (300 million ns is exact int)", func() {
-				lit := getLiteral("300ms")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(
-					parsed.Value,
-				).To(Equal(int64(300000000)))
-				// 300ms = 300 million ns
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
-			It("Should infer float64 for float literal", func() {
-				lit := getLiteral("100.5kg")
-				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
-				Expect(parsed.Value).To(Equal(100.5))
-				Expect(parsed.Type.Kind).To(Equal(types.KindF64))
-			})
 		})
 
 		Context("With target type having a unit (scale conversion)", func() {
@@ -295,99 +247,106 @@ var _ = Describe("Literal Parser", func() {
 			})
 		})
 
-		Context("With target type kind (no unit)", func() {
-			It("Should convert to i32 when SI value is exact integer", func() {
-				lit := getLiteral("100psi")
-				parsed := MustSucceed(literal.Parse(lit, types.I32()))
-				Expect(parsed.Value).To(BeNumerically("~", int32(689476), 1))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI32))
-			})
-
-			It("Should convert to i64 when SI value is exact integer", func() {
-				lit := getLiteral("5km")
-				parsed := MustSucceed(literal.Parse(lit, types.I64()))
-				Expect(parsed.Value).To(Equal(int64(5000)))
-				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
-			})
-
+		Context("With a type variable target", func() {
 			DescribeTable(
-				"Time-unit literal boxing per target kind",
-				func(text string, target types.Type, expectedValue any, expectedKind types.Kind) {
-					parsed := MustSucceed(literal.Parse(getLiteral(text), target))
-					Expect(parsed.Value).To(Equal(expectedValue))
-					Expect(parsed.Type.Kind).To(Equal(expectedKind))
+				"Should give the kind of the constraint",
+				func(text string, constraint types.Type, expected any) {
+					lit := getLiteral(text)
+					name := lit.NumericLiteral().IDENTIFIER().GetText()
+					target := types.Variable("lit", &constraint)
+					target.Unit = MustBeOk(units.Resolve(name))
+					Expect(
+						MustSucceed(literal.Parse(lit, target)).Value,
+					).To(Equal(expected))
 				},
+				Entry("integer", "10khz", types.IntegerConstraint(), int64(10)),
 				Entry(
-					"i64 boxes telem.TimeSpan",
-					"5400s",
-					types.I64(),
-					telem.Second*5400,
-					types.KindI64,
+					"integer duration",
+					"5s",
+					types.IntegerConstraint(),
+					telem.TimeSpan(5),
 				),
 				Entry(
-					"u64 boxes plain uint64",
-					"5400s",
-					types.U64(),
-					uint64(5_400_000_000_000),
-					types.KindU64,
+					"exact integer float",
+					"2.0khz",
+					types.ExactIntegerFloatConstraint(),
+					float64(2),
 				),
-				Entry(
-					"i32 boxes plain int32",
-					"1s",
-					types.I32(),
-					int32(1_000_000_000),
-					types.KindI32,
-				),
-				Entry(
-					"zero at i64 boxes telem.TimeSpan(0)",
-					"0s",
-					types.I64(),
-					telem.TimeSpan(0),
-					types.KindI64,
-				),
-				Entry(
-					"ns at i64 boxes telem.TimeSpan",
-					"54ns",
-					types.I64(),
-					telem.Nanosecond*54,
-					types.KindI64,
-				),
+				Entry("float", "14.7psi", types.FloatConstraint(), 14.7),
+			)
+		})
+
+		Context("With a target with no unit", func() {
+			DescribeTable("Should keep the number as written",
+				func(text string, target types.Type, expected any) {
+					expr := MustSucceed(parser.ParseExpression(text))
+					Expect(MustSucceed(literal.ParseConst(expr, target)).Value).
+						To(Equal(expected))
+				},
+				Entry("a float", "14.7psi", types.F64(), 14.7),
+				Entry("a narrowed float", "14.7psi", types.F32(), float32(14.7)),
+				Entry("an integer", "100psi", types.I32(), int32(100)),
+				Entry("a duration", "5s", types.I64(), telem.TimeSpan(5)),
+				Entry("a negated duration", "-5s", types.I64(), telem.TimeSpan(-5)),
+				Entry("an unsigned integer", "5khz", types.U64(), uint64(5)),
 			)
 
-			It("Should convert to f64", func() {
-				lit := getLiteral("5km")
-				parsed := MustSucceed(literal.Parse(lit, types.F64()))
-				Expect(parsed.Value).To(Equal(5000.0))
-				Expect(parsed.Type.Kind).To(Equal(types.KindF64))
-			})
-
-			It("Should convert to f32", func() {
-				lit := getLiteral("5km")
-				parsed := MustSucceed(literal.Parse(lit, types.F32()))
-				Expect(parsed.Value).To(Equal(float32(5000)))
-				Expect(parsed.Type.Kind).To(Equal(types.KindF32))
+			It("Should return an error for a float into an integer", func() {
+				expr := MustSucceed(parser.ParseExpression("14.7psi"))
+				Expect(literal.ParseConst(expr, types.I64())).
+					Error().To(MatchError(ContainSubstring("fractional part")))
 			})
 		})
 
-		Context("Go-like constant semantics (error on fractional)", func() {
-			It("Should error when converting non-exact value to i32", func() {
-				lit := getLiteral("1psi") // 1 psi = 6894.76 Pa (fractional)
-				Expect(literal.Parse(lit, types.I32())).
-					Error().To(MatchError(ContainSubstring("fractional part")))
-			})
+		Context("With an integer target in another unit", func() {
+			DescribeTable("Should drop the part of a unit that the target cannot hold",
+				func(text, unit string, expected any, truncated bool) {
+					target := types.I64()
+					target.Unit = MustBeOk(units.Resolve(unit))
+					parsed := MustSucceed(literal.Parse(getLiteral(text), target))
+					Expect(parsed.Value).To(Equal(expected))
+					Expect(parsed.Truncated).To(Equal(truncated))
+				},
+				Entry("a larger unit with a remainder",
+					"90s", "min", telem.TimeSpan(1), true),
+				Entry("a larger unit with no remainder",
+					"120s", "min", telem.TimeSpan(2), false),
+				Entry("a value far under one of a larger unit",
+					"1ns", "min", telem.TimeSpan(0), true),
+				Entry("a zero", "0ns", "min", telem.TimeSpan(0), false),
+				Entry("a factor that is not whole", "5psi", "Pa", int64(34473), true),
+				Entry("a whole factor", "5s", "ms", telem.TimeSpan(5000), false),
+				Entry("a float that a whole factor makes whole",
+					"1.5s", "ms", telem.TimeSpan(1500), false),
+			)
 
-			It("Should error when converting non-exact value to i64", func() {
-				lit := getLiteral("100.5kg")
-				Expect(literal.Parse(lit, types.I64())).
-					Error().To(MatchError(ContainSubstring("fractional part")))
-			})
-
-			It("Should succeed when converting exact float literal to i32", func() {
-				lit := getLiteral("1.0km")
-				parsed := MustSucceed(literal.Parse(lit, types.I32()))
-				Expect(parsed.Value).To(Equal(int32(1000)))
-			})
+			It("Should return an error for a float that a whole factor leaves in parts",
+				func() {
+					target := types.I64()
+					target.Unit = MustBeOk(units.Resolve("ms"))
+					Expect(literal.Parse(getLiteral("1.0005s"), target)).
+						Error().To(MatchError(ContainSubstring("fractional part")))
+				})
 		})
+
+		Context(
+			"ParseNumeric Go-like constant semantics (error on fractional)",
+			func() {
+				It("Should error when converting non-exact value to i64", func() {
+					lit := getLiteral("100.5kg")
+					Expect(literal.ParseNumeric(lit.NumericLiteral(), types.I64())).
+						Error().To(MatchError(ContainSubstring("fractional part")))
+				})
+
+				It("Should succeed when converting exact float literal to i32", func() {
+					lit := getLiteral("1.0km")
+					parsed := MustSucceed(
+						literal.ParseNumeric(lit.NumericLiteral(), types.I32()),
+					)
+					Expect(parsed.Value).To(Equal(int32(1)))
+				})
+			},
+		)
 
 		Context("Error cases", func() {
 			It("Should return error for unknown units", func() {
@@ -549,44 +508,44 @@ var _ = Describe("Literal Parser", func() {
 			),
 			Entry("no target type infers string from raw", `r"hi"`, types.Type{}, "hi"),
 			Entry(
-				"format single preserves placeholders in body",
-				`f"hi {x}"`,
+				"format single collapses doubled braces",
+				`f"hi {{x}}"`,
 				types.String(),
 				"hi {x}",
 			),
 			Entry(
 				"format single processes standard escapes",
-				`f"a\nb {x}"`,
+				`f"a\nb {{x}}"`,
 				types.String(),
 				"a\nb {x}",
 			),
 			Entry(
-				"format multi preserves placeholders in body",
-				"f`v={x}\nt={t}`",
+				"format multi collapses doubled braces",
+				"f`v={{x}}\nt={{t}}`",
 				types.String(),
 				"v={x}\nt={t}",
 			),
 			Entry(
-				"format multi processes escapes outside placeholders",
-				"f`a\\tb {x}`",
+				"format multi processes escapes",
+				"f`a\\tb {{x}}`",
 				types.String(),
 				"a\tb {x}",
 			),
 			Entry(
-				"rf preserves placeholder and backslash verbatim",
-				`rf"C:\path\{x}"`,
+				"rf keeps a backslash verbatim",
+				`rf"C:\path\{{x}}"`,
 				types.String(),
 				`C:\path\{x}`,
 			),
 			Entry(
 				"fr (order-flipped) behaves identically to rf",
-				`fr"hi {x}"`,
+				`fr"hi {{x}}"`,
 				types.String(),
 				`hi {x}`,
 			),
 			Entry(
-				"rf multi preserves placeholder, real newline, and backslash",
-				"rf`v={x}\nraw=\\n`",
+				"rf multi keeps a real newline and a backslash",
+				"rf`v={{x}}\nraw=\\n`",
 				types.String(),
 				"v={x}\nraw=\\n",
 			),
@@ -623,6 +582,57 @@ var _ = Describe("Literal Parser", func() {
 				"invalid string literal",
 			),
 			Entry("empty text too short", "", types.String(), "invalid string literal"),
+			Entry(
+				"format single with a placeholder",
+				`f"hi {x}"`,
+				types.String(),
+				"is not a compile-time constant",
+			),
+			Entry(
+				"format multi with a placeholder",
+				"f`v={x}\nt={t}`",
+				types.String(),
+				"is not a compile-time constant",
+			),
+			Entry(
+				"rf with a placeholder",
+				`rf"C:\path\{x}"`,
+				types.String(),
+				"is not a compile-time constant",
+			),
+			Entry(
+				"fr with a placeholder",
+				`fr"hi {x}"`,
+				types.String(),
+				"is not a compile-time constant",
+			),
+		)
+
+		It("Should give a format string with a placeholder its code", func() {
+			_, err := literal.ParseString(`f"hi {x}"`, types.String())
+			Expect(diagnostics.Error(err, nil).Code).To(Equal(codes.NotConstant.Code))
+		})
+
+		DescribeTable("IsConstant",
+			func(text string, expected bool) {
+				expr := MustSucceed(parser.ParseExpression(text))
+				Expect(literal.IsConstant(expr)).To(Equal(expected))
+			},
+			Entry("integer", "42", true),
+			Entry("negated integer", "-3", true),
+			Entry("bool", "true", true),
+			Entry("string", `"abc"`, true),
+			Entry("string with braces", `"{x}"`, true),
+			Entry("raw string with braces", `r"{x}"`, true),
+			Entry("format string with no placeholder", `f"abc"`, true),
+			Entry("format string with doubled braces", `f"{{x}}"`, true),
+			Entry("format string with a placeholder", `f"{x}"`, false),
+			Entry("format multi with a placeholder", "f`{x}`", false),
+			Entry("raw format string with a placeholder", `rf"{x}"`, false),
+			Entry("format string that does not split", `f"{x"`, false),
+			Entry("name", "x", false),
+			Entry("operator", "1 + 2", false),
+			Entry("call", "foo()", false),
 		)
 
 		Describe("Parse AST routing", func() {
@@ -683,7 +693,7 @@ var _ = Describe("Literal Parser", func() {
 			Entry("int64", "-5000000000", types.I64(), int64(-5000000000)),
 			Entry("float32", "-3.14", types.F32(), float32(-3.14)),
 			Entry("float64", "-2.718", types.F64(), float64(-2.718)),
-			Entry("TimeSpan", "-1s", types.I64(), -telem.Second),
+			Entry("TimeSpan", "-1s", types.I64(), telem.TimeSpan(-1)),
 			Entry("zero int64", "-0", types.I64(), int64(0)),
 			Entry("zero float64", "-0.0", types.F64(), float64(0)),
 		)
@@ -735,12 +745,17 @@ var _ = Describe("Literal Parser", func() {
 			Entry("i32 type minimum", "-2147483648", types.I32(), int32(-2147483648)),
 			Entry("negated float", "-2.5", types.F64(), float64(-2.5)),
 			Entry("negated float narrowed to f32", "-2.5", types.F32(), float32(-2.5)),
-			Entry("bare time unit boxes TimeSpan", "5s", types.I64(), telem.Second*5),
+			Entry(
+				"bare time unit boxes TimeSpan",
+				"5s",
+				types.I64(),
+				telem.TimeSpan(5),
+			),
 			Entry(
 				"negated time unit boxes TimeSpan",
 				"-5s",
 				types.I64(),
-				telem.Second*-5,
+				telem.TimeSpan(-5),
 			),
 			Entry(
 				"negated nanoseconds box TimeSpan",
@@ -785,6 +800,54 @@ var _ = Describe("Literal Parser", func() {
 				"out of range for i8",
 			),
 		)
+	})
+})
+
+var _ = Describe("Convert", func() {
+	var (
+		ms  = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
+		s   = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+		pa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
+		bar = &types.Unit{Dimensions: types.DimPressure, Scale: 1e5, Name: "bar"}
+		pk  = &types.Unit{Dimensions: types.DimTemperature, Scale: 1e-12, Name: "pK"}
+		k   = &types.Unit{Dimensions: types.DimTemperature, Scale: 1, Name: "K"}
+	)
+	in := func(t types.Type, unit *types.Unit) types.Type {
+		t.Unit = unit
+		return t
+	}
+
+	DescribeTable("value in the unit of the target",
+		func(
+			value float64,
+			from *types.Unit,
+			target types.Type,
+			want any,
+			truncated bool,
+		) {
+			parsed := MustSucceed(literal.Convert(value, from, target))
+			Expect(parsed.Value).To(Equal(want))
+			Expect(parsed.Truncated).To(Equal(truncated))
+		},
+		Entry("an integer time to a smaller unit",
+			2.0, s, in(types.I64(), ms), telem.TimeSpan(2000), false),
+		Entry("an integer time with no remainder",
+			2000.0, ms, in(types.I64(), s), telem.TimeSpan(2), false),
+		Entry("an integer time with a remainder",
+			1500.0, ms, in(types.I64(), s), telem.TimeSpan(1), true),
+		Entry("an integer far under one of a larger unit",
+			6.0, pk, in(types.I32(), k), int32(0), true),
+		Entry("a negative integer far under one of a larger unit",
+			-6.0, pk, in(types.I32(), k), int32(0), true),
+		Entry("a zero", 0.0, pk, in(types.I32(), k), int32(0), false),
+		Entry("an integer that is not a time",
+			2.0, bar, in(types.I64(), pa), int64(200000), false),
+		Entry("a float", 1500.0, ms, in(types.F64(), s), 1.5, false),
+	)
+
+	It("Should reject a unit of another dimension", func() {
+		Expect(literal.Convert(1, s, in(types.I64(), pa))).Error().
+			To(MatchError(units.ErrIncompatibleDimensions))
 	})
 })
 

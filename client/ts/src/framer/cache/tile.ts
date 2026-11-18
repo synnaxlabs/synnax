@@ -17,6 +17,7 @@ import {
   type TimeRange,
   TimeSpan,
   TimeStamp,
+  unique,
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
@@ -218,7 +219,7 @@ export class TileReader {
     const { readRemote, fetchTimeout } = this.props;
     const spec = group[0].req;
     const tr = tileRange(spec);
-    const keys = [...new Set(group.map(({ req }) => req.key))];
+    const keys = unique.unique(group.map(({ req }) => req.key));
     try {
       const frame = await sync.withTimeout(
         readRemote(tr, keys, {

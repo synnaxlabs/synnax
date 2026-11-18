@@ -134,6 +134,12 @@ def task_targets(client: sy.Synnax) -> TaskTargets:
 
 
 @pytest.fixture
+def rack(client: sy.Synnax) -> sy.Rack:
+    """A new rack that no Driver serves, so a test can answer task commands."""
+    return client.racks.create(name=random_name())
+
+
+@pytest.fixture
 def create_routing_key(client: sy.Synnax) -> Callable[[], UUID]:
     """Returns a function that creates a secret for a PagerDuty routing key and returns
     its key. A task config can only name a secret that exists."""

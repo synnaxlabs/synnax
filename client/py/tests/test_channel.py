@@ -487,6 +487,7 @@ class TestChannel:
         task = client.tasks.create(
             name="read",
             type="modbus_read",
+            rack=rack.key,
             config={
                 "device": device.key,
                 "channels": [
