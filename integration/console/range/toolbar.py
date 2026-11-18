@@ -7,127 +7,173 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Literal
+
 from playwright.sync_api import Locator
 
-from console.range.surface import UNFAVORITE_ACTIONS, Surface
-from x.color import Color
+from console.range.surface import Surface
+
+Group = Literal["Running", "Favorites", "Recent"]
+"""A group of the ranges toolbar. A range can show in more than one group."""
 
 
 class Toolbar(Surface):
-    """The ranges toolbar in the left sidebar. Shows only favorited ranges."""
+    """The ranges toolbar in the left sidebar. It lists the running, favorite, and
+    recent ranges in three groups."""
 
-    ITEM_SELECTOR = ".console-range-list-item"
+    ROOT_SELECTOR = ".console-range-toolbar"
+    DRAFT_INPUT_SELECTOR = ".console-range-toolbar__draft-input input"
 
     def show(self) -> None:
-        """Show the ranges toolbar in the left sidebar (favorites only)."""
+        """Show the ranges toolbar in the left sidebar."""
         self.layout.show_resource_toolbar("Ranges")
 
     def hide(self) -> None:
         """Hide the ranges toolbar."""
         self.layout.close_left_toolbar()
 
-    def get_item(self, name: str) -> Locator:
-        """Get a range item locator from the toolbar by name."""
-        return self.layout.get_list_item(self.ITEM_SELECTOR, name=name)
-
-    def get_item_time(self, name: str) -> str:
-        """Get the displayed time text from a toolbar range item.
-
-        :param name: The name of the range.
-        :returns: The time range text (e.g. "Today 16:23:35 → 16:23:35").
-        """
-        self.show()
-        item = self.get_item(name)
-        return item.locator("small.lyra-text--tiny").first.inner_text()
-
-    def exists(self, name: str) -> bool:
-        """Check if a range exists in the toolbar (is favorited)."""
-        self.show()
-        return self.layout.locator_exists(self.get_item(name))
-
-    def wait_for_removed(self, name: str) -> None:
-        """Wait for a range to be removed from the toolbar."""
-        self.show()
-        self.layout.wait_for_hidden(self.get_item(name))
-
-    def unfavorite(self, name: str) -> None:
-        """Remove a range from favorites via context menu in the toolbar."""
-        self.show()
-        item = self.get_item(name)
-        item.wait_for(state="visible", timeout=5000)
-        self._ctx_action_any(item, UNFAVORITE_ACTIONS)
-        self.wait_for_removed(name)
-
-    def _ctx_action(self, name: str, action_text: str) -> None:
-        """Show the toolbar, find an item by name, and run a context menu
-        action."""
-        self.show()
-        item = self.get_item(name)
-        item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, action_text)
-
-    def save_to_synnax(self, name: str) -> None:
-        """Save a local range to Synnax via context menu in the toolbar."""
-        self._ctx_action(name, "Save to Core")
-
-    def add_to_new_plot(self, name: str) -> None:
-        """Add a range to a new line plot via context menu in the toolbar."""
-        self._ctx_action(name, "Add to new plot")
-
-    def add_to_active_plot(self, name: str) -> None:
-        """Add a range to the active line plot via context menu in the
-        toolbar."""
-        self._ctx_action(name, "Add to active plot")
-
-    def get_label(self, range_name: str, *, label_name: str) -> Locator:
-        """Get a label tag within a range item in the toolbar."""
-        range_item = self.get_item(range_name)
-        return range_item.locator(".lyra-tag").filter(has_text=label_name).first
-
-    def label_exists(self, range_name: str, *, label_name: str) -> bool:
-        """Check if a label exists on a range in the toolbar."""
-        self.show()
-        return self.layout.locator_exists(
-            self.get_label(range_name, label_name=label_name)
+    def _group(self, group: Group) -> Locator:
+        return self.layout.page.locator(
+            f"{self.ROOT_SELECTOR} section[aria-label='{group}']"
         )
 
-    def wait_for_label_removed(self, range_name: str, *, label_name: str) -> None:
-        """Wait until a label is removed from a range in the toolbar."""
-        self.show()
-        self.layout.wait_for_hidden(self.get_label(range_name, label_name=label_name))
+    def expand(self, group: Group) -> None:
+        """Open a group of the toolbar. A collapsed group stays collapsed across
+        sessions, so a test cannot count on it being open.
 
-    def get_label_color(self, range_name: str, *, label_name: str) -> Color | None:
-        """Get the color of a label's icon in the range toolbar."""
-        self.show()
-        label = self.get_label(range_name, label_name=label_name)
-        if label.count() == 0:
-            return None
-        icon = label.locator("svg").first
-        if icon.count() == 0:
-            return None
-        color = icon.get_attribute("color")
-        if color is None:
-            return None
-        return Color(color)
+        :param group: The group to open.
+        """
+        heading = self._group(group).locator(
+            ".console-range-toolbar__group-header [aria-expanded='false']"
+        )
+        if heading.count() > 0:
+            heading.click(timeout=5000)
 
-    def get_all_labels(self, range_name: str) -> list[str]:
-        """Get all labels currently visible for a range in the toolbar.
+    def get_item(self, name: str, *, group: Group | None = None) -> Locator:
+        """Get the line of a range in the toolbar.
 
-        :param range_name: The name of the range to check.
-        :returns: List of label names currently displayed for this range.
+        :param name: The exact name of the range.
+        :param group: The group to look in. None looks in every group.
+        """
+        scope = (
+            self.layout.page.locator(self.ROOT_SELECTOR)
+            if group is None
+            else self._group(group)
+        )
+        return scope.get_by_role("listitem", name=name, exact=True).first
+
+    def get_item_time(self, name: str, *, group: Group = "Favorites") -> str:
+        """Get the time text of a range line: elapsed time in Running, the start in
+        Favorites, and the time since the end in Recent.
+
+        :param name: The name of the range.
+        :param group: The group to read the line from.
         """
         self.show()
-        range_item = self.get_item(range_name)
-        if not self.layout.locator_exists(range_item):
-            return []
+        self.expand(group)
+        item = self.get_item(name, group=group)
+        return item.locator(".console-range-toolbar__meta").inner_text()
 
-        label_tags = range_item.locator(".lyra-tag")
-        label_count = label_tags.count()
+    def exists(self, name: str, *, group: Group | None = None) -> bool:
+        """Check if a range shows in the toolbar.
 
-        labels = []
-        for i in range(label_count):
-            label_text = label_tags.nth(i).text_content()
-            if label_text:
-                labels.append(label_text.strip())
+        :param name: The name of the range.
+        :param group: The group to look in. None looks in every group.
+        """
+        self.show()
+        if group is not None:
+            self.expand(group)
+        return self.layout.locator_exists(self.get_item(name, group=group))
 
-        return labels
+    def wait_for_removed(self, name: str, *, group: Group | None = None) -> None:
+        """Wait for a range to leave the toolbar.
+
+        :param name: The name of the range.
+        :param group: The group to watch. None waits until no group shows it.
+        """
+        self.show()
+        self.layout.wait_for_hidden(self.get_item(name, group=group))
+
+    def unfavorite(self, name: str) -> None:
+        """Remove a range from the favorites with the star on its line."""
+        self.show()
+        self.expand("Favorites")
+        item = self.get_item(name, group="Favorites")
+        item.wait_for(state="visible", timeout=5000)
+        # The star's icon paints over its input, so the event goes to the input.
+        item.get_by_role("checkbox", name="Favorite").dispatch_event("click")
+        self.wait_for_removed(name, group="Favorites")
+
+    def plot(self, name: str) -> None:
+        """Open a new line plot of a range from the context menu of its line."""
+        self.show()
+        self.expand("Favorites")
+        item = self.get_item(name, group="Favorites")
+        item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(item, "Plot")
+
+    def start(self, name: str) -> None:
+        """Start a range now with the Start button in the header.
+
+        :param name: The name of the new range.
+        """
+        self.show()
+        self.layout.page.get_by_role("button", name="Start range", exact=True).click(
+            timeout=5000
+        )
+        self._save_draft(name)
+
+    def start_child(self, parent: str, name: str) -> None:
+        """Start a child range now under a running range, with the button on the
+        parent's line.
+
+        :param parent: The name of the running parent range.
+        :param name: The name of the new child range.
+        """
+        self.show()
+        self.expand("Running")
+        item = self.get_item(parent, group="Running")
+        item.hover()
+        item.get_by_role("button", name="Start child range", exact=True).click(
+            timeout=5000
+        )
+        self._save_draft(name)
+
+    def next(self, name: str, next_name: str) -> str:
+        """Stop a running child range and start the range after it, with the button
+        on its line.
+
+        :param name: The name of the running child range.
+        :param next_name: The name of the range that starts after it.
+        :returns: The name that the draft suggested before the fill.
+        """
+        self.show()
+        self.expand("Running")
+        item = self.get_item(name, group="Running")
+        item.hover()
+        item.get_by_role("button", name="Stop and start next", exact=True).click(
+            timeout=5000
+        )
+        return self._save_draft(next_name)
+
+    def stop(self, name: str) -> None:
+        """Stop a running range with the button on its line."""
+        self.show()
+        self.expand("Running")
+        item = self.get_item(name, group="Running")
+        item.hover()
+        item.get_by_role("button", name="Stop", exact=True).click(timeout=5000)
+        self.wait_for_removed(name, group="Running")
+
+    def _save_draft(self, name: str) -> str:
+        """Name the open draft and save it with Enter.
+
+        :returns: The name that the draft suggested. The draft opens with it set.
+        """
+        draft = self.layout.page.locator(self.DRAFT_INPUT_SELECTOR)
+        draft.wait_for(state="visible", timeout=5000)
+        suggested = draft.input_value()
+        draft.fill(name)
+        draft.press("Enter")
+        draft.wait_for(state="detached", timeout=5000)
+        return suggested
