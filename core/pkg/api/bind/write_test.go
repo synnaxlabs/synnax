@@ -26,15 +26,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -164,12 +169,22 @@ func grant(
 
 // write runs f through bind.Write as u, with a request that copies sources.
 func write(ctx context.Context, u user.User, f apply, sources ...resource.ID) error {
+	return writeAs(ctx, u.ResourceID(), f, sources...)
+}
+
+// writeAs runs f through bind.Write as subject, with a request that copies sources.
+func writeAs(
+	ctx context.Context,
+	subject resource.ID,
+	f apply,
+	sources ...resource.ID,
+) error {
 	_, err := bind.Write(
 		binder,
 		func(ctx context.Context, tx gorp.Tx, _ copyRequest) (struct{}, error) {
 			return struct{}{}, f(ctx, tx)
 		},
-	)(AuthedCtx(ctx, u), copyRequest{sources: sources})
+	)(SubjectCtx(ctx, subject), copyRequest{sources: sources})
 	return err
 }
 
@@ -1107,6 +1122,76 @@ var _ = Describe("Owned records", func() {
 		grant(ctx, owner, access.ActionRetrieve, other.ResourceID())
 		Expect(write(ctx, owner, setOwner(p.Key, &other.Key))).
 			To(denied(owner, access.ActionUpdate, p.ResourceID()))
+	})
+})
+
+var _ = Describe("Vouched records", func() {
+	var (
+		rck rack.Rack
+		key secret.Key
+	)
+	BeforeEach(func(ctx SpecContext) {
+		rck = rack.Rack{Name: "rack-" + uuid.New().String()}
+		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "key"}}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			if err := svc.Rack.NewWriter(tx).Create(ctx, &rck); err != nil {
+				return err
+			}
+			return svc.Secret.NewWriter(tx).Set(ctx, &s, []byte("sift-api-key"))
+		})).To(Succeed())
+		key = s.Base().Key
+	})
+	createDevice := func(dev *device.Device) apply {
+		return func(ctx context.Context, tx gorp.Tx) error {
+			return svc.Device.NewWriter(tx).Create(ctx, dev)
+		}
+	}
+	siftDevice := func() device.Device {
+		return device.Device{
+			Key:        uuid.New().String(),
+			Rack:       rck.Key,
+			Name:       "sift",
+			Make:       sift.Make,
+			Model:      sift.Make,
+			Location:   "grpc-api.siftstack.com:443",
+			Properties: msgpack.EncodedJSON{"api_key": key.String()},
+		}
+	}
+
+	It("Should deny a rack that makes a record use a secret", func(ctx SpecContext) {
+		dev := siftDevice()
+		Expect(writeAs(ctx, rck.ResourceID(), createDevice(&dev))).To(SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring(
+				"%s cannot make a record use %s",
+				rck.ResourceID(),
+				secret.ResourceID(key),
+			)),
+		))
+	})
+
+	It("Should let a user make a record use a secret", func(ctx SpecContext) {
+		u := newUser(ctx)
+		grant(ctx, u, access.ActionCreate, resource.ID{Type: resource.TypeDevice})
+		grant(ctx, u, access.ActionCreate, resource.ID{Type: resource.TypeStatus})
+		grant(ctx, u, access.ActionUpdate, rck.ResourceID())
+		grant(ctx, u, access.ActionRetrieve, secret.ResourceID(key))
+		dev := siftDevice()
+		Expect(write(ctx, u, createDevice(&dev))).To(Succeed())
+	})
+
+	It("Should let a rack change a record that already uses a secret", func(
+		ctx SpecContext,
+	) {
+		dev := siftDevice()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return createDevice(&dev)(ctx, tx)
+		})).To(Succeed())
+		Expect(
+			writeAs(ctx, rck.ResourceID(), func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Device.NewWriter(tx).Rename(ctx, dev.Key, "renamed")
+			}),
+		).To(Succeed())
 	})
 })
 

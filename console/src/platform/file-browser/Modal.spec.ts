@@ -74,7 +74,13 @@ const openBrowser = async (listings: ReturnType<typeof createListing>[]) => {
 };
 
 const openFolder = async (name: string): Promise<void> => {
-  fireEvent.click(await screen.findByText(name));
+  fireEvent.doubleClick(await screen.findByText(name));
+};
+
+const pressEnter = (): void => {
+  const files = screen.getByRole("listbox", { name: "Files" });
+  fireEvent.keyDown(files, { key: "Enter", code: "Enter" });
+  fireEvent.keyUp(files, { key: "Enter", code: "Enter" });
 };
 
 describe("FileBrowser.useModal", () => {
@@ -94,7 +100,7 @@ describe("FileBrowser.useModal", () => {
     );
   });
 
-  it("should resolve with a file on a double click", async () => {
+  it("should pick a file on a double click", async () => {
     const { result } = await openBrowser([TOP, ROOT, ETC]);
     await openFolder("/");
     await openFolder("etc");
@@ -104,15 +110,35 @@ describe("FileBrowser.useModal", () => {
     );
   });
 
-  it("should open a folder on a double click and not resolve with it", async () => {
+  it("should select a folder on a single click and not open it", async () => {
+    await openBrowser([TOP, ROOT, ETC]);
+    await openFolder("/");
+    fireEvent.click(await screen.findByText("etc"));
+    await screen.findByRole("option", { name: "etc", selected: true });
+    expect(findButton("Select").getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("should open a folder on a double click", async () => {
     const { result } = await openBrowser([TOP, ROOT, ETC]);
     await openFolder("/");
-    const etc = await screen.findByText("etc");
-    fireEvent.click(etc);
-    fireEvent.doubleClick(etc);
+    fireEvent.doubleClick(await screen.findByText("etc"));
     await screen.findByText("hosts");
     fireEvent.click(findButton("Cancel"));
     await expect(result()).resolves.toBeNull();
+  });
+
+  it("should open a selected folder and pick a selected file on Enter", async () => {
+    const { result } = await openBrowser([TOP, ROOT, ETC]);
+    await openFolder("/");
+    fireEvent.click(await screen.findByText("etc"));
+    await screen.findByRole("option", { name: "etc", selected: true });
+    pressEnter();
+    fireEvent.click(await screen.findByText("hosts"));
+    await screen.findByRole("option", { name: "hosts", selected: true });
+    pressEnter();
+    await expect(result()).resolves.toEqual(
+      expect.objectContaining({ path: "/etc/hosts" }),
+    );
   });
 
   it("should go up to the parent folder", async () => {

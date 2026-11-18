@@ -527,7 +527,7 @@ describe("Certificate.Field", () => {
     await openCreate();
     fireEvent.click(await screen.findByText("File on rack"));
     fireEvent.click(screen.getByRole("button", { name: "Browse" }));
-    fireEvent.click(await screen.findByText("/"));
+    fireEvent.doubleClick(await screen.findByText("/"));
     fireEvent.doubleClick(await screen.findByText("client.crt"));
     await screen.findByText(new RegExp(`^${stored.details.subject} · Expires `));
     await open("None");

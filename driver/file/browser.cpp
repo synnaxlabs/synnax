@@ -109,7 +109,13 @@ class Secrets {
     std::filesystem::path dir;
 
 public:
-    explicit Secrets(std::filesystem::path dir): dir(std::move(dir)) {}
+    /// @param dir the secrets folder. A folder that does not exist holds nothing, but
+    /// another error when it checks the folder fails closed.
+    explicit Secrets(std::filesystem::path dir): dir(std::move(dir)) {
+        std::error_code ec;
+        if (!this->dir.empty() && !std::filesystem::exists(this->dir, ec) && !ec)
+            this->dir.clear();
+    }
 
     /// @returns true if path is the folder, or when the comparison fails.
     [[nodiscard]] bool is(const std::filesystem::path &path) const {
