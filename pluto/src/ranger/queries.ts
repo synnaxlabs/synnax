@@ -352,6 +352,22 @@ export const { useUpdate: useSetColor } = Flux.createUpdate<SetColorParams>({
   },
 });
 
+export interface SetParentParams {
+  key: ranger.Key;
+  /** The key of the new parent. Null makes the range a top-level range. */
+  parent: ranger.Key | null;
+}
+
+export const { useUpdate: useSetParent } = Flux.createUpdate<SetParentParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, parent } = data;
+    await client.ranges.dispatch(key, ranger.set({ path: ["parent"], value: parent }));
+    return data;
+  },
+});
+
 export interface KeyParams {
   key: ranger.Key;
 }

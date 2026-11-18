@@ -25,13 +25,17 @@ on:
 
 permissions: {}
 
+# The review module reads the Claude Code stream with the agent wrapper's code.
+env:
+  PYTHONPATH: ${{ github.workspace }}/scripts
+
 jobs:
   report:
     name: Compare the reviews
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      actions: read
+      checks: read
       contents: read
       pull-requests: read
     steps:
@@ -43,27 +47,10 @@ jobs:
           fetch-depth: 0
           filter: blob:none
 
-      # A record never changes, so each run downloads only the records that are new.
-      - name: Restore the records
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ${{ runner.temp }}/records
-          key: sedosaur-records-${{ github.run_id }}
-          restore-keys: sedosaur-records-
-
       - name: Compare the reviews
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ github.token }}
           DAYS: ${{ inputs.days || 30 }}
-          RECORDS: ${{ runner.temp }}/records
         run: |
-          mkdir -p "$RECORDS"
-          python3 -m review compare "$DAYS" "$RECORDS" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Save the records
-        if: always()
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ${{ runner.temp }}/records
-          key: sedosaur-records-${{ github.run_id }}
+          python3 -m review compare "$DAYS" >> "$GITHUB_STEP_SUMMARY"

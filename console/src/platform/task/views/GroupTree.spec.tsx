@@ -251,6 +251,14 @@ describe("GroupTree", () => {
     await screen.findByText("details-for-config.groups.e");
   });
 
+  it("should not move the selection onto a field of a removed group", async () => {
+    await renderTree([EMPTY_GROUP, GROUP, { ...EMPTY_GROUP, key: "f" }]);
+    fireEvent.click((await screen.findAllByText("group-g"))[0]);
+    fireEvent.contextMenu(screen.getAllByText("group-g")[0]);
+    fireEvent.click(await screen.findByText("Remove"));
+    await screen.findByText("details-for-config.groups.f");
+  });
+
   it("should duplicate a group with fresh fields and a remapped index", async () => {
     const { form } = await renderTree([GROUP]);
     // The selected group also names the details header; the tree item comes first.

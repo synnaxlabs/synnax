@@ -15,8 +15,11 @@
 #include <thread>
 
 #include "absl/log/log.h"
+#include <fcntl.h>
+#include <pwd.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "x/cpp/env/env.h"
 
@@ -84,10 +87,8 @@ do_start() {
 
     # Ensure PID directory exists with correct permissions
     PID_DIR=$(dirname "$PIDFILE")
-    if [ ! -d "$PID_DIR" ]; then
-        mkdir -p "$PID_DIR"
-        chmod 777 "$PID_DIR"
-    fi
+    mkdir -p "$PID_DIR"
+    chmod 755 "$PID_DIR"
 
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE")
@@ -153,18 +154,20 @@ do_stop() {
     return $RETVAL
 }
 
+# Read-only, so any user can run it: it never writes the log, and it checks /proc
+# because kill -0 fails for a user that does not own the root process.
 do_status() {
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE")
-        if kill -0 "$PID" 2>/dev/null; then
-            log_message "$PRETTY_NAME is running (PID: $PID)" "$GREEN"
+        if [ -n "$PID" ] && [ -d "/proc/$PID" ]; then
+            echo -e "${GREEN}$PRETTY_NAME is running (PID: $PID)${NC}"
             return 0
         else
-            log_message "$PRETTY_NAME is not running (stale PID file)" "$RED"
+            echo -e "${RED}$PRETTY_NAME is not running (stale PID file)${NC}"
             return 1
         fi
     else
-        log_message "$PRETTY_NAME is not running" "$RED"
+        echo -e "${RED}$PRETTY_NAME is not running${NC}"
         return 3
     fi
 }
@@ -197,49 +200,39 @@ x::errors::Error setup_pid_file() {
     const std::string pid_dir = "/var/run/synnax-driver";
     const std::string pid_file = pid_dir + "/synnax-driver.pid";
 
-    // Check if directory exists with correct permissions
     std::error_code ec;
     if (!fs::exists(pid_dir)) {
-        // Setup PID directory
         fs::create_directories(pid_dir, ec);
         if (ec)
             return x::errors::Error(
                 "failed to create pid directory. try running with sudo: " + ec.message()
             );
         LOG(INFO) << "PID directory created";
-
-        if (chmod(pid_dir.c_str(), 0755) != 0)
-            return x::errors::Error("failed to set PID directory permissions");
-        LOG(INFO) << "PID directory permissions set";
-
-        std::string chown_dir_cmd = "chown synnax:synnax " + pid_dir;
-        if (system(chown_dir_cmd.c_str()) != 0)
-            return x::errors::Error("failed to change owner of PID directory");
-        LOG(INFO) << "PID directory ownership changed";
-    } else {
-        LOG(INFO) << "PID directory already exists";
     }
+    // Set on every call, as the directory may already exist with other modes.
+    if (chmod(pid_dir.c_str(), 0755) != 0)
+        return x::errors::Error("failed to set PID directory permissions");
+    std::string chown_dir_cmd = "chown synnax:synnax " + pid_dir;
+    if (system(chown_dir_cmd.c_str()) != 0)
+        return x::errors::Error("failed to change owner of PID directory");
 
-    // Check if PID file exists
-    if (!fs::exists(pid_file)) {
-        // Setup PID file
-        std::ofstream pid_file_stream(pid_file);
-        if (!pid_file_stream)
-            return x::errors::Error("failed to create PID file: " + pid_file);
-        pid_file_stream.close();
-        LOG(INFO) << "PID file created";
-
-        if (chmod(pid_file.c_str(), 0666) != 0)
-            return x::errors::Error("failed to set PID file permissions");
-        LOG(INFO) << "PID file permissions set";
-
-        std::string chown_file_cmd = "chown synnax:synnax " + pid_file;
-        if (system(chown_file_cmd.c_str()) != 0)
-            return x::errors::Error("failed to change owner of PID file");
-        LOG(INFO) << "PID file ownership changed";
-    } else {
-        LOG(INFO) << "PID file already exists";
+    // The entry may be a planted link. Replace anything but a regular file with one
+    // name, and never follow a link.
+    int fd = open(pid_file.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_NONBLOCK, 0644);
+    struct stat st{};
+    if (fd < 0 || fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_nlink != 1) {
+        if (fd >= 0) close(fd);
+        fs::remove(pid_file, ec);
+        if (ec) return x::errors::Error("failed to remove PID file: " + ec.message());
+        fd = open(pid_file.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0644);
+        if (fd < 0) return x::errors::Error("failed to create PID file: " + pid_file);
     }
+    const passwd *user = getpwnam("synnax");
+    const bool failed = user == nullptr || fchmod(fd, 0644) != 0 ||
+                        fchown(fd, user->pw_uid, user->pw_gid) != 0;
+    close(fd);
+    if (failed) return x::errors::Error("failed to set PID file permissions");
+    LOG(INFO) << "PID directory and file permissions set";
 
     return x::errors::NIL;
 }
@@ -280,7 +273,7 @@ x::errors::Error install_service() {
     if (!log_file) return x::errors::Error("failed to create log file");
     log_file.close();
 
-    if (chmod("/var/log/synnax-driver.log", 0666) != 0)
+    if (chmod("/var/log/synnax-driver.log", 0644) != 0)
         return x::errors::Error("failed to set log file permissions");
 
     if (system("chown synnax:synnax /var/log/synnax-driver.log") != 0)

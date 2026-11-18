@@ -84,6 +84,9 @@ describe("math", () => {
       expect(math.roundToNearestMagnitude(12345)).toBe(10000);
       expect(math.roundToNearestMagnitude(123456)).toBe(100000);
     });
+    it("should return 0 for 0", () => {
+      expect(math.roundToNearestMagnitude(0)).toBe(0);
+    });
   });
   describe("min", () => {
     it("should return the minimum of two numbers", () => {

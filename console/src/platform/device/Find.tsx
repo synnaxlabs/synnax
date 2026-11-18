@@ -28,7 +28,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { compare, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -144,8 +144,7 @@ const byConfigured = (a: device.Device, b: device.Device): number =>
   Number(a.configured) - Number(b.configured);
 
 // A slot is a bus position, so the devices list in the order of the bus.
-const bySlot = (a: device.Device, b: device.Device): number =>
-  a.location.localeCompare(b.location, undefined, { numeric: true });
+const bySlot = compare.by((d: device.Device) => d.location, compare.natural);
 
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
   isReady(r) &&

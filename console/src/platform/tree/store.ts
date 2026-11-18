@@ -9,7 +9,7 @@
 
 import { resource } from "@synnaxlabs/client";
 import { type Tree as Base } from "@synnaxlabs/lyra/tree";
-import { compare, type destructor, map } from "@synnaxlabs/x";
+import { array, compare, type destructor, map } from "@synnaxlabs/x";
 
 import { type Source, type Window } from "@/platform/tree/children";
 import { type Resource } from "@/platform/tree/types";
@@ -140,7 +140,7 @@ const mapsEqual = (a: Map<string, string[]>, b: Map<string, string[]>): boolean 
   a.size === b.size &&
   [...a].every(([key, keys]) => {
     const other = b.get(key);
-    return other != null && compare.arraysEqual(keys, other);
+    return other != null && array.equal(keys, other);
   });
 
 /**
@@ -419,8 +419,7 @@ export class Store {
 
   private mergedOf(folder: Folder): Merged | undefined {
     const { merged, windows } = folder;
-    if (merged != null && compare.arraysEqual(merged.windows, windows))
-      return merged.value;
+    if (merged != null && array.equal(merged.windows, windows)) return merged.value;
     const value = merge(windows, this.config.isFolder);
     folder.merged = { windows: [...windows], value };
     return value;

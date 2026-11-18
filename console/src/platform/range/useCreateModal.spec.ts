@@ -61,31 +61,25 @@ describe("Range.useCreateModal", () => {
     expect(screen.getByDisplayValue("Prefilled Range")).toBeTruthy();
   });
 
-  it("should keep the modal open and add nothing when the name is empty", async () => {
-    const { store } = await openModal(
-      { timeRange: { start: 1000, end: 2000 } },
-      { client },
-    );
+  it("should keep the modal open when the name is empty", async () => {
+    await openModal({ timeRange: { start: 1000, end: 2000 } }, { client });
     await clickWhenEnabled("Create");
     expect(isOpen()).toBe(true);
-    expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);
   });
 
-  it("should create the range on the Core and favorite it", async () => {
+  it("should create the range on the Core without adding it to the favorites", async () => {
     const name = uniqueName("persisted");
     const { store } = await openModal(
       { name, timeRange: { start: 1, end: 2 } },
       { client },
     );
     await clickWhenEnabled("Create");
-    await waitFor(() =>
-      expect(store.getState()[Session.Range.SLICE_NAME].ranges).toHaveLength(1),
-    );
     await waitFor(() => expect(isOpen()).toBe(false));
     await waitFor(async () => {
       const retrieved = await client.ranges.retrieve(name);
       expect(retrieved.name).toEqual(name);
     });
+    expect(store.getState()[Session.Range.SLICE_NAME].ranges).toEqual([]);
   });
 
   it("should report the range it saved to the Core", async () => {

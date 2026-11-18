@@ -948,6 +948,52 @@ describe("Select", () => {
     });
   });
 
+  describe("clearable shadow single trigger", () => {
+    const renderClearable = async (
+      onChange: (key: string | null) => void,
+    ): Promise<HTMLElement> => {
+      const { container } = await renderThemed(
+        <Dialog.Frame>
+          <Select.Frame<string, undefined> value="time" onChange={onChange} allowNone>
+            <Select.SingleTrigger variant="shadow" placeholder="Pick" clearable />
+            <Select.Dialog>
+              <Select.Item itemKey="time">Time</Select.Item>
+            </Select.Dialog>
+          </Select.Frame>
+        </Dialog.Frame>,
+      );
+      const trigger = container.querySelector<HTMLElement>(".lyra-dialog__trigger");
+      assert(trigger != null);
+      return trigger;
+    };
+
+    const clearOf = (trigger: HTMLElement): HTMLElement => {
+      const clear = trigger.querySelector<HTMLElement>(
+        ".lyra-select-single-trigger__clear",
+      );
+      assert(clear != null);
+      return clear;
+    };
+
+    it("should show its clear button in place of its caret on hover", async () => {
+      const trigger = await renderClearable(vi.fn());
+      expect(computed(clearOf(trigger), "opacity")).toBe("0");
+      await userEvent.hover(trigger);
+      await expect.poll(() => computed(clearOf(trigger), "opacity")).toBe("1");
+      const caret = trigger.querySelector(".lyra-caret-animated");
+      assert(caret != null);
+      expect(computed(caret, "visibility")).toBe("hidden");
+    });
+
+    it("should clear the selection from the button on its caret", async () => {
+      const onChange = vi.fn();
+      const trigger = await renderClearable(onChange);
+      await userEvent.hover(trigger);
+      await userEvent.click(clearOf(trigger));
+      expect(onChange).toHaveBeenLastCalledWith(null, expect.anything());
+    });
+  });
+
   describe("end content", () => {
     it("should sit right before the caret", async () => {
       const { trigger, label, end, caret } = await renderEndContent("400px");

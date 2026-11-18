@@ -32,3 +32,11 @@ export const increment = <K>(map: Map<K, number>, key: K, by: number = 1): numbe
   map.set(key, count);
   return count;
 };
+
+/** @returns true if a and b have the same keys and the value of each key is ===. */
+export const equal = <K, V>(a: Map<K, V>, b: Map<K, V>): boolean => {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const [k, v] of a) if (!b.has(k) || b.get(k) !== v) return false;
+  return true;
+};

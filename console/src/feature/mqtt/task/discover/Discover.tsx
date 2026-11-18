@@ -9,22 +9,20 @@
 
 import "@/feature/mqtt/task/discover/Discover.css";
 
-import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { map, math } from "@synnaxlabs/x";
+import { math } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { useState } from "react";
 
 import { type Device } from "@/feature/mqtt/device/types";
-import { Picker } from "@/feature/mqtt/task/discover/picker";
 import { TagPicker, type TagPicks } from "@/feature/mqtt/task/discover/Tags";
 import { TopicPicker, type TopicPicks } from "@/feature/mqtt/task/discover/Topics";
 import { type HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
+import { ICD } from "@/platform/icd";
 import { Modals } from "@/platform/modals";
 
 type Mode = "topics" | "sparkplug";
@@ -65,18 +63,6 @@ type DiscoverProps<E extends HeldEntry> = Modals.ContentProps<Params<E>, E[]> & 
   kind: Kind<E>;
 };
 
-/**
- * @returns the label of the button that adds the picks, from the count of each noun.
- * With no picks, it names idle.
- */
-const addLabel = (counts: [noun: string, count: number][], idle: string): string => {
-  const totals = new Map<string, number>();
-  for (const [noun, count] of counts) if (count > 0) map.increment(totals, noun, count);
-  if (totals.size === 0) return `Add ${pluralize(idle)}`;
-  const parts = [...totals].map(([noun, count]) => pluralize(noun, count, true));
-  return `Add ${parts.join(" and ")}`;
-};
-
 const Discover = <E extends HeldEntry>({
   device,
   entries,
@@ -102,67 +88,51 @@ const Discover = <E extends HeldEntry>({
   const summary = parts.length === 0 ? kind.hint : `${parts.join(" and ")} selected`;
 
   return (
-    <Picker.Root value={mode}>
-      <Modal.Frame className={CSS.B("mqtt-discover")}>
-        <Modal.Header icon={<Icon.Logo.MQTT />}>
-          {[kind.title, device.name]}
-        </Modal.Header>
-        <Picker.Bar>
-          {createTag != null && (
-            <Select.Buttons<Mode> value={mode} onChange={setMode}>
-              <Select.Item<Mode> itemKey="topics">JSON topics</Select.Item>
-              <Select.Item<Mode> itemKey="sparkplug">Sparkplug B</Select.Item>
-            </Select.Buttons>
-          )}
-        </Picker.Bar>
-        <Picker.Frame itemKey="topics">
-          <TopicPicker
+    <ICD.Picker.Root value={mode} className={CSS.B("mqtt-discover")}>
+      <Modal.Header icon={<Icon.Logo.MQTT />}>{[kind.title, device.name]}</Modal.Header>
+      <ICD.Picker.Bar>
+        {createTag != null && (
+          <Select.Buttons<Mode> value={mode} onChange={setMode}>
+            <Select.Item<Mode> itemKey="topics">JSON topics</Select.Item>
+            <Select.Item<Mode> itemKey="sparkplug">Sparkplug B</Select.Item>
+          </Select.Buttons>
+        )}
+      </ICD.Picker.Bar>
+      <ICD.Picker.Frame itemKey="topics">
+        <TopicPicker
+          device={device}
+          entries={entries}
+          single={kind.single}
+          value={topicPicks}
+          onChange={setTopicPicks}
+          onAddByName={(topic) => close([...picked(), kind.createTopic(topic)])}
+        />
+      </ICD.Picker.Frame>
+      {createTag != null && (
+        <ICD.Picker.Frame itemKey="sparkplug">
+          <TagPicker
             device={device}
             entries={entries}
-            single={kind.single}
-            value={topicPicks}
-            onChange={setTopicPicks}
-            onAddByName={(topic) => close([...picked(), kind.createTopic(topic)])}
+            value={tagPicks}
+            onChange={setTagPicks}
+            onAddByName={() => close([...picked(), createTag()])}
           />
-        </Picker.Frame>
-        {createTag != null && (
-          <Picker.Frame itemKey="sparkplug">
-            <TagPicker
-              device={device}
-              entries={entries}
-              value={tagPicks}
-              onChange={setTagPicks}
-              onAddByName={() => close([...picked(), createTag()])}
-            />
-          </Picker.Frame>
-        )}
-        <Modal.Footer>
-          <Nav.Bar.Start>
-            <Text.Text level="small" color={count > 0 ? 10 : 9}>
-              {summary}
-            </Text.Text>
-          </Nav.Bar.Start>
-          <Nav.Bar.End x align="center" gap="small">
-            <Button.Button variant="outlined" onClick={() => close()}>
-              Cancel
-            </Button.Button>
-            <Button.Button
-              variant="filled"
-              disabled={count === 0}
-              onClick={() => close(picked())}
-            >
-              {addLabel(
-                [
-                  [noun, values],
-                  [tagNoun, tagPicks.size],
-                ],
-                mode === "sparkplug" ? tagNoun : noun,
-              )}
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modal.Footer>
-      </Modal.Frame>
-    </Picker.Root>
+        </ICD.Picker.Frame>
+      )}
+      <ICD.Picker.Footer
+        counts={[
+          [noun, values],
+          [tagNoun, tagPicks.size],
+        ]}
+        idle={mode === "sparkplug" ? tagNoun : noun}
+        onAdd={() => close(picked())}
+        onCancel={() => close()}
+      >
+        <Text.Text level="small" color={count > 0 ? 10 : 9}>
+          {summary}
+        </Text.Text>
+      </ICD.Picker.Footer>
+    </ICD.Picker.Root>
   );
 };
 

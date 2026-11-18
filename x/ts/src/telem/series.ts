@@ -9,9 +9,9 @@
 
 import { z } from "zod";
 
+import { array } from "@/array";
 import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
-import { compare } from "@/compare";
 import { id } from "@/id";
 import { instance } from "@/instance";
 import { math } from "@/math";
@@ -109,6 +109,10 @@ export type CrudeSeries =
 export interface SeriesParams extends BaseSeriesParams {
   data?: CrudeSeries | null;
 }
+
+// A UUID sample spans several elements of its typed array. Variable types count bytes.
+const elementsPerSample = (dt: DataType): number =>
+  dt.isVariable ? 1 : dt.density.valueOf() / dt.Array.BYTES_PER_ELEMENT;
 
 /** Arguments for allocating a {@link Series} with a given capacity and data type. */
 export interface SeriesAllocParams extends BaseSeriesParams {
@@ -409,7 +413,8 @@ export class Series<T extends TelemValue = TelemValue>
   static alloc({ capacity, dataType, ...rest }: SeriesAllocParams): Series {
     if (capacity === 0)
       throw new Error("[Series] - cannot allocate an array of length 0");
-    const data = new new DataType(dataType).Array(capacity);
+    const dt = new DataType(dataType);
+    const data = new dt.Array(capacity * elementsPerSample(dt));
     const arr = new Series({ data: data.buffer, dataType, ...rest });
     arr.writePos = 0;
     return arr;
@@ -499,7 +504,7 @@ export class Series<T extends TelemValue = TelemValue>
   private writeToUnderlyingData(data: Series) {
     this.underlyingData.set(
       data.data as unknown as ArrayLike<bigint> & ArrayLike<number>,
-      this.writePos,
+      this.writePos * elementsPerSample(this.dataType),
     );
   }
 
@@ -529,7 +534,8 @@ export class Series<T extends TelemValue = TelemValue>
     // Partially written series are always alloc()'d, so the backing is an ArrayBuffer.
     let view = this.cachedDataView;
     if (view == null || this.cachedDataViewWritePos !== this.writePos) {
-      view = new this.dataType.Array(this._data, 0, this.writePos);
+      const length = this.writePos * elementsPerSample(this.dataType);
+      view = new this.dataType.Array(this._data, 0, length);
       this.cachedDataView = view;
       this.cachedDataViewWritePos = this.writePos;
     }
@@ -885,7 +891,8 @@ export class Series<T extends TelemValue = TelemValue>
   private atUUID(index: number, required: boolean): string | undefined {
     if (index < 0) index = this.length + index;
     const uuidString = uuid.parse(
-      new Uint8Array(this.buffer, index * this.dataType.density.valueOf()),
+      this.data as Uint8Array,
+      index * this.dataType.density.valueOf(),
     );
     if (uuidString == null) {
       if (required) throw new Error(`[series] - no value at index ${index}`);
@@ -957,17 +964,16 @@ export class Series<T extends TelemValue = TelemValue>
    * @param value - the value to search for.
    */
   binarySearch(value: math.Numeric): number {
-    let left = 0;
-    let right = this.length - 1;
-    const cf = compare.newF(value);
-    while (left <= right) {
-      const mid = Math.floor((left + right) / 2);
-      const cmp = cf(this.at(mid, true) as math.Numeric, value);
-      if (cmp === 0) return mid;
-      if (cmp < 0) left = mid + 1;
-      else right = mid - 1;
-    }
-    return left;
+    // A NaN sample orders after every value. A bigint sample becomes a number when the
+    // value is one, so a timestamp past 2^53 matches the number it rounds to. Babel
+    // prints `(x as T) < y` without its parentheses, and the Console build then reads
+    // `T < y` as type arguments.
+    return array.partitionPoint(this.length, (i) => {
+      let sample = this.at(i, true) as math.Numeric;
+      if (typeof sample === "bigint" && typeof value === "number")
+        sample = Number(sample);
+      return !(sample < value);
+    });
   }
 
   /**
@@ -1241,7 +1247,9 @@ export class Series<T extends TelemValue = TelemValue>
   private sliceSub(sub: boolean, start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.length)) return this;
     if (this.dataType.isVariable) return this.sliceVariable(start, end ?? this.length);
-    const data = sub ? this.data.subarray(start, end) : this.data.slice(start, end);
+    const per = elementsPerSample(this.dataType);
+    const [from, to] = [start * per, end == null ? undefined : end * per];
+    const data = sub ? this.data.subarray(from, to) : this.data.slice(from, to);
     return this.derive(data, start);
   }
 
@@ -1411,7 +1419,7 @@ class UUIDSeriesIterator implements Iterator<string> {
       throw new Error("cannot create a UUID series iterator for a non-UUID series");
     this.series = series;
     this.index = 0;
-    this.data = new Uint8Array(series.buffer);
+    this.data = series.data as Uint8Array;
     this.density = DataType.UUID.density.valueOf();
   }
 
@@ -1712,11 +1720,13 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
 
   /** @returns A typed array containing all data from all series. */
   get data(): TypedArray {
-    const buf = new this.dataType.Array(this.length);
+    const buf = new this.dataType.Array(
+      this.series.reduce((a, s) => a + s.data.length, 0),
+    );
     let offset = 0;
     for (const ser of this.series) {
       buf.set(ser.data as ArrayLike<any>, offset);
-      offset += ser.length;
+      offset += ser.data.length;
     }
     return new this.dataType.Array(buf.buffer);
   }

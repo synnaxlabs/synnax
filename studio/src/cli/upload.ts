@@ -12,6 +12,8 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
+import { compare } from "@synnaxlabs/x";
+
 import {
   BUCKET,
   bucket,
@@ -131,7 +133,7 @@ const main = async (): Promise<void> => {
     ...versions,
   };
   const sorted = Object.fromEntries(
-    Object.entries(merged).sort(([a], [b]) => a.localeCompare(b)),
+    Object.entries(merged).sort(compare.by(([id]) => id)),
   );
   await writeFile(VIDEO_VERSIONS, `${JSON.stringify(sorted, null, 2)}\n`);
   console.log(`wrote ${path.relative(ROOT, VIDEO_VERSIONS)}`);

@@ -2123,6 +2123,55 @@ describe("Answers", () => {
       await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
 
+    describe("reconnect during the first fetch", () => {
+      const setup = () => {
+        const table = newTable();
+        const fetches: Array<PromiseWithResolvers<string[]>> = [];
+        let bump = (_: number): void => {};
+        const answers = new Space<LimitQ, Rec[], string, Rec>(
+          {
+            name: "things",
+            table,
+            fetch: async () => {
+              const fetched = Promise.withResolvers<string[]>();
+              fetches.push(fetched);
+              return await fetched.promise;
+            },
+            compose: (records) => records,
+            matches: (r, q) => r.value >= q.min,
+          },
+          { onEpoch: (callback) => ((bump = callback), () => {}) },
+        );
+        const handler = vi.fn();
+        answers.onChange({ min: 3 }, handler);
+        const pending = answers.retrieve({ min: 3 });
+        bump(1);
+        table.set("a", rec("a", 5));
+        return { answers, fetches, handler, pending };
+      };
+
+      it("refetches after the first fetch settles", async () => {
+        const { answers, fetches, handler, pending } = setup();
+        fetches[0].resolve([]);
+        expect(await pending).toEqual([rec("a", 5)]);
+        await expect.poll(() => fetches.length).toBe(2);
+        fetches[1].resolve(["a"]);
+        await expect.poll(() => handler.mock.calls.length).toBe(2);
+        expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+        expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+      });
+
+      it("refetches after the first fetch fails", async () => {
+        const { answers, fetches, handler, pending } = setup();
+        fetches[0].reject(new Error("unreachable"));
+        await expect(pending).rejects.toThrow("unreachable");
+        await expect.poll(() => fetches.length).toBe(2);
+        fetches[1].resolve(["a"]);
+        await expect.poll(() => answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+        expect(handler).toHaveBeenLastCalledWith([rec("a", 5)]);
+      });
+    });
+
     it("ignores a change to a record that never matched", async () => {
       const table = newTable();
       const fetch = fetchOf(table, [rec("a", 5), rec("b", 4)]);

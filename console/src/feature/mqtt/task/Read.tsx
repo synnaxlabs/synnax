@@ -84,6 +84,8 @@ const SAMPLE_KINDS = {
 } as const satisfies Record<payload.JSONType, payload.Kind>;
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/telemetry" } as const;
+// A topic added by name has no topic yet, so its details open on the topic.
+const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
 
 /** @returns the messages of the entries' ICDs, reading the open one from its form. */
 const readMessages = async (
@@ -113,19 +115,15 @@ type Addition = Draft | SparkplugReadEntry;
 
 const isDraft = (addition: Addition): addition is Draft => addition.type === "plain";
 
-/** Names a field by its pointer: "/motor/speed" is "motor_speed". */
-const fieldName = (pointer: string): string =>
-  pointer === "" ? "value" : pointer.slice(1).replaceAll("/", "_");
-
-const toJSONField = (leaf: Leaf): icd.JSONField =>
-  icd.jsonFieldZ.parse({
-    name: fieldName(leaf.pointer),
-    pointer: leaf.pointer,
-    type: SAMPLE_KINDS[leaf.type],
-  });
-
 const createDraft = (topic: string, leaves: Leaf[] = []): Draft => {
-  const fields = leaves.map(toJSONField);
+  const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
+  const fields = leaves.map((leaf, i) =>
+    icd.jsonFieldZ.parse({
+      name: names[i],
+      pointer: leaf.pointer,
+      type: SAMPLE_KINDS[leaf.type],
+    }),
+  );
   // A disabled leaf would mix a variable-length channel among fixed ones.
   const bound = fields.filter((_, i) => !leaves[i].disabled).map(({ key }) => key);
   return { type: "plain", topic, fields, bound };
@@ -251,7 +249,12 @@ const appendFields = (
 ): icd.JSONField[] => {
   const held = ICD.jsonFields(message);
   const pointers = new Set(held.map(({ pointer }) => pointer));
-  const appended = fields.filter(({ pointer }) => !pointers.has(pointer));
+  const added = fields.filter(({ pointer }) => !pointers.has(pointer));
+  const names = ICD.fieldNames(
+    added.map(({ pointer }) => pointer),
+    held.map(({ name }) => name),
+  );
+  const appended = added.map((field, i) => ({ ...field, name: names[i] }));
   let after = held.at(-1)?.key;
   for (const field of appended) {
     to.insert(ICD.fieldsPath(message.key), field, after);
@@ -516,6 +519,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
+  const topic = PForm.useFieldValue(path.topic);
   const reads = PForm.useFieldValue(path.messages);
   const encoding = PForm.useFieldValue(
     PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
@@ -542,7 +546,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             path={path.topic}
             label="Topic"
             padHelpText={false}
-            inputProps={TOPIC_INPUT_PROPS}
+            inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
           />
           <QoSField path={path.qos} />
           <PForm.CheckboxField

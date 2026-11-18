@@ -23,21 +23,16 @@ import { Device } from "@/feature/device";
 import { EtherCAT } from "@/feature/ethercat";
 import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 const SideEffect = (): null => {
   Device.useListenForChanges();
+  EtherCAT.Device.useListenForReplacements();
   Notifications.useForward();
   Link.useDeep();
   Persist.useStoreStatus();
   Triggers.use();
-  return null;
-};
-
-const EtherCATReplaceSideEffect = (): null => {
-  EtherCAT.Device.useListenForReplacements();
   return null;
 };
 
@@ -59,7 +54,6 @@ export const Primary = (): ReactElement => {
   return (
     <>
       <SideEffect />
-      {FLAGS.ethercatReplace && <EtherCATReplaceSideEffect />}
       <Guard>
         <ProjectSideEffect />
         <div
