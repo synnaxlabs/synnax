@@ -26,6 +26,7 @@ import {
   numericTimeRangeZ,
   runtime,
   TimeRange,
+  TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -48,6 +49,15 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };
 
+// A range that has not started or still runs has no time set at that end, so the
+// modal shows now there.
+const shownRange = ({ start, end }: TimeRange): TimeRange => {
+  const now = TimeStamp.now();
+  const from = start.afterEq(TimeStamp.MAX) ? now : start;
+  const to = end.afterEq(TimeStamp.MAX) ? TimeStamp.max(from, now) : end;
+  return new TimeRange(from, to);
+};
+
 const DownloadCSV = ({
   timeRange,
   channels,
@@ -55,7 +65,7 @@ const DownloadCSV = ({
   icon,
   close,
 }: Modals.ContentProps<DownloadCSVModalParams, void>) => {
-  const initialRange = new TimeRange(timeRange).numeric;
+  const initialRange = shownRange(new TimeRange(timeRange)).numeric;
   const form = Form.use<typeof formSchema>({
     schema: formSchema,
     values: {

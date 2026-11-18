@@ -49,6 +49,26 @@ describe("useDownloadCSVModal", () => {
       );
     });
 
+    it("shows a range that still runs as ending now", async () => {
+      await openDownloadModal({
+        timeRange: new TimeRange(TimeStamp.seconds(0), TimeStamp.MAX).numeric,
+        channels: [],
+        name: "My Plot",
+      });
+      await waitFor(() => expect(document.body.textContent).toMatch(/To\s*Today/));
+    });
+
+    it("shows a range that has not started as starting now", async () => {
+      await openDownloadModal({
+        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX).numeric,
+        channels: [],
+        name: "My Plot",
+      });
+      await waitFor(() =>
+        expect(document.body.textContent).toMatch(/From\s*Today.*To\s*Today/),
+      );
+    });
+
     it("keeps the modal open when the download fails without a client", async () => {
       await openDownloadModal({
         timeRange: TIME_RANGE,
