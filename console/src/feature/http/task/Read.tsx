@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Channel } from "@synnaxlabs/pluto";
-import { DataType, deep, id } from "@synnaxlabs/x";
+import { DataType, deep, id, primitive } from "@synnaxlabs/x";
 import {
   createContext,
   type FC,
@@ -79,6 +79,46 @@ const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
   indexed: (f: ReadField) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
 });
 
+/** Plans the channels of an endpoint with the channels that the device stores now. */
+const planEndpoint = async (
+  client: Synnax,
+  namer: Task.Namer,
+  dev: { name: string; properties: Properties },
+  ep: ReadEndpoint,
+): Promise<Task.ReadChannelPlan> =>
+  await Task.planReadChannels({
+    client,
+    namer,
+    props: dev.properties.read[ep.path],
+    ...endpointChannels(dev.name, ep),
+  });
+
+/**
+ * @returns the plan of an endpoint with the path of an earlier one. Each of its unbound
+ * fields takes the channel that the earlier one creates for its pointer.
+ */
+const sharedPlan = (
+  earlier: ReadEndpoint,
+  plan: Task.ReadChannelPlan,
+  ep: ReadEndpoint,
+): Task.ReadChannelPlan => {
+  const pointers = new Map(earlier.fields.map(({ key, pointer }) => [key, pointer]));
+  const created = new Map(plan.creates.map((c) => [pointers.get(c.key), c]));
+  return {
+    props: plan.props,
+    newIndex: plan.newIndex,
+    indexField: plan.indexField == null ? undefined : ep.index,
+    channels: {},
+    creates: ep.fields.flatMap(({ key, pointer, channel, disabled }) => {
+      const create = created.get(pointer);
+      return create == null || disabled || primitive.isNonZero(channel)
+        ? []
+        : [{ ...create, key }];
+    }),
+    renames: [],
+  };
+};
+
 /**
  * Plans the channels of each endpoint in order with one namer, as deploying creates
  * them. Reads from the Core alone. Throws between endpoints once signal aborts.
@@ -90,17 +130,17 @@ const planEndpoints = async (
   signal?: AbortSignal,
 ): Promise<Task.ReadChannelPlan[]> => {
   const namer = Task.createNamer(client);
+  const first = new Map<string, number>();
   const plans: Task.ReadChannelPlan[] = [];
-  for (const ep of endpoints) {
+  for (const [i, ep] of endpoints.entries()) {
     signal?.throwIfAborted();
-    plans.push(
-      await Task.planReadChannels({
-        client,
-        namer,
-        props: dev.properties.read[ep.path],
-        ...endpointChannels(dev.name, ep),
-      }),
-    );
+    const earlier = first.get(ep.path);
+    if (earlier != null) {
+      plans.push(sharedPlan(endpoints[earlier], plans[earlier], ep));
+      continue;
+    }
+    first.set(ep.path, i);
+    plans.push(await planEndpoint(client, namer, dev, ep));
   }
   return plans;
 };
@@ -453,12 +493,16 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   });
   const before = deep.copy(dev.properties);
   try {
-    const plans = await planEndpoints(client, dev, config.endpoints);
-    for (const [i, ep] of config.endpoints.entries())
-      await Task.applyReadChannels(client, plans[i], ep.fields, {
+    // Endpoints with one path share the channels that the device stores for it, so each
+    // one plans after the ones before it store theirs.
+    const namer = Task.createNamer(client);
+    for (const ep of config.endpoints) {
+      const plan = await planEndpoint(client, namer, dev, ep);
+      await Task.applyReadChannels(client, plan, ep.fields, {
         read: dev.properties.read,
         key: ep.path,
       });
+    }
   } finally {
     await Device.setProperties(client, dev, before, SCHEMAS);
   }
