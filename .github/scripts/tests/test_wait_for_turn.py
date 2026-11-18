@@ -18,7 +18,7 @@ import pytest
 import wait_for_turn
 from wait_for_turn import GATE, INTEGRATION, GitHub, Http, Transient
 
-CONSOLE = "integration / Test (windows) / console"
+CONSOLE = "integration / Test (ubuntu) / console"
 
 
 def entry(position: int, *, sha: str, state: str = "AWAITING_CHECKS") -> dict[str, Any]:

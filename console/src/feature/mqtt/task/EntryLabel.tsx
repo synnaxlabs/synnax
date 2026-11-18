@@ -58,10 +58,9 @@ const Label = ({ type, identity }: LabelProps) => {
   );
 };
 
-const PlainLabel = ({ path }: { path: deep.Path<PlainEntry> }) => {
-  const topic = PForm.useFieldValue(path.topic);
-  return <Label type="plain" identity={topic} />;
-};
+const PlainLabel = ({ path }: { path: deep.Path<PlainEntry> }) => (
+  <Label type="plain" identity={PForm.useFieldValue(path.topic)} />
+);
 
 const SparkplugLabel = ({ path }: { path: deep.Path<SparkplugEntry> }) => {
   const group = PForm.useFieldValue(path.group);

@@ -68,6 +68,7 @@ var _ = Describe("Migrate", func() {
 	// v0.61 stored logs as v3, so the stored rows pass through v4 on the way to v5.
 	It("Should lift logs that v0.61 stored to v5", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Log]{DB: db}))
 		group, project := uuid.New(), uuid.New()
 		old := v3.Log{

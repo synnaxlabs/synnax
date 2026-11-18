@@ -210,9 +210,8 @@ private:
 struct Config {
     /// @brief whether the slave joins cyclic exchange.
     bool enabled = true;
-    /// @brief the mode the user chose. With nullopt, the SOEM master runs the mode that
-    /// Properties::catalog_op_mode gives, else the one that dc::select picks, and the
-    /// IgH master sets up no DC sync.
+    /// @brief the mode the user chose. With nullopt, the master runs the mode that
+    /// Properties::catalog_op_mode gives, else the one that dc::select picks.
     std::optional<dc::Choice> op_mode;
     /// @brief CoE objects written to the slave before each move to SAFE-OP, unless
     /// another program sets up the slave.
@@ -251,7 +250,7 @@ struct Properties {
     /// @brief revision number for hardware/firmware versioning.
     uint32_t revision{};
     /// @brief serial number of the device (if available).
-    uint32_t serial{};
+    uint64_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
     /// @brief discovered input PDOs (TxPDO, slave→master).
@@ -330,7 +329,7 @@ struct Properties {
     /// @brief parses slave properties from JSON.
     static Properties parse(x::json::Parser &parser) {
         Properties props;
-        props.serial = parser.field<uint32_t>("serial");
+        props.serial = parser.field<uint64_t>("serial");
         props.vendor_id = parser.field<uint32_t>("vendor_id");
         props.product_code = parser.field<uint32_t>("product_code");
         props.revision = parser.field<uint32_t>("revision");
@@ -523,7 +522,7 @@ struct Identity {
     /// @brief the product code of the slave.
     uint32_t product_code = 0;
     /// @brief the serial number, or 0 when the slave is known by position.
-    uint32_t serial = 0;
+    uint64_t serial = 0;
     /// @brief the name of the slave, for errors.
     std::string name;
 

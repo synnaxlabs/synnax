@@ -321,6 +321,30 @@ Where::from_proto(const ::service::arc::pb::Where &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::arc::pb::Calculation, x::errors::Error>
+Calculation::to_proto() const {
+    ::service::arc::pb::Calculation pb;
+    pb.set_channel(this->channel);
+    {
+        auto [v, err] = this->program.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_program() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Calculation, x::errors::Error>
+Calculation::from_proto(const ::service::arc::pb::Calculation &pb) {
+    Calculation cpp;
+    cpp.channel = pb.channel();
+    {
+        auto [v, err] = ::arc::program::Program::from_proto(pb.program());
+        if (err) return {{}, err};
+        cpp.program = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::api::arc::pb::Cursor, x::errors::Error> Cursor::to_proto() const {
     ::api::arc::pb::Cursor pb;
     pb.set_key(this->key.to_string());
@@ -489,13 +513,15 @@ AutomationArc::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_program() = v;
     }
-    if (this->changes.has_value()) {
-        auto *wrapper = pb.mutable_changes();
-        for (const auto &item: *this->changes) {
-            auto [v, err] = item.to_proto();
-            if (err) return {{}, err};
-            *wrapper->add_values() = v;
-        }
+    for (const auto &item: this->changes) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_changes() = v;
+    }
+    for (const auto &item: this->calculations) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_calculations() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -508,14 +534,13 @@ AutomationArc::from_proto(const ::service::arc::pb::ArcAutomationPayload &pb) {
         if (err) return {{}, err};
         cpp.program = v;
     }
-    if (pb.has_changes()) {
-        cpp.changes.emplace();
-        if (auto err = x::pb::from_proto_repeated<Change>(
-                *cpp.changes,
-                pb.changes().values()
-            ))
-            return {{}, err};
-    }
+    if (auto err = x::pb::from_proto_repeated<Change>(cpp.changes, pb.changes()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Calculation>(
+            cpp.calculations,
+            pb.calculations()
+        ))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

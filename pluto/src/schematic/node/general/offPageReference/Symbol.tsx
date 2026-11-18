@@ -34,8 +34,8 @@ export const Symbol = ({
     level={labelConfig.level}
     orientation={orientation}
     fillColor={fillColor}
-    linked={page != null && page.key.length > 0}
-    pageType={page?.type}
+    linked={page.key.length > 0}
+    pageType={page.type}
     title={offPageReferenceTooltip(page, doubleClickNavigationDisabled)}
   />
 );

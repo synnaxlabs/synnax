@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc import ArcCase
-from tests.driver.task import run_and_expect_rejection
 
 # ── Main arc source: channel propagation edge cases (valid, runs at runtime) ──
 
@@ -332,7 +331,7 @@ len(edge_len_input) -> edge_len_out
 
 # Qualified module member used without an `import (…)` block.
 ARC_IMPORT_MISSING = """
-func get_now() i64 {
+func get_now() i64 ns {
     return time.now()
 }
 start_edge_case_cmd -> get_now()
@@ -350,7 +349,7 @@ start_edge_case_cmd -> passthrough()
 # Same module listed twice in one block.
 ARC_IMPORT_DUPLICATE = """
 import ( time time )
-func get_now() i64 {
+func get_now() i64 ns {
     return time.now()
 }
 start_edge_case_cmd -> get_now()
@@ -487,6 +486,72 @@ ROUTING_TABLE_CASES = [
         "TransitionIntoSelect",
         ARC_TRANSITION_INTO_SELECT,
         "cannot feed select",
+    ),
+]
+
+# ── Name reuse across scopes (invalid, caught at configure time) ──
+
+ARC_TOP_LEVEL_AFTER_SEQUENCE = """
+sequence main {
+    limit := 1.0
+}
+limit := 5.0
+"""
+
+ARC_SEQUENCE_AFTER_STAGE = """
+sequence main {
+    stage hold {
+        limit := 1.0
+    }
+    limit := 5.0
+}
+"""
+
+ARC_STAGE_AFTER_NESTED_SEQUENCE = """
+sequence main {
+    stage hold {
+        sequence inner {
+            limit := 1.0
+        }
+        limit := 5.0
+    }
+}
+"""
+
+ARC_TOP_LEVEL_AFTER_FUNCTION_VARIABLE = """
+func scale(v f64) f64 {
+    limit := 1.0
+    return v * limit
+}
+limit := 5.0
+"""
+
+ARC_TOP_LEVEL_AFTER_FUNCTION_PARAMETER = """
+func scale(limit f64) f64 {
+    return limit * 2.0
+}
+limit := 5.0
+"""
+
+VARIABLE_CONFLICT = "name limit conflicts with existing variable"
+
+NAME_CONFLICT_CASES = [
+    Case("TopLevelAfterSequence", ARC_TOP_LEVEL_AFTER_SEQUENCE, VARIABLE_CONFLICT),
+    Case("SequenceAfterStage", ARC_SEQUENCE_AFTER_STAGE, VARIABLE_CONFLICT),
+    Case(
+        "StageAfterNestedSequence",
+        ARC_STAGE_AFTER_NESTED_SEQUENCE,
+        VARIABLE_CONFLICT,
+    ),
+    Case(
+        "TopLevelAfterFunctionVariable",
+        ARC_TOP_LEVEL_AFTER_FUNCTION_VARIABLE,
+        VARIABLE_CONFLICT,
+    ),
+    Case(
+        "TopLevelAfterFunctionParameter",
+        ARC_TOP_LEVEL_AFTER_FUNCTION_PARAMETER,
+        VARIABLE_CONFLICT,
     ),
 ]
 
@@ -678,31 +743,6 @@ class EdgeCases(ArcCase):
         self.log("[ChanFwdRef] chan_fwd_callee -> 66.0")
         self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01)
 
-    def _assert_configure_error(
-        self,
-        source: str,
-        *,
-        name_prefix: str,
-        substr: str,
-        expect: Sequence[str] = (),
-    ) -> None:
-        """Start an Arc expected to be rejected on deploy and verify the error."""
-        name = self.load_arc(source, name_prefix=name_prefix, start=False)
-        handle = next(h for h in self._arcs if h.name == name)
-        message = run_and_expect_rejection(
-            self.client, handle.task, timeout=30 * sy.TimeSpan.SECOND
-        )
-        if message is None:
-            self.fail(f"[{name_prefix}] deploy unexpectedly succeeded")
-        assert substr in message, (
-            f"[{name_prefix}] expected '{substr}' in error, got: {message}"
-        )
-        for expected in expect:
-            assert expected in message, (
-                f"[{name_prefix}] expected '{expected}' in error, got: {message}"
-            )
-        self.log(f"[{name_prefix}] Got expected error: {message}")
-
     def _verify_circular_cases(self) -> None:
         self.log("=== Circular dependency detection ===")
         for case in CIRCULAR_CASES:
@@ -806,6 +846,16 @@ class EdgeCases(ArcCase):
                 substr=case.wait_substr,
             )
 
+    def _verify_name_conflict_cases(self) -> None:
+        self.log("=== Name reuse detection ===")
+        for case in NAME_CONFLICT_CASES:
+            self.log(f"[{case.label}] Testing name reuse")
+            self._assert_configure_error(
+                case.source,
+                name_prefix=f"NameConflict{case.label}",
+                substr=case.wait_substr,
+            )
+
     def _verify_read_only_monitor(self) -> None:
         self.log("=== Read-only monitor (no write channels) ===")
         name = self.load_arc(
@@ -834,5 +884,6 @@ class EdgeCases(ArcCase):
         self._verify_time_format_invalid()
         self._verify_type_mismatch_cases()
         self._verify_routing_table_cases()
+        self._verify_name_conflict_cases()
         self._verify_import_cases()
         self._verify_read_only_monitor()

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
@@ -102,6 +103,33 @@ var _ = Describe("Service", func() {
 						Ladder: arcversions.ConfigLadder,
 					},
 				)).Error().To(MatchError(ContainSubstring("set_entry_key: must be non-nil")))
+			},
+		)
+
+		It(
+			"Should reject hash references without the tables they read",
+			func(ctx SpecContext) {
+				Expect(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:          db,
+						Type:        testType,
+						Ladder:      arcversions.ConfigLadder,
+						SetEntryKey: (*arctask.Config).SetKey,
+						PatchEntry:  (*arctask.Config).Patch,
+						HashEntry:   (*arctask.Config).HashContent,
+						HashReferences: func(
+							context.Context,
+							gorp.Snapshot,
+							*arctask.Config,
+							*content.Hash,
+						) error {
+							return nil
+						},
+					},
+				)).Error().To(MatchError(ContainSubstring(
+					"hashed_tables: must be set exactly when hash_references is set",
+				)))
 			},
 		)
 
@@ -403,6 +431,7 @@ var _ = Describe("Service", func() {
 			) (*config.Service[arctask.Config], *tasktestutil.Tasks, *gorp.DB) {
 				GinkgoHelper()
 				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
 				resolving := MustOpen(config.OpenService(
 					ctx,
 					config.ServiceConfig[arctask.Config]{
@@ -588,10 +617,12 @@ var _ = Describe("Service", func() {
 	Describe("Normalize", func() {
 		var versioned *config.Service[arctask.Config]
 		BeforeEach(func(ctx SpecContext) {
+			configDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(configDB.Run)
 			versioned = MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					DB:            configDB,
 					Type:          "versioned_test",
 					Ladder:        arcversions.ConfigLadder,
 					LegacyVersion: 1,
@@ -654,10 +685,12 @@ var _ = Describe("Service", func() {
 		It("Should apply era normalization alone when no legacy rewrite is set", func(
 			ctx SpecContext,
 		) {
+			configDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(configDB.Run)
 			eraOnly := MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:          DeferClose(gorp.Wrap(memkv.New())),
+					DB:          configDB,
 					Type:        "era_only_test",
 					Ladder:      arcversions.ConfigLadder,
 					SetEntryKey: (*arctask.Config).SetKey,
@@ -697,10 +730,12 @@ var _ = Describe("Service", func() {
 		It("Should keep an explicit zero when the legacy version is the latest", func(
 			ctx SpecContext,
 		) {
+			configDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(configDB.Run)
 			latestLegacy := MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					DB:            configDB,
 					Type:          "latest_legacy_test",
 					Ladder:        arcversions.ConfigLadder,
 					LegacyVersion: arcversions.Latest,
@@ -760,6 +795,7 @@ var _ = Describe("Service", func() {
 			)
 			BeforeEach(func(ctx SpecContext) {
 				reconDB = DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(reconDB.Run)
 				reconciling = MustOpen(config.OpenService(
 					ctx,
 					config.ServiceConfig[arctask.Config]{
@@ -784,11 +820,7 @@ var _ = Describe("Service", func() {
 				ctx SpecContext,
 			) {
 				key := []byte("reconcile_test_performance")
-				reconcile = func(
-					ctx context.Context,
-					tx gorp.Tx,
-					c *arctask.Config,
-				) error {
+				reconcile = func(_ context.Context, tx gorp.Tx, c *arctask.Config) error {
 					v, closer, err := tx.Get(key)
 					if err != nil {
 						return err
@@ -815,11 +847,10 @@ var _ = Describe("Service", func() {
 			It("Should reconcile the entry after applying its defaults", func(
 				ctx SpecContext,
 			) {
-				reconcile = func(_ context.Context, _ gorp.Tx, c *arctask.Config) error {
+				reconcile = infallible(func(c *arctask.Config) {
 					Expect(c.Performance).To(Equal(arctask.PerformanceAuto))
 					c.Performance = arctask.PerformanceHigh
-					return nil
-				}
+				})
 				out := MustSucceed(reconciling.Normalize(ctx, reconDB, 0,
 					msgpack.EncodedJSON{"arcKey": uuid.New().String()},
 				))
@@ -877,10 +908,12 @@ var _ = Describe("Service", func() {
 				Fail("ran the reconcile hook in Decode")
 				return nil
 			}
+			configDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(configDB.Run)
 			decoding = MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					DB:            configDB,
 					Type:          "decode_test",
 					Ladder:        arcversions.ConfigLadder,
 					LegacyVersion: 1,
@@ -914,10 +947,9 @@ var _ = Describe("Service", func() {
 			decoded := MustSucceed(decoding.Decode(ctx, 0, msgpack.EncodedJSON{
 				"module": arcKey.String(),
 			}))
-			reconcile = func(_ context.Context, _ gorp.Tx, c *arctask.Config) error {
+			reconcile = infallible(func(c *arctask.Config) {
 				c.Performance = arctask.PerformanceHigh
-				return nil
-			}
+			})
 			out := MustSucceed(decoded.Normalize(ctx, db))
 			Expect(out).To(HaveKeyWithValue("arc_key", arcKey.String()))
 			Expect(out).To(HaveKeyWithValue("performance", "high"))
@@ -1010,7 +1042,10 @@ var _ = Describe("Registry", func() {
 
 // target is a record that the detach reference of the "With a detach reference" specs
 // points at.
-type target struct{ Key uuid.UUID }
+type target struct {
+	Key  uuid.UUID
+	Name string
+}
 
 func (t target) GorpKey() uuid.UUID { return t.Key }
 
@@ -1069,6 +1104,7 @@ var _ = Describe("With a detach reference", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		ldb = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(ldb.Run)
 		targets = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, target]{
 			DB:   ldb,
 			Name: targetTable,
@@ -1178,6 +1214,107 @@ var _ = Describe("With a detach reference", func() {
 		)
 	})
 
+	Describe("HashReferences", func() {
+		var (
+			svc   *config.Service[arctask.Config]
+			tasks *tasktestutil.Tasks
+			t     target
+			key   uuid.UUID
+		)
+		setTarget := func(ctx SpecContext, name string) {
+			GinkgoHelper()
+			t.Name = name
+			Expect(targets.NewCreate().Entry(&t).Exec(ctx, ldb)).To(Succeed())
+		}
+		BeforeEach(func(ctx SpecContext) {
+			svc = MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          ldb,
+					Type:        testType,
+					Ladder:      arcversions.ConfigLadder,
+					SetEntryKey: (*arctask.Config).SetKey,
+					PatchEntry:  (*arctask.Config).Patch,
+					HashEntry:   (*arctask.Config).HashContent,
+					References: []gorp.Reference[uuid.UUID, arctask.Config]{
+						reference(),
+					},
+					HashedTables: []string{targetTable},
+					HashReferences: func(
+						ctx context.Context,
+						snap gorp.Snapshot,
+						c *arctask.Config,
+						h *content.Hash,
+					) error {
+						var used target
+						if err := targets.NewRetrieve().
+							Where(gorp.MatchKeys[uuid.UUID, target](c.ArcKey)).
+							Entry(&used).
+							Exec(ctx, snap); err != nil {
+							return err
+						}
+						h.String(used.Name)
+						return nil
+					},
+				},
+			))
+			tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+				DB:     ldb,
+				Stores: []config.Store{svc},
+			}))
+			t = target{Key: uuid.New()}
+			setTarget(ctx, "a")
+			key = MustSucceed(tasks.Create(ctx, svc, msgpack.EncodedJSON{
+				"arc_key": t.Key.String(),
+			}))
+		})
+
+		It("Should report the tables it hashes", func() {
+			Expect(svc.HashedTables()).To(Equal([]string{targetTable}))
+		})
+
+		It("Should cover the content of a used record in the hash", func(
+			ctx SpecContext,
+		) {
+			before := MustSucceed(svc.Hash(ctx, ldb, key))
+			setTarget(ctx, "b")
+			Expect(MustSucceed(svc.Hash(ctx, ldb, key))).ToNot(Equal(before))
+			setTarget(ctx, "a")
+			Expect(MustSucceed(svc.Hash(ctx, ldb, key))).To(Equal(before))
+		})
+
+		It(
+			"Should run the target hook in the write's transaction with the key of "+
+				"the record",
+			func(ctx SpecContext) {
+				var (
+					set    []uuid.UUID
+					hashes []string
+				)
+				svc.OnTargetSet(
+					func(ctx context.Context, tx gorp.Tx, k uuid.UUID) error {
+						set = append(set, k)
+						hashes = append(hashes, MustSucceed(svc.Hash(ctx, tx, k)))
+						return nil
+					},
+				)
+				before := MustSucceed(svc.Hash(ctx, ldb, key))
+				setTarget(ctx, "b")
+				Expect(set).To(Equal([]uuid.UUID{key}))
+				Expect(hashes).To(HaveExactElements(Not(Equal(before))))
+			},
+		)
+
+		It("Should fail the write when the target hook fails", func(ctx SpecContext) {
+			svc.OnTargetSet(func(context.Context, gorp.Tx, uuid.UUID) error {
+				return errors.New("hook failed")
+			})
+			t.Name = "b"
+			Expect(targets.NewCreate().Entry(&t).Exec(ctx, ldb)).
+				To(MatchError("hook failed"))
+		})
+	})
+
 	Describe("OpenService", func() {
 		It(
 			"Should drop missing targets from stored records when it opens",
@@ -1212,3 +1349,13 @@ var _ = Describe("TaskOf", func() {
 		Expect(ok).To(BeFalse())
 	})
 })
+
+// infallible returns a reconcile hook that applies f and never fails.
+func infallible(
+	f func(*arctask.Config),
+) func(context.Context, gorp.Tx, *arctask.Config) error {
+	return func(_ context.Context, _ gorp.Tx, c *arctask.Config) error {
+		f(c)
+		return nil
+	}
+}

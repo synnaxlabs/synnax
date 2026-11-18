@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"uuid"
 
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -374,6 +375,6 @@ func checkColorLiteral(diags *diagnostics.Diagnostics, expr parser.IExpressionCo
 		return
 	}
 	if _, err := color.Parse(value); err != nil {
-		diags.Add(diagnostics.Errorf(expr, "%v", err))
+		diags.Add(codes.FuncArgValue.Atf(expr, "%v", err))
 	}
 }

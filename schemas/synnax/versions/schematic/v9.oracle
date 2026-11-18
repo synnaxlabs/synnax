@@ -160,7 +160,8 @@ LabeledConfig struct {
 
 ScaledConfig struct {
     scale float64 = 1 {
-        @doc value "is the rendered scale multiplier of the symbol."
+        @doc value   "is the rendered scale multiplier of the symbol."
+        @validate gt 0
     }
 
     @doc value  "is the base configuration for any symbol drawn at a scale multiplier."

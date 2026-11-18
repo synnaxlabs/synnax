@@ -71,38 +71,47 @@ func FinalizeContext(ctx ccontext.Context[antlr.ParserRuleContext]) []byte {
 // rest it consumed.
 type operandWriter func(w *wasm.Writer, op wasm.Opcode, rest []any) int
 
+// operand returns rest[0], which must be a T.
+func operand[T any](rest []any) T {
+	v, ok := rest[0].(T)
+	if !ok {
+		panic(fmt.Sprintf("operand is a %T, not a %T", rest[0], v))
+	}
+	return v
+}
+
 func noOperand(w *wasm.Writer, op wasm.Opcode, _ []any) int {
 	w.WriteOpcode(op)
 	return 0
 }
 
 func i32Const(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
-	w.WriteI32Const(rest[0].(int32))
+	w.WriteI32Const(operand[int32](rest))
 	return 1
 }
 
 func i64Const(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
-	w.WriteI64Const(rest[0].(int64))
+	w.WriteI64Const(operand[int64](rest))
 	return 1
 }
 
 func f32Const(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
-	w.WriteF32Const(rest[0].(float32))
+	w.WriteF32Const(operand[float32](rest))
 	return 1
 }
 
 func f64Const(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
-	w.WriteF64Const(rest[0].(float64))
+	w.WriteF64Const(operand[float64](rest))
 	return 1
 }
 
 func localGet(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
-	w.WriteLocalGet(rest[0].(int))
+	w.WriteLocalGet(operand[int](rest))
 	return 1
 }
 
 func localSet(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
-	w.WriteLocalSet(rest[0].(int))
+	w.WriteLocalSet(operand[int](rest))
 	return 1
 }
 
@@ -167,12 +176,12 @@ func loop(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
 }
 
 func br(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
-	w.WriteBr(rest[0].(uint32))
+	w.WriteBr(operand[uint32](rest))
 	return 1
 }
 
 func brIf(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
-	w.WriteBrIf(rest[0].(uint32))
+	w.WriteBrIf(operand[uint32](rest))
 	return 1
 }
 

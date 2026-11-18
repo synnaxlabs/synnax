@@ -25,6 +25,21 @@ cc_library(
 )
 
 cc_library(
+    name = "dc",
+    srcs = ["dc.cpp"],
+    hdrs = ["dc.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        ":master",
+        "//driver/ethercat/dc",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/slave",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_library(
     name = "contract",
     testonly = True,
     hdrs = ["contract.h"],

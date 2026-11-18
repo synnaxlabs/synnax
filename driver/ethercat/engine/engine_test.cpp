@@ -681,6 +681,76 @@ TEST_F(EngineTest, LastWriterToCloseSendsItsStopValuesBeforeTheBusStops) {
     EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
 }
 
+/// @brief it should take each frame in flight when the bus stops, so the last receive
+/// is of the stop values.
+TEST_F(EngineTest, StopTakesEachFrameInFlight) {
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, static_cast<int16_t>(-7)}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    writer.reset();
+    ASSERT_FALSE(this->engine->running());
+    const auto log = this->master->call_log();
+    EXPECT_EQ(std::ranges::count(log, "receive"), std::ranges::count(log, "send"));
+}
+
+/// @brief it should send the stop values only after it takes each frame in flight, as
+/// a master that keeps no frames in flight takes the frames of all its sends at once.
+TEST_F(EngineTest, StopSendsTheStopValuesAfterEachFrameInFlight) {
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, static_cast<int16_t>(-7)}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    writer.reset();
+    ASSERT_FALSE(this->engine->running());
+    std::vector<std::string> cycles;
+    for (const auto &call: this->master->call_log())
+        if (call == "send" || call == "receive") cycles.push_back(call);
+    const auto two_sends = std::ranges::adjacent_find(
+        cycles,
+        [](const auto &a, const auto &b) { return a == "send" && b == "send"; }
+    );
+    EXPECT_EQ(two_sends, cycles.end());
+}
+
+/// @brief it should wait for a frame still in flight when the bus stops, then send the
+/// stop values and take the late frame and the stop frame.
+TEST_F(EngineTest, StopWaitsForAFrameStillInFlight) {
+    this->master->stall();
+    auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, static_cast<int16_t>(-7)}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->wait_until_stalled();
+    // The bus stops during the stalled cycle, so its send is the last before the stop.
+    this->master->hold_frame();
+    this->master->clear_call_log();
+    std::thread stopper([&writer] { writer.reset(); });
+    x::defer::defer join([&] {
+        this->master->resume();
+        if (stopper.joinable()) stopper.join();
+    });
+    ASSERT_EVENTUALLY_FALSE(this->engine->running());
+    this->master->resume();
+    stopper.join();
+    std::vector<std::string> cycles;
+    for (const auto &call: this->master->call_log())
+        if (call == "send" || call == "receive") cycles.push_back(call);
+    ASSERT_GE(cycles.size(), 5);
+    EXPECT_EQ(cycles[0], "receive");
+    EXPECT_EQ(cycles[1], "send");
+    const auto stop = std::find(cycles.begin() + 2, cycles.end(), "send");
+    EXPECT_GT(std::count(cycles.begin() + 2, stop, "receive"), 1);
+    EXPECT_EQ(
+        std::vector(stop, cycles.end()),
+        (std::vector<std::string>{"send", "receive", "receive"})
+    );
+    EXPECT_EQ(this->master->get_output<int16_t>(I16_BYTE), -7);
+}
+
 /// @brief it should keep the stop value a closed writer left on an output until a new
 /// writer commands the output.
 TEST_F(EngineTest, WriterKeepsTheStopValueAnotherWriterLeftUntilItCommands) {
@@ -823,6 +893,45 @@ TEST_F(EngineLockTest, ShortCyclesKeepSampleTimesInOrder) {
     ASSERT_EQ(times.size(), SAMPLES);
     for (size_t i = 1; i < SAMPLES; ++i)
         EXPECT_GT(times.at<int64_t>(i), times.at<int64_t>(i - 1));
+    EXPECT_EQ(reader->warning(), "");
+}
+
+/// @brief it should give a reader every sample, one period apart, when a frame comes
+/// back a cycle late, since the master keeps it in flight.
+TEST_F(EngineLockTest, ReaderTakesALateFrameAsTheSampleOfItsOwnCycle) {
+    constexpr size_t SAMPLES = 9;
+    this->master->set_host_dc(1.0);
+    const auto writer = ASSERT_NIL_P(this->engine->open_writer(
+        {{OUT_I16, 0}},
+        x::telem::Rate(100),
+        this->engine->begin_start(this->cancel)
+    ));
+    this->master->stall();
+    // Destroyed before the writer, which cannot stop a stalled bus.
+    x::defer::defer resume([this] { this->master->resume(); });
+    this->master->wait_until_stalled();
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        SAMPLES,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The stalled cycle took its schedule before the reader joined.
+    this->master->step();
+    // One receive more than the samples, for the receive that finds the frame in
+    // flight.
+    for (size_t r = 0; r <= SAMPLES; ++r) {
+        this->master->wait_until_stalled();
+        if (r == 3) this->master->hold_frame();
+        this->master->step();
+    }
+    const auto times = this->read_times(*reader, SAMPLES);
+    ASSERT_EQ(times.size(), SAMPLES);
+    for (size_t i = 1; i < SAMPLES; ++i)
+        EXPECT_EQ(
+            x::telem::TimeSpan(times.at<int64_t>(i) - times.at<int64_t>(i - 1)),
+            this->period
+        );
     EXPECT_EQ(reader->warning(), "");
 }
 
@@ -3408,6 +3517,99 @@ TEST_F(EngineTest, FullCycleDropsTheSamplesOfASlaveOutOfOP) {
     EXPECT_EQ(reader->warning(), "Slave 1 (Slave1) is not in OP.");
     EXPECT_EQ(this->read_times(*kept, 1).size(), 1);
     EXPECT_EQ(kept->warning(), "");
+}
+
+/// @brief it should drop the samples of a slave below SAFE-OP from the first cycle that
+/// reads its state, before the supervisor sees it.
+TEST_F(EngineTest, FullCycleDropsASlaveBelowSafeOpBeforeTheSupervisorSeesIt) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 2)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The supervisor waits in the recovery of slave 1, so it sees no later change.
+    this->master->hold_recover();
+    x::defer::defer release([this] { this->master->release_recover(); });
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::INIT);
+    this->master->wait_until_recovering();
+    this->master->set_slave_transition_failure(2, slave::State::OP);
+    this->master->set_slave_state(2, slave::State::INIT);
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    EXPECT_EQ(this->engine->health()[2].state, slave::State::OP);
+}
+
+/// @brief it should drop the samples of a slave below SAFE-OP that the supervisor has
+/// not seen on a short cycle that the outage explains, and keep the other readers.
+TEST_F(EngineTest, ShortCycleDropsASlaveBelowSafeOpBeforeTheSupervisorSeesIt) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 2)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The supervisor waits in the recovery of slave 1, so it sees no later change.
+    this->master->hold_recover();
+    x::defer::defer release([this] { this->master->release_recover(); });
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    this->master->wait_until_recovering();
+    this->master->set_shortfall(2);
+    this->master->set_slave_state(2, slave::State::INIT);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_EQ(this->engine->health()[2].state, slave::State::OP);
+}
+
+/// @brief it should drop the samples of a lost slave that the supervisor has not seen
+/// on a short cycle that the outage and the lost slave explain, and keep the other
+/// readers.
+TEST_F(EngineTest, ShortCycleDropsALostSlaveBeforeTheSupervisorSeesIt) {
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    const auto kept = ASSERT_NIL_P(this->engine->open_reader(
+        {IN_I16},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 2)},
+        x::telem::Rate(100),
+        1,
+        this->engine->begin_start(this->cancel)
+    ));
+    // The supervisor waits in the recovery of slave 1, so it sees no later change.
+    this->master->hold_recover();
+    x::defer::defer release([this] { this->master->release_recover(); });
+    this->master->set_slave_transition_failure(1, slave::State::OP);
+    this->master->set_slave_state(1, slave::State::SAFE_OP);
+    this->master->wait_until_recovering();
+    this->master->set_slave_lost(2, true);
+    this->master->set_shortfall(5);
+    const auto short_since = x::telem::TimeStamp::now();
+    ASSERT_EVENTUALLY_EQ(this->read_times(*reader, 1).size(), 0);
+    EXPECT_EQ(reader->warning(), "Slave 2 (Slave2) is not in OP.");
+    ASSERT_EVENTUALLY_TRUE(
+        x::telem::TimeStamp(this->read_times(*kept, 1).at<int64_t>(0)) > short_since
+    );
+    EXPECT_FALSE(this->engine->health()[2].lost);
 }
 
 /// @brief it should keep the samples of a slave in SAFE-OP on a full cycle, since a

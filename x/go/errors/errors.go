@@ -13,6 +13,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -159,11 +160,23 @@ func unwrapJoin(err error) []error {
 	if reflect.TypeOf(err) == stackType {
 		bare = errors.UnwrapOnce(err)
 	}
-	switch reflect.TypeOf(bare) {
-	case joinType, stdlibJoinType:
-		return bare.(multiCause).Unwrap()
+	if members, ok := joinMembers(bare); ok {
+		return members
 	}
 	return []error{err}
+}
+
+// joinMembers returns the members of err if err is a Join or a standard library join.
+func joinMembers(err error) ([]error, bool) {
+	joined, ok := err.(multiCause)
+	if !ok {
+		return nil, false
+	}
+	switch reflect.TypeOf(err) {
+	case joinType, stdlibJoinType:
+		return joined.Unwrap(), true
+	}
+	return nil, false
 }
 
 // multiCause is implemented by errors that carry more than one cause, such as the
@@ -183,6 +196,52 @@ func UnwrapMulti(err error) []error {
 	}
 	return nil
 }
+
+// MessageWithout returns the message of err without the message of ref or the ": "
+// before it. A join drops each member left with no message. A wrapper whose message
+// does not end with the message of its cause keeps its whole message. A nil ref removes
+// nothing. A panic in the Error method of err or a cause shows as text, as it does in
+// the message of a join.
+func MessageWithout(err, ref error) string {
+	if err == nil {
+		return ""
+	}
+	// Identity, not Is: a wrapper of ref keeps its own text.
+	if ref != nil && reflect.TypeOf(ref).Comparable() &&
+		reflect.ValueOf(err).Equal(reflect.ValueOf(ref)) {
+		return ""
+	}
+	if members, ok := joinMembers(err); ok {
+		messages := make([]string, 0, len(members))
+		for _, member := range members {
+			msg := messageOf(member)
+			if CheapIs(member, ref) {
+				msg = MessageWithout(member, ref)
+			}
+			if msg != "" {
+				messages = append(messages, msg)
+			}
+		}
+		return strings.Join(messages, "\n")
+	}
+	msg := messageOf(err)
+	cause := errors.UnwrapOnce(err)
+	if cause == nil {
+		return msg
+	}
+	prefix, ok := strings.CutSuffix(msg, messageOf(cause))
+	if !ok || (prefix != "" && !strings.HasSuffix(prefix, ": ")) {
+		return msg
+	}
+	causeMsg := MessageWithout(cause, ref)
+	if causeMsg == "" {
+		return strings.TrimSuffix(prefix, ": ")
+	}
+	return prefix + causeMsg
+}
+
+// messageOf returns the message of err through the formatter, which recovers a panic.
+func messageOf(err error) string { return joinText{err}.Error() }
 
 // Combine returns:
 //  1. err if otherErr is nil.

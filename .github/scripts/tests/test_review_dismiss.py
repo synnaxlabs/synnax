@@ -99,6 +99,8 @@ class FakeGH:
         """The repository permission of each login. Any other login can read."""
         self.asked: list[str] = []
         """Each login whose permission was read, in order."""
+        self.blobs: dict[str, str] = {}
+        """The blob ID of each `<commit>:<path>`. Any other has none."""
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
         if args[:2] == ("api", "-X"):
@@ -112,6 +114,8 @@ class FakeGH:
                 self.comments.append(answer | {"user": bot})
             return ""
         values = dict(a.split("=", 1) for a in args if "=" in a)
+        if "e" in values:
+            return self.blobs.get(values["e"], "null") + "\n"
         if "addPullRequestReviewThreadReply" in values.get("query", ""):
             self.replies.append((values["t"], values["b"]))
             reply = comment(0, values["b"], kind="Bot")
@@ -257,7 +261,7 @@ class TestDismissed:
 
 
 class TestDismiss:
-    """Tests answering a reply that mentions the bot on a thread of its finding."""
+    """Tests answering a reply on a thread of a finding of the bot."""
 
     def test_should_resolve_the_thread_of_a_dismissed_finding(self, gh: FakeGH) -> None:
         gh.threads = [thread("T1", comment(2, "@sedosaur dismiss, it is meant"))]
@@ -285,22 +289,26 @@ class TestDismiss:
             "conclusion": "success",
             "output": {
                 "title": "Confidence Score: 5/5",
-                "summary": "Someone with write access dismissed every finding of the "
-                "review.\n\n"
+                "summary": "Every finding of the review is dismissed or withdrawn.\n\n"
                 "Fix one thing.\n\nFindings: 1 P2.",
                 "text": gh.runs[0]["output"]["text"],
             },
         }
         assert [t for t, _ in gh.replies] == ["T1", "T2"]
         assert gh.posted() == [
-            "Every finding of the review of the head is dismissed, so the head scores "
-            "5/5."
+            "Every finding of the review of the head is dismissed or withdrawn, so the "
+            "head scores 5/5."
         ]
 
     def test_should_answer_a_reply_whose_run_never_answered(self, gh: FakeGH) -> None:
         gh.threads = [
             thread("T1", comment(2, "@sedosaur dismiss")),
-            thread("T2", comment(3, "@sedosaur why?"), path="b.go", title="Nit"),
+            thread(
+                "T2",
+                comment(3, "@sedosaur why?", login="reader"),
+                path="b.go",
+                title="Nit",
+            ),
         ]
         dismiss(TARGET, gh, comment=3, key=KEY)
         assert gh.resolved == ["T1"]
@@ -398,11 +406,74 @@ class TestDismiss:
         assert gh.asked == ["someone"]
 
     def test_should_answer_another_mention_with_the_usage(self, gh: FakeGH) -> None:
-        gh.threads = [thread("T1", comment(2, "@sedosaur why?"))]
+        gh.threads = [thread("T1", comment(2, "@sedosaur why?", login="reader"))]
         dismiss(TARGET, gh, comment=2, key=KEY)
         [(_, body)] = gh.replies
         assert body.startswith("To dismiss this finding, reply `@sedosaur dismiss`")
         assert gh.resolved == []
+
+    def test_should_answer_a_reply_with_no_mention_with_the_usage(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("T1", comment(2, "Fixed in abc123."))]
+        gh.runs = [check_run([["a.go", "Samples"]])]
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        [(_, body)] = gh.replies
+        assert body.startswith("To dismiss this finding, reply `@sedosaur dismiss`")
+        assert gh.resolved == []
+        assert gh.checks() == []
+
+    def test_should_answer_each_thread_with_the_usage_once(self, gh: FakeGH) -> None:
+        gh.threads = [thread("T1", comment(2, "Fixed in abc123."))]
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        gh.threads[0]["comments"].append(comment(3, "See the test."))
+        dismiss(TARGET, gh, comment=3, key=KEY)
+        assert len(gh.replies) == 1
+
+    def test_should_answer_a_thread_whose_run_never_answered_with_the_usage(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [
+            thread("T1", comment(2, "Fixed in abc123.")),
+            thread("T2", comment(3, "Fixed by abc123."), path="b.go", title="Nit"),
+        ]
+        dismiss(TARGET, gh, comment=3, key=KEY)
+        assert [t for t, _ in gh.replies] == ["T1", "T2"]
+
+    def test_should_leave_a_rebuttal_to_the_judge(self, gh: FakeGH) -> None:
+        gh.threads = [thread("T1", comment(2, "Wrong: `a.go:3` checks it."))]
+        assert dismiss(TARGET, gh, comment=2, key=KEY)
+        assert gh.replies == []
+
+    def test_should_leave_a_rebuttal_after_a_fix_note_to_the_judge(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("T1", comment(2, "Fixed in abc123."))]
+        assert not dismiss(TARGET, gh, comment=2, key=KEY)
+        gh.threads[0]["comments"].append(comment(3, "Also, `a.go:3` checks it."))
+        assert dismiss(TARGET, gh, comment=3, key=KEY)
+        assert len(gh.replies) == 1
+
+    def test_should_leave_an_agent_rebuttal_to_the_judge(self, gh: FakeGH) -> None:
+        body = "*Agent reply.* The type is `never`."
+        gh.threads = [
+            thread("T1", comment(2, body, kind="Bot", login="synnax-claude-code"))
+        ]
+        assert dismiss(TARGET, gh, comment=2, key=KEY)
+        assert gh.replies == []
+        assert gh.asked == []
+
+    def test_should_not_judge_a_dismissed_finding(self, gh: FakeGH) -> None:
+        gh.threads = [thread("T1", comment(2, "It is meant. @sedosaur dismiss"))]
+        assert not dismiss(TARGET, gh, comment=2, key=KEY)
+
+    def test_should_not_answer_a_resolved_thread_with_the_usage(
+        self, gh: FakeGH
+    ) -> None:
+        gh.threads = [thread("T1", comment(2, "Thanks."))]
+        gh.threads[0]["resolved"] = True
+        dismiss(TARGET, gh, comment=2, key=KEY)
+        assert gh.replies == []
 
     def test_should_fail_on_a_comment_of_another_pull_request(self, gh: FakeGH) -> None:
         gh.comments = [issue_comment(9, "@sedosaur dismiss Old", pr=8)]
@@ -458,8 +529,8 @@ class TestDismissComment:
         [check] = gh.checks()
         assert check["output"]["title"] == "Confidence Score: 5/5"
         assert gh.posted()[-1] == (
-            "Every finding of the review of the head is dismissed, so the head scores "
-            "5/5."
+            "Every finding of the review of the head is dismissed or withdrawn, so the "
+            "head scores 5/5."
         )
 
     def test_should_answer_a_comment_whose_run_never_answered(self, gh: FakeGH) -> None:

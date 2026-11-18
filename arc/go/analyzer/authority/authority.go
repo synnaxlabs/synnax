@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
@@ -48,7 +49,7 @@ func Analyze(
 			continue
 		}
 		if seenDeclaration {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.AuthorityPlacement.Atf(
 				authBlock,
 				"authority declaration must appear before function, flow, and sequence declarations",
 			))
@@ -58,7 +59,7 @@ func Analyze(
 		// Simple form: authority 200
 		if lit := authBlock.INTEGER_LITERAL(); lit != nil {
 			if hasDefault {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.AuthorityDefault.Atf(
 					authBlock,
 					"multiple default authority values",
 				))
@@ -88,56 +89,65 @@ func analyzeEntry(
 	seenChannels set.Set[string],
 ) {
 	if id := entry.IDENTIFIER(); id != nil {
-		name := id.GetText()
-		if seenChannels.Contains(name) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				entry,
-				"duplicate authority for '%s'",
-				name,
-			))
-			return
-		}
-		sym, err := ctx.Resolve(name)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				entry,
-				"channel '%s' not found",
-				name,
-			))
-			return
-		}
-		v, ok := parseAuthorityValue(
-			ctx.Diagnostics,
-			entry,
-			entry.INTEGER_LITERAL().GetText(),
-		)
-		if !ok {
-			return
-		}
-		seenChannels.Add(name)
-		if config.Channels == nil {
-			config.Channels = make(map[uint32]uint8)
-		}
-		config.Channels[uint32(sym.ID)] = v
-	} else {
-		if *hasDefault {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				entry,
-				"multiple default authority values",
-			))
-			return
-		}
-		v, ok := parseAuthorityValue(
-			ctx.Diagnostics,
-			entry,
-			entry.INTEGER_LITERAL().GetText(),
-		)
-		if !ok {
-			return
-		}
-		*hasDefault = true
-		config.Default = &v
+		analyzeChannelEntry(ctx, entry, id.GetText(), config, seenChannels)
+		return
 	}
+	if *hasDefault {
+		ctx.Diagnostics.Add(codes.AuthorityDefault.Atf(
+			entry,
+			"multiple default authority values",
+		))
+		return
+	}
+	v, ok := parseAuthorityValue(
+		ctx.Diagnostics,
+		entry,
+		entry.INTEGER_LITERAL().GetText(),
+	)
+	if !ok {
+		return
+	}
+	*hasDefault = true
+	config.Default = &v
+}
+
+func analyzeChannelEntry(
+	ctx acontext.Context[parser.IProgramContext],
+	entry parser.IAuthorityEntryContext,
+	name string,
+	config *ir.Authorities,
+	seenChannels set.Set[string],
+) {
+	if seenChannels.Contains(name) {
+		ctx.Diagnostics.Add(codes.AuthorityDuplicate.Atf(
+			entry,
+			"duplicate authority: '%s'",
+			name,
+		))
+		return
+	}
+	sym, err := ctx.Resolve(name)
+	if err != nil {
+		ctx.Diagnostics.Add(codes.SymbolUndefined.Atf(
+			entry,
+			"channel '%s' not found",
+			name,
+		))
+		return
+	}
+	v, ok := parseAuthorityValue(
+		ctx.Diagnostics,
+		entry,
+		entry.INTEGER_LITERAL().GetText(),
+	)
+	if !ok {
+		return
+	}
+	seenChannels.Add(name)
+	if config.Channels == nil {
+		config.Channels = make(map[uint32]uint8)
+	}
+	config.Channels[uint32(sym.ID)] = v
 }
 
 func parseAuthorityValue(
@@ -147,7 +157,7 @@ func parseAuthorityValue(
 ) (uint8, bool) {
 	v, err := strconv.ParseUint(text, 10, 64)
 	if err != nil || v > 255 {
-		diag.Add(diagnostics.Errorf(
+		diag.Add(codes.AuthorityValue.Atf(
 			node,
 			"authority value must be an integer in range 0-255, got '%s'",
 			text,

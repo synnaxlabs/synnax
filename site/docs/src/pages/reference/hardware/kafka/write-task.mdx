@@ -65,8 +65,7 @@ task = client.tasks.create(
 task.start()
 ```
 
-Pass `rack=cluster.rack`. With no rack, Python picks an embedded rack, which can be the
-rack of the Driver instead of the rack of the Core.
+Pass `rack=cluster.rack`. With no rack, Python picks the embedded rack that runs Kafka.
 
   </Fragment>
   <Fragment slot="typescript">

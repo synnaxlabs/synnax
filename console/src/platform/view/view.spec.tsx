@@ -27,6 +27,7 @@ import { createTabWrapper, type TabWrapper } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
   awaitTextEditing,
+  awaitTextEditingElement,
   commitTextEdit,
   countEditableText,
   createTestClientWithGrants,
@@ -229,6 +230,27 @@ describe("View", () => {
     await waitFor(async () =>
       expect((await client.views.retrieve(saved.key)).name).toBe(renamed),
     );
+  });
+
+  it("renames the copy that was right-clicked when two strips show the view", async () => {
+    const saved = await createView();
+    const { wrapper } = await createTabWrapper({ client, tab: EXPLORER });
+    await renderSuspended(
+      <>
+        <Harness />
+        <Harness />
+      </>,
+      { wrapper },
+    );
+    const copies = await waitFor(() => {
+      const found = screen.getAllByRole("tab", { name: saved.name });
+      expect(found).toHaveLength(2);
+      return found;
+    });
+    fireEvent.contextMenu(copies[1]);
+    fireEvent.click(await screen.findByText("Rename"));
+    const editor = await awaitTextEditingElement();
+    expect(copies[1].contains(editor)).toBe(true);
   });
 
   it("withholds rename from a static view's context menu", async () => {

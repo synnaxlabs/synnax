@@ -39,6 +39,7 @@ var _ = Describe("Migration", func() {
 				}},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(
 				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v3.ReadConfig]{DB: db}),
 			)
@@ -118,11 +119,13 @@ var _ = Describe("Migration", func() {
 			[]payload.EnumEntry{{Label: "HIGH", Value: 2}},
 		))
 		Expect(ep.Fields).To(HaveLen(2))
-		static := ep.Fields[0].Variant.(v4.StaticWriteField)
+		static, ok := ep.Fields[0].Variant.(v4.StaticWriteField)
+		Expect(ok).To(BeTrue())
 		Expect(static.Key).To(Equal("s"))
 		Expect(static.JSONType).To(Equal(payload.JSONTypeBoolean))
 		Expect(static.Value).To(BeTrue())
-		generated := ep.Fields[1].Variant.(v4.GeneratedWriteField)
+		generated, ok := ep.Fields[1].Variant.(v4.GeneratedWriteField)
+		Expect(ok).To(BeTrue())
 		Expect(generated.Pointer).To(Equal("/g"))
 		Expect(generated.Generator).To(Equal(payload.GeneratorTypeTimestamp))
 		Expect(*generated.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
@@ -183,7 +186,8 @@ var _ = Describe("Migration", func() {
 					Value:          "on",
 				},
 			}))
-			static := f.Variant.(v4.StaticWriteField)
+			static, ok := f.Variant.(v4.StaticWriteField)
+			Expect(ok).To(BeTrue())
 			Expect(static.Pointer).To(Equal("/s"))
 			Expect(static.JSONType).To(Equal(payload.JSONTypeString))
 			Expect(static.Value).To(Equal("on"))
@@ -193,7 +197,8 @@ var _ = Describe("Migration", func() {
 			f := MustSucceed(v4.MigrateWriteField(ctx, v3.WriteField{
 				Variant: v3.GeneratedWriteField{Generator: v3.GeneratorTypeUUID},
 			}))
-			generated := f.Variant.(v4.GeneratedWriteField)
+			generated, ok := f.Variant.(v4.GeneratedWriteField)
+			Expect(ok).To(BeTrue())
 			Expect(generated.Generator).To(Equal(payload.GeneratorTypeUUID))
 			Expect(generated.TimeFormat).To(BeNil())
 		})

@@ -26,30 +26,44 @@ done
 NOOP = """#!/usr/bin/env bash
 """
 
-# Stands in for notarytool. A submit or a wait fails while its fails file holds a
-# count above zero, and counts it down.
+# Stands in for notarytool. A submit fails while its fails file holds a count above
+# zero, and counts it down. Each info call takes the next line of the statuses file and
+# keeps the last one. A "fail" line fails the call.
 XCRUN = """#!/usr/bin/env bash
 command=$2
-if [ "$command" = "wait" ]; then
-    echo "wait $3" >> "$LOG"
-else
+if [ "$command" = "submit" ]; then
     echo "$command" >> "$LOG"
+    fails=$(cat "$STATE/submit")
+    if [ "$fails" -gt 0 ]; then
+        echo $((fails - 1)) > "$STATE/submit"
+        echo '{"message":"failed"}'
+        exit 1
+    fi
+    echo '{"id":"abc"}'
+    exit 0
 fi
-fails=$(cat "$STATE/$command" 2>/dev/null || echo 0)
-if [ "$fails" -gt 0 ]; then
-    echo $((fails - 1)) > "$STATE/$command"
-    echo '{"message":"failed"}'
+echo "$command $3" >> "$LOG"
+[ "$command" = "info" ] || exit 0
+status=$(head -n 1 "$STATE/statuses")
+if [ "$(wc -l < "$STATE/statuses")" -gt 1 ]; then
+    tail -n +2 "$STATE/statuses" > "$STATE/rest"
+    mv "$STATE/rest" "$STATE/statuses"
+fi
+if [ "$status" = "fail" ]; then
+    echo '{"message":"HTTP status code: 401"}'
     exit 1
 fi
-if [ "$command" = "submit" ]; then
-    echo '{"id":"abc"}'
-else
-    echo "{\\"id\\":\\"abc\\",\\"status\\":\\"$STATUS\\"}"
-fi
+echo "{\\"id\\":\\"abc\\",\\"status\\":\\"$status\\"}"
 """
 
+# A clock that only the fake sleep moves.
 SLEEP = """#!/usr/bin/env bash
 echo "sleep $1" >> "$LOG"
+echo $(($(cat "$STATE/clock") + $1)) > "$STATE/clock"
+"""
+
+DATE = """#!/usr/bin/env bash
+cat "$STATE/clock"
 """
 
 TOOLS = (
@@ -58,6 +72,7 @@ TOOLS = (
     ("zip", NOOP),
     ("xcrun", XCRUN),
     ("sleep", SLEEP),
+    ("date", DATE),
 )
 
 
@@ -65,8 +80,7 @@ def sign(
     tmp_path: Path,
     *entitlements: str,
     submit_fails: int = 0,
-    wait_fails: int = 0,
-    status: str = "Accepted",
+    statuses: tuple[str, ...] = ("Accepted",),
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -77,7 +91,8 @@ def sign(
     state = tmp_path / "state"
     state.mkdir()
     (state / "submit").write_text(str(submit_fails))
-    (state / "wait").write_text(str(wait_fails))
+    (state / "statuses").write_text("\n".join(statuses) + "\n")
+    (state / "clock").write_text("0")
     log = tmp_path / "log"
     result = subprocess.run(
         [str(SCRIPT), "binary", *entitlements],
@@ -87,7 +102,6 @@ def sign(
             "PATH": f"{bin_dir}:{os.environ['PATH']}",
             "LOG": str(log),
             "STATE": str(state),
-            "STATUS": status,
             "KEYCHAIN_NAME": "build.keychain",
             "KEYCHAIN_PASSWORD": "keychain-password",
             "CERT_ID": "Developer ID Application",
@@ -114,7 +128,7 @@ class TestSignMacosBinary:
             "entitlement allow-jit",
             "entitlement disable-library-validation",
             "submit",
-            "wait abc",
+            "info abc",
         ]
 
     def test_should_send_a_failed_upload_again(self, tmp_path: Path) -> None:
@@ -126,7 +140,7 @@ class TestSignMacosBinary:
             "submit",
             "sleep 10",
             "submit",
-            "wait abc",
+            "info abc",
         ]
 
     def test_should_fail_after_three_uploads(self, tmp_path: Path) -> None:
@@ -135,38 +149,52 @@ class TestSignMacosBinary:
         assert calls == ["submit", "sleep 10", "submit", "sleep 10", "submit"]
         assert "Notarization upload failed after 3 attempts" in result.stderr
 
-    def test_should_poll_the_same_submission_after_a_failed_wait(
+    def test_should_poll_the_same_submission_after_a_failed_poll(
         self, tmp_path: Path
     ) -> None:
-        result, calls = sign(tmp_path, wait_fails=2)
+        result, calls = sign(tmp_path, statuses=("fail", "fail", "Accepted"))
         assert result.returncode == 0
         assert calls == [
             "submit",
-            "wait abc",
-            "sleep 10",
-            "wait abc",
-            "sleep 10",
-            "wait abc",
+            "info abc",
+            "sleep 30",
+            "info abc",
+            "sleep 30",
+            "info abc",
         ]
 
-    def test_should_fail_after_three_waits(self, tmp_path: Path) -> None:
-        result, calls = sign(tmp_path, wait_fails=3)
-        assert result.returncode == 1
-        assert calls == [
-            "submit",
-            "wait abc",
-            "sleep 10",
-            "wait abc",
-            "sleep 10",
-            "wait abc",
-        ]
-        assert "Notarization of submission abc did not pass" in result.stderr
+    def test_should_poll_until_the_submission_is_done(self, tmp_path: Path) -> None:
+        result, calls = sign(
+            tmp_path, statuses=("In Progress", "fail", "In Progress", "Accepted")
+        )
+        assert result.returncode == 0
+        assert calls.count("submit") == 1
+        assert calls.count("info abc") == 4
 
-    def test_should_fail_when_the_status_is_not_accepted(self, tmp_path: Path) -> None:
-        result, calls = sign(tmp_path, status="Invalid")
+    def test_should_fail_when_still_in_progress_after_40_minutes(
+        self, tmp_path: Path
+    ) -> None:
+        result, calls = sign(tmp_path, statuses=("In Progress",))
         assert result.returncode == 1
-        assert calls == ["submit", "wait abc"]
-        assert "Notarization of submission abc did not pass" in result.stderr
+        assert calls.count("submit") == 1
+        assert calls.count("sleep 30") == 80
+        assert calls.count("info abc") == 81
+        assert "log abc" not in calls
+        assert "Submission abc still In Progress after 40 min" in result.stderr
+
+    def test_should_fail_when_no_poll_gets_a_status(self, tmp_path: Path) -> None:
+        result, calls = sign(tmp_path, statuses=("fail",))
+        assert result.returncode == 1
+        assert calls.count("info abc") == 81
+        assert "Got no status for submission abc in 40 min" in result.stderr
+
+    def test_should_print_the_log_when_the_submission_is_invalid(
+        self, tmp_path: Path
+    ) -> None:
+        result, calls = sign(tmp_path, statuses=("In Progress", "Invalid"))
+        assert result.returncode == 1
+        assert calls == ["submit", "info abc", "sleep 30", "info abc", "log abc"]
+        assert "Apple marked submission abc Invalid" in result.stderr
 
     def test_should_require_the_credentials(self, tmp_path: Path) -> None:
         result = subprocess.run(

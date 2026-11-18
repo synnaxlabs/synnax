@@ -62,6 +62,22 @@ var (
 	readerPool = sync.Pool{New: func() any { return NewReader(nil) }}
 )
 
+func getWriter() *Writer {
+	w, ok := writerPool.Get().(*Writer)
+	if !ok {
+		panic("orc writer pool holds a value that is not a *Writer")
+	}
+	return w
+}
+
+func getReader() *Reader {
+	r, ok := readerPool.Get().(*Reader)
+	if !ok {
+		panic("orc reader pool holds a value that is not a *Reader")
+	}
+	return r
+}
+
 // Codec is an Orc implementation of encoding.Codec that requires all values to
 // implement SelfEncoder/SelfDecoder. Decode returns an error wrapping
 // validate.ErrValidation for data without the ORC magic header; compose with
@@ -78,7 +94,7 @@ func (*codec) Decode(data []byte, value any) error {
 	if !ok {
 		return errors.Newf("%T does not implement orc.SelfDecoder", value)
 	}
-	r := readerPool.Get().(*Reader)
+	r := getReader()
 	r.ResetBytes(data[len(magic):])
 	err := m.DecodeOrc(r)
 	readerPool.Put(r)
@@ -98,7 +114,7 @@ func (*codec) Encode(value any) ([]byte, error) {
 	if !ok {
 		return nil, errors.Newf("%T does not implement orc.SelfEncoder", value)
 	}
-	w := writerPool.Get().(*Writer)
+	w := getWriter()
 	w.Reset()
 	w.Write(magic[:])
 	if err := m.EncodeOrc(w); err != nil {

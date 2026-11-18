@@ -17,26 +17,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// createChannel creates a virtual channel leased to the given node.
-func createChannel(
-	ctx context.Context,
-	n testutil.Node,
-	name string,
-	leaseholder node.Key,
-) channel.Channel {
+// createChannel creates a virtual channel leased to node 1.
+func createChannel(ctx context.Context, n testutil.Node, name string) channel.Channel {
 	GinkgoHelper()
 	return MustSucceed(n.CreateChannels(ctx, []channel.Channel{{
 		Name:        name,
 		DataType:    telem.Float64T,
 		Virtual:     true,
-		Leaseholder: leaseholder,
+		Leaseholder: 1,
 	}}))[0]
 }
 
@@ -100,7 +94,7 @@ var _ = Describe("Control", func() {
 			ctx SpecContext,
 		) {
 			host := testutil.NewNode(ctx)
-			ch := createChannel(ctx, host, "gateway", 1)
+			ch := createChannel(ctx, host, "gateway")
 			w := openWriter(ctx, host, "philadelphia", ch.Key())
 			Expect(MustSucceed(host.Control.Retrieve(ctx, ch.Key()))).To(ConsistOf(
 				control.State{
@@ -118,8 +112,8 @@ var _ = Describe("Control", func() {
 
 		It("Should omit channels that no subject controls", func(ctx SpecContext) {
 			host := testutil.NewNode(ctx)
-			held := createChannel(ctx, host, "held", 1)
-			free := createChannel(ctx, host, "unheld", 1)
+			held := createChannel(ctx, host, "held")
+			free := createChannel(ctx, host, "unheld")
 			w := openWriter(ctx, host, "denver", held.Key())
 			DeferClose(w)
 			Expect(holders(MustSucceed(host.Control.Retrieve(
@@ -138,8 +132,8 @@ var _ = Describe("Control", func() {
 			ctx SpecContext,
 		) {
 			host := testutil.NewNode(ctx)
-			first := createChannel(ctx, host, "first", 1)
-			second := createChannel(ctx, host, "second", 1)
+			first := createChannel(ctx, host, "first")
+			second := createChannel(ctx, host, "second")
 			DeferClose(openWriter(ctx, host, "boulder", first.Key()))
 			DeferClose(openWriter(ctx, host, "seattle", second.Key()))
 			Expect(holders(MustSucceed(host.Control.Retrieve(ctx)))).To(Equal(
@@ -153,7 +147,7 @@ var _ = Describe("Control", func() {
 			ctx SpecContext,
 		) {
 			host := testutil.NewNode(ctx)
-			ch := createChannel(ctx, host, "gateway", 1)
+			ch := createChannel(ctx, host, "gateway")
 			updates := collect(host.Control)
 			w := openWriter(ctx, host, "chicago", ch.Key())
 			var acquire control.Update

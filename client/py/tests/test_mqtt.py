@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import uuid4
+
 import pytest
 from pydantic import ValidationError
 
@@ -20,6 +22,7 @@ class TestMQTTReadTask:
 
     def test_parse_plain_entry(self) -> None:
         """Should parse a stored config into a plain entry with its defaults."""
+        icd_key, message_key, field_key = uuid4(), uuid4(), uuid4()
         cfg = sy.mqtt.ReadConfig.model_validate(
             {
                 "device": "broker-1",
@@ -28,8 +31,12 @@ class TestMQTTReadTask:
                         "key": "e-1",
                         "type": "plain",
                         "topic": "plant/line1",
-                        "fields": [
-                            {"key": "f-1", "channel": 12, "pointer": "/temperature"}
+                        "icd": str(icd_key),
+                        "messages": [
+                            {
+                                "message": str(message_key),
+                                "bindings": [{"field": str(field_key), "channel": 12}],
+                            }
                         ],
                     }
                 ],
@@ -40,7 +47,13 @@ class TestMQTTReadTask:
         assert entry.topic == "plant/line1"
         assert entry.qos == "at_most_once"
         assert entry.retained_ignored is False
-        assert entry.fields[0].pointer == "/temperature"
+        assert entry.icd == icd_key
+        message = entry.messages[0]
+        assert message.message == message_key
+        assert message.index is None
+        assert message.bindings[0].field == field_key
+        assert message.bindings[0].channel == 12
+        assert message.bindings[0].data_type == ""
         assert cfg.auto_start is False
         assert cfg.data_saving_disabled is False
 
@@ -86,26 +99,23 @@ class TestMQTTReadTask:
         ):
             sy.mqtt.PlainReadEntry.model_validate({"topic": "a", "qos": "twice"})
 
-    def test_entries_and_fields_get_keys(self) -> None:
-        """Should give each entry and field a unique key."""
+    def test_entries_get_keys(self) -> None:
+        """Should give each entry a unique key."""
         task = sy.mqtt.ReadTask(
             device="broker-1",
             entries=[
-                sy.mqtt.PlainReadEntry(
-                    topic="plant/a",
-                    fields=[
-                        sy.mqtt.ReadField(channel=1, pointer="/a"),
-                        sy.mqtt.ReadField(channel=2, pointer="/b"),
-                    ],
-                ),
-                sy.mqtt.PlainReadEntry(topic="plant/b"),
+                sy.mqtt.PlainReadEntry(topic="plant/a", icd=uuid4()),
+                sy.mqtt.PlainReadEntry(topic="plant/b", icd=uuid4()),
             ],
         )
         entries = task.config.entries
         assert len({e.key for e in entries}) == 2
         assert all(e.key for e in entries)
-        assert isinstance(entries[0], sy.mqtt.PlainReadEntry)
-        assert len({f.key for f in entries[0].fields}) == 2
+
+    def test_reject_plain_entry_without_icd(self) -> None:
+        """Should require the ICD of a plain entry."""
+        with pytest.raises(ValidationError, match="icd"):
+            sy.mqtt.PlainReadEntry.model_validate({"topic": "plant/a"})
 
     def test_payload_type(self) -> None:
         """Should create a task of the MQTT read type."""
@@ -118,6 +128,11 @@ class TestMQTTReadTask:
         self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
         """Should store a read config that the task class parses again."""
+        value = sy.icd.FloatJSONField(name="value", pointer="/v")
+        message = sy.icd.Message(
+            name="Status", payload=sy.icd.JSONPayload(fields=[value])
+        )
+        ic = client.icds.create(name="Line 1", messages=[message])
         task = sy.mqtt.ReadTask(
             device="some-broker",
             data_saving_disabled=True,
@@ -125,7 +140,15 @@ class TestMQTTReadTask:
                 sy.mqtt.PlainReadEntry(
                     topic="plant/line1",
                     qos="at_least_once",
-                    fields=[sy.mqtt.ReadField(channel=1234, pointer="/v")],
+                    icd=ic.key,
+                    messages=[
+                        sy.mqtt.ReadMessage(
+                            message=message.key,
+                            bindings=[
+                                sy.mqtt.ReadBinding(field=value.key, channel=1234)
+                            ],
+                        )
+                    ],
                 )
             ],
         )
@@ -140,9 +163,33 @@ class TestMQTTReadTask:
         entry = parsed.config.entries[0]
         assert isinstance(entry, sy.mqtt.PlainReadEntry)
         assert entry.qos == "at_least_once"
+        assert entry.icd == ic.key
         sent = task.config.entries[0]
         assert isinstance(sent, sy.mqtt.PlainReadEntry)
-        assert entry.fields[0].channel == sent.fields[0].channel
+        assert entry.messages == sent.messages
+
+    def test_reject_read_task_on_a_missing_message(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
+        """Should reject a config that reads a message its ICD lacks."""
+        ic = client.icds.create(name="Line 2")
+        task = sy.mqtt.ReadTask(
+            device="some-broker",
+            entries=[
+                sy.mqtt.PlainReadEntry(
+                    topic="plant/line2",
+                    icd=ic.key,
+                    messages=[sy.mqtt.ReadMessage(message=uuid4())],
+                )
+            ],
+        )
+        task_targets.attach(task.config)
+        with pytest.raises(sy.ValidationError, match="does not exist in ICD Line 2"):
+            client.tasks.create(
+                name="test-mqtt-read-task",
+                type="mqtt_read",
+                config=task.config.model_dump(exclude_none=True),
+            )
 
 
 @pytest.mark.mqtt
@@ -212,7 +259,8 @@ class TestMQTTWriteTask:
 
     def test_payload_type(self) -> None:
         """Should create a task of the MQTT write type."""
-        assert sy.mqtt.WriteTask(device="broker-1").to_payload().type == "mqtt_write"
+        task = sy.mqtt.WriteTask(name="Write", device="broker-1")
+        assert task.to_payload().type == "mqtt_write"
 
     def test_create_and_retrieve_write_task(
         self, client: sy.Synnax, task_targets: TaskTargets
@@ -256,7 +304,9 @@ class TestMQTTEdgeTask:
 
     def test_payload_type(self) -> None:
         """Should create a task of the Sparkplug B edge node type."""
-        task = sy.mqtt.EdgeTask(device="broker-1", group="Plant", edge_node="Line1")
+        task = sy.mqtt.EdgeTask(
+            name="Test Task", device="broker-1", group="Plant", edge_node="Line1"
+        )
         assert task.to_payload().type == "mqtt_sparkplug_edge"
         assert task.config.group == "Plant"
         assert task.config.authority == 0
@@ -303,7 +353,7 @@ class TestMQTTDevice:
 
     def test_device_defaults(self) -> None:
         """Should leave the port and keep alive out so the Core uses its defaults."""
-        dev = sy.mqtt.Device(host="broker.local", name="Broker")
+        dev = sy.mqtt.Device(rack=1, host="broker.local", name="Broker")
         assert dev.make == "mqtt"
         assert dev.model == "MQTT broker"
         assert dev.location == "broker.local"
@@ -324,6 +374,7 @@ class TestMQTTDevice:
     def test_device_custom_config(self) -> None:
         """Should carry the TLS and credential settings in its properties."""
         dev = sy.mqtt.Device(
+            name="Test Device",
             host="broker.local",
             port=8884,
             secure=True,
@@ -345,7 +396,11 @@ class TestMQTTDevice:
     def test_device_sparkplug_config(self) -> None:
         """Should carry the Sparkplug B host ID and groups in its properties."""
         dev = sy.mqtt.Device(
-            host="broker.local", host_id="synnax-primary", groups=["Plant", "Lab"]
+            name="Test Device",
+            rack=1,
+            host="broker.local",
+            host_id="synnax-primary",
+            groups=["Plant", "Lab"],
         )
         assert dev.properties["sparkplug"] == {
             "host_id": "synnax-primary",
@@ -355,7 +410,7 @@ class TestMQTTDevice:
     @pytest.mark.parametrize("port", [1, 65535])
     def test_device_accepts_port_at_bounds(self, port: int) -> None:
         """Should keep a port at either end of the TCP range."""
-        dev = sy.mqtt.Device(host="broker.local", port=port)
+        dev = sy.mqtt.Device(name="Test Device", rack=1, host="broker.local", port=port)
         assert dev.properties["port"] == port
 
     @pytest.mark.parametrize("port", [-1, 0, 65536])
@@ -367,7 +422,9 @@ class TestMQTTDevice:
     @pytest.mark.parametrize("keep_alive", [1, 65535])
     def test_device_accepts_keep_alive_at_bounds(self, keep_alive: int) -> None:
         """Should keep a keep alive at either end of the MQTT range."""
-        dev = sy.mqtt.Device(host="broker.local", keep_alive=keep_alive)
+        dev = sy.mqtt.Device(
+            name="Test Device", rack=1, host="broker.local", keep_alive=keep_alive
+        )
         assert dev.properties["keep_alive"] == keep_alive
 
     @pytest.mark.parametrize("keep_alive", [-1, 0, 65536])
@@ -377,8 +434,8 @@ class TestMQTTDevice:
             sy.mqtt.Device(host="broker.local", keep_alive=keep_alive)
 
     def test_device_auto_key_generation(self) -> None:
-        a = sy.mqtt.Device(host="broker.local")
-        b = sy.mqtt.Device(host="broker.local")
+        a = sy.mqtt.Device(name="Test Device", rack=1, host="broker.local")
+        b = sy.mqtt.Device(name="Test Device", rack=1, host="broker.local")
         assert a.key != b.key
 
 

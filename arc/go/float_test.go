@@ -205,7 +205,8 @@ var _ = Describe("NaN and infinity", func() {
 		Entry("f64", types.F64(), telem.Float64T),
 	)
 
-	DescribeTable("Should resolve module members in a flow",
+	DescribeTable(
+		"Should resolve module members in a flow",
 		func(ctx SpecContext, source, message string) {
 			root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
 				Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.F64()),
@@ -221,7 +222,11 @@ var _ = Describe("NaN and infinity", func() {
 				root,
 			)).Error().To(MatchError(ContainSubstring(message)))
 		},
-		Entry("constant as a sink", "x -> math.nan", "math.nan is not a channel"),
+		Entry(
+			"constant as a sink",
+			"x -> math.nan",
+			"[E5010]: channel expected: math.nan is not a channel",
+		),
 		Entry(
 			"a flow literal by its generated name",
 			"x -> 1.5 -> y\nx -> constant_0 -> y",
@@ -470,7 +475,7 @@ var _ = Describe("NaN and infinity", func() {
 		Entry(
 			"function",
 			"x := math.is_nan(1.0)\nf -> f() -> y",
-			"f is not a channel",
+			"channel expected: f is not a channel",
 			"use f() to instantiate the function",
 		),
 	)
@@ -493,8 +498,9 @@ var _ = Describe("NaN and infinity", func() {
 				h.channelState.ClearReads()
 			}
 			out, _ := h.Flush()
-			var values []float64
-			for _, s := range out.Get(200).Series {
+			series := out.Get(200)
+			values := make([]float64, 0, series.Len())
+			for _, s := range series.Series {
 				values = append(values, s.Unmarshal[float64]()...)
 			}
 			Expect(values).ToNot(BeEmpty())

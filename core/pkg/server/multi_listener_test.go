@@ -55,8 +55,12 @@ var _ = Describe("MultiListener", func() {
 				&server.SecureHTTPBranch{MaxIdleWorkerDuration: 100 * time.Millisecond},
 			},
 		}))
-		Expect(presentedSANs(s.Addresses()[0])).To(ContainElement("hostA"))
-		Expect(presentedSANs(s.Addresses()[1])).To(ContainElement("hostB"))
+		l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
+		anchors := certPool(MustSucceed(l.TrustAnchorsPEM()))
+		Expect(handshake(s.Addresses()[0], anchors, "hostA")).To(Succeed())
+		Expect(handshake(s.Addresses()[1], anchors, "hostB")).To(Succeed())
+		Expect(handshake(s.Addresses()[0], anchors, "hostB")).
+			To(MatchError(ContainSubstring("not hostB")))
 		Expect(s.Close()).To(Succeed())
 	})
 
@@ -89,14 +93,14 @@ var _ = Describe("MultiListener", func() {
 			},
 		}))
 		anchors := certPool(MustSucceed(l.TrustAnchorsPEM()))
-		Expect(handshake(s.Addresses()[0], anchors)).To(Succeed())
-		Expect(handshake(s.Addresses()[1], anchors)).To(Succeed())
+		Expect(handshake(s.Addresses()[0], anchors, "localhost")).To(Succeed())
+		Expect(handshake(s.Addresses()[1], anchors, "localhost")).To(Succeed())
 		// The node certificate anchors only itself, so on its own it cannot verify the
 		// separate certificate the auto source signs for its listener.
 		nodeOnly := certPool(
 			MustSucceed(readFile(fs, cert.DefaultLoaderConfig.AbsoluteNodeCertPath())),
 		)
-		Expect(handshake(s.Addresses()[0], nodeOnly)).
+		Expect(handshake(s.Addresses()[0], nodeOnly, "localhost")).
 			To(MatchError(ContainSubstring("certificate signed by unknown authority")))
 		Expect(s.Close()).To(Succeed())
 	})
@@ -133,18 +137,19 @@ var _ = Describe("MultiListener", func() {
 			},
 		}))
 		anchors := certPool(MustSucceed(l.TrustAnchorsPEM()))
-		Expect(handshake(s.Addresses()[0], anchors)).To(Succeed())
+		Expect(handshake(s.Addresses()[0], anchors, "localhost")).To(Succeed())
 		Expect(s.Close()).To(Succeed())
 	})
 
 	It("Should close earlier listeners when a later listener fails to bind", func() {
-		// The server binds every interface, so the port must be occupied the same way
-		// for the second listener to collide with it.
-		occupied := MustSucceed(net.Listen("tcp", ":0"))
-		defer func() { Expect(occupied.Close()).To(Succeed()) }()
-		occupiedAddr := address.Newf(
-			"localhost:%d", occupied.Addr().(*net.TCPAddr).Port,
-		)
+		// A first server holds the port on every interface, the same way the second
+		// binds it.
+		occupier := MustOpen(server.Serve(server.Config{
+			Debug:     new(false),
+			Security:  server.SecurityConfig{Insecure: new(true)},
+			Listeners: []server.Listener{{Address: "localhost:0"}},
+		}))
+		occupiedAddr := occupier.Addresses()[0]
 		Expect(server.Serve(server.Config{
 			Debug:    new(false),
 			Security: server.SecurityConfig{Insecure: new(true)},
@@ -232,23 +237,13 @@ func certPool(pemBytes []byte) *x509.CertPool {
 	return pool
 }
 
-func handshake(addr address.Address, pool *x509.CertPool) error {
+func handshake(addr address.Address, pool *x509.CertPool, serverName string) error {
 	conn, err := tls.Dial("tcp", addr.String(), &tls.Config{
 		RootCAs:    pool,
-		ServerName: addr.Host(),
+		ServerName: serverName,
 	})
 	if err != nil {
 		return err
 	}
 	return conn.Close()
-}
-
-func presentedSANs(addr address.Address) []string {
-	GinkgoHelper()
-	conn := MustSucceed(tls.Dial(
-		"tcp", addr.String(), &tls.Config{InsecureSkipVerify: true},
-	))
-	defer func() { Expect(conn.Close()).To(Succeed()) }()
-	Expect(conn.Handshake()).To(Succeed())
-	return conn.ConnectionState().PeerCertificates[0].DNSNames
 }

@@ -68,12 +68,13 @@ func wrapText(text string, firstLineWidth, subsequentLineWidth int) []string {
 				width = subsequentLineWidth
 			}
 
-			if currentLine.Len() == 0 {
+			switch {
+			case currentLine.Len() == 0:
 				currentLine.WriteString(word)
-			} else if currentLine.Len()+1+len(word) <= width {
+			case currentLine.Len()+1+len(word) <= width:
 				currentLine.WriteString(" ")
 				currentLine.WriteString(word)
-			} else {
+			default:
 				lines = append(lines, currentLine.String())
 				currentLine.Reset()
 				currentLine.WriteString(word)
@@ -252,11 +253,12 @@ func FormatPyDocstringGoogle(classDoc string, fields []FieldDoc) string {
 			maxLineWidth-len(bodyIndent),
 		)
 		for i, line := range classLines {
-			if i == 0 {
+			switch {
+			case i == 0:
 				lines = append(lines, firstPrefix+line)
-			} else if line == "" {
+			case line == "":
 				lines = append(lines, "")
-			} else {
+			default:
 				lines = append(lines, bodyIndent+line)
 			}
 		}
@@ -279,11 +281,12 @@ func FormatPyDocstringGoogle(classDoc string, fields []FieldDoc) string {
 				maxLineWidth-len(contIndent),
 			)
 			for i, line := range fieldLines {
-				if i == 0 {
+				switch {
+				case i == 0:
 					lines = append(lines, firstPrefix+line)
-				} else if line == "" {
+				case line == "":
 					lines = append(lines, "")
-				} else {
+				default:
 					lines = append(lines, contIndent+line)
 				}
 			}

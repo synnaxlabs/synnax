@@ -11,6 +11,7 @@ package flow
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -29,83 +30,105 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	if _, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST); err == nil {
 		return
 	}
-	// enclosing is the lexical scope the expression appears in.
-	enclosing := ctx.Scope
-	t := types.Function(types.FunctionProperties{})
-
-	// Literals register as KindConstant; format strings with placeholders register
-	// as synthetic functions so placeholder channel reads track on the right symbol.
 	if parser.IsLiteral(ctx.AST) {
-		exprType := atypes.InferFromExpression(ctx).UnwrapChan()
-		t.Outputs = types.Params{{Name: ir.DefaultOutputParam, Type: exprType}}
-		if lit := parser.GetLiteral(ctx.AST); lit != nil {
-			if strTerm := parser.StringTerminal(lit); strTerm != nil {
-				body, flags, ok := literal.StripQuotes(strTerm.GetText())
-				if !ok {
-					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-						"invalid string literal: %s", strTerm.GetText()))
-					return
-				}
-				if flags.Format {
-					segs, err := literal.FmtStrSplit(body, flags)
-					if err != nil {
-						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-						return
-					}
-					if literal.FmtStrHasPlaceholder(segs) {
-						fnScope, err := ctx.Scope.Root().
-							Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
-						if err != nil {
-							ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-							return
-						}
-						fnScope.AutoName("fmt_str_")
-						fnScope.SetLexicalResolver(enclosing)
-						expression.AnalyzeFmtStrLiteral(ctx.WithScope(fnScope), strTerm)
-						return
-					}
-				}
-			}
-		}
-		t.Inputs = append(t.Inputs, types.Param{Name: "value", Type: exprType})
-		scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
-			Kind: symbol.KindConstant,
-			Type: t,
-			AST:  ctx.AST,
-		})
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return
-		}
-		scope.AutoName("constant_")
+		analyzeLiteralExpression(ctx)
 		return
 	}
+	analyzeComputedExpression(ctx)
+}
 
-	// Complex expressions become synthetic functions that need compilation.
-	// The function takes no inputs — its body reads from channel state directly
-	// via host calls, and activation is handled by stratum membership rather
-	// than an input edge.
-	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
-		Kind: symbol.KindFunction,
+// analyzeLiteralExpression registers a literal as a KindConstant. A format string
+// with placeholders registers as a synthetic function instead, so placeholder channel
+// reads track on the right symbol.
+func analyzeLiteralExpression(ctx acontext.Context[parser.IExpressionContext]) {
+	t := types.Function(types.FunctionProperties{})
+	exprType := atypes.InferFromExpression(ctx).UnwrapChan()
+	t.Outputs = types.Params{{Name: ir.DefaultOutputParam, Type: exprType}}
+	if analyzeFmtStrExpression(ctx, t) {
+		return
+	}
+	t.Inputs = append(t.Inputs, types.Param{Name: "value", Type: exprType})
+	scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
+		Kind: symbol.KindConstant,
 		Type: t,
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
+	}
+	scope.AutoName("constant_")
+}
+
+// analyzeFmtStrExpression reports whether it handled the literal: an invalid string,
+// or a format string with placeholders that it registers with type t.
+func analyzeFmtStrExpression(
+	ctx acontext.Context[parser.IExpressionContext],
+	t types.Type,
+) bool {
+	lit := parser.GetLiteral(ctx.AST)
+	if lit == nil {
+		return false
+	}
+	strTerm := parser.StringTerminal(lit)
+	if strTerm == nil {
+		return false
+	}
+	body, flags, ok := literal.StripQuotes(strTerm.GetText())
+	if !ok {
+		ctx.Diagnostics.Add(
+			codes.InvalidStringLiteral.Atf(
+				ctx.AST,
+				"invalid string literal: %s",
+				strTerm.GetText(),
+			),
+		)
+		return true
+	}
+	if !flags.Format {
+		return false
+	}
+	segs, err := literal.FmtStrSplit(body, flags)
+	if err != nil {
+		ctx.Diagnostics.Add(codes.InvalidStringLiteral.Wrap(err, ctx.AST))
+		return true
+	}
+	if !literal.FmtStrHasPlaceholder(segs) {
+		return false
+	}
+	fnScope, err := ctx.Scope.Root().
+		Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
+	if err != nil {
+		panic(err)
+	}
+	fnScope.AutoName("fmt_str_")
+	fnScope.SetLexicalResolver(ctx.Scope)
+	expression.AnalyzeFmtStrLiteral(ctx.WithScope(fnScope), strTerm)
+	return true
+}
+
+// analyzeComputedExpression registers a complex expression as a synthetic function.
+// The function takes no inputs: its body reads channel state through host calls, and
+// stratum membership, not an input edge, activates it.
+func analyzeComputedExpression(ctx acontext.Context[parser.IExpressionContext]) {
+	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{}),
+		AST:  ctx.AST,
+	})
+	if err != nil {
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	// Set on the function scope, not the block: the compiler resolves the
 	// synth expression under fnScope, so the hook must live there too.
-	fnScope.SetLexicalResolver(enclosing)
+	fnScope.SetLexicalResolver(ctx.Scope)
 
 	blockScope, err := fnScope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	// Inferring in the body's scope gives the output and the body one type variable.
 	body := ctx.WithScope(blockScope)
@@ -157,8 +180,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	fnScope = fnScope.AutoName("expression_")
 	fnScope.SetLexicalResolver(enclosing)
@@ -167,8 +189,7 @@ func analyzeWASMCall(
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return
+		panic(err)
 	}
 	blockCtx := ctx.WithScope(blockScope)
 	args := inputArguments(blockCtx, ctx.AST)
@@ -230,20 +251,20 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			Internal: true,
 			AST:      expr,
 		}); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-			return
+			panic(err)
 		}
 		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: t})
 	}
 }
 
-// BindOutput binds the untyped output of the node registered for expr to t, the type
-// of the variable it writes, so its literals take t.
+// BindOutput binds the output of the node registered for expr to t, the type of the
+// variable it writes.
 func BindOutput[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	expr parser.IExpressionContext,
 	t types.Type,
 ) {
+	expression.TakeUnit(ctx, expr, t.Unit)
 	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	if err != nil {
 		return

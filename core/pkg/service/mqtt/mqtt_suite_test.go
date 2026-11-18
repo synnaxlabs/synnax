@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -57,6 +58,7 @@ var (
 	framerSvc  *framer.Service
 	statusSvc  *status.Service
 	taskSvc    *task.Service
+	icdSvc     *icd.Service
 	// host is the key of the Core that the services run on.
 	host node.Key
 )
@@ -112,9 +114,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
+	icdSvc = MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+		DB:   db,
+		ImEx: imex.NewService(),
+	}))
 	mqttSvc := MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{
 		DB:      db,
 		Channel: channelSvc,
+		ICD:     icdSvc,
 	}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
@@ -500,9 +507,10 @@ func (b *testBroker) collected() []received {
 
 // retained returns the payloads of the retained messages that match filter.
 func (b *testBroker) retained(filter string) []string {
-	var out []string
-	for _, pk := range b.server.Topics.Messages(filter) {
-		out = append(out, string(pk.Payload))
+	messages := b.server.Topics.Messages(filter)
+	out := make([]string, len(messages))
+	for i, pk := range messages {
+		out[i] = string(pk.Payload)
 	}
 	return out
 }

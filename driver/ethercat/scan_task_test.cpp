@@ -662,6 +662,32 @@ TEST_F(EtherCATScanStatusTest, KeepsAMovedDeviceWithInvalidProperties) {
     EXPECT_EQ(scanned.at(1).key, "ethercat_eth0_1_2_1");
 }
 
+/// @brief it should give a new device to a slave with no serial number that moved to
+/// another position, as the scan cannot tell it from another unit of its model.
+TEST_F(EtherCATScanStatusTest, GivesANewDeviceToASlaveWithNoSerialThatMoved) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    Devices devices;
+    store(devices, "ethercat_eth0_1_2_4", identity(4, 0x2, 0));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1");
+}
+
+/// @brief it should give a new device to a slave with no serial number at the position
+/// of a saved device on another network.
+TEST_F(EtherCATScanStatusTest, GivesANewDeviceToASlaveWithNoSerialOnAnotherNetwork) {
+    this->master->replace_slave(1, identity(1, 0x2, 0));
+    Devices devices;
+    store(devices, "ethercat_eth1_1_2_1", identity(1, 0x2, 0, "eth1"));
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, "ethercat_eth0_1_2_1");
+}
+
 /// @brief it should give the device of a serial number to one slave when slaves on two
 /// networks have the serial number.
 TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
@@ -1699,7 +1725,9 @@ protected:
 
     /// @brief the key of the device of the slave.
     [[nodiscard]] std::string device_key() const {
-        return "ethercat_1_2_" + std::to_string(this->props.serial);
+        return "ethercat_" + std::to_string(this->props.vendor_id) + "_" +
+               std::to_string(this->props.product_code) + "_" +
+               std::to_string(this->props.serial);
     }
 
     /// @brief stores the device of the slave in the Core with a switch at time, and
@@ -1959,6 +1987,48 @@ TEST_F(EtherCATScanModeTest, ScansWriteTheSwitchTime) {
     );
     EXPECT_GE(at, before);
     EXPECT_LE(at, x::telem::TimeStamp::now());
+}
+
+/// @brief it should leave the switch time of a module out of the device once the
+/// device holds another module, as after the user replaces the module.
+TEST_F(EtherCATScanModeTest, ScansLeaveOutTheSwitchTimeOfAReplacedModule) {
+    this->start(true);
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    auto replacement = this->props;
+    replacement.serial = this->props.serial + 1;
+    this->master->replace_slave(1, replacement);
+    this->master->deactivate();
+    Devices devices;
+    store(devices, this->device_key(), replacement);
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, this->device_key());
+    EXPECT_FALSE(scanned.at(0).properties.contains("switched_at"));
+}
+
+/// @brief it should leave the switch time of a module with no serial number out of the
+/// device once the device holds a module in another slot.
+TEST_F(EtherCATScanModeTest, ScansLeaveOutTheSwitchTimeOfAReplacedModuleWithNoSerial) {
+    this->start(true);
+    this->props.serial = 0;
+    this->props.product_code = std::uniform_int_distribution<uint32_t>(3)(this->rng);
+    this->serve();
+    ASSERT_EQ(this->set_standalone().variant, synnax::status::VARIANT_SUCCESS);
+    auto replacement = this->props;
+    replacement.position = 2;
+    this->master->remove_slave(1);
+    this->master->add_slave(replacement);
+    this->master->deactivate();
+    Devices devices;
+    store(devices, this->device_key(), replacement);
+    const auto scanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned.at(0).key, this->device_key());
+    EXPECT_FALSE(scanned.at(0).properties.contains("switched_at"));
 }
 
 /// @brief it should find no change in a switch time that the Core gives back as a

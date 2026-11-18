@@ -11,7 +11,7 @@ import synnax as sy
 
 from commander import Commander
 from common import Channels, channel_name
-from conftest import Client, core
+from conftest import Client
 from log import Log
 
 RUNNER = "ubuntu-build-bot-i-0f44"
@@ -20,11 +20,11 @@ CHANNEL = channel_name("ec2_cmd", runner=RUNNER)
 
 def commander(client: Client) -> Commander:
     log = Log(
-        client=core(client),
-        channels=Channels(client=core(client), enabled=False),
+        client=client,
+        channels=Channels(client=client, enabled=False),
         channel="log",
     )
-    c = Commander(client=core(client), command="ec2_cmd", name="test", log=log)
+    c = Commander(client=client, command="ec2_cmd", name="test", log=log)
     c.refresh_writer({RUNNER})
     return c
 

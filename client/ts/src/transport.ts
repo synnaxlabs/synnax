@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type Connector,
   type FileTransport,
   HTTPClient,
   type Middleware,
@@ -16,6 +17,20 @@ import {
   WebSocketClient,
 } from "@synnaxlabs/freighter";
 import { binary, type breaker, type url } from "@synnaxlabs/x";
+
+/** Configures a {@link Transport}. */
+export interface TransportConfig {
+  /** The address of the Core. */
+  url: url.URL;
+  /** How the unary client retries a request that fails. Defaults to the breaker's. */
+  retry?: breaker.Config;
+  /** Whether to connect with TLS. Defaults to false. */
+  secure?: boolean;
+  /** Receives each failed attempt that the unary client retries. */
+  onRetry?: (error: Error) => void;
+  /** Opens the connections. Defaults to the global fetch and WebSocket. */
+  connector?: Connector;
+}
 
 export class Transport {
   readonly url: url.URL;
@@ -29,12 +44,13 @@ export class Transport {
   readonly stream: WebSocketClient;
   readonly secure: boolean;
 
-  constructor(
-    url: url.URL,
-    breakerCfg: breaker.Config = {},
-    secure: boolean = false,
-    onRetry?: (error: Error) => void,
-  ) {
+  constructor({
+    url,
+    retry = {},
+    secure = false,
+    onRetry,
+    connector,
+  }: TransportConfig) {
     this.secure = secure;
     this.url = url.child("/api/v1/");
     const codec = new binary.JSONCodec();
@@ -42,11 +58,11 @@ export class Transport {
     // middleware (e.g. auth) registered through unary applies to file too. The file
     // client deliberately skips the breaker's retry wrapper: an upload body may be a
     // one-shot ReadableStream that cannot be re-sent on a retry.
-    const http = new HTTPClient(this.url, codec, this.secure);
-    this.unary = unaryWithBreaker(http, breakerCfg, onRetry);
+    const http = new HTTPClient({ endpoint: this.url, codec, secure, connector });
+    this.unary = unaryWithBreaker(http, retry, onRetry);
     this.unaryNoRetry = http;
     this.file = http;
-    this.stream = new WebSocketClient(this.url, codec, this.secure);
+    this.stream = new WebSocketClient({ endpoint: this.url, codec, secure, connector });
   }
 
   use(...middleware: Middleware[]): void {

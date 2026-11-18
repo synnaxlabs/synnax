@@ -20,28 +20,30 @@ import { getIconButton } from "@/testutil";
 
 const path = deep.path<{ config: { channels: Channel[]; endpoints: Channel[] } }>();
 
-const listItem = Component.renderProp(
-  ({ itemKey, ...p }: Task.ChannelListItemProps) => (
-    <Select.Item itemKey={itemKey} {...p}>
-      item-{itemKey}
-    </Select.Item>
-  ),
+const ListItem = ({ itemKey, ...p }: Task.ChannelListItemProps) => (
+  <Select.Item itemKey={itemKey} {...p}>
+    item-{itemKey}
+  </Select.Item>
 );
 
-const details = Component.renderProp(({ path }: Task.Views.DetailsProps<Channel>) => (
+const listItem = Component.renderProp(ListItem);
+
+const Details = ({ path }: Task.Views.DetailsProps<Channel>) => (
   <span>details-for-{String(path)}</span>
-));
+);
+
+const details = Component.renderProp(Details);
 
 const resolve = () => null;
 
 // Picks channel b, and names the channels it shows as selected.
-const ports = Component.renderProp(
-  ({ selected, onSelect }: Task.Views.PortsProps<Channel>) => (
-    <button type="button" onClick={() => onSelect(["b"])}>
-      ports-{selected.join(",")}
-    </button>
-  ),
+const Ports = ({ selected, onSelect }: Task.Views.PortsProps<Channel>) => (
+  <button type="button" onClick={() => onSelect(["b"])}>
+    ports-{selected.join(",")}
+  </button>
 );
+
+const ports = Component.renderProp(Ports);
 
 const renderListAndDetails = (
   channels: Channel[],
@@ -112,12 +114,13 @@ describe("layouts.ListAndDetails", () => {
   });
 
   it("should hand the channel path to the ports view", async () => {
+    const PathPorts = ({ path }: Task.Views.PortsProps<Channel>) => (
+      <span>ports-at-{String(path)}</span>
+    );
     await renderListAndDetails(
       [{ key: "a", disabled: false }],
       undefined,
-      Component.renderProp(({ path }: Task.Views.PortsProps<Channel>) => (
-        <span>ports-at-{String(path)}</span>
-      )),
+      Component.renderProp(PathPorts),
     );
     fireEvent.click(await screen.findByText("Ports"));
     expect(await screen.findByText("ports-at-config.channels")).toBeTruthy();

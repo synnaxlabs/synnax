@@ -52,11 +52,12 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
 		router := MustSucceed(fhttp.NewRouter(context.Background(), fhttp.RouterConfig{
+			Errors:              errorCodec(),
 			StreamWriteDeadline: testutil.WriteDeadline,
 		}))
 		server = router.NewStreamServer[testutil.Request, testutil.Response]("/")
 		client = MustSucceed(fhttp.NewStreamClient[testutil.Request, testutil.Response](
-			fhttp.StreamClientConfig{Codec: json.Codec},
+			fhttp.StreamClientConfig{Codec: json.Codec, Errors: errorCodec()},
 		))
 		_, addr = serveRouter(router)
 	})
@@ -67,6 +68,14 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		address.Address,
 	) {
 		return server, client, addr
+	})
+
+	Describe("NewStreamClient", func() {
+		It("Should reject a config without an error codec", func() {
+			Expect(fhttp.NewStreamClient[testutil.Request, testutil.Response](
+				fhttp.StreamClientConfig{Codec: json.Codec},
+			)).Error().To(MatchError(ContainSubstring("errors: must be non-nil")))
+		})
 	})
 
 	Describe("Report", func() {
@@ -115,6 +124,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			ctx SpecContext,
 		) {
 			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				Errors:                 errorCodec(),
 				StreamWriteDeadline:    testutil.WriteDeadline,
 				StreamMessageSizeLimit: 64,
 			}))
@@ -148,6 +158,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				const contentType = "application/x-test"
 				codecCtx := make(chan context.Context, 1)
 				router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+					Errors:              errorCodec(),
 					StreamWriteDeadline: testutil.WriteDeadline,
 				}))
 				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -189,6 +200,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		) {
 			type key struct{}
 			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				Errors:              errorCodec(),
 				StreamWriteDeadline: testutil.WriteDeadline,
 			}))
 			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -221,12 +233,100 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		})
 	})
 
+	Describe("Subprotocol token", func() {
+		var (
+			ownAddr address.Address
+			params  chan freighter.Params
+		)
+		BeforeEach(func(ctx SpecContext) {
+			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				Errors:              errorCodec(),
+				StreamWriteDeadline: testutil.WriteDeadline,
+			}))
+			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+				"/",
+			)
+			params = make(chan freighter.Params, 1)
+			ownServer.Use(freighter.MiddlewareFunc(func(
+				ctx freighter.Context,
+				next freighter.Next,
+			) (freighter.Context, error) {
+				params <- ctx.Params
+				return next(ctx)
+			}))
+			ownServer.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
+			) error {
+				_, err := stream.Receive()
+				return err
+			})
+			var ownApp *fiber.App
+			ownApp, ownAddr = serveRouter(router)
+			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
+		})
+
+		dial := func(
+			ctx context.Context,
+			query string,
+			subprotocols ...string,
+		) *http.Response {
+			GinkgoHelper()
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/json")
+			dialer := &ws.Dialer{Subprotocols: subprotocols}
+			conn, res := MustSucceed2(dialer.DialContext(
+				ctx, "ws://"+ownAddr.String()+"/"+query, headers,
+			))
+			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+			Expect(res.Body.Close()).To(Succeed())
+			return res
+		}
+
+		It("Should take the token from the subprotocol and reply with only synnax.v1",
+			func(ctx SpecContext) {
+				res := dial(ctx, "", "synnax.v1", "synnax.token.sys_abc")
+				Expect(res.Header.Get(fiber.HeaderSecWebSocketProtocol)).
+					To(Equal("synnax.v1"))
+				var p freighter.Params
+				Eventually(params).Should(Receive(&p))
+				Expect(p[fiber.HeaderAuthorization]).To(Equal("Bearer sys_abc"))
+				for k := range p {
+					Expect(strings.ToLower(k)).ToNot(Equal("sec-websocket-protocol"))
+				}
+			},
+		)
+
+		It("Should keep the query token when the subprotocol holds no token",
+			func(ctx SpecContext) {
+				query := "?freighterctxAuthorization=Bearer%20sys_q"
+				res := dial(ctx, query, "synnax.v1")
+				Expect(res.Header.Get(fiber.HeaderSecWebSocketProtocol)).
+					To(Equal("synnax.v1"))
+				Eventually(params).Should(Receive(
+					HaveKeyWithValue(fiber.HeaderAuthorization, "Bearer sys_q"),
+				))
+			},
+		)
+
+		It("Should reply with no subprotocol when the client asks for none",
+			func(ctx SpecContext) {
+				res := dial(ctx, "")
+				Expect(res.Header.Get(fiber.HeaderSecWebSocketProtocol)).To(BeEmpty())
+				Eventually(params).Should(Receive(
+					Not(HaveKey(fiber.HeaderAuthorization)),
+				))
+			},
+		)
+	})
+
 	Describe("Shutdown", func() {
 		// Serves its own app: shutting down the shared one would strand later specs.
 		It(
 			"should stop serving a stream whose peer never answers the close message",
 			func(ctx SpecContext) {
 				router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+					Errors:              errorCodec(),
 					StreamWriteDeadline: testutil.WriteDeadline,
 				}))
 				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -265,6 +365,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			func(ctx SpecContext) {
 				life, cancel := context.WithCancel(ctx)
 				router := MustSucceed(fhttp.NewRouter(life, fhttp.RouterConfig{
+					Errors:              errorCodec(),
 					StreamWriteDeadline: testutil.WriteDeadline,
 				}))
 				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](

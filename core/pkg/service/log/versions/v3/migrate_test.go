@@ -142,6 +142,7 @@ var _ = Describe("Migration", func() {
 			},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.Log]{DB: db}))
 		Expect(gorp.NewCreate[uuid.UUID, v2.Log]().Entry(&stored).Exec(ctx, db)).
 			To(Succeed())

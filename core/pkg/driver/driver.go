@@ -179,7 +179,10 @@ var (
 		"ni",
 		"opc",
 	}
-	DefaultConfig = Config{
+)
+
+func defaultConfig() Config {
+	return Config{
 		Integrations:         []string{},
 		BinaryFS:             xfs.Default,
 		Enabled:              new(true),
@@ -194,7 +197,7 @@ var (
 		TaskShutdownTimeout:  time.Second * 30,
 		TaskWorkerCount:      4,
 	}
-)
+}
 
 // Override implements [config.Config.Override].
 func (c Config) Override(other Config) Config {
@@ -240,7 +243,7 @@ func (c Config) Validate() error {
 	if v.Error() != nil {
 		return v.Error()
 	}
-	if !*c.Enabled {
+	if !*c.Enabled || c.FS == nil {
 		return nil
 	}
 	v.NotEmptyString("address", c.Address)
@@ -322,7 +325,7 @@ type Driver struct {
 // subprocess. Otherwise, Open returns a [Driver] whose methods are no-ops. Open also
 // returns a no-op Driver when cfg.Enabled is false.
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
-	cfg, err := config.New(Config{FS: defaultFS}.Override(DefaultConfig), cfgs...)
+	cfg, err := config.New(Config{FS: defaultFS}.Override(defaultConfig()), cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -353,6 +356,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 // only launched when the configuration enables it AND a Driver binary is available via
 // the configured filesystem.
 func (d *Driver) enabled() bool { return *d.cfg.Enabled && d.cfg.FS != nil }
+
+// Bundled returns true when the Core holds a Driver binary, which needs the "driver"
+// build tag.
+func Bundled() bool { return defaultFS != nil }
 
 func (d *Driver) start(ctx context.Context) error {
 	d.cfg.L.Info("starting embedded Driver")
@@ -446,11 +453,13 @@ func (d *Driver) supervise(ctx context.Context, policy *restart.Policy) error {
 			err = errors.Wrap(err, "embedded Driver exceeded restart limit")
 			d.cfg.L.Error("giving up on embedded Driver", zap.Error(err))
 			return err
-		default:
-			// restart.Stop: a launch failure or a Driver that never loaded (an expected
-			// exit was caught above).
+		case restart.Stop:
+			// A launch failure or a Driver that never loaded (an expected exit was
+			// caught above).
 			d.cfg.L.Error("stopped embedded Driver", zap.Error(err))
 			return err
+		default:
+			return errors.Newf("unknown restart action %d", action)
 		}
 	}
 }

@@ -162,6 +162,57 @@ var _ = Describe("Statement Compiler", func() {
 	)
 
 	Describe("Stateful Variables", func() {
+		DescribeTable(
+			"Should convert the first value of a stateful variable to its unit",
+			func(bCtx SpecContext, source string, opcodes ...any) {
+				block := MustSucceed(parser.ParseBlock(source))
+				fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+					Name: "f", Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{}),
+				}))
+				aCtx := acontext.NewRoot(bCtx, block, fn)
+				analyzer.AnalyzeBlock(aCtx)
+				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+				ctx := context.NewRoot(
+					bCtx,
+					aCtx.Scope,
+					aCtx.TypeMap,
+					resolve.NewResolver(),
+				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
+				Expect(diverged).To(BeFalse())
+				Expect(FinalizeContext(ctx)).To(MatchOpcodes(opcodes...))
+			},
+			Entry("an integer in a larger unit",
+				"{\nx i64 s := 5s\nd i64 ms $= x\n}",
+				OpI64Const, int64(5), OpLocalSet, 0,
+				OpI32Const, int32(1),
+				OpLocalGet, 0, OpI64Const, int64(1000), OpI64Mul,
+				OpCall, uint32(0), OpLocalSet, 1,
+			),
+			Entry("an integer in a smaller unit",
+				"{\nx i64 ms := 5000ms\nd i64 s $= x\n}",
+				OpI64Const, int64(5000), OpLocalSet, 0,
+				OpI32Const, int32(1),
+				OpLocalGet, 0, OpI64Const, int64(1000), OpI64DivS,
+				OpCall, uint32(0), OpLocalSet, 1,
+			),
+			Entry("a float",
+				"{\nx f64 kPa := 250.0kPa\nd f64 bar $= x\n}",
+				OpF64Const, float64(250), OpLocalSet, 0,
+				OpI32Const, int32(1),
+				OpLocalGet, 0, OpF64Const, float64(0.01), OpF64Mul,
+				OpCall, uint32(0), OpLocalSet, 1,
+			),
+			Entry("a value in the same unit",
+				"{\nx i64 ms := 5ms\nd i64 ms $= x\n}",
+				OpI64Const, int64(5), OpLocalSet, 0,
+				OpI32Const, int32(1),
+				OpLocalGet, 0,
+				OpCall, uint32(0), OpLocalSet, 1,
+			),
+		)
+
 		It(
 			"Should compile stateful variable declaration with explicit type",
 			func(bCtx SpecContext) {
@@ -1211,9 +1262,11 @@ var _ = Describe("Statement Compiler", func() {
 					}
 					source := "test_ch = " + valueCode
 					bytecode := compileWithChannels(bCtx, source, resolver)
-					expected := []any{OpI32Const, int32(100)}
-					expected = append(expected, expectedValueOps...)
-					expected = append(expected, OpCall, uint32(0))
+					expected := slices.Concat(
+						[]any{OpI32Const, int32(100)},
+						expectedValueOps,
+						[]any{OpCall, uint32(0)},
+					)
 					Expect(bytecode).To(MatchOpcodes(expected...))
 				},
 				Entry("i8", "i8", types.I8(), "42", OpI32Const, int32(42)),

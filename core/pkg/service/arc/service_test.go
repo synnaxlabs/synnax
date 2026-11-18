@@ -444,8 +444,9 @@ var _ = Describe("NewRoot", func() {
 			To(Succeed())
 		root := svc.NewRoot(db, &channel.Lookups{})
 		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
-		Expect(root.Resolve(ctx, "new_root_ch")).Error().
-			To(BeAssignableToTypeOf(&symbol.UndefinedSymbolError{}))
+		_, err := root.Resolve(ctx, "new_root_ch")
+		var undefinedErr *symbol.UndefinedSymbolError
+		Expect(errors.As(err, &undefinedErr)).To(BeTrue(), err)
 	})
 })
 
@@ -492,7 +493,10 @@ var _ = Describe("Build", func() {
 		root *symbol.Symbol,
 		opts ...arclang.Option,
 	) (arclang.Program, error) {
-		src := a.Source.Variant.(arc.TextSource)
+		src, ok := a.Source.Variant.(arc.TextSource)
+		if !ok {
+			return arclang.Program{}, errors.Newf("source is a %T", a.Source.Variant)
+		}
 		return arclang.CompileText(ctx, src.Text.Materialize(), root, opts...)
 	}
 	// openService opens a second Service over the suite's DB that compiles with

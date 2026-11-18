@@ -244,6 +244,7 @@ var _ = Describe("MigrateArc", func() {
 func migrateFromV1(ctx SpecContext, seed v1.Arc) v3.Arc {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v1.Key, v1.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
 	prior := append([]gorp.Migration{v0.Migration}, v1.Migrations...)
@@ -271,6 +272,7 @@ func migrateFromV1(ctx SpecContext, seed v1.Arc) v3.Arc {
 func migrateFromV0(ctx SpecContext, seed v0.Arc) v3.Arc {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v0.Key, v0.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{

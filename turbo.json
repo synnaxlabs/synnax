@@ -38,17 +38,17 @@
     "check-types": { "dependsOn": ["^build"] },
     "dev-vite": {
       "cache": false,
-      "passThroughEnv": ["SYNNAX_PORT", "SYNNAX_CONSOLE_PORT"]
+      "passThroughEnv": ["SYNNAX_TEST_PORT", "SYNNAX_CONSOLE_PORT"]
     },
     "dev": {
       "cache": false,
       "dependsOn": ["^build"],
-      "passThroughEnv": ["SYNNAX_PORT"]
+      "passThroughEnv": ["SYNNAX_TEST_PORT"]
     },
     "dev-desktop": {
       "cache": false,
       "dependsOn": ["^build"],
-      "passThroughEnv": ["SYNNAX_PORT"]
+      "passThroughEnv": ["SYNNAX_TEST_PORT"]
     },
     "build-desktop": { "cache": false, "dependsOn": ["^build"] },
     "watch": { "cache": false },
@@ -56,14 +56,15 @@
     "test": {
       "cache": false,
       "dependsOn": ["^build"],
-      "passThroughEnv": ["SYNNAX_HOST", "SYNNAX_PORT"]
+      "passThroughEnv": ["SYNNAX_TEST_HOST", "SYNNAX_TEST_PORT"]
     },
     "cov": {
       "cache": false,
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
-      "passThroughEnv": ["SYNNAX_HOST", "SYNNAX_PORT"]
+      "passThroughEnv": ["SYNNAX_TEST_HOST", "SYNNAX_TEST_PORT"]
     },
-    "devtools": { "cache": false }
+    "devtools": { "cache": false },
+    "examples": { "cache": false, "dependsOn": ["^build"] }
   }
 }

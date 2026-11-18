@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -94,8 +95,8 @@ func run(cmd *cobra.Command) error {
 		return err
 	}
 
-	sCtx.Go(func(ctx context.Context) error {
-		return BootupCore(ctx, nil, cfg)
+	sCtx.Go(func(stop context.Context) error {
+		return BootupCore(ctx, stop, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	forceCtx, forceCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
@@ -156,16 +157,16 @@ func readLicenseKey() (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to read the --%s file", FlagLicenseFile)
 	}
 	return strings.TrimSpace(string(b)), nil
 }
 
-// GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
-// This is used by the Windows service to start the Core with the config loaded from
-// a YAML file.
+// GetCoreConfigFromViper builds a CoreConfig from the current viper configuration over
+// the defaults. This is used by the Windows service to start the Core with the config
+// loaded from a YAML file.
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
 	listeners, err := listener.Parse()
@@ -188,7 +189,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return CoreConfig{}, errors.Wrapf(err, "invalid --%s", FlagSecretsKey)
 		}
 	}
-	return CoreConfig{
+	return defaultCoreConfig().Override(CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		fips:                new(viper.GetBool(FlagFIPS)),
@@ -216,5 +217,5 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
 		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
-	}, nil
+	}), nil
 }

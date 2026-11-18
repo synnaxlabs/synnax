@@ -41,10 +41,10 @@ func MigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 }
 
 // migrateGraphEdges keys every v0 edge.
-func migrateGraphEdges(_ context.Context, old irv0.Edges) (Edges, error) {
+func migrateGraphEdges(_ context.Context, old irv0.Edges) Edges {
 	return lo.Map(old, func(e irv0.Edge, _ int) Edge {
 		return Edge{Edge: e, Key: uuid.New().String()}
-	}), nil
+	})
 }
 
 // MigrateNode lifts a v0 node into the v1 shape, dropping the config and type
