@@ -804,94 +804,7 @@ func (b *testValueBuilder) valueExpr(
 
 	switch form := actual.Form.(type) {
 	case resolution.StructForm:
-		typeArgSuffix := ""
-		if form.IsGeneric() {
-			var err error
-			if typeArgSuffix, err = b.typeArgSuffix(effectiveTypeArgs); err != nil {
-				return "", err
-			}
-		}
-		if b.tooDeep(actual.QualifiedName) {
-			goType, err := b.goTypeName(actual)
-			if err != nil {
-				return "", err
-			}
-			return goType + typeArgSuffix + "{}", nil
-		}
-		b.depth++
-		defer func() { b.depth-- }()
-		defer b.visit(actual.QualifiedName)()
-		goName := naming.GetGoName(actual)
-		structPath := output.GetPath(actual, "go")
-		prefix := b.pkgPrefix
-		if structPath != "" && structPath != b.parentPath {
-			goType, err := b.goTypeName(actual)
-			if err != nil {
-				return "", err
-			}
-			prefix = strings.TrimSuffix(goType, goName)
-		}
-
-		if form.IsGeneric() && len(effectiveTypeArgs) > 0 {
-			typeArgMap := make(map[string]resolution.TypeRef)
-			for i, tp := range form.TypeParams {
-				if i < len(effectiveTypeArgs) {
-					typeArgMap[tp.Name] = effectiveTypeArgs[i]
-				} else if tp.HasDefault() {
-					typeArgMap[tp.Name] = *tp.Default
-				}
-			}
-			fields := resolution.UnifiedFields(actual, b.table)
-			substituted := make([]resolution.Field, len(fields))
-			for i, f := range fields {
-				substituted[i] = f
-				substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
-			}
-			var fieldExprs []string
-			outer := b.owner
-			for i, f := range substituted {
-				if f.Type.Name == "nil" {
-					continue
-				}
-				if domain.GetStringFromField(f, "go", "marshal") == "omit" {
-					continue
-				}
-				r, ok := f.Type.Resolve(b.table)
-				if !ok {
-					continue
-				}
-				b.fieldIndex++
-				fieldGoName := naming.GetFieldName(f)
-				// A field typed by a type argument was written in the outer
-				// declaration's file, so it keeps the outer pins.
-				b.owner = outer
-				if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
-					b.owner = actual.QualifiedName
-				}
-				var expr string
-				var err error
-				if f.Optional && !typemap.Nilable(f.Type, b.table) {
-					expr, err = b.optionalExpr(r, f.Type)
-				} else {
-					expr, err = b.valueExpr(r, f.Type)
-				}
-				b.owner = outer
-				if err != nil {
-					return "", err
-				}
-				if expr != "" {
-					fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
-				}
-			}
-			return b.formatComposite(prefix+goName+typeArgSuffix, fieldExprs), nil
-		}
-
-		fieldExprs, err := b.buildStructFieldExprs(actual)
-		if err != nil {
-			return "", err
-		}
-		return b.formatComposite(prefix+goName, fieldExprs), nil
-
+		return b.structExpr(actual, form, effectiveTypeArgs)
 	case resolution.BuiltinGenericForm:
 		if form.Name == "Array" && len(effectiveTypeArgs) > 0 {
 			return b.arrayExpr(effectiveTypeArgs[0])
@@ -912,6 +825,114 @@ func (b *testValueBuilder) valueExpr(
 	default:
 		return b.primitiveExpr(resolved)
 	}
+}
+
+// structExpr builds a literal of the struct actual with each field it encodes
+// populated. Beyond the depth cutoff it falls back to an empty literal.
+func (b *testValueBuilder) structExpr(
+	actual resolution.Type,
+	form resolution.StructForm,
+	effectiveTypeArgs []resolution.TypeRef,
+) (string, error) {
+	typeArgSuffix := ""
+	if form.IsGeneric() {
+		var err error
+		if typeArgSuffix, err = b.typeArgSuffix(effectiveTypeArgs); err != nil {
+			return "", err
+		}
+	}
+	if b.tooDeep(actual.QualifiedName) {
+		goType, err := b.goTypeName(actual)
+		if err != nil {
+			return "", err
+		}
+		return goType + typeArgSuffix + "{}", nil
+	}
+	b.depth++
+	defer func() { b.depth-- }()
+	defer b.visit(actual.QualifiedName)()
+	goName := naming.GetGoName(actual)
+	structPath := output.GetPath(actual, "go")
+	prefix := b.pkgPrefix
+	if structPath != "" && structPath != b.parentPath {
+		goType, err := b.goTypeName(actual)
+		if err != nil {
+			return "", err
+		}
+		prefix = strings.TrimSuffix(goType, goName)
+	}
+	if form.IsGeneric() && len(effectiveTypeArgs) > 0 {
+		fieldExprs, err := b.genericFieldExprs(actual, form, effectiveTypeArgs)
+		if err != nil {
+			return "", err
+		}
+		return b.formatComposite(prefix+goName+typeArgSuffix, fieldExprs), nil
+	}
+	fieldExprs, err := b.buildStructFieldExprs(actual)
+	if err != nil {
+		return "", err
+	}
+	return b.formatComposite(prefix+goName, fieldExprs), nil
+}
+
+// genericFieldExprs returns a `Name: value` expression for each field of the generic
+// struct actual that the codec encodes, with its type params substituted.
+func (b *testValueBuilder) genericFieldExprs(
+	actual resolution.Type,
+	form resolution.StructForm,
+	effectiveTypeArgs []resolution.TypeRef,
+) ([]string, error) {
+	typeArgMap := make(map[string]resolution.TypeRef)
+	for i, tp := range form.TypeParams {
+		if i < len(effectiveTypeArgs) {
+			typeArgMap[tp.Name] = effectiveTypeArgs[i]
+		} else if tp.HasDefault() {
+			typeArgMap[tp.Name] = *tp.Default
+		}
+	}
+	fields := resolution.UnifiedFields(actual, b.table)
+	substituted := make([]resolution.Field, len(fields))
+	for i, f := range fields {
+		substituted[i] = f
+		substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
+	}
+	var fieldExprs []string
+	outer := b.owner
+	for i, f := range substituted {
+		if f.Type.Name == "nil" {
+			continue
+		}
+		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
+			continue
+		}
+		r, ok := f.Type.Resolve(b.table)
+		if !ok {
+			continue
+		}
+		b.fieldIndex++
+		fieldGoName := naming.GetFieldName(f)
+		// A field typed by a type argument was written in the outer declaration's file,
+		// so it keeps the outer pins.
+		b.owner = outer
+		if !actual.Synthetic && !usesTypeParam(fields[i].Type) {
+			b.owner = actual.QualifiedName
+		}
+		var expr string
+		var err error
+		if f.Optional && !typemap.Nilable(f.Type, b.table) {
+			expr, err = b.optionalExpr(r, f.Type)
+		} else {
+			expr, err = b.valueExpr(r, f.Type)
+		}
+		b.owner = outer
+		if err != nil {
+			return nil, err
+		}
+		if expr != "" {
+			fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
+		}
+	}
+	return fieldExprs, nil
 }
 
 // unionExpr builds a wrapper literal holding the given variant with its base
@@ -945,27 +966,9 @@ func (b *testValueBuilder) unionExpr(
 
 	inherited, declared := resolver.VariantBases(form, v, "go", b.table)
 
-	var embeds []string
-	for _, ext := range inherited {
-		parent, ok := ext.Resolve(b.table)
-		if !ok {
-			continue
-		}
-		if varName, ok := b.sharedVars[parent.QualifiedName]; ok &&
-			b.mode == modeFullyPopulated {
-			embeds = append(embeds, naming.GetGoName(parent)+": "+varName)
-			continue
-		}
-		parentGoType, err := b.goTypeName(parent)
-		if err != nil {
-			return "", err
-		}
-		parentExprs, err := b.buildStructFieldExprs(parent)
-		if err != nil {
-			return "", err
-		}
-		embeds = append(embeds,
-			naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, parentExprs))
+	embeds, err := b.baseEmbeds(inherited)
+	if err != nil {
+		return "", err
 	}
 	if v.Inline {
 		pform, ok := payload.Form.(resolution.StructForm)
@@ -999,6 +1002,36 @@ func (b *testValueBuilder) unionExpr(
 	), nil
 }
 
+// baseEmbeds returns an embedded field expression for each resolved base of a union
+// variant.
+func (b *testValueBuilder) baseEmbeds(
+	inherited []resolution.TypeRef,
+) ([]string, error) {
+	var embeds []string
+	for _, ext := range inherited {
+		parent, ok := ext.Resolve(b.table)
+		if !ok {
+			continue
+		}
+		if varName, ok := b.sharedVars[parent.QualifiedName]; ok &&
+			b.mode == modeFullyPopulated {
+			embeds = append(embeds, naming.GetGoName(parent)+": "+varName)
+			continue
+		}
+		parentGoType, err := b.goTypeName(parent)
+		if err != nil {
+			return nil, err
+		}
+		parentExprs, err := b.buildStructFieldExprs(parent)
+		if err != nil {
+			return nil, err
+		}
+		embeds = append(embeds,
+			naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, parentExprs))
+	}
+	return embeds, nil
+}
+
 func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 	primName, goTypeCast, err := b.resolveLeafPrim(typ)
 	if err != nil {
@@ -1020,23 +1053,11 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 		}
 	case "int8":
 		base = strconv.Itoa((idx % 126) + 1)
-	case "int16":
-		base = strconv.Itoa(idx + 1)
-	case "int32":
-		base = strconv.Itoa(idx + 1)
-	case "int64":
+	case "int16", "int32", "int64", "uint12", "uint16", "uint20", "uint32", "uint64":
 		base = strconv.Itoa(idx + 1)
 	case "uint8":
 		base = strconv.Itoa((idx % 254) + 1)
-	case "uint12", "uint16":
-		base = strconv.Itoa(idx + 1)
-	case "uint20", "uint32":
-		base = strconv.Itoa(idx + 1)
-	case "uint64":
-		base = strconv.Itoa(idx + 1)
-	case "float32":
-		base = fmt.Sprintf("%d.5", idx)
-	case "float64":
+	case "float32", "float64":
 		base = fmt.Sprintf("%d.5", idx)
 	case "uuid":
 		b.needsUUID = true
@@ -1047,19 +1068,7 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 	case "bytes":
 		base = fmt.Sprintf("[]byte{%d, %d, %d}", idx%256, (idx+1)%256, (idx+2)%256)
 	case "record":
-		// Use msgpack.EncodedJSON literally so the value satisfies fields and
-		// map elements typed as map[string]msgpack.EncodedJSON without an
-		// explicit cast.
-		const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
-		alias, registered := b.imports[importPath]
-		if !registered {
-			b.imports[importPath] = ""
-		}
-		qualifier := alias
-		if qualifier == "" {
-			qualifier = "msgpack"
-		}
-		base = fmt.Sprintf(`%s.EncodedJSON{"key_%d": "value_%d"}`, qualifier, idx, idx)
+		base = b.recordExpr(idx)
 	case "any":
 		// Wrap in any(...) so an optional field pointerizes to *any instead of
 		// *map[string]any.
@@ -1071,6 +1080,21 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 		return goTypeCast + "(" + base + ")", nil
 	}
 	return base, nil
+}
+
+// recordExpr builds a msgpack.EncodedJSON literal, so the value satisfies fields and
+// map elements typed as map[string]msgpack.EncodedJSON without an explicit cast.
+func (b *testValueBuilder) recordExpr(idx int) string {
+	const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
+	alias, registered := b.imports[importPath]
+	if !registered {
+		b.imports[importPath] = ""
+	}
+	qualifier := alias
+	if qualifier == "" {
+		qualifier = "msgpack"
+	}
+	return fmt.Sprintf(`%s.EncodedJSON{"key_%d": "value_%d"}`, qualifier, idx, idx)
 }
 
 func (b *testValueBuilder) zeroPrimitiveExpr(

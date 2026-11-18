@@ -33,6 +33,7 @@ var _ = Describe("Built-in named colors", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groups = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 	})
 	open := func(ctx SpecContext) *color.Service {

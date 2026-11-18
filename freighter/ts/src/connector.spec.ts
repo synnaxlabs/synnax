@@ -9,6 +9,7 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { type IncomingMessage } from "node:http";
 import { createServer, type Server } from "node:https";
 import { type AddressInfo, createServer as createTCPServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -44,6 +45,7 @@ describe("trustCA", () => {
   let server: Server;
   let wss: WebSocketServer;
   let endpoint: url.URL;
+  let upgrade: IncomingMessage | undefined;
 
   beforeAll(async () => {
     dir = mkdtempSync(join(tmpdir(), "freighter-ca-"));
@@ -60,7 +62,8 @@ describe("trustCA", () => {
       },
     );
     wss = new WebSocketServer({ server });
-    wss.on("connection", (ws) => {
+    wss.on("connection", (ws, req) => {
+      upgrade = req;
       ws.send(Buffer.from(JSON.stringify({ type: "open" })));
       ws.send(
         Buffer.from(JSON.stringify({ type: "data", payload: { message: "hi" } })),
@@ -111,9 +114,15 @@ describe("trustCA", () => {
       secure: true,
       connector: trustCA(ca),
     });
+    client.use(async (ctx, next) => {
+      ctx.params.Authorization = "Bearer test-token";
+      return await next(ctx);
+    });
     const stream = await client.stream("/", messageZ, messageZ);
     expect(await stream.receive()).toEqual({ message: "hi" });
     stream.closeSend();
+    expect(upgrade?.headers.authorization).toEqual("Bearer test-token");
+    expect(upgrade?.url).not.toContain("test-token");
   });
 
   it("should reject a request without the CA", async () => {
@@ -161,7 +170,7 @@ describe("trustCA", () => {
 
     it("should tell a Deno user to run Deno with --cert", async () => {
       vi.stubGlobal("Deno", { createHttpClient: () => ({}) });
-      await expect(trustCA(ca).dial("wss://127.0.0.1")).rejects.toThrow("--cert");
+      await expect(trustCA(ca).dial("wss://127.0.0.1", {})).rejects.toThrow("--cert");
     });
 
     it("should throw in a browser", () => {

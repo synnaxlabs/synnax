@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/components/arc/diagnostic";
+export { default as Kinds } from "@/components/arc/Kinds.astro";

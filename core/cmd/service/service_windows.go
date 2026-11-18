@@ -411,19 +411,17 @@ func (s *synnaxService) Execute(
 	}
 	changes <- status
 
-	sCtx, cancel := signal.WithCancel(
-		context.Background(),
-		signal.WithInstrumentation(s.ins),
-	)
+	root := context.Background()
+	sCtx, cancel := signal.WithCancel(root, signal.WithInstrumentation(s.ins))
 	defer cancel()
 
 	onServerStarted := make(chan struct{}, 1)
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(stop context.Context) error {
 		cfg, err := cmdstart.GetCoreConfigFromViper(s.ins)
 		if err != nil {
 			return err
 		}
-		return cmdstart.BootupCore(ctx, onServerStarted, cfg)
+		return cmdstart.BootupCore(root, stop, onServerStarted, cfg)
 	}, signal.CancelOnFail())
 
 	checkpoints := time.NewTicker(startCheckpointInterval)

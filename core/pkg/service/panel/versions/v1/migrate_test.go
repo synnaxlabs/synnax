@@ -35,6 +35,7 @@ var _ = Describe("MigrateView", func() {
 var _ = Describe("Migration", func() {
 	It("Should drop the args of every view tab in the tree", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Panel]{DB: db}))
 		viewKey, resourceKey, nestedKey := uuid.New(), uuid.New(), uuid.New()
 		resource := resource.ID{Type: resource.TypeLineplot, Key: "lp"}

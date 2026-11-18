@@ -41,6 +41,7 @@ func openTargets(ctx SpecContext) (
 ) {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
@@ -90,6 +91,7 @@ var _ = Describe("Tasks", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		arcKey = createArc(ctx)
 		svc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))

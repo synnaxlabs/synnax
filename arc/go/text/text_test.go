@@ -3147,7 +3147,7 @@ var _ = Describe("Text", func() {
 					Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 					Expect(
 						diagnostics.String(),
-					).To(ContainSubstring("constant -5 overflows u8"))
+					).To(ContainSubstring("constant overflow: -5 overflows u8"))
 				},
 			)
 		})
@@ -4529,8 +4529,8 @@ time.wait(duration=500ms) -> output`
 					_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 					Expect(diagnostics.Ok()).To(BeFalse())
 					Expect(diagnostics.String()).To(SatisfyAll(
-						ContainSubstring("missing required argument for parameter 'a'"),
-						ContainSubstring("missing required argument for parameter 'b'"),
+						ContainSubstring("missing required argument: parameter 'a'"),
+						ContainSubstring("missing required argument: parameter 'b'"),
 					))
 				},
 			)
@@ -7861,7 +7861,28 @@ time.wait(duration=500ms) -> output`
 					},
 					"no next stage",
 				),
-				Entry("next outside sequence",
+				Entry(
+					"next as the first node of a flow",
+					`
+					sequence main {
+					    stage first {
+					        next -> output
+					    }
+					    stage second {
+					    }
+					}`,
+					[]symbol.Symbol{
+						{
+							Name: "output",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F32()),
+							ID:   10082,
+						},
+					},
+					"[E5005]: invalid transition target: transition target requires a source",
+				),
+				Entry(
+					"next outside sequence",
 					`input > 10 => next`,
 					[]symbol.Symbol{
 						{
@@ -7871,7 +7892,27 @@ time.wait(duration=500ms) -> output`
 							ID:   10081,
 						},
 					},
-					"outside of a sequence",
+					"[E5005]: invalid transition target: 'next' used outside of a sequence",
+				),
+				Entry(
+					"a func that reads a top-level series",
+					"data := [1.0, 2.0]\nfunc f() f64 {\n    return data[0]\n}",
+					[]symbol.Symbol{},
+					"1:0 error [E2006]: not a constant: variable 'data' of type series f64 cannot have "+
+						"a computed initializer",
+				),
+				Entry(
+					"a func with no output before a channel",
+					"func sink() {v f32} {\n}\ninput -> sink() -> input",
+					[]symbol.Symbol{
+						{
+							Name: "input",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F32()),
+							ID:   10081,
+						},
+					},
+					"[E5004]: invalid flow connection: function 'sink' has no output to connect in flow chain",
 				),
 				Entry("next inside inline routing stage body",
 					`
@@ -9279,7 +9320,7 @@ time.wait(duration=500ms) -> output`
 		)
 
 		It(
-			"Should reject a function body reading a variable whose initializer did not fold",
+			"Should reject a function body reading a variable whose initializer is not a constant",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -9300,14 +9341,14 @@ time.wait(duration=500ms) -> output`
 			func rd() {n u8} i64 { return k }
 			trig -> rd() -> out`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				ir, diagnostics := text.Analyze(
+				_, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, resolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				Expect(text.Compile(ctx, ir)).Error().To(MatchError(
-					ContainSubstring("not a compile-time constant"),
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"3:33 error [E2006]: not a constant: cannot read 'k': its initializer is not a " +
+						"compile-time constant",
 				))
 			},
 		)

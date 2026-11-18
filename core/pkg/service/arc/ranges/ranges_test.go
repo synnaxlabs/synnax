@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
@@ -556,6 +557,7 @@ var _ = Describe("Analyzer hooks", func() {
 		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		for _, e := range diags.Errors() {
 			if matchesColor(e.Message) {
+				Expect(e.Code).To(Equal(codes.FuncArgValue.Code))
 				return true
 			}
 		}

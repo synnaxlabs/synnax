@@ -60,6 +60,7 @@ var _ = Describe("NewMove", func() {
 	create := func(ctx context.Context, usernames ...string) {
 		GinkgoHelper()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.WrapWriter[userv0.Key, userv0.User](db).Set(ctx, alice)).
 			To(Succeed())
 		creds := make([]authv1.SecureCredentials, len(usernames))
@@ -105,6 +106,7 @@ var _ = Describe("NewMove", func() {
 	})
 	It("Should succeed when nothing is stored", func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(run(ctx)).To(Succeed())
 		Expect(passwords(ctx)).To(BeEmpty())
 	})
