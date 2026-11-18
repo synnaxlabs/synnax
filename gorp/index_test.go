@@ -10,6 +10,7 @@
 package gorp_test
 
 import (
+	"bytes"
 	"context"
 	"math"
 	"sync"
@@ -948,6 +949,18 @@ var _ = Describe("Index", func() {
 					Limit(5).
 					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
 				Expect(scoresOf(res)).To(Equal([]int64{0, 10, 20, 30, 40}))
+			})
+
+			It("Should apply a raw filter to an ordered walk", func(ctx SpecContext) {
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+					WhereRaw(func(key, _ []byte) (bool, error) {
+						return !bytes.HasSuffix(key, []byte{0, 0, 0, 1}), nil
+					}).
+					Limit(3).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				Expect(scoresOf(res)).To(Equal([]int64{0, 20, 30}))
 			})
 
 			It("Should walk descending order with a limit", func(ctx SpecContext) {

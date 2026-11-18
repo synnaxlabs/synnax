@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Download dependencies
-ARG GO_VERSION
+# CI builds with the version in go.mod.
+ARG GO_VERSION=1.27.4
 FROM golang:${GO_VERSION} AS deps
 WORKDIR /workspace
 

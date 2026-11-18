@@ -29,9 +29,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const daysLeft = (expiresAt: Date, now: Date): number =>
   Math.ceil((expiresAt.getTime() - now.getTime()) / DAY_MS);
 
-const sentDays = (notices: Event[]): Set<number> =>
+/**
+ * sentDays returns the windows already warned for `expiresAt`. A warning sent before
+ * its window opened was for an earlier expiry.
+ */
+const sentDays = (notices: Event[], expiresAt: Date): Set<number> =>
   new Set(
-    notices.map((e) => (e.detail as { days?: number }).days).filter((d) => d != null),
+    notices.flatMap((e) => {
+      const { days } = e.detail as { days?: number };
+      return days != null && daysLeft(expiresAt, e.at) <= days ? [days] : [];
+    }),
   );
 
 /**
@@ -44,7 +51,7 @@ export const dueNotice = (lic: License, notices: Event[], now: Date): number | n
   const left = daysLeft(lic.expiresAt, now);
   if (left <= 0) return null;
   const due = [...NOTICE_DAYS].reverse().find((d) => left <= d);
-  if (due == null || sentDays(notices).has(due)) return null;
+  if (due == null || sentDays(notices, lic.expiresAt).has(due)) return null;
   return due;
 };
 

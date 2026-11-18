@@ -20,6 +20,7 @@ from typing import Any, Protocol
 import boto3
 import numpy as np
 import synnax as sy
+from freighter.websocket import ConnectionClosedError
 
 HEARTBEAT_INTERVAL = 5 * sy.TimeSpan.SECOND
 # How long stop() waits for the final false to land.
@@ -110,11 +111,13 @@ class ReadsLatest(Protocol):
 
 
 def close_quietly(resource: Closeable | None) -> None:
+    """Closes a resource whose failure was already reported. Raises any error other
+    than the Core or transport error that the close re-raises."""
     if resource is None:
         return
     try:
         resource.close()
-    except Exception:
+    except (sy.Error, ConnectionClosedError):
         pass
 
 

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/cockroachdb/cmux"
 	"github.com/samber/lo"
@@ -163,7 +164,7 @@ func (s *Server) start() (err error) {
 	s.listeners = make([]net.Listener, 0, len(s.Listeners))
 	s.addresses = make([]address.Address, 0, len(s.Listeners))
 	for _, l := range s.Listeners {
-		lis, err := net.Listen("tcp", l.bindAddress())
+		bound, err := net.Listen("tcp", l.bindAddress())
 		if err != nil {
 			// Closing the opened listeners unblocks their serve goroutines; cancel then
 			// tears down the signal context so a partial bind leaves nothing running.
@@ -171,6 +172,7 @@ func (s *Server) start() (err error) {
 			cancel()
 			return err
 		}
+		lis := &sharedListener{Listener: bound}
 		s.listeners = append(s.listeners, lis)
 		tcpAddr, ok := lis.Addr().(*net.TCPAddr)
 		if !ok {
@@ -209,13 +211,27 @@ func (s *Server) Close() error {
 	return errors.Combine(s.closeListeners(), s.shutdown.Close())
 }
 
-// closeListeners closes every bound listener. A Branch that shut down already closed
-// its own listener, so an already-closed listener is not an error.
+// closeListeners closes every bound listener.
 func (s *Server) closeListeners() (err error) {
 	for _, l := range s.listeners {
-		err = errors.Combine(err, filterCloserError(l.Close()))
+		err = errors.Combine(err, l.Close())
 	}
 	return err
+}
+
+// sharedListener is a bound listener that the Server and each of its Branches close,
+// because closing a cmux listener closes the listener at its root. Only the first Close
+// closes it, and every Close returns the result of that first one.
+type sharedListener struct {
+	net.Listener
+	once sync.Once
+	err  error
+}
+
+// Close implements net.Listener.
+func (l *sharedListener) Close() error {
+	l.once.Do(func() { l.err = l.Listener.Close() })
+	return l.err
 }
 
 func (s *Server) serveSecure(sCtx signal.Context, l Listener, root cmux.CMux) error {

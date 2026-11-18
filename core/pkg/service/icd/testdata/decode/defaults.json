@@ -191,7 +191,7 @@
       "document": {
         "temp": 1
       },
-      "error": "message reading: field id: no value at /id: validation error"
+      "error": "field id: no value at /id: validation error"
     }
   ]
 }

@@ -1526,18 +1526,6 @@ func (u *JSONMatch) SetBase(base JSONBaseMatch) {
 	}
 }
 
-// PayloadType is the "format" value that selects a variant of Payload.
-type PayloadType string
-
-const (
-	// BinaryPayloadType is a payload of raw bytes.
-	BinaryPayloadType PayloadType = "binary"
-	// TextPayloadType is a payload of one text line.
-	TextPayloadType PayloadType = "text"
-	// JSONPayloadType is a payload of one JSON document.
-	JSONPayloadType PayloadType = "json"
-)
-
 // PayloadVariant is implemented by every Payload variant.
 type PayloadVariant interface {
 	isPayloadVariant()
@@ -1634,19 +1622,19 @@ func (u Payload) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return enc.WriteToken(jsontext.Null)
 	case BinaryPayload:
 		return json.MarshalEncode(enc, struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			BinaryPayload
-		}{Type: BinaryPayloadType, BinaryPayload: v})
+		}{Type: payload.FormatBinary, BinaryPayload: v})
 	case TextPayload:
 		return json.MarshalEncode(enc, struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			TextPayload
-		}{Type: TextPayloadType, TextPayload: v})
+		}{Type: payload.FormatText, TextPayload: v})
 	case JSONPayload:
 		return json.MarshalEncode(enc, struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			JSONPayload
-		}{Type: JSONPayloadType, JSONPayload: v})
+		}{Type: payload.FormatJSON, JSONPayload: v})
 	default:
 		return errors.Newf("Payload: unknown variant %T", v)
 	}
@@ -1664,7 +1652,7 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	opts := dec.Options()
 	var disc struct {
-		Type PayloadType `json:"format"`
+		Type payload.Format `json:"format"`
 	}
 	if err := json.Unmarshal(
 		data, &disc, opts, json.RejectUnknownMembers(false),
@@ -1672,18 +1660,18 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case BinaryPayloadType:
+	case payload.FormatBinary:
 		var v struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			BinaryPayload
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v.BinaryPayload
-	case TextPayloadType:
+	case payload.FormatText:
 		var v struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			TextPayload
 		}
 		v.TextPayload.SetDefaults()
@@ -1691,9 +1679,9 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.TextPayload
-	case JSONPayloadType:
+	case payload.FormatJSON:
 		var v struct {
-			Type PayloadType `json:"format"`
+			Type payload.Format `json:"format"`
 			JSONPayload
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
@@ -1712,14 +1700,14 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 // Format returns the format of the active variant, or an empty format when there is
 // none.
-func (u Payload) Format() PayloadType {
+func (u Payload) Format() payload.Format {
 	switch u.Variant.(type) {
 	case BinaryPayload:
-		return BinaryPayloadType
+		return payload.FormatBinary
 	case TextPayload:
-		return TextPayloadType
+		return payload.FormatText
 	case JSONPayload:
-		return JSONPayloadType
+		return payload.FormatJSON
 	}
 	return ""
 }
