@@ -250,7 +250,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
             ),
           )}
           onChange={(c) =>
-            selection.set("textColor", c == null ? undefined : MultiEdit.fixedValue(c))
+            selection.set("textColor", c == null ? undefined : MultiEdit.fixedColor(c))
           }
           palettesHidden
         />
@@ -260,14 +260,14 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
             selection.colors("fillColor", Table.Cell.colorFallbacks.fillColor),
           )}
           onChange={(c) =>
-            selection.set("fillColor", c == null ? undefined : MultiEdit.fixedValue(c))
+            selection.set("fillColor", c == null ? undefined : MultiEdit.fixedColor(c))
           }
           palettesHidden
         />
         <MultiEdit.SelectionColors
           refs={selectionRefs}
           onChange={(holders, c) =>
-            selection.setColors(holders, MultiEdit.fixedValue(c))
+            selection.setColors(holders, MultiEdit.fixedColor(c))
           }
           palettesHidden
         />
@@ -292,7 +292,7 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
           onColorChange={(c) =>
             selection.set(
               "stalenessColor",
-              c == null ? undefined : MultiEdit.fixedValue(c),
+              c == null ? undefined : MultiEdit.fixedColor(c),
             )
           }
           palettesHidden

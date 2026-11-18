@@ -508,7 +508,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
               onChange={(c) =>
                 selection.set(
                   "strokeColor",
-                  c == null ? undefined : MultiEdit.fixedValue(c),
+                  c == null ? undefined : MultiEdit.fixedColor(c),
                 )
               }
               palettesHidden
@@ -525,7 +525,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
               onChange={(c) =>
                 selection.set(
                   "fillColor",
-                  c == null ? undefined : MultiEdit.fixedValue(c),
+                  c == null ? undefined : MultiEdit.fixedColor(c),
                 )
               }
               palettesHidden
@@ -542,7 +542,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
               onChange={(c) =>
                 selection.set(
                   "textColor",
-                  c == null ? undefined : MultiEdit.fixedValue(c),
+                  c == null ? undefined : MultiEdit.fixedColor(c),
                 )
               }
               palettesHidden
@@ -551,7 +551,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           <MultiEdit.SelectionColors
             refs={selectionRefs}
             onChange={(holders, c) =>
-              selection.setColors(holders, MultiEdit.fixedValue(c))
+              selection.setColors(holders, MultiEdit.fixedColor(c))
             }
             palettesHidden
           />
@@ -622,7 +622,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
           onColorChange={(c) =>
             selection.set(
               "stalenessColor",
-              c == null ? undefined : MultiEdit.fixedValue(c),
+              c == null ? undefined : MultiEdit.fixedColor(c),
             )
           }
           onTimeoutChange={(v) => selection.set("stalenessTimeout", v)}

@@ -34,7 +34,7 @@ export const fixedValues = (values: Array<ColorValue<xcolor.Color>>): ColorValue
  * @throws if the reference is named, which a control that hides the palettes never
  * sends.
  */
-export const fixedValue = (ref: color.Ref): xcolor.Color => {
+export const fixedColor = (ref: color.Ref): xcolor.Color => {
   if (ref.type === "named")
     throw new Error(`[multiedit] - named color ${ref.key} in a fixed color field`);
   return ref.value;
