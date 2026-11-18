@@ -87,9 +87,8 @@ type browsedTopic struct {
 	Format driver.Format `json:"format"`
 	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
 	Fields []browsedField `json:"fields"`
-	// Index is the pointer of the field in Fields that indexes the messages heard.
-	// Empty
-	// when no field can.
+	// Index is the pointer of the field in Fields that indexes the messages heard. It
+	// is empty when no field can.
 	Index    string `json:"index"`
 	Retained bool   `json:"retained"`
 }
