@@ -494,6 +494,15 @@ describe("Kafka read form", () => {
       );
     });
 
+    it("should name the match of a message that takes every value Any value", async () => {
+      const rec = await createRecord({ fields: [createField("temperature", "float")] });
+      await addMessage(rec, "status", [createField("mode", "string")]);
+      await renderRead({ records: [rec] });
+      fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
+      expect(await screen.findByText("Any value")).toBeTruthy();
+      expect(screen.queryByText("Any document")).toBeNull();
+    });
+
     it("should stop reading a message of a record, keeping it in the ICD", async () => {
       const rec = await createRecord({ fields: [createField("temperature", "float")] });
       const status = await addMessage(

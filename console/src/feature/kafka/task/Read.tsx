@@ -244,6 +244,7 @@ const MessageDetails = ({
       {...props}
       format={format}
       matchTitle="Values"
+      anyLabel="Any value"
       onAddField={onAddField}
     />
   );

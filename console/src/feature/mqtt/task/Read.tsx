@@ -480,6 +480,7 @@ const MessageDetails = ({
       {...props}
       format={format}
       matchTitle="Documents"
+      anyLabel="Any document"
       onAddField={onAddField}
     />
   );
