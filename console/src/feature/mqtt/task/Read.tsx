@@ -1184,7 +1184,9 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
             inputProps={TOPIC_INPUT_PROPS}
           />
-          {reads === 1 && <MessageFormatField path={path} onChange={onFormatChange} />}
+          {reads.length === 1 && (
+            <MessageFormatField path={path} onChange={onFormatChange} />
+          )}
           <QoSField path={path.qos} />
           <PForm.CheckboxField
             path={path.retainedIgnored}
@@ -1529,8 +1531,7 @@ const Entries: FC<EntriesProps> = ({
     const readable = jsonFields(message).filter(isReadable);
     const mixed = new Set(variableAmongFixed(readable));
     const bindings = bindingsOf(
-      stored,
-      storedKey(entry.topic, 0, message.key),
+      topicChannels(stored, entry.topic, message.key),
       readable.filter((f) => !mixed.has(f)),
       writtenChannels(others),
     );
