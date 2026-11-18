@@ -36,6 +36,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+// Reads what the Core holds, without the edits that the cache of client shows at once.
+const core = createTestClient();
 
 const createEnumeration = async (
   entries: enumeration.Entry[] = [
@@ -71,7 +73,7 @@ const findEntry = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("option", { name });
 
 const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
-  (await client.enumerations.retrieve(key)).entries;
+  (await core.enumerations.retrieve(key)).entries;
 
 const storedNames = async (key: enumeration.Key): Promise<string[]> =>
   (await stored(key)).map((e) => e.name);
