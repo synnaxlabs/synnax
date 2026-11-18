@@ -9,6 +9,7 @@
 
 import { color, type group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color as xcolor, id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -98,6 +99,23 @@ describe("queries", () => {
         ).toBe(true);
         expect(result.current.series).toEqual(series.map((c) => c.key));
       });
+    });
+  });
+
+  describe("useSeriesValues", () => {
+    it("should resolve the series colors for the theme, in palette order", async () => {
+      const series = (
+        await remote.colors.retrieve({ groups: [color.SERIES_PALETTE] })
+      ).sort(color.compare);
+      const { result } = renderHook(
+        () => ({ values: Color.useSeriesValues(), theme: Theming.use() }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.values).toEqual(
+          series.map((c) => Theming.resolve(c, result.current.theme)),
+        ),
+      );
     });
   });
 

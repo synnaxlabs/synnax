@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { control, type Synnax } from "@synnaxlabs/client";
-import { color, type destructor, observe } from "@synnaxlabs/x";
+import { color, deep, type destructor, observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { series } from "@/color/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 
@@ -37,8 +38,8 @@ export interface ColoredState extends control.State {
 
 /**
  * Colors assigns each control subject a color, so that a reader can tell subjects
- * apart at a glance. Assignment is sequential over the visualization palette, which
- * keeps colors unique for as many subjects as the palette holds.
+ * apart at a glance. Assignment is sequential over the series colors, which keeps
+ * colors unique for as many subjects as there are series colors.
  */
 export class Colors extends aether.Composite<typeof colorsStateZ, InternalState> {
   static readonly TYPE = "Colors";
@@ -65,11 +66,19 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const theme = theming.use(ctx);
-    i.palette = theme.colors.visualization.palettes.default;
+    const palette = series.use(ctx);
+    const recolored = !deep.equal(palette, i.palette);
+    i.palette = palette;
     i.defaultColor = theme.colors.gray.l9;
     ctx.set(CONTEXT_KEY, this);
     const nextClient = synnax.use(ctx);
-    if (i.client != null && nextClient === i.client) return;
+    if (i.client != null && nextClient === i.client) {
+      if (recolored) {
+        this.assigned.clear();
+        this.assign(i.client.control.store.get());
+      }
+      return;
+    }
     i.client = nextClient;
     this.disconnect?.();
     this.assigned.clear();
@@ -125,7 +134,9 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
     const { palette } = this.internal;
     subjects.forEach((key) => {
       if (this.assigned.has(key)) return;
-      const next = palette.find((c) => !taken.includes(c)) ?? palette[0];
+      const next =
+        palette.find((c) => !taken.some((t) => color.equals(t, c))) ?? palette.at(0);
+      if (next == null) return;
       this.assigned.set(key, next);
       taken.push(next);
     });

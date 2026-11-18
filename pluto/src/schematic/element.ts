@@ -33,7 +33,9 @@ export const colorFallback = (
   key: Node.ColorKey,
   variant: schematic.ElementConfigType,
   theme: theme.Theme,
+  series: color.Color[],
 ): color.Color =>
   (ELEMENT_REGISTRY[variant].colorFallbacks?.[key] ?? DEFAULT_COLOR_FALLBACKS[key])(
     theme,
+    series,
   );

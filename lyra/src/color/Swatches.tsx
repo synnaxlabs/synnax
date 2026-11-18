@@ -14,7 +14,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { BaseSwatch } from "@/color/BaseSwatch";
-import { useFrequent } from "@/color/Provider";
+import { useFrequent, usePresets } from "@/color/Provider";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
@@ -36,8 +36,8 @@ export interface SwatchesProps extends Input.Control<
 }
 
 /**
- * One-click swatches for the theme colors and the visualization palette, then the
- * user's frequent colors from the nearest {@link Provider}.
+ * One-click swatches for the theme colors and the presets of the nearest
+ * {@link Provider}, then the user's frequent colors from it.
  */
 export const Swatches = ({
   value,
@@ -52,7 +52,7 @@ export const Swatches = ({
     colors.secondary.z,
     colors.warning.z,
     colors.error.z,
-    ...colors.visualization.palettes.default,
+    ...usePresets(),
   ];
   return (
     <Flex.Box y gap="medium" className={CSS.B("color-swatches")}>

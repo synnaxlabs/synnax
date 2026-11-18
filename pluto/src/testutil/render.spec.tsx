@@ -21,6 +21,7 @@ const CONSUMER_PATH = [
   "status",
   "synnax",
   "theming",
+  "series",
   "telem",
   "staleness",
   "consumer",

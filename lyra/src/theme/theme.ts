@@ -101,9 +101,6 @@ export const themeZ = z
       error: scaleZ,
       secondary: scaleZ,
       warning: scaleZ,
-      visualization: z
-        .object({ palettes: z.record(z.string(), z.array(color.colorZ)) })
-        .default({ palettes: {} }),
       white: color.colorZ,
       black: color.colorZ,
       text: color.colorZ,
@@ -273,26 +270,6 @@ const SYNNAX_BASE: ThemeSpec = {
     border: lightGrayScale.l6,
     error: ERROR,
     warning: LIGHT_WARNING,
-    visualization: {
-      palettes: {
-        default: [
-          "#DC136C",
-          "#20A4F3",
-          "#7AC74F",
-          "#FFC43D",
-          "#FE5F55",
-          "#8075FF",
-          "#D90429",
-          "#f7aef8",
-          "#f18f01",
-          "#791e94",
-          "#279af1",
-          "#d9fff5",
-          "#ff6b6b",
-          "#52ffb8",
-        ],
-      },
-    },
     logo: "url(#synnax-linear-gradient)",
     white: "#FFFFFF",
     black: "#000000",

@@ -38,7 +38,8 @@ export const ColorField = ({
   ...rest
 }: ColorFieldProps): ReactElement => {
   const theme = Theming.use();
-  return <Color.Field fallback={fallback(theme)} {...rest} />;
+  const series = Color.useSeriesValues();
+  return <Color.Field fallback={fallback(theme, series)} {...rest} />;
 };
 
 export interface ColorValueFieldProps extends Omit<Base.FieldProps, "fallback"> {
@@ -52,7 +53,8 @@ export const ColorValueField = ({
   ...rest
 }: ColorValueFieldProps): ReactElement => {
   const theme = Theming.use();
-  return <Base.Field fallback={fallback(theme)} {...rest} />;
+  const series = Color.useSeriesValues();
+  return <Base.Field fallback={fallback(theme, series)} {...rest} />;
 };
 
 /** @returns no fill, the fill most symbols paint while their fill color is absent. */

@@ -16,6 +16,8 @@ import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
+import { Color } from "@/color";
+import { series } from "@/color/aether";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
@@ -94,6 +96,7 @@ export const createSynnaxWrapper = ({
     ...status.REGISTRY,
     ...alamos.REGISTRY,
     ...theming.REGISTRY,
+    ...series.REGISTRY,
     ...staleness.REGISTRY,
     ...(renderContext != null
       ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
@@ -122,7 +125,9 @@ export const createSynnaxWrapper = ({
           <Alamos.Provider>
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>
-                <ThemingSeed>{inner}</ThemingSeed>
+                <ThemingSeed>
+                  <Color.Provider>{inner}</Color.Provider>
+                </ThemingSeed>
               </Suspense>
             </Synnax.TestProvider>
           </Alamos.Provider>
