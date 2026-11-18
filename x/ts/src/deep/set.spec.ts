@@ -111,6 +111,12 @@ describe("set", () => {
     expect(data.a.b.c).toBe(1);
   });
 
+  it("should not write through the object prototype", () => {
+    const obj: Record<string, unknown> = {};
+    deep.set(obj, "__proto__.polluted", 1);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it("should handle setting on null", () => {
     const obj: any = { a: null };
     deep.set(obj, "a.b", 1);
