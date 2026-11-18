@@ -50,4 +50,5 @@ constexpr const char *TYPE_SECRET = "secret";
 constexpr const char *TYPE_CERTIFICATE = "certificate";
 constexpr const char *TYPE_COLOR = "color";
 constexpr const char *TYPE_ICD = "icd";
+constexpr const char *TYPE_ENUMERATION = "enumeration";
 }

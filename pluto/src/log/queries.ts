@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type log, type project } from "@synnaxlabs/client";
-import { compare, verbs } from "@synnaxlabs/x";
+import { array, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Scope } from "@/log/scope";
@@ -45,7 +45,7 @@ export const useChannels = Scope.bindHook(createSelector(({ channels }) => chann
 export const useChannelKeys = Scope.bindHook(
   createSelector(
     ({ channels }) => channels.map((e) => e.channel),
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 

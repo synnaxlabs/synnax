@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Theming } from "@synnaxlabs/lyra/theming";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { type color, type optional, type state } from "@synnaxlabs/x";
+import { type color, compare, type optional, type state } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -48,7 +48,7 @@ export const Entries = memo(
   }: EntriesProps): ReactElement => (
     <>
       {data
-        .sort((a, b) => a.label.localeCompare(b.label))
+        .sort(compare.by((e) => e.label))
         .map(({ key, visible = true, ...entryRest }) => (
           <Entry
             key={key}

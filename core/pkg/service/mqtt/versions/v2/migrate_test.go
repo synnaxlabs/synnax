@@ -335,6 +335,22 @@ var _ = Describe("ResolveReadConfig", func() {
 		},
 	)
 
+	It("Should give ISO 8601 to a field whose time format is not valid",
+		func(ctx SpecContext) {
+			old := storedField(telem.Float64T)
+			old.TimeFormat = new(payload.TimeFormat("unix"))
+			f, _ := lift(ctx, old, false)
+			stamp, ok := f.Variant.(icd.TimestampJSONField)
+			Expect(ok).To(BeTrue())
+			Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
+			Expect(stamp.Validate()).To(Succeed())
+			Expect(changes).To(ConsistOf(
+				"data type float64 became the timestamp kind of an index or time format",
+				`time format "unix" is not valid and became iso8601`,
+			))
+		},
+	)
+
 	It("Should keep the kind and entries of a typed field with a time format",
 		func(ctx SpecContext) {
 			old := storedField(telem.Uint8T, payload.EnumEntry{Label: "ON", Value: 1})

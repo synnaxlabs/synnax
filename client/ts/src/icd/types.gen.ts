@@ -19,6 +19,10 @@ export const BYTE_ORDERS = ["little_endian", "big_endian"] as const;
 export const byteOrderZ = z.enum(BYTE_ORDERS);
 export type ByteOrder = z.infer<typeof byteOrderZ>;
 
+export const IMPORT_FORMATS = ["dbc", "csv", "xlsx"] as const;
+export const importFormatZ = z.enum(IMPORT_FORMATS);
+export type ImportFormat = z.infer<typeof importFormatZ>;
+
 /** JSONBaseMatch carries the parts every JSON match rule shares. */
 export const jsonBaseMatchZ = z.object({
   /** pointer is the JSON Pointer to the value the rule tests. */
@@ -464,10 +468,6 @@ export const jsonPayloadZ = z.object({
 });
 export interface JSONPayload extends z.infer<typeof jsonPayloadZ> {}
 
-export const PAYLOAD_TYPES = ["binary", "text", "json"] as const;
-export const payloadTypeZ = z.enum(PAYLOAD_TYPES);
-export type PayloadType = z.infer<typeof payloadTypeZ>;
-
 /** Payload is the layout of a message's payload. */
 export const payloadZ = z.discriminatedUnion("format", [
   binaryPayloadZ,
@@ -477,7 +477,7 @@ export const payloadZ = z.discriminatedUnion("format", [
 export type Payload = BinaryPayload | TextPayload | JSONPayload;
 
 export const PAYLOAD_SCHEMAS: {
-  [K in PayloadType]: z.ZodType<Extract<Payload, { format: K }>>;
+  [K in payload.Format]: z.ZodType<Extract<Payload, { format: K }>>;
 } = {
   binary: binaryPayloadZ,
   text: textPayloadZ,
