@@ -338,10 +338,11 @@ the device.
 Phases 2 and 3 are the stores with no users, and Phase 4 their Console and first user.
 Phase 4 landed as eight PRs, #4434 to #4505. Phases 5 to 10 add file items, the two file
 browsers, and the certificate field. Phase 11 binds each grant to its task and command
-before Kafka, the first integration, moves. Phase 15 lets the Driver read items before
-the first Driver integration moves. OPC UA and HTTP move their secrets first and their
-certificates second, and each migration ships with the change that reads the new field.
-Phase 20 needs only the certificate service, so it can start at any time.
+before Kafka moves, because Kafka has the first test that reads a secret. Phase 15 lets
+the Driver read items before the first Driver integration moves. OPC UA and HTTP move
+their secrets first and their certificates second, and each migration ships with the
+change that reads the new field. Phase 20 needs only the certificate service, so it can
+start at any time.
 
 | Phase | Scope                                                  | Touches                                                                                                                                                                                                                                                                 | Depends on |
 | ----- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
