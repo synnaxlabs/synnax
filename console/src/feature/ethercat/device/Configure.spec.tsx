@@ -1374,6 +1374,21 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(screen.queryByText("Save and create read task")).toBeNull();
     });
 
+    it("should hold Back while the slave saves", async () => {
+      const slave = await setup({
+        configured: false,
+        useOpen: useConfigureWithActionsModal,
+      });
+      fireEvent.change(identifierInput(), { target: { value: createIdentifier() } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(() =>
+        expect(findButton("Back").getAttribute("aria-disabled")).toBe("true"),
+      );
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).configured).toBe(true),
+      );
+    });
+
     it("should go back without saving", async () => {
       const slave = await setup({
         configured: false,

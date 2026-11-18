@@ -69,6 +69,7 @@ const Calculated = ({
       else close();
     },
   });
+  Modals.useBusy(variant === "loading");
   const [createMore, setCreateMore] = useState(false);
   const operationType = Form.useFieldValue(path.operations[0].type, {
     optional: true,

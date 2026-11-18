@@ -86,6 +86,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
       dispatch(Session.Range.add({ variant: "persisted", key }));
     },
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame className={CSS.B("range-create-layout")}>
