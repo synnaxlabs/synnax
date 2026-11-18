@@ -10,7 +10,7 @@
 import { icd, mqtt, type rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { DataType, type payload, uuid } from "@synnaxlabs/x";
+import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -446,6 +446,25 @@ describe("MQTT read form", () => {
         enumValues: [{ label: "RUN", value: "1" }],
       }),
     );
+  });
+
+  it("should remove the default of a timestamp field in its details", async () => {
+    const at = TimeStamp.milliseconds(1_700_000_000_000);
+    const time = icd.jsonFieldZ.parse({
+      ...createTimeField(),
+      default: at,
+    });
+    const { draft } = await renderRead({ fields: [time], bound: { [time.key]: 0 } });
+    await selectField("time");
+    expect(await screen.findByText(at.toString("preciseDate", "local"))).toBeTruthy();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
+    await waitFor(async () =>
+      expect(jsonFieldsOf(await client.icds.retrieve(icdKey))[0]).not.toHaveProperty(
+        "default",
+      ),
+    );
+    expect(screen.queryByRole("checkbox", { name: "Optional" })).toBeNull();
   });
 
   it("should add fields to a topic in the ICD of its entry and read them", async () => {

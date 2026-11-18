@@ -34,6 +34,7 @@ import {
   readFields,
   type ReadSource,
   reindex,
+  type TreeField,
   variableAmongFixed,
 } from "@/platform/icd/read";
 import { Panel } from "@/platform/panel";
@@ -171,7 +172,7 @@ export interface FieldDetailsProps {
   path: deep.Path<ReadSource>;
   /** The index of the message in the source's reads. */
   read: number;
-  field: icd.JSONField;
+  field: TreeField;
   format: FormatForm;
   /** The prefix of the names of the channels that deploying creates. */
   prefix: string;

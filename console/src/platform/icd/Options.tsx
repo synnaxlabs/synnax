@@ -16,7 +16,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep } from "@synnaxlabs/x";
+import { deep, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -45,24 +45,37 @@ const ZERO_DEFAULTS: {
 export const isMappable = (field: icd.JSONField): field is Mappable =>
   field.type in ZERO_DEFAULTS;
 
-const formatDefault = (field: Mappable): string | null => {
+/** A JSON field with a default that the Console shows. */
+type Defaulted = Mappable | icd.TimestampJSONField;
+
+/**
+ * @returns whether the Console shows the default of the field. A timestamp field shows
+ * one only when it has one, which the Console can remove but not set.
+ */
+export const showsDefault = (field: icd.JSONField): field is Defaulted =>
+  isMappable(field) || (field.type === "timestamp" && field.default != null);
+
+const formatDefault = (field: Defaulted): string | null => {
   if (field.default == null) return null;
   switch (field.type) {
     case "string":
       return JSON.stringify(field.default);
     case "boolean":
       return field.default ? "True" : "False";
+    case "timestamp":
+      return field.default.toString("preciseDate", "local");
     default:
       return String(field.default);
   }
 };
 
 /** @returns what the field's options set, or null when they set nothing. */
-const summarize = (field: Mappable): string | null => {
+const summarize = (field: icd.JSONField): string | null => {
+  if (!showsDefault(field)) return null;
   const parts: string[] = [];
   const shown = formatDefault(field);
   if (shown != null) parts.push(`Default ${shown}`);
-  const count = field.enumValues.length;
+  const count = isMappable(field) ? field.enumValues.length : 0;
   if (count > 0) parts.push(`${count} ${count === 1 ? "mapping" : "mappings"}`);
   return parts.length > 0 ? parts.join(", ") : null;
 };
@@ -77,7 +90,7 @@ type BooleanKey = keyof typeof BOOLEANS;
 
 interface DefaultProps {
   path: deep.Path<icd.JSONField>;
-  type: Kind;
+  type: Defaulted["type"];
 }
 
 /** Edits the default of the field's kind. */
@@ -122,12 +135,24 @@ const Default = ({ path, type }: DefaultProps): ReactElement => {
           )}
         </Form.Field>
       );
+    case "timestamp":
+      return (
+        <Form.Field<TimeStamp>
+          path={deep.present(deep.variant(path, "type", type).default)}
+          label="Default"
+          padHelpText={false}
+        >
+          {({ value }) => (
+            <Text.Text>{value.toString("preciseDate", "local")}</Text.Text>
+          )}
+        </Form.Field>
+      );
   }
 };
 
 export interface OptionalProps {
   path: deep.Path<icd.JSONField>;
-  field: Mappable;
+  field: Defaulted;
 }
 
 /** Edits whether a field is optional, and its default when it is. */
@@ -135,8 +160,9 @@ export const Optional = ({ path, field }: OptionalProps): ReactElement => {
   const { set, remove, mode } = Form.useContext();
   const defaultPath = deep.variant(path, "type", field.type).default;
   const handleOptional = (optional: boolean) => {
-    if (optional) set(defaultPath, ZERO_DEFAULTS[field.type]);
-    else remove(defaultPath);
+    if (!optional) remove(defaultPath);
+    else if (isMappable(field)) set(defaultPath, ZERO_DEFAULTS[field.type]);
+    else throw new Error(`The default of ${field.name} cannot be set`);
   };
   return (
     <>
@@ -159,7 +185,7 @@ const OptionsForm = ({ path, field }: OptionalProps): ReactElement => (
       <Flex.Box x>
         <Optional path={path} field={field} />
       </Flex.Box>
-      <EnumValues path={path} label="Enum mapping" />
+      {isMappable(field) && <EnumValues path={path} label="Enum mapping" />}
     </Form.Section>
   </Form.Sections>
 );
@@ -175,7 +201,7 @@ export interface OptionsProps extends Pick<
 
 /**
  * A grid cell that sums up the default and the enum mapping of a JSON field, and opens
- * a dialog that edits them. A field of another kind shows "None" and opens nothing, as
+ * a dialog that edits them. A field with no options shows "None" and opens nothing, as
  * does a read-only field that sets neither.
  */
 export const Options = ({
@@ -185,8 +211,8 @@ export const Options = ({
   variant,
   "aria-label": ariaLabel,
 }: OptionsProps): ReactElement => {
-  const summary = isMappable(field) ? summarize(field) : null;
-  const opens = isMappable(field) && (preview !== true || summary != null);
+  const summary = summarize(field);
+  const opens = showsDefault(field) && (preview !== true || summary != null);
   return (
     <Dialog.Frame variant="floating">
       <Dialog.Trigger
@@ -206,7 +232,7 @@ export const Options = ({
           {summary ?? "None"}
         </Text.Text>
       </Dialog.Trigger>
-      {isMappable(field) && (
+      {showsDefault(field) && (
         <Dialog.Dialog className={CSS.BE("icd-options", "dialog")}>
           <OptionsForm path={path} field={field} />
         </Dialog.Dialog>
