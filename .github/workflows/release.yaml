@@ -858,7 +858,8 @@ jobs:
           while read -r file; do
             name=${file%%-"$VERSION"*}
             url="https://pypi.org/integrity/$name/$VERSION/$file/provenance"
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            code=$(curl -s --retry 5 --max-time 30 -o /dev/null -w '%{http_code}' \
+              "$url")
             if [ "$code" != 200 ]; then
               echo "::error::PyPI answered $code for the provenance of $file."
               missing=true
