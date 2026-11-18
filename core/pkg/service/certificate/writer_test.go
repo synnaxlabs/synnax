@@ -103,6 +103,19 @@ var _ = Describe("Writer", func() {
 				return append(params, encodeSEC1Key(key)...)
 			}),
 		)
+		It("Should match the private key of a certificate whose names Go refuses",
+			func(ctx SpecContext) {
+				key := newKey()
+				spki := MustSucceed(x509.MarshalPKIXPublicKey(&key.PublicKey))
+				pemText := string(pem.EncodeToMemory(&pem.Block{
+					Type:  "CERTIFICATE",
+					Bytes: newRefusedCertificate(plcName(), spki),
+				}))
+				c := e.create(ctx, stored("PLC", pemText), encodeKey(key))
+				Expect(storedOf(c).Details.Subject).To(Equal("CN=PLC_01"))
+				Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(key)))
+			})
+
 		It("Should accept a PKCS #1 RSA private key", func(ctx SpecContext) {
 			key := MustSucceed(rsa.GenerateKey(rand.Reader, 2048))
 			tmpl := &x509.Certificate{
@@ -183,6 +196,17 @@ var _ = Describe("Writer", func() {
 			Entry(
 				"a private key for another certificate",
 				func() string { return newCertificate(newKey(), "a", time.Hour) },
+				func() []byte { return encodeKey(newKey()) },
+				"private_key_pem: does not match the certificate",
+			),
+			Entry(
+				"a private key for a certificate whose key Go cannot read",
+				func() string {
+					return string(pem.EncodeToMemory(&pem.Block{
+						Type:  "CERTIFICATE",
+						Bytes: newRefusedCertificate(plcName(), unreadableKey()),
+					}))
+				},
 				func() []byte { return encodeKey(newKey()) },
 				"private_key_pem: does not match the certificate",
 			),
