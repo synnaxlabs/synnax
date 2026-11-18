@@ -865,7 +865,7 @@ const Entries: FC<EntriesProps> = ({
         />
       );
     else if (entryFormat != null) {
-      planned = 0;
+      if (entry.messages.length === 1) planned = 0;
       details = (
         <TopicDetails
           key={entry.key}

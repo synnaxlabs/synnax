@@ -1053,6 +1053,43 @@ describe("MQTT read form", () => {
       expect(screen.queryByDisplayValue(`${dev.name}_plant_oven_count_2`)).toBeNull();
     });
 
+    it("should preview a numbered name for a new index whose name is taken", async () => {
+      const time = createTimeField();
+      const { dev } = await renderRead({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+        beforeRender: async (dev) =>
+          await client.channels.create({
+            name: `${dev.name}_plant_oven_time`,
+            dataType: DataType.TIMESTAMP,
+            isIndex: true,
+          }),
+      });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
+      );
+      await screen.findByDisplayValue(`${dev.name}_plant_oven_time_2`);
+    });
+
+    it("should show the details of a topic that reads no messages", async () => {
+      const format = await client.icds.create({
+        name: uniqueName("format"),
+        messages: [],
+      });
+      await renderRead({
+        entries: [
+          mqtt.plainReadEntryZ.parse({
+            type: "plain",
+            icd: format.key,
+            topic: "plant/empty",
+            messages: [],
+          }),
+        ],
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /plant\/empty/ }));
+      await screen.findByDisplayValue("plant/empty");
+    });
+
     it("should preview a numbered name for the new channel of a tag whose name is taken", async () => {
       const { dev } = await renderRead({
         entries: [createTagEntry("flow")],

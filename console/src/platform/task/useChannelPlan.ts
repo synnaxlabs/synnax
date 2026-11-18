@@ -18,15 +18,16 @@ import { useState } from "react";
  *
  * @param inputs - Everything that plan reads from the form, compared by value. A change
  * makes the plan again.
- * @returns the plan, or undefined with no client, before the first plan, and after one
- * fails.
+ * @returns the plan for the current inputs, or undefined with no client, while that
+ * plan is in flight, and after it fails.
  */
 export const useChannelPlan = <P>(
   inputs: unknown,
   plan: (client: Synnax) => Promise<P>,
 ): P | undefined => {
   const client = PSynnax.use();
-  const [result, setResult] = useState<P>();
+  const key = JSON.stringify(inputs);
+  const [result, setResult] = useState<{ key: string; plan: P }>();
   useAsyncEffect(
     async (signal) => {
       if (client == null) {
@@ -35,13 +36,13 @@ export const useChannelPlan = <P>(
       }
       try {
         const next = await plan(client);
-        if (!signal.aborted) setResult(next);
+        if (!signal.aborted) setResult({ key, plan: next });
       } catch (e) {
         if (!signal.aborted) setResult(undefined);
         throw errors.fromUnknown(e);
       }
     },
-    [client, JSON.stringify(inputs)],
+    [client, key],
   );
-  return result;
+  return result?.key === key ? result.plan : undefined;
 };
