@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -50,6 +51,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
+	// Color holds the series colors that a writer gives to lines and rules with no
+	// color.
+	//
+	// [REQUIRED]
+	Color *color.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -60,6 +66,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Color = override.Nil(c.Color, other.Color)
 	return c
 }
 
@@ -68,6 +75,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("lineplot")
 	v.NotNil("db", c.DB)
 	v.NotNil("imex", c.ImEx)
+	v.NotNil("color", c.Color)
 	return v.Error()
 }
 
@@ -104,8 +112,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			channelsReference(),
 		),
 		Migrations: newMigrations(),
-		// A channel delete detaches the channel from the line plot, which no line plot
-		// write does, so the service sends the line plot as a create.
+		// A channel or named color delete rewrites the line plot outside any line plot
+		// write, so the service sends the line plot as a create.
 		OnDetach: func(_ context.Context, tx gorp.Tx, p LinePlot) error {
 			s.state.Dispatcher().
 				Attach(tx, p.Key, NewCreateAction(CreatePayload{LinePlot: p}))
@@ -157,6 +165,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         tx,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
+		color:      s.cfg.Color,
 	}
 }
 

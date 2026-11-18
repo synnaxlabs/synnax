@@ -184,6 +184,11 @@ beforeAll(() => {
           removeListener: () => {},
         }),
     });
+  // jsdom has no font set. Fonts never load, so Lyra's tag step sees no load event.
+  Object.defineProperty(document, "fonts", {
+    value: new EventTarget(),
+    configurable: true,
+  });
   // jsdom does not implement scrollIntoView; pluto's Tabs.Selector calls it to reveal
   // the selected tab.
   if (typeof Element.prototype.scrollIntoView !== "function")

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
-	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -291,7 +290,6 @@ var _ = Describe("Codec", func() {
 			Entry("timestamp variant", v0.JSONField{Variant: v0.TimestampJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
 				TimeFormat:    payload.TimeFormat("iso8601"),
-				Default:       new(telem.TimeStamp(3)),
 			}}),
 			Entry("json variant", v0.JSONField{Variant: v0.JSONJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
 			Entry("uuid variant", v0.JSONField{Variant: v0.UuidJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
@@ -1186,7 +1184,6 @@ func FuzzDecodeJSONField(f *testing.F) {
 		seed := v0.JSONField{Variant: v0.TimestampJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
 			TimeFormat:    payload.TimeFormat("iso8601"),
-			Default:       new(telem.TimeStamp(3)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

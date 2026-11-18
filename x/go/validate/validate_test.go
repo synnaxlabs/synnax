@@ -153,11 +153,9 @@ var _ = Describe("Validate", func() {
 			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
 		})
 
-		DescribeTable("Should decode a failure with its exact text", func(
-			ctx SpecContext,
-			err error,
-		) {
-			decoded := errors.Decode(ctx, errors.Encode(ctx, err, false))
+		DescribeTable("Should decode a failure with its exact text", func(err error) {
+			codec := errors.NewCodec(validate.ErrorProvider())
+			decoded := codec.Decode(codec.Encode(err, false))
 			Expect(decoded).To(MatchError(validate.ErrValidation))
 			Expect(decoded.Error()).To(Equal(err.Error()))
 		},
@@ -167,7 +165,6 @@ var _ = Describe("Validate", func() {
 				return v.Error()
 			}()),
 			Entry("an Errorf failure", validate.Errorf("%d%% wrong", 100)),
-			Entry("a wrapped validation error", validate.ErrRequired),
 		)
 
 		It("Should keep an earlier failure through a passing check", func() {

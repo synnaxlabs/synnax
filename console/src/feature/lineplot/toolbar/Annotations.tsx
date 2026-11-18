@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot } from "@synnaxlabs/client";
+import { type color, lineplot } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -18,8 +17,8 @@ import { List as PList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { LinePlot } from "@synnaxlabs/pluto";
-import { bounds, type color, id } from "@synnaxlabs/x";
+import { Color, LinePlot } from "@synnaxlabs/pluto";
+import { bounds, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -68,7 +67,7 @@ const ListItem = (props: ListItemProps): ReactElement | null => {
 };
 
 interface ListProps {
-  rules: lineplot.Rule[];
+  rules: LinePlot.DerivedRule[];
   selected: string[];
   onChange: (keys: string[]) => void;
   onCreate: () => void;
@@ -83,7 +82,7 @@ const List = ({
   onRemoveAnnotations,
 }: ListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
-  const { data } = PList.useStaticData<string, lineplot.Rule>({ data: rules });
+  const { data } = PList.useStaticData<string, LinePlot.DerivedRule>({ data: rules });
   return (
     <Flex.Box
       x
@@ -102,7 +101,7 @@ const List = ({
         </Button.Button>
       </Flex.Box>
       <Divider.Divider y />
-      <Select.Frame<string, lineplot.Rule>
+      <Select.Frame<string, LinePlot.DerivedRule>
         multiple
         data={data}
         value={selected}
@@ -121,7 +120,7 @@ const List = ({
           {...menuProps}
         >
           <PList.Scroll onContextMenu={menuProps.open} grow>
-            <PList.Items<string, lineplot.Rule>>
+            <PList.Items<string, LinePlot.DerivedRule>>
               {({ key, ...rest }) => <ListItem key={key} {...rest} />}
             </PList.Items>
           </PList.Scroll>
@@ -156,7 +155,7 @@ const Details = ({ ruleKey }: DetailsProps): ReactElement | null => {
     dispatch(lineplot.setRuleUnits({ key: ruleKey, units }));
   const handleChangePosition = (position: number): void =>
     dispatch(lineplot.setRulePosition({ key: ruleKey, position }));
-  const handleChangeColor = (v?: color.Color): void =>
+  const handleChangeColor = (v?: color.Ref): void =>
     dispatch(lineplot.setRuleColor({ key: ruleKey, color: v }));
   const handleChangeAxis = (axis: lineplot.AxisKey): void => {
     const position = bounds.mean(axes[axis].bounds);

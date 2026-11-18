@@ -169,7 +169,7 @@ class HTTPClient(MiddlewareCollector):
     @contextmanager
     def stream(
         self, target: str, req: RQ, *, accept: str
-    ) -> Generator[Iterator[bytes], None, None]:
+    ) -> Generator[Iterator[bytes]]:
         """
         Sends req to target and returns a context manager over the response body, in
         chunks as they arrive. accept drives the encoding the server picks for the body.

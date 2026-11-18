@@ -252,6 +252,20 @@ var _ = Describe("MigrateTable", func() {
 		Expect(cfg.Align).To(Equal(v2.FlexAlignmentCenter))
 	})
 
+	It("Should give stored zero fields their schema defaults", func(ctx SpecContext) {
+		cfg, ok := migrateCell(ctx, "text", `{"weight": 0, "level": ""}`).
+			Variant.(v2.TextCellConfig)
+		Expect(MustBeOk(cfg, ok).Weight).To(Equal(400.0))
+		Expect(cfg.Level).To(Equal(text.LevelH5))
+	})
+
+	It("Should give a degraded cell the text cell defaults", func(ctx SpecContext) {
+		cfg, ok := migrateCell(ctx, "hologram", `{}`).Variant.(v2.TextCellConfig)
+		Expect(MustBeOk(cfg, ok).Level).To(Equal(text.LevelH5))
+		Expect(cfg.Weight).To(Equal(400.0))
+		Expect(cfg.Align).To(Equal(v2.FlexAlignmentCenter))
+	})
+
 	It("Should extract value cell args from the stored pipeline spec", func(
 		ctx SpecContext,
 	) {

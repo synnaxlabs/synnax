@@ -7,15 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Protocol
+
 from playwright.sync_api import Locator, Page, expect
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.notifications import click_past
 from console.page import ConsolePage
 
 _STATUS_CLASS_PREFIX = "lyra--status-"
 
 _CHANNEL_LIST_SELECTOR = ".console-channel-list"
+
+
+class _StatusElement(Protocol):
+    def get_attribute(self, name: str) -> str | None: ...
+    def inner_text(self) -> str: ...
 
 
 class TaskPage(ConsolePage):
@@ -106,10 +114,9 @@ class TaskPage(ConsolePage):
             wait.
         """
         controls = self._controls()
-        self.notifications.close_all()
         play = controls.locator("button:has(.lyra-icon--play)")
         play.wait_for(state="visible", timeout=5000)
-        play.click()
+        click_past(play)
         if expect is not None:
             self.wait_for_status(expect)
 
@@ -118,8 +125,7 @@ class TaskPage(ConsolePage):
         controls = self._controls()
         stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         stop_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        stop_btn.click()
+        click_past(stop_btn)
         self.wait_for_status(self.STOPPED_MESSAGE)
 
     def wait_for_status(self, substr: str, *, timeout: float = 30000) -> str:
@@ -181,9 +187,7 @@ class TaskPage(ConsolePage):
 
     def status(self) -> sy.Status:
         """Return the variant and message in the task status box."""
-        status_element = (
-            self._controls().locator(".console-task-status__message-text").first
-        )
+        status_element = self._status_element()
         classes = (status_element.get_attribute("class") or "").split()
         variant = next(
             (
@@ -196,6 +200,9 @@ class TaskPage(ConsolePage):
         return sy.Status.model_validate(
             {"variant": variant, "message": status_element.inner_text()}
         )
+
+    def _status_element(self) -> _StatusElement:
+        return self._controls().locator(".console-task-status__message-text").first
 
     def copy_link(self) -> str:
         """Copy link to the task via the utility button in the form header."""

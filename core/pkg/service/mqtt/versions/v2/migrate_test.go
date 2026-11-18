@@ -429,8 +429,9 @@ var _ = Describe("ResolveReadConfig", func() {
 				named("f3", "level", "/b"),
 				named("f4", "", ""),
 			))
-			names := []string{}
-			for _, f := range fields(resolve(ctx, &cfg).Messages[0]) {
+			messageFields := fields(resolve(ctx, &cfg).Messages[0])
+			names := make([]string, 0, len(messageFields))
+			for _, f := range messageFields {
 				names = append(names, f.Base().Name)
 			}
 			Expect(names).To(Equal([]string{"out/flow", "level", "level (2)", "value"}))
@@ -461,7 +462,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			ic := resolve(ctx, &cfg)
 			Expect(ic.Name).To(Equal("Plant"))
 			Expect(ic.Messages).To(HaveLen(3))
-			names := []string{}
+			names := make([]string, 0, len(ic.Messages))
 			for _, m := range ic.Messages {
 				names = append(names, m.Name)
 			}
@@ -671,6 +672,22 @@ var _ = Describe("NewReadMigration", func() {
 			))
 		},
 	)
+
+	It("Should make no ICD for the config of a snapshot", func(ctx SpecContext) {
+		old := plainConfig()
+		Expect(gorp.WrapWriter[uuid.UUID, v1.ReadConfig](db).Set(ctx, old)).
+			To(Succeed())
+		Expect(gorp.WrapWriter[task.Key, task.Task](db).Set(ctx, task.Task{
+			Key:      old.Key,
+			Name:     "Pump (snapshot)",
+			Type:     "mqtt_read",
+			Snapshot: true,
+		})).To(Succeed())
+		ins, _ := observe()
+		Expect(migrate(ctx, ins)).To(Succeed())
+		Expect(made).To(BeEmpty())
+		Expect(read(ctx, old.Key).Entries).To(BeEmpty())
+	})
 
 	It("Should make no ICD for a config without plain entries", func(ctx SpecContext) {
 		old := v1.ReadConfig{

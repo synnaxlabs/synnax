@@ -89,11 +89,12 @@ var _ = Describe("Sequence", func() {
 
 	// drainStrings collects every string value flushed to a channel in order.
 	drainStrings := func(fr telem.Frame[uint32], key uint32) []string {
-		var out []string
-		for _, ser := range fr.Get(key).Series {
-			out = append(out, ser.Unmarshal[string]()...)
+		series := fr.Get(key).Series
+		samples := make([][]string, len(series))
+		for i, ser := range series {
+			samples[i] = ser.Unmarshal[string]()
 		}
-		return out
+		return slices.Concat(samples...)
 	}
 
 	// trigger ingests a u8=1 onto the given channel and ticks the scheduler
@@ -170,7 +171,7 @@ var _ = Describe("Sequence", func() {
 			out, _ := h.Flush()
 			Expect(drainStrings(out, 101)).To(Equal([]string{"after"}))
 		}
-		args := []any{advancesPast}
+		args := append(make([]any, 0, 1+len(names)), advancesPast)
 		for _, name := range names {
 			args = append(args, Entry(name, steps[name]))
 		}
@@ -1215,6 +1216,138 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)))
 		})
 
+		DescribeTable("Completes a step that writes 0",
+			func(ctx SpecContext, steps string, written uint32) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out_a":     {types.U8(), 201},
+					"out_b":     {types.U8(), 202},
+					"finished":  {types.U8(), 203},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    `+steps+`
+				    1 -> finished
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 201, DataType: telem.Uint8T},
+					channels.Digest{Key: 202, DataType: telem.Uint8T},
+					channels.Digest{Key: 203, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastU8(out, written)).To(Equal(uint8(0)))
+				Expect(lastU8(out, 203)).To(Equal(uint8(1)))
+			},
+			Entry("to a channel", "0 -> out_a", uint32(201)),
+			Entry("to a fixed alias", "sink := out_a\n0 -> sink", uint32(201)),
+			Entry(
+				"to a rebound alias",
+				"sink := out_a\nsink = out_b\n0 -> sink",
+				uint32(202),
+			),
+			Entry(
+				"to a literal variable by flow",
+				"d u8 := 1\n0 -> d\nd -> out_a",
+				uint32(201),
+			),
+			Entry(
+				"to a literal variable by assignment",
+				"d u8 := 1\nd = 0\nd -> out_a",
+				uint32(201),
+			),
+			Entry(
+				"to a literal variable from a variable",
+				"src u8 := 1\nd u8 := 1\nsrc = 0\nsrc -> d\nd -> out_a",
+				uint32(201),
+			),
+		)
+
+		It(
+			"Holds a step with a conditional write to a variable until it writes",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"level":     {types.U8(), 101},
+					"out":       {types.U8(), 201},
+					"finished":  {types.U8(), 202},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    latched u8 := 1
+				    level => latched
+				    latched -> out
+				    1 -> finished
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 201, DataType: telem.Uint8T},
+					channels.Digest{Key: 202, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				h.Ingest(101, telem.NewSeriesV[uint8](0))
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(201).Series).To(BeEmpty())
+				Expect(out.Get(202).Series).To(BeEmpty())
+
+				h.Ingest(101, telem.NewSeriesV[uint8](7))
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, 201)).To(Equal(uint8(7)))
+				Expect(lastU8(out, 202)).To(Equal(uint8(1)))
+			},
+		)
+
+		It(
+			"Holds a step with a conditional copy between variables until it writes",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"level":     {types.U8(), 101},
+					"out":       {types.U8(), 201},
+					"finished":  {types.U8(), 202},
+				})
+				h := newRuntimeHarness(ctx, `
+				stage outer {
+				    src u8 := 0
+				    level -> src
+				    1 -> sequence {
+				        latched u8 := 1
+				        src => latched
+				        latched -> out
+				        1 -> finished
+				    }
+				}
+				start_cmd => outer`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 201, DataType: telem.Uint8T},
+					channels.Digest{Key: 202, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(out.Get(201).Series).To(BeEmpty())
+				Expect(out.Get(202).Series).To(BeEmpty())
+
+				h.Ingest(101, telem.NewSeriesV[uint8](7))
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, 201)).To(Equal(uint8(7)))
+				Expect(lastU8(out, 202)).To(Equal(uint8(1)))
+			},
+		)
+
 		It(
 			"Advances past steps whose terminal node outputs a string",
 			func(ctx SpecContext) {
@@ -1670,7 +1803,11 @@ var _ = Describe("Sequence", func() {
 			phase     func() phase
 		}
 		open := func(ctx SpecContext, source string) program {
-			digests := []channels.Digest{{Key: log, DataType: telem.StringT}}
+			digests := make([]channels.Digest, 0, 1+len(inputs)+len(aliveNames))
+			digests = append(
+				digests,
+				channels.Digest{Key: log, DataType: telem.StringT},
+			)
 			for _, k := range inputs {
 				digests = append(
 					digests,
@@ -5099,8 +5236,9 @@ var _ = Describe("Sequence", func() {
 	Describe("Computed stateful initializers", func() {
 		// drainI64 collects every i64 value flushed to a channel in order.
 		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(key).Series {
+			series := fr.Get(key)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5532,10 +5670,11 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Reactive locals through late declarations", func() {
-		// drainI64 collects every i64 value flushed to a channel in order.
-		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(key).Series {
+		// drainOut collects every i64 value flushed to the out channel in order.
+		drainOut := func(fr telem.Frame[uint32]) []int64 {
+			series := fr.Get(102)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5563,16 +5702,16 @@ var _ = Describe("Sequence", func() {
 				h.Ingest(100, telem.NewSeriesV[int64](1))
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+				Expect(drainOut(out)).To(Equal([]int64{3}))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(BeEmpty(), "no new data, no new write")
+				Expect(drainOut(out)).To(BeEmpty(), "no new data, no new write")
 				h.Ingest(100, telem.NewSeriesV[int64](2))
 				advance(h, ctx, telem.Millisecond)
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{5}))
+				Expect(drainOut(out)).To(Equal([]int64{5}))
 			},
 		)
 
@@ -5587,11 +5726,11 @@ var _ = Describe("Sequence", func() {
 
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(BeEmpty(), "no sample yet, no write")
+				Expect(drainOut(out)).To(BeEmpty(), "no sample yet, no write")
 				h.Ingest(100, telem.NewSeriesV[int64](1))
 				advance(h, ctx, telem.Millisecond)
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+				Expect(drainOut(out)).To(Equal([]int64{3}))
 			},
 		)
 	})
@@ -5599,8 +5738,9 @@ var _ = Describe("Sequence", func() {
 	Describe("Computed STL inputs", func() {
 		// drainI64 collects every i64 value flushed to a channel in order.
 		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(key).Series {
+			series := fr.Get(key)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5618,7 +5758,7 @@ var _ = Describe("Sequence", func() {
 		// ingestEach feeds raw one value per cycle and returns everything out emits.
 		ingestEach := func(ctx SpecContext, h *runtimeHarness, values ...int64) []int64 {
 			GinkgoHelper()
-			var got []int64
+			got := make([]int64, 0, len(values))
 			for _, v := range values {
 				h.Ingest(100, telem.NewSeriesV[int64](v))
 				advance(h, ctx, telem.Millisecond)
@@ -5626,6 +5766,22 @@ var _ = Describe("Sequence", func() {
 				got = append(got, drainI64(out, 102)...)
 			}
 			return got
+		}
+		logsOf := func(ctx SpecContext, h *runtimeHarness, triggers int) []string {
+			logged := make([]string, 0, triggers)
+			for i := range triggers {
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+				out, _ := h.Flush()
+				logged = append(logged, drainStrings(out, 101)...)
+			}
+			return logged
+		}
+		lastLog := func(ctx SpecContext, h *runtimeHarness) string {
+			GinkgoHelper()
+			logged := logsOf(ctx, h, 5)
+			Expect(logged).ToNot(BeEmpty())
+			return logged[len(logged)-1]
 		}
 		expectWaitOf20ms := func(ctx SpecContext, h *runtimeHarness) {
 			GinkgoHelper()
@@ -5684,6 +5840,782 @@ var _ = Describe("Sequence", func() {
 			expectWaitOf20ms(ctx, h)
 		})
 
+		It("Waits for a duration held in a computed variable in another unit", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				d := 10ms * 2
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			expectWaitOf20ms(ctx, h)
+		})
+
+		// expectWaitOf checks that "done" is logged after span and not before it.
+		expectWaitOf := func(ctx SpecContext, h *runtimeHarness, span telem.TimeSpan) {
+			GinkgoHelper()
+			unit := span / 20
+			advance(h, ctx, unit)
+			advance(h, ctx, 12*unit)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(BeEmpty(), "short of the duration")
+			advance(h, ctx, 30*unit)
+			advance(h, ctx, 30*unit)
+			out, _ = h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"done"}))
+		}
+		spans := []TableEntry{
+			Entry("nanoseconds", `20000000ns`, 20*telem.Millisecond),
+			Entry("microseconds", `20000us`, 20*telem.Millisecond),
+			Entry("milliseconds", `20ms`, 20*telem.Millisecond),
+			Entry("seconds", `2s`, 2*telem.Second),
+			Entry("minutes", `1min`, telem.Minute),
+			Entry("typed nanoseconds", `i64 ns := 2s`, 2*telem.Second),
+			Entry("typed seconds", `i64 s := 2s`, 2*telem.Second),
+			Entry("typed seconds from milliseconds", `i64 s := 2000ms`, 2*telem.Second),
+			Entry(
+				"typed seconds from a number with no unit",
+				`i64 s := 2`,
+				2*telem.Second,
+			),
+			Entry(
+				"typed nanoseconds from a number with no unit",
+				`i64 ns := 2000000000`,
+				2*telem.Second,
+			),
+			Entry("a cast", `:= i64 ms(2s)`, 2*telem.Second),
+		}
+		// declare builds the declaration of d from a literal or a type with a literal.
+		declare := func(entry string) string {
+			if strings.Contains(entry, ":=") {
+				return "d " + entry
+			}
+			return "d := " + entry
+		}
+
+		DescribeTable("Waits for a duration held in a top-level variable",
+			func(ctx SpecContext, entry string, span telem.TimeSpan) {
+				h := newRuntimeHarness(ctx, `
+				import time
+				`+declare(entry)+`
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				expectWaitOf(ctx, h, span)
+			},
+			spans,
+		)
+
+		DescribeTable("Waits for a duration held in a sequence variable",
+			func(ctx SpecContext, entry string, span telem.TimeSpan) {
+				h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    `+declare(entry)+`
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				expectWaitOf(ctx, h, span)
+			},
+			spans,
+		)
+
+		DescribeTable("Fires an interval at a period held in a variable",
+			func(ctx SpecContext, entry string, period telem.TimeSpan) {
+				h := newRuntimeHarness(ctx, `
+				import time
+				`+declare(entry)+`
+				stage main {
+				    x u8 := 3
+				    time.interval(period=d) -> `+`f"v={x}"`+` -> log
+				}
+				1 -> main`, resolver, digests...)
+				defer h.Close(ctx)
+				for elapsed := telem.TimeSpan(0); elapsed <= 5*period/2; elapsed += period / 4 {
+					advance(h, ctx, elapsed)
+				}
+				out, _ := h.Flush()
+				Expect(
+					countOf(out, 101, "v=3"),
+				).To(Equal(3), "fires at 0, 1, and 2 periods")
+			},
+			spans,
+		)
+
+		It("Fires an interval at the period of a reassigned variable", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				stage main {
+				    d := 2s
+				    time.interval(d) -> "tick" -> log
+				    raw -> sequence {
+				        1s -> d
+				    }
+				}
+				1 -> main`, resolver, digests...)
+			defer h.Close(ctx)
+			// ticksUntil advances in quarter seconds to end and returns the fire times.
+			elapsed := telem.TimeSpan(0)
+			ticksUntil := func(end telem.TimeSpan) []telem.TimeSpan {
+				var fires []telem.TimeSpan
+				for ; elapsed <= end; elapsed += 250 * telem.Millisecond {
+					advance(h, ctx, elapsed)
+					out, _ := h.Flush()
+					for range drainStrings(out, 101) {
+						fires = append(fires, elapsed)
+					}
+				}
+				return fires
+			}
+			Expect(ticksUntil(5 * telem.Second)).To(Equal([]telem.TimeSpan{
+				0, 2 * telem.Second, 4 * telem.Second,
+			}))
+			h.Ingest(100, telem.NewSeriesV[int64](1))
+			// The 1 s period is overdue at the write, so the interval fires at once.
+			Expect(ticksUntil(9 * telem.Second)).To(Equal([]telem.TimeSpan{
+				5250 * telem.Millisecond,
+				6 * telem.Second,
+				7 * telem.Second,
+				8 * telem.Second,
+				9 * telem.Second,
+			}))
+		})
+
+		It("Waits for the duration of a reassigned variable", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    d := 60000ms
+				    stage shorten {
+				        20ms -> d
+				        d < 1000 => next
+				    }
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			advance(h, ctx, telem.Millisecond)
+			advance(h, ctx, 2*telem.Millisecond)
+			expectWaitOf(ctx, h, 20*telem.Millisecond)
+		})
+
+		pause := "sequence pause {\ntime.wait(duration=d)\n}\n\"done\" -> log"
+		DescribeTable("Waits for the 1 s that a variable of 1500 ms typed in s holds",
+			func(ctx SpecContext, top, body string) {
+				h := newRuntimeHarness(ctx, "import time\n"+top+
+					"\nsequence main {\n"+body+"\n}\n1 => main", resolver, digests...)
+				defer h.Close(ctx)
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, 2*telem.Millisecond)
+				advance(h, ctx, 900*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(BeEmpty(), "short of 1 s")
+				advance(h, ctx, 1300*telem.Millisecond)
+				advance(h, ctx, 1300*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"done"}))
+			},
+			Entry("at the top level", "d i64 s := 1500ms", pause),
+			Entry("in a sequence", "", "d i64 s := 1500ms\n"+pause),
+			Entry("that a later stage writes", "",
+				"d i64 s := 1500ms\n"+pause+"\nstage later {\n5000ms -> d\n}"),
+		)
+
+		It("Waits for a duration written to a variable typed in another unit", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    d i64 s := 1500ms
+				    stage lengthen {
+				        d = 5000ms
+				        d > 1 => next
+				    }
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			advance(h, ctx, telem.Millisecond)
+			advance(h, ctx, 2*telem.Millisecond)
+			expectWaitOf(ctx, h, 5*telem.Second)
+		})
+
+		DescribeTable("Converts a variable written to a variable of another unit",
+			func(ctx SpecContext, write, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    d := 1min
+				    other := 120s
+				    typed i64 ms := 2min
+				    p := 1.0bar
+				    p_kpa := 250.0kPa
+				    stage write {
+				        `+write+`
+				        raw -> `+`f"d={d} other={other} typed={typed} p={p}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("a literal", `120s -> d`, "d=2 other=120 typed=120000 p=1"),
+			Entry("a flow to a larger unit",
+				`other -> d`, "d=2 other=120 typed=120000 p=1"),
+			Entry("an assignment to a larger unit",
+				`d = other`, "d=2 other=120 typed=120000 p=1"),
+			Entry("a flow to a smaller unit",
+				`d -> other`, "d=1 other=60 typed=120000 p=1"),
+			Entry("an assignment to a smaller unit",
+				`other = d`, "d=1 other=60 typed=120000 p=1"),
+			Entry("a source that is assigned again",
+				"180s -> other\nother -> d", "d=3 other=180 typed=120000 p=1"),
+			Entry("an integer that truncates",
+				"90s -> other\nother -> d", "d=1 other=90 typed=120000 p=1"),
+			Entry("a typed source",
+				`typed -> d`, "d=2 other=120 typed=120000 p=1"),
+			Entry("a typed target",
+				`d -> typed`, "d=1 other=120 typed=60000 p=1"),
+			Entry("a float flow",
+				`p_kpa -> p`, "d=1 other=120 typed=120000 p=2.5"),
+			Entry("a float assignment",
+				`p = p_kpa`, "d=1 other=120 typed=120000 p=2.5"),
+		)
+
+		casts := []TableEntry{
+			Entry("a cast with no unit of a unit literal", `i64 ms := i64(5s)`, "d=5"),
+			Entry("a cast with a unit of a number", `i64 ms := i64 s(5)`, "d=5000"),
+			Entry("a cast that truncates", `i64 ms := i64 s(1500ms)`, "d=1000"),
+			Entry("a cast in the unit of the variable", `:= i64 ms(5s)`, "d=5000"),
+			Entry(
+				"a float cast with a unit of a number",
+				`f64 ms := f64 s(1.5)`,
+				"d=1500",
+			),
+		}
+
+		DescribeTable("Gives a sequence variable the value of a cast of a literal",
+			func(ctx SpecContext, entry, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    d `+entry+`
+				    stage write {
+				        raw -> `+`f"d={d}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			casts,
+		)
+
+		DescribeTable("Gives a function variable the value of a cast of a literal",
+			func(ctx SpecContext, entry, expected string) {
+				kind := strings.Fields(strings.TrimPrefix(entry, ":= "))[0]
+				h := newRuntimeHarness(ctx, `
+				func body() `+kind+` ms {
+				    d `+entry+`
+				    return d
+				}
+				sequence main {
+				    d `+kind+` ms := 0ms
+				    stage write {
+				        raw -> body() -> d
+				        raw -> `+`f"d={d}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			casts,
+		)
+
+		DescribeTable("Gives a variable the value of an assigned cast of a literal",
+			func(ctx SpecContext, write, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    d i64 ms := 0ms
+				    stage write {
+				        `+write+`
+				        raw -> `+`f"d={d}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("a cast with no unit of a unit literal", `d = i64(5s)`, "d=5"),
+			Entry("a cast with a unit of a number", `d = i64 s(5)`, "d=5000"),
+			Entry("a cast that truncates", `d = i64 s(1500ms)`, "d=1000"),
+		)
+
+		DescribeTable("Gives a calculation of a number and a unit value its unit",
+			func(ctx SpecContext, calculation, expected string) {
+				h := newRuntimeHarness(ctx, `
+				func body() i64 ms {
+				    t := 2s
+				    x i64 ms := `+calculation+`
+				    return x
+				}
+				sequence main {
+				    t := 2s
+				    x i64 ms := 0ms
+				    y i64 ms := 0ms
+				    stage write {
+				        x = `+calculation+`
+				        raw -> body() -> y
+				        raw -> `+`f"x={x} y={y}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("a number divided by a unit value has no unit", `10 / t`, "x=5 y=5"),
+			Entry("a unit value divided by a number", `t / 2`, "x=1000 y=1000"),
+			Entry("a number times a unit value", `3 * t`, "x=6000 y=6000"),
+		)
+
+		DescribeTable(
+			"Gives a compound product or quotient the value of its calculation",
+			func(ctx SpecContext, declaration, op, value, expected string) {
+				h := newRuntimeHarness(ctx, `
+				func compound() i64 {
+				    x `+declaration+`
+				    t := 120s
+				    x `+op+`= `+value+`
+				    return i64(x)
+				}
+				func plain() i64 {
+				    x `+declaration+`
+				    t := 120s
+				    x = x `+op+` `+value+`
+				    return i64(x)
+				}
+				sequence main {
+				    a := 0
+				    b := 0
+				    stage write {
+				        raw -> compound() -> a
+				        raw -> plain() -> b
+				        raw -> `+`f"a={a} b={b}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry(
+				"a number divided by a unit value",
+				`i64 := 240`,
+				"/",
+				"t",
+				"a=2 b=2",
+			),
+			Entry("a larger unit divided by a smaller unit",
+				`i64 min := 4min`, "/", "t", "a=2 b=2"),
+			Entry("a larger unit times a smaller unit",
+				`i64 min := 4min`, "*", "t", "a=28800 b=28800"),
+			Entry("a smaller unit divided by a larger unit",
+				`i64 ms := 240000ms`, "/", "t", "a=2 b=2"),
+			Entry(
+				"a unit value divided by a number",
+				`i64 min := 4min`,
+				"/",
+				"2",
+				"a=2 b=2",
+			),
+			Entry(
+				"a unit value times a number",
+				`i64 min := 4min`,
+				"*",
+				"2",
+				"a=8 b=8",
+			),
+			Entry(
+				"a value of another dimension",
+				`i64 psi := 4psi`,
+				"*",
+				"t",
+				"a=480 b=480",
+			),
+		)
+
+		DescribeTable(
+			"Keeps an integer exact for a factor that is not exact in a float",
+			func(ctx SpecContext, write, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    fine i64 nm := 0nm
+				    coarse i64 um := 3um
+				    stage write {
+				        `+write+`
+				        raw -> `+`f"fine={fine} coarse={coarse}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("to a smaller unit", `coarse -> fine`, "fine=3000 coarse=3"),
+			Entry("to a larger unit",
+				"7000nm -> fine\nfine -> coarse", "fine=7000 coarse=7"),
+		)
+
+		DescribeTable("Converts a variable in a unit that is not a time",
+			func(ctx SpecContext, declarations, expected string) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    `+declarations+`
+				    stage write {
+				        src -> dst
+				        raw -> `+`f"src={src} dst={dst}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("an integer pressure by a factor below one",
+				"src i64 psi := 100psi\ndst i64 bar := 0bar", "src=100 dst=6"),
+			Entry("an integer pressure by a factor that is not whole",
+				"src i64 bar := 7bar\ndst i64 psi := 0psi", "src=7 dst=101"),
+			Entry("a float voltage",
+				"src := 2500.0mV\ndst := 0.0V", "src=2500 dst=2.5"),
+			Entry("a 32-bit float",
+				"src f32 bar := 1.5bar\ndst f32 kPa := 0.0kPa", "src=1.5 dst=150"),
+			Entry("a 32-bit integer to a smaller unit",
+				"src i32 V := 3V\ndst i32 mV := 0mV", "src=3 dst=3000"),
+			Entry("a 32-bit integer to a larger unit",
+				"src i32 mV := 7000mV\ndst i32 V := 0V", "src=7000 dst=7"),
+		)
+
+		DescribeTable("Converts the first value of a stateful variable to its unit",
+			func(ctx SpecContext, from, to, value, zero, expected string) {
+				h := newRuntimeHarness(ctx, `
+				func body(x `+from+`) `+to+` {
+				    held `+to+` $= x
+				    return held
+				}
+				sequence main {
+				    src := `+value+`
+				    d `+to+` := `+zero+`
+				    stage write {
+				        raw -> body(x=src) -> d
+				        raw -> `+`f"d={d}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("an integer in a larger unit",
+				"i64 s", "i64 ms", "2s", "0ms", "d=2000"),
+			Entry("an integer in a smaller unit",
+				"i64 ms", "i64 s", "5000ms", "0s", "d=5"),
+			Entry("a float", "f64 kPa", "f64 bar", "250.0kPa", "0.0bar", "d=2.5"),
+		)
+
+		It("Converts the first value of a stateful sequence variable to its unit", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+			sequence main {
+			    src := 2s
+			    held i64 ms $= src
+			    calc i64 ms $= src * 2
+			    stage write {
+			        raw -> `+`f"held={held} calc={calc}"`+` -> log
+			    }
+			}
+			1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			Expect(lastLog(ctx, h)).To(Equal("held=2000 calc=4000"))
+		})
+
+		DescribeTable("Converts a variable written to a variable of another kind",
+			func(
+				ctx SpecContext,
+				declarations string,
+				sink types.Type,
+				dataType telem.DataType,
+				expected string,
+			) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    `+declarations+`
+				    stage write {
+				        src -> dst
+				        dst -> sink
+				        raw -> `+`f"src={src} dst={dst}"`+` -> log
+				    }
+				}
+				1 => main`,
+					channelSymbols(map[string]channelDef{
+						"raw":  {types.I64(), 100},
+						"log":  {types.String(), 101},
+						"sink": {sink, 103},
+					}),
+					channels.Digest{Key: 100, DataType: telem.Int64T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+					channels.Digest{Key: 103, DataType: dataType},
+				)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("a 64-bit float to a 32-bit float",
+				"src := 250.0kPa\ndst := 1.0bar",
+				types.F32(), telem.Float32T, "src=250 dst=2.5"),
+			Entry("a 64-bit integer to a 32-bit integer",
+				"src := 120s\ndst := 1min",
+				types.I32(), telem.Int32T, "src=120 dst=2"),
+		)
+
+		DescribeTable("Passes a reassigned variable to a function on every trigger",
+			func(ctx SpecContext, declaration string) {
+				h := newRuntimeHarness(ctx, `
+				func show(x i64 ns) str {
+				    return `+`f"x={x}"`+`
+				}
+				sequence main {
+				    `+declaration+`
+				    stage write {
+				        6s -> d
+				        raw -> show(x=d) -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				// The first cycle starts the sequence, and each later trigger logs.
+				Expect(logsOf(ctx, h, 4)).To(Equal([]string{
+					"x=6000000000", "x=6000000000", "x=6000000000",
+				}))
+			},
+			Entry("in the unit of the input", `d i64 ns := 5s`),
+			Entry("in another unit", `d := 5s`),
+			Entry("in a typed unit", `d i64 ms := 5s`),
+		)
+
+		DescribeTable("Gives a function input a literal and a variable in the same way",
+			func(ctx SpecContext, param, arg, expected string) {
+				h := newRuntimeHarness(ctx, `
+				p := 14.7psi
+				func show(x `+param+`) str {
+				    return `+`f"{x}"`+`
+				}
+				raw -> show(x=`+arg+`) -> log`, resolver, digests...)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{expected}))
+			},
+			Entry("a literal in the same unit", `f64 psi`, `14.7psi`, "14.7"),
+			Entry("a variable in the same unit", `f64 psi`, `p`, "14.7"),
+			Entry("a literal in another unit", `f64 bar`, `14.7psi`, "1.01352972"),
+			Entry("a variable in another unit", `f64 bar`, `p`, "1.01352972"),
+		)
+
+		DescribeTable("Holds a value as the number in its unit in a calculation",
+			func(ctx SpecContext, funcs, write, expected string) {
+				h := newRuntimeHarness(ctx, funcs+`
+				sequence main {
+				    a i64 s := 2s
+				    b i64 ms := 1ms
+				    c i64 s := 0s
+				    n i64 := 0
+				    p f64 psi := 1.0psi
+				    plain f64 := 400.0
+				    stage write {
+				        `+write+`
+				        raw -> `+`f"b={b} c={c} n={n} p={p}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("a unit literal that a function returns",
+				"func f(x i64 s) i64 ms {\nreturn 5ms\n}",
+				`b = f(a)`, "b=5 c=0 n=0 p=1"),
+			Entry("a unit literal that a function returns to a flow",
+				"func f(x i64 s) i64 ms {\nreturn 5ms\n}",
+				`raw -> f(x=a) -> b`, "b=5 c=0 n=0 p=1"),
+			Entry("a float unit literal",
+				"func f() f64 psi {\nreturn 0.1psi\n}",
+				`p = f()`, "b=1 c=0 n=0 p=0.1"),
+			Entry("a local variable",
+				"func f(x i64 s) i64 ms {\nt := 5ms\nreturn t\n}",
+				`b = f(a)`, "b=5 c=0 n=0 p=1"),
+			Entry("a sum with a literal in the same unit",
+				"func f(x i64 s) i64 s {\nreturn x + 1s\n}",
+				`c = f(a)`, "b=1 c=3 n=0 p=1"),
+			Entry("a sum with a literal in a smaller unit",
+				"func f(x i64 s) i64 ms {\nreturn x + 500ms\n}",
+				`b = f(a)`, "b=2500 c=0 n=0 p=1"),
+			Entry("a sum with a literal in a larger unit",
+				"func f(x i64 ms) i64 ms {\nreturn x + 1s\n}",
+				`b = f(b)`, "b=1001 c=0 n=0 p=1"),
+			Entry("a sum of two variables in different units",
+				"func f(x i64 s, y i64 ms) i64 ms {\nreturn x + y\n}",
+				`b = f(a, b)`, "b=2001 c=0 n=0 p=1"),
+			Entry("a result that converts to the unit of the function",
+				"func f(x i64 s) i64 ms {\nreturn x + 1s\n}",
+				`b = f(a)`, "b=3000 c=0 n=0 p=1"),
+			Entry("a declaration that converts",
+				"func f(x i64 s) i64 ms {\ny i64 ms := x\nreturn y\n}",
+				`b = f(a)`, "b=2000 c=0 n=0 p=1"),
+			Entry("an argument that converts",
+				"func g(y i64 ms) i64 ms {\nreturn y\n}\n"+
+					"func f(x i64 s) i64 ms {\nreturn g(x)\n}",
+				`b = f(a)`, "b=2000 c=0 n=0 p=1"),
+			Entry("a comparison between units",
+				"func f(x i64 s) i64 {\nif x > 1500ms {\nreturn 1\n}\nreturn 0\n}",
+				`n = f(a)`, "b=1 c=0 n=1 p=1"),
+			Entry("a comparison of a number with no unit",
+				"func f(v f64) i64 {\nif v > 300psi {\nreturn 1\n}\nreturn 0\n}",
+				`n = f(plain)`, "b=1 c=0 n=1 p=1"),
+			Entry("a quotient of two unit values",
+				"func f(x i64 s) i64 {\nreturn x / 500ms\n}",
+				`n = f(a)`, "b=1 c=0 n=4 p=1"),
+			Entry("a product with a number with no unit",
+				"func f(x i64 s) i64 s {\nreturn x * 60\n}",
+				`c = f(a)`, "b=1 c=120 n=0 p=1"),
+			Entry(
+				"a narrow integer",
+				"func f() i64 {\nx i32 s := 3s\nif x > 2500ms {\nreturn 1\n}\nreturn 0\n}",
+				`n = f()`,
+				"b=1 c=0 n=1 p=1",
+			),
+			Entry(
+				"an integer in a unit that is not a whole base value",
+				"func f() i64 {\nx i64 psi := 5psi\nif x > 4psi {\nreturn 1\n}\nreturn 0\n}",
+				`n = f()`,
+				"b=1 c=0 n=1 p=1",
+			),
+			Entry(
+				"a series plus a value in a smaller unit",
+				"func f(x i64 ms) i64 ms {\nxs := [1s, 2s]\nys := xs + x\nreturn ys[0]\n}",
+				`b = f(b)`,
+				"b=1001 c=0 n=0 p=1",
+			),
+			Entry(
+				"a value plus a series in a larger unit",
+				"func f(x i64 ms) i64 ms {\nxs := [1s, 2s]\nys := x + xs\nreturn ys[1]\n}",
+				`b = f(b)`,
+				"b=2001 c=0 n=0 p=1",
+			),
+			Entry("a literal sum declared in a larger unit",
+				"func f() i64 s {\nx i64 s := 1500ms + 500ms\nreturn x\n}",
+				`c = f()`, "b=1 c=2 n=0 p=1"),
+			Entry("a literal sum assigned to a larger unit",
+				"func f() i64 s {\nx i64 s := 0s\nx = 1500ms + 500ms\nreturn x\n}",
+				`c = f()`, "b=1 c=2 n=0 p=1"),
+			Entry("a literal sum added to a larger unit",
+				"func f() i64 s {\nx i64 s := 1s\nx += 1500ms + 500ms\nreturn x\n}",
+				`c = f()`, "b=1 c=3 n=0 p=1"),
+			Entry("a literal sum as an argument in a larger unit",
+				"func g(y i64 s) i64 s {\nreturn y\n}\n"+
+					"func f() i64 s {\nreturn g(1500ms + 500ms)\n}",
+				`c = f()`, "b=1 c=2 n=0 p=1"),
+			Entry("a computed variable as a function input in another unit",
+				"func f(x i64 ms) i64 ms {\nreturn x\n}",
+				"d := raw * 2s\nraw -> f(x=d) -> b", "b=2000 c=0 n=0 p=1"),
+			Entry("a variable computed from a variable as a function input",
+				"func f(x i64 ms) i64 ms {\nreturn x\n}",
+				"d := a * 2\nraw -> f(x=d) -> b", "b=4000 c=0 n=0 p=1"),
+			Entry("a series literal with elements in two units",
+				"func f() i64 ms {\nxs := [1s, 500ms]\nreturn xs[0] + xs[1]\n}",
+				`b = f()`, "b=1500 c=0 n=0 p=1"),
+			Entry(
+				"a series literal with variables in two units",
+				"func f(x i64 s, y i64 ms) i64 ms {\nxs := [y, x]\nreturn xs[0] + xs[1]\n}",
+				`b = f(a, b)`,
+				"b=2001 c=0 n=0 p=1",
+			),
+			Entry("a series literal with a variable declared in another unit",
+				"func f(x i64 s) i64 ms {\nxs series i64 ms := [x, 1s]\n"+
+					"return xs[0] + xs[1]\n}",
+				`b = f(a)`, "b=3000 c=0 n=0 p=1"),
+			Entry("an integer literal by a factor that is not whole",
+				"func f() i64 {\ny i64 Pa := 5psi\nif y == 34473Pa {\nreturn 1\n}\n"+
+					"return 0\n}",
+				`n = f()`, "b=1 c=0 n=1 p=1"),
+			Entry(
+				"a series element assigned a value in another unit",
+				"func f(x i64 s) i64 ms {\nys := [1ms, 2ms]\nys[0] = x\nreturn ys[0]\n}",
+				`b = f(a)`,
+				"b=2000 c=0 n=0 p=1",
+			),
+			Entry("a series added a value in another unit",
+				"func f(x i64 s) i64 ms {\nys := [1ms, 2ms]\nys += x\nreturn ys[1]\n}",
+				`b = f(a)`, "b=2002 c=0 n=0 p=1"),
+			Entry("an assigned literal in another unit",
+				"", `c = 3000ms`, "b=1 c=3 n=0 p=1"),
+			Entry("a flow calculation assigned to a smaller unit",
+				"", `b = a * 60`, "b=120000 c=0 n=0 p=1"),
+			Entry("a flow calculation written to a smaller unit",
+				"", `a * 60 -> b`, "b=120000 c=0 n=0 p=1"),
+			Entry("a flow calculation assigned to a larger unit",
+				"", `c = b + 2999ms`, "b=1 c=3 n=0 p=1"),
+			Entry("a call result assigned to another unit",
+				"func f(x i64 s) i64 s {\nreturn x\n}",
+				`b = f(a)`, "b=2000 c=0 n=0 p=1"),
+			Entry("a function flow written to another unit",
+				"func f(x i64 s) i64 s {\nreturn x\n}",
+				`raw -> f(x=a) -> b`, "b=2000 c=0 n=0 p=1"),
+			Entry("a calculation as a function input in another unit",
+				"func f(x i64 ms) i64 ms {\nreturn x\n}",
+				`raw -> f(x=a * 2) -> b`, "b=4000 c=0 n=0 p=1"),
+			Entry("a flow calculation with a call",
+				"func f(x i64 s) i64 ms {\nreturn 5ms\n}",
+				`b = f(a) + 1ms`, "b=6 c=0 n=0 p=1"),
+			Entry("a flow calculation with a literal",
+				"", `c = a + 1s`, "b=1 c=3 n=0 p=1"),
+		)
+
+		It("Prints a unit value in a function as the number in its unit", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+			func show(x i64 s) str {
+			    t := 5ms
+			    return `+`f"t={t} sum={x + 500ms}"`+`
+			}
+			a i64 s := 2s
+			raw -> show(x=a) -> log`, resolver, digests...)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[int64](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"t=5 sum=2500"}))
+		})
+
 		It("Fires an interval at a computed period", func(ctx SpecContext) {
 			h := newRuntimeHarness(ctx, `
 				import time
@@ -5704,8 +6636,9 @@ var _ = Describe("Sequence", func() {
 	Describe("Computed initializers", func() {
 		// drainI64 collects every i64 value flushed to a channel in order.
 		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(key).Series {
+			series := fr.Get(key)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5934,10 +6867,11 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Computed call inputs", func() {
-		// drainI64 collects every i64 value flushed to a channel in order.
-		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(key).Series {
+		// drainOut collects every i64 value flushed to the out channel in order.
+		drainOut := func(fr telem.Frame[uint32]) []int64 {
+			series := fr.Get(102)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5950,7 +6884,7 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				import time
-				func f(t i64 ns) {n u8} i64 {
+				func f(t i64 ns) {n u8} i64 ns {
 				    return t
 				}
 				trig -> f(time.now()) -> out`, resolver,
@@ -5962,13 +6896,13 @@ var _ = Describe("Sequence", func() {
 			startedAt := int64(h.cycleNow)
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
-			first := drainI64(out, 102)
+			first := drainOut(out)
 			Expect(first).To(HaveLen(1))
 			Expect(first[0]).To(BeNumerically(">", startedAt),
 				"the input must be computed when the trigger fires, not at start")
 			trigger(h, ctx, 100)
 			out, _ = h.Flush()
-			second := drainI64(out, 102)
+			second := drainOut(out)
 			Expect(second).To(HaveLen(1))
 			Expect(second[0]).To(BeNumerically(">", first[0]))
 		})
@@ -5990,7 +6924,7 @@ var _ = Describe("Sequence", func() {
 
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
-			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+			Expect(drainOut(out)).To(Equal([]int64{6}))
 		})
 
 		It("Passes a bare call result to a function input", func(ctx SpecContext) {
@@ -6012,7 +6946,7 @@ var _ = Describe("Sequence", func() {
 
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
-			Expect(drainI64(out, 102)).To(Equal([]int64{1}))
+			Expect(drainOut(out)).To(Equal([]int64{1}))
 		})
 
 		It(
@@ -6034,13 +6968,13 @@ var _ = Describe("Sequence", func() {
 
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(BeEmpty(), "no sample yet, no call")
+				Expect(drainOut(out)).To(BeEmpty(), "no sample yet, no call")
 				h.Ingest(100, telem.NewSeriesV[int64](5))
 				advance(h, ctx, telem.Millisecond)
 				h.Ingest(100, telem.NewSeriesV[int64](7))
 				advance(h, ctx, telem.Millisecond)
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{10, 14}))
+				Expect(drainOut(out)).To(Equal([]int64{10, 14}))
 			},
 		)
 
@@ -6063,10 +6997,10 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(100, telem.NewSeriesV[int64](5))
 			advance(h, ctx, telem.Millisecond)
 			out, _ := h.Flush()
-			Expect(drainI64(out, 102)).To(BeEmpty(), "count alone must not fire f")
+			Expect(drainOut(out)).To(BeEmpty(), "count alone must not fire f")
 			trigger(h, ctx, 99)
 			out, _ = h.Flush()
-			Expect(drainI64(out, 102)).To(Equal([]int64{10}))
+			Expect(drainOut(out)).To(Equal([]int64{10}))
 		})
 
 		It("Advances past a bare call with a computed input", func(ctx SpecContext) {
@@ -6076,7 +7010,7 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				import time
-				func f(t i64 ns) {} i64 {
+				func f(t i64 ns) {} i64 ns {
 				    return t
 				}
 				sequence main {
@@ -6090,7 +7024,7 @@ var _ = Describe("Sequence", func() {
 
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
-			Expect(drainI64(out, 102)).To(Equal([]int64{7}))
+			Expect(drainOut(out)).To(Equal([]int64{7}))
 		})
 
 		It("Passes a computed input to a routed call", func(ctx SpecContext) {
@@ -6100,7 +7034,7 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				import time
-				func f(t i64 ns) {} i64 {
+				func f(t i64 ns) {} i64 ns {
 				    return t
 				}
 				flag -> select() -> {
@@ -6115,7 +7049,7 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(100, telem.NewSeriesV(true))
 			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
-			got := drainI64(out, 102)
+			got := drainOut(out)
 			Expect(got).To(HaveLen(1))
 			Expect(got[0]).To(BeNumerically(">", startedAt))
 		})
@@ -6147,7 +7081,7 @@ var _ = Describe("Sequence", func() {
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ := h.Flush()
-				return drainI64(out, 102)
+				return drainOut(out)
 			}
 
 			DescribeTable(
@@ -6184,8 +7118,8 @@ var _ = Describe("Sequence", func() {
 				    return raw
 				}`, []int64{6, 8}),
 				Entry("a channel alias", `
-				a := raw
-				f(a * 2 + 1) -> out`, []int64{11, 15}),
+				r := raw
+				f(r * 2 + 1) -> out`, []int64{11, 15}),
 			)
 
 			It("Keeps a triggered call on its trigger alone", func(ctx SpecContext) {
@@ -6197,7 +7131,7 @@ var _ = Describe("Sequence", func() {
 				Expect(sendRaw(h, ctx, 5)).To(BeEmpty(), "raw alone must not fire f")
 				trigger(h, ctx, 99)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{11}))
+				Expect(drainOut(out)).To(Equal([]int64{11}))
 			})
 
 			It("Fires from a reactive variable in a stage", func(ctx SpecContext) {
@@ -6254,7 +7188,7 @@ var _ = Describe("Sequence", func() {
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ := h.Flush()
-				return drainI64(out, 102)
+				return drainOut(out)
 			}
 
 			DescribeTable(
@@ -6325,13 +7259,13 @@ var _ = Describe("Sequence", func() {
 					advance(h, ctx, telem.Millisecond)
 					trigger(h, ctx, 99)
 					out, _ := h.Flush()
-					Expect(drainI64(out, 102)).To(BeEmpty())
+					Expect(drainOut(out)).To(BeEmpty())
 					for _, v := range []int64{5, 7} {
 						h.Ingest(100, telem.NewSeriesV(v))
 						advance(h, ctx, telem.Millisecond)
 					}
 					out, _ = h.Flush()
-					Expect(drainI64(out, 102)).To(Equal([]int64{expected, 9}))
+					Expect(drainOut(out)).To(Equal([]int64{expected, 9}))
 				},
 				Entry("a computed channel input", `
 				sequence main {
@@ -6369,13 +7303,13 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				trigger(h, ctx, 99)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(BeEmpty())
+				Expect(drainOut(out)).To(BeEmpty())
 				for _, v := range []int64{5, 7} {
 					h.Ingest(100, telem.NewSeriesV(v))
 					advance(h, ctx, telem.Millisecond)
 				}
 				out, _ = h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{10, 9}))
+				Expect(drainOut(out)).To(Equal([]int64{10, 9}))
 			})
 
 			It("Runs a step with no channel input at once", func(ctx SpecContext) {
@@ -6388,7 +7322,7 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				trigger(h, ctx, 99)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{3, 9}))
+				Expect(drainOut(out)).To(Equal([]int64{3, 9}))
 			})
 		})
 	})
@@ -6546,8 +7480,9 @@ var _ = Describe("Sequence", func() {
 				step(300 * telem.Millisecond)
 
 				out, _ := h.Flush()
-				var logged []string
-				for _, ser := range out.Get(101).Series {
+				series := out.Get(101)
+				logged := make([]string, 0, series.Len())
+				for _, ser := range series.Series {
 					logged = append(logged, ser.Unmarshal[string]()...)
 				}
 				Expect(logged).To(Equal([]string{"0", "1", "2", "3", "4"}))
@@ -7652,8 +8587,9 @@ var _ = Describe("Sequence", func() {
 		// drainStrings collects every string value flushed to a channel in
 		// order across the loop's re-entries.
 		drainStrings := func(fr telem.Frame[uint32], key uint32) []string {
-			var out []string
-			for _, ser := range fr.Get(key).Series {
+			series := fr.Get(key)
+			out := make([]string, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[string]()...)
 			}
 			return out
@@ -9322,8 +10258,9 @@ var _ = Describe("Sequence", func() {
 		}
 		seen := func(h *runtimeHarness) []float32 {
 			out, _ := h.Flush()
-			var got []float32
-			for _, s := range out.Get(ptSeen).Series {
+			series := out.Get(ptSeen)
+			got := make([]float32, 0, series.Len())
+			for _, s := range series.Series {
 				got = append(got, s.Unmarshal[float32]()...)
 			}
 			return got

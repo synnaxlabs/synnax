@@ -287,7 +287,7 @@ func appendTextTokenPerLine(
 	line, startChar, tokenType uint32,
 ) []lsp.Token {
 	lineStart := 0
-	for i := 0; i < len(text); i++ {
+	for i := range len(text) {
 		if text[i] != '\n' {
 			continue
 		}
@@ -453,9 +453,8 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeFunction
 	case symbol.KindBlock, symbol.KindLoop:
 		tokenType = semanticTokenTypeBlock
-	case symbol.KindLoopVariable:
-		tokenType = SemanticTokenTypeVariable
-	default:
+	case symbol.KindLoopVariable, symbol.KindModule, symbol.KindModuleAlias,
+		symbol.KindAmbient:
 		tokenType = SemanticTokenTypeVariable
 	}
 	return &tokenType

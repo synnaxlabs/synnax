@@ -27,6 +27,7 @@ var _ = Describe("Service", func() {
 	Describe("OpenService", func() {
 		It("Should create a service", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(testDB.Run)
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB: testDB,
 			}))
@@ -50,6 +51,7 @@ var _ = Describe("Service", func() {
 
 		It("Should apply later configurations as overrides", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(testDB.Run)
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB: testDB,
 			}))
@@ -65,7 +67,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewWriter", func() {
-		It("Should create a writer with transaction", func(ctx SpecContext) {
+		It("Should create a writer with transaction", func() {
 			tx := DeferClose(db.OpenTx())
 			writer := svc.NewWriter(tx)
 			Expect(writer).ToNot(BeNil())
@@ -73,7 +75,7 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("NewRetrieve", func() {
-		It("Should create a retrieve query builder", func(ctx SpecContext) {
+		It("Should create a retrieve query builder", func() {
 			retrieve := svc.NewRetrieve()
 			Expect(retrieve).ToNot(BeNil())
 		})
@@ -82,6 +84,7 @@ var _ = Describe("Service", func() {
 	Describe("Close", func() {
 		It("Should close the service cleanly", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(testDB.Run)
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB: testDB,
 			}))

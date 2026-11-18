@@ -145,7 +145,11 @@ describe("schematic clipboard", () => {
       expect(payload.edges.map((e: schematic.Edge) => e.key)).toEqual(["e1"]);
       const n1 = payload.nodes.find((n: schematic.Node) => n.key === "n1");
       expect(n1.config).toMatchObject(tank("Pump"));
-      expect(payload.edges[0].config).toEqual({ variant: "pipe", segments: [] });
+      expect(payload.edges[0].config).toEqual({
+        variant: "pipe",
+        segments: [],
+        strokeWidth: 2,
+      });
       // Centroid of n1 (0,0) and n2 (100,100) = (50,50).
       expect(payload.anchor).toEqual({ x: 50, y: 50 });
       expect(event.preventDefault).toHaveBeenCalled();

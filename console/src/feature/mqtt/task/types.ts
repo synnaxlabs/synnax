@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt, type task } from "@synnaxlabs/client";
-import { DataType, json, payload, record } from "@synnaxlabs/x";
+import { json, payload, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { sparkplugIDZ } from "@/feature/mqtt/device/types";
@@ -57,7 +57,13 @@ const validateEnabled =
       const result = strict.safeParse(item);
       if (result.success) return;
       for (const { message, path } of result.error.issues)
-        ctx.issues.push({ code: "custom", input: item, message, path: [i, ...path] });
+        ctx.issues.push({
+          continue: true,
+          code: "custom",
+          input: item,
+          message,
+          path: [i, ...path],
+        });
     });
 
 export const READ_TYPE = `${PREFIX}_read`;
@@ -69,45 +75,6 @@ export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
 export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
 export interface ReadBinding extends mqtt.ReadBinding {}
-
-/** The data type of the channel that a field of each kind reads into by default. */
-export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
-  float: DataType.FLOAT64.toString(),
-  integer: DataType.INT64.toString(),
-  unsigned: DataType.UINT64.toString(),
-  boolean: DataType.UINT8.toString(),
-  string: DataType.STRING.toString(),
-  timestamp: DataType.TIMESTAMP.toString(),
-  json: DataType.JSON.toString(),
-  uuid: DataType.UUID.toString(),
-  bytes: DataType.BYTES.toString(),
-};
-
-/**
- * @returns whether the Core writes the values of a field kind to a channel of the data
- * type. A number or a boolean also writes to a float, and an unsigned number or a
- * boolean to any integer.
- */
-export const converts = (kind: payload.Kind, dataType: string): boolean => {
-  const to = payload.kindOf(dataType);
-  if (to === kind) return true;
-  switch (to) {
-    case "float":
-      return kind === "integer" || kind === "unsigned" || kind === "boolean";
-    case "integer":
-      return kind === "unsigned" || kind === "boolean";
-    case "unsigned":
-      return kind === "boolean";
-    default:
-      return false;
-  }
-};
-
-/** @returns the data type of the channel that deploying creates for a binding. */
-export const bindingDataType = (
-  { dataType }: Pick<ReadBinding, "dataType">,
-  kind: payload.Kind,
-): string => (dataType === "" ? DEFAULT_DATA_TYPES[kind] : dataType);
 
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
   group: sparkplugIDZ("Group").min(1, "Group is required"),
@@ -130,6 +97,7 @@ type Item =
 const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: ctx.value,
       message: `At least one ${label} must be enabled`,
@@ -145,6 +113,7 @@ const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
     if (name === "") return;
     if (seen[item.type].has(key))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: ctx.value,
         message: `Duplicate ${field} "${name}"`,
@@ -183,6 +152,7 @@ const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
   const { value } = ctx;
   if (value.enumValues.length > 0 && value.jsonType !== "string")
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: value,
       message: "Enum values require the string JSON type",
@@ -192,6 +162,7 @@ const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
   value.enumValues.forEach((entry, i) => {
     if (seen.has(entry.value))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: `Duplicate enum value ${entry.value}`,
@@ -211,6 +182,7 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   if (channel.pointer === "") {
     if (fields.length > 0)
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message:
@@ -224,6 +196,7 @@ const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
     if (field.pointer === "") return;
     if (pointers.some((pointer) => overlaps(pointer, field.pointer)))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: value,
         message: `Pointer "${field.pointer}" overlaps another field`,
@@ -290,6 +263,7 @@ const deployEdgeTagZ = mqtt.edgeTagZ.extend({
 const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
+      continue: true,
       code: "custom",
       input: ctx.value,
       message: "At least one tag must be enabled",
@@ -300,6 +274,7 @@ const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
     if (disabled || name === "") return;
     if (seen.has(name))
       ctx.issues.push({
+        continue: true,
         code: "custom",
         input: ctx.value,
         message: `Duplicate name "${name}"`,

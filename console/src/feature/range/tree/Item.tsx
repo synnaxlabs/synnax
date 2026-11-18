@@ -22,6 +22,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
 import { type TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
@@ -61,6 +62,12 @@ export const useStart = (): ((range: ranger.Range) => void) => {
       timeRange: Ranger.moveToStage(range.timeRange.numeric, "in_progress"),
     });
 };
+
+/** The icon for Next: stop a running range and start the one after it. */
+export const NextIcon = Icon.createFromPath(
+  "next",
+  "M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z",
+);
 
 export const useStop = (): ((range: ranger.Range) => void) => {
   const { update } = Ranger.useSetTimeRange();
@@ -165,14 +172,18 @@ const RIGHT_EDGE: position.LocationPreference = {
   dialogCorner: { x: "right" },
 };
 
+const LABELS: Tag.TagsProps["noun"] = { one: "label", other: "labels" };
+
 /** The labels of a range. Clicking them opens the label picker. */
 const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
   const { update } = PLabel.useEditFor();
   if (preview)
     return range.labels.length === 0 ? null : (
-      <Tag.Tags variant="text" className={CSS.BE("range-item", "labels")}>
-        <PLabel.Tags keys={range.labels} size="tiny" />
-      </Tag.Tags>
+      <span className={CSS.BE("range-item", "labels")}>
+        <Tag.Tags variant="text" noun={LABELS} className={CSS.BE("range-item", "tags")}>
+          <PLabel.Tags keys={range.labels} size="tiny" />
+        </Tag.Tags>
+      </span>
     );
   const handleChange = (next: label.Key[]): void =>
     update({
@@ -181,13 +192,22 @@ const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
       removed: range.labels.filter((key) => !next.includes(key)),
     });
   return (
-    <Field className={CSS.BE("range-item", "labels")}>
+    <Field
+      className={CSS.cls(
+        CSS.BE("range-item", "labels"),
+        CSS.BEM("range-item", "labels", "editable"),
+      )}
+    >
       <Label.SelectMultiple
-        zIndex={100}
         location={RIGHT_EDGE}
         value={range.labels}
         onChange={handleChange}
-        triggerProps={{ variant: "shadow", "aria-label": "Labels" }}
+        triggerProps={{
+          variant: "shadow",
+          size: "small",
+          className: CSS.BE("range-item", "tags"),
+          "aria-label": "Labels",
+        }}
       />
     </Field>
   );
@@ -239,12 +259,30 @@ export const Lead = ({
   );
 };
 
+// The start on a narrow list: "18:00" today, "Nov 4" this year, "Nov 4, 2025" before.
+const compactStart = (start: TimeStamp, now: TimeStamp): string => {
+  if (Telem.Text.describeDay(start, now) === "Today")
+    return Telem.Text.formatTime(start, TimeSpan.MINUTE);
+  return start.date().toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: start.localYear === now.localYear ? undefined : "numeric",
+  });
+};
+
+// Whether the start column of a time cell shows.
+const startShown = (when: HTMLElement): boolean => {
+  const start = when.querySelector(`.${CSS.BE("range-item", "start")}`);
+  return start != null && getComputedStyle(start).display !== "none";
+};
+
 /** The start of a range and how long it ran, or how long it has run so far. */
 const When = ({ range }: { range: ranger.Range }): ReactElement => {
   const now = Ranger.useClock(range.timeRange);
   const { start, end } = range.timeRange.makeValid();
   const stage = Ranger.getStage(range.timeRange, now);
   const day = Telem.Text.describeDay(start, now);
+  const full = `${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`;
   let span: ReactElement;
   if (stage === "in_progress")
     span = (
@@ -282,22 +320,33 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
         {start.span(end).toString("semantic")}
       </Text.Text>
     );
+  const hasStart = scheduled(range.timeRange);
   return (
-    <Flex.Box
-      x
-      align="center"
-      gap="small"
-      role="group"
-      aria-label="Time range"
-      className={CSS.BE("range-item", "when")}
-    >
-      {/* A range with no start keeps the empty column, so the columns line up. */}
-      <Text.Text level="small" color={9} className={CSS.BE("range-item", "start")}>
-        {scheduled(range.timeRange) &&
-          `${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`}
-      </Text.Text>
-      {span}
-    </Flex.Box>
+    // Once the start column hides, the cell shows the start on hover.
+    <Tooltip.Dialog hide={(when) => !hasStart || startShown(when)}>
+      {`Starts ${full}`}
+      <Flex.Box
+        x
+        align="center"
+        gap="small"
+        role="group"
+        aria-label="Time range"
+        className={CSS.BE("range-item", "when")}
+      >
+        {/* A range with no start keeps the empty column, so the columns line up. */}
+        <Text.Text level="small" color={9} className={CSS.BE("range-item", "start")}>
+          {hasStart && (
+            <>
+              <span className={CSS.BE("range-item", "start-full")}>{full}</span>
+              <span className={CSS.BE("range-item", "start-compact")}>
+                {compactStart(start, now)}
+              </span>
+            </>
+          )}
+        </Text.Text>
+        {span}
+      </Flex.Box>
+    </Tooltip.Dialog>
   );
 };
 

@@ -74,11 +74,12 @@ bounds come from the home view (§3.0).
 ### 3.0 Home view and bounds
 
 Each resolved range becomes a line's home view, and the plot's home view is the union of
-its lines' home views. The x-axis bounds are the home view, never the loaded data. The
-y-axis bounds come from the tiles that cover the home view at the home level. Min/max
-tiles hold the true extremes, and the source holds them, so the `Feed` never evicts
-them. Pan is unclamped, so the user can move past the home view, and the line fetches
-tiles there like anywhere else.
+its lines' home views. The x-axis bounds are the home view, never the loaded data. A
+live home view ends at the newest sample across the axis's lines (RFC 0083 §5, decision
+13). The y-axis bounds come from the tiles that cover the home view at the home level.
+Min/max tiles hold the true extremes, and the source holds them, so the `Feed` never
+evicts them. Pan is unclamped, so the user can move past the home view, and the line
+fetches tiles there like anywhere else.
 
 ### 3.1 Tiles
 

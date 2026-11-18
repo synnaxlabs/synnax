@@ -97,14 +97,16 @@ var (
 	_ alamos.ReportProvider = Config{}
 	_ alamos.ReportProvider = SecurityConfig{}
 	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default server configuration.
-	DefaultConfig = Config{
+)
+
+func defaultConfig() Config {
+	return Config{
 		Debug: new(false),
 		Security: SecurityConfig{
 			Insecure: new(false),
 		},
 	}
-)
+}
 
 // Override implements the config.Properties interface.
 func (c Config) Override(other Config) Config {
@@ -141,7 +143,7 @@ type Server struct {
 // Serve starts a new server using the provided configuration. If the configuration
 // is invalid, an error is returned. To stop the server, call the Close method.
 func Serve(cfgs ...Config) (*Server, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(defaultConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,9 +172,14 @@ func (s *Server) start() (err error) {
 			return err
 		}
 		s.listeners = append(s.listeners, lis)
-		s.addresses = append(s.addresses, address.Newf(
-			"%s:%d", l.Address.Host(), lis.Addr().(*net.TCPAddr).Port,
-		))
+		tcpAddr, ok := lis.Addr().(*net.TCPAddr)
+		if !ok {
+			panic(fmt.Sprintf("listener address is a %T", lis.Addr()))
+		}
+		s.addresses = append(
+			s.addresses,
+			address.Newf("%s:%d", l.Address.Host(), tcpAddr.Port),
+		)
 		sCtx.Go(func(ctx context.Context) error {
 			mux := cmux.New(lis)
 			if *s.Security.Insecure {
@@ -283,6 +290,7 @@ func (s *Server) baseBranchContext(l Listener) BranchContext {
 		Debug:           *s.Debug,
 		Security:        s.Security,
 		ServerName:      l.Address.Host(),
+		TLS:             l.TLS,
 	}
 }
 

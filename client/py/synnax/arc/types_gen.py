@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import status as status_
+from synnax import channel as channel_, status as status_
 from synnax.arc import graph as graph_, program as program_, text as text_
 from synnax.resource import ID
 from x import filter
@@ -67,6 +67,18 @@ class Change(BaseModel):
     type: Type
     path: str = ""
     kind: ChangeKind
+
+
+class Calculation(BaseModel):
+    """Is a calculated channel that an automation reads, compiled to a module.
+
+    Attributes:
+        channel: Is the key of the calculated channel.
+        program: Is the compiled module that computes the channel.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+    program: program_.Program
 
 
 class Order(BaseModel):
@@ -168,7 +180,7 @@ class Base(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     source: Source = Field(default_factory=lambda: TextSource(mode="text"))
     directory: UUID | None = None
 
@@ -208,7 +220,8 @@ class AutomationPayload(Base):
 
     type: Literal["automation"] = "automation"
     program: program_.Program | None = None
-    changes: list[Change] | None = None
+    changes: list[Change] = Field(default_factory=list)
+    calculations: list[Calculation] = Field(default_factory=list)
 
 
 class ModulePayload(Base):

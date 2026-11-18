@@ -95,9 +95,10 @@ class Config:
     """Git globs of files left out of the diff."""
     diff_chars: int
     caps: dict[str, int]
-    """The highest score a review can give while it has a blocking finding of the
-    severity."""
+    """The highest score a review can give while it has a finding of the severity."""
     prompt: str
+    judge: str
+    """The method of a judgment of a rebuttal to a finding."""
     docs: list[Doc]
     lenses: list[Lens]
     """The focus of each extra pass. One pass always reviews the pull request with the
@@ -240,7 +241,11 @@ def load(root: Path) -> Config:
         )
     lenses = [Lens(**lens) for lens in data.pop("lens", [])]
     return Config(
-        **data, prompt=(home / "prompt.md").read_text(), docs=docs, lenses=lenses
+        **data,
+        prompt=(home / "prompt.md").read_text(),
+        judge=(home / "judge.md").read_text(),
+        docs=docs,
+        lenses=lenses,
     )
 
 
@@ -296,12 +301,22 @@ def _shared(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
             "# Earlier findings still open",
             "\n".join(f"- `{path}`: {title}" for path, title in sorted(pr.open)),
         ]
-    if pr.dismissed:
+    members = [d for d in pr.dismissed if not d.withdrawn]
+    withdrawn = [d for d in pr.dismissed if d.withdrawn]
+    if members:
         parts += [
             "# Dismissed findings",
-            "A member dismissed each of these findings. Do not report them again in "
-            "any form, and do not let them lower the score.",
-            "\n".join(_dismissal(d) for d in pr.dismissed),
+            "Someone with write access dismissed each of these findings. Do not "
+            "report them again in any form, and do not let them lower the score.",
+            "\n".join(_dismissal(d) for d in members),
+        ]
+    if withdrawn:
+        parts += [
+            "# Withdrawn findings",
+            "You withdrew each of these findings after a rebuttal on its thread, and "
+            "its file has not changed since. Do not report them again in any form, "
+            "and do not let them lower the score.",
+            "\n".join(_dismissal(d) for d in withdrawn),
         ]
     if pr.reviewed:
         parts.append("# Changes since your last review")
@@ -354,11 +369,12 @@ def _command(
     *,
     head: Path,
     system: Path,
+    schema: dict[str, Any] = SCHEMA,
     effort: str | None = None,
     partial: bool = False,
 ) -> list[str]:
     """Returns the `claude` command that reviews the code checked out at head, with the
-    shared prompt in the file at system.
+    shared prompt in the file at system, and answers in the JSON of the schema.
 
     Restricted mode confines the tools to the working directory and head, and ignores
     every settings file. Partial messages show when the first response begins.
@@ -382,7 +398,7 @@ def _command(
         "stream-json",
         "--verbose",
         "--json-schema",
-        json.dumps(SCHEMA),
+        json.dumps(schema),
         "--no-session-persistence",
         "--append-system-prompt-file",
         str(system),
@@ -391,12 +407,11 @@ def _command(
 
 
 def _score(review: Review, caps: dict[str, int]) -> Review:
-    """Scores a review 5 when no finding blocks merge. Otherwise lowers its score to the
-    cap of its most severe blocking finding."""
-    blocking = [f for f in review.findings if f.blocks]
-    if not blocking:
+    """Scores a review 5 when it has no finding. Otherwise lowers its score to the cap
+    of its most severe finding."""
+    if not review.findings:
         return replace(review, score=5)
-    limit = min(caps.get(f.severity, 5) for f in blocking)
+    limit = min(caps.get(f.severity, 5) for f in review.findings)
     return replace(review, score=min(review.score, limit))
 
 
@@ -426,13 +441,11 @@ def _merge(
     each other pass in the same file: first by title and end line, then by title, then
     by end line when the titles share a third of their words. Two findings that end on
     one line with titles less alike stay apart, since they can be two problems. The
-    review keeps the more severe of joined findings, then the one that blocks merge,
-    then the one that continues an open thread. A joined finding blocks merge when any
-    finding it joins does. The verdict and summary come from the pass with the lowest
-    score."""
+    review keeps the more severe of joined findings, then the one that continues an open
+    thread. The verdict and summary come from the pass with the lowest score."""
 
-    def rank(f: Finding) -> tuple[int, bool, bool]:
-        return SEVERITIES.index(f.severity), not f.blocks, (f.path, f.title) not in open
+    def rank(f: Finding) -> tuple[int, bool]:
+        return SEVERITIES.index(f.severity), (f.path, f.title) not in open
 
     def join(
         found: list[tuple[set[int], Finding]], same: Callable[[Finding, Finding], bool]
@@ -451,8 +464,6 @@ def _merge(
                 kept.append((set(passes), f))
                 continue
             q, k = kept[i]
-            if f.blocks and not k.blocks:
-                k = replace(k, deferrable=False)
             kept[i] = (q | passes, k)
         return kept
 
@@ -482,6 +493,23 @@ def _pass(
     command = _command(
         config, head=pr.head, system=system, effort=effort, partial=bool(started)
     )
+    out, usage = _stream(command, text, claude=claude, workdir=workdir, started=started)
+    return parse(out), usage
+
+
+def _stream(
+    command: list[str],
+    text: str,
+    *,
+    claude: Claude,
+    workdir: Path,
+    started: threading.Event | None = None,
+) -> tuple[dict[str, Any], Usage]:
+    """Runs Claude Code, and returns its structured output and what it cost. Sets
+    started, if given, once the first response begins.
+
+    :raises RuntimeError: If Claude Code ends with an error.
+    """
     messages: list[dict[str, Any]] = []
     try:
         for line in claude(command, text, workdir):
@@ -501,7 +529,8 @@ def _pass(
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
-    return parse(out["structured_output"]), Usage.of(out, messages)
+    structured: dict[str, Any] = out["structured_output"]
+    return structured, Usage.of(out, messages)
 
 
 def run(

@@ -275,7 +275,7 @@ func generateFile(
 		data.Target += data.TypeArgs
 	}
 
-	form := where.Form.(resolution.StructForm)
+	form := resolution.MustForm[resolution.StructForm](where)
 	for _, line := range where.Filter.Lines {
 		field := lo.Must(form.Field(line.Name))
 		ld := lineData{Path: line.Name, GoName: naming.GetFieldName(field)}
@@ -426,8 +426,9 @@ func generateRequestFile(
 	)); n > 0 {
 		data.Args = "[" + strings.Join(slices.Repeat([]string{"any"}, n), ", ") + "]"
 	}
-	_, data.Search = request.Form.(resolution.StructForm).Field("search_term")
-	_, data.After = request.Form.(resolution.StructForm).Field("after")
+	requestForm := resolution.MustForm[resolution.StructForm](request)
+	_, data.Search = requestForm.Field("search_term")
+	_, data.After = requestForm.Field("after")
 	fields, _ := resolution.RecordFields(target, req.Resolutions)
 	sorts, err := resolution.Sorts(fields, req.Resolutions)
 	if err != nil {

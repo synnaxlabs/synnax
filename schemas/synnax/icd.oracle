@@ -10,7 +10,6 @@
 import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/payload"
-import "schemas/x/telem"
 
 @go output "core/pkg/service/icd"
 @py output "client/py/synnax/icd"
@@ -231,9 +230,6 @@ JSONField union on type payload.Kind extends JSONBaseField {
     timestamp {
         time_format payload.TimeFormat {
             @doc value "is the encoding of the timestamp."
-        }
-        default     telem.TimeStamp?   {
-            @doc value "is the value when the document has none. Absent requires one."
         }
 
         @doc value "is a timestamp held in a JSON number or string."

@@ -9,6 +9,355 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A stacked or stepped group drops the frame it shows on hover. Its faces take the
+   hover instead. An outlined group keeps its outline. */
+.lyra-btn.lyra-tags:is([data-stacked], .lyra-tags--stepped):not(.lyra-btn--outlined) {
+    &,
+    &[aria-expanded="true"] {
+        --pluto-bg: transparent;
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+        --pluto-border-color: transparent;
+        --pluto-hover-border-color: transparent;
+        --pluto-active-border-color: transparent;
+    }
+}
+
+.lyra-tags__hidden {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* A stacked or stepped group keeps room it does not fill. Its alignment, not a part
+   that pushes itself to the end, places the space left over. */
+.lyra-tags:is([data-stacked], .lyra-tags--stepped) > :not(.lyra-tag, .lyra-tags__more) {
+    margin-left: 0;
+}
+
+/* A group of buttons takes the pointer only on its parts, and the room around them
+   stays at rest. Each tag and the count steps up from its l0 face: l2 on hover, l3 on
+   press. Four classes outrank the hover of the group's variant. */
+.lyra-flex.lyra-btn.lyra-tags.lyra-tags--parts {
+    --pluto-hover-bg: var(--pluto-bg);
+    --pluto-active-bg: var(--pluto-bg);
+    --pluto-hover-border-color: var(--pluto-border-color);
+    --pluto-active-border-color: var(--pluto-border-color);
+
+    pointer-events: none;
+
+    /* A drag it can take drops anywhere on the group. */
+    &.lyra-haul-drop-region {
+        pointer-events: auto;
+    }
+
+    & > :is(.lyra-btn:not([data-dot]), .lyra-tags__more) {
+        pointer-events: auto;
+    }
+
+    & > .lyra-flex.lyra-btn.lyra-tag {
+        --pluto-hover-bg: var(--pluto-gray-l2);
+        --pluto-active-bg: var(--pluto-gray-l3);
+        --pluto-hover-border-color: var(--pluto-gray-l8);
+        --pluto-active-border-color: var(--pluto-gray-l8);
+    }
+
+    /* The count paints its face under its dots. */
+    &:has(> .lyra-tags__more:hover) {
+        --lyra-tags-count-face: var(--pluto-gray-l2);
+    }
+
+    &:has(> .lyra-tags__more:active) {
+        --lyra-tags-count-face: var(--pluto-gray-l3);
+    }
+}
+
+/* Tags at full width while a group measures them. */
+.lyra-tags[data-measuring] > .lyra-flex.lyra-btn.lyra-tag {
+    flex-shrink: 0;
+}
+
+/* A container sets the lit flag to 1 to brighten its groups, such as on its hover. */
+.lyra-tags__steps {
+    --lyra-tags-lit: 0;
+
+    display: contents;
+}
+
+/* A group shows the tags its step leaves, then the count. It asks for the width of all
+   its tags at full width, so the tags it shows never change its size. */
 .lyra-tags {
+    --lyra-tags-dot-step: calc(var(--lyra-tag-dot) * 0.94);
+    --lyra-tags-dots: 1;
+    --lyra-tags-full: auto;
+    --lyra-tags-gap: 0px;
+
+    /* 1 when the count has dots, else 0. */
+    --lyra-tags-dotted: min(var(--lyra-tags-dots), 1);
+
+    /* The count's face, which also rings its dots. */
+    --lyra-tags-count-face: var(--pluto-gray-l0);
+
+    flex-wrap: nowrap;
+    width: var(--lyra-tags-full);
+    min-width: 0;
+    max-width: 100%;
     padding: 0 2rem 0 0.5rem;
+    overflow: hidden;
+
+    & > .lyra-tag,
+    & > .lyra-tags__more {
+        order: -1;
+    }
+
+    & > .lyra-flex.lyra-btn.lyra-tag {
+        flex: 0 0 auto;
+        min-width: 0;
+
+        & > .lyra-text:not(.lyra-btn) {
+            min-width: 0;
+        }
+
+        &[data-hidden] {
+            display: none;
+        }
+    }
+
+    /* The count is a chip of its own, after the last tag. */
+    & > .lyra-tags__more {
+        display: none;
+        position: relative;
+        flex-shrink: 0;
+        height: var(--pluto-height-small);
+        padding: 0 1.5rem 0 calc(1.5rem - var(--lyra-tags-dotted) * 0.75rem);
+        border: var(--pluto-border);
+        border-color: transparent;
+        white-space: nowrap;
+
+        &[data-count] {
+            display: flex;
+        }
+
+        /* The face reaches back under the dots, with the inset before the first dot
+           equal to the one after the text. */
+        &::before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            inset: -1px -1px -1px
+                calc(
+                    -1px - var(--lyra-tags-dotted) * (1.5rem + 1px) -
+                        var(--lyra-tags-dots) * var(--lyra-tags-dot-step)
+                );
+            border: var(--pluto-border);
+            border-radius: var(--pluto-border-radius-small);
+            background-color: var(--lyra-tags-count-face);
+        }
+
+        &::before,
+        &::after {
+            transition:
+                border-color 0.15s,
+                color 0.15s;
+        }
+
+        &::after {
+            content: "+" attr(data-count);
+            color: var(--pluto-gray-l9);
+        }
+
+        /* With no tags beside it, a count told what its tags are names the total. */
+        &[data-alone][data-other]::after {
+            content: attr(data-count) " " attr(data-other);
+        }
+
+        &[data-alone][data-one][data-count="1"]::after {
+            content: "1 " attr(data-one);
+        }
+    }
+
+    /* The first hidden tags show as dots in the count. Each dot overlaps the one before
+       it, with a ring of the count's face between them. */
+    & > .lyra-flex.lyra-btn.lyra-tag[data-dot] {
+        position: static;
+        display: flex;
+        flex-shrink: 0;
+        margin-right: calc(
+            var(--lyra-tags-dot-step) - var(--lyra-tag-dot) - var(--lyra-tags-gap)
+        );
+        padding: 0;
+        border: none;
+        background: none;
+        box-shadow: none;
+        clip-path: none;
+        pointer-events: none;
+
+        &::before {
+            display: none;
+        }
+
+        /* A ring of the count's face sits just outside the dot. */
+        & > svg {
+            width: var(--lyra-tag-dot);
+            height: var(--lyra-tag-dot);
+            margin: 0;
+            border-radius: 50%;
+            box-shadow: 0 0 0 1.5px var(--lyra-tags-count-face);
+        }
+
+        & > .lyra-text {
+            display: none;
+        }
+    }
+
+    /* With no tag shown, the count's face starts where a first tag would. */
+    & > .lyra-flex.lyra-btn.lyra-tag[data-first-dot] {
+        margin-left: calc(1.5rem + 2px);
+    }
+
+    /* After a shown tag, the count's face reaches back past the first dot, and keeps
+       the gap from the last tag. A hidden tag with no dot may come between them. */
+    & > .lyra-tag:not([data-hidden]) ~ .lyra-flex.lyra-btn.lyra-tag[data-first-dot] {
+        margin-left: calc(1.5rem - 2px);
+    }
+
+    /* Its own hover brightens the count as one unit. Its face lies under its dots, so
+       they hover it too. */
+    & > .lyra-tags__more[data-count]:hover {
+        border-color: transparent;
+
+        &::before {
+            border-color: var(--pluto-gray-l8);
+        }
+
+        &::after {
+            color: var(--pluto-gray-l11);
+        }
+    }
+}
+
+/* A group stepped with a list fills its item, with its tags at the right. Each tag
+   stops at the cap, and its name fades past it. A hovered or open group is lit. */
+.lyra-tags--stepped {
+    justify-content: flex-end;
+    width: 100%;
+
+    & > .lyra-flex.lyra-btn.lyra-tag {
+        max-width: 20rem;
+    }
+
+    &:is(:hover, [aria-expanded="true"]) {
+        --lyra-tags-lit: 1;
+    }
+}
+
+/* A lit group brightens its outlines and its count's text. */
+@container style(--lyra-tags-lit: 1) {
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag {
+        --pluto-border-color: var(--pluto-gray-l8);
+    }
+
+    .lyra-tags--stepped > .lyra-tags__more[data-count] {
+        &::before {
+            border-color: var(--pluto-gray-l8);
+        }
+
+        &::after {
+            color: var(--pluto-gray-l10);
+        }
+    }
+}
+
+/* A tag that loads after its group painted fades in. */
+.lyra-tags > [data-entering] {
+    animation: lyra-tags-enter 0.1s ease-out;
+}
+
+@keyframes lyra-tags-enter {
+    from {
+        opacity: 0;
+    }
+}
+
+/* A group too narrow even for its dots shows no tags and no count. It keeps its frame,
+   so a trigger stays in view. */
+.lyra-tags[data-empty] > :is(.lyra-tag, .lyra-tags__more) {
+    visibility: hidden;
+}
+
+/* Each stacked tag shrinks, and its face paints 15 px past its box, under the next tag.
+   The face is a pseudo-element, so it keeps its full shape as the box shrinks. */
+.lyra-tags:where([data-stacked]) {
+    & > .lyra-flex.lyra-btn.lyra-tag {
+        position: relative;
+        isolation: isolate;
+        flex-shrink: 1;
+        min-width: 0;
+        overflow: visible;
+        border-color: transparent;
+        background: none;
+        box-shadow: none;
+        clip-path: inset(-4px -15px -4px -4px);
+
+        /* A hovered tag shows its name as a full tag does. */
+        &:where(:not(:hover)) {
+            color: var(--pluto-gray-l9);
+        }
+
+        &::before {
+            position: absolute;
+            z-index: -1;
+            top: -1px;
+            bottom: -1px;
+            left: -1px;
+            width: calc(100% + 17px);
+            border: var(--pluto-border-width) solid var(--lyra-tag-edge);
+            border-radius: var(--pluto-border-radius-small);
+            background: var(--lyra-tag-face);
+            box-shadow: var(--pluto-shadow-lift);
+            content: "";
+        }
+
+        /* The name runs on under the next tag, whose face cuts it. With no tag over it,
+           a last or lifted tag fades its name at the cap as a full tag does. */
+        &:not([data-last], [data-lifted]) > .lyra-text {
+            flex-shrink: 0;
+        }
+    }
+
+    /* A hovered tag lifts over its neighbors at full width. Its margin gives back the
+       width it gains, so they hold still. Every button sits at z-index 1. */
+    & > .lyra-flex.lyra-btn.lyra-tag[data-lifted] {
+        z-index: 2;
+        flex: 0 0 var(--lyra-tag-full);
+        margin-right: calc(var(--lyra-tag-shrunk) - var(--lyra-tag-full));
+        clip-path: none;
+        animation: lyra-tags-lift 0.1s ease-out;
+
+        &::before {
+            width: calc(100% + 2px);
+        }
+    }
+
+    & > .lyra-flex.lyra-btn[data-last] {
+        flex-shrink: 1e-6;
+        clip-path: none;
+
+        &::before {
+            width: calc(100% + 2px);
+        }
+    }
+}
+
+@keyframes lyra-tags-lift {
+    from {
+        opacity: 0.6;
+    }
+}
+
+/* A lit group brightens its names, stacked ones too. */
+@container style(--lyra-tags-lit: 1) {
+    .lyra-tags--stepped > .lyra-flex.lyra-btn.lyra-tag {
+        color: var(--pluto-gray-l11);
+    }
 }

@@ -9,6 +9,7 @@
 
 import { grammarRaw, languageConfigurationRaw, tokens } from "@synnaxlabs/arc";
 import { type Synnax } from "@synnaxlabs/client";
+import { record } from "@synnaxlabs/x";
 
 import { EXTENSIONS } from "@/arc/text/placeholderSuggest";
 import { type Code } from "@/code";
@@ -21,7 +22,7 @@ const SCOPE_NAME = "source.arc";
 type Theme = "dark" | "light";
 
 const semanticTokenColors = (theme: Theme): Record<string, string> =>
-  Object.fromEntries(Object.entries(tokens).map(([key, value]) => [key, value[theme]]));
+  record.map(tokens, (value) => value[theme]);
 
 const textMateRules = (theme: Theme): Code.TextMateRule[] =>
   Object.values(tokens).flatMap((config) =>

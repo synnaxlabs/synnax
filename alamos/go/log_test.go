@@ -164,6 +164,7 @@ var _ = Describe("Log", func() {
 			encoder zapcore.Encoder
 			buffer  *bytes.Buffer
 			writer  zapcore.WriteSyncer
+			codec   = errors.NewCodec(validate.ErrorProvider())
 		)
 
 		BeforeEach(func() {
@@ -174,14 +175,14 @@ var _ = Describe("Log", func() {
 		})
 
 		It("Should wrap an existing core", func() {
-			custom := alamos.CustomZapCore(core)
+			custom := alamos.CustomZapCore(core, codec)
 			Expect(custom.Enabled(zapcore.DebugLevel)).To(BeTrue())
 			Expect(custom.Enabled(zapcore.InfoLevel)).To(BeTrue())
 			Expect(custom.Enabled(zapcore.ErrorLevel)).To(BeTrue())
 		})
 
 		It("Should handle error stack traces", func() {
-			custom := alamos.CustomZapCore(core)
+			custom := alamos.CustomZapCore(core, codec)
 			err := errors.New("test error")
 			entry := zapcore.Entry{
 				Level:   zapcore.ErrorLevel,
@@ -196,7 +197,7 @@ var _ = Describe("Log", func() {
 
 		It("Should drop stack traces from expected errors", func() {
 			logger := zap.New(
-				alamos.CustomZapCore(core),
+				alamos.CustomZapCore(core, codec),
 				zap.AddStacktrace(zapcore.ErrorLevel),
 			)
 			err := errors.Wrap(validate.ErrValidation, "bad request")
@@ -209,7 +210,7 @@ var _ = Describe("Log", func() {
 		})
 
 		It("Should keep stack traces on unexpected errors", func() {
-			logger := zap.New(alamos.CustomZapCore(core))
+			logger := zap.New(alamos.CustomZapCore(core, codec))
 			logger.Error("test", zap.Error(errors.New("unexpected")))
 			Expect(buffer.String()).To(ContainSubstring("errorVerbose"))
 			Expect(buffer.String()).To(ContainSubstring(`"S":`))
@@ -218,7 +219,7 @@ var _ = Describe("Log", func() {
 		It(
 			"Should keep the stack trace of an unexpected error before an expected one",
 			func() {
-				logger := zap.New(alamos.CustomZapCore(core))
+				logger := zap.New(alamos.CustomZapCore(core, codec))
 				logger.Error(
 					"test",
 					zap.Error(errors.New("unexpected")),
@@ -229,7 +230,7 @@ var _ = Describe("Log", func() {
 		)
 
 		It("Should handle custom caller information", func() {
-			custom := alamos.CustomZapCore(core)
+			custom := alamos.CustomZapCore(core, codec)
 			entry := zapcore.Entry{
 				Level:   zapcore.InfoLevel,
 				Message: "test",
@@ -241,7 +242,7 @@ var _ = Describe("Log", func() {
 		})
 
 		It("Should maintain core functionality", func() {
-			custom := alamos.CustomZapCore(core)
+			custom := alamos.CustomZapCore(core, codec)
 			Expect(
 				custom.With([]zapcore.Field{zap.String("key", "value")}),
 			).ToNot(BeNil())
@@ -249,7 +250,7 @@ var _ = Describe("Log", func() {
 		})
 
 		It("Should handle Check in customCore", func() {
-			custom := alamos.CustomZapCore(core)
+			custom := alamos.CustomZapCore(core, codec)
 			entry := zapcore.Entry{
 				Level:   zapcore.InfoLevel,
 				Message: "test",
@@ -261,7 +262,7 @@ var _ = Describe("Log", func() {
 		})
 
 		It("Should log with custom core", func() {
-			custom := alamos.CustomZapCore(core)
+			custom := alamos.CustomZapCore(core, codec)
 			zapLogger := zap.New(custom)
 			newLogger := MustSucceed(
 				alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zapLogger}),

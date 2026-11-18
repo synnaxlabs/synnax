@@ -23,7 +23,7 @@ export interface MultipleProps<
   E extends record.Keyed<K> | undefined,
 >
   extends
-    Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
+    Omit<MultipleFrameProps<K, E>, "multiple" | "children" | "selectedFirst">,
     Pick<
       BodyProps<K>,
       "emptyContent" | "status" | "onSearch" | "actions" | "footer" | "fixedItems"
@@ -93,6 +93,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         allowNone={allowNone}
         replaceOnSingle={replaceOnSingle}
         virtual={virtual}
+        selectedFirst
       >
         <MultipleTrigger<K, E>
           haulType={haulType}
@@ -100,6 +101,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
           icon={icon}
           placeholder={placeholder}
           aria-label={caseconv.capitalize(plural(resourceName))}
+          resourceName={resourceName}
           disabled={disabled}
           preview={preview}
           {...triggerProps}

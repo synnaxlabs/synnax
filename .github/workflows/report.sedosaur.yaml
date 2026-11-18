@@ -43,9 +43,27 @@ jobs:
           fetch-depth: 0
           filter: blob:none
 
+      # A record never changes, so each run downloads only the records that are new.
+      - name: Restore the records
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/records
+          key: sedosaur-records-${{ github.run_id }}
+          restore-keys: sedosaur-records-
+
       - name: Compare the reviews
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ github.token }}
           DAYS: ${{ inputs.days || 30 }}
-        run: python3 -m review compare "$DAYS" >> "$GITHUB_STEP_SUMMARY"
+          RECORDS: ${{ runner.temp }}/records
+        run: |
+          mkdir -p "$RECORDS"
+          python3 -m review compare "$DAYS" "$RECORDS" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save the records
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ runner.temp }}/records
+          key: sedosaur-records-${{ github.run_id }}

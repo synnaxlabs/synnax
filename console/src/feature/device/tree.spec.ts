@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device as deviceClient, NotFoundError, query } from "@synnaxlabs/client";
+import { device as deviceClient, NotFoundError, query, task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { Device as PDevice } from "@synnaxlabs/pluto";
+import { id, TimeStamp } from "@synnaxlabs/x";
+import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -35,6 +36,7 @@ import {
 } from "@/platform/tree/testutil";
 import {
   assertDefined,
+  awaitGranted,
   awaitTextEditingElement,
   CaptureStatuses,
   commitTextEdit,
@@ -172,9 +174,7 @@ describe("device/tree", () => {
       expect(statuses).toContainEqual(
         expect.objectContaining({
           message: "Failed to delete device",
-          description:
-            `cannot delete device ${dev.name} because task ${task.name} uses it: ` +
-            "validation error",
+          description: `cannot delete device ${dev.name} because task ${task.name} uses it`,
         }),
       ),
     );
@@ -213,6 +213,56 @@ describe("device/tree", () => {
     fireEvent.click(await screen.findByText("Edit connection"));
     expect(await screen.findByText("Modbus server")).toBeTruthy();
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
+  });
+});
+
+describe("several selected devices", () => {
+  const renderMenu = async (devices: { key: string; name: string }[]) => {
+    const Item = Device.TREE_ITEMS.device;
+    assertDefined(Item.ContextMenu);
+    return await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: devices.map((d) =>
+        createResource(deviceClient.resourceID(d.key), d.name),
+      ),
+    });
+  };
+
+  it("should offer the integration's Disable for slaves of one make", async () => {
+    const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const a = await createSlaveDevice(client, rack.key);
+    const b = await createSlaveDevice(client, rack.key);
+    await renderMenu([a, b]);
+    expect(await screen.findByText("Disable")).toBeTruthy();
+    expect(screen.queryByText("Configure")).toBeNull();
+  });
+
+  it("should offer no integration items for devices of different makes", async () => {
+    await awaitGranted(client, task.TYPE_RESOURCE_ID);
+    const rack = (await client.racks.create({ name: uniqueName("rack") })).key;
+    // The Core returns devices in key order. The NI device comes first, so a menu that
+    // read only the first make would offer the NI task for several devices.
+    const key = id.create();
+    const ni = await createTestDevice(client, {
+      key: `${key}_a`,
+      make: NI.Device.MAKE,
+      rack,
+    });
+    const opcua = await createTestDevice(client, {
+      key: `${key}_b`,
+      make: OPCUA.Device.MAKE,
+      rack,
+    });
+    const { wrapper } = await renderMenu([ni, opcua]);
+    const keys = [ni.key, opcua.key];
+    const { result } = renderHook(
+      () => PDevice.useResultMultiple({ where: { key: { in: keys } } }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.data).toHaveLength(2));
+    await act(async () => {});
+    expect(screen.getByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Create analog read task")).toBeNull();
   });
 });
 

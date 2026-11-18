@@ -10,10 +10,13 @@
 package table_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -23,7 +26,7 @@ import (
 // a client sends once its own defaults have filled.
 func textCfg(value string) table.CellConfig {
 	cfg := table.CellConfig{Variant: table.TextCellConfig{Value: value}}
-	cfg.ApplyDefaults()
+	cfg = defaults.Fill(cfg)
 	return cfg
 }
 
@@ -31,7 +34,7 @@ func textCfg(value string) table.CellConfig {
 // what a client sends once its own defaults have filled.
 func valueCfg(units string) table.CellConfig {
 	cfg := table.CellConfig{Variant: table.ValueCellConfig{Units: units}}
-	cfg.ApplyDefaults()
+	cfg = defaults.Fill(cfg)
 	return cfg
 }
 
@@ -67,11 +70,11 @@ func keysOf(r table.Row) []string {
 
 // allKeys returns the keys of every cell in the table, in row-major order.
 func allKeys(t table.Table) []string {
-	var keys []string
-	for _, r := range t.Rows {
-		keys = append(keys, keysOf(r)...)
+	rows := make([][]string, len(t.Rows))
+	for i, r := range t.Rows {
+		rows[i] = keysOf(r)
 	}
-	return keys
+	return slices.Concat(rows...)
 }
 
 // configOf returns the config of the cell with the given key.

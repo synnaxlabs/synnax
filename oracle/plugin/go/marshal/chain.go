@@ -10,7 +10,6 @@
 package marshal
 
 import (
-	"context"
 	"fmt"
 	"maps"
 	"slices"
@@ -28,8 +27,7 @@ import (
 // of every chain. Types aliased at a version carry the definer's codec through
 // the alias, so only that version's defined declarations get codecs.
 func (p *Plugin) chainFrozenCodecs(req *plugin.Request) ([]plugin.File, error) {
-	ctx := context.Background()
-	chainPaths, err := gotypes.ChainPaths(ctx, req)
+	chainPaths, err := gotypes.ChainPaths(req)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +38,7 @@ func (p *Plugin) chainFrozenCodecs(req *plugin.Request) ([]plugin.File, error) {
 			if k >= cp.Current {
 				break
 			}
-			out, err := p.frozenCodecFiles(ctx, req, origPath, cp.LivePath, k)
+			out, err := p.frozenCodecFiles(req, origPath, cp.LivePath, k)
 			if err != nil {
 				return nil, err
 			}
@@ -50,23 +48,14 @@ func (p *Plugin) chainFrozenCodecs(req *plugin.Request) ([]plugin.File, error) {
 	return files, nil
 }
 
-// frozenCodecFiles emits the codec (and test) files for one frozen version
-// package, mirroring the current-package flow over the frozen table.
-func (p *Plugin) frozenCodecFiles(
-	ctx context.Context,
-	req *plugin.Request,
-	origPath, livePath string,
-	k int,
-) ([]plugin.File, error) {
-	f, err := req.Versions.File(ctx, livePath, k)
-	if err != nil {
-		return nil, err
-	}
-	table, ns, err := gotypes.ChainFrozenTable(ctx, req, origPath, livePath, k)
-	if err != nil {
-		return nil, err
-	}
-	vkPath := versioning.VersionedPath(origPath, k)
+// frozenEntries returns the struct and union types in namespace ns of a frozen table
+// that get a codec, keyed by qualified name. isAlias reports whether the version file
+// aliases a type to its predecessor, which then carries its codec.
+func frozenEntries(
+	table *resolution.Table,
+	ns string,
+	isAlias func(string) bool,
+) map[string]resolution.Type {
 	merged := make(map[string]resolution.Type)
 	for _, entry := range append(table.StructTypes(), table.UnionTypes()...) {
 		if entry.Namespace != ns ||
@@ -74,7 +63,7 @@ func (p *Plugin) frozenCodecFiles(
 			handCodec(entry) {
 			continue
 		}
-		if _, isAlias := f.Aliases[entry.Name]; isAlias {
+		if isAlias(entry.Name) {
 			continue
 		}
 		if entry.Synthetic {
@@ -82,18 +71,28 @@ func (p *Plugin) frozenCodecFiles(
 		}
 		merged[entry.QualifiedName] = entry
 	}
+	return merged
+}
+
+// frozenFlexCodecs returns the flex codecs of the distinct types in namespace ns of a
+// frozen table.
+func frozenFlexCodecs(
+	table *resolution.Table,
+	ns string,
+	isAlias func(string) bool,
+) []flexCodec {
 	var flex []flexCodec
 	for _, dt := range table.DistinctTypes() {
 		if dt.Namespace != ns {
 			continue
 		}
-		if _, isAlias := f.Aliases[dt.Name]; isAlias {
+		if isAlias(dt.Name) {
 			continue
 		}
 		if domain.GetStringFromType(dt, "go", "marshal") != "flex" {
 			continue
 		}
-		form := dt.Form.(resolution.DistinctForm)
+		form := resolution.MustForm[resolution.DistinctForm](dt)
 		goName := naming.GetGoName(dt)
 		flex = append(flex, flexCodec{
 			GoName:   goName,
@@ -101,6 +100,31 @@ func (p *Plugin) frozenCodecFiles(
 			BaseType: form.Base.Name,
 		})
 	}
+	return flex
+}
+
+// frozenCodecFiles emits the codec (and test) files for one frozen version package,
+// mirroring the current-package flow over the frozen table.
+func (p *Plugin) frozenCodecFiles(
+	req *plugin.Request,
+	origPath, livePath string,
+	k int,
+) ([]plugin.File, error) {
+	f, err := req.Versions.File(livePath, k)
+	if err != nil {
+		return nil, err
+	}
+	table, ns, err := gotypes.ChainFrozenTable(req, origPath, livePath, k)
+	if err != nil {
+		return nil, err
+	}
+	vkPath := versioning.VersionedPath(origPath, k)
+	isAlias := func(name string) bool {
+		_, ok := f.Aliases[name]
+		return ok
+	}
+	merged := frozenEntries(table, ns, isAlias)
+	flex := frozenFlexCodecs(table, ns, isAlias)
 	entries := buildCodecEntries(merged)
 	if len(entries) == 0 && len(flex) == 0 {
 		return nil, nil

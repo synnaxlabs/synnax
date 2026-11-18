@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -27,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -38,15 +36,19 @@ import (
 // degradedHold is how long a read task shows a warning after it last lost data.
 const degradedHold = 5 * time.Second
 
-// qosLevel returns the MQTT quality of service level of q.
-func qosLevel(q QoS) byte {
+// qosLevel returns the MQTT quality of service level of q. It returns an error that
+// wraps validate.ErrValidation for an unknown q.
+func qosLevel(q QoS) (byte, error) {
 	switch q {
+	case QoSAtMostOnce:
+		return 0, nil
 	case QoSAtLeastOnce:
-		return 1
+		return 1, nil
 	case QoSExactlyOnce:
-		return 2
+		return 2, nil
+	default:
+		return 0, errors.Wrapf(validate.ErrValidation, "qos: unknown value %q", q)
 	}
-	return 0
 }
 
 // validateTopic checks a topic that a task subscribes or publishes to. A task names
@@ -71,8 +73,6 @@ type topicSubscription struct {
 	retainedIgnored bool
 }
 
-func (s topicSubscription) subscription() topicSubscription { return s }
-
 // topicSample holds the samples that one message on a topic gives.
 type topicSample struct {
 	// index is the index channel of keys. Zero for virtual channels.
@@ -81,12 +81,6 @@ type topicSample struct {
 	// series can share memory that the next convert of the topic overwrites.
 	series []telem.Series
 	stamp  telem.TimeStamp
-}
-
-// topicReader converts the messages of one subscribed topic into samples.
-type topicReader interface {
-	subscription() topicSubscription
-	convert(msg message) (topicSample, error)
 }
 
 // topicMessage reads the documents of one ICD message into its bound channels.
@@ -116,8 +110,6 @@ type readTopic struct {
 	text []byte
 }
 
-var _ topicReader = (*readTopic)(nil)
-
 // newReadTopic validates entry against ic, the ICD it names, and channels, which holds
 // every channel that a binding of the entry names.
 func newReadTopic(
@@ -125,13 +117,17 @@ func newReadTopic(
 	ic icd.ICD,
 	channels map[channel.Key]channel.Channel,
 ) (*readTopic, error) {
-	if err := validateTopic(entry.Topic); err != nil {
+	qos, err := qosLevel(entry.Qos)
+	if err != nil {
 		return nil, err
 	}
 	t := &readTopic{
 		topic:           entry.Topic,
-		qos:             qosLevel(entry.Qos),
+		qos:             qos,
 		retainedIgnored: entry.RetainedIgnored,
+	}
+	if err = validateTopic(entry.Topic); err != nil {
+		return nil, err
 	}
 	if len(entry.Messages) == 0 {
 		return nil, errors.Wrapf(
@@ -147,7 +143,6 @@ func newReadTopic(
 		t.messages = append(t.messages, m)
 		t.samples = append(t.samples, make([][]byte, len(decoded[i].Bindings)))
 	}
-	var err error
 	if t.decoder, err = codec.NewJSON(decoded); err != nil {
 		return nil, errors.Wrapf(err, "topic %s", entry.Topic)
 	}
@@ -187,49 +182,9 @@ func newTopicMessage(
 		)
 	}
 	m := &topicMessage{name: msg.Name, indexField: -1}
-	bindings := make([]codec.Binding, len(rm.Bindings))
-	indexSet := false
-	for i, b := range rm.Bindings {
-		ch, ok := channels[b.Channel]
-		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"message %s: channel %d does not exist", msg.Name, b.Channel,
-			)
-		}
-		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
-		m.dataTypes = append(m.dataTypes, ch.DataType)
-		if !indexSet {
-			m.index, indexSet = ch.Index(), true
-		} else if ch.Index() != m.index {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"message %s: every channel must share one index channel", msg.Name,
-			)
-		}
-		isIndexField := rm.Index != nil && *rm.Index == b.Field
-		switch {
-		case isIndexField && !ch.IsIndex:
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"message %s: the index field must write to an index channel",
-				msg.Name,
-			)
-		case !isIndexField && ch.IsIndex:
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"message %s: only the index field can write to an index channel",
-				msg.Name,
-			)
-		case isIndexField:
-			m.indexField = i
-		}
-	}
-	if rm.Index != nil && m.indexField == -1 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"message %s: the index field has no channel", msg.Name,
-		)
+	bindings, err := m.bind(rm, channels)
+	if err != nil {
+		return nil, errors.Wrapf(err, "message %s", msg.Name)
 	}
 	*decoded = codec.JSONMessage{Name: msg.Name, Payload: payload, Bindings: bindings}
 	if m.index != 0 {
@@ -241,6 +196,53 @@ func newTopicMessage(
 		}
 	}
 	return m, nil
+}
+
+// bind sets the data types, the index channel, and the index field of m from the
+// bindings of rm and their channels. It returns the codec binding of each.
+func (m *topicMessage) bind(
+	rm ReadMessage,
+	channels map[channel.Key]channel.Channel,
+) ([]codec.Binding, error) {
+	bindings := make([]codec.Binding, len(rm.Bindings))
+	for i, b := range rm.Bindings {
+		ch, ok := channels[b.Channel]
+		if !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "channel %d does not exist", b.Channel,
+			)
+		}
+		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
+		m.dataTypes = append(m.dataTypes, ch.DataType)
+		if i == 0 {
+			m.index = ch.Index()
+		} else if ch.Index() != m.index {
+			return nil, errors.Wrap(
+				validate.ErrValidation, "every channel must share one index channel",
+			)
+		}
+		isIndexField := rm.Index != nil && *rm.Index == b.Field
+		switch {
+		case isIndexField && !ch.IsIndex:
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"the index field must write to an index channel",
+			)
+		case !isIndexField && ch.IsIndex:
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"only the index field can write to an index channel",
+			)
+		case isIndexField:
+			m.indexField = i
+		}
+	}
+	if rm.Index != nil && m.indexField == -1 {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "the index field has no channel",
+		)
+	}
+	return bindings, nil
 }
 
 // convert reads msg as the message whose match rule its document meets. A payload that
@@ -329,16 +331,8 @@ func (b *batch) result() driver.Batch {
 
 // readSource is the driver.Source of an MQTT read task.
 type readSource struct {
-	pool *pool
-	// mu guards what a change of an ICD that the task reads configures again.
-	mu struct {
-		// topics holds the reader of each plain topic.
-		topics map[string]topicReader
-		// err is the error of the last configure after an ICD change. No run opens
-		// while it is set.
-		err error
-		sync.Mutex
-	}
+	pool   *pool
+	topics map[string]*readTopic
 	// tags holds the Sparkplug B tags of the task.
 	tags map[tagID]readTag
 	// lastStamp is the last timestamp of each index channel, stored or written by any
@@ -360,69 +354,9 @@ type readSource struct {
 
 var _ driver.Source = (*readSource)(nil)
 
-// readTask is a configured MQTT read task. Its factory configures it again when an ICD
-// that it reads changes, until the driver stops it.
-type readTask struct {
-	*driver.ReadTask
-	t   task.Task
-	src *readSource
-	// icds holds the ICDs that the enabled plain entries of the task read.
-	icds set.Set[icd.Key]
-	// mu holds off a stop while the factory configures the task again.
-	mu struct {
-		stopped bool
-		sync.Mutex
-	}
-	forget func(*readTask)
-}
-
-// Stop implements driver.Task.
-func (t *readTask) Stop(sendStatus bool) error {
-	t.mu.Lock()
-	t.mu.stopped = true
-	t.mu.Unlock()
-	t.forget(t)
-	return t.ReadTask.Stop(sendStatus)
-}
-
-// configure points the source at topics, or at err when the task no longer configures.
-// An open run reads its next message with topics.
-func (s *readSource) configure(topics map[string]topicReader, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.mu.topics, s.mu.err = topics, err
-}
-
-// topic returns the reader of the plain topic name.
-func (s *readSource) topic(name string) (topicReader, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	t, ok := s.mu.topics[name]
-	return t, ok
-}
-
-// subscriptions returns the plain topics of the source, or the error of its last
-// configure.
-func (s *readSource) subscriptions() ([]topicSubscription, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.mu.err != nil {
-		return nil, s.mu.err
-	}
-	subs := make([]topicSubscription, 0, len(s.mu.topics))
-	for _, t := range s.mu.topics {
-		subs = append(subs, t.subscription())
-	}
-	return subs, nil
-}
-
 // Open implements driver.Source.
 func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
-	subs, err := s.subscriptions()
-	if err != nil {
-		return nil, err
-	}
-	if err = s.seed(ctx); err != nil {
+	if err := s.seed(ctx); err != nil {
 		return nil, err
 	}
 	a, err := s.pool.attach(ctx, s.broker, s.queueSize)
@@ -436,7 +370,7 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 		awaited:    make(map[tagScope]time.Time),
 		offline:    make(set.Set[tagScope]),
 	}
-	if err = r.subscribe(ctx, subs); err != nil {
+	if err = r.subscribe(ctx); err != nil {
 		s.pool.release(s.broker, a)
 		return nil, err
 	}
@@ -508,11 +442,12 @@ type reader struct {
 
 var _ driver.Reader = (*reader)(nil)
 
-func (r *reader) subscribe(ctx context.Context, subs []topicSubscription) error {
+func (r *reader) subscribe(ctx context.Context) error {
 	if err := r.attachment.settle(ctx); err != nil {
 		return err
 	}
-	for _, sub := range subs {
+	for _, t := range r.topics {
+		sub := t.topicSubscription
 		if err := r.attachment.subscribe(ctx, sub.topic, sub.qos); err != nil {
 			return err
 		}
@@ -707,11 +642,11 @@ func (r *reader) degrade(now time.Time, err error) {
 // convert adds the samples of msg to b. A message that carries nothing to write adds
 // none.
 func (r *reader) convert(now time.Time, msg message, b *batch) {
-	t, ok := r.topic(msg.topic)
+	t, ok := r.topics[msg.topic]
 	if !ok {
 		return
 	}
-	sub := t.subscription()
+	sub := t.topicSubscription
 	if msg.retained && sub.retainedIgnored {
 		return
 	}
@@ -783,52 +718,83 @@ func (r *reader) convertEvent(now time.Time, msg message, b *batch) {
 			r.refreshOffline()
 			r.checkBirth(now, scope, ev.Metrics)
 		}
+	case sparkplug.NData,
+		sparkplug.DData,
+		sparkplug.NCmd,
+		sparkplug.DCmd,
+		sparkplug.State:
 	}
 	for _, m := range ev.Metrics {
-		t, ok := r.tags[tagID{tagScope: scope, name: m.Name}]
-		if !ok || m.Value == nil {
-			continue
-		}
-		data, err := sparkplug.AppendSample(nil, t.dataType, m.Value)
-		if err != nil {
-			r.degrade(now, errors.Wrapf(err, "rejected a value of %s", t))
-			continue
-		}
-		if m.Historical {
-			if err = r.history.add(now, t, m.Timestamp, data); err != nil {
-				r.degrade(now, err)
-			}
-			continue
-		}
-		if t.index != 0 {
-			stamp := m.Timestamp
-			if stamp == 0 {
-				stamp = msg.received
-			}
-			// An index takes timestamps in rising order only. A birth repeats values
-			// that the task may have, so a stale one is no loss.
-			if stamp <= r.lastStamp[t.index] {
-				if !birth {
-					r.degrade(now, errors.Newf(
-						"rejected a value of %s: its timestamp is not after the last "+
-							"one written",
-						t,
-					))
-				}
-				continue
-			}
-			r.lastStamp[t.index] = stamp
-			if err = r.history.live(now, t.index, stamp); err != nil {
-				r.degrade(now, err)
-			}
-			b.append(
-				t.index,
-				telem.TimestampT,
-				telem.ByteOrder.AppendUint64(nil, uint64(stamp)),
-			)
-		}
-		b.append(t.channel, t.dataType, data)
+		r.appendMetric(now, msg.received, scope, m, birth, b)
 	}
+}
+
+// appendMetric puts the value of m into b when m is a tag of the task in scope.
+// received is the time that the message of m arrived.
+func (r *reader) appendMetric(
+	now time.Time,
+	received telem.TimeStamp,
+	scope tagScope,
+	m sparkplug.Metric,
+	birth bool,
+	b *batch,
+) {
+	t, ok := r.tags[tagID{tagScope: scope, name: m.Name}]
+	if !ok || m.Value == nil {
+		return
+	}
+	data, err := sparkplug.AppendSample(nil, t.dataType, m.Value)
+	if err != nil {
+		r.degrade(now, errors.Wrapf(err, "rejected a value of %s", t))
+		return
+	}
+	if m.Historical {
+		if err = r.history.add(now, t, m.Timestamp, data); err != nil {
+			r.degrade(now, err)
+		}
+		return
+	}
+	if t.index != 0 && !r.appendIndex(now, received, t, m, birth, b) {
+		return
+	}
+	b.append(t.channel, t.dataType, data)
+}
+
+// appendIndex puts the timestamp of m into the index of t in b. It returns false when
+// it rejects a timestamp that is not after the last one written.
+func (r *reader) appendIndex(
+	now time.Time,
+	received telem.TimeStamp,
+	t readTag,
+	m sparkplug.Metric,
+	birth bool,
+	b *batch,
+) bool {
+	stamp := m.Timestamp
+	if stamp == 0 {
+		stamp = received
+	}
+	// An index takes timestamps in rising order only. A birth repeats values that the
+	// task may have, so a stale one is no loss.
+	if stamp <= r.lastStamp[t.index] {
+		if !birth {
+			r.degrade(now, errors.Newf(
+				"rejected a value of %s: its timestamp is not after the last one written",
+				t,
+			))
+		}
+		return false
+	}
+	r.lastStamp[t.index] = stamp
+	if err := r.history.live(now, t.index, stamp); err != nil {
+		r.degrade(now, err)
+	}
+	b.append(
+		t.index,
+		telem.TimestampT,
+		telem.ByteOrder.AppendUint64(nil, uint64(stamp)),
+	)
+	return true
 }
 
 // reads reports whether the task has a tag in scope, or, for an edge node, in one of

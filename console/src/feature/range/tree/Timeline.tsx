@@ -539,7 +539,12 @@ export const Timeline = ({ emptyContent, ...rest }: TimelineProps): ReactElement
       rest.nodes.length === 0 ? (
         emptyContent
       ) : (
-        <List.Items<ranger.Key>>{lane}</List.Items>
+        <>
+          <div className={CSS.BE("range-timeline", "gap")}>
+            <div className={CSS.BE("range-timeline", "track")} />
+          </div>
+          <List.Items<ranger.Key>>{lane}</List.Items>
+        </>
       )
     }
   />

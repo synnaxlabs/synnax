@@ -10,6 +10,7 @@
 // @vitest-environment jsdom
 
 import { ResizeObserver } from "@juggle/resize-observer";
+import { uuid } from "@synnaxlabs/x";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   afterAll,
@@ -28,7 +29,7 @@ import { HASH_A, NOW } from "@/server/license/testutil";
 import { Licenses } from "@/ui/licenses";
 
 const ACME: Organization = {
-  key: crypto.randomUUID(),
+  key: uuid.create(),
   kind: "team",
   name: "Acme",
   clerkOrgID: "org_acme",
@@ -39,7 +40,7 @@ const ACME: Organization = {
 
 const createChoice = (license: Partial<License> = {}, seats = 0): Owned & Held => ({
   license: {
-    key: crypto.randomUUID(),
+    key: uuid.create(),
     organization: ACME.key,
     edition: "enterprise",
     term: "subscription",

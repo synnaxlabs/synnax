@@ -14,7 +14,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { deep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { deep, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type FC } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -612,7 +612,7 @@ describe("wrapForm", () => {
         .onChange(seen);
       // Let the one-time setup renders settle, the permission grant among them, so the
       // count reflects only what the status change causes.
-      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
+      await act(async () => await sleep.sleep(TimeSpan.milliseconds(30)));
       const before = renders;
       await client.statuses.set({
         owner: device.resourceID(deviceKey),
@@ -623,7 +623,7 @@ describe("wrapForm", () => {
         details: { rack: rack.key },
       });
       await waitFor(() => expect(seen).toHaveBeenCalled());
-      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
+      await act(async () => await sleep.sleep(TimeSpan.milliseconds(30)));
       expect(renders).toBe(before);
       off();
     });
@@ -846,9 +846,8 @@ describe("wrapForm", () => {
           taskKey: draft.key,
         });
         await reportTaskRunning(client, draft, "stale");
-        await act(async () =>
-          fireEvent.click(await screen.findByRole("button", { name: "Redeploy" })),
-        );
+        const redeploy = await screen.findByRole("button", { name: "Redeploy" });
+        await act(async () => fireEvent.click(redeploy));
         await screen.findByText("Configuring task");
         fireEvent.click(await findIconButton(container, "stop"));
         expect((await awaitCommand(streamer, draft.key)).type).toBe("stop");

@@ -11,8 +11,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"sort"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/formatter"
@@ -96,7 +96,7 @@ func runFmt(cmd *cobra.Command, args []string) error {
 	)
 
 	for _, file := range files {
-		result, err := formatFile(file)
+		result, err := formatFile(file, repoRoot)
 		if err != nil {
 			printError(fmt.Sprintf("failed to format %s: %v", file, err))
 			failed++
@@ -130,8 +130,8 @@ const (
 	formatResultChanged
 )
 
-func formatFile(path string) (formatResult, error) {
-	source, err := os.ReadFile(path)
+func formatFile(path, repoRoot string) (formatResult, error) {
+	source, err := paths.ReadFile(path, repoRoot)
 	if err != nil {
 		return formatResultUnchanged, err
 	}
@@ -146,16 +146,16 @@ func formatFile(path string) (formatResult, error) {
 	}
 
 	if fmtCheck {
-		printInfo(fmt.Sprintf("needs formatting: %s", path))
+		printInfo("needs formatting: " + path)
 		return formatResultChanged, nil
 	}
 
 	if fmtDiff {
-		printInfo(fmt.Sprintf("would format: %s", path))
+		printInfo("would format: " + path)
 		return formatResultChanged, nil
 	}
 
-	if err := os.WriteFile(path, []byte(formatted), 0o644); err != nil {
+	if err := paths.WriteFile(path, repoRoot, []byte(formatted), 0o644); err != nil {
 		return formatResultUnchanged, err
 	}
 
@@ -182,7 +182,7 @@ func printFormatResult(formatted, unchanged int) {
 		)
 		return
 	}
-	f := countStyle.Render(fmt.Sprintf("%d", formatted))
+	f := countStyle.Render(strconv.Itoa(formatted))
 	word := "file"
 	if formatted != 1 {
 		word = "files"

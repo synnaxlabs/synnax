@@ -25,8 +25,8 @@ import (
 )
 
 type entryV1 struct {
-	ID   int32  `msgpack:"id"   json:"id"`
-	Data string `msgpack:"data" json:"data"`
+	ID   int32  `json:"id"   msgpack:"id"`
+	Data string `json:"data" msgpack:"data"`
 }
 
 func (e entryV1) GorpKey() int32 { return e.ID }
@@ -58,7 +58,7 @@ var _ = Describe("Migrate", func() {
 				migrateWithEntryV1(ctx, testDB, []gorp.Migration{migration}),
 			).To(Succeed())
 			versionKey := []byte("gorp.migration." + testNamespace)
-			b, closer := MustSucceed2(testDB.Get(ctx, versionKey))
+			b, closer := MustSucceed2(testDB.Get(versionKey))
 			Expect(closer.Close()).To(Succeed())
 			Expect(string(b)).To(Equal(`["noop"]`))
 		})

@@ -155,6 +155,7 @@ var _ = Describe("Analysis", func() {
 			},
 			Entry("km to m", "km", "meter", 1000.0, false),
 			Entry("ms to s", "ms", "s", 1e-3, false),
+			Entry("um to nm", "um", "nm", 1000.0, false),
 			Entry("psi to Pa", "psi", "Pa", 6894.76, true),
 			Entry("same unit returns 1.0", "psi", "psi", 1.0, false),
 		)
@@ -190,5 +191,24 @@ var _ = Describe("Analysis", func() {
 				"cannot convert between dimensioned and dimensionless",
 			),
 		)
+	})
+
+	Describe("Diagnostic messages of dimension errors", func() {
+		It("Should put the detail of a power error after the headline", func() {
+			err := units.ValidatePowerOp(makeType("m"), makeType(""), false)
+			Expect(diagnostics.Error(err, nil).Message).To(Equal(
+				"incompatible dimensions: power operation with dimensioned base " +
+					"requires a literal integer exponent: dimensions",
+			))
+		})
+
+		It("Should put the detail of a conversion error after the headline", func() {
+			hz, ns := MustBeOk(units.Resolve("hz")), MustBeOk(units.Resolve("ns"))
+			_, err := units.ScaleFactor(hz, ns)
+			Expect(diagnostics.Error(err, nil).Message).To(Equal(
+				"incompatible dimensions: cannot convert time^-1 to time^1: " +
+					"incompatible: dimensions",
+			))
+		})
 	})
 })

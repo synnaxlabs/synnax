@@ -195,6 +195,19 @@ describe("OPC UA Read Task Config Validation", () => {
       ),
     ).toBe(true);
   });
+
+  it("should check the stream rate when a node ID warning shows", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse({
+      ...createConfig([{ nodeId: "ns=1;s=dup" }, { nodeId: "ns=1;s=dup" }]),
+      streamRate: 100,
+    });
+    expect(result.error?.issues).toContainEqual(
+      expect.objectContaining({
+        path: ["streamRate"],
+        message: "Stream rate must be less than or equal to the sample rate",
+      }),
+    );
+  });
 });
 
 describe("OPC UA Write Task Config Validation", () => {

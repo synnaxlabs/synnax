@@ -632,7 +632,7 @@ var _ = Describe("Relay", func() {
 
 		It(
 			"Should deliver the open ack when the streamer is opened with no keys",
-			func(ctx SpecContext) {
+			func() {
 				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
 					SendOpenAck: new(true),
 				}))
@@ -1034,7 +1034,7 @@ func newChannelSet() []channel.Channel {
 func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	node := testutil.OpenNode(ctx)
+	node := testutil.OpenNode(GinkgoT().Context())
 	channels = MustSucceed(node.CreateChannels(ctx, channels))
 	return scenario{
 		name:     "Storage",
@@ -1047,7 +1047,7 @@ func storageScenario(ctx context.Context) scenario {
 func freeScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	dist := testutil.OpenNode(ctx)
+	dist := testutil.OpenNode(GinkgoT().Context())
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true

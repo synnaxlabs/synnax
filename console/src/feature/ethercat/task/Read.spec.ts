@@ -22,7 +22,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -45,15 +45,18 @@ import {
 import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
+  awaitTare,
   clickDeploy,
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
   renderTaskFormTab,
+  reportTaskRunning,
 } from "@/platform/task/testutil";
 import {
   createTestClientWithGrants,
   findDialogTriggerByText,
+  findIconButton,
   uniqueName,
 } from "@/testutil";
 
@@ -61,7 +64,9 @@ const client = createTestClient();
 
 let testRack: rack.Rack;
 
-beforeAll(async () => {
+// The Core marks each device of a rack disconnected once the rack is silent for 5 s, so
+// each test gets a new rack.
+beforeEach(async () => {
   testRack = await client.racks.create({ name: uniqueName("ecat_rack") });
 });
 
@@ -179,6 +184,33 @@ const EXCITATION = { index: 0x8040, subIndex: 0x1c, dataType: "float32", name: "
 const POLARITY = { index: 0x8040, subIndex: 0x21, dataType: "uint16", name: "" };
 
 describe("Read", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY),
+          channel: float.key,
+        },
+      ],
+    });
+    const args = await awaitTare(client, draft.key, async () => {
+      await reportTaskRunning(client, draft);
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should render channels from the task row's config with their port labels", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -403,17 +435,53 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
-  it("should say that DewesoftX sets the settings of a channel of a slave it sets up", async () => {
-    const slave = await createSharedSlave();
+  it("should show the settings that DewesoftX holds for a channel of a slave it sets up", async () => {
+    const settings = createDewesoftXSettings(true);
+    settings.channels = settings.channels.map((input) => ({
+      ...input,
+      settings: input.settings.map((f) =>
+        f.index === MEASUREMENT.index && f.subIndex === MEASUREMENT.subIndex
+          ? { ...f, value: 6 }
+          : f,
+      ),
+    }));
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings,
+    });
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
     });
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(
-      await screen.findByText("DewesoftX sets the settings of this device."),
+      await screen.findByText(
+        "DewesoftX sets these values. Synnax does not change them.",
+      ),
     ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
+    const measurement = screen.getByRole("button", { name: /^Measurement/ });
+    expect(measurement.getAttribute("aria-disabled")).toBe("true");
+    expect(measurement.textContent).toContain("Bridge");
+    expect(screen.getByLabelText<HTMLInputElement>("Excitation voltage").disabled).toBe(
+      true,
+    );
+    expect(
+      screen.queryByText("A bridge needs an excitation voltage above 0 V."),
+    ).toBeNull();
+  });
+
+  it("should show no value for a setting that the scan did not read on a slave that DewesoftX sets up", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    const measurement = await screen.findByRole("button", { name: /^Measurement/ });
+    expect(measurement.getAttribute("aria-disabled")).toBe("true");
+    expect(measurement.textContent).not.toContain("Voltage");
   });
 
   it("should name a slave in DewesoftX mode before Start and offer the switch", async () => {
@@ -1405,14 +1473,20 @@ describe("Read", () => {
     expect(disabled).toMatchObject({ type: "unresolved", pdo: "Input", channel: 0 });
   });
 
-  it("should show why a channel with no device cannot run", async () => {
-    await renderRead({
+  it("should show that a new task has no device only after a start", async () => {
+    const { container } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createReadChannel([])],
     });
-    expect(
-      await screen.findByText("A channel has no device. Pick a device."),
-    ).toBeTruthy();
+    const option = await screen.findByRole("option", { name: /No entry/ });
+    expect(option.classList.contains("lyra--status-error")).toBe(false);
+    expect(screen.queryByRole("button", { expanded: true })).toBeNull();
+    await clickDeploy(container);
+    await waitFor(() =>
+      expect(option.classList.contains("lyra--status-error")).toBe(true),
+    );
+    expect(await screen.findByText("Device is required")).toBeTruthy();
+    expect(await screen.findByRole("button", { expanded: true })).toBeTruthy();
   });
 
   it("should select a channel with no device when a start finds it", async () => {
@@ -1431,19 +1505,44 @@ describe("Read", () => {
       .filter((o) => !/0x6030:01/.test(o.textContent));
     await waitFor(() => expect(empty.getAttribute("aria-selected")).toBe("true"));
     expect(empty.classList.contains("lyra--status-error")).toBe(true);
-    expect(
-      await screen.findByText("A channel has no device. Pick a device."),
-    ).toBeTruthy();
+    expect(await screen.findByText("Device is required")).toBeTruthy();
+  });
+
+  it("should show a missing entry and device together after a start", async () => {
+    const slave = await createStrainSlave();
+    const { container } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        { ...EtherCAT.Task.createReadChannel([]), device: slave.key },
+        EtherCAT.Task.createReadChannel([]),
+      ],
+    });
+    const options = await screen.findAllByRole("option", { name: /No entry/ });
+    expect(options).toHaveLength(2);
+    await clickDeploy(container);
+    await waitFor(() =>
+      expect(options.map((o) => o.classList.contains("lyra--status-error"))).toEqual([
+        true,
+        true,
+      ]),
+    );
+    fireEvent.click(options[0]);
+    expect(await screen.findByText("Entry is required")).toBeTruthy();
+    fireEvent.click(options[1]);
+    expect(await screen.findByText("Device is required")).toBeTruthy();
   });
 
   it("should show why a disabled channel with no device stops a start", async () => {
-    await renderRead({
+    const slave = await createStrainSlave();
+    const { container } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [{ ...EtherCAT.Task.createReadChannel([]), disabled: true }],
+      channels: [
+        { ...EtherCAT.Task.createReadChannel([]), disabled: true },
+        EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+      ],
     });
-    expect(
-      await screen.findByText("A channel has no device. Pick a device."),
-    ).toBeTruthy();
+    await clickDeploy(container);
+    expect(await screen.findByText("Device is required")).toBeTruthy();
   });
 
   describe("a slave that is not configured", () => {
@@ -1478,17 +1577,30 @@ describe("Read", () => {
     });
   });
 
-  it("should show why a channel with no entry cannot run", async () => {
-    const slave = await createRepeatedNameSlave(client, testRack.key);
-    await renderRead({
-      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [{ ...EtherCAT.Task.createReadChannel([]), device: slave.key }],
+  it("should show that an added channel has no entry only after a start", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
     });
+    const { container } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    // The footer shows once the form loads the slaves that its checks read.
+    await screen.findByText(/^Start creates /);
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    const added = await screen.findByRole("option", { name: /No entry/ });
     expect(
-      await screen.findByText(
-        `A channel on slave ${slave.name} has no entry. Pick an entry.`,
-      ),
-    ).toBeTruthy();
+      screen
+        .getAllByRole("option")
+        .map((o) => o.classList.contains("lyra--status-error")),
+    ).toEqual([false, false]);
+    await clickDeploy(container);
+    await waitFor(() =>
+      expect(added.classList.contains("lyra--status-error")).toBe(true),
+    );
+    expect(await screen.findByText("Entry is required")).toBeTruthy();
   });
 
   it("should bind a new entry to the channel the device already maps", async () => {

@@ -308,11 +308,11 @@ func (f *Factory) configureStreamTask(
 ) (driver.Task, error) {
 	var cfg StreamConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		f.reporter().Report(ctx, t, cmdKey, false, err)
+		f.reporter().Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	if err := validateStreamConfig(cfg); err != nil {
-		f.reporter().Report(ctx, t, cmdKey, cfg.AutoStart, err)
+		f.reporter().Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	st, err := newStreamTask(f.cfg, t, cfg)
@@ -337,7 +337,7 @@ func (f *Factory) configureScanTask(
 		err = f.claim(ctx, t)
 	}
 	if err != nil {
-		f.reporter().Report(ctx, t, cmdKey, false, err)
+		f.reporter().Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
 	if autoStart {

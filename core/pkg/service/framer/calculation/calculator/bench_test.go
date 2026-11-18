@@ -37,6 +37,7 @@ type benchEnv struct {
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
+	b.Helper()
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
@@ -69,6 +70,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 }
 
 func (e *benchEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
@@ -76,28 +78,11 @@ func (e *benchEnv) close(b *testing.B) {
 
 func (e *benchEnv) openCalculator(
 	b *testing.B,
-	indexes, bases []channel.Channel,
+	bases []channel.Channel,
 	calc *channel.Channel,
 ) *calculator.Calculator {
-	if len(indexes) > 0 {
-		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
-			return e.channelSvc.NewWriter(tx).CreateMany(e.ctx, &indexes)
-		}); err != nil {
-			b.Fatalf("failed to create index channels: %v", err)
-		}
-	}
+	b.Helper()
 	if len(bases) > 0 {
-		for i, ch := range bases {
-			if ch.Virtual {
-				continue
-			}
-			toGet := i
-			if len(indexes) == 1 {
-				toGet = 0
-			}
-			ch.LocalIndex = indexes[toGet].LocalKey
-			bases[i] = ch
-		}
 		if err := e.node.DB.WithTx(e.ctx, func(tx gorp.Tx) error {
 			return e.channelSvc.NewWriter(tx).CreateMany(e.ctx, &bases)
 		}); err != nil {
@@ -145,7 +130,7 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 		Expression: "return input",
 	}
 
-	c := env.openCalculator(b, nil, base, &calc)
+	c := env.openCalculator(b, base, &calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -157,7 +142,7 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 			b.Fatal(err)
@@ -182,7 +167,7 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 		Expression: "return a + b",
 	}
 
-	c := env.openCalculator(b, nil, bases, &calc)
+	c := env.openCalculator(b, bases, &calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -200,7 +185,7 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 			b.Fatal(err)
@@ -227,7 +212,7 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 		Expression: "return w + x + y + z",
 	}
 
-	c := env.openCalculator(b, nil, bases, &calc)
+	c := env.openCalculator(b, bases, &calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -247,7 +232,7 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 			b.Fatal(err)
@@ -268,7 +253,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 		Virtual:    true,
 		Expression: "return base + 1",
 	}
-	c1 := env.openCalculator(b, nil, base, &calc1)
+	c1 := env.openCalculator(b, base, &calc1)
 
 	calc2 := channel.Channel{
 		Name:       "calc2",
@@ -276,7 +261,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 		Virtual:    true,
 		Expression: "return calc1 * 2",
 	}
-	c2 := env.openCalculator(b, nil, nil, &calc2)
+	c2 := env.openCalculator(b, nil, &calc2)
 
 	group := calculator.Group{c1, c2}
 	defer func() {
@@ -289,7 +274,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		_, _ = group.Next(env.ctx, inputFrame, saveReport)
 	}
@@ -314,7 +299,7 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 				Expression: "return a * b",
 			}
 
-			c := env.openCalculator(b, nil, bases, &calc)
+			c := env.openCalculator(b, bases, &calc)
 			defer func() {
 				if err := c.Close(); err != nil {
 					b.Errorf("failed to close calculator: %v", err)
@@ -336,7 +321,7 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				advanceAlignment(inputFrame)
 				if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 					b.Fatal(err)
@@ -363,7 +348,7 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 		Expression: "if a > b { return a * 2 } else { return b * 3 }",
 	}
 
-	c := env.openCalculator(b, nil, bases, &calc)
+	c := env.openCalculator(b, bases, &calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -381,7 +366,7 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		advanceAlignment(inputFrame)
 		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
 			b.Fatal(err)
@@ -401,7 +386,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 				{Name: "base", DataType: telem.Int64T, Virtual: true},
 			}
 
-			var group calculator.Group
+			group := make(calculator.Group, 0, size)
 			prevName := "base"
 			for i := range size {
 				calcCh := channel.Channel{
@@ -414,7 +399,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 				if i == 0 {
 					bases = base
 				}
-				c := env.openCalculator(b, nil, bases, &calcCh)
+				c := env.openCalculator(b, bases, &calcCh)
 				group = append(group, c)
 				prevName = calcCh.Name
 			}
@@ -431,7 +416,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				advanceAlignment(inputFrame)
 				_, _ = group.Next(env.ctx, inputFrame, saveReport)
 			}

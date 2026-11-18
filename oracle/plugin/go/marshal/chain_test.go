@@ -61,7 +61,7 @@ Channel struct {
 		// The live source carries the version-owned marshal tag textually,
 		// exactly as the merged live projection emits it.
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 @go output "core/pkg/service/channel"
 
 Key = uuid {
@@ -129,7 +129,7 @@ Thing struct {
 		)
 		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), `
+			`
 @go output "core/thing"
 
 Thing struct {
@@ -227,7 +227,6 @@ Log struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(),
 			[]string{"schemas/x/color", "schemas/synnax/log"},
 			loader,
 		)
@@ -322,7 +321,6 @@ Log struct {
 		chains := MustSucceed(versions.Discover(root))
 		loader := analyzer.NewStandardFileLoader(root)
 		table, diag := analyzer.Analyze(
-			GinkgoT().Context(),
 			[]string{"schemas/x/color", "schemas/synnax/log"},
 			loader,
 		)
@@ -432,7 +430,6 @@ Log struct {
 			chains := MustSucceed(versions.Discover(root))
 			loader := analyzer.NewStandardFileLoader(root)
 			table, diag := analyzer.Analyze(
-				GinkgoT().Context(),
 				[]string{
 					"schemas/x/color",
 					"schemas/synnax/note",
@@ -463,25 +460,16 @@ Log struct {
 	)
 })
 
-// writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
-// declares Log against color v1, where color v1 only aliases v0's Color. With frozen
-// set, a log v2 aliases both, freezing v1.
-func writePinFixture(root string, frozen bool) {
-	GinkgoHelper()
-	write := func(rel, content string) {
-		GinkgoHelper()
-		full := filepath.Join(root, rel)
-		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
-		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
-	}
-	write("schemas/x/versions/color/v0.oracle", `
+// The schemas of the fixture that writePinFixture writes.
+const (
+	pinColorV0 = `
 Color struct {
 	r uint8
 
 	@go marshal
 }
-`)
-	write("schemas/x/versions/color/v1.oracle", `
+`
+	pinColorV1 = `
 Color = v0.Color
 
 Band struct {
@@ -489,8 +477,8 @@ Band struct {
 
 	@go marshal
 }
-`)
-	write("schemas/x/color.oracle", `
+`
+	pinColor = `
 @go output "x/go/color"
 
 Color struct {
@@ -504,8 +492,8 @@ Band struct {
 
 	@go marshal
 }
-`)
-	write("schemas/synnax/versions/log/v0.oracle", `
+`
+	pinLogV0 = `
 import "schemas/x/versions/color/v0"
 
 Note struct {
@@ -520,8 +508,8 @@ Log struct {
 
 	@go marshal
 }
-`)
-	write("schemas/synnax/versions/log/v1.oracle", `
+`
+	pinLogV1 = `
 import "schemas/x/versions/color/v1"
 
 Note = v0.Note
@@ -534,15 +522,13 @@ Log struct {
 
 	@go marshal
 }
-`)
-	if frozen {
-		write("schemas/synnax/versions/log/v2.oracle", `
+`
+	pinLogV2 = `
 Note = v0.Note
 
 Log = v1.Log
-`)
-	}
-	write("schemas/synnax/log.oracle", `
+`
+	pinLog = `
 import "schemas/x/color"
 
 @go output "core/pkg/service/log"
@@ -561,7 +547,29 @@ Log struct {
 
 	@go marshal
 }
-`)
+`
+)
+
+// writePinFixture writes a log whose v0 declares Note against color v0 and whose v1
+// declares Log against color v1, where color v1 only aliases v0's Color. With frozen
+// set, a log v2 aliases both, freezing v1.
+func writePinFixture(root string, frozen bool) {
+	GinkgoHelper()
+	write := func(rel, content string) {
+		GinkgoHelper()
+		full := filepath.Join(root, rel)
+		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+	}
+	write("schemas/x/versions/color/v0.oracle", pinColorV0)
+	write("schemas/x/versions/color/v1.oracle", pinColorV1)
+	write("schemas/x/color.oracle", pinColor)
+	write("schemas/synnax/versions/log/v0.oracle", pinLogV0)
+	write("schemas/synnax/versions/log/v1.oracle", pinLogV1)
+	if frozen {
+		write("schemas/synnax/versions/log/v2.oracle", pinLogV2)
+	}
+	write("schemas/synnax/log.oracle", pinLog)
 }
 
 // pinRequest analyzes the fixture writePinFixture writes.
@@ -572,7 +580,6 @@ func pinRequest(frozen bool) *plugin.Request {
 	chains := MustSucceed(versions.Discover(root))
 	loader := analyzer.NewStandardFileLoader(root)
 	table, diag := analyzer.Analyze(
-		GinkgoT().Context(),
 		[]string{"schemas/x/color", "schemas/synnax/log"},
 		loader,
 	)

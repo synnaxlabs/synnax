@@ -34,7 +34,7 @@ type TimeSpan = versions.TimeSpan
 // predictable boundary handling.
 type TimeRange = versions.TimeRange
 
-// Window is a window of time: a rolling span that ends now, or a fixed range.
+// Window is a window of time: a rolling span or a fixed range.
 type Window = versions.Window
 
 // WindowVariant is implemented by every Window variant.
@@ -174,13 +174,6 @@ func (l *LimitReduction) SetDefaults() {
 	l.Aggregation = AggregationMinMax
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LimitReduction) ApplyDefaults() {
-	if l.Aggregation == "" {
-		l.Aggregation = AggregationMinMax
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (l LimitReduction) Validate() error {
@@ -262,16 +255,6 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Reduction) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case LimitReduction:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or

@@ -60,11 +60,12 @@ var _ = Describe("IsUUID", func() {
 	})
 })
 
+func ref(name string, args ...resolution.TypeRef) resolution.TypeRef {
+	return resolution.TypeRef{Name: name, TypeArgs: args}
+}
+
 var _ = Describe("Nilable", func() {
 	var table *resolution.Table
-	ref := func(name string, args ...resolution.TypeRef) resolution.TypeRef {
-		return resolution.TypeRef{Name: name, TypeArgs: args}
-	}
 	strings := ref("Array", ref("string"))
 	quad := ref("Array", ref("float64"))
 	quad.ArraySize = new(int64(4))

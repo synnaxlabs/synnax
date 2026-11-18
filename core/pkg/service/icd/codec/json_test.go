@@ -112,6 +112,7 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 		return uuid.UUID(data).String()
 	case telem.BytesT:
 		return base64.StdEncoding.EncodeToString(data)
+	case telem.UnknownT:
 	}
 	Fail("unknown data type " + string(dt))
 	return nil
@@ -127,7 +128,9 @@ func newSamples(messages []codec.JSONMessage) [][][]byte {
 var _ = Describe("JSON", func() {
 	DescribeTable("Should decode the documents of a fixture", func(path string) {
 		var f decodeFixture
-		Expect(json.Unmarshal(MustSucceed(os.ReadFile(path)), &f)).To(Succeed())
+		Expect(
+			json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &f),
+		).To(Succeed())
 		Expect(f.Description).ToNot(BeEmpty())
 		messages := lo.Map(f.Messages, func(m fixtureMessage, _ int) codec.JSONMessage {
 			return codec.JSONMessage{

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import cast, overload, override
+from typing import overload, override
 
 from pydantic import BaseModel
 
@@ -21,11 +21,10 @@ from freighter import (
     AsyncStream,
     AsyncStreamClient,
     Stream,
+    StreamClient,
     Unreachable,
-    WebsocketClient,
 )
 from freighter.transport import P
-from freighter.websocket import Message
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.common import validate_downsample_factor
@@ -100,7 +99,7 @@ class _WSStreamerCodec(WSCodec):
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
         frame = self.codec.decode(data, offset=1)
-        return cast(P, Message(type="data", payload=_Response(frame=frame)))
+        return pld_t(type="data", payload=_Response(frame=frame))
 
 
 _ENDPOINT = "/frame/stream"
@@ -132,7 +131,7 @@ class Streamer:
     def __init__(
         self,
         *,
-        client: WebsocketClient,
+        client: StreamClient,
         adapter: ReadFrameAdapter,
         downsample_factor: int = 1,
         throttle_rate: float = 0,

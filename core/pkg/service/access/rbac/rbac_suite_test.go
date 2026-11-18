@@ -10,7 +10,6 @@
 package rbac_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,6 +40,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
 	}))
@@ -80,9 +80,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 // newRolesConfig opens a database apart from the suite's database.
-func newRolesConfig(ctx context.Context) rbac.RolesConfig {
+func newRolesConfig() rbac.RolesConfig {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	return rbac.RolesConfig{DB: db}
 }
 

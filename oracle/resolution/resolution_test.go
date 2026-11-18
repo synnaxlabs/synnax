@@ -149,6 +149,18 @@ var _ = Describe("Table", func() {
 			_, ok := table.Lookup("auth", "NonExistent")
 			Expect(ok).To(BeFalse())
 		})
+
+		It("does not bind a type that another namespace declares", func() {
+			_, ok := table.Lookup("billing", "User")
+			Expect(ok).To(BeFalse())
+		})
+
+		It("follows a redirect to its target", func() {
+			table.Redirect("v1.User", "auth.User")
+			typ, ok := table.Lookup("v1", "User")
+			Expect(ok).To(BeTrue())
+			Expect(typ.QualifiedName).To(Equal("auth.User"))
+		})
 	})
 
 	Describe("Type Filters", func() {

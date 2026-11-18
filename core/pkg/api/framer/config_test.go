@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var _ = Describe("ServiceConfig", func() {
@@ -28,6 +29,7 @@ var _ = Describe("ServiceConfig", func() {
 			Framer:          &framer.Service{},
 			Channel:         &channel.Service{},
 			RBAC:            &rbac.Service{},
+			Errors:          errors.NewCodec(),
 		}
 	}
 
@@ -38,9 +40,9 @@ var _ = Describe("ServiceConfig", func() {
 
 		DescribeTable(
 			"Should fail when a service is missing",
-			func(clear func(*apiframer.ServiceConfig), msg string) {
+			func(unset func(*apiframer.ServiceConfig), msg string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
@@ -63,6 +65,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiframer.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
 			),
+			Entry(
+				"errors",
+				func(c *apiframer.ServiceConfig) { c.Errors = nil },
+				"errors: must be non-nil",
+			),
 		)
 	})
 
@@ -74,6 +81,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Framer).To(BeIdenticalTo(cfg.Framer))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Errors).To(BeIdenticalTo(cfg.Errors))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 
@@ -84,6 +92,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Framer).To(BeIdenticalTo(cfg.Framer))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Errors).To(BeIdenticalTo(cfg.Errors))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 	})

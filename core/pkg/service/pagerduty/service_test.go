@@ -15,17 +15,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
-	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -39,8 +42,9 @@ const plainKey = "0123456789abcdef0123456789abcdef"
 func routingKeyOf(data msgpack.EncodedJSON) secret.Key {
 	GinkgoHelper()
 	Expect(data).ToNot(HaveKey("plain_routing_key"))
-	Expect(data["routing_key"]).To(BeAssignableToTypeOf(""))
-	return uuid.MustParse(data["routing_key"].(string))
+	key, ok := data["routing_key"].(string)
+	Expect(ok).To(BeTrue())
+	return uuid.MustParse(key)
 }
 
 // expectSecret asserts that the secret with key is named name and holds the plain
@@ -73,6 +77,7 @@ var _ = Describe("Service", func() {
 	BeforeEach(func(ctx SpecContext) {
 		// The suite's DB holds a task table of its own.
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		secrets = secrettestutil.OpenService(ctx, db)
 		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 			DB:     db,
@@ -108,44 +113,82 @@ var _ = Describe("Service", func() {
 			Entry("secret", pd.ServiceConfig{DB: &gorp.DB{}}, "secret"),
 		)
 
-		It("Should move each routing key of a stored v1 config into a secret", func(
+		It("Should lift a stored v1 config and stage its plain routing key", func(
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			t := taskv2.Task{
-				Key:  uuid.New(),
-				Name: "Pump alerts",
-				Type: pd.AlertTaskType,
-			}
-			Expect(gorp.NewCreate[taskv2.Key, taskv2.Task]().Entry(&t).Exec(ctx, db)).
-				To(Succeed())
-			old := v1.TaskConfig{Key: t.Key, RoutingKey: plainKey}
+			StartRun(db.Run)
+			old := v1.TaskConfig{Key: uuid.New(), RoutingKey: plainKey}
 			old.Alerts = []v1.Alert{{Key: "a", Status: "s"}}
 			Expect(gorp.WrapWriter[uuid.UUID, v1.TaskConfig](db).Set(ctx, old)).
 				To(Succeed())
 			MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+			svc := MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
+				DB:     db,
+				Secret: secrettestutil.OpenService(ctx, db),
+			}))
+			data := MustSucceed(svc.Alert.Read(ctx, db, old.Key))
+			Expect(data).ToNot(HaveKey("routing_key"))
+			staged, closer := MustSucceed2(
+				db.Get(v2.PlainRoutingKeyKVKey(old.Key)),
+			)
+			Expect(string(staged)).To(Equal(plainKey))
+			Expect(closer.Close()).To(Succeed())
+			Expect(data["alerts"]).To(HaveLen(1))
+		})
+
+		It("Should skip the lift on a store that Core v0.62.0-rc.1 migrated", func(
+			ctx SpecContext,
+		) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
+			MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 			secrets := secrettestutil.OpenService(ctx, db)
+			s := secret.Secret{Variant: secret.StoredSecret{
+				Base: secret.Base{Name: "Pump alerts routing key"},
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return secrets.NewWriter(tx).Set(ctx, &s, []byte(plainKey))
+			})).To(Succeed())
+			var cfg v2.TaskConfig
+			cfg.Key, cfg.RoutingKey = uuid.New(), new(s.Base().Key)
+			Expect(gorp.WrapWriter[uuid.UUID, v2.TaskConfig](db).Set(ctx, cfg)).
+				To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:        db,
+				Namespace: "pagerduty_alert_config",
+				Migrations: lo.Map(
+					[]string{
+						"v61_status_owner_keys",
+						"v61_pagerduty_routing_key_secret",
+					},
+					func(key string, _ int) gorp.Migration {
+						return migrate.New(
+							key,
+							func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+								return nil
+							},
+						)
+					},
+				),
+			})).To(Succeed())
 			svc := MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 				DB:     db,
 				Secret: secrets,
 			}))
-			data := MustSucceed(svc.Alert.Read(ctx, db, old.Key))
-			expectSecret(
-				ctx,
-				db,
-				secrets,
-				routingKeyOf(data),
-				"Pump alerts routing key",
-			)
-			Expect(data["alerts"]).To(HaveLen(1))
+			data := MustSucceed(svc.Alert.Read(ctx, db, cfg.Key))
+			Expect(routingKeyOf(data)).To(Equal(s.Base().Key))
+			Expect(db.Get(v2.PlainRoutingKeyKVKey(cfg.Key))).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 
 	Describe("Stores", func() {
 		It("Should expose the alert store", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf("pagerduty_alert"))
 		})

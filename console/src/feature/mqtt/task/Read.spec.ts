@@ -24,7 +24,7 @@ import {
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { Session } from "@/session";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { assertDefined, findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -177,11 +177,11 @@ const retype = async (
   ]);
 };
 
-/** Removes a field from the entry's message, in the ICD. */
 /** @returns the fields of the first message of an ICD. */
 const jsonFieldsOf = ({ messages: [first] }: icd.ICD): icd.JSONField[] =>
   first.payload.format === "json" ? first.payload.fields : [];
 
+/** Removes a field from the entry's message, in the ICD. */
 const removeField = async (
   { icd: key, messages }: MQTT.Task.PlainReadEntry,
   field: icd.JSONField,
@@ -229,9 +229,17 @@ const selectField = async (name: string) =>
     await screen.findByRole("treeitem", { name: new RegExp(`^${name}`) }),
   );
 
-const retrieveTopicProps = async (key: string, at: string = TOPIC) =>
+const retrieveRead = async (key: string) =>
   (await client.devices.retrieve({ key, schemas: MQTT.Device.SCHEMAS })).properties
-    .read[at];
+    .read;
+
+/** @returns the channels that the device stores for the message of the topic. */
+const retrieveStored = async (key: string, message: string) =>
+  (await retrieveRead(key))[`${TOPIC}#${message}`];
+
+/** @returns the key of the first message that the task reads. */
+const firstMessage = ({ config }: { config: { entries: MQTT.Task.ReadEntry[] } }) =>
+  plainOf(config.entries[0]).messages[0].message;
 
 /** Adds a message to the ICD of the entry after its last, and reads each field. */
 const addMessage = async (
@@ -420,6 +428,28 @@ describe("MQTT read form", () => {
     expect(screen.queryByRole("treeitem", { name: /^pressure/ })).toBeNull();
   });
 
+  it("should store the default and mapping set in the details of a field", async () => {
+    const { draft } = await renderRead({ fields: [createField("state", "integer")] });
+    await selectField("state");
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add mapping" }));
+    for (const [label, value] of [
+      ["Label 1", "RUN"],
+      ["Value 1", "1"],
+    ]) {
+      const input = await screen.findByLabelText(label);
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    }
+    const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
+    await waitFor(async () =>
+      expect(jsonFieldsOf(await client.icds.retrieve(icdKey))[0]).toMatchObject({
+        default: "0",
+        enumValues: [{ label: "RUN", value: "1" }],
+      }),
+    );
+  });
+
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
     const kiln = await createEntry({
       topic: "plant/kiln",
@@ -454,6 +484,37 @@ describe("MQTT read form", () => {
     await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
     await screen.findByText("Message not found");
   });
+
+  it.each([
+    { name: "gone", note: "Message not found", change: removeMessage },
+    {
+      name: "not JSON",
+      note: "The format of this message is not JSON. Open it to change its format.",
+      change: async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =>
+        await client.icds.dispatch(
+          key,
+          icd.set({
+            path: ["messages", messages[0].message, "payload"],
+            value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+          }),
+        ),
+    },
+  ])(
+    "should not offer Add field for a topic whose message is $name",
+    async ({ note, change }) => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await renderRead({ entries: [entry], beforeRender: () => change(entry) });
+      await screen.findByText(note);
+      expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /plant\/oven/ }),
+      );
+      await screen.findByRole("menuitem", { name: "Add message" });
+      expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
+    },
+  );
 
   it("should point a topic whose message is gone at a new message", async () => {
     const time = createTimeField();
@@ -776,6 +837,26 @@ describe("MQTT read form", () => {
     });
   });
 
+  it("should number the name of a new message that the ICD already holds", async () => {
+    const { dev, draft } = await renderRead({
+      fields: [createField("temperature", "float")],
+    });
+    const input = await screen.findByDisplayValue(TOPIC);
+    fireEvent.change(input, { target: { value: "plant/kiln" } });
+    fireEvent.blur(input);
+    const entry = await waitFor(async () => {
+      const [first] = await retrieveEntries(draft.key);
+      expect(plainOf(first).topic).toBe("plant/kiln");
+      return plainOf(first);
+    });
+    await addField(dev.rack, TOPIC, "flow");
+    await waitFor(async () =>
+      expect(
+        (await client.icds.retrieve(entry.icd)).messages.map(({ name }) => name),
+      ).toEqual([TOPIC, `${TOPIC} 2`]),
+    );
+  });
+
   describe("channels", () => {
     it("should stop and start reading a field, keeping the channel of its pointer", async () => {
       const ch = await client.channels.create({
@@ -854,7 +935,7 @@ describe("MQTT read form", () => {
         ]),
       );
       await deploy(container, draft.key);
-      const { channels } = await retrieveTopicProps(dev.key);
+      const { channels } = await retrieveStored(dev.key, firstMessage(draft));
       const ch = await client.channels.retrieve(channels["/count"]);
       expect(ch.dataType.toString()).toBe("int32");
     });
@@ -1090,7 +1171,7 @@ describe("MQTT read form", () => {
       fireEvent.change(name, { target: { value: "" } });
       fireEvent.blur(name);
       await clickFailedDeploy(container);
-      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+      expect(await retrieveRead(dev.key)).toEqual({});
     });
 
     it.each([
@@ -1133,7 +1214,7 @@ describe("MQTT read form", () => {
         index: time.key,
       });
       const created = await deploy(container, draft.key);
-      const { index, channels } = await retrieveTopicProps(dev.key);
+      const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
       const indexCh = await client.channels.retrieve(index);
       expect(indexCh.isIndex).toBe(true);
       expect(indexCh.name).toBe(`${dev.name}_plant_oven_time`);
@@ -1160,7 +1241,7 @@ describe("MQTT read form", () => {
         bound: { [temperature.key]: 0 },
       });
       await deploy(container, draft.key);
-      const { channels } = await retrieveTopicProps(dev.key);
+      const { channels } = await retrieveStored(dev.key, firstMessage(draft));
       expect(Object.keys(channels)).toEqual(["/temperature"]);
     });
 
@@ -1168,7 +1249,7 @@ describe("MQTT read form", () => {
       const mode = createField("mode", "string");
       const { container, dev, draft } = await renderRead({ fields: [mode] });
       await deploy(container, draft.key);
-      const { index, channels } = await retrieveTopicProps(dev.key);
+      const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
       expect(index).toBe(0);
       const ch = await client.channels.retrieve(channels["/mode"]);
       expect(ch.virtual).toBe(true);
@@ -1189,7 +1270,7 @@ describe("MQTT read form", () => {
           }),
         ),
       );
-      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+      expect(await retrieveRead(dev.key)).toEqual({});
     });
 
     it("should refuse a read of a string field on the time of the payload", async () => {
@@ -1207,7 +1288,7 @@ describe("MQTT read form", () => {
           }),
         ),
       );
-      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+      expect(await retrieveRead(dev.key)).toEqual({});
     });
 
     it("should refuse a topic whose message is gone", async () => {
@@ -1228,7 +1309,7 @@ describe("MQTT read form", () => {
           }),
         ),
       );
-      expect(await retrieveTopicProps(dev.key)).toBeUndefined();
+      expect(await retrieveRead(dev.key)).toEqual({});
     });
 
     it("should refuse a topic that reads no fields", async () => {
@@ -1270,10 +1351,7 @@ describe("MQTT read form", () => {
       );
       const created = await deploy(container, draft.key);
       const [, deployed] = plainOf(created.config.entries[0]).messages;
-      const { index, channels } = await retrieveTopicProps(
-        dev.key,
-        `${TOPIC}#${status.key}`,
-      );
+      const { index, channels } = await retrieveStored(dev.key, status.key);
       expect(index).toBe(0);
       expect(deployed.index).toBeUndefined();
       expect(deployed.bindings[0].channel).toBe(channels["/mode"]);
@@ -1316,7 +1394,7 @@ describe("MQTT read form", () => {
         },
       });
       const created = await deploy(container, draft.key);
-      const { channels } = await retrieveTopicProps(dev.key);
+      const { channels } = await retrieveStored(dev.key, firstMessage(draft));
       expect(channels["/temperature"]).toBe(temperatureCh.key);
       expect(channels["/count"]).not.toBe(countCh.key);
       const replaced = await client.channels.retrieve(channels["/count"]);
@@ -1360,12 +1438,72 @@ describe("MQTT read form", () => {
       });
       expect(statuses).toEqual([]);
       const created = await deploy(container, draft.key);
-      const { channels } = await retrieveTopicProps(dev.key);
+      const { channels } = await retrieveStored(dev.key, firstMessage(draft));
       expect(channels["/temperature"]).not.toBe(ch.key);
       expect(plainOf(created.config.entries[0]).messages[0].bindings).toEqual([
         { field: temperature.key, channel: ch.key, dataType: "" },
         { field: added, channel: channels["/temperature"], dataType: "" },
       ]);
+    });
+
+    it("should keep the stored index of a message after the message before it is removed", async () => {
+      const [before, own] = await Promise.all([
+        createTimeChannel(),
+        createTimeChannel(),
+      ]);
+      const valueCh = await client.channels.create({
+        name: uniqueName("value"),
+        dataType: DataType.FLOAT64,
+        index: own.key,
+      });
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const time = createTimeField();
+      const value = createField("value", "float");
+      const status = await addMessage(entry, "status", [time, value], KIND_MATCH);
+      const bindings = [
+        { field: time.key, channel: own.key, dataType: "" },
+        { field: value.key, channel: valueCh.key, dataType: "" },
+      ];
+      entry.messages = [{ message: status.key, index: time.key, bindings }];
+      const { container, draft } = await renderRead({
+        entries: [entry],
+        properties: {
+          read: {
+            [TOPIC]: { index: before.key, channels: {} },
+            [`${TOPIC}#${status.key}`]: {
+              index: own.key,
+              channels: { "/value": valueCh.key },
+            },
+          },
+        },
+      });
+      const created = await deploy(container, draft.key);
+      expect(plainOf(created.config.entries[0]).messages[0].bindings).toEqual(bindings);
+    });
+
+    it("should move the channels stored under a topic to the message that binds them", async () => {
+      const time = await createTimeChannel();
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        index: time.key,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      const stored = { index: time.key, channels: { "/temperature": ch.key } };
+      const { container, dev, draft } = await renderRead({
+        entries: [entry],
+        properties: { read: { [TOPIC]: stored } },
+      });
+      await deploy(container, draft.key);
+      expect(await retrieveRead(dev.key)).toEqual({
+        [`${TOPIC}#${entry.messages[0].message}`]: stored,
+      });
     });
 
     it("should create an index and a data channel for each tag", async () => {
@@ -1423,5 +1561,30 @@ describe("MQTT read form", () => {
       const created = await deploy(rendered.container, second.key);
       expect(sparkplugOf(created.config.entries[0]).channel).toBe(stored.channel);
     });
+  });
+});
+
+describe("plotChannels", () => {
+  it("should find the bound channels of enabled plain entries and enabled Sparkplug tags", () => {
+    const plotChannels = MQTT.Task.INTEGRATION.plotChannels?.[MQTT.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
+    const plain = (disabled: boolean, ...channels: number[][]) => ({
+      type: "plain",
+      disabled,
+      icd: uuid.create(),
+      messages: channels.map((keys) => ({
+        message: uuid.create(),
+        bindings: keys.map((channel) => ({ field: uuid.create(), channel })),
+      })),
+    });
+    const config = {
+      entries: [
+        plain(false, [1, 0], [2]),
+        plain(true, [3]),
+        { type: "sparkplug", channel: 4 },
+        { type: "sparkplug", channel: 5, disabled: true },
+      ],
+    };
+    expect(plotChannels(config)).toEqual([1, 2, 4]);
   });
 });

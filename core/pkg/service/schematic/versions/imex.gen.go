@@ -34,7 +34,7 @@ const Latest = v13.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, error) {
 	switch env.Version {
 	case v7.Version:
-		t7, err := env.Decode[v7.Schematic](ctx)
+		t7, err := env.Decode[v7.Schematic]()
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -64,7 +64,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		return t13, nil
 	case v8.Version:
-		t8, err := env.Decode[v8.Schematic](ctx)
+		t8, err := env.Decode[v8.Schematic]()
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -90,7 +90,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		return t13, nil
 	case v9.Version:
-		t9, err := env.Decode[v9.Schematic](ctx)
+		t9, err := env.Decode[v9.Schematic]()
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -112,7 +112,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		return t13, nil
 	case v10.Version:
-		t10, err := env.Decode[v10.Schematic](ctx)
+		t10, err := env.Decode[v10.Schematic]()
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -130,7 +130,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		return t13, nil
 	case v11.Version:
-		t11, err := env.Decode[v11.Schematic](ctx)
+		t11, err := env.Decode[v11.Schematic]()
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -144,7 +144,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		return t13, nil
 	case v12.Version:
-		t12, err := env.Decode[v12.Schematic](ctx)
+		t12, err := env.Decode[v12.Schematic]()
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -154,7 +154,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		return t13, nil
 	case v13.Version:
-		return env.Decode[Schematic](ctx)
+		return env.Decode[Schematic]()
 	}
 	return Schematic{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax.resource import ID
-from x import filter, payload as payload_, telem
+from x import filter, payload as payload_
 
 BYTE_ORDER_LITTLE_ENDIAN: Literal["little_endian"] = "little_endian"
 
@@ -305,9 +305,6 @@ class TimestampJSONField(JSONBaseField):
 
     type: Literal["timestamp"] = "timestamp"
     time_format: payload_.TimeFormat
-    default: telem.TimeStamp | None = Field(
-        default=None, ge=-9223372036854775808, le=9223372036854775807
-    )
 
 
 class JSONJSONField(JSONBaseField):

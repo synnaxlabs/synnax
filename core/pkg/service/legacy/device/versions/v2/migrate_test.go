@@ -59,6 +59,7 @@ var _ = Describe("Group migrations", func() {
 	) {
 		GinkgoHelper()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		for k, name := range names {
 			g := groupv0.Group{Key: k, Name: name}
 			Expect(gorp.NewCreate[groupv0.Key, groupv0.Group]().
@@ -241,13 +242,13 @@ var _ = Describe("Group migrations", func() {
 	})
 
 	It(
-		"Should keep a device in a first group under its rack",
+		"Should keep a device of several groups in the first group by name",
 		func(ctx SpecContext) {
 			migrate(
 				ctx,
 				map[uuid.UUID]string{
 					devices: "Devices",
-					first:   "Rack",
+					first:   "Bench",
 					second:  "Loose",
 				},
 				both,
@@ -275,6 +276,15 @@ var _ = Describe("Group migrations", func() {
 		)
 		Expect(retrieveDevice(ctx, "a").Group).To(BeNil())
 		Expect(retrieveGroups(ctx)).To(HaveLen(2))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			Expect(groupv1.RetrieveRemovals(ctx, tx)).To(ConsistOf(groupv1.Removal{
+				Group:     loose,
+				GroupName: "Loose",
+				Member:    deviceID("a"),
+				Reason:    groupv1.RemovedRackless,
+			}))
+			return nil
+		})).To(Succeed())
 	})
 
 	It("Should keep a split group that holds a child group", func(ctx SpecContext) {

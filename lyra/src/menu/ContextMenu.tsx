@@ -33,6 +33,8 @@ interface ContextMenuState {
   keys: string[];
   position: xy.XY;
   cursor: xy.XY;
+  /** The context target the menu opened over. Null for a menu opened at a point. */
+  target: HTMLElement | null;
 }
 
 /** Supported event types for triggering a context menu. */
@@ -62,6 +64,7 @@ const INITIAL_STATE: ContextMenuState = {
   position: xy.ZERO,
   cursor: xy.ZERO,
   keys: [],
+  target: null,
 };
 
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
@@ -107,25 +110,25 @@ const PREFERENCES: position.LocationPreference[] = [
 export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
-  const targetRef = useRef<HTMLElement | null>(null);
   // The menu holds the focus while it is open, then gives it back to this element.
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
-  const clearTarget = () => {
-    targetRef.current?.removeAttribute(CONTEXT_OPEN_ATTRIBUTE);
-    targetRef.current = null;
-  };
-
-  // Clear the stamped target if the hook unmounts while a menu is open.
-  useEffect(() => clearTarget, [clearTarget]);
+  // Only the item the menu opened over holds the hover look, even when the menu acts
+  // on a wider selection.
+  const { target: stamped } = state;
+  useEffect(() => {
+    if (stamped == null) return;
+    stamped.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
+    return () => stamped.removeAttribute(CONTEXT_OPEN_ATTRIBUTE);
+  }, [stamped]);
 
   const handleOpen: ContextMenuOpen = (e) => {
     const p = xy.construct(e);
-    clearTarget();
     const active = document.activeElement;
     if (active instanceof HTMLElement && menuRef.current?.contains(active) !== true)
       returnFocusRef.current = active;
     let keys: string[] = [];
+    let opened: HTMLElement | null = null;
     if (typeof e === "object" && "preventDefault" in e) {
       e.preventDefault();
       e.stopPropagation();
@@ -136,14 +139,9 @@ export const useContextMenu = (): UseContextMenuReturn => {
           .map((el) => el.dataset.menuKey ?? el.id)
           .filter((key) => key.length > 0),
       );
-      // Only the row the menu physically opened over holds the hover look, even
-      // when the menu acts on a wider selection.
-      if (target.classList.contains(CONTEXT_TARGET)) {
-        targetRef.current = target;
-        target.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
-      }
+      if (target.classList.contains(CONTEXT_TARGET)) opened = target;
     }
-    setMenuState({ visible: true, keys, position: p, cursor: p });
+    setMenuState({ visible: true, keys, position: p, cursor: p, target: opened });
   };
 
   const calculatePosition = () => {
@@ -184,7 +182,6 @@ export const useContextMenu = (): UseContextMenuReturn => {
   }, [state.visible]);
 
   const hide = (returnFocus: boolean): void => {
-    clearTarget();
     const back = returnFocusRef.current;
     returnFocusRef.current = null;
     // An item that moved the focus, such as one that opened a modal, keeps it there.
@@ -249,6 +246,7 @@ const Surface = ({
   keys,
   className,
   cursor,
+  target,
   style,
   onClick,
   onKeyDown,
@@ -281,8 +279,8 @@ const Surface = ({
         e.stopPropagation();
       }}
     >
-      <Filtered term={filter.term}>
-        {menu?.({ keys, visible, position, cursor })}
+      <Filtered filter={filter}>
+        {menu?.({ keys, visible, position, cursor, target })}
       </Filtered>
     </Flex.Box>,
     document.body,

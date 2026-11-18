@@ -39,9 +39,25 @@ export const READ_TYPE = `${PREFIX}_read`;
 
 const readConfigZ = ethercat.readConfigZ;
 
+/** Reports each enabled channel on a device that has no entry picked. */
+const validateEntries = ({ value: channels, issues }: z.core.ParsePayload<Channel[]>) =>
+  channels.forEach((ch, i) => {
+    if (ch.disabled || ch.device === "" || ch.type !== "entry" || hasEntry(ch)) return;
+    issues.push({
+      continue: true,
+      code: "custom",
+      message: "Entry is required",
+      path: [i],
+      input: channels,
+    });
+  });
+
 export const deployReadConfigZ = ethercat.readConfigZ
   .extend({
-    channels: ethercat.readConfigZ.shape.channels.check(Task.validateEnabledChannel),
+    channels: ethercat.readConfigZ.shape.channels
+      .check(Task.validateEnabledChannel)
+      .check(Task.validateChannelDevices)
+      .check(validateEntries),
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
   })
@@ -69,7 +85,10 @@ export const WRITE_TYPE = `${PREFIX}_write`;
 const writeConfigZ = ethercat.writeConfigZ;
 
 export const deployWriteConfigZ = ethercat.writeConfigZ.extend({
-  channels: ethercat.writeConfigZ.shape.channels.check(Task.validateEnabledChannel),
+  channels: ethercat.writeConfigZ.shape.channels
+    .check(Task.validateEnabledChannel)
+    .check(Task.validateChannelDevices)
+    .check(validateEntries),
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
 });
@@ -360,9 +379,15 @@ export const getUnresolvedMessage = (
   return `'${pdo}' matches ${found}. Pick an entry.`;
 };
 
-/** Creates a new read channel, copying the slave of the last channel if available. */
-export const createReadChannel = (channels: ReadChannel[]): ReadChannel => {
-  const base = channels.length === 0 ? {} : channels[channels.length - 1];
+/**
+ * Creates a new read channel on the slave of the channel to copy, the last channel when
+ * none is given.
+ */
+export const createReadChannel = (
+  channels: ReadChannel[],
+  copy?: string,
+): ReadChannel => {
+  const base: Partial<ReadChannel> = Task.channelToCopy(channels, copy) ?? {};
   return READ_CHANNEL_SCHEMAS.entry.parse({
     ...base,
     ...Task.READ_CHANNEL_OVERRIDE,
@@ -398,9 +423,15 @@ export const createEntryWriteChannel = (
     dataType,
   });
 
-/** Creates a new write channel, copying the slave of the last channel if available. */
-export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
-  const base = channels.length === 0 ? {} : channels[channels.length - 1];
+/**
+ * Creates a new write channel on the slave of the channel to copy, the last channel
+ * when none is given.
+ */
+export const createWriteChannel = (
+  channels: WriteChannel[],
+  copy?: string,
+): WriteChannel => {
+  const base: Partial<WriteChannel> = Task.channelToCopy(channels, copy) ?? {};
   return WRITE_CHANNEL_SCHEMAS.entry.parse({
     ...base,
     ...Task.WRITE_CHANNEL_OVERRIDE,
