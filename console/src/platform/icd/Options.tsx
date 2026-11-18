@@ -63,7 +63,7 @@ const formatDefault = (field: Defaulted): string | null => {
     case "boolean":
       return field.default ? "True" : "False";
     case "timestamp":
-      return field.default.toString("preciseDate", "local");
+      return field.default.toString("dateTime", "local");
     default:
       return String(field.default);
   }

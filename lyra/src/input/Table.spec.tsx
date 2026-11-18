@@ -353,6 +353,28 @@ describe("Input.Table", () => {
       expect(document.activeElement).toBe(input);
     });
 
+    it("should keep each cell of a block paste on Esc", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      paste(input, "x\ty\nz\tw");
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(cell("Name", "1").value).toBe("x");
+      expect(cell("Name", "2").value).toBe("z");
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should put back the pasted value of a cell typed into after a block paste", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      paste(input, "x\ty\nz\tw");
+      fireEvent.change(input, { target: { value: "typed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("x");
+      expect(document.activeElement).toBe(input);
+    });
+
     it("should leave an unchanged cell on the first Esc", () => {
       render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
       const input = cell("Name", "1");
