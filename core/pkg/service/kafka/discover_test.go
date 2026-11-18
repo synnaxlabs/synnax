@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/twmb/franz-go/pkg/kerr"
@@ -41,7 +42,7 @@ type browsedTopic struct {
 	Compacted  bool            `json:"compacted"`
 	Rate       float64         `json:"rate"`
 	Newest     telem.TimeStamp `json:"newest"`
-	Format     driver.Format   `json:"format"`
+	Format     payload.Format  `json:"format"`
 	Readable   bool            `json:"readable"`
 	Error      string          `json:"error"`
 }
@@ -53,7 +54,7 @@ type sampledTopic struct {
 		Offset  int64               `json:"offset"`
 		Key     string              `json:"key"`
 		Headers []map[string]string `json:"headers"`
-		Format  driver.Format       `json:"format"`
+		Format  payload.Format      `json:"format"`
 		Payload string              `json:"payload"`
 	} `json:"records"`
 	Shapes []xjson.Shape `json:"shapes"`
@@ -138,13 +139,13 @@ var _ = Describe("Discover", func() {
 			Expect(j.Partitions).To(Equal(2))
 			Expect(j.Records).To(Equal(int64(3)))
 			Expect(j.Rate).To(BeNumerically("~", 3.0/60, 1e-9))
-			Expect(j.Format).To(Equal(driver.FormatJSON))
+			Expect(j.Format).To(Equal(payload.FormatJSON))
 			Expect(j.Readable).To(BeTrue())
 			Expect(
 				j.Newest,
 			).To(BeNumerically(">=", before-telem.TimeStamp(telem.Millisecond)))
 			Expect(named(topics, srTopic).Format).
-				To(Equal(driver.Format("schema_registry")))
+				To(Equal(payload.Format("schema_registry")))
 			empty := named(topics, emptyTopic)
 			Expect(empty.Records).To(BeZero())
 			Expect(empty.Format).To(BeEmpty())
@@ -157,7 +158,7 @@ var _ = Describe("Discover", func() {
 				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
 				produceInTransaction(ctx, topic, 1)
 				t := named(browse(ctx, clusterProperties()), topic)
-				Expect(t.Format).To(Equal(driver.FormatJSON))
+				Expect(t.Format).To(Equal(payload.FormatJSON))
 				Expect(t.Newest).ToNot(BeZero())
 			},
 		)
@@ -213,7 +214,7 @@ var _ = Describe("Discover", func() {
 				records = append(records, &kgo.Record{Topic: "b", Value: []byte("1")})
 				Expect(cl.ProduceSync(ctx, records...).FirstErr()).To(Succeed())
 				topics := browse(ctx, kafka.Properties{Brokers: wide.ListenAddrs()})
-				Expect(named(topics, "b").Format).To(Equal(driver.FormatJSON))
+				Expect(named(topics, "b").Format).To(Equal(payload.FormatJSON))
 				Expect(named(topics, "b").Error).To(BeEmpty())
 			},
 		)
@@ -332,7 +333,7 @@ var _ = Describe("Discover", func() {
 			last := samples[0].Records[6]
 			Expect(last.Offset).To(Equal(int64(6)))
 			Expect(last.Key).To(Equal("tank-1"))
-			Expect(last.Format).To(Equal(driver.FormatJSON))
+			Expect(last.Format).To(Equal(payload.FormatJSON))
 			Expect(last.Payload).To(Equal(fmt.Sprintf(`{"ts":%d,"psi":4}`, base+2)))
 			Expect(last.Headers).
 				To(Equal([]map[string]string{{"key": "source", "value": "rig"}}))
