@@ -180,6 +180,9 @@ func (r *region[R]) release(g *Gate[R]) (res R, transfer Transfer) {
 func (r *region[R]) update(g *Gate[R], auth control.Authority) (t Transfer) {
 	r.Lock()
 	defer r.Unlock()
+	if !r.gates.Contains(g) {
+		return t
+	}
 	prevAuth := g.authority
 	g.authority = auth
 

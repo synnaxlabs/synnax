@@ -1071,6 +1071,31 @@ var _ = Describe("Control", func() {
 							Expect(v.value).To(Equal(1))
 						})
 					})
+
+					Context("Set the authority of a released gate", func() {
+						It("Should not transfer control to the released gate", func() {
+							cfg1, _ := baseConfig(1)
+							cfg1.Subject.Key = "g1"
+							g1, _ := MustSucceed2(c.OpenGate(cfg1))
+
+							cfg2, _ := baseConfig(1)
+							cfg2.Subject.Key = "g2"
+							cfg2.Authority = xcontrol.AuthorityAbsolute - 1
+							g2, _ := MustSucceed2(c.OpenGate(cfg2))
+
+							g1.Release()
+							t := g1.SetAuthority(xcontrol.AuthorityAbsolute)
+							Expect(t.Occurred()).To(BeFalse())
+							MustSucceed(authorize(g2))
+						})
+
+						It("Should do nothing when the gate was the last", func() {
+							cfg, _ := baseConfig(1)
+							g, _ := MustSucceed2(c.OpenGate(cfg))
+							g.Release()
+							Expect(g.SetAuthority(1).Occurred()).To(BeFalse())
+						})
+					})
 				})
 			})
 
