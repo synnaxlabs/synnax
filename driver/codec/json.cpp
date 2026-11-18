@@ -317,17 +317,18 @@ JSON::decode(const std::string_view doc) {
     if (this->router.ruled) match = this->values[0];
     auto [message, err] = this->router.find(match);
     if (err || !message.has_value()) return {std::nullopt, err};
-    if (const auto decode_err = this->decode(this->messages[*message]))
+    if (const auto decode_err = this->messages[*message].decode(this->values))
         return {std::nullopt, decode_err};
     return {message, x::errors::NIL};
 }
 
-x::errors::Error JSON::decode(Message &m) {
-    for (std::size_t i = 0; i < m.fields.size(); i++) {
-        auto &f = m.fields[i];
-        auto &dst = m.samples[i];
+x::errors::Error
+JSON::Message::decode(const std::vector<std::optional<std::string_view>> &values) {
+    for (std::size_t i = 0; i < this->fields.size(); i++) {
+        auto &f = this->fields[i];
+        auto &dst = this->samples[i];
         dst.clear();
-        const auto &raw = this->values[m.first_value + i];
+        const auto &raw = values[this->first_value + i];
         x::errors::Error err;
         if (raw.has_value() && !absent(*raw, f.data_type))
             err = f.decode(*raw, dst);
@@ -338,7 +339,7 @@ x::errors::Error JSON::decode(Message &m) {
                 x::errors::VALIDATION,
                 "no value at " + f.pointer.to_string()
             );
-        if (err) return wrap(err, "message " + m.name + ": field " + f.name);
+        if (err) return wrap(err, "message " + this->name + ": field " + f.name);
     }
     return x::errors::NIL;
 }

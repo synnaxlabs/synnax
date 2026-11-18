@@ -132,6 +132,10 @@ class JSON {
         /// field.
         std::size_t first_value = 0;
         std::vector<x::telem::Series> samples;
+
+        /// @brief decodes the value of each field in values into samples.
+        x::errors::Error
+        decode(const std::vector<std::optional<std::string_view>> &values);
     };
 
     Router router;
@@ -140,8 +144,6 @@ class JSON {
     /// @brief values holds the match value, when a message has a match rule, then the
     /// value of each field of each message, in message order.
     std::vector<std::optional<std::string_view>> values;
-
-    x::errors::Error decode(Message &m);
 
 public:
     /// @brief creates a JSON decoder for messages that share one source of documents. A

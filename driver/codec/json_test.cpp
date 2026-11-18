@@ -105,6 +105,8 @@ TEST(JSON, RejectsDocumentThatIsNotJSON) {
     auto dec = ASSERT_NIL_P(
         JSON::create({reading<icd::FloatJSONField>(x::telem::FLOAT64_T)})
     );
-    ASSERT_OCCURRED_AS_P(dec.decode("not json"), x::errors::VALIDATION);
+    const auto [message, err] = dec.decode("not json");
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data, "invalid character 'o' after offset 1");
 }
 }
