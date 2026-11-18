@@ -78,9 +78,11 @@ shows syntax colors.
 
 - **Python**: `pip install "synnax~=X.Y.0"`, pinned to the Core version, and
   `client = sy.Synnax()`.
-- **TypeScript**: `npm install @synnaxlabs/client@~X.Y.0`, and `new Synnax(...)` with
-  the host, the port, and the key filled in. The key shows masked; the copy holds it.
-  Other clients, such as C++ and LabVIEW, take the values from this code.
+- **TypeScript**: `npm install @synnaxlabs/client@~X.Y.0`, and a toggle between two
+  versions of the code. **Node.js**, the default, gives `new Synnax()`. **Browser**
+  gives `new Synnax(...)` with the host, the port, and the key filled in. The key shows
+  masked; the copy holds it. Other clients, such as C++ and LabVIEW, take the values
+  from the browser code.
 
 The footer shows the number of sessions of the key, a link to the client docs, and
 "Reset key". A reset asks first, deletes the old key, which ends its sessions, then
