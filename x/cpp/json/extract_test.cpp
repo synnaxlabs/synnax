@@ -104,7 +104,7 @@ TEST(Extractor, ResolvesEscapedTokens) {
 
 /// @brief it should match an object member whose name holds an escape.
 TEST(Extractor, MatchesEscapedMemberName) {
-    ASSERT_EQ(extract(R"({"a":1})", {"/a"}), (Texts{"1"}));
+    ASSERT_EQ(extract(R"({"\u0061":1})", {"/a"}), (Texts{"1"}));
 }
 
 /// @brief it should resolve a member name made of digits in an object.

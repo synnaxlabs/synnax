@@ -26,6 +26,17 @@ TEST(Quote, EscapesSpecialCharacters) {
     ASSERT_EQ(quote("a\"b\\c\n\t\x01\x7f"), R"("a\"b\\c\n\t\x01\x7f")");
 }
 
+/// @brief it should escape a C1 control character.
+TEST(Quote, EscapesC1ControlCharacter) {
+    ASSERT_EQ(
+        quote(
+            "a\xc2\x85"
+            "b"
+        ),
+        R"("a\u0085b")"
+    );
+}
+
 /// @brief it should escape bytes that are not valid UTF-8.
 TEST(Quote, EscapesInvalidUTF8) {
     ASSERT_EQ(quote("a\xff"), R"("a\xff")");
@@ -34,7 +45,7 @@ TEST(Quote, EscapesInvalidUTF8) {
 /// @brief it should decode escapes, including a surrogate pair.
 TEST(Unquote, DecodesEscapes) {
     std::string dst = "stale";
-    ASSERT_NIL(unquote(R"("a\"\\\/\b\f\n\r\ta😀")", dst));
+    ASSERT_NIL(unquote(R"("a\"\\\/\b\f\n\r\t\u0061\ud83d\ude00")", dst));
     ASSERT_EQ(dst, "a\"\\/\b\f\n\r\ta\xf0\x9f\x98\x80");
 }
 

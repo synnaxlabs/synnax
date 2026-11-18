@@ -132,7 +132,12 @@ std::string quote(const std::string_view text) {
                 i++;
                 continue;
             }
-            out += text.substr(i, n);
+            const auto next = static_cast<std::uint8_t>(text[i + 1]);
+            if (c == 0xC2 && next <= 0x9F) {
+                out += "\\u00";
+                append_hex(out, next, 2);
+            } else
+                out += text.substr(i, n);
             i += n;
             continue;
         }
