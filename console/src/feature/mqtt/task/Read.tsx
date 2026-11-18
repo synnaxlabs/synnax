@@ -1038,13 +1038,14 @@ const applyMessage = async (
   plan: ICD.MessagePlan,
 ): Promise<void> => {
   const { source: entry, read: r } = bound;
+  const { read } = dev.properties;
   const propertiesKey = storedKey(entry.topic, entry.messages[r].message);
-  if (plan.channels.props != null && dev.properties.read[propertiesKey] == null)
-    delete dev.properties.read[entry.topic];
-  await ICD.applyMessage(client, bound, plan, {
-    read: dev.properties.read,
-    key: propertiesKey,
-  });
+  const legacy = read[propertiesKey] == null ? storedOf(read, entry, r) : undefined;
+  if (legacy != null) {
+    read[propertiesKey] = legacy;
+    delete read[entry.topic];
+  }
+  await ICD.applyMessage(client, bound, plan, { read, key: propertiesKey });
 };
 
 /** Gives each field and tag that an enabled entry reads a channel, and binds it. */

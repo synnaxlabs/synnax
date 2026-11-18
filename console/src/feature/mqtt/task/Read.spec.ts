@@ -1789,6 +1789,50 @@ describe("MQTT read form", () => {
       });
     });
 
+    it("should keep the channels stored under a topic when an earlier message fails", async () => {
+      const time = await createTimeChannel();
+      const createFloat = async (name: string) =>
+        await client.channels.create({
+          name: uniqueName(name),
+          dataType: DataType.FLOAT64,
+          index: time.key,
+        });
+      const value = await createFloat("value");
+      const notIndex = await createFloat("not_index");
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const match = (value: string): icd.JSONMatch => ({ ...KIND_MATCH, value });
+      const failing = await addMessage(
+        entry,
+        "failing",
+        [createField("pressure", "float")],
+        match("failing"),
+      );
+      const valueField = createField("value", "float");
+      await addMessage(entry, "owner", [valueField], match("owner"));
+      entry.messages[2].bindings = [
+        { field: valueField.key, channel: value.key, dataType: "" },
+      ];
+      const legacy = { index: time.key, channels: { "/value": value.key } };
+      const { container, dev, statuses } = await renderRead({
+        entries: [entry],
+        properties: {
+          read: {
+            [TOPIC]: legacy,
+            [`${TOPIC}#${failing.key}`]: { index: notIndex.key, channels: {} },
+          },
+        },
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({ message: "Failed to start task" }),
+        ),
+      );
+      expect((await retrieveRead(dev.key))[TOPIC]).toEqual(legacy);
+    });
+
     it("should create an index and a data channel for each tag", async () => {
       const { container, dev, draft } = await renderRead({
         entries: [
