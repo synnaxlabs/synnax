@@ -25,6 +25,7 @@ const INERT_TX: actions.Transaction<unknown> = {
   add: () => {},
   commit: async () => false,
   abort: () => {},
+  beforeWrite: () => {},
 };
 
 /** Params for {@link createDispatch}. */

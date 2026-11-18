@@ -105,6 +105,12 @@ export interface Transaction<Action> {
   add: (actions: Action | Action[]) => void;
   commit: () => Promise<boolean>;
   abort: () => void;
+  /**
+   * Sets the callback that runs before each other write on the document while the
+   * transaction is open. A commit in the callback sends the transaction first.
+   * @throws {Error} if the transaction has ended.
+   */
+  beforeWrite: (callback: () => void) => void;
 }
 
 /**
@@ -334,6 +340,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // in flight. A key is present while its send is in flight, and holds the batch
   // queued behind it.
   private readonly queues = new Map<Key, Queue<State, Action>>();
+  /** By doc, the beforeWrite callback of each open transaction that set one. */
+  private readonly beforeWrites = new Map<Key, Map<Pending<Action>, () => void>>();
+  /** Set while the beforeWrite callbacks run, so their commits call no others. */
+  private callingBeforeWrite = false;
   // Documents with a fetch in flight, each with whether a frame or a write for it came
   // during the fetch.
   private readonly fetching = new Map<Key, boolean>();
@@ -420,6 +430,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * @throws {Error} if the send fails, after the actions roll back.
    */
   async send(key: Key, actions: Action[]): Promise<void> {
+    this.callBeforeWrite(key);
     const made = (): Made<State, Action> => {
       const current = this.docs.get(key);
       return {
@@ -432,6 +443,22 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     };
     const first = made();
     await this.enqueue(key, (queue, result) => this.join(key, queue, first, result));
+  }
+
+  /**
+   * Runs the beforeWrite callback of each open transaction on the doc, in the order
+   * they were set. A transaction that commits in its callback sends ahead of the write.
+   */
+  private callBeforeWrite(key: Key): void {
+    const callbacks = this.beforeWrites.get(key);
+    if (callbacks == null || this.callingBeforeWrite) return;
+    this.callingBeforeWrite = true;
+    try {
+      for (const [entry, callback] of [...callbacks])
+        if (callbacks.has(entry)) callback();
+    } finally {
+      this.callingBeforeWrite = false;
+    }
   }
 
   /**
@@ -843,6 +870,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     key: Key,
     prepare: (current: State) => Prepared<Action> | null,
   ): Promise<boolean> {
+    this.callBeforeWrite(key);
     const made = this.make(key, prepare);
     if (made == null) return false;
     // A no-op has nothing for the server. The stack mutation still runs so undo/redo
@@ -973,6 +1001,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const initial = this.docs.get(key);
     const entry = this.createPending(id.create());
     let done = false;
+    const end = (): void => {
+      done = true;
+      const callbacks = this.beforeWrites.get(key);
+      callbacks?.delete(entry);
+      if (callbacks?.size === 0) this.beforeWrites.delete(key);
+    };
     return {
       add: (actions) => {
         if (done) throw new Error("transaction finalized");
@@ -986,8 +1020,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       },
       commit: async () => {
         if (done) return false;
-        done = true;
+        end();
         if (entry.actions.length === 0 || initial == null) return false;
+        this.callBeforeWrite(key);
         // The batch that adopts the entry adds to its actions.
         const actions = [...entry.actions];
         // Inverse must be computed against the pre-transaction snapshot so
@@ -1006,8 +1041,17 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       },
       abort: () => {
         if (done) return;
-        done = true;
+        end();
         this.discard(key, entry.dispatchKey);
+      },
+      beforeWrite: (callback) => {
+        if (done) throw new Error("transaction finalized");
+        let callbacks = this.beforeWrites.get(key);
+        if (callbacks == null) {
+          callbacks = new Map();
+          this.beforeWrites.set(key, callbacks);
+        }
+        callbacks.set(entry, callback);
       },
     };
   }

@@ -166,7 +166,8 @@ interface StoreParams<
  * into one dispatch, and a field whose value fails its schema holds its edits until the
  * value passes. A batch and a list edit send at once, and the Core checks their values.
  * A write of the whole form is a write to each field it changes. Sends run in order, so
- * the Core applies edits in the order they were made.
+ * the Core applies edits in the order they were made. A held edit sends before any
+ * other write to the document.
  */
 class DocumentStore<
   Key extends record.Key,
@@ -187,6 +188,8 @@ class DocumentStore<
   private readonly inFlight = new Set<Promise<boolean>>();
   /** Settles once the last send has waited for beforeSend. */
   private waited: Promise<unknown> = Promise.resolve();
+  /** Set while the store starts a commit, so its own commits keep its other edits. */
+  private committing = false;
 
   constructor(params: StoreParams<Key, Doc, Query, V>) {
     this.params = params;
@@ -341,7 +344,7 @@ class DocumentStore<
       [...e.writes.keys()].some((p) => overlaps(p, at)),
     );
     if (edit == null) {
-      edit = { tx: this.params.domain.beginTransaction(this.key), writes: new Map() };
+      edit = { tx: this.beginEdit(), writes: new Map() };
       this.edits.push(edit);
     }
     // A write replaces every earlier write below its path.
@@ -351,7 +354,7 @@ class DocumentStore<
       // schema would fail the dispatch.
       for (const p of replaced) edit.writes.delete(p);
       edit.tx.abort();
-      edit.tx = this.params.domain.beginTransaction(this.key);
+      edit.tx = this.beginEdit();
       edit.tx.add([...edit.writes.values()].map(({ action }) => action));
     }
     // The guards read the document without the replaced writes.
@@ -364,6 +367,15 @@ class DocumentStore<
       () => void this.take(scheduled),
       COALESCE_WINDOW.milliseconds,
     );
+  }
+
+  /** Begins the transaction of a field edit, which sends before any other write. */
+  private beginEdit(): actions.Transaction<patch.Action> {
+    const tx = this.params.domain.beginTransaction(this.key);
+    tx.beforeWrite(() => {
+      if (!this.committing) void this.takeValid();
+    });
+    return tx;
   }
 
   /** @returns the action that sets the value at path, guarded on the shown document. */
@@ -441,19 +453,25 @@ class DocumentStore<
 
   private async commit(tx: actions.Transaction<patch.Action>): Promise<boolean> {
     const beforeSend = this.params.beforeSend.current;
-    // Each wait starts after the one before, so the sends still commit in order. The
-    // send that owns a wait reports its rejection, so the chain drops it.
-    const waited = beforeSend == null ? null : this.waited.then(beforeSend);
-    if (waited != null) this.waited = waited.catch(() => undefined);
-    try {
-      await waited;
-    } catch (e) {
-      tx.abort();
-      this.params.onError(e);
-      return false;
+    if (beforeSend != null) {
+      // Each wait starts after the one before, so the sends still commit in order. The
+      // send that owns a wait reports its rejection, so the chain drops it.
+      const waited = this.waited.then(beforeSend);
+      this.waited = waited.catch(() => undefined);
+      try {
+        await waited;
+      } catch (e) {
+        tx.abort();
+        this.params.onError(e);
+        return false;
+      }
     }
     try {
-      await tx.commit();
+      // With no wait, the commit starts now, so it sends before the write that took it.
+      this.committing = true;
+      const committed = tx.commit();
+      this.committing = false;
+      await committed;
       return true;
     } catch (e) {
       this.params.onError(e);

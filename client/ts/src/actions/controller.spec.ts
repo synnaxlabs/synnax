@@ -901,6 +901,80 @@ describe("actions.Controller", () => {
       ]);
     });
 
+    it("sends an open transaction that commits in beforeWrite before the write", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const tx = controller.transaction("k");
+      tx.add(set("a", 1));
+      tx.beforeWrite(() => void tx.commit());
+      await controller.dispatch("k", [set("a", 2)]);
+      expect(send.mock.calls.map(([, actions]) => actions)).toEqual([
+        [set("a", 1)],
+        [set("a", 2)],
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("sends an open transaction before an undo, so the undo reverts it", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const tx = controller.transaction("k");
+      tx.add(set("a", 1));
+      tx.beforeWrite(() => void tx.commit());
+      expect(await controller.undo("k")).toBe(true);
+      expect(send.mock.calls.map(([, actions]) => actions)).toEqual([
+        [set("a", 1)],
+        [set("a", 0)],
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+    });
+
+    it("sends an open transaction that commits in beforeWrite before a send", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const tx = controller.transaction("k");
+      tx.add(set("a", 1));
+      tx.beforeWrite(() => void tx.commit());
+      await controller.send("k", [set("a", 2)]);
+      expect(send.mock.calls.map(([, actions]) => actions)).toEqual([
+        [set("a", 1)],
+        [set("a", 2)],
+      ]);
+    });
+
+    it("sends open transactions in the order their beforeWrite was set", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0, b: 0 });
+      const first = controller.transaction("k");
+      const second = controller.transaction("k");
+      first.add(set("a", 1));
+      second.add(set("b", 1));
+      first.beforeWrite(() => void first.commit());
+      second.beforeWrite(() => void second.commit());
+      await controller.dispatch("k", [set("a", 2)]);
+      expect(send.mock.calls.map(([, actions]) => actions)).toEqual([
+        [set("a", 1)],
+        [set("b", 1), set("a", 2)],
+      ]);
+    });
+
+    it("does not call beforeWrite of a transaction that ended", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const committed = controller.transaction("k");
+      const aborted = controller.transaction("k");
+      committed.add(set("a", 1));
+      const onCommitted = vi.fn();
+      const onAborted = vi.fn();
+      committed.beforeWrite(onCommitted);
+      aborted.beforeWrite(onAborted);
+      aborted.abort();
+      await committed.commit();
+      await controller.dispatch("k", [set("a", 2)]);
+      expect(onCommitted).not.toHaveBeenCalled();
+      expect(onAborted).not.toHaveBeenCalled();
+    });
+
     it("returns false from commit when no actions were added", async () => {
       const { docs, controller, send } = setupStore();
       prime(docs, "k", { a: 0 });

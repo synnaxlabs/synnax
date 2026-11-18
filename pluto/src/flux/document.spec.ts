@@ -697,6 +697,58 @@ describe("createDocumentForm", () => {
     await act(async () => expect(await flushed).toBe(true));
   });
 
+  describe("a held edit", () => {
+    it("should send before another write to the document", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      await act(async () => {
+        result.current.form.set(path.name, "typed");
+        await formClient.tasks.dispatch(
+          t.key,
+          task.set({ path: ["name"], value: "restored" }),
+        );
+      });
+      await formClient.tasks.settled(t.key);
+      expect((await fetchStored(t.key)).name).toBe("restored");
+    });
+
+    it("should send held edits to two fields in the order they were made", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      const send = spyOnSend(formClient);
+      act(() => {
+        result.current.form.set(path.name, "renamed");
+        result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY);
+      });
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(dispatchedActions(send)).toEqual([
+        [
+          {
+            type: "set",
+            set: expect.objectContaining({ path: ["name"], value: "renamed" }),
+          },
+        ],
+        [setRoutingKey(OTHER_ROUTING_KEY)],
+      ]);
+    });
+
+    it("should stay held when it fails its schema and another write sends", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      await act(async () => {
+        result.current.form.set(path.config.routingKey, "");
+        await formClient.tasks.dispatch(
+          t.key,
+          task.set({ path: ["name"], value: "renamed" }),
+        );
+      });
+      await act(async () => expect(await result.current.flush()).toBe(false));
+      const stored = await fetchStored(t.key);
+      expect(stored.name).toBe("renamed");
+      expect(stored.config).toMatchObject({ routingKey: ROUTING_KEY });
+    });
+  });
+
   describe("beforeSend", () => {
     const renderGated = async (key: task.Key, beforeSend: () => Promise<unknown>) =>
       await renderHookSuspended(() => useForm({ query: { key }, beforeSend }), {
