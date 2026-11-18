@@ -20,7 +20,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
+import { Access, type Flux, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { deep, narrow, primitive } from "@synnaxlabs/x";
 import { createContext, type FC, useContext, useEffect, useRef, useState } from "react";
 import { type z } from "zod";
@@ -42,16 +42,16 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
 
-/** Sends the edits that a form holds. Resolves false when an edit stays unsent. */
-type Flush = () => Promise<boolean>;
+/** Sends the edits that a form holds. */
+type Flush = () => Promise<Flux.Flushed>;
 
 const FlushesContext = createContext<Set<Flush> | null>(null);
 FlushesContext.displayName = "Task.FlushesContext";
 
 /**
  * Sends the edits of a form nested in a task form before each save and deploy of the
- * task, so the Core holds what the task names. An edit that stays unsent stops the
- * deploy.
+ * task, so the Core holds what the task names. A failed send undoes the task edit. An
+ * edit that stays unsent stops the deploy.
  */
 export const useFlushFirst = (flush: Flush): void => {
   const flushes = useContext(FlushesContext);
@@ -169,7 +169,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const [nested] = useState(() => new Set<Flush>());
     const { form, flush } = useForm({
       query: { key: taskKey },
-      beforeSend: async () => await Promise.all([...nested].map((f) => f())),
+      beforeSend: async () => {
+        const flushed = await Promise.all([...nested].map((f) => f()));
+        if (flushed.some(({ failed }) => failed))
+          throw new Error("An edit that the task needs did not save.");
+      },
     });
 
     // The form saves on every edit, so a subject who cannot write the task gets it
@@ -196,7 +200,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       if (client == null) throw new DisconnectedError();
       if (canEdit) {
         const flushed = await Promise.all([flush(), ...[...nested].map((f) => f())]);
-        if (!flushed.every(Boolean)) return;
+        if (flushed.some(({ failed, held }) => failed || held)) return;
         if (!deployChecked.current) {
           form.addCheck(formPath.config, deployConfigZ);
           deployChecked.current = true;

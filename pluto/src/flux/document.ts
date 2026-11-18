@@ -295,16 +295,12 @@ class DocumentStore<
   onChange = (callback: () => void): destructor.Destructor =>
     this.params.domain.watch(this.key).onChange(() => callback());
 
-  /**
-   * Sends every edit the store holds, and waits for the sends already in flight.
-   * @returns false when a field holds a value that fails its schema, which stays
-   * unsent, or when one of those sends failed.
-   */
-  async flush(): Promise<boolean> {
+  /** Sends every edit the store holds, and waits for the sends already in flight. */
+  async flush(): Promise<Flushed> {
     const sends = [...this.inFlight, ...this.takeValid()];
     const held = this.edits.length > 0;
     const sent = await Promise.all(sends);
-    return !held && sent.every(Boolean);
+    return { failed: !sent.every(Boolean), held };
   }
 
   /** Sends every valid edit and drops every invalid one. The store stays usable. */
@@ -504,13 +500,18 @@ export interface UseDocumentFormParams<Query> extends Pick<
   beforeSend?: () => Promise<unknown>;
 }
 
+/** What a flush of a document form left out of the Core. */
+export interface Flushed {
+  /** A send failed, so the Core does not hold its edit. */
+  failed: boolean;
+  /** A field holds a value that fails its schema, so its edit stays unsent. */
+  held: boolean;
+}
+
 export interface UseDocumentFormReturn<Schema extends z.ZodType> {
   form: Form.UseReturn<Schema>;
-  /**
-   * Sends every edit the form holds.
-   * @returns false when a field holds a value that fails its schema, or a send failed.
-   */
-  flush: () => Promise<boolean>;
+  /** Sends every edit the form holds. */
+  flush: () => Promise<Flushed>;
 }
 
 export interface UseDocumentForm<Query, Schema extends z.ZodType> {
@@ -569,7 +570,7 @@ export const createDocumentForm = <
     if (store.client !== client || !deep.equal(store.query, query)) setStore(create());
     useEffect(() => () => store.close(), [store]);
     const form = Form.use<Schema>({ store, schema, mode, onHasTouched });
-    const flush = async (): Promise<boolean> => await store.flush();
+    const flush = async (): Promise<Flushed> => await store.flush();
     return { form, flush };
   };
   return useDocumentForm;

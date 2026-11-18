@@ -14,6 +14,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { type Flux } from "@synnaxlabs/pluto";
 import { deep, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type FC } from "react";
@@ -42,6 +43,10 @@ const schemas = {
   }),
   statusData: z.object({ running: z.boolean() }).nullish(),
 };
+
+const SENT: Flux.Flushed = { failed: false, held: false };
+const HELD: Flux.Flushed = { failed: false, held: true };
+const FAILED: Flux.Flushed = { failed: true, held: false };
 
 const ChildForm: FC = () => <div>child-form-body</div>;
 ChildForm.displayName = "TestChildForm";
@@ -172,7 +177,7 @@ describe("wrapForm", () => {
     const gate = Promise.withResolvers<void>();
     const flush = vi.fn(async () => {
       await gate.promise;
-      return true;
+      return SENT;
     });
     const NestedForm: FC = () => {
       Task.useFlushFirst(flush);
@@ -190,6 +195,45 @@ describe("wrapForm", () => {
     expect(await stored()).toBe(tsk.name);
     gate.resolve();
     await waitFor(async () => expect(await stored()).toBe("Renamed Test Task"));
+  });
+
+  it("should undo an edit when a nested form fails to send its own", async () => {
+    const client = createTestClient();
+    const tsk = await createTask(client);
+    const flush = vi.fn(async () => FAILED);
+    const NestedForm: FC = () => {
+      Task.useFlushFirst(flush);
+      return null;
+    };
+    await renderTaskFormTab(createRenderer({ Form: NestedForm }), {
+      client,
+      taskKey: tsk.key,
+    });
+    const input = await waitFor(findNameInput);
+    await act(async () => commitFieldInput(input, "Renamed Test Task"));
+    await waitFor(() => expect(flush).toHaveBeenCalled());
+    await waitFor(() => expect(input.value).toBe(tsk.name));
+    expect((await createTestClient().tasks.retrieve(tsk.key)).name).toBe(tsk.name);
+  });
+
+  it("should save an edit while a nested form holds an unsent edit", async () => {
+    const client = createTestClient();
+    const tsk = await createTask(client);
+    const NestedForm: FC = () => {
+      Task.useFlushFirst(async () => HELD);
+      return null;
+    };
+    await renderTaskFormTab(createRenderer({ Form: NestedForm }), {
+      client,
+      taskKey: tsk.key,
+    });
+    const input = await waitFor(findNameInput);
+    await act(async () => commitFieldInput(input, "Renamed Test Task"));
+    await waitFor(async () =>
+      expect((await createTestClient().tasks.retrieve(tsk.key)).name).toBe(
+        "Renamed Test Task",
+      ),
+    );
   });
 
   describe("rack", () => {
@@ -433,7 +477,7 @@ describe("wrapForm", () => {
       const NestedForm: FC = () => {
         Task.useFlushFirst(async () => {
           order.push("flush");
-          return true;
+          return SENT;
         });
         return null;
       };
@@ -454,10 +498,13 @@ describe("wrapForm", () => {
       await waitFor(() => expect(order.slice(0, 2)).toEqual(["flush", "configure"]));
     });
 
-    it("should not deploy while a nested form holds an unsent edit", async () => {
+    it.each([
+      ["holds an unsent edit", HELD],
+      ["failed to send an edit", FAILED],
+    ])("should not deploy while a nested form %s", async (_, flushed) => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
-      const flush = vi.fn(async () => false);
+      const flush = vi.fn(async () => flushed);
       const NestedForm: FC = () => {
         Task.useFlushFirst(flush);
         return null;

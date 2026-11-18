@@ -38,6 +38,10 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 const path = deep.path<Values>();
+
+const SENT: Flux.Flushed = { failed: false, held: false };
+const HELD: Flux.Flushed = { failed: false, held: true };
+const FAILED: Flux.Flushed = { failed: true, held: false };
 const config = deep.path<Values["config"]>();
 const alert = deep.path<Values["config"]["alerts"][number]>();
 
@@ -155,7 +159,7 @@ describe("createDocumentForm", () => {
     expect(result.current.form.get(path.config.routingKey).value).toBe(
       OTHER_ROUTING_KEY,
     );
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: OTHER_ROUTING_KEY,
     });
@@ -201,7 +205,7 @@ describe("createDocumentForm", () => {
     const { result } = await renderForm(t.key);
     const send = spyOnSend(formClient);
     act(() => result.current.form.set(path.config.routingKey, ROUTING_KEY));
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     expect(countDispatches(send)).toBe(0);
   });
 
@@ -219,7 +223,7 @@ describe("createDocumentForm", () => {
     expect(result.current.form.get(path.config.routingKey).value).toBe(
       OTHER_ROUTING_KEY,
     );
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     const [, req] =
       send.mock.calls.find(([target]) => target === "/task/dispatch") ?? [];
     expect(req).toMatchObject({
@@ -242,7 +246,7 @@ describe("createDocumentForm", () => {
     write(uuid.create());
     write(uuid.create());
     write(OTHER_ROUTING_KEY);
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     expect(countDispatches(send)).toBe(1);
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: OTHER_ROUTING_KEY,
@@ -255,7 +259,7 @@ describe("createDocumentForm", () => {
     const values = result.current.form.value();
     const config = { ...values.config, routingKey: "" };
     act(() => result.current.form.set(path, { ...values, config }));
-    await act(async () => expect(await result.current.flush()).toBe(false));
+    await act(async () => expect(await result.current.flush()).toEqual(HELD));
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: ROUTING_KEY,
     });
@@ -266,7 +270,7 @@ describe("createDocumentForm", () => {
     const { result } = await renderForm(t.key);
     const send = spyOnSend(formClient);
     act(() => result.current.form.set(path, { ...result.current.form.value() }));
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     expect(countDispatches(send)).toBe(0);
   });
 
@@ -275,14 +279,14 @@ describe("createDocumentForm", () => {
     const { result } = await renderForm(t.key);
     const send = spyOnSend(formClient);
     act(() => result.current.form.set(path.config.routingKey, ""));
-    await act(async () => expect(await result.current.flush()).toBe(false));
+    await act(async () => expect(await result.current.flush()).toEqual(HELD));
     expect(countDispatches(send)).toBe(0);
     expect(result.current.form.get(path.config.routingKey).value).toBe("");
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: ROUTING_KEY,
     });
     act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     expect(dispatchedActions(send)).toEqual([[setRoutingKey(OTHER_ROUTING_KEY)]]);
     expect((await fetchStored(t.key)).config).toMatchObject({
       routingKey: OTHER_ROUTING_KEY,
@@ -301,7 +305,7 @@ describe("createDocumentForm", () => {
         result.current.form.set(path.config.alerts.a.status, ""),
       ),
     );
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     expect(countDispatches(send)).toBe(1);
     expect((await fetchStored(t.key)).config).toMatchObject({
       alerts: [{ key: "a", status: "" }],
@@ -317,7 +321,7 @@ describe("createDocumentForm", () => {
         result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY),
       ),
     );
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     await waitFor(async () =>
       expect((await fetchStored(t.key)).config).toMatchObject({
         routingKey: OTHER_ROUTING_KEY,
@@ -348,14 +352,14 @@ describe("createDocumentForm", () => {
         { wrapper, initialProps: { key: t.key } },
       );
       act(() => result.current.form.set(path.config.alerts.a.status, ""));
-      await act(async () => expect(await result.current.flush()).toBe(false));
+      await act(async () => expect(await result.current.flush()).toEqual(HELD));
       return { t, result };
     };
 
     it("should stop blocking a flush when the form removes the entry", async () => {
       const { t, result } = await renderEntryForm();
       act(() => result.current.form.remove(path.config.alerts.a));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       expect((await fetchStored(t.key)).config).toMatchObject({
         alerts: [{ key: "b", status: "st-b" }],
       });
@@ -380,7 +384,7 @@ describe("createDocumentForm", () => {
       act(() =>
         result.current.form.set(path.config.alerts["ns=2;s=a.b"].status, "st-c"),
       );
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       expect((await fetchStored(t.key)).config).toMatchObject({
         alerts: [
           { key: "ns=2;s=a.b", status: "st-c" },
@@ -408,7 +412,7 @@ describe("createDocumentForm", () => {
       act(() => {
         Form.fieldListUtils(result.current.form, path.config.alerts).remove("1");
       });
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       expect((await fetchStored(t.key)).config).toMatchObject({
         alerts: [{ key: "0", status: "st-0" }],
       });
@@ -425,7 +429,7 @@ describe("createDocumentForm", () => {
       await waitFor(() =>
         expect(result.current.form.value().config.alerts).toHaveLength(1),
       );
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
     });
 
     it("should keep blocking a flush when another client edits another entry", async () => {
@@ -439,7 +443,7 @@ describe("createDocumentForm", () => {
       await waitFor(() =>
         expect(result.current.form.get(path.config.alerts.b.status).value).toBe("st-c"),
       );
-      await act(async () => expect(await result.current.flush()).toBe(false));
+      await act(async () => expect(await result.current.flush()).toEqual(HELD));
       expect(result.current.form.get(path.config.alerts.a.status).value).toBe("");
     });
   });
@@ -456,7 +460,7 @@ describe("createDocumentForm", () => {
     });
     const keys = (alerts: { key: string }[]): string[] => alerts.map(({ key }) => key);
     expect(keys(result.current.form.value().config.alerts)).toEqual(["b", "a"]);
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     const stored = (await fetchStored(t.key)).config as Values["config"];
     expect(keys(stored.alerts)).toEqual(["b", "a"]);
   });
@@ -488,7 +492,7 @@ describe("createDocumentForm", () => {
       result.current.form.set(path.config.alerts.a.status, "st-c");
       result.current.form.remove(path.config.alerts.a);
     });
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     expect(countDispatches(send)).toBe(0);
     expect((await fetchStored(t.key)).config).toMatchObject({
       alerts: [{ key: "b", status: "st-b" }],
@@ -532,7 +536,7 @@ describe("createDocumentForm", () => {
         result.current.form.set(path.config.alerts[0].status, "st-b");
         result.current.form.remove(path.config.alerts.a);
       });
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       expect(countDispatches(send)).toBe(0);
       expect((await fetchStored(t.key)).config).toMatchObject({ alerts: [] });
     },
@@ -586,7 +590,7 @@ describe("createDocumentForm", () => {
       const { t, result } = await renderUnionForm();
       const send = spyOnSend(formClient);
       act(() => result.current.form.set(unionPath.config.channels.a.address, 2));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       expect(dispatchedActions(send)).toMatchObject([
         [
           {
@@ -609,7 +613,7 @@ describe("createDocumentForm", () => {
       act(() =>
         result.current.form.set(unionPath.config.channels.a.type, "holding_register"),
       );
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       expect(dispatchedActions(send)).toMatchObject([
         [
           {
@@ -633,7 +637,7 @@ describe("createDocumentForm", () => {
       act(() =>
         result.current.form.set<string>(unionPath.config.channels.a.type, "bogus"),
       );
-      await act(async () => expect(await result.current.flush()).toBe(false));
+      await act(async () => expect(await result.current.flush()).toEqual(HELD));
       expect(countDispatches(send)).toBe(0);
       expect((await fetchStored(t.key)).config).toMatchObject({
         channels: [{ key: "a", type: "coil" }],
@@ -651,7 +655,7 @@ describe("createDocumentForm", () => {
         result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY);
       }),
     );
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     expect(countDispatches(send)).toBe(1);
     const edited = await fetchStored(t.key);
     expect(edited.name).toBe("renamed");
@@ -668,7 +672,7 @@ describe("createDocumentForm", () => {
       { wrapper },
     );
     act(() => result.current.form.set(path.name, ""));
-    await act(async () => expect(await result.current.flush()).toBe(false));
+    await act(async () => expect(await result.current.flush()).toEqual(FAILED));
     await waitFor(() =>
       expect(result.current.statuses).toContainEqual(
         expect.objectContaining({ variant: "error", message: "Failed to save Task" }),
@@ -681,7 +685,7 @@ describe("createDocumentForm", () => {
     const t = await createTask();
     const { result } = await renderForm(t.key);
     act(() => result.current.form.batch(() => result.current.form.set(path.name, "")));
-    await act(async () => expect(await result.current.flush()).toBe(false));
+    await act(async () => expect(await result.current.flush()).toEqual(FAILED));
     expect((await fetchStored(t.key)).name).toBe(t.name);
   });
 
@@ -689,12 +693,12 @@ describe("createDocumentForm", () => {
     const t = await createTask();
     const { result } = await renderForm(t.key);
     act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
-    let flushed = Promise.resolve(false);
+    let flushed = Promise.resolve(FAILED);
     act(() => {
       flushed = result.current.flush();
       result.current.form.set(path.name, "renamed");
     });
-    await act(async () => expect(await flushed).toBe(true));
+    await act(async () => expect(await flushed).toEqual(SENT));
   });
 
   describe("beforeSend", () => {
@@ -708,7 +712,7 @@ describe("createDocumentForm", () => {
       const gate = Promise.withResolvers<void>();
       const { result } = await renderGated(t.key, async () => await gate.promise);
       const send = spyOnSend(formClient);
-      let flushed = Promise.resolve(false);
+      let flushed = Promise.resolve(FAILED);
       act(() => {
         result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY);
         flushed = result.current.flush();
@@ -716,7 +720,7 @@ describe("createDocumentForm", () => {
       await act(async () => {});
       expect(countDispatches(send)).toBe(0);
       gate.resolve();
-      await act(async () => expect(await flushed).toBe(true));
+      await act(async () => expect(await flushed).toEqual(SENT));
       expect(dispatchedActions(send)).toEqual([[setRoutingKey(OTHER_ROUTING_KEY)]]);
     });
 
@@ -734,7 +738,7 @@ describe("createDocumentForm", () => {
       });
       gates[1].resolve();
       gates[0].resolve();
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       expect(countDispatches(send)).toBe(2);
       expect((await fetchStored(t.key)).name).toBe("second");
     });
@@ -747,7 +751,7 @@ describe("createDocumentForm", () => {
       act(() =>
         result.current.form.batch(() => result.current.form.set(path.name, "x")),
       );
-      await act(async () => expect(await result.current.flush()).toBe(false));
+      await act(async () => expect(await result.current.flush()).toEqual(FAILED));
       expect(result.current.form.get(path.name).value).toBe(t.name);
       expect((await fetchStored(t.key)).name).toBe(t.name);
     });
@@ -761,7 +765,7 @@ describe("createDocumentForm", () => {
         result.current.form.set(path.config.routingKey, ROUTING_KEY),
       ),
     );
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
   });
 
   it("should send the valid edits it holds when it unmounts", async () => {
@@ -799,7 +803,7 @@ describe("createDocumentForm", () => {
     rerender({ key: second.key });
     expect(result.current.form.value().config.routingKey).toBe(secondKey);
     act(() => result.current.form.set(path.config.routingKey, editedKey));
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () => expect(await result.current.flush()).toEqual(SENT));
     expect((await fetchStored(second.key)).config).toMatchObject({
       routingKey: editedKey,
     });
@@ -837,7 +841,7 @@ describe("createDocumentForm", () => {
       const { result } = await renderConfigForm(t.key);
       const send = spyOnSend(formClient);
       act(() => result.current.form.set(config.routingKey, OTHER_ROUTING_KEY));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       const [, req] =
         send.mock.calls.find(([target]) => target === "/task/dispatch") ?? [];
       expect(req).toMatchObject({
@@ -876,7 +880,7 @@ describe("createDocumentForm", () => {
       expect(result.current.form.value()).toMatchObject({ key: "a", status: "st-a" });
       const send = spyOnSend(formClient);
       act(() => result.current.form.set(alert.status, "st-b"));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       expect(countDispatches(send)).toBe(0);
       expect((await fetchStored(t.key)).config).toMatchObject({ alerts: [] });
     });
@@ -887,7 +891,7 @@ describe("createDocumentForm", () => {
       act(() =>
         result.current.form.insert(config.alerts, { key: "b", status: "st-b" }, "a"),
       );
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () => expect(await result.current.flush()).toEqual(SENT));
       expect((await fetchStored(t.key)).config).toMatchObject({
         alerts: [
           { key: "a", status: "st-a" },
