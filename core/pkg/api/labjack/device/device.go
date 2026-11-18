@@ -155,44 +155,15 @@ type UpdateRequest struct {
 	Device device.Device `json:"device" msgpack:"device"`
 }
 
-// Update writes the user's fields of req.Device to the device stored under its key and
-// keeps the stored rack, connection, serial, and model, which only the scanner writes.
-// It returns a validation error when req.Device has no model or a different model than
-// the stored device, and an error wrapping query.ErrNotFound when no device is stored
-// under its key. A device built from an earlier retrieve overwrites every user change
-// committed since that retrieve.
+// Update writes the user's fields of req.Device to the device stored under its key, as
+// device.Writer.Configure does.
 func (s *Service) Update(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UpdateRequest,
 ) (struct{}, error) {
-	v := validate.New("device")
-	v.Ternary("model", req.Device.Model() == "", "required")
-	if err := v.Error(); err != nil {
-		return struct{}{}, err
-	}
-	next := withoutStatus(req.Device)
-	return struct{}{}, s.cfg.Device.NewWriter(tx).Update(
-		ctx,
-		next.Base().Key,
-		func(stored device.Device) (device.Device, error) {
-			v := validate.New("device")
-			v.Ternaryf(
-				"model",
-				next.Model() != stored.Model(),
-				"cannot change from %s to %s",
-				stored.Model(),
-				next.Model(),
-			)
-			if err := v.Error(); err != nil {
-				return device.Device{}, err
-			}
-			b, kept := next.Base(), stored.Base()
-			b.Rack, b.Connection, b.Serial = kept.Rack, kept.Connection, kept.Serial
-			next.SetBase(b)
-			return next, nil
-		},
-	)
+	return struct{}{}, s.cfg.Device.NewWriter(tx).
+		Configure(ctx, withoutStatus(req.Device))
 }
 
 // DeleteRequest carries the keys of the devices to delete.

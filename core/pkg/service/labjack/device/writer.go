@@ -119,6 +119,36 @@ func (w Writer) Update(
 	return nil
 }
 
+// Configure writes the user's fields of d to the device stored under its key and keeps
+// the stored rack, connection, serial, and model, which only the scanner writes. It
+// returns a validation error when d has no model or a different model than the stored
+// device, and an error wrapping query.ErrNotFound when no device is stored under its
+// key. A device built from an earlier read overwrites every change committed since.
+func (w Writer) Configure(ctx context.Context, d Device) error {
+	v := validate.New("device")
+	v.Ternary("model", d.Model() == "", "required")
+	if err := v.Error(); err != nil {
+		return err
+	}
+	return w.Update(ctx, d.Base().Key, func(stored Device) (Device, error) {
+		v := validate.New("device")
+		v.Ternaryf(
+			"model",
+			d.Model() != stored.Model(),
+			"cannot change from %s to %s",
+			stored.Model(),
+			d.Model(),
+		)
+		if err := v.Error(); err != nil {
+			return Device{}, err
+		}
+		b, kept := d.Base(), stored.Base()
+		b.Rack, b.Connection, b.Serial = kept.Rack, kept.Connection, kept.Serial
+		d.SetBase(b)
+		return d, nil
+	})
+}
+
 // Delete removes the devices stored under keys with their statuses. Delete is
 // idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
