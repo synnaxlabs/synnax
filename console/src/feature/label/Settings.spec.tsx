@@ -167,9 +167,8 @@ describe("Label.Settings", () => {
     await openContextMenu(a.name);
     expect(screen.queryByText("Rename")).toBeNull();
     await clickAndSettle("Delete");
-    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(confirm);
+      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     });
     await expect.poll(async () => await deleted(a.key)).toBe(true);
     await expect.poll(async () => await deleted(b.key)).toBe(true);

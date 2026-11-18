@@ -14,6 +14,7 @@ export * from "@/session/color";
 export * from "@/session/Context";
 export * from "@/session/core";
 export * from "@/session/haul";
+export * from "@/session/icd";
 export * from "@/session/lineplot";
 export * from "@/session/link";
 export * from "@/session/log";

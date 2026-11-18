@@ -168,9 +168,8 @@ describe("arc/Toolbar", () => {
       const arcsID = await retrieveRootDirectoryID(client);
       await renderToolbar();
       await openTreeRowContextMenu(arc.name);
-      const item = await screen.findByText("New directory");
       await act(async () => {
-        fireEvent.click(item);
+        fireEvent.click(await screen.findByText("New directory"));
       });
       const name = uniqueName("dir");
       commitTextEdit(await awaitTextEditingElement(), name);
@@ -190,9 +189,8 @@ describe("arc/Toolbar", () => {
       await renderToolbar();
       await findTreeRow(arc.name);
       await openTreeRootContextMenu();
-      const item = await screen.findByText("New directory");
       await act(async () => {
-        fireEvent.click(item);
+        fireEvent.click(await screen.findByText("New directory"));
       });
       const name = uniqueName("dir");
       commitTextEdit(await awaitTextEditingElement(), name);
@@ -208,9 +206,8 @@ describe("arc/Toolbar", () => {
       const dir = await createDirectory(await retrieveRootDirectoryID(client));
       await renderToolbar();
       await openTreeRowContextMenu(dir.name);
-      const item = await screen.findByText("New directory");
       await act(async () => {
-        fireEvent.click(item);
+        fireEvent.click(await screen.findByText("New directory"));
       });
       const name = uniqueName("sub");
       commitTextEdit(await awaitTextEditingElement(), name);

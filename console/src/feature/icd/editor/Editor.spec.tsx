@@ -22,6 +22,7 @@ import { describe, expect, it } from "vitest";
 import { Editor } from "@/feature/icd/editor/Editor";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
+import { Session } from "@/session";
 import {
   createConsoleWrapper,
   fakePickedFile,
@@ -29,8 +30,13 @@ import {
   renderSuspended,
 } from "@/testutil";
 
-const renderEditor = async (ic: icd.ICD, as: Synnax = client): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+const renderEditor = async (
+  ic: icd.ICD,
+  as: Synnax = client,
+  selected: icd.MessageKey[] = [],
+): Promise<void> => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
+  store.dispatch(Session.ICD.setSelected({ key: ic.key, selected }));
   const { panelKey, tabKey } = await createResourceTab(client, icd.resourceID(ic.key));
   await primePanel(wrapper, panelKey);
   await renderSuspended(
@@ -139,6 +145,14 @@ describe("ICD editor", () => {
     await waitFor(async () =>
       expect(await retrieveNames(ic.key)).toEqual(["Message 1", "Message 2"]),
     );
+  });
+
+  it("should open at the message that the session selects", async () => {
+    const b = createMessage([], "B");
+    const ic = await createICD([createMessage([], "A"), b]);
+    await renderEditor(ic, client, [b.key]);
+    await screen.findByDisplayValue("B");
+    expect(screen.queryByDisplayValue("A")).toBeNull();
   });
 
   it("should remove the selected messages from the context menu", async () => {
