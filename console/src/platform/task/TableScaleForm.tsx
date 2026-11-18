@@ -34,6 +34,16 @@ const lengthMismatch = (preScaled: number[], scaled: number[]): string | null =>
     ? null
     : `Pre-scaled ${preScaled.length} values and scaled ${scaled.length} values must be the same length`;
 
+// A column that ends before the file does ends in empty cells, which hold no points.
+const column = (
+  table: Record<string, unknown[]>,
+  key: string,
+): number[] | undefined => {
+  const values = table[key];
+  return values?.slice(0, values.findLastIndex((v) => v != null) + 1) as
+    number[] | undefined;
+};
+
 /** @returns The error to show when the column has an empty cell, or null. */
 const emptyCell = (column: string, values: unknown[]): string | null =>
   values.some((v) => v == null) ? `Column ${column} has an empty cell` : null;
@@ -79,8 +89,8 @@ export const TableScaleForm = ({ path }: TableScaleFormProps): ReactElement => {
     raw: string,
     scaledKey: string,
   ) => {
-    const preScaledValues = value[raw] as number[] | undefined;
-    const scaledValues = value[scaledKey] as number[] | undefined;
+    const preScaledValues = column(value, raw);
+    const scaledValues = column(value, scaledKey);
     const message =
       (preScaledValues != null ? emptyCell(raw, preScaledValues) : null) ??
       (scaledValues != null ? emptyCell(scaledKey, scaledValues) : null) ??

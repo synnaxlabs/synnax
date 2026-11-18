@@ -51,15 +51,18 @@ const delimiterOf = (data: string): string => {
 
 /**
  * Parses a headerless delimited block, the form a spreadsheet puts on the clipboard,
- * into rows of fields. The block splits on tabs when it holds one outside a quoted
- * field, otherwise on commas, so a spreadsheet's tab-delimited fields survive the
- * commas inside them. A quoted field keeps its delimiters, its newlines, and its
- * spaces, and doubled quotes unescape. Spaces outside the quotes of a field drop.
+ * into rows of fields. With no delimiter given, the block splits on tabs when it holds
+ * one outside a quoted field, otherwise on commas, so a spreadsheet's tab-delimited
+ * fields survive the commas inside them. A quoted field keeps its delimiters, its
+ * newlines, and its spaces, and doubled quotes unescape. Spaces outside the quotes of a
+ * field drop.
  * @returns One entry per row, each holding the row's fields. Ragged rows stay ragged;
  * rows holding nothing but empty fields are dropped.
  */
-export const parseBlock = (data: string): string[][] => {
-  const delimiter = delimiterOf(data);
+export const parseBlock = (
+  data: string,
+  delimiter: string = delimiterOf(data),
+): string[][] => {
   const rows: string[][] = [];
   let fields: string[] = [];
   let field = "";

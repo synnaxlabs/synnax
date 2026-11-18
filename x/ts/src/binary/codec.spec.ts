@@ -186,6 +186,13 @@ describe("Codec", () => {
       });
     });
 
+    it("should split on commas when a field holds a tab", () => {
+      expect(binary.CSV_CODEC.decodeString("raw,scaled\n1,\t10")).toEqual({
+        raw: [1],
+        scaled: [10],
+      });
+    });
+
     it("should keep a quoted field of spaces as a string", () => {
       expect(binary.CSV_CODEC.decodeString('a,b\n" ",1')).toEqual({
         a: [" "],

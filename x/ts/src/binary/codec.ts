@@ -119,7 +119,7 @@ export class CSVCodec implements Codec {
     schema?: P,
     opts?: zod.ParseOptions,
   ): z.infer<P> {
-    const [headers = [], ...rows] = csv.parseBlock(data);
+    const [headers = [], ...rows] = csv.parseBlock(data, ",");
     const result: Record<string, unknown[]> = {};
     headers.forEach((header, i) => {
       result[header] = rows.map((row) => parseCSVField(row[i]));
