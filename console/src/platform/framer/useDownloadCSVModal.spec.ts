@@ -149,7 +149,7 @@ describe("useDownloadCSVModal", () => {
       );
     });
 
-    it("reads a range that still runs up to the download", async () => {
+    it("reads every sample of a range that still runs up to the download", async () => {
       const client = createTestClient();
       const suffix = id.create().replace(/-/g, "_");
       const indexCh = await client.channels.create({
@@ -162,7 +162,8 @@ describe("useDownloadCSVModal", () => {
         dataType: DataType.FLOAT64,
         index: indexCh.key,
       });
-      const start = TimeStamp.now();
+      // A float of this start rounds up past it.
+      const start = new TimeStamp((TimeStamp.now().valueOf() / 256n) * 256n + 200n);
       await client.write(start, { [indexCh.key]: [start], [dataCh.key]: [1] });
       await openDownloadModal(
         {

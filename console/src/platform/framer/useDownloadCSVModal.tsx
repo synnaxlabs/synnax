@@ -67,16 +67,19 @@ const DownloadCSV = ({
   icon,
   close,
 }: Modals.ContentProps<DownloadCSVModalParams, void>) => {
-  const [shown] = useState(() => shownRange(new TimeRange(timeRange)).numeric);
-  // An open end the user leaves as shown stays open, so the file holds every sample up
-  // to the download.
+  const [shown] = useState(() => shownRange(new TimeRange(timeRange)));
+  // Form times are floats that round nanoseconds, so a time left as shown reads the
+  // exact time behind it. An open end left as shown stays open.
   const toRead = ({ start, end }: NumericTimeRange): TimeRange =>
-    new TimeRange(start, end === shown.end ? new TimeRange(timeRange).end : end);
+    new TimeRange(
+      start === shown.numeric.start ? shown.start : start,
+      end === shown.numeric.end ? new TimeRange(timeRange).end : end,
+    );
   const form = Form.use<typeof formSchema>({
     schema: formSchema,
     values: {
       channels,
-      timeRange: shown,
+      timeRange: shown.numeric,
       downsampleFactor: 1,
       name,
     },
