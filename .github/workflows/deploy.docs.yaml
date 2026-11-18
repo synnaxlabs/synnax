@@ -145,6 +145,8 @@ jobs:
           VERCEL_ORG_ID: team_Ct3QPGNmHHaqBqa5BBIAv2x9
           VERCEL_PROJECT_ID: prj_G9x2ZoIrsFQym5DqbqZIM8jUsSer
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # The build reads the releases with the job's token, not a person's.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           [ -n "$VERCEL_TOKEN" ] || { echo "::error::VERCEL_TOKEN is not set"; exit 1; }
           set -o pipefail
@@ -154,6 +156,7 @@ jobs:
             if npx --yes vercel@63.1.2 deploy --cwd "$GITHUB_WORKSPACE" \
               --archive=tgz --format=json --prod --skip-domain \
               --build-env "DOCS_VERSION=$DOCS_VERSION" \
+              --build-env "DOCS_GITHUB_TOKEN=$GITHUB_TOKEN" \
               2>&1 > "$deployment" | tee "$log" >&2; then
               break
             fi
