@@ -13,11 +13,15 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/payload/number.h"
 #include "x/cpp/telem/types.gen.h"
+
+#include "x/go/payload/pb/payload.pb.h"
 
 namespace x::payload {
 
@@ -66,6 +70,12 @@ struct StringEntry {
 
     static StringEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::StringEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::StringEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<StringEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::StringEntry &pb);
 };
 
 /// @brief BooleanEntry maps a payload label to a boolean channel value.
@@ -77,6 +87,12 @@ struct BooleanEntry {
 
     static BooleanEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::BooleanEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::BooleanEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<BooleanEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::BooleanEntry &pb);
 };
 
 /// @brief EnumEntry maps a string label in a payload to a numeric channel value for
@@ -89,6 +105,12 @@ struct EnumEntry {
 
     static EnumEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::EnumEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::EnumEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<EnumEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::EnumEntry &pb);
 };
 
 /// @brief StringRead holds the options of a field that reads a string.
@@ -100,6 +122,12 @@ struct StringRead {
 
     static StringRead parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::StringRead;
+    [[nodiscard]] std::pair<::x::payload::pb::StringRead, x::errors::Error>
+    to_proto() const;
+    static std::pair<StringRead, x::errors::Error>
+    from_proto(const ::x::payload::pb::StringRead &pb);
 };
 
 /// @brief BooleanRead holds the options of a field that reads a boolean.
@@ -111,6 +139,12 @@ struct BooleanRead {
 
     static BooleanRead parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::BooleanRead;
+    [[nodiscard]] std::pair<::x::payload::pb::BooleanRead, x::errors::Error>
+    to_proto() const;
+    static std::pair<BooleanRead, x::errors::Error>
+    from_proto(const ::x::payload::pb::BooleanRead &pb);
 };
 
 /// @brief FloatEntry maps a payload label to a float channel value.
@@ -122,6 +156,12 @@ struct FloatEntry {
 
     static FloatEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::FloatEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::FloatEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<FloatEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::FloatEntry &pb);
 };
 
 /// @brief IntegerEntry maps a payload label to a signed integer channel value.
@@ -133,6 +173,12 @@ struct IntegerEntry {
 
     static IntegerEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::IntegerEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::IntegerEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<IntegerEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::IntegerEntry &pb);
 };
 
 /// @brief UnsignedEntry maps a payload label to an unsigned integer channel value.
@@ -144,6 +190,12 @@ struct UnsignedEntry {
 
     static UnsignedEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::UnsignedEntry;
+    [[nodiscard]] std::pair<::x::payload::pb::UnsignedEntry, x::errors::Error>
+    to_proto() const;
+    static std::pair<UnsignedEntry, x::errors::Error>
+    from_proto(const ::x::payload::pb::UnsignedEntry &pb);
 };
 
 /// @brief TimestampRead holds the options of a field that reads a timestamp.
@@ -155,6 +207,12 @@ struct TimestampRead {
 
     static TimestampRead parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::TimestampRead;
+    [[nodiscard]] std::pair<::x::payload::pb::TimestampRead, x::errors::Error>
+    to_proto() const;
+    static std::pair<TimestampRead, x::errors::Error>
+    from_proto(const ::x::payload::pb::TimestampRead &pb);
 };
 
 /// @brief FloatRead holds the options of a field that reads a float.
@@ -168,6 +226,12 @@ struct FloatRead {
 
     static FloatRead parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::FloatRead;
+    [[nodiscard]] std::pair<::x::payload::pb::FloatRead, x::errors::Error>
+    to_proto() const;
+    static std::pair<FloatRead, x::errors::Error>
+    from_proto(const ::x::payload::pb::FloatRead &pb);
 };
 
 /// @brief IntegerRead holds the options of a field that reads a signed integer.
@@ -181,6 +245,12 @@ struct IntegerRead {
 
     static IntegerRead parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::IntegerRead;
+    [[nodiscard]] std::pair<::x::payload::pb::IntegerRead, x::errors::Error>
+    to_proto() const;
+    static std::pair<IntegerRead, x::errors::Error>
+    from_proto(const ::x::payload::pb::IntegerRead &pb);
 };
 
 /// @brief UnsignedRead holds the options of a field that reads an unsigned integer.
@@ -194,5 +264,11 @@ struct UnsignedRead {
 
     static UnsignedRead parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::payload::pb::UnsignedRead;
+    [[nodiscard]] std::pair<::x::payload::pb::UnsignedRead, x::errors::Error>
+    to_proto() const;
+    static std::pair<UnsignedRead, x::errors::Error>
+    from_proto(const ::x::payload::pb::UnsignedRead &pb);
 };
 }

@@ -139,4 +139,33 @@ TEST(PayloadUnsigned, ToJSON) {
     const UnsignedRead read{.fill = Unsigned{UINT64_MAX_VALUE}};
     EXPECT_EQ(read.to_json()["fill"], "18446744073709551615");
 }
+
+/// @brief it should keep a non-finite float through its protobuf form.
+TEST(PayloadFloat, RoundTripsNonFiniteProto) {
+    EXPECT_EQ(Float::from_proto(Float{-INF}.to_proto()).value, -INF);
+    EXPECT_TRUE(
+        std::isnan(
+            Float::from_proto(
+                Float{std::numeric_limits<double>::quiet_NaN()}.to_proto()
+            )
+                .value
+        )
+    );
+}
+
+/// @brief it should keep the least signed integer through its protobuf form.
+TEST(PayloadInteger, RoundTripsLimitProto) {
+    EXPECT_EQ(
+        Integer::from_proto(Integer{INT64_MIN_VALUE}.to_proto()).value,
+        INT64_MIN_VALUE
+    );
+}
+
+/// @brief it should keep the greatest unsigned integer through its protobuf form.
+TEST(PayloadUnsigned, RoundTripsLimitProto) {
+    EXPECT_EQ(
+        Unsigned::from_proto(Unsigned{UINT64_MAX_VALUE}.to_proto()).value,
+        UINT64_MAX_VALUE
+    );
+}
 }

@@ -12,9 +12,11 @@ import "schemas/x/patch"
 import "schemas/x/payload"
 import "schemas/x/telem"
 
-@go output "core/pkg/service/icd"
-@py output "client/py/synnax/icd"
-@ts output "client/ts/src/icd"
+@cpp output "client/cpp/icd"
+@go output  "core/pkg/service/icd"
+@pb
+@py output  "client/py/synnax/icd"
+@ts output  "client/ts/src/icd"
 
 Key = uuid {
     @doc value "is a unique identifier for an ICD."

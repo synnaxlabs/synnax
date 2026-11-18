@@ -11,6 +11,7 @@ import "schemas/x/telem"
 
 @cpp output "x/cpp/payload"
 @go output  "x/go/payload"
+@pb
 @py output  "x/py/x/payload"
 @ts output  "x/ts/src/payload"
 
