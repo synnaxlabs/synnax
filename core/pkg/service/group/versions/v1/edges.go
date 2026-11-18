@@ -235,7 +235,8 @@ func migrateParents(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation)
 			resource.TypeHTTPServer, resource.TypeLabjackDevice,
 			resource.TypeModbusServer, resource.TypeNiChassis, resource.TypeNiDevice,
 			resource.TypeOpcuaServer, resource.TypeArcDirectory, resource.TypeSecret,
-			resource.TypeCertificate, resource.TypeColor, resource.TypeICD:
+			resource.TypeCertificate, resource.TypeColor, resource.TypeICD,
+			resource.TypeEnumeration:
 		}
 	}
 	if err = gorp.WrapWriter[Key, Group](tx).Set(ctx, groups...); err != nil {

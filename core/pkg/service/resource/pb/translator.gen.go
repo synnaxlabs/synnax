@@ -147,6 +147,8 @@ func TypeToPB(v resource.Type) (Type, error) {
 		return Type_TYPE_COLOR, nil
 	case resource.TypeICD:
 		return Type_TYPE_ICD, nil
+	case resource.TypeEnumeration:
+		return Type_TYPE_ENUMERATION, nil
 	default:
 		return 0, errors.Newf("unrecognized resource.Type value: %v", v)
 	}
@@ -229,6 +231,8 @@ func TypeFromPB(v Type) (resource.Type, error) {
 		return resource.TypeColor, nil
 	case Type_TYPE_ICD:
 		return resource.TypeICD, nil
+	case Type_TYPE_ENUMERATION:
+		return resource.TypeEnumeration, nil
 	default:
 		return resource.Type(""), errors.Newf("unrecognized Type value: %v", v)
 	}

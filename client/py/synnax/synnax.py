@@ -31,6 +31,7 @@ from synnax import (
     connection,
     control as control_,
     device,
+    enumeration,
     exceptions,
     framer,
     group,
@@ -345,6 +346,10 @@ class Synnax(framer.Client):
     @_Lazy
     def colors(self) -> color.Client:
         return color.Client(self._transport.unary)
+
+    @_Lazy
+    def enumerations(self) -> enumeration.Client:
+        return enumeration.Client(self._transport.unary)
 
     @_Lazy
     def views(self) -> view.Client:
