@@ -73,28 +73,19 @@ const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
   indexed: (f: ReadField) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
 });
 
-/**
- * Plans the channels of each endpoint in order with one namer, as deploying creates
- * them. Reads from the Core alone.
- */
-const planEndpoints = async (
+/** Plans the channels of an endpoint with the channels that the device stores now. */
+const planEndpoint = async (
   client: Synnax,
+  namer: Task.Namer,
   dev: { name: string; properties: Properties },
-  endpoints: ReadEndpoint[],
-): Promise<Task.ReadChannelPlan[]> => {
-  const namer = Task.createNamer(client);
-  const plans: Task.ReadChannelPlan[] = [];
-  for (const ep of endpoints)
-    plans.push(
-      await Task.planReadChannels({
-        client,
-        namer,
-        props: dev.properties.read[ep.path],
-        ...endpointChannels(dev.name, ep),
-      }),
-    );
-  return plans;
-};
+  ep: ReadEndpoint,
+): Promise<Task.ReadChannelPlan> =>
+  await Task.planReadChannels({
+    client,
+    namer,
+    props: dev.properties.read[ep.path],
+    ...endpointChannels(dev.name, ep),
+  });
 
 /**
  * @returns the name that a new channel of a field falls back to, and the name that
@@ -107,12 +98,7 @@ const useChannelNames = (endpoint: deep.Path<ReadEndpoint>, field: ReadField) =>
   const plan = Task.useChannelPlan({ ep, name: dev?.name, props }, async (client) =>
     dev == null
       ? undefined
-      : await Task.planReadChannels({
-          client,
-          namer: Task.createNamer(client),
-          props,
-          ...endpointChannels(dev.name, ep),
-        }),
+      : await planEndpoint(client, Task.createNamer(client), dev, ep),
   );
   const plannedName = plan == null ? undefined : Task.newChannelName(plan, field.key);
   const fallback =
@@ -432,12 +418,16 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   });
   const before = deep.copy(dev.properties);
   try {
-    const plans = await planEndpoints(client, dev, config.endpoints);
-    for (const [i, ep] of config.endpoints.entries())
-      await Task.applyReadChannels(client, plans[i], ep.fields, {
+    // Endpoints with one path share the channels that the device stores for it, so each
+    // one plans after the ones before it store theirs.
+    const namer = Task.createNamer(client);
+    for (const ep of config.endpoints) {
+      const plan = await planEndpoint(client, namer, dev, ep);
+      await Task.applyReadChannels(client, plan, ep.fields, {
         read: dev.properties.read,
         key: ep.path,
       });
+    }
   } finally {
     await Device.setProperties(client, dev, before, SCHEMAS);
   }

@@ -731,6 +731,47 @@ describe("Read", () => {
     expect(timing?.channel).toBe(updated.properties.read["/data"].index);
   });
 
+  it("should give a later endpoint with the same path the channels of the first", async () => {
+    const dev = await createHTTPDevice(client);
+    const endpoint = (key: string) => ({
+      ...http.readEndpointZ.parse({}),
+      key,
+      path: "/data",
+      index: `${key}_time`,
+      fields: [
+        createReadField(`${key}_temperature`, "/temperature"),
+        createReadField(`${key}_time`, "/ts", { timeFormat: "unix_sec" }),
+      ],
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [endpoint("ep1"), endpoint("ep2")]),
+    );
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.READ_SCHEMAS,
+    );
+    const [first, second] = created.config.endpoints.map(({ fields }) =>
+      fields.map(({ channel }) => channel),
+    );
+    expect(second).toEqual(first);
+    const names = (await client.channels.retrieve({ searchTerm: dev.name })).map(
+      ({ name }) => name,
+    );
+    expect(names.filter((name) => name.endsWith("_2"))).toEqual([]);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(updated.properties.read["/data"]).toEqual({
+      index: first[1],
+      channels: { "/temperature": first[0] },
+    });
+  });
+
   it("should bind a new field to the channel the device already stores", async () => {
     const dev = await createHTTPDevice(client);
     const idxCh = await client.channels.create({
