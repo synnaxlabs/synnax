@@ -64,8 +64,7 @@ Twelve more variants pass the symbol test and keep their variants: `tank`, `cyli
 `select`, `button`, and `off_page_reference`. Each needs only a new variant or an
 optional field in §4.1, such as a stretch rule, a text look, a `hold` action, or a
 generated drawing, so none forces a migration of stored symbols. A readout moves into
-`symbol` only after a text render benchmark passes in WebKit, as motion waits on
-phase 5.
+`symbol` only after a text render benchmark passes in WebKit.
 
 ### 4.1 Stored shape
 
@@ -481,13 +480,15 @@ bindings and overrides in it.
 Phase 5 draws motion in SVG. One `requestAnimationFrame` loop writes SVG attributes for
 every moving part. One table holds motion as data: it maps each `Motion` variant and
 `blink` to the attribute that it writes, a transform, a dash offset, a fill level, or an
-opacity. The bar for motion is 60 fps, and at least 30 fps under heavy load, such as a
-live line plot with pan and zoom. The WebKit benchmark measured this loop in WKWebView
-on an Apple M3 Max. It holds 60 fps at 100 moving parts and fails 60 fps at 500. At
-1,000 it draws 21 fps, and 15 to 26 fps during pan, wheel zoom, or a main thread 60%
-busy. Each moving part costs about 40 µs of main-thread time a frame, so the 60 fps
-limit is between 100 and 400 moving parts. WebKitGTK on a test machine with the nouveau
-driver fails 60 fps at 100.
+opacity. Motion composes with a part's own `transform` and never writes an attribute
+that a look writes. A part joins the loop when Pluto builds its drawing, and leaves it
+when the drawing is rebuilt or removed. The bar for motion is 60 fps, and at least 30
+fps under heavy load, such as a live line plot with pan and zoom. The WebKit benchmark
+measured this loop in WKWebView on an Apple M3 Max. It holds 60 fps at 100 moving parts
+and fails 60 fps at 500. At 1,000 it draws 21 fps, and 15 to 26 fps during pan, wheel
+zoom, or a main thread 60% busy. Each moving part costs about 40 µs of main-thread time
+a frame, so the 60 fps limit is between 100 and 400 moving parts. WebKitGTK on a test
+machine with the nouveau driver fails 60 fps at 100.
 
 | Phase | Scope                                                    | Touches                                                                                                                                                                                                           | Depends on |
 | ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -556,8 +557,8 @@ driver fails 60 fps at 100.
     only the moving parts on a worker canvas costs 1,500 to 2,500 lines and leaves zoom
     slow: wheel zoom over 1,000 still symbols drops WKWebView to 22 fps with no motion.
     A full canvas renderer fixes zoom too, at 5,000 to 10,000 lines. So phase 5 builds
-    no hybrid. The trade is real: past a few hundred moving parts, a schematic drops
-    below 60 fps.
+    no hybrid. The trade is real: a schematic drops below 60 fps past 100 to 400 moving
+    parts in WKWebView, and at 100 on WebKitGTK with nouveau.
 
 ## 8 Open questions
 
