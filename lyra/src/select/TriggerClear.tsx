@@ -1,0 +1,79 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/select/TriggerClear.css";
+
+import { primitive, type record } from "@synnaxlabs/x";
+import { type KeyboardEvent, type ReactElement } from "react";
+
+import { Button } from "@/button";
+import { CSS } from "@/css";
+import { useClear, useSelected } from "@/select/Context";
+
+/** Props for {@link useTriggerClear}. */
+export interface UseTriggerClearProps {
+  /** Whether the trigger may clear its selection. */
+  clearable: boolean;
+  disabled?: boolean;
+  preview?: boolean;
+  /** Names the selection in the label of the clear button. */
+  name?: string;
+}
+
+/** The clear action that {@link useTriggerClear} returns. */
+export interface UseTriggerClearReturn {
+  /** Whether the selection can be cleared now. A zero key means none. */
+  canClear: boolean;
+  /** The class of a trigger that shows the clear button. */
+  className: string;
+  /** Clears the selection on Delete or Backspace. */
+  handleKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
+  /** Covers glyph with a clear button that shows while the trigger is hovered. */
+  wrap: (glyph: ReactElement) => ReactElement;
+}
+
+/**
+ * The clear action of the trigger of a single selection. A key with no entry, such as a
+ * deleted resource, can still be cleared.
+ */
+export const useTriggerClear = <K extends record.Key>({
+  clearable,
+  disabled,
+  preview,
+  name,
+}: UseTriggerClearProps): UseTriggerClearReturn => {
+  const [selected] = useSelected<K>();
+  const clear = useClear();
+  const canClear =
+    clearable && primitive.isNonZero(selected) && disabled !== true && preview !== true;
+  // The clear button is not a tab stop, so the focused trigger takes the key instead.
+  const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
+    if (!canClear || (e.key !== "Delete" && e.key !== "Backspace")) return;
+    e.preventDefault();
+    clear();
+  };
+  const wrap = (glyph: ReactElement): ReactElement => (
+    <span className={CSS.B("select-clear")}>
+      {glyph}
+      <Button.Close
+        el="div"
+        role="button"
+        aria-label={`Clear ${name ?? "selection"}`}
+        className={CSS.BE("select-clear", "button")}
+        onClick={clear}
+      />
+    </span>
+  );
+  return {
+    canClear,
+    className: CSS.cls(CSS.M("reveals"), CSS.B("select-clearable")),
+    handleKeyDown,
+    wrap,
+  };
+};

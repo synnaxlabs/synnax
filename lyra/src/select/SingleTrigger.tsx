@@ -9,10 +9,9 @@
 
 import "@/select/SingleTrigger.css";
 
-import { primitive, type record } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type KeyboardEvent, type ReactElement, type ReactNode, useId } from "react";
 
-import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
@@ -24,6 +23,7 @@ import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { staticCanDrop } from "@/select/MultipleTrigger";
 import { useIsFixed, useText } from "@/select/registry";
+import { useTriggerClear } from "@/select/TriggerClear";
 import { preventEnterWhileOpen } from "@/select/use";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
@@ -97,7 +97,7 @@ export const SingleTrigger = <K extends record.Key>({
   ...rest
 }: SingleTriggerProps): ReactElement => {
   const allSelected = useSelected<K>();
-  const { setSelected, clear } = useContext<K>();
+  const { setSelected } = useContext<K>();
   const [selected] = allSelected;
   const fixed = useIsFixed(selected);
   const fixedText = useText(selected);
@@ -131,39 +131,26 @@ export const SingleTrigger = <K extends record.Key>({
   // aria-label followed by the selection.
   const shown = fixed ? fixedText : (name ?? (preview === true ? "None" : placeholder));
   const { visible, variant } = Dialog.useContext();
-  // A key with no entry, such as a deleted resource, can still be cleared. A zero key
-  // means none.
-  const canClear =
-    clearable && primitive.isNonZero(selected) && disabled !== true && preview !== true;
-  const clearOnIcon = canClear && resolvedIcon != null;
+  const clear = useTriggerClear<K>({
+    clearable,
+    disabled,
+    preview,
+    name: name ?? fixedText,
+  });
+  const clearOnIcon = clear.canClear && resolvedIcon != null;
   const clearOnCaret =
-    canClear &&
+    clear.canClear &&
     !clearOnIcon &&
     variant !== "modal" &&
     triggerVariant !== "shadow" &&
     !hideCaret &&
     !iconOnly;
   const clearShown = clearOnIcon || clearOnCaret;
-  // The clear button is not a tab stop, so the focused trigger takes the key instead.
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
     onKeyDown?.(e);
     preventEnterWhileOpen(e, visible);
-    if (!canClear || (e.key !== "Delete" && e.key !== "Backspace")) return;
-    e.preventDefault();
-    clear();
+    clear.handleKeyDown(e);
   };
-  const withClear = (glyph: ReactElement): ReactElement => (
-    <span className={CSS.BE("select-single-trigger", "icon")}>
-      {glyph}
-      <Button.Close
-        el="div"
-        role="button"
-        aria-label={`Clear ${name ?? fixedText ?? "selection"}`}
-        className={CSS.BE("select-single-trigger", "clear")}
-        onClick={clear}
-      />
-    </span>
-  );
   const itemStatus = Input.useItemStatus({
     status,
     tooltip: tooltip ?? (collapsible ? shown : undefined),
@@ -185,8 +172,7 @@ export const SingleTrigger = <K extends record.Key>({
         CSS.dropRegion(canDrop(dragging)),
         name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
         collapsible && CSS.BM("select-single-trigger", "collapsible"),
-        clearShown && CSS.M("reveals"),
-        clearShown && CSS.BM("select-single-trigger", "clearable"),
+        clearShown && clear.className,
         className,
       )}
       disabled={disabled}
@@ -207,7 +193,7 @@ export const SingleTrigger = <K extends record.Key>({
       preview={preview}
       hideCaret={hideCaret || iconOnly || clearOnCaret}
     >
-      {clearOnIcon ? withClear(resolvedIcon) : resolvedIcon}
+      {clearOnIcon ? clear.wrap(resolvedIcon) : resolvedIcon}
       {!iconOnly && (
         <Label itemKey={selected} id={labelId}>
           {shown}
@@ -217,7 +203,7 @@ export const SingleTrigger = <K extends record.Key>({
         <span className={CSS.BE("select-single-trigger", "end")}>{endContent}</span>
       )}
       {clearOnCaret &&
-        withClear(
+        clear.wrap(
           <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />,
         )}
     </Dialog.Trigger>

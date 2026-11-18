@@ -18,7 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { deep, primitive } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import {
@@ -54,6 +54,7 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Secret } from "@/platform/secret";
 
 const path = deep.path<Device>();
 
@@ -115,6 +116,7 @@ export const Connect = ({
       type: TEST_CONNECTION_COMMAND_TYPE,
       timeout: commandTimeout(connection),
       args: { connection },
+      secrets: primitive.isZero(connection.password) ? [] : [connection.password],
     });
     if (scanStatus.variant === "error") {
       const reply = testConnectionResponseZ.safeParse(scanStatus.details?.data);
@@ -373,18 +375,24 @@ const SecurityPolicyField = ({ value, onChange }: Input.Control<SecurityPolicy>)
 
 const renderSecurityPolicy = Component.renderProp(SecurityPolicyField);
 
-/** The username, with the password beside it at the same width. */
-const LoginField = ({ value, onChange }: Input.Control<string | undefined>) => (
-  <div className={CSS.BE("opc-connect", "login")}>
-    <Input.Text value={value ?? ""} onChange={onChange} placeholder="Anonymous" />
-    <Form.TextField
-      path={path.properties.connection.password}
-      label="Password"
-      padHelpText={false}
-      inputProps={PASSWORD_INPUT_PROPS}
-    />
-  </div>
-);
+/** The username, with the password secret beside it at the same width. */
+const LoginField = ({ value, onChange }: Input.Control<string | undefined>) => {
+  const name = Form.useFieldValue(path.name);
+  const rack = Form.useFieldValue(path.rack);
+  return (
+    <div className={CSS.BE("opc-connect", "login")}>
+      <Input.Text value={value ?? ""} onChange={onChange} placeholder="Anonymous" />
+      <Secret.Field
+        path={path.properties.connection.password}
+        label="Password"
+        defaultName={`${name || "OPC UA server"} password`}
+        rack={rack}
+        padHelpText={false}
+        allowNone
+      />
+    </div>
+  );
+};
 
 const renderLogin = Component.renderProp(LoginField);
 
@@ -418,7 +426,5 @@ const ENDPOINT_INPUT_PROPS = {
 } as const;
 
 const PATH_INPUT_PROPS = { placeholder: "Path on the Driver computer" } as const;
-
-const PASSWORD_INPUT_PROPS = { type: "password", placeholder: "None" } as const;
 
 const TIMING_BOUNDS = { lower: TimeSpan.MILLISECOND };

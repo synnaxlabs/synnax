@@ -63,6 +63,7 @@ interface FixtureProps {
   rack: rack.Key;
   onChange: (key: string) => void;
   mode?: Form.Mode;
+  allowNone?: boolean;
 }
 
 const Fixture = ({
@@ -71,6 +72,7 @@ const Fixture = ({
   rack,
   onChange,
   mode,
+  allowNone,
 }: FixtureProps): ReactElement => {
   const form = Form.use({
     schema,
@@ -80,7 +82,12 @@ const Fixture = ({
   });
   return (
     <Form.Form<typeof schema> {...form}>
-      <Secret.Field path={path.secret} defaultName={defaultName} rack={rack} />
+      <Secret.Field
+        path={path.secret}
+        defaultName={defaultName}
+        rack={rack}
+        allowNone={allowNone}
+      />
     </Form.Form>
   );
 };
@@ -97,11 +104,12 @@ interface RenderOptions {
   as?: Client;
   mode?: Form.Mode;
   rack?: rack.Key;
+  allowNone?: boolean;
 }
 
 const renderField = async (
   value: string = "",
-  { as = client, mode, rack = 0 }: RenderOptions = {},
+  { as = client, mode, rack = 0, allowNone }: RenderOptions = {},
 ): Promise<RenderedField> => {
   const defaultName = uniqueName("default");
   const onChange = vi.fn<(key: string) => void>();
@@ -114,6 +122,7 @@ const renderField = async (
         rack={fieldRack}
         onChange={onChange}
         mode={mode}
+        allowNone={allowNone}
       />
       <Modals.Stack />
     </>
@@ -183,6 +192,32 @@ describe("Secret.Field", () => {
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     const trigger = await findDialogTriggerByText(s.name);
     within(trigger).getByText(Validity.describeSecret(s));
+  });
+
+  it("clears the picked secret from its trigger when it allows none", async () => {
+    const s = await createSecret(client, created);
+    const { onChange } = await renderField("", { allowNone: true });
+    await open("Select a secret");
+    fireEvent.click(await findOption(s));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
+    fireEvent.click(await screen.findByLabelText(`Clear ${s.name}`));
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
+    expect(await findDialogTriggerByText("Select a secret")).toBeTruthy();
+  });
+
+  it("clears the secret on Delete when it allows none", async () => {
+    const s = await createSecret(client, created);
+    const { onChange } = await renderField(s.key, { allowNone: true });
+    fireEvent.keyDown(await findDialogTriggerByText(s.name), { key: "Delete" });
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
+  });
+
+  it("offers no clear when it does not allow none", async () => {
+    const s = await createSecret(client, created);
+    await renderField(s.key);
+    fireEvent.keyDown(await findDialogTriggerByText(s.name), { key: "Delete" });
+    expect(screen.queryByLabelText(`Clear ${s.name}`)).toBeNull();
+    expect(await findDialogTriggerByText(s.name)).toBeTruthy();
   });
 
   it("opens the create dialog with the default name and focuses the value", async () => {

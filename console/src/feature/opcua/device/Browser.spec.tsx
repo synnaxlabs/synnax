@@ -128,7 +128,9 @@ describe("Browser structures", () => {
     const root = await browse([MOTOR]);
     render(<OPCUA.Device.Browser device={dev} />, { wrapper });
     // The command stream decodes the args, so node_id reads as nodeId here.
-    expect((await root.answered).args).toMatchObject({ nodeId: "", field: "" });
+    const rootArgs = (await root.answered).args;
+    expect(rootArgs).toMatchObject({ device: dev.key, nodeId: "", field: "" });
+    expect(rootArgs).not.toHaveProperty("connection");
     const members = await browse([
       member("Speed", "Speed", "float64"),
       member("Position", "Position", ""),

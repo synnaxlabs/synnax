@@ -95,6 +95,13 @@ const ENDPOINTS: OPCUA.Task.Endpoint[] = [
 
 const GET_ENDPOINTS = { type: OPCUA.Task.GET_ENDPOINTS_COMMAND_TYPE };
 
+const createPassword = async () =>
+  await client.secrets.set({
+    name: uniqueName("opc_password"),
+    source: "stored",
+    value: "hunter2",
+  });
+
 const createScanTask = async (rck: rack.Rack) =>
   await rck.createTask({
     name: uniqueName("opcua_scan"),
@@ -145,12 +152,13 @@ afterEach(() => {
 
 describe("OPCUA.Device.useConnectModal", () => {
   it("should populate the form from an existing device", async () => {
+    const password = await createPassword();
     const dev = await createOPCDevice(client, {
       properties: {
         connection: {
           endpoint: "opc.tcp://existing-server:4840",
           username: "operator",
-          password: "secret",
+          password: password.key,
           securityMode: "Sign",
           securityPolicy: "Basic256",
           clientCertificate: "",
@@ -172,6 +180,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     expect(screen.getByDisplayValue("2min")).toBeTruthy();
     expect(screen.getByDisplayValue("opc.tcp://existing-server:4840")).toBeTruthy();
     expect(screen.getByDisplayValue("operator")).toBeTruthy();
+    expect(await screen.findByText(password.name)).toBeTruthy();
     await screen.findByText("Client certificate");
   });
 
@@ -765,9 +774,10 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
   });
 
-  it("should save the username and the password the user enters", async () => {
+  it("should test a password through a grant and save its secret", async () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await createScanTask(rack);
+    const password = await createPassword();
     const { result } = await renderModalOpener(
       OPCUA.Device.useConnectModal,
       [{ rack: rack.key }],
@@ -776,19 +786,38 @@ describe("OPCUA.Device.useConnectModal", () => {
     fireEvent.change(await screen.findByLabelText("Username"), {
       target: { value: "operator" },
     });
-    fireEvent.change(screen.getByLabelText("Password"), {
-      target: { value: "secret" },
+    fireEvent.click(await findDialogTriggerByText("Select a secret"));
+    // The list pages, so a search finds the secret however many the Core holds.
+    fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
+      target: { value: password.name },
     });
+    fireEvent.click(
+      await screen.findByRole("option", { name: new RegExp(password.name) }),
+    );
     const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
     pressSaveTrigger();
-    await answered;
+    expect((await answered).args).toEqual({ grant: expect.any(String) });
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
     expect(dev.properties.connection).toMatchObject({
       username: "operator",
-      password: "secret",
+      password: password.key,
     });
+  });
+
+  it("should test a connection with no password without a grant", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    await screen.findByLabelText("Username");
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    const { args } = await answered;
+    expect(args).not.toHaveProperty("grant");
+    expect(args).toHaveProperty("connection.password", "");
   });
 
   it("should name a timeout that is not a whole number of milliseconds", async () => {

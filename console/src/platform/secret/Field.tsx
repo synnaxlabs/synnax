@@ -38,25 +38,41 @@ interface ControlProps extends Input.Control<secret.Key> {
   defaultName: string;
   rack: rack.Key;
   preview?: boolean;
+  allowNone: boolean;
 }
 
-const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElement => {
+const Control = ({
+  value,
+  onChange,
+  defaultName,
+  rack,
+  allowNone,
+  preview,
+}: ControlProps): ReactElement => {
   const list = Secret.useList({ query: { where: whereOnRack(rack) } });
   const result = Secret.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   const openCreate = useCreateModal();
   const describeOnRack = (s: secret.Secret): Picker.Description =>
     s.source === "file" && s.rack !== rack ? OTHER_RACK : describe(s);
+  // A cleared field holds the zero key, as one never set does.
+  const selection = allowNone
+    ? {
+        value,
+        onChange: (key: secret.Key | null) => onChange(key ?? ""),
+        allowNone: true as const,
+      }
+    : { value, onChange, allowNone: false as const };
   return (
     <Picker.Select<secret.Key, secret.Secret>
-      value={value}
       resourceName="secret"
       icon={Icon.Secret}
       describe={describeOnRack}
       list={list}
       result={result}
       onCreate={canCreate ? () => openCreate({ name: defaultName, rack }) : undefined}
-      {...rest}
+      preview={preview}
+      {...selection}
     />
   );
 };
@@ -66,13 +82,20 @@ export interface FieldProps extends Omit<Form.FieldProps<secret.Key>, "children"
   defaultName: string;
   /** The rack of the device. The field lists only the file items of this rack. */
   rack: rack.Key;
+  /** Whether the user may clear the field, which then holds no secret. */
+  allowNone?: boolean;
 }
 
 /**
  * A form field that holds the key of a secret. It selects a secret, or creates one that
  * starts with the default name and selects it.
  */
-export const Field = ({ defaultName, rack, ...rest }: FieldProps): ReactElement => (
+export const Field = ({
+  defaultName,
+  rack,
+  allowNone = false,
+  ...rest
+}: FieldProps): ReactElement => (
   <Form.Field<secret.Key> {...rest}>
     {({ value, onChange, preview }) => (
       <Control
@@ -81,6 +104,7 @@ export const Field = ({ defaultName, rack, ...rest }: FieldProps): ReactElement 
         defaultName={defaultName}
         rack={rack}
         preview={preview}
+        allowNone={allowNone}
       />
     )}
   </Form.Field>

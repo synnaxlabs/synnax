@@ -80,6 +80,7 @@ interface TriggerProps<E extends record.Unknown> extends EntryProps<E> {
   resourceName: string;
   result: Flux.Result<E>;
   preview?: boolean;
+  clearable: boolean;
 }
 
 const Trigger = <K extends record.Key, E extends Entry<K>>({
@@ -88,9 +89,16 @@ const Trigger = <K extends record.Key, E extends Entry<K>>({
   resourceName,
   result,
   preview,
+  clearable,
 }: TriggerProps<E>): ReactElement => {
   const itemStatus = Input.useItemStatus({});
+  const clear = Base.useTriggerClear<K>({
+    clearable,
+    preview,
+    name: result.variant === "success" ? result.data.name : undefined,
+  });
   let content: ReactElement;
+  const icon = <ItemIcon className={CSS.BE("picker", "icon")} />;
   if (result.variant !== "success")
     content = (
       <Text.Text el="span" color={8} className={CSS.BE("picker", "text")}>
@@ -122,10 +130,14 @@ const Trigger = <K extends record.Key, E extends Entry<K>>({
       gap="small"
       grow
       preview={preview}
-      className={CSS.BE("picker", "trigger")}
+      className={CSS.cls(
+        CSS.BE("picker", "trigger"),
+        clear.canClear && clear.className,
+      )}
+      onKeyDown={clear.handleKeyDown}
       {...itemStatus}
     >
-      <ItemIcon className={CSS.BE("picker", "icon")} />
+      {clear.canClear ? clear.wrap(icon) : icon}
       {content}
     </Dialog.Trigger>
   );
@@ -155,8 +167,25 @@ const CreateButton = <K extends record.Key>({
   );
 };
 
-export interface SelectProps<K extends record.Key, E extends Entry<K>>
-  extends Input.Control<K>, EntryProps<E> {
+interface RequiredProps<K extends record.Key> extends Input.Control<K> {
+  allowNone?: false;
+}
+
+interface AllowNoneProps<K extends record.Key> {
+  value: K;
+  /** Gets null when the user clears the value. */
+  onChange: (value: K | null) => void;
+  /**
+   * Whether the trigger can clear the value: a button covers its icon on hover, and
+   * Delete or Backspace clears it.
+   */
+  allowNone: true;
+}
+
+interface BaseSelectProps<
+  K extends record.Key,
+  E extends Entry<K>,
+> extends EntryProps<E> {
   /** The singular name of what the select holds, such as "secret". */
   resourceName: string;
   /** The entries to pick from, from the domain's `useList`. */
@@ -171,22 +200,25 @@ export interface SelectProps<K extends record.Key, E extends Entry<K>>
   preview?: boolean;
 }
 
+export type SelectProps<K extends record.Key, E extends Entry<K>> = BaseSelectProps<
+  K,
+  E
+> &
+  (RequiredProps<K> | AllowNoneProps<K>);
+
 /**
  * Selects one stored entry by key. The trigger reads the held entry live and says when
  * it is missing or unavailable. The list can end in a "New ..." button.
  */
-export const Select = <K extends record.Key, E extends Entry<K>>({
-  value,
-  onChange,
-  resourceName,
-  icon,
-  describe,
-  list,
-  result,
-  onCreate,
-  preview,
-}: SelectProps<K, E>): ReactElement => {
+export const Select = <K extends record.Key, E extends Entry<K>>(
+  props: SelectProps<K, E>,
+): ReactElement => {
+  const { resourceName, icon, describe, list, result, onCreate, preview } = props;
   const { data, getItem, subscribe, status, more, search } = list;
+  const selection =
+    props.allowNone === true
+      ? { value: props.value, onChange: props.onChange, allowNone: true as const }
+      : { value: props.value, onChange: props.onChange, allowNone: false as const };
   return (
     <Dialog.Frame variant="connected" grow>
       <Base.Frame<K, E | undefined>
@@ -194,8 +226,7 @@ export const Select = <K extends record.Key, E extends Entry<K>>({
         getItem={getItem}
         subscribe={subscribe}
         onFetchMore={more}
-        value={value}
-        onChange={onChange}
+        {...selection}
         closeDialogOnSelect
       >
         <Trigger<K, E>
@@ -204,6 +235,7 @@ export const Select = <K extends record.Key, E extends Entry<K>>({
           resourceName={resourceName}
           result={result}
           preview={preview}
+          clearable={selection.allowNone}
         />
         <Base.Dialog className={CSS.BE("picker", "dialog")}>
           <Base.Body<K>
@@ -215,7 +247,7 @@ export const Select = <K extends record.Key, E extends Entry<K>>({
                 <CreateButton<K>
                   resourceName={resourceName}
                   onCreate={onCreate}
-                  onChange={onChange}
+                  onChange={props.onChange}
                 />
               )
             }
