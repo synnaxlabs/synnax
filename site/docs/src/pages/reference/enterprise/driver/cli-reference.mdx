@@ -250,7 +250,8 @@ synnax-driver status
   does not run, the command fails with `Service is not running`.
 - **NI Linux Real-Time and Windows** -> prints `Synnax Driver is running (PID: 28191)`,
   or `Synnax Driver is not running`.
-- **NI Linux Real-Time** -> run it with sudo, as only root can write the Driver log.
+- **NI Linux Real-Time** -> run it with sudo, as only root and the `synnax` user can
+  write the Driver log.
 - **macOS** -> prints the output of `launchctl print system/com.synnaxlabs.driver`.
 
 <Divider.Divider x />
