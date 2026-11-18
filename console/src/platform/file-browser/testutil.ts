@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type rack, type Synnax, task } from "@synnaxlabs/client";
+import { errors } from "@synnaxlabs/x";
 import { onTestFinished } from "vitest";
+import { z } from "zod";
 
-import { FileBrowser } from "@/platform/file-browser";
 import { createRunningRack } from "@/platform/device/testutil";
+import { FileBrowser } from "@/platform/file-browser";
 import { answerCommand } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -31,6 +33,8 @@ export const createFileRack = async (client: Synnax): Promise<FileRack> => {
   });
   return { rack: r, browser };
 };
+
+const listArgsZ = z.object({ path: z.string() });
 
 /** Creates the listing of a folder, with defaults for the fields a spec ignores. */
 export const createListing = (
@@ -67,7 +71,7 @@ export const serveListings = async (
       for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
         const cmd = task.commandZ.parse(sample);
         if (cmd.task !== browser.key) continue;
-        const path = String(cmd.args?.path ?? "");
+        const { path } = listArgsZ.parse(cmd.args);
         const listing = listings.find((l) => l.path === path);
         await answerCommand(
           client,
@@ -86,6 +90,6 @@ export const serveListings = async (
   };
   // The read fails once the streamer closes at the end of the test.
   respond().catch((e: unknown) => {
-    if (!finished) throw e;
+    if (!finished) throw errors.fromUnknown(e);
   });
 };

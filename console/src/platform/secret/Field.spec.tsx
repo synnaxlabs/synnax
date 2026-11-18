@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { secret, type Synnax as Client } from "@synnaxlabs/client";
+import { type rack, secret, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, uuid } from "@synnaxlabs/x";
@@ -24,6 +24,11 @@ import { type ReactElement } from "react";
 import { afterEach, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 
+import {
+  createFileRack,
+  createListing,
+  serveListings,
+} from "@/platform/file-browser/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { Secret } from "@/platform/secret";
@@ -39,6 +44,8 @@ import {
 
 const client = createTestClient();
 
+const SECRETS_DIR = "/etc/synnax/secrets";
+
 const created: secret.Key[] = [];
 
 afterEach(async () => {
@@ -53,6 +60,7 @@ const path = deep.path<z.infer<typeof schema>>();
 interface FixtureProps {
   value: string;
   defaultName: string;
+  rack: rack.Key;
   onChange: (key: string) => void;
   mode?: Form.Mode;
 }
@@ -60,6 +68,7 @@ interface FixtureProps {
 const Fixture = ({
   value,
   defaultName,
+  rack,
   onChange,
   mode,
 }: FixtureProps): ReactElement => {
@@ -71,7 +80,7 @@ const Fixture = ({
   });
   return (
     <Form.Form<typeof schema> {...form}>
-      <Secret.Field path={path.secret} defaultName={defaultName} />
+      <Secret.Field path={path.secret} defaultName={defaultName} rack={rack} />
     </Form.Form>
   );
 };
@@ -82,10 +91,15 @@ interface RenderedField {
   onChange: Mock<(key: string) => void>;
 }
 
+interface RenderOptions {
+  as?: Client;
+  mode?: Form.Mode;
+  rack?: rack.Key;
+}
+
 const renderField = async (
   value: string = "",
-  as: Client = client,
-  mode?: Form.Mode,
+  { as = client, mode, rack = 0 }: RenderOptions = {},
 ): Promise<RenderedField> => {
   const defaultName = uniqueName("default");
   const onChange = vi.fn<(key: string) => void>();
@@ -95,6 +109,7 @@ const renderField = async (
       <Fixture
         value={value}
         defaultName={defaultName}
+        rack={rack}
         onChange={onChange}
         mode={mode}
       />
@@ -132,7 +147,7 @@ describe("Secret.Field", () => {
   });
 
   it("shows no prompt to pick a secret in preview", async () => {
-    await renderField("", client, "preview");
+    await renderField("", { mode: "preview" });
     await screen.findByText("None");
     expect(screen.queryByText("Select a secret")).toBeNull();
   });
@@ -153,7 +168,7 @@ describe("Secret.Field", () => {
 
   it("shows that the secret is unavailable to a user who cannot retrieve it", async () => {
     const s = await createSecret(client, created);
-    await renderField(s.key, await createTestClientWithGrants(client));
+    await renderField(s.key, { as: await createTestClientWithGrants(client) });
     await findDialogTriggerByText("Unavailable secret");
     expect(screen.queryByText(s.name)).toBeNull();
   });
@@ -184,7 +199,7 @@ describe("Secret.Field", () => {
       retrieve: [secret.TYPE_RESOURCE_ID],
     });
     await awaitGranted(reader, secret.TYPE_RESOURCE_ID, "retrieve");
-    await renderField("", reader);
+    await renderField("", { as: reader });
     await open("Select a secret");
     await findOption(s);
     expect(screen.queryByText("New secret")).toBeNull();
@@ -218,5 +233,61 @@ describe("Secret.Field", () => {
     await act(async () => {});
     expect(onChange).not.toHaveBeenCalled();
     await findDialogTriggerByText(s.name);
+  });
+  it("offers no file to a field with no rack", async () => {
+    await renderField();
+    await openCreate("Select a secret");
+    await screen.findByLabelText("Secret name");
+    expect(screen.queryByText("File on rack")).toBeNull();
+  });
+
+  it("creates a file secret from the secrets folder of the rack", async () => {
+    const files = await createFileRack(client);
+    await serveListings(client, files, [
+      createListing({ secretsDir: SECRETS_DIR }),
+      createListing({
+        path: SECRETS_DIR,
+        secret: true,
+        entries: [
+          { name: "certs", path: `${SECRETS_DIR}/certs`, kind: "directory" },
+          {
+            name: "opcua-password",
+            path: `${SECRETS_DIR}/opcua-password`,
+            kind: "file",
+          },
+        ],
+      }),
+    ]);
+    const { defaultName, onChange } = await renderField("", { rack: files.rack.key });
+    await openCreate("Select a secret");
+    fireEvent.click(await screen.findByText("File on rack"));
+    await open("Select a file");
+    fireEvent.click(await screen.findByRole("option", { name: "opcua-password" }));
+    expect(screen.queryByRole("option", { name: "certs" })).toBeNull();
+    fireEvent.click(findButton("Create"));
+    const key = await waitFor(() => {
+      const [last] = onChange.mock.lastCall ?? [];
+      if (last == null) throw new Error("the field did not change");
+      return last;
+    });
+    created.push(key);
+    expect(await client.secrets.retrieve(key)).toEqual(
+      expect.objectContaining({
+        name: defaultName,
+        source: "file",
+        fileName: "opcua-password",
+      }),
+    );
+  });
+
+  it("requires a file for a file secret", async () => {
+    const files = await createFileRack(client);
+    await serveListings(client, files, [createListing({ secretsDir: SECRETS_DIR })]);
+    const { onChange } = await renderField("", { rack: files.rack.key });
+    await openCreate("Select a secret");
+    fireEvent.click(await screen.findByText("File on rack"));
+    fireEvent.click(findButton("Create"));
+    await screen.findByText("File is required");
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

@@ -24,8 +24,8 @@ import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Rack, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
-import { type Entry, list, type Listing } from "@/platform/file-browser/list";
 import { CSS } from "@/platform/css";
+import { type Entry, list, type Listing } from "@/platform/file-browser/list";
 import { Modals } from "@/platform/modals";
 import { Validity } from "@/platform/secret/validity";
 
