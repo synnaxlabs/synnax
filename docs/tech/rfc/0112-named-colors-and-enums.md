@@ -175,6 +175,8 @@ the hue gaps and pass only the contrast check: a repeated color is a sure mix-up
 near color only a possible one. A new line gets the first series color that no other
 line in its plot uses, and stores its key. Past 16 lines, it gets the series color used
 least in its plot, and a tie goes to the first by position. A user can pick any color.
+Auto clears a picked color, and the line gets a series color the same way. Rules get
+series colors the same way, counted among the rules of the plot.
 
 ### 4.5 Editor checks
 
@@ -332,7 +334,9 @@ phase 28, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`) as
    unknown look showed no state at all. The trade is real: apart from its indicator, bad
    data looks like the default entry.
 5. **Series colors by first unused key**: An index repaints on a remove. A hash gives a
-   4-line plot a shared color 59% of the time with 8 colors.
+   4-line plot a shared color 59% of the time with 8 colors. Auto picks once for the
+   same reason: an Auto mode that saves nothing repaints, and one that keeps its color
+   needs a saved flag.
 6. **A deleted named color becomes fixed**: Each user keeps the color, as with a deleted
    Figma style
    ([Figma](https://webcf.waybackmachine.org/web/20210815191134/https://help.figma.com/hc/en-us/articles/360039238753-Styles-in-Figma)).

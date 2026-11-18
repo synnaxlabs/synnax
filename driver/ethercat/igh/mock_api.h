@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -27,10 +28,8 @@ namespace driver::ethercat::igh {
 /// Positions count from 0, as IgH counts them.
 class MockAPI final : public API {
     static constexpr uintptr_t CONFIG_BASE = 0x100;
+    static constexpr uintptr_t DOMAIN_BASE = 0x10000;
     ec_master_t *const handle = reinterpret_cast<ec_master_t *>(0x1);
-    ec_domain_t *const output_domain = reinterpret_cast<ec_domain_t *>(0x2);
-    ec_domain_t *const input_domain = reinterpret_cast<ec_domain_t *>(0x3);
-    mutable int domains_created = 0;
     mutable bool activated = false;
 
 public:
@@ -66,6 +65,17 @@ public:
         bool operator==(const SDO &) const = default;
     };
 
+    /// @brief the DC sync of a slave config, as ecrt_slave_config_dc takes it.
+    struct DC {
+        uint16_t assign_activate;
+        uint32_t sync0_cycle;
+        int32_t sync0_shift;
+        uint32_t sync1_cycle;
+        int32_t sync1_shift;
+
+        bool operator==(const DC &) const = default;
+    };
+
     /// @brief a process data domain.
     struct Domain {
         /// @brief the size in bytes, which grows with each registered entry.
@@ -93,6 +103,12 @@ public:
         bool state_unreadable = false;
         /// @brief whether master_get_pdo fails for the slave.
         bool layout_unreadable = false;
+        /// @brief the SII from word 0.
+        std::vector<uint16_t> sii;
+        /// @brief what sii_read returns for the slave, when not 0.
+        int sii_result = 0;
+        /// @brief the DC sync that the config sets up, or nullopt for none.
+        std::optional<DC> dc;
         bool online = true;
         /// @brief the state the slave reaches after activation.
         uint8_t reaches = EC_AL_STATE_OP;
@@ -120,6 +136,8 @@ public:
         std::map<uint8_t, std::vector<PDO>> assigned;
         /// @brief the index and sub-index of each registered entry, in call order.
         std::vector<std::pair<uint16_t, uint8_t>> registered;
+        /// @brief the index of the domain that holds the entries of the slave.
+        std::optional<size_t> domain;
 
         /// @brief returns the PDOs of every sync manager after configuration.
         [[nodiscard]] std::vector<PDO> layout() const {
@@ -147,13 +165,15 @@ public:
     };
 
     mutable std::vector<Slave> slaves;
-    mutable Domain outputs;
-    mutable Domain inputs;
+    /// @brief the domains, in creation order.
+    mutable std::vector<Domain> domains;
     x::errors::Error check_device_err = x::errors::NIL;
     bool request_master_fails = false;
     int master_info_result = 0;
-    bool output_domain_fails = false;
-    bool input_domain_fails = false;
+    /// @brief whether the master scans the bus again, as after a slave loses power.
+    /// During the scan, every slave config reads as offline.
+    bool scanning = false;
+    bool domain_fails = false;
     int activate_result = 0;
     bool slave_config_fails = false;
     bool config_sdo_fails = false;
@@ -164,6 +184,8 @@ public:
     int domain_process_result = 0;
     int domain_queue_result = 0;
     int domain_state_result = 0;
+    /// @brief the domain queues, in call order.
+    mutable std::vector<size_t> queued;
     /// @brief the result of master_reset, and how many state reads of a slave pass
     /// before a reset takes effect, as IgH resets in the background.
     int reset_result = 0;
@@ -172,6 +194,21 @@ public:
     mutable int resets = 0;
     mutable bool released = false;
     mutable bool deactivated = false;
+    /// @brief the times that master_application_time got, in call order.
+    mutable std::vector<uint64_t> app_times;
+    /// @brief the times that master_sync_reference_clock_to got, in call order.
+    mutable std::vector<uint64_t> reference_syncs;
+    /// @brief how many times master_sync_slave_clocks ran.
+    mutable int slave_syncs = 0;
+    /// @brief what master_reference_clock_time reads, and its result.
+    uint32_t reference_clock_time = 0;
+    int reference_clock_result = 0;
+    /// @brief the result of master_sync_reference_clock_to and
+    /// master_sync_slave_clocks.
+    int clock_sync_result = 0;
+    /// @brief the results of slave_config_dc and master_application_time.
+    int dc_config_result = 0;
+    int app_time_result = 0;
 
     MockAPI(): API(MockTag{}) {}
 
@@ -190,6 +227,11 @@ public:
         return slave;
     }
 
+    /// @brief returns the domain that holds the entries of slave.
+    Domain &domain_of(const Slave &slave) const {
+        return this->domains.at(slave.domain.value());
+    }
+
     [[nodiscard]] x::errors::Error check_device(unsigned int) const override {
         return this->check_device_err;
     }
@@ -200,19 +242,21 @@ public:
 
     void release_master(ec_master_t *) const override {
         this->released = true;
-        this->domains_created = 0;
+        this->domains.clear();
         this->activated = false;
         for (auto &slave: this->slaves) {
             slave.configured = false;
             slave.settled = false;
+            slave.dc.reset();
+            slave.domain.reset();
         }
     }
 
     int master_activate(ec_master_t *) const override {
         if (this->activate_result < 0) return this->activate_result;
         this->activated = true;
-        this->outputs.data.resize(this->outputs.size);
-        this->inputs.data.resize(this->inputs.size);
+        for (auto &domain: this->domains)
+            domain.data.resize(domain.size);
         return 0;
     }
 
@@ -230,9 +274,9 @@ public:
     }
 
     ec_domain_t *master_create_domain(ec_master_t *) const override {
-        if (++this->domains_created == 1)
-            return this->output_domain_fails ? nullptr : this->output_domain;
-        return this->input_domain_fails ? nullptr : this->input_domain;
+        if (this->domain_fails) return nullptr;
+        this->domains.emplace_back();
+        return reinterpret_cast<ec_domain_t *>(DOMAIN_BASE + this->domains.size() - 1);
     }
 
     size_t domain_size(const ec_domain_t *domain) const override {
@@ -248,7 +292,10 @@ public:
         return this->domain_process_result;
     }
 
-    int domain_queue(ec_domain_t *) const override { return this->domain_queue_result; }
+    int domain_queue(ec_domain_t *domain) const override {
+        this->queued.push_back(this->index(domain));
+        return this->domain_queue_result;
+    }
 
     int
     domain_state(const ec_domain_t *domain, ec_domain_state_t *state) const override {
@@ -263,6 +310,7 @@ public:
     int master(ec_master_t *, ec_master_info_t *info) const override {
         if (this->master_info_result < 0) return this->master_info_result;
         info->slave_count = static_cast<unsigned int>(this->slaves.size());
+        info->scan_busy = this->scanning ? 1 : 0;
         return 0;
     }
 
@@ -297,6 +345,10 @@ public:
     ) const override {
         auto &slave = this->slave(sc);
         if (slave.state_unreadable) return -EIO;
+        if (this->scanning) {
+            *state = {};
+            return 0;
+        }
         if (slave.reads_to_reset > 0)
             slave.reads_to_reset--;
         else if (slave.reads_to_reset == 0) {
@@ -340,6 +392,7 @@ public:
             for (const auto &entry: pdo.entries) {
                 if (entry.index != index || entry.sub_index != sub_index) continue;
                 slave.registered.emplace_back(index, sub_index);
+                slave.domain = this->index(domain);
                 auto &d = this->domain(domain);
                 const auto offset = d.size;
                 d.size += (entry.bit_length + 7) / 8;
@@ -503,9 +556,68 @@ public:
         return 0;
     }
 
+    int slave_config_dc(
+        ec_slave_config_t *sc,
+        const uint16_t assign_activate,
+        const uint32_t sync0_cycle,
+        const int32_t sync0_shift,
+        const uint32_t sync1_cycle,
+        const int32_t sync1_shift
+    ) const override {
+        this->slave(sc).dc = DC{
+            assign_activate,
+            sync0_cycle,
+            sync0_shift,
+            sync1_cycle,
+            sync1_shift
+        };
+        return this->dc_config_result;
+    }
+
+    int master_application_time(ec_master_t *, const uint64_t app_time) const override {
+        this->app_times.push_back(app_time);
+        return this->app_time_result;
+    }
+
+    int master_sync_reference_clock_to(
+        ec_master_t *,
+        const uint64_t sync_time
+    ) const override {
+        this->reference_syncs.push_back(sync_time);
+        return this->clock_sync_result;
+    }
+
+    int master_sync_slave_clocks(ec_master_t *) const override {
+        this->slave_syncs++;
+        return this->clock_sync_result;
+    }
+
+    int
+    master_reference_clock_time(const ec_master_t *, uint32_t *time) const override {
+        *time = this->reference_clock_time;
+        return this->reference_clock_result;
+    }
+
+    int sii_read(
+        unsigned int,
+        const uint16_t position,
+        const uint16_t offset,
+        const std::span<uint16_t> words
+    ) const override {
+        const auto &slave = this->slaves.at(position);
+        if (slave.sii_result != 0) return slave.sii_result;
+        if (words.empty() || offset + words.size() > slave.sii.size()) return -EINVAL;
+        std::copy_n(slave.sii.begin() + offset, words.size(), words.begin());
+        return 0;
+    }
+
 private:
+    static size_t index(const ec_domain_t *domain) {
+        return reinterpret_cast<uintptr_t>(domain) - DOMAIN_BASE;
+    }
+
     Domain &domain(const ec_domain_t *domain) const {
-        return domain == this->output_domain ? this->outputs : this->inputs;
+        return this->domains.at(index(domain));
     }
 
     Slave &slave(const ec_slave_config_t *sc) const {

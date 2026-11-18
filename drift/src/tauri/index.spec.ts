@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { emit, TauriEvent } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { LogicalPosition } from "@tauri-apps/api/window";
@@ -72,7 +73,7 @@ describe("TauriRuntime", () => {
         beforeClose: async (label) => {
           // A timer fires after every pending microtask, so a close that does not
           // wait for the hook destroys the window first.
-          await new Promise((resolve) => setTimeout(resolve, 0));
+          await scheduler.flushTaskQueue();
           commands.push(`before close ${label}`);
         },
       });
