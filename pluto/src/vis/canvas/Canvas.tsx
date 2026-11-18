@@ -18,9 +18,11 @@ import {
 import { box, type CrudeTimeSpan, runtime, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,
+  createContext,
   type DetailedHTMLProps,
   type ReactElement,
   type RefCallback,
+  use,
   useEffect,
   useRef,
 } from "react";
@@ -50,6 +52,11 @@ const ZERO_CANVASES: Canvases = {
   bootstrapped: false,
 };
 
+const Context = createContext(false);
+
+/** @returns true when the enclosing canvas has no GPU to draw visualizations with. */
+export const useGPUMissing = (): boolean => use(Context);
+
 const DEFAULT_RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
@@ -62,7 +69,7 @@ export const Canvas = ({
   className,
   ...rest
 }: CanvasProps): ReactElement => {
-  const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
+  const [{ path }, { bootstrapped, gpuMissing, dpr }, setState] = Aether.use({
     type: canvas.Canvas.TYPE,
     schema: canvas.canvasStateZ,
     initialState: ZERO_PROPS,
@@ -74,8 +81,9 @@ export const Canvas = ({
 
   const handleResize = (region: box.Box) => {
     if (canvases.current.bootstrapped) {
-      setState(() => ({
+      setState((p) => ({
         bootstrapped: true,
+        gpuMissing: p.gpuMissing,
         region,
         dpr: window.devicePixelRatio,
         os: runtime.getOS({ default: "Windows" }),
@@ -183,7 +191,9 @@ export const Canvas = ({
         ref={refCallback}
         className={CSS.cls(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
       />
-      <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
+      <Context value={gpuMissing}>
+        <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
+      </Context>
     </div>
   );
 };

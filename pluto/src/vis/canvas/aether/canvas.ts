@@ -20,6 +20,7 @@ export const canvasStateZ = z.object({
   region: box.box,
   bootstrap: z.boolean().default(false),
   bootstrapped: z.boolean().default(false),
+  gpuMissing: z.boolean().default(false),
   // We set all of these to ay because nodejs can't identify OffscreenCanvas
   // and polyfilling causes more problems than it solves
   glCanvas: z.any().optional(),
@@ -49,17 +50,18 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
         upper2dCanvas as OffscreenCanvas,
         os,
       );
-      line.Context.create(ctx, this.renderCtx);
+      if (this.renderCtx != null) line.Context.create(ctx, this.renderCtx);
       this.setState((p) => ({
         ...p,
         bootstrap: false,
         bootstrapped: true,
+        gpuMissing: this.renderCtx == null,
         glCanvas: undefined,
         lower2dCanvas: undefined,
         upper2dCanvas: undefined,
       }));
     } else this.renderCtx.update(ctx);
-    this.renderCtx.resize(this.state.region, this.state.dpr);
+    this.renderCtx?.resize(this.state.region, this.state.dpr);
   }
 }
 
