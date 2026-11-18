@@ -212,7 +212,7 @@ export interface UseReturn {
   /**
    * Adds a message with no fields to a source and to its ICD. Its match has the type of
    * the source's other matches. A value match tests their pointer, so the messages tell
-   * payloads apart. A present match has no pointer, since two cannot share one.
+   * payloads apart. A present match has an empty pointer for the user to fill in.
    */
   addMessage: (source: string) => void;
 }

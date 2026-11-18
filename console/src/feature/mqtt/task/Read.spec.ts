@@ -642,7 +642,7 @@ describe("MQTT read form", () => {
       });
     });
 
-    it("should add a present match with no pointer beside another present match", async () => {
+    it("should add a present match with an empty pointer beside another one", async () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],
       });

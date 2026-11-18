@@ -228,8 +228,12 @@ func (c *checker) checkEnumLabels(path []string, f JSONField) {
 
 func (c *checker) checkMatch(path []string, m JSONMatch) {
 	pointer := m.Base().Pointer
-	if _, err := xjson.ParsePointer(pointer); err != nil {
+	parsed, err := xjson.ParsePointer(pointer)
+	if err != nil {
 		c.Addf(pathOf(path, "pointer"), "invalid JSON Pointer %q", pointer)
+	} else if _, ok := m.Variant.(PresentJSONMatch); ok && len(parsed) == 0 {
+		// The root holds a value in every document.
+		c.Addf(pathOf(path, "pointer"), "pointer must not be empty")
 	}
 	if f, ok := m.Variant.(FloatJSONMatch); ok &&
 		(math.IsNaN(float64(f.Value)) || math.IsInf(float64(f.Value), 0)) {
