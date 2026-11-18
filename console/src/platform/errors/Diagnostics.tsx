@@ -13,7 +13,7 @@ import { type ComponentType, type ReactElement } from "react";
 import { Disconnected, isConnectionError } from "@/platform/errors/Disconnected";
 import { Session } from "@/session";
 
-export interface ErrorDiagnosticsProps extends Errors.FallbackProps {
+export interface DiagnosticsProps extends Errors.FallbackProps {
   /** When provided, the crashed panel's name and key are appended to the message. */
   panelKey?: string;
 }
@@ -23,14 +23,16 @@ const panelLine = (panelKey?: string, name?: string): string | null => {
   return `${name != null ? `"${name}" ` : ""}(${panelKey})`;
 };
 
-// Annotates any caught error with the connected Core and, for a crashed panel, its name
-// and key, so a crash screenshot is triageable. An unreachable Core is not a crash, so
-// it gets the connection surface instead.
-const ErrorDiagnostics = ({
+/**
+ * Renders a caught error with the connected Core and, for a crashed panel, its name and
+ * key, so a crash screenshot is triageable. An unreachable Core is not a crash, so it
+ * gets the connection surface instead.
+ */
+export const Diagnostics = ({
   panelKey,
   error,
   ...rest
-}: ErrorDiagnosticsProps): ReactElement => {
+}: DiagnosticsProps): ReactElement => {
   const target = Session.Core.useSelectSelected();
   const core =
     target != null ? `${target.name} (${target.host}:${target.port})` : "none";
@@ -51,4 +53,4 @@ const ErrorDiagnostics = ({
 /** Builds the fallback component a boundary renders on a crash. */
 export const useFallback =
   (panelKey?: string): ComponentType<Errors.FallbackProps> =>
-  (props: Errors.FallbackProps) => <ErrorDiagnostics panelKey={panelKey} {...props} />;
+  (props: Errors.FallbackProps) => <Diagnostics panelKey={panelKey} {...props} />;

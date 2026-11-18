@@ -416,11 +416,14 @@ export const GroupTree = <
 
   const handleRemove = (keys: string[]) => {
     const removed = new Set(keys);
+    const { value } = ctx.get(path);
+    for (const g of value)
+      if (removed.has(g.key) && isBranch<F>(g))
+        g.fields.forEach((f) => removed.add(f.key));
     ctx.set(
       path,
-      ctx
-        .get(path)
-        .value.filter((g) => !removed.has(g.key))
+      value
+        .filter((g) => !removed.has(g.key))
         .map((g) =>
           isBranch<F>(g)
             ? { ...g, fields: g.fields.filter((f) => !removed.has(f.key)) }

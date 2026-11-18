@@ -1033,6 +1033,7 @@ func analyzeRoutingTargetWithParam(
 			return
 		}
 
+		freshType := types.Freshen(fnType.Type, freshenKey(fn, fnName))
 		args := inputArguments(ctx, fn)
 		AnalyzeComputedArgs(ctx, args)
 		var externallySatisfied []string
@@ -1043,7 +1044,7 @@ func analyzeRoutingTargetWithParam(
 			ctx,
 			"func",
 			fnName,
-			fnType.Type,
+			freshType,
 			args,
 			fnType.AnalyzeArguments,
 			fn,
@@ -1053,9 +1054,9 @@ func analyzeRoutingTargetWithParam(
 
 		if targetParam != nil {
 			var outputType types.Type
-			if outType, ok := fnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
+			if outType, ok := freshType.Outputs.Get(ir.DefaultOutputParam); ok {
 				outputType = outType.Type
-			} else if len(fnType.Type.Outputs) > 0 {
+			} else if len(freshType.Outputs) > 0 {
 				ctx.Diagnostics.Add(codes.FlowConnection.Atf(
 					ctx.AST,
 					"func '%s' has named outputs and requires explicit output selection",
@@ -1082,10 +1083,10 @@ func analyzeRoutingTargetWithParam(
 			consultTrigger(
 				ctx,
 				fnType,
-				fnType.Type,
+				freshType,
 				fnName,
 				sourceType,
-				suppliedNames(args, fnType.Type, fnType.Trigger.Target),
+				suppliedNames(args, freshType, fnType.Trigger.Target),
 			)
 		}
 	} else if idNode := ctx.AST.Identifier(); idNode != nil {
@@ -1103,11 +1104,12 @@ func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		fnName := parser.FunctionName(fn)
-		sym, err := ctx.Resolve(fnName)
+		sym, err := ctx.ResolveQualified(parser.FunctionNameParts(fn))
 		if err != nil || sym.Kind != symbol.KindFunction {
 			return types.Type{}
 		}
-		return resolveFuncOutput(ctx, sym.Type, fnName,
+		fresh := types.Freshen(sym.Type, freshenKey(fn, fnName))
+		return resolveFuncOutput(ctx, fresh, fnName,
 			"the next node in the chain expects an input")
 	}
 	if idNode := ctx.AST.Identifier(); idNode != nil {

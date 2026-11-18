@@ -457,6 +457,32 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
+// validateFiniteRules errors on a finite rule on a field or a type that is not a float.
+func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
+	report := func(t resolution.Type, name string, ref resolution.TypeRef) {
+		if base := resolution.PrimitiveBase(ref, table); base != "float32" &&
+			base != "float64" {
+			diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+				"%s has a finite rule, but its type is not a float", name,
+			))
+		}
+	}
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			if validation.Parse(t.Domains["validate"]).Finite {
+				report(t, t.QualifiedName, resolution.TypeRef{Name: t.QualifiedName})
+			}
+		case resolution.StructForm:
+			for _, f := range ownedFields(t, form, table) {
+				if validation.Parse(f.Domains["validate"]).Finite {
+					report(t, t.QualifiedName+"."+f.Name, f.Type)
+				}
+			}
+		}
+	}
+}
+
 // validatePatternRules errors on a field or a type that sets a pattern rule when its
 // type chain already sets one, since one value cannot carry both patterns.
 func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {

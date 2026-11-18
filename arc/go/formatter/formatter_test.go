@@ -658,6 +658,8 @@ var _ = Describe("Formatter", func() {
 		Entry("double not", "x := not not y", "x := not not y\n"),
 		Entry("not with and", "x := not a and b", "x := not a and b\n"),
 		Entry("and with not", "x := a and not b", "x := a and not b\n"),
+		Entry("negation in call argument", "x := f(-1)", "x := f(-1)\n"),
+		Entry("negation in index", "x := a[-1]", "x := a[-1]\n"),
 	)
 
 	DescribeTable("Type Casts",
@@ -813,6 +815,29 @@ var _ = Describe("Formatter", func() {
 			Expect(result).To(HaveSuffix("\n"))
 		})
 	})
+
+	DescribeTable(
+		"Multi-line tokens",
+		func(input string) {
+			Expect(formatter.Format(input)).To(Equal(input))
+		},
+		Entry(
+			"no blank line after a multi-line string",
+			"func f() {\n    x := `a\nb`\n    y := 1\n}\n",
+		),
+		Entry(
+			"no blank line after a multi-line trailing comment",
+			"func f() {\n    x := 1 /* a\nb */\n    y := 1\n}\n",
+		),
+		Entry(
+			"trailing comment after a multi-line string",
+			"func f() {\n    x := `a\nb` // note\n    y := 1\n}\n",
+		),
+		Entry(
+			"trailing comment after an expression with a multi-line string",
+			"func f() {\n    x := `a\nb` + 1 // c\n    y := 1\n}\n",
+		),
+	)
 
 	Describe("FormatRange", func() {
 		It("should format only the specified range", func() {

@@ -252,7 +252,7 @@ func walkExtensions(
 				return err
 			}
 			if d.IsDir() {
-				if skipDir.Contains(d.Name()) {
+				if path != repoRoot && skipDir.Contains(d.Name()) {
 					return filepath.SkipDir
 				}
 				return nil

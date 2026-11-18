@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
-ARG GO_VERSION
+# CI builds with the version in go.mod.
+ARG GO_VERSION=1.27.4
 FROM golang:${GO_VERSION} AS builder
 WORKDIR /workspace
 

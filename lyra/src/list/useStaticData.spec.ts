@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -167,7 +168,7 @@ describe("useStaticData", () => {
 
   describe("sorting functionality", () => {
     it("should sort data using the provided comparator", () => {
-      const sortByName = (a: TestItem, b: TestItem) => a.name.localeCompare(b.name);
+      const sortByName = compare.by((v: TestItem) => v.name);
 
       const { result } = renderHook(() =>
         useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),
@@ -187,7 +188,7 @@ describe("useStaticData", () => {
     });
 
     it("should maintain sorting when searching", () => {
-      const sortByName = (a: TestItem, b: TestItem) => a.name.localeCompare(b.name);
+      const sortByName = compare.by((v: TestItem) => v.name);
 
       const { result } = renderHook(() =>
         useStaticData<string, TestItem>({ data: mockData, sort: sortByName }),

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@/record";
-
 /** The character joining the parts of a deep path. */
 export const SEPARATOR = ".";
 
@@ -37,34 +35,6 @@ export const transformPath = (
   return result.join(separator);
 };
 
-/**
- * Reads one path part off an object. On an array of keyed entries, the part matches the
- * `key` field rather than the index.
- */
-export const defaultGetter = (obj: record.Unknown, key: string): unknown => {
-  if (!Array.isArray(obj)) return obj[key];
-  const res = obj[key];
-  if (res != null || obj.length == 0) return res;
-  const first = obj[0];
-  if (typeof first === "object" && "key" in first)
-    return obj.find((o) => o.key === key);
-  return undefined;
-};
-
-/**
- * Rewrites the array indexes in a path into the `key` of the entry each one reaches.
- */
-export const resolvePath = <T = record.Unknown>(path: string, obj: T): string => {
-  const parts = path.split(SEPARATOR);
-  parts.forEach((part, i) => {
-    const inArray = Array.isArray(obj);
-    obj = defaultGetter(obj as record.Unknown, part) as T;
-    if (inArray && obj != null && typeof obj === "object" && "key" in obj)
-      parts[i] = obj.key as string;
-  });
-  return parts.join(SEPARATOR);
-};
-
 /** @returns one part of a path. A negative index counts back from the end. */
 export const element = (path: string, index: number): string => {
   const parts = path.split(SEPARATOR);
@@ -88,29 +58,4 @@ export const pathsMatch = (path: string, pattern: string): boolean => {
     if (part !== pattern) return false;
   }
   return true;
-};
-
-/** @returns the array index a path part names, or null when it is not one. */
-export const getIndex = (part: string): number | null => {
-  const num = parseInt(part, 10);
-  if (isNaN(num) || num < 0 || num.toString() !== part) return null;
-  return num;
-};
-
-/**
- * Finds the longest run of leading path parts that names something on the object, for
- * keys that carry the separator inside them.
- *
- * @returns the key and how many parts it consumed, or null when nothing matches.
- */
-export const findBestKey = (
-  obj: record.Unknown,
-  remainingParts: string[],
-): [string, number] | null => {
-  for (let i = remainingParts.length; i >= 1; i--) {
-    const candidateKey = remainingParts.slice(0, i).join(SEPARATOR);
-    const v = defaultGetter(obj, candidateKey);
-    if (v != null) return [candidateKey, i];
-  }
-  return null;
 };
