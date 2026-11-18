@@ -19,7 +19,12 @@
             display: flex;
             flex-shrink: 0;
             justify-content: center;
-            width: 4rem;
+            width: 3rem;
+
+            /* A wide logo scales down to fit the slot. */
+            > * {
+                max-width: 100%;
+            }
         }
 
         .console-name {
