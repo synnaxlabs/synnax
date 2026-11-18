@@ -1202,35 +1202,42 @@ var _ = Describe("Reference", func() {
 				To(BeEmpty())
 		})
 
-		It("Should mark each rewrite as derived and run the hook", func(
-			ctx SpecContext,
-		) {
-			createLabels(ctx, "l1", "l2")
-			createLabeled(ctx, "a", "l1")
-			var (
-				commits   []gorp.Commit
-				rewritten []refDevice
-			)
-			DeferCleanup(db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
-				commits = append(commits, c)
-			}))
-			onRewrite = func(_ context.Context, _ gorp.Tx, d refDevice) error {
-				rewritten = append(rewritten, d)
-				return nil
-			}
-			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(Succeed())
-			written := refDevice{Key: "a", Rack: 1, Labels: []string{"l2"}}
-			Expect(rewritten).To(Equal([]refDevice{written}))
-			Expect(commits).To(HaveLen(1))
-			Expect(slices.Collect(devices.Changes(commits[0]))).To(Equal(
-				[]gorp.EntryChange[string, refDevice]{{
-					Key:     "a",
-					Value:   written,
-					Kind:    gorp.ChangeUpdate,
-					Derived: true,
-				}},
-			))
-		})
+		It(
+			"Should mark each rewrite as derived and run the hook in its transaction",
+			func(ctx SpecContext) {
+				createLabels(ctx, "l1", "l2")
+				createLabeled(ctx, "a", "l1")
+				var (
+					commits   []gorp.Commit
+					rewritten []refDevice
+				)
+				DeferCleanup(
+					db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
+						commits = append(commits, c)
+					}),
+				)
+				onRewrite = func(ctx context.Context, tx gorp.Tx, d refDevice) error {
+					rewritten = append(rewritten, d)
+					return racks.NewCreate().Entry(&refRack{Key: 7}).Exec(ctx, tx)
+				}
+				tx := DeferClose(db.OpenTx())
+				Expect(labels.Retarget(ctx, tx, "l1", "l2")).To(Succeed())
+				written := refDevice{Key: "a", Rack: 1, Labels: []string{"l2"}}
+				Expect(rewritten).To(Equal([]refDevice{written}))
+				Expect(rackExists(ctx, 7)).To(BeFalse())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(rackExists(ctx, 7)).To(BeTrue())
+				Expect(commits).To(HaveLen(1))
+				Expect(slices.Collect(devices.Changes(commits[0]))).To(Equal(
+					[]gorp.EntryChange[string, refDevice]{{
+						Key:     "a",
+						Value:   written,
+						Kind:    gorp.ChangeUpdate,
+						Derived: true,
+					}},
+				))
+			},
+		)
 
 		It("Should fail the retarget when the hook fails", func(ctx SpecContext) {
 			createLabels(ctx, "l1", "l2")
