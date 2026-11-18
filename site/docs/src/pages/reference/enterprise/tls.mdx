@@ -174,8 +174,9 @@ The Core in the image runs as user and group `65532`.
 
 ## Watch certificate expiry
 
-Every hour, the Core reports the expiry of its CA certificate and of the certificate
-that each listener serves as a status, named `CA certificate` or
+Every hour, the Core reports the expiry of each CA certificate and of the certificate
+that each listener serves as a status. A CA status is named `CA certificate <hex>`, with
+the first 8 hex digits of the CA's SHA-256 fingerprint, and a listener status is named
 `Certificate of <address>`. Each status is "Certificate valid" until 30 days before the
 certificate expires, then "Certificate expires soon", and then "Certificate expired".
 The description gives the date. The certificates that `--auto-cert` makes are valid for

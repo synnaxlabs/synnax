@@ -107,7 +107,10 @@ var _ = Describe("Layer", func() {
 					Exec(ctx, n.DB)).To(Succeed())
 				g.Expect(lo.Map(found, func(s status.Status[any], _ int) string {
 					return s.Name
-				})).To(ConsistOf("CA certificate", "Certificate of localhost:9090"))
+				})).To(ConsistOf(
+					HavePrefix("CA certificate "),
+					Equal("Certificate of localhost:9090"),
+				))
 			}).Should(Succeed())
 		})
 

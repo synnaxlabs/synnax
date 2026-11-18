@@ -550,12 +550,14 @@ var _ = Describe("Service", func() {
 				own := e.own(ctx)
 				g.Expect(own).To(HaveLen(2))
 				v := own["node:1:certificate:ca:"+fingerprint(valid)]
-				g.Expect(v.Name).To(Equal("CA certificate"))
+				g.Expect(v.Name).To(Equal("CA certificate " + fingerprint(valid)[:8]))
 				g.Expect(v.Owner).To(BeNil())
 				g.Expect(v.Variant).To(Equal(status.VariantSuccess))
 				g.Expect(v.Message).To(Equal("Certificate valid"))
 				x := own["node:1:certificate:ca:"+fingerprint(expiring)]
-				g.Expect(x.Name).To(Equal("CA certificate"))
+				g.Expect(x.Name).
+					To(Equal("CA certificate " + fingerprint(expiring)[:8]))
+				g.Expect(x.Name).ToNot(Equal(v.Name))
 				g.Expect(x.Variant).To(Equal(status.VariantWarning))
 				g.Expect(x.Message).To(Equal("Certificate expires soon"))
 				g.Expect(x.Description).To(Equal(

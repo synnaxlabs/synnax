@@ -173,7 +173,11 @@ func (s *Service) readOwn(now telem.TimeStamp) ownCheck {
 		}
 		for _, ca := range cas {
 			details := newDetails(ca)
-			add(s.caPrefix()+details.Sha256, "CA certificate", details)
+			add(
+				s.caPrefix()+details.Sha256,
+				"CA certificate "+details.Sha256[:8],
+				details,
+			)
 		}
 	}
 	for _, l := range s.cfg.Listeners {
