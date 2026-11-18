@@ -145,7 +145,7 @@ no_slaves_error(const std::string &name, const unsigned int index, const bool li
             found + "Check the cable and the power of the first device."
         );
     return x::errors::Error(
-        errors::NO_SLAVES_FOUND,
+        errors::NO_LINK,
         found + std::format(
                     "Its network port has no link. Check the cable to the first "
                     "device, and that MASTER{}_DEVICE in the IgH configuration names "

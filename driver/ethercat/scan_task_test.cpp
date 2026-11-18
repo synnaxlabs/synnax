@@ -379,6 +379,20 @@ TEST_F(EtherCATScanProbeTest, ScansABlockedInterfaceWithConfiguredDevicesOnEachS
     EXPECT_EQ(this->master->call_count("scan"), 7);
 }
 
+/// @brief it should show the text of the master when the network port of an interface
+/// with configured devices has no link.
+TEST_F(EtherCATScanProbeTest, ShowsWhyAnInterfaceWithConfiguredDevicesHasNoLink) {
+    const auto no_link = x::errors::Error(
+        errors::NO_LINK,
+        "No EtherCAT slaves found on igh:0. Its network port has no link."
+    );
+    this->master->inject_scan_error(no_link);
+    const auto err = this->scanner->scan({.count = 0, .devices = &CONFIGURED_ON_ETH0})
+                         .second;
+    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+    EXPECT_EQ(err.data, no_link.data);
+}
+
 /// @brief it should report an interface whose replies a filter blocks on each scan, and
 /// still probe it only on every sixth scan.
 TEST_F(EtherCATScanProbeTest, ReportsAnInterfaceWhoseRepliesAreBlockedOnEachScan) {

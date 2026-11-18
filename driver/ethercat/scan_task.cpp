@@ -355,7 +355,9 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         if (err.matches(errors::NO_SLAVES_FOUND) &&
             holds_configured_devices_on(scan_ctx, key)) {
             this->next_probes.erase(key);
-            if (err.matches(errors::REPLIES_BLOCKED)) {
+            // The master tells how to fix a filter that blocks replies or a port with
+            // no link.
+            if (err.matches(errors::REPLIES_BLOCKED) || err.matches(errors::NO_LINK)) {
                 failures.insert(err.data);
                 continue;
             }

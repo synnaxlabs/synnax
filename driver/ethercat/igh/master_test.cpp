@@ -244,7 +244,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenNoSlaveAnswers) {
 TEST_F(IGHMasterTest, ScanFailsWhenThePortHasNoLink) {
     this->api->link_up = false;
     const auto err = this->master.scan().second;
-    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    ASSERT_OCCURRED_AS(err, errors::NO_LINK);
     EXPECT_EQ(
         err.data,
         "No EtherCAT slaves found on igh:0. Its network port has no link. Check the "
