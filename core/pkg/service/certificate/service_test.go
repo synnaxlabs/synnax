@@ -106,6 +106,21 @@ func (e *env) own(ctx SpecContext) map[status.Key]status.Status[any] {
 	)
 }
 
+// setOwn writes a "Certificate valid" status with key, as a check of the certificates
+// that node 1 presents writes it.
+func (e *env) setOwn(ctx SpecContext, key status.Key) {
+	GinkgoHelper()
+	Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return e.status.NewWriter(tx).Set(ctx, &status.Status[any]{
+			Key:     key,
+			Name:    "Certificate",
+			Time:    telem.Now(),
+			Variant: status.VariantSuccess,
+			Message: "Certificate valid",
+		})
+	})).To(Succeed())
+}
+
 // writeListener writes a certificate that expires after lifetime, and its key, to
 // node.crt and node.key in dir. A file source reloads them when modified changes.
 func writeListener(dir string, lifetime time.Duration, modified time.Time) {
@@ -596,29 +611,56 @@ var _ = Describe("Service", func() {
 				Eventually(message).Should(Equal("Certificate valid"))
 			})
 
-		It("Should keep each status when a certificate cannot be read",
+		It("Should update the CA and keep the status of a listener that cannot be read",
 			func(ctx SpecContext) {
-				src := MustSucceed(file.NewSource(
+				ca := newCertificate(newKey(), "CA", 40*24*time.Hour)
+				Expect(
+					os.WriteFile(filepath.Join(dir, "ca.crt"), []byte(ca), 0o600),
+				).To(Succeed())
+				unreadable := MustSucceed(file.NewSource(
 					xfs.Default,
 					filepath.Join(dir, "missing.crt"),
 					filepath.Join(dir, "missing.key"),
 				))
+				listenerKey := "node:1:certificate:localhost:9090"
 				e := newEnv(ctx, 5*telem.Millisecond, certificate.ServiceConfig{
+					CA: MustSucceed(cert.NewLoader(cert.LoaderConfig{CertsDir: dir})),
 					Listeners: []certificate.Listener{
-						{Address: "localhost:9090", Source: src},
+						{Address: "localhost:9090", Source: unreadable},
 					},
 				})
-				key := "node:1:certificate:localhost:9090"
-				Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
-					return e.status.NewWriter(tx).Set(ctx, &status.Status[any]{
-						Key:     key,
-						Name:    "Certificate of localhost:9090",
-						Time:    telem.Now(),
-						Variant: status.VariantSuccess,
-						Message: "Certificate valid",
-					})
-				})).To(Succeed())
-				Consistently(func() string { return e.own(ctx)[key].Message }).
+				e.setOwn(ctx, listenerKey)
+				caMessage := func() string {
+					return e.own(ctx)["node:1:certificate:ca:"+fingerprint(ca)].Message
+				}
+				Eventually(caMessage).Should(Equal("Certificate valid"))
+				e.advance(20 * telem.Day)
+				Eventually(caMessage).Should(Equal("Certificate expires soon"))
+				Expect(e.own(ctx)[listenerKey].Message).To(Equal("Certificate valid"))
+			})
+
+		It("Should keep the CA statuses when the CA file cannot be read",
+			func(ctx SpecContext) {
+				Expect(os.WriteFile(
+					filepath.Join(dir, "ca.crt"),
+					pem.EncodeToMemory(
+						&pem.Block{Type: "CERTIFICATE", Bytes: []byte("x")},
+					),
+					0o600,
+				)).To(Succeed())
+				caKey := "node:1:certificate:ca:0123"
+				e := newEnv(ctx, 5*telem.Millisecond, certificate.ServiceConfig{
+					CA: MustSucceed(
+						cert.NewLoader(cert.LoaderConfig{CertsDir: dir}),
+					),
+					Listeners: []certificate.Listener{
+						listen("localhost:9090", time.Hour),
+					},
+				})
+				e.setOwn(ctx, caKey)
+				Eventually(func() []status.Key { return lo.Keys(e.own(ctx)) }).
+					Should(ConsistOf(caKey, "node:1:certificate:localhost:9090"))
+				Consistently(func() string { return e.own(ctx)[caKey].Message }).
 					WithTimeout(50 * time.Millisecond).
 					Should(Equal("Certificate valid"))
 			})
@@ -630,19 +672,8 @@ var _ = Describe("Service", func() {
 						listen("localhost:9090", time.Hour),
 					},
 				})
-				for _, key := range []string{
-					"node:1:certificate:localhost:9091",
-					"node:2:certificate:localhost:9091",
-				} {
-					Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
-						return e.status.NewWriter(tx).Set(ctx, &status.Status[any]{
-							Key:     key,
-							Name:    "Certificate of localhost:9091",
-							Time:    telem.Now(),
-							Variant: status.VariantSuccess,
-						})
-					})).To(Succeed())
-				}
+				e.setOwn(ctx, "node:1:certificate:localhost:9091")
+				e.setOwn(ctx, "node:2:certificate:localhost:9091")
 				Eventually(func() []status.Key { return lo.Keys(e.own(ctx)) }).
 					Should(ConsistOf("node:1:certificate:localhost:9090"))
 				var other status.Status[any]
