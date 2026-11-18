@@ -21,23 +21,14 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const formSchema = z.object({
   specKey: z.string(),
-  stateOverrides: schematic.symbol.stateZ.array(),
+  stateOverrides: schematic.symbol.stateOverrideZ.array(),
 });
 
 const path = deep.path<z.infer<typeof formSchema>>();
 
-const createState = (key: string, name: string): schematic.symbol.State => ({
-  key,
-  name,
-  regions: [
-    {
-      key: "main",
-      name: `${name} Region`,
-      selectors: [".main"],
-      strokeColor: color.construct("#333333"),
-      fillColor: color.construct("#cccccc"),
-    },
-  ],
+const fixed = (hex: string) => ({
+  type: "fixed" as const,
+  value: color.construct(hex),
 });
 
 describe("StateOverrideForm", () => {
@@ -48,21 +39,39 @@ describe("StateOverrideForm", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  const createSymbol = async () =>
-    await client.schematics.symbols.create({
+  const createSymbol = async () => {
+    const e = await client.enumerations.create({
+      name: "Actuated",
+      entries: [
+        { key: "base", value: 0, name: "Base", color: fixed("#333333") },
+        { key: "active", value: 1, name: "Active", color: fixed("#00ff00") },
+      ],
+    });
+    return await client.schematics.symbols.create({
       name: "actuated",
       data: {
-        svg:
-          '<svg viewBox="0 0 10 10">' +
-          '<rect class="main" stroke="#111111" fill="#eeeeee" /></svg>',
-        states: [createState("base", "Base"), createState("active", "Active")],
-        handles: [],
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg viewBox="0 0 10 10">' +
+            '<rect class="main" stroke="#111111" fill="#eeeeee" /></svg>',
+        },
+        parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+        states: [
+          { type: "enumeration", key: "active", name: "Active", enumeration: e.key },
+        ],
+        looks: [
+          { key: "stroke", part: "main", stroke: { type: "entry", state: "active" } },
+          {
+            key: "fill",
+            part: "main",
+            fill: { type: "color", value: fixed("#cccccc") },
+          },
+        ],
         variant: "actuator",
-        scale: 1,
-        strokeScaled: false,
-        previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
       },
     });
+  };
 
   const renderForm = (specKey: string) => {
     let form!: Form.UseReturn<typeof formSchema>;
@@ -81,11 +90,40 @@ describe("StateOverrideForm", () => {
     return { ...utils, form: () => form };
   };
 
-  it("should render the resolved symbol's states and regions", async () => {
+  it("should give each entry an override with the colors of its looks", async () => {
     const symbol = await createSymbol();
-    const { getByText } = renderForm(symbol.key);
-    await waitFor(() => expect(getByText("Base Region")).toBeTruthy());
+    const { getByText, form } = renderForm(symbol.key);
+    await waitFor(() => expect(getByText("Main")).toBeTruthy());
     expect(getByText("Active")).toBeTruthy();
+    const regions = form()
+      .value()
+      .stateOverrides.map(({ key, regions }) => [key, regions]);
+    expect(regions).toEqual([
+      [
+        "base",
+        [
+          {
+            key: "main",
+            name: "Main",
+            selectors: [".main"],
+            strokeColor: color.construct("#333333"),
+            fillColor: color.construct("#cccccc"),
+          },
+        ],
+      ],
+      [
+        "active",
+        [
+          {
+            key: "main",
+            name: "Main",
+            selectors: [".main"],
+            strokeColor: color.construct("#00ff00"),
+            fillColor: color.construct("#cccccc"),
+          },
+        ],
+      ],
+    ]);
   });
 
   it("should fall back to the first state when the selected one disappears", async () => {
@@ -93,12 +131,12 @@ describe("StateOverrideForm", () => {
     const { getByText, queryByText, form } = renderForm(symbol.key);
     await waitFor(() => expect(getByText("Active")).toBeTruthy());
     fireEvent.click(getByText("Active"));
-    await waitFor(() => expect(getByText("Active Region")).toBeTruthy());
     // Swapping the overrides beneath the held selection must not crash the
     // region list; it falls back to the first remaining state.
-    act(() => form().set(path.stateOverrides, [createState("base", "Base")]));
-    await waitFor(() => expect(getByText("Base Region")).toBeTruthy());
-    expect(queryByText("Active Region")).toBeNull();
+    const [base] = form().value().stateOverrides;
+    act(() => form().set(path.stateOverrides, [base]));
+    await waitFor(() => expect(queryByText("Active")).toBeNull());
+    expect(getByText("Main")).toBeTruthy();
   });
 
   describe("region colors", () => {
@@ -110,7 +148,7 @@ describe("StateOverrideForm", () => {
     const renderRegion = async () => {
       const symbol = await createSymbol();
       const utils = renderForm(symbol.key);
-      await waitFor(() => expect(utils.getByText("Base Region")).toBeTruthy());
+      await waitFor(() => expect(utils.getByText("Main")).toBeTruthy());
       const swatches = Array.from(
         utils.container.querySelectorAll<HTMLElement>(".lyra-color-swatch"),
       );

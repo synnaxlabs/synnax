@@ -20,9 +20,13 @@ const VALID_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" /></svg>';
 
 const createData = (svg: string): schematic.symbol.Spec => ({
-  svg,
-  states: [],
+  drawing: { type: "svg", markup: svg },
+  parts: [],
   handles: [],
+  states: [],
+  commands: [],
+  looks: [],
+  interactions: [],
   variant: "static",
   scale: 1,
   strokeScaled: false,

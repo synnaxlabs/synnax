@@ -8,10 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/lyra/form";
-import { color, deep } from "@synnaxlabs/x";
-import { act, render, renderHook } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { color } from "@synnaxlabs/x";
+import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";
@@ -23,7 +21,21 @@ const strokeColor = (el: SVGElement): string =>
 const rgba = (hex: string): string | undefined =>
   color.rgbaString(color.construct(hex));
 
-const path = deep.path<{ data: schematic.symbol.Spec }>();
+const MAIN_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>';
+
+const createPaint = (
+  selectors: string[] | undefined,
+  stroke?: string,
+  fill?: string,
+): Custom.Paint => ({
+  selectors,
+  stroke: stroke == null ? undefined : color.construct(stroke),
+  fill: fill == null ? undefined : color.construct(fill),
+});
+
+const OFF = [createPaint([".main"], "#333333", "#cccccc")];
+const ON = [createPaint([".main"], "#00ff00", "#00ff0033")];
 
 const renderAttached = (
   params: Custom.UseRenderParams,
@@ -37,40 +49,20 @@ const renderAttached = (
 };
 
 describe("Custom.useRender", () => {
-  const createMockSpec = (
-    overrides?: Partial<schematic.symbol.Spec>,
-  ): schematic.symbol.Spec => ({
-    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
-    states: [
-      {
-        key: "inactive",
-        name: "Inactive",
-        regions: [
-          {
-            key: "main",
-            name: "Main",
-            selectors: [".main"],
-            strokeColor: color.construct("#333333"),
-            fillColor: color.construct("#cccccc"),
-          },
-        ],
-      },
-      {
-        key: "active",
-        name: "Active",
-        regions: [
-          {
-            key: "main",
-            name: "Main",
-            selectors: [".main"],
-            strokeColor: color.construct("#00ff00"),
-            fillColor: color.construct("#00ff0033"),
-          },
-        ],
-      },
-    ],
-    variant: "test",
+  const createMockSpec = ({
+    svg = MAIN_SVG,
+    ...overrides
+  }: Partial<schematic.symbol.Spec> & {
+    svg?: string;
+  } = {}): schematic.symbol.Spec => ({
+    drawing: { type: "svg", markup: svg },
+    parts: [],
     handles: [],
+    states: [],
+    commands: [],
+    looks: [],
+    interactions: [],
+    variant: "test",
     scale: 1,
     strokeScaled: false,
     previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -82,7 +74,7 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec: undefined,
         },
         container,
@@ -95,7 +87,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({ svg: "<svg><rect></svg>" });
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec,
         },
         container,
@@ -109,7 +101,7 @@ describe("Custom.useRender", () => {
         (props: Custom.UseRenderParams) => Custom.useRender(props),
         {
           initialProps: {
-            activeState: "inactive",
+            paints: OFF,
             spec: createMockSpec({ svg: "<svg><rect></svg>" }),
           },
         },
@@ -117,7 +109,7 @@ describe("Custom.useRender", () => {
       result.current(container);
       expect(container.children.length).toBe(0);
       rerender({
-        activeState: "inactive",
+        paints: OFF,
         spec: createMockSpec(),
       });
       expect(container.querySelector(".main")).not.toBeNull();
@@ -128,7 +120,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({ svg: "" });
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec,
         },
         container,
@@ -139,7 +131,7 @@ describe("Custom.useRender", () => {
     it("should return a stable ref callback even when ref never attaches", () => {
       const { result, rerender } = renderHook(() =>
         Custom.useRender({
-          activeState: "inactive",
+          paints: OFF,
           spec: createMockSpec(),
         }),
       );
@@ -156,7 +148,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec();
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec,
         },
         container,
@@ -173,7 +165,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><rect class="main" onclick="alert(1)" /><script>alert(1)</script></svg>',
       });
-      renderAttached({ activeState: "inactive", spec }, container);
+      renderAttached({ paints: OFF, spec }, container);
       const drawing = container.querySelector("g");
       expect(drawing?.getAttribute("onload")).toBeNull();
       expect(drawing?.querySelector(".main")?.getAttribute("onclick")).toBeNull();
@@ -186,7 +178,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({
         svg: `<svg xmlns="http://www.w3.org/2000/svg"><use class="main" href="${href}" /></svg>`,
       });
-      renderAttached({ activeState: "inactive", spec, builtIn: true }, container);
+      renderAttached({ paints: OFF, spec, builtIn: true }, container);
       expect(container.querySelector(".main")?.getAttribute("href")).toBe(href);
     });
 
@@ -197,7 +189,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec,
           onMount,
         },
@@ -213,7 +205,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect width="50" height="50"/></g><circle r="10"/></svg>',
       });
-      renderAttached({ activeState: "inactive", spec }, container);
+      renderAttached({ paints: OFF, spec }, container);
       const drawing = container.children[0];
       expect(Array.from(drawing.children, (child) => child.tagName)).toEqual([
         "g",
@@ -226,7 +218,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 100 100" width="100" height="100" fill="none" stroke="#000000" stroke-width="2"><rect width="50" height="50"/></svg>',
       });
-      renderAttached({ activeState: "inactive", spec }, container);
+      renderAttached({ paints: OFF, spec }, container);
       const drawing = container.children[0];
       expect(Array.from(drawing.attributes, ({ name }) => name)).toEqual([
         "stroke-width",
@@ -238,7 +230,7 @@ describe("Custom.useRender", () => {
   describe("auto-heal", () => {
     it("should mount the drawing when ref attaches after the resolving render", () => {
       const container = document.createElement("div");
-      const initialProps: Custom.UseRenderParams = { activeState: "inactive" };
+      const initialProps: Custom.UseRenderParams = { paints: OFF };
       const { result, rerender } = renderHook(
         (props: Custom.UseRenderParams) => Custom.useRender(props),
         { initialProps },
@@ -246,7 +238,7 @@ describe("Custom.useRender", () => {
       expect(container.children.length).toBe(0);
 
       rerender({
-        activeState: "inactive",
+        paints: OFF,
         spec: createMockSpec(),
       });
       result.current(container);
@@ -257,7 +249,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec();
       const { result } = renderHook(() =>
         Custom.useRender({
-          activeState: "inactive",
+          paints: OFF,
           spec,
         }),
       );
@@ -275,14 +267,14 @@ describe("Custom.useRender", () => {
     });
   });
 
-  describe("state management", () => {
-    it("should apply inactive state when activeState is not 'active'", () => {
+  describe("paints", () => {
+    it("should draw the stroke and fill of each paint", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec,
         },
         container,
@@ -293,13 +285,13 @@ describe("Custom.useRender", () => {
       expect(rect.getAttribute("fill")).toBe("#cccccc");
     });
 
-    it("should apply active state when activeState is 'active'", () => {
+    it("should draw other paints in place of the first", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
       renderAttached(
         {
-          activeState: "active",
+          paints: ON,
           spec,
         },
         container,
@@ -316,7 +308,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec,
         },
         container,
@@ -328,18 +320,18 @@ describe("Custom.useRender", () => {
       expect(rect.getAttribute("fill")).toBe("#cccccc");
     });
 
-    it("should transition between states correctly", () => {
+    it("should move between paints", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
       const { result, rerender } = renderHook(
-        ({ activeState }) =>
+        ({ paints }) =>
           Custom.useRender({
-            activeState,
+            paints,
             spec,
           }),
         {
-          initialProps: { activeState: "inactive" },
+          initialProps: { paints: OFF },
         },
       );
       result.current(container);
@@ -347,48 +339,23 @@ describe("Custom.useRender", () => {
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(strokeColor(rect)).toBe(rgba("#333333"));
 
-      rerender({ activeState: "active" });
+      rerender({ paints: ON });
       expect(strokeColor(rect)).toBe(rgba("#00ff00"));
 
-      rerender({ activeState: "inactive" });
+      rerender({ paints: OFF });
       expect(strokeColor(rect)).toBe(rgba("#333333"));
     });
 
-    it("should handle multiple selectors in a region", () => {
+    it("should draw a paint on every selector", () => {
       const container = document.createElement("div");
+      const off = [createPaint([".main", ".secondary"], "#ff0000")];
       const spec = createMockSpec({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50"/><circle class="secondary" r="10"/></svg>',
-        states: [
-          {
-            key: "inactive",
-            name: "Inactive",
-            regions: [
-              {
-                key: "all",
-                name: "All",
-                selectors: [".main", ".secondary"],
-                strokeColor: color.construct("#ff0000"),
-              },
-            ],
-          },
-          {
-            key: "active",
-            name: "Active",
-            regions: [
-              {
-                key: "all",
-                name: "All",
-                selectors: [".main", ".secondary"],
-                strokeColor: color.construct("#00ff00"),
-              },
-            ],
-          },
-        ],
       });
 
       renderAttached(
         {
-          activeState: "inactive",
+          paints: off,
           spec,
         },
         container,
@@ -399,6 +366,43 @@ describe("Custom.useRender", () => {
       expect(strokeColor(rect)).toBe(rgba("#ff0000"));
       expect(strokeColor(circle)).toBe(rgba("#ff0000"));
     });
+
+    it("should draw a paint with no selectors on the whole drawing", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec({
+        svg: '<svg xmlns="http://www.w3.org/2000/svg"><rect class="main"/><circle class="other"/></svg>',
+      });
+      renderAttached({ paints: [createPaint(undefined, "#ff0000")], spec }, container);
+      expect(strokeColor(container.querySelector(".main") as SVGElement)).toBe(
+        rgba("#ff0000"),
+      );
+      expect(strokeColor(container.querySelector(".other") as SVGElement)).toBe(
+        rgba("#ff0000"),
+      );
+    });
+
+    it("should let a later paint win on each field that it sets", () => {
+      const container = document.createElement("div");
+      const paints = [
+        createPaint([".main"], "#ff0000", "#00ff00"),
+        createPaint([".main"], "#0000ff"),
+      ];
+      renderAttached({ paints, spec: createMockSpec() }, container);
+      const rect = container.querySelector(".main") as SVGRectElement;
+      expect(strokeColor(rect)).toBe(rgba("#0000ff"));
+      expect(rect.getAttribute("fill")).toBe("#00ff00");
+    });
+
+    it("should hide the shapes of a hidden paint and show them again", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec();
+      const hidden = [{ selectors: [".main"], hidden: true }];
+      const { rerender } = renderAttached({ paints: hidden, spec }, container);
+      const rect = container.querySelector(".main") as SVGRectElement;
+      expect(rect.style.display).toBe("none");
+      rerender({ paints: [], spec });
+      expect(rect.style.display).toBe("");
+    });
   });
 
   describe("stroke scaling", () => {
@@ -408,7 +412,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec,
         },
         container,
@@ -424,7 +428,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec,
         },
         container,
@@ -451,7 +455,7 @@ describe("Custom.useRender", () => {
 
       renderAttached(
         {
-          activeState: "inactive",
+          paints: OFF,
           spec,
         },
         container,
@@ -473,14 +477,14 @@ describe("Custom.useRender", () => {
       const onMount = vi.fn();
 
       const { result, rerender } = renderHook(
-        ({ activeState }) =>
+        ({ paints }) =>
           Custom.useRender({
-            activeState,
+            paints,
             spec,
             onMount,
           }),
         {
-          initialProps: { activeState: "inactive" },
+          initialProps: { paints: OFF },
         },
       );
       result.current(container);
@@ -488,7 +492,7 @@ describe("Custom.useRender", () => {
       expect(onMount).toHaveBeenCalledTimes(1);
       const before = container.querySelector("g");
 
-      rerender({ activeState: "active" });
+      rerender({ paints: ON });
 
       expect(container.querySelector("g")).toBe(before);
       expect(onMount).toHaveBeenCalledTimes(1);
@@ -499,12 +503,12 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec();
       const parse = vi.spyOn(DOMParser.prototype, "parseFromString");
       const { result, rerender } = renderHook(
-        ({ activeState }) => Custom.useRender({ activeState, spec }),
-        { initialProps: { activeState: "inactive" } },
+        ({ paints }) => Custom.useRender({ paints, spec }),
+        { initialProps: { paints: OFF } },
       );
       result.current(container);
       expect(parse).toHaveBeenCalledTimes(1);
-      rerender({ activeState: "active" });
+      rerender({ paints: ON });
       expect(parse).toHaveBeenCalledTimes(1);
       parse.mockRestore();
     });
@@ -516,7 +520,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            activeState: "inactive",
+            paints: OFF,
             spec,
             onMount,
           }),
@@ -544,7 +548,7 @@ describe("Custom.useRender", () => {
 
       const { result, rerender } = renderHook(() =>
         Custom.useRender({
-          activeState: "inactive",
+          paints: OFF,
           spec,
         }),
       );
@@ -567,7 +571,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            activeState: "inactive",
+            paints: OFF,
             spec,
           }),
         {
@@ -599,7 +603,7 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec();
       const { result } = renderHook(() =>
         Custom.useRender({
-          activeState: "inactive",
+          paints: OFF,
           spec,
         }),
       );
@@ -621,7 +625,7 @@ describe("Custom.useRender", () => {
       expect(() => {
         renderAttached(
           {
-            activeState: "inactive",
+            paints: OFF,
             spec,
           },
           container,
@@ -629,38 +633,14 @@ describe("Custom.useRender", () => {
       }).not.toThrow();
     });
 
-    it("should handle missing state colors", () => {
+    it("should leave the stored colors for a paint with no colors", () => {
       const container = document.createElement("div");
-      const spec = createMockSpec({
-        states: [
-          {
-            key: "inactive",
-            name: "Inactive",
-            regions: [
-              {
-                key: "main",
-                name: "Main",
-                selectors: [".main"],
-              },
-            ],
-          },
-          {
-            key: "active",
-            name: "Active",
-            regions: [
-              {
-                key: "main",
-                name: "Main",
-                selectors: [".main"],
-              },
-            ],
-          },
-        ],
-      });
+      const off = [createPaint([".main"])];
+      const spec = createMockSpec();
 
       renderAttached(
         {
-          activeState: "inactive",
+          paints: off,
           spec,
         },
         container,
@@ -672,41 +652,15 @@ describe("Custom.useRender", () => {
       expect(rect.getAttribute("fill")).toBe("white");
     });
 
-    it("should handle selectors that match no elements", () => {
+    it("should draw nothing for a selector that selects no shapes", () => {
       const container = document.createElement("div");
-      const spec = createMockSpec({
-        states: [
-          {
-            key: "inactive",
-            name: "Inactive",
-            regions: [
-              {
-                key: "nonexistent",
-                name: "Nonexistent",
-                selectors: [".does-not-exist"],
-                strokeColor: color.construct("#ff0000"),
-              },
-            ],
-          },
-          {
-            key: "active",
-            name: "Active",
-            regions: [
-              {
-                key: "nonexistent",
-                name: "Nonexistent",
-                selectors: [".does-not-exist"],
-                strokeColor: color.construct("#00ff00"),
-              },
-            ],
-          },
-        ],
-      });
+      const off = [createPaint([".does-not-exist"], "#ff0000")];
+      const spec = createMockSpec();
 
       expect(() => {
         renderAttached(
           {
-            activeState: "inactive",
+            paints: off,
             spec,
           },
           container,
@@ -714,91 +668,33 @@ describe("Custom.useRender", () => {
       }).not.toThrow();
     });
 
-    it("should handle empty states array", () => {
+    it("should leave the stored colors with no paints", () => {
       const container = document.createElement("div");
-      const spec = createMockSpec({ states: [] });
-
-      expect(() => {
-        renderAttached(
-          {
-            activeState: "inactive",
-            spec,
-          },
-          container,
-        );
-      }).not.toThrow();
-    });
-
-    it("should handle undefined regions in state", () => {
-      const container = document.createElement("div");
-      const spec = createMockSpec({
-        states: [
-          {
-            key: "inactive",
-            name: "Inactive",
-            regions: [],
-          },
-          {
-            key: "active",
-            name: "Active",
-            regions: [],
-          },
-        ],
-      });
-
-      renderAttached(
-        {
-          activeState: "inactive",
-          spec,
-        },
-        container,
-      );
-
+      renderAttached({ paints: [], spec: createMockSpec() }, container);
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("stroke")).toBe("black");
       expect(strokeColor(rect)).toBe("");
       expect(rect.getAttribute("fill")).toBe("white");
     });
 
-    it("should restore original fill when fillColor is removed from state", () => {
+    it("should restore the original fill when a paint drops its fill", () => {
       const container = document.createElement("div");
+      const [off, on] = [
+        [createPaint([".main"])],
+        [createPaint([".main"], undefined, "#ff0000")],
+      ];
       const spec = createMockSpec({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="blue"/></svg>',
-        states: [
-          {
-            key: "inactive",
-            name: "Inactive",
-            regions: [
-              {
-                key: "main",
-                name: "Main",
-                selectors: [".main"],
-              },
-            ],
-          },
-          {
-            key: "active",
-            name: "Active",
-            regions: [
-              {
-                key: "main",
-                name: "Main",
-                selectors: [".main"],
-                fillColor: color.construct("#ff0000"),
-              },
-            ],
-          },
-        ],
       });
 
       const { result, rerender } = renderHook(
-        ({ activeState }) =>
+        ({ paints }) =>
           Custom.useRender({
-            activeState,
+            paints,
             spec,
           }),
         {
-          initialProps: { activeState: "inactive" },
+          initialProps: { paints: off },
         },
       );
       result.current(container);
@@ -806,55 +702,31 @@ describe("Custom.useRender", () => {
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("fill")).toBe("blue");
 
-      rerender({ activeState: "active" });
+      rerender({ paints: on });
       expect(rect.getAttribute("fill")).toBe("#ff0000");
 
-      rerender({ activeState: "inactive" });
+      rerender({ paints: off });
       expect(rect.getAttribute("fill")).toBe("blue");
     });
 
-    it("should restore colors when element is removed from region", () => {
+    it("should restore colors when a paint drops a shape", () => {
       const container = document.createElement("div");
+      const [off, on] = [
+        [createPaint([".main"], "#333333", "#cccccc")],
+        [createPaint([".main", ".secondary"], "#ff0000", "#ff0000")],
+      ];
       const spec = createMockSpec({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/><circle class="secondary" r="10" stroke="blue" fill="yellow"/></svg>',
-        states: [
-          {
-            key: "inactive",
-            name: "Inactive",
-            regions: [
-              {
-                key: "main",
-                name: "Main",
-                selectors: [".main"],
-                strokeColor: color.construct("#333333"),
-                fillColor: color.construct("#cccccc"),
-              },
-            ],
-          },
-          {
-            key: "active",
-            name: "Active",
-            regions: [
-              {
-                key: "both",
-                name: "Both",
-                selectors: [".main", ".secondary"],
-                strokeColor: color.construct("#ff0000"),
-                fillColor: color.construct("#ff0000"),
-              },
-            ],
-          },
-        ],
       });
 
       const { result, rerender } = renderHook(
-        ({ activeState }) =>
+        ({ paints }) =>
           Custom.useRender({
-            activeState,
+            paints,
             spec,
           }),
         {
-          initialProps: { activeState: "inactive" },
+          initialProps: { paints: off },
         },
       );
       result.current(container);
@@ -868,13 +740,13 @@ describe("Custom.useRender", () => {
       expect(strokeColor(circle)).toBe("");
       expect(circle.getAttribute("fill")).toBe("yellow");
 
-      rerender({ activeState: "active" });
+      rerender({ paints: on });
       expect(strokeColor(rect)).toBe(rgba("#ff0000"));
       expect(rect.getAttribute("fill")).toBe("#ff0000");
       expect(strokeColor(circle)).toBe(rgba("#ff0000"));
       expect(circle.getAttribute("fill")).toBe("#ff0000");
 
-      rerender({ activeState: "inactive" });
+      rerender({ paints: off });
       expect(strokeColor(rect)).toBe(rgba("#333333"));
       expect(rect.getAttribute("fill")).toBe("#cccccc");
       expect(circle.getAttribute("stroke")).toBe("blue");
@@ -882,46 +754,24 @@ describe("Custom.useRender", () => {
       expect(circle.getAttribute("fill")).toBe("yellow");
     });
 
-    it("should handle fill color changes across multiple state transitions", () => {
+    it("should keep the original fill across paint changes", () => {
       const container = document.createElement("div");
+      const [off, on] = [
+        [createPaint([".main"], undefined, "#ff0000")],
+        [createPaint([".main"], undefined, "#00ff00")],
+      ];
       const spec = createMockSpec({
         svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
-        states: [
-          {
-            key: "state1",
-            name: "State 1",
-            regions: [
-              {
-                key: "main",
-                name: "Main",
-                selectors: [".main"],
-                fillColor: color.construct("#ff0000"),
-              },
-            ],
-          },
-          {
-            key: "state2",
-            name: "State 2",
-            regions: [
-              {
-                key: "main",
-                name: "Main",
-                selectors: [".main"],
-                fillColor: color.construct("#00ff00"),
-              },
-            ],
-          },
-        ],
       });
 
       const { result, rerender } = renderHook(
-        ({ activeState }) =>
+        ({ paints }) =>
           Custom.useRender({
-            activeState,
+            paints,
             spec,
           }),
         {
-          initialProps: { activeState: "inactive" },
+          initialProps: { paints: off },
         },
       );
       result.current(container);
@@ -931,11 +781,11 @@ describe("Custom.useRender", () => {
       expect(rect.getAttribute("fill")).toBe("#ff0000");
       expect(rect.getAttribute("data-original-fill")).toBe("white");
 
-      rerender({ activeState: "active" });
+      rerender({ paints: on });
       expect(rect.getAttribute("fill")).toBe("#00ff00");
       expect(rect.getAttribute("data-original-fill")).toBe("white");
 
-      rerender({ activeState: "inactive" });
+      rerender({ paints: off });
       expect(rect.getAttribute("fill")).toBe("#ff0000");
     });
   });
@@ -943,28 +793,11 @@ describe("Custom.useRender", () => {
   describe("spec changes", () => {
     const renderSpec = (spec: schematic.symbol.Spec) => {
       const container = document.createElement("div");
-      const utils = renderAttached({ activeState: "inactive", spec }, container);
+      const utils = renderAttached({ paints: OFF, spec }, container);
       const rerender = (next: schematic.symbol.Spec) =>
-        utils.rerender({
-          activeState: "inactive",
-          spec: next,
-        });
+        utils.rerender({ paints: OFF, spec: next });
       return { container, rerender };
     };
-
-    it("should apply region color changes when a state changes", () => {
-      const spec = createMockSpec();
-      const { container, rerender } = renderSpec(spec);
-      const rect = container.querySelector(".main") as SVGRectElement;
-      expect(strokeColor(rect)).toBe(rgba("#333333"));
-      const [inactive, active] = spec.states;
-      const region = {
-        ...inactive.regions[0],
-        strokeColor: color.construct("#aabbcc"),
-      };
-      rerender({ ...spec, states: [{ ...inactive, regions: [region] }, active] });
-      expect(strokeColor(rect)).toBe(rgba("#aabbcc"));
-    });
 
     it("should toggle stroke scaling when strokeScaled changes", () => {
       const spec = createMockSpec({ strokeScaled: false });
@@ -985,7 +818,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            activeState: "inactive",
+            paints: OFF,
             spec,
           }),
         { initialProps: { spec: createMockSpec() } },
@@ -1012,7 +845,7 @@ describe("Custom.useRender", () => {
       const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            activeState: "inactive",
+            paints: OFF,
             spec,
           }),
         { initialProps: { spec: createMockSpec({ strokeScaled: false }) } },
@@ -1040,36 +873,6 @@ describe("Custom.useRender", () => {
   });
 });
 
-interface SymbolValues {
-  data: schematic.symbol.Spec;
-}
-
-const EDITOR_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect data-region-id="rect-1" width="50" height="50" stroke="black" fill="white"/></svg>';
-
-const editorInitialValues = (): SymbolValues => ({
-  data: {
-    svg: "",
-    states: [{ key: "base", name: "Base", regions: [] }],
-    variant: "static",
-    handles: [],
-    scale: 1,
-    strokeScaled: false,
-    previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-  },
-});
-
-// Mirrors the editor's Preview: reads the live form spec and drives useRender with the
-// currently-selected state key as activeState.
-const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => {
-  const spec = Form.useFieldValue(path.data);
-  const setContainer = Custom.useRender({
-    activeState,
-    spec,
-  });
-  return <div data-testid="container" ref={setContainer} />;
-};
-
 describe("Custom.isValidSVG", () => {
   it("should accept markup in the SVG namespace", () => {
     expect(
@@ -1083,52 +886,5 @@ describe("Custom.isValidSVG", () => {
     ["not rooted in svg", "<div><svg /></div>"],
   ])("should reject %s markup", (_, svg) => {
     expect(Custom.isValidSVG(svg)).toBe(false);
-  });
-});
-
-describe("custom symbol editor preview", () => {
-  it("should recolor a region when its color is edited through the form", () => {
-    let form!: Form.ContextValue<any>;
-    const Harness = (): ReactElement => {
-      const values = editorInitialValues();
-      form = Form.use<any>({ values });
-      return (
-        <Form.Form {...form}>
-          <PreviewLike activeState="base" />
-        </Form.Form>
-      );
-    };
-
-    const { container } = render(<Harness />);
-
-    // Mimic the import flow: set the SVG first, then assign regions to the state by
-    // key in a separate commit, exactly as Preview.handleContentsChange does.
-    act(() => {
-      form.set(path.data.svg, EDITOR_SVG);
-    });
-    const region: schematic.symbol.Region = {
-      key: "region-1",
-      name: "Region 1",
-      selectors: ['[data-region-id="rect-1"]'],
-      strokeColor: color.construct("#000000"),
-      fillColor: color.construct("#ffffff"),
-    };
-    act(() => {
-      form.set(path.data.states.base.regions, [region]);
-    });
-
-    const rect = container.querySelector("rect") as SVGRectElement;
-    expect(rect).toBeTruthy();
-    expect(strokeColor(rect)).toBe(rgba("#000000"));
-
-    // Editing the color the way RegionList does: set the keyed region path.
-    act(() => {
-      form.set(
-        path.data.states.base.regions["region-1"].strokeColor,
-        color.construct("#ff0000"),
-      );
-    });
-
-    expect(strokeColor(rect)).toBe(rgba("#ff0000"));
   });
 });
