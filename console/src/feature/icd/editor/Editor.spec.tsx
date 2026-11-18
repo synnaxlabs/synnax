@@ -527,9 +527,10 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     expect(
-      await screen.findByText(`Default ${at.toString("preciseDate", "local")}`),
+      await screen.findByText(`Default ${at.toString("dateTime", "local")}`),
     ).toBeTruthy();
     await openOptions(1);
+    expect(await screen.findByText(at.toString("preciseDate", "local"))).toBeTruthy();
     fireEvent.click(await screen.findByRole("checkbox", { name: "Optional" }));
     await waitFor(async () =>
       expect(await retrieveJSONField(ic.key)).not.toHaveProperty("default"),
