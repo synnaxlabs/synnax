@@ -14,6 +14,8 @@ import { mkdir } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 
+import { breaker, sleep, TimeSpan } from "@synnaxlabs/x";
+
 export interface CoreOptions {
   /** Path to the synnax core binary. Defaults to $SYNNAX_CORE_BIN, then the
    * first `core/synnax` found walking up from this package. */
@@ -36,6 +38,7 @@ export interface Core {
 }
 
 const READY_TIMEOUT_MS = 30_000;
+const POLL_MS = 200;
 
 const findBinary = (): string => {
   const fromEnv = process.env.SYNNAX_CORE_BIN;
@@ -66,13 +69,15 @@ export const portInUse = async (port: number): Promise<boolean> =>
   });
 
 const waitReady = async (port: number, proc: ChildProcess): Promise<void> => {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
+  const ready = new breaker.Breaker({
+    baseInterval: TimeSpan.milliseconds(POLL_MS),
+    maxRetries: READY_TIMEOUT_MS / POLL_MS,
+  });
+  do {
     if (proc.exitCode != null)
       throw new Error(`core exited with code ${proc.exitCode} before ready`);
     if (await portInUse(port)) return;
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
+  } while (await ready.wait());
   throw new Error(`core did not become ready on port ${port} within 30s`);
 };
 
@@ -115,7 +120,7 @@ export const startCore = async ({
       proc.kill("SIGTERM");
       await Promise.race([
         once(proc, "exit"),
-        new Promise((resolve) => setTimeout(resolve, 5000)),
+        sleep.sleep(TimeSpan.milliseconds(5000)),
       ]);
       if (proc.exitCode == null) proc.kill("SIGKILL");
     },
