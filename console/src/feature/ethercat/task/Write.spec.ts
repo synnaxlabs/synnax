@@ -634,7 +634,7 @@ describe("Write", () => {
     ).toBeTruthy();
   });
 
-  it("should mark a channel on a slave that DewesoftX sets up", async () => {
+  it("should mark only the enabled channels on a slave that DewesoftX sets up", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
@@ -643,10 +643,19 @@ describe("Write", () => {
     });
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      channels: [
+        EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY),
+        {
+          ...EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY),
+          disabled: true,
+        },
+      ],
     });
-    const option = await screen.findByRole("option", { name: /0x7000:01/ });
-    await waitFor(() => expect(getChannelItemStatus(option)).toBe("warning"));
+    const [enabled, disabled] = await screen.findAllByRole("option", {
+      name: /0x7000:01/,
+    });
+    await waitFor(() => expect(getChannelItemStatus(enabled)).toBe("warning"));
+    expect(getChannelItemStatus(disabled)).toBeUndefined();
   });
 
   it("should ask for a found slave in place of one with no network", async () => {

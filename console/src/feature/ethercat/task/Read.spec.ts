@@ -38,6 +38,7 @@ import {
   createSettingsDescription,
   createSlaveDevice,
   createUnresolvedReadChannel,
+  createWarningStatus,
   STATUS_ENTRY,
   STRAIN_ENTRY,
   STRAIN_SAMPLE_ENTRY,
@@ -585,6 +586,45 @@ describe("Read", () => {
     });
     await waitFor(() => expect(getChannelItemStatus(enabled)).toBe("warning"));
     expect(getChannelItemStatus(disabled)).toBeUndefined();
+  });
+
+  it("should mark a channel on a slave connected to bus 2 IN", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: createDewesoftXSettings(false, 2),
+    });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    const option = await screen.findByRole("option", { name: /0x6030:01/ });
+    await waitFor(() => expect(getChannelItemStatus(option)).toBe("warning"));
+  });
+
+  it("should mark a channel on a switched slave until its power restarts", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+      settings: createDewesoftXSettings(false),
+      switchedAt: 1_763_070_000_000_000_000,
+    });
+    await createWarningStatus(
+      client,
+      slave,
+      "Waiting for a power restart",
+      "Restart the power of the device.",
+    );
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    const option = await screen.findByRole("option", { name: /0x6030:01/ });
+    await waitFor(() => expect(getChannelItemStatus(option)).toBe("warning"));
+    fireEvent.click(option);
+    expect(await screen.findByText("Waiting for a power restart")).toBeTruthy();
   });
 
   it("should deploy a task on a slave in DewesoftX mode, as the form only warns", async () => {
