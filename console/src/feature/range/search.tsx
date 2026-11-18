@@ -18,13 +18,11 @@ import { Ranger, Synnax } from "@synnaxlabs/pluto";
 import { Palette } from "@/platform/palette";
 import { Panel } from "@/platform/panel";
 import { type Search } from "@/platform/search";
-import { Session } from "@/session";
 
 const SearchListItem: Search.ListItem = (props) => {
   const item = List.useItem<string, resource.Resource>(props.itemKey);
   const range = Ranger.useResult(item == null ? null : { key: item.id.key }).data;
   const client = Synnax.use();
-  const store = Session.useStore();
   const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
   const handleSelect = () =>
@@ -32,7 +30,6 @@ const SearchListItem: Search.ListItem = (props) => {
       async () => {
         if (item == null || client == null) return;
         const rng = range ?? (await client.ranges.retrieve(item.id.key));
-        store.dispatch(Session.Range.add(Session.Range.fromClient(rng)));
         openTab({ variant: "resource", resource: ranger.resourceID(rng.key) });
       },
       { message: "Failed to select range", name: item?.name ?? "" },

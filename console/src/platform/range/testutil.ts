@@ -9,6 +9,7 @@
 
 import { type ranger, type Synnax } from "@synnaxlabs/client";
 import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { onTestFinished } from "vitest";
 
 import { createKeyEndingIn } from "@/testutil";
 
@@ -18,14 +19,35 @@ export const uniqueRangeName = (prefix = "range"): string =>
 
 /**
  * Creates a real range on the connected Core with a unique name and a valid, non-zero
- * time range, so range specs share one place for building fixtures.
+ * time range, so range specs share one place for building fixtures. The overrides
+ * replace those defaults.
  */
-export const createTestRange = async (client: Synnax): Promise<ranger.Range> => {
+export const createTestRange = async (
+  client: Synnax,
+  overrides: Partial<ranger.New> = {},
+): Promise<ranger.Range> => {
   const start = TimeStamp.now();
   return await client.ranges.create({
     name: uniqueRangeName(),
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
+    ...overrides,
   });
+};
+
+/**
+ * Creates a range with no start. It sorts above every other range, so it is deleted
+ * once the test finishes.
+ */
+export const createPlannedTestRange = async (
+  client: Synnax,
+  name: string,
+): Promise<ranger.Range> => {
+  const rng = await createTestRange(client, {
+    name,
+    timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+  });
+  onTestFinished(async () => await client.ranges.delete(rng.key));
+  return rng;
 };
 
 /** Matches the default page size of Flux.useList, which the range select uses. */

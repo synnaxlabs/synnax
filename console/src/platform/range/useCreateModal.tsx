@@ -27,7 +27,6 @@ import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
-import { Session } from "@/session";
 
 const path = Ranger.createFormPath;
 
@@ -62,7 +61,6 @@ const TimelineField = (): ReactElement => {
 
 const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, void>) => {
   const [now] = useState(() => Number(TimeStamp.now().valueOf()));
-  const dispatch = Session.useDispatch();
   const { capture } = Analytics.use();
 
   const client = Synnax.use();
@@ -78,12 +76,9 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
       parent: "",
       ...params,
     },
-    afterSave: (form) => {
+    afterSave: () => {
       capture("range_created", {});
       close();
-      const { key } = form.value();
-      if (key == null) return;
-      dispatch(Session.Range.add({ variant: "persisted", key }));
     },
   });
   Modals.useBusy(variant === "loading");
