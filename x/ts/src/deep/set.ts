@@ -20,7 +20,12 @@ const accepts = (parent: unknown, part: string): boolean =>
 const add = (parent: unknown, part: string, value: unknown, path: string): void => {
   if (!accepts(parent, part))
     throw new Error(`Cannot set ${path}: the list holds no entry with the key ${part}`);
-  (parent as record.Unknown)[part] = value;
+  Object.defineProperty(parent, part, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
 };
 
 // The value at the path, built when it is missing: an array when the next part is an
