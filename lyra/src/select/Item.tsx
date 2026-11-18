@@ -301,9 +301,11 @@ const CREATE_KEY = "lyra-select-create";
 export interface CreateItemProps {
   /** The name of what the item creates, such as "label". */
   resourceName: string;
+  /** Whether every create happens in a modal, a search term included. */
+  modal?: boolean;
   /**
-   * Called on a click or Enter with the trimmed search term. An empty term closes the
-   * dialog, and any menu that holds it, as the create flow then happens outside.
+   * Called on a click or Enter with the trimmed search term. A create in a modal, as
+   * from an empty term, closes the dialog and any menu that holds it.
    */
   onCreate: (name: string) => void;
 }
@@ -311,14 +313,19 @@ export interface CreateItemProps {
 interface CreateOptionProps extends Pick<CreateItemProps, "onCreate"> {
   name: string;
   text: string;
+  leaves: boolean;
 }
 
-const CreateOption = ({ name, text, onCreate }: CreateOptionProps): ReactNode => {
+const CreateOption = ({
+  name,
+  text,
+  leaves,
+  onCreate,
+}: CreateOptionProps): ReactNode => {
   const ref = useRef<HTMLDivElement>(null);
   useRegister(CREATE_KEY, ref, { text, pinned: true });
   const { hovered, onHover } = useItemState<record.Key>(CREATE_KEY);
   const { close } = Dialog.useContext();
-  const leaves = name === "";
   const handleClick = (): void => {
     if (leaves) close();
     onCreate(name);
@@ -345,12 +352,13 @@ const OpenCreateItem = <
   E extends record.Keyed<K> & { name: string },
 >({
   resourceName,
+  modal = false,
   onCreate,
 }: CreateItemProps): ReactNode => {
   const name = useTerm().trim();
   const lower = name.toLowerCase();
-  // A picked name stays hidden until the search changes, so a second click while the
-  // item saves makes no copy.
+  // A name created in place stays hidden until the search changes, so a second click
+  // while the item saves makes no copy.
   const [picked, setPicked] = useState<string | null>(null);
   if (picked != null && picked !== lower) setPicked(null);
   const { data, getItem } = List.useData<K, E>();
@@ -358,11 +366,14 @@ const OpenCreateItem = <
   const listed = data.some((k) => getItem?.(k)?.name.toLowerCase() === lower);
   if (name !== "" && (fixed || listed || picked === lower)) return null;
   const text = name === "" ? `New ${resourceName}` : `Create ${resourceName} "${name}"`;
+  const leaves = modal || name === "";
   const handleCreate = (next: string): void => {
-    if (next !== "") setPicked(lower);
+    if (!leaves) setPicked(lower);
     onCreate(next);
   };
-  return <CreateOption name={name} text={text} onCreate={handleCreate} />;
+  return (
+    <CreateOption name={name} text={text} leaves={leaves} onCreate={handleCreate} />
+  );
 };
 
 /**

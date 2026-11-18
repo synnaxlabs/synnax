@@ -133,6 +133,7 @@ describe("Range.ContextMenu", () => {
       const name = uniqueName("created");
       searchIn(labels, "Search labels...", name);
       fireEvent.click(await within(labels).findByText(`Create label "${name}"`));
+      expect(screen.queryByRole("menu")).toBeNull();
       const input = await screen.findByPlaceholderText("Label name");
       expect(input).toHaveProperty("value", name);
       await act(async () => {

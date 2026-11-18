@@ -34,6 +34,7 @@ export const CreateFooter = ({ onCreate }: CreateFooterProps): ReactElement => {
       <Menu.Divider />
       <Select.CreateItem<label.Key, label.Label>
         resourceName="label"
+        modal
         onCreate={handleCreate}
       />
     </>

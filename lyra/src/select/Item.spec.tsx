@@ -482,12 +482,14 @@ describe("Select.CreateItem", () => {
   const FRUITS: Fruit[] = [{ key: "apple", name: "Apple Pie" }];
 
   interface CreatableProps {
+    modal?: boolean;
     onCreate: (name: string) => void;
     onChange?: (key: string | undefined) => void;
     onVisibleChange?: Select.SingleProps<string, Fruit>["onVisibleChange"];
   }
 
   const Creatable = ({
+    modal,
     onCreate,
     onChange = vi.fn(),
     onVisibleChange,
@@ -511,7 +513,11 @@ describe("Select.CreateItem", () => {
           </Select.Item>
         }
         footer={
-          <Select.CreateItem<string, Fruit> resourceName="fruit" onCreate={onCreate} />
+          <Select.CreateItem<string, Fruit>
+            resourceName="fruit"
+            modal={modal}
+            onCreate={onCreate}
+          />
         }
       >
         {({ key, ...p }): ReactElement => (
@@ -593,6 +599,17 @@ describe("Select.CreateItem", () => {
     type(c, "Kiwi");
     fireEvent.click(c.getByRole("option", { name: 'Create fruit "Kiwi"' }));
     expect(onVisibleChange).not.toHaveBeenCalled();
+  });
+
+  it("should close the dialog and keep the option on a modal create from the search", () => {
+    const onCreate = vi.fn();
+    const onVisibleChange = vi.fn();
+    const c = renderCreatable({ modal: true, onCreate, onVisibleChange });
+    type(c, "Kiwi");
+    fireEvent.click(c.getByRole("option", { name: 'Create fruit "Kiwi"' }));
+    expect(onCreate).toHaveBeenCalledExactlyOnceWith("Kiwi");
+    expect(onVisibleChange).toHaveBeenCalledWith(false);
+    expect(c.getByRole("option", { name: 'Create fruit "Kiwi"' })).toBeTruthy();
   });
 
   it("should create on Enter once the arrow keys reach it", () => {
