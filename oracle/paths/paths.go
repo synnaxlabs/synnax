@@ -75,24 +75,9 @@ func Normalize(path, repoRoot string) (string, error) {
 		return "", errors.New("path cannot be empty")
 	}
 
-	var absPath string
-	if filepath.IsAbs(path) {
-		absPath = filepath.Clean(path)
-	} else {
-		// Could be repo-relative or cwd-relative
-		// First try as repo-relative
-		candidatePath := filepath.Join(repoRoot, path)
-		if _, err := os.Stat(candidatePath); err == nil {
-			// Path exists as repo-relative
-			absPath = candidatePath
-		} else {
-			// Try resolving from cwd
-			cwd, err := os.Getwd()
-			if err != nil {
-				return "", errors.Wrap(err, "failed to get working directory")
-			}
-			absPath = filepath.Clean(filepath.Join(cwd, path))
-		}
+	absPath, err := absolute(path, repoRoot)
+	if err != nil {
+		return "", err
 	}
 
 	// Make relative to repo root
@@ -107,6 +92,23 @@ func Normalize(path, repoRoot string) (string, error) {
 	}
 
 	return filepath.ToSlash(relPath), nil
+}
+
+// absolute resolves path against repoRoot when it exists there, and against the working
+// directory otherwise.
+func absolute(path, repoRoot string) (string, error) {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path), nil
+	}
+	candidatePath := filepath.Join(repoRoot, path)
+	if _, err := os.Stat(candidatePath); err == nil {
+		return candidatePath, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get working directory")
+	}
+	return filepath.Clean(filepath.Join(cwd, path)), nil
 }
 
 // Resolve converts a repo-relative path to an absolute path.

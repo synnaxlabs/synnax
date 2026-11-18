@@ -56,45 +56,57 @@ func runFmt(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var files []string
-	if len(args) == 0 {
-		rel, err := pipeline.DiscoverSchemas(repoRoot)
-		if err != nil {
-			return err
-		}
-		chains, err := versions.Discover(repoRoot)
-		if err != nil {
-			return err
-		}
-		for _, chain := range chains {
-			for _, n := range chain.Numbers {
-				rel = append(rel, paths.EnsureOracleExtension(chain.FilePath(n)))
-			}
-		}
-		sort.Strings(rel)
-		files = make([]string, len(rel))
-		for i, r := range rel {
-			files[i] = paths.Resolve(r, repoRoot)
-		}
-	} else {
-		files, err = expandGlobs(args, repoRoot)
-		if err != nil {
-			return err
-		}
+	files, err := fmtFiles(args, repoRoot)
+	if err != nil {
+		return err
 	}
-
 	if len(files) == 0 {
 		return errors.New("no schema files found")
 	}
 
 	printSchemaCount(len(files))
+	formatted, unchanged, failed := formatFiles(files, repoRoot)
+	if failed > 0 {
+		return errors.Newf("%d file(s) failed to format", failed)
+	}
+	if fmtCheck && formatted > 0 {
+		return errors.Newf("%d file(s) need formatting", formatted)
+	}
 
-	var (
-		formatted int
-		unchanged int
-		failed    int
-	)
+	printFormatResult(formatted, unchanged)
+	return nil
+}
 
+// fmtFiles returns the absolute paths of the files to format: the files matching args,
+// or every schema and version file when args is empty.
+func fmtFiles(args []string, repoRoot string) ([]string, error) {
+	if len(args) > 0 {
+		return expandGlobs(args, repoRoot)
+	}
+	rel, err := pipeline.DiscoverSchemas(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	chains, err := versions.Discover(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	for _, chain := range chains {
+		for _, n := range chain.Numbers {
+			rel = append(rel, paths.EnsureOracleExtension(chain.FilePath(n)))
+		}
+	}
+	sort.Strings(rel)
+	files := make([]string, len(rel))
+	for i, r := range rel {
+		files[i] = paths.Resolve(r, repoRoot)
+	}
+	return files, nil
+}
+
+// formatFiles formats each file and counts the outcomes. It prints each failure and
+// continues.
+func formatFiles(files []string, repoRoot string) (formatted, unchanged, failed int) {
 	for _, file := range files {
 		result, err := formatFile(file, repoRoot)
 		if err != nil {
@@ -102,7 +114,6 @@ func runFmt(cmd *cobra.Command, args []string) error {
 			failed++
 			continue
 		}
-
 		switch result {
 		case formatResultChanged:
 			formatted++
@@ -110,17 +121,7 @@ func runFmt(cmd *cobra.Command, args []string) error {
 			unchanged++
 		}
 	}
-
-	if failed > 0 {
-		return errors.Newf("%d file(s) failed to format", failed)
-	}
-
-	if fmtCheck && formatted > 0 {
-		return errors.Newf("%d file(s) need formatting", formatted)
-	}
-
-	printFormatResult(formatted, unchanged)
-	return nil
+	return formatted, unchanged, failed
 }
 
 type formatResult int
