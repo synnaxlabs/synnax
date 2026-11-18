@@ -236,11 +236,12 @@ TEST_F(BrowserTest, SecretsFolderOtherCase) {
     ASSERT_EQ(entry(data, "password").size(), 3);
 }
 
-/// @brief it should treat a folder link to the secrets folder as the folder, and give
-/// only the name of a link to a folder in it.
+/// @brief it should treat a folder link to the secrets folder or to a folder in it as
+/// a secrets folder, and give only the name of a link to a folder in it.
 TEST_F(BrowserTest, FolderLinkToSecrets) {
     write(this->secrets / "password", "hunter2");
     std::filesystem::create_directories(this->secrets / "nested");
+    write(this->secrets / "nested" / "client.pem", x::x509::testutil::CERTIFICATE);
     std::error_code ec;
     std::filesystem::create_directory_symlink(this->secrets, this->dir / "alias", ec);
     if (ec) GTEST_SKIP() << "cannot create a link: " << ec.message();
@@ -258,6 +259,11 @@ TEST_F(BrowserTest, FolderLinkToSecrets) {
     const auto data = ASSERT_NIL_P(this->browser().list(this->dir.string()));
     ASSERT_EQ(data["secret"], false);
     ASSERT_EQ(entry(data, "inner").size(), 3);
+    const auto inner = ASSERT_NIL_P(
+        this->browser().list((this->dir / "inner").string())
+    );
+    ASSERT_EQ(inner["secret"], true);
+    ASSERT_EQ(entry(inner, "client.pem").size(), 3);
 }
 
 /// @brief it should give only the name of the secrets folder and of a link into it.
