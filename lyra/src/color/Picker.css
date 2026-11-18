@@ -96,7 +96,7 @@
             );
             gap: var(--pluto-color-picker-gap);
 
-            /* A button in a palette's grid, a slotted one too, takes a swatch's cell. */
+            /* Any button in a palette grid, slotted ones too, takes a swatch cell. */
             & > .lyra-btn {
                 width: 100%;
                 min-width: 0;
