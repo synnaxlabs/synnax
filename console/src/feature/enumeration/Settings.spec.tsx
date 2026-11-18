@@ -10,15 +10,23 @@
 import { type color, enumeration, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color as xcolor } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Enumeration } from "@/feature/enumeration";
 import { Modals } from "@/platform/modals";
 import {
   awaitGranted,
   awaitTextEditingElement,
+  CaptureStatuses,
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
@@ -45,12 +53,13 @@ const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
   return shipped;
 };
 
-const renderEnumerations = async (): Promise<void> => {
+const renderEnumerations = async (onStatuses = vi.fn()): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       {children}
       <Modals.Stack />
+      <CaptureStatuses onStatuses={onStatuses} />
     </Console>
   );
   await act(async () => {
@@ -82,7 +91,7 @@ describe("Enumeration.Settings", () => {
       const input = await screen.findByPlaceholderText("Entry name");
       fireEvent.change(input, { target: { value: entry } });
       await act(async () => {
-        fireEvent.keyDown(input, { key: "Enter" });
+        fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
       });
     }
     const created = (await client.enumerations.retrieve({ searchTerm: name })).find(
@@ -127,10 +136,105 @@ describe("Enumeration.Settings", () => {
         within(await findEntry(entry.name)).getByRole("checkbox", { name: "Select" }),
       );
     await openContextMenu(e.entries[2].name);
-    await clickAndSettle("Delete");
+    await clickAndSettle("Remove");
     await expect
       .poll(async () => await storedNames(e.key))
       .toEqual([e.entries[1].name]);
+  });
+
+  it("should offer no edits for entries selected in two enumerations", async () => {
+    const [a, b] = await Promise.all([createEnumeration(), createEnumeration()]);
+    await awaitGranted(client, enumeration.resourceID(b.key), "update");
+    await renderEnumerations();
+    await openContextMenu(b.entries[0].name);
+    expect(await screen.findByText("Remove")).toBeTruthy();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    for (const entry of [a.entries[0], b.entries[0]])
+      fireEvent.click(
+        within(await findEntry(entry.name)).getByRole("checkbox", { name: "Select" }),
+      );
+    await openContextMenu(b.entries[0].name);
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Remove")).toBeNull();
+    expect(screen.queryByText("Rename")).toBeNull();
+  });
+
+  it("should store a value typed into an entry", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    const input = within(await findEntry(e.entries[1].name)).getByLabelText("Value");
+    fireEvent.change(input, { target: { value: "7" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await expect
+      .poll(async () => (await stored(e.key)).map((x) => x.value))
+      .toEqual([0, 7, 2]);
+  });
+
+  it("should refuse a value that another entry holds and say so", async () => {
+    const e = await createEnumeration();
+    const onStatuses = vi.fn();
+    await renderEnumerations(onStatuses);
+    const input = within(await findEntry(e.entries[1].name)).getByLabelText("Value");
+    fireEvent.change(input, { target: { value: "2" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+    await waitFor(() =>
+      expect(onStatuses).toHaveBeenLastCalledWith([
+        expect.objectContaining({
+          message: "Value in use",
+          description: `${e.entries[2].name} has the value 2. Each entry needs its own value.`,
+        }),
+      ]),
+    );
+    await act(async () => {});
+    expect((await stored(e.key)).map((x) => x.value)).toEqual([0, 1, 2]);
+  });
+
+  it("should add an entry with the value typed into the add form", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole("button", { name: `Add an entry to ${e.name}` }),
+      );
+    });
+    const value = await screen.findByLabelText("Entry value");
+    fireEvent.change(value, { target: { value: "9" } });
+    fireEvent.keyDown(value, { key: "Enter", code: "Enter" });
+    const name = screen.getByLabelText("Entry name");
+    fireEvent.change(name, { target: { value: "Tripped" } });
+    await act(async () => {
+      fireEvent.keyDown(name, { key: "Enter" });
+    });
+    await expect
+      .poll(async () => (await stored(e.key)).map((x) => [x.value, x.name]))
+      .toContainEqual([9, "Tripped"]);
+  });
+
+  it("should store a picked entry color and clear it with Auto", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    const entry = await findEntry(e.entries[0].name);
+    fireEvent.click(within(entry).getByLabelText("Entry color"));
+    fireEvent.change(await screen.findByLabelText("Hex"), {
+      target: { value: "ff0000" },
+    });
+    await expect
+      .poll(async () => (await stored(e.key))[0].color)
+      .toEqual({ type: "fixed", value: xcolor.construct("#ff0000") });
+    fireEvent.click(screen.getByLabelText("Auto"));
+    await expect.poll(async () => (await stored(e.key))[0].color).toBeUndefined();
+  });
+
+  it("should rename an enumeration from its menu", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    await openContextMenu(e.name);
+    await clickAndSettle("Rename");
+    const name = uniqueName("renamed");
+    commitTextEdit(await awaitTextEditingElement(), name);
+    await expect
+      .poll(async () => (await client.enumerations.retrieve(e.key)).name)
+      .toBe(name);
   });
 
   it("should move a dragged entry before the one it drops on", async () => {
@@ -145,9 +249,13 @@ describe("Enumeration.Settings", () => {
 
   it("should warn about each entry that is hard to tell apart", async () => {
     const twin = uniqueName("twin");
-    const [white, green, greenish, red] = ["white", "green", "greenish", "red"].map(
-      uniqueName,
-    );
+    const [white, black, green, greenish, red] = [
+      "white",
+      "black",
+      "green",
+      "greenish",
+      "red",
+    ].map(uniqueName);
     const fixed = (hex: string): color.Ref => ({
       type: "fixed",
       value: xcolor.construct(hex),
@@ -159,7 +267,13 @@ describe("Enumeration.Settings", () => {
       abnormal: false,
       color: c,
     });
-    await createEnumeration([
+    // A fixed color adapts to the dark theme, so only a dark value can fail there.
+    const night = await client.colors.create({
+      name: uniqueName("night"),
+      light: "#2E9E4F",
+      dark: "#0A0A0A",
+    });
+    const e = await createEnumeration([
       entry(0, twin),
       entry(1, twin),
       entry(2, ""),
@@ -167,15 +281,24 @@ describe("Enumeration.Settings", () => {
       entry(4, green, fixed("#2E9E4F")),
       entry(5, greenish, fixed("#2F9F50")),
       entry(6, red, fixed("#D7263D")),
+      entry(7, black, { type: "named", key: night.key }),
     ]);
     await renderEnumerations();
+    // Other specs leave entries with no name, so a search shows only this enumeration.
+    fireEvent.change(screen.getByPlaceholderText("Search enumerations"), {
+      target: { value: e.name },
+    });
+    await waitFor(() =>
+      expect(screen.getAllByLabelText(/It has no name/)).toHaveLength(1),
+    );
     const warns = async (name: string, message: RegExp): Promise<void> => {
       const options = await screen.findAllByRole("option", { name });
       expect(within(options[0]).getByLabelText(message)).toBeTruthy();
     };
     await warns(twin, /Another entry has its name/);
-    expect(screen.getByLabelText(/It has no name/)).toBeTruthy();
     await warns(white, /hard to see in the light theme/);
+    await warns(black, /hard to see in the dark theme/);
+    expect(within(await findEntry(black)).getByText(night.name)).toBeTruthy();
     await warns(green, new RegExp(`almost the color of ${greenish}`));
     await warns(red, new RegExp(`With color blindness, its color looks like ${green}`));
     await warns(red, /It has an alarm color, but it is not abnormal/);
