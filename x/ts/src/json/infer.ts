@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { pointerZ, primitiveTypeZ } from "@/json/json";
-import { kindZ } from "@/payload/types.gen";
+import { payload } from "@/payload";
 import { dataTypeZ } from "@/telem";
 
 /** The encodings of a timestamp in a JSON value. */
@@ -33,7 +33,7 @@ export const inferredFieldZ = z.object({
   /** dataType is the data type of a channel that holds the field. */
   dataType: dataTypeZ,
   /** kind is the kind of a payload field that holds the values of the field. */
-  kind: kindZ,
+  kind: payload.kindZ,
   /** type is the JSON type of most values of the field. */
   type: primitiveTypeZ.exclude(["null"]),
   /** timeFormat is the encoding of a timestamp field. Undefined for any other field. */

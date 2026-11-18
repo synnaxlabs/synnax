@@ -360,12 +360,24 @@ var _ = Describe("Inferrer", func() {
 			t0+3*telem.SecondTS,
 		)
 		shape := inf.Shape()
+		Expect(shape.Sources).To(BeEmpty())
 		Expect(shape.Count).To(Equal(4))
 		Expect(indexPointer(shape)).To(Equal("/ts"))
 		ts := fieldAt(shape, "/ts")
 		Expect(ts.Kind).To(Equal(payload.KindTimestamp))
 		Expect(ts.TimeFormat).To(HaveValue(Equal(xjson.UnixMillisecond)))
 		Expect(fieldAt(shape, "/v").Kind).To(Equal(payload.KindFloat))
+	})
+
+	It("Should take the time of the call for a zero time", func() {
+		inf := xjson.NewInferrer()
+		inf.Add(
+			fmt.Appendf(nil, `{"ts":%d}`, int64(telem.Now()/telem.MillisecondTS)),
+			0,
+		)
+		ts := fieldAt(inf.Shape(), "/ts")
+		Expect(ts.Kind).To(Equal(payload.KindTimestamp))
+		Expect(ts.TimeFormat).To(HaveValue(Equal(xjson.UnixMillisecond)))
 	})
 
 	It("Should add nothing for data that is not JSON", func() {
