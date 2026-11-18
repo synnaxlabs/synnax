@@ -117,7 +117,8 @@ jobs:
 
         Your area is `${{ matrix.area }}`: ${{ matrix.paths }}.
 
-        The reviewer for a `review/human` PR is `${{ vars.AGENT_REVIEWER }}`.
+        The reviewer for a `review/human` PR is
+        `${{ vars.AGENT_REVIEWER || 'pjdotson' }}`.
         End each PR body with the line `Bug hunt run ${{ github.run_id }}`.
       agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
       output: report
