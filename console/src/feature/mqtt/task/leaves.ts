@@ -19,8 +19,6 @@ export interface Leaf {
   type: payload.JSONType;
   /** The data type of a channel that reads the value. */
   dataType: string;
-  /** A click on the topic does not pick the value, and a read of it starts off. */
-  disabled: boolean;
 }
 
 const DATA_TYPES: Record<payload.JSONType, string> = {
@@ -33,21 +31,11 @@ const createLeaf = (pointer: string, type: payload.JSONType): Leaf => ({
   pointer,
   type,
   dataType: DATA_TYPES[type],
-  disabled: false,
 });
 
-const isVariable = ({ dataType }: Leaf): boolean => new DataType(dataType).isVariable;
-
-/**
- * @returns one leaf for each scalar of a browsed payload. String leaves come back
- * disabled when the payload also holds numbers, because the fields of a topic share one
- * index and a variable-length channel has none.
- */
-export const createLeaves = (scalars: BrowsedField[]): Leaf[] => {
-  const leaves = scalars.map(({ pointer, type }) => createLeaf(pointer, type));
-  if (leaves.every(isVariable)) return leaves;
-  return leaves.map((l) => ({ ...l, disabled: isVariable(l) }));
-};
+/** @returns one leaf for each scalar of a browsed payload. */
+export const createLeaves = (scalars: BrowsedField[]): Leaf[] =>
+  scalars.map(({ pointer, type }) => createLeaf(pointer, type));
 
 /** @returns the leaf of a payload that is not JSON, which reads it as one string. */
 export const createRawLeaf = (): Leaf => createLeaf("", "string");

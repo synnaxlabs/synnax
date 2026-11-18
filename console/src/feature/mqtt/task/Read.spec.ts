@@ -291,7 +291,9 @@ describe("MQTT read form", () => {
     const scanner = await openScanner(client, dev.rack);
     let dialog = await openAddData();
     await scanner.answer({ data: { topics: TOPICS, truncated: false } });
-    fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(
+      await dialog.findByRole("checkbox", { name: "Record temperature" }),
+    );
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
     const [entry] = await waitFor(async () => {
       const entries = await retrieveEntries(draft.key);
@@ -303,7 +305,7 @@ describe("MQTT read form", () => {
     scanner.close();
     fireEvent.click(await dialog.findByRole("checkbox", { name: "Record label" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
-    const [temperature] = await waitFor(async () => {
+    const [temperature, label] = await waitFor(async () => {
       const format = await client.icds.retrieve(entry.icd);
       expect(format.name).toBe("MQTT read task");
       expect(format.messages).toMatchObject([
@@ -323,11 +325,41 @@ describe("MQTT read form", () => {
         ? format.messages[0].payload.fields
         : [];
     });
-    // A string cannot share an index with a number, so the label stays unread.
-    expect(await retrieveBindings(draft.key)).toEqual([
-      { field: temperature.key, channel: 0, dataType: "" },
-    ]);
+    await waitFor(async () =>
+      expect(await retrieveBindings(draft.key)).toEqual([
+        { field: temperature.key, channel: 0, dataType: "" },
+        { field: label.key, channel: 0, dataType: "" },
+      ]),
+    );
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
+  });
+
+  it("should pick and read the string field of a topic with its numbers", async () => {
+    const { dev, draft } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({
+      data: {
+        topics: [
+          {
+            topic: TOPIC,
+            payload: '{"temperature": 21.5, "label": "ok"}',
+            fields: [
+              { pointer: "/temperature", type: "number", sample: "21.5" },
+              { pointer: "/label", type: "string", sample: '"ok"' },
+            ],
+            retained: true,
+          },
+        ],
+        truncated: false,
+      },
+    });
+    scanner.close();
+    fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+    await waitFor(async () =>
+      expect(await retrieveBindings(draft.key)).toHaveLength(2),
+    );
   });
 
   it("should add a topic by name", async () => {
