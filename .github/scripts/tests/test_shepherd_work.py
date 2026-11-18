@@ -39,7 +39,7 @@ class Harness:
         self.pull()
         self.ok()
         self.runs()
-        self.codeql()
+        self.codeql(check="success")
         self.graphql()
         self.comments()
 
@@ -66,8 +66,14 @@ class Harness:
         self.gh.serve("api */actions/*", {"workflow_runs": runs})
 
     def codeql(
-        self, *lines: int, severity: str = "error", security: str | None = "high"
+        self,
+        *lines: int,
+        severity: str = "error",
+        security: str | None = "high",
+        check: str = "failure",
     ) -> None:
+        """Serves the CodeQL check on the head and the open alerts on the merge ref."""
+        self.gh.serve("api */commits/*", {"check_runs": [{"conclusion": check}]})
         rule = {"id": "go/x", "severity": severity, "security_severity_level": security}
         alerts = [
             {
@@ -198,6 +204,13 @@ class TestShepherdWork:
         gh.runs("success")
         gh.codeql(3, severity=severity, security=security)
         assert gh.run() == (["codeql a.go:3 go/x Bad cast."] if blocks else [])
+
+    def test_should_ignore_alerts_while_the_codeql_check_passes(
+        self, gh: Harness
+    ) -> None:
+        gh.runs("success")
+        gh.codeql(3, check="success")
+        assert gh.run() == []
 
     def test_should_wait_for_the_codeql_scan_of_the_head(self, gh: Harness) -> None:
         gh.runs(None, status="in_progress")

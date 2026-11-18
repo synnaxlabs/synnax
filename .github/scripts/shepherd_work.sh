@@ -12,7 +12,7 @@
 # Prints the work a pull request needs before it is done, one item per line, and
 # nothing when it is done. Usage: shepherd_work.sh <pr>. The items are "conflict", "ci
 # <run id>" for a failed CI run on the head, "codeql <path>:<line> <rule> <message>"
-# for each open CodeQL alert the pull request adds that blocks a merge, "queue [<run
+# for each open alert that blocks a merge when the CodeQL check failed, "queue [<run
 # id>]" for a merge queue removal after the head commit, with the failed merge group
 # run when found, "threads <count>" for review threads that need action, and
 # "outside-diff" for open Sedosaur findings outside the diff.
@@ -47,10 +47,13 @@ if [ "$CONCLUSION" = failure ]; then
     echo "ci $RUN"
 fi
 
-# The alerts come from the last finished analysis, so they wait for the head's scan.
-# CodeQL on a pull request reports only the alerts on lines it changed.
+# The CodeQL check fails on new alerts that block a merge. The alert list comes from the
+# last finished analysis, so it waits for the head's scan, and it can hold alerts the
+# pull request did not add.
 SCANS="repos/${REPO}/actions/workflows/codeql.yaml/runs?${QUERY}"
-if [ "$(gh api "$SCANS" --jq '.workflow_runs[0].status')" = completed ]; then
+CHECKS="repos/${REPO}/commits/${SHA}/check-runs?check_name=CodeQL"
+if [ "$(gh api "$SCANS" --jq '.workflow_runs[0].status')" = completed ] \
+    && [ "$(gh api "$CHECKS" --jq '.check_runs[0].conclusion')" = failure ]; then
     ALERTS="code-scanning/alerts?ref=refs/pull/${PR}/merge&state=open&per_page=100"
     # The main ruleset blocks security alerts of medium or higher and other errors.
     # shellcheck disable=SC2016 # The jq program uses jq variables.
