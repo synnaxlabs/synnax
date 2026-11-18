@@ -476,6 +476,20 @@ jobs:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
 
+  # Fails a pull request that adds a dependency with a high or critical advisory. A
+  # merge group has no diff to review, so the job skips it. The dependency graph does
+  # not cover Bazel, so security.yaml audits the C++ dependencies.
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5
+        with:
+          fail-on-severity: high
+
   desktop-shell:
     needs: changes
     if:
@@ -1378,6 +1392,7 @@ jobs:
       - copyright
       - core
       - core-image
+      - dependency-review
       - desktop-shell
       - docs
       - docs-site
