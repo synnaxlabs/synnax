@@ -25,7 +25,7 @@ describe("kinds", () => {
     ]);
     const from = codes.indexOf("E3011");
     expect(codes.slice(from, from + 4)).toEqual(["E3011", "W4000", "W4001", "E4000"]);
-    expect(codes.at(-1)).toEqual("E5015");
+    expect(codes.at(-1)).toEqual("E5016");
   });
 
   it("should name the band of each kind", () => {
