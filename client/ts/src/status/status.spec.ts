@@ -1044,6 +1044,21 @@ describe("fromException", () => {
     );
   });
 
+  it("should keep the description of a status in the cause chain", () => {
+    const cause = status.toError(
+      status.create({
+        variant: "error",
+        message: "Failed to list files",
+        description: "/etc/synnax/secrets does not exist.",
+      }),
+    );
+    const err = new Error("Failed to retrieve files", { cause });
+    const s = status.fromException(err, "Failed to load files");
+    expect(s.description).toBe(
+      "Failed to retrieve files: Failed to list files. /etc/synnax/secrets does not exist.",
+    );
+  });
+
   it("should lead the description with the toStatus() message", () => {
     const s = status.fromException(new CustomError("boom"), HEADING);
     expect(s.message).toBe(HEADING);
