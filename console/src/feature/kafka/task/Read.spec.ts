@@ -19,12 +19,21 @@ import {
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { array, DataType, type payload, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
+import {
+  array,
+  DataType,
+  deep,
+  type payload,
+  sleep,
+  TimeSpan,
+  uuid,
+} from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
 import { createKafkaDevice } from "@/feature/kafka/testutil";
+import { Device } from "@/platform/device";
 import { startRackHeartbeat } from "@/platform/device/testutil";
 import {
   answerNextCommand,
@@ -259,13 +268,26 @@ const addMessage = async (
 
 const KIND_MATCH: icd.JSONMatch = { type: "string", pointer: "/kind", value: "status" };
 
+/** @returns the key under which the device stores the first message of rec. */
+const storedKeyOf = ({ recordKey, messages }: Kafka.Task.ReadRecord) =>
+  `${TOPIC}#${recordKey}#${messages[0].message}`;
+
 /** @returns the channels that the device stores for the first message of rec. */
-const retrieveStored = async (
-  key: string,
-  { recordKey, messages }: Kafka.Task.ReadRecord,
-) =>
+const retrieveStored = async (key: string, rec: Kafka.Task.ReadRecord) =>
   (await client.devices.retrieve({ key, schemas: Kafka.Device.SCHEMAS })).properties
-    .read[`${TOPIC}#${recordKey}#${messages[0].message}`];
+    .read[storedKeyOf(rec)];
+
+/** Stores channels on the device for the first message of rec, as a deploy does. */
+const storeChannels = async (
+  key: string,
+  rec: Kafka.Task.ReadRecord,
+  channels: Record<string, number>,
+) => {
+  const dev = await client.devices.retrieve({ key, schemas: Kafka.Device.SCHEMAS });
+  const before = deep.copy(dev.properties);
+  dev.properties.read[storedKeyOf(rec)] = { index: 0, channels };
+  await Device.setProperties(client, dev, before, Kafka.Device.SCHEMAS);
+};
 
 const createTimeChannel = async () =>
   await client.channels.create({
@@ -944,6 +966,47 @@ describe("Kafka read form", () => {
       const dataCh = await client.channels.retrieve(channelOf(temperature.key));
       expect(dataCh.index).toBe(indexCh.key);
       expect(read.index).toBe(time.key);
+    });
+
+    /**
+     * Deploys two records: the first binds temperature to a channel, and the device
+     * stores that channel for the temperature of the second, which binds none.
+     * @returns the channel and the bindings of the second record after deploy.
+     */
+    const deployShared = async (disabled: boolean) => {
+      const index = await createTimeChannel();
+      const shared = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const temperature = createField("temperature", "float");
+      const owner = await createRecord({
+        fields: [temperature],
+        recordKey: "pump-1",
+        bound: { [temperature.key]: shared.key },
+      });
+      const other = await createRecord({
+        fields: [createField("temperature", "float")],
+        recordKey: "pump-2",
+      });
+      const { container, dev, draft } = await renderRead({
+        records: [{ ...owner, disabled }, other],
+      });
+      await storeChannels(dev.key, other, { "/temperature": shared.key });
+      const created = await deploy(container, draft.key);
+      return { shared, bindings: created.config.records[1].messages[0].bindings };
+    };
+
+    it("should not reuse a stored channel that another record reads", async () => {
+      const { shared, bindings } = await deployShared(false);
+      expect(bindings[0].channel).not.toBe(0);
+      expect(bindings[0].channel).not.toBe(shared.key);
+    });
+
+    it("should reuse a stored channel that only a disabled record reads", async () => {
+      const { shared, bindings } = await deployShared(true);
+      expect(bindings[0].channel).toBe(shared.key);
     });
 
     it("should keep the channels of fields that have them", async () => {
