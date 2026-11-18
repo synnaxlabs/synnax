@@ -24,42 +24,52 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Grant creates a grant that lets subject run cmd once with the secrets with the given
-// keys, until the grant expires. It makes no access check and does not check that the
-// task of cmd is on the subject rack: the caller does both. It returns
-// query.ErrNotFound when a secret does not exist, and a validation error when subject
-// is not a rack, keys is empty, or a key is a file secret of another rack.
+// Grant creates g, which lets its subject run its command once with the secrets and
+// certificates that it names, until it expires. It makes no access check, does not
+// check the certificates, and does not check that the task of the command is on the
+// subject rack: the caller does all three. It returns query.ErrNotFound when a secret
+// does not exist, and a validation error when the subject is not a rack, g names no
+// secret and no certificate, or a secret is a file secret of another rack.
 func (s *Service) Grant(
 	ctx context.Context,
 	tx gorp.Tx,
-	subject resource.ID,
-	cmd task.Command,
-	keys ...Key,
+	g grant.Grant,
 ) (grant.Key, error) {
-	var secrets []Secret
-	if err := s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&secrets).
-		Exec(ctx, tx); err != nil {
+	if err := s.checkGranted(ctx, tx, g); err != nil {
 		return uuid.Nil(), err
 	}
-	for _, sec := range secrets {
-		file, ok := sec.Variant.(FileSecret)
-		if ok && file.Rack.ResourceID() != subject {
-			return uuid.Nil(), errors.Wrapf(
-				validate.ErrValidation,
-				"secret %q is a file of rack %d, not of %s",
-				file.Name,
-				file.Rack,
-				subject,
-			)
-		}
-	}
-	g := grant.Grant{Subject: subject, Secrets: keys, Command: cmd}
 	if err := s.cfg.Grant.NewWriter(tx).Create(ctx, &g); err != nil {
 		return uuid.Nil(), err
 	}
 	return g.Key, nil
+}
+
+// checkGranted returns an error when a secret of g does not exist, or is a file secret
+// of a rack other than the subject of g.
+func (s *Service) checkGranted(ctx context.Context, tx gorp.Tx, g grant.Grant) error {
+	if len(g.Secrets) == 0 {
+		return nil
+	}
+	var secrets []Secret
+	if err := s.NewRetrieve().
+		Where(MatchKeys(g.Secrets...)).
+		Entries(&secrets).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	for _, sec := range secrets {
+		file, ok := sec.Variant.(FileSecret)
+		if ok && file.Rack.ResourceID() != g.Subject {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"secret %q is a file of rack %d, not of %s",
+				file.Name,
+				file.Rack,
+				g.Subject,
+			)
+		}
+	}
+	return nil
 }
 
 // Resolve spends the grant with the given key for reader to run its command on the

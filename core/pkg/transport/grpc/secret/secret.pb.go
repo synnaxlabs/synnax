@@ -149,6 +149,7 @@ type ResolveResponse struct {
 	Command       *pb.Command            `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
 	Values        []*Value               `protobuf:"bytes,2,rep,name=values,proto3" json:"values,omitempty"`
 	Secrets       []string               `protobuf:"bytes,3,rep,name=secrets,proto3" json:"secrets,omitempty"`
+	Certificates  []string               `protobuf:"bytes,4,rep,name=certificates,proto3" json:"certificates,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -204,6 +205,13 @@ func (x *ResolveResponse) GetSecrets() []string {
 	return nil
 }
 
+func (x *ResolveResponse) GetCertificates() []string {
+	if x != nil {
+		return x.Certificates
+	}
+	return nil
+}
+
 var File_core_pkg_transport_grpc_secret_secret_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_secret_secret_proto_rawDesc = "" +
@@ -215,11 +223,12 @@ const file_core_pkg_transport_grpc_secret_secret_proto_rawDesc = "" +
 	"\asecrets\x18\x03 \x03(\tR\asecrets\"/\n" +
 	"\x05Value\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\x8b\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xaf\x01\n" +
 	"\x0fResolveResponse\x122\n" +
 	"\acommand\x18\x01 \x01(\v2\x18.service.task.pb.CommandR\acommand\x12*\n" +
 	"\x06values\x18\x02 \x03(\v2\x12.grpc.secret.ValueR\x06values\x12\x18\n" +
-	"\asecrets\x18\x03 \x03(\tR\asecrets2`\n" +
+	"\asecrets\x18\x03 \x03(\tR\asecrets\x12\"\n" +
+	"\fcertificates\x18\x04 \x03(\tR\fcertificates2`\n" +
 	"\x15SecretRetrieveService\x12G\n" +
 	"\x04Exec\x12\x1e.api.secret.pb.RetrieveRequest\x1a\x1f.api.secret.pb.RetrieveResponse2Y\n" +
 	"\x14SecretResolveService\x12A\n" +

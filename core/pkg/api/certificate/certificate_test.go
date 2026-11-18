@@ -10,14 +10,6 @@
 package certificate_test
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
-	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -46,23 +39,6 @@ var (
 	creates         = []access.Action{access.ActionCreate}
 )
 
-// newPair returns a PEM certificate and its PEM private key.
-func newPair() (string, string) {
-	GinkgoHelper()
-	key := MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
-	tmpl := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "plant"},
-		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
-	}
-	der := MustSucceed(
-		x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
-	)
-	keyDER := MustSucceed(x509.MarshalPKCS8PrivateKey(key))
-	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
-		string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}))
-}
-
 func whereKeys(keys ...certificate.Key) apicertificate.RetrieveRequest {
 	return apicertificate.RetrieveRequest{
 		Where: &certificate.Where{Key: &filter.Set[certificate.Key]{In: keys}},
@@ -71,7 +47,7 @@ func whereKeys(keys ...certificate.Key) apicertificate.RetrieveRequest {
 
 func createCertificate(ctx SpecContext, name string) certificate.Certificate {
 	GinkgoHelper()
-	certPEM, _ := newPair()
+	certPEM, _ := certtestutil.NewPair()
 	c := certificate.Certificate{Variant: certificate.StoredCertificate{
 		Base: certificate.Base{Name: name},
 		Pem:  certPEM,
@@ -84,7 +60,7 @@ func createCertificate(ctx SpecContext, name string) certificate.Certificate {
 
 func createCertificateWithKey(ctx SpecContext, name string) certificate.Certificate {
 	GinkgoHelper()
-	certPEM, keyPEM := newPair()
+	certPEM, keyPEM := certtestutil.NewPair()
 	c := certificate.Certificate{Variant: certificate.StoredCertificate{
 		Base: certificate.Base{Name: name},
 		Pem:  certPEM,
@@ -149,7 +125,7 @@ var _ = Describe("Service", func() {
 					secretType,
 					statusType,
 				)
-				certPEM, keyPEM := newPair()
+				certPEM, keyPEM := certtestutil.NewPair()
 				res := MustSucceed(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
 						Source:        secret.SourceStored,
@@ -201,7 +177,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				grant(ctx, u.ResourceID(), creates, certificateType, statusType)
-				certPEM, keyPEM := newPair()
+				certPEM, keyPEM := certtestutil.NewPair()
 				Expect(set(AuthedCtx(ctx, u),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
 						Source:        secret.SourceStored,
@@ -575,7 +551,7 @@ var _ = Describe("Service", func() {
 					secretType,
 					statusType,
 				)
-				certPEM, keyPEM := newPair()
+				certPEM, keyPEM := certtestutil.NewPair()
 				res := MustSucceed(set(AuthedCtx(ctx, owner),
 					apicertificate.SetRequest{Certificates: []apicertificate.Input{{
 						Source:        secret.SourceStored,

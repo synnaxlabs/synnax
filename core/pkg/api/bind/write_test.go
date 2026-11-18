@@ -24,6 +24,8 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -1179,6 +1181,56 @@ var _ = Describe("Vouched records", func() {
 		dev := siftDevice()
 		Expect(write(ctx, u, createDevice(&dev))).To(Succeed())
 	})
+
+	opcDevice := func(conn map[string]any) device.Device {
+		return device.Device{
+			Key:        uuid.New().String(),
+			Rack:       rck.Key,
+			Name:       "plc",
+			Make:       "opc",
+			Model:      "OPC UA",
+			Location:   "opc.tcp://plc:4840",
+			Properties: msgpack.EncodedJSON{"connection": conn},
+		}
+	}
+	// createCertificate creates a stored certificate, with its private key when keyPEM
+	// is not empty.
+	createCertificate := func(ctx SpecContext, certPEM, keyPEM string) certificate.Key {
+		GinkgoHelper()
+		c := certificate.Certificate{Variant: certificate.StoredCertificate{
+			Base: certificate.Base{Name: "plc"},
+			Pem:  certPEM,
+		}}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Certificate.NewWriter(tx).Set(ctx, &c, []byte(keyPEM))
+		})).To(Succeed())
+		return c.Base().Key
+	}
+
+	It("Should deny a rack that makes a record use a certificate with a private key",
+		func(ctx SpecContext) {
+			certPEM, keyPEM := certtestutil.NewPair()
+			key := createCertificate(ctx, certPEM, keyPEM)
+			dev := opcDevice(map[string]any{"client_certificate": key.String()})
+			Expect(writeAs(ctx, rck.ResourceID(), createDevice(&dev))).To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot make a record use %s",
+					rck.ResourceID(),
+					certificate.ResourceID(key),
+				)),
+			))
+		},
+	)
+
+	It("Should let a rack make a record use a certificate with no private key",
+		func(ctx SpecContext) {
+			certPEM, _ := certtestutil.NewPair()
+			key := createCertificate(ctx, certPEM, "")
+			dev := opcDevice(map[string]any{"server_certificate": key.String()})
+			Expect(writeAs(ctx, rck.ResourceID(), createDevice(&dev))).To(Succeed())
+		},
+	)
 
 	It("Should let a rack change a record that already uses a secret", func(
 		ctx SpecContext,

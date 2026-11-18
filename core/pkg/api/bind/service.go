@@ -12,6 +12,8 @@
 package bind
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -44,9 +46,10 @@ type ServiceConfig struct {
 	// OwnedPlaces names the tables that an owned record can be placed in, or taken
 	// out of, with retrieve in place of update on the target, such as projects.
 	OwnedPlaces []string
-	// Vouched names the types of the records that a rack cannot add a use of, such as
-	// secrets, because the user who saves a record vouches for what it uses.
-	Vouched []resource.Type
+	// Vouched reports whether a rack cannot add a use of target, such as a secret,
+	// because the user who saves a record vouches for what it uses. tx holds the
+	// write. Nil vouches for no record.
+	Vouched func(ctx context.Context, tx gorp.Tx, target resource.ID) (bool, error)
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -58,7 +61,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Held = override.Slice(c.Held, other.Held)
 	c.Owned = override.Slice(c.Owned, other.Owned)
 	c.OwnedPlaces = override.Slice(c.OwnedPlaces, other.OwnedPlaces)
-	c.Vouched = override.Slice(c.Vouched, other.Vouched)
+	c.Vouched = override.Nil(c.Vouched, other.Vouched)
 	return c
 }
 
