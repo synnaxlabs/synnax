@@ -10,20 +10,40 @@
 # included in the file licenses/APL.txt.
 
 # Usage: check_declarations_ts.sh <package> <directory>
+#        check_declarations_ts.sh --window
 #
 # Type-checks the declaration files of each entry point of @synnaxlabs/<package>,
 # installed in <directory> by pack_ts.sh, as a strict consumer with skipLibCheck off
 # sees them. It checks with the bundler and nodenext module resolutions, each with the
-# oldest supported TypeScript and with the repo's TypeScript.
+# oldest supported TypeScript and with the repo's TypeScript. With --window, it only
+# fails if that oldest TypeScript is more than two years old.
 
 set -euo pipefail
+
+# The oldest TypeScript less than two years old. Move up a minor when it turns two.
+oldest=5.8.3
+
+if [ "${1:-}" = --window ]; then
+    # The window starts at the first stable release of the minor.
+    stale=$(curl -fsS https://registry.npmjs.org/typescript | node -p '
+const minor = process.argv[1].replace(/\.\d+$/, ".");
+const time = JSON.parse(require("fs").readFileSync(0)).time;
+const stable = Object.keys(time).filter((v) => /^\d+\.\d+\.\d+$/.test(v));
+const end = new Date(time[stable.find((v) => v.startsWith(minor))]);
+end.setUTCFullYear(end.getUTCFullYear() + 2);
+end < new Date();
+' "$oldest")
+    if [ "$stale" = true ]; then
+        echo "TypeScript $oldest is past the two-year support window:" \
+            'move `oldest` to the next minor' >&2
+        exit 1
+    fi
+    exit
+fi
 
 package=$1
 work=$(cd "$2" && pwd)
 repo=$(cd "$(dirname "$0")/.." && pwd)
-
-# The oldest TypeScript less than two years old. Move up a minor when it turns two.
-oldest=5.7.3
 
 manifest=$work/node_modules/@synnaxlabs/$package/package.json
 
