@@ -223,8 +223,7 @@ describe("range/Toolbar", () => {
         },
       );
       expect(within(finished).getByText(run.name)).toBeTruthy();
-      // Running lists only its newest ranges, which other specs can fill, so the run
-      // ends through the client.
+      // "should stop a running range" covers Stop, so the run ends through the client.
       expect(
         await client.ranges.dispatch(
           run.key,
