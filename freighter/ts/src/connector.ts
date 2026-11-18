@@ -54,8 +54,8 @@ export interface Connector {
   fetch: Fetch;
   dial: Dial;
   /**
-   * True when dial sends the headers. Otherwise the client puts them in the URL, as a
-   * browser WebSocket cannot send headers.
+   * True when dial sends the Authorization header to the server. Otherwise the client
+   * puts it in the URL.
    */
   sendsHeaders?: boolean;
 }
@@ -67,17 +67,33 @@ const openWithOptions = (url: string, options: object): Socket => {
   return ws;
 };
 
-/** Opens connections with the runtime's global fetch and WebSocket. */
+const SUBPROTOCOL = "synnax.v1";
+const TOKEN_SUBPROTOCOL_PREFIX = "synnax.token.";
+const BEARER_PREFIX = "Bearer ";
+
+// A session token or API key holds only base64url characters, which a subprotocol
+// allows.
+const openWithSubprotocol = (url: string, authorization?: string): Socket => {
+  if (authorization == null) return new WebSocket(url);
+  if (!authorization.startsWith(BEARER_PREFIX))
+    throw new Error("WebSocket authorization must be a Bearer token");
+  const token = authorization.slice(BEARER_PREFIX.length);
+  return new WebSocket(url, [SUBPROTOCOL, `${TOKEN_SUBPROTOCOL_PREFIX}${token}`]);
+};
+
+/**
+ * Opens connections with the runtime's global fetch and WebSocket. A DOM WebSocket
+ * cannot send headers, so it sends only the Authorization header, as a subprotocol.
+ */
 export const DEFAULT_CONNECTOR: Connector = {
   fetch: async (target, init) => await fetch(target, init),
-  // A browser reads a second argument as a list of subprotocols.
-  dial: async (url, headers) =>
-    Object.keys(headers).length === 0
-      ? new WebSocket(url)
-      : openWithOptions(url, { headers }),
   // An Electron renderer or jsdom page sets process.versions.node but has a DOM
   // WebSocket.
-  sendsHeaders: runtime.RUNTIME === "node" && typeof document === "undefined",
+  dial: async (url, headers) =>
+    runtime.RUNTIME === "node" && typeof document === "undefined"
+      ? openWithOptions(url, { headers })
+      : openWithSubprotocol(url, headers.Authorization),
+  sendsHeaders: true,
 };
 
 // A CA list replaces the default list in Node and Bun, so it must keep the defaults.

@@ -235,6 +235,7 @@ class TestLabJackReadTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-labjack-read-task",
             type="labjack_read",
             config=task.config,
@@ -412,6 +413,7 @@ class TestLabJackWriteTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-labjack-write-task",
             type="labjack_write",
             config=task.config,
@@ -450,6 +452,7 @@ class TestLabJackWriteTask:
 
         task_targets.attach(original_task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="labjack_write",
             config=original_task.config,

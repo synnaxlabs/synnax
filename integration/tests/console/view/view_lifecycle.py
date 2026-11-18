@@ -75,12 +75,8 @@ class ViewLifecycle(ConsoleCase):
         )
         self.console.labels.create(name=self.label_a_name)
         self.console.labels.create(name=self.label_b_name)
-        self.console.ranges.create(
-            self.range_a_name, persisted=True, labels=[self.label_a_name]
-        )
-        self.console.ranges.create(
-            self.range_b_name, persisted=True, labels=[self.label_b_name]
-        )
+        self.console.ranges.create(self.range_a_name, labels=[self.label_a_name])
+        self.console.ranges.create(self.range_b_name, labels=[self.label_b_name])
         self.console.statuses.create(self.status_a_name, labels=[self.label_a_name])
         self.console.statuses.create(self.status_b_name, labels=[self.label_b_name])
 

@@ -55,7 +55,7 @@ class _RetrieveResponse(BaseModel):
 
 class Client:
     _client: UnaryClient
-    _embedded_rack: Rack | None = None
+    _embedded_racks: dict[str | None, Rack]
     instrumentation: Instrumentation
 
     def __init__(
@@ -65,6 +65,7 @@ class Client:
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
+        self._embedded_racks = {}
         self.instrumentation = instrumentation
 
     @overload
@@ -113,8 +114,9 @@ class Client:
         action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/rack/dispatch", req, Empty)
-        if self._embedded_rack is not None and self._embedded_rack.key == key:
-            self._embedded_rack = None
+        self._embedded_racks = {
+            k: r for k, r in self._embedded_racks.items() if r.key != key
+        }
 
     def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
         """Moves racks into a group, or out of their group when group is None.
@@ -290,10 +292,20 @@ class Client:
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
         return sole("rack", req, res.racks) if single else res.racks
 
-    def retrieve_embedded_rack(self) -> Rack:
-        if self._embedded_rack is None:
-            racks = self.retrieve(embedded=True, limit=1)
+    def retrieve_embedded_rack(self, integration: str | None = None) -> Rack:
+        """Retrieves a rack embedded in the Core.
+
+        :param integration: Keeps only an embedded rack that runs this integration.
+        :returns: The embedded rack with the lowest key that matches.
+        :raises NotFoundError: If no embedded rack matches.
+        """
+        if integration not in self._embedded_racks:
+            racks = self.retrieve(embedded=True, integration=integration, limit=1)
             if len(racks) == 0:
-                raise NotFoundError("Embedded rack not found")
-            self._embedded_rack = racks[0]
-        return self._embedded_rack
+                if integration is None:
+                    raise NotFoundError("Embedded rack not found")
+                raise NotFoundError(
+                    f"No embedded rack runs the {integration} integration"
+                )
+            self._embedded_racks[integration] = racks[0]
+        return self._embedded_racks[integration]

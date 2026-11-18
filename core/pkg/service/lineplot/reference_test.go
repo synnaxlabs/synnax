@@ -18,11 +18,13 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -164,6 +166,75 @@ var _ = Describe("Channel references", func() {
 			res := retrieve(ctx, MustSucceed(uuid.Parse(id.Key)))
 			Expect(res.Channels.Y1).To(Equal([]channel.Key{kept}))
 			Expect(lineKeysOf(res.Lines)).To(Equal([]string{lk(res.Key, 0, kept)}))
+		},
+	)
+})
+
+var _ = Describe("Color references", func() {
+	It(
+		"Should inline a deleted named color into the lines and rules that use it",
+		func(ctx SpecContext) {
+			gone := color.Named{
+				Name:  "Fault",
+				Light: MustSucceed(xcolor.Parse("#ff0000")),
+			}
+			kept := color.Named{
+				Name:  "Nominal",
+				Light: MustSucceed(xcolor.Parse("#00ff00")),
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := colorSvc.NewWriter(tx)
+				if err := w.Create(ctx, &gone); err != nil {
+					return err
+				}
+				return w.Create(ctx, &kept)
+			})).To(Succeed())
+			named := func(n color.Named) *color.Ref {
+				return &color.Ref{Variant: color.NamedRef{Key: n.Key}}
+			}
+			plot := defaults.Fill(lineplot.LinePlot{
+				Project:  &proj.Key,
+				Name:     "colored",
+				Channels: lineplot.Channels{Y1: []channel.Key{ch5, ch6}},
+				Lines: []lineplot.Line{
+					{YAxis: lineplot.YAxisKeyY1, YChannel: ch5, Color: named(gone)},
+					{YAxis: lineplot.YAxisKeyY1, YChannel: ch6, Color: named(kept)},
+				},
+				Rules: []lineplot.Rule{
+					{Key: "r", Axis: lineplot.AxisKeyY1, Color: named(gone)},
+				},
+			})
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &plot)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := svc.NewWriter(tx).Delete(ctx, plot.Key); err != nil {
+						return err
+					}
+					return colorSvc.NewWriter(tx).Delete(ctx, kept.Key)
+				})).To(Succeed())
+			})
+			rec := &Recorder[lineplot.Key, lineplot.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return colorSvc.NewWriter(tx).Delete(ctx, gone.Key)
+			})).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().
+				Where(lineplot.MatchKeys(plot.Key)).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(res.Lines).To(HaveLen(2))
+			Expect(res.Lines[0].Color).To(Equal(fixed("#ff0000")))
+			Expect(res.Lines[1].Color).To(Equal(named(kept)))
+			Expect(res.Rules[0].Color).To(Equal(fixed("#ff0000")))
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(plot.Key))
+			Expect(seen[0].Actions).To(HaveLen(1))
+			Expect(seen[0].Actions[0].Create).ToNot(BeNil())
+			Expect(seen[0].Actions[0].Create.LinePlot).To(Equal(res))
 		},
 	)
 })

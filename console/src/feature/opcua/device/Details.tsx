@@ -21,7 +21,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { math } from "@synnaxlabs/x";
+import { math, narrow } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type ReactElement,
@@ -91,9 +91,6 @@ const statusVariant = (value: string): status.Variant => {
   return "success";
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value != null && !Array.isArray(value);
-
 const PREVIEW_LENGTH = 8;
 
 const text = (value: unknown): string => {
@@ -109,7 +106,9 @@ const text = (value: unknown): string => {
 const fields = (value: Record<string, unknown>, path = ""): Array<[string, string]> =>
   Object.entries(value).flatMap(([key, field]) => {
     const fieldPath = path === "" ? key : `${path}.${key}`;
-    return isRecord(field) ? fields(field, fieldPath) : [[fieldPath, text(field)]];
+    return narrow.isObject(field)
+      ? fields(field, fieldPath)
+      : [[fieldPath, text(field)]];
   });
 
 interface Preview {
@@ -123,7 +122,7 @@ interface Preview {
 const preview = (value: string): Preview | undefined => {
   const parsed: unknown = JSON.parse(value);
   if (parsed == null) return undefined;
-  if (isRecord(parsed)) return { fields: fields(parsed) };
+  if (narrow.isObject(parsed)) return { fields: fields(parsed) };
   const cut = Array.isArray(parsed) && parsed.length > PREVIEW_LENGTH;
   return { text: text(parsed), total: cut ? parsed.length : undefined };
 };
