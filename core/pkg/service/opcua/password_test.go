@@ -30,6 +30,9 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
+// opcMake is the make of an OPC UA device.
+const opcMake = "opc"
+
 var _ = Describe("Password", func() {
 	var (
 		db      *gorp.DB
@@ -109,7 +112,7 @@ var _ = Describe("Password", func() {
 		It("Should move each password into a secret named after its device", func(
 			ctx SpecContext,
 		) {
-			dev := create(ctx, opcua.Make, map[string]any{
+			dev := create(ctx, opcMake, map[string]any{
 				"endpoint": "opc.tcp://localhost:4840",
 				"username": "operator",
 				"password": "hunter2",
@@ -118,7 +121,9 @@ var _ = Describe("Password", func() {
 			conn := connection(ctx, dev.Key)
 			Expect(conn).To(HaveKeyWithValue("endpoint", "opc.tcp://localhost:4840"))
 			Expect(conn).To(HaveKeyWithValue("username", "operator"))
-			key := MustSucceed(uuid.Parse(conn["password"].(string)))
+			password, ok := conn["password"].(string)
+			Expect(ok).To(BeTrue())
+			key := MustSucceed(uuid.Parse(password))
 			var s secret.Secret
 			Expect(secrets.NewRetrieve().
 				Where(secret.MatchKeys(key)).
@@ -131,8 +136,8 @@ var _ = Describe("Password", func() {
 		})
 
 		It("Should keep an empty password empty", func(ctx SpecContext) {
-			empty := create(ctx, opcua.Make, map[string]any{"password": ""})
-			none := create(ctx, opcua.Make, map[string]any{"endpoint": "opc.tcp://a:1"})
+			empty := create(ctx, opcMake, map[string]any{"password": ""})
+			none := create(ctx, opcMake, map[string]any{"endpoint": "opc.tcp://a:1"})
 			Expect(migrate(ctx)).To(Succeed())
 			Expect(connection(ctx, empty.Key)).To(HaveKeyWithValue("password", ""))
 			Expect(connection(ctx, none.Key)).ToNot(HaveKey("password"))
@@ -151,7 +156,7 @@ var _ = Describe("Password", func() {
 				Key:      uuid.New().String(),
 				Rack:     racks.EmbeddedKey,
 				Location: "opc.tcp://localhost:4840",
-				Make:     opcua.Make,
+				Make:     opcMake,
 				Model:    "OPC UA",
 				Name:     "Broken",
 				Properties: msgpack.EncodedJSON{
@@ -172,7 +177,7 @@ var _ = Describe("Password", func() {
 			ctx SpecContext,
 		) {
 			key := createSecret(ctx)
-			dev := create(ctx, opcua.Make, map[string]any{"password": key.String()})
+			dev := create(ctx, opcMake, map[string]any{"password": key.String()})
 			Expect(secrets.Uses(ctx, db, key)).To(HaveExactElements(dev.ResourceID()))
 		})
 

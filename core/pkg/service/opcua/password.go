@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Make is the make of an OPC UA device.
-const Make = "opc"
+// deviceMake is the make of an OPC UA device.
+const deviceMake = "opc"
 
 // properties holds the fields of OPC UA device properties that the Core reads.
 type properties struct {
@@ -44,7 +44,7 @@ func PasswordReference(
 		secret.ReferenceConfig[device.Key, device.Device]{
 			Name: "properties.connection.password",
 			Targets: func(dev *device.Device) []secret.Key {
-				if dev.Make != Make {
+				if dev.Make != deviceMake {
 					return nil
 				}
 				var props properties
@@ -77,7 +77,7 @@ func PasswordMigration(secrets *secret.Service) gorp.Migration {
 			}
 			moved := make([]device.Device, 0, len(devs))
 			for _, dev := range devs {
-				if dev.Make != Make {
+				if dev.Make != deviceMake {
 					continue
 				}
 				raw, ok := dev.Properties["connection"]
