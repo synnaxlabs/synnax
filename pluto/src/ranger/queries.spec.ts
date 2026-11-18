@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -224,6 +224,22 @@ describe("queries", () => {
         ).toBe(true);
       });
       expect((await client.ranges.retrieve(rng.key)).timeRange).toEqual(timeRange);
+    });
+
+    it("should keep each stamp exact to the nanosecond", async () => {
+      const rng = await createRange("set_time_range_hook_exact");
+      const timeRange = new TimeRange(
+        start,
+        start.add(TimeSpan.nanoseconds(1_000_000_001)),
+      );
+      const { result } = renderHook(() => Ranger.useSetTimeRange(), { wrapper });
+      await act(async () => {
+        expect(await result.current.updateAsync({ key: rng.key, timeRange })).toBe(
+          true,
+        );
+      });
+      const stored = (await client.ranges.retrieve(rng.key)).timeRange;
+      expect(stored.end.valueOf()).toBe(timeRange.end.valueOf());
     });
 
     it("should reject an end before the start", async () => {

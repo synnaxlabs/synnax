@@ -26,7 +26,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color as PColor, Flux, Group } from "@synnaxlabs/pluto";
-import { color as xcolor, type record, uuid } from "@synnaxlabs/x";
+import { array, color as xcolor, type record, uuid } from "@synnaxlabs/x";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import pluralize from "pluralize";
 import {
@@ -291,7 +291,7 @@ const placeBefore = (
   dragged: color.Key,
   target: color.Key,
 ): PColor.MoveParams[] => {
-  const others = palette.filter((c) => c.key !== dragged);
+  const others = array.removeKeyed(palette, dragged);
   const i = others.findIndex((c) => c.key === target);
   const next = others[i].position;
   const prev = i > 0 ? others[i - 1].position : undefined;
