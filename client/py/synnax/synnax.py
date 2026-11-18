@@ -22,7 +22,7 @@ from urllib3.exceptions import MaxRetryError
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
-from freighter.exceptions import Unreachable
+from freighter.exceptions import Timeout, Unreachable
 from synnax import (
     access as access_,
     arc,
@@ -409,14 +409,15 @@ class Synnax(framer.Client):
     def close(self) -> None:
         """Logs out, shuts down the client, and closes all connections. All open
         iterators or writers must be closed before calling this method. When the Core
-        cannot be reached the session is left to idle out.
+        cannot be reached or does not respond in time, the session is left to idle
+        out.
         """
         # The connectivity thread stops first: a check during the logout would log in
         # again and leave that session open.
         self._finalizer()
         try:
             self.auth.logout()
-        except Unreachable:
+        except (Unreachable, Timeout):
             pass
 
 

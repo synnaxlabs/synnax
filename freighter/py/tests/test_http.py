@@ -115,16 +115,21 @@ def broken_server(request: pytest.FixtureRequest) -> Generator[URL]:
 
 
 class TestReadFailure:
-    @pytest.mark.parametrize("broken_server", [_reset, _hang], indirect=True)
-    def test_send(self, broken_server: URL) -> None:
-        """Should raise Unreachable when the connection fails before the response."""
+    @pytest.mark.parametrize(
+        ("broken_server", "error"),
+        [(_reset, freighter.Unreachable), (_hang, freighter.Timeout)],
+        indirect=["broken_server"],
+    )
+    def test_send(self, broken_server: URL, error: type[Exception]) -> None:
+        """Should raise Unreachable on a reset and Timeout when no response arrives
+        in time."""
         client = HTTPClient(
             url=broken_server,
             codec=JSONCodec(),
             registry=create_registry(),
             timeout=0.2,
         )
-        with pytest.raises(freighter.Unreachable):
+        with pytest.raises(error):
             client.send("/echo", Message(id=1, message="hello"), Message)
 
 
