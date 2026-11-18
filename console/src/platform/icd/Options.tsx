@@ -42,7 +42,7 @@ const ZERO_DEFAULTS: {
   boolean: false,
 };
 
-export const isMappable = (field: icd.JSONField): field is Mappable =>
+const isMappable = (field: icd.JSONField): field is Mappable =>
   field.type in ZERO_DEFAULTS;
 
 /** A JSON field with a default that the Console shows. */
