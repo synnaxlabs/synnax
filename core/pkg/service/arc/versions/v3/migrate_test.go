@@ -122,7 +122,7 @@ var _ = Describe("MigrateArc", func() {
 			got := migrateFromV0(ctx, seed)
 			Expect(got.Key).To(Equal(seed.Key))
 			Expect(got.Name).To(Equal(seed.Name))
-			Expect(got.Mode).To(Equal(v3.Mode(seed.Mode)))
+			Expect(got.Mode).To(Equal(seed.Mode))
 			Expect(got.Text.Materialize().Raw).To(Equal(seed.Text.Raw))
 			Expect(got.Graph.Functions).To(HaveLen(1))
 			Expect(got.Graph.Functions[0].Key).To(Equal("scale"))
@@ -231,7 +231,7 @@ var _ = Describe("MigrateArc", func() {
 				got := migrateFromV0(ctx, seed)
 				Expect(got.Key).To(Equal(seed.Key))
 				Expect(got.Name).To(Equal(seed.Name))
-				Expect(got.Mode).To(Equal(v3.Mode(seed.Mode)))
+				Expect(got.Mode).To(Equal(seed.Mode))
 				Expect(got.Program).To(BeNil())
 			},
 		)
@@ -244,6 +244,7 @@ var _ = Describe("MigrateArc", func() {
 func migrateFromV1(ctx SpecContext, seed v1.Arc) v3.Arc {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v1.Key, v1.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
 	prior := append([]gorp.Migration{v0.Migration}, v1.Migrations...)
@@ -271,6 +272,7 @@ func migrateFromV1(ctx SpecContext, seed v1.Arc) v3.Arc {
 func migrateFromV0(ctx SpecContext, seed v0.Arc) v3.Arc {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v0.Key, v0.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{

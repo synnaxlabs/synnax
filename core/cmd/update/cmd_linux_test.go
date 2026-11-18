@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -47,7 +48,7 @@ func writeCore(path, version string) {
 
 func coreAt(path string) string {
 	GinkgoHelper()
-	return string(MustSucceed(os.ReadFile(path)))
+	return string(MustSucceed(os.ReadFile(filepath.Clean(path))))
 }
 
 var _ = Describe("Update with a Core service", func() {
@@ -191,7 +192,7 @@ var _ = Describe("Update with a Core service", func() {
 			server := httptest.NewServer(http.FileServer(http.Dir(files)))
 			DeferCleanup(server.Close)
 			cfg = release.DefaultConfig
-			cfg.URL, cfg.PublicKey = server.URL, signer.PublicKey
+			cfg.URL, cfg.PublicKeys = server.URL, []string{signer.PublicKey}
 		})
 
 		// publish adds the Linux Core file and its signature to the release of version.
@@ -454,7 +455,7 @@ var _ = Describe("Update with a Core service", func() {
 				"--data", data,
 				"--log-file-path", filepath.Join(data, "logs", "synnax.log"),
 			)).To(MatchError(HavePrefix("failed to read service configuration")))
-			Expect(MustSucceed(os.ReadFile(filepath.Join(data, "VERSION")))).
+			Expect(MustSucceed(fs.ReadFile(os.DirFS(data), "VERSION"))).
 				To(BeEquivalentTo("0.61.0"))
 		})
 

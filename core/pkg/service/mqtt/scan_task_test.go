@@ -78,7 +78,7 @@ var _ = Describe("Scan task", func() {
 		ch := createVirtual(ctx, telem.Float64T)
 		return configure(ctx, factory, newTask(
 			ctx, rackKey, mqtt.ReadTaskType,
-			readConfig(dev, plainEntry("plant/edit", field("v", ch, ""))),
+			readConfig(ctx, dev, plainEntry("plant/edit", field("v", ch, ""))),
 		))
 	}
 	startRead := func(ctx context.Context, read driver.Task) {
@@ -178,8 +178,14 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, properties)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					ctx, rackKey, mqtt.ReadTaskType,
-					readConfig(dev, plainEntry("plant/tls", field("v", data[0], ""))),
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(
+						ctx,
+						dev,
+						plainEntry("plant/tls", field("v", data[0], "")),
+					),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
@@ -201,8 +207,14 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				_, data := createIndexed(ctx, telem.Float64T)
 				read := configure(ctx, factory, newTask(
-					ctx, rackKey, mqtt.ReadTaskType,
-					readConfig(dev, plainEntry("plant/scan", field("v", data[0], ""))),
+					ctx,
+					rackKey,
+					mqtt.ReadTaskType,
+					readConfig(
+						ctx,
+						dev,
+						plainEntry("plant/scan", field("v", data[0], "")),
+					),
 				))
 				Expect(read.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
@@ -252,7 +264,7 @@ var _ = Describe("Scan task", func() {
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				ch := createVirtual(ctx, telem.Float64T)
 				t := newTask(ctx, rackKey, mqtt.ReadTaskType, readConfig(
-					dev,
+					ctx, dev,
 					plainEntry("plant/edit", field("v", ch, "")),
 				))
 				read := configure(ctx, factory, t)
@@ -624,7 +636,8 @@ var _ = Describe("Scan task", func() {
 						HaveKeyWithValue("retained", true),
 					))
 				}
-				topics := stat.Details.Data["topics"].([]any)
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
 				Expect(topics).To(HaveLen(2))
 				expectTopic(topics[0], "plant/a", `{"v":1}`, "1")
 				expectTopic(topics[1], "plant/b", `{"v":2}`, "2")
@@ -693,7 +706,7 @@ var _ = Describe("Scan task", func() {
 				broker.publish("plant/e", `{"v": 1, "v": 2}`, true)
 				broker.publish("plant/f", `{"v": 1} {"v": 2}`, true)
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-				fields := func(t any) any { return t.(map[string]any)["fields"] }
+				fields := func(t map[string]any) any { return t["fields"] }
 				Expect(stat.Details.Data["topics"]).To(HaveExactElements(
 					WithTransform(fields, Equal([]any{field("", "number", "23.4")})),
 					WithTransform(fields, Equal([]any{
@@ -716,7 +729,9 @@ var _ = Describe("Scan task", func() {
 				long := strings.Repeat("x", 300)
 				broker.publish("plant/a", `{"text": "`+long+`", "v": 1}`, true)
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-				topic := stat.Details.Data["topics"].([]any)[0]
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				topic := topics[0]
 				Expect(topic).To(HaveKeyWithValue("payload", HaveLen(256)))
 				Expect(topic).To(HaveKeyWithValue("fields", []any{
 					field("/text", "string", `"`+long[:63]),
@@ -732,8 +747,12 @@ var _ = Describe("Scan task", func() {
 			}
 			broker.publish("plant/a", "{"+strings.Join(names, ", ")+"}", true)
 			stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-			topic := stat.Details.Data["topics"].([]any)[0]
-			fields := topic.(map[string]any)["fields"].([]any)
+			topics, ok := stat.Details.Data["topics"].([]any)
+			Expect(ok).To(BeTrue())
+			topic, ok := topics[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			fields, ok := topic["fields"].([]any)
+			Expect(ok).To(BeTrue())
 			Expect(fields).To(HaveLen(256))
 			Expect(fields[255]).To(Equal(field("/f255", "number", "255")))
 		})
@@ -752,7 +771,8 @@ var _ = Describe("Scan task", func() {
 				broker.publish("plant/long", strings.Repeat("é", 200), true)
 				broker.publish("plant/binary", "\xff\xfe\x00", true)
 				stat := browse(ctx, msgpack.EncodedJSON{"duration": 200})
-				topics := stat.Details.Data["topics"].([]any)
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
 				Expect(topics).To(HaveLen(2))
 				Expect(topics[0]).To(HaveKeyWithValue("payload", ""))
 				Expect(topics[1]).

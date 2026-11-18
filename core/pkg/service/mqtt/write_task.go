@@ -96,11 +96,22 @@ func (p payloadSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 		return p.t.encoder.Append(dst, p.sample)
 	case slotTimestamp:
 		return xjson.AppendTimeStamp(dst, telem.Now(), s.format), nil
-	default:
+	case slotUUID:
 		dst = append(dst, '"')
 		dst, err := uuid.New().AppendText(dst)
 		return append(dst, '"'), err
+	default:
+		return nil, errors.Newf("unknown slot kind %d", s.kind)
 	}
+}
+
+// enums returns entries in the form xjson takes.
+func enums(entries []payload.EnumEntry) []xjson.Enum {
+	out := make([]xjson.Enum, len(entries))
+	for i, e := range entries {
+		out[i] = xjson.NewEnum(e.Label, e.Value)
+	}
+	return out
 }
 
 func parseTimeFormat(format *payload.TimeFormat) (xjson.TimeFormat, error) {
@@ -113,12 +124,12 @@ func parseTimeFormat(format *payload.TimeFormat) (xjson.TimeFormat, error) {
 // newWriteTarget validates target against ch, its command channel.
 func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, error) {
 	path := "target " + target.Topic
-	t := writeTarget{
-		topic:    target.Topic,
-		qos:      qosLevel(target.Qos),
-		retained: target.Retained,
+	qos, err := qosLevel(target.Qos)
+	if err != nil {
+		return writeTarget{}, errors.Wrap(err, path)
 	}
-	if err := validateTopic(target.Topic); err != nil {
+	t := writeTarget{topic: target.Topic, qos: qos, retained: target.Retained}
+	if err = validateTopic(target.Topic); err != nil {
 		return writeTarget{}, err
 	}
 	pointer, err := xjson.ParsePointer(target.Channel.Pointer)
@@ -146,53 +157,9 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 	fields := []xjson.TemplateField{{Label: "channel.pointer", Pointer: pointer}}
 	t.slots = []slot{{kind: slotValue}}
 	for _, wf := range target.Fields {
-		var (
-			base  BaseWriteField
-			field xjson.TemplateField
-			s     slot
-		)
-		switch v := wf.Variant.(type) {
-		case StaticWriteField:
-			base = v.BaseWriteField
-			if !matchesJSONType(v.Value, v.JSONType) {
-				return writeTarget{}, errors.Wrapf(
-					validate.ErrValidation,
-					"%s: static value at %s is not a %s",
-					path, v.Pointer, v.JSONType,
-				)
-			}
-			if field.Literal, err = xjson.Marshal(v.Value); err != nil {
-				return writeTarget{}, errors.Wrapf(
-					validate.ErrValidation,
-					"%s: static value at %s is not JSON", path, v.Pointer,
-				)
-			}
-		case GeneratedWriteField:
-			base = v.BaseWriteField
-			s.kind = slotUUID
-			if v.Generator == payload.GeneratorTypeTimestamp {
-				s.kind = slotTimestamp
-				if s.format, err = parseTimeFormat(v.TimeFormat); err != nil {
-					return writeTarget{}, errors.Wrap(err, path)
-				}
-			}
-		case nil:
-			return writeTarget{}, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: a field is null",
-				path,
-			)
-		default:
-			panic(errors.Newf("mqtt: unknown write field variant %T", v))
-		}
-		field.Label = fmt.Sprintf("field %q", base.Key)
-		if field.Pointer, err = xjson.ParsePointer(base.Pointer); err != nil {
-			return writeTarget{}, errors.Wrap(err, path)
-		}
-		if len(field.Pointer) == 0 {
-			return writeTarget{}, errors.Wrapf(
-				validate.ErrValidation, "%s: a field requires a pointer", path,
-			)
+		field, s, err := newTemplateField(path, wf)
+		if err != nil {
+			return writeTarget{}, err
 		}
 		fields = append(fields, field)
 		t.slots = append(t.slots, s)
@@ -201,6 +168,61 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 		return writeTarget{}, errors.Wrap(err, path)
 	}
 	return t, nil
+}
+
+// newTemplateField returns the template field of wf, a field of a write target, and
+// the slot that fills it. path names the target in errors.
+func newTemplateField(path string, wf WriteField) (xjson.TemplateField, slot, error) {
+	var (
+		base  BaseWriteField
+		field xjson.TemplateField
+		s     slot
+		err   error
+	)
+	switch v := wf.Variant.(type) {
+	case StaticWriteField:
+		base = v.BaseWriteField
+		if !matchesJSONType(v.Value, v.JSONType) {
+			return xjson.TemplateField{}, slot{}, errors.Wrapf(
+				validate.ErrValidation,
+				"%s: static value at %s is not a %s",
+				path, v.Pointer, v.JSONType,
+			)
+		}
+		if field.Literal, err = xjson.Marshal(v.Value); err != nil {
+			return xjson.TemplateField{}, slot{}, errors.Wrapf(
+				validate.ErrValidation,
+				"%s: static value at %s is not JSON", path, v.Pointer,
+			)
+		}
+	case GeneratedWriteField:
+		base = v.BaseWriteField
+		s.kind = slotUUID
+		if v.Generator == payload.GeneratorTypeTimestamp {
+			s.kind = slotTimestamp
+			if s.format, err = parseTimeFormat(v.TimeFormat); err != nil {
+				return xjson.TemplateField{}, slot{}, errors.Wrap(err, path)
+			}
+		}
+	case nil:
+		return xjson.TemplateField{}, slot{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s: a field is null",
+			path,
+		)
+	default:
+		panic(errors.Newf("mqtt: unknown write field variant %T", v))
+	}
+	field.Label = fmt.Sprintf("field %q", base.Key)
+	if field.Pointer, err = xjson.ParsePointer(base.Pointer); err != nil {
+		return xjson.TemplateField{}, slot{}, errors.Wrap(err, path)
+	}
+	if len(field.Pointer) == 0 {
+		return xjson.TemplateField{}, slot{}, errors.Wrapf(
+			validate.ErrValidation, "%s: a field requires a pointer", path,
+		)
+	}
+	return field, s, nil
 }
 
 // matchesJSONType reports whether a decoded static value has the JSON type t.

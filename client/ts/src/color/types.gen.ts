@@ -19,7 +19,7 @@ export const ORDER_FIELDS = ["name"] as const;
 export const orderFieldZ = z.enum(ORDER_FIELDS);
 export type OrderField = z.infer<typeof orderFieldZ>;
 
-/** Order is a sort of nameds. */
+/** Order is a sort of colors. */
 export const orderZ = z.object({
   /** field is the field to sort by. Records with equal values sort by key. */
   field: orderFieldZ,
@@ -46,6 +46,12 @@ export const namedZ = z.object({
   dark: color.colorZ.optional(),
   /** group is the palette that holds the color, if any. */
   group: group.keyZ.optional(),
+  /**
+   * position is where the color sits in its palette, as a fractional index. A palette
+   * sorts its colors by position, compared by code point, and a color with none comes
+   * last.
+   */
+  position: z.string().optional(),
 });
 export interface Named extends z.infer<typeof namedZ> {}
 
@@ -83,12 +89,12 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
 });
 
 /**
- * Cursor is a position in an order of nameds: the sort value and the key of a named.
+ * Cursor is a position in an order of colors: the sort value and the key of a color.
  */
 export const cursorZ = z.object({
-  /** key is the key of the named at the position. */
+  /** key is the key of the color at the position. */
   key: keyZ,
-  /** name is the name of the named at the position, when the order sorts by it. */
+  /** name is the name of the color at the position, when the order sorts by it. */
   name: z.string().optional(),
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
@@ -125,24 +131,24 @@ export const REF_SCHEMAS: {
 };
 export interface New extends z.input<typeof namedZ> {}
 
-/** RetrieveResponse holds the nameds a RetrieveRequest selects. */
+/** RetrieveResponse holds the colors a RetrieveRequest selects. */
 export const retrieveResponseZ = z.object({
-  /** nameds are the nameds the request selects. */
-  nameds: namedZ.array().default(() => []),
+  /** colors are the colors the request selects. */
+  colors: namedZ.array().default(() => []),
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
-/** RetrieveRequest is a request to retrieve nameds. */
+/** RetrieveRequest is a request to retrieve colors. */
 export const retrieveRequestZ = z.strictObject({
-  /** where selects the nameds to retrieve. An absent where selects all of them. */
+  /** where selects the colors to retrieve. An absent where selects all of them. */
   where: whereZ.optional(),
-  /** searchTerm keeps the nameds that match the term, closest match first. */
+  /** searchTerm keeps the colors that match the term, closest match first. */
   searchTerm: z.string().optional(),
-  /** order sorts the nameds. An absent order sorts them by key. */
+  /** order sorts the colors. An absent order sorts them by key. */
   order: orderZ.optional(),
-  /** after starts the nameds strictly past this position in their order. */
+  /** after starts the colors strictly past this position in their order. */
   after: cursorZ.optional(),
-  /** limit is the most nameds to return. */
+  /** limit is the most colors to return. */
   limit: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;

@@ -32,9 +32,7 @@ When CI failed on the head:
 ## 3. Address every review finding
 
 A Sedosaur score of 5/5 does not mean the work is done. Every open Sedosaur finding, P2
-and style findings included, gets a fix or a reply that gives the reason. A finding
-marked "(follow-up)" gets no fix here: reply that it waits for a follow-up issue, and
-name it in your last message so that a person files the issue.
+and style findings included, gets a fix or a reply that gives the reason.
 
 - `.github/scripts/review_threads.sh <number>` prints each review thread that needs
   action as one JSON line.
@@ -63,6 +61,10 @@ You deliver the work yourself, as your GitHub App.
    reply with the commit that fixed it and leave it open.
 3. Reply to every other thread that needs action with `addPullRequestReviewThreadReply`.
    Open each reply with `*Agent reply.*` Keep it to a few sentences, with no em dashes.
+   When a Sedosaur finding is wrong, reply with the evidence: the file and line, the
+   declaration, or the test that settles it. Sedosaur checks it against the head, then
+   withdraws the finding or replies why it holds. After a hold, reply again only with
+   new evidence, else leave the finding to a person. Only a person can dismiss.
 4. When you pushed, or when the `Review gate` waits for the Sedosaur review of the head
    or says it ended `failure` or `cancelled`, comment `@sedosaur review` on the pull
    request. After a push, wait until `gh pr view --json headRefOid` shows your commit

@@ -54,7 +54,7 @@ var _ = Describe("Convergence property", func() {
 			for i := range docs {
 				docs[i] = crdt.New(uint32(i + 1))
 			}
-			var allEdits []edit
+			allEdits := make([]edit, 0, replicas*rounds)
 			for range rounds {
 				roundEdits := make([]edit, replicas)
 				for i, d := range docs {

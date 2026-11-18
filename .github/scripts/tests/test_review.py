@@ -43,6 +43,8 @@ PATCH = (
 )
 OUTSIDE = "<!-- sedosaur_outside_diff -->"
 GREPTILE = "<!-- greptile_comment -->\nGreptile's summary\n<!-- /greptile_comment -->"
+SINCE = "a" * 40
+"""The commit of the review before the head."""
 MESSAGE = "[ci] Bound MQTT samples and give each discovery request a deadline"
 
 
@@ -85,6 +87,11 @@ class FakeGH:
         self.comments: list[dict[str, Any]] = []
         self.body = "Fixes the thing."
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
+        self.head = "head"
+        """The head of the pull request now."""
+        self.blobs: dict[str, str] = {f"{SINCE}:a.go": "1", "head:a.go": "2"}
+        """The blob ID of each `<commit>:<path>` that exists."""
+        self.mutations: list[tuple[str, ...]] = []
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
         if args[:2] == ("api", "-X"):
@@ -98,6 +105,14 @@ class FakeGH:
             query = next(a for a in args if a.startswith("query="))
             if "userContentEdits" in query:
                 return lines(self.edits)
+            if query.startswith("query=mutation"):
+                self.mutations.append(args)
+                return ""
+            if "object(expression" in query:
+                a, b = (
+                    next(x[2:] for x in args if x.startswith(k)) for k in ("a=", "b=")
+                )
+                return json.dumps([self.blobs.get(a), self.blobs.get(b)]) + "\n"
             threads = self.threads
             if self.later is not None:
                 self.threads = self.later
@@ -108,10 +123,12 @@ class FakeGH:
             return lines(self.runs)
         if path == f"repos/{REPO}/issues/7/comments":
             return lines(self.comments)
+        if path == f"repos/{REPO}/collaborators/member/permission":
+            return "write\n"
         if path == f"repos/{REPO}/commits/head":
             return MESSAGE + "\n"
         if path == f"repos/{REPO}/pulls/7":
-            return self.body + "\n"
+            return (self.head if ".head.sha" in args else self.body) + "\n"
         raise AssertionError(f"unexpected gh call: {args}")
 
     def written(self, method: str, path: str) -> list[dict[str, Any]]:
@@ -169,18 +186,6 @@ class TestParse:
         with pytest.raises(ValueError, match=error):
             parse(data)
 
-    @pytest.mark.parametrize(
-        ("severity", "deferrable", "blocks"),
-        [("P1", True, False), ("P2", False, True), ("P0", True, True)],
-    )
-    def test_should_read_whether_a_finding_blocks_merge(
-        self, severity: str, deferrable: bool, blocks: bool
-    ) -> None:
-        f = {"severity": severity, "title": "T", "body": "B", "path": "x.go", "line": 9}
-        data = {"score": 4, "verdict": "V", "summary": [], "findings": []}
-        data["findings"] = [f | {"deferrable": deferrable}]
-        assert parse(data).findings[0].blocks is blocks
-
     def test_should_reject_an_unknown_field(self) -> None:
         f = {"severity": "P1", "title": "T", "body": "B", "path": "x.go", "line": 9}
         data = {"score": 4, "verdict": "V", "summary": [], "findings": [f | {"x": 1}]}
@@ -225,15 +230,16 @@ class TestInlineFindings:
         post(review(finding()), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
 
-    def test_should_mark_an_open_thread_whose_finding_became_a_follow_up(
+    def test_should_edit_an_open_thread_whose_severity_changed(
         self, gh: FakeGH
     ) -> None:
         gh.threads = [posted(finding())]
-        moved = finding(deferrable=True, body="New text.", suggestion="four")
+        moved = finding(severity="P2", body="New text.", suggestion="four")
         post(review(moved), target=TARGET, gh=gh)
         [edit] = gh.written("PATCH", "pulls/comments/9")
         first, rest = edit["body"].split("\n", 1)
-        assert first.endswith("**Samples return old data** (follow-up)")
+        assert first.startswith('<img alt="P2" src="')
+        assert first.endswith("**Samples return old data**")
         assert rest == gh.threads[0]["comments"][0]["body"].split("\n", 1)[1]
         assert gh.written("POST", "pulls/7/reviews") == []
 
@@ -255,6 +261,90 @@ class TestInlineFindings:
         assert len(gh.written("POST", "pulls/7/reviews")) == 1
 
 
+class TestSettledThreads:
+    """Tests resolving the threads whose findings a review no longer reports."""
+
+    @pytest.fixture(autouse=True)
+    def earlier(self, gh: FakeGH) -> None:
+        gh.edits = [summary_edit(SINCE)]
+        gh.threads = [thread("sedosaur")]
+
+    def test_should_resolve_one_whose_file_changed(self, gh: FakeGH) -> None:
+        post(review(finding(title="Other")), target=TARGET, gh=gh)
+        resolve, reply = gh.mutations
+        assert "resolveReviewThread" in resolve[3]
+        assert "t=T" in reply
+        assert "b=The review of head no longer reports this finding." in reply
+
+    def test_should_resolve_one_whose_file_the_head_deleted(self, gh: FakeGH) -> None:
+        del gh.blobs["head:a.go"]
+        post(review(), target=TARGET, gh=gh)
+        assert len(gh.mutations) == 2
+
+    def test_should_keep_one_whose_file_is_the_same(self, gh: FakeGH) -> None:
+        gh.blobs["head:a.go"] = "1"
+        post(review(), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_keep_one_when_the_last_review_commit_is_gone(
+        self, gh: FakeGH
+    ) -> None:
+        del gh.blobs[f"{SINCE}:a.go"]
+        post(review(), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_keep_one_without_an_earlier_review(self, gh: FakeGH) -> None:
+        gh.edits = [summary_edit("b" * 40, login="pat")]
+        post(review(), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_keep_one_when_the_pull_request_moved_on(self, gh: FakeGH) -> None:
+        gh.head = "newer"
+        post(review(), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_keep_one_the_review_still_reports(self, gh: FakeGH) -> None:
+        post(review(finding()), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_keep_one_whose_title_holds_asterisks(self, gh: FakeGH) -> None:
+        f = finding(title="Leaks `**kwargs`")
+        gh.threads = [posted(f)]
+        post(review(f), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_keep_one_still_reported_outside_the_diff(self, gh: FakeGH) -> None:
+        post(review(finding(line=10)), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_keep_one_a_member_dismissed(self, gh: FakeGH) -> None:
+        gh.threads = [thread("sedosaur", "@sedosaur dismiss")]
+        post(review(), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_skip_a_resolved_thread(self, gh: FakeGH) -> None:
+        gh.threads = [thread("sedosaur", resolved=True)]
+        post(review(), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_skip_a_thread_of_another_author(self, gh: FakeGH) -> None:
+        gh.threads = [thread("greptile-apps")]
+        post(review(), target=TARGET, gh=gh)
+        assert gh.mutations == []
+
+    def test_should_complete_the_review_when_a_resolve_fails(
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        def fail(*args: str, stdin: str | None = None) -> str:
+            if any("resolveReviewThread" in a for a in args):
+                raise subprocess.CalledProcessError(1, "gh")
+            return gh(*args, stdin=stdin)
+
+        post(review(), target=TARGET, gh=fail)
+        assert gh.written("PATCH", "check-runs/55")[0]["conclusion"] == "success"
+        assert "::warning::Could not resolve settled threads" in capsys.readouterr().err
+
+
 class TestDismissedFindings:
     """Tests leaving out the findings that a member dismissed."""
 
@@ -269,6 +359,16 @@ class TestDismissedFindings:
         assert done["output"]["title"] == "Confidence Score: 4/5"
         assert render.listed(done["output"]["text"]) == {("a.go", "Nit")}
 
+    def test_should_leave_out_a_finding_dismissed_outside_the_diff(
+        self, gh: FakeGH
+    ) -> None:
+        record = {"comment": 3, "path": "a.go", "title": "Samples return old data"}
+        body = f"<!-- sedosaur_answer {json.dumps(record | {'reason': ''})} -->"
+        gh.comments = [{"id": 4, "login": "sedosaur[bot]", "body": body}]
+        post(review(finding()), target=TARGET, gh=gh)
+        [done] = gh.written("PATCH", "check-runs/55")
+        assert done["output"]["title"] == "Confidence Score: 5/5"
+
     def test_should_score_5_when_every_finding_is_dismissed(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
         post(review(finding()), target=TARGET, gh=gh)
@@ -276,30 +376,8 @@ class TestDismissedFindings:
         [done] = gh.written("PATCH", "check-runs/55")
         assert done["output"]["title"] == "Confidence Score: 5/5"
         assert done["output"]["summary"] == (
-            "A member dismissed every finding of the review that blocks merge.\n\n"
-            "Findings: none."
+            "Every finding of the review is dismissed or withdrawn.\n\nFindings: none."
         )
-
-    def test_should_score_5_when_only_follow_ups_are_left(self, gh: FakeGH) -> None:
-        gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
-        later = finding(severity="P2", title="Later", line=3, deferrable=True)
-        post(review(finding(), later), target=TARGET, gh=gh)
-        [posted] = gh.written("POST", "pulls/7/reviews")
-        assert [c["body"].count("**Later**") for c in posted["comments"]] == [1]
-        [done] = gh.written("PATCH", "check-runs/55")
-        assert done["output"]["title"] == "Confidence Score: 5/5"
-        assert done["output"]["summary"].endswith("Findings: 1 follow-up.")
-
-    def test_should_keep_the_verdict_when_a_follow_up_is_dismissed(
-        self, gh: FakeGH
-    ) -> None:
-        gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
-        done = finding(deferrable=True)
-        later = finding(severity="P2", title="Later", line=3, deferrable=True)
-        post(review(done, later, score=5), target=TARGET, gh=gh)
-        [check] = gh.written("PATCH", "check-runs/55")
-        assert check["output"]["title"] == "Confidence Score: 5/5"
-        assert "dismissed" not in check["output"]["summary"]
 
     def test_should_score_the_head_5_after_a_dismissal_while_posting(
         self, gh: FakeGH
@@ -370,7 +448,7 @@ class TestOutsideFindings:
         assert gh.written("POST", "issues/7/comments") == []
 
     def test_should_read_back_the_findings_the_comment_lists(self, gh: FakeGH) -> None:
-        later = finding(path="b/c d.go", title="Later [x]", deferrable=True)
+        later = finding(path="b/c d.go", title="Later [x]")
         body = render.outside([finding(line=10), later], blob="https://github.com/b")
         gh.comments = [{"id": 9, "login": "sedosaur[bot]", "body": body}]
         found = outside_findings(TARGET, gh)
@@ -461,19 +539,6 @@ class TestSummary:
             ("a.go", "Nit"),
         }
 
-    def test_should_mark_a_follow_up_and_leave_it_out_of_the_listing(
-        self, gh: FakeGH
-    ) -> None:
-        later = finding(severity="P2", title="Later", line=3, deferrable=True)
-        post(review(finding(), later), target=TARGET, gh=gh)
-        [posted] = gh.written("POST", "pulls/7/reviews")
-        assert "**Later** (follow-up)" in posted["comments"][1]["body"]
-        [done] = gh.written("PATCH", "check-runs/55")
-        assert done["output"]["summary"].endswith("Findings: 1 P1, 1 follow-up.")
-        assert render.listed(done["output"]["text"]) == {
-            ("a.go", "Samples return old data")
-        }
-
 
 class TestListing:
     """Tests the hidden list of findings in the text of a check run."""
@@ -493,12 +558,7 @@ class TestListing:
 def thread(login: str, *replies: str, resolved: bool = False) -> dict[str, Any]:
     def comment(body: str, kind: str, author: str) -> dict[str, Any]:
         who = {"__typename": kind, "login": author}
-        return {
-            "databaseId": 9,
-            "author": who,
-            "authorAssociation": "MEMBER",
-            "body": body,
-        }
+        return {"databaseId": 9, "author": who, "body": body}
 
     body = "<picture></picture> **Samples return old data**\n\nOld text."
     comments = [comment(body, "Bot", login)]

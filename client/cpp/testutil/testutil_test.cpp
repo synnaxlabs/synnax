@@ -18,8 +18,8 @@
 class TestClientConfig : public ::testing::Test {
 protected:
     void SetUp() override {
-        x::env::unset("SYNNAX_HOST");
-        x::env::unset("SYNNAX_PORT");
+        x::env::unset("SYNNAX_TEST_HOST");
+        x::env::unset("SYNNAX_TEST_PORT");
     }
 };
 
@@ -28,13 +28,13 @@ TEST_F(TestClientConfig, testDefaultsToLocalhost) {
     const auto cfg = test_client_config();
     EXPECT_EQ(cfg.host, "localhost");
     EXPECT_EQ(cfg.port, 9090);
-    EXPECT_FALSE(cfg.secure);
+    EXPECT_EQ(cfg.secure, std::nullopt);
 }
 
 /// @brief it should read the host and port from the environment.
 TEST_F(TestClientConfig, testReadsHostAndPortFromEnvironment) {
-    x::env::set("SYNNAX_HOST", "core.local");
-    x::env::set("SYNNAX_PORT", "9190");
+    x::env::set("SYNNAX_TEST_HOST", "core.local");
+    x::env::set("SYNNAX_TEST_PORT", "9190");
     const auto cfg = test_client_config();
     EXPECT_EQ(cfg.host, "core.local");
     EXPECT_EQ(cfg.port, 9190);
@@ -42,18 +42,18 @@ TEST_F(TestClientConfig, testReadsHostAndPortFromEnvironment) {
 
 /// @brief it should throw on a port that is not a number.
 TEST_F(TestClientConfig, testThrowsOnPortThatIsNotANumber) {
-    x::env::set("SYNNAX_PORT", "not_a_port");
+    x::env::set("SYNNAX_TEST_PORT", "not_a_port");
     EXPECT_THAT(
         [] { static_cast<void>(test_client_config()); },
         ::testing::ThrowsMessage<std::runtime_error>(
-            ::testing::HasSubstr("failed to convert SYNNAX_PORT")
+            ::testing::HasSubstr("failed to convert SYNNAX_TEST_PORT")
         )
     );
 }
 
 /// @brief it should throw on a port that would wrap around to another port.
 TEST_F(TestClientConfig, testThrowsOnPortOutOfRange) {
-    x::env::set("SYNNAX_PORT", "74626");
+    x::env::set("SYNNAX_TEST_PORT", "74626");
     EXPECT_THAT(
         [] { static_cast<void>(test_client_config()); },
         ::testing::ThrowsMessage<std::runtime_error>(

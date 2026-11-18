@@ -52,7 +52,8 @@ sequence main {
         0 -> ss_sim_stage
         1 -> ss_heater_cmd
         // Priority is declaration order, not statement size.
-        interval(1s) -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop() -> noop() -> noop() => off
+        interval(1s) -> (ss_temp_a > 290 and ss_temp_b > 290)
+            -> noop() -> noop() -> noop() => off
         interval(1s) -> ss_temp_b > 300 => pause
     }
     stage pause {
@@ -69,7 +70,7 @@ sequence main {
         ss_start_cmd => on
     }
 }
-"""  # noqa: E501
+"""
 
 
 class ChannelCollector:

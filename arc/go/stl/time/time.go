@@ -14,6 +14,7 @@ import (
 	"reflect"
 	stdtime "time"
 
+	acodes "github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -87,30 +88,8 @@ var (
 // contributes: the time module plus the deprecated bare aliases (interval,
 // wait, now) whose Deprecated fields point at the canonical members.
 func NewSymbols() []*symbol.Symbol {
-	interval := &symbol.Symbol{
-		Name: intervalSymbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Inputs:  types.Params{{Name: periodInputParam, Type: types.TimeSpan()}},
-		}),
-		Trigger:          symbol.TriggerOnly,
-		Doc:              intervalDoc,
-		AnalyzeArguments: rejectNonPositiveSpan(periodInputParam),
-	}
-	wait := &symbol.Symbol{
-		Name: waitSymbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Inputs:  types.Params{{Name: durationInputParam, Type: types.TimeSpan()}},
-		}),
-		Trigger:          symbol.TriggerOnly,
-		Doc:              waitDoc,
-		AnalyzeArguments: rejectNonPositiveSpan(durationInputParam),
-	}
+	interval := triggerSymbol(intervalSymbolName, periodInputParam, intervalDoc)
+	wait := triggerSymbol(waitSymbolName, durationInputParam, waitDoc)
 	now := &symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
@@ -151,6 +130,23 @@ func NewSymbols() []*symbol.Symbol {
 	return []*symbol.Symbol{mod, &intervalBare, &waitBare, &nowBare}
 }
 
+// triggerSymbol returns a flow function that takes one positive span input and
+// fires a u8 output.
+func triggerSymbol(symbolName, param string, d doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
+		Name: symbolName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: types.Function(types.FunctionProperties{
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			Inputs:  types.Params{{Name: param, Type: types.TimeSpan()}},
+		}),
+		Trigger:          symbol.TriggerOnly,
+		Doc:              d,
+		AnalyzeArguments: rejectNonPositiveSpan(param),
+	}
+}
+
 // rejectNonPositiveSpan returns an AnalyzeArguments hook that rejects a
 // literal non-positive span bound to the named param. Non-literal arguments
 // pass through; the runtime guard covers their live values.
@@ -185,7 +181,7 @@ func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 				span = -span
 			}
 			if span <= 0 {
-				diags.Add(diagnostics.Errorf(
+				diags.Add(acodes.FuncArgValue.Atf(
 					arg.AST, "%s must be positive, got %s", param, span,
 				))
 			}
@@ -395,8 +391,8 @@ func (i *interval) Next(ctx node.Context) {
 	ctx.SetDeadline(i.lastFired + period)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
-	output.Resize(1)
-	outputTime.Resize(1)
+	*output = output.Resized(1)
+	*outputTime = outputTime.Resized(1)
 	output.SetValueAt(0, uint8(1))
 	outputTime.SetValueAt(0, ctx.Now)
 	i.Emit(ctx, 0)
@@ -441,8 +437,8 @@ func (w *wait) Next(ctx node.Context) {
 	w.fired = true
 	output := w.Output(0)
 	outputTime := w.OutputTime(0)
-	output.Resize(1)
-	outputTime.Resize(1)
+	*output = output.Resized(1)
+	*outputTime = outputTime.Resized(1)
 	output.SetValueAt(0, uint8(1))
 	outputTime.SetValueAt(0, ctx.Now)
 	w.Emit(ctx, 0)
@@ -464,8 +460,8 @@ func (n *now) Next(ctx node.Context) {
 	ts := ctx.Now
 	output := n.Output(0)
 	outputTime := n.OutputTime(0)
-	output.Resize(1)
-	outputTime.Resize(1)
+	*output = output.Resized(1)
+	*outputTime = outputTime.Resized(1)
 	output.SetValueAt(0, ts)
 	outputTime.SetValueAt(0, ts)
 	n.Emit(ctx, 0)

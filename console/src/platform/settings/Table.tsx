@@ -59,13 +59,26 @@ export interface CreateContextValue {
 const CreateContext = createContext<CreateContextValue | null>(null);
 CreateContext.displayName = "Settings.Create";
 
-/** Returns the callbacks of the create item. Throws outside the create of a Table. */
+/** Returns the callbacks of the create item. Throws outside a create item. */
 export const useCreate = (): CreateContextValue => {
   const ctx = use(CreateContext);
-  if (ctx == null)
-    throw new Error("Settings.useCreate must be inside the create of a Table");
+  if (ctx == null) throw new Error("Settings.useCreate must be inside a create item");
   return ctx;
 };
+
+export interface CreateProviderProps extends CreateContextValue, PropsWithChildren {}
+
+/**
+ * Gives its children the callbacks of a create item, for a create item that a page
+ * draws in its list instead of at the top of the {@link Table}.
+ */
+export const CreateProvider = ({
+  close,
+  created,
+  children,
+}: CreateProviderProps): ReactElement => (
+  <CreateContext value={{ close, created }}>{children}</CreateContext>
+);
 
 export interface TableProps<K extends record.Key, E extends record.Keyed<K>> {
   list: TableData<K, E>;

@@ -27,9 +27,9 @@ import (
 
 // SplitGroupsMigration moves each device in a group whose chain does not top out at the
 // device's rack into a copy of that chain under the rack. It keeps only the first group
-// of a device and drops the device from its groups when its rack does not exist. It
-// then deletes each original group left with no devices, racks, or child groups. It
-// must run before MembersMigration.
+// of a device. It drops the device from its groups when its rack does not exist, and
+// stages a removal for each such group. It then deletes each original group left with
+// no devices, racks, or child groups. It must run before MembersMigration.
 var SplitGroupsMigration = migrate.New("v61_device_group_split", splitGroups)
 
 type rackCopy struct {
@@ -56,24 +56,70 @@ func splitGroups(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) er
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	byKey := make(map[string]groupv1.Group, len(groups))
-	for _, g := range groups {
-		byKey[g.Key.String()] = g
-	}
-	var devices []Device
-	if err = gorp.NewRetrieve[Key, Device]().Entries(&devices).
-		Exec(ctx, tx); err != nil {
+	racks, err := deviceRacks(ctx, tx)
+	if err != nil {
 		return err
+	}
+	existing, held, err := retrieveRacks(ctx, tx)
+	if err != nil {
+		return err
+	}
+	s := splitter{
+		byKey:     make(map[string]groupv1.Group, len(groups)),
+		copies:    make(map[rackCopy]groupv1.Key),
+		split:     set.New[string](),
+		remaining: make(map[string]int, len(edges)),
+	}
+	for _, g := range groups {
+		s.byKey[g.Key.String()] = g
+	}
+	s.regroup(edges, racks, existing, ins)
+	if len(s.removed) == 0 {
+		return nil
+	}
+	deleted := s.deleteEmptied(groups, held)
+	if err = gorp.WrapWriter[groupv1.Key, groupv1.Group](tx).
+		Set(ctx, s.created...); err != nil {
+		return err
+	}
+	if err = gorp.WrapWriter[groupv1.Key, groupv1.Group](tx).
+		Delete(ctx, deleted...); err != nil {
+		return err
+	}
+	if err = ontology.DeleteRelationships(ctx, tx, s.removed...); err != nil {
+		return err
+	}
+	if err = groupv1.StageRemovals(ctx, tx, s.rackless...); err != nil {
+		return err
+	}
+	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, s.replaced...)
+}
+
+// deviceRacks maps each stored device key to the key of its rack.
+func deviceRacks(ctx context.Context, tx gorp.Tx) (map[string]rack.Key, error) {
+	var devices []Device
+	if err := gorp.NewRetrieve[Key, Device]().Entries(&devices).
+		Exec(ctx, tx); err != nil {
+		return nil, err
 	}
 	racks := make(map[string]rack.Key, len(devices))
 	for _, d := range devices {
 		racks[d.Key] = d.Rack
 	}
+	return racks, nil
+}
+
+// retrieveRacks returns the keys of the stored racks and the keys of the groups that
+// they hold.
+func retrieveRacks(
+	ctx context.Context,
+	tx gorp.Tx,
+) (set.Set[rack.Key], set.Set[string], error) {
 	var rackRows []rackv3.Rack
-	if err = gorp.NewRetrieve[rackv3.Key, rackv3.Rack]().
+	if err := gorp.NewRetrieve[rackv3.Key, rackv3.Rack]().
 		Entries(&rackRows).
 		Exec(ctx, tx); err != nil {
-		return err
+		return nil, nil, err
 	}
 	var (
 		existing = set.New[rack.Key]()
@@ -85,78 +131,123 @@ func splitGroups(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) er
 			held.Add(r.Group.String())
 		}
 	}
-	var (
-		copies   = make(map[rackCopy]groupv1.Key)
-		created  []groupv1.Group
-		split    = set.New[string]()
-		grouped  = set.New[string]()
-		removed  []ontology.Relationship
-		replaced []ontology.Relationship
-	)
-	var copyChain func(g groupv1.Group, r rack.Key, visited set.Set[string]) groupv1.Key
-	copyChain = func(g groupv1.Group, r rack.Key, visited set.Set[string]) groupv1.Key {
-		if k, ok := copies[rackCopy{group: g.Key, rack: r}]; ok {
-			return k
-		}
-		visited.Add(g.Key.String())
-		split.Add(g.Key.String())
-		parent := r.ResourceID()
-		if g.Parent != nil && g.Parent.Type == resource.TypeGroup {
-			if p, ok := byKey[g.Parent.Key]; ok && !visited.Contains(g.Parent.Key) {
-				parent = groupID(copyChain(p, r, visited))
-			}
-		}
-		c := groupv1.Group{
-			Key:    uuid.New(),
-			Name:   g.Name,
-			Scope:  g.Scope,
-			Parent: &parent,
-		}
-		copies[rackCopy{group: g.Key, rack: r}] = c.Key
-		created = append(created, c)
-		return c.Key
-	}
-	remaining := make(map[string]int, len(edges))
-	remove := func(e ontology.Relationship) {
-		remaining[e.From.Key]--
-		removed = append(removed, e)
-	}
+	return existing, held, nil
+}
+
+// splitter holds the groups and edge changes of one splitGroups run.
+type splitter struct {
+	byKey   map[string]groupv1.Group
+	copies  map[rackCopy]groupv1.Key
+	created []groupv1.Group
+	// split holds the keys of the groups that were copied under a rack.
+	split set.Set[string]
+	// remaining counts the device edges that each group keeps.
+	remaining map[string]int
+	removed   []ontology.Relationship
+	replaced  []ontology.Relationship
+	rackless  []groupv1.Removal
+}
+
+// regroup moves each device edge to its group's copy under the device's rack, or drops
+// it when the device is already grouped or its rack does not exist.
+func (s *splitter) regroup(
+	edges []ontology.Relationship,
+	racks map[string]rack.Key,
+	existing set.Set[rack.Key],
+	ins alamos.Instrumentation,
+) {
+	grouped := set.New[string]()
 	for _, e := range edges {
-		remaining[e.From.Key]++
-		g, ok := byKey[e.From.Key]
+		s.remaining[e.From.Key]++
+		g, ok := s.byKey[e.From.Key]
 		r, found := racks[e.To.Key]
 		if !ok || !found || g.Scope != resource.TypeDevice {
 			continue
 		}
 		if grouped.Contains(e.To.Key) {
-			remove(e)
+			s.remove(e)
 			continue
 		}
 		grouped.Add(e.To.Key)
 		if !existing.Contains(r) {
-			ins.L.Warn(
-				"dropped a device from its group because its rack does not exist",
-				zap.Stringer("group", g.Key),
-				zap.String("group_name", g.Name),
-				zap.Stringer("device", e.To),
-			)
-			remove(e)
+			s.dropRackless(e, g, ins)
 			continue
 		}
-		if top, ok := groupv1.TopParent(g, byKey); ok && top == r.ResourceID() {
+		if top, ok := groupv1.TopParent(g, s.byKey); ok && top == r.ResourceID() {
 			continue
 		}
-		c := copyChain(g, r, set.New[string]())
-		remove(e)
-		replaced = append(replaced, ontology.Relationship{
+		c := s.copyChain(g, r, set.New[string]())
+		s.remove(e)
+		s.replaced = append(s.replaced, ontology.Relationship{
 			From: groupID(c),
 			Type: ontology.RelationshipTypeParentOf,
 			To:   e.To,
 		})
 	}
-	if len(removed) == 0 {
-		return nil
+}
+
+func (s *splitter) remove(e ontology.Relationship) {
+	s.remaining[e.From.Key]--
+	s.removed = append(s.removed, e)
+}
+
+func (s *splitter) dropRackless(
+	e ontology.Relationship,
+	g groupv1.Group,
+	ins alamos.Instrumentation,
+) {
+	ins.L.Warn(
+		"dropped a device from its group because its rack does not exist",
+		zap.Stringer("group", g.Key),
+		zap.String("group_name", g.Name),
+		zap.Stringer("device", e.To),
+	)
+	s.remove(e)
+	s.rackless = append(s.rackless, groupv1.Removal{
+		Group:     g.Key,
+		GroupName: g.Name,
+		Member:    e.To,
+		Reason:    groupv1.RemovedRackless,
+	})
+}
+
+// copyChain copies g and its parent groups under rack r, and returns the key of the
+// copy of g. A group already copied under r is reused. visited holds the groups of the
+// chain copied so far, so a parent cycle ends the chain.
+func (s *splitter) copyChain(
+	g groupv1.Group,
+	r rack.Key,
+	visited set.Set[string],
+) groupv1.Key {
+	if k, ok := s.copies[rackCopy{group: g.Key, rack: r}]; ok {
+		return k
 	}
+	visited.Add(g.Key.String())
+	s.split.Add(g.Key.String())
+	parent := r.ResourceID()
+	if g.Parent != nil && g.Parent.Type == resource.TypeGroup {
+		if p, ok := s.byKey[g.Parent.Key]; ok && !visited.Contains(g.Parent.Key) {
+			parent = groupID(s.copyChain(p, r, visited))
+		}
+	}
+	c := groupv1.Group{
+		Key:    uuid.New(),
+		Name:   g.Name,
+		Scope:  g.Scope,
+		Parent: &parent,
+	}
+	s.copies[rackCopy{group: g.Key, rack: r}] = c.Key
+	s.created = append(s.created, c)
+	return c.Key
+}
+
+// deleteEmptied returns the keys of the split groups left with no devices, child
+// groups, or rack. It repeats until a pass deletes nothing, since a deletion can empty
+// the parent.
+func (s *splitter) deleteEmptied(
+	groups []groupv1.Group,
+	held set.Set[string],
+) []groupv1.Key {
 	children := make(map[string]int, len(groups))
 	for _, g := range groups {
 		if g.Parent != nil && g.Parent.Type == resource.TypeGroup {
@@ -166,12 +257,12 @@ func splitGroups(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) er
 	var deleted []groupv1.Key
 	for emptied := true; emptied; {
 		emptied = false
-		for key := range split {
-			if remaining[key] > 0 || children[key] > 0 || held.Contains(key) {
+		for key := range s.split {
+			if s.remaining[key] > 0 || children[key] > 0 || held.Contains(key) {
 				continue
 			}
-			g := byKey[key]
-			split.Remove(key)
+			g := s.byKey[key]
+			s.split.Remove(key)
 			deleted = append(deleted, g.Key)
 			if g.Parent != nil && g.Parent.Type == resource.TypeGroup {
 				children[g.Parent.Key]--
@@ -179,18 +270,7 @@ func splitGroups(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) er
 			emptied = true
 		}
 	}
-	if err = gorp.WrapWriter[groupv1.Key, groupv1.Group](tx).
-		Set(ctx, created...); err != nil {
-		return err
-	}
-	if err = gorp.WrapWriter[groupv1.Key, groupv1.Group](tx).
-		Delete(ctx, deleted...); err != nil {
-		return err
-	}
-	if err = ontology.DeleteRelationships(ctx, tx, removed...); err != nil {
-		return err
-	}
-	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, replaced...)
+	return deleted
 }
 
 func groupID(k groupv1.Key) resource.ID {

@@ -36,7 +36,9 @@ func openDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB
 
 func mustOpenDBOnFS(ctx context.Context, fs fs.FS, opts ...cesium.Option) *cesium.DB {
 	GinkgoHelper()
-	return DeferClose(openDBOnFS(ctx, fs, opts...))
+	db := DeferClose(openDBOnFS(ctx, fs, opts...))
+	StartRun(db.Run)
+	return db
 }
 
 func channelKeyToPath(key cesium.ChannelKey) string { return strconv.Itoa(int(key)) }

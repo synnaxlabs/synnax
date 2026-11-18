@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { unique } from "@synnaxlabs/x";
+
 // The browser imports this file, so it must not import anything that reaches the
 // database.
 
@@ -25,7 +27,7 @@ export const parse = (text: string): string[] => {
   if (hashes.length === 0) throw new Error("Enter the machine's fingerprint");
   const bad = hashes.find((h) => !HASH.test(h));
   if (bad != null) throw new Error(`"${bad}" is not part of a fingerprint`);
-  return [...new Set(hashes)];
+  return unique.unique(hashes);
 };
 
 /**

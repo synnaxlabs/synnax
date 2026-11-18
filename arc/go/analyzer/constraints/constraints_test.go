@@ -233,20 +233,23 @@ var _ = Describe("Constraint System", func() {
 			Expect(result.Unit).To(Equal(unit))
 		})
 
-		It("should not override result unit when result already has unit", func() {
-			var (
-				unit1      = &types.Unit{Name: "psi", Scale: 1.0}
-				unit2      = &types.Unit{Name: "bar", Scale: 100000.0}
-				tv         = types.Variable("T", nil)
-				resultType = types.F32()
-			)
-			tv.Unit = unit1
-			resultType.Unit = unit2
-			system.Substitutions["T"] = resultType
-			result := system.ApplySubstitutions(tv)
-			Expect(result.Kind).To(Equal(types.KindF32))
-			Expect(result.Unit).To(Equal(unit2))
-		})
+		It(
+			"should keep the unit of the type variable over the unit of the result",
+			func() {
+				var (
+					unit1      = &types.Unit{Name: "psi", Scale: 1.0}
+					unit2      = &types.Unit{Name: "bar", Scale: 100000.0}
+					tv         = types.Variable("T", nil)
+					resultType = types.F32()
+				)
+				tv.Unit = unit1
+				resultType.Unit = unit2
+				system.Substitutions["T"] = resultType
+				result := system.ApplySubstitutions(tv)
+				Expect(result.Kind).To(Equal(types.KindF32))
+				Expect(result.Unit).To(Equal(unit1))
+			},
+		)
 	})
 
 	Describe("String", func() {
@@ -269,7 +272,7 @@ var _ = Describe("Constraint System", func() {
 			Expect(str).To(ContainSubstring("T2"))
 		})
 
-		It("should show resolved and unresolved type variables", func() {
+		It("should show resolved and unresolved type: type variables", func() {
 			var (
 				constraint = types.NumericConstraint()
 				tv1        = types.Variable("Resolved", &constraint)

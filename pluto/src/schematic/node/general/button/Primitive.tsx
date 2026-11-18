@@ -9,18 +9,17 @@
 
 import "@/schematic/node/general/button/button.css";
 
-import { schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { Button as Base } from "@synnaxlabs/lyra/button";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
+import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
-
-// Every button stores this default until a user picks a width, so it means no wrapping.
-const NO_WRAP_WIDTH = schematic.labelConfigZ.parse({}).maxInlineSize;
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 // A context menu swallows a secondary press's release, so momentary would stay pressed.
 const primaryOnly = (
@@ -33,10 +32,7 @@ const primaryOnly = (
       };
 
 interface ButtonProps extends Partial<
-  Pick<
-    schematic.ButtonNodeConfig,
-    "orientation" | "size" | "level" | "mode" | "onClickDelay"
-  >
+  Pick<schematic.ButtonNodeConfig, "orientation" | "size" | "mode" | "onClickDelay">
 > {
   label?: schematic.ButtonNodeConfig["label"];
   fillColor?: color.Crude;
@@ -53,17 +49,15 @@ export const Button = ({
   orientation = "left",
   label,
   fillColor,
-  size,
-  level,
+  size = "medium",
   mode = "fire",
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
   const symbolColor = color.rgbaString(fillColor);
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
-    textAlign: label?.align as CSSProperties["textAlign"],
-    maxInlineSize:
-      label?.maxInlineSize === NO_WRAP_WIDTH ? undefined : label?.maxInlineSize,
+    textAlign: label == null ? undefined : Label.TEXT_ALIGNS[label.align],
+    maxInlineSize: label?.maxInlineSize,
   };
   // The activation delay gates Base.Button's onClick, so single-shot actuation
   // (fire's release write, pulse's press write) routes through it. An undelayed
@@ -89,9 +83,9 @@ export const Button = ({
         style={style}
         {...handlers}
         size={size}
-        level={level}
+        level={SIZE_LEVELS[size]}
         direction={label?.direction}
-        onClickDelay={mode === "momentary" ? 0 : delay}
+        onClickDelay={mode === "momentary" ? 0 : new TimeSpan(delay ?? 0)}
       >
         {label?.label ?? ""}
       </Base.Button>

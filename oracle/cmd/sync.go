@@ -218,7 +218,7 @@ func syncOutputs(
 			rawHash := format.Hash(f.Content)
 			keep.Add(f.Path)
 
-			existing, err := os.ReadFile(absPath)
+			existing, err := paths.ReadFile(f.Path, repoRoot)
 			if err != nil && !os.IsNotExist(err) {
 				return nil, errors.Wrapf(err, "read existing %s", absPath)
 			}

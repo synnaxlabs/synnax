@@ -408,15 +408,15 @@ describe("Streamer", () => {
           channels: ch.key,
         });
         try {
-          const startTime = Date.now();
+          const start = TimeStamp.now();
           for (let i = 0; i < 10; i++) {
             await writer.write(ch.key, new Float64Array([i]));
             await sleep.sleep(TimeSpan.milliseconds(5));
           }
 
           const receivedFrames: framer.Frame[] = [];
-          const timeout = Date.now() + 500;
-          while (Date.now() < timeout)
+          const deadline = TimeStamp.now().add(TimeSpan.milliseconds(500));
+          while (TimeStamp.now().before(deadline))
             try {
               const frame = await Promise.race([
                 streamer.read(),
@@ -429,9 +429,8 @@ describe("Streamer", () => {
             }
 
           expect(receivedFrames.length).toBeGreaterThan(0);
-          const elapsed = Date.now() - startTime;
           // Should take at least the throttle period
-          expect(elapsed).toBeGreaterThanOrEqual(16); // ~1/60Hz
+          expect(TimeStamp.since(start).milliseconds).toBeGreaterThanOrEqual(16); // ~1/60Hz
         } finally {
           await writer.close();
           streamer.close();
@@ -973,7 +972,7 @@ describe("Streamer", () => {
         { breaker: { baseInterval: TimeSpan.milliseconds(30), jitter: 0 } },
       );
       const pending = hardened.read().catch((e: unknown) => e);
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await sleep.sleep(TimeSpan.milliseconds(150));
       // a hot loop would dial hundreds of times in this window
       expect(opens).toBeLessThan(6);
       hardened.close();
@@ -1000,13 +999,13 @@ describe("Streamer", () => {
       expect(await hardened.read()).toEqual(fr1);
       // drops, fails one reopen, then sleeps out the 60s backoff
       const pending = hardened.read().catch((e: unknown) => e);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const start = performance.now();
       hardened.close();
       expect(EOF.matches(await pending)).toBe(true);
       expect(performance.now() - start).toBeLessThan(1000);
       const settled = opens;
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleep.sleep(TimeSpan.milliseconds(50));
       expect(opens).toBe(settled);
     });
 
@@ -1038,7 +1037,7 @@ describe("Streamer", () => {
       // maxInterval also sets stableAfter, so a stream older than it counts as
       // healthy: the drop skips the pre-loop backoff and reaches the retry
       // loop's own, which still sleeps the full baseInterval on its first wait.
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       const pending = hardened.read().catch((e: unknown) => e);
       await expect.poll(() => opens).toBe(2);
       hardened.close();
@@ -1065,7 +1064,7 @@ describe("Streamer", () => {
       );
       expect(await hardened.read()).toEqual(fr1);
       const pending = hardened.read().catch((e: unknown) => e);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await sleep.sleep(TimeSpan.milliseconds(20));
       expect(() => hardened.close()).not.toThrow();
       expect(() => hardened.close()).not.toThrow();
       expect(EOF.matches(await pending)).toBe(true);
@@ -1628,10 +1627,10 @@ describe("update against a local server", () => {
   // Calls onAckRequest for each update that asks for an ack.
   const open = async (onAckRequest: (ws: WebSocket) => void) => {
     const { port } = server.address() as AddressInfo;
-    const ws = new WebSocketClient(
-      new url.URL({ host: "127.0.0.1", port }),
-      new binary.JSONCodec(),
-    );
+    const ws = new WebSocketClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: new binary.JSONCodec(),
+    });
     const codec = new binary.JSONCodec();
     void connected.then((sock) =>
       sock.on("message", (data: Buffer) => {

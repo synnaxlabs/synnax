@@ -164,9 +164,10 @@ class Task final : public task::Task {
             return err;
         }
 
-        // The start status waits for the streamer, so a client that waits for it can
-        // send commands at once.
+        // The start status and the runtime wait for the streamer. A client can then
+        // send commands at once, and the program reads its own first writes.
         void opened() override {
+            this->task.start_runtime();
             std::lock_guard lock(this->task.state_mu);
             if (this->task.opening) this->task.answer_pending_starts();
         }
@@ -188,6 +189,13 @@ class Task final : public task::Task {
         const std::shared_ptr<task::Context> &ctx
     ):
         state(ctx, task_meta) {}
+
+    /// @brief starts the runtime and the pipeline that writes its outputs.
+    /// @returns false if the runtime already runs.
+    bool start_runtime() {
+        if (!this->runtime->start()) return false;
+        return !this->acquisition || this->acquisition->start();
+    }
 
 public:
     static std::pair<std::unique_ptr<Task>, x::errors::Error> create(
@@ -279,11 +287,12 @@ public:
              fail](const ::arc::ir::Node &node, const x::errors::Error &err) {
                 const auto description = "The " + node.type +
                                          " node failed: " + err.data;
-                if (err.matches(::arc::runtime::errors::WARNING)) {
-                    std::lock_guard lock(task_ptr->state_mu);
-                    task_ptr->state.send_warning("Node failed", description);
-                } else
+                if (err.matches(::arc::runtime::errors::LOOP_BUDGET)) {
                     fail(x::errors::Error(err, description));
+                    return;
+                }
+                std::lock_guard lock(task_ptr->state_mu);
+                task_ptr->state.send_warning("Node failed", description);
             }
         );
         if (err) return {nullptr, err};
@@ -340,27 +349,35 @@ public:
     /// @brief starts the task. A task whose runtime is already running is not
     /// restarted: the command is answered with the current status.
     bool start(const std::string &cmd_key) {
-        if (!this->runtime->start()) {
-            std::lock_guard lock(this->state_mu);
-            if (this->opening)
-                this->pending_starts.push_back(cmd_key);
-            else
-                this->state.ack(cmd_key, true);
-            return false;
-        }
-        auto acq_started = true;
-        if (this->acquisition) acq_started = this->acquisition->start();
-        if (!this->control) {
-            std::lock_guard lock(this->state_mu);
-            this->state.send_start(cmd_key);
-            return acq_started;
-        }
         {
             std::lock_guard lock(this->state_mu);
-            this->opening = true;
-            this->pending_starts = {cmd_key};
+            if (this->opening) {
+                this->pending_starts.push_back(cmd_key);
+                return false;
+            }
+            if (this->runtime->running()) {
+                this->state.ack(cmd_key, true);
+                return false;
+            }
+            if (this->control) {
+                this->opening = true;
+                this->pending_starts = {cmd_key};
+            }
         }
-        return this->control->start() && acq_started;
+        if (this->control) {
+            if (this->control->start()) return true;
+            // The pipeline of a start that failed can still be on its way out.
+            std::lock_guard lock(this->state_mu);
+            for (const auto &key: this->pending_starts)
+                this->state.ack(key, false);
+            this->pending_starts.clear();
+            this->opening = false;
+            return false;
+        }
+        const auto started = this->start_runtime();
+        std::lock_guard lock(this->state_mu);
+        this->state.send_start(cmd_key);
+        return started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {

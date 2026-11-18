@@ -173,8 +173,8 @@ var _ = Describe("Breaker", func() {
 				waited <- b.Wait(ctx)
 			}
 		})
-		for _, interval := range []time.Duration{10, 20, 40, 80, 160} {
-			advanceTo(clock, waited, interval*time.Millisecond)
+		for _, ms := range []int{10, 20, 40, 80, 160} {
+			advanceTo(clock, waited, time.Duration(ms)*time.Millisecond)
 		}
 		wg.Wait()
 		Expect(clock.Now().Sub(start)).To(Equal(310 * time.Millisecond))
@@ -239,8 +239,8 @@ var _ = Describe("Breaker", func() {
 				waited <- b.Wait(ctx)
 			}
 		})
-		for _, interval := range []time.Duration{10, 20, 20, 20} {
-			advanceTo(clock, waited, interval*time.Millisecond)
+		for _, ms := range []int{10, 20, 20, 20} {
+			advanceTo(clock, waited, time.Duration(ms)*time.Millisecond)
 		}
 		wg.Wait()
 	})

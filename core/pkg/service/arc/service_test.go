@@ -145,16 +145,16 @@ var _ = Describe("CompileProgram", func() {
 })
 
 var _ = Describe("NewLSP", func() {
-	It("Should create an LSP server without error", func(ctx SpecContext) {
+	It("Should create an LSP server without error", func() {
 		server := MustSucceed(svc.NewLSP(lspConfig))
 		Expect(server).ToNot(BeNil())
 	})
 
 	DescribeTable(
 		"Should reject a config with a missing function",
-		func(clear func(*arc.LSPConfig), msg string) {
+		func(unset func(*arc.LSPConfig), msg string) {
 			cfg := lspConfig
-			clear(&cfg)
+			unset(&cfg)
 			Expect(svc.NewLSP(cfg)).Error().To(MatchError(msg))
 		},
 		Entry(
@@ -169,7 +169,7 @@ var _ = Describe("NewLSP", func() {
 		),
 	)
 
-	It("Should create multiple independent LSP servers", func(ctx SpecContext) {
+	It("Should create multiple independent LSP servers", func() {
 		server1 := MustSucceed(svc.NewLSP(lspConfig))
 		server2 := MustSucceed(svc.NewLSP(lspConfig))
 		Expect(server1).ToNot(BeIdenticalTo(server2))
@@ -444,8 +444,9 @@ var _ = Describe("NewRoot", func() {
 			To(Succeed())
 		root := svc.NewRoot(db, &channel.Lookups{})
 		Expect(root.Resolve(ctx, "new_root_ch_3")).To(HaveField("ID", int(ch.Key())))
-		Expect(root.Resolve(ctx, "new_root_ch")).Error().
-			To(BeAssignableToTypeOf(&symbol.UndefinedSymbolError{}))
+		_, err := root.Resolve(ctx, "new_root_ch")
+		var undefinedErr *symbol.UndefinedSymbolError
+		Expect(errors.As(err, &undefinedErr)).To(BeTrue(), err)
 	})
 })
 
@@ -492,7 +493,10 @@ var _ = Describe("Build", func() {
 		root *symbol.Symbol,
 		opts ...arclang.Option,
 	) (arclang.Program, error) {
-		src := a.Source.Variant.(arc.TextSource)
+		src, ok := a.Source.Variant.(arc.TextSource)
+		if !ok {
+			return arclang.Program{}, errors.Newf("source is a %T", a.Source.Variant)
+		}
 		return arclang.CompileText(ctx, src.Text.Materialize(), root, opts...)
 	}
 	// openService opens a second Service over the suite's DB that compiles with

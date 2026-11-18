@@ -681,3 +681,61 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 		),
 	)
 })
+
+var _ = Describe("EmitCast", func() {
+	var (
+		ns  = &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
+		ms  = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
+		s   = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+		h   = &types.Unit{Dimensions: types.DimTime, Scale: 3600e9, Name: "h"}
+		pa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
+		psi = &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
+	)
+	in := func(t types.Type, unit *types.Unit) types.Type {
+		t.Unit = unit
+		return t
+	}
+
+	DescribeTable("should cast a value to a type in another unit",
+		func(bCtx SpecContext, from, to types.Type, opcodes ...any) {
+			ctx := NewContext(bCtx)
+			Expect(expression.EmitCast(ctx, from, to)).To(Succeed())
+			Expect(FinalizeContext(ctx)).To(MatchOpcodes(opcodes...))
+		},
+		Entry("the same type", in(types.I64(), s), in(types.I64(), ms),
+			OpI64Const, int64(1000), OpI64Mul),
+		Entry("the same type in a larger unit",
+			in(types.I64(), ms), in(types.I64(), s),
+			OpI64Const, int64(1000), OpI64DivS),
+		Entry("a float in a larger unit", in(types.F64(), ms), in(types.F64(), s),
+			OpF64Const, float64(1e-3), OpF64Mul),
+		Entry("a 32-bit integer by a factor that fits",
+			in(types.I32(), s), in(types.I32(), ms),
+			OpI32Const, int32(1000), OpI32Mul),
+		Entry("a 32-bit integer by a factor that does not fit",
+			in(types.I32(), h), in(types.I32(), ns),
+			OpF64ConvertI32S, OpF64Const, float64(3600e9), OpF64Mul, OpI32TruncF64S),
+		Entry("an integer by a factor that is not whole",
+			in(types.I64(), psi), in(types.I64(), pa),
+			OpF64ConvertI64S, OpF64Const, float64(6894.76), OpF64Mul, OpI64TruncF64S),
+		Entry("a 32-bit float in a smaller unit",
+			in(types.F32(), s), in(types.F32(), ms),
+			OpF32Const, float32(1000), OpF32Mul),
+		Entry("a 32-bit integer to a 64-bit integer",
+			in(types.I32(), s), in(types.I64(), ms),
+			OpI64ExtendI32S, OpI64Const, int64(1000), OpI64Mul),
+		Entry("a 64-bit integer to a 32-bit integer",
+			in(types.I64(), ms), in(types.I32(), s),
+			OpI64Const, int64(1000), OpI64DivS, OpI32WrapI64),
+		Entry("an integer to a float", in(types.I32(), s), in(types.F64(), ms),
+			OpF64ConvertI32S, OpF64Const, float64(1000), OpF64Mul),
+		Entry("a float to an integer", in(types.F64(), s), in(types.I64(), ms),
+			OpF64Const, float64(1000), OpF64Mul, OpI64TruncF64S),
+		Entry("a 32-bit float to an integer", in(types.F32(), s), in(types.I32(), ms),
+			OpF32Const, float32(1000), OpF32Mul, OpI32TruncF32S),
+		Entry("the same unit", in(types.I32(), s), in(types.I64(), s),
+			OpI64ExtendI32S),
+		Entry("a type with no unit", in(types.I32(), s), types.I64(),
+			OpI64ExtendI32S),
+	)
+})

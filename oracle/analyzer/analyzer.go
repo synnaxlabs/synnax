@@ -10,7 +10,7 @@
 package analyzer
 
 import (
-	"context"
+	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -27,7 +27,6 @@ import (
 )
 
 type analysisCtx struct {
-	context.Context
 	fileDomains map[string]resolution.Domain
 	diag        *diagnostics.Files
 	table       *resolution.Table
@@ -53,7 +52,6 @@ type parsedRule interface {
 func (c *analysisCtx) report(d diagnostics.Diagnostic) { c.diag.Report(c.filePath, d) }
 
 func Analyze(
-	ctx context.Context,
 	files []string,
 	loader FileLoader,
 ) (*resolution.Table, *diagnostics.Files) {
@@ -78,7 +76,6 @@ func Analyze(
 			continue
 		}
 		c := &analysisCtx{
-			Context:     ctx,
 			diag:        diag,
 			table:       table,
 			loader:      loader,
@@ -96,6 +93,7 @@ func Analyze(
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
 	validatePatternRules(table, diag)
+	validateRuleRanges(table, diag)
 	return table, diag
 }
 
@@ -104,7 +102,6 @@ func Analyze(
 // versions, pinned dependency surfaces) and mark their import paths on the table so the
 // import walk does not re-load them.
 func AnalyzeSeeded(
-	ctx context.Context,
 	source, filePath, namespace string,
 	loader FileLoader,
 	table *resolution.Table,
@@ -116,7 +113,6 @@ func AnalyzeSeeded(
 		return diag
 	}
 	c := &analysisCtx{
-		Context:     ctx,
 		diag:        diag,
 		table:       table,
 		loader:      loader,
@@ -133,6 +129,7 @@ func AnalyzeSeeded(
 	validateDomainOmits(table, diag)
 	validateLengthRules(table, diag)
 	validatePatternRules(table, diag)
+	validateRuleRanges(table, diag)
 	return diag
 }
 
@@ -158,6 +155,39 @@ func defaultTokens(rules ...parsedRule) [][]antlr.Token {
 		out = append(out, toks)
 	}
 	return out
+}
+
+// UsedNamespaces returns the namespaces that a parsed file references, which are the
+// namespaces it must import.
+func UsedNamespaces(ast parser.ISchemaContext) set.Set[string] {
+	return usedNamespaces(ast, defaultTokens(ast))
+}
+
+// QualifiedNames returns each qualified name ("qualifier.member") that src references,
+// where src is any run of Oracle source, such as a declaration or one line of one.
+func QualifiedNames(src string) set.Set[string] {
+	lexer := parser.NewOracleLexer(antlr.NewInputStream(src))
+	lexer.RemoveErrorListeners()
+	var toks []antlr.Token
+	for {
+		t := lexer.NextToken()
+		if t.GetTokenType() == antlr.TokenEOF {
+			return usedQualifiedNames([][]antlr.Token{toks})
+		}
+		if t.GetChannel() == antlr.TokenDefaultChannel {
+			toks = append(toks, t)
+		}
+	}
+}
+
+// usedNamespaces returns the qualifiers that runs reference, plus the filter namespace
+// when ast declares a filter, whose bare lines read the filter schema's types.
+func usedNamespaces(ast parser.ISchemaContext, runs [][]antlr.Token) set.Set[string] {
+	used := usedQualifiers(runs)
+	if declaresFilter(ast) {
+		used.Add(resolution.FilterNamespace)
+	}
+	return used
 }
 
 // usedQualifiers collects the package qualifiers the token runs reference: every
@@ -206,10 +236,7 @@ type importUse struct {
 // declared file paths.
 func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	runs := defaultTokens(append([]parsedRule{c.ast}, c.copied...)...)
-	qualifiers := usedQualifiers(runs)
-	if declaresFilter(c.ast) {
-		qualifiers.Add(resolution.FilterNamespace)
-	}
+	qualifiers := usedNamespaces(c.ast, runs)
 	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
@@ -312,7 +339,6 @@ func analyze(c *analysisCtx) {
 			continue
 		}
 		ic := &analysisCtx{
-			Context:     c.Context,
 			diag:        c.diag,
 			table:       c.table,
 			loader:      c.loader,
@@ -503,8 +529,8 @@ func finalizeEnumExtensions(c *analysisCtx) {
 	}
 }
 
-// addTypeDiag records an error diagnostic attributed to the file that declares typ.
-func addTypeDiag(c *analysisCtx, typ resolution.Type, format string, args ...any) {
+// addTypeDiagf records an error diagnostic attributed to the file that declares typ.
+func addTypeDiagf(c *analysisCtx, typ resolution.Type, format string, args ...any) {
 	d := diagnostics.Errorf(nil, format, args...)
 	c.diag.Report(typ.FilePath, d)
 }
@@ -522,7 +548,7 @@ func effectiveEnumValues(
 		return nil, false, false
 	}
 	if visited.Contains(typ.QualifiedName) {
-		addTypeDiag(c, typ, "enum %s has a cyclic extends chain", typ.QualifiedName)
+		addTypeDiagf(c, typ, "enum %s has a cyclic extends chain", typ.QualifiedName)
 		return nil, false, false
 	}
 	visited.Add(typ.QualifiedName)
@@ -536,7 +562,7 @@ func effectiveEnumValues(
 	add := func(parentName string, v resolution.EnumValue) bool {
 		if existing, dup := byName[v.Name]; dup {
 			if existing.Value != v.Value {
-				addTypeDiag(
+				addTypeDiagf(
 					c,
 					typ,
 					"enum %s inherits member %q with conflicting values from %s",
@@ -556,7 +582,7 @@ func effectiveEnumValues(
 	for i := range form.Extends {
 		parent, _, ok := resolution.Dealias(form.Extends[i], c.table)
 		if !ok {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"enum %s extends unknown enum %q",
@@ -566,7 +592,7 @@ func effectiveEnumValues(
 			return nil, false, false
 		}
 		if _, ok := parent.Form.(resolution.EnumForm); !ok {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"enum %s extends %s, which is not an enum",
@@ -583,7 +609,7 @@ func effectiveEnumValues(
 			return nil, false, false
 		}
 		if kindSet && pInt != isInt {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"enum %s extends enums of mixed integer and string kinds",
@@ -599,7 +625,7 @@ func effectiveEnumValues(
 		}
 	}
 	if kindSet && len(form.Values) > 0 && form.IsIntEnum != isInt {
-		addTypeDiag(
+		addTypeDiagf(
 			c,
 			typ,
 			"enum %s adds members of a different kind than the enums it extends",
@@ -673,7 +699,7 @@ func effectiveUnionVariants(
 		return nil, false
 	}
 	if visited.Contains(typ.QualifiedName) {
-		addTypeDiag(c, typ, "union %s has a cyclic extends chain", typ.QualifiedName)
+		addTypeDiagf(c, typ, "union %s has a cyclic extends chain", typ.QualifiedName)
 		return nil, false
 	}
 	visited.Add(typ.QualifiedName)
@@ -683,7 +709,7 @@ func effectiveUnionVariants(
 	add := func(parentName string, v resolution.UnionVariant) bool {
 		if existing, dup := byName[v.Name]; dup {
 			if existing.Type.Name != v.Type.Name {
-				addTypeDiag(
+				addTypeDiagf(
 					c,
 					typ,
 					"union %s inherits variant %q with conflicting payload types from %s (%s vs %s)",
@@ -705,13 +731,13 @@ func effectiveUnionVariants(
 	for i := range form.Extends {
 		parent, _, ok := resolution.Dealias(form.Extends[i], c.table)
 		if !ok {
-			addTypeDiag(c, typ, "union %s extends unresolved type: %s",
+			addTypeDiagf(c, typ, "union %s extends unresolved type: %s",
 				typ.QualifiedName, form.Extends[i].Name)
 			return nil, false
 		}
 		pform, isUnion := parent.Form.(resolution.UnionForm)
 		if !isUnion {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"union %s cannot mix struct and union bases in extends; %s is not a union",
@@ -721,7 +747,7 @@ func effectiveUnionVariants(
 			return nil, false
 		}
 		if pform.Discriminator != form.Discriminator {
-			addTypeDiag(
+			addTypeDiagf(
 				c,
 				typ,
 				"union %s extends union %s with a different discriminator (%q vs %q)",
@@ -735,7 +761,7 @@ func effectiveUnionVariants(
 		pVars := pform.Variants
 		if len(pform.Extends) > 0 {
 			if !hasUnionBases(pform, c.table) {
-				addTypeDiag(c, typ,
+				addTypeDiagf(c, typ,
 					"union %s cannot extend union %s, which extends base structs",
 					typ.QualifiedName, parent.QualifiedName)
 				return nil, false
@@ -782,18 +808,44 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	if !ok {
 		return
 	}
+	domains := mergeDomains(c.fileDomains, decl.domains)
+	checkRetrieveNoun(c, def, domains)
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
 		QualifiedName: qname,
 		FilePath:      c.filePath,
 		Form:          decl.form,
-		Domains:       mergeDomains(c.fileDomains, decl.domains),
+		Domains:       domains,
 		AST:           def,
 	}))
 	if len(decl.removed) > 0 {
 		c.removals = append(c.removals, removal{typ: qname, fields: decl.removed})
 	}
+}
+
+// checkRetrieveNoun reports a `@retrieve noun` in domains that is not one string of
+// lowercase words, each one space apart.
+func checkRetrieveNoun(
+	c *analysisCtx, def antlr.ParserRuleContext, domains map[string]resolution.Domain,
+) {
+	expr, ok := domains["retrieve"].Expressions.Find("noun")
+	if !ok {
+		return
+	}
+	if len(expr.Values) == 1 && expr.Values[0].Kind == resolution.ValueKindString &&
+		lo.EveryBy(strings.Split(expr.Values[0].StringValue, " "), isLowerWord) {
+		return
+	}
+	c.report(diagnostics.Errorf(
+		def, "@retrieve noun takes one string of lowercase words, such as \"color\"",
+	))
+}
+
+func isLowerWord(w string) bool {
+	return w != "" && strings.IndexFunc(w, func(r rune) bool {
+		return r < 'a' || r > 'z'
+	}) == -1
 }
 
 // structDecl is a struct declaration collected but not yet registered. Its domains
@@ -842,7 +894,7 @@ func collectStructDecl(
 			)
 		}
 		for _, d := range body.AllDomain() {
-			addDomain(decl.domains, collectDomain(c, d))
+			addBodyDomain(c, decl.domains, collectDomain(c, d))
 		}
 	}
 	return copyStruct(c, def, decl, below)
@@ -855,6 +907,25 @@ func addDomain(domains map[string]resolution.Domain, d resolution.Domain) {
 	} else {
 		domains[d.Name] = d
 	}
+}
+
+// addBodyDomain adds d to the domains of a declaration body. Merging keeps one
+// expression per name, so a second @pb reserved fails instead of replacing the first.
+func addBodyDomain(
+	c *analysisCtx,
+	domains map[string]resolution.Domain,
+	d resolution.Domain,
+) {
+	if existing, ok := domains[d.Name]; ok && d.Name == "pb" {
+		_, had := existing.Expressions.Find("reserved")
+		if e, has := d.Expressions.Find("reserved"); had && has {
+			c.report(diagnostics.Errorf(
+				e.AST,
+				"repeated @pb reserved: list every number on one line",
+			))
+		}
+	}
+	addDomain(domains, d)
 }
 
 // mergeDomains returns child merged over parent. A domain in both takes child's
@@ -1027,7 +1098,10 @@ func collectTypeRef(
 		return collectMapTypeRef(mapCtx, typeParams)
 	}
 
-	normalCtx := tr.(*parser.TypeRefNormalContext)
+	normalCtx, ok := tr.(*parser.TypeRefNormalContext)
+	if !ok {
+		panic(fmt.Sprintf("type reference is a %T", tr))
+	}
 	rawType := extractTypeNormal(normalCtx)
 
 	ref := resolution.TypeRef{Name: rawType}
@@ -1390,6 +1464,7 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	form.Extends = decl.extends
 	form.Actions = decl.actions
 	domains := mergeDomains(c.fileDomains, decl.domains)
+	checkRetrieveNoun(c, def, domains)
 	for _, v := range decl.variants {
 		form.Variants = append(form.Variants, registerVariant(c, name, domains, v))
 	}
@@ -1512,8 +1587,7 @@ func collectInlineVariantDecl(
 			c.report(d)
 		}
 		for _, d := range body.AllDomain() {
-			de := collectDomain(c, d)
-			decl.variant.Domains[de.Name] = de
+			addBodyDomain(c, decl.variant.Domains, collectDomain(c, d))
 		}
 	}
 	return decl
@@ -1550,6 +1624,11 @@ func registerVariant(
 	domains := make(map[string]resolution.Domain)
 	maps.Copy(domains, c.fileDomains)
 	inheritOmits(domains, unionDomains)
+	// Protobuf emits the payload as its own message, so the variant's @pb applies to
+	// it.
+	if pb, ok := variant.Domains["pb"]; ok {
+		domains["pb"] = pb.Merge(domains["pb"])
+	}
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
@@ -2603,11 +2682,12 @@ func dedent(s string) string {
 
 	var result []string
 	for _, line := range lines {
-		if len(strings.TrimSpace(line)) == 0 {
+		switch {
+		case len(strings.TrimSpace(line)) == 0:
 			result = append(result, "")
-		} else if len(line) >= minIndent {
+		case len(line) >= minIndent:
 			result = append(result, line[minIndent:])
-		} else {
+		default:
 			result = append(result, line)
 		}
 	}

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import itertools
+from dataclasses import dataclass
 
 import synnax as sy
 from framework.utils import create_virtual_channels
@@ -344,6 +345,194 @@ sequence alias_literal_main {
     2 -> lit_alias
 }
 
+// ──────────── falsy values written to an alias and a literal ────────────
+vars_start => falsy_seq_alias_u8_main
+vars_start => falsy_seq_alias_bool_main
+vars_start => falsy_seq_alias_str_main
+vars_start => falsy_seq_assign_u8_main
+vars_start => falsy_seq_assign_bool_main
+vars_start => falsy_seq_assign_str_main
+vars_start => falsy_seq_flow_u8_main
+vars_start => falsy_seq_flow_bool_main
+vars_start => falsy_seq_flow_str_main
+vars_start => falsy_seq_copy_u8_main
+vars_start => falsy_seq_copy_bool_main
+vars_start => falsy_seq_copy_str_main
+vars_start => falsy_stg_main
+
+sequence falsy_seq_alias_u8_main {
+    falsy_seq_alias_u8_v := falsy_seq_alias_u8
+    1 -> falsy_seq_alias_u8_v
+    stage { falsy_go => next }
+    0 -> falsy_seq_alias_u8_v
+    1 -> falsy_seq_alias_u8_done
+}
+
+sequence falsy_seq_alias_bool_main {
+    falsy_seq_alias_bool_v := falsy_seq_alias_bool
+    true -> falsy_seq_alias_bool_v
+    stage { falsy_go => next }
+    false -> falsy_seq_alias_bool_v
+    1 -> falsy_seq_alias_bool_done
+}
+
+sequence falsy_seq_alias_str_main {
+    falsy_seq_alias_str_v := falsy_seq_alias_str
+    "x" -> falsy_seq_alias_str_v
+    stage { falsy_go => next }
+    "" -> falsy_seq_alias_str_v
+    1 -> falsy_seq_alias_str_done
+}
+
+sequence falsy_seq_assign_u8_main {
+    falsy_seq_assign_u8_v u8 := 1
+    falsy_seq_assign_u8_v -> falsy_seq_assign_u8
+    stage { falsy_go => next }
+    falsy_seq_assign_u8_v = 0
+    falsy_seq_assign_u8_v -> falsy_seq_assign_u8
+}
+
+sequence falsy_seq_assign_bool_main {
+    falsy_seq_assign_bool_v bool := true
+    falsy_seq_assign_bool_v -> falsy_seq_assign_bool
+    stage { falsy_go => next }
+    falsy_seq_assign_bool_v = false
+    falsy_seq_assign_bool_v -> falsy_seq_assign_bool
+}
+
+sequence falsy_seq_assign_str_main {
+    falsy_seq_assign_str_v str := "x"
+    falsy_seq_assign_str_v -> falsy_seq_assign_str
+    stage { falsy_go => next }
+    falsy_seq_assign_str_v = ""
+    falsy_seq_assign_str_v -> falsy_seq_assign_str
+}
+
+sequence falsy_seq_flow_u8_main {
+    falsy_seq_flow_u8_v u8 := 1
+    falsy_seq_flow_u8_v -> falsy_seq_flow_u8
+    stage { falsy_go => next }
+    0 -> falsy_seq_flow_u8_v
+    falsy_seq_flow_u8_v -> falsy_seq_flow_u8
+}
+
+sequence falsy_seq_flow_bool_main {
+    falsy_seq_flow_bool_v bool := true
+    falsy_seq_flow_bool_v -> falsy_seq_flow_bool
+    stage { falsy_go => next }
+    false -> falsy_seq_flow_bool_v
+    falsy_seq_flow_bool_v -> falsy_seq_flow_bool
+}
+
+sequence falsy_seq_flow_str_main {
+    falsy_seq_flow_str_v str := "x"
+    falsy_seq_flow_str_v -> falsy_seq_flow_str
+    stage { falsy_go => next }
+    "" -> falsy_seq_flow_str_v
+    falsy_seq_flow_str_v -> falsy_seq_flow_str
+}
+
+sequence falsy_seq_copy_u8_main {
+    falsy_seq_copy_u8_src u8 := 1
+    falsy_seq_copy_u8_v u8 := 1
+    falsy_seq_copy_u8_v -> falsy_seq_copy_u8
+    stage { falsy_go => next }
+    falsy_seq_copy_u8_src = 0
+    falsy_seq_copy_u8_src -> falsy_seq_copy_u8_v
+    falsy_seq_copy_u8_v -> falsy_seq_copy_u8
+}
+
+sequence falsy_seq_copy_bool_main {
+    falsy_seq_copy_bool_src bool := true
+    falsy_seq_copy_bool_v bool := true
+    falsy_seq_copy_bool_v -> falsy_seq_copy_bool
+    stage { falsy_go => next }
+    falsy_seq_copy_bool_src = false
+    falsy_seq_copy_bool_src -> falsy_seq_copy_bool_v
+    falsy_seq_copy_bool_v -> falsy_seq_copy_bool
+}
+
+sequence falsy_seq_copy_str_main {
+    falsy_seq_copy_str_src str := "x"
+    falsy_seq_copy_str_v str := "x"
+    falsy_seq_copy_str_v -> falsy_seq_copy_str
+    stage { falsy_go => next }
+    falsy_seq_copy_str_src = ""
+    falsy_seq_copy_str_src -> falsy_seq_copy_str_v
+    falsy_seq_copy_str_v -> falsy_seq_copy_str
+}
+
+sequence falsy_stg_main {
+    falsy_stg_alias_u8_v := falsy_stg_alias_u8
+    falsy_stg_alias_bool_v := falsy_stg_alias_bool
+    falsy_stg_alias_str_v := falsy_stg_alias_str
+    falsy_stg_assign_u8_v u8 := 1
+    falsy_stg_assign_bool_v bool := true
+    falsy_stg_assign_str_v str := "x"
+    falsy_stg_flow_u8_v u8 := 1
+    falsy_stg_flow_bool_v bool := true
+    falsy_stg_flow_str_v str := "x"
+    falsy_stg_copy_u8_src u8 := 1
+    falsy_stg_copy_u8_v u8 := 1
+    falsy_stg_copy_bool_src bool := true
+    falsy_stg_copy_bool_v bool := true
+    falsy_stg_copy_str_src str := "x"
+    falsy_stg_copy_str_v str := "x"
+
+    stage falsy_stg_before {
+        1 -> falsy_stg_alias_u8_v
+        true -> falsy_stg_alias_bool_v
+        "x" -> falsy_stg_alias_str_v
+        falsy_stg_assign_u8_v -> falsy_stg_assign_u8
+        falsy_stg_assign_bool_v -> falsy_stg_assign_bool
+        falsy_stg_assign_str_v -> falsy_stg_assign_str
+        falsy_stg_flow_u8_v -> falsy_stg_flow_u8
+        falsy_stg_flow_bool_v -> falsy_stg_flow_bool
+        falsy_stg_flow_str_v -> falsy_stg_flow_str
+        falsy_stg_copy_u8_v -> falsy_stg_copy_u8
+        falsy_stg_copy_bool_v -> falsy_stg_copy_bool
+        falsy_stg_copy_str_v -> falsy_stg_copy_str
+        falsy_go => next
+    }
+    stage falsy_stg_after {
+        0 -> falsy_stg_alias_u8_v
+        false -> falsy_stg_alias_bool_v
+        "" -> falsy_stg_alias_str_v
+        falsy_stg_assign_u8_v = 0
+        falsy_stg_assign_bool_v = false
+        falsy_stg_assign_str_v = ""
+        0 -> falsy_stg_flow_u8_v
+        false -> falsy_stg_flow_bool_v
+        "" -> falsy_stg_flow_str_v
+        falsy_stg_copy_u8_src = 0
+        falsy_stg_copy_bool_src = false
+        falsy_stg_copy_str_src = ""
+        falsy_stg_copy_u8_src -> falsy_stg_copy_u8_v
+        falsy_stg_copy_bool_src -> falsy_stg_copy_bool_v
+        falsy_stg_copy_str_src -> falsy_stg_copy_str_v
+        falsy_stg_assign_u8_v -> falsy_stg_assign_u8
+        falsy_stg_assign_bool_v -> falsy_stg_assign_bool
+        falsy_stg_assign_str_v -> falsy_stg_assign_str
+        falsy_stg_flow_u8_v -> falsy_stg_flow_u8
+        falsy_stg_flow_bool_v -> falsy_stg_flow_bool
+        falsy_stg_flow_str_v -> falsy_stg_flow_str
+        falsy_stg_copy_u8_v -> falsy_stg_copy_u8
+        falsy_stg_copy_bool_v -> falsy_stg_copy_bool
+        falsy_stg_copy_str_v -> falsy_stg_copy_str
+    }
+}
+
+// ─────────────────── conditional write to a variable ────────────────────
+vars_start => cond_write_main
+cond_write_src -> cond_write_seen
+
+sequence cond_write_main {
+    cond_write_v u8 := 1
+    1 -> cond_write_ready
+    cond_write_src => cond_write_v
+    cond_write_v -> cond_write_out
+}
+
 // ──────────────────────── computed initializers ─────────────────────────
 top_computed i64 := 2 + 3
 vars_start => toplevel_computed_reader
@@ -357,7 +546,7 @@ func pass_through(v i64) {n u8} i64 {
     return v
 }
 
-func stamp(t i64 ns) {n u8} i64 {
+func stamp(t i64 ns) {n u8} i64 ns {
     return t
 }
 
@@ -495,6 +684,43 @@ ALIAS_LITERAL_OUTPUTS = [
     "alias_lit_a",
     "alias_lit_b",
 ]
+FALSY_SINKS = [
+    "seq_alias",
+    "seq_assign",
+    "seq_flow",
+    "seq_copy",
+    "stg_alias",
+    "stg_assign",
+    "stg_flow",
+    "stg_copy",
+]
+
+
+@dataclass
+class FalsyCase:
+    type: str
+    data_type: sy.DataType
+    truthy: int | str
+    falsy: int | str
+
+
+FALSY_CASES = [
+    FalsyCase("u8", sy.DataType.UINT8, 1, 0),
+    FalsyCase("bool", sy.DataType.BOOLEAN, 1, 0),
+    FalsyCase("str", sy.DataType.STRING, "x", ""),
+]
+FALSY_DONE = [f"falsy_seq_alias_{case.type}_done" for case in FALSY_CASES]
+FALSY_CHANNELS = [
+    (f"falsy_{sink}_{case.type}", case.data_type)
+    for case in FALSY_CASES
+    for sink in FALSY_SINKS
+]
+FALSY_OUTPUTS = [name for name, _ in FALSY_CHANNELS] + FALSY_DONE
+COND_WRITE_OUTPUTS = [
+    "cond_write_ready",
+    "cond_write_seen",
+    "cond_write_out",
+]
 COMPUTED_OUTPUTS = [
     "computed_top_out",
     "computed_entry_out",
@@ -523,6 +749,8 @@ OUTPUTS = (
     + REEXPR_OUTPUTS
     + INPUT_OUTPUTS
     + ALIAS_LITERAL_OUTPUTS
+    + FALSY_OUTPUTS
+    + COND_WRITE_OUTPUTS
     + COMPUTED_OUTPUTS
 )
 
@@ -623,6 +851,11 @@ U8_CHANNELS = [
     "alias_fire",
     "alias_lit_a",
     "alias_lit_b",
+    "falsy_go",
+    "cond_write_src",
+    "cond_write_ready",
+    "cond_write_seen",
+    "cond_write_out",
     "computed_fire",
     "computed_now_fire",
     "computed_to_second",
@@ -649,6 +882,8 @@ CHANNELS: list[tuple[str, sy.DataType]] = (
     + [(name, sy.DataType.INT64) for name in I64_CHANNELS]
     + [(name, sy.DataType.STRING) for name in STR_CHANNELS]
     + [(name, sy.DataType.BOOLEAN) for name in BOOL_CHANNELS]
+    + [(name, sy.DataType.UINT8) for name in FALSY_DONE]
+    + FALSY_CHANNELS
 )
 
 
@@ -683,6 +918,8 @@ class Variables(ArcCase):
         self._verify_value_inputs()
         self._verify_alias_inputs()
         self._verify_alias_literal()
+        self._verify_falsy_writes()
+        self._verify_conditional_write()
         self._verify_computed()
         self._verify_stage_stamps()
 
@@ -875,6 +1112,26 @@ class Variables(ArcCase):
         self.log("=== literals written to a channel alias ===")
         self.wait_for_eq("alias_lit_a", 1)
         self.wait_for_eq("alias_lit_b", 2)
+
+    def _verify_falsy_writes(self) -> None:
+        self.log("=== falsy values written to an alias and a literal ===")
+        for case in FALSY_CASES:
+            for sink in FALSY_SINKS:
+                self.wait_for_eq(f"falsy_{sink}_{case.type}", case.truthy)
+        self.writer.write("falsy_go", 1)
+        for case in FALSY_CASES:
+            for sink in FALSY_SINKS:
+                self.wait_for_eq(f"falsy_{sink}_{case.type}", case.falsy)
+        for done in FALSY_DONE:
+            self.wait_for_eq(done, 1)
+
+    def _verify_conditional_write(self) -> None:
+        self.log("=== conditional write to a variable ===")
+        self.wait_for_eq("cond_write_ready", 1)
+        self.writer.write("cond_write_src", 0)
+        self.wait_for_eq("cond_write_seen", 0)
+        self.writer.write("cond_write_src", 7)
+        self.wait_for_eq("cond_write_out", 7)
 
     def _verify_stage_stamps(self) -> None:
         self.log("=== stateful stamps on stage entry ===")

@@ -16,6 +16,23 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("MustForm", func() {
+	typ := resolution.Type{
+		QualifiedName: "rack.Rack",
+		Form:          resolution.StructForm{IsRecursive: true},
+	}
+
+	It("Should return the form when it has the requested type", func() {
+		Expect(resolution.MustForm[resolution.StructForm](typ).IsRecursive).
+			To(BeTrue())
+	})
+
+	It("Should panic with the type name when the form has another type", func() {
+		Expect(func() { resolution.MustForm[resolution.EnumForm](typ) }).
+			To(PanicWith(ContainSubstring("rack.Rack is a resolution.StructForm")))
+	})
+})
+
 var _ = Describe("RetrieveKey", func() {
 	withKey := func(name string) resolution.Type {
 		return resolution.Type{
@@ -46,6 +63,36 @@ var _ = Describe("RetrieveKey", func() {
 	It("Should keep a qualified name as written", func() {
 		Expect(MustBeOk(resolution.RetrieveKey(withKey("channel.Key")))).
 			To(Equal(resolution.TypeRef{Name: "channel.Key"}))
+	})
+})
+
+var _ = Describe("RetrieveNoun", func() {
+	withNoun := func(values ...resolution.ExpressionValue) resolution.Type {
+		return resolution.Type{
+			Domains: map[string]resolution.Domain{"retrieve": {
+				Name: "retrieve",
+				Expressions: resolution.Expressions{
+					{Name: "noun", Values: values},
+				},
+			}},
+		}
+	}
+
+	It("Should return the declared noun", func() {
+		Expect(MustBeOk(resolution.RetrieveNoun(withNoun(resolution.ExpressionValue{
+			Kind:        resolution.ValueKindString,
+			StringValue: "named color",
+		})))).To(Equal("named color"))
+	})
+
+	It("Should return false for a type with no @retrieve noun", func() {
+		_, ok := resolution.RetrieveNoun(resolution.Type{})
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should return false for a noun with no value", func() {
+		_, ok := resolution.RetrieveNoun(withNoun())
+		Expect(ok).To(BeFalse())
 	})
 })
 

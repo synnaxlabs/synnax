@@ -189,7 +189,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/frame/read",
 			http.WithResponseEncoders(
-				framer.NewFrameEncoder(ctx),
+				framer.NewFrameEncoder(ctx, layer.Errors()),
 				csvEncoder,
 				framer.NewTDMSEncoder(ctx),
 			),
@@ -476,11 +476,15 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 		ColorDelete: unary[color.DeleteRequest, struct{}](
 			router,
-			"/api/v1/color/delete",
+			"/api/v1"+api.PathColorDelete,
 		),
 		ColorDispatch: unary[color.DispatchRequest, struct{}](
 			router,
 			"/api/v1"+api.PathColorDispatch,
+		),
+		ColorRetrieveBuiltins: unary[struct{}, color.RetrieveBuiltinsResponse](
+			router,
+			"/api/v1/color/retrieve-builtins",
 		),
 
 		// RACK

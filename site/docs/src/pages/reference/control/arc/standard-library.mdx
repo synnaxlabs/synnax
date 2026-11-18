@@ -54,7 +54,7 @@ tank_pt -> write(channel=tank_pt_copy)
 ```
 
 `on` and `write` cannot be in the same flow. The compiler cannot find a type for them
-and stops with `on_0_T: unresolved type variable: constraints`.
+and stops with `unresolved type: type variable: constraints (on_0_T)`.
 
 The comparison functions take two numeric values, `a` and `b`, of the same type, and
 give a `bool`. A flow value fills the trigger `a`, and `()` sets `b`. In this example,
@@ -73,5 +73,5 @@ operators.
 
 The names `avg`, `min`, `max`, `derivative`, `interval`, `wait`, `now`, `set_authority`,
 and `stable_for` without a module still compile, with warning
-[ARC4003](/reference/control/arc/reference/errors#diagnostic-codes). Use the qualified
-names, such as `math.avg` and `stable.for`.
+[W4001](/reference/control/arc/reference/errors#w4001). Use the qualified names, such as
+`math.avg` and `stable.for`.

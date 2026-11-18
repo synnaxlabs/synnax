@@ -22,10 +22,11 @@ import {
 } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
 import { channels, MAX_LABEL_LENGTH, term } from "@/server/license/limits";
+import { statusOf } from "@/server/license/status";
 import { activatePath } from "@/shell";
 import { post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
-import { type Clock, describeEvent, edition, machineName, statusOf } from "@/ui/format";
+import { type Clock, describeEvent, edition, machineName } from "@/ui/format";
 import { MachineMenu } from "@/ui/licenses/MachineMenu";
 import { StaffActions } from "@/ui/licenses/StaffActions";
 import { StatusTag } from "@/ui/licenses/StatusTag";

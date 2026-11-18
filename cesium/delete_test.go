@@ -219,7 +219,6 @@ var _ = Describe("Delete", func() {
 								By("Opening a streamer on the channel")
 								s := MustSucceed(
 									db.NewStreamer(
-										ctx,
 										cesium.StreamerConfig{
 											Channels: []cesium.ChannelKey{vChannelKey},
 										},
@@ -249,7 +248,6 @@ var _ = Describe("Delete", func() {
 								By("Opening a streamer on the channel")
 								s := MustSucceed(
 									db.NewStreamer(
-										ctx,
 										cesium.StreamerConfig{
 											Channels: []cesium.ChannelKey{uChannelKey},
 										},
@@ -1615,7 +1613,8 @@ var _ = Describe("Background removal", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		fsys = WrapFaultyFS(FileSystems["memFS"]())
-		db = mustOpenDBOnFS(ctx, fsys)
+		// Each spec closes db itself, so db does not run.
+		db = DeferClose(openDBOnFS(ctx, fsys))
 		key = GenerateChannelKey()
 		Expect(db.CreateChannel(ctx, cesium.Channel{
 			Key:      key,

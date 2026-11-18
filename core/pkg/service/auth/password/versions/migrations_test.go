@@ -48,6 +48,7 @@ var _ = Describe("MoveLegacy", func() {
 	BeforeEach(func(ctx SpecContext) {
 		kvDB := DeferClose(memkv.New())
 		db = gorp.Wrap(kvDB)
+		StartRun(db.Run)
 		users = []userv0.User{
 			{Key: uuid.New(), Username: "alice"},
 			{Key: uuid.New(), Username: "bob"},

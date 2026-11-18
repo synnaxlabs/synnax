@@ -210,9 +210,8 @@ private:
 struct Config {
     /// @brief whether the slave joins cyclic exchange.
     bool enabled = true;
-    /// @brief the mode the user chose. With nullopt, the SOEM master runs the mode that
-    /// Properties::catalog_op_mode gives, else the one that dc::select picks, and the
-    /// IgH master sets up no DC sync.
+    /// @brief the mode the user chose. With nullopt, the master runs the mode that
+    /// Properties::catalog_op_mode gives, else the one that dc::select picks.
     std::optional<dc::Choice> op_mode;
     /// @brief CoE objects written to the slave before each move to SAFE-OP, unless
     /// another program sets up the slave.
@@ -251,7 +250,7 @@ struct Properties {
     /// @brief revision number for hardware/firmware versioning.
     uint32_t revision{};
     /// @brief serial number of the device (if available).
-    uint32_t serial{};
+    uint64_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
     /// @brief discovered input PDOs (TxPDO, slave→master).
@@ -330,7 +329,7 @@ struct Properties {
     /// @brief parses slave properties from JSON.
     static Properties parse(x::json::Parser &parser) {
         Properties props;
-        props.serial = parser.field<uint32_t>("serial");
+        props.serial = parser.field<uint64_t>("serial");
         props.vendor_id = parser.field<uint32_t>("vendor_id");
         props.product_code = parser.field<uint32_t>("product_code");
         props.revision = parser.field<uint32_t>("revision");
@@ -411,12 +410,6 @@ struct Status {
     /// @brief whether the slave was below PRE-OP when the master read it. The master
     /// then reads only its SII, such as its identity, PDOs, and sync modes.
     bool starting = false;
-
-    /// @brief whether the master did not read the serial number of the slave. The
-    /// serial number from its SII can then be wrong.
-    [[nodiscard]] bool serial_unread() const {
-        return this->starting || !this->serial_error.empty();
-    }
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
@@ -495,6 +488,13 @@ struct DiscoveryResult {
     /// @brief when the Engine last saw the slave restart, or std::nullopt when its
     /// master cannot see a restart. The first scan of the Engine counts as one.
     std::optional<x::telem::TimeStamp> restarted_at;
+
+    /// @brief whether the serial number of the slave is not known: its SII serial
+    /// number is 0, and the master did not read its CoE serial number.
+    [[nodiscard]] bool serial_unread() const {
+        return this->properties.serial == 0 &&
+               (this->status.starting || !this->status.serial_error.empty());
+    }
 };
 
 /// @brief gives serial number 0 to each slave that has the vendor, product, and serial
@@ -522,7 +522,7 @@ struct Identity {
     /// @brief the product code of the slave.
     uint32_t product_code = 0;
     /// @brief the serial number, or 0 when the slave is known by position.
-    uint32_t serial = 0;
+    uint64_t serial = 0;
     /// @brief the name of the slave, for errors.
     std::string name;
 
@@ -565,7 +565,7 @@ locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &b
         return it == bus.end() ? nullptr : &*it;
     };
     const auto known_unit = [](const Identity &s, const DiscoveryResult &live) {
-        return !live.status.serial_unread() && s.same_unit(live.properties);
+        return !live.serial_unread() && s.same_unit(live.properties);
     };
     std::set<uint16_t> units;
     const auto order = details::by_position(saved);
@@ -591,7 +591,7 @@ locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &b
             live->properties.vendor_id != s.vendor_id ||
             live->properties.product_code != s.product_code)
             continue;
-        if (s.serial == 0 || live->status.serial_unread()) found[i] = s.position;
+        if (s.serial == 0 || live->serial_unread()) found[i] = s.position;
     }
     return found;
 }
@@ -614,7 +614,7 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
             a.position == b.position)
             return mismatch(
                 std::format(
-                    "{} and {} are both saved as slave {}.",
+                    "{} and {} are both saved as module {}.",
                     a.name,
                     b.name,
                     b.position
@@ -637,7 +637,7 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
             const auto &other = saved[unit - found.begin()];
             return mismatch(
                 std::format(
-                    "Slave {} ({}) is not on the bus. Slave {} is {} (serial {}).",
+                    "Module {} ({}) is not on the bus. Module {} is {} (serial {}).",
                     s.position,
                     s.name,
                     s.position,
@@ -653,13 +653,13 @@ bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus
         );
         if (live == bus.end())
             return mismatch(
-                std::format("Slave {} ({}) is not on the bus.", s.position, s.name)
+                std::format("Module {} ({}) is not on the bus.", s.position, s.name)
             );
         const auto &props = live->properties;
         const bool vendor = props.vendor_id != s.vendor_id;
         return mismatch(
             std::format(
-                "Slave {} ({}): expected {} {:#010x}, found {:#010x}.",
+                "Module {} ({}): expected {} {:#010x}, found {:#010x}.",
                 s.position,
                 s.name,
                 vendor ? "vendor_id" : "product_code",

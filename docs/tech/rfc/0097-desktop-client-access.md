@@ -8,10 +8,10 @@
 ## 0 Summary
 
 Scripts on the same computer connect to the Core of Synnax Desktop. Desktop saves the
-address and an API key of the root user in `~/.synnax/desktop.json`, a file that only
-the user can read. With no arguments, `sy.Synnax()` reads the file. A "Connect from
-code" dialog gives the install command and code for each client, and a button that
-replaces the key.
+address in `~/.synnax/desktop.json` and an API key of the root user in the OS keychain.
+With no arguments, `sy.Synnax()` reads the address and runs the key helper that the file
+names. A "Connect from code" dialog gives the install command and code for each client,
+and a button that replaces the key.
 
 ## 1 Motivation
 
@@ -24,12 +24,11 @@ replaces the key.
 
 ## 2 Principles
 
-1. **Zero configuration for Python**: `sy.Synnax()` connects to Desktop with no
-   arguments. A saved `sy login` comes first, so a person who logged in to another Core
-   keeps that behavior.
-2. **The file is the only secret on disk**: The file holds an API key, never the launch
-   password. The same user can already read the Core database, so the file adds no
-   access that the user does not have.
+1. **Zero configuration for scripts**: `sy.Synnax()` and `new Synnax()` in Node.js, Bun,
+   and Deno connect to Desktop with no arguments. A saved `sy login` comes first in
+   Python, so a person who logged in to another Core keeps that behavior.
+2. **No secret on disk**: The OS keychain holds the API key, never the launch password.
+   The discovery file holds only the address and the path of the key helper.
 3. **Desktop makes the key through the public API**: The Console creates the key after
    sign-in, as `sy login` does. The Core gets no change.
 4. **Always on**: There is no setting. "Reset key" is the only control.
@@ -38,16 +37,27 @@ replaces the key.
 
 ### 3.0 The discovery file
 
-The shell writes `~/.synnax/desktop.json` on every operating system: `host`, `port`,
-`secure`, and `api_key`, the field names of the Python `Options`. The write goes to a
-partial file with mode `0600`, then renames it. "Erase all data" deletes the file.
+The shell writes `~/.synnax/desktop.json` on every operating system: `host`, `port`, and
+`secure`, the field names of the Python `Options`, and `api_key_helper`. The write goes
+to a partial file, then renames it. The API key goes to the OS keychain under service
+`com.synnaxlabs.desktop` and account `api_key`. "Erase all data" deletes the file and
+the key. Desktop 1.1 wrote `api_key` in the file. That key never moves to the keychain:
+the window revokes it in the Core, removes it from the file only after the revoke, and
+saves a new key in the keychain. A failed revoke leaves the file as it is and runs again
+on the next read, so a plaintext root key never stays valid.
+
+`api_key_helper` is the absolute path of `synnax-desktop-key`, a program that Desktop
+installs next to its executable. It prints the key to stdout, or writes one line to
+stderr and exits with code 1 when there is no key or no keychain. Clients run it, so
+they do not read the keychain format of each OS. The shell writes the path on each save,
+so a moved app or a new AppImage mount gets the correct path.
 
 ### 3.1 A port that stays the same
 
 The supervisor reads the port from the `core.json` of the last launch and binds it again
 when it is free (`console/src-tauri/src/supervisor/launch.rs`). When another program
-holds it, the supervisor picks a free port, as before. Python reads the new port from
-the file; copied TypeScript code needs it again.
+holds it, the supervisor picks a free port, as before. The clients read the new port
+from the file; copied TypeScript code needs it again.
 
 ### 3.2 The key
 
@@ -55,9 +65,10 @@ After sign-in, the main window reads the saved key. When it is missing, malforme
 not in `client.auth.retrieveKeys()`, the window creates a key named "Scripts on this
 computer" and saves it. Otherwise it saves the same key again, with the current port.
 Root's API keys survive the password reset of each launch (RFC 0073 §4.7). When a save
-fails, the window deletes the new key. The shell saves a key only while the file holds
-the key the window read, so a window that loses a race deletes its new key and uses the
-saved one.
+fails, the window deletes the new key. The shell saves a key only while the keychain
+holds the key the window read, so a window that loses a race deletes its new key and
+uses the saved one. The shell writes the file before the keychain, so a failed save
+leaves the key that the window read in the keychain.
 
 ### 3.3 The dialog
 
@@ -99,9 +110,9 @@ Python loader.
    logs in as root with no way to revoke it apart from the others.
 3. **A fixed port**: Rejected again for RFC 0063 §8 decision 5. The last port is a
    preference, not a promise.
-4. **A Node loader for TypeScript**: Rejected. Most TypeScript runs in a browser, which
-   cannot read the file. The dialog gives code to copy. The trade is real: copied code
-   breaks when the port changes or the key resets.
+4. **A Node loader for TypeScript**: Accepted. In Node.js, Bun, and Deno, the client
+   reads the file and runs the key helper. A browser cannot read the file, so the dialog
+   still gives code to copy.
 5. **A setting to turn access off**: Rejected. The file gives no access that the same
    user lacks. "Reset key" ends every session.
 

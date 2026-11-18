@@ -153,76 +153,136 @@ func OpenService(
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if err = cfg.ImEx.RegisterExporter(s); !ok(err, nil) {
+	if err = s.registerImEx(); !ok(err, nil) {
 		return nil, err
 	}
-	// Task files carry the fine-grained type ("opc_read") while export routes under
-	// the coarse "task" resource type, so the importer registers per config type.
-	for _, t := range cfg.Configs.Types() {
-		if slices.Contains(cfg.ImExExcluded, t) {
-			continue
-		}
-		if err = cfg.ImEx.RegisterImporter(t, s); !ok(err, nil) {
-			return nil, err
-		}
-	}
-	// Retired types register too so an old export fails with a retirement message
-	// instead of "no importer registered".
-	for t := range retiredTypes {
-		if err = cfg.ImEx.RegisterImporter(t, s); !ok(err, nil) {
-			return nil, err
-		}
-	}
 	if cfg.Channel != nil {
-		cmdCh := channel.Channel{
-			Name:     "sy_task_cmd",
-			DataType: telem.JSONT,
-			Virtual:  true,
-			Internal: true,
-		}
-		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return cfg.Channel.NewWriter(tx).Create(
-				ctx,
-				&cmdCh,
-				channel.RetrieveIfNameExists(),
-			)
-		}); !ok(err, nil) {
+		if s.commandChannelKey, err = s.createCommandChannel(ctx); !ok(err, nil) {
 			return nil, err
 		}
-		s.commandChannelKey = cmdCh.Key()
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
-	// A detach changes a config, so the task stores the new hash of the config in the
-	// transaction of the detach.
+	// A detach changes a config, and a write to a record that a config hashes can
+	// change its hash, so the task stores the new hash in the same transaction.
 	for _, t := range cfg.Configs.Types() {
 		store, _ := cfg.Configs.Store(t)
 		store.OnDetach(func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error {
 			return s.NewWriter(tx).syncConfig(ctx, key)
 		})
+		store.OnTargetSet(func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error {
+			return s.NewWriter(tx).syncHash(ctx, key)
+		})
+	}
+	// A hash stored before its type hashed referenced records, or under an older
+	// encoding of them, catches up before the Driver configures the tasks.
+	if err = s.syncHashes(ctx); !ok(err, nil) {
+		return nil, err
 	}
 	if cfg.Signals != nil {
-		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Task]{
-			Changes:  s.table.Changes,
-			Resource: ResourceID,
-			MarshalSet: func(t Task) ([]byte, error) {
-				t.Config, t.Status = nil, nil
-				return signals.MarshalJSON(t)
-			},
-		}); !ok(err, nil) {
-			return nil, err
-		}
-		// The Driver reads sy_task_set as task metadata, so actions take their own
-		// channel.
-		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
-			Name:     "sy_task_action_set",
-			Actions:  s.state,
-			Resource: ResourceID,
-		}); !ok(err, nil) {
+		if err = s.publishSignals(ctx); !ok(err, nil) {
 			return nil, err
 		}
 	}
 	return s, nil
+}
+
+// syncHashes stores the current config hash of each task whose type hashes referenced
+// records.
+func (s *Service) syncHashes(ctx context.Context) error {
+	var types []string
+	for _, t := range s.cfg.Configs.Types() {
+		if store, _ := s.cfg.Configs.Store(t); len(store.HashedTables()) > 0 {
+			types = append(types, t)
+		}
+	}
+	if len(types) == 0 {
+		return nil
+	}
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var tasks []Task
+		if err := s.NewRetrieve().
+			Where(MatchTypes(types...)).
+			Entries(&tasks).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		w := s.NewWriter(tx)
+		for _, t := range tasks {
+			if err := w.syncHash(ctx, t.Key); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// registerImEx registers s as the exporter of tasks and as the importer of every
+// config type, retired types included.
+func (s *Service) registerImEx() error {
+	if err := s.cfg.ImEx.RegisterExporter(s); err != nil {
+		return err
+	}
+	// Task files carry the fine-grained type ("opc_read") while export routes under
+	// the coarse "task" resource type, so the importer registers per config type.
+	for _, t := range s.cfg.Configs.Types() {
+		if slices.Contains(s.cfg.ImExExcluded, t) {
+			continue
+		}
+		if err := s.cfg.ImEx.RegisterImporter(t, s); err != nil {
+			return err
+		}
+	}
+	// Retired types register too so an old export fails with a retirement message
+	// instead of "no importer registered".
+	for t := range retiredTypes {
+		if err := s.cfg.ImEx.RegisterImporter(t, s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// createCommandChannel creates the task command channel unless it exists, and returns
+// its key.
+func (s *Service) createCommandChannel(ctx context.Context) (channel.Key, error) {
+	cmdCh := channel.Channel{
+		Name:     "sy_task_cmd",
+		DataType: telem.JSONT,
+		Virtual:  true,
+		Internal: true,
+	}
+	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.cfg.Channel.NewWriter(tx).Create(
+			ctx,
+			&cmdCh,
+			channel.RetrieveIfNameExists(),
+		)
+	}); err != nil {
+		return 0, err
+	}
+	return cmdCh.Key(), nil
+}
+
+// publishSignals publishes the changes to tasks and their actions as signals.
+func (s *Service) publishSignals(ctx context.Context) error {
+	if err := s.cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Task]{
+		Changes:  s.table.Changes,
+		Resource: ResourceID,
+		MarshalSet: func(t Task) ([]byte, error) {
+			t.Config, t.Status = nil, nil
+			return signals.MarshalJSON(t)
+		},
+	}); err != nil {
+		return err
+	}
+	// The Driver reads sy_task_set as task metadata, so actions take their own
+	// channel.
+	return s.cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:     "sy_task_action_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+	})
 }
 
 // OnAction calls handler with each action batch that a transaction attaches, after the
@@ -276,7 +336,7 @@ func (s *Service) guardRack(ctx gorp.Context, r rack.Rack) error {
 	)
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Outage) error {
 	rackKey, err := rack.KeyFromResourceID(*rackStat.Owner)
 	if err != nil {
 		return err
@@ -300,53 +360,63 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		}
 		statuses := make([]Status, 0, len(tasks))
 		for i, tsk := range tasks {
-			prev := reported[i]
-			if prev == nil {
-				continue
+			if st, ok := suspectStatus(rackStat, rackKey, tsk, reported[i]); ok {
+				statuses = append(statuses, st)
 			}
-			var (
-				variant     = rackStat.Variant
-				message     = "Task stopped responding"
-				description = fmt.Sprintf(
-					"The Core lost contact with the Driver on %s while the task was "+
-						"running.",
-					rackStat.Name,
-				)
-			)
-			switch {
-			case prev.Details.Running:
-			// A start in progress never ends once its Driver is gone, and the Console
-			// disables Start and Stop while a start is loading.
-			case prev.Variant == status.VariantLoading:
-				variant = status.VariantError
-				message = "Failed to start task"
-				description = fmt.Sprintf(
-					"The Core lost contact with the Driver on %s while the task was "+
-						"starting.",
-					rackStat.Name,
-				)
-			default:
-				continue
-			}
-			// A silent rack does not undo the deploy the Driver reported, so the config
-			// hash is carried across.
-			statuses = append(statuses, Status{
-				Key:         prev.Key,
-				Owner:       prev.Owner,
-				Time:        telem.Now(),
-				Name:        tsk.Name,
-				Variant:     variant,
-				Message:     message,
-				Description: description,
-				Details: StatusDetails{
-					ConfigHash: prev.Details.ConfigHash,
-					Rack:       rackKey,
-				},
-			})
 		}
 		if len(statuses) == 0 {
 			return nil
 		}
 		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
 	})
+}
+
+// suspectStatus returns the status of tsk, whose last status is prev, once the Core
+// loses contact with its rack. ok is false when the status of tsk does not change.
+func suspectStatus(
+	rackStat rack.Outage,
+	rackKey rack.Key,
+	tsk Task,
+	prev *Status,
+) (st Status, ok bool) {
+	if prev == nil || rackStat.Reported(prev.Key, prev.Time) {
+		return st, false
+	}
+	var (
+		variant     = rackStat.Variant
+		message     = "Task stopped responding"
+		description = fmt.Sprintf(
+			"The Core lost contact with the Driver on %s while the task was running.",
+			rackStat.Name,
+		)
+	)
+	switch {
+	case prev.Details.Running:
+	// A start in progress never ends once its Driver is gone, and the Console
+	// disables Start and Stop while a start is loading.
+	case prev.Variant == status.VariantLoading:
+		variant = status.VariantError
+		message = "Failed to start task"
+		description = fmt.Sprintf(
+			"The Core lost contact with the Driver on %s while the task was starting.",
+			rackStat.Name,
+		)
+	default:
+		return st, false
+	}
+	// A silent rack does not undo the deploy the Driver reported, so the config hash
+	// is carried across.
+	return Status{
+		Key:         prev.Key,
+		Owner:       prev.Owner,
+		Time:        telem.Now(),
+		Name:        tsk.Name,
+		Variant:     variant,
+		Message:     message,
+		Description: description,
+		Details: StatusDetails{
+			ConfigHash: prev.Details.ConfigHash,
+			Rack:       rackKey,
+		},
+	}, true
 }

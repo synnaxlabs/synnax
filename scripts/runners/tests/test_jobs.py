@@ -14,7 +14,7 @@ from typing import Any
 import synnax as sy
 
 from common import Channels
-from conftest import Client, core
+from conftest import Client
 from github import GitHub
 from jobs import Jobs, Queued, completed_line, ref, started_line, step_events, view
 from log import Log
@@ -40,7 +40,7 @@ class Responses(GitHub):
         super().__init__("1", "")
         self.responses = responses
 
-    def get(self, path: str) -> dict:
+    def call(self, path: str, *, method: str = "GET") -> dict:
         return self.responses[path]
 
 
@@ -77,11 +77,11 @@ class Held(Executor):
         self.immediate = immediate
         self.pending: list[tuple[Future[Any], Callable[[], Any]]] = []
 
-    def submit(  # type: ignore[override]
-        self, fn: Callable[[], Any], /, *args: Any, **kwargs: Any
-    ) -> Future[Any]:
-        future: Future[Any] = Future()
-        self.pending.append((future, fn))
+    def submit[**P, T](
+        self, fn: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs
+    ) -> Future[T]:
+        future: Future[T] = Future()
+        self.pending.append((future, lambda: fn(*args, **kwargs)))
         if self.immediate:
             self.release()
         return future
@@ -94,8 +94,8 @@ class Held(Executor):
 
 def jobs(github: GitHub, *, client: Client, pool: Executor | None = None) -> Jobs:
     log = Log(
-        client=core(client),
-        channels=Channels(client=core(client), enabled=False),
+        client=client,
+        channels=Channels(client=client, enabled=False),
         channel="log",
     )
     return Jobs(github=github, log=log, pool=pool or Held())

@@ -104,20 +104,6 @@ func (a *AnalogReadChannel) SetDefaults() {
 	a.Scale.Variant = taskv2.NoneScale{}
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AnalogReadChannel) ApplyDefaults() {
-	if a.Port == "" {
-		a.Port = "AIN0"
-	}
-	if a.Range == 0 {
-		a.Range = 10
-	}
-	if a.Scale.Variant == nil {
-		a.Scale.Variant = taskv2.NoneScale{}
-	}
-	a.Scale.ApplyDefaults()
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (a AnalogReadChannel) Validate() error {
@@ -139,13 +125,6 @@ func (DigitalReadChannel) isReadChannelVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (d *DigitalReadChannel) SetDefaults() {
 	d.Port = "DIO4"
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (d *DigitalReadChannel) ApplyDefaults() {
-	if d.Port == "" {
-		d.Port = "DIO4"
-	}
 }
 
 // ThermocoupleReadChannel reads temperature from a thermocouple.
@@ -181,29 +160,6 @@ func (t *ThermocoupleReadChannel) SetDefaults() {
 	t.CjcSlope = 1
 	t.Units = TemperatureUnitsKelvin
 	t.Scale.Variant = taskv2.NoneScale{}
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *ThermocoupleReadChannel) ApplyDefaults() {
-	if t.Port == "" {
-		t.Port = "AIN0"
-	}
-	if t.ThermocoupleType == "" {
-		t.ThermocoupleType = ThermocoupleTypeK
-	}
-	if t.CjcSource == "" {
-		t.CjcSource = "TEMPERATURE_DEVICE_K"
-	}
-	if t.CjcSlope == 0 {
-		t.CjcSlope = 1
-	}
-	if t.Units == "" {
-		t.Units = TemperatureUnitsKelvin
-	}
-	if t.Scale.Variant == nil {
-		t.Scale.Variant = taskv2.NoneScale{}
-	}
-	t.Scale.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -323,22 +279,6 @@ func (u ReadChannel) Type() ReadChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case AnalogReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case DigitalReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ThermocoupleReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u ReadChannel) Validate() error {
@@ -424,14 +364,6 @@ type ReadConfig struct {
 	LjmScanBacklogWarnOnCount *uint32 `json:"ljm_scan_backlog_warn_on_count,omitzero" msgpack:"ljm_scan_backlog_warn_on_count,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
@@ -482,14 +414,6 @@ type ScanConfig struct {
 	// TCPScanMultiplier is the number of scan cycles between TCP device scans. USB
 	// devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
 	TCPScanMultiplier uint32 `json:"tcp_scan_multiplier" msgpack:"tcp_scan_multiplier"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	if s.TCPScanMultiplier == 0 {
-		s.TCPScanMultiplier = 10
-	}
-	s.ScanConfig.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.

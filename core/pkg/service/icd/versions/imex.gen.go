@@ -28,7 +28,7 @@ const Latest = v0.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (ICD, error) {
 	switch env.Version {
 	case v0.Version:
-		return env.Decode[ICD](ctx)
+		return env.Decode[ICD]()
 	}
 	return ICD{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

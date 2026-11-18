@@ -14,6 +14,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
+import { unique } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import {
@@ -164,7 +165,7 @@ export const PortsView = <C extends Channel, P extends Port>({
   const channels = Form.useFieldValue(path);
   const editable = !Task.useIsPreview();
   const portClaims = claims(channels, model);
-  const types = [...new Set(ports.map(({ type }) => type))];
+  const types = unique.unique(ports.map(({ type }) => type));
   const add = (port: P) => {
     const channel = create(get(path).value, port);
     push(channel);

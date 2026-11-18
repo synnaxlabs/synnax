@@ -7,11 +7,12 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs an agent job again when its seat stopped at the usage limit of its login: the job
-# found the limit, or the drain of a limited seat stopped its runner. The fleet
-# controller then starts another seat for it. When every seat of the agent is at its
-# limit, or the run was already tried three times, this workflow fails instead. Release
-# runs are left to a person.
+# Runs an agent job again when its seat stopped at the usage limit of its login, or when
+# Claude rejected the token of its login: the job found the limit or the rejection, or
+# the drain of such a seat stopped its runner. The fleet controller then starts a seat
+# for it, on a shared login with usage left for Claude. When no Claude login or Codex
+# seat has usage left, or the run was already tried three times, this workflow fails
+# instead. Release runs are left to a person.
 
 name: Agent - Requeue
 
@@ -50,39 +51,27 @@ jobs:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
           aws-region: us-east-1
 
-      # agent.yaml runs the drain step only when the agent stopped at a usage limit. A
-      # runner that the drain stopped just after it took a job leaves no such step, only
-      # a lost runner on a seat whose limit had not reset when the job ended. Only one
-      # job of a run can run again at a time, so the first one goes.
-      - name: Run a job that a usage limit stopped again on a seat with usage left
+      # agent.yaml runs a drain step only when the agent stopped at a usage limit or a
+      # rejected token. A runner that the drain stopped just after it took a job leaves
+      # no such step, only a lost runner on a seat that shut down. An idle seat never
+      # shuts down under a job, so such a job runs again too. Only one job of a run can
+      # run again at a time, so the first one goes.
+      - name: Run a job that a usage limit stopped again where usage is left
         run: |
-          limit="Tags[?Key=='limited-until']|[0].Value"
-          seats() {
-            aws ec2 describe-instances --output text \
-              --filters Name=tag:project,Values=synnax-agents \
-              Name=tag:pool,Values=agent "$@" \
-              Name=instance-state-name,Values=pending,running,stopping,stopped \
-              --query "Reservations[].Instances[].[$limit]"
-          }
           jobs="repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?filter=latest"
           gh api --paginate "$jobs" --jq '.jobs[] | select(.conclusion == "failure")
             | select(.name | test("Run \\([a-z]+\\)$"))
             | [.id, (.runner_name // "" | if . == "" then "-" else . end),
-                (.completed_at | fromdate), any(.steps[];
-                .name == "Leave the pool until the usage limit resets" and
-                .conclusion == "success"), .name] | @tsv' > "$RUNNER_TEMP/jobs"
+                any(.steps[]; (.name | startswith("Leave the pool until"))
+                and .conclusion == "success"), .name] | @tsv' > "$RUNNER_TEMP/jobs"
           found=""
-          while IFS=$'\t' read -r id runner ended drained name; do
+          while IFS=$'\t' read -r id runner drained name; do
             if [ "$drained" = false ]; then
               [[ $runner == agent-*-* ]] || continue
               annotations="repos/$GITHUB_REPOSITORY/check-runs/$id/annotations"
               messages=$(gh api "$annotations" --jq '.[].message')
               grep -qE 'shutdown signal|lost communication' <<< "$messages" ||
                 continue
-              # Runners are named agent-<seat>-<number>.
-              seat=${runner#agent-}
-              until=$(seats "Name=tag:seat,Values=${seat%-*}")
-              [[ $until =~ ^[0-9]+$ ]] && [ "$until" -gt "$ended" ] || continue
             fi
             found=$id
             break
@@ -94,16 +83,48 @@ jobs:
               "It does not run again."
             exit 1
           fi
-          resets=$(seats "Name=tag:agent,Values=$agent")
-          if [ -z "$resets" ]; then
-            echo "::error::The agent pool has no seat for $agent"
-            exit 1
+          now=$(date +%s)
+          resets=""
+          usable=false
+          if [ "$agent" = claude ]; then
+            # Claude seats run on the shared logins, which hold the limits. The list
+            # can lag by minutes, so each login's tags come from describe.
+            prefix=synnax-agents/logins/
+            tag() { echo "Tags[?Key=='$1']|[0].Value"; }
+            query="[DeletedDate,$(tag limited-until),$(tag broken),$(tag expires)]"
+            names=$(aws secretsmanager list-secrets --output text \
+              --filters "Key=name,Values=$prefix" Key=tag-key,Values=agent \
+              "Key=tag-value,Values=$agent" --query 'SecretList[].Name')
+            for secret in $names; do
+              tags=$(aws secretsmanager describe-secret --secret-id "$secret" \
+                --output text --query "$query") || continue
+              IFS=$'\t' read -r deleted until broken expires <<< "$tags"
+              [ "$deleted" = None ] && [ "$broken" = None ] &&
+                [ "$expires" -gt "$now" ] || continue
+              if [ "$until" = None ] || [ "$until" -le "$now" ]; then usable=true; fi
+              resets+="$until"$'\n'
+            done
+          else
+            # A Codex seat holds its own login, and the limit is on the seat.
+            limit="Tags[?Key=='limited-until']|[0].Value"
+            resets=$(aws ec2 describe-instances --output text \
+              --filters Name=tag:project,Values=synnax-agents \
+              Name=tag:pool,Values=agent "Name=tag:agent,Values=$agent" \
+              Name=instance-state-name,Values=pending,running,stopping,stopped \
+              --query "Reservations[].Instances[].[$limit]")
+            if awk -v now="$now" '$1 == "None" || $1 <= now { found = 1 }
+              END { exit !found }' <<< "$resets"; then usable=true; fi
           fi
-          if ! awk -v now="$(date +%s)" '$1 == "None" || $1 <= now { found = 1 }
-            END { exit !found }' <<< "$resets"; then
-            first=$(sort -n <<< "$resets" | head -1)
-            echo "::error::Every $agent seat is at its usage limit. The first" \
-              "resets at $(date -u -d "@$first" '+%F %R UTC'). Run the job again then."
+          if [ "$usable" = false ]; then
+            holder=$([ "$agent" = claude ] && echo login || echo seat)
+            first=$(grep -E '^[0-9]+$' <<< "$resets" | sort -n | head -1)
+            if [ -z "$first" ]; then
+              echo "::error::No $agent $holder is usable."
+            else
+              at=$(date -u -d "@$first" '+%F %R UTC')
+              echo "::error::Every $agent $holder is at its usage limit. The first" \
+                "resets at $at. Run the job again then."
+            fi
             exit 1
           fi
           gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$found/rerun" --silent

@@ -49,9 +49,10 @@ var _ = Describe("Manager", func() {
 		m.AddImport("@synnaxlabs/x", "x")
 		m.AddImport("@synnaxlabs/pluto", "p")
 		m.AddImport("@synnaxlabs/client", "c")
-		paths := []string{}
-		for _, n := range m.SynnaxImports() {
-			paths = append(paths, n.Path)
+		synnaxImports := m.SynnaxImports()
+		paths := make([]string, len(synnaxImports))
+		for i, n := range synnaxImports {
+			paths[i] = n.Path
 		}
 		Expect(paths).To(Equal([]string{
 			"@synnaxlabs/client",

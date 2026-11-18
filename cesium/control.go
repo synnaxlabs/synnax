@@ -10,12 +10,13 @@
 package cesium
 
 import (
-	"context"
+	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/control"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/set"
 )
 
 type (
@@ -36,10 +37,38 @@ type ControlUpdate struct {
 // its read lock, so a handler must hand the update off: blocking on it stalls every
 // writer, and calling back into the DB deadlocks it, since the second read lock cannot
 // be taken while a writer waits. The returned function unregisters the handler.
-func (db *DB) OnControlUpdate(
-	handler func(context.Context, ControlUpdate),
-) observe.Disconnect {
-	return db.controlUpdates.OnChange(handler)
+func (db *DB) OnControlUpdate(handler func(ControlUpdate)) observe.Disconnect {
+	return db.controlUpdates.onChange(handler)
+}
+
+// controlObserver notifies handlers of control updates. A Disconnect from it blocks
+// until every running notify returns.
+type controlObserver struct {
+	mu       sync.RWMutex
+	handlers set.Set[*func(ControlUpdate)]
+}
+
+func (o *controlObserver) onChange(handler func(ControlUpdate)) observe.Disconnect {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.handlers == nil {
+		o.handlers = set.New[*func(ControlUpdate)]()
+	}
+	p := &handler
+	o.handlers.Add(p)
+	return func() {
+		o.mu.Lock()
+		defer o.mu.Unlock()
+		o.handlers.Remove(p)
+	}
+}
+
+func (o *controlObserver) notify(u ControlUpdate) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	for h := range o.handlers {
+		(*h)(u)
+	}
 }
 
 // authorizeEndDomain returns control.ErrUnauthorized if another writer controls a data

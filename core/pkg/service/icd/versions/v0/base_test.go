@@ -27,7 +27,7 @@ var _ = Describe("Base", func() {
 			{},
 		}}}
 		jsonPayload := v0.Payload{Variant: v0.JSONPayload{Fields: []v0.JSONField{
-			{Variant: v0.NumberJSONField{JSONBaseField: v0.JSONBaseField{
+			{Variant: v0.FloatJSONField{JSONBaseField: v0.JSONBaseField{
 				BaseField: v0.BaseField{Name: "volts"},
 				Pointer:   "/v",
 			}}},
@@ -61,7 +61,9 @@ var _ = Describe("Base", func() {
 			updated := jsonPayload
 			updated.UpdateFieldBases(rename)
 			Expect(updated.FieldBases()).To(Equal([]v0.BaseField{{Name: "volts!"}, {}}))
-			fields := updated.Variant.(v0.JSONPayload).Fields
+			payload, ok := updated.Variant.(v0.JSONPayload)
+			Expect(ok).To(BeTrue())
+			fields := payload.Fields
 			Expect(fields[0].Base().Pointer).To(Equal("/v"))
 			Expect(jsonPayload.FieldBases()[0].Name).To(Equal("volts"))
 		})

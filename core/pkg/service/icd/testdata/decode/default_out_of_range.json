@@ -1,0 +1,30 @@
+{
+  "description": "A default fits the channel of its field.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "integer",
+            "default": "300"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "int8"
+        }
+      ]
+    }
+  ],
+  "error": "message reading: field v: default: 300 is out of range for int8: validation error"
+}

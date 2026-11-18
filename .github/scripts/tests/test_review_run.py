@@ -64,6 +64,7 @@ def config(**kw: Any) -> Config:
         "diff_chars": 100_000,
         "caps": {"P0": 2, "P1": 4},
         "prompt": "Review the pull request.",
+        "judge": "Judge the rebuttal.",
         "docs": [
             Doc(path="AGENTS.md", description="Rules", text="Every rule."),
             Doc(path="go.md", description="Go", text="Go only.", paths=("**/*.go",)),
@@ -226,6 +227,7 @@ class TestLoad:
             "diff_chars = 1\ncaps = {}\ncontext = []\n"
         )
         (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         (home / "rules" / "go.md").write_text(
             '+++\ndescription = "Go"\npaths = ["**/*.go"]\n+++\n\nNo panics.\n'
         )
@@ -243,6 +245,7 @@ class TestLoad:
             '[[lens]]\nname = "Races"\nfocus = "Trace each interleaving."\n'
         )
         (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         assert load(tmp_path).lenses == [LENSES[0]]
 
     def test_should_load_the_lenses_of_the_repository(self) -> None:
@@ -255,6 +258,7 @@ class TestLoad:
         (home / "rules").mkdir(parents=True)
         (home / "config.toml").write_text("context = []\ncolour = 1\n")
         (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         with pytest.raises(TypeError, match="unexpected keyword argument 'colour'"):
             load(tmp_path)
 
@@ -314,9 +318,24 @@ class TestPrompt:
         ]
         stdin = review(pr=pull(dismissed=dismissed)).system
         assert (
-            "# Dismissed findings\n\nA member dismissed each of these findings. Do not "
-            "report them again in any form, and do not let them lower the score.\n\n"
+            "# Dismissed findings\n\nSomeone with write access dismissed each of these "
+            "findings. Do not report them again in any form, and do not let them lower "
+            "the score.\n\n"
             "- `a.go`: Old bug. Reason: Meant. See #1.\n- `b.go`: Nit"
+        ) in stdin
+
+    def test_should_list_the_withdrawn_findings_apart(self) -> None:
+        dismissed = [
+            Dismissal(path="a.go", title="Old bug", reason="Meant."),
+            Dismissal(path="b.go", title="Nit", reason="Checked.", withdrawn=True),
+        ]
+        stdin = review(pr=pull(dismissed=dismissed)).system
+        assert "\n\n- `a.go`: Old bug. Reason: Meant.\n\n# Withdrawn" in stdin
+        assert (
+            "# Withdrawn findings\n\nYou withdrew each of these findings after a "
+            "rebuttal on its thread, and its file has not changed since. Do not report "
+            "them again in any form, and do not let them lower the score.\n\n"
+            "- `b.go`: Nit. Reason: Checked."
         ) in stdin
 
     def test_should_leave_out_dismissals_when_there_are_none(self) -> None:
@@ -412,22 +431,11 @@ class TestScore:
         claude = FakeClaude(3, [finding("P1")])
         assert run(config(), pull(), claude=claude, workdir=WORK)[0].score == 3
 
-    @pytest.mark.parametrize(
-        ("found", "given", "score"),
-        [
-            ([("P1", True)], 4, 5),
-            ([("P2", True), ("P2", True)], 3, 5),
-            ([("P0", True)], 5, 2),
-            ([("P1", True), ("P2", False)], 5, 4),
-        ],
-    )
-    def test_should_count_only_the_findings_that_block_merge(
-        self, found: list[tuple[str, bool]], given: int, score: int
-    ) -> None:
+    def test_should_cap_a_lone_p2_at_4(self) -> None:
         caps = {"P0": 2, "P1": 4, "P2": 4}
-        claude = FakeClaude(given, [finding(s) | {"deferrable": d} for s, d in found])
+        claude = FakeClaude(5, [finding("P2")])
         got = run(config(caps=caps), pull(), claude=claude, workdir=WORK)[0]
-        assert got.score == score
+        assert got.score == 4
 
     def test_should_raise_when_claude_ends_with_an_error(self) -> None:
         claude = FakeClaude()
@@ -583,24 +591,6 @@ class TestLenses:
         edges = FakeClaude(5, [at("P1", 12)])
         _, (got, _) = self.lenses(races, edges)
         assert [f.title for f in got.findings] == ["P1 at 12"]
-
-    def test_should_keep_the_blocking_one_of_two_passes_on_one_line(self) -> None:
-        races = FakeClaude(5, [at("P1", 12) | {"deferrable": True}])
-        edges = FakeClaude(5, [at("P1", 12)])
-        _, (got, _) = self.lenses(races, edges)
-        assert [f.blocks for f in got.findings] == [True]
-
-    def test_should_block_when_any_joined_finding_blocks(self) -> None:
-        races = FakeClaude(5, [at("P1", 12) | {"title": "Race", "deferrable": True}])
-        edges = FakeClaude(4, [at("P2", 12) | {"title": "Race"}])
-        _, (got, _) = self.lenses(races, edges)
-        assert [(f.severity, f.blocks) for f in got.findings] == [("P1", True)]
-        assert got.score == 4
-
-    def test_should_not_lower_the_score_for_a_pass_of_follow_ups(self) -> None:
-        races = FakeClaude(3, [at("P2", 30) | {"deferrable": True}])
-        _, (got, _) = self.lenses(races, rules=FakeClaude(4, [at("P2", 12)]))
-        assert got.score == 4
 
     def test_should_keep_findings_of_one_pass_on_one_line(self) -> None:
         both = [at("P1", 12, start=5), at("P2", 12) | {"title": "Other"}]
@@ -861,6 +851,7 @@ class TestMain:
             "diff_chars = 1000\ncaps = {}\ncontext = []\n"
         )
         (home / "prompt.md").write_text("Use the trusted policy.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         head = tmp_path / "head"
         head.mkdir()
         git(head, "init", "-q")
@@ -950,10 +941,7 @@ class TestMain:
             bot = {"__typename": "Bot", "login": "sedosaur"}
             first = {"databaseId": 1, "author": bot, "body": f"<img> **{title}**"}
             person = {"__typename": "User", "login": "m"}
-            later = [
-                {"author": person, "authorAssociation": "MEMBER", "body": r}
-                for r in replies
-            ]
+            later = [{"author": person, "body": r} for r in replies]
             comments = [first, *later]
             return {
                 "id": title,
@@ -968,10 +956,18 @@ class TestMain:
         )
         far = Finding(severity="P2", title="Stale doc", body="B.", path="b.md", line=4)
         body = render.outside([far], blob="https://github.com/o/r/blob/h")
-        comment = json.dumps({"id": 3, "login": "sedosaur[bot]", "body": body})
+        bot = {"__typename": "Bot", "login": "sedosaur[bot]"}
+        gone = {"comment": 4, "path": "c.md", "title": "Gone", "reason": "moved"}
+        answer = f"<!-- sedosaur_answer {json.dumps(gone)} -->\n\nDismissed."
+        comment = "\n".join(
+            json.dumps({"id": i, "login": "sedosaur[bot]", "author": bot, "body": b})
+            for i, b in [(3, body), (5, answer)]
+        )
         executable(
             tmp_path / "bin" / "gh",
-            "if any(a.endswith('/comments') for a in sys.argv):\n"
+            "if any(a.endswith('/permission') for a in sys.argv):\n"
+            "    print('write')\n"
+            "elif any(a.endswith('/comments') for a in sys.argv):\n"
             f"    print({comment!r})\n"
             "elif 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
@@ -985,6 +981,7 @@ class TestMain:
         )
         assert held in text
         assert "\n\n- `a.go`: Meant. Reason: on purpose\n" in text
+        assert "\n- `c.md`: Gone. Reason: moved\n" in text
 
     def test_should_replay_without_the_open_threads_or_a_check_run(
         self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
