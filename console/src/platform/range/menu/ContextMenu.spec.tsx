@@ -14,6 +14,8 @@ import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { type Analytics } from "@/platform/analytics";
+import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
 import { Modals } from "@/platform/modals";
 import { Range } from "@/platform/range";
 import { uniqueRangeName } from "@/platform/range/testutil";
@@ -42,9 +44,10 @@ const createRange = async (
 /** Renders the menu of the ranges and waits for their items to load. */
 const renderMenu = async (
   ranges: ranger.Range[],
-  as: Client = client,
+  { as = client, analytics }: { as?: Client; analytics?: Analytics.Sink } = {},
 ): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client: as });
+  const { wrapper: base } = await createConsoleWrapper({ client: as });
+  const wrapper = analytics == null ? base : wrapWithSink(base, analytics);
   await renderSuspended(
     <>
       <Range.ContextMenu keys={ranges.map((r) => r.key)} />
@@ -142,6 +145,29 @@ describe("Range.ContextMenu", () => {
       });
       expect((await client.labels.retrieve(key)).name).toBe(name);
     });
+
+    it("should open New label and add the label it creates to every range", async () => {
+      const ranges = [
+        await createRange(uniqueRangeName("first")),
+        await createRange(uniqueRangeName("second")),
+      ];
+      await renderMenu(ranges);
+      fireEvent.click(within(await openSubmenu("Labels")).getByText("New label"));
+      const name = uniqueName("created");
+      fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+        target: { value: name },
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Create" }));
+      });
+      const key = await waitFor(async () => {
+        const [first] = await labelsOf(ranges[0]);
+        if (first == null) throw new Error("no label on the range");
+        return first;
+      });
+      expect((await client.labels.retrieve(key)).name).toBe(name);
+      await waitFor(async () => expect(await labelsOf(ranges[1])).toEqual([key]));
+    });
   });
 
   describe("parent", () => {
@@ -237,6 +263,35 @@ describe("Range.ContextMenu", () => {
       expect(await parentOf(created)).toBe(top.key);
     });
 
+    it("should create a range at the top level for ranges with different parents", async () => {
+      const {
+        ranges: [nested],
+      } = await createSiblings();
+      const loose = await createRange(uniqueRangeName("loose"));
+      await renderMenu([nested, loose]);
+      const parent = await openSubmenu("Parent");
+      const name = uniqueRangeName("group");
+      searchIn(parent, "Search ranges...", name);
+      fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
+      const created = await findCreated(name);
+      await waitFor(async () => {
+        for (const r of [nested, loose]) expect(await parentOf(r)).toBe(created.key);
+      });
+      expect(await parentOf(created)).toBeUndefined();
+    });
+
+    it("should report a range created from the search text", async () => {
+      const analytics = createTestSink();
+      await renderMenu([await createRange(uniqueRangeName("moved"))], { analytics });
+      const parent = await openSubmenu("Parent");
+      const name = uniqueRangeName("group");
+      searchIn(parent, "Search ranges...", name);
+      fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
+      await waitFor(() =>
+        expect(analytics.capture).toHaveBeenCalledWith("range_created", {}),
+      );
+    });
+
     it("should hide Create range while the search matches a range name in any case", async () => {
       const target = await createRange(uniqueRangeName("named"));
       await renderMenu([await createRange(uniqueRangeName("moved"))]);
@@ -272,7 +327,7 @@ describe("Range.ContextMenu", () => {
         retrieve: [ranger.TYPE_RESOURCE_ID],
         update: [ranger.TYPE_RESOURCE_ID],
       });
-      await renderMenu([rng], as);
+      await renderMenu([rng], { as });
       const parent = await openSubmenu("Parent");
       within(parent).getByText("No parent");
       expect(within(parent).queryByText("New range")).toBeNull();

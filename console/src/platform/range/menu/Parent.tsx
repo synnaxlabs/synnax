@@ -19,6 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { useCreateModal } from "@/platform/range/useCreateModal";
 
@@ -89,6 +90,7 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const openCreate = useCreateModal();
+  const { capture } = Analytics.use();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const { update } = Ranger.useSetParent();
   const first = ranges[0]?.parent ?? null;
@@ -119,6 +121,7 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
           timeRange,
           parent: current ?? undefined,
         });
+        capture("range_created", {});
         return move(created.key);
       }
       const key = await openCreate({

@@ -567,6 +567,17 @@ describe("Select.CreateItem", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("should hide a picked name until the search changes", () => {
+    const onCreate = vi.fn();
+    const c = renderCreatable({ onCreate });
+    type(c, "Kiwi");
+    fireEvent.click(c.getByRole("option", { name: 'Create fruit "Kiwi"' }));
+    expect(c.queryByText(/^Create fruit/)).toBeNull();
+    type(c, "Kiw");
+    expect(c.getByRole("option", { name: 'Create fruit "Kiw"' })).toBeTruthy();
+    expect(onCreate).toHaveBeenCalledExactlyOnceWith("Kiwi");
+  });
+
   it("should close the dialog and pass an empty name to onCreate from New", () => {
     const onCreate = vi.fn();
     const onVisibleChange = vi.fn();

@@ -17,6 +17,7 @@ import {
   type RefObject,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -347,13 +348,21 @@ const OpenCreateItem = <
   onCreate,
 }: CreateItemProps): ReactNode => {
   const name = useTerm().trim();
+  const lower = name.toLowerCase();
+  // A picked name stays hidden until the search changes, so a second click while the
+  // item saves makes no copy.
+  const [picked, setPicked] = useState<string | null>(null);
+  if (picked != null && picked !== lower) setPicked(null);
   const { data, getItem } = List.useData<K, E>();
   const fixed = useHasName(name);
-  const lower = name.toLowerCase();
   const listed = data.some((k) => getItem?.(k)?.name.toLowerCase() === lower);
-  if (name !== "" && (fixed || listed)) return null;
+  if (name !== "" && (fixed || listed || picked === lower)) return null;
   const text = name === "" ? `New ${resourceName}` : `Create ${resourceName} "${name}"`;
-  return <CreateOption name={name} text={text} onCreate={onCreate} />;
+  const handleCreate = (next: string): void => {
+    if (next !== "") setPicked(lower);
+    onCreate(next);
+  };
+  return <CreateOption name={name} text={text} onCreate={handleCreate} />;
 };
 
 /**
