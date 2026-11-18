@@ -406,87 +406,102 @@ func importedNames(r *Resolver, f *File, p string) (set.Set[string], error) {
 func referencedNames(
 	t resolution.Type, resolve func(string) (resolution.Type, bool),
 ) set.Set[string] {
-	out := make(set.Set[string])
-	var walkRef func(ref resolution.TypeRef)
-	var walkFields func(fields []resolution.Field)
-	walkRef = func(ref resolution.TypeRef) {
-		if ref.TypeParam != nil {
-			return
-		}
-		if strings.Contains(ref.Name, ".") {
-			out.Add(ref.Name)
-		}
-		for _, a := range ref.TypeArgs {
-			walkRef(a)
-		}
-	}
-	var walkValue func(v resolution.ExpressionValue)
-	walkValue = func(v resolution.ExpressionValue) {
-		if v.Kind == resolution.ValueKindIdent {
-			if strings.Contains(v.IdentValue, ".") {
-				out.Add(v.IdentValue)
-			}
-		}
-		for _, e := range v.Elements {
-			walkValue(e)
-		}
-		for _, f := range v.Fields {
-			walkValue(f.Value)
-		}
-	}
-	walkFields = func(fields []resolution.Field) {
-		for _, f := range fields {
-			walkRef(f.Type)
-			if f.Default != nil {
-				walkValue(*f.Default)
-			}
-		}
-	}
+	n := qualifiedNames{out: make(set.Set[string])}
 	switch f := t.Form.(type) {
 	case resolution.StructForm:
-		walkFields(f.Fields)
-		for _, e := range f.Extends {
-			walkRef(e)
-		}
+		n.fields(f.Fields)
+		n.refs(f.Extends)
 		for _, p := range f.TypeParams {
 			if p.Constraint != nil {
-				walkRef(*p.Constraint)
+				n.ref(*p.Constraint)
 			}
 			if p.Default != nil {
-				walkRef(*p.Default)
+				n.ref(*p.Default)
 			}
 		}
 	case resolution.EnumForm:
-		for _, e := range f.Extends {
-			walkRef(e)
-		}
+		n.refs(f.Extends)
 	case resolution.UnionForm:
-		for _, v := range f.Variants {
-			if v.Inline && resolve != nil {
-				if pt, ok := resolve(v.Type.Name); ok {
-					if sf, isStruct := pt.Form.(resolution.StructForm); isStruct {
-						walkFields(sf.Fields)
-						continue
-					}
-				}
-			}
-			walkRef(v.Type)
-		}
-		for _, e := range f.Extends {
-			walkRef(e)
-		}
-		for _, e := range f.Included {
-			walkRef(e)
-		}
-		if f.BorrowsEnum() {
-			walkRef(f.Enum)
-		}
+		n.union(f, resolve)
 	case resolution.DistinctForm:
-		walkRef(f.Base)
+		n.ref(f.Base)
 	case resolution.AliasForm:
-		walkRef(f.Target)
+		n.ref(f.Target)
 	}
-	return out
+	return n.out
+}
+
+// qualifiedNames collects the qualified names that references and values name.
+type qualifiedNames struct{ out set.Set[string] }
+
+func (n qualifiedNames) ref(ref resolution.TypeRef) {
+	if ref.TypeParam != nil {
+		return
+	}
+	if strings.Contains(ref.Name, ".") {
+		n.out.Add(ref.Name)
+	}
+	n.refs(ref.TypeArgs)
+}
+
+func (n qualifiedNames) refs(refs []resolution.TypeRef) {
+	for _, r := range refs {
+		n.ref(r)
+	}
+}
+
+func (n qualifiedNames) value(v resolution.ExpressionValue) {
+	if v.Kind == resolution.ValueKindIdent && strings.Contains(v.IdentValue, ".") {
+		n.out.Add(v.IdentValue)
+	}
+	for _, e := range v.Elements {
+		n.value(e)
+	}
+	for _, f := range v.Fields {
+		n.value(f.Value)
+	}
+}
+
+func (n qualifiedNames) fields(fields []resolution.Field) {
+	for _, f := range fields {
+		n.ref(f.Type)
+		if f.Default != nil {
+			n.value(*f.Default)
+		}
+	}
+}
+
+// union collects the names of the union's variants, walking an inline variant's payload
+// fields in place of the variant.
+func (n qualifiedNames) union(
+	f resolution.UnionForm, resolve func(string) (resolution.Type, bool),
+) {
+	for _, v := range f.Variants {
+		if sf, ok := inlinePayload(v, resolve); ok {
+			n.fields(sf.Fields)
+			continue
+		}
+		n.ref(v.Type)
+	}
+	n.refs(f.Extends)
+	n.refs(f.Included)
+	if f.BorrowsEnum() {
+		n.ref(f.Enum)
+	}
+}
+
+func inlinePayload(
+	v resolution.UnionVariant, resolve func(string) (resolution.Type, bool),
+) (resolution.StructForm, bool) {
+	if !v.Inline || resolve == nil {
+		return resolution.StructForm{}, false
+	}
+	pt, ok := resolve(v.Type.Name)
+	if !ok {
+		return resolution.StructForm{}, false
+	}
+	sf, ok := pt.Form.(resolution.StructForm)
+	return sf, ok
 }
 
 // docDomain synthesizes a @doc value domain.
