@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { certificate } from "@/certificate";
 import { NotFoundError, PathError, ValidationError } from "@/index";
@@ -16,6 +16,7 @@ import { rack } from "@/rack";
 import {
   CERTIFICATE,
   createTestClient,
+  expectLive,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -202,6 +203,34 @@ describe("Certificate", () => {
       expect(
         await createTestClient().certificates.retrieve({ racks: [r.key] }),
       ).toEqual([kept]);
+    });
+
+    it("should add a file certificate of a watched rack to the watch", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const [r, other] = await Promise.all([
+        client.racks.create({ name: "Watched" }),
+        client.racks.create({ name: "Unwatched" }),
+      ]);
+      const list = client.certificates.watch({ racks: [r.key] });
+      const off = list.onChange(() => {});
+      try {
+        expect((await list.retrieve()).records).toEqual([]);
+        const [added] = await client.certificates.set([
+          { name: "Watched", source: "file", certificatePath: "/a.crt", rack: r.key },
+          {
+            name: "Unwatched",
+            source: "file",
+            certificatePath: "/b.crt",
+            rack: other.key,
+          },
+        ]);
+        await vi.waitFor(() =>
+          expect(expectLive(list.getCached()).records).toEqual([added]),
+        );
+      } finally {
+        off();
+      }
     });
 
     it("should search for certificates by name", async () => {

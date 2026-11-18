@@ -885,6 +885,17 @@ var _ = Describe("LayerConfig", func() {
 			To(Equal(map[secret.Key][]byte{key: []byte("t")}))
 	})
 
+	It("Should refuse a secrets folder that does not exist", func(ctx SpecContext) {
+		dir := filepath.Join(GinkgoT().TempDir(), "missing")
+		Expect(svctestutil.OpenLayer(
+			ctx,
+			testutil.NewNode(ctx),
+			service.LayerConfig{SecretsDir: dir},
+		)).Error().To(MatchError(
+			"secrets folder: stat " + dir + ": no such file or directory",
+		))
+	})
+
 	It("Should require a secrets key", func() {
 		cfg := service.LayerConfig{
 			Distribution: &distribution.Layer{},

@@ -370,6 +370,16 @@ var _ = Describe("Service", func() {
 				"certificate_path: must be empty for a stored certificate",
 			),
 			Entry(
+				"a stored certificate with a rack",
+				apicertificate.Input{
+					Source: secret.SourceStored,
+					Name:   "A",
+					Pem:    "pem",
+					Rack:   1,
+				},
+				"rack: must be empty for a stored certificate",
+			),
+			Entry(
 				"a file certificate with PEM",
 				apicertificate.Input{
 					Source:          secret.SourceFile,

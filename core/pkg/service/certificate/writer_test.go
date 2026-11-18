@@ -358,26 +358,36 @@ var _ = Describe("Writer", func() {
 					))
 				},
 			)
-			DescribeTable("Should refuse a replace that changes the source",
-				func(ctx SpecContext, toFile bool) {
+			It("Should refuse a replace of a stored certificate with a file",
+				func(ctx SpecContext) {
 					key := newKey()
-					prev := stored("Plant", newCertificate(key, "a", time.Hour))
-					next, prevKey, msg := file("Plant", coreRack), encodeKey(key),
-						"source: cannot change from stored to file"
-					if !toFile {
-						prev, next, prevKey = next, prev, nil
-						msg = "source: cannot change from file to stored"
-					}
-					prev = e.create(ctx, prev, prevKey)
-					next.SetBase(prev.Base())
+					c := e.create(
+						ctx,
+						stored("Plant", newCertificate(key, "a", time.Hour)),
+						encodeKey(key),
+					)
+					next := file("Plant", coreRack)
+					next.SetBase(c.Base())
 					Expect(e.write(ctx, func(w certificate.Writer) error {
 						return w.Set(ctx, &next, nil)
-					})).To(MatchError(ContainSubstring(msg)))
-					Expect(e.retrieve(ctx, prev.Base().Key).Source()).
-						To(Equal(prev.Source()))
+					})).To(MatchError(ContainSubstring(
+						"source: cannot change from stored to file",
+					)))
+					Expect(e.resolveKey(ctx, c)).To(Equal(encodeKey(key)))
 				},
-				Entry("stored to file", true),
-				Entry("file to stored", false),
+			)
+			It("Should refuse a replace of a file certificate with a stored one",
+				func(ctx SpecContext) {
+					c := e.create(ctx, file("Plant", coreRack), nil)
+					next := stored("Plant", newCertificate(newKey(), "a", time.Hour))
+					next.SetBase(c.Base())
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &next, nil)
+					})).To(MatchError(ContainSubstring(
+						"source: cannot change from file to stored",
+					)))
+					Expect(e.retrieve(ctx, c.Base().Key)).To(Equal(c))
+				},
 			)
 			It("Should move a file certificate that nothing uses to another rack",
 				func(ctx SpecContext) {
