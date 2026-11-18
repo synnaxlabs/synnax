@@ -182,4 +182,62 @@ describe("queries", () => {
       ).rejects.toThrow();
     });
   });
+
+  describe("useForm", () => {
+    it("should send an entry rename", async () => {
+      const created = await createEnumeration();
+      const { result } = await renderHookSuspended(
+        () => Enumeration.useForm({ query: { key: created.key } }),
+        { wrapper },
+      );
+      act(() =>
+        result.current.form.set(Enumeration.formPath.entries.on.name, "Closed"),
+      );
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const stored = await createTestClient().enumerations.retrieve(created.key);
+      expect(stored.entries.map((e) => e.name)).toEqual(["Off", "Closed"]);
+    });
+
+    it("should insert, move, and remove entries", async () => {
+      const created = await createEnumeration();
+      const { result } = await renderHookSuspended(
+        () => Enumeration.useForm({ query: { key: created.key } }),
+        { wrapper },
+      );
+      const { entries } = Enumeration.formPath;
+      act(() =>
+        result.current.form.insert(
+          entries,
+          { key: "tripped", value: 2, name: "Tripped", abnormal: true },
+          "on",
+        ),
+      );
+      act(() => result.current.form.move(entries, "on"));
+      act(() => result.current.form.remove(entries.off));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const stored = await createTestClient().enumerations.retrieve(created.key);
+      expect(stored.entries.map((e) => e.key)).toEqual(["on", "tripped"]);
+      expect(stored.entries[1].abnormal).toBe(true);
+    });
+  });
+
+  describe("useRestore", () => {
+    it("should write the shipped entries back onto an edited built-in", async () => {
+      const shipped = (await client.enumerations.retrieveBuiltins()).at(-1);
+      if (shipped == null) throw new Error("the Core ships no enumerations");
+      await remote.enumerations.retrieve(shipped.key);
+      await remote.enumerations.dispatch(shipped.key, [
+        enumeration.set({ path: ["name"], value: `edited-${id.create()}` }),
+        enumeration.set({ path: ["entries"], value: [] }),
+      ]);
+      const { result } = renderHook(Enumeration.useRestore, { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(shipped);
+      });
+      expect(result.current.variant).toEqual("success");
+      const stored = await createTestClient().enumerations.retrieve(shipped.key);
+      expect(stored.name).toBe(shipped.name);
+      expect(stored.entries).toEqual(shipped.entries);
+    });
+  });
 });

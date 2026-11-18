@@ -30,6 +30,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
+  dragOnto,
   openContextMenu,
   uniqueName,
 } from "@/testutil";
@@ -77,22 +78,6 @@ const deleted = async (retrieve: () => Promise<unknown>): Promise<boolean> => {
 
 const findColor = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("option", { name });
-
-/** Drags one color onto another. jsdom has no DataTransfer, so a map stands in. */
-const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
-  const data = new Map<string, string>();
-  const dataTransfer = {
-    effectAllowed: "none",
-    get types() {
-      return [...data.keys()];
-    },
-    setData: (type: string, value: string) => data.set(type, value),
-    getData: (type: string) => data.get(type) ?? "",
-  };
-  fireEvent.dragStart(from, { dataTransfer });
-  fireEvent.dragOver(to, { dataTransfer });
-  fireEvent.drop(to, { dataTransfer });
-};
 
 /** Names the colors in the palette by position, with any that have none last. */
 const namesInOrder = async (palette: group.Group): Promise<string[]> =>
