@@ -10,7 +10,7 @@
 from string import Template
 
 import synnax as sy
-from framework.utils import create_virtual_channels, hold
+from framework.utils import create_indexed_pair, create_virtual_channels
 from tests.arc.arc import ArcCase
 
 # The exported sequence calls one that the module keeps private.
@@ -295,8 +295,8 @@ stage wait_stage(d i64 ms, out chan bool, ready chan bool) {
     true -> ready
     time.wait(duration=d) => wait_open(out)
 }
-pb_start => wait_seq(1s, pb_wait_seq, pb_wait_seq_ready)
-pb_start => wait_stage(1s, pb_wait_stage, pb_wait_stage_ready)
+pb_start => wait_seq(1s, pb_wait_seq_end, pb_wait_seq_begin)
+pb_start => wait_stage(1s, pb_wait_stage_end, pb_wait_stage_begin)
 
 // ──── module ────
 pb_start => $library.relay(pb_mod_a, 1, pb_mod_ready_a)
@@ -419,10 +419,6 @@ OUTPUTS: dict[str, sy.DataType] = {
     "pb_rescale_seq_b": F32,
     "pb_rescale_stage_a": F32,
     "pb_rescale_stage_b": F32,
-    "pb_wait_seq_ready": BOOL,
-    "pb_wait_stage_ready": BOOL,
-    "pb_wait_seq": BOOL,
-    "pb_wait_stage": BOOL,
     "pb_unit_seq_ready": BOOL,
     "pb_unit_stage_ready": BOOL,
     "pb_unit_seq": BOOL,
@@ -444,6 +440,11 @@ HELD: dict[str, int] = {
     for instance in ("a", "b")
 }
 OUTPUTS |= dict.fromkeys(HELD, BOOL)
+
+# Each of these has an index, so the Driver stamps the samples that time a wait.
+STAMPED: list[str] = [
+    f"pb_wait_{body}_{edge}" for body in ("seq", "stage") for edge in ("begin", "end")
+]
 
 
 class ParameterizedBodies(ArcCase):
@@ -476,17 +477,21 @@ class ParameterizedBodies(ArcCase):
     15. A sequence and a stage pass a parameter in milliseconds to a function input
         in nanoseconds. The function gets the argument of 2 s as more than 1 s.
     16. A sequence and a stage wait for a parameter in milliseconds that gets an
-        argument of 1 s. Each one waits for more than 500 ms. The wait starts with
-        pb_start, so the case checks the first 500 ms first and the write last.
+        argument of 1 s. The Driver stamps a sample before and after the wait, and
+        the case fails if the two are less than 500 ms apart.
     """
 
     arc_source = AUTOMATION_SOURCE.template
     arc_name_prefix = "ArcParameterizedBodies"
     start_cmd_channel = "pb_start"
-    subscribe_channels = list(OUTPUTS)
+    subscribe_channels = [*OUTPUTS, *STAMPED]
+    start: sy.TimeStamp
 
     def setup(self) -> None:
         create_virtual_channels(self.client, list((INPUTS | OUTPUTS).items()))
+        for name in STAMPED:
+            create_indexed_pair(self.client, name, data_type=BOOL)
+        self.start = sy.TimeStamp.now()
         super().setup()
         self.set_manual_timeout(60)
 
@@ -508,7 +513,6 @@ class ParameterizedBodies(ArcCase):
             body: self.load_module(source, name_prefix=f"pb_default_{body}")
             for body, source in CHANNEL_DEFAULT_SOURCES.items()
         }
-        self._verify_parameter_wait_holds()
         self._verify_two_instances()
         self._verify_defaults_and_names()
         self._verify_top_level_stage()
@@ -523,7 +527,7 @@ class ParameterizedBodies(ArcCase):
         self._verify_authority()
         self._verify_uncalled_declaration(uncalled)
         self._verify_channel_default(defaults)
-        self._verify_parameter_wait_ends()
+        self._verify_parameter_wait()
 
     def _wait_for_ready(self, *channels: str) -> None:
         for channel in channels:
@@ -641,20 +645,18 @@ class ParameterizedBodies(ArcCase):
         self.wait_for_eq("pb_unit_seq", 1)
         self.wait_for_eq("pb_unit_stage", 1)
 
-    def _verify_parameter_wait_holds(self) -> None:
-        self._wait_for_ready("pb_wait_seq_ready", "pb_wait_stage_ready")
-        hold(
-            500 * sy.TimeSpan.MILLISECOND,
-            reason="Each instance must still be in its wait of 1 s",
-        )
-        for channel in ("pb_wait_seq", "pb_wait_stage"):
-            if self.read_tlm(channel) is not None:
-                self.fail(f"{channel} was written before 500 ms of its wait of 1 s")
-
-    def _verify_parameter_wait_ends(self) -> None:
-        self.log("Each instance must write after its wait of 1 s")
-        self.wait_for_eq("pb_wait_seq", 1)
-        self.wait_for_eq("pb_wait_stage", 1)
+    def _verify_parameter_wait(self) -> None:
+        self.log("Each instance must write 1 s after it starts its wait")
+        span = sy.TimeRange(self.start, sy.TimeStamp.MAX)
+        for body in ("seq", "stage"):
+            begin, end = f"pb_wait_{body}_begin_time", f"pb_wait_{body}_end_time"
+            self.wait_for_eq(f"pb_wait_{body}_end", 1)
+            frame = self.client.read(span, [begin, end])
+            held = sy.TimeSpan(
+                int(frame[end].to_numpy()[0]) - int(frame[begin].to_numpy()[0])
+            )
+            if held < 500 * sy.TimeSpan.MILLISECOND:
+                self.fail(f"pb_wait_{body} held its wait of 1 s for only {held}")
 
     def _verify_module(self) -> None:
         self._wait_for_ready("pb_mod_ready_a", "pb_mod_ready_b")
