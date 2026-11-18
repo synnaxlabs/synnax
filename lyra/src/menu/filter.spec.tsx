@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { type ReactElement, useState } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
+import { Select } from "@/select";
 import { Triggers } from "@/triggers";
 
 const ITEMS = (
@@ -35,7 +36,7 @@ const ITEMS = (
       <Menu.SubTrigger>Color</Menu.SubTrigger>
       <Menu.Dialog>
         <Menu.Menu>
-          <Menu.Item itemKey="red">Red</Menu.Item>
+          <Menu.Item itemKey="sky">Sky</Menu.Item>
         </Menu.Menu>
       </Menu.Dialog>
     </Menu.Sub>
@@ -172,8 +173,247 @@ describe("menu filter", () => {
       open();
       type("col");
       press("Enter");
-      expect(shown()).toEqual(["Color", "Red"]);
-      expect(focused()).toBe("Red");
+      expect(shown()).toEqual(["Color", "Sky"]);
+      expect(focused()).toBe("Sky");
+    });
+
+    describe("submenus", () => {
+      const CopyMenu = ({
+        onPick,
+      }: {
+        onPick?: (key: string) => void;
+      }): ReactElement => (
+        <Menu.Menu>
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+          <Menu.Sub itemKey="copy" textValue="Copy">
+            <Menu.SubTrigger>Copy</Menu.SubTrigger>
+            <Menu.Dialog aria-label="Copy">
+              <Menu.Menu onChange={onPick}>
+                <Menu.Item itemKey="link">
+                  <Icon.Search />
+                  Link
+                </Menu.Item>
+                <Menu.CopyItem itemKey="name" text="Stand B">
+                  Name
+                </Menu.CopyItem>
+              </Menu.Menu>
+            </Menu.Dialog>
+          </Menu.Sub>
+          <Menu.Sub itemKey="color" textValue="Color">
+            <Menu.SubTrigger>Color</Menu.SubTrigger>
+            <Menu.Dialog itemless>
+              <input aria-label="Hex" />
+            </Menu.Dialog>
+          </Menu.Sub>
+          <Menu.Sub itemKey="labels" textValue="Labels">
+            <Menu.SubTrigger>Labels</Menu.SubTrigger>
+            <Select.Frame<string, undefined> value={[]} onChange={() => {}} multiple>
+              <Select.Dialog surface="menu" aria-label="Labels">
+                <Select.List>
+                  <Select.Item<string> itemKey="link">Linked</Select.Item>
+                </Select.List>
+              </Select.Dialog>
+            </Select.Frame>
+          </Menu.Sub>
+        </Menu.Menu>
+      );
+
+      it("should show the items of an unmatched submenu after its name", () => {
+        open(<CopyMenu />);
+        type("link");
+        expect(shown()).toEqual(["CopyLink"]);
+        const path = document.querySelector(".lyra-menu-item__path");
+        expect(path?.textContent).toBe("Copy");
+        expect(path?.previousElementSibling?.tagName).toBe("svg");
+      });
+
+      it("should match the words of a filter across a submenu name and an item", () => {
+        open(<CopyMenu />);
+        type("copy link");
+        expect(shown()).toEqual(["CopyLink"]);
+      });
+
+      it("should match the words of a filter in any order", () => {
+        open(<CopyMenu />);
+        type("link copy");
+        expect(shown()).toEqual(["CopyLink"]);
+      });
+
+      it("should show a submenu whose name matches, and not its items", () => {
+        open(<CopyMenu />);
+        type("cop");
+        expect(shown()).toEqual(["Copy"]);
+      });
+
+      it("should lead a copy item with the copy icon before the submenu name", () => {
+        open(<CopyMenu />);
+        type("copy na");
+        const item = screen.getByRole("menuitem");
+        expect(item.textContent).toBe(" CopyName");
+        expect(item.firstElementChild?.tagName).toBe("svg");
+        expect(item.querySelector(".lyra-menu-item__path")).toBeTruthy();
+      });
+
+      it("should pick an item of a submenu with Enter from the search", () => {
+        const onPick = vi.fn();
+        open(<CopyMenu onPick={onPick} />);
+        type("link");
+        press("Enter");
+        expect(onPick).toHaveBeenCalledExactlyOnceWith("link");
+        expect(screen.queryByRole("menu")).toBeNull();
+      });
+
+      it("should show nothing of an itemless dialog", () => {
+        open(<CopyMenu />);
+        type("hex");
+        expect(screen.queryByLabelText("Hex")).toBeNull();
+        expect(shown()).toEqual([]);
+      });
+
+      it("should close a submenu typed into and filter the menu", () => {
+        open(<CopyMenu />);
+        screen.getByRole("menuitem", { name: "Copy" }).focus();
+        press("ArrowRight");
+        expect(focused()).toBe("Link");
+        expect(screen.getByRole("dialog", { name: "Copy" })).toBeTruthy();
+        type("lin");
+        expect(search()?.value).toBe("lin");
+        expect(document.activeElement).toBe(search());
+        expect(screen.queryByRole("dialog", { name: "Copy" })).toBeNull();
+        expect(shown()).toEqual(["CopyLink"]);
+        press("Escape");
+        expect(screen.queryByRole("dialog", { name: "Copy" })).toBeNull();
+      });
+
+      it("should keep a submenu open on Space", () => {
+        open(<CopyMenu />);
+        screen.getByRole("menuitem", { name: "Copy" }).focus();
+        press("ArrowRight");
+        press(" ");
+        expect(focused()).toBe("Link");
+        expect(screen.getByRole("dialog", { name: "Copy" })).toBeTruthy();
+        expect(search()).toBeNull();
+      });
+
+      it("should leave typed text to a field in a submenu", () => {
+        open(<CopyMenu />);
+        screen.getByRole("menuitem", { name: "Color" }).focus();
+        press("ArrowRight");
+        const hex = screen.getByLabelText<HTMLInputElement>("Hex");
+        hex.focus();
+        type("ff");
+        expect(hex.value).toBe("ff");
+        expect(search()).toBeNull();
+      });
+
+      describe("filtered selection", () => {
+        const NAMES = ["Leak check", "Cold flow"];
+
+        const LabelsMenu = ({
+          onChange,
+          pending = false,
+        }: {
+          onChange: (keys: string[], extra: { clicked: string | null }) => void;
+          /** Whether the search of the list never answers, like a slow server. */
+          pending?: boolean;
+        }): ReactElement => {
+          const [data, setData] = useState(NAMES);
+          const handleSearch = (term: string): void => {
+            if (pending) return;
+            setData(NAMES.filter((n) => n.toLowerCase().includes(term.toLowerCase())));
+          };
+          return (
+            <Menu.Menu>
+              <Menu.Item itemKey="rename">Rename</Menu.Item>
+              <Menu.Sub itemKey="labels" textValue="Labels">
+                <Menu.SubTrigger>Labels</Menu.SubTrigger>
+                <Select.Frame<string, undefined>
+                  multiple
+                  value={[]}
+                  onChange={onChange}
+                  data={data}
+                >
+                  <Select.Dialog surface="menu" filtered aria-label="Labels">
+                    <Select.Body<string> resourceName="label" onSearch={handleSearch}>
+                      {({ key, ...p }) => (
+                        <Select.Item<string> key={key} {...p}>
+                          <Icon.Label />
+                          {p.itemKey}
+                        </Select.Item>
+                      )}
+                    </Select.Body>
+                  </Select.Dialog>
+                </Select.Frame>
+              </Menu.Sub>
+            </Menu.Menu>
+          );
+        };
+
+        it("should show the matching options after the name of the submenu", () => {
+          open(<LabelsMenu onChange={vi.fn()} />);
+          type("leak");
+          expect(shown()).toEqual(["LabelsLeak check"]);
+          expect(search()).not.toBeNull();
+        });
+
+        it("should match filter words across the submenu name and an option", () => {
+          open(<LabelsMenu onChange={vi.fn()} />);
+          type("label cold");
+          expect(shown()).toEqual(["LabelsCold flow"]);
+        });
+
+        it("should pick an option with a click", () => {
+          const onChange = vi.fn();
+          open(<LabelsMenu onChange={onChange} />);
+          type("cold");
+          fireEvent.click(screen.getByRole("menuitem", { name: /Cold flow/ }));
+          expect(onChange).toHaveBeenCalledExactlyOnceWith(["Cold flow"], {
+            clicked: "Cold flow",
+          });
+          expect(screen.queryByRole("menu")).toBeNull();
+        });
+
+        it("should pick the lit option with Enter from the search", () => {
+          const onChange = vi.fn();
+          open(<LabelsMenu onChange={onChange} />);
+          type("leak");
+          expect(lit()).toBe("LabelsLeak check");
+          press("Enter");
+          expect(onChange).toHaveBeenCalledExactlyOnceWith(["Leak check"], {
+            clicked: "Leak check",
+          });
+          expect(screen.queryByRole("menu")).toBeNull();
+        });
+
+        it("should hide the options that do not match before the search answers", () => {
+          const onChange = vi.fn();
+          open(<LabelsMenu onChange={onChange} pending />);
+          type("cold");
+          expect(shown()).toEqual(["LabelsCold flow"]);
+          press("Enter");
+          expect(onChange).toHaveBeenCalledExactlyOnceWith(["Cold flow"], {
+            clicked: "Cold flow",
+          });
+        });
+
+        it("should list every option again once the filter clears", () => {
+          open(<LabelsMenu onChange={vi.fn()} />);
+          type("leak");
+          press("Escape");
+          screen.getByRole("menuitem", { name: "Labels" }).focus();
+          press("ArrowRight");
+          expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(
+            NAMES,
+          );
+        });
+      });
+
+      it("should show nothing of a selection", () => {
+        open(<CopyMenu />);
+        type("linked");
+        expect(screen.queryByText("Linked")).toBeNull();
+        expect(shown()).toEqual([]);
+      });
     });
 
     it("should open a search at the top on the first key, with the focus", () => {
@@ -340,6 +580,36 @@ describe("menu filter", () => {
         </Triggers.Provider>,
       );
     };
+
+    it("should show nothing of a selection under a submenu that the filter passes", () => {
+      renderDialog(
+        <Menu.Menu>
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+          <Menu.Sub itemKey="parent" textValue="Parent">
+            <Menu.SubTrigger>Parent</Menu.SubTrigger>
+            <Select.Frame<string, undefined>
+              value={undefined}
+              onChange={vi.fn()}
+              data={["Cold flow"]}
+            >
+              <Select.Dialog surface="menu" aria-label="Parent">
+                <Select.Body<string> resourceName="range" onSearch={vi.fn()}>
+                  {({ key, ...p }) => (
+                    <Select.Item<string> key={key} {...p}>
+                      {p.itemKey}
+                    </Select.Item>
+                  )}
+                </Select.Body>
+              </Select.Dialog>
+            </Select.Frame>
+          </Menu.Sub>
+        </Menu.Menu>,
+      );
+      type("rena");
+      expect(shown()).toEqual(["Rename"]);
+      expect(screen.queryByText("Cold flow")).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Parent" })).toBeNull();
+    });
 
     it("should take the focus and filter its items", () => {
       renderDialog(ITEMS);

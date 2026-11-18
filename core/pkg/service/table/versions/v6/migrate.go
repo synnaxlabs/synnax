@@ -140,3 +140,15 @@ func MigrateRow(ctx context.Context, old v5.Row) (Row, error) {
 
 // Migration lifts stored tables from v5 to v6.
 var Migration = migrate.NewEntry("v62_color_bytes_cells_in_rows", MigrateTable)
+
+// NameMigration names each stored table that has an empty name "Table <key>", where
+// <key> is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, t Table) (Table, error) {
+		if t.Name == "" {
+			t.Name = "Table " + t.Key.String()[:8]
+		}
+		return t, nil
+	},
+)

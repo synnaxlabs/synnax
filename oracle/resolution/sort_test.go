@@ -100,6 +100,15 @@ var _ = Describe("Sorts", func() {
 			"name: an optional field cannot be sorted",
 		),
 		Entry(
+			"that names a sub-field of an optional field",
+			func() resolution.Field {
+				f := sorted("span", resolution.TypeRef{Name: "test.Span"}, "start")
+				f.Optional = true
+				return f
+			}(),
+			"span.start: an optional field cannot be sorted",
+		),
+		Entry(
 			"on a value that is not a string or a number",
 			sorted("flag", resolution.TypeRef{Name: "bool"}),
 			"flag: only a string or a number can be sorted",

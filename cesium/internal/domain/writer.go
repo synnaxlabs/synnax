@@ -343,7 +343,7 @@ func (w *Writer) commit(
 	}
 
 	commitEnd, switchingFile := w.resolveCommitEnd(end)
-	if err := w.validateCommitRange(commitEnd, switchingFile); err != nil {
+	if err := w.validateCommitRange(commitEnd); err != nil {
 		return span.Error(err)
 	}
 
@@ -446,8 +446,8 @@ func (w *Writer) release() error {
 	return nil
 }
 
-func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
-	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
+func (w *Writer) validateCommitRange(end telem.TimeStamp) error {
+	if !w.prevCommit.IsZero() && !w.presetEnd && end.Before(w.prevCommit) {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v",

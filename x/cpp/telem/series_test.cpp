@@ -666,6 +666,13 @@ TEST(TestSeries, testDeepCopyWriteIntoSpareCapacity) {
     ASSERT_EQ(s2.at<std::uint32_t>(-1), 7);
 }
 
+/// @brief it should throw when writing a series of another data type.
+TEST(TestSeries, testWriteSeriesTypeMismatch) {
+    Series s(FLOAT64_T, 4);
+    EXPECT_THROW(s.write(Series(std::vector<int32_t>{1, 2})), std::runtime_error);
+    ASSERT_EQ(s.size(), 0);
+}
+
 /// @brief it should keep the spare byte capacity of a variable series in a deep copy.
 TEST(TestSeries, testDeepCopyVariableSpareCapacity) {
     const Series s1{STRING_T, 64};
@@ -763,6 +770,20 @@ TEST(TestSeriesLinspace, EqualStartEnd) {
     const auto values = s.values<uint64_t>();
     for (size_t i = 0; i < 5; i++)
         ASSERT_EQ(values[i], 100);
+}
+
+/// @brief it should keep the spacing of count samples when the capacity holds fewer.
+TEST(TestSeriesLinspace, CappedKeepsSpacing) {
+    Series s(TIMESTAMP_T, 2);
+    ASSERT_EQ(s.write_linspace(TimeStamp(0), TimeStamp(100), 4), 2);
+    ASSERT_EQ(s.values<int64_t>(), (std::vector<int64_t>{0, 25}));
+}
+
+/// @brief it should write the start when an inclusive linspace has room for one.
+TEST(TestSeriesLinspace, InclusiveCappedToOne) {
+    Series s(TIMESTAMP_T, 1);
+    ASSERT_EQ(s.write_linspace(TimeStamp(10), TimeStamp(100), 3, true), 1);
+    ASSERT_EQ(s.at<int64_t>(0), 10);
 }
 
 /// @brief it should generate an empty series with zero count.

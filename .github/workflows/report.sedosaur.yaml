@@ -25,10 +25,9 @@ on:
 
 permissions: {}
 
-# Runs take turns, so a run never saves its records over those of a newer run.
-concurrency:
-  group: report-sedosaur
-  cancel-in-progress: false
+# The review module reads the Claude Code stream with the agent wrapper's code.
+env:
+  PYTHONPATH: ${{ github.workspace }}/scripts
 
 jobs:
   report:
@@ -36,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      actions: read
+      checks: read
       contents: read
       pull-requests: read
     steps:
@@ -48,45 +47,10 @@ jobs:
           fetch-depth: 0
           filter: blob:none
 
-      # A record never changes, so each run downloads only the records that are new. The
-      # records live in an artifact of the last run, as the Actions cache evicts them
-      # within a day. A record older than its 90-day review artifact is dropped.
-      - name: Download the records
-        id: download
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RECORDS: ${{ runner.temp }}/records
-        run: |
-          mkdir -p "$RECORDS"
-          run=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/artifacts" \
-            -f name=sedosaur-records -F per_page=100 \
-            --jq 'first(.artifacts[] | select((.expired | not)
-              and .workflow_run.head_branch == "main"
-              and .workflow_run.head_repository_id == .workflow_run.repository_id)
-              | .workflow_run.id) // empty')
-          if [ -n "$run" ]; then
-            gh run download "$run" --repo "$GITHUB_REPOSITORY" \
-              --name sedosaur-records --dir "$RECORDS"
-          fi
-          cut=$(date -u -d '90 days ago' +%Y-%m-%dT%H:%M:%S+00:00)
-          shopt -s nullglob
-          for f in "$RECORDS"/*.json; do
-            if jq -e --arg cut "$cut" '.at < $cut' "$f" > /dev/null; then rm "$f"; fi
-          done
-
       - name: Compare the reviews
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ github.token }}
           DAYS: ${{ inputs.days || 30 }}
-          RECORDS: ${{ runner.temp }}/records
         run: |
-          python3 -m review compare "$DAYS" "$RECORDS" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload the records
-        if: always() && steps.download.outcome == 'success'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: sedosaur-records
-          path: ${{ runner.temp }}/records
-          retention-days: 90
+          python3 -m review compare "$DAYS" >> "$GITHUB_STEP_SUMMARY"

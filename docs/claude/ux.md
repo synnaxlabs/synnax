@@ -383,9 +383,15 @@ bound, a log precision, or the line plot X channel.
   "No matches". While the search has the focus, the first match is lit, and Enter picks
   the lit item. The arrow keys move into the items, and a key typed on an item goes on
   in the search. Esc closes the search, then the menu. Every menu is at least 32rem (192
-  px) wide, filtering or not. A submenu matches on its `textValue`, and the filter never
-  hides its content. Keys typed into a field, such as the search of a picker, never
-  reach the filter.
+  px) wide, filtering or not. Keys typed into a field, such as the search of a picker,
+  never reach the filter.
+- The filter also searches in submenus. Each word must be in the item or in the names of
+  its submenus, in any order, so "copy link" finds Copy › Link. A match shows its icon,
+  the submenu name with a caret, then its label. A submenu whose name matches shows
+  itself, not its items. A picker, such as Color, shows nothing. A select shows its
+  matching options only when it opts in: Labels does, and Parent does not, because range
+  names would fill the menu. A key typed in an open submenu, outside a field, closes the
+  submenu and goes to the search.
 - Every explorer filters through `View.Filter`: one menu item for each property, which
   opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values
@@ -401,6 +407,8 @@ bound, a log precision, or the line plot X channel.
   disables it. Add to plot does this for a plot that shows the range.
 - In a selection, an option that only some of the items have shows a minus mark. The
   first click adds it to all of them, and the next click removes it from all of them.
+- A picker leaves out a choice that the Core would reject. The Parent picker leaves out
+  the edited ranges and every range nested in them.
 - A single select whose value can be empty has a "No <noun>" option with the none icon
   (`Icon.None`), such as "No parent". It is pinned under the list, below a divider, and
   it shows during a search. A click on the current value to clear it is not sufficient,
