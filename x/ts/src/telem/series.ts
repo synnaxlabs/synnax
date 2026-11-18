@@ -1727,11 +1727,13 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
 
   /** @returns A typed array containing all data from all series. */
   get data(): TypedArray {
-    const buf = new this.dataType.Array(this.length);
+    const buf = new this.dataType.Array(
+      this.series.reduce((a, s) => a + s.data.length, 0),
+    );
     let offset = 0;
     for (const ser of this.series) {
       buf.set(ser.data as ArrayLike<any>, offset);
-      offset += ser.length;
+      offset += ser.data.length;
     }
     return new this.dataType.Array(buf.buffer);
   }
