@@ -88,7 +88,8 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
   const keys = ranges.map((r) => r.key);
   // A range cannot hold itself or a range nested in it, and the current parent leads
   // the list.
-  const hidden = new Set(current == null ? keys : [...keys, current]);
+  const hidden = new Set(keys);
+  if (current != null) hidden.add(current);
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.ranges,
     {

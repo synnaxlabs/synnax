@@ -9,12 +9,40 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { Color as Base } from "@synnaxlabs/lyra/color";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Ranger } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect, useState } from "react";
+
+interface PickerProps {
+  value?: color.Crude;
+  fallback: color.Crude;
+  onCommit: (value?: color.Color) => void;
+}
+
+// The picker changes on each tick of a drag, so the pick commits once, when the
+// submenu or the menu closes and unmounts the picker.
+const Picker = ({ value, fallback, onCommit }: PickerProps): ReactElement => {
+  const [pending, setPending] = useState<{ value?: color.Color } | null>(null);
+  const pendingRef = useSyncedRef(pending);
+  const onCommitRef = useSyncedRef(onCommit);
+  useEffect(
+    () => () => {
+      if (pendingRef.current != null) onCommitRef.current(pendingRef.current.value);
+    },
+    [pendingRef, onCommitRef],
+  );
+  return (
+    <Base.Picker
+      value={pending == null ? value : pending.value}
+      fallback={fallback}
+      onChange={(next) => setPending({ value: next })}
+    />
+  );
+};
 
 export interface ColorProps {
   ranges: ranger.Range[];
@@ -35,10 +63,10 @@ export const Color = ({ ranges }: ColorProps): ReactElement => {
         Color
       </Menu.SubTrigger>
       <Menu.Dialog aria-label="Color">
-        <Base.Picker
+        <Picker
           value={shared ? first : undefined}
           fallback={colors.gray.l8}
-          onChange={(next) =>
+          onCommit={(next) =>
             ranges.forEach((r) => update({ key: r.key, color: next }))
           }
         />
