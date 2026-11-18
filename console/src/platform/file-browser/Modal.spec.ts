@@ -134,7 +134,7 @@ describe("FileBrowser.useModal", () => {
 
   it("should say when the rack stopped before it listed every entry", async () => {
     await openBrowser([{ ...TOP, truncated: true }]);
-    await screen.findByText("Shows the first 1000 entries.");
+    await screen.findByText(`Shows the first ${TOP.entries.length} entries.`);
   });
 
   it("should resolve with null on cancel", async () => {

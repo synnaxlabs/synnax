@@ -80,6 +80,11 @@ interface Target {
   path: string;
 }
 
+interface Loaded {
+  target: Target;
+  listing: Listing;
+}
+
 export interface ModalParams {
   /** The rack whose files the modal lists. */
   rack: rack.Key;
@@ -94,7 +99,7 @@ const Content = ({
   const now = useNow(nextMinute);
   // A new object for each request, so a request for the same folder lists it again.
   const [target, setTarget] = useState<Target>({ path: "" });
-  const [listing, setListing] = useState<Listing | null>(null);
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failure, setFailure] = useState<status.Status | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   useAsyncEffect(
@@ -102,9 +107,9 @@ const Content = ({
       if (client == null) return;
       setFailure(null);
       try {
-        const next = await list(client, rack, target.path);
+        const listing = await list(client, rack, target.path);
         if (signal.aborted) return;
-        setListing(next);
+        setLoaded({ target, listing });
         setPicked(null);
       } catch (e) {
         // A failed folder keeps the last listing in view.
@@ -114,6 +119,7 @@ const Content = ({
     },
     [client, rack, target],
   );
+  const listing = loaded?.listing ?? null;
   const entries: KeyedEntry[] =
     listing?.entries.map((e) => ({ ...e, key: e.path })) ?? [];
   const { data, getItem } = List.useStaticData<string, KeyedEntry>({ data: entries });
@@ -127,7 +133,7 @@ const Content = ({
   };
   const pickedEntry = picked == null ? undefined : getItem(picked);
   const atTop = listing == null || listing.path === "";
-  const loading = failure == null && listing?.path !== target.path;
+  const loading = failure == null && loaded?.target !== target;
   const rackName = rackResult.variant === "success" ? rackResult.data.name : null;
   return (
     <Base.Frame>
@@ -179,7 +185,7 @@ const Content = ({
         </Flex.Box>
         {listing?.truncated === true && (
           <Text.Text level="small" color={9}>
-            Shows the first 1000 entries.
+            {`Shows the first ${entries.length} entries.`}
           </Text.Text>
         )}
       </Base.Body>
