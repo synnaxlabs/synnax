@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <string>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -94,6 +95,10 @@ TEST(PayloadInteger, ParseInvalid) {
         const x::json::Parser parser(x::json::json{{"label", "L"}, {"value", value}});
         IntegerEntry::parse(parser);
         ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+        EXPECT_EQ(
+            parser.errors->at(0)["message"],
+            "cannot parse an integer from " + value.dump()
+        );
     }
 }
 
@@ -131,6 +136,10 @@ TEST(PayloadUnsigned, ParseInvalid) {
         const x::json::Parser parser(x::json::json{{"label", "L"}, {"value", value}});
         UnsignedEntry::parse(parser);
         ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+        EXPECT_EQ(
+            parser.errors->at(0)["message"],
+            "cannot parse an unsigned integer from " + value.dump()
+        );
     }
 }
 

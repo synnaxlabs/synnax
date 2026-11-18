@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import math
+import re
 
 import pytest
 from pydantic import ValidationError
@@ -77,11 +78,18 @@ class TestInteger:
         assert entry.model_dump()["value"] == -12
 
     @pytest.mark.parametrize(
-        "value", ["9223372036854775808", "1.5", "1_000", "+1", True]
+        ("value", "message"),
+        [
+            ("9223372036854775808", "9223372036854775808 is out of range for Integer"),
+            ("1.5", "cannot parse Integer from '1.5'"),
+            ("1_000", "cannot parse Integer from '1_000'"),
+            ("+1", "cannot parse Integer from '+1'"),
+            (True, "cannot parse Integer from True"),
+        ],
     )
-    def test_invalid(self, value: str | bool) -> None:
+    def test_invalid(self, value: str | bool, message: str) -> None:
         """Should reject a value that is not a signed 64-bit integer."""
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match=re.escape(message)):
             payload.IntegerEntry.model_validate({"label": "L", "value": value})
 
 
@@ -93,8 +101,19 @@ class TestUnsigned:
         )
         assert '"value":"18446744073709551615"' in entry.model_dump_json()
 
-    @pytest.mark.parametrize("value", ["-1", "-0", "+1", "18446744073709551616"])
-    def test_invalid(self, value: str) -> None:
+    @pytest.mark.parametrize(
+        ("value", "message"),
+        [
+            ("-1", "cannot parse Unsigned from '-1'"),
+            ("-0", "cannot parse Unsigned from '-0'"),
+            ("+1", "cannot parse Unsigned from '+1'"),
+            (
+                "18446744073709551616",
+                "18446744073709551616 is out of range for Unsigned",
+            ),
+        ],
+    )
+    def test_invalid(self, value: str, message: str) -> None:
         """Should reject a value that is not an unsigned 64-bit integer."""
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match=re.escape(message)):
             payload.UnsignedEntry.model_validate({"label": "L", "value": value})
