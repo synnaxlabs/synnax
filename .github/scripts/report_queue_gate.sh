@@ -11,9 +11,10 @@
 
 # Posts the Review gate status of a merge group. Usage: report_queue_gate.sh <queue_ref>
 # <sha>. Judges the pull request the queue ref names, if GitHub's ref points at the
-# commit. A merge group cannot wait, so anything short of success is a failure. When the
-# gate cannot judge, posts a failure, so the queue does not stall until its timeout, and
-# exits non-zero.
+# commit. A merge group cannot wait, so anything short of success is a failure. A pull
+# request that fails the gate leaves the queue, since a passing entry behind it would
+# otherwise merge it. When the gate cannot judge, posts a failure, so the queue does not
+# stall until its timeout, and exits non-zero.
 
 set -euo pipefail
 
@@ -49,4 +50,10 @@ RUN_URL="$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID"
     -f description="$DESCRIPTION" \
     -f target_url="$RUN_URL" > /dev/null
 
-[ "$JUDGED" = true ]
+[ "$JUDGED" = true ] || exit 1
+if [ "$STATE" = failure ]; then
+    ID=$("$(dirname "$0")/gh_api.sh" "repos/${REPO}/pulls/${PR}" --jq .node_id)
+    QUERY="mutation { dequeuePullRequest(input: {id: \"${ID}\"}) { clientMutationId } }"
+    "$(dirname "$0")/gh_api.sh" graphql -f query="$QUERY" > /dev/null
+    echo "removed pull request ${PR} from the queue"
+fi

@@ -34,6 +34,7 @@ class Harness:
             "GH_API_RETRY_DELAY": "0",
         }
         self.gh.serve("api */statuses/*")
+        self.gh.serve("api graphql")
         self.gh.serve("api */git/ref/heads/*", {"object": {"sha": SHA}})
         self.score(5)
 
@@ -42,6 +43,7 @@ class Harness:
         self.gh.serve(
             "api */pulls/42",
             {
+                "node_id": "PR_42",
                 "head": {"sha": "head"},
                 "base": {"ref": "main"},
                 "user": {"login": "someone"},
@@ -69,6 +71,10 @@ class Harness:
     def statuses(self) -> list[list[str]]:
         """Returns the arguments of each status POST."""
         return [c for c in self.gh.calls() if c[1].endswith(f"/statuses/{SHA}")]
+
+    def dequeues(self) -> list[list[str]]:
+        """Returns the arguments of each GraphQL call."""
+        return [c for c in self.gh.calls() if c[1] == "graphql"]
 
 
 @pytest.fixture
@@ -109,6 +115,18 @@ class TestReport:
         assert harness.run(f"gh-readonly-queue/a/b/pr-42-{BASE}").returncode == 0
         assert "state=success" in harness.statuses()[0]
 
+    def test_keeps_a_passing_pull_request_in_the_queue(self, harness: Harness) -> None:
+        assert harness.run().returncode == 0
+        assert harness.dequeues() == []
+
+    def test_removes_a_failing_pull_request_from_the_queue(
+        self, harness: Harness
+    ) -> None:
+        harness.score(4)
+        assert harness.run().returncode == 0
+        [call] = harness.dequeues()
+        assert any('dequeuePullRequest(input: {id: "PR_42"})' in a for a in call)
+
     def test_retries_an_empty_response_to_the_post(self, harness: Harness) -> None:
         harness.gh.fail("api */statuses/*", "unexpected end of JSON input")
         assert harness.run().returncode == 0
@@ -126,6 +144,7 @@ class TestFailure:
         post = harness.statuses()[0]
         assert "state=failure" in post
         assert "description=could not judge pull request 42" in post
+        assert harness.dequeues() == []
 
     def test_posts_a_failure_when_the_ref_points_at_another_commit(
         self, harness: Harness

@@ -97,12 +97,12 @@ change since `main`. An entry skips the integration suite only when it and the e
 ahead of it change only unit tests. The queue merges a group when its last entry passes,
 even when an entry ahead of it failed. GitHub refuses a queue on a wildcard branch
 pattern, so a `release/**` merge goes in directly, and CI runs again on the pushed
-commit. The queue also runs the gate again. A release runs the integration suite itself.
-Nobody bypasses the rules on `main`: when Sedosaur is down, pull requests wait for it.
-The gate script is `.github/scripts/check_review.sh`, the rulesets
-`.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin applies a
-changed ruleset file by hand; the `Check - Rulesets` workflow fails each day until
-GitHub matches the files.
+commit. The queue also runs the gate again, and removes a pull request that fails it. A
+release runs the integration suite itself. Nobody bypasses the rules on `main`: when
+Sedosaur is down, pull requests wait for it. The gate script is
+`.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
+`Check - Rulesets` workflow fails each day until GitHub matches the files.
 
 A pull request into `main` also cannot merge while CodeQL finds a new alert in its
 changes with a security severity of medium or higher, or a severity of error. Alerts
