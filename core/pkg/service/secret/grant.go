@@ -65,7 +65,7 @@ func (s *Service) Resolve(
 	}
 	var values map[Key][]byte
 	if err = s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		values, err = s.reveal(ctx, snap, reader == s.cfg.Rack.ResourceID(), g.Secrets)
+		values, err = s.RevealTo(ctx, snap, reader, g.Secrets...)
 		return err
 	}); err != nil {
 		return task.Command{}, nil, err
@@ -84,6 +84,19 @@ func (s *Service) Reveal(ctx context.Context, snap gorp.Snapshot, keys ...Key) (
 	error,
 ) {
 	return s.reveal(ctx, snap, true, keys)
+}
+
+// RevealTo returns the plain text value of each secret with the given keys as reader
+// reads them, with no access check. Only the Core's rack reads a file secret: for any
+// other reader, a file secret is a validation error. It returns query.ErrNotFound when
+// a secret does not exist.
+func (s *Service) RevealTo(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	reader resource.ID,
+	keys ...Key,
+) (map[Key][]byte, error) {
+	return s.reveal(ctx, snap, reader == s.cfg.Rack.ResourceID(), keys)
 }
 
 // reveal returns the values of the secrets with keys. It reads file secrets only when
