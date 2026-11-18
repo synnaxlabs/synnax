@@ -1009,7 +1009,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect((await driver.answered).map((c) => c.type)).toEqual(["stop", "start"]);
     });
 
-    it("should start the tasks again when a stop fails", async () => {
+    it("should start the tasks again and give the reason when a stop fails", async () => {
       let statuses: Status.NotificationSpec[] = [];
       const slave = await setup({ onStatuses: (s) => (statuses = s) });
       const read = await createRunningRead(slave);
@@ -1017,6 +1017,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         type: "stop",
         variant: "error",
         message: "Failed to stop task",
+        description: "Slave 2 did not answer.",
       });
       const start = await answerNextCommand(client, read, { type: "start" });
       await screen.findByText(RESTART);
@@ -1028,6 +1029,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
           expect.objectContaining({
             variant: "error",
             message: "Failed to restart tasks",
+            description: "Failed to stop task. Slave 2 did not answer.",
           }),
         ),
       );

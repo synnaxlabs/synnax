@@ -151,16 +151,6 @@ const startTasks = async (tasks: task.Task[]): Promise<void> => {
   );
 };
 
-/** @throws {Error} if a task fails to stop. */
-const stopTasks = async (tasks: task.Task[]): Promise<void> => {
-  await Promise.all(
-    tasks.map(async (t) => {
-      const res = await t.executeCommandSync({ type: "stop" });
-      if (res.variant === "error") throw status.toError(res);
-    }),
-  );
-};
-
 const isRunning = (t: task.Task): boolean =>
   (t.type === READ_TYPE || t.type === WRITE_TYPE) && t.status?.details.running === true;
 
@@ -177,14 +167,15 @@ const onNetwork = (
 };
 
 /**
- * Stops each EtherCAT read and write task that runs on the network of the slave. When
- * a stop fails, starts the tasks again.
+ * Stops each EtherCAT read and write task that runs on the network of the rack. When a
+ * stop fails, starts the tasks again.
  * @returns the stopped tasks.
  * @throws {Error} if a task fails to stop.
  */
 const stopTasksOnNetwork = async (
   client: Synnax,
-  { rack, properties }: SlaveDevice,
+  rack: rack.Key,
+  network: string,
 ): Promise<task.Task[]> => {
   const running = (await client.tasks.retrieve({ rack, includeStatus: true })).filter(
     isRunning,
@@ -194,10 +185,15 @@ const stopTasksOnNetwork = async (
     keys.length === 0
       ? []
       : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS });
-  const tasks = onNetwork(running, slaves, properties.network);
+  const tasks = onNetwork(running, slaves, network);
   let stopped = false;
   try {
-    await stopTasks(tasks);
+    await Promise.all(
+      tasks.map(async (t) => {
+        const res = await t.executeCommandSync({ type: "stop" });
+        if (res.variant === "error") throw status.toError(res);
+      }),
+    );
     stopped = true;
   } finally {
     if (!stopped) await startTasks(tasks);
@@ -220,18 +216,31 @@ export const useRunningOnNetwork = (
   return onNetwork(running, slaves, network);
 };
 
+const RESTART: verbs.Verbs = {
+  present: "restart",
+  past: "restarted",
+  participle: "restarting",
+};
+
+export interface RestartTasksParams {
+  rack: rack.Key;
+  network: string;
+}
+
 /**
- * Stops the tasks, then starts them again, so that their network starts with the saved
- * settings of its slaves. A task that fails to start shows its own error.
+ * Stops each EtherCAT read and write task that runs on the network of the rack, then
+ * starts the tasks again, so that the network starts with the saved settings of its
+ * slaves. A task that fails to start shows its own error.
  * @throws {Error} if a task fails to stop, after the tasks start again.
  */
-export const restartTasks = async (tasks: task.Task[]): Promise<void> => {
-  try {
-    await stopTasks(tasks);
-  } finally {
-    await startTasks(tasks);
-  }
-};
+export const { useUpdate: useRestartTasks } = Flux.createUpdate<RestartTasksParams>({
+  name: "tasks",
+  verbs: RESTART,
+  update: async ({ client, data }) => {
+    await startTasks(await stopTasksOnNetwork(client, data.rack, data.network));
+    return data;
+  },
+});
 
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
@@ -248,7 +257,7 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
   update: async ({ client, data }) => {
     const { rack, key } = data.slave;
     const scanTask = await client.tasks.retrieve({ type: SCAN_TYPE, rack, one: true });
-    const tasks = await stopTasksOnNetwork(client, data.slave);
+    const tasks = await stopTasksOnNetwork(client, rack, data.slave.properties.network);
     const res = await scanTask
       .executeCommandSync({
         type: SET_STANDALONE_COMMAND,
@@ -326,7 +335,7 @@ export const { useUpdate: useReplace } = Flux.createUpdate<
     );
     if (!canReplace(toSlaveOnRack(old), toSlaveOnRack(slave)))
       throw new Error(`${slave.name} can no longer take the place of ${old.name}.`);
-    const stopped = await stopTasksOnNetwork(client, old);
+    const stopped = await stopTasksOnNetwork(client, old.rack, old.properties.network);
     // A scan between the two writes would make the new slave again if the delete went
     // first.
     let moved = false;

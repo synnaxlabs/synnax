@@ -18,7 +18,6 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, TimeSpan } from "@synnaxlabs/x";
@@ -30,7 +29,10 @@ import {
   slotZ,
   suggestIdentifiers,
 } from "@/feature/ethercat/device/location";
-import { restartTasks, useRunningOnNetwork } from "@/feature/ethercat/device/queries";
+import {
+  useRestartTasks,
+  useRunningOnNetwork,
+} from "@/feature/ethercat/device/queries";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
@@ -391,7 +393,7 @@ export const Configure = ({
   const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
   // The network applies the settings of each slave on it, configured or not.
   const running = useRunningOnNetwork(opened.rack, network);
-  const handleError = Status.useErrorHandler();
+  const { update: restartTasks } = useRestartTasks();
   // The IgH master runs no DC sync, so it does not run the choice of the catalog.
   const catalog =
     given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
@@ -424,8 +426,7 @@ export const Configure = ({
     if (!opened.configured) capture("device_configured", { make: MAKE });
     createTask?.(deviceKey);
     close();
-    if (restart)
-      handleError(async () => await restartTasks(running), "Failed to restart tasks");
+    if (restart) restartTasks({ rack: opened.rack, network });
   };
   // In auto, the Mode select says what runs. Cycles show only to fix a failed start.
   let help: HelpProps | null = null;
