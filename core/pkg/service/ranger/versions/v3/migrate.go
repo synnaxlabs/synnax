@@ -22,8 +22,11 @@ import (
 // alpha, and no color stays absent.
 func MigrateRange(ctx context.Context, old v2.Range) (Range, error) {
 	r, err := autoMigrateRange(ctx, old)
-	if err != nil || old.Color == nil {
-		return r, err
+	if err != nil {
+		return Range{}, err
+	}
+	if old.Color == nil {
+		return r, nil
 	}
 	c, err := xcolor.MigrateColor(ctx, *old.Color)
 	if err != nil {

@@ -209,5 +209,6 @@ var _ = Describe("Actions", func() {
 })
 
 func fixed(hex string) *color.Ref {
+	GinkgoHelper()
 	return &color.Ref{Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse(hex))}}
 }

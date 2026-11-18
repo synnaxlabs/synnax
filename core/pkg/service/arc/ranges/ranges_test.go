@@ -103,6 +103,7 @@ func nodeCtx(ctx context.Context) node.Context {
 
 // fixed is the reference that the node stores for a color string.
 func fixed(c string) servicecolor.Ref {
+	GinkgoHelper()
 	v := MustSucceed(color.Parse(c))
 	return servicecolor.Ref{Variant: servicecolor.FixedRef{Value: v}}
 }

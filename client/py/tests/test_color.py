@@ -25,6 +25,24 @@ def test_reexports_x_color() -> None:
         assert name in color.__all__
 
 
+class TestToRef:
+    """Tests for converting a color to a reference."""
+
+    def test_hex(self) -> None:
+        """Should store a hex color as a fixed color."""
+        assert color.to_ref("#FF0000") == color.FixedRef(value=color.Color("#FF0000"))
+
+    def test_ref(self) -> None:
+        """Should return a reference as it is."""
+        ref = color.NamedRef(key=uuid4())
+        assert color.to_ref(ref) is ref
+
+    def test_invalid(self) -> None:
+        """Should raise a ValueError for a value that is not a color."""
+        with pytest.raises(ValueError):
+            color.to_ref("not a color")
+
+
 @pytest.mark.color
 class TestColorClient:
     """Tests for the named color client."""

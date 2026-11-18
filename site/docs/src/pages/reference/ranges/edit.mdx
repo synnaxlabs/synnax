@@ -115,7 +115,7 @@ const sent = await client.ranges.dispatch(myRange.key, [
       new TimeStamp("2023-02-12 15:00:00"),
     ),
   }),
-  ranger.set({ path: ["color"], value: "#00FF00" }),
+  ranger.set({ path: ["color"], value: { type: "fixed", value: "#00FF00" } }),
 ]);
 if (!sent) throw new Error("My Range is not in the client cache");
 ```

@@ -142,7 +142,9 @@ const Line = ({
           startDrag({
             event,
             items: [Ranger.createHaulItem(range.payload)],
-            preview: <Ranger.HaulPreview range={range.payload} />,
+            preview: (
+              <Ranger.HaulPreview range={range.payload} color={resolve(range.color)} />
+            ),
           });
         }}
         onDragEnd={(e) => {
