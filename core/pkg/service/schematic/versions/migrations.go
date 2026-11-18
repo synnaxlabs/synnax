@@ -37,4 +37,5 @@ var Migrations = []gorp.Migration{
 	v12.SnapshotMigration,
 	v12.Migration,
 	v13.Migration,
+	v13.NameMigration,
 }

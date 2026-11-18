@@ -191,7 +191,9 @@ class Codec:
 
             byte_array_size += _series_wire_byte_length(ser)
 
-        flg.time_ranges_zero = ref_tr is None or ref_tr == 0
+        flg.time_ranges_zero = flg.eq_tr and (
+            ref_tr is None or ref_tr == TimeRange.ZERO
+        )
         flg.zero_alignments = flg.eq_align and ref_align == 0
         byte_array_size += (int(flg.eq_len) or len(sorted_keys)) * _DATA_LENGTH_SIZE
         if not flg.time_ranges_zero:

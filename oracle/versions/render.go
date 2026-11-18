@@ -454,7 +454,11 @@ func (r *renderer) value(v resolution.ExpressionValue) string {
 	case resolution.ValueKindFloat:
 		// The schema grammar has no exponent form, so 'f' keeps tiny magnitudes
 		// like 0.000006 parseable where 'g' would emit 6e-06.
-		return strconv.FormatFloat(v.FloatValue, 'f', -1, 64)
+		s := strconv.FormatFloat(v.FloatValue, 'f', -1, 64)
+		if !strings.Contains(s, ".") {
+			s += ".0"
+		}
+		return s
 	case resolution.ValueKindBool:
 		return strconv.FormatBool(v.BoolValue)
 	case resolution.ValueKindIdent:

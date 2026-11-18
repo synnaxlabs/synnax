@@ -1252,10 +1252,10 @@ public:
         const auto write_count = std::min(count, this->cap() - this->size());
         if (write_count == 0) return 0;
 
-        const auto adjusted_count = inclusive ? write_count - 1 : write_count;
+        const auto steps = inclusive ? count - 1 : count;
         const int64_t start_ns = start.nanoseconds();
         const int64_t step_ns = (end - start).nanoseconds() /
-                                static_cast<int64_t>(adjusted_count);
+                                static_cast<int64_t>(steps);
         auto *data_ptr = reinterpret_cast<int64_t *>(
             this->buffer.get() + this->size() * this->data_type().density()
         );
@@ -1790,6 +1790,11 @@ public:
     /// @returns the number of samples written
     /// @throws std::runtime_error if the data types don't match
     size_t write(const Series &other) {
+        if (other.data_type() != this->data_type())
+            throw std::runtime_error(
+                "cannot write a " + other.data_type().name() + " series to a " +
+                this->data_type().name() + " series"
+            );
         this->ensure_exclusive();
         const size_t byte_count = std::min(
             other.byte_size(),
