@@ -129,17 +129,20 @@ describe("Certificate", () => {
 
     it("should create a file certificate", async () => {
       const client = createTestClient();
+      const r = await client.racks.create({ name: "File certificate" });
       const c = await client.certificates.set({
         name: "On disk",
         source: "file",
         certificatePath: "/etc/synnax/client.crt",
         privateKeyFile: "client.key",
+        rack: r.key,
       });
       expect(c).toMatchObject({
         name: "On disk",
         source: "file",
         certificatePath: "/etc/synnax/client.crt",
         privateKeyFile: "client.key",
+        rack: r.key,
       });
     });
   });
@@ -147,9 +150,15 @@ describe("Certificate", () => {
   describe("retrieve", () => {
     it("should retrieve certificates by key", async () => {
       const client = createTestClient();
+      const r = await client.racks.create({ name: "Retrieve" });
       const created = await client.certificates.set([
         { name: "Retrieve 1", source: "stored", pem: PEM },
-        { name: "Retrieve 2", source: "file", certificatePath: "/tmp/a.crt" },
+        {
+          name: "Retrieve 2",
+          source: "file",
+          certificatePath: "/tmp/a.crt",
+          rack: r.key,
+        },
       ]);
       const keys = created.map((c) => c.key);
       const retrieved = await createTestClient().certificates.retrieve(keys);
@@ -161,15 +170,38 @@ describe("Certificate", () => {
 
     it("should leave out a key that no certificate has in a filter", async () => {
       const client = createTestClient();
+      const r = await client.racks.create({ name: "Kept" });
       const c = await client.certificates.set({
         name: "Kept",
         source: "file",
         certificatePath: "/tmp/kept.crt",
+        rack: r.key,
       });
       const retrieved = await createTestClient().certificates.retrieve({
         key: [c.key, uuid.create()],
       });
       expect(retrieved.map((r) => r.key)).toEqual([c.key]);
+    });
+
+    it("should retrieve the file certificates of a rack", async () => {
+      const client = createTestClient();
+      const [r, other] = await Promise.all([
+        client.racks.create({ name: "Filtered" }),
+        client.racks.create({ name: "Other" }),
+      ]);
+      const [kept] = await client.certificates.set([
+        { name: "On rack", source: "file", certificatePath: "/a.crt", rack: r.key },
+        {
+          name: "On other rack",
+          source: "file",
+          certificatePath: "/b.crt",
+          rack: other.key,
+        },
+        { name: "Stored", source: "stored", pem: PEM },
+      ]);
+      expect(
+        await createTestClient().certificates.retrieve({ racks: [r.key] }),
+      ).toEqual([kept]);
     });
 
     it("should search for certificates by name", async () => {

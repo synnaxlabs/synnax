@@ -16,6 +16,7 @@ from pydantic_core import to_jsonable_python
 
 from freighter import Empty, UnaryClient
 from synnax.exceptions import ValidationError
+from synnax.rack import Key as RackKey
 from synnax.resource import ID, CrudeID
 from synnax.secret import actions_gen
 from synnax.secret.payload import New, NewFile, NewStored
@@ -73,7 +74,7 @@ class Client:
     def set(self, *, name: str, value: str) -> Secret: ...
 
     @overload
-    def set(self, *, name: str, file_name: str) -> Secret: ...
+    def set(self, *, name: str, file_name: str, rack: RackKey) -> Secret: ...
 
     @overload
     def set(self, secrets: New) -> Secret: ...
@@ -88,35 +89,49 @@ class Client:
         name: str | None = None,
         value: str | None = None,
         file_name: str | None = None,
+        rack: RackKey | None = None,
     ) -> Secret | list[Secret]:
         """Creates secrets, or replaces the secrets whose keys exist.
 
         :param secrets: A secret or a list of them. When omitted, a stored secret is
-            created from ``name`` and ``value``, or a file secret from ``name`` and
-            ``file_name``.
+            created from ``name`` and ``value``, or a file secret from ``name``,
+            ``file_name``, and ``rack``.
         :param name: The name of the secret when ``secrets`` is omitted.
         :param value: The value of a stored secret. No client can read it back.
         :param file_name: The name of a file secret's file in the secrets folder of
-            the rack that uses it.
+            its rack.
+        :param rack: The key of the rack that reads the file of a file secret.
         :returns: The saved secret, or a list when ``secrets`` is a list. Values are
             never returned.
         :raises ValidationError: If ``secrets`` is omitted and the keyword arguments do
-            not give a name and exactly one of a value or a file name.
+            not give a name and exactly one of a value or a file name and rack, or if
+            a replace moves a file secret that a resource uses to another rack.
         :raises PathError: If a secret is not valid, such as a stored secret without a
-            value or a file name that is a path, or if a replace changes the source of a
-            secret.
+            value, a file name that is a path, or a rack that does not exist, or if a
+            replace changes the source of a secret.
         :raises AccessDenied: If the caller cannot create secrets, or cannot update a
             secret that the call replaces.
         """
         is_single = not isinstance(secrets, list)
         if secrets is None:
-            if name is not None and value is not None and file_name is None:
+            if (
+                name is not None
+                and value is not None
+                and file_name is None
+                and rack is None
+            ):
                 secrets = NewStored(name=name, value=value)
-            elif name is not None and file_name is not None and value is None:
-                secrets = NewFile(name=name, file_name=file_name)
+            elif (
+                name is not None
+                and file_name is not None
+                and rack is not None
+                and value is None
+            ):
+                secrets = NewFile(name=name, file_name=file_name, rack=rack)
             else:
                 raise ValidationError(
-                    "A secret needs a name and exactly one of a value or a file name."
+                    "A secret needs a name and exactly one of a value or a file "
+                    "name and rack."
                 )
         req = _SetRequest(secrets=normalize(secrets))
         res = self._client.send("/secret/set", req, _SetResponse)
