@@ -20,6 +20,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  unique,
   type Window,
 } from "@synnaxlabs/x";
 
@@ -438,7 +439,7 @@ export class Points {
       this.abort = new AbortController();
       return;
     }
-    const keys = [...new Set([this.key, index])];
+    const keys = unique.unique([this.key, index]);
     const demand = this.props.streamer.demand(keys, (frame) => {
       if (!frame.has(this.key)) return;
       // A waiting join holds the frame, which adds to the held samples drawn.

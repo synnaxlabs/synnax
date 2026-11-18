@@ -14,7 +14,7 @@ import {
   NotFoundError,
   type Synnax,
 } from "@synnaxlabs/client";
-import { errors, primitive } from "@synnaxlabs/x";
+import { errors, primitive, unique } from "@synnaxlabs/x";
 
 import { clashProblem, findClash } from "@/feature/ethercat/device/identifier";
 import { fill, findInput, sameAddress } from "@/feature/ethercat/device/settings";
@@ -90,7 +90,7 @@ export const retrieveSlaves = async <C extends Channel>(
   config: CheckedConfig & { channels: C[] },
 ): Promise<Slaves<C>> => {
   const { channels } = config;
-  const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
+  const slaveKeys = unique.unique(channels.map((ch) => ch.device));
   const slaves = await client.devices.retrieve({
     key: slaveKeys,
     schemas: SLAVE_SCHEMAS,
