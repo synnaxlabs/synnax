@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type color } from "@synnaxlabs/client";
-import { Color as Base } from "@synnaxlabs/lyra/color";
+import { Color as LyraColor } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Color } from "@synnaxlabs/pluto";
@@ -58,7 +58,7 @@ export const ColorField = ({
   const binding = Color.useBinding(mixed ? undefined : first.value, onChange);
   return (
     <Input.Item label={label} align="start" padHelpText={false}>
-      <Base.Input
+      <LyraColor.Input
         aria-label={label}
         value={binding.value}
         mixed={mixed}
@@ -125,7 +125,7 @@ export const SelectionColors = ({
 };
 
 interface GroupSwatchProps extends Pick<
-  Base.SwatchProps,
+  LyraColor.SwatchProps,
   "visible" | "onVisibleChange"
 > {
   value: color.Ref;
@@ -145,7 +145,7 @@ const GroupSwatch = ({
   // A named color shows once the named colors load.
   if (binding.value == null) return null;
   return (
-    <Base.Swatch
+    <LyraColor.Swatch
       {...rest}
       value={binding.value}
       onChange={binding.onChange}
