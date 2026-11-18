@@ -1088,8 +1088,17 @@ describe("Points", () => {
       await expect.poll(() => whole.value().status.variant, POLL).toBe("success");
       unsubscribe(whole);
       expect(store.get(uncut)?.pins).toBe(0);
-      const shift = TimeSpan.seconds(10);
+      const shift = TimeSpan.seconds(1);
       const shifted = new TimeRange(home.start.add(shift), home.end.add(shift));
+      // The cut keeps the whole tile's key, so only the cut check stops the pin.
+      const cutLimit = tilePointLimit({
+        tile: { level, index, start: shifted.start },
+        view: shifted,
+        points: TILED.count,
+        drawn: TILED.aggregation,
+        aggregation: TILED.aggregation,
+      });
+      expect(cutLimit).toBe(pointLimit);
       const cut = subscribe(key, staticWindow(shifted), TILED);
       await expect.poll(() => cut.value().status.variant, POLL).toBe("success");
       expect(store.get(uncut)?.pins).toBe(0);
