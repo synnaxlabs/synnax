@@ -130,11 +130,8 @@ export const validateReadChannels = (
   const channelToIndexMap = new Map<channel.Key, number>();
   const nameToIndexMap = new Map<string, number>();
   channels.forEach(({ channel, name, disabled }, i) => {
-    if (name !== "") {
-      if (!nameToIndexMap.has(name)) {
-        nameToIndexMap.set(name, i);
-        return;
-      }
+    if (name !== "" && !nameToIndexMap.has(name)) nameToIndexMap.set(name, i);
+    else if (name !== "") {
       const index = nameToIndexMap.get(name) as number;
       const code = "custom";
       const message = `Name ${name} is used for multiple channels`;
@@ -214,11 +211,9 @@ export const validateWriteChannels = (
       },
       i,
     ) => {
-      if (cmdChannelName !== "") {
-        if (!nameToIndexMap.has(cmdChannelName)) {
-          nameToIndexMap.set(cmdChannelName, { index: i, type: "cmd" });
-          return;
-        }
+      if (cmdChannelName !== "" && !nameToIndexMap.has(cmdChannelName))
+        nameToIndexMap.set(cmdChannelName, { index: i, type: "cmd" });
+      else if (cmdChannelName !== "") {
         const { index, type } = nameToIndexMap.get(cmdChannelName) as IndexAndType;
         const code = "custom";
         const message = `Name ${cmdChannelName} is used for multiple channels`;
@@ -258,11 +253,9 @@ export const validateWriteChannels = (
             input: channels,
           });
         } else channelsToIndexMap.set(cmdChannel, { index: i, type: "cmd" });
-      if (stateChannelName !== "") {
-        if (!nameToIndexMap.has(stateChannelName)) {
-          nameToIndexMap.set(stateChannelName, { index: i, type: "state" });
-          return;
-        }
+      if (stateChannelName !== "" && !nameToIndexMap.has(stateChannelName))
+        nameToIndexMap.set(stateChannelName, { index: i, type: "state" });
+      else if (stateChannelName !== "") {
         const { index, type } = nameToIndexMap.get(stateChannelName) as IndexAndType;
         const code = "custom";
         const message = `Name ${stateChannelName} is used for multiple channels`;

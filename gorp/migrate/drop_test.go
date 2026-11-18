@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	. "github.com/synnaxlabs/gorp/testutil"
@@ -21,6 +22,8 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // droppedEntry is the entry type of the table that Drop deletes.
@@ -73,11 +76,42 @@ var _ = Describe("Drop", func() {
 			SetPreV54Row(ctx, kvs, "droppedEntry", int32(3), droppedEntry{ID: 3})
 			Expect(keysNaming("droppedEntry")).To(HaveLen(4))
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-				DB:         db,
-				Namespace:  "composition",
-				Migrations: []gorp.Migration{migrate.Drop("drop", "droppedEntry")},
+				DB:        db,
+				Namespace: "composition",
+				Migrations: []gorp.Migration{
+					migrate.Drop[int32]("drop", "droppedEntry"),
+				},
 			})).To(Succeed())
 			Expect(keysNaming("droppedEntry")).To(BeEmpty())
+		})
+
+	It("Should log a warning with the key of each entry it deletes",
+		func(ctx SpecContext) {
+			Expect(gorp.NewCreate[int32, droppedEntry]().
+				Entries(&[]droppedEntry{{ID: 1}, {ID: 2}}).
+				Exec(ctx, db)).To(Succeed())
+			SetPreV54Row(ctx, kvs, "droppedEntry", int32(3), droppedEntry{ID: 3})
+			core, logs := observer.New(zap.WarnLevel)
+			ins := alamos.New("gorp", alamos.WithLogger(MustSucceed(
+				alamos.NewLogger(alamos.LoggerConfig{ZapLogger: zap.New(core)}),
+			)))
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				Instrumentation: ins,
+				DB:              db,
+				Namespace:       "composition",
+				Migrations: []gorp.Migration{
+					migrate.Drop[int32]("drop", "droppedEntry"),
+				},
+			})).To(Succeed())
+			deleted := func(key string) map[string]any {
+				return map[string]any{"type": "droppedEntry", "key": key}
+			}
+			logged := logs.FilterMessage("deleted an entry").All()
+			got := make([]map[string]any, len(logged))
+			for i, e := range logged {
+				got[i] = e.ContextMap()
+			}
+			Expect(got).To(ConsistOf(deleted("1"), deleted("2"), deleted("3")))
 		})
 
 	It("Should keep the entries of other tables", func(ctx SpecContext) {
@@ -87,7 +121,7 @@ var _ = Describe("Drop", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "composition",
-			Migrations: []gorp.Migration{migrate.Drop("drop", "droppedEntry")},
+			Migrations: []gorp.Migration{migrate.Drop[int32]("drop", "droppedEntry")},
 		})).To(Succeed())
 		var res entryV1
 		Expect(gorp.NewRetrieve[int32, entryV1]().
