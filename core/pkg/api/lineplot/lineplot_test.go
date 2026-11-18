@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -46,6 +47,26 @@ func denied(u user.User, action access.Action, object resource.ID) types.GomegaM
 			object,
 		)),
 	)
+}
+
+// plotChannel creates a channel and a request that creates a line plot plotting it.
+func plotChannel(ctx SpecContext) (channel.Channel, apilineplot.CreateRequest) {
+	GinkgoHelper()
+	ch := channel.Channel{
+		Name:     "plotted_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
+		DataType: telem.Float64T,
+		Virtual:  true,
+	}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+	})).To(Succeed())
+	return ch, apilineplot.CreateRequest{
+		LinePlots: defaults.Fill([]lineplot.LinePlot{{
+			Name:     "Plotted",
+			Project:  &proj.Key,
+			Channels: lineplot.Channels{Y1: []channel.Key{ch.Key()}},
+		}}),
+	}
 }
 
 var _ = Describe("Retrieve", func() {
@@ -126,24 +147,28 @@ var _ = Describe("Create", func() {
 		ctx SpecContext,
 	) {
 		u := newCreator(ctx)
-		ch := channel.Channel{
-			Name:     "plotted_" + strings.ReplaceAll(uuid.New().String(), "-", "_"),
-			DataType: telem.Float64T,
-			Virtual:  true,
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
-		})).To(Succeed())
-		req := apilineplot.CreateRequest{
-			LinePlots: defaults.Fill([]lineplot.LinePlot{{
-				Name:     "Plotted",
-				Project:  &proj.Key,
-				Channels: lineplot.Channels{Y1: []channel.Key{ch.Key()}},
-			}}),
-		}
+		grant(
+			ctx,
+			access.ActionRetrieve,
+			u.ResourceID(),
+			resource.ID{Type: resource.TypeColor},
+		)
+		ch, req := plotChannel(ctx)
 		Expect(create(AuthedCtx(ctx, u), req)).Error().
 			To(denied(u, access.ActionRetrieve, channel.ResourceID(ch.Key())))
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), channel.ResourceID(ch.Key()))
+		MustSucceed(create(AuthedCtx(ctx, u), req))
+	})
+	It("Should require retrieve on the series color that a new line gets", func(
+		ctx SpecContext,
+	) {
+		u := newCreator(ctx)
+		ch, req := plotChannel(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), channel.ResourceID(ch.Key()))
+		series := MustSucceed(svc.Color.Series(ctx, db))
+		Expect(create(AuthedCtx(ctx, u), req)).Error().
+			To(denied(u, access.ActionRetrieve, color.ResourceID(series[0])))
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), color.ResourceID(series[0]))
 		MustSucceed(create(AuthedCtx(ctx, u), req))
 	})
 })

@@ -18,11 +18,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
@@ -42,18 +42,13 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v10.Line{
-				Key:      "test_1",
-				YAxis:    v10.YAxisKey("y1"),
-				YChannel: channel.Key(4),
-				XChannel: channel.Key(5),
-				Label:    new(string("test_5")),
-				Color: new(color.Color{
-					R: 8,
-					G: 9,
-					B: 10,
-					A: 11,
-				}),
-				StrokeWidth: 11.5,
+				Key:         "test_1",
+				YAxis:       v10.YAxisKey("y1"),
+				YChannel:    channel.Key(4),
+				XChannel:    channel.Key(5),
+				Label:       new(string("test_5")),
+				Color:       new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
+				StrokeWidth: 8.5,
 				Aggregation: v10.Aggregation("min_max"),
 				Detail:      v10.Detail("low"),
 			}),
@@ -170,41 +165,31 @@ var _ = Describe("Codec", func() {
 				},
 				Lines: []v10.Line{
 					{
-						Key:      "test_106",
-						YAxis:    v10.YAxisKey("y1"),
-						YChannel: channel.Key(109),
-						XChannel: channel.Key(110),
-						Label:    new(string("test_110")),
-						Color: new(color.Color{
-							R: 113,
-							G: 114,
-							B: 115,
-							A: 116,
-						}),
-						StrokeWidth: 116.5,
+						Key:         "test_106",
+						YAxis:       v10.YAxisKey("y1"),
+						YChannel:    channel.Key(109),
+						XChannel:    channel.Key(110),
+						Label:       new(string("test_110")),
+						Color:       new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567870")}}),
+						StrokeWidth: 113.5,
 						Aggregation: v10.Aggregation("min_max"),
 						Detail:      v10.Detail("low"),
 					},
 				},
 				Rules: []v10.Rule{
 					{
-						Key:   "test_120",
-						Label: "test_121",
-						Color: new(color.Color{
-							R: 124,
-							G: 125,
-							B: 126,
-							A: 127,
-						}),
+						Key:       "test_117",
+						Label:     "test_118",
+						Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567878")}}),
 						Axis:      v10.AxisKey("x1"),
-						LineWidth: 128.5,
-						LineDash:  129.5,
-						Units:     "test_130",
-						Position:  131.5,
+						LineWidth: 122.5,
+						LineDash:  123.5,
+						Units:     "test_124",
+						Position:  125.5,
 					},
 				},
-				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
-				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787e"))),
+				Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787f"))),
 			}),
 			Entry("zero values", v10.LinePlot{
 				Key:   uuid.Nil(),
@@ -401,19 +386,14 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v10.Rule{
-				Key:   "test_1",
-				Label: "test_2",
-				Color: new(color.Color{
-					R: 5,
-					G: 6,
-					B: 7,
-					A: 8,
-				}),
+				Key:       "test_1",
+				Label:     "test_2",
+				Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}}),
 				Axis:      v10.AxisKey("x1"),
-				LineWidth: 9.5,
-				LineDash:  10.5,
-				Units:     "test_11",
-				Position:  12.5,
+				LineWidth: 6.5,
+				LineDash:  7.5,
+				Units:     "test_8",
+				Position:  9.5,
 			}),
 			Entry("zero values", v10.Rule{
 				Key:       "",
@@ -431,18 +411,13 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeLine(b *testing.B) {
 	seed := v10.Line{
-		Key:      "test_1",
-		YAxis:    v10.YAxisKey("y1"),
-		YChannel: channel.Key(4),
-		XChannel: channel.Key(5),
-		Label:    new(string("test_5")),
-		Color: new(color.Color{
-			R: 8,
-			G: 9,
-			B: 10,
-			A: 11,
-		}),
-		StrokeWidth: 11.5,
+		Key:         "test_1",
+		YAxis:       v10.YAxisKey("y1"),
+		YChannel:    channel.Key(4),
+		XChannel:    channel.Key(5),
+		Label:       new(string("test_5")),
+		Color:       new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
+		StrokeWidth: 8.5,
 		Aggregation: v10.Aggregation("min_max"),
 		Detail:      v10.Detail("low"),
 	}
@@ -551,41 +526,31 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 		},
 		Lines: []v10.Line{
 			{
-				Key:      "test_106",
-				YAxis:    v10.YAxisKey("y1"),
-				YChannel: channel.Key(109),
-				XChannel: channel.Key(110),
-				Label:    new(string("test_110")),
-				Color: new(color.Color{
-					R: 113,
-					G: 114,
-					B: 115,
-					A: 116,
-				}),
-				StrokeWidth: 116.5,
+				Key:         "test_106",
+				YAxis:       v10.YAxisKey("y1"),
+				YChannel:    channel.Key(109),
+				XChannel:    channel.Key(110),
+				Label:       new(string("test_110")),
+				Color:       new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567870")}}),
+				StrokeWidth: 113.5,
 				Aggregation: v10.Aggregation("min_max"),
 				Detail:      v10.Detail("low"),
 			},
 		},
 		Rules: []v10.Rule{
 			{
-				Key:   "test_120",
-				Label: "test_121",
-				Color: new(color.Color{
-					R: 124,
-					G: 125,
-					B: 126,
-					A: 127,
-				}),
+				Key:       "test_117",
+				Label:     "test_118",
+				Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567878")}}),
 				Axis:      v10.AxisKey("x1"),
-				LineWidth: 128.5,
-				LineDash:  129.5,
-				Units:     "test_130",
-				Position:  131.5,
+				LineWidth: 122.5,
+				LineDash:  123.5,
+				Units:     "test_124",
+				Position:  125.5,
 			},
 		},
-		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
-		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787e"))),
+		Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787f"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -604,19 +569,14 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 
 func BenchmarkEncodeDecodeRule(b *testing.B) {
 	seed := v10.Rule{
-		Key:   "test_1",
-		Label: "test_2",
-		Color: new(color.Color{
-			R: 5,
-			G: 6,
-			B: 7,
-			A: 8,
-		}),
+		Key:       "test_1",
+		Label:     "test_2",
+		Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}}),
 		Axis:      v10.AxisKey("x1"),
-		LineWidth: 9.5,
-		LineDash:  10.5,
-		Units:     "test_11",
-		Position:  12.5,
+		LineWidth: 6.5,
+		LineDash:  7.5,
+		Units:     "test_8",
+		Position:  9.5,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -636,18 +596,13 @@ func BenchmarkEncodeDecodeRule(b *testing.B) {
 func FuzzDecodeLine(f *testing.F) {
 	{
 		seed := v10.Line{
-			Key:      "test_1",
-			YAxis:    v10.YAxisKey("y1"),
-			YChannel: channel.Key(4),
-			XChannel: channel.Key(5),
-			Label:    new(string("test_5")),
-			Color: new(color.Color{
-				R: 8,
-				G: 9,
-				B: 10,
-				A: 11,
-			}),
-			StrokeWidth: 11.5,
+			Key:         "test_1",
+			YAxis:       v10.YAxisKey("y1"),
+			YChannel:    channel.Key(4),
+			XChannel:    channel.Key(5),
+			Label:       new(string("test_5")),
+			Color:       new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807")}}),
+			StrokeWidth: 8.5,
 			Aggregation: v10.Aggregation("min_max"),
 			Detail:      v10.Detail("low"),
 		}
@@ -788,41 +743,31 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			},
 			Lines: []v10.Line{
 				{
-					Key:      "test_106",
-					YAxis:    v10.YAxisKey("y1"),
-					YChannel: channel.Key(109),
-					XChannel: channel.Key(110),
-					Label:    new(string("test_110")),
-					Color: new(color.Color{
-						R: 113,
-						G: 114,
-						B: 115,
-						A: 116,
-					}),
-					StrokeWidth: 116.5,
+					Key:         "test_106",
+					YAxis:       v10.YAxisKey("y1"),
+					YChannel:    channel.Key(109),
+					XChannel:    channel.Key(110),
+					Label:       new(string("test_110")),
+					Color:       new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567870")}}),
+					StrokeWidth: 113.5,
 					Aggregation: v10.Aggregation("min_max"),
 					Detail:      v10.Detail("low"),
 				},
 			},
 			Rules: []v10.Rule{
 				{
-					Key:   "test_120",
-					Label: "test_121",
-					Color: new(color.Color{
-						R: 124,
-						G: 125,
-						B: 126,
-						A: 127,
-					}),
+					Key:       "test_117",
+					Label:     "test_118",
+					Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567878")}}),
 					Axis:      v10.AxisKey("x1"),
-					LineWidth: 128.5,
-					LineDash:  129.5,
-					Units:     "test_130",
-					Position:  131.5,
+					LineWidth: 122.5,
+					LineDash:  123.5,
+					Units:     "test_124",
+					Position:  125.5,
 				},
 			},
-			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567884"))),
-			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567885"))),
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787e"))),
+			Project: new(project.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787f"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1050,19 +995,14 @@ func FuzzDecodeLinePlot(f *testing.F) {
 func FuzzDecodeRule(f *testing.F) {
 	{
 		seed := v10.Rule{
-			Key:   "test_1",
-			Label: "test_2",
-			Color: new(color.Color{
-				R: 5,
-				G: 6,
-				B: 7,
-				A: 8,
-			}),
+			Key:       "test_1",
+			Label:     "test_2",
+			Color:     new(color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804")}}),
 			Axis:      v10.AxisKey("x1"),
-			LineWidth: 9.5,
-			LineDash:  10.5,
-			Units:     "test_11",
-			Position:  12.5,
+			LineWidth: 6.5,
+			LineDash:  7.5,
+			Units:     "test_8",
+			Position:  9.5,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

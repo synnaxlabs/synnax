@@ -35,12 +35,20 @@ export interface Run {
   stderr: string;
 }
 
-/** The access to the operating system that finds Synnax Desktop. */
+/** The access to the operating system that finds Synnax Desktop and CA files. */
 export interface System {
-  /** Returns the text of `~/.synnax/desktop.json`, or null when there is no file. */
-  readFile: () => string | null;
+  /**
+   * Returns the text of the file at path, or null when there is no file. A leading `~`
+   * is the home directory.
+   */
+  readFile: (path: string) => string | null;
   /** Runs the program at path with no arguments. Returns null if there is none. */
   run: (path: string) => Run | null;
+  /**
+   * True in Deno, where TLS trusts only the store that --cert or DENO_CERT fills, so
+   * the SYNNAX_CA_CERT file is not read.
+   */
+  caCertUnsupported?: boolean;
 }
 
 interface Resolved {
@@ -48,6 +56,7 @@ interface Resolved {
   port: number | string;
   apiKey?: string;
   secure: boolean;
+  caCert?: string;
 }
 
 interface Desktop {
@@ -61,6 +70,7 @@ const DEFAULT_PORT = 9090;
 const TRUE = ["1", "true", "yes"];
 const FALSE = ["0", "false", "no"];
 
+const DESKTOP_FILE = "~/.synnax/desktop.json";
 const NO_HOST_MSG = "give a host, or set SYNNAX_HOST";
 const OLD_DESKTOP_MSG =
   "Synnax Desktop saved its API key in an older format. Update Synnax Desktop and " +
@@ -70,6 +80,8 @@ const NOT_RUNNING_MSG =
   "give a host and a port.";
 const UNREADABLE_MSG =
   "Cannot read ~/.synnax/desktop.json. Update Synnax Desktop and open it.";
+const CA_NEEDS_SECURE_MSG =
+  "SYNNAX_CA_CERT requires SYNNAX_SECURE; leave SYNNAX_SECURE out or set it to true";
 const HELPER_TIMEOUT_MS = 30_000;
 
 const desktopFileZ = z.object({
@@ -122,7 +134,7 @@ const readSecure = (env: Env): boolean | undefined => {
 const readDesktopFile = (system: System): string => {
   let text: string | null;
   try {
-    text = system.readFile();
+    text = system.readFile(DESKTOP_FILE);
   } catch (e) {
     const err = errors.fromUnknown(e);
     if (isNotCapable(err)) throw new ValidationError(NO_HOST_MSG, { cause: err });
@@ -132,6 +144,46 @@ const readDesktopFile = (system: System): string => {
   }
   if (text == null) throw new ValidationError(NO_HOST_MSG);
   return text;
+};
+
+// The user chose this file, so unlike ~/.synnax/desktop.json, a Deno permission error
+// is not the same as no file.
+const readCA = (system: System | undefined, path: string): string => {
+  const cannotRead = (reason: string, cause?: Error): ValidationError =>
+    new ValidationError(`Cannot read SYNNAX_CA_CERT file "${path}": ${reason}`, {
+      cause,
+    });
+  if (system == null) throw cannotRead("this runtime has no file access");
+  let text: string | null;
+  try {
+    text = system.readFile(path);
+  } catch (e) {
+    const err = errors.fromUnknown(e);
+    throw cannotRead(err.message, err);
+  }
+  if (text == null)
+    throw new ValidationError(`SYNNAX_CA_CERT names "${path}", which does not exist`);
+  if (text.trim() === "")
+    throw new ValidationError(`SYNNAX_CA_CERT names "${path}", which is empty`);
+  if (!text.includes("-----BEGIN CERTIFICATE-----"))
+    throw new ValidationError(`SYNNAX_CA_CERT names "${path}", which is not PEM text`);
+  return text;
+};
+
+const resolveTLS = (
+  params: Given,
+  env: Env,
+  system: System | undefined,
+  desktop: Desktop | undefined,
+): Pick<Resolved, "secure" | "caCert"> => {
+  if (params.secure != null || params.caCert != null)
+    return { secure: params.secure ?? true, caCert: params.caCert };
+  const secure = readSecure(env);
+  const path = read(env, "SYNNAX_CA_CERT");
+  if (path === "") return { secure: secure ?? desktop?.secure ?? false };
+  if (secure === false) throw new ValidationError(CA_NEEDS_SECURE_MSG);
+  if (system?.caCertUnsupported === true) return { secure: true };
+  return { secure: true, caCert: readCA(system, path) };
 };
 
 const runHelper = (system: System, helper: string): Run | null => {
@@ -185,11 +237,14 @@ export const nodeSystem = (): System | undefined => {
   const proc = globalThis.process;
   if (proc?.getBuiltinModule == null) return undefined;
   return {
-    readFile: () => {
-      const home = proc.getBuiltinModule("node:os").homedir();
-      const file = proc
-        .getBuiltinModule("node:path")
-        .join(home, ".synnax", "desktop.json");
+    caCertUnsupported: "Deno" in globalThis,
+    readFile: (path) => {
+      const paths = proc.getBuiltinModule("node:path");
+      const home =
+        path === "~" || path.startsWith("~/") || path.startsWith(`~${paths.sep}`);
+      const file = home
+        ? paths.join(proc.getBuiltinModule("node:os").homedir(), path.slice(1))
+        : path;
       try {
         return proc.getBuiltinModule("node:fs").readFileSync(file, "utf8");
       } catch (e) {
@@ -223,16 +278,21 @@ export const nodeSystem = (): System | undefined => {
  * Fills each connection parameter from the params, then its environment variable,
  * then Synnax Desktop when neither gives a host, then its default (port 9090, secure
  * false). The API key comes from SYNNAX_API_KEY or Synnax Desktop only when the params
- * give no credentials or token. Secure and the CA certificate come as a pair: when the
- * params give either one, neither SYNNAX_SECURE nor Synnax Desktop is read, and a CA
- * certificate with no secure turns secure on. Reads only the variables of missing
- * fields. Variable values are trimmed, and an empty value is unset. In Deno, a variable
- * the script has no permission to read is unset.
- * @param system - Finds Synnax Desktop. Undefined in a runtime that cannot.
+ * give no credentials or token. Secure and the CA certificate come as a pair from the
+ * first source that sets either one: the params (secure, caCert), then the variables
+ * (SYNNAX_SECURE, and SYNNAX_CA_CERT as the path of a PEM file), then Synnax Desktop. A
+ * CA certificate with no secure turns secure on. When system.caCertUnsupported is
+ * true, SYNNAX_CA_CERT turns secure on but its file is not read. Reads only the
+ * variables of missing fields. Variable values are trimmed, and an empty value is
+ * unset. In Deno, a variable the script has no permission to read is unset.
+ * @param system - Finds Synnax Desktop and reads the SYNNAX_CA_CERT file. Undefined in
+ * a runtime that cannot.
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
- * SYNNAX_PORT or SYNNAX_SECURE is not valid, if ~/.synnax/desktop.json cannot be read,
- * if Synnax Desktop is too old, or if its key helper fails. In Deno, a missing
- * permission to read the file is the same as no file.
+ * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
+ * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
+ * cannot be read, if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too
+ * old, or if its key helper fails. In Deno, a missing permission to read
+ * ~/.synnax/desktop.json is the same as no file.
  * @throws {Unreachable} If the key helper of Synnax Desktop is gone, as for a closed
  * AppImage.
  */
@@ -256,9 +316,6 @@ export const resolveParams = <P extends Given>(
     host: desktop?.host ?? given,
     port: params.port ?? readPort(env) ?? desktop?.port ?? DEFAULT_PORT,
     apiKey: key,
-    secure:
-      params.secure != null || params.caCert != null
-        ? (params.secure ?? true)
-        : (readSecure(env) ?? desktop?.secure ?? false),
+    ...resolveTLS(params, env, system, desktop),
   };
 };

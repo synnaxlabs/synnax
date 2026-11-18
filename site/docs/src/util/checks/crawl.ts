@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sleep, TimeSpan, unique } from "@synnaxlabs/x";
 import fs from "fs";
 import path from "path";
 
@@ -80,7 +81,7 @@ export const enumerateRoutes = (): string[] => {
   const routes = pageFiles()
     .filter((f) => /\.(mdx|astro)$/.test(f) && routed(f) && !f.includes("["))
     .map(toRoute);
-  return [...new Set(routes)];
+  return unique.unique(routes);
 };
 
 /** A link and where it came from. */
@@ -151,7 +152,7 @@ export const crawlPages = async (
           break;
         } catch (e) {
           failure = `${route}: ${describe(e)}`;
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          await sleep.sleep(TimeSpan.milliseconds(2000));
         }
 
       if (failure !== "") failures.push(failure);

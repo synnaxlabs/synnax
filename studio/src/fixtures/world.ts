@@ -20,7 +20,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/client";
-import { zip } from "@synnaxlabs/x";
+import { record, sleep, zip } from "@synnaxlabs/x";
 
 import { startArc } from "@/fixtures/arc";
 import { connect, type ConnectionOptions } from "@/fixtures/client";
@@ -73,7 +73,7 @@ const VALVES = {
 
 type Valve = keyof typeof VALVES;
 
-const VALVE_NAMES = Object.keys(VALVES) as Valve[];
+const VALVE_NAMES = record.keys(VALVES);
 
 /** Vents that pass flow when de-energized, so state 1 closes them. */
 const NORMALLY_OPEN = new Set<Valve>(["ox_vent", "fuel_vent"]);
@@ -543,12 +543,12 @@ export const testStand = async ({
   const heartbeat = (async () => {
     while (running) {
       await report(client, daqHardware);
-      await new Promise((resolve) => setTimeout(resolve, HEARTBEAT_MS));
+      await sleep.sleep(TimeSpan.milliseconds(HEARTBEAT_MS));
     }
   })();
   const sim = (async () => {
     while (running) {
-      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+      await sleep.sleep(TimeSpan.milliseconds(POLL_MS));
       const target = now();
       const stamps: TimeStamp[] = [];
       const values = new Map<channel.Key, number[]>();

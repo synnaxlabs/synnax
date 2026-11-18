@@ -224,7 +224,8 @@ func validateType[T, N antlr.ParserRuleContext](
 	if len(items) <= 1 {
 		return
 	}
-	firstType := infer(ctx.Child(items[0])).Unwrap()
+	first := infer(ctx.Child(items[0]))
+	firstType := first.Unwrap()
 
 	// If first operand is Invalid, skip validation - we can't check types we don't know
 	if firstType.Kind == basetypes.KindInvalid {
@@ -244,7 +245,8 @@ func validateType[T, N antlr.ParserRuleContext](
 	}
 
 	for i := 1; i < len(items); i++ {
-		nextType := infer(ctx.Child(items[i]).WithTypeHint(firstType)).Unwrap()
+		next := infer(ctx.Child(items[i]).WithTypeHint(firstType))
+		nextType := next.Unwrap()
 
 		// Skip if this operand is Invalid - we can't check types we don't know
 		if nextType.Kind == basetypes.KindInvalid {
@@ -256,7 +258,8 @@ func validateType[T, N antlr.ParserRuleContext](
 		// Note: Power operations (^) are handled separately in analyzePower via
 		// ValidatePowerOp.
 		if firstType.Unit != nil || nextType.Unit != nil {
-			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
+			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) ||
+				!CheckOperandUnits(ctx, first, next) {
 				return
 			}
 		}

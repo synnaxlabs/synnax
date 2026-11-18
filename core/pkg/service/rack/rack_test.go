@@ -946,6 +946,114 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 		It(
+			"Should not create the embedded rack when the embedded Driver is disabled",
+			func(ctx SpecContext) {
+				disabledDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(disabledDB.Run)
+				s := DeferClose(openStack(
+					ctx,
+					disabledDB,
+					rack.ServiceConfig{EmbeddedDriverDisabled: true},
+				))
+				Expect(s.rack.EmbeddedKey).To(BeZero())
+				Expect(MustSucceed(s.rack.NewRetrieve().
+					Where(rack.MatchEmbedded(true)).
+					Exists(ctx, disabledDB))).To(BeFalse())
+			},
+		)
+		It(
+			"Should delete the embedded rack when the embedded Driver is disabled",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(restartDB.Run)
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(before.Close()).To(Succeed())
+				disabled := openStack(
+					ctx,
+					restartDB,
+					rack.ServiceConfig{EmbeddedDriverDisabled: true},
+				)
+				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return disabled.rack.NewWriter(tx).Delete(ctx, nil, key)
+				})).To(Succeed())
+				Expect(disabled.Close()).To(Succeed())
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(after.rack.EmbeddedKey).ToNot(BeZero())
+				Expect(after.rack.EmbeddedKey).ToNot(Equal(key))
+			},
+		)
+		It(
+			"Should give the embedded rack a disabled status when its Driver is disabled",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(restartDB.Run)
+				cfg := rack.ServiceConfig{
+					HealthCheckInterval: 10 * telem.Millisecond,
+				}
+				before := openStack(ctx, restartDB, cfg)
+				key := before.rack.EmbeddedKey
+				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return before.rack.NewWriter(tx).Apply(
+						ctx,
+						key,
+						rack.NewSetAction(rack.SetPayload{
+							Path:  []string{"integrations"},
+							Value: []string{"arc", "modbus"},
+						}),
+					)
+				})).To(Succeed())
+				Eventually(func(g Gomega) {
+					s := MustSucceed(
+						retrieveStatusTx(ctx, before.status, restartDB, key),
+					)
+					g.Expect(s.Message).To(Equal("Driver not running"))
+				}).Should(Succeed())
+				Expect(before.Close()).To(Succeed())
+				cfg.EmbeddedDriverDisabled = true
+				// The clock moves only after the handler registers, so no health check
+				// writes an outage before it.
+				var now atomic.Int64
+				now.Store(int64(telem.Now()))
+				cfg.Now = func() telem.TimeStamp { return telem.TimeStamp(now.Load()) }
+				after := DeferClose(openStack(ctx, restartDB, cfg))
+				Expect(after.rack.EmbeddedKey).To(Equal(key))
+				Expect(MustSucceed(after.rack.NewRetrieve().
+					Where(rack.MatchIntegration("arc")).
+					Exists(ctx, restartDB))).To(BeFalse())
+				var copied atomic.Pointer[rack.Outage]
+				DeferCleanup(after.rack.OnSuspect(
+					func(_ context.Context, o rack.Outage) error {
+						if *o.Owner == key.ResourceID() {
+							copied.Store(&o)
+						}
+						return nil
+					},
+				))
+				other := rack.Rack{Name: "other"}
+				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return after.rack.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				Eventually(func(g Gomega) {
+					now.Add(int64(telem.Second))
+					s := MustSucceed(
+						retrieveStatusTx(ctx, after.status, restartDB, other.Key),
+					)
+					g.Expect(s.Message).To(Equal("Driver not running"))
+				}).Should(Succeed())
+				Eventually(func(g Gomega) {
+					s := MustSucceed(
+						retrieveStatusTx(ctx, after.status, restartDB, key),
+					)
+					g.Expect(s.Variant).To(Equal(status.VariantDisabled))
+					g.Expect(s.Message).To(Equal("Driver disabled"))
+				}).Should(Succeed())
+				Eventually(copied.Load).ShouldNot(BeNil())
+				Expect(copied.Load().Variant).To(Equal(status.VariantDisabled))
+				Expect(copied.Load().Message).To(Equal("Driver disabled"))
+			},
+		)
+		It(
 			"Should apply the actions to a new embedded rack before saving it",
 			func(ctx SpecContext) {
 				r := MustSucceed(svc.RetrieveOrCreateEmbedded(
