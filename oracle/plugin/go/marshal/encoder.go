@@ -662,73 +662,12 @@ func buildUnionCodec(
 		"\tswitch string(tag) {",
 	}
 	for _, v := range form.Variants {
-		payload, ok := v.Type.Resolve(table)
-		if !ok {
-			return concreteCodec{}, errors.Newf(
-				"union %s variant %q: unresolved payload %s",
-				entry.Name, v.Name, v.Type.Name,
-			)
+		caseEnc, caseDec, err := b.variantCase(entry, form, v, baseEmbeds, goName, recv)
+		if err != nil {
+			return concreteCodec{}, err
 		}
-		variantType := casing.VariantTypeName(goName, v.Name)
-		var embeds []string
-		var inlineFields []resolution.Field
-		if v.Inline {
-			pform := resolution.MustForm[resolution.StructForm](payload)
-			inherited, declared := resolver.VariantBases(form, v, "go", table)
-			for _, ext := range inherited {
-				parent, ok := ext.Resolve(table)
-				if !ok {
-					return concreteCodec{}, errors.Newf(
-						"union %s variant %q: unresolved base %s",
-						entry.Name, v.Name, ext.Name,
-					)
-				}
-				embeds = append(embeds, naming.GetGoName(parent))
-			}
-			inlineFields = append(
-				slices.Clone(declared),
-				declaredFields(inherited, pform.Fields, table)...,
-			)
-		} else {
-			embeds = append(slices.Clone(baseEmbeds), naming.GetGoName(payload))
-		}
-		enc = append(enc,
-			fmt.Sprintf("\tcase %s:", variantType),
-			fmt.Sprintf("\t\tw.String(%q)", v.Name),
-		)
-		dec = append(dec,
-			fmt.Sprintf("\tcase %q:", v.Name),
-			"\t\tvar v "+variantType,
-		)
-		for _, embed := range embeds {
-			enc = append(enc, fmt.Sprintf(
-				"\t\tif err := v.%s.EncodeOrc(w); err != nil { return err }", embed,
-			))
-			dec = append(dec, fmt.Sprintf(
-				"\t\tif err := v.%s.DecodeOrc(r); err != nil { return err }", embed,
-			))
-		}
-		if len(inlineFields) > 0 {
-			fb := &encoderBuilder{
-				table:       table,
-				repoRoot:    b.repoRoot,
-				packageName: b.packageName,
-				parentPath:  b.parentPath,
-				imports:     b.imports,
-				aliases:     b.aliases,
-				pins:        b.pins,
-				owner:       b.owner,
-			}
-			if err := fb.processFields(inlineFields, "v", "v"); err != nil {
-				return concreteCodec{}, errors.Wrapf(err,
-					"union %s variant %q: inline field codec", entry.Name, v.Name)
-			}
-			enc = append(enc, indentLines(fb.encodeLines)...)
-			dec = append(dec, indentLines(fb.decodeLines)...)
-			b.needsMath = b.needsMath || fb.needsMath
-			b.needsJSON = b.needsJSON || fb.needsJSON
-		}
-		dec = append(dec, fmt.Sprintf("\t\t%s.Variant = v", recv))
+		enc = append(enc, caseEnc...)
+		dec = append(dec, caseDec...)
 	}
 	enc = append(enc,
 		"\tdefault:",
@@ -749,6 +688,108 @@ func buildUnionCodec(
 		EncodeBody: strings.Join(enc, "\n"),
 		DecodeBody: strings.Join(dec, "\n"),
 	}, nil
+}
+
+// variantCase returns the encode and decode statements of the switch case for the
+// variant v of a union.
+func (b *encoderBuilder) variantCase(
+	entry resolution.Type,
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	baseEmbeds []string,
+	goName, recv string,
+) ([]string, []string, error) {
+	embeds, inlineFields, err := variantEmbeds(entry, form, v, baseEmbeds, b.table)
+	if err != nil {
+		return nil, nil, err
+	}
+	variantType := casing.VariantTypeName(goName, v.Name)
+	enc := []string{
+		fmt.Sprintf("\tcase %s:", variantType),
+		fmt.Sprintf("\t\tw.String(%q)", v.Name),
+	}
+	dec := []string{fmt.Sprintf("\tcase %q:", v.Name), "\t\tvar v " + variantType}
+	for _, embed := range embeds {
+		enc = append(enc, fmt.Sprintf(
+			"\t\tif err := v.%s.EncodeOrc(w); err != nil { return err }", embed,
+		))
+		dec = append(dec, fmt.Sprintf(
+			"\t\tif err := v.%s.DecodeOrc(r); err != nil { return err }", embed,
+		))
+	}
+	if len(inlineFields) > 0 {
+		fieldEnc, fieldDec, err := b.inlineVariantLines(inlineFields)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err,
+				"union %s variant %q: inline field codec", entry.Name, v.Name)
+		}
+		enc = append(enc, fieldEnc...)
+		dec = append(dec, fieldDec...)
+	}
+	dec = append(dec, fmt.Sprintf("\t\t%s.Variant = v", recv))
+	return enc, dec, nil
+}
+
+// variantEmbeds returns the Go names of the types that the variant v of a union embeds,
+// and the fields that an inline variant declares itself.
+func variantEmbeds(
+	entry resolution.Type,
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	baseEmbeds []string,
+	table *resolution.Table,
+) ([]string, []resolution.Field, error) {
+	payload, ok := v.Type.Resolve(table)
+	if !ok {
+		return nil, nil, errors.Newf(
+			"union %s variant %q: unresolved payload %s",
+			entry.Name, v.Name, v.Type.Name,
+		)
+	}
+	if !v.Inline {
+		return append(slices.Clone(baseEmbeds), naming.GetGoName(payload)), nil, nil
+	}
+	pform := resolution.MustForm[resolution.StructForm](payload)
+	inherited, declared := resolver.VariantBases(form, v, "go", table)
+	var embeds []string
+	for _, ext := range inherited {
+		parent, ok := ext.Resolve(table)
+		if !ok {
+			return nil, nil, errors.Newf(
+				"union %s variant %q: unresolved base %s",
+				entry.Name, v.Name, ext.Name,
+			)
+		}
+		embeds = append(embeds, naming.GetGoName(parent))
+	}
+	inlineFields := append(
+		slices.Clone(declared),
+		declaredFields(inherited, pform.Fields, table)...,
+	)
+	return embeds, inlineFields, nil
+}
+
+// inlineVariantLines returns the encode and decode statements of the fields of an
+// inline union variant, indented to sit inside the union codec's switch case.
+func (b *encoderBuilder) inlineVariantLines(
+	fields []resolution.Field,
+) ([]string, []string, error) {
+	fb := &encoderBuilder{
+		table:       b.table,
+		repoRoot:    b.repoRoot,
+		packageName: b.packageName,
+		parentPath:  b.parentPath,
+		imports:     b.imports,
+		aliases:     b.aliases,
+		pins:        b.pins,
+		owner:       b.owner,
+	}
+	if err := fb.processFields(fields, "v", "v"); err != nil {
+		return nil, nil, err
+	}
+	b.needsMath = b.needsMath || fb.needsMath
+	b.needsJSON = b.needsJSON || fb.needsJSON
+	return indentLines(fb.encodeLines), indentLines(fb.decodeLines), nil
 }
 
 func (b *encoderBuilder) processOptional(
@@ -1118,6 +1159,36 @@ func (b *encoderBuilder) closeNilable(ind string, known bool) {
 	}
 }
 
+// uuidLeaf adds the statements that write and read a UUID as its 16 raw bytes.
+func (b *encoderBuilder) uuidLeaf(ind, getPath, setPath string) {
+	b.encodeLines = append(b.encodeLines,
+		ind+fmt.Sprintf("w.Write(%s[:])", getPath))
+	b.decodeLine(
+		ind + fmt.Sprintf(
+			"if _, err := r.Read(%s[:]); err != nil { return err }",
+			setPath,
+		),
+	)
+}
+
+// jsonLeaf adds the statements that write and read a value as length-prefixed JSON.
+func (b *encoderBuilder) jsonLeaf(ind, valPath, setPath string) {
+	b.needsJSON = true
+	b.encodeLines = append(b.encodeLines,
+		ind+fmt.Sprintf("{ b, err := json.Marshal(%s)", valPath),
+		ind+"\tif err != nil { return err }",
+		ind+"\tw.WriteWithLen(b) }",
+	)
+	b.decodeLines = append(
+		b.decodeLines,
+		ind+"{ b, err := r.ReadWithLen(); if err != nil { return err }",
+		ind+fmt.Sprintf(
+			"\tif err = json.Unmarshal(b, &%s); err != nil { return err } }",
+			setPath,
+		),
+	)
+}
+
 func (b *encoderBuilder) processLeaf(
 	typ resolution.Type, getPath, setPath string,
 ) error {
@@ -1136,30 +1207,10 @@ func (b *encoderBuilder) processLeaf(
 		b.stringLeaf(ind, valPath, setPath, goTypeCast)
 
 	case "uuid":
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Write(%s[:])", getPath))
-		b.decodeLine(
-			ind + fmt.Sprintf(
-				"if _, err := r.Read(%s[:]); err != nil { return err }",
-				setPath,
-			),
-		)
+		b.uuidLeaf(ind, getPath, setPath)
 
 	case "record", "any":
-		b.needsJSON = true
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("{ b, err := json.Marshal(%s)", valPath),
-			ind+"\tif err != nil { return err }",
-			ind+"\tw.WriteWithLen(b) }",
-		)
-		b.decodeLines = append(
-			b.decodeLines,
-			ind+"{ b, err := r.ReadWithLen(); if err != nil { return err }",
-			ind+fmt.Sprintf(
-				"\tif err = json.Unmarshal(b, &%s); err != nil { return err } }",
-				setPath,
-			),
-		)
+		b.jsonLeaf(ind, valPath, setPath)
 
 	case "bytes":
 		b.bytesLeaf(ind, valPath, setPath)
@@ -1167,71 +1218,38 @@ func (b *encoderBuilder) processLeaf(
 	case "bool":
 		b.boolLeaf(ind, valPath, setPath, goTypeCast)
 
-	case "int8":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
-	case "int16":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int16", "int16", "int16(%s)")
-	case "int32":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int32", "int32", "int32(%s)")
-	case "int64":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int64", "int64", "int64(%s)")
-	case "uint8":
-		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Uint8", "uint8", "uint8(%s)")
-	case "uint12", "uint16":
-		b.addIntLeaf(
-			ind,
-			valPath,
-			setPath,
-			goTypeCast,
-			"Uint16",
-			"uint16",
-			"uint16(%s)",
-		)
-	case "uint20", "uint32":
-		b.addIntLeaf(
-			ind,
-			valPath,
-			setPath,
-			goTypeCast,
-			"Uint32",
-			"uint32",
-			"uint32(%s)",
-		)
-	case "uint64":
-		b.addIntLeaf(
-			ind,
-			valPath,
-			setPath,
-			goTypeCast,
-			"Uint64",
-			"uint64",
-			"uint64(%s)",
-		)
-	case "float32":
-		b.addIntLeaf(
-			ind,
-			valPath,
-			setPath,
-			goTypeCast,
-			"Float32",
-			"float32",
-			"float32(%s)",
-		)
-	case "float64":
-		b.addIntLeaf(
-			ind,
-			valPath,
-			setPath,
-			goTypeCast,
-			"Float64",
-			"float64",
-			"float64(%s)",
-		)
-
 	default:
-		return errors.Newf("unsupported primitive type: %s", primName)
+		goPrim, ok := numericGoType(primName)
+		if !ok {
+			return errors.Newf("unsupported primitive type: %s", primName)
+		}
+		writerMethod := strings.ToUpper(goPrim[:1]) + goPrim[1:]
+		b.addIntLeaf(
+			ind,
+			valPath,
+			setPath,
+			goTypeCast,
+			writerMethod,
+			goPrim,
+			goPrim+"(%s)",
+		)
 	}
 	return nil
+}
+
+// numericGoType returns the Go type that holds the numeric primitive primName, and
+// false if primName is not numeric.
+func numericGoType(primName string) (string, bool) {
+	switch primName {
+	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64",
+		"float32", "float64":
+		return primName, true
+	case "uint12":
+		return "uint16", true
+	case "uint20":
+		return "uint32", true
+	}
+	return "", false
 }
 
 func (b *encoderBuilder) addIntLeaf(
@@ -1304,26 +1322,27 @@ func (b *encoderBuilder) resolveLeaf(
 	return typemap.ResolveLeafPrimitive(typ, b.table, b.goTypeName)
 }
 
+// recordGoType returns the Go type of a `record` nested in a generic container, and
+// adds its import to imports. A `record` field is a msgpack.EncodedJSON (a typed
+// map[string]any), and a nested one must match it, or the codec emits a map[string]any
+// that the declared type cannot take. The import keeps any alias the file already gave
+// it (flex methods register "xmsgpack"), so the file never imports it twice.
+func recordGoType(imports map[string]string) string {
+	const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
+	alias, registered := imports[importPath]
+	if !registered {
+		imports[importPath] = ""
+	}
+	if alias == "" {
+		alias = "msgpack"
+	}
+	return alias + ".EncodedJSON"
+}
+
 func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
-		// `record` resolves to msgpack.EncodedJSON (a typed map[string]any) at the
-		// field level so it round-trips cleanly through msgpack and JSON. Use the same
-		// Go type when the value appears as a map element or other generic container,
-		// otherwise the codec emits map[string]any which cannot be assigned to the
-		// declared field type. Reuse the existing alias if the file already imports the
-		// package (flex method generation registers it as "xmsgpack") so the codec does
-		// not double-import under conflicting names.
 		if prim.Name == "record" {
-			const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
-			alias, registered := b.imports[importPath]
-			if !registered {
-				b.imports[importPath] = ""
-			}
-			qualifier := alias
-			if qualifier == "" {
-				qualifier = "msgpack"
-			}
-			return qualifier + ".EncodedJSON", nil
+			return recordGoType(b.imports), nil
 		}
 		goType, ok := typemap.PrimitiveGoType(prim.Name)
 		if !ok {

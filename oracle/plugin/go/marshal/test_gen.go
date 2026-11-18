@@ -1265,20 +1265,8 @@ func (b *testValueBuilder) resolveLeafPrim(
 
 func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
-		// `record` resolves to msgpack.EncodedJSON when used as a map value
-		// (or any nested container) so the literal type matches the Go field
-		// declaration. Mirrors the same special case in encoder.goTypeName.
 		if prim.Name == "record" {
-			const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
-			alias, registered := b.imports[importPath]
-			if !registered {
-				b.imports[importPath] = ""
-			}
-			qualifier := alias
-			if qualifier == "" {
-				qualifier = "msgpack"
-			}
-			return qualifier + ".EncodedJSON", nil
+			return recordGoType(b.imports), nil
 		}
 		goType, ok := typemap.PrimitiveGoType(prim.Name)
 		if !ok {
