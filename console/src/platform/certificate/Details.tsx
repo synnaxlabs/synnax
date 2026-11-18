@@ -14,19 +14,16 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
-import { TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import { type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { leafDER } from "@/platform/certificate/pem";
 import { CSS } from "@/platform/css";
 import { Runtime } from "@/platform/runtime";
 import { Secret } from "@/platform/secret";
-
-const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
 const formatFingerprint = (hex: string): string =>
   hex.toUpperCase().match(/.{2}/g)?.join(":") ?? hex;
@@ -103,14 +100,15 @@ const Download = ({ certificate: c }: DownloadProps): ReactElement => {
 
 export interface DetailsProps {
   certificate: certificate.Certificate;
+  /** The time the validity reads against. */
+  now: TimeStamp;
 }
 
 /**
  * The subject, issuer, validity, and SHA-256 fingerprint of a certificate. A stored
  * certificate also downloads.
  */
-export const Details = ({ certificate: c }: DetailsProps): ReactElement => {
-  const now = useNow(nextMinute);
+export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => {
   const { details } = c;
   const validity = Secret.Validity.describeCertificate(c, now);
   return (
