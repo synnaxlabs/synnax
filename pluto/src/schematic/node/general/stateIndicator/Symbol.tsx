@@ -35,6 +35,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
   const theme = Theming.use();
+  const badged = Staleness.useBadged();
   const source = Telem.numberSource(channel);
   const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,
@@ -51,13 +52,20 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ inlineSize: width })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
+      {stale && badged && (
+        <Grid.Item itemKey="stale" location="bottom">
+          <Staleness.Badge />
+        </Grid.Item>
+      )}
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}
         strokeColor={strokeColor}
         inlineSize={inlineSize}
         size={size}
-        staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
+        staleColor={
+          stale && !badged ? Staleness.resolveColor(stalenessColor, theme) : undefined
+        }
       />
     </Grid.Grid>
   );

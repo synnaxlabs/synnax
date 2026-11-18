@@ -9,14 +9,17 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
+import { StateIndicator } from "@/schematic/node/general/stateIndicator";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { Staleness } from "@/vis/staleness";
+import { stateIndicator } from "@/vis/stateIndicator/aether";
 
 // React Flow resizes a node by pointer drags that jsdom cannot run, so the spec calls
 // the resize callback that the control receives.
@@ -64,7 +67,7 @@ describe("StateIndicator.Symbol", () => {
         <ReactFlowProvider>
           <Haul.Provider>
             <div data-id="s1">
-              <Symbol
+              <StateIndicator.spec.Node
                 nodeKey="s1"
                 selected
                 onConfigChange={onConfigChange}
@@ -80,5 +83,57 @@ describe("StateIndicator.Symbol", () => {
     expect(mocks.onResize.length).toBeGreaterThan(0);
     mocks.onResize[0]({}, { width: 120.6, height: 30 });
     expect(onConfigChange).toHaveBeenLastCalledWith({ inlineSize: 121 });
+  });
+});
+
+// Stands in for the state indicator worker component and reports its source as stale.
+class StaleStateIndicator extends aether.Leaf<typeof stateIndicator.stateZ> {
+  static readonly TYPE = stateIndicator.StateIndicator.TYPE;
+  schema = stateIndicator.stateZ;
+
+  afterUpdate(): void {
+    if (!this.state.stale) this.setState((s) => ({ ...s, stale: true }));
+  }
+}
+
+const StaleWrapper = createSynnaxWrapper({
+  client: null,
+  additionalRegistry: { [StaleStateIndicator.TYPE]: StaleStateIndicator },
+  telemFactories: [],
+});
+
+const renderStale = (badged: boolean) =>
+  render(
+    <StaleWrapper>
+      <Staleness.Provider badged={badged}>
+        <ReactFlowProvider>
+          <StateIndicator.spec.Node
+            nodeKey="s1"
+            selected={false}
+            onConfigChange={vi.fn()}
+            config={schematic.stateIndicatorNodeConfigZ.parse({
+              variant: "state_indicator",
+              channel: 1,
+            })}
+          />
+        </ReactFlowProvider>
+      </Staleness.Provider>
+    </StaleWrapper>,
+  );
+
+describe("StateIndicator.Symbol staleness", () => {
+  it("should show the stale indicator in place of the stale color", async () => {
+    const { findByRole, getByText } = renderStale(true);
+    const indicator = await findByRole("img", { name: "Stale" });
+    expect(indicator.closest(".pluto-grid__item")?.classList).toContain(
+      "lyra--location-bottom",
+    );
+    expect(getByText("Unknown").style.color).toBe("");
+  });
+
+  it("should paint the stale color with no indicator when not badged", async () => {
+    const { getByText, queryByRole } = renderStale(false);
+    await waitFor(() => expect(getByText("Unknown").style.color).not.toBe(""));
+    expect(queryByRole("img", { name: "Stale" })).toBeNull();
   });
 });

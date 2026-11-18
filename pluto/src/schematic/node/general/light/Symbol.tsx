@@ -36,6 +36,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.LightNodeConfig>): ReactElement => {
   const theme = Theming.use();
+  const badged = Staleness.useBadged();
   const source = Telem.booleanSource(channel, threshold);
   const { enabled, stale } = BaseLight.use({
     aetherKey: nodeKey,
@@ -52,13 +53,18 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ scale: width / WIDTH_PER_SCALE })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
+      {stale && badged && (
+        <Grid.Item itemKey="stale" location="bottom">
+          <Staleness.Badge />
+        </Grid.Item>
+      )}
       <Light
         enabled={enabled}
         orientation={orientation}
         strokeColor={
-          stale ? Staleness.resolveColor(stalenessColor, theme) : strokeColor
+          stale && !badged ? Staleness.resolveColor(stalenessColor, theme) : strokeColor
         }
-        onColor={stale ? undefined : onColor}
+        onColor={stale && !badged ? undefined : onColor}
         {...rest}
       />
     </Grid.Grid>

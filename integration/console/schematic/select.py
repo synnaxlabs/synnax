@@ -22,25 +22,33 @@ class Select(Symbol):
         *,
         label: str,
         channel_name: str,
+        state_channel_name: str | None = None,
         options: list[sy.schematic.StateMapping] | None = None,
     ):
         """Initialize a select symbol with configuration.
 
         :param label: Display label for the symbol
         :param channel_name: Channel name for the select output
+        :param state_channel_name: Channel name for the read-back (optional)
         :param options: States to add as options
         """
         super().__init__(label=label, symbol_type="Select", rotatable=False)
         self.channel_name = channel_name
+        self.state_channel_name = state_channel_name
         self.options = options or []
 
     def _apply_properties(self) -> None:
-        self.set_properties(channel_name=self.channel_name, options=self.options)
+        self.set_properties(
+            channel_name=self.channel_name,
+            state_channel_name=self.state_channel_name,
+            options=self.options,
+        )
 
     def set_properties(
         self,
         *,
         channel_name: str | None = None,
+        state_channel_name: str | None = None,
         options: list[sy.schematic.StateMapping] | None = None,
     ) -> None:
         self.click()
@@ -51,6 +59,11 @@ class Select(Symbol):
             self.page.get_by_text("Properties").dispatch_event("click")
             self.page.get_by_text("Control").last.dispatch_event("click")
             self.set_channel(section="Command", channel_name=channel_name)
+
+        if state_channel_name is not None:
+            self.page.get_by_text("Properties").dispatch_event("click")
+            self.page.get_by_text("Control").last.dispatch_event("click")
+            self.set_channel(section="State", channel_name=state_channel_name)
 
         if options is not None and len(options) > 0:
             self.click()
