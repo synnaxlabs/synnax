@@ -87,7 +87,7 @@ export const Labels = ({ ranges }: LabelsProps): ReactElement => {
         subscribe={subscribe}
         onFetchMore={more}
       >
-        <Select.Dialog surface="menu" aria-label="Labels">
+        <Select.Dialog surface="menu" filtered aria-label="Labels">
           <Select.Body<label.Key>
             resourceName="label"
             onSearch={search}
