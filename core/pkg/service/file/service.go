@@ -69,7 +69,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ctx, config.ServiceConfig[BrowserConfig]{
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
-			Type:            BrowserTaskType,
+			Type:            browserTaskType,
 			Ladder:          versions.BrowserConfigLadder,
 			SetEntryKey:     (*BrowserConfig).SetKey,
 			PatchEntry:      (*BrowserConfig).Patch,
