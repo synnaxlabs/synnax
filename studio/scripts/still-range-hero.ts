@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type label,
   panel,
   type ranger,
   type Synnax,
@@ -64,7 +65,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   try {
     const { page } = session;
     await client.labels.create(
-      Object.entries(LABELS).map(([name, l]) => ({ name, ...l })),
+      Object.entries(LABELS).map(([name, { key, color }]): label.New => ({
+        name,
+        key,
+        color: { type: "fixed", value: color },
+      })),
     );
     const label = async (range: ranger.Range, labels: Label[]): Promise<void> =>
       await client.labels.label(
@@ -99,9 +104,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const tr = run.timeRange;
     const [closed] = await changes(client, tr, "ox_vent");
     const [opened, shut] = await changes(client, tr, "ox_mpv");
-    const stage = (name: string, color: string, start: TimeStamp, end: TimeStamp) => ({
+    const stage = (
+      name: string,
+      color: string,
+      start: TimeStamp,
+      end: TimeStamp,
+    ): ranger.New => ({
       name,
-      color,
+      color: { type: "fixed", value: color },
       timeRange: new TimeRange(start, end),
       parent: run.key,
     });

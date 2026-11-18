@@ -77,12 +77,12 @@ export const startColdflow = async (
   await client.ranges.create([
     {
       name: "Pressurization",
-      color: "#3774D0",
+      color: { type: "fixed", value: "#3774D0" },
       timeRange: new TimeRange(start, flowing),
     },
     {
       name: "Coldflow",
-      color: "#F5C400",
+      color: { type: "fixed", value: "#F5C400" },
       timeRange: new TimeRange(flowing, flowing.add(TimeSpan.seconds(30))),
     },
   ]);

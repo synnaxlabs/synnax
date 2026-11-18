@@ -31,12 +31,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       {
         name: "Pressurization",
         timeRange: new TimeRange(ago(110), ago(80)),
-        color: "#3B7DDB",
+        color: { type: "fixed", value: "#3B7DDB" },
       },
       {
         name: "Hold",
         timeRange: new TimeRange(ago(65), ago(20)),
-        color: "#F18F01",
+        color: { type: "fixed", value: "#F18F01" },
       },
     ]);
     const { page } = session;
