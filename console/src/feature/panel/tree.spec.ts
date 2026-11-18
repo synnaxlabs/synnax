@@ -77,6 +77,29 @@ describe("panel tree item", () => {
     expect(layer?.textContent).toBe(`${pan.name}Panel`);
   });
 
+  it("should picture a dragged panel in the named color of its icon", async () => {
+    const named = await client.colors.create({
+      name: uniqueName("color"),
+      light: "#123456",
+    });
+    const pan = await renderPanelTree({
+      icon: "valve",
+      color: { type: "named", key: named.key },
+    });
+    await waitFor(async () =>
+      expect(
+        (await findRowIcon(pan, "valve"))?.style.getPropertyValue(
+          "--pluto-symbol-color",
+        ),
+      ).toEqual("18, 52, 86"),
+    );
+    fireEvent.dragStart(await findTreeRow(pan.name));
+    const icon = document
+      .querySelector(".lyra-haul__layer")
+      ?.querySelector<SVGElement>(".lyra-icon--valve");
+    expect(icon?.style.getPropertyValue("--pluto-symbol-color")).toEqual("18, 52, 86");
+  });
+
   // Each tab shows a record that the tree lists in its own place.
   it("should not expand into the records its tabs display", async () => {
     const pan = await renderPanelTree();

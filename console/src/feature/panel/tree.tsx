@@ -37,12 +37,16 @@ export const GROUP_MEMBER: Group.Member = {
 
 const FACTS = ["Panel"];
 
-const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
+const haulPreview: Tree.HaulPreview = ({ resource, client, count, resolveColor }) => {
   const cached = client.panels.watch(resource.id.key).getCached();
-  const appearance = query.isLive(cached) ? cached : {};
+  const { icon, color } = query.isLive(cached) ? cached : {};
   return (
     <Haul.Preview
-      icon={Appearance.renderIcon({ ...appearance, fallback: Icon.Panel })}
+      icon={Appearance.renderIcon({
+        icon,
+        color: resolveColor(color),
+        fallback: Icon.Panel,
+      })}
       name={resource.name}
       facts={FACTS}
       count={count}
