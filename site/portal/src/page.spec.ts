@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { failure, load, loadScoped, readActivity, type Scoped } from "@/page";
@@ -124,7 +125,7 @@ describe("page", () => {
       signInWithTeam();
       const context = createAPIContext(harness.portal, {
         method: "GET",
-        path: `/?org=${crypto.randomUUID()}`,
+        path: `/?org=${uuid.create()}`,
       });
       const res = await loadScoped(context);
       if (!(res instanceof Response)) throw new Error("expected a redirect");

@@ -69,7 +69,7 @@ describe("Status queries", () => {
     });
 
     it("should add a status whose variant changes to match the filter", async () => {
-      const prefix = `variant-listen-${Date.now()}`;
+      const prefix = `variant-listen-${id.create()}`;
       const keys = [`${prefix}-error`, `${prefix}-warning`];
       await client.statuses.set([
         {
