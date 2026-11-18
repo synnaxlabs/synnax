@@ -188,12 +188,69 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheDeviceCheckFails) {
     ASSERT_OCCURRED_AS_P(this->master.scan(), errors::PERMISSION_DENIED);
 }
 
-/// @brief it should fail when the kernel module gives no master.
-TEST_F(IGHMasterTest, ScanFailsWhenTheMasterIsMissing) {
-    this->api->request_master_fails = true;
+/// @brief it should fail when the master cannot be opened.
+TEST_F(IGHMasterTest, ScanFailsWhenTheMasterCannotBeOpened) {
+    this->api->open_master_fails = true;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "IgH master not available - is kernel module loaded?");
+    EXPECT_EQ(
+        err.data,
+        "failed to open igh:0. Check that libethercat comes from the EtherLab version "
+        "of the ec_master kernel module"
+    );
+}
+
+/// @brief it should scan without a reservation, so IgH keeps scanning the bus, and
+/// reserve the master at activation.
+TEST_F(IGHMasterTest, ScanLeavesTheMasterUnreservedUntilActivation) {
+    this->api->add_slave();
+    ASSERT_NIL_P(this->master.scan());
+    EXPECT_FALSE(this->api->reserved);
+    ASSERT_NIL(this->activate().err);
+    EXPECT_TRUE(this->api->reserved);
+}
+
+/// @brief it should wait for a scan that IgH runs before it reads the slaves.
+TEST_F(IGHMasterTest, ScanWaitsForTheScanOfIgH) {
+    this->api->add_slave();
+    this->api->scan_reads = 3;
+    EXPECT_EQ(ASSERT_NIL_P(this->master.scan()).size(), 1);
+    EXPECT_EQ(this->api->scan_reads, 0);
+}
+
+/// @brief it should fail, and release the master, when IgH does not finish its scan.
+TEST_F(IGHMasterTest, ScanFailsWhenIgHKeepsScanning) {
+    this->api->add_slave();
+    this->api->scan_reads = 100000;
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(err.data, "IgH did not finish its scan of the bus within 10s");
+    EXPECT_TRUE(this->api->released);
+}
+
+/// @brief it should fail, and release the master, when no slave answers.
+TEST_F(IGHMasterTest, ScanFailsWhenNoSlaveAnswers) {
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_EQ(
+        err.data,
+        "No EtherCAT slaves found on igh:0. Check the cable and the power of the first "
+        "device."
+    );
+    EXPECT_TRUE(this->api->released);
+}
+
+/// @brief it should tell a network port with no link from slaves that do not answer.
+TEST_F(IGHMasterTest, ScanFailsWhenThePortHasNoLink) {
+    this->api->link_up = false;
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_EQ(
+        err.data,
+        "No EtherCAT slaves found on igh:0. Its network port has no link. Check the "
+        "cable to the first device, and that MASTER0_DEVICE in the IgH configuration "
+        "names the port."
+    );
 }
 
 /// @brief it should release the master when it cannot read the master info.
@@ -205,24 +262,22 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheMasterInfoCannotBeRead) {
     EXPECT_TRUE(this->api->released);
 }
 
-/// @brief it should release the master when it cannot create the output domain.
-TEST_F(IGHMasterTest, ScanFailsWhenTheOutputDomainFails) {
+/// @brief it should fail activation when it cannot create the output domain.
+TEST_F(IGHMasterTest, ActivateFailsWhenTheOutputDomainFails) {
     this->api->add_slave();
     this->api->output_domain_fails = true;
-    const auto err = this->master.scan().second;
-    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    const auto err = this->scan_and_activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(err.data, "failed to create output domain");
-    EXPECT_TRUE(this->api->released);
 }
 
-/// @brief it should release the master when it cannot create the input domain.
-TEST_F(IGHMasterTest, ScanFailsWhenTheInputDomainFails) {
+/// @brief it should fail activation when it cannot create the input domain.
+TEST_F(IGHMasterTest, ActivateFailsWhenTheInputDomainFails) {
     this->api->add_slave();
     this->api->input_domain_fails = true;
-    const auto err = this->master.scan().second;
-    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    const auto err = this->scan_and_activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(err.data, "failed to create input domain");
-    EXPECT_TRUE(this->api->released);
 }
 
 /// @brief it should fail to initialize, and release the master, when it cannot read a
@@ -353,6 +408,15 @@ TEST_F(IGHMasterTest, ChangedOnceAnotherModelIsAtAPosition) {
     EXPECT_FALSE(this->master.restarts_visible());
 }
 
+/// @brief it should report a change while IgH scans the bus, as the slaves changed.
+TEST_F(IGHMasterTest, ChangedWhileIgHScansTheBus) {
+    this->api->add_slave();
+    ASSERT_NIL_P(this->master.scan());
+    this->api->scan_reads = 1;
+    EXPECT_TRUE(ASSERT_NIL_P(this->master.changed()).stale);
+    EXPECT_FALSE(ASSERT_NIL_P(this->master.changed()).stale);
+}
+
 /// @brief it should fail to compare the bus with the scan when IgH cannot read a slave.
 TEST_F(IGHMasterTest, ChangedFailsWhenASlaveIsUnreadable) {
     this->api->add_slave();
@@ -368,6 +432,92 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheMasterDoesNotActivate) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(err.data, "ecrt_master_activate failed");
+}
+
+/// @brief it should tell why it cannot reserve the master.
+TEST_F(IGHMasterTest, ActivateFailsWhenTheMasterCannotBeReserved) {
+    this->api->add_slave();
+    ASSERT_NIL_P(this->master.scan());
+    const std::vector<std::pair<int, std::string>> cases{
+        {-EBUSY, "another program uses igh:0. Stop it, then start the task again"},
+        {-ENODEV,
+         "no network port is attached to igh:0. Set MASTER0_DEVICE in the IgH "
+         "configuration to the MAC address of the port, then restart IgH with 'sudo "
+         "systemctl restart ethercat'"},
+        {-EINTR, "failed to reserve igh:0: Interrupted system call"},
+    };
+    for (const auto &[ret, msg]: cases) {
+        this->api->reserve_result = ret;
+        const auto err = this->activate().err;
+        ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+        EXPECT_EQ(err.data, msg);
+    }
+}
+
+/// @brief it should give IgH the period as its send interval.
+TEST_F(IGHMasterTest, ActivateSetsTheSendIntervalToThePeriod) {
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(this->api->send_interval_us, 1000);
+}
+
+/// @brief it should fail activation when IgH rejects the send interval.
+TEST_F(IGHMasterTest, ActivateFailsWhenTheSendIntervalFails) {
+    this->api->add_slave();
+    this->api->send_interval_result = -EINVAL;
+    const auto err = this->scan_and_activate();
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "failed to set the send interval: Invalid argument");
+}
+
+/// @brief it should refuse a used slave with no identity once the image shows the other
+/// slaves, without configuring the slave or checking its chosen mode.
+TEST_F(IGHMasterTest, ActivateRefusesAUsedSlaveWithNoIdentity) {
+    this->api->add_slave("Unknown", 0, 0);
+    create_io(this->api->add_slave());
+    ASSERT_NIL_P(this->master.scan());
+    this->configs = {
+        {1, {.op_mode = dc::Choice{.index = 2, .assign_activate = 0x0700}}}
+    };
+    const auto activation = this->activate();
+    ASSERT_OCCURRED_AS(activation.err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        activation.err.data,
+        "slave 1 (Unknown) gave no identity when IgH read its EEPROM"
+    );
+    const std::map<uint16_t, slave::Refusal> refusals{
+        {1, {.reason = "gave no identity when IgH read its EEPROM"}},
+    };
+    EXPECT_EQ(activation.refusals, refusals);
+    EXPECT_FALSE(this->api->slaves[0].configured);
+    EXPECT_FALSE(this->image.offsets.empty());
+}
+
+/// @brief it should refuse a used slave with no identity before it starts the cycle
+/// when no other slave has process data.
+TEST_F(IGHMasterTest, ActivateRefusesTheOnlySlaveWithIOWhenItHasNoIdentity) {
+    create_io(this->api->add_slave("Unknown", 0, 0));
+    ASSERT_NIL_P(this->master.scan());
+    bool started = false;
+    const auto activation = this->master.activate(
+        {.period = PERIOD},
+        [&started](const master::Image &) { started = true; }
+    );
+    ASSERT_OCCURRED_AS(activation.err, errors::ACTIVATION_ERROR);
+    EXPECT_TRUE(activation.refusals.contains(1));
+    EXPECT_FALSE(started);
+}
+
+/// @brief it should start a bus with a slave that has no identity when no task uses the
+/// slave.
+TEST_F(IGHMasterTest, ActivateStartsPastAnUnusedSlaveWithNoIdentity) {
+    this->api->add_slave("Unknown", 0, 0);
+    create_io(this->api->add_slave());
+    ASSERT_NIL_P(this->master.scan());
+    this->configs = {{1, {.enabled = false}}};
+    const auto activation = this->activate();
+    ASSERT_NIL(activation.err);
+    EXPECT_TRUE(activation.refusals.empty());
 }
 
 /// @brief it should configure each enabled slave and skip a disabled one.

@@ -12,6 +12,7 @@
 #include <charconv>
 #include <chrono>
 #include <format>
+#include <map>
 #include <optional>
 #include <string_view>
 #include <system_error>
@@ -77,6 +78,10 @@ std::string reason(const int ret) {
 
 /// @brief the time between reads of the slave states while the slaves move to OP.
 const auto OP_POLL_INTERVAL = x::telem::MILLISECOND * 10;
+/// @brief how long the master waits for IgH to finish a scan of the bus.
+const auto SCAN_TIMEOUT = x::telem::SECOND * 10;
+/// @brief the time between reads of the master state while IgH scans the bus.
+const auto SCAN_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief how long a reset can take to clear the AL error flags, since IgH resets in
 /// the background.
 const auto RESET_GRACE = x::telem::MILLISECOND * 500;
@@ -129,6 +134,53 @@ check_op_mode(const slave::Properties &slave, const slave::Config &config) {
     );
 }
 
+/// @brief returns errors::NO_SLAVES_FOUND for the master named name at index, telling a
+/// port with no link from slaves that do not answer.
+x::errors::Error
+no_slaves_error(const std::string &name, const unsigned int index, const bool link_up) {
+    const auto found = "No EtherCAT slaves found on " + name + ". ";
+    if (link_up)
+        return x::errors::Error(
+            errors::NO_SLAVES_FOUND,
+            found + "Check the cable and the power of the first device."
+        );
+    return x::errors::Error(
+        errors::NO_SLAVES_FOUND,
+        found + std::format(
+                    "Its network port has no link. Check the cable to the first "
+                    "device, and that MASTER{}_DEVICE in the IgH configuration names "
+                    "the port.",
+                    index
+                )
+    );
+}
+
+/// @brief returns errors::ACTIVATION_ERROR for ret, the error of a failed reservation
+/// of the master named name at index.
+x::errors::Error
+reserve_error(const std::string &name, const unsigned int index, const int ret) {
+    if (ret == -EBUSY)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "another program uses " + name + ". Stop it, then start the task again"
+        );
+    if (ret == -ENODEV)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            std::format(
+                "no network port is attached to {}. Set MASTER{}_DEVICE in the IgH "
+                "configuration to the MAC address of the port, then restart IgH "
+                "with 'sudo systemctl restart ethercat'",
+                name,
+                index
+            )
+        );
+    return x::errors::Error(
+        errors::ACTIVATION_ERROR,
+        "failed to reserve " + name + ": " + reason(ret)
+    );
+}
+
 /// @brief returns s as a decimal number, or nullopt when s holds anything else.
 std::optional<unsigned int> parse_index(const std::string_view s) {
     unsigned int index = 0;
@@ -166,22 +218,43 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
 
 x::errors::Error Master::initialize() {
     if (auto err = this->api->check_device(this->master_index)) return err;
-    this->ec_master = this->api->request_master(this->master_index);
+    // Only a reserved master stops IgH from scanning the bus again, so changed() sees
+    // the slaves that come and go until activate() reserves it.
+    this->ec_master = this->api->open_master(this->master_index);
     if (!this->ec_master)
         return x::errors::Error(
             errors::MASTER_INIT_ERROR,
-            "IgH master not available - is kernel module loaded?"
+            "failed to open " + this->name() +
+                ". Check that libethercat comes from the EtherLab version of the "
+                "ec_master kernel module"
         );
 
-    const auto fail = [this](const std::string &msg) {
+    const auto release = [this](const x::errors::Error &err) {
         this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
-        return x::errors::Error(errors::MASTER_INIT_ERROR, msg);
+        return err;
+    };
+    const auto fail = [&release](const std::string &msg) {
+        return release(x::errors::Error(errors::MASTER_INIT_ERROR, msg));
     };
 
-    ec_master_info_t master_info;
-    if (this->api->master(this->ec_master, &master_info) < 0)
-        return fail("failed to get master info");
+    ec_master_info_t master_info{};
+    const auto deadline = this->cfg.clock.steady() + SCAN_TIMEOUT.chrono();
+    while (true) {
+        if (this->api->master(this->ec_master, &master_info) < 0)
+            return fail("failed to get master info");
+        if (master_info.scan_busy == 0) break;
+        if (this->cfg.clock.steady() >= deadline)
+            return fail(
+                "IgH did not finish its scan of the bus within " +
+                SCAN_TIMEOUT.to_string()
+            );
+        this->cfg.clock.sleep(SCAN_POLL_INTERVAL);
+    }
+    if (master_info.slave_count == 0)
+        return release(
+            no_slaves_error(this->name(), this->master_index, master_info.link_up != 0)
+        );
 
     this->cached_slaves.clear();
     this->cached_slaves.reserve(master_info.slave_count);
@@ -222,11 +295,6 @@ x::errors::Error Master::initialize() {
         this->cached_slaves.push_back(std::move(result));
     }
 
-    this->output_domain = this->api->master_create_domain(this->ec_master);
-    if (!this->output_domain) return fail("failed to create output domain");
-    this->input_domain = this->api->master_create_domain(this->ec_master);
-    if (!this->input_domain) return fail("failed to create input domain");
-
     this->initialized = true;
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " initialized with "
             << this->cached_slaves.size() << " slaves";
@@ -242,9 +310,10 @@ std::pair<master::Change, x::errors::Error> Master::changed() {
             {},
             x::errors::Error(errors::MASTER_INIT_ERROR, "failed to get master info")
         };
-    if (info.slave_count != this->cached_slaves.size())
+    // IgH scans the bus again by itself when the slaves change, so its slave info is
+    // current once the scan ends.
+    if (info.scan_busy != 0 || info.slave_count != this->cached_slaves.size())
         return {master::Change{.stale = true}, x::errors::NIL};
-    // IgH scans the bus again by itself, so its slave info is current.
     for (const auto &slave: this->cached_slaves) {
         const auto &props = slave.properties;
         ec_slave_info_t slave_info;
@@ -389,17 +458,69 @@ master::Activation Master::activate(
         const auto it = plan.slaves.find(pos);
         return it == plan.slaves.end() ? slave::Config{} : it->second;
     };
-    for (const auto &slave: this->cached_slaves)
-        if (auto err = check_op_mode(
-                slave.properties,
-                config_of(slave.properties.position)
-            ))
+    // IgH has no identity to configure a slave by when it failed to read its EEPROM.
+    std::map<uint16_t, slave::Refusal> unidentified;
+    for (const auto &slave: this->cached_slaves) {
+        const auto &props = slave.properties;
+        const auto config = config_of(props.position);
+        if (config.enabled && props.vendor_id == 0 && props.product_code == 0)
+            unidentified[props.position] = {
+                .reason = "gave no identity when IgH read its EEPROM"
+            };
+        else if (auto err = check_op_mode(props, config))
             return {.err = err};
+    }
+    const auto refuse_unidentified = [&] {
+        std::string msg;
+        for (const auto &[pos, refusal]: unidentified)
+            msg += std::format(
+                "{}slave {} ({}) {}",
+                msg.empty() ? "" : "; ",
+                pos,
+                this->cached_slaves[pos - 1].properties.name,
+                refusal.reason
+            );
+        return master::Activation{
+            .err = x::errors::Error(errors::ACTIVATION_ERROR, msg),
+            .refusals = std::move(unidentified),
+        };
+    };
+
+    if (const int ret = this->api->master_reserve(this->ec_master); ret != 0)
+        return {.err = reserve_error(this->name(), this->master_index, ret)};
+    if (const int ret = this->api->master_set_send_interval(
+            this->ec_master,
+            static_cast<size_t>(plan.period.microseconds())
+        );
+        ret != 0)
+        return {
+            .err = x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "failed to set the send interval: " + reason(ret)
+            )
+        };
+    this->output_domain = this->api->master_create_domain(this->ec_master);
+    if (!this->output_domain)
+        return {
+            .err = x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "failed to create output domain"
+            )
+        };
+    this->input_domain = this->api->master_create_domain(this->ec_master);
+    if (!this->input_domain)
+        return {
+            .err = x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "failed to create input domain"
+            )
+        };
+
     master::Image image;
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
         const auto config = config_of(pos);
-        if (!config.enabled) continue;
+        if (!config.enabled || unidentified.contains(pos)) continue;
         auto *sc = this->api->master_slave_config(
             this->ec_master,
             0,
@@ -423,6 +544,8 @@ master::Activation Master::activate(
             if (auto err = this->configure_assigned_pdos(pos, sc)) return {.err = err};
         this->register_pdo_entries(slave.properties, sc, image);
     }
+    // The caller leaves out a refused slave only when the image maps another one.
+    if (!unidentified.empty() && image.offsets.empty()) return refuse_unidentified();
 
     this->output_sz = this->api->domain_size(this->output_domain);
     this->input_sz = this->api->domain_size(this->input_domain);
@@ -455,6 +578,7 @@ master::Activation Master::activate(
     image.slaves = this->cached_slaves;
     // The IgH master moves the slaves to OP on its own while the caller cycles.
     start_cycle(image);
+    if (!unidentified.empty()) return refuse_unidentified();
     return this->wait_for_op();
 }
 

@@ -107,19 +107,28 @@ public:
         return "igh:" + std::to_string(this->master_index);
     }
 
+    /// @brief does what master::Master::scan does, but leaves the master unreserved, so
+    /// IgH keeps scanning the bus and changed() sees the slaves that come and go. Waits
+    /// up to 10 s for a scan that IgH runs. Returns errors::NO_SLAVES_FOUND when no
+    /// slave answers.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
+    /// @brief does what master::Master::changed does, and also reports a change while
+    /// IgH scans the bus.
     std::pair<master::Change, x::errors::Error> changed() override;
 
     [[nodiscard]] bool restarts_visible() const override { return false; }
 
-    /// @brief does what master::Master::activate does, but ignores the period and runs
-    /// no DC sync, so a slave that needs DC sync refuses SAFE-OP. Returns
+    /// @brief does what master::Master::activate does, but runs no DC sync, so a slave
+    /// that needs DC sync refuses SAFE-OP. It reserves the master and gives IgH the
+    /// period as its send interval. Returns errors::ACTIVATION_ERROR when another
+    /// program reserved the master or no network port is attached to it, and refuses a
+    /// used slave with no identity as the SOEM master does. Returns
     /// errors::SLAVE_CONFIG_ERROR, before it configures any slave, when the chosen mode
     /// of a slave is one that the IgH master cannot run. The IgH master moves the
     /// slaves to OP on its own, so a slave below OP with its AL error flag set counts
-    /// as a refusal. Once every slave below OP has the flag, the master tries them
-    /// once more with a reset, then returns the refusals without waiting for
+    /// as a refusal. Once every slave below OP has the flag, the master tries them once
+    /// more with a reset, then returns the refusals without waiting for
     /// Config::op_timeout.
     master::Activation activate(
         const master::Plan &plan,

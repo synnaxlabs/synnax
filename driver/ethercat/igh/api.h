@@ -39,11 +39,13 @@ inline const auto LOAD_ERROR = driver::errors::missing_lib(LIBRARY_INFO);
 class API {
     /// @brief function pointers to the IgH EtherCAT library functions.
     struct FunctionPointers {
-        decltype(&ecrt_request_master) request_master;
+        decltype(&ecrt_open_master) open_master;
+        decltype(&ecrt_master_reserve) master_reserve;
         decltype(&ecrt_release_master) release_master;
         decltype(&ecrt_master_activate) master_activate;
         decltype(&ecrt_master_deactivate) master_deactivate;
         decltype(&ecrt_master_reset) master_reset;
+        decltype(&ecrt_master_set_send_interval) master_set_send_interval;
         decltype(&ecrt_master_create_domain) master_create_domain;
         decltype(&ecrt_domain_size) domain_size;
         decltype(&ecrt_domain_data) domain_data;
@@ -98,11 +100,13 @@ public:
             fn = reinterpret_cast<F>(const_cast<void *>(lib->get_func_ptr(name)));
             if (fn == nullptr && missing.empty()) missing = name;
         };
-        resolve(f.request_master, "ecrt_request_master");
+        resolve(f.open_master, "ecrt_open_master");
+        resolve(f.master_reserve, "ecrt_master_reserve");
         resolve(f.release_master, "ecrt_release_master");
         resolve(f.master_activate, "ecrt_master_activate");
         resolve(f.master_deactivate, "ecrt_master_deactivate");
         resolve(f.master_reset, "ecrt_master_reset");
+        resolve(f.master_set_send_interval, "ecrt_master_set_send_interval");
         resolve(f.master_create_domain, "ecrt_master_create_domain");
         resolve(f.domain_size, "ecrt_domain_size");
         resolve(f.domain_data, "ecrt_domain_data");
@@ -168,12 +172,21 @@ public:
         );
     }
 
-    /// @brief requests an EtherCAT master for realtime operation.
-    [[nodiscard]] virtual ec_master_t *request_master(unsigned int master_index) const {
-        return this->func_ptrs.request_master(master_index);
+    /// @brief opens an EtherCAT master without reserving it, so IgH keeps scanning the
+    /// bus. Returns nullptr when the master cannot be opened.
+    [[nodiscard]] virtual ec_master_t *open_master(unsigned int master_index) const {
+        return this->func_ptrs.open_master(master_index);
     }
 
-    /// @brief releases a requested EtherCAT master.
+    /// @brief reserves an open master for realtime operation. It waits for a scan that
+    /// IgH runs, and IgH scans the bus again only after activation.
+    /// @returns -EBUSY when another program reserved the master, or -ENODEV when no
+    /// network port is attached to it.
+    [[nodiscard]] virtual int master_reserve(ec_master_t *master) const {
+        return this->func_ptrs.master_reserve(master);
+    }
+
+    /// @brief closes a master and ends its reservation.
     virtual void release_master(ec_master_t *master) const {
         this->func_ptrs.release_master(master);
     }
@@ -193,6 +206,13 @@ public:
     /// in the background after the call returns.
     [[nodiscard]] virtual int master_reset(ec_master_t *master) const {
         return this->func_ptrs.master_reset(master);
+    }
+
+    /// @brief sets the time between master_send calls, which bounds the mailbox and
+    /// scan traffic that IgH adds to a frame. Valid after master_reserve.
+    [[nodiscard]] virtual int
+    master_set_send_interval(ec_master_t *master, size_t send_interval_us) const {
+        return this->func_ptrs.master_set_send_interval(master, send_interval_us);
     }
 
     /// @brief creates a new process data domain.
