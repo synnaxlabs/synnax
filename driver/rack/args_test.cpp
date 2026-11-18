@@ -49,6 +49,14 @@ TEST(ArgsTest, EnableIntegrationsRunsOnlyThose) {
     EXPECT_EQ(cfg.integrations, (std::vector<std::string>{"http", "ni"}));
 }
 
+/// @brief it should run each integration once when --enable-integrations repeats it.
+TEST(ArgsTest, EnableIntegrationsDropsRepeats) {
+    x::errors::Error err;
+    const auto cfg = load({"--enable-integrations", "http,ni,http"}, err);
+    ASSERT_NIL(err);
+    EXPECT_EQ(cfg.integrations, (std::vector<std::string>{"http", "ni"}));
+}
+
 /// @brief it should remove the integrations that --disable-integrations names.
 TEST(ArgsTest, DisableIntegrationsRemovesThose) {
     x::errors::Error err;
@@ -62,6 +70,9 @@ TEST(ArgsTest, RejectBothIntegrationFlags) {
     x::errors::Error err;
     load({"--enable-integrations", "http", "--disable-integrations", "ni"}, err);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_NE(err.data.find("cannot be used with --disable-integrations"), std::string::npos);
+    EXPECT_NE(
+        err.data.find("cannot be used with --disable-integrations"),
+        std::string::npos
+    );
 }
 }

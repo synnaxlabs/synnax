@@ -26,9 +26,12 @@ x::errors::Error Config::load_args(x::args::Parser &args) {
             "enable-integrations",
             "cannot be used with --disable-integrations"
         );
-    else if (!enable.empty())
-        this->integrations = enable;
-    else
+    else if (!enable.empty()) {
+        this->integrations.clear();
+        for (const auto &i: enable)
+            if (std::ranges::find(this->integrations, i) == this->integrations.end())
+                this->integrations.push_back(i);
+    } else
         std::erase_if(this->integrations, [&](const std::string &i) {
             return std::ranges::find(disable, i) != disable.end();
         });

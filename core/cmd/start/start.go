@@ -530,7 +530,7 @@ func openWorkDir(cacheDir string) (string, io.Closer, error) {
 
 func parseIntegrations(enabled, disabled []string) []string {
 	if len(enabled) > 0 {
-		return enabled
+		return lo.Uniq(enabled)
 	}
 	return lo.Filter(driver.AllIntegrations, func(integration string, _ int) bool {
 		return !lo.Contains(disabled, integration)
