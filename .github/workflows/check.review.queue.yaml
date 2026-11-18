@@ -32,10 +32,9 @@ jobs:
   gate:
     name: Report queue review gate
     runs-on: ubuntu-latest
-    # Removing a pull request from the merge queue needs write access.
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+      pull-requests: read
       statuses: write
     steps:
       - name: Checkout repository

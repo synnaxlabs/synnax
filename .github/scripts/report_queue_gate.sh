@@ -10,32 +10,55 @@
 # included in the file licenses/APL.txt.
 
 # Posts the Review gate status of a merge group. Usage: report_queue_gate.sh <queue_ref>
-# <sha>. Judges the pull request the queue ref names, if GitHub's ref points at the
-# commit. A merge group cannot wait, so anything short of success is a failure. A pull
-# request that fails the gate leaves the queue, since a passing entry behind it would
-# otherwise merge it. When the gate cannot judge, posts a failure, so the queue does not
-# stall until its timeout, and exits non-zero.
+# <sha>. Judges every pull request in the group, read from the "(#N)" that ends each
+# commit title between the target branch and the commit, if GitHub's ref points at the
+# commit. Under HEADGREEN only the last entry's status gates a merge, so it must cover
+# the entries ahead. A merge group cannot wait, so anything short of success is a
+# failure. When the gate cannot judge, posts a failure, so the queue does not stall
+# until its timeout, and exits non-zero.
 
 set -euo pipefail
 
 QUEUE_REF=${1:?usage: report_queue_gate.sh <queue_ref> <sha>}
 SHA=${2:?usage: report_queue_gate.sh <queue_ref> <sha>}
 REPO=${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}
+API="$(dirname "$0")/gh_api.sh"
 
-if [[ ! $QUEUE_REF =~ ^gh-readonly-queue/.+/pr-([0-9]+)-[0-9a-f]{40}$ ]]; then
+if [[ ! $QUEUE_REF =~ ^gh-readonly-queue/(.+)/pr-([0-9]+)-[0-9a-f]{40}$ ]]; then
     echo "not a merge queue ref: $QUEUE_REF" >&2
     exit 1
 fi
-PR=${BASH_REMATCH[1]}
+TARGET=${BASH_REMATCH[1]}
+PR=${BASH_REMATCH[2]}
+
+# Prints the verdict for the group, or fails when a pull request cannot be judged.
+judge() {
+    local queued prs pr verdict state description own=
+    queued=$("$API" "repos/${REPO}/git/ref/heads/${QUEUE_REF}" --jq .object.sha)
+    [ "$queued" = "$SHA" ] || return 1
+    local filter='.commits[].commit.message | split("\n")[0]'
+    filter+=' | capture("\\(#(?<n>[0-9]+)\\)$").n'
+    prs=$("$API" "repos/${REPO}/compare/${TARGET}...${SHA}" --jq "$filter")
+    grep -qx "$PR" <<< "$prs" || return 1
+    for pr in $prs; do
+        verdict=$("$(dirname "$0")/check_review.sh" "$pr") || {
+            echo "could not judge pull request ${pr}" >&2
+            return 1
+        }
+        IFS=$'\t' read -r state description <<< "$verdict"
+        if [ "$state" != success ]; then
+            [ "$pr" = "$PR" ] || description="pull request ${pr}: ${description}"
+            printf 'failure\t%s\n' "$description"
+            return 0
+        fi
+        [ "$pr" = "$PR" ] && own=$description
+    done
+    printf 'success\t%s\n' "$own"
+}
 
 JUDGED=true
-QUEUED=$("$(dirname "$0")/gh_api.sh" "repos/${REPO}/git/ref/heads/${QUEUE_REF}" \
-    --jq .object.sha) || QUEUED=
-if [ "$QUEUED" = "$SHA" ] && VERDICT=$("$(dirname "$0")/check_review.sh" "$PR"); then
+if VERDICT=$(judge); then
     IFS=$'\t' read -r STATE DESCRIPTION <<< "$VERDICT"
-    if [ "$STATE" != success ]; then
-        STATE=failure
-    fi
 else
     JUDGED=false
     STATE=failure
@@ -44,16 +67,10 @@ fi
 
 echo "$STATE: $DESCRIPTION"
 RUN_URL="$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID"
-"$(dirname "$0")/gh_api.sh" "repos/${REPO}/statuses/${SHA}" \
+"$API" "repos/${REPO}/statuses/${SHA}" \
     -f state="$STATE" \
     -f context="Review gate" \
     -f description="$DESCRIPTION" \
     -f target_url="$RUN_URL" > /dev/null
 
-[ "$JUDGED" = true ] || exit 1
-if [ "$STATE" = failure ]; then
-    ID=$("$(dirname "$0")/gh_api.sh" "repos/${REPO}/pulls/${PR}" --jq .node_id)
-    QUERY="mutation { dequeuePullRequest(input: {id: \"${ID}\"}) { clientMutationId } }"
-    "$(dirname "$0")/gh_api.sh" graphql -f query="$QUERY" > /dev/null
-    echo "removed pull request ${PR} from the queue"
-fi
+[ "$JUDGED" = true ]

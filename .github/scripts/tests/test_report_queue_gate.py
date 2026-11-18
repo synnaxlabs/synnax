@@ -34,33 +34,39 @@ class Harness:
             "GH_API_RETRY_DELAY": "0",
         }
         self.gh.serve("api */statuses/*")
-        self.gh.serve("api graphql")
         self.gh.serve("api */git/ref/heads/*", {"object": {"sha": SHA}})
+        self.group(42)
         self.score(5)
 
-    def labels(self, *labels: str) -> None:
-        """Serves pull request 42 with the given labels."""
+    def group(self, *prs: int) -> None:
+        """Serves the commits of a merge group holding the given pull requests."""
+        commits = [
+            {"commit": {"message": f"Change {pr} (#{pr})\n\nBody"}} for pr in prs
+        ]
+        self.gh.serve("api */compare/*", {"commits": commits})
+
+    def labels(self, *labels: str, pr: int = 42) -> None:
+        """Serves a pull request with the given labels."""
         self.gh.serve(
-            "api */pulls/42",
+            f"api */pulls/{pr}",
             {
-                "node_id": "PR_42",
-                "head": {"sha": "head"},
+                "head": {"sha": f"head{pr}"},
                 "base": {"ref": "main"},
                 "user": {"login": "someone"},
                 "labels": [{"name": n} for n in labels],
             },
         )
 
-    def score(self, score: int) -> None:
-        """Serves the Sedosaur review that gives the head a score."""
+    def score(self, score: int, pr: int = 42) -> None:
+        """Serves the Sedosaur review that gives a pull request's head a score."""
         run = {
             "app": {"slug": "sedosaur"},
-            "external_id": "42:main",
+            "external_id": f"{pr}:main",
             "started_at": "2026-11-07T20:07:30Z",
             "conclusion": "success",
             "output": {"title": f"Confidence Score: {score}/5"},
         }
-        self.gh.serve("api */commits/head/check-runs*", {"check_runs": [run]})
+        self.gh.serve(f"api */commits/head{pr}/check-runs*", {"check_runs": [run]})
 
     def run(self, ref: str = QUEUE_REF) -> subprocess.CompletedProcess[str]:
         """Runs the script for a queue ref."""
@@ -71,10 +77,6 @@ class Harness:
     def statuses(self) -> list[list[str]]:
         """Returns the arguments of each status POST."""
         return [c for c in self.gh.calls() if c[1].endswith(f"/statuses/{SHA}")]
-
-    def dequeues(self) -> list[list[str]]:
-        """Returns the arguments of each GraphQL call."""
-        return [c for c in self.gh.calls() if c[1] == "graphql"]
 
 
 @pytest.fixture
@@ -115,17 +117,27 @@ class TestReport:
         assert harness.run(f"gh-readonly-queue/a/b/pr-42-{BASE}").returncode == 0
         assert "state=success" in harness.statuses()[0]
 
-    def test_keeps_a_passing_pull_request_in_the_queue(self, harness: Harness) -> None:
-        assert harness.run().returncode == 0
-        assert harness.dequeues() == []
-
-    def test_removes_a_failing_pull_request_from_the_queue(
+    def test_passes_when_every_pull_request_in_the_group_passes(
         self, harness: Harness
     ) -> None:
-        harness.score(4)
+        harness.group(41, 42)
+        harness.labels("review/bot", pr=41)
+        harness.score(5, pr=41)
         assert harness.run().returncode == 0
-        [call] = harness.dequeues()
-        assert any('dequeuePullRequest(input: {id: "PR_42"})' in a for a in call)
+        post = harness.statuses()[0]
+        assert "state=success" in post
+        assert "description=Sedosaur scored the head 5/5" in post
+
+    def test_fails_when_a_pull_request_ahead_fails(self, harness: Harness) -> None:
+        harness.group(41, 42)
+        harness.labels("review/bot", pr=41)
+        harness.score(4, pr=41)
+        assert harness.run().returncode == 0
+        post = harness.statuses()[0]
+        assert "state=failure" in post
+        assert (
+            "description=pull request 41: Sedosaur scored the head 4/5, not 5/5" in post
+        )
 
     def test_retries_an_empty_response_to_the_post(self, harness: Harness) -> None:
         harness.gh.fail("api */statuses/*", "unexpected end of JSON input")
@@ -144,7 +156,20 @@ class TestFailure:
         post = harness.statuses()[0]
         assert "state=failure" in post
         assert "description=could not judge pull request 42" in post
-        assert harness.dequeues() == []
+
+    def test_posts_a_failure_when_a_pull_request_ahead_cannot_be_judged(
+        self, harness: Harness
+    ) -> None:
+        harness.group(41, 42)
+        assert harness.run().returncode != 0
+        assert "description=could not judge pull request 42" in harness.statuses()[0]
+
+    def test_posts_a_failure_when_the_group_lacks_the_pull_request(
+        self, harness: Harness
+    ) -> None:
+        harness.group(41)
+        assert harness.run().returncode != 0
+        assert "state=failure" in harness.statuses()[0]
 
     def test_posts_a_failure_when_the_ref_points_at_another_commit(
         self, harness: Harness

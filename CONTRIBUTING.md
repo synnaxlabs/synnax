@@ -97,7 +97,7 @@ change since `main`. An entry skips the integration suite only when it and the e
 ahead of it change only unit tests. The queue merges a group when its last entry passes,
 even when an entry ahead of it failed. GitHub refuses a queue on a wildcard branch
 pattern, so a `release/**` merge goes in directly, and CI runs again on the pushed
-commit. The queue also runs the gate again, and removes a pull request that fails it. A
+commit. The queue also runs the gate again, on every pull request in the group. A
 release runs the integration suite itself. Nobody bypasses the rules on `main`: when
 Sedosaur is down, pull requests wait for it. The gate script is
 `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
