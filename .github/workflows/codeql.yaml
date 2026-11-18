@@ -125,18 +125,22 @@ jobs:
           persist-credentials: false
           sparse-checkout: .github/scripts
 
-      - name: Start Agent - Shepherd when the pull request adds alerts
+      - name: Start Agent - Shepherd when the pull request adds blocking alerts
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           REF: ${{ github.event.repository.default_branch }}
         run: |
-          ALERTS=$(.github/scripts/gh_api.sh \
-            "repos/$GH_REPO/code-scanning/alerts?ref=refs/pull/$PR/merge&state=open" \
-            --jq length)
-          echo "Open alerts: $ALERTS"
-          [ "$ALERTS" -gt 0 ] || exit 0
+          # The main ruleset blocks security alerts of medium or higher and other
+          # errors.
+          ALERTS="code-scanning/alerts?ref=refs/pull/$PR/merge&state=open&per_page=100"
+          BLOCKING=$(.github/scripts/gh_api.sh "repos/$GH_REPO/$ALERTS" --paginate \
+            --jq '.[] | select(.rule | if .security_severity_level != null
+              then .security_severity_level | IN("medium", "high", "critical")
+              else .severity == "error" end) | .number' | wc -l)
+          echo "Blocking alerts: $BLOCKING"
+          [ "$BLOCKING" -gt 0 ] || exit 0
           .github/scripts/gh_api.sh \
             "repos/$GH_REPO/actions/workflows/agent.shepherd.yaml/dispatches" \
             -X POST -f ref="$REF" -f "inputs[pr]=$PR"
