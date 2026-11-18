@@ -442,7 +442,7 @@ func (db *DB) copyPointers(
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 
-	w, err := db.cfg.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
+	w, err := db.cfg.FS.Open(copyName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +481,7 @@ func (db *DB) swapCollectedFile(
 		return err
 	}
 	if err := db.cfg.FS.Rename(copyName, name); err != nil {
-		return err
+		return errors.Combine(err, db.cfg.FS.Rename(name+"_temp", name))
 	}
 	for i, ptr := range db.idx.mu.pointers {
 		if ptr.fileKey != key {
