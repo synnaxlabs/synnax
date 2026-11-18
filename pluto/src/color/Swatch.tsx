@@ -12,7 +12,7 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { type color as xcolor } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { usePalettes, useResolve } from "@/color/library";
+import { useBinding } from "@/color/bind";
 
 export interface SwatchProps extends Omit<
   Color.SwatchProps,
@@ -36,23 +36,6 @@ export const Swatch = ({
   fallback,
   ...rest
 }: SwatchProps): ReactElement => {
-  const palettes = usePalettes();
-  const resolve = useResolve();
-  return (
-    <Color.Swatch
-      value={value == null ? undefined : resolve(value)}
-      fallback={fallback}
-      onChange={(c) => onChange(c == null ? undefined : { type: "fixed", value: c })}
-      library={
-        palettes.length === 0
-          ? undefined
-          : {
-              palettes,
-              named: value?.type === "named" ? value.key : undefined,
-              onNamedChange: (key) => onChange({ type: "named", key }),
-            }
-      }
-      {...rest}
-    />
-  );
+  const binding = useBinding(value, onChange);
+  return <Color.Swatch fallback={fallback} {...binding} {...rest} />;
 };

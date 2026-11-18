@@ -60,6 +60,25 @@ describe("Input", () => {
     expect(swatch?.className).toContain(CSS.M("mixed"));
   });
 
+  it("should show the name of the named color that the value follows", () => {
+    const c = renderInput({
+      value: RED,
+      library: {
+        palettes: [
+          {
+            key: "p",
+            name: "Alarms",
+            colors: [{ key: "fault", name: "Fault", light: RED }],
+          },
+        ],
+        named: "fault",
+        onNamedChange: vi.fn(),
+      },
+    });
+    expect(textOf(c).value).toEqual("");
+    expect(textOf(c).placeholder).toEqual("Fault");
+  });
+
   it("should apply a typed hex while mixed", () => {
     const onChange = vi.fn();
     const c = renderInput({ mixed: true, onChange });

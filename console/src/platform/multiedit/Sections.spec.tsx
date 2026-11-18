@@ -12,6 +12,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { MultiEdit } from "@/platform/multiedit";
+import { renderWithConsole } from "@/testutil";
 
 describe("NumberFormatSection", () => {
   it("should round a typed fraction to a whole precision", () => {
@@ -50,9 +51,9 @@ describe("StalenessSection", () => {
     fireEvent.blur(field());
   };
 
-  it("should show and write a timeout in nanoseconds by default", () => {
+  it("should show and write a timeout in nanoseconds by default", async () => {
     const onTimeoutChange = vi.fn();
-    render(
+    await renderWithConsole(
       <MultiEdit.StalenessSection
         colors={COLORS}
         timeout={Number(TimeSpan.seconds(3).valueOf())}
@@ -67,9 +68,9 @@ describe("StalenessSection", () => {
     );
   });
 
-  it("should show and write a timeout in the given unit", () => {
+  it("should show and write a timeout in the given unit", async () => {
     const onTimeoutChange = vi.fn();
-    render(
+    await renderWithConsole(
       <MultiEdit.StalenessSection
         colors={COLORS}
         timeout={3}
@@ -83,8 +84,8 @@ describe("StalenessSection", () => {
     expect(onTimeoutChange).toHaveBeenLastCalledWith(7);
   });
 
-  it("should show the default timeout when no element has one", () => {
-    render(
+  it("should show the default timeout when no element has one", async () => {
+    await renderWithConsole(
       <MultiEdit.StalenessSection
         colors={COLORS}
         unit={TimeSpan.SECOND}
