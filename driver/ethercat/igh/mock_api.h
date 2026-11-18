@@ -177,8 +177,16 @@ public:
     /// @brief the domains, in creation order.
     mutable std::vector<Domain> domains;
     x::errors::Error check_device_err = x::errors::NIL;
-    bool request_master_fails = false;
+    bool open_master_fails = false;
+    /// @brief the result of master_reserve, and whether the master holds a reservation.
+    /// IgH refuses to configure or activate a master with none.
+    int reserve_result = 0;
+    mutable bool reserved = false;
     int master_info_result = 0;
+    /// @brief whether the network port of the master has a link.
+    bool link_up = true;
+    /// @brief how many more master info reads find IgH scanning the bus.
+    mutable int scan_reads = 0;
     /// @brief whether the master scans the bus again, as after a slave loses power.
     /// During the scan, every slave config reads as offline.
     bool scanning = false;
@@ -245,12 +253,19 @@ public:
         return this->check_device_err;
     }
 
-    [[nodiscard]] ec_master_t *request_master(unsigned int) const override {
-        return this->request_master_fails ? nullptr : this->handle;
+    [[nodiscard]] ec_master_t *open_master(unsigned int) const override {
+        return this->open_master_fails ? nullptr : this->handle;
+    }
+
+    int master_reserve(ec_master_t *) const override {
+        if (this->reserve_result < 0) return this->reserve_result;
+        this->reserved = true;
+        return 0;
     }
 
     void release_master(ec_master_t *) const override {
         this->released = true;
+        this->reserved = false;
         this->domains.clear();
         this->activated = false;
         for (auto &slave: this->slaves) {
@@ -262,6 +277,7 @@ public:
     }
 
     int master_activate(ec_master_t *) const override {
+        if (!this->reserved) return -EPERM;
         if (this->activate_result < 0) return this->activate_result;
         this->activated = true;
         for (auto &domain: this->domains)
@@ -283,7 +299,7 @@ public:
     }
 
     ec_domain_t *master_create_domain(ec_master_t *) const override {
-        if (this->domain_fails) return nullptr;
+        if (!this->reserved || this->domain_fails) return nullptr;
         this->domains.emplace_back();
         return reinterpret_cast<ec_domain_t *>(DOMAIN_BASE + this->domains.size() - 1);
     }
@@ -319,7 +335,9 @@ public:
     int master(ec_master_t *, ec_master_info_t *info) const override {
         if (this->master_info_result < 0) return this->master_info_result;
         info->slave_count = static_cast<unsigned int>(this->slaves.size());
-        info->scan_busy = this->scanning ? 1 : 0;
+        info->link_up = this->link_up ? 1 : 0;
+        info->scan_busy = this->scanning || this->scan_reads > 0 ? 1 : 0;
+        if (this->scan_reads > 0) this->scan_reads--;
         return 0;
     }
 
@@ -345,7 +363,9 @@ public:
         uint32_t,
         uint32_t
     ) const override {
-        if (this->slave_config_fails || position >= this->slaves.size()) return nullptr;
+        if (!this->reserved || this->slave_config_fails ||
+            position >= this->slaves.size())
+            return nullptr;
         this->slaves[position].configured = true;
         return reinterpret_cast<ec_slave_config_t *>(CONFIG_BASE + position);
     }

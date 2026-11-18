@@ -11,9 +11,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Tree } from "@/platform/tree";
 
-const SecretItem = Tree.createItem({ icon: <Icon.Secret /> });
+const SecretItem = Tree.createItem({ icon: <Icon.Secret />, typeName: "Secret" });
 
-const CertificateItem = Tree.createItem({ icon: <Icon.Certificate /> });
+const CertificateItem = Tree.createItem({
+  icon: <Icon.Certificate />,
+  typeName: "Certificate",
+});
 
 export const TREE_ITEMS = {
   secret: SecretItem,
