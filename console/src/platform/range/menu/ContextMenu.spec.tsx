@@ -334,6 +334,23 @@ describe("Range.ContextMenu", () => {
       expect(await parentOf(created)).toBe(top.key);
     });
 
+    it("should cover only the ranges that started when a planned range is in the set", async () => {
+      const {
+        ranges: [started],
+      } = await createSiblings();
+      const planned = await client.ranges.create({
+        name: uniqueRangeName("planned"),
+        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+      });
+      await renderMenu([started, planned]);
+      const parent = await openSubmenu("Parent");
+      const name = uniqueRangeName("group");
+      searchIn(parent, "Search ranges...", name);
+      fireEvent.click(await within(parent).findByText(`Create range "${name}"`));
+      const created = await findCreated(name);
+      expect(created.timeRange.equals(started.timeRange)).toBe(true);
+    });
+
     it("should create a range at the top level for ranges with different parents", async () => {
       const {
         ranges: [nested],

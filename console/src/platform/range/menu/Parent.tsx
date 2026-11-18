@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, TimeRange } from "@synnaxlabs/client";
+import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -123,7 +123,11 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
     },
   });
   const handleCreate = (name: string) => {
-    const timeRange = TimeRange.max(...ranges.map((r) => r.timeRange));
+    // A range that has not started has no times to cover.
+    const started = ranges.filter((r) => r.timeRange.start.before(TimeStamp.MAX));
+    const timeRange = TimeRange.max(
+      ...(started.length > 0 ? started : ranges).map((r) => r.timeRange),
+    );
     if (name !== "") return create({ name, timeRange, parent: current ?? undefined });
     void openCreate({ timeRange: timeRange.numeric, parent: current ?? "" }).then(
       (key) => {
