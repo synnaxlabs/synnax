@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -93,6 +94,8 @@ type FileCertificate struct {
 	PrivateKeyFile *string `json:"private_key_file,omitzero" msgpack:"private_key_file,omitempty"`
 	// Details describes the leaf, as the file browser read it.
 	Details *Details `json:"details,omitzero" msgpack:"details,omitempty"`
+	// Rack is the rack that reads the files.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 }
 
 func (FileCertificate) isCertificateVariant() {}
@@ -101,6 +104,7 @@ func (FileCertificate) isCertificateVariant() {}
 // schema constraints.
 func (f FileCertificate) Validate() error {
 	v := validate.New("FileCertificate")
+	v.NonZero("rack", f.Rack)
 	v.Exec(f.Base.Validate)
 	return v.Error()
 }

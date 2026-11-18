@@ -12,10 +12,12 @@ package secret
 import (
 	"context"
 	"crypto/cipher"
+	"io/fs"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -44,12 +46,20 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
+	// Folder holds the file secrets of Rack. Nil when the Core has no secrets folder.
+	//
+	// [OPTIONAL]
+	Folder fs.FS
 	alamos.Instrumentation
 	// EncryptionKey protects the value of every stored secret. It encrypts the random
 	// data key that encrypts each value. Every Core in a cluster must use the same key.
 	//
 	// [REQUIRED]
 	EncryptionKey EncryptionKey
+	// Rack is the Core's own rack, the only rack whose file secrets the Core reads.
+	//
+	// [REQUIRED]
+	Rack rack.Key
 }
 
 var (
@@ -65,6 +75,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Grant = override.Nil(c.Grant, other.Grant)
 	c.Now = override.Nil(c.Now, other.Now)
+	c.Folder = override.Nil(c.Folder, other.Folder)
+	c.Rack = override.Numeric(c.Rack, other.Rack)
 	c.EncryptionKey = override.If(
 		c.EncryptionKey,
 		other.EncryptionKey,
@@ -80,6 +92,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("grant", c.Grant)
 	v.NotNil("now", c.Now)
 	v.Ternary("encryption_key", c.EncryptionKey == EncryptionKey{}, "required")
+	v.NonZero("rack", c.Rack)
 	return v.Error()
 }
 
@@ -112,6 +125,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB:              s.cfg.DB,
 		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

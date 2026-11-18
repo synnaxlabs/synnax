@@ -59,6 +59,7 @@ type CoreConfig struct {
 	alamos.Instrumentation
 	dataPath             string
 	secretsKeyFile       string
+	secretsDir           string
 	licenseKey           string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
@@ -143,6 +144,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			other.secretsKey != secret.EncryptionKey{},
 		),
 		secretsKeyFile: override.String(c.secretsKeyFile, other.secretsKeyFile),
+		secretsDir:     override.String(c.secretsDir, other.secretsDir),
 		slowConsumerTimeout: override.Numeric(
 			c.slowConsumerTimeout,
 			other.slowConsumerTimeout,
@@ -344,6 +346,7 @@ func BootupCore(
 		},
 		ValidateChannelNames:   cfg.validateChannelNames,
 		SecretsKey:             secretsKey,
+		SecretsDir:             cfg.secretsDir,
 		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
 	if !ok(err, serviceLayer) {
