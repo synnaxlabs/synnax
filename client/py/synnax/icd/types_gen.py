@@ -383,8 +383,6 @@ class Message(BaseModel):
         key: Is the unique identifier for the message within its ICD.
         name: Is the name of the message, unique within its ICD.
         payload: Is the layout of the message's payload.
-        query: Is the request that the device answers with the message. When absent the
-            device sends the message unprompted.
         cycle_time: Is the send cycle that the protocol states for the message. When
             absent the protocol states none.
     """
@@ -392,7 +390,6 @@ class Message(BaseModel):
     key: MessageKey = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     payload: Payload
-    query: str | None = None
     cycle_time: telem.TimeSpan | None = Field(
         default=None, ge=-9223372036854775808, le=9223372036854775807
     )

@@ -245,28 +245,6 @@ describe("ICD editor", () => {
     });
   });
 
-  it("should store the query of a message", async () => {
-    const ic = await createICD([createTextMessage()]);
-    await renderEditor(ic);
-    const query = await screen.findByLabelText("Query");
-    fireEvent.change(query, { target: { value: "READ?" } });
-    fireEvent.blur(query);
-    await waitFor(async () =>
-      expect((await retrieveMessage(ic.key)).query).toBe("READ?"),
-    );
-  });
-
-  it("should remove the query when its text is cleared", async () => {
-    const ic = await createICD([{ ...createTextMessage(), query: "READ?" }]);
-    await renderEditor(ic);
-    const query = await screen.findByLabelText("Query");
-    fireEvent.change(query, { target: { value: "" } });
-    fireEvent.blur(query);
-    await waitFor(async () =>
-      expect((await retrieveMessage(ic.key)).query).toBeUndefined(),
-    );
-  });
-
   it("should store a cycle time typed alone in milliseconds", async () => {
     const ic = await createICD([createMessage([])]);
     await renderEditor(ic);

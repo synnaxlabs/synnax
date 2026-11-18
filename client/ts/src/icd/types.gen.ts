@@ -464,11 +464,6 @@ export const messageZ = z.object({
   /** payload is the layout of the message's payload. */
   payload: payloadZ,
   /**
-   * query is the request that the device answers with the message. When absent the
-   * device sends the message unprompted.
-   */
-  query: z.string().optional(),
-  /**
    * cycleTime is the send cycle that the protocol states for the message. When absent
    * the protocol states none.
    */

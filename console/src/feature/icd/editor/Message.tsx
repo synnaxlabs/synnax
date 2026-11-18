@@ -31,8 +31,6 @@ const createPayload = (format: icd.PayloadType): icd.Payload => {
   }
 };
 
-const parseText = (text: string): string => text;
-
 const checkCycleTime = (span: TimeSpan): string | null => {
   if (span.lessThan(TimeSpan.NANOSECOND)) return "Cycle time must be 1ns or more";
   if (span.greaterThan(TimeSpan.MAX))
@@ -79,8 +77,8 @@ export interface MessageProps {
 }
 
 /**
- * Edits a message: its format, its query and cycle time, how frames match it, and its
- * fields. A format switch replaces the payload with an empty one of the new format.
+ * Edits a message: its format, its cycle time, how frames match it, and its fields. A
+ * format switch replaces the payload with an empty one of the new format.
  */
 export const Message = ({ path }: MessageProps): ReactElement => {
   const payloadPath = path.payload;
@@ -109,17 +107,7 @@ export const Message = ({ path }: MessageProps): ReactElement => {
             </Select.Buttons>
           </Input.Item>
         </Flex.Box>
-        <Flex.Box x>
-          <FormattedField<string>
-            path={path.query}
-            label="Query"
-            placeholder="None"
-            optional
-            format={String}
-            parse={parseText}
-          />
-          <CycleTime path={path.cycleTime} />
-        </Flex.Box>
+        <CycleTime path={path.cycleTime} />
       </Form.Section>
       {format === "binary" && (
         <>

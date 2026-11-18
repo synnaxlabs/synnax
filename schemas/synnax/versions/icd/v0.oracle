@@ -356,12 +356,6 @@ Message struct {
     payload    Payload         {
         @doc value "is the layout of the message's payload."
     }
-    query      string?         {
-        @doc value """
-            is the request that the device answers with the message. When absent the
-            device sends the message unprompted.
-        """
-    }
     cycle_time telem.TimeSpan? {
         @doc value """
             is the send cycle that the protocol states for the message. When absent the

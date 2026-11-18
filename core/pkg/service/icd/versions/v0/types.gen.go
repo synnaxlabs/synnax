@@ -1464,9 +1464,6 @@ type Message struct {
 	Name string `json:"name" msgpack:"name"`
 	// Payload is the layout of the message's payload.
 	Payload Payload `json:"payload" msgpack:"payload"`
-	// Query is the request that the device answers with the message. When absent the
-	// device sends the message unprompted.
-	Query *string `json:"query,omitzero" msgpack:"query,omitempty"`
 	// CycleTime is the send cycle that the protocol states for the message. When absent
 	// the protocol states none.
 	CycleTime *telem.TimeSpan `json:"cycle_time,omitzero" msgpack:"cycle_time,omitempty"`
