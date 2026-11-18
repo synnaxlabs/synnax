@@ -93,7 +93,7 @@ export interface MessagePlan {
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
  */
-export const planMessage = async (
+const planMessage = async (
   client: Synnax,
   { source, read: r, fields }: BoundMessage<ReadSource>,
   prefix: string,
