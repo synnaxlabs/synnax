@@ -110,9 +110,7 @@ export const isCustomConfig = (config: Config): config is CustomConfig =>
 
 /** @returns the variant that draws the custom symbol. */
 export const customVariant = (symbol: schematic.symbol.Symbol): CustomVariant =>
-  symbol.data.variant === "static" || symbol.data.states.length === 1
-    ? CUSTOM_STATIC_VARIANT
-    : CUSTOM_ACTUATOR_VARIANT;
+  symbol.data.variant === "actuator" ? CUSTOM_ACTUATOR_VARIANT : CUSTOM_STATIC_VARIANT;
 
 /**
  * @returns the key of the symbol the config draws: the spec key of a custom symbol, or
