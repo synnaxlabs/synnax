@@ -542,7 +542,7 @@ var _ = Describe("Service", func() {
 					Expect(ic.Messages).To(HaveLen(1))
 					m := ic.Messages[0]
 					Expect(m.Name).To(Equal("pump"))
-					fields := m.Payload.Variant.(icd.JSONPayload).Fields
+					fields := jsonFields(m)
 					names, kinds := []string{}, []payload.Kind{}
 					for _, f := range fields {
 						names = append(names, f.Base().Name)
