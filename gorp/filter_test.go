@@ -955,6 +955,35 @@ var _ = Describe("Filter Combinators", func() {
 				// inverted raw rejects all of them.
 				Expect(res).To(BeEmpty())
 			})
+
+			It(
+				"Should accept entries that the raw stage of a child rejects",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.Not(matchEvalAndRaw(5, []byte("nonexistent")))).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(HaveLen(10))
+				},
+			)
+		})
+
+		Describe("Or with a child carrying eval and raw", func() {
+			It(
+				"Should reject entries that the raw stage of the child rejects",
+				func(ctx SpecContext) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(gorp.Or(
+							matchEvalAndRaw(5, []byte("nonexistent")),
+							idEQ(100),
+						)).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
 		})
 	})
 

@@ -433,11 +433,13 @@ func evalChild[K Key, E Entry[K]](
 	if !f.keys.Contains(entryKey) {
 		return false, nil
 	}
+	if f.raw != nil {
+		if ok, err := f.raw(key, value); err != nil || !ok {
+			return false, err
+		}
+	}
 	if f.eval != nil {
 		return f.eval(ctx, e, key, value)
-	}
-	if f.raw != nil {
-		return f.raw(key, value)
 	}
 	return true, nil
 }
