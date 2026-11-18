@@ -35,3 +35,15 @@ func MigratePanel(ctx context.Context, old v4.Panel) (Panel, error) {
 
 // Migration lifts stored panels from v4 to v5.
 var Migration = migrate.NewEntry("v62_color_alpha_byte", MigratePanel)
+
+// NameMigration names each stored panel that has an empty name "Panel <key>", where
+// <key> is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, p Panel) (Panel, error) {
+		if p.Name == "" {
+			p.Name = "Panel " + p.Key.String()[:8]
+		}
+		return p, nil
+	},
+)

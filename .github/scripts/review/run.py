@@ -20,6 +20,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from agent.agent import refusal
+
 from review.findings import SCHEMA, SEVERITIES, Dismissal, Finding, Review, parse
 from review.render import fence
 
@@ -558,13 +560,7 @@ def _stream(
 
 
 def _refused(messages: list[dict[str, Any]], *, started: int) -> None:
-    until, rejected = None, False
-    for m in messages:
-        if m["type"] == "rate_limit_event":
-            info = m["rate_limit_info"]
-            until = info.get("resetsAt") if info["status"] == "rejected" else None
-        elif m["type"] == "assistant":
-            rejected |= m.get("error") == "authentication_failed"
+    until, rejected = refusal(messages)
     if until is not None:
         raise UsageLimit(until)
     if rejected:

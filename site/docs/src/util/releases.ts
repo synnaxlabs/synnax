@@ -127,8 +127,11 @@ const trains = (releases: Release[], product: Product): string[] => {
 };
 
 export interface Options {
-  /** Raises the GitHub API rate limit. Unauthenticated lookups still work. */
-  token?: string;
+  /**
+   * Resolves to a GitHub token that raises the API rate limit. Unauthenticated lookups
+   * still work.
+   */
+  token?: () => Promise<string>;
   /** How long one listing serves lookups. Defaults to five minutes. */
   ttl?: TimeSpan;
   /** The train the docs describe, such as `0.61`. `documented` keeps to it. */
@@ -144,7 +147,7 @@ interface Listing {
 
 /** Looks up the latest product versions from GitHub releases, caching the listing. */
 export class Releases {
-  private readonly token?: string;
+  private readonly token?: () => Promise<string>;
   private readonly ttl: number;
   private readonly train?: string;
   private readonly fetcher: typeof fetch;
@@ -239,7 +242,7 @@ export class Releases {
   // legacy one, so the walk stops at the first page without a product release.
   private async fetchListing(): Promise<Release[]> {
     const headers: Record<string, string> = { Accept: "application/vnd.github+json" };
-    if (this.token != null) headers.Authorization = `Bearer ${this.token}`;
+    if (this.token != null) headers.Authorization = `Bearer ${await this.token()}`;
     const releases: Release[] = [];
     let url: string | null = API_URL;
     for (let page = 0; url != null && page < MAX_PAGES; page++) {
