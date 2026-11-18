@@ -937,6 +937,11 @@ master::Activation Master::wait_for_op(const master::Plan &plan) {
                 state.operational == 0)
                 pending.push_back(pos);
         }
+        const bool advanced = pending.size() < waiting;
+        if (advanced) {
+            waiting = pending.size();
+            if (plan.progress) plan.progress(total - waiting, total);
+        }
         if (pending.empty()) return {};
         if (plan.cancel != nullptr && !plan.cancel->running())
             return {
@@ -946,11 +951,7 @@ master::Activation Master::wait_for_op(const master::Plan &plan) {
                 ),
             };
         const auto now = this->cfg.clock.steady();
-        if (pending.size() < waiting) {
-            waiting = pending.size();
-            deadline = now + this->cfg.op_timeout.chrono();
-            if (plan.progress) plan.progress(total - waiting, total);
-        }
+        if (advanced) deadline = now + this->cfg.op_timeout.chrono();
         if (now >= deadline) return this->op_error(pending, true);
         if (this->refusing(pending)) {
             if (!reset_at) {

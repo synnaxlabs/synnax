@@ -948,7 +948,7 @@ TEST_F(IGHMasterTest, ActivateReportsEachSlaveThatReachesOP) {
                        [](const master::Image &) {}
                    )
                    .err);
-    const std::vector<std::pair<size_t, size_t>> expected{{1, 3}, {2, 3}};
+    const std::vector<std::pair<size_t, size_t>> expected{{1, 3}, {2, 3}, {3, 3}};
     EXPECT_EQ(reports, expected);
 }
 

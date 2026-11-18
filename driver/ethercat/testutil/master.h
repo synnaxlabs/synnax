@@ -735,7 +735,14 @@ public:
                                    ? slave::State::SAFE_OP
                                    : slave::State::OP;
         }
-        const auto total = this->op_progress ? this->slave_list.size() : 0;
+        size_t total = 0;
+        if (this->op_progress)
+            total = static_cast<size_t>(std::ranges::count_if(
+                this->slave_list,
+                [this](const slave::DiscoveryResult &slave) {
+                    return this->on_bus(slave.properties.position);
+                }
+            ));
         lock.unlock();
         if (plan.progress)
             for (size_t operational = 1; operational <= total; ++operational)
