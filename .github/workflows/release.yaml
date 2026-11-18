@@ -527,8 +527,16 @@ jobs:
               "https://registry.npmjs.org/@synnaxlabs/$1/$2"
           }
           attested() {
-            curl -sf "https://registry.npmjs.org/@synnaxlabs/$1/$2" \
-              | jq -e '.dist.attestations.provenance' > /dev/null
+            local doc code
+            doc=$(curl -s -w '\n%{http_code}' \
+              "https://registry.npmjs.org/@synnaxlabs/$1/$2")
+            code=${doc##*$'\n'}
+            if [ "$code" != 200 ]; then
+              echo "the registry answered $code for $1 $2. If it is 404," >&2
+              echo "approve the other $2 packages." >&2
+              exit 1
+            fi
+            jq -e '.dist.attestations.provenance' <<< "${doc%$'\n'*}" > /dev/null
           }
           # A maintainer staged these by hand, with no OIDC token to sign provenance.
           unattested=" 0.61.1 "
