@@ -81,86 +81,103 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.Read, err = config.OpenService(
-		ctx, config.ServiceConfig[ReadConfig]{
-			DB:              cfg.DB,
-			References:      readConfigReferences(),
-			Instrumentation: cfg.Instrumentation,
-			Type:            "ethercat_read",
-			LegacyVersion:   legacy.LastVersion,
-			Ladder:          versions.ReadConfigLadder,
-			Legacy:          &legacy.Read,
-			Migrations: []gorp.Migration{
-				v2.NewReadMigration(slaves),
-				v3.ReadMigration,
-			},
-			SetEntryKey: (*ReadConfig).SetKey,
-			PatchEntry:  (*ReadConfig).Patch,
-			HashEntry:   (*ReadConfig).HashContent,
-			ResolveEntry: func(
-				ctx context.Context,
-				snap gorp.Snapshot,
-				_ string,
-				c *ReadConfig,
-			) (func(context.Context, gorp.Tx) error, error) {
-				return nil, v3.ResolveReadConfig(ctx, snap, slaves, c)
-			},
-			ValidateEntry: func(c *ReadConfig) error {
-				v := validate.New("ethercat.ReadConfig")
-				v.Exec(c.Validate)
-				v.GreaterThan("stream_rate", c.StreamRate, 0)
-				return v.Error()
-			},
-		},
-	); !ok(err, s.Read) {
+	if s.Read, err = openRead(ctx, cfg, slaves); !ok(err, s.Read) {
 		return nil, err
 	}
-	if s.Write, err = config.OpenService(
-		ctx, config.ServiceConfig[WriteConfig]{
-			DB:              cfg.DB,
-			References:      writeConfigReferences(),
-			Instrumentation: cfg.Instrumentation,
-			Type:            "ethercat_write",
-			LegacyVersion:   legacy.LastVersion,
-			Ladder:          versions.WriteConfigLadder,
-			Legacy:          &legacy.Write,
-			Migrations: []gorp.Migration{
-				v2.NewWriteMigration(slaves),
-				v3.WriteMigration,
-			},
-			SetEntryKey: (*WriteConfig).SetKey,
-			PatchEntry:  (*WriteConfig).Patch,
-			HashEntry:   (*WriteConfig).HashContent,
-			ResolveEntry: func(
-				ctx context.Context,
-				snap gorp.Snapshot,
-				_ string,
-				c *WriteConfig,
-			) (func(context.Context, gorp.Tx) error, error) {
-				return nil, v3.ResolveWriteConfig(ctx, snap, slaves, c)
-			},
-			ValidateEntry: (*WriteConfig).Validate,
-		},
-	); !ok(err, s.Write) {
+	if s.Write, err = openWrite(ctx, cfg, slaves); !ok(err, s.Write) {
 		return nil, err
 	}
-	if s.Scan, err = config.OpenService(
-		ctx, config.ServiceConfig[ScanConfig]{
-			DB:              cfg.DB,
-			Instrumentation: cfg.Instrumentation,
-			Type:            "ethercat_scan",
-			LegacyVersion:   legacy.LastVersion,
-			Ladder:          versions.ScanConfigLadder,
-			Legacy:          &legacy.Scan,
-			SetEntryKey:     (*ScanConfig).SetKey,
-			PatchEntry:      (*ScanConfig).Patch,
-			HashEntry:       (*ScanConfig).HashContent,
-			ValidateEntry:   (*ScanConfig).Validate,
-		},
-	); !ok(err, s.Scan) {
+	if s.Scan, err = openScan(ctx, cfg); !ok(err, s.Scan) {
 		return nil, err
 	}
 	return s, nil
+}
+
+func openRead(
+	ctx context.Context,
+	cfg ServiceConfig,
+	slaves v2.Slaves,
+) (*config.Service[ReadConfig], error) {
+	return config.OpenService(ctx, config.ServiceConfig[ReadConfig]{
+		DB:              cfg.DB,
+		References:      readConfigReferences(),
+		Instrumentation: cfg.Instrumentation,
+		Type:            "ethercat_read",
+		LegacyVersion:   legacy.LastVersion,
+		Ladder:          versions.ReadConfigLadder,
+		Legacy:          &legacy.Read,
+		Migrations: []gorp.Migration{
+			v2.NewReadMigration(slaves),
+			v3.ReadMigration,
+		},
+		SetEntryKey: (*ReadConfig).SetKey,
+		PatchEntry:  (*ReadConfig).Patch,
+		HashEntry:   (*ReadConfig).HashContent,
+		ResolveEntry: func(
+			ctx context.Context,
+			snap gorp.Snapshot,
+			_ string,
+			c *ReadConfig,
+		) (func(context.Context, gorp.Tx) error, error) {
+			return nil, v3.ResolveReadConfig(ctx, snap, slaves, c)
+		},
+		ValidateEntry: func(c *ReadConfig) error {
+			v := validate.New("ethercat.ReadConfig")
+			v.Exec(c.Validate)
+			v.GreaterThan("stream_rate", c.StreamRate, 0)
+			return v.Error()
+		},
+	})
+}
+
+func openWrite(
+	ctx context.Context,
+	cfg ServiceConfig,
+	slaves v2.Slaves,
+) (*config.Service[WriteConfig], error) {
+	return config.OpenService(ctx, config.ServiceConfig[WriteConfig]{
+		DB:              cfg.DB,
+		References:      writeConfigReferences(),
+		Instrumentation: cfg.Instrumentation,
+		Type:            "ethercat_write",
+		LegacyVersion:   legacy.LastVersion,
+		Ladder:          versions.WriteConfigLadder,
+		Legacy:          &legacy.Write,
+		Migrations: []gorp.Migration{
+			v2.NewWriteMigration(slaves),
+			v3.WriteMigration,
+		},
+		SetEntryKey: (*WriteConfig).SetKey,
+		PatchEntry:  (*WriteConfig).Patch,
+		HashEntry:   (*WriteConfig).HashContent,
+		ResolveEntry: func(
+			ctx context.Context,
+			snap gorp.Snapshot,
+			_ string,
+			c *WriteConfig,
+		) (func(context.Context, gorp.Tx) error, error) {
+			return nil, v3.ResolveWriteConfig(ctx, snap, slaves, c)
+		},
+		ValidateEntry: (*WriteConfig).Validate,
+	})
+}
+
+func openScan(
+	ctx context.Context,
+	cfg ServiceConfig,
+) (*config.Service[ScanConfig], error) {
+	return config.OpenService(ctx, config.ServiceConfig[ScanConfig]{
+		DB:              cfg.DB,
+		Instrumentation: cfg.Instrumentation,
+		Type:            "ethercat_scan",
+		LegacyVersion:   legacy.LastVersion,
+		Ladder:          versions.ScanConfigLadder,
+		Legacy:          &legacy.Scan,
+		SetEntryKey:     (*ScanConfig).SetKey,
+		PatchEntry:      (*ScanConfig).Patch,
+		HashEntry:       (*ScanConfig).HashContent,
+		ValidateEntry:   (*ScanConfig).Validate,
+	})
 }
 
 // Close closes the service and releases the resources it holds. Close is not safe

@@ -659,39 +659,12 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 	}
 
 	receiver := &freightfluence.TransformReceiver[framer.WriterRequest, WriterRequest]{
-		Receiver: stream,
-		Transform: func(
-			_ context.Context,
-			req WriterRequest,
-		) (framer.WriterRequest, bool, error) {
-			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-			if r.Command == framer.WriterCommandSetAuthority {
-				// We decode like this because MessagePack has a tough time decoding
-				// slices of uint8.
-				r.Config.Authorities = make(
-					[]control.Authority, len(req.Config.Authorities),
-				)
-				for i, a := range req.Config.Authorities {
-					r.Config.Authorities[i] = control.Authority(a)
-				}
-				r.Config.Keys = req.Config.Keys
-			}
-			return r, true, nil
-		},
+		Receiver:  stream,
+		Transform: translateWriterRequest,
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, WriterResponse]{
-		Sender: freighter.SenderNopCloser[WriterResponse]{StreamSender: stream},
-		Transform: func(
-			ctx context.Context,
-			i framer.WriterResponse,
-		) (WriterResponse, bool, error) {
-			return WriterResponse{
-				Command:    i.Command,
-				Authorized: i.Authorized,
-				Err:        s.errs.Encode(i.Err, false),
-				End:        i.End,
-			}, true, nil
-		},
+		Sender:    freighter.SenderNopCloser[WriterResponse]{StreamSender: stream},
+		Transform: s.translateWriterResponse,
 	}
 
 	pipe := plumber.New()
@@ -713,6 +686,35 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.CancelOnFail())
 	err = sCtx.Wait()
 	return err
+}
+
+func translateWriterRequest(
+	_ context.Context,
+	req WriterRequest,
+) (framer.WriterRequest, bool, error) {
+	r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
+	if r.Command == framer.WriterCommandSetAuthority {
+		// We decode like this because MessagePack has a tough time decoding slices of
+		// uint8.
+		r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
+		for i, a := range req.Config.Authorities {
+			r.Config.Authorities[i] = control.Authority(a)
+		}
+		r.Config.Keys = req.Config.Keys
+	}
+	return r, true, nil
+}
+
+func (s *Service) translateWriterResponse(
+	_ context.Context,
+	res framer.WriterResponse,
+) (WriterResponse, bool, error) {
+	return WriterResponse{
+		Command:    res.Command,
+		Authorized: res.Authorized,
+		Err:        s.errs.Encode(res.Err, false),
+		End:        res.End,
+	}, true, nil
 }
 
 func (s *Service) openWriter(

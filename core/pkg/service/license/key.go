@@ -133,65 +133,76 @@ func Verify(anchors Anchors, key string) (License, error) {
 	if len(parts) != 3 {
 		return License{}, errors.Wrap(ErrInvalid, "a license key has three parts")
 	}
-	var h header
-	if err := decodePart(parts[0], &h); err != nil {
+	if err := verifySignature(anchors, parts); err != nil {
 		return License{}, err
 	}
+	var c License
+	if err := decodePart(parts[1], &c); err != nil {
+		return License{}, err
+	}
+	if err := checkClaims(&c); err != nil {
+		return License{}, err
+	}
+	return c, nil
+}
+
+// verifySignature checks the signature in parts against the anchor the header names.
+func verifySignature(anchors Anchors, parts []string) error {
+	var h header
+	if err := decodePart(parts[0], &h); err != nil {
+		return err
+	}
 	if h.Alg != algorithm {
-		return License{}, errors.Wrapf(ErrInvalid, "unsupported algorithm %q", h.Alg)
+		return errors.Wrapf(ErrInvalid, "unsupported algorithm %q", h.Alg)
 	}
 	anchor, ok := anchors[h.Kid]
 	if !ok {
-		return License{}, errors.Wrapf(ErrInvalid, "unknown key %q", h.Kid)
+		return errors.Wrapf(ErrInvalid, "unknown key %q", h.Kid)
 	}
 	sig, err := rawURL.DecodeString(parts[2])
 	if err != nil {
-		return License{}, errors.Wrap(ErrInvalid, err.Error())
+		return errors.Wrap(ErrInvalid, err.Error())
 	}
 	input := parts[0] + "." + parts[1]
 	if err = mldsa.Verify(anchor, []byte(input), sig, nil); err != nil {
-		return License{}, errors.Wrap(ErrInvalid, err.Error())
+		return errors.Wrap(ErrInvalid, err.Error())
 	}
-	var c License
-	if err = decodePart(parts[1], &c); err != nil {
-		return License{}, err
-	}
+	return nil
+}
+
+func checkClaims(c *License) error {
 	if c.ClaimsVersion != claimsVersion {
-		return License{}, errors.Wrapf(
+		return errors.Wrapf(
 			ErrInvalid,
 			"unsupported claim set version %d",
 			c.ClaimsVersion,
 		)
 	}
 	if err := c.Validate(); err != nil {
-		return License{}, errors.Wrap(ErrInvalid, err.Error())
+		return errors.Wrap(ErrInvalid, err.Error())
 	}
 	unknown := lo.Filter(c.Required, func(claim string, _ int) bool {
 		return !understood.Contains(claim)
 	})
 	if len(unknown) > 0 {
-		return License{}, errors.Wrapf(
+		return errors.Wrapf(
 			ErrInvalid,
 			"the license needs a newer Core that understands %s",
 			strings.Join(unknown, ", "),
 		)
 	}
 	if c.Exp == nil && c.MaxVersion == nil {
-		return License{}, errors.Wrap(
+		return errors.Wrap(
 			ErrInvalid,
 			"a license without an expiry must carry a maximum version",
 		)
 	}
 	if c.MaxVersion != nil {
 		if _, _, ok := parseMinor(*c.MaxVersion); !ok {
-			return License{}, errors.Wrapf(
-				ErrInvalid,
-				"bad version ceiling %q",
-				*c.MaxVersion,
-			)
+			return errors.Wrapf(ErrInvalid, "bad version ceiling %q", *c.MaxVersion)
 		}
 	}
-	return c, nil
+	return nil
 }
 
 func decodePart(part string, v any) error {

@@ -64,35 +64,52 @@ func openDevices(
 		Status: statusSvc,
 		Rack:   rackSvc,
 	}))
-	entry := func(name string, index int) map[string]any {
-		return map[string]any{
-			"name":       name,
-			"index":      index,
-			"sub_index":  1,
-			"bit_length": 16,
-			"data_type":  "int16",
-		}
+	createSlaves(ctx, db, devices, rackSvc.EmbeddedKey)
+	return devices, tasktestutil.TasksConfig{
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
+		Device: devices,
 	}
+}
+
+func pdoEntry(name string, index int) map[string]any {
+	return map[string]any{
+		"name":       name,
+		"index":      index,
+		"sub_index":  1,
+		"bit_length": 16,
+		"data_type":  "int16",
+	}
+}
+
+func createSlaves(
+	ctx SpecContext,
+	db *gorp.DB,
+	devices *device.Service,
+	rackKey rack.Key,
+) {
+	GinkgoHelper()
 	inputs := make([]any, 8)
 	for i := range inputs {
-		inputs[i] = entry("Input", 0x6000+i*0x10)
+		inputs[i] = pdoEntry("Input", 0x6000+i*0x10)
 	}
 	slaves := []device.Device{
 		{
 			Key:      "slave",
-			Rack:     rackSvc.EmbeddedKey,
+			Rack:     rackKey,
 			Location: "eth0.1",
 			Name:     "EL3102",
 			Make:     "ethercat",
 			Model:    "EL3102",
 			Properties: msgpack.EncodedJSON{"pdos": map[string]any{
-				"inputs":  []any{entry("Value", 0x6000)},
-				"outputs": []any{entry("Output", 0x7000)},
+				"inputs":  []any{pdoEntry("Value", 0x6000)},
+				"outputs": []any{pdoEntry("Output", 0x7000)},
 			}},
 		},
 		{
 			Key:        "el1008",
-			Rack:       rackSvc.EmbeddedKey,
+			Rack:       rackKey,
 			Location:   "eth0.2",
 			Name:       "EL1008",
 			Make:       "ethercat",
@@ -101,7 +118,7 @@ func openDevices(
 		},
 		{
 			Key:        "malformed",
-			Rack:       rackSvc.EmbeddedKey,
+			Rack:       rackKey,
 			Location:   "eth0.3",
 			Name:       "EL2008",
 			Make:       "ethercat",
@@ -112,12 +129,6 @@ func openDevices(
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return devices.NewWriter(tx).CreateMany(ctx, &slaves)
 	})).To(Succeed())
-	return devices, tasktestutil.TasksConfig{
-		DB:     db,
-		Status: statusSvc,
-		Rack:   rackSvc,
-		Device: devices,
-	}
 }
 
 var _ = Describe("Service", func() {

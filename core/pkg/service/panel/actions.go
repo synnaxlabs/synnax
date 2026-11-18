@@ -122,29 +122,16 @@ func (p InsertTabsPayload) Handle(state Panel) (Panel, error) {
 	index := p.Index
 	changed := false
 	for _, tab := range p.Tabs {
-		if r, ok := tab.Variant.(ResourceTab); ok {
-			if existing, found := findTabByResource(state.Root, r.Resource); found &&
-				existing.Key() != tab.Key() {
-				continue
-			}
-		}
-		if v, ok := tab.Variant.(ViewTab); ok && p.Singleton != nil && *p.Singleton {
-			if existing, found := findTabByType(state.Root, v.Type); found &&
-				existing.Key() != tab.Key() {
-				continue
-			}
+		if p.duplicates(state.Root, tab) {
+			continue
 		}
 		existingLeaf, existingIdx, exists := findTab(state.Root, tab.Key())
 		if exists && !placementGiven {
-			if err := updateLeafAt(
+			if err := replaceTab(
 				&state.Root,
 				existingLeaf,
-				func(leaf LeafNode) (LeafNode, error) {
-					tabs := append([]Tab{}, leaf.Tabs...)
-					tabs[existingIdx] = tab
-					leaf.Tabs = tabs
-					return leaf, nil
-				},
+				existingIdx,
+				tab,
 			); err != nil {
 				return Panel{}, err
 			}
@@ -167,21 +154,13 @@ func (p InsertTabsPayload) Handle(state Panel) (Panel, error) {
 				return Panel{}, errTabNotFound
 			}
 		}
-		leaf, err := walkLeaf(state.Root, targetLeaf)
-		if err != nil {
+		if index, err = insertTabClamped(
+			&state.Root,
+			targetLeaf,
+			tab,
+			index,
+		); err != nil {
 			return Panel{}, err
-		}
-		// An index past the leaf's end is a drop position invalidated between the
-		// gesture and the dispatch. It clamps to the end.
-		at := int32(len(leaf.Tabs))
-		if index != nil && *index >= 0 && *index <= at {
-			at = *index
-		}
-		if err := insertTabAt(&state.Root, targetLeaf, tab, at); err != nil {
-			return Panel{}, err
-		}
-		if index != nil {
-			index = new(at + 1)
 		}
 		changed = true
 	}
@@ -190,6 +169,60 @@ func (p InsertTabsPayload) Handle(state Panel) (Panel, error) {
 	}
 	collapseEmptyLeaves(&state.Root)
 	return state, nil
+}
+
+// duplicates reports whether tab would put a second tab behind the same resource, or
+// behind the same view type when Singleton is set.
+func (p InsertTabsPayload) duplicates(root Node, tab Tab) bool {
+	if r, ok := tab.Variant.(ResourceTab); ok {
+		if existing, found := findTabByResource(root, r.Resource); found &&
+			existing.Key() != tab.Key() {
+			return true
+		}
+	}
+	if v, ok := tab.Variant.(ViewTab); ok && p.Singleton != nil && *p.Singleton {
+		if existing, found := findTabByType(root, v.Type); found &&
+			existing.Key() != tab.Key() {
+			return true
+		}
+	}
+	return false
+}
+
+func replaceTab(root *Node, leafPath int32, idx int, tab Tab) error {
+	return updateLeafAt(root, leafPath, func(leaf LeafNode) (LeafNode, error) {
+		tabs := append([]Tab{}, leaf.Tabs...)
+		tabs[idx] = tab
+		leaf.Tabs = tabs
+		return leaf, nil
+	})
+}
+
+// insertTabClamped inserts tab into the leaf at leafPath at index, or appends it when
+// index is nil. It returns the index for the next tab, which is nil when index is nil.
+func insertTabClamped(
+	root *Node,
+	leafPath int32,
+	tab Tab,
+	index *int32,
+) (*int32, error) {
+	leaf, err := walkLeaf(*root, leafPath)
+	if err != nil {
+		return nil, err
+	}
+	// An index past the leaf's end is a drop position invalidated between the gesture
+	// and the dispatch. It clamps to the end.
+	at := int32(len(leaf.Tabs))
+	if index != nil && *index >= 0 && *index <= at {
+		at = *index
+	}
+	if err = insertTabAt(root, leafPath, tab, at); err != nil {
+		return nil, err
+	}
+	if index != nil {
+		index = new(at + 1)
+	}
+	return index, nil
 }
 
 // resolveTargetLeaf resolves the destination leaf's path-derived key from the
