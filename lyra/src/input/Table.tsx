@@ -9,15 +9,18 @@
 
 import "@/input/Table.css";
 
-import { csv, type dimensions, grid, xy } from "@synnaxlabs/x";
+import { caseconv, csv, type dimensions, grid, xy } from "@synnaxlabs/x";
 import {
   type ClipboardEvent,
   type ComponentPropsWithRef,
+  type DragEvent,
   type FocusEvent,
   type KeyboardEvent,
+  type PropsWithChildren,
   type ReactElement,
   type ReactNode,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -25,6 +28,7 @@ import {
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Haul } from "@/haul";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { ItemContext, type ItemContextValue } from "@/input/scope";
@@ -167,6 +171,79 @@ const MOVES: Partial<Record<string, Move>> = {
 
 type ColumnElement = ReactElement<TableColumnProps>;
 
+/** @returns where the row at index y sits once the row at from moves to to. */
+const movedIndex = (y: number, from: number, to: number): number => {
+  if (y === from) return to;
+  if (from < to && y > from && y <= to) return y - 1;
+  if (from > to && y >= to && y < from) return y + 1;
+  return y;
+};
+
+const HANDLE_CLASS = CSS.BE("input", "table-handle");
+
+interface RowProps extends PropsWithChildren {
+  index: number;
+  /** The haul type of one table's rows, so a row drops only in its own table. */
+  haulType: string;
+  /** Renders the preview of the row while it drags. */
+  haulPreview: () => ReactNode;
+  onMove?: (from: number, to: number) => void;
+}
+
+/** A body row that drags by its handle and takes drops of its table's other rows. */
+const Row = ({
+  index,
+  haulType,
+  haulPreview,
+  onMove,
+  children,
+}: RowProps): ReactElement => {
+  const [over, setOver] = useState<"above" | "below" | null>(null);
+  const draggedIndex = (items: Haul.Item[]): number | null => {
+    const dragged = Haul.filterByType(haulType, items).at(0);
+    return dragged == null ? null : Number(dragged.key);
+  };
+  const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
+    type: haulType,
+    key: index,
+    canDrop: (state) => onMove != null && Haul.canDropOfType(haulType)(state),
+    onDragOver: ({ items }) => {
+      const from = draggedIndex(items);
+      if (from == null || from === index) setOver(null);
+      else setOver(from < index ? "below" : "above");
+    },
+    onDrop: ({ items }) => {
+      setOver(null);
+      const from = draggedIndex(items);
+      if (from != null && from !== index) onMove?.(from, index);
+      return items;
+    },
+  });
+  // Only the handle drags, so text in a cell still selects and drags as text. The row
+  // starts the drag, so the whole row dims.
+  const handleDragStart = (event: DragEvent): void => {
+    if (!(event.target instanceof Element) || !event.target.closest(`.${HANDLE_CLASS}`))
+      return;
+    startDrag({
+      event,
+      items: [{ type: haulType, key: index }],
+      preview: haulPreview(),
+    });
+  };
+  return (
+    <tr
+      className={CSS.cls(over != null && CSS.BEM("input", "table-row", over))}
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDragLeave={() => setOver(null)}
+      onDrop={onDrop}
+    >
+      {children}
+    </tr>
+  );
+};
+
 export interface TableProps
   extends
     Omit<ComponentPropsWithRef<"table">, "onChange" | "children">,
@@ -191,6 +268,14 @@ export interface TableProps
    * place of onChange, so the caller can remove the row by identity.
    */
   onRemove?: (index: number) => void;
+  /**
+   * Called with the index of a row the user moves and the index it moves to. When set,
+   * each row's gutter holds a handle. A drag drops the row in the place of the row it
+   * lands on, and the up and down arrows on the handle move it by one row.
+   */
+  onMove?: (from: number, to: number) => void;
+  /** Renders the preview of a dragged row. Defaults to the row's name. */
+  renderHaulPreview?: (index: number) => ReactNode;
 }
 
 /** A focused cell's value and text from when it took focus. */
@@ -231,6 +316,8 @@ export const Table = ({
   resourceName = "row",
   cellStatus,
   onRemove,
+  onMove,
+  renderHaulPreview,
   className,
   style,
   ...rest
@@ -242,6 +329,9 @@ export const Table = ({
   const restored = useRef(false);
   // The row that takes focus once an add or a remove renders.
   const pendingFocus = useRef<number | null>(null);
+  // The row whose handle takes focus once a keyboard move renders.
+  const pendingHandle = useRef<number | null>(null);
+  const haulType = `${CSS.BE("input", "table-row")}-${useId()}`;
   const table = useRef<HTMLTableElement>(null);
   const [rejections, setRejections] = useState<Rejection[]>([]);
   // A cell that the caller gives another value drops its mark for good.
@@ -252,7 +342,7 @@ export const Table = ({
   );
   const dims: dimensions.Dimensions = { width: columns.length, height: value.length };
   const emptyRow = (): TableCell[] => columns.map(emptyCell);
-  const hasGutter = rowLabel != null;
+  const hasGutter = rowLabel != null || onMove != null;
   // Accessible row names survive without a gutter.
   const rowName = (index: number): string =>
     rowLabel?.(index) ?? (index + 1).toString();
@@ -344,6 +434,39 @@ export const Table = ({
     else onChange(value.filter((_, i) => i !== index));
   };
 
+  const handleMove = (from: number, to: number) => {
+    setRejections(
+      marks.map((mark) => ({
+        ...mark,
+        at: { x: mark.at.x, y: movedIndex(mark.at.y, from, to) },
+      })),
+    );
+    onMove?.(from, to);
+  };
+
+  useEffect(() => {
+    if (pendingHandle.current == null) return;
+    const y = pendingHandle.current;
+    pendingHandle.current = null;
+    table.current?.tBodies[0]?.rows[y]
+      ?.querySelector<HTMLElement>(`.${HANDLE_CLASS}`)
+      ?.focus();
+  }, [value]);
+
+  const handleHandleKeyDown = (e: KeyboardEvent, index: number) => {
+    const step = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0;
+    const to = index + step;
+    if (step === 0 || to < 0 || to >= value.length) return;
+    e.preventDefault();
+    pendingHandle.current = to;
+    handleMove(index, to);
+  };
+
+  const haulPreview = (index: number): ReactNode =>
+    renderHaulPreview?.(index) ?? (
+      <Haul.Preview name={`${caseconv.capitalize(resourceName)} ${rowName(index)}`} />
+    );
+
   const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
     anchor.current = at;
     if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
@@ -425,12 +548,32 @@ export const Table = ({
         )}
         <tbody>
           {value.map((row, i) => (
-            <tr key={i}>
+            <Row
+              key={i}
+              index={i}
+              haulType={haulType}
+              haulPreview={() => haulPreview(i)}
+              onMove={onMove == null || preview ? undefined : handleMove}
+            >
               {hasGutter && (
                 <th scope="row" className={CSS.BE("input", "table-gutter")}>
-                  <Text.Text level="small" color={9}>
-                    {rowName(i)}
-                  </Text.Text>
+                  {onMove != null && !preview ? (
+                    <Button.Button
+                      variant="text"
+                      size="small"
+                      textColor={8}
+                      draggable
+                      className={HANDLE_CLASS}
+                      aria-label={`Move ${resourceName} ${rowName(i)}`}
+                      onKeyDown={(e) => handleHandleKeyDown(e, i)}
+                    >
+                      <Icon.Drag />
+                    </Button.Button>
+                  ) : (
+                    <Text.Text level="small" color={9}>
+                      {rowName(i)}
+                    </Text.Text>
+                  )}
                 </th>
               )}
               {columns.map((column, j) => {
@@ -475,7 +618,7 @@ export const Table = ({
                   </Button.Button>
                 )}
               </td>
-            </tr>
+            </Row>
           ))}
         </tbody>
         {!preview && (
