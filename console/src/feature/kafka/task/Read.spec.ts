@@ -281,11 +281,11 @@ const retrieveStored = async (key: string, rec: Kafka.Task.ReadRecord) =>
 const storeChannels = async (
   key: string,
   rec: Kafka.Task.ReadRecord,
-  channels: Record<string, number>,
+  props: { index: number; channels: Record<string, number> },
 ) => {
   const dev = await client.devices.retrieve({ key, schemas: Kafka.Device.SCHEMAS });
   const before = deep.copy(dev.properties);
-  dev.properties.read[storedKeyOf(rec)] = { index: 0, channels };
+  dev.properties.read[storedKeyOf(rec)] = props;
   await Device.setProperties(client, dev, before, Kafka.Device.SCHEMAS);
 };
 
@@ -973,7 +973,7 @@ describe("Kafka read form", () => {
     /**
      * Deploys two records: the first binds temperature to a channel, and the device
      * stores that channel for the temperature of the second, which binds none.
-     * @returns the channel and the bindings of the second record after deploy.
+     * @returns the stored index, the channel, and the bindings of the second record.
      */
     const deployShared = async (disabled: boolean) => {
       const index = await createTimeChannel();
@@ -995,15 +995,26 @@ describe("Kafka read form", () => {
       const { container, dev, draft } = await renderRead({
         records: [{ ...owner, disabled }, other],
       });
-      await storeChannels(dev.key, other, { "/temperature": shared.key });
+      await storeChannels(dev.key, other, {
+        index: index.key,
+        channels: { "/temperature": shared.key },
+      });
       const created = await deploy(container, draft.key);
-      return { shared, bindings: created.config.records[1].messages[0].bindings };
+      return {
+        index,
+        shared,
+        bindings: created.config.records[1].messages[0].bindings,
+      };
     };
 
     it("should not reuse a stored channel that another record reads", async () => {
-      const { shared, bindings } = await deployShared(false);
+      const { index, shared, bindings } = await deployShared(false);
       expect(bindings[0].channel).not.toBe(0);
       expect(bindings[0].channel).not.toBe(shared.key);
+      // The Core refuses an index that two messages write.
+      expect((await client.channels.retrieve(bindings[0].channel)).index).not.toBe(
+        index.key,
+      );
     });
 
     it("should reuse a stored channel that only a disabled record reads", async () => {
