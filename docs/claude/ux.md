@@ -368,12 +368,17 @@ bound, a log precision, or the line plot X channel.
 - A swatch shows the color's value for the current theme only.
 - A "+" swatch ends each palette except Series. Series is the pool of automatic colors,
   so a user adds to it in Settings, where they set the new value. The "+" creates a
-  named color from the field's current color, asks for its name inline, and links the
-  field to it. On Auto, it starts from the color that Auto shows. A blank name cancels
-  the create.
-- Hovering a swatch shows an edit action. It opens the named color editor of Settings
-  (name, light, dark) inside the picker, and each edit saves at once.
-- "Create palette" ends the Library list.
+  named color from the field's current color and links the field to it. On Auto, it
+  starts from the color that Auto shows. It asks for the name in a line under the
+  swatches, next to a swatch of the color it saves. Enter creates, and Escape or a blank
+  name cancels.
+- The color that a palette title names, hovered or linked, has an edit action after its
+  name. Its tooltip sits to the right, outside the palette, so it never covers a swatch.
+  The action opens the named color editor of Settings (name, light, dark) inside the
+  picker, under a back arrow and the l9 note "Changes every use of this color." Each
+  edit saves at once. Back returns to Library with the same search, scroll, and focus.
+- "Create palette" ends the Library list, in the look of a create item, and asks for the
+  name in the same line as the "+".
 - A user without create access sees no "+" swatch and no "Create palette". A user
   without update access sees no edit action.
 - An edit in Custom stores a fixed color and unlinks the value. There is no unlink
