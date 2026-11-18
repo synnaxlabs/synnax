@@ -2373,6 +2373,36 @@ var _ = Describe("Compiler", func() {
 			}`, float64(-2147483648)),
 		)
 
+		DescribeTable("an integer literal should compile at the bounds of its type",
+			narrowResult,
+			Entry("i8 minimum", `{
+				x i8 := -128
+				return i64(x)
+			}`, float64(-128)),
+			Entry("i32 minimum", `{
+				x i32 := -2147483648
+				return i64(x)
+			}`, float64(-2147483648)),
+			Entry("i64 minimum", `{
+				x i64 := -9223372036854775808
+				return x
+			}`, float64(math.MinInt64)),
+			Entry("u64 maximum", `{
+				x u64 := 18446744073709551615
+				return i64(x)
+			}`, float64(-1)),
+		)
+
+		DescribeTable("a negated literal should wrap in an unsigned cast",
+			narrowResult,
+			Entry("u8", `{
+				return i64(u8(-1))
+			}`, float64(255)),
+			Entry("u32", `{
+				return i64(u32(-1))
+			}`, float64(4294967295)),
+		)
+
 		DescribeTable("a stepped range loop should end at the bound of the type",
 			narrowResult,
 			Entry("u8 to the maximum", `{

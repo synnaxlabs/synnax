@@ -30,6 +30,7 @@ export { color } from "@/color";
 export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";
+export { enumeration } from "@/enumeration";
 export {
   AccessDeniedError,
   AuthError,
