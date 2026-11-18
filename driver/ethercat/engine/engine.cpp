@@ -206,7 +206,7 @@ x::errors::Error left_out_error(
     const slave::Refusal &refusal
 ) {
     auto msg = std::format(
-        "Slave {} ({}) is left out of the network: it {}. Fix the device, then stop "
+        "Module {} ({}) is left out of the network: it {}. Fix the device, then stop "
         "every task on the network to try it again.",
         position,
         name,
@@ -230,7 +230,7 @@ std::string unapplied(
         const bool one = it->second == 1;
         if (!text.empty()) text += ' ';
         text += std::format(
-            "Slave {} ({}) is set up for {}, so Synnax did not apply its {} startup "
+            "Module {} ({}) is set up for {}, so Synnax did not apply its {} startup "
             "setting{}. Remove {}, or switch the device to Synnax in Configure.",
             props.position,
             props.name,
@@ -259,7 +259,7 @@ x::errors::Error Engine::start_error(
     for (const auto &[_, refusal]: refused)
         add_advice(refusal);
     for (const auto &[pos, left]: left_out) {
-        err.data += " The Driver left out slave " + std::to_string(pos) +
+        err.data += " The Driver left out module " + std::to_string(pos) +
                     " because it " + left.refusal.reason + ".";
         add_advice(left.refusal);
     }
@@ -363,8 +363,8 @@ std::vector<std::pair<uint16_t, std::string>> Engine::slaves_of(
 
 std::string
 Engine::out_of_op(const uint16_t position, const std::string &name, const bool silent) {
-    if (silent) return std::format("Lost contact with slave {} ({}).", position, name);
-    return std::format("Slave {} ({}) is not in OP.", position, name);
+    if (silent) return std::format("Lost contact with module {} ({}).", position, name);
+    return std::format("Module {} ({}) is not in OP.", position, name);
 }
 
 bool Engine::Input::lose(
@@ -799,7 +799,7 @@ x::errors::Error Engine::start_locked(
                 {
                     .message = "Starting " + this->network_name,
                     .description = std::format(
-                        "Bringing {} slave{} to OP.",
+                        "Bringing {} module{} to OP.",
                         starting,
                         starting == 1 ? "" : "s"
                     ),
@@ -836,7 +836,7 @@ x::errors::Error Engine::start_locked(
                         start,
                         {
                             .message = std::format(
-                                "Resetting slave {} ({})",
+                                "Resetting module {} ({})",
                                 pos,
                                 s == this->slaves.end() ? "" : s->properties.name
                             ),
@@ -1000,8 +1000,9 @@ Engine::plan_locked(const std::vector<SavedSlave> &saved) const {
                     errors::ACTIVATION_ERROR,
                     errors::sentence(
                         std::format(
-                            "{} and {} are both saved for slave {} on {} with different "
-                            "settings, and the slave did not give its serial number: {}",
+                            "{} and {} are both saved for module {} on {} with "
+                            "different settings, and the module did not give its "
+                            "serial number: {}",
                             first,
                             second,
                             *position,
@@ -1017,7 +1018,7 @@ Engine::plan_locked(const std::vector<SavedSlave> &saved) const {
             x::errors::Error(
                 errors::SLAVE_CONFIG_ERROR,
                 std::format(
-                    "{} and {} are both saved for slave {} on {} with different "
+                    "{} and {} are both saved for module {} on {} with different "
                     "settings. Give them the same settings, or delete the device that "
                     "is no longer on the bus.",
                     first,
@@ -1093,7 +1094,7 @@ std::pair<uint64_t, x::errors::Error> Engine::rate_locked(
         x::errors::Error(
             errors::RATE_MISMATCH,
             std::format(
-                "The bus on {0} cycles at {1} Hz while a slave runs DC sync, and the "
+                "The bus on {0} cycles at {1} Hz while a module runs DC sync, and the "
                 "rate cannot change until every task on the port stops. Use a sample "
                 "rate that {1} Hz is a multiple of, or an execution rate of at most "
                 "{1} Hz.",
@@ -1137,7 +1138,7 @@ x::errors::Error Engine::cycle_error() const {
             return s.properties.position;
         });
         err.data += std::format(
-            ". Slave {} ({}) is not in OP: {}",
+            ". Module {} ({}) is not in OP: {}",
             h.position,
             slave == slaves.end() ? "" : slave->properties.name,
             h.to_string()
@@ -1212,7 +1213,7 @@ x::errors::Error Engine::check_settings_locked(const Settings &settings) const {
                         return x::errors::Error(
                             errors::SETTING_CONFLICT,
                             std::format(
-                                "Another task sets {} of slave {} to {}. Stop it, or "
+                                "Another task sets {} of module {} to {}. Stop it, or "
                                 "give both tasks the same value.",
                                 telem::format_index_sub_index(
                                     param.index,
