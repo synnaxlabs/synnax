@@ -1370,11 +1370,15 @@ describe("plotChannels", () => {
         {
           type: "plain",
           fields: [
-            { channel: 1, disabled: false },
-            { channel: 2, disabled: true },
+            { type: "float", channel: 1, disabled: false },
+            { type: "float", channel: 2, disabled: true },
           ],
         },
-        { type: "plain", disabled: true, fields: [{ channel: 3, disabled: false }] },
+        {
+          type: "plain",
+          disabled: true,
+          fields: [{ type: "float", channel: 3, disabled: false }],
+        },
         { type: "sparkplug", channel: 4 },
         { type: "sparkplug", channel: 5, disabled: true },
       ],
