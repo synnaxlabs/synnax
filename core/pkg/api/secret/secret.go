@@ -390,8 +390,8 @@ type ResolveResponse struct {
 	// Secrets holds the keys of the secrets that the grant names, file secrets
 	// included. Empty without a grant.
 	Secrets []Key `json:"secrets" msgpack:"secrets"`
-	// Values holds one value for each secret, except a file secret of the calling
-	// rack, which the rack reads from its own secrets folder.
+	// Values holds one value for each secret, except a file secret of a calling rack
+	// that is not the Core's, which the rack reads from its own secrets folder.
 	Values []Value `json:"values" msgpack:"values"`
 }
 
