@@ -203,6 +203,71 @@ describe("http", () => {
     });
   });
 
+  describe("reset while reading the response body", () => {
+    let server: Server;
+    let c: HTTPClient;
+    let requests: number;
+
+    const serve = async (status: number): Promise<void> => {
+      requests = 0;
+      server = createServer((req, res) => {
+        requests++;
+        res.writeHead(status, {
+          "Content-Type": "application/json",
+          "Content-Length": "100",
+        });
+        res.write("{", () => req.socket.destroy());
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address();
+      if (address == null || typeof address === "string")
+        throw new Error("server is not listening on a port");
+      c = new HTTPClient({
+        endpoint: new url.URL({ host: "127.0.0.1", port: address.port }),
+        codec: new binary.JSONCodec(),
+      });
+    };
+
+    afterEach(async () => {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    });
+
+    test("send throws unreachable", async () => {
+      await serve(200);
+      await expect(c.send("/reset", {}, messageZ, messageZ)).rejects.toThrow(
+        Unreachable,
+      );
+    });
+
+    test("the breaker does not resend a delivered request", async () => {
+      await serve(200);
+      const unary = unaryWithBreaker(c, {
+        maxRetries: 2,
+        baseInterval: TimeSpan.milliseconds(1),
+      });
+      const err = await unary
+        .send("/reset", {}, messageZ, messageZ)
+        .catch((e: unknown) => e);
+      expect(Unreachable.matches(err)).toBe(true);
+      expect(requests).toBe(1);
+    });
+
+    test("upload throws unreachable", async () => {
+      await serve(200);
+      await expect(
+        c.upload("/reset", encodeJSON({}), { encoding: "JSON" }, messageZ),
+      ).rejects.toThrow(Unreachable);
+    });
+
+    test("download throws unreachable for an error response", async () => {
+      await serve(400);
+      await expect(
+        c.download("/reset", {}, messageZ, { encoding: "JSON" }),
+      ).rejects.toThrow(Unreachable);
+    });
+  });
+
   describe("upload", () => {
     test("blob body", async () => {
       const body = new Blob([JSON.stringify({ id: 1, message: "hello" })], {
