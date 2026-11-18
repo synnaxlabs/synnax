@@ -283,8 +283,7 @@ Phase 9 adds the certificate field without the file browser, and phase 10 adds t
 browser to both fields. From phase 10, both fields list only the file items of the
 device's rack. Until then, the secret field lists every secret. A new item is named
 after its device and field, such as "Plant OPC UA password". The dialog saves it before
-its first test, and Cancel deletes the items it made that nothing uses. OPC UA's Trust
-button saves the offered certificate as an item.
+its first test. OPC UA's Trust button saves the offered certificate as an item.
 
 ### 3.8 Expiry
 
