@@ -75,6 +75,7 @@ describe("Color.Editor", () => {
     });
     const c = renderEditor(named.key);
     await c.findByText("#00FF00");
+    await other.colors.retrieve(named.key);
     await other.colors.dispatch(named.key, [
       color.set({ path: ["light"], value: xcolor.construct("#123456") }),
     ]);
