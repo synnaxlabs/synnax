@@ -26,9 +26,10 @@ func TestImEx(t *testing.T) {
 
 var db *gorp.DB
 
-var _ = BeforeSuite(func(ctx SpecContext) {
+var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

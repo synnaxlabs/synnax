@@ -12,7 +12,6 @@
 
 pub mod commands;
 mod diagnostics;
-pub mod discovery;
 mod launch;
 pub mod probe;
 mod reset;
@@ -43,6 +42,11 @@ const STDERR_FILE: &str = "core-stderr.log";
 /// The exit code of a Core whose data directory another process holds, `DataLocked` in
 /// the Core's `cmd/exit` package.
 const LOCKED_CODE: i32 = 75;
+
+/// The exit codes of a Core that fails the same way on every start, `DataRefused`,
+/// `Unavailable`, and `Config` in the Core's `cmd/exit` package. Such a Core is not
+/// restarted.
+const FINAL_CODES: [i32; 3] = [65, 69, 78];
 
 /// Configures a [`Supervisor`].
 #[derive(Clone)]
@@ -393,6 +397,12 @@ impl Task {
                         self.give_up(Reason::Locked, message);
                     }
                 }
+                Outcome::Exited {
+                    reason,
+                    message,
+                    code: Some(code),
+                    ..
+                } if FINAL_CODES.contains(&code) => self.give_up(reason, message),
                 Outcome::Exited {
                     uptime,
                     reason,
@@ -843,6 +853,13 @@ echo "grpc: an earlier log line" >&2
 kill -9 $$
 "#;
 
+    /// A stand-in Core whose embedded Driver cannot load, `Unavailable` in the Core's
+    /// `cmd/exit` package.
+    const UNAVAILABLE: &str = r#"#!/bin/sh
+echo run >> "$(dirname "$0")/runs"
+exit 69
+"#;
+
     /// A stand-in Core that finds its data directory locked on its first three starts.
     /// Then it creates `ready` and behaves as `OBEDIENT`.
     const LOCKED_THRICE: &str = r#"#!/bin/sh
@@ -1068,6 +1085,26 @@ while true; do sleep 1; done
     async fn reports_the_signal_that_killed_the_core() {
         let message = failure_message(KILLED).await;
         assert!(message.contains("signal: 9"), "{message}");
+    }
+
+    #[tokio::test]
+    async fn does_not_restart_a_core_that_cannot_start() {
+        let f = Fixture::new(UNAVAILABLE, always(false));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        let status = wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        assert!(matches!(
+            status,
+            Status::Failed {
+                reason: Reason::Crashed,
+                ..
+            }
+        ));
+        assert_eq!(f.runs(), 1);
+        assert_eq!(sup.history().last_exit.unwrap().exit_code, Some(69));
+        sup.restart().await;
+        wait_for(&sup, |s| matches!(s, Status::Starting)).await;
+        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        assert_eq!(f.runs(), 2);
     }
 
     #[tokio::test]

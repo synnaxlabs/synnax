@@ -118,7 +118,7 @@ var _ = Describe("check command flag paths", func() {
 
 		It("rejects an invalid --format value", func() {
 			Expect(
-				fail(1, "check", "--format=yaml"),
+				fail("check", "--format=yaml"),
 			).To(printOnce(`invalid --format "yaml"`))
 		})
 
@@ -249,7 +249,7 @@ var _ = Describe("check against the shipped release", func() {
 
 		It("Should fail when it cannot list the release tags", func() {
 			Expect(
-				fail(1, "check", "--gates=versions"),
+				fail("check", "--gates=versions"),
 			).To(And(
 				printOnce("list the Core release tags"),
 				ContainSubstring("not a git repository"),
@@ -270,7 +270,7 @@ var _ = Describe("check against the shipped release", func() {
 		It("Should fail when HEAD descends only from release candidates", func() {
 			git("tag", "core/v0.1.0-rc.1")
 			Expect(
-				fail(1, "check", "--gates=versions"),
+				fail("check", "--gates=versions"),
 			).To(printOnce("HEAD descends from no stable Core release tag"))
 		})
 

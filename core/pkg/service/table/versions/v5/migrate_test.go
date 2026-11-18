@@ -24,6 +24,7 @@ import (
 var _ = Describe("Migration", func() {
 	It("Should delete each range-owned Table and lift the rest", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Table]{DB: db}))
 		proj := uuid.New()
 		owned := v4.Table{Key: uuid.New(), Name: "Owned", Project: &proj}

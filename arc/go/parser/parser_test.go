@@ -534,12 +534,12 @@ func split() {value f64} (high f64, low f64) {
 			Entry(
 				"missing input parens",
 				"func f {x f64} f64 { return x }",
-				"1:7 error: mismatched input '{' expecting '('",
+				"1:7 error [E1000]: syntax error: mismatched input '{' expecting '('",
 			),
 			Entry(
 				"inputs in braces",
 				"func f{x f64} (y f64) f64 { return x }",
-				"1:6 error: mismatched input '{' expecting '('",
+				"1:6 error [E1000]: syntax error: mismatched input '{' expecting '('",
 			),
 		)
 	})
@@ -752,7 +752,7 @@ any(ox_pt_1, ox_pt_2) -> average() -> ox_pt_avg`)
 			Expect(
 				parser.Parse(`myfunc(ox_pt_1, second: ox_pt_2) -> output`),
 			).Error().
-				To(MatchError(ContainSubstring("1:22 error: mismatched input")))
+				To(MatchError(ContainSubstring("1:22 error [E1000]: syntax error: mismatched input")))
 		})
 
 		It("Should parse a name touching its paren as a function node", func() {
@@ -816,7 +816,7 @@ any(ox_pt_1, ox_pt_2) -> average() -> ox_pt_avg`)
 
 		It("Should reject the brace instantiation form", func() {
 			Expect(parser.Parse(`sensor -> scale{factor=2.0} -> out`)).Error().
-				To(MatchError(ContainSubstring("1:22 error: mismatched input '=' expecting ':'")))
+				To(MatchError(ContainSubstring("1:22 error [E1000]: syntax error: mismatched input '=' expecting ':'")))
 		})
 
 		DescribeTable("CalleeTouchesParen",
@@ -1268,7 +1268,7 @@ any(ox_pt_1, ox_pt_2) -> average() -> ox_pt_avg`)
 			It("Should report error for double assignment", func() {
 				Expect(parser.Parse(`func test() {
 					x := := 5
-				}`)).Error().To(MatchError(ContainSubstring("error: extraneous input")))
+				}`)).Error().To(MatchError(ContainSubstring("error [E1000]: syntax error: extraneous input")))
 			})
 
 			It("Should report multiple errors with line information", func() {
@@ -1294,7 +1294,7 @@ func broken() {
 			It("Should report error for unclosed brace", func() {
 				Expect(parser.Parse(`func test() {
 					x := 5
-				`)).Error().To(MatchError(ContainSubstring("3:4 error: extraneous input")))
+				`)).Error().To(MatchError(ContainSubstring("3:4 error [E1000]: syntax error: extraneous input")))
 			})
 
 			It("Should report error for missing function body", func() {
@@ -1440,7 +1440,7 @@ func broken() {
 			It("Should return error for invalid block", func() {
 				Expect(parser.ParseBlock("{ x := := 5 }")).
 					Error().
-					To(MatchError(ContainSubstring("1:7 error: extraneous input")))
+					To(MatchError(ContainSubstring("1:7 error [E1000]: syntax error: extraneous input")))
 			})
 
 			It("Should handle empty block", func() {
@@ -2442,9 +2442,9 @@ func allStageDecls(
 }
 
 var _ = Describe("Limits", func() {
-	const tooDeep = "nesting is deeper than the parser allows"
-	nested := func(open, close string, n int) string {
-		return strings.Repeat(open, n) + "1" + strings.Repeat(close, n)
+	const tooDeep = "error [E1001]: source limit exceeded: nesting is deeper than the parser allows"
+	nested := func(open, closer string, n int) string {
+		return strings.Repeat(open, n) + "1" + strings.Repeat(closer, n)
 	}
 	DescribeTable("Should return a diagnostic for deep nesting", func(src string) {
 		Expect(parser.ParseExpression(src)).Error().
@@ -2493,7 +2493,7 @@ var _ = Describe("Limits", func() {
 
 	It("Should return a diagnostic for source past 1 MiB", func() {
 		Expect(parser.Parse(strings.Repeat(" ", 1<<20+1))).Error().
-			To(MatchError(ContainSubstring("more than the limit")))
+			To(MatchError(ContainSubstring("error [E1001]: source limit exceeded: source is")))
 	})
 })
 

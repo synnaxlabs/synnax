@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -89,7 +90,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			},
 			Orientation:      "left",
 			Scale:            1,
-			StalenessTimeout: 5,
+			StalenessTimeout: 5 * telem.Second,
+			Control:          versions.ControlStateConfig{Orientation: "bottom"},
 		}))
 	})
 
@@ -123,7 +125,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			},
 			Orientation:      "left",
 			Scale:            1,
-			StalenessTimeout: 5,
+			StalenessTimeout: 5 * telem.Second,
+			Control:          versions.ControlStateConfig{Orientation: "bottom"},
 		}))
 	})
 
@@ -143,7 +146,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		sch := decode(ctx, "testdata/import_typed_console.json")
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(4)))
 		Expect(sch.Edges).To(BeEmpty())
-		Expect(valveConfig(sch, "n1").OnClickDelay).To(HaveValue(Equal(2.0)))
+		Expect(valveConfig(sch, "n1").OnClickDelay).To(Equal(2 * telem.Millisecond))
 	})
 
 	It("Should lift a Console state through the legacy chain", func(ctx SpecContext) {
@@ -225,17 +228,16 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Entry("older version", "testdata/import_v8_zeros.json"),
 	)
 
-	DescribeTable("Should import a zero scale as 1 and keep the other zeros", func(
-		ctx SpecContext,
-		path string,
-	) {
-		sch := decode(ctx, path)
-		valve := valveConfig(sch, "v1")
-		Expect(valve.Scale).To(Equal(1.0))
-		Expect(valve.StalenessTimeout).To(BeZero())
-		Expect(gaugeConfig(sch, "g1").Bounds).
-			To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
-	},
+	DescribeTable(
+		"Should import a zero scale as 1, a zero timeout as 5s, and keep other zeros",
+		func(ctx SpecContext, path string) {
+			sch := decode(ctx, path)
+			valve := valveConfig(sch, "v1")
+			Expect(valve.Scale).To(Equal(1.0))
+			Expect(valve.StalenessTimeout).To(Equal(5 * telem.Second))
+			Expect(gaugeConfig(sch, "g1").Bounds).
+				To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
+		},
 		Entry("current version", "testdata/import_v10_zero_scale.json"),
 		Entry("older version", "testdata/import_v8_zero_scale.json"),
 	)
@@ -250,6 +252,22 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(MustSucceed(versions.DecodeImExEnvelope(ctx, env)).Name).
 			To(Equal("Renamed"))
 	})
+
+	DescribeTable("Should set the wrap width of each symbol in a v10 envelope",
+		func(ctx SpecContext, key string, width uint16) {
+			sch := decode(ctx, "testdata/import_v10_button.json")
+			i := slices.IndexFunc(sch.Nodes, func(n versions.Node) bool {
+				return n.Key == key
+			})
+			Expect(i).ToNot(Equal(-1))
+			Expect(sch.Nodes[i].Config.Variant).To(HaveField(
+				"LabeledConfig.Label.MaxInlineSize", Equal(width),
+			))
+		},
+		Entry("A button with no wrap width", "n1", uint16(65535)),
+		Entry("A button with a wrap width", "n2", uint16(80)),
+		Entry("An input", "n3", uint16(150)),
+	)
 
 	It("Should reject a v8 envelope holding a config the union rejects", func(
 		ctx SpecContext,

@@ -13,6 +13,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -31,7 +32,7 @@ func createBackup(dir, name string, files ...string) {
 	GinkgoHelper()
 	backups := filepath.Join(dir, "backups")
 	Expect(os.MkdirAll(backups, 0o700)).To(Succeed())
-	f := MustSucceed(os.Create(filepath.Join(backups, name+".tar")))
+	f := MustSucceed(os.Create(filepath.Clean(filepath.Join(backups, name+".tar"))))
 	w := tar.NewWriter(f)
 	for _, part := range []string{"kv/", "cesium/"} {
 		Expect(w.WriteHeader(&tar.Header{
@@ -117,7 +118,7 @@ var _ = Describe("Update", func() {
 			Expect(MustSucceed(run("undo"))).To(Equal(
 				"Restored backup 0000000002-0.59.0.\nRun Core 0.59.0 on the data.\n",
 			))
-			Expect(os.ReadFile(filepath.Join(dir, "VERSION"))).
+			Expect(fs.ReadFile(os.DirFS(dir), "VERSION")).
 				To(BeEquivalentTo("0.59.0"))
 		})
 
@@ -136,7 +137,7 @@ var _ = Describe("Update", func() {
 			createBackup(dir, "0000000002-0.59.0")
 			Expect(MustSucceed(run("undo", "0000000001-0.58.0"))).
 				To(HavePrefix("Restored backup 0000000001-0.58.0.\n"))
-			Expect(os.ReadFile(filepath.Join(dir, "VERSION"))).
+			Expect(fs.ReadFile(os.DirFS(dir), "VERSION")).
 				To(BeEquivalentTo("0.58.0"))
 		})
 

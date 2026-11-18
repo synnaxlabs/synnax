@@ -197,9 +197,11 @@ var _ = Describe("RegisterValue", func() {
 			]}`), &old)).To(Succeed())
 			cfg := MustSucceed(v3.MigrateReadConfig(ctx, old))
 			Expect(cfg.Channels).To(HaveLen(2))
-			holding := cfg.Channels[0].Variant.(v3.HoldingRegisterReadChannel)
+			holding, ok := cfg.Channels[0].Variant.(v3.HoldingRegisterReadChannel)
+			Expect(ok).To(BeTrue())
 			Expect(holding.DataType).To(BeEquivalentTo("uint8"))
-			input := cfg.Channels[1].Variant.(v3.InputRegisterReadChannel)
+			input, ok := cfg.Channels[1].Variant.(v3.InputRegisterReadChannel)
+			Expect(ok).To(BeTrue())
 			Expect(input.DataType).To(BeEquivalentTo("uint8"))
 		},
 	)
@@ -210,14 +212,16 @@ var _ = Describe("RegisterValue", func() {
 			{"type": "holding_register", "key": "a", "data_type": ""}
 		]}`), &read)).To(Succeed())
 		readCfg := MustSucceed(v3.MigrateReadConfig(ctx, read))
-		holding := readCfg.Channels[0].Variant.(v3.HoldingRegisterReadChannel)
+		holding, ok := readCfg.Channels[0].Variant.(v3.HoldingRegisterReadChannel)
+		Expect(ok).To(BeTrue())
 		Expect(holding.DataType).To(BeEquivalentTo("uint8"))
 		var write v2.WriteConfig
 		Expect(json.Unmarshal([]byte(`{"channels": [
 			{"type": "holding_register", "key": "b", "data_type": ""}
 		]}`), &write)).To(Succeed())
 		writeCfg := MustSucceed(v3.MigrateWriteConfig(ctx, write))
-		written := writeCfg.Channels[0].Variant.(v3.HoldingRegisterWriteChannel)
+		written, ok := writeCfg.Channels[0].Variant.(v3.HoldingRegisterWriteChannel)
+		Expect(ok).To(BeTrue())
 		Expect(written.DataType).To(BeEquivalentTo("uint8"))
 	})
 
@@ -227,7 +231,8 @@ var _ = Describe("RegisterValue", func() {
 			[]byte(`{"channels": [{"type": "holding_register", "key": "a"}]}`),
 			&cfg,
 		)).To(Succeed())
-		holding := cfg.Channels[0].Variant.(v3.HoldingRegisterWriteChannel)
+		holding, ok := cfg.Channels[0].Variant.(v3.HoldingRegisterWriteChannel)
+		Expect(ok).To(BeTrue())
 		Expect(holding.DataType).To(BeEquivalentTo("uint16"))
 	})
 })
@@ -260,6 +265,7 @@ var _ = Describe("MigrateReadConfig", func() {
 var _ = Describe("ReadMigration", func() {
 	It("Should clamp stored string lengths and log each clamp", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		str := func(key string, length int32) v2.ReadChannel {
 			return v2.ReadChannel{Variant: v2.InputRegisterReadChannel{
 				BaseReadChannel: v2.BaseReadChannel{Key: key},
@@ -292,7 +298,9 @@ var _ = Describe("ReadMigration", func() {
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		lengths := make([]uint16, len(got.Channels))
 		for i, ch := range got.Channels {
-			lengths[i] = ch.Variant.(v3.InputRegisterStringReadChannel).Length
+			str, ok := ch.Variant.(v3.InputRegisterStringReadChannel)
+			Expect(ok).To(BeTrue())
+			lengths[i] = str.Length
 		}
 		Expect(lengths).To(Equal([]uint16{1, 8, 250}))
 		clamped := logs.FilterMessage(
@@ -344,6 +352,7 @@ var _ = Describe("MigrateWriteConfig", func() {
 var _ = Describe("WriteMigration", func() {
 	It("Should lift stored write configs in place", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := v2.WriteConfig{
 			Key: uuid.New(),
 			Channels: []v2.WriteChannel{{Variant: v2.HoldingRegisterWriteChannel{

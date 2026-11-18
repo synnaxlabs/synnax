@@ -1080,6 +1080,7 @@ var _ = Describe("Device", func() {
 	Describe("Observe", func() {
 		It("Should notify when a device is created", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB: db,
 			}))
@@ -1132,6 +1133,7 @@ var _ = Describe("Device", func() {
 			"Should propagate rack warning status to devices on that rack",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
 				MustOpen(label.OpenService(ctx, label.ServiceConfig{
 					DB: db,
 				}))
@@ -1294,7 +1296,7 @@ var _ = Describe("Device", func() {
 func createChassis(ctx context.Context, w device.Writer, rackKey rack.Key) *device.Key {
 	GinkgoHelper()
 	d := device.Device{
-		Key:      device.Key(uuid.New().String()),
+		Key:      uuid.New().String(),
 		Rack:     rackKey,
 		Location: "slot-0",
 		Name:     "Chassis",
@@ -1310,6 +1312,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		"Should keep the group that a move writes during concurrent applies",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB: db,
 			}))
@@ -1402,6 +1405,7 @@ var _ = Describe("References", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		labels = MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))

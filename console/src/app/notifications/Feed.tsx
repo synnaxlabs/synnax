@@ -10,13 +10,16 @@
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
+import { EtherCAT } from "@/feature/ethercat";
 import { Rack } from "@/feature/rack";
 import { Sift } from "@/feature/sift";
 import { Task } from "@/feature/task";
+import { FLAGS } from "@/flags";
 import { Notifications } from "@/platform/notifications";
 import { Version } from "@/platform/version";
 
 const NOTIFICATIONS: Notifications.Notification[] = [
+  ...(FLAGS.ethercatReplace ? EtherCAT.Device.NOTIFICATIONS : []),
   ...Device.NOTIFICATIONS,
   ...Version.NOTIFICATIONS,
 ];

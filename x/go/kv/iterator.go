@@ -71,7 +71,7 @@ func IterPrefix(prefix []byte) IteratorOptions {
 func prefixUpperBound(lower []byte) []byte {
 	upper := bytes.Clone(lower)
 	for i := len(upper) - 1; i >= 0; i-- {
-		upper[i] = upper[i] + 1
+		upper[i]++
 		if upper[i] != 0 {
 			return upper[:i+1]
 		}

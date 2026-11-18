@@ -245,7 +245,7 @@ describe("Secret.Secrets", () => {
     expect(failed.message).toBe("Failed to delete secret");
     expect(failed.description).toBe(
       `cannot delete secret ${privateKey.name} because certificate ${c.name} ` +
-        "uses it as its private_key: validation error",
+        "uses it as its private_key",
     );
     expect(await client.secrets.retrieve(privateKey.key)).toEqual(privateKey);
   });

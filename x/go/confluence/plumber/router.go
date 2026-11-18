@@ -51,11 +51,14 @@ func (u UnaryRouter[V]) MustRoute(p *Pipeline) {
 	lo.Must0(u.Route(p))
 }
 
-func (p *Pipeline) MustConnect[V cfs.Value](source, sink address.Address, cap int) {
+func (p *Pipeline) MustConnect[V cfs.Value](
+	source, sink address.Address,
+	capacity int,
+) {
 	UnaryRouter[V]{
 		SourceTarget: source,
 		SinkTarget:   sink,
-		Capacity:     cap,
+		Capacity:     capacity,
 	}.MustRoute(p)
 }
 

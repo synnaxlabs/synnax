@@ -32,4 +32,5 @@ export const VALUE_WIDTH_INPUT_PROPS = {
   dragScale: { x: 1, y: 0.25 },
   bounds: { lower: 40, upper: 500 },
   endContent: "px",
+  integer: true,
 } as const;

@@ -81,6 +81,9 @@ const (
 	TypeModule     Type = versions.TypeModule
 )
 
+// Calculation is a calculated channel that an automation reads, compiled to a module.
+type Calculation = versions.Calculation
+
 // Where is a filter that selects Arcs.
 type Where struct {
 	// And matches when every child matches.

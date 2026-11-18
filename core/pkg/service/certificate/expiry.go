@@ -46,17 +46,18 @@ func expiryStatus(c Certificate, now telem.TimeStamp) (status.Status[any], bool)
 	if details.NotAfter == telem.TimeStampMax {
 		s.Description = "The certificate does not expire."
 	}
-	if now < details.NotBefore {
+	switch {
+	case now < details.NotBefore:
 		s.Variant = status.VariantWarning
 		s.Message = "Certificate not yet valid"
 		s.Description = "The certificate becomes valid on " +
 			details.NotBefore.Time().UTC().Format(dateLayout) + "."
-	} else if now >= details.NotAfter {
+	case now >= details.NotAfter:
 		s.Variant = status.VariantError
 		s.Message = "Certificate expired"
 		s.Description = "The certificate expired on " + date +
 			". Replace it with a new certificate."
-	} else if now >= details.NotAfter.Add(-expiryWarning) {
+	case now >= details.NotAfter.Add(-expiryWarning):
 		s.Variant = status.VariantWarning
 		s.Message = "Certificate expires soon"
 		s.Description = "The certificate expires on " + date +

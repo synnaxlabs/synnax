@@ -20,6 +20,7 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
@@ -31,6 +32,7 @@ var _ = Describe("ServiceConfig", func() {
 			DB:              &gorp.DB{},
 			Arc:             &arc.Service{},
 			Status:          &status.Service{},
+			Channel:         &channel.Service{},
 			RBAC:            &rbac.Service{},
 			Stopper:         &task.Stopper{},
 			DispatchChannel: func(
@@ -49,9 +51,9 @@ var _ = Describe("ServiceConfig", func() {
 
 		DescribeTable(
 			"Should fail when a service is missing",
-			func(clear func(*apiarc.ServiceConfig), msg string) {
+			func(unset func(*apiarc.ServiceConfig), msg string) {
 				cfg := full()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
@@ -68,6 +70,11 @@ var _ = Describe("ServiceConfig", func() {
 				"status",
 				func(c *apiarc.ServiceConfig) { c.Status = nil },
 				"status: must be non-nil",
+			),
+			Entry(
+				"channel",
+				func(c *apiarc.ServiceConfig) { c.Channel = nil },
+				"channel: must be non-nil",
 			),
 			Entry(
 				"rbac",
@@ -94,6 +101,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.DispatchChannel).ToNot(BeNil())
 			Expect(merged.Stopper).To(BeIdenticalTo(cfg.Stopper))
@@ -106,6 +114,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.DispatchChannel).ToNot(BeNil())
 			Expect(merged.Stopper).To(BeIdenticalTo(cfg.Stopper))

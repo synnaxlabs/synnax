@@ -59,6 +59,56 @@ class Closeable(Protocol):
     def close(self) -> object: ...
 
 
+class Samples(Protocol):
+    def __len__(self) -> int: ...
+
+    def __getitem__(self, index: int, /) -> object: ...
+
+
+class Frame(Protocol):
+    def get(self, key: str | int, /) -> Samples | None: ...
+
+
+class Writer(Protocol):
+    def write(self, frame: dict, /) -> object: ...
+
+    def set_authority(self, authority: sy.Authority, /) -> object: ...
+
+    def close(self) -> object: ...
+
+
+class Writes(Protocol):
+    """The part of the Core that opens writers."""
+
+    def open_writer(
+        self,
+        start: sy.TimeStamp,
+        channels: list[str],
+        *,
+        authorities: sy.Authority = ...,
+        name: str = ...,
+        auto_index: bool = ...,
+    ) -> Writer: ...
+
+
+class Streamer(Protocol):
+    def read(self, *, timeout: sy.TimeSpan) -> Frame | None: ...
+
+    def close(self) -> object: ...
+
+
+class Streams(Protocol):
+    """The part of the Core that opens streamers."""
+
+    def open_streamer(self, channels: list[str], /) -> Streamer: ...
+
+
+class ReadsLatest(Protocol):
+    """The part of the Core that reads the last samples of channels."""
+
+    def read_latest(self, channels: list[str], /) -> sy.MultiSeries | Frame: ...
+
+
 def close_quietly(resource: Closeable | None) -> None:
     if resource is None:
         return
@@ -151,11 +201,24 @@ class ChannelCreateError(Exception):
     out the restarts."""
 
 
+class Creator(Protocol):
+    def create(
+        self, channels: list[sy.Channel], /, *, retrieve_if_name_exists: bool
+    ) -> list[sy.Channel]: ...
+
+
+class CreatesChannels(Protocol):
+    """The part of the Core that creates channels."""
+
+    @property
+    def channels(self) -> Creator: ...
+
+
 class Channels:
     """Creates channels on the Core. While disabled every method does nothing, for an
     account that cannot create channels."""
 
-    def __init__(self, *, client: sy.Synnax, enabled: bool) -> None:
+    def __init__(self, *, client: CreatesChannels, enabled: bool) -> None:
         self.client = client
         self.enabled = enabled
 
@@ -226,7 +289,7 @@ class Channels:
             )
 
 
-def latest(client: sy.Synnax, *, names: list[str]) -> dict[str, np.generic]:
+def latest(client: ReadsLatest, *, names: list[str]) -> dict[str, np.generic]:
     """The last sample of each numeric channel that has one. Misses samples still
     under an open writer."""
     read = client.read_latest(names)

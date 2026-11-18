@@ -280,7 +280,7 @@ var _ = Describe("Service", func() {
 			return env
 		}
 
-		It("Should return a non-empty envelope type as-is", func(ctx SpecContext) {
+		It("Should return a non-empty envelope type as-is", func() {
 			Expect(svc.ResolveType(imex.Envelope{Type: "anything"})).To(
 				Equal("anything"),
 			)
@@ -288,7 +288,7 @@ var _ = Describe("Service", func() {
 
 		It(
 			"Should resolve a typeless envelope through the claiming matcher",
-			func(ctx SpecContext) {
+			func() {
 				s := imex.NewService()
 				Expect(s.RegisterImporter("aaa", matchImporter{
 					noopImporter{typ: resource.TypeLog}, "channels",
@@ -304,7 +304,7 @@ var _ = Describe("Service", func() {
 
 		It(
 			"Should offer the body to matchers in sorted type order",
-			func(ctx SpecContext) {
+			func() {
 				s := imex.NewService()
 				Expect(s.RegisterImporter("bbb", matchImporter{
 					noopImporter{typ: resource.TypeLog}, "marker",
@@ -320,7 +320,7 @@ var _ = Describe("Service", func() {
 
 		It(
 			"Should reject a typeless envelope no matcher claims",
-			func(ctx SpecContext) {
+			func() {
 				Expect(svc.ResolveType(
 					typelessEnvelope(`{"version":"1.0.0","foo":1}`),
 				)).Error().To(SatisfyAll(
@@ -726,8 +726,9 @@ var _ = Describe("Service", func() {
 				Expect(env.Version).To(Equal(testVersion))
 				Expect(env.Type).To(Equal(string(resource.TypeChannel)))
 				Expect(env.Name).To(Equal("Round Trip"))
+				wire := WireRoundTrip(env)
 				roundTripped := MustSucceed(
-					WireRoundTrip(env).Decode[testResource](),
+					wire.Decode[testResource](),
 				)
 				Expect(roundTripped.FieldOne).To(Equal("value"))
 				Expect(roundTripped.FieldTwo).To(Equal(42))

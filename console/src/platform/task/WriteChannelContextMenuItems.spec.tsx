@@ -12,6 +12,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { deep } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -19,7 +20,7 @@ import {
   renderInTaskFormWithClient,
   type RenderInTaskFormWithClientResult,
 } from "@/platform/task/testutil";
-import { awaitTextEditing, commitTextEdit } from "@/testutil";
+import { awaitTextEditing, awaitTextEditingElement, commitTextEdit } from "@/testutil";
 
 const path = deep.path<{ config: { cmdName: string; stateName: string } }>();
 
@@ -48,7 +49,11 @@ const renderMenuWithNames = async (
         itemKey="ch1"
       />
       <Menu.Menu>
-        {Task.writeChannelContextMenuItems({ keys: ["ch1"], channels: [channel] })}
+        {Task.writeChannelContextMenuItems({
+          keys: ["ch1"],
+          channels: [channel],
+          target: null,
+        })}
       </Menu.Menu>
     </>,
     {
@@ -56,6 +61,36 @@ const renderMenuWithNames = async (
       values: { config: { cmdName: "cmd_before", stateName: "state_before" } },
     },
   );
+
+const Names = (): ReactElement => (
+  <Task.WriteChannelNames
+    cmdChannel={0}
+    stateChannel={0}
+    cmdNamePath={path.config.cmdName}
+    stateNamePath={path.config.stateName}
+    itemKey="ch1"
+  />
+);
+
+/** Shows the names twice and opens the menu over the second copy. */
+const TwoCopies = (): ReactElement => {
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+  return (
+    <>
+      <Names />
+      <div ref={setTarget} data-testid="target">
+        <Names />
+      </div>
+      <Menu.Menu>
+        {Task.writeChannelContextMenuItems({
+          keys: ["ch1"],
+          channels: [channel],
+          target,
+        })}
+      </Menu.Menu>
+    </>
+  );
+};
 
 describe("WriteChannelContextMenuItems", () => {
   it("should rename the command channel through the form", async () => {
@@ -80,10 +115,24 @@ describe("WriteChannelContextMenuItems", () => {
     expect(form.current?.get(path.config.cmdName).value).toBe("cmd_before");
   });
 
+  it("should rename the copy in the item the menu opened over", async () => {
+    await renderInTaskFormWithClient(<TwoCopies />, {
+      client,
+      values: { config: { cmdName: "cmd_before", stateName: "state_before" } },
+    });
+    fireEvent.click(await screen.findByText("Rename command channel"));
+    const el = await awaitTextEditingElement();
+    expect(screen.getByTestId("target").contains(el)).toBe(true);
+  });
+
   it("should render nothing when no matching channel is selected", async () => {
     await renderInTaskFormWithClient(
       <Menu.Menu>
-        {Task.writeChannelContextMenuItems({ keys: ["missing"], channels: [channel] })}
+        {Task.writeChannelContextMenuItems({
+          keys: ["missing"],
+          channels: [channel],
+          target: null,
+        })}
       </Menu.Menu>,
       { client },
     );

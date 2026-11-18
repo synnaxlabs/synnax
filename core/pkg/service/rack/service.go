@@ -210,17 +210,18 @@ func (s *Service) RetrieveOrCreateEmbedded(
 	err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		q := s.NewRetrieve().Entry(&r)
 		b, closer, err := tx.Get(bindingKey)
-		if err == nil {
+		switch {
+		case err == nil:
 			q = q.Where(MatchKeys(Key(binary.LittleEndian.Uint32(b))))
 			if err = closer.Close(); err != nil {
 				return err
 			}
-		} else if errors.Is(err, query.ErrNotFound) {
+		case errors.Is(err, query.ErrNotFound):
 			q = q.
 				Where(MatchNames(name)).
 				Where(MatchEmbedded(true)).
 				Where(MatchNode(s.HostKey))
-		} else {
+		default:
 			return err
 		}
 		w := s.NewWriter(tx)

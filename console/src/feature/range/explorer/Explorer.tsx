@@ -22,6 +22,7 @@ import { Access, Flux, View as PView } from "@synnaxlabs/pluto";
 import { binary, location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
+import { TAB_TYPE } from "@/feature/range/explorer/external";
 import { PROPERTIES } from "@/feature/range/explorer/Filter";
 import { MATCH_LIMIT, useSearchTree } from "@/feature/range/explorer/searchTree";
 import { nextCrossing, pin, useNextRanges } from "@/feature/range/explorer/time";
@@ -119,7 +120,8 @@ const useViewField = <F extends "sort" | "layout">(
 };
 
 const Internal = (): ReactElement => {
-  const { getInitialView, searchTerm, editable } = View.useContext();
+  const { getInitialView, editable } = View.useContext();
+  const { term: searchTerm } = View.useSearch();
   const [where, setWhere] = useState(() => getInitialView().where);
   // The Core reads stages and recent spans at the time of a read, so the list reads at
   // a held instant and reads again when a range it holds could cross the filter.
@@ -267,7 +269,7 @@ const Internal = (): ReactElement => {
 };
 
 export const Explorer: Panel.Content = () => (
-  <View.Frame resourceType="range" icon="Range">
+  <View.Frame resourceType="range" icon="Range" tabType={TAB_TYPE}>
     <Internal />
   </View.Frame>
 );

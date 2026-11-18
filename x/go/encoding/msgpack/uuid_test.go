@@ -28,15 +28,19 @@ var _ = Describe("UUID", func() {
 		0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
 	}
 
-	It("Should encode a UUID as its 16 raw bytes", func(ctx SpecContext) {
+	It("Should make msgpack.Marshal encode a UUID as its 16 raw bytes", func() {
+		xmsgpack.RegisterUUID()
+		Expect(msgpack.Marshal(key)).To(Equal(raw))
+	})
+	It("Should encode a UUID as its 16 raw bytes", func() {
 		Expect(xmsgpack.Codec.Encode(key)).To(Equal(raw))
 	})
-	It("Should decode a UUID from its 16 raw bytes", func(ctx SpecContext) {
+	It("Should decode a UUID from its 16 raw bytes", func() {
 		var decoded uuid.UUID
 		Expect(xmsgpack.Codec.Decode(raw, &decoded)).To(Succeed())
 		Expect(decoded).To(Equal(key))
 	})
-	It("Should decode a UUID from its textual form", func(ctx SpecContext) {
+	It("Should decode a UUID from its textual form", func() {
 		b := MustSucceed(msgpack.Marshal([]byte(key.String())))
 		var decoded uuid.UUID
 		Expect(xmsgpack.Codec.Decode(b, &decoded)).To(Succeed())

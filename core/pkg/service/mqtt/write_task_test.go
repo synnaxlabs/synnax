@@ -60,6 +60,14 @@ func plainTarget(
 	}
 }
 
+// setEnumValues sets the enum values of the channel of target.
+func setEnumValues(target map[string]any, values ...any) {
+	GinkgoHelper()
+	ch, ok := target["channel"].(map[string]any)
+	Expect(ok).To(BeTrue())
+	ch["enum_values"] = values
+}
+
 func staticField(pointer, jsonType string, value any) map[string]any {
 	return map[string]any{
 		"key":       pointer,
@@ -192,10 +200,11 @@ var _ = Describe("Write task", func() {
 		It("Should publish the label of an enum value", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Uint8T)
 			target := plainTarget("plant/valve3/set", ch, "/state", "string")
-			target["channel"].(map[string]any)["enum_values"] = []any{
+			setEnumValues(
+				target,
 				map[string]any{"label": "closed", "value": 0},
 				map[string]any{"label": "open", "value": 1},
-			}
+			)
 			start(ctx, writeConfig(dev, target))
 			command(ctx, ch, telem.NewSeriesV[uint8](1), func(g Gomega) {
 				g.Expect(payloads("plant/valve3/set")).
@@ -206,10 +215,11 @@ var _ = Describe("Write task", func() {
 		It("Should publish a value outside the enum as text", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Uint8T)
 			target := plainTarget("plant/valve4/set", ch, "/state", "string")
-			target["channel"].(map[string]any)["enum_values"] = []any{
+			setEnumValues(
+				target,
 				map[string]any{"label": "closed", "value": 0},
 				map[string]any{"label": "open", "value": 1},
-			}
+			)
 			start(ctx, writeConfig(dev, target))
 			command(ctx, ch, telem.NewSeriesV[uint8](5), func(g Gomega) {
 				g.Expect(payloads("plant/valve4/set")).
@@ -229,14 +239,16 @@ var _ = Describe("Write task", func() {
 				command(ctx, ch, telem.NewSeriesV[int32](1200), func(g Gomega) {
 					g.Expect(payloads("plant/pump/set")).ToNot(BeEmpty())
 				})
-				var ids []string
-				for _, payload := range payloads("plant/pump/set") {
+				published := payloads("plant/pump/set")
+				ids := make([]string, 0, len(published))
+				for _, payload := range published {
 					var doc map[string]any
 					Expect(json.Unmarshal([]byte(payload), &doc)).To(Succeed())
 					Expect(doc).To(HaveKeyWithValue("rpm", BeEquivalentTo(1200)))
 					Expect(doc).To(HaveKeyWithValue("unit", "rpm"))
 					Expect(doc).To(HaveKeyWithValue("priority", BeEquivalentTo(3)))
-					id := doc["id"].(string)
+					id, ok := doc["id"].(string)
+					Expect(ok).To(BeTrue())
 					MustSucceed(uuid.Parse(id))
 					ids = append(ids, id)
 				}
@@ -490,6 +502,15 @@ var _ = Describe("Write task", func() {
 						"topic plant/+/set: must not hold the wildcards + or #"
 				},
 			),
+			Entry("an unknown QoS",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					ch := createVirtual(ctx, telem.Float64T)
+					target := plainTarget("plant/x", ch, "", "number")
+					target["qos"] = "bogus"
+					return writeConfig(dev, target),
+						`target plant/x: qos: unknown value "bogus"`
+				},
+			),
 			Entry("a channel that does not exist",
 				func(context.Context) (msgpack.EncodedJSON, string) {
 					ch := channel.Channel{Name: "missing", DataType: telem.Float64T}
@@ -509,9 +530,10 @@ var _ = Describe("Write task", func() {
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ch := createVirtual(ctx, telem.Uint8T)
 					target := plainTarget("plant/x", ch, "/v", "number")
-					target["channel"].(map[string]any)["enum_values"] = []any{
+					setEnumValues(
+						target,
 						map[string]any{"label": "open", "value": 1},
-					}
+					)
 					return writeConfig(dev, target),
 						"target plant/x: enum values require the string JSON type"
 				},

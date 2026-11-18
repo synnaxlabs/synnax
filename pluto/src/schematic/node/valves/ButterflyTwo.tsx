@@ -10,15 +10,24 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Handle } from "@/schematic/node/common/handle";
-import { Primitive } from "@/schematic/node/common/primitive";
+import { Custom } from "@/schematic/node/common/custom";
+import { type Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
+import svg from "@/schematic/node/valves/ButterflyTwo.svg?raw";
+
 export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 87, height: 42 };
+const SPEC = Custom.createBuiltIn({
+  variant: "actuator",
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.022989, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.977011, y: 0.5 }, orientation: "right" },
+  ],
+});
 
 export const ButterflyTwo = ({
-  strokeColor: colorVal,
+  strokeColor,
   className,
   orientation = "left",
   scale,
@@ -31,16 +40,12 @@ export const ButterflyTwo = ({
     className={CSS.cls(CSS.B("butterfly-valve-two"), className)}
     enabled={enabled}
   >
-    <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
-      strokeColor={colorVal}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Circle cx="43.5" cy="21" r="10" fill="var(--pluto-symbol-display)" />
-      <Primitive.Rect x="2" y="2" width="83" height="38" rx="1" />
-      <Primitive.Path d="M2.29001 2.29004L84.7069 39.676" />
-    </Primitive.SVG>
+    />
   </Toggle.Button>
 );
