@@ -4392,6 +4392,61 @@ var _ = Describe("Writer Behavior", func() {
 					)
 				})
 
+				Specify(
+					"Frame with duplicate channels after a frame without them",
+					func(ctx SpecContext) {
+						otherIdx, otherData := GenerateChannelKey(), GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Name:     "Ross",
+								Key:      otherIdx,
+								IsIndex:  true,
+								DataType: telem.TimestampT,
+							},
+							cesium.Channel{
+								Name:     "Weddell",
+								Key:      otherData,
+								Index:    otherIdx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{
+									idx,
+									data,
+									otherIdx,
+									otherData,
+								},
+								Start: 10 * telem.SecondTS,
+							},
+						))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{otherIdx, otherData},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11),
+								telem.NewSeriesV[int64](1, 2),
+							},
+						)))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{idx, idx},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11),
+								telem.NewSeriesSecondsTSV(12, 13),
+							},
+						)))
+						Expect(
+							w.Commit(),
+						).Error().
+							To(MatchError(validate.ErrValidation))
+						Expect(w.Close()).To(MatchError(ContainSubstring(
+							"frame must have exactly one series per channel",
+						)))
+					},
+				)
+
 				It(
 					"Should return no end from a partly applied commit",
 					func(ctx SpecContext) {

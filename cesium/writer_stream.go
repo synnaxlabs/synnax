@@ -488,7 +488,7 @@ func (w *streamWriter) close() error {
 
 type unaryWriterState struct {
 	unary.Writer
-	timesWritten int
+	lastWriteCall int
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
@@ -969,10 +969,10 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 			}
 			lengthOfFrame = s.Len()
 		}
-		if uWriter.timesWritten == w.numWriteCalls {
+		if uWriter.lastWriteCall == w.numWriteCalls {
 			return oneSeriesPerChannelError(ch)
 		}
-		uWriter.timesWritten++
+		uWriter.lastWriteCall = w.numWriteCalls
 
 		if s.Len() != lengthOfFrame {
 			return sameLengthForAllSeriesError(ch, lengthOfFrame, s)
