@@ -92,3 +92,16 @@ func NewRootMigration(root uuid.UUID) gorp.Migration {
 		},
 	)
 }
+
+// NameMigration names each stored Arc that has an empty name "Arc <key>", where <key>
+// is the first eight characters of its key.
+var NameMigration = migrate.NewEntry(
+	"v62_require_name",
+	func(_ context.Context, a Arc) (Arc, error) {
+		if b := a.Base(); b.Name == "" {
+			b.Name = "Arc " + b.Key.String()[:8]
+			a.SetBase(b)
+		}
+		return a, nil
+	},
+)

@@ -688,6 +688,32 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	DescribeTable("Should answer a stop after the consumer fails with a stopped status",
+		func(ctx SpecContext, fail func(context.Context, string), message string) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			fail(ctx, topic)
+			Eventually(func() string { return taskStatus(ctx, t).Message }).
+				WithTimeout(15 * time.Second).Should(Equal(message))
+			Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-3"})).
+				To(Succeed())
+			stat := taskStatus(ctx, t)
+			Expect(stat.Message).To(Equal("Stopped task"))
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+		},
+		Entry("failed fetch", failFetch, "Failed to fetch records"),
+		Entry("failed write", failWrite, "Failed to process records"),
+	)
+
 	It("Should resume consuming without duplicates when the cluster comes back",
 		func(ctx SpecContext) {
 			broker := MustSucceed(kfake.NewCluster(kfake.NumBrokers(1)))

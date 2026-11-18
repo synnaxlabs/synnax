@@ -93,6 +93,19 @@ describe("reduceAll", () => {
       expect(tabKeys(root.last)).toEqual([b]);
     });
 
+    it("should not split the target leaf when the moved tab is missing", () => {
+      const initial = state(leaf(a, b));
+      const { next, targets } = panel.reduceAll(initial, [
+        panel.moveTab({
+          key: missing,
+          targetLeaf: panel.ROOT_NODE_KEY,
+          location: "right",
+        }),
+      ]);
+      expect(next).toBe(initial);
+      expect(targets).toEqual([]);
+    });
+
     it("should place the new sibling first for a top location", () => {
       const { next } = panel.reduceAll(state(leaf(a, b)), [
         panel.moveTab({ key: b, targetLeaf: panel.ROOT_NODE_KEY, location: "top" }),

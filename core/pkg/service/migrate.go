@@ -108,7 +108,7 @@ func newGroupRemovalReport(
 }
 
 // rangeAliasDropMigration deletes the range aliases that an upgraded store holds.
-var rangeAliasDropMigration = migrate.Drop("v62_drop_range_aliases", "Alias")
+var rangeAliasDropMigration = migrate.Drop[string]("v62_drop_range_aliases", "Alias")
 
 func taskNames(svc *task.Service) pagerduty.TaskNames {
 	return func(

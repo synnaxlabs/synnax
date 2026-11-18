@@ -379,19 +379,27 @@ const reduceCenterWindow = assertLabel<CenterWindowPayload>(
 );
 
 const reduceSetWindowPosition = assertLabel<SetWindowPositionPayload>((s, a) => {
-  s.windows[a.payload.label].position = a.payload.position;
+  const win = s.windows[a.payload.label];
+  if (win == null) return;
+  win.position = a.payload.position;
 });
 
 const reduceSetWindowSize = assertLabel<SetWindowSizePayload>((s, a) => {
-  s.windows[a.payload.label].size = a.payload.size;
+  const win = s.windows[a.payload.label];
+  if (win == null) return;
+  win.size = a.payload.size;
 });
 
 const reduceSetWindowMinSize = assertLabel<SetWindowMinSizePayload>((s, a) => {
-  s.windows[a.payload.label].minSize = a.payload.size;
+  const win = s.windows[a.payload.label];
+  if (win == null) return;
+  win.minSize = a.payload.size;
 });
 
 const reduceSetWindowMaxSize = assertLabel<SetWindowMaxSizePayload>((s, a) => {
-  s.windows[a.payload.label].maxSize = a.payload.size;
+  const win = s.windows[a.payload.label];
+  if (win == null) return;
+  win.maxSize = a.payload.size;
 });
 
 const reduceSetWindowResizable = assignBool("resizable");
@@ -399,7 +407,9 @@ const reduceSetWindowSkipTaskbar = assignBool("skipTaskbar");
 const reduceSetWindowAlwaysOnTop = assignBool("alwaysOnTop");
 
 const reduceSetWindowTitle = assertLabel<SetWindowTitlePayload>((s, a) => {
-  s.windows[a.payload.label].title = a.payload.title;
+  const win = s.windows[a.payload.label];
+  if (win == null) return;
+  win.title = a.payload.title;
 });
 
 const reduceSetWindowDecorations = assignBool("decorations");

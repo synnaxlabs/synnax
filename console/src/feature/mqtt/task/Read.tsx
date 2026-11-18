@@ -83,6 +83,8 @@ const SAMPLE_KINDS = {
 } as const satisfies Record<payload.JSONType, payload.Kind>;
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/telemetry" } as const;
+// A topic added by name has no topic yet, so its details open on the topic.
+const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
 
 /** @returns the messages of the entries' ICDs, reading the open one from its form. */
 const readMessages = async (
@@ -517,6 +519,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
+  const topic = PForm.useFieldValue(path.topic);
   const reads = PForm.useFieldValue(path.messages);
   const encoding = PForm.useFieldValue(
     PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
@@ -543,7 +546,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             path={path.topic}
             label="Topic"
             padHelpText={false}
-            inputProps={TOPIC_INPUT_PROPS}
+            inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
           />
           <QoSField path={path.qos} />
           <PForm.CheckboxField
