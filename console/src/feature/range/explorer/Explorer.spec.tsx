@@ -25,6 +25,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Explorer } from "@/feature/range/explorer/Explorer";
 import { TAB_TYPE } from "@/feature/range/explorer/external";
+import { createSiftDevice } from "@/feature/sift/testutil";
 import { searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
@@ -38,7 +39,9 @@ import {
   commitTextEdit,
   createTestClientWithGrants,
   createTestStore,
+  isPlutoDisabled,
   openContextMenu,
+  openSubmenu,
   renderSuspended,
   resolveFocusedTab,
   selectRange,
@@ -623,6 +626,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should open the Sift upload modal on Upload to Sift", async () => {
+      await createSiftDevice(client);
       const rng = await createRange(uniqueRangeName("sift"));
       await renderExplorer();
       await openMenuOf(rng);
@@ -630,12 +634,13 @@ describe("range/explorer/Explorer", () => {
       expect(await screen.findByText(`Upload ${rng.name} to Sift`)).toBeTruthy();
     });
 
-    it("should copy a link to the range on Copy link", async () => {
+    it("should copy a link to the range on Copy > Link", async () => {
       const writeText = stubClipboardWriteText();
       const rng = await createRange(uniqueRangeName("linked"));
       await renderExplorer(client, { core: createCore("test") });
       await openMenuOf(rng);
-      fireEvent.click(await menuItem("Copy link"));
+      const copy = await openSubmenu("Copy");
+      fireEvent.click(within(copy).getByRole("menuitem", { name: "Link" }));
       await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
       expect(writeText.mock.calls[0][0]).toContain(`range/${rng.key}`);
     });
@@ -657,6 +662,43 @@ describe("range/explorer/Explorer", () => {
       const plot = await client.lineplots.retrieve({ key: tab.resource.key });
       expect(plot.name).toBe(`Plot for ${rng.name}`);
       expect(plot.ranges).toEqual([{ variant: "key", key: rng.key }]);
+    });
+
+    it("should add the range to a plot in the panel, and check a plot that shows it", async () => {
+      const shown = await createRange(uniqueRangeName("shown"));
+      const added = await createRange(uniqueRangeName("added"));
+      const store = await renderExplorer();
+      await selectTestProject(store, client);
+      await openMenuOf(shown);
+      fireEvent.click(await menuItem("Plot"));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (t) =>
+          t.variant === "resource" &&
+          t.resource.type === lineplot.TYPE_RESOURCE_ID.type,
+      );
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      const plotName = `Plot for ${shown.name}`;
+      await openMenuOf(shown);
+      const shownPlots = await openSubmenu("Add to plot");
+      await waitFor(() =>
+        expect(
+          isPlutoDisabled(within(shownPlots).getByRole("menuitem", { name: plotName })),
+        ).toBe(true),
+      );
+      await openMenuOf(added);
+      const addedPlots = await openSubmenu("Add to plot");
+      fireEvent.click(
+        await within(addedPlots).findByRole("menuitem", { name: plotName }),
+      );
+      await waitFor(async () => {
+        const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+        expect(plot.ranges).toEqual([
+          { variant: "key", key: shown.key },
+          { variant: "key", key: added.key },
+        ]);
+      });
     });
 
     it("should favorite the range, then offer Unfavorite", async () => {

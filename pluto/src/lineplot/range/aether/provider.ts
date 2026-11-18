@@ -37,6 +37,8 @@ export type SelectedState = z.infer<typeof selectedStateZ>;
 export const providerStateZ = z.object({
   cursor: xy.xyZ.or(z.null()),
   visible: z.boolean().optional().default(true),
+  /** The menu of the hovered range is open, so its tooltip hides. */
+  menuOpen: z.boolean().default(false),
   hovered: selectedStateZ.or(z.null()),
   count: z.number(),
   /** The strip's height in pixels, or 0 when no range is in view. */
@@ -144,7 +146,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     );
     const count = packed.length;
     const height = stripHeight(lanes);
-    const { cursor, visible } = this.state;
+    const { cursor, visible, menuOpen } = this.state;
     const hovered =
       visible && cursor != null ? hitTest(bars, region, lanes, cursor) : null;
     if (visible) {
@@ -157,7 +159,8 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       drawFills(draw, bars, region, hovered);
       drawBars(draw, bars, region, lanes, hovered);
       clearScissor();
-      if (hovered != null && cursor != null) drawTooltip(draw, hovered, cursor, region);
+      if (hovered != null && cursor != null && !menuOpen)
+        drawTooltip(draw, hovered, cursor, region);
     }
     const viewportScale = dataToDecimalScale.scale(box.xBounds(viewport));
     const r = hovered?.range;

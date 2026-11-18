@@ -53,31 +53,6 @@ export { CaretlessContext, HighlightContext };
 export const scheduled = (timeRange: TimeRange): boolean =>
   !timeRange.makeValid().start.equals(TimeStamp.MAX);
 
-/** Starts a planned range now. It keeps an end that is still ahead. */
-export const useStart = (): ((range: ranger.Range) => void) => {
-  const { update } = Ranger.useSetTimeRange();
-  return (range) =>
-    update({
-      key: range.key,
-      timeRange: Ranger.moveToStage(range.timeRange.numeric, "in_progress"),
-    });
-};
-
-/** The icon for Next: stop a running range and start the one after it. */
-export const NextIcon = Icon.createFromPath(
-  "next",
-  "M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z",
-);
-
-export const useStop = (): ((range: ranger.Range) => void) => {
-  const { update } = Ranger.useSetTimeRange();
-  return (range) =>
-    update({
-      key: range.key,
-      timeRange: Ranger.moveToStage(range.timeRange.numeric, "completed"),
-    });
-};
-
 interface CaretProps {
   range: ranger.Range;
   expanded: boolean;

@@ -74,7 +74,8 @@ class LinePlot(ConsoleCase):
         self._annotation = self._create_annotation_range(suffix)
         self.test_toggle_range_annotation_visibility(plot)
         self.test_click_range_to_zoom(plot)
-        self.test_view_range_details(plot, range_name=self._annotation.name)
+        self.test_zoom_range_from_menu(plot)
+        self.test_open_range(plot, range_name=self._annotation.name)
         self.client.ranges.delete(self._annotation.key)
         self._annotation = None
         self.test_export_json(plot, data_name=data_name)
@@ -273,12 +274,24 @@ class LinePlot(ConsoleCase):
         plot.click_range()
         plot.expect_paused(paused=False)
 
-    def test_view_range_details(self, plot: Plot, *, range_name: str) -> None:
-        """Test opening a range's details from its menu in the strip."""
-        self.log("Testing view range details")
+    def test_zoom_range_from_menu(self, plot: Plot) -> None:
+        """Test that the strip menu zooms to a range and then back out."""
+        self.log("Testing zoom to range from the strip menu")
+
+        plot.expect_paused(paused=False)
+        plot.click_range(button="right")
+        self.console.layout.ctx_menu.click_option("Zoom to range")
+        plot.expect_paused()
+        plot.click_range(button="right")
+        self.console.layout.ctx_menu.click_option("Zoom out")
+        plot.expect_paused(paused=False)
+
+    def test_open_range(self, plot: Plot, *, range_name: str) -> None:
+        """Test opening a range from its menu in the strip."""
+        self.log("Testing open range")
 
         plot.click_range(button="right")
-        self.console.layout.ctx_menu.click_option("View details")
+        self.console.layout.ctx_menu.click_option("Open")
         self.console.layout.wait_for_tab(range_name)
         self.console.layout.close_tab(range_name)
 
