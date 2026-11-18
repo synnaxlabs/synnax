@@ -51,7 +51,7 @@ Properties struct {
     brokers        string[] {
         @doc value "contains the bootstrap broker addresses, as host:port."
     }
-    tls            bool = false {
+    secure         bool = false {
         @doc value "is true when every broker connection uses TLS."
     }
     ca_certificate string = "" {
