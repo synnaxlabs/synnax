@@ -133,10 +133,7 @@ class NotificationsClient:
                 buttons.nth(i).dispatch_event("click", timeout=_SILENCE_TIMEOUT)
             except PlaywrightTimeoutError:
                 pass
-        try:
-            expect(buttons).to_have_count(0, timeout=2000)
-        except AssertionError:
-            pass
+        expect(buttons).to_have_count(0, timeout=2000)
 
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.

@@ -197,7 +197,7 @@ def send_and_verify_commands(
                 finally:
                     try:
                         writer.close()
-                    except Exception:
+                    except sy.Error:
                         pass
                 if verified and statuses is not None and task_key is not None:
                     task_errors = _buffered_task_errors(statuses, task_key)
@@ -844,14 +844,13 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                     )
             try:
                 self.client.channels.delete(ch.key)
+            except sy.Error:
+                pass
+            else:
                 raise AssertionError(
                     f"Channel '{ch.name}' deletion should have been rejected while "
                     "task is running"
                 )
-            except AssertionError:
-                raise
-            except Exception:
-                pass  # Win condition
 
     def assert_sample_count(
         self,

@@ -18,6 +18,8 @@ import numpy as np
 import psutil
 import pytest
 import synnax as sy
+from freighter.websocket import ConnectionClosedError
+from websockets.frames import Close
 
 import agent
 import agent_log
@@ -213,22 +215,34 @@ class TestChannelName:
 
 
 class Broken:
-    def __init__(self) -> None:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
         self.closes = 0
 
     def close(self) -> None:
         self.closes += 1
-        raise ConnectionError("Core unreachable")
+        raise self.error
 
 
 class TestCloseQuietly:
     """Tests for closing a resource during teardown."""
 
-    def test_should_ignore_a_close_that_fails(self) -> None:
-        resource = Broken()
+    @pytest.mark.parametrize(
+        "error",
+        [
+            sy.UnexpectedError("Core unreachable"),
+            ConnectionClosedError(Close(1011, "keepalive ping timeout"), None),
+        ],
+    )
+    def test_should_ignore_a_core_or_transport_error(self, error: Exception) -> None:
+        resource = Broken(error)
         close_quietly(resource)
         close_quietly(None)
         assert resource.closes == 1
+
+    def test_should_raise_any_other_error(self) -> None:
+        with pytest.raises(RuntimeError):
+            close_quietly(Broken(RuntimeError("bug")))
 
 
 @pytest.fixture
