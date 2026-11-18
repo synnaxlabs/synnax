@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { label } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Access, Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Button } from "@/platform/button";
 import { useCreateModal } from "@/platform/label/useCreateModal";
 
 interface CreateButtonProps {
