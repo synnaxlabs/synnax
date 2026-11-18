@@ -571,7 +571,7 @@ describe("Kafka read form", () => {
       fireEvent.click(box);
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toMatchObject([
-          { field: temperature.key },
+          { field: temperature.key, channel },
         ]),
       );
       await deploy(container, draft.key);

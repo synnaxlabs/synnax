@@ -352,13 +352,25 @@ const Records: FC<RecordsProps> = ({
   const formats = ICD.useFormats();
   const { push } = PForm.useFieldList(root.config.records);
   const records = PForm.useFieldValue(root.config.records);
+  const stored = device.properties.read;
   const { tree, handleSelect, contextMenu, renderItem, current, addField, addMessage } =
     ICD.Tree.use({
       sources: root.config.records,
       sourceOf: (r) => r,
       pathOf: recordPath,
       SourceItem: RecordItem,
-      bindingOf: (_, __, field) => kafka.readBindingZ.parse({ field: field.key }),
+      // Starting reuses the channel that the device stores for the field's pointer,
+      // unless another field reads it.
+      bindingOf: (key, read, { key: field, pointer }) => {
+        const { recordKey, messages } = ctx.get(recordPath(key)).value;
+        const topic = ctx.get(root.config.topic).value;
+        const ch =
+          stored[storedKey(topic, recordKey, messages[read].message)]?.channels[
+            pointer
+          ] ?? 0;
+        const written = writtenChannels(ctx.get(root.config.records).value);
+        return kafka.readBindingZ.parse({ field, channel: written.has(ch) ? 0 : ch });
+      },
       messageName: (key, held) => {
         const rec = ctx.get(recordPath(key)).value;
         return uniqueName(`${recordLabel(rec)} ${rec.messages.length + 1}`, held);
