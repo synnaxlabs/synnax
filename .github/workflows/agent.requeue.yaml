@@ -12,7 +12,7 @@
 # the drain of such a seat stopped its runner. The fleet controller then starts a seat
 # for it, on a shared login with usage left for Claude. When no Claude login or Codex
 # seat has usage left, or the run was already tried three times, this workflow fails
-# instead. Release runs are left to a person.
+# instead. Release runs are left to a person. A Sedosaur review runs again the same way.
 
 name: Agent - Requeue
 
@@ -27,6 +27,7 @@ on:
       - Agent - Task
       - Dispatch - Agents
       - Nightly
+      - Review - Sedosaur
     types: [completed]
 
 permissions: {}
@@ -60,7 +61,7 @@ jobs:
         run: |
           jobs="repos/$GITHUB_REPOSITORY/actions/runs/$RUN/jobs?filter=latest"
           gh api --paginate "$jobs" --jq '.jobs[] | select(.conclusion == "failure")
-            | select(.name | test("Run \\([a-z]+\\)$"))
+            | select(.name | test("Run \\([a-z]+\\)$|^Review$"))
             | [.id, (.runner_name // "" | if . == "" then "-" else . end),
                 any(.steps[]; (.name | startswith("Leave the pool until"))
                 and .conclusion == "success"), .name] | @tsv' > "$RUNNER_TEMP/jobs"
@@ -77,7 +78,8 @@ jobs:
             break
           done < "$RUNNER_TEMP/jobs"
           if [ -z "$found" ]; then exit 0; fi
-          agent=$(grep -oP 'Run \(\K[a-z]+(?=\)$)' <<< "$name")
+          # A review runs on a Claude seat.
+          agent=$(grep -oP 'Run \(\K[a-z]+(?=\)$)' <<< "$name" || echo claude)
           if [ "$ATTEMPT" -ge 3 ]; then
             echo "::error::$name stopped at a usage limit in attempt $ATTEMPT." \
               "It does not run again."

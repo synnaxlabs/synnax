@@ -497,6 +497,24 @@ def _pass(
     return parse(out), usage
 
 
+class UsageLimit(RuntimeError):
+    """Claude Code stopped at the usage limit of its login, which resets at until, in
+    Unix seconds."""
+
+    def __init__(self, until: int) -> None:
+        super().__init__(f"usage limit until {until}")
+        self.until = until
+
+
+def _until(messages: list[dict[str, Any]]) -> int | None:
+    """The reset time of the usage limit that rejected Claude Code, if any."""
+    events = [m["rate_limit_info"] for m in messages if m["type"] == "rate_limit_event"]
+    if not events or events[-1]["status"] != "rejected":
+        return None
+    until: int = events[-1]["resetsAt"]
+    return until
+
+
 def _stream(
     command: list[str],
     text: str,
@@ -508,7 +526,8 @@ def _stream(
     """Runs Claude Code, and returns its structured output and what it cost. Sets
     started, if given, once the first response begins.
 
-    :raises RuntimeError: If Claude Code ends with an error.
+    :raises UsageLimit: If Claude Code ends at the usage limit of its login.
+    :raises RuntimeError: If Claude Code ends with any other error.
     """
     messages: list[dict[str, Any]] = []
     try:
@@ -521,6 +540,8 @@ def _stream(
             elif started and m["event"]["type"] == "message_start":
                 started.set()
     except subprocess.CalledProcessError as e:
+        if (until := _until(messages)) is not None:
+            raise UsageLimit(until) from e
         # The last message tells why Claude Code exited: a usage limit, an API error.
         last = json.dumps(messages[-1]) if messages else "no message"
         raise RuntimeError(
@@ -528,6 +549,8 @@ def _stream(
         ) from e
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
+        if (until := _until(messages)) is not None:
+            raise UsageLimit(until)
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
     structured: dict[str, Any] = out["structured_output"]
     return structured, Usage.of(out, messages)

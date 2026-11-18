@@ -58,6 +58,7 @@ from review import (
     Judgment,
     PullRequest,
     Target,
+    UsageLimit,
     authority,
     carry,
     compare,
@@ -315,7 +316,13 @@ def main(argv: list[str]) -> None:
         found = [Judgment(**j) for j in json.loads(path.read_text())]
         rule(target, gh, found, key=env["KEY"])
     elif argv[0] == "run":
-        review(target, path, replay=env.get("REPLAY") == "true")
+        try:
+            review(target, path, replay=env.get("REPLAY") == "true")
+        except UsageLimit as e:
+            # The workflow tags the seat with it, so the seat leaves the login.
+            with open(env["GITHUB_OUTPUT"], "a") as f:
+                f.write(f"limited-until={e.until}\n")
+            raise
     else:
         post(parse(json.loads(path.read_text())["review"]), target=target, gh=gh)
 

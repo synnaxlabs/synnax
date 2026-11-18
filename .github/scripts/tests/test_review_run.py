@@ -25,6 +25,7 @@ from review import (
     Finding,
     Lens,
     PullRequest,
+    UsageLimit,
     Window,
     load,
     render,
@@ -152,6 +153,7 @@ def limits(
     week = {"utilization": utilization, "resetsAt": resets, "status": status}
     return {
         "status": status,
+        "resetsAt": resets,
         "rateLimitType": "seven_day",
         "unifiedWindows": {"seven_day": week},
     }
@@ -457,6 +459,34 @@ class TestScore:
             match=r"claude exited with status 1 after .*Usage limit reached\.",
         ):
             run(config(), pull(), claude=claude, workdir=WORK)
+
+    def test_should_raise_the_reset_when_claude_ends_at_a_usage_limit(self) -> None:
+        claude = FakeClaude()
+        claude.limits = [limits(1.0, "rejected", resets=1_800_000_000)]
+        claude.out = {"is_error": True, "subtype": "success", "result": "Limit."}
+        with pytest.raises(UsageLimit) as e:
+            run(config(), pull(), claude=claude, workdir=WORK)
+        assert e.value.until == 1_800_000_000
+
+    def test_should_raise_the_reset_when_claude_exits_at_a_usage_limit(
+        self,
+    ) -> None:
+        def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
+            info = limits(1.0, "rejected", resets=1_800_000_000)
+            yield json.dumps({"type": "rate_limit_event", "rate_limit_info": info})
+            raise subprocess.CalledProcessError(1, args)
+
+        with pytest.raises(UsageLimit) as e:
+            run(config(), pull(), claude=claude, workdir=WORK)
+        assert e.value.until == 1_800_000_000
+
+    def test_should_raise_no_limit_when_the_last_limit_allowed(self) -> None:
+        claude = FakeClaude()
+        claude.limits = [limits(1.0, "rejected"), limits(0.5, "allowed")]
+        claude.out = {"is_error": True, "subtype": "error_max_turns", "result": "Out."}
+        with pytest.raises(RuntimeError) as e:
+            run(config(), pull(), claude=claude, workdir=WORK)
+        assert not isinstance(e.value, UsageLimit)
 
     def test_should_raise_when_claude_exits_with_an_error_and_no_message(
         self,
@@ -933,6 +963,23 @@ class TestMain:
             "cache_creation_tokens": 6,
             "limits": {},
         }
+
+    def test_should_write_the_reset_of_a_usage_limit_as_a_step_output(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        executable(
+            tmp_path / "bin" / "claude",
+            "info = {'status': 'rejected', 'resetsAt': 1800000000}\n"
+            "print(json.dumps({'type': 'rate_limit_event', 'rate_limit_info': info}))\n"
+            "print(json.dumps({'type': 'result', 'is_error': True,"
+            " 'subtype': 'success', 'result': 'Limit.'}))\n"
+            "sys.exit(1)\n",
+        )
+        output = tmp_path / "output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        with pytest.raises(UsageLimit):
+            main(["run", str(tmp_path / "review.json")])
+        assert output.read_text() == "limited-until=1800000000\n"
 
     def test_should_show_the_open_and_dismissed_findings(
         self, tmp_path: Path, env: dict[str, str]
