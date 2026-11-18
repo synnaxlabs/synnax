@@ -23,6 +23,7 @@ import {
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { enumeration } from "@/enumeration";
 import { group } from "@/group";
 import { project } from "@/project";
 import { resource } from "@/resource";
@@ -779,6 +780,11 @@ export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).e
   inlineSize: zod.uint16.min(1).default(100),
   /** options is the set of selectable states. */
   options: stateMappingZ.array().default(() => []),
+  /**
+   * enumeration is the enumeration whose entries the select offers in place of its
+   * options.
+   */
+  enumeration: enumeration.keyZ.optional(),
   /** disabled indicates whether the select rejects interaction. */
   disabled: z.boolean().default(false),
   /** onClickDelay is the debounce delay applied to clicks. */
@@ -867,6 +873,11 @@ export const stateIndicatorNodeConfigZ = labeledConfigZ
     inlineSize: zod.uint16.min(1).default(100),
     /** options is the set of displayable states. */
     options: stateMappingZ.array().default(() => []),
+    /**
+     * enumeration is the enumeration whose entries the indicator shows in place of its
+     * options.
+     */
+    enumeration: enumeration.keyZ.optional(),
     /** size is the rendered size preset of the indicator. */
     size: componentSizeZ.default("medium"),
   });

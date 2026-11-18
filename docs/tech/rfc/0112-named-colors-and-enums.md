@@ -115,11 +115,13 @@ difference goes through the named colors that the entries reference.
 Each enumeration state of a symbol (RFC 0114) has an optional default `enumeration`, and
 each state binding on a node an optional `enumeration` that replaces it. `select` and
 `state_indicator`, which keep their variants (RFC 0114 §4.0), each get an optional
-`enumeration`. All three use `@ref on_delete restrict`. The delete dialog lists the
-users from `resource.Dependents` (`core/pkg/service/resource/resource.go:59-74`) and
-offers "Replace with...", which moves every user to another enumeration and then
-deletes. A built-in enumeration cannot be deleted, so a default enumeration that only a
-Pluto file names always exists.
+`enumeration`, and so does a channel. All four use `@ref on_delete restrict`. A node
+draws its own `enumeration`, then the `enumeration` of the channel it reads, then its
+default: the symbol's default enumeration, or the `options` of a `select` or
+`state_indicator`. The delete dialog lists the users from `resource.Dependents`
+(`core/pkg/service/resource/resource.go:59-74`) and offers "Replace with...", which
+moves every user to another enumeration and then deletes. A built-in enumeration cannot
+be deleted, so a default enumeration that only a Pluto file names always exists.
 
 ### 4.3 State symbols
 
@@ -131,13 +133,14 @@ RFC 0114 §4.5 are "Valve" (0 Closed, 1 Open), "Normally open valve" (0 Open, 1 
 entries have no color, so each symbol paints its symbol color, then the theme, as today.
 A light keeps its `on_color` through its own enumeration (§4.6).
 
-An absent `enumeration` on a state binding means the symbol's default enumeration. A
-built-in symbol names it in its Pluto file, and a custom symbol on its Core record. A
-state with no enumeration at either level, such as a new custom symbol state, has no
-entries: only no data and NaN give it the unknown indicator, and its `entry` paint goes
-on to the symbol color. A node stores no look and no state color. It changes a look only
-through its enumeration, color, match, default, and bounds. An edit to a built-in
-enumeration changes every symbol that uses it by default.
+An absent `enumeration` on a state binding means the enumeration of its channel, then
+the symbol's default enumeration (§4.2). A built-in symbol names its default in its
+Pluto file, and a custom symbol on its Core record. A state with no enumeration at any
+level, such as a new custom symbol state, has no entries: only no data and NaN give it
+the unknown indicator, and its `entry` paint goes on to the symbol color. A node stores
+no look and no state color. It changes a look only through its enumeration, color,
+match, default, and bounds. An edit to a built-in enumeration changes every symbol that
+uses it by default.
 
 Each state stores its match: `exact`, or `within`, which reads a value inside its
 `spatial.Bounds` as 1 and every other number as 0, as today's threshold does. Each
@@ -307,15 +310,15 @@ to `select` and `state_indicator`, and moves the schematic export off the genera
 single-record `Export` (`core/pkg/service/schematic/imex.gen.go`), on the Oracle `imex`
 option of RFC 0114 phase 1, so that it bundles enumerations. Phase 21 fills the field,
 and RFC 0114 phase 1 adds it to symbol states. Phase 20 adds the enumeration picker to
-the Pluto forms of `select` and `state_indicator`, and Pluto draws each from its
-`enumeration`, or from `options` when it has none. The picker leaves `options` as they
-are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 2 adds the
-picker to node state bindings, and RFC 0114 phase 4 to custom symbol states. RFC 0114
-phase 1 stores a `color.Ref` in custom symbol looks from the start, and RFC 0114 phase 2
-in the `color` of a `symbol` node, which the schematic multi-edit panel edits through
-phase 22. Phase 23 covers the variants that keep their own colors (RFC 0114 §4.0). In
-phase 27, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`) as
-`fixed`.
+the Pluto forms of `select` and `state_indicator`, and Pluto draws each by the order of
+§4.2. The channel redesign adds the channel `enumeration` and its step in that order.
+The picker leaves `options` as they are, so clearing the picker goes back to them until
+phase 21. RFC 0114 phase 2 adds the picker to node state bindings, and RFC 0114 phase 4
+to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks
+from the start, and RFC 0114 phase 2 in the `color` of a `symbol` node, which the
+schematic multi-edit panel edits through phase 22. Phase 23 covers the variants that
+keep their own colors (RFC 0114 §4.0). In phase 27, the Driver writes range colors
+(`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
 ## 7 Resolved decisions
 
@@ -395,6 +398,10 @@ phase 27, the Driver writes range colors (`driver/arc/ranges/ranges.h:46-52`) as
 22. **The record is an enumeration**: `enum` is reserved in Oracle and in TypeScript, so
     the record is `enumeration.Enumeration`, with the TypeScript namespace
     `Enumeration`.
+23. **A channel can name an enumeration**: A node that names none draws the enumeration
+    of the channel it reads, so one setting covers each node on that channel. A node's
+    own enumeration comes first, since it is the more specific choice, and the default
+    of the symbol comes last.
 
 ## 8 Open questions
 
