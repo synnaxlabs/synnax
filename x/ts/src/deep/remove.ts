@@ -7,89 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { defaultGetter, getIndex, SEPARATOR } from "@/deep/path";
-import { type record } from "@/record";
+import { resolve } from "@/deep/resolve";
 
+/**
+ * Removes the value at a dot-separated path, found as {@link resolve} finds it: a key
+ * from an object or an entry from an array. Does nothing when nothing holds the path.
+ */
 export const remove = <V>(obj: V, path: string): void => {
-  const parts = path.split(SEPARATOR);
-  let result: record.Unknown = obj as record.Unknown;
-
-  let i = 0;
-  while (i < parts.length) {
-    if (i === parts.length - 1) {
-      const lastPart = parts[i];
-
-      if (Array.isArray(result)) {
-        const index = getIndex(lastPart);
-        if (index != null && index < result.length) {
-          result.splice(index, 1);
-          return;
-        }
-
-        const first = result[0];
-        if (typeof first === "object" && "key" in first) {
-          const objIndex = result.findIndex((o) => o.key === lastPart);
-          if (objIndex !== -1) {
-            result.splice(objIndex, 1);
-            return;
-          }
-        }
-        return;
-      }
-
-      delete result[lastPart];
-      return;
-    }
-
-    let found = false;
-
-    if (Array.isArray(result) && result.length > 0) {
-      const first = result[0];
-      if (typeof first === "object" && "key" in first)
-        // Try to find an item with a matching key (considering periods in keys)
-        for (let j = parts.length - i; j >= 1; j--) {
-          const candidateKey = parts.slice(i, i + j).join(SEPARATOR);
-          const item = result.find((o) => o.key === candidateKey);
-          if (item != null) {
-            if (i + j === parts.length) {
-              const objIndex = result.findIndex((o) => o.key === candidateKey);
-              if (objIndex !== -1) result.splice(objIndex, 1);
-
-              return;
-            }
-            result = item as record.Unknown;
-            i += j;
-            found = true;
-            break;
-          }
-        }
-    }
-
-    if (!found)
-      for (let j = parts.length - i; j >= 1; j--) {
-        const candidateKey = parts.slice(i, i + j).join(SEPARATOR);
-        if (
-          !Array.isArray(result) &&
-          typeof result === "object" &&
-          result !== null &&
-          candidateKey in result
-        ) {
-          if (i + j === parts.length) {
-            delete result[candidateKey];
-            return;
-          }
-          result = result[candidateKey] as record.Unknown;
-          i += j;
-          found = true;
-          break;
-        }
-      }
-
-    if (!found) {
-      const next = defaultGetter(result, parts[i]);
-      if (next == null) return;
-      result = next as record.Unknown;
-      i++;
-    }
-  }
+  const found = resolve(obj, path);
+  if (found == null) return;
+  if (Array.isArray(found.parent)) found.parent.splice(found.key as number, 1);
+  else delete found.parent[found.key];
 };

@@ -819,13 +819,10 @@ export const resolve = ((
   overrides?: IconProps,
 ): ReactElement | undefined => {
   if (icon == null) return;
-  if (typeof icon === "string")
-    try {
-      const C = deep.get<FC<IconProps>>(icons, icon);
-      return <C {...overrides} />;
-    } catch (cause) {
-      throw new Error(`Unable to find icon with path ${icon} in registry`, { cause });
-    }
-
+  if (typeof icon === "string") {
+    const C = deep.get<FC<IconProps>>(icons, icon);
+    if (C == null) throw new Error(`Unable to find icon with path ${icon} in registry`);
+    return <C {...overrides} />;
+  }
   return cloneElement(icon, overrides);
 }) as Resolve;

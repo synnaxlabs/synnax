@@ -712,6 +712,44 @@ describe("State", () => {
       expect(keysOf(state)).toEqual(["a", "b"]);
       expect(state.getState("channels").touched).toBe(false);
     });
+
+    it("should leave the values unchanged for a write to an entry another client removed", () => {
+      const store = createLocalStore(createKeyed());
+      const state = new State<z.ZodType<Keyed>>(store);
+      state.listen(() => {});
+      store.remove("channels.a");
+      const prev = state.values;
+      expect(() => state.setValue("channels.a.port", 5)).not.toThrow();
+      expect(state.values).toBe(prev);
+      expect(keysOf(state)).toEqual(["b"]);
+    });
+
+    it("should do nothing when it removes an entry the list does not hold", () => {
+      const state = new State<z.ZodType<Keyed>>(createLocalStore(createKeyed()));
+      expect(() => state.remove("channels.c")).not.toThrow();
+      expect(state.values).toEqual(createKeyed());
+      expect(state.getState("channels").touched).toBe(false);
+    });
+
+    it("should refresh a field of an entry with a dot in its key when another client writes it", () => {
+      const store = createLocalStore(createKeyed());
+      const state = new State<z.ZodType<Keyed>>(store);
+      state.listen(() => {});
+      state.insert("channels", { key: "ns=1;s=a.b", port: 3 });
+      expect(state.getState("channels.ns=1;s=a.b.port").value).toBe(3);
+      store.set("channels.ns=1;s=a.b.port", 4);
+      expect(state.getState("channels.ns=1;s=a.b.port").value).toBe(4);
+    });
+
+    it("should keep the state of a field whose entry another client did not change", () => {
+      const store = createLocalStore(createKeyed());
+      const state = new State<z.ZodType<Keyed>>(store);
+      state.listen(() => {});
+      const before = state.getState("channels.b.port");
+      store.set("channels.a.port", 9);
+      expect(state.getState("channels.b.port")).toBe(before);
+      expect(state.getState("channels.a.port").value).toBe(9);
+    });
   });
 
   describe("batch", () => {
