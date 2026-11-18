@@ -47,9 +47,9 @@ if [ "$CONCLUSION" = failure ]; then
     echo "ci $RUN"
 fi
 
-# The CodeQL check fails on new alerts that block a merge. The alert list comes from the
-# last finished analysis, so it waits for the head's scan, and it can hold alerts the
-# pull request did not add.
+# The CodeQL check fails on new alerts at the failure threshold of the repository, which
+# matches the main ruleset. The alert list comes from the last finished analysis, so it
+# waits for the head's scan, and it can hold alerts the pull request did not add.
 SCANS="repos/${REPO}/actions/workflows/codeql.yaml/runs?${QUERY}"
 CHECKS="repos/${REPO}/commits/${SHA}/check-runs?check_name=CodeQL"
 if [ "$(gh api "$SCANS" --jq '.workflow_runs[0].status')" = completed ] \
