@@ -90,15 +90,18 @@ class TestCertificate:
             )
 
     def test_create_file(self, client: sy.Synnax) -> None:
-        """Should create a file certificate."""
+        """Should create a file certificate on a rack."""
+        r = client.racks.create(name="File certificate")
         c = client.certificates.set(
             certificate.FileCertificate(
                 name="On disk",
                 certificate_path="/etc/synnax/client.crt",
                 private_key_file="client.key",
+                rack=r.key,
             )
         )
         assert isinstance(c, certificate.FileCertificate)
+        assert c.rack == r.key
         assert c.certificate_path == "/etc/synnax/client.crt"
         assert c.private_key_file == "client.key"
 

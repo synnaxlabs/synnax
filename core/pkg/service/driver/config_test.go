@@ -20,6 +20,7 @@ var _ = Describe("Config", func() {
 		It("should fail when DB is nil", func() {
 			cfg := driver.Config{
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Task:      taskService,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
@@ -49,6 +50,7 @@ var _ = Describe("Config", func() {
 			cfg := driver.Config{
 				DB:        db,
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
 				Factories: []driver.Factory{&mockFactory{name: "test"}},
@@ -63,6 +65,7 @@ var _ = Describe("Config", func() {
 			cfg := driver.Config{
 				DB:      db,
 				Rack:    rackService,
+				RackKey: coreRack,
 				Task:    taskService,
 				Framer:  framerSvc,
 				Channel: channelSvc,
@@ -73,10 +76,26 @@ var _ = Describe("Config", func() {
 			).To(MatchError(ContainSubstring("factories: must be non-empty")))
 		})
 
+		It("should fail when RackKey is zero", func() {
+			cfg := driver.Config{
+				DB:        db,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Factories: []driver.Factory{&mockFactory{name: "test"}},
+				HostKey:   1,
+			}
+			Expect(
+				cfg.Validate(),
+			).To(MatchError(ContainSubstring("rack_key: must be non-zero")))
+		})
+
 		It("should fail when HostKey is zero", func() {
 			cfg := driver.Config{
 				DB:        db,
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Task:      taskService,
 				Framer:    framerSvc,
 				Channel:   channelSvc,

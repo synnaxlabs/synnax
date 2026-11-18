@@ -76,6 +76,25 @@ func (t Task) Validate() error {
 	return v.Error()
 }
 
+// Command is a command to execute on a task in the Driver system.
+type Command struct {
+	// Task is the key of the target task.
+	Task Key `json:"task" msgpack:"task"`
+	// Type is the command type (e.g., 'start', 'stop', 'configure').
+	Type string `json:"type" msgpack:"type"`
+	// Key is a unique identifier for this command instance.
+	Key string `json:"key" msgpack:"key"`
+	// ConfigHash is the config hash the sender wants running. Empty when the sender
+	// does not know it. The Driver reuses its live instance when the hash matches and
+	// redeploys when it differs.
+	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
+	// Args contains optional arguments for the command.
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
+	// Pinned is true when the Driver must refuse a start whose config_hash differs from
+	// the hash of the stored config.
+	Pinned bool `json:"pinned" msgpack:"pinned"`
+}
+
 // KeyedConfig is the base for every stored task configuration record.
 type KeyedConfig = v3.KeyedConfig
 

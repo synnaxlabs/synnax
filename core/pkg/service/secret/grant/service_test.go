@@ -21,6 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -73,10 +75,11 @@ var _ = Describe("Service", func() {
 		svc    *grant.Service
 		rk     resource.ID
 		secret uuid.UUID
+		cmd    task.Command
 	)
 	create := func(ctx SpecContext) grant.Grant {
 		GinkgoHelper()
-		g := grant.Grant{Subject: rk, Secrets: []uuid.UUID{secret}}
+		g := grant.Grant{Subject: rk, Secrets: []uuid.UUID{secret}, Command: cmd}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &g)
 		})).To(Succeed())
@@ -101,6 +104,12 @@ var _ = Describe("Service", func() {
 		}))
 		rk = rack.Key(1).ResourceID()
 		secret = uuid.New()
+		cmd = task.Command{
+			Task: uuid.New(),
+			Type: "test_connection",
+			Key:  "cmd",
+			Args: msgpack.EncodedJSON{"host": "plc"},
+		}
 	})
 
 	Describe("OpenService", func() {
@@ -120,6 +129,7 @@ var _ = Describe("Service", func() {
 						Key:       g.Key,
 						Subject:   rk,
 						Secrets:   []uuid.UUID{secret},
+						Command:   cmd,
 						ExpiresAt: telem.NewTimeStamp(start.Add(time.Minute)),
 					}}))
 				},
@@ -164,13 +174,13 @@ var _ = Describe("Service", func() {
 	Describe("Redeem", func() {
 		It("Should return the grant and delete it", func(ctx SpecContext) {
 			g := create(ctx)
-			Expect(svc.Redeem(ctx, g.Key, rk)).To(Equal(g))
+			Expect(svc.Redeem(ctx, g.Key, rk, cmd.Task)).To(Equal(g))
 			Expect(stored(ctx)).To(BeEmpty())
 		})
 		It("Should refuse a grant that a redeem already used", func(ctx SpecContext) {
 			g := create(ctx)
-			MustSucceed(svc.Redeem(ctx, g.Key, rk))
-			Expect(svc.Redeem(ctx, g.Key, rk)).Error().To(SatisfyAll(
+			MustSucceed(svc.Redeem(ctx, g.Key, rk, cmd.Task))
+			Expect(svc.Redeem(ctx, g.Key, rk, cmd.Task)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
 				MatchError(ContainSubstring(
 					"grant "+g.Key.String()+" has ended or does not exist",
@@ -180,7 +190,7 @@ var _ = Describe("Service", func() {
 		It("Should refuse and delete a grant that has expired", func(ctx SpecContext) {
 			g := create(ctx)
 			clock.Advance(time.Minute + time.Nanosecond)
-			Expect(svc.Redeem(ctx, g.Key, rk)).Error().To(SatisfyAll(
+			Expect(svc.Redeem(ctx, g.Key, rk, cmd.Task)).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
 				MatchError(ContainSubstring(
 					"grant "+g.Key.String()+" has ended or does not exist",
@@ -193,11 +203,25 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				g := create(ctx)
 				other := rack.Key(2).ResourceID()
-				Expect(svc.Redeem(ctx, g.Key, other)).Error().To(SatisfyAll(
+				Expect(svc.Redeem(ctx, g.Key, other, cmd.Task)).Error().To(SatisfyAll(
 					MatchError(access.ErrDenied),
 					MatchError(ContainSubstring("grant is not for "+other.String())),
 				))
-				Expect(svc.Redeem(ctx, g.Key, rk)).To(Equal(g))
+				Expect(svc.Redeem(ctx, g.Key, rk, cmd.Task)).To(Equal(g))
+			},
+		)
+		It(
+			"Should refuse a grant for another task and delete it",
+			func(ctx SpecContext) {
+				g := create(ctx)
+				other := uuid.New()
+				Expect(svc.Redeem(ctx, g.Key, rk, other)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(
+						ContainSubstring("grant is not for task "+other.String()),
+					),
+				))
+				Expect(stored(ctx)).To(BeEmpty())
 			},
 		)
 		It("Should let only one of several concurrent redeems use a grant",
@@ -211,7 +235,7 @@ var _ = Describe("Service", func() {
 				)
 				for range redeems {
 					wg.Go(func() {
-						if _, err := svc.Redeem(ctx, g.Key, rk); err == nil {
+						if _, err := svc.Redeem(ctx, g.Key, rk, cmd.Task); err == nil {
 							mu.Lock()
 							succeeded++
 							mu.Unlock()
