@@ -126,8 +126,8 @@ public:
     /// errors::SLAVE_CONFIG_ERROR, before it configures any slave, when the chosen mode
     /// of a slave is one that the IgH master cannot run. The IgH master moves the
     /// slaves to OP on its own, so a slave below OP with its AL error flag set counts
-    /// as a refusal. Once every slave below OP has the flag, the master tries them
-    /// once more with a reset, then returns the refusals without waiting for
+    /// as a refusal. Once every slave below OP has the flag, the master tries them once
+    /// more with a reset, then returns the refusals without waiting for
     /// Config::op_timeout.
     master::Activation activate(
         const master::Plan &plan,
@@ -146,10 +146,10 @@ public:
     /// with no domain, which gives no other sign.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
-    /// @brief resets the master when the latest check() found a slave with its AL
-    /// error flag set, since IgH configures such a slave again only after a reset. It
-    /// brings the other slaves back to OP by itself. The resets back off until a
-    /// check() finds every slave in OP.
+    /// @brief resets the master when the latest check() found a slave with its AL error
+    /// flag set, since IgH configures such a slave again only after a reset. It brings
+    /// the other slaves back to OP by itself. The resets back off until a check() finds
+    /// every slave in OP.
     void recover(const x::breaker::Breaker &breaker) override;
 
     /// @brief does what master::Master::write does, but on a running bus writes
