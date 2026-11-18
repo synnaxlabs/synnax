@@ -15,6 +15,7 @@ import {
 import { Status } from "@synnaxlabs/lyra/status";
 import {
   dynamicWindow,
+  scheduler,
   staticWindow,
   TimeRange,
   TimeSpan,
@@ -242,7 +243,7 @@ describe("Range.SYNCHRONIZERS", () => {
         await waitFor(() => expect(send).toHaveBeenCalled());
         unmount();
         release();
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await scheduler.flushTaskQueue();
         expect(rewritten()).toBe(false);
       } finally {
         send.mockRestore();

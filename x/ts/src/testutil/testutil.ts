@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sleep } from "@/sleep";
+import { TimeSpan, TimeStamp } from "@/telem";
+
 export const toString = (value: unknown): string =>
   JSON.stringify(value, (_, value) => {
     if (typeof value === "bigint") return value.toString();
@@ -18,9 +21,9 @@ export const expectAlways = async (
   duration: number = 200,
   interval: number = 20,
 ) => {
-  const start = Date.now();
-  while (Date.now() - start < duration) {
+  const end = TimeStamp.now().add(TimeSpan.milliseconds(duration));
+  while (TimeStamp.now().before(end)) {
     await fn();
-    await new Promise((resolve) => setTimeout(resolve, interval));
+    await sleep.sleep(TimeSpan.milliseconds(interval));
   }
 };
