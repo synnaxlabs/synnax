@@ -247,13 +247,13 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 		)
 
 		It(
-			"should create fmt_str synthetic function for raw string with placeholder",
+			"should create an expression function for a format string with a placeholder",
 			func(bCtx SpecContext) {
 				expr := MustSucceed(parser.ParseExpression(`f"v={ox_pt_1}"`))
 				ctx := context.NewRoot(bCtx, expr, root)
 				flow.AnalyzeSingleExpression(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
+				fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 				Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 				Expect(fnSym.Type.Kind).To(Equal(types.KindFunction))
 				output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
@@ -268,7 +268,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 				ctx := context.NewRoot(bCtx, expr, root)
 				flow.AnalyzeSingleExpression(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
+				fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 				Expect(fnSym.Channels.Read).To(HaveLen(1))
 				Expect(fnSym.Channels.Read[12]).To(Equal("ox_pt_1"))
 			},
@@ -279,7 +279,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			ctx := context.NewRoot(bCtx, expr, root)
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
+			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(fnSym.Channels.Read).To(HaveLen(2))
 			Expect(fnSym.Channels.Read[12]).To(Equal("ox_pt_1"))
 			Expect(fnSym.Channels.Read[13]).To(Equal("ox_pt_2"))
@@ -292,13 +292,13 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 				ctx := context.NewRoot(bCtx, expr, root)
 				flow.AnalyzeSingleExpression(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
+				fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 				Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 			},
 		)
 
 		It(
-			"should auto-increment fmt_str names across multiple raw strings",
+			"should number the expression functions of two format strings",
 			func(bCtx SpecContext) {
 				expr0 := MustSucceed(parser.ParseExpression(`f"{ox_pt_1}"`))
 				ctx := context.NewRoot(bCtx, expr0, root)
@@ -317,8 +317,8 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 				flow.AnalyzeSingleExpression(ctx1)
 
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
-				MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_1"))
+				MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
+				MustSucceed(ctx.Scope.Resolve(ctx, "expression_1"))
 			},
 		)
 
@@ -644,7 +644,7 @@ var _ = Describe("LiftVarReads", func() {
 	)
 })
 
-var _ = Describe("LiftFmtStrVarReads", func() {
+var _ = Describe("LiftVarReads in a format string", func() {
 	var (
 		root *symbol.Symbol
 		fn   *symbol.Symbol
@@ -653,15 +653,11 @@ var _ = Describe("LiftFmtStrVarReads", func() {
 		GinkgoHelper()
 		expr := MustSucceed(parser.ParseExpression(code))
 		ctx := context.NewRoot(bCtx, expr, root)
-		// The flow analyzes a format string, and parses its placeholders, first.
-		if lit := parser.GetLiteral(expr); lit != nil {
-			if strTerm := parser.StringTerminal(lit); strTerm != nil {
-				analysis := ctx
-				analysis.Diagnostics = &diagnostics.Diagnostics{}
-				expression.AnalyzeFmtStrLiteral(analysis, strTerm)
-			}
-		}
-		flow.LiftFmtStrVarReads(ctx, fn, expr)
+		// The flow analyzes the expression, and parses each placeholder, first.
+		analysis := ctx
+		analysis.Diagnostics = &diagnostics.Diagnostics{}
+		expression.Analyze(analysis)
+		flow.LiftVarReads(ctx, fn, expr)
 		return ctx
 	}
 	BeforeEach(func(bCtx SpecContext) {
@@ -732,10 +728,13 @@ var _ = Describe("LiftFmtStrVarReads", func() {
 		Expect(fn.Type.Inputs).To(BeEmpty())
 	})
 
-	It("Should be a no-op for a non-literal expression", func(bCtx SpecContext) {
-		liftFmt(bCtx, "x + 1")
-		Expect(fn.Type.Inputs).To(BeEmpty())
-	})
+	It(
+		"Should lift from a format string inside a larger expression",
+		func(bCtx SpecContext) {
+			liftFmt(bCtx, `f"{x}" + "!"`)
+			Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).To(Equal(types.I32()))
+		},
+	)
 
 	It(
 		"Should skip an unparseable placeholder without diagnostics",

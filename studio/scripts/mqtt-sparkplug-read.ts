@@ -16,7 +16,7 @@ export const integrations = ["modbus"];
 /**
  * Docs `reference/hardware/mqtt/sparkplug` (Read Sparkplug B tags): open Add data,
  * switch to Sparkplug B, select the edge node of the simulated plant, select two tags,
- * add them as channels, and start the task.
+ * add them, and start the task.
  */
 export default serverTaskScript(MQTT, {
   item: "Create read task",
@@ -32,6 +32,6 @@ export default serverTaskScript(MQTT, {
     await session.hold(1000);
     await session.click(node, { text: true });
     await pickValues(session, dialog, ["temperature", "speed"]);
-    await submitDiscover(session, dialog, form, "Add 2 channels");
+    await submitDiscover(session, dialog, form, "Add 2 tags");
   },
 });

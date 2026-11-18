@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Theming } from "@synnaxlabs/lyra/theming";
+import { type Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -90,6 +90,10 @@ const generateRoundedPolygonPath = (
 /** @returns the fill a polygon paints while its fill color is absent. */
 export const fillFallback = (theme: Theming.Theme): color.Color => theme.colors.gray.l1;
 
+// The CSS form of fillFallback. A drag preview renders outside the theme provider, so
+// the polygon cannot read the theme.
+const FILL_FALLBACK = "var(--pluto-gray-l1)";
+
 export const Polygon = ({
   numSides,
   sideLength,
@@ -101,7 +105,6 @@ export const Polygon = ({
   strokeWidth = Border.DEFAULT_STROKE_WIDTH,
 }: RenderProps): ReactElement => {
   const resolve = Color.useResolve();
-  const theme = Theming.use();
   const padding = 2 * (strokeWidth + 1);
   const vertices = calculatePolygonVertices(numSides, sideLength, rotation, padding);
   const path = generateRoundedPolygonPath(vertices, sideLength, borderRadius ?? 0);
@@ -114,7 +117,7 @@ export const Polygon = ({
       >
         <Primitive.Path
           d={path}
-          fill={color.cssString(resolve(fillColor) ?? fillFallback(theme))}
+          fill={color.cssString(resolve(fillColor)) ?? FILL_FALLBACK}
           strokeWidth={strokeWidth}
         />
       </Primitive.SVG>

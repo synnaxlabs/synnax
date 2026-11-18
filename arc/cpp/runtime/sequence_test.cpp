@@ -2132,6 +2132,78 @@ TEST(FormatStringInterpolationOfVariablesTest, InterpolatesAReassignedLiteralVar
     EXPECT_EQ(last<std::string>(out, h.key("out")), "val=updated");
 }
 
+/// @brief it should interpolate a format string that is the value of a variable.
+TEST(FormatStringInterpolationOfVariablesTest, InterpolatesAsAVariableValue) {
+    Sequence h(
+        R"(
+    v := 1.23
+    msg := f"{v}"
+    msg -> %out%)",
+        {{"out", x::telem::STRING_T}}
+    );
+
+    h.advance(x::telem::MILLISECOND);
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::string>(out, h.key("out")), "1.23");
+}
+
+/// @brief it should follow a channel that a format string variable value reads.
+TEST(FormatStringInterpolationOfVariablesTest, FollowsAChannelAsAVariableValue) {
+    Sequence h(
+        R"(
+    msg := f"{%sensor%}"
+    msg -> %out%)",
+        {{"sensor", x::telem::FLOAT64_T}, {"out", x::telem::STRING_T}}
+    );
+
+    h.push("sensor", x::telem::Series(1.5));
+    h.push("sensor", x::telem::Series(2.5));
+    const auto out = h.flush();
+    EXPECT_EQ(
+        collect<std::string>(out, h.key("out")),
+        (std::vector<std::string>{"1.5", "2.5"})
+    );
+}
+
+/// @brief it should interpolate a format string that is a function input.
+TEST(FormatStringInterpolationOfVariablesTest, InterpolatesAsAFunctionInput) {
+    Sequence h(
+        R"(
+    func show(s str) {
+        %out% = s
+    }
+    v := 1.23
+    %trig% -> show(f"{v}"))",
+        {{"trig", x::telem::UINT8_T}, {"out", x::telem::STRING_T}}
+    );
+
+    h.trigger("trig");
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::string>(out, h.key("out")), "1.23");
+}
+
+/// @brief it should read a reassigned variable in a format string inside a larger
+/// expression.
+TEST(FormatStringInterpolationOfVariablesTest, InterpolatesInsideALargerExpression) {
+    Sequence h(
+        R"(
+    sequence s {
+        v := 0.5
+        v = 1.23
+        f"{v}" + "!" -> %out%
+    }
+    %start_cmd% => s)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::STRING_T}}
+    );
+
+    h.trigger("start_cmd");
+    const auto out = h.flush();
+    EXPECT_EQ(
+        collect<std::string>(out, h.key("out")),
+        (std::vector<std::string>{"1.23!"})
+    );
+}
+
 TEST(
     FormatStringInterpolationOfVariablesTest,
     InterpolatesASelfReferentiallyIncrementedVariable
@@ -4111,7 +4183,7 @@ TEST(ComputedCallInputsTest, PassesTheTriggerTimeStampToAFunctionInput) {
     Sequence h(
         R"(
     import time
-    func f(t i64 ns) {n u8} i64 {
+    func f(t i64 ns) {n u8} i64 ns {
         return t
     }
     %trig% -> f(time.now()) -> %out%)",
@@ -4224,7 +4296,7 @@ TEST(ComputedCallInputsTest, AdvancesPastABareCallStepWithAComputedInput) {
     Sequence h(
         R"(
     import time
-    func f(t i64 ns) {} i64 {
+    func f(t i64 ns) {} i64 ns {
         return t
     }
     sequence main {
@@ -4247,7 +4319,7 @@ TEST(ComputedCallInputsTest, PassesAComputedInputToARoutedCall) {
     Sequence h(
         R"(
     import time
-    func f(t i64 ns) {} i64 {
+    func f(t i64 ns) {} i64 ns {
         return t
     }
     %flag% -> select() -> {

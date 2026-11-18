@@ -303,40 +303,34 @@ func frozenFile(
 			pred.aliased.Add(ns + "." + name)
 		}
 	}
-	var structs, enums, typedefs, unions []resolution.Type
 	// The frozen surface table registers sorted, so the version file's declaration
 	// order passes to the generator explicitly.
 	order := make(map[string]int, len(f.Order))
 	for i, name := range f.Order {
 		order[ns+"."+name] = i
 	}
+	vkPath := versioning.VersionedPath(origPath, k)
+	out := goFile{
+		outputPath: vkPath,
+		table:      table,
+		repoRoot:   req.RepoRoot,
+		pred:       pred,
+		closure:    PersistedClosure(table),
+		order:      order,
+		embedded:   embedded,
+	}
 	for _, name := range f.Order {
 		t, ok := table.Get(ns + "." + name)
-		if !ok || t.Synthetic || omit.IsSkipped(t, "go") {
-			continue
-		}
-		switch t.Form.(type) {
-		case resolution.StructForm:
-			structs = append(structs, t)
-		case resolution.EnumForm:
-			enums = append(enums, t)
-		case resolution.UnionForm:
-			unions = append(unions, t)
-		case resolution.DistinctForm, resolution.AliasForm:
-			typedefs = append(typedefs, t)
+		if ok && !t.Synthetic && !omit.IsSkipped(t, "go") {
+			out.addDecl(t)
 		}
 	}
-	vkPath := versioning.VersionedPath(origPath, k)
 	// A fully hand-written frozen package (every declaration @go hand) keeps its
 	// historical files; there is nothing to generate.
-	if len(structs)+len(enums)+len(typedefs)+len(unions) == 0 {
+	if len(out.structs)+len(out.enums)+len(out.typeDefs)+len(out.unions) == 0 {
 		return plugin.File{}, nil
 	}
-	content, err := generateGoFile(
-		vkPath, structs, enums, typedefs, unions,
-		table, req.RepoRoot, pred, nil, PersistedClosure(table), false, order, nil,
-		embedded,
-	)
+	content, err := generateGoFile(out)
 	if err != nil {
 		return plugin.File{}, errors.Wrapf(err, "frozen package %s", vkPath)
 	}
