@@ -73,8 +73,12 @@ describe("groupSize", () => {
   const N = 8000;
   const VIEW = { bounds: { lower: 0, upper: N - 1 }, width: 800 };
   const dense = op(ramp(N), ramp(N));
-  const size = (ops: DrawOperation[], view = VIEW, groupsPerColumn = 1 / 2): number =>
-    groupSize(ops, view, groupsPerColumn, "min_max");
+  const size = (
+    ops: DrawOperation[],
+    view = VIEW,
+    groupsPerColumn = 1 / 2,
+    previous = 1,
+  ): number => groupSize(ops, view, groupsPerColumn, "min_max", previous);
 
   it("should hold a pixel of samples per group, rounded down to a power of two", () => {
     expect(size([dense])).toBe(16);
@@ -119,7 +123,15 @@ describe("groupSize", () => {
     });
 
     it("should take one point per group for an aggregation other than min_max", () => {
-      expect(groupSize([reduced(300n), dense], VIEW, 1 / 2, "average")).toBe(300);
+      expect(groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 1)).toBe(300);
+    });
+
+    it("should keep the previous size within one group of the largest", () => {
+      expect(size([reduced(300n), dense], VIEW, 1 / 2, 602)).toBe(602);
+      expect(size([reduced(300n), dense], VIEW, 1 / 2, 598)).toBe(598);
+      expect(size([reduced(300n), dense], VIEW, 1 / 2, 604)).toBe(600);
+      expect(groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 301)).toBe(301);
+      expect(groupSize([reduced(300n), dense], VIEW, 1 / 2, "average", 302)).toBe(300);
     });
 
     it("should take the size from the view for samples over two times sparser", () => {

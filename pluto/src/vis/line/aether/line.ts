@@ -327,8 +327,9 @@ interface InternalState {
   loadingState?: LoadingState;
   // loaded is true once both sources leave loading, until either source changes.
   loaded?: boolean;
-  // drawn holds the ops of the last render.
+  // drawn holds the ops of the last render, and groupSize the size that reduced them.
   drawn: DrawOperation[];
+  groupSize: number;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -349,6 +350,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender = render.useRequestor(ctx);
     i.reducer ??= new Reducer();
     i.drawn ??= [];
+    i.groupSize ??= 1;
     i.stopListeningXTelem?.();
     i.stopListeningYTelem?.();
     i.stopListeningXTelem = i.xTelem.onChange(() => i.requestRender("data"));
@@ -520,7 +522,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     // Full-resolution data reduces with the aggregation of the source's reduced reads.
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
-    const size = groupSize(full, v, groupsPerColumn, i.aggregation);
+    const size = groupSize(full, v, groupsPerColumn, i.aggregation, i.groupSize);
+    i.groupSize = size;
     const cut =
       x.sorted === true && bounds.isFinite(v.bounds)
         ? inView(full, v.bounds, size)

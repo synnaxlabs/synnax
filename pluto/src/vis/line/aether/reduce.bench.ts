@@ -77,7 +77,7 @@ while ([x, y].some((s) => s.value().status.variant === "loading")) {
 }
 
 let ops = read();
-const size = groupSize(ops, view(), GROUPS_PER_COLUMN, "min_max");
+const size = groupSize(ops, view(), GROUPS_PER_COLUMN, "min_max", 1);
 
 const cold = (aggregation: Aggregation) => (): void =>
   void new Reducer().reduce(ops, aggregation, size);
@@ -88,7 +88,7 @@ test("reduce a 10 minute live window of 1 kHz samples", async ({ bench }) => {
   await bench.compare(
     bench(
       "group size",
-      () => void groupSize(ops, view(), GROUPS_PER_COLUMN, "min_max"),
+      () => void groupSize(ops, view(), GROUPS_PER_COLUMN, "min_max", size),
     ),
     bench("min_max, no reduced pairs held", cold("min_max")),
     bench("average, no reduced pairs held", cold("average")),
