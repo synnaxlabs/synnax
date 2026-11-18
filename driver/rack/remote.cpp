@@ -14,6 +14,7 @@
 #include "absl/log/log.h"
 
 #include "client/cpp/connection/checker.h"
+#include "x/cpp/env/env.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/os/os.h"
 
@@ -131,9 +132,15 @@ Config::login(x::args::Parser &args, const synnax::Config &conn) {
     if (auto err = cfg.load_persisted_state(args)) return {cfg, err};
     const auto &saved = cfg.connection;
     if (!saved.api_key.empty()) {
-        const auto [conn_tls, conn_err] = conn.tls();
+        // Each client applies SYNNAX_CA_CERT, so the comparison does too.
+        x::env::Parser env("SYNNAX");
+        auto conn_pair = conn;
+        conn_pair.override_tls_default(env);
+        auto saved_pair = saved;
+        saved_pair.override_tls_default(env);
+        const auto [conn_tls, conn_err] = conn_pair.tls();
         if (conn_err) return {cfg, conn_err};
-        const auto [saved_tls, saved_err] = saved.tls();
+        const auto [saved_tls, saved_err] = saved_pair.tls();
         if (saved_err) return {cfg, saved_err};
         // Only the Core that issued the saved key may receive it, and never in
         // plaintext when the key was saved with TLS.

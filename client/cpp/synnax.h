@@ -71,7 +71,7 @@ struct Config {
     /// certificate is set. See tls.
     std::optional<bool> secure;
     /// @brief the path to a PEM file of CA certificates that sign the Core's
-    /// certificate. When both it and secure are unset, the client reads
+    /// certificate. When both it and secure are unset, the Synnax constructor reads
     /// SYNNAX_CA_CERT. See tls.
     std::string ca_cert;
     /// @brief sets the clock skew threshold at which a warning will be logged.
@@ -127,27 +127,30 @@ struct Config {
         return this->host + ":" + std::to_string(this->port);
     }
 
-    /// @brief resolves how the client secures its connection. When secure and ca_cert
-    /// are both unset, the CA certificate comes from SYNNAX_CA_CERT. A CA certificate
-    /// turns TLS on when secure is unset.
+    /// @brief applies the ca_cert field of env as the lowest source of the secure and
+    /// ca_cert pair: it sets ca_cert only when neither field is set.
+    void override_tls_default(x::env::Parser &env) {
+        if (this->secure.has_value() || !this->ca_cert.empty()) return;
+        this->ca_cert = env.field("ca_cert", std::string());
+    }
+
+    /// @brief resolves how the client secures its connection. A CA certificate turns
+    /// TLS on when secure is unset.
     /// @returns the TLS settings, or a validation error when secure is false and a CA
     /// certificate is set.
     [[nodiscard]] std::pair<TLS, x::errors::Error> tls() const {
-        auto ca_cert = this->ca_cert;
-        if (ca_cert.empty() && !this->secure.has_value())
-            ca_cert = x::env::Parser("SYNNAX").field("ca_cert", std::string());
-        if (ca_cert.empty())
+        if (this->ca_cert.empty())
             return {TLS{.enabled = this->secure.value_or(false)}, x::errors::NIL};
         if (this->secure == false)
             return {
                 TLS{},
                 x::errors::Error(
                     x::errors::VALIDATION,
-                    "secure is false, but the CA certificate " + ca_cert +
+                    "secure is false, but the CA certificate " + this->ca_cert +
                         " is set. Set secure to true, or remove the CA certificate"
                 )
             };
-        return {TLS{.enabled = true, .ca_cert = ca_cert}, x::errors::NIL};
+        return {TLS{.enabled = true, .ca_cert = this->ca_cert}, x::errors::NIL};
     }
 
     [[nodiscard]] x::json::json to_json() const {
@@ -167,9 +170,12 @@ struct Config {
 };
 
 namespace details {
-/// @brief returns the connection pool for cfg. A pool for an invalid TLS configuration
-/// fails every call with the reason.
-inline std::shared_ptr<freighter::grpc::Pool> new_pool(const Config &cfg) {
+/// @brief returns the connection pool for cfg, with SYNNAX_CA_CERT applied as the
+/// lowest source of the TLS pair. A pool for an invalid TLS configuration fails every
+/// call with the reason.
+inline std::shared_ptr<freighter::grpc::Pool> new_pool(Config cfg) {
+    x::env::Parser env("SYNNAX");
+    cfg.override_tls_default(env);
     const auto [tls, tls_err] = cfg.tls();
     if (tls_err) return std::make_shared<freighter::grpc::Pool>(tls_err);
     if (!tls.enabled) return std::make_shared<freighter::grpc::Pool>();
@@ -208,7 +214,9 @@ public:
     /// @brief Client for reading the control state of channels.
     control::Client control;
 
-    /// @brief constructs the Synnax client from the provided configuration.
+    /// @brief constructs the Synnax client from the provided configuration. When cfg
+    /// sets neither secure nor ca_cert, the client reads the CA certificate from
+    /// SYNNAX_CA_CERT.
     explicit Synnax(const Config &cfg):
         t(cfg.port, cfg.host, details::new_pool(cfg)),
         channels(this->t.chan_retrieve, this->t.chan_create),

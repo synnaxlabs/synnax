@@ -281,6 +281,7 @@ protected:
     std::thread server;
 
     void SetUp() override {
+        x::env::unset("SYNNAX_CA_CERT");
         this->server = std::thread(
             freighter::grpc::testutil::tls_server,
             TLS_TARGET,
@@ -345,6 +346,35 @@ TEST_F(ConfigTLS, CACertFromEnvironmentUsesTLS) {
     const synnax::Config cfg;
     const auto res = ASSERT_NIL_P(send(cfg));
     EXPECT_EQ(res.payload(), "Read request: ping");
+}
+
+/// @brief it should resolve TLS from the fields alone, without the environment.
+TEST(ConfigTLSPure, IgnoresEnvironment) {
+    x::env::set("SYNNAX_CA_CERT", "/etc/synnax/ca.pem");
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
+    const synnax::Config cfg;
+    const auto tls = ASSERT_NIL_P(cfg.tls());
+    EXPECT_FALSE(tls.enabled);
+}
+
+/// @brief it should take the CA certificate from the environment only when neither
+/// secure nor ca_cert is set.
+TEST(ConfigOverrideTLSDefault, AppliesOnlyWhenPairIsUnset) {
+    x::env::set("TEST_TLS_DEFAULT_CA_CERT", "/etc/synnax/env.pem");
+    x::defer::defer unset_env([] { x::env::unset("TEST_TLS_DEFAULT_CA_CERT"); });
+    x::env::Parser env("TEST_TLS_DEFAULT");
+    synnax::Config unset;
+    unset.override_tls_default(env);
+    EXPECT_EQ(unset.ca_cert, "/etc/synnax/env.pem");
+    synnax::Config secure;
+    secure.secure = false;
+    secure.override_tls_default(env);
+    EXPECT_EQ(secure.ca_cert, "");
+    synnax::Config ca;
+    ca.ca_cert = "/etc/synnax/ca.pem";
+    ca.override_tls_default(env);
+    EXPECT_EQ(ca.ca_cert, "/etc/synnax/ca.pem");
+    ASSERT_NIL(env.error());
 }
 
 /// @brief it should ignore SYNNAX_CA_CERT when the config sets secure.
