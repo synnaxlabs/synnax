@@ -564,7 +564,8 @@ const Records: FC<RecordsProps> = ({
 /**
  * Plans the channels of each message, in deploy order with one namer. A message plans
  * with the channels that earlier ones keep added to written, so it leaves a stored
- * channel that another binding writes. Reads from the Core alone.
+ * channel that another binding writes. Reads from the Core alone. Throws between
+ * messages once signal aborts.
  */
 const planRead = async (
   client: Synnax,
@@ -572,10 +573,12 @@ const planRead = async (
   topic: string,
   bound: ICD.BoundMessage<ReadRecord>[],
   written: Set<channel.Key>,
+  signal?: AbortSignal,
 ): Promise<ICD.MessagePlan[]> => {
   const namer = Task.createNamer(client);
   const plans: ICD.MessagePlan[] = [];
   for (const b of bound) {
+    signal?.throwIfAborted();
     const { recordKey, messages } = b.source;
     const plan = await ICD.planMessage(
       client,
@@ -613,17 +616,22 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
         return [{ source, read: r, message, fields }];
       }),
     );
-  const sources = bound.map(({ source: { recordKey, messages }, read, message }) => ({
-    recordKey,
-    read: messages[read],
-    message,
-    prefix: messagePrefix(device.name, topic, recordKey, read, message.name),
-    props: device.properties.read[storedKey(topic, recordKey, messages[read].message)],
-  }));
+  const sources = bound.map(
+    ({ source: { key, recordKey, messages }, read, message }) => ({
+      key,
+      position: read,
+      recordKey,
+      read: messages[read],
+      message,
+      prefix: messagePrefix(device.name, topic, recordKey, read, message.name),
+      props:
+        device.properties.read[storedKey(topic, recordKey, messages[read].message)],
+    }),
+  );
   const plans = Task.useChannelPlans(
     sources,
-    async (client) =>
-      await planRead(client, device, topic, bound, writtenChannels(records)),
+    async (client, signal) =>
+      await planRead(client, device, topic, bound, writtenChannels(records), signal),
   );
   const reads = bound.map(({ source, read }, i): ICD.PlannedRead => ({
     path: recordPath(source.key),

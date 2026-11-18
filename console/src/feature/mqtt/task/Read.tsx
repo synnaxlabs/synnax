@@ -873,6 +873,8 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
   const tags = enabled.filter((e) => e.type === "sparkplug");
   const sources = [
     ...bound.map((b) => ({
+      key: b.source.key,
+      position: b.read,
       topic: b.source.topic,
       read: b.source.messages[b.read],
       message: b.message,
@@ -885,8 +887,15 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
       props: device.properties.read[sparkplugPropertiesKey(entry)],
     })),
   ];
-  const plans = Task.useChannelPlans<SourcePlan>(sources, async (client) => {
-    const plan = await planRead(client, device, bound, tags, writtenChannels(entries));
+  const plans = Task.useChannelPlans<SourcePlan>(sources, async (client, signal) => {
+    const plan = await planRead(
+      client,
+      device,
+      bound,
+      tags,
+      writtenChannels(entries),
+      signal,
+    );
     return [
       ...plan.messages.map((p): SourcePlan => ({ type: "message", plan: p })),
       ...plan.tags.map((p): SourcePlan => ({ type: "tag", plan: p })),
@@ -986,6 +995,7 @@ interface ReadPlan {
  * Plans the channels of each message and then each tag, in deploy order with one
  * namer. A message plans with the channels that earlier ones keep added to written, so
  * it leaves a stored channel that another binding writes. Reads from the Core alone.
+ * Throws between sources once signal aborts.
  */
 const planRead = async (
   client: Synnax,
@@ -993,10 +1003,12 @@ const planRead = async (
   bound: ICD.BoundMessage<PlainReadEntry>[],
   tags: SparkplugReadEntry[],
   written: Set<channel.Key>,
+  signal?: AbortSignal,
 ): Promise<ReadPlan> => {
   const namer = Task.createNamer(client);
   const messages: ICD.MessagePlan[] = [];
   for (const b of bound) {
+    signal?.throwIfAborted();
     const { source: entry, read: r, message } = b;
     const plan = await ICD.planMessage(
       client,
@@ -1011,6 +1023,7 @@ const planRead = async (
   }
   const plans: Task.ReadChannelPlan[] = [];
   for (const entry of tags) {
+    signal?.throwIfAborted();
     const field = tagField(dev.name, entry);
     plans.push(
       await Task.planReadChannels({
@@ -1053,13 +1066,14 @@ const applyMessage = async (
   plan: ICD.MessagePlan,
 ): Promise<void> => {
   const { source: entry, read: r } = bound;
+  const { read } = dev.properties;
   const propertiesKey = storedKey(entry.topic, entry.messages[r].message);
-  if (plan.channels.props != null && dev.properties.read[propertiesKey] == null)
-    delete dev.properties.read[entry.topic];
-  await ICD.applyMessage(client, bound, plan, {
-    read: dev.properties.read,
-    key: propertiesKey,
-  });
+  const legacy = read[propertiesKey] == null ? storedOf(read, entry, r) : undefined;
+  if (legacy != null) {
+    read[propertiesKey] = legacy;
+    delete read[entry.topic];
+  }
+  await ICD.applyMessage(client, bound, plan, { read, key: propertiesKey });
 };
 
 /** Gives each field and tag that an enabled entry reads a channel, and binds it. */
