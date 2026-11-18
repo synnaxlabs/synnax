@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, enumeration, NotFoundError } from "@synnaxlabs/client";
+import { type color, enumeration } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color as xcolor } from "@synnaxlabs/x";
 import {
@@ -204,10 +204,11 @@ describe("Enumeration.Settings", () => {
   it("should add an entry with the value typed into the add form", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
+    const add = await screen.findByRole("button", {
+      name: `Add an entry to ${e.name}`,
+    });
     await act(async () => {
-      fireEvent.click(
-        await screen.findByRole("button", { name: `Add an entry to ${e.name}` }),
-      );
+      fireEvent.click(add);
     });
     const value = await screen.findByLabelText("Entry value");
     fireEvent.change(value, { target: { value: "9" } });
@@ -345,18 +346,13 @@ describe("Enumeration.Settings", () => {
     await renderEnumerations();
     await openContextMenu(e.name);
     await clickAndSettle("Delete");
+    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(confirm);
     });
-    await expect
-      .poll(async () => {
-        try {
-          await client.enumerations.retrieve(e.key);
-          return false;
-        } catch (err) {
-          return NotFoundError.matches(err);
-        }
-      })
-      .toBe(true);
+    await waitFor(() => expect(screen.queryByText(e.name)).toBeNull());
+    await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
+      "enumeration was deleted",
+    );
   });
 });
