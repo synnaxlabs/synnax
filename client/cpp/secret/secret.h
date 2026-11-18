@@ -47,7 +47,7 @@ struct Grant {
     /// @brief the keys of the secrets that the grant names, file secrets included.
     std::vector<Key> secrets;
     /// @brief the values of the secrets that the grant names, except a file secret of
-    /// the rack, which the rack reads from its own secrets folder.
+    /// a rack that is not the Core's, which the rack reads from its own secrets folder.
     Values values;
 };
 
