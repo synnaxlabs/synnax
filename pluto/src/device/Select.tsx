@@ -77,6 +77,8 @@ export interface SelectSingleProps
       "resourceName" | "data" | "getItem" | "subscribe" | "children" | "itemHeight"
     >,
     Omit<Flux.UseListParams<RetrieveMultipleQuery, device.Device>, "name"> {
+  /** What the select calls a device, such as "connection". Defaults to "device". */
+  resourceName?: string;
   /** How the location of each listed device reads. */
   locationFormat?: LocationFormat;
 }
@@ -87,6 +89,7 @@ export const SelectSingle = ({
   query,
   triggerProps,
   icon = DEVICE_ICON,
+  resourceName = "device",
   locationFormat,
   ...rest
 }: SelectSingleProps): ReactElement => {
@@ -96,7 +99,7 @@ export const SelectSingle = ({
   });
   return (
     <Select.Single<device.Key, device.Device | undefined>
-      resourceName="device"
+      resourceName={resourceName}
       data={data}
       getItem={getItem}
       subscribe={subscribe}

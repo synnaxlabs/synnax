@@ -22,6 +22,7 @@ export const Select = ({ onChange }: SelectProps) => {
       onConfigure={(deviceKey) => void openConnect({ deviceKey })}
       emptyContent="No Sift connections"
       label="Sift connection"
+      resourceName="connection"
       make={MAKE}
       icon={NETWORK.icon}
       locationFormat={NETWORK.location}
