@@ -7,5 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export { ContextMenu } from "@/feature/range/tree/ContextMenu";
+export { NextIcon, useStop } from "@/feature/range/tree/Item";
 export { itemHeight, Layout, LayoutSelect, ORDERS } from "@/feature/range/tree/Layout";
 export { childrenQuery, use, useExpanded } from "@/feature/range/tree/tree";

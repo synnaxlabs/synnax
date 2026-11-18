@@ -10,10 +10,10 @@
 # Asks Sedosaur for a review when a pull request opens or is ready, and when a member
 # or an agent mentions `@sedosaur` or `@greptile` in a comment. A line `@sedosaur review
 # repeat=true` asks for a review of a head that has one. A push never asks. Sends
-# Sedosaur a reply that mentions it on the thread of one of its findings, such as a
-# dismissal, and a comment that dismisses a finding outside the diff. Both hold secrets,
-# so they run from the default branch through a dispatch. A fork's token cannot
-# dispatch, and the review skips a fork.
+# Sedosaur each reply that a writer or an agent posts on the thread of one of its
+# findings, with or without a mention, and a comment that dismisses a finding outside
+# the diff. Both hold secrets, so they run from the default branch through a dispatch.
+# A fork's token cannot dispatch, and the review skips a fork.
 
 name: Relay - Sedosaur
 run-name: ${{ github.event.pull_request.number || github.event.issue.number }}
@@ -99,18 +99,22 @@ jobs:
 
   dismiss:
     name: Relay reply
+    # A review comment event does not give a member with a private membership the
+    # association MEMBER, so the step reads the permission of a person from the API.
     if: >-
-      ((github.event_name == 'pull_request_review_comment'
-          && github.event.comment.in_reply_to_id
-          && github.event.pull_request.head.repo.full_name == github.repository
-          && contains(github.event.comment.body, '@sedosaur'))
-        || (github.event_name == 'issue_comment'
-          && github.event.issue.pull_request
-          && contains(github.event.comment.body, '@sedosaur dismiss')))
+      (github.event_name == 'pull_request_review_comment'
+        && github.event.comment.in_reply_to_id
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && (github.event.comment.user.type == 'User'
+          || contains(fromJSON('["synnax-claude-code[bot]", "synnax-codex[bot]"]'),
+            github.event.comment.user.login)))
+      || (github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && contains(github.event.comment.body, '@sedosaur dismiss')
         && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
             github.event.comment.author_association)
           || contains(fromJSON('["synnax-claude-code[bot]", "synnax-codex[bot]"]'),
-            github.event.comment.user.login))
+            github.event.comment.user.login)))
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -122,16 +126,27 @@ jobs:
       REF: ${{ github.event.repository.default_branch }}
       COMMENT: ${{ github.event.comment.id }}
       THREAD: ${{ github.event.comment.in_reply_to_id }}
+      LOGIN: ${{ github.event.comment.user.login }}
+      KIND: ${{ github.event.comment.user.type }}
     steps:
-      # A reply points at the first comment of its thread. A comment on the pull request
-      # has no thread.
+      # A reply points at the first comment of its thread. Only a reply on the thread of
+      # a finding, from a person with write access or an agent, gets an answer. A
+      # comment on the pull request has no thread.
       - name: Start Dismiss - Sedosaur
         run: |
-          author="sedosaur[bot]"
           if [ -n "$THREAD" ]; then
             author=$(gh api "repos/$GH_REPO/pulls/comments/$THREAD" --jq .user.login)
+            if [ "$author" != "sedosaur[bot]" ]; then
+              exit 0
+            fi
+            if [ "$KIND" = "User" ]; then
+              access=$(gh api "repos/$GH_REPO/collaborators/$LOGIN/permission" \
+                --jq .permission)
+              case "$access" in
+                admin | write) ;;
+                *) exit 0 ;;
+              esac
+            fi
           fi
-          if [ "$author" = "sedosaur[bot]" ]; then
-            gh workflow run dismiss.sedosaur.yaml --ref "$REF" -f pr="$PR" \
-              -f comment="$COMMENT"
-          fi
+          gh workflow run dismiss.sedosaur.yaml --ref "$REF" -f pr="$PR" \
+            -f comment="$COMMENT"

@@ -24,6 +24,7 @@
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
 #include "client/cpp/version/version.h"
+#include "freighter/cpp/grpc/grpc.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 
@@ -112,6 +113,17 @@ struct Config {
     }
 };
 
+namespace details {
+/// @brief returns the connection pool for cfg. A pool that cannot build its credentials
+/// fails every call with the reason.
+inline std::shared_ptr<freighter::grpc::Pool> new_pool(const Config &cfg) {
+    if (!cfg.secure) return std::make_shared<freighter::grpc::Pool>();
+    auto [creds, err] = freighter::grpc::ssl_credentials("");
+    if (err) return std::make_shared<freighter::grpc::Pool>(err);
+    return std::make_shared<freighter::grpc::Pool>(creds);
+}
+}
+
 /// @brief Client to perform operations against a Synnax Core.
 class Synnax {
     details::Transport t;
@@ -143,7 +155,7 @@ public:
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg):
-        t(cfg.port, cfg.host, cfg.secure),
+        t(cfg.port, cfg.host, details::new_pool(cfg)),
         channels(this->t.chan_retrieve, this->t.chan_create),
         auth([&]() -> std::shared_ptr<auth::Middleware> {
             auto mw = std::make_shared<auth::Middleware>(
