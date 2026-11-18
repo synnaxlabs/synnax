@@ -18,6 +18,7 @@ export { Color } from "@/color";
 export { Credential } from "@/credential";
 export { Device } from "@/device";
 export { Direction } from "@/direction";
+export { Enumeration } from "@/enumeration";
 export { Errors } from "@/errors";
 export { Flux } from "@/flux";
 export { Group } from "@/group";
