@@ -69,11 +69,11 @@ var _ = Describe("Factory", func() {
 
 	Describe("Exec", func() {
 		It("Should not accept a command other than list", func(ctx SpecContext) {
-			b := configure(ctx, "")
-			Expect(
-				b.instance.Exec(ctx, task.Command{Task: b.stored.Key, Type: "start"}),
-			).
-				To(MatchError(driver.ErrUnsupportedCommand))
+			stat := configure(ctx, "").execType(ctx, "start", nil)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to start task"))
+			Expect(stat.Description).
+				To(Equal("The task does not accept the 'start' command."))
 		})
 	})
 })
