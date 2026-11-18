@@ -33,6 +33,16 @@ std::string unique(const std::string &name) {
     return name + " " + x::uuid::create().to_string();
 }
 
+/// @returns a command of t that carries the grant with key g.
+synnax::task::Command carrier(const synnax::task::Task &t, const x::uuid::UUID &g) {
+    return synnax::task::Command{
+        .task = t.key,
+        .type = "test_connection",
+        .key = "carrier",
+        .args = {{"grant", g.to_string()}},
+    };
+}
+
 class ReaderTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
@@ -68,6 +78,17 @@ protected:
                 .rack = r.key,
             }
         );
+    }
+
+    /// @returns a new task on r that uses no secret.
+    [[nodiscard]] synnax::task::Task create_task(synnax::rack::Rack &r) const {
+        auto t = synnax::task::Task{
+            .name = unique("scan"),
+            .type = SYNTHETIC_TASK_TYPE,
+            .config = {},
+        };
+        EXPECT_NIL(r.tasks.create(t));
+        return t;
     }
 
     /// @brief creates a task on r that uses the secret with key.
@@ -149,6 +170,74 @@ TEST_F(ReaderTest, RefusesKeyGrantDoesNotName) {
     const auto [values, err] = this->reader(this->rack).read({key, other}, grant);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(err.data, "The grant does not name secret " + other.to_string() + ".");
+}
+
+/// @brief it should spend the grant that a command carries, and return the granted
+/// command under the key of the command that carried it, with the granted values.
+TEST_F(ReaderTest, SpendsGrant) {
+    const auto key = testutil::create_secret(*this->client);
+    const auto t = this->create_task(this->rack);
+    const synnax::task::Command granted{
+        .task = t.key,
+        .type = "test_connection",
+        .key = "granted",
+        .args = {{"endpoint", "opc.tcp://localhost:4840"}},
+    };
+    const auto g = testutil::create_grant(this->rack.key, granted, {key});
+    const auto spent = ASSERT_NIL_P(this->reader(this->rack).spend(carrier(t, g)));
+    ASSERT_TRUE(spent.has_value());
+    ASSERT_EQ(spent->command.task, t.key);
+    ASSERT_EQ(spent->command.type, "test_connection");
+    ASSERT_EQ(spent->command.key, "carrier");
+    ASSERT_EQ(spent->command.args, granted.args);
+    ASSERT_EQ(spent->secrets, std::vector{key});
+    ASSERT_EQ(spent->values.at(key), x::x509::testutil::KEY);
+}
+
+/// @brief it should refuse a grant that a command already spent.
+TEST_F(ReaderTest, SpendsGrantOnce) {
+    const auto t = this->create_task(this->rack);
+    const auto g = testutil::create_grant(
+        this->rack.key,
+        synnax::task::Command{.task = t.key, .type = "test_connection", .key = "a"},
+        {testutil::create_secret(*this->client)}
+    );
+    const auto r = this->reader(this->rack);
+    ASSERT_NIL_P(r.spend(carrier(t, g)));
+    const auto [spent, err] = r.spend(carrier(t, g));
+    ASSERT_OCCURRED_AS(err, synnax::auth::ERR_ACCESS_DENIED);
+    ASSERT_EQ(
+        err.data,
+        "grant " + g.to_string() +
+            " has ended or does not exist: access denied: auth error"
+    );
+}
+
+/// @brief it should refuse a grant that a command of another task carries.
+TEST_F(ReaderTest, RefusesGrantForAnotherTask) {
+    const auto t = this->create_task(this->rack);
+    const auto other = this->create_task(this->rack);
+    const auto g = testutil::create_grant(
+        this->rack.key,
+        synnax::task::Command{.task = t.key, .type = "test_connection", .key = "a"},
+        {testutil::create_secret(*this->client)}
+    );
+    const auto [spent, err] = this->reader(this->rack).spend(carrier(other, g));
+    ASSERT_OCCURRED_AS(err, synnax::auth::ERR_ACCESS_DENIED);
+    ASSERT_EQ(
+        err.data,
+        "grant is not for task " + other.key.to_string() + ": access denied: auth error"
+    );
+}
+
+/// @brief it should spend nothing for a command that carries no grant.
+TEST_F(ReaderTest, SpendsNoGrant) {
+    const auto t = this->create_task(this->rack);
+    const auto spent = ASSERT_NIL_P(
+        this->reader(this->rack)
+            .spend(synnax::task::Command{.task = t.key, .type = "test_connection"})
+    );
+    ASSERT_FALSE(spent.has_value());
 }
 
 /// @brief it should return NOT_FOUND for a key that no secret has.
