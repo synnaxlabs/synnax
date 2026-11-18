@@ -15,6 +15,7 @@
 
 #include "client/cpp/connection/checker.h"
 #include "freighter/cpp/testutil/testutil.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "core/pkg/transport/grpc/connectivity/connectivity.pb.h"
 
@@ -142,6 +143,23 @@ TEST(TestChecker, VersionCompatible) {
     auto checker = Checker(std::move(mock), 30 * x::telem::SECOND, "0.54.0");
     auto s = checker.state();
     EXPECT_TRUE(s.client_server_compatible);
+    checker.stop();
+}
+
+/// @brief it should clear the error of a failed check once a later check connects.
+TEST(TestChecker, ClearsErrorOnReconnect) {
+    auto res = make_response();
+    auto mock = std::make_unique<freighter::testutil::UnaryClient<
+        google::protobuf::Empty,
+        grpc::connectivity::CheckResponse>>(
+        std::vector<grpc::connectivity::CheckResponse>{res, res},
+        std::vector<x::errors::Error>{freighter::UNREACHABLE, x::errors::NIL}
+    );
+    auto checker = Checker(std::move(mock), 30 * x::telem::SECOND, "0.54.0");
+    ASSERT_EQ(checker.state().status, Status::FAILED);
+    const auto s = checker.check();
+    EXPECT_EQ(s.status, Status::CONNECTED);
+    EXPECT_NIL(s.error);
     checker.stop();
 }
 }

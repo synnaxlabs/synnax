@@ -19,10 +19,11 @@ import (
 )
 
 var _ = Describe("NewMigrations", func() {
-	It("Should end the chain with the root migration", func() {
+	It("Should end the chain with the root and name migrations", func() {
 		chain := versions.NewMigrations(uuid.New(), parser.Config{})
 		Expect(chain[0].Key()).To(Equal("normalize_keys"))
-		Expect(chain[len(chain)-1].Key()).To(Equal("v61_arcs_root_directory"))
+		Expect(chain[len(chain)-2].Key()).To(Equal("v61_arcs_root_directory"))
+		Expect(chain[len(chain)-1].Key()).To(Equal("v62_require_name"))
 	})
 })
 

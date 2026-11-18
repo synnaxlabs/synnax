@@ -29,4 +29,5 @@ var Migrations = []gorp.Migration{
 	v4.RangeMigration,
 	v4.Migration,
 	v5.Migration,
+	v5.NameMigration,
 }
