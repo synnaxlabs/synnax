@@ -22,31 +22,31 @@ import (
 )
 
 var _ = Describe("Service", func() {
-	Describe("Run", func() {
-		var svc *framer.Service
-		BeforeEach(func() {
-			store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
-			svc = MustSucceed(framer.OpenService(framer.ServiceConfig{TS: store.TS}))
+	var svc *framer.Service
+	BeforeEach(func() {
+		store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+		svc = MustSucceed(framer.OpenService(framer.ServiceConfig{TS: store.TS}))
+	})
+	stream := func(
+		ctx SpecContext,
+	) (signal.Context, confluence.Outlet[framer.StreamerResponse]) {
+		GinkgoHelper()
+		s := MustSucceed(svc.NewStreamer(framer.StreamerConfig{
+			Keys:        channel.Keys{channel.NewKey(node.KeyFree, 1)},
+			SendOpenAck: new(true),
+		}))
+		sCtx, cancel := signal.WithCancel(ctx)
+		req, res := confluence.Attach(s, 1)
+		s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+		DeferCleanup(func() {
+			req.Close()
+			cancel()
+			confluence.Drain(res)
 		})
-		stream := func(
-			ctx SpecContext,
-		) (signal.Context, confluence.Outlet[framer.StreamerResponse]) {
-			GinkgoHelper()
-			s := MustSucceed(svc.NewStreamer(framer.StreamerConfig{
-				Keys:        channel.Keys{channel.NewKey(node.KeyFree, 1)},
-				SendOpenAck: new(true),
-			}))
-			sCtx, cancel := signal.WithCancel(ctx)
-			req, res := confluence.Attach(s, 1)
-			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-			DeferCleanup(func() {
-				req.Close()
-				cancel()
-				confluence.Drain(res)
-			})
-			return sCtx, res
-		}
+		return sCtx, res
+	}
 
+	Describe("Run", func() {
 		It("Should serve streamers until its context ends", func(ctx SpecContext) {
 			stop := StartRun(svc.Run)
 			_, res := stream(ctx)
@@ -63,6 +63,16 @@ var _ = Describe("Service", func() {
 		It("Should fail a second Run", func(ctx SpecContext) {
 			StartRun(svc.Run)
 			Expect(svc.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+		})
+	})
+
+	Describe("Close", func() {
+		It("Should fail waiting streamers and a later Run", func(ctx SpecContext) {
+			sCtx, _ := stream(ctx)
+			Expect(svc.Close()).To(Succeed())
+			Expect(sCtx.Wait()).To(MatchError(ContainSubstring("relay stopped")))
+			Expect(svc.Run(ctx)).
+				To(MatchError(ContainSubstring("run called after close")))
 		})
 	})
 })
