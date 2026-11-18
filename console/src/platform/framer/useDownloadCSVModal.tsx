@@ -23,11 +23,13 @@ import { Channel, Synnax } from "@synnaxlabs/pluto";
 import {
   type CrudeTimeRange,
   deep,
+  type NumericTimeRange,
   numericTimeRangeZ,
   runtime,
   TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x";
+import { useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
@@ -65,12 +67,16 @@ const DownloadCSV = ({
   icon,
   close,
 }: Modals.ContentProps<DownloadCSVModalParams, void>) => {
-  const initialRange = shownRange(new TimeRange(timeRange)).numeric;
+  const [shown] = useState(() => shownRange(new TimeRange(timeRange)).numeric);
+  // An open end the user leaves as shown stays open, so the file holds every sample up
+  // to the download.
+  const toRead = ({ start, end }: NumericTimeRange): TimeRange =>
+    new TimeRange(start, end === shown.end ? new TimeRange(timeRange).end : end);
   const form = Form.use<typeof formSchema>({
     schema: formSchema,
     values: {
       channels,
-      timeRange: initialRange,
+      timeRange: shown,
       downsampleFactor: 1,
       name,
     },
@@ -78,7 +84,7 @@ const DownloadCSV = ({
   const range = Form.useFieldValue(path.timeRange, { ctx: form });
   const footer = (
     <Nav.Bar.End x align="center">
-      <DownloadButton handleFinish={close} />
+      <DownloadButton handleFinish={close} toRead={toRead} />
     </Nav.Bar.End>
   );
   return (
@@ -152,15 +158,17 @@ const DownsampleFactorField = Form.buildNumericField({
 
 interface DownloadButtonProps {
   handleFinish: () => void;
+  /** @returns the range to read for the range in the form. */
+  toRead: (range: NumericTimeRange) => TimeRange;
 }
 
-const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
+const DownloadButton = ({ handleFinish, toRead }: DownloadButtonProps) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const download = Runtime.useDownload();
   const { get } = Form.useContext();
   const handleClick = () => {
-    const timeRange = get(path.timeRange).value;
+    const timeRange = toRead(get(path.timeRange).value);
     const channels = get(path.channels).value;
     const downsampleFactor = get(path.downsampleFactor).value;
     const name = get(path.name).value;
