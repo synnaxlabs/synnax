@@ -62,7 +62,7 @@ export const Color = ({ ranges }: ColorProps): ReactElement => {
         <Icon.Circle color={shared ? (first ?? colors.gray.l8) : colors.gray.l8} />
         Color
       </Menu.SubTrigger>
-      <Menu.Dialog aria-label="Color">
+      <Menu.Dialog itemless aria-label="Color">
         <Picker
           value={shared ? first : undefined}
           fallback={colors.gray.l8}

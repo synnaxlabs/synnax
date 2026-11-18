@@ -25,6 +25,10 @@ on:
 
 permissions: {}
 
+# The review module reads the Claude Code stream with the agent wrapper's code.
+env:
+  PYTHONPATH: ${{ github.workspace }}/scripts
+
 # Runs take turns, so a run never saves its records over those of a newer run.
 concurrency:
   group: report-sedosaur

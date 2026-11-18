@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { id, search, unique } from "@synnaxlabs/x";
+import { compare, id, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
 
@@ -88,7 +88,7 @@ const buildFolders = (topics: ListedTopic[]): Folder[] => {
     node.topic = t;
   }
   const finish = (nodes: Folder[]) => {
-    nodes.sort((a, b) => a.name.localeCompare(b.name));
+    nodes.sort(compare.by((n) => n.name));
     for (const n of nodes) {
       finish(n.children);
       n.topics = [

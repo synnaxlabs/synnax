@@ -345,7 +345,7 @@ var _ = Describe("Read task", func() {
 		// The two records can arrive in one poll or in two.
 		Expect(stat.Message).To(HavePrefix("Skipped 1 of "))
 		Expect(stat.Description).
-			To(Equal("Record value: message Any key: field v: no value at /v: validation error (partition 0, offset 0)."))
+			To(Equal("Record value: field v: no value at /v: validation error (partition 0, offset 0)."))
 		Expect(stat.Details.Running).To(BeTrue())
 	})
 
@@ -785,7 +785,7 @@ var _ = Describe("Read task", func() {
 			stat := taskStatus(ctx, t)
 			Expect(stat.Message).To(HavePrefix("Skipped"))
 			Expect(stat.Description).
-				To(HavePrefix("Record value: message Any key: field v: no value at /v: validation error (partition 0, offset "))
+				To(HavePrefix("Record value: field v: no value at /v: validation error (partition 0, offset "))
 			Expect(stat.Variant).To(Equal(status.VariantWarning))
 			Expect(stat.Details.Running).To(BeTrue())
 			// The offsets commit on stop, which needs the cluster cleanup closes.
@@ -812,7 +812,7 @@ var _ = Describe("Read task", func() {
 			WithTimeout(15 * time.Second).Should(Equal("Skipped 3 of 3 records"))
 		stat := taskStatus(ctx, t)
 		Expect(stat.Description).
-			To(Equal("Record value: message Any key: field v: no value at /v: validation error (partition 0, offset 2)."))
+			To(Equal("Record value: field v: no value at /v: validation error (partition 0, offset 2)."))
 		Expect(stat.Details.Data).To(HaveKeyWithValue("stats", SatisfyAll(
 			HaveKeyWithValue("read", BeNumerically("==", 3)),
 			HaveKeyWithValue("skipped", BeNumerically("==", 3)),
@@ -1118,7 +1118,7 @@ var _ = Describe("Read task", func() {
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
 				Should(Equal(
-					"Record value: message Any key: field vals/01: no value at " +
+					"Record value: field vals/01: no value at " +
 						"/vals/01: validation error (partition 0, offset 0).",
 				))
 		},

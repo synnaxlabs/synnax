@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Menu } from "@/menu";
+import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 
 const ITEMS = (
@@ -97,6 +98,47 @@ const AreaMenu = ({ count }: { count: number }): ReactElement => {
   );
 };
 
+// A menu item and a submenu whose options show in the menu search.
+const SearchMenu = (): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Item itemKey="report">Leak report</Menu.Item>
+          <Menu.Divider />
+          <Menu.Sub itemKey="labels" textValue="Labels">
+            <Menu.SubTrigger>Labels</Menu.SubTrigger>
+            <Select.Frame<string, undefined>
+              multiple
+              value={[]}
+              onChange={() => {}}
+              data={["Leak check"]}
+            >
+              <Select.Dialog surface="menu" filtered aria-label="Labels">
+                <Select.Body<string> resourceName="label" onSearch={() => {}}>
+                  {({ key, ...p }) => (
+                    <Select.Item<string> key={key} {...p}>
+                      {p.itemKey}
+                    </Select.Item>
+                  )}
+                </Select.Body>
+              </Select.Dialog>
+            </Select.Frame>
+          </Menu.Sub>
+          <Menu.Divider />
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <div className={Menu.CONTEXT_TARGET} onContextMenu={ctx.open}>
+        Target
+      </div>
+    </Menu.ContextMenu>
+  );
+};
+
 const menuBox = (): DOMRect | undefined =>
   document.querySelector('[role="menu"]')?.getBoundingClientRect();
 
@@ -157,6 +199,40 @@ describe("Menu", () => {
       );
       expect(computed(rename, "background-color")).not.toBe(resolve("transparent"));
       expect(computed(rename, "outline-style")).toBe("none");
+    });
+
+    it("should size and light an option in the search as a menu item", async () => {
+      const { getByText } = await renderThemed(<SearchMenu />);
+      await userEvent.click(getByText("Target"), { button: "right" });
+      await userEvent.keyboard("leak");
+      const item = page.getByRole("menuitem", { name: "Leak report" }).element();
+      const option = page.getByRole("menuitem", { name: /Leak check/ }).element();
+      for (const property of [
+        "height",
+        "padding-left",
+        "padding-right",
+        "border-radius",
+      ])
+        expect(computed(option, property)).toBe(computed(item, property));
+      const lit = computed(item, "background-color");
+      expect(lit).not.toBe(resolve("transparent"));
+      await userEvent.hover(option);
+      await expect.poll(() => computed(option, "background-color")).toBe(lit);
+      expect(computed(item, "background-color")).toBe(resolve("transparent"));
+    });
+
+    it("should hide the dividers around a selection with no option that matches", async () => {
+      const { getByText } = await renderThemed(<SearchMenu />);
+      await userEvent.click(getByText("Target"), { button: "right" });
+      // The selection's search never answers, so its stale option stays listed.
+      await userEvent.keyboard("rena");
+      await expect
+        .element(page.getByRole("menuitem", { name: "Rename" }))
+        .toBeVisible();
+      const shown = Array.from(document.querySelectorAll(".lyra-menu__divider")).filter(
+        (el) => computed(el, "display") !== "none",
+      );
+      expect(shown).toEqual([]);
     });
 
     const openLoading = async () => {
