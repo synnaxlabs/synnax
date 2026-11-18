@@ -3,7 +3,8 @@
 - **Author**: Patrick Dotson
 - **Date**: 2026-11-06
 - **Related**: [RFC 0079 - Kafka integration](0079-kafka-integration.md),
-  [PR #4594 - SY-4579: Add a fill value for missing HTTP read fields](https://github.com/synnaxlabs/synnax/pull/4594)
+  [PR #4594 - SY-4579: Add a fill value for missing HTTP read fields](https://github.com/synnaxlabs/synnax/pull/4594),
+  [PR #6523 - SY-6310: Remove the unused payload read types](https://github.com/synnaxlabs/synnax/pull/6523)
 
 ## 0 Summary
 
@@ -49,6 +50,9 @@ WriteField union on type Kind extends BaseWriteField {
     timestamp { time_format TimeFormat = iso8601 }  bytes { value string }
 }
 ```
+
+PR #6523 removed the six `*Read` types after the integration reads moved onto ICD
+fields. The rest of this RFC describes them as they were.
 
 `BaseWriteField` holds `key` and `pointer`. `timestamp` and `uuid` write fields generate
 a value per message. `json` holds JSON text, because `record` holds only objects, and
