@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, type payload, type record, uuid } from "@synnaxlabs/x";
+import { deep, payload, type record, uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -100,11 +100,12 @@ const multiplexValues: Column<icd.BinaryField> = {
 
 const conversion = <F extends Field>(): Column<F>[] => [scale(), offset(), units()];
 
-type ValueType = "unsigned" | "signed" | "float";
+/** The kinds a binary field can hold. */
+type NumberKind = Extract<payload.Kind, "unsigned" | "integer" | "float">;
 
-const VALUE_TYPE_NAMES: Record<ValueType, string> = {
-  unsigned: "Unsigned",
-  signed: "Signed",
+const NUMBER_KIND_NAMES: Record<NumberKind, string> = {
+  unsigned: "Unsigned integer",
+  integer: "Signed integer",
   float: "Float",
 };
 
@@ -113,18 +114,21 @@ const BYTE_ORDER_NAMES: Record<icd.ByteOrder, string> = {
   big_endian: "Big endian",
 };
 
-const valueTypeOf = ({ signed, float }: icd.BinaryField): ValueType => {
-  if (float) return "float";
-  return signed ? "signed" : "unsigned";
-};
-
 /** A JSON field type, with a timestamp named by its format. */
-type JSONType = Exclude<icd.JSONFieldType, "timestamp"> | payload.TimeFormat;
+type JSONType = Exclude<payload.Kind, "timestamp"> | payload.TimeFormat;
+
+const isTimeFormat = (type: JSONType): type is payload.TimeFormat =>
+  payload.timeFormatZ.safeParse(type).success;
+
+const isNumberKind = (type: JSONType): type is NumberKind => type in NUMBER_KIND_NAMES;
 
 const JSON_TYPE_NAMES: Record<JSONType, string> = {
-  number: "Number",
+  ...NUMBER_KIND_NAMES,
   string: "String",
   boolean: "Boolean",
+  json: "JSON",
+  uuid: "UUID",
+  bytes: "Bytes (base64)",
   iso8601: "Timestamp (ISO 8601)",
   unix_sec: "Timestamp (s)",
   unix_ms: "Timestamp (ms)",
@@ -133,15 +137,19 @@ const JSON_TYPE_NAMES: Record<JSONType, string> = {
 };
 
 const jsonTypeOf = (field: icd.JSONField): JSONType =>
-  field.type === "timestamp" ? field.format : field.type;
+  field.type === "timestamp" ? field.timeFormat : field.type;
 
-/** Only a number field scales, so a new type drops the scale and offset. */
+/** Only a number field scales, so a field that stops being one drops its scaling. */
 const withJSONType = (field: icd.JSONField, type: JSONType): icd.JSONField => {
   const { key, name, pointer, units } = field;
   const base = { key, name, pointer, units, scale: 1, offset: 0 };
-  if (type === "number" || type === "string" || type === "boolean")
-    return { ...base, type };
-  return { ...base, type: "timestamp", format: type };
+  if (isTimeFormat(type)) return { ...base, type: "timestamp", timeFormat: type };
+  if (isNumberKind(type)) {
+    const { scale, offset, min, max } = field;
+    return { ...base, scale, offset, min, max, type, enumValues: [] };
+  }
+  if (type === "string" || type === "boolean") return { ...base, type, enumValues: [] };
+  return { ...base, type };
 };
 
 const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
@@ -172,8 +180,8 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       name: "Type",
       render: "type",
       width: 20,
-      get: valueTypeOf,
-      set: (f, cell) => ({ ...f, signed: cell === "signed", float: cell === "float" }),
+      get: ({ kind }) => kind,
+      set: (f, cell) => ({ ...f, kind: cell as NumberKind }),
     },
     ...conversion<icd.BinaryField>(),
     multiplexor,
@@ -229,8 +237,7 @@ const createField = (encoding: Encoding, name: string = ""): Field => {
         startBit: 0,
         bitLength: 8,
         byteOrder: "little_endian",
-        signed: false,
-        float: false,
+        kind: "unsigned",
         multiplexValues: [],
       };
     case "delimited":
@@ -238,7 +245,7 @@ const createField = (encoding: Encoding, name: string = ""): Field => {
     case "tagged":
       return { ...base, encoding, tag: "" };
     case "json":
-      return { ...base, type: "number", pointer: "" };
+      return { ...base, type: "float", pointer: "", enumValues: [] };
   }
 };
 
@@ -330,7 +337,7 @@ const renderColumn = (
     case "text":
       return <Input.TableColumn key={index} name={name} width={width} type="string" />;
     case "type":
-      return selectColumn(column, index, "type", VALUE_TYPE_NAMES);
+      return selectColumn(column, index, "type", NUMBER_KIND_NAMES);
     case "jsonType":
       return selectColumn(column, index, "type", JSON_TYPE_NAMES);
     case "byteOrder":

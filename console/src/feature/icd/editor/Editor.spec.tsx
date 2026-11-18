@@ -59,8 +59,7 @@ const createBinaryField = (name: string, startBit: number): icd.BinaryField => (
   startBit,
   bitLength: 8,
   byteOrder: "little_endian",
-  signed: false,
-  float: false,
+  kind: "unsigned",
   scale: 1,
   offset: 0,
   units: "",
@@ -79,8 +78,9 @@ const createMessage = (
 const createJSONField = (name: string, pointer: string): icd.JSONField => ({
   key: uuid.create(),
   name,
-  type: "number",
+  type: "float",
   pointer,
+  enumValues: [],
   scale: 1,
   offset: 0,
   units: "",
@@ -260,8 +260,8 @@ describe("ICD editor", () => {
     });
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
-        { name: "Temp", pointer: "/temp", type: "number" },
-        { name: "Speed", pointer: "/speed", type: "number", scale: 1 },
+        { name: "Temp", pointer: "/temp", type: "float" },
+        { name: "Speed", pointer: "/speed", type: "float", scale: 1 },
       ]),
     );
   });
@@ -279,16 +279,57 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should store the type of a binary field", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Temp", 0)])]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Unsigned integer"));
+    fireEvent.click(await screen.findByText("Signed integer"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "Temp", kind: "integer" },
+      ]),
+    );
+  });
+
   it("should drop the scale when a JSON field stops being a number", async () => {
     const ic = await createICD([
       createJSONMessage([{ ...createJSONField("Time", "/ts"), scale: 0.1 }]),
     ]);
     await renderEditor(ic);
-    fireEvent.click(await screen.findByText("Number"));
+    fireEvent.click(await screen.findByText("Float"));
     fireEvent.click(await screen.findByText("Timestamp (ms)"));
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
-        { type: "timestamp", format: "unix_ms", scale: 1 },
+        { type: "timestamp", timeFormat: "unix_ms", scale: 1 },
+      ]),
+    );
+  });
+
+  it("should keep the scale when a JSON field becomes another number", async () => {
+    const ic = await createICD([
+      createJSONMessage([{ ...createJSONField("Count", "/n"), scale: 0.1 }]),
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Float"));
+    fireEvent.click(await screen.findByText("Signed integer"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { type: "integer", scale: 0.1 },
+      ]),
+    );
+  });
+
+  it("should change the type of a JSON field with a blank name", async () => {
+    const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
+    await renderEditor(ic);
+    await commit("Name", 1, "");
+    await screen.findByText(/^Field 1: name is required/);
+    fireEvent.click(await screen.findByText("Float"));
+    fireEvent.click(await screen.findByText("String"));
+    await commit("Name", 1, "State");
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "State", type: "string", enumValues: [] },
       ]),
     );
   });
