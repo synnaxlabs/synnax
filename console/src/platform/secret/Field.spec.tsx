@@ -194,15 +194,21 @@ describe("Secret.Field", () => {
     within(trigger).getByText(Validity.describeSecret(s));
   });
 
+  it("shows None for no secret when it allows none", async () => {
+    await renderField("", { allowNone: true });
+    expect(await findDialogTriggerByText("None")).toBeTruthy();
+    expect(screen.queryByText("Select a secret")).toBeNull();
+  });
+
   it("clears the picked secret from its trigger when it allows none", async () => {
     const s = await createSecret(client, created);
     const { onChange } = await renderField("", { allowNone: true });
-    await open("Select a secret");
+    await open("None");
     fireEvent.click(await findOption(s));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(s.key));
     fireEvent.click(await screen.findByLabelText(`Clear ${s.name}`));
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
-    expect(await findDialogTriggerByText("Select a secret")).toBeTruthy();
+    expect(await findDialogTriggerByText("None")).toBeTruthy();
   });
 
   it("clears the secret on Delete when it allows none", async () => {

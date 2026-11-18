@@ -46,9 +46,10 @@ type ServiceConfig struct {
 	// OwnedPlaces names the tables that an owned record can be placed in, or taken
 	// out of, with retrieve in place of update on the target, such as projects.
 	OwnedPlaces []string
-	// Vouched reports whether a rack cannot add a use of target, such as a secret,
-	// because the user who saves a record vouches for what it uses. tx holds the
-	// write. Nil vouches for no record.
+	// Vouched reports whether only a user can make a record on a rack use target, such
+	// as a secret, because the user who saves a record vouches for what it uses. A
+	// rack's write cannot add a use of one, or move a record that uses one onto a rack.
+	// tx holds the write. Nil vouches for no record.
 	Vouched func(ctx context.Context, tx gorp.Tx, target resource.ID) (bool, error)
 }
 

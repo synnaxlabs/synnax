@@ -29,12 +29,12 @@ import {
   answerNextCommand,
   awaitCommand,
   commitFieldInput,
-  selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
   captureBrowserDownloads,
   findDialogTriggerByText,
   getIconButton,
+  getInputItem,
   isPlutoDisabled,
   uniqueName,
 } from "@/testutil";
@@ -162,6 +162,24 @@ const openWithDriverCertificate = async () => {
   return { scan, result };
 };
 
+// The endpoint select sits beside the Find endpoints button.
+const queryEndpointTrigger = (): HTMLElement | null =>
+  screen
+    .getByText("Find endpoints")
+    .closest("button")
+    ?.parentElement?.querySelector<HTMLElement>('[aria-haspopup="dialog"]') ?? null;
+
+const findEndpointTrigger = async (): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const trigger = queryEndpointTrigger();
+    if (trigger == null) throw new Error("the endpoint select is not shown");
+    return trigger;
+  });
+
+const clickSecurityMode = (mode: string): void => {
+  fireEvent.click(within(getInputItem("Mode")).getByText(mode));
+};
+
 const toDER = (pem: string): Uint8Array =>
   new Uint8Array(
     Buffer.from(pem.replace(/-----(BEGIN|END) CERTIFICATE-----|\s/g, ""), "base64"),
@@ -211,7 +229,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     await screen.findByText("Client certificate");
     expect(screen.getByText("Server certificate")).toBeTruthy();
     expect(screen.getByText("Validate server certificate")).toBeTruthy();
-    fireEvent.click(screen.getByText("None"));
+    clickSecurityMode("None");
     await waitFor(() => expect(screen.queryByText("Client certificate")).toBeNull());
   });
 
@@ -247,7 +265,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     );
     fireEvent.click(await screen.findByText("Sign"));
     await screen.findByText("Basic 256-bit with SHA-256");
-    fireEvent.click(screen.getByText("None"));
+    clickSecurityMode("None");
     await waitFor(() =>
       expect(screen.queryByText("Basic 256-bit with SHA-256")).toBeNull(),
     );
@@ -729,7 +747,14 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
     fireEvent.click(await screen.findByText("Find endpoints"));
     await listed.answered;
-    await selectFromDropdown("None", "Sign and encrypt, AES 256-bit with SHA-256");
+    fireEvent.click(await findEndpointTrigger());
+    fireEvent.click(
+      await waitFor(() =>
+        within(screen.getAllByRole("dialog").at(-1) ?? document.body).getByText(
+          "Sign and encrypt, AES 256-bit with SHA-256",
+        ),
+      ),
+    );
     await screen.findByText("Client certificate");
     const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
     pressSaveTrigger();
@@ -755,7 +780,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
     fireEvent.click(await screen.findByText("Find endpoints"));
     await listed.answered;
-    fireEvent.click(await findDialogTriggerByText("None"));
+    fireEvent.click(await findEndpointTrigger());
     const list = await waitFor(() => screen.getAllByRole("dialog").at(-1));
     if (list == null) throw new Error("the endpoint list did not open");
     const names = within(list)
@@ -802,7 +827,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
     fireEvent.click(await screen.findByText("Find endpoints"));
     await listed.answered;
-    await findDialogTriggerByText("None");
+    await findEndpointTrigger();
     fireEvent.click(await findDialogTriggerByText(first.name));
     const search = await waitFor(() => {
       const dialog = screen.getAllByRole("dialog").at(-1);
@@ -812,15 +837,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     fireEvent.change(search, { target: { value: second.name } });
     fireEvent.click(await screen.findByText(second.name));
     await findDialogTriggerByText(second.name);
-    expect(
-      screen
-        .getAllByRole("button")
-        .some(
-          (b) =>
-            b.getAttribute("aria-haspopup") === "dialog" &&
-            b.textContent?.includes("None"),
-        ),
-    ).toBe(false);
+    expect(queryEndpointTrigger()).toBeNull();
   });
 
   it("should save the timeouts the user enters", async () => {
@@ -858,7 +875,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     fireEvent.change(await screen.findByLabelText("Username"), {
       target: { value: "operator" },
     });
-    fireEvent.click(await findDialogTriggerByText("Select a secret"));
+    fireEvent.click(await findDialogTriggerByText("None"));
     // The list pages, so a search finds the secret however many the Core holds.
     fireEvent.change(await screen.findByPlaceholderText("Search secrets..."), {
       target: { value: password.name },

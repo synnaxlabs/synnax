@@ -48,8 +48,9 @@ type Returns interface {
 //   - update on the target of each place link added or removed, except a link to the
 //     owner. For an owned record, a target in ServiceConfig.OwnedPlaces needs only
 //     retrieve;
-//   - retrieve on the target of each use link added. A rack is denied a new use link
-//     to a record that ServiceConfig.Vouched reports;
+//   - retrieve on the target of each use link added. A rack is denied a new use of a
+//     record that ServiceConfig.Vouched reports, and a move onto a rack of a record
+//     that uses one;
 //   - retrieve on each source of a request that implements Copy;
 //   - retrieve on each record that a response implementing Returns holds and the
 //     transaction did not change.
@@ -163,10 +164,10 @@ func (s *Service) check(ctx context.Context, tx gorp.Tx, sources []resource.ID) 
 				}
 			}
 		}
+		if err := s.checkVouched(ctx, tx, subject, c); err != nil {
+			return err
+		}
 		for _, l := range c.Added {
-			if err := s.checkVouched(ctx, tx, subject, l); err != nil {
-				return err
-			}
 			if l.Target == owner || createdOrDeleted.Contains(l.Target) {
 				continue
 			}
@@ -237,31 +238,53 @@ func (s *Service) owned(c gorp.Change, subject resource.ID) bool {
 	return usesSubject(c.Links) && usesSubject(before)
 }
 
-// checkVouched returns an error wrapping access.ErrDenied when subject is a rack and l
-// is a use of a record that ServiceConfig.Vouched reports.
+// checkVouched returns an error wrapping access.ErrDenied when subject is a rack and c
+// gives a record on a rack a use of a record that ServiceConfig.Vouched reports:
+// through a new use link, or through a new place link onto a rack.
 func (s *Service) checkVouched(
 	ctx context.Context,
 	tx gorp.Tx,
 	subject resource.ID,
-	l gorp.Link,
+	c gorp.Change,
 ) error {
-	if s.cfg.Vouched == nil || l.Kind != gorp.Use || subject.Type != resource.TypeRack {
+	if s.cfg.Vouched == nil ||
+		subject.Type != resource.TypeRack ||
+		c.Kind == gorp.ChangeDelete {
 		return nil
 	}
-	target, ok := resourceOf(l.Target)
-	if !ok {
-		return nil
+	moved := slices.ContainsFunc(c.Added, func(l gorp.Link) bool {
+		target, ok := resourceOf(l.Target)
+		return l.Kind == gorp.Place && ok && target.Type == resource.TypeRack
+	})
+	for _, l := range c.Links {
+		added := slices.Contains(c.Added, l)
+		target, ok := resourceOf(l.Target)
+		if l.Kind != gorp.Use || !ok || (!added && !moved) {
+			continue
+		}
+		vouched, err := s.cfg.Vouched(ctx, tx, target)
+		if err != nil {
+			return err
+		}
+		if !vouched {
+			continue
+		}
+		if added {
+			return errors.Wrapf(
+				access.ErrDenied,
+				"%s cannot make a record use %s",
+				subject,
+				target,
+			)
+		}
+		return errors.Wrapf(
+			access.ErrDenied,
+			"%s cannot move a record that uses %s onto a rack",
+			subject,
+			target,
+		)
 	}
-	vouched, err := s.cfg.Vouched(ctx, tx, target)
-	if err != nil || !vouched {
-		return err
-	}
-	return errors.Wrapf(
-		access.ErrDenied,
-		"%s cannot make a record use %s",
-		subject,
-		target,
-	)
+	return nil
 }
 
 // ownedPlace reports whether l places an owned record in a table of OwnedPlaces.
