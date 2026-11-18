@@ -570,6 +570,95 @@ describe("OPCUA.Device.useConnectModal", () => {
     });
   });
 
+  describe("trust of a device's server certificate", () => {
+    const OFFERED = { ...REPLACED_SERVER_CERTIFICATE, pem: CERTIFICATE.pem };
+
+    /** Trusts the certificate that the server offers to the device, and saves it. */
+    const trustOffer = async (scan: task.Task, deviceKey: string) => {
+      const loaded = await answerGetCertificate(scan);
+      const { result } = await renderModalOpener(
+        OPCUA.Device.useConnectModal,
+        [{ deviceKey }],
+        { client },
+      );
+      await loaded.answered;
+      const rejected = await answerNextCommand(client, scan, {
+        ...TEST_CONNECTION,
+        variant: "error",
+        message: "Server certificate not trusted",
+        description: "The Driver does not trust the server certificate yet.",
+        data: { serverCertificate: OFFERED },
+      });
+      pressSaveTrigger();
+      await rejected.answered;
+      await screen.findByText(OFFERED.subject);
+      const accepted = await answerNextCommand(client, scan, TEST_CONNECTION);
+      fireEvent.click(findButton("Trust and connect"));
+      await accepted.answered;
+      await result();
+      const saved = await client.devices.retrieve({
+        key: deviceKey,
+        schemas: OPCUA.Device.SCHEMAS,
+      });
+      return saved.properties.connection.serverCertificate;
+    };
+
+    it("should replace the certificate in place when only the device uses it", async () => {
+      const rack = await createRunningRack(client, "opc");
+      const scan = await createScanTask(rack);
+      const trusted = await createServerCertificate();
+      const dev = await createOPCDevice(client, {
+        rack: rack.key,
+        properties: {
+          connection: { ...SECURED_CONNECTION, serverCertificate: trusted.key },
+        },
+      });
+      expect(await trustOffer(scan, dev.key)).toBe(trusted.key);
+      expect(await client.certificates.retrieve(trusted.key)).toMatchObject({
+        name: trusted.name,
+        pem: CERTIFICATE.pem,
+      });
+    });
+
+    it("should save a new certificate when the current one has a private key", async () => {
+      const rack = await createRunningRack(client, "opc");
+      const scan = await createScanTask(rack);
+      const keyed = await createClientCertificate(CERTIFICATE.privateKeyPem);
+      const dev = await createOPCDevice(client, {
+        rack: rack.key,
+        properties: {
+          connection: { ...SECURED_CONNECTION, serverCertificate: keyed.key },
+        },
+      });
+      const key = await trustOffer(scan, dev.key);
+      expect(key).not.toBe(keyed.key);
+      expect(await client.certificates.retrieve(key)).toMatchObject({
+        name: `${dev.name} server certificate`,
+        pem: CERTIFICATE.pem,
+      });
+    });
+
+    it("should save a new certificate when another device uses the current one", async () => {
+      const rack = await createRunningRack(client, "opc");
+      const scan = await createScanTask(rack);
+      const trusted = await createServerCertificate();
+      const properties = {
+        connection: { ...SECURED_CONNECTION, serverCertificate: trusted.key },
+      };
+      const dev = await createOPCDevice(client, { rack: rack.key, properties });
+      await createOPCDevice(client, { rack: rack.key, properties });
+      const key = await trustOffer(scan, dev.key);
+      expect(key).not.toBe(trusted.key);
+      expect(await client.certificates.retrieve(key)).toMatchObject({
+        name: `${dev.name} server certificate`,
+        pem: CERTIFICATE.pem,
+      });
+      expect(await client.certificates.retrieve(trusted.key)).toMatchObject({
+        pem: SERVER_CERTIFICATE.pem,
+      });
+    });
+  });
+
   it("should show why the server rejected the Driver certificate at its field", async () => {
     const { scan } = await openWithDriverCertificate();
     const description =

@@ -347,6 +347,20 @@ var _ = Describe("Service", func() {
 					To(Equal([]resource.ID{c.ResourceID()}))
 			},
 		)
+		It("Should list no uses for a certificate that only its status reports on",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, telem.Hour)
+				c := e.create(
+					ctx,
+					stored("Plant", newCertificate(newKey(), "a", time.Hour)),
+					nil,
+				)
+				Expect(
+					e.expiry(ctx, c.Base().Key).Owner,
+				).To(HaveValue(Equal(c.ResourceID())))
+				Expect(e.svc.Uses(ctx, e.db, c.Base().Key)).To(BeEmpty())
+			},
+		)
 		It("Should convert between keys and resource IDs", func() {
 			c := certificate.Certificate{Variant: certificate.FileCertificate{
 				Base: certificate.Base{Key: uuid.New()},

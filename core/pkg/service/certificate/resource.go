@@ -28,13 +28,14 @@ func (s *Service) Resources() *resource.TableProvider[Key, Certificate] {
 	})
 }
 
-// Uses returns the ID of every record in snap that references the certificate with key.
+// Uses returns the ID of every record in snap that holds a use reference to the
+// certificate with key.
 func (s *Service) Uses(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, snap, s.table, key)
+	return resource.Uses(ctx, snap, s.table, key)
 }
 
 // HasPrivateKey reports whether the certificate with key names a private key, as seen

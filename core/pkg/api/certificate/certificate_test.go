@@ -20,9 +20,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -43,6 +46,12 @@ func whereKeys(keys ...certificate.Key) apicertificate.RetrieveRequest {
 	return apicertificate.RetrieveRequest{
 		Where: &certificate.Where{Key: &filter.Set[certificate.Key]{In: keys}},
 	}
+}
+
+func whereKeysWithUses(keys ...certificate.Key) apicertificate.RetrieveRequest {
+	req := whereKeys(keys...)
+	req.IncludeUses = true
+	return req
 }
 
 func createCertificate(ctx SpecContext, name string) certificate.Certificate {
@@ -408,6 +417,62 @@ var _ = Describe("Service", func() {
 			c := createCertificate(ctx, "Plant")
 			Expect(retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key))).
 				Error().To(MatchError(access.ErrDenied))
+		})
+		Describe("IncludeUses", func() {
+			var (
+				u   user.User
+				c   certificate.Certificate
+				dev device.Device
+			)
+			BeforeEach(func(ctx SpecContext) {
+				u = createUser(ctx)
+				grant(ctx, u.ResourceID(), retrieves, certificateType)
+				c = createCertificate(ctx, "Plant")
+				dev = device.Device{
+					Key:      uuid.New().String(),
+					Rack:     svc.Rack.EmbeddedKey,
+					Location: "opc.tcp://plc:4840",
+					Make:     "opc",
+					Model:    "OPC UA",
+					Name:     "PLC",
+					Properties: msgpack.EncodedJSON{"connection": map[string]any{
+						"server_certificate": c.Base().Key.String(),
+					}},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Device.NewWriter(tx).Create(ctx, &dev)
+				})).To(Succeed())
+			})
+			It("Should return the resources that use each certificate",
+				func(ctx SpecContext) {
+					grant(ctx, u.ResourceID(), retrieves, device.ResourceID(dev.Key))
+					res := MustSucceed(
+						retrieve(AuthedCtx(ctx, u), whereKeysWithUses(c.Base().Key)),
+					)
+					Expect(res.Certificates).To(HaveLen(1))
+					Expect(res.Certificates[0].Base().Uses).
+						To(Equal([]resource.ID{device.ResourceID(dev.Key)}))
+				},
+			)
+			It("Should leave out the uses that the caller cannot read",
+				func(ctx SpecContext) {
+					res := MustSucceed(
+						retrieve(AuthedCtx(ctx, u), whereKeysWithUses(c.Base().Key)),
+					)
+					Expect(res.Certificates).To(HaveLen(1))
+					Expect(res.Certificates[0].Base().Uses).To(Equal([]resource.ID{}))
+				},
+			)
+			It("Should leave uses nil when the request does not ask for them",
+				func(ctx SpecContext) {
+					grant(ctx, u.ResourceID(), retrieves, device.ResourceID(dev.Key))
+					res := MustSucceed(
+						retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key)),
+					)
+					Expect(res.Certificates).To(HaveLen(1))
+					Expect(res.Certificates[0].Base().Uses).To(BeNil())
+				},
+			)
 		})
 		It(
 			"Should leave out the certificates a user cannot retrieve",

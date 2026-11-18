@@ -24,12 +24,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
-import {
-  Certificate as PCertificate,
-  Device as PDevice,
-  type Flux,
-} from "@synnaxlabs/pluto";
-import { deep, primitive } from "@synnaxlabs/x";
+import { Device as PDevice, Flux } from "@synnaxlabs/pluto";
+import { deep, primitive, verbs } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import {
@@ -119,6 +115,48 @@ const retrieveGrantItems = async (
     throw new Error(`Certificate ${c.name} has no private key.`);
   return { secrets: [...secrets, c.privateKey], certificates: [] };
 };
+
+interface TrustParams {
+  /** The device, empty for a device not yet saved. */
+  device: device.Key;
+  /** The current server certificate of the device, empty for none. */
+  current: certificate.Key;
+  /** The name of a new certificate. */
+  name: string;
+  /** The certificate that the server offered, as PEM. */
+  pem: string;
+}
+
+/**
+ * Saves the certificate that the server offered. It replaces the current certificate in
+ * place, with its name, when that certificate is stored, has no private key, and no
+ * other record uses it. Otherwise it creates a new certificate.
+ */
+const { useUpdate: useTrust } = Flux.createUpdate<TrustParams, certificate.Certificate>(
+  {
+    name: "server certificate",
+    verbs: verbs.SAVE,
+    update: async ({ client, data: { device: key, current, name, pem } }) => {
+      if (!primitive.isZero(current)) {
+        const c = await client.certificates.retrieve({
+          key: current,
+          includeUses: true,
+        });
+        const onlyThisDevice = (c.uses ?? []).every(
+          (id) => id.type === "device" && id.key === key,
+        );
+        if (c.source === "stored" && c.privateKey == null && onlyThisDevice)
+          return await client.certificates.set({
+            key: c.key,
+            name: c.name,
+            source: "stored",
+            pem,
+          });
+      }
+      return await client.certificates.set({ name, source: "stored", pem });
+    },
+  },
+);
 
 const DEPRECATED_SECURITY_POLICIES = new Set<SecurityPolicy>([
   BASIC256_SECURITY_POLICY,
@@ -233,7 +271,7 @@ export const Connect = ({
     setField(path.properties.connection.securityPolicy, policy);
   };
 
-  const { update: trust } = PCertificate.useCreate({
+  const { update: trust } = useTrust({
     afterSuccess: ({ data }) => {
       setField(path.properties.connection.serverCertificate, data.key);
       save();
@@ -241,8 +279,9 @@ export const Connect = ({
   });
   const handleTrust = (offer: CertificateInfo) =>
     trust({
+      device: getField(path.key).value,
+      current: serverCertificate,
       name: `${getField(path.name).value || DEFAULT_NAME} server certificate`,
-      source: "stored",
       pem: offer.pem,
     });
 

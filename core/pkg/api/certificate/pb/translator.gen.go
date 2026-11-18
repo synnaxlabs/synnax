@@ -136,7 +136,8 @@ func OrdersFromPB(pbs []*Order) ([]certificate.Order, error) {
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r certificate.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
-		SearchTerm: r.SearchTerm,
+		SearchTerm:  r.SearchTerm,
+		IncludeUses: r.IncludeUses,
 	}
 	if r.Where != nil {
 		var err error
@@ -176,6 +177,7 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (certificate.RetrieveRequest, er
 	}
 	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
+	r.IncludeUses = pb.IncludeUses
 	if pb.Where != nil {
 		val, err := certificatepb.WhereFromPB(pb.Where)
 		if err != nil {

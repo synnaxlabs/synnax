@@ -17,6 +17,7 @@ import (
 	"uuid"
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -48,6 +49,9 @@ type Base struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the certificate.
 	Name string `json:"name" msgpack:"name"`
+	// Uses are the resources that use the certificate and that the caller can read,
+	// filled only when a retrieve request asks for them.
+	Uses []resource.ID `json:"uses,omitzero" msgpack:"uses,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

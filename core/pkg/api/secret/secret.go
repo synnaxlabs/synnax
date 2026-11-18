@@ -243,10 +243,7 @@ func (s *Service) fillUses(
 		if err != nil {
 			return err
 		}
-		base.Uses = lo.FilterMap(uses, func(id resource.ID, _ int) (resource.ID, bool) {
-			id = taskOf(id)
-			return id, snap.Allowed(id)
-		})
+		base.Uses = snap.Visible(uses)
 		secrets[i].SetBase(base)
 	}
 	return nil

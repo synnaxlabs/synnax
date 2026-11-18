@@ -46,6 +46,10 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedBase),
 			Entry("zero values", v0.Base{Key: uuid.Nil(), Name: ""}),
+			Entry("empty collections", v0.Base{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+			}),
 		)
 	})
 	Describe("Certificate", func() {
@@ -200,6 +204,17 @@ func FuzzDecodeBase(f *testing.F) {
 	}
 	{
 		seed := v0.Base{Key: uuid.Nil(), Name: ""}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Base{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

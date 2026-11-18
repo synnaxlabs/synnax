@@ -206,7 +206,23 @@ func (t *Table[K, E]) Dependents(
 	snap Snapshot,
 	k K,
 ) ([]Target, error) {
-	return t.db.registry.dependents(ctx, snap, Target{Table: t.name, Key: FormatKey(k)})
+	return t.db.registry.dependents(
+		ctx,
+		snap,
+		Target{Table: t.name, Key: FormatKey(k)},
+		func(registeredReference) bool { return true },
+	)
+}
+
+// Uses returns the entries of every open table that hold a Use reference to the entry
+// with key k, as seen by snap. It waits and fails as Dependents does.
+func (t *Table[K, E]) Uses(ctx context.Context, snap Snapshot, k K) ([]Target, error) {
+	return t.db.registry.dependents(
+		ctx,
+		snap,
+		Target{Table: t.name, Key: FormatKey(k)},
+		func(ref registeredReference) bool { return ref.linkKind() == Use },
+	)
 }
 
 // RestrictChange returns a RestrictError for a change to field of the entry with key k

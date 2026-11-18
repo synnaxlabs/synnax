@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from synnax import certificate, secret
+from synnax import certificate, device, secret
 from x import filter
 
 # A self-signed P-256 certificate valid until 2126, its key, and an unrelated key.
@@ -76,6 +76,22 @@ class TestCertificate:
         assert c.private_key is not None
         key = client.secrets.retrieve(key=c.private_key, include_uses=True)
         assert key.uses == [certificate.resource_id(c.key)]
+
+    def test_retrieve_uses(self, client: sy.Synnax) -> None:
+        """Should return the devices that use a certificate when asked."""
+        c = client.certificates.set(certificate.NewStored(name="Server", pem=PEM))
+        dev = client.devices.create(
+            sy.opcua.Device(
+                name="Uses server",
+                location="opc.tcp://localhost:4840",
+                rack=client.racks.retrieve_embedded_rack().key,
+                endpoint="opc.tcp://localhost:4840",
+                server_certificate=c.key,
+            )
+        )
+        retrieved = client.certificates.retrieve(key=c.key, include_uses=True)
+        assert retrieved.uses == [device.resource_id(dev.key)]
+        assert client.certificates.retrieve(key=c.key).uses is None
 
     def test_create_mismatched_key(self, client: sy.Synnax) -> None:
         """Should reject a private key that does not match the certificate."""

@@ -102,7 +102,7 @@ class Client:
         self._client.send("/certificate/dispatch", req, Empty)
 
     @overload
-    def retrieve(self, key: Key) -> Certificate: ...
+    def retrieve(self, key: Key, *, include_uses: bool = ...) -> Certificate: ...
 
     @overload
     def retrieve(
@@ -115,6 +115,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Certificate: ...
 
@@ -129,6 +130,7 @@ class Client:
         not_: WhereInput = ...,
         where: Where | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: bool = ...,
     ) -> Certificate: ...
 
@@ -144,6 +146,7 @@ class Client:
         where: Where | None = ...,
         keys: list[Key] | None = ...,
         search_term: str = ...,
+        include_uses: bool = ...,
         one: Literal[True],
     ) -> Certificate: ...
 
@@ -162,6 +165,7 @@ class Client:
         limit: int | None = ...,
         order: Order | None = ...,
         after: Cursor | None = ...,
+        include_uses: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Certificate]: ...
 
@@ -175,6 +179,7 @@ class Client:
         limit: int | None = None,
         order: Order | None = None,
         after: Cursor | None = None,
+        include_uses: bool = False,
         one: bool = False,
         **fields: Any,
     ) -> Certificate | list[Certificate]:
@@ -198,6 +203,9 @@ class Client:
         :param after: Retrieves the certificates past this position in the order: the
             key of the last certificate of the page before, and its value of the order
             field.
+        :param include_uses: Whether to fill each certificate's uses with the resource
+            IDs of the resources that use it and that the caller can read. Certificates
+            come back with no uses when false.
         :param one: Returns one certificate for any filter.
         :returns: One certificate for a plain ``key`` or ``name`` or when ``one`` is
             set, otherwise a list of certificates. The list leaves out keys that no
@@ -219,6 +227,7 @@ class Client:
             limit=limit,
             order=order,
             after=after,
+            include_uses=include_uses,
         )
         res = self._client.send("/certificate/retrieve", req, RetrieveResponse)
         return (

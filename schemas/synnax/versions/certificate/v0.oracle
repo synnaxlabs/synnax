@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/versions/rack/v3"
+import "schemas/synnax/versions/resource/v0"
 import "schemas/synnax/versions/secret/v0"
 import "schemas/x/versions/telem/v0"
 
@@ -44,8 +45,15 @@ Base struct {
         @doc value "is the unique identifier for this certificate."
         @key
     }
-    name string {
+    name string         {
         @doc value "is a human-readable name for the certificate."
+    }
+    uses resource.ID[]? {
+        @doc value  """
+            are the resources that use the certificate and that the caller can read,
+            filled only when a retrieve request asks for them.
+        """
+        @go marshal omit
     }
 
     @doc value  "carries the fields shared by every certificate."

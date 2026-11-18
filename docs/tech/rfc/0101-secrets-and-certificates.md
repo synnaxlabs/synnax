@@ -164,12 +164,13 @@ never gets one (`core/pkg/service/certificate/writer.go`).
 
 A grant covers commands that run before a device is saved: a connect dialog's test and
 browse. A test reads secrets only with a grant, even for a saved device. The Console
-calls `secret/grant/create` with a subject, a task, the secrets, and the command to run,
-and the Core checks that the caller can create devices and retrieve each secret. Only a
-rack can be a subject for now, and the task must be on that rack. For a certificate, the
-Console sends the secret in its `private_key`. The Core stores the grant with an expiry
-one minute away and returns its key. The Console then sends that task a command that
-carries only the key.
+calls `secret/grant/create` with a subject, the secrets, the file certificates, and the
+command to run. The Core checks that the caller can create devices and retrieve each
+secret and certificate. Only a rack can be a subject for now, the task of the command
+must be on that rack, and each certificate must be a file of that rack. For a stored
+certificate, the Console sends the secret in its `private_key`. The Core stores the
+grant with an expiry one minute away and returns its key. The Console then sends that
+task a command that carries only the key.
 
 The Driver resolves the key with the task of the command, and a Core integration does
 the same in process (`core/pkg/service/secret/grant.go:51`). The Core refuses a grant
@@ -283,7 +284,9 @@ Phase 9 adds the certificate field without the file browser, and phase 10 adds t
 browser to both fields. From phase 10, both fields list only the file items of the
 device's rack. Until then, the secret field lists every secret. A new item is named
 after its device and field, such as "Plant OPC UA password". The dialog saves it before
-its first test. OPC UA's Trust button saves the offered certificate as an item.
+its first test. OPC UA's Trust button replaces the device's stored server certificate in
+place when it has no private key and only the device uses it. Otherwise Trust saves the
+offered certificate as a new item.
 
 ### 3.8 Expiry
 
