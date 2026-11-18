@@ -1336,6 +1336,7 @@ describe("TimeSpan", () => {
   const TRUNCATE_TESTS = [
     [TimeSpan.days(1).add(TimeSpan.nanoseconds(50)), TimeSpan.DAY, TimeSpan.days(1)],
     [TimeSpan.hours(1).add(TimeSpan.minutes(30)), TimeSpan.HOUR, TimeSpan.hours(1)],
+    [TimeSpan.days(200).add(1), TimeSpan.NANOSECOND, TimeSpan.days(200).add(1)],
   ];
 
   test("truncate", () => {
@@ -1377,6 +1378,7 @@ describe("TimeSpan", () => {
       "1ms 500μs 50ns",
     ],
     [TimeSpan.seconds(1).add(TimeSpan.microseconds(500)), "1s 500μs"],
+    [TimeSpan.days(200).add(1), "200d 1ns"],
   ];
 
   test("toString", () => {

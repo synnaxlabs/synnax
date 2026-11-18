@@ -834,9 +834,7 @@ export class TimeSpan
 
   /** @returns a copy truncated down to a multiple of span. */
   truncate(span: TimeSpan): TimeSpan {
-    return new TimeSpan(
-      BigInt(Math.trunc(Number(this.valueOf() / span.valueOf()))) * span.valueOf(),
-    );
+    return new TimeSpan((this.valueOf() / span.valueOf()) * span.valueOf());
   }
 
   /**
