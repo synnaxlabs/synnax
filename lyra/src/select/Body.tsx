@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type record } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
@@ -18,7 +18,7 @@ import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
 import { plural, searchPlaceholder } from "@/select/placeholder";
 import { useTerm } from "@/select/registry";
-import { useInline } from "@/select/scope";
+import { ShownContext, useInline } from "@/select/scope";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
 
@@ -102,12 +102,16 @@ const InlineBody = <K extends record.Key>({
   children,
 }: Pick<BodyProps<K>, "onSearch" | "children">): ReactElement => {
   const { data } = List.useData();
+  const [shown, setShown] = useState(0);
   return (
     <>
       {onSearch != null && <Search onSearch={onSearch} />}
       {data.length > 0 && (
-        <SelectList role="group" full="x">
-          <Items<K>>{children}</Items>
+        // Hidden with no option to show, so the menu dividers pass over it.
+        <SelectList role="group" full="x" hidden={shown === 0}>
+          <ShownContext value={setShown}>
+            <Items<K>>{children}</Items>
+          </ShownContext>
         </SelectList>
       )}
     </>

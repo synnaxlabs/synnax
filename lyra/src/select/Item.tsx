@@ -34,6 +34,7 @@ import {
   useClosed,
   useInline,
   useInList,
+  useShownContext,
 } from "@/select/scope";
 import { hasModifier } from "@/select/use";
 import { Text } from "@/text";
@@ -85,6 +86,13 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>({
   const children = usePathChildren(item.children);
   // The search of the list answers late, so the menu filter checks each option itself.
   const matches = useMatches(text ?? nodeText(item.children));
+  const setShown = useShownContext();
+  const shown = inline && matches;
+  useLayoutEffect(() => {
+    if (!shown || setShown == null) return;
+    setShown((count) => count + 1);
+    return () => setShown((count) => count - 1);
+  }, [shown, setShown]);
   if (inline && !matches) return null;
   if (!checkable)
     return (

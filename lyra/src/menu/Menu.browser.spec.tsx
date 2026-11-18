@@ -106,6 +106,7 @@ const SearchMenu = (): ReactElement => {
       menu={() => (
         <Menu.Menu>
           <Menu.Item itemKey="report">Leak report</Menu.Item>
+          <Menu.Divider />
           <Menu.Sub itemKey="labels" textValue="Labels">
             <Menu.SubTrigger>Labels</Menu.SubTrigger>
             <Select.Frame<string, undefined>
@@ -125,6 +126,8 @@ const SearchMenu = (): ReactElement => {
               </Select.Dialog>
             </Select.Frame>
           </Menu.Sub>
+          <Menu.Divider />
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
         </Menu.Menu>
       )}
       {...ctx}
@@ -216,6 +219,20 @@ describe("Menu", () => {
       await userEvent.hover(option);
       await expect.poll(() => computed(option, "background-color")).toBe(lit);
       expect(computed(item, "background-color")).toBe(resolve("transparent"));
+    });
+
+    it("should hide the dividers around a selection with no option that matches", async () => {
+      const { getByText } = await renderThemed(<SearchMenu />);
+      await userEvent.click(getByText("Target"), { button: "right" });
+      // The selection's search never answers, so its stale option stays listed.
+      await userEvent.keyboard("rena");
+      await expect
+        .element(page.getByRole("menuitem", { name: "Rename" }))
+        .toBeVisible();
+      const shown = Array.from(document.querySelectorAll(".lyra-menu__divider")).filter(
+        (el) => computed(el, "display") !== "none",
+      );
+      expect(shown).toEqual([]);
     });
 
     const openLoading = async () => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AriaAttributes } from "react";
+import { type AriaAttributes, type Dispatch, type SetStateAction } from "react";
 
 import { context } from "@/context";
 import { type KeyboardHandlers } from "@/select/useCursor";
@@ -26,6 +26,14 @@ export const [ClosedContext, useClosed] = context.create<boolean>({
 export const [InlineContext, useInline] = context.create<boolean>({
   defaultValue: false,
   displayName: "Select.InlineContext",
+});
+
+/** Sets the count of the options that an inline selection shows in its menu. */
+export const [ShownContext, useShownContext] = context.create<Dispatch<
+  SetStateAction<number>
+> | null>({
+  defaultValue: null,
+  displayName: "Select.ShownContext",
 });
 
 /** True inside a `Select.List`. A fixed item outside one is pinned. */
