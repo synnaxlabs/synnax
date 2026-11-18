@@ -1397,8 +1397,10 @@ var _ = Describe("Iterator Behavior", func() {
 						if backward {
 							Expect(i.SeekLast()).To(BeTrue())
 							for i.Prev(cesium.AutoSpan) {
-								var batch []int64
-								for _, s := range i.Value().RawSeries() {
+								series := i.Value().RawSeries()
+								n := telem.MultiSeries{Series: series}.Len()
+								batch := make([]int64, 0, n)
+								for _, s := range series {
 									batch = append(batch, s.Unmarshal[int64]()...)
 								}
 								got = append(batch, got...)
@@ -1464,8 +1466,10 @@ var _ = Describe("Iterator Behavior", func() {
 						if backward {
 							Expect(i.SeekLast()).To(BeTrue())
 							for i.Prev(cesium.AutoSpan) {
-								var batch []float64
-								for _, s := range i.Value().RawSeries() {
+								series := i.Value().RawSeries()
+								n := telem.MultiSeries{Series: series}.Len()
+								batch := make([]float64, 0, n)
+								for _, s := range series {
 									batch = append(batch, s.Unmarshal[float64]()...)
 								}
 								got = append(batch, got...)

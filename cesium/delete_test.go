@@ -922,8 +922,9 @@ var _ = Describe("Delete", func() {
 							tr,
 						)).To(Succeed())
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
-						var got []int64
-						for _, s := range f.RawSeries() {
+						series := f.RawSeries()
+						got := make([]int64, 0, telem.MultiSeries{Series: series}.Len())
+						for _, s := range series {
 							got = append(got, s.Unmarshal[int64]()...)
 						}
 						Expect(got).To(Equal(expected))
