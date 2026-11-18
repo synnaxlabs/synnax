@@ -58,7 +58,7 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	if err := emitKindCast(ctx, from, wide); err != nil {
 		return err
 	}
-	if err := EmitUnitScale(ctx, wide, to.Unit); err != nil {
+	if err := emitUnitScale(ctx, wide, to.Unit); err != nil {
 		return err
 	}
 	return emitKindCast(ctx, wide, to)
@@ -78,9 +78,9 @@ func width(t types.Type) int {
 	}
 }
 
-// EmitUnitScale converts the value or series of type t on the stack to the unit to.
+// emitUnitScale converts the value or series of type t on the stack to the unit to.
 // An integer truncates toward zero.
-func EmitUnitScale[ASTNode antlr.ParserRuleContext](
+func emitUnitScale[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	t types.Type,
 	to *types.Unit,

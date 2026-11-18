@@ -630,6 +630,12 @@ var _ = Describe("Text", func() {
 			Entry("a literal", "d := 1min", `120s -> d`, false),
 			Entry("an assigned literal that leaves a remainder",
 				"d := 1min", `d = 90s`, true),
+			Entry("an assigned literal far under one of the larger unit",
+				"d := 1min", `d = 1ns`, true),
+			Entry("a flow of a literal far under one of the larger unit",
+				"d := 1min", `1ns -> d`, true),
+			Entry("a declared literal far under one of the larger unit",
+				"d i64 min := 1ns", `d -> sink_ch`, true),
 		)
 
 		DescribeTable("Should warn when a value truncates an integer on its way",

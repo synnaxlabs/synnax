@@ -215,8 +215,10 @@ func Convert(
 		return ParsedValue{}, err
 	}
 	value *= factor
+	// IsExactInteger takes a value under 1e-9 as an exact zero.
+	dropped := value != 0 && math.Round(value) == 0
 	truncated := targetType.IsInteger() && factor != math.Trunc(factor) &&
-		!IsExactInteger(value)
+		(dropped || !IsExactInteger(value))
 	if truncated {
 		value = math.Trunc(value)
 	}

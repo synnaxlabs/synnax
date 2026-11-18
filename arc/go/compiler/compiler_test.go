@@ -4572,13 +4572,21 @@ var _ = Describe("Compiler", func() {
 	Describe("Unit Conversion Synthetic Functions", func() {
 		BeforeEach(func(ctx SpecContext) { bindDefaultModules(ctx, r) })
 
-		// analyzeScale returns a program in which a flow writes other to d, and the
-		// index of its unit conversion function.
-		analyzeScale := func(ctx SpecContext, declarations string) (ir.IR, int) {
+		// analyzeScale returns a program in which a flow writes other to d and d to
+		// each of sinks, and the index of its unit conversion function.
+		analyzeScale := func(
+			ctx SpecContext,
+			declarations string,
+			sinks ...symbol.Symbol,
+		) (ir.IR, int) {
 			GinkgoHelper()
+			writes := "other -> d\n"
+			for _, sink := range sinks {
+				writes += "d -> " + sink.Name + "\n"
+			}
 			prog := MustSucceed(text.Parse(text.Text{Raw: "sequence main {\n" +
-				declarations + "\nstage s1 {\nother -> d\n}\n}"}))
-			inter, diag := text.Analyze(ctx, prog, NewRoot(nil))
+				declarations + "\nstage s1 {\n" + writes + "}\n}"}))
+			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, sinks...))
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			for i, f := range inter.Functions {
 				if strings.HasPrefix(f.Key, compiler.ScaleSyntheticPrefix) {
@@ -4588,24 +4596,35 @@ var _ = Describe("Compiler", func() {
 			Fail("expected a unit conversion function")
 			return inter, 0
 		}
+		// expectScaled compiles inter and expects its unit conversion function i to
+		// return expected for input.
+		expectScaled := func(
+			ctx SpecContext,
+			inter ir.IR,
+			i int,
+			input, expected any,
+		) {
+			GinkgoHelper()
+			output := MustSucceed(compiler.Compile(ctx, inter))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			fn := mod.ExportedFunction(inter.Functions[i].Key)
+			Expect(fn).ToNot(BeNil())
+			arg := uint64(0)
+			switch v := input.(type) {
+			case int64:
+				arg = uint64(v)
+			case float64:
+				arg = math.Float64bits(v)
+			}
+			results := MustSucceed(fn.Call(ctx, arg))
+			Expect(results).To(HaveLen(1))
+			assertResult(results[0], expected)
+		}
 
 		DescribeTable("Should convert its input to the unit of its output",
 			func(ctx SpecContext, declarations string, input, expected any) {
 				inter, i := analyzeScale(ctx, declarations)
-				output := MustSucceed(compiler.Compile(ctx, inter))
-				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-				fn := mod.ExportedFunction(inter.Functions[i].Key)
-				Expect(fn).ToNot(BeNil())
-				arg := uint64(0)
-				switch v := input.(type) {
-				case int64:
-					arg = uint64(v)
-				case float64:
-					arg = math.Float64bits(v)
-				}
-				results := MustSucceed(fn.Call(ctx, arg))
-				Expect(results).To(HaveLen(1))
-				assertResult(results[0], expected)
+				expectScaled(ctx, inter, i, input, expected)
 			},
 			Entry("to a larger unit",
 				"d := 1min\nother := 120s", int64(120), int64(2)),
@@ -4615,6 +4634,33 @@ var _ = Describe("Compiler", func() {
 				"d i64 ms := 1s\nother i64 min := 2min", int64(2), int64(120000)),
 			Entry("a float",
 				"d := 1.0bar\nother := 250.0kPa", float64(250), float64(2.5)),
+		)
+
+		DescribeTable("Should convert its input to the kind of its output",
+			func(
+				ctx SpecContext,
+				declarations string,
+				sink types.Type,
+				input, expected any,
+			) {
+				inter, i := analyzeScale(ctx, declarations, symbol.Symbol{
+					Name: "sink",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(sink),
+					ID:   100,
+				})
+				fn := inter.Functions[i]
+				Expect(fn.Inputs[0].Type.Unwrap().Kind).ToNot(Equal(sink.Kind))
+				Expect(fn.Outputs[0].Type.Kind).To(Equal(sink.Kind))
+				expectScaled(ctx, inter, i, input, expected)
+			},
+			Entry("a 64-bit float to a 32-bit float",
+				"d := 1.0bar\nother := 250.0kPa",
+				types.F32(), float64(250), float32(2.5)),
+			Entry("a 64-bit integer to a 32-bit integer",
+				"d := 1min\nother := 120s", types.I32(), int64(120), int32(2)),
+			Entry("a 64-bit integer to a 32-bit integer with a remainder",
+				"d := 1min\nother := 90s", types.I32(), int64(90), int32(1)),
 		)
 
 		It("Should reject a conversion with more than one input", func(

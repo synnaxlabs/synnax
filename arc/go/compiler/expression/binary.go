@@ -101,7 +101,7 @@ func CompileOperand[N, O antlr.ParserRuleContext](
 		unit = types.CommonUnit(unit, next)
 	}
 	if types.UnitsConvertible(hint.Unit, unit) {
-		if err := EmitUnitScale(ctx, left, unit); err != nil {
+		if err := emitUnitScale(ctx, left, unit); err != nil {
 			return types.Type{}, nil, err
 		}
 	}
@@ -117,7 +117,7 @@ func CompileOperand[N, O antlr.ParserRuleContext](
 				from.Name, unit.Name,
 			)
 		}
-		if err = EmitUnitScale(ctx, t, unit); err != nil {
+		if err = emitUnitScale(ctx, t, unit); err != nil {
 			return types.Type{}, nil, err
 		}
 	}

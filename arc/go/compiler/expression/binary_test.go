@@ -3061,9 +3061,10 @@ var _ = Describe("Binary Operations", func() {
 
 var _ = Describe("CompileOperand", func() {
 	var (
-		ms = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
-		s  = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
-		pa = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
+		ms  = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
+		s   = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+		pa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
+		psi = &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
 	)
 	in := func(unit *types.Unit) types.Type {
 		return types.WithUnit(types.I64(), unit)
@@ -3102,6 +3103,13 @@ var _ = Describe("CompileOperand", func() {
 		Entry("an operand with no unit", in(s), types.I64(), s, OpLocalGet, 0),
 		Entry("a stack value with no unit", types.I64(), in(s), s, OpLocalGet, 0),
 		Entry("another dimension", in(s), in(pa), s, OpLocalGet, 0),
+		Entry("an integer series on the stack by a whole factor",
+			types.Series(in(s)), in(ms), ms,
+			OpI64Const, int64(1000), OpCall, uint32(0), OpLocalGet, 0),
+		Entry("a float series on the stack by a factor that is not whole",
+			types.Series(types.WithUnit(types.F64(), psi)),
+			types.WithUnit(types.F64(), pa), pa,
+			OpF64Const, float64(6894.76), OpCall, uint32(0), OpLocalGet, 0),
 	)
 
 	It("should reject an operand in a smaller unit that was not analyzed", func(
@@ -3111,4 +3119,11 @@ var _ = Describe("CompileOperand", func() {
 			"operand in ms was not analyzed before a value in s",
 		))
 	})
+
+	It("should reject an integer series on the stack by a factor that is not whole",
+		func(bCtx SpecContext) {
+			Expect(compile(bCtx, types.Series(in(psi)), in(pa), in(pa))).Error().To(
+				MatchError(ContainSubstring("cannot convert a series of")),
+			)
+		})
 })

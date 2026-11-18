@@ -311,6 +311,9 @@ var _ = Describe("Literal Parser", func() {
 					"90s", "min", telem.TimeSpan(1), true),
 				Entry("a larger unit with no remainder",
 					"120s", "min", telem.TimeSpan(2), false),
+				Entry("a value far under one of a larger unit",
+					"1ns", "min", telem.TimeSpan(0), true),
+				Entry("a zero", "0ns", "min", telem.TimeSpan(0), false),
 				Entry("a factor that is not whole", "5psi", "Pa", int64(34473), true),
 				Entry("a whole factor", "5s", "ms", telem.TimeSpan(5000), false),
 				Entry("a float that a whole factor makes whole",
@@ -755,6 +758,8 @@ var _ = Describe("Convert", func() {
 		s   = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
 		pa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
 		bar = &types.Unit{Dimensions: types.DimPressure, Scale: 1e5, Name: "bar"}
+		pk  = &types.Unit{Dimensions: types.DimTemperature, Scale: 1e-12, Name: "pK"}
+		k   = &types.Unit{Dimensions: types.DimTemperature, Scale: 1, Name: "K"}
 	)
 	in := func(t types.Type, unit *types.Unit) types.Type {
 		t.Unit = unit
@@ -779,6 +784,11 @@ var _ = Describe("Convert", func() {
 			2000.0, ms, in(types.I64(), s), telem.TimeSpan(2), false),
 		Entry("an integer time with a remainder",
 			1500.0, ms, in(types.I64(), s), telem.TimeSpan(1), true),
+		Entry("an integer far under one of a larger unit",
+			6.0, pk, in(types.I32(), k), int32(0), true),
+		Entry("a negative integer far under one of a larger unit",
+			-6.0, pk, in(types.I32(), k), int32(0), true),
+		Entry("a zero", 0.0, pk, in(types.I32(), k), int32(0), false),
 		Entry("an integer that is not a time",
 			2.0, bar, in(types.I64(), pa), int64(200000), false),
 		Entry("a float", 1500.0, ms, in(types.F64(), s), 1.5, false),

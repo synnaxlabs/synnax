@@ -6315,6 +6315,44 @@ var _ = Describe("Sequence", func() {
 				"src i32 mV := 7000mV\ndst i32 V := 0V", "src=7000 dst=7"),
 		)
 
+		DescribeTable("Converts a variable written to a variable of another kind",
+			func(
+				ctx SpecContext,
+				declarations string,
+				sink types.Type,
+				dataType telem.DataType,
+				expected string,
+			) {
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    `+declarations+`
+				    stage write {
+				        src -> dst
+				        dst -> sink
+				        raw -> `+`f"src={src} dst={dst}"`+` -> log
+				    }
+				}
+				1 => main`,
+					channelSymbols(map[string]channelDef{
+						"raw":  {types.I64(), 100},
+						"log":  {types.String(), 101},
+						"sink": {sink, 103},
+					}),
+					channels.Digest{Key: 100, DataType: telem.Int64T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+					channels.Digest{Key: 103, DataType: dataType},
+				)
+				defer h.Close(ctx)
+				Expect(lastLog(ctx, h)).To(Equal(expected))
+			},
+			Entry("a 64-bit float to a 32-bit float",
+				"src := 250.0kPa\ndst := 1.0bar",
+				types.F32(), telem.Float32T, "src=250 dst=2.5"),
+			Entry("a 64-bit integer to a 32-bit integer",
+				"src := 120s\ndst := 1min",
+				types.I32(), telem.Int32T, "src=120 dst=2"),
+		)
+
 		DescribeTable("Passes a reassigned variable to a function on every trigger",
 			func(ctx SpecContext, declaration string) {
 				h := newRuntimeHarness(ctx, `

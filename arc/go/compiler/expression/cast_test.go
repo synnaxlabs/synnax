@@ -682,7 +682,7 @@ var _ = Describe("Type Cast of Mixed Expressions", func() {
 	)
 })
 
-var _ = Describe("EmitUnitScale", func() {
+var _ = Describe("EmitCast", func() {
 	var (
 		ns  = &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
 		ms  = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
@@ -690,54 +690,6 @@ var _ = Describe("EmitUnitScale", func() {
 		h   = &types.Unit{Dimensions: types.DimTime, Scale: 3600e9, Name: "h"}
 		pa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
 		psi = &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
-	)
-	in := func(t types.Type, unit *types.Unit) types.Type {
-		t.Unit = unit
-		return t
-	}
-
-	DescribeTable("should scale a value to another unit",
-		func(bCtx SpecContext, t types.Type, to *types.Unit, opcodes ...any) {
-			ctx := NewContext(bCtx)
-			Expect(expression.EmitUnitScale(ctx, t, to)).To(Succeed())
-			Expect(FinalizeContext(ctx)).To(MatchOpcodes(opcodes...))
-		},
-		Entry("an integer to a smaller unit", in(types.I64(), s), ms,
-			OpI64Const, int64(1000), OpI64Mul),
-		Entry("an integer to a larger unit", in(types.I64(), ms), s,
-			OpI64Const, int64(1000), OpI64DivS),
-		Entry("a float to a larger unit", in(types.F64(), ms), s,
-			OpF64Const, float64(1e-3), OpF64Mul),
-		Entry("a 32-bit integer by a factor that fits", in(types.I32(), s), ms,
-			OpI32Const, int32(1000), OpI32Mul),
-		Entry("a 32-bit integer by a factor that does not fit", in(types.I32(), h), ns,
-			OpF64ConvertI32S, OpF64Const, float64(3600e9), OpF64Mul, OpI32TruncF64S),
-		Entry("an integer by a factor that is not whole", in(types.I64(), psi), pa,
-			OpF64ConvertI64S, OpF64Const, float64(6894.76), OpF64Mul, OpI64TruncF64S),
-		Entry("a 32-bit float to a smaller unit", in(types.F32(), s), ms,
-			OpF32Const, float32(1000), OpF32Mul),
-		Entry("an integer series by a whole factor",
-			types.Series(in(types.I64(), s)), ms,
-			OpI64Const, int64(1000), OpCall, uint32(0)),
-		Entry("a float series by a factor that is not whole",
-			types.Series(in(types.F64(), psi)), pa,
-			OpF64Const, float64(6894.76), OpCall, uint32(0)),
-	)
-
-	It("should reject an integer series by a factor that is not whole", func(
-		bCtx SpecContext,
-	) {
-		ctx := NewContext(bCtx)
-		Expect(
-			expression.EmitUnitScale(ctx, types.Series(in(types.I64(), psi)), pa),
-		).To(MatchError(ContainSubstring("cannot convert a series of")))
-	})
-})
-
-var _ = Describe("EmitCast", func() {
-	var (
-		ms = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
-		s  = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
 	)
 	in := func(t types.Type, unit *types.Unit) types.Type {
 		t.Unit = unit
@@ -752,6 +704,23 @@ var _ = Describe("EmitCast", func() {
 		},
 		Entry("the same type", in(types.I64(), s), in(types.I64(), ms),
 			OpI64Const, int64(1000), OpI64Mul),
+		Entry("the same type in a larger unit",
+			in(types.I64(), ms), in(types.I64(), s),
+			OpI64Const, int64(1000), OpI64DivS),
+		Entry("a float in a larger unit", in(types.F64(), ms), in(types.F64(), s),
+			OpF64Const, float64(1e-3), OpF64Mul),
+		Entry("a 32-bit integer by a factor that fits",
+			in(types.I32(), s), in(types.I32(), ms),
+			OpI32Const, int32(1000), OpI32Mul),
+		Entry("a 32-bit integer by a factor that does not fit",
+			in(types.I32(), h), in(types.I32(), ns),
+			OpF64ConvertI32S, OpF64Const, float64(3600e9), OpF64Mul, OpI32TruncF64S),
+		Entry("an integer by a factor that is not whole",
+			in(types.I64(), psi), in(types.I64(), pa),
+			OpF64ConvertI64S, OpF64Const, float64(6894.76), OpF64Mul, OpI64TruncF64S),
+		Entry("a 32-bit float in a smaller unit",
+			in(types.F32(), s), in(types.F32(), ms),
+			OpF32Const, float32(1000), OpF32Mul),
 		Entry("a 32-bit integer to a 64-bit integer",
 			in(types.I32(), s), in(types.I64(), ms),
 			OpI64ExtendI32S, OpI64Const, int64(1000), OpI64Mul),

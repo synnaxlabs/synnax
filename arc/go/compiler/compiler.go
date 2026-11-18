@@ -356,8 +356,8 @@ func compileFmtStrSynthetic(
 	}, nil
 }
 
-// compileScaleSynthetic emits a WASM body that returns its one input in the unit of
-// its output. An integer truncates toward zero.
+// compileScaleSynthetic emits a WASM body that returns its one input in the type and
+// unit of its output. An integer truncates toward zero.
 func compileScaleSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
@@ -371,7 +371,7 @@ func compileScaleSynthetic(
 	if in.Kind == types.KindVarRef && in.Elem != nil {
 		in = *in.Elem
 	}
-	if !types.UnitsConvertible(in.Unit, out.Unit) || in.Kind != out.Kind {
+	if !types.UnitsConvertible(in.Unit, out.Unit) {
 		return compiledFunction{}, errors.Newf(
 			"unit conversion %s cannot convert %s to %s", fn.Key, in, out,
 		)
@@ -382,7 +382,7 @@ func compileScaleSynthetic(
 		Results: []wasm.ValueType{wasm.ConvertType(out)},
 	})
 	ctx.Writer.WriteLocalGet(0)
-	if err := expression.EmitUnitScale(ctx, in, out.Unit); err != nil {
+	if err := expression.EmitCast(ctx, in, out); err != nil {
 		return compiledFunction{}, err
 	}
 	return compiledFunction{
