@@ -24,6 +24,7 @@ import { type z } from "zod";
 import { EtherCAT } from "@/feature/ethercat";
 import {
   CONTROL_ENTRY,
+  createDewesoftXSettings,
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
@@ -631,6 +632,21 @@ describe("Write", () => {
           "one network.",
       ),
     ).toBeTruthy();
+  });
+
+  it("should mark a channel on a slave that DewesoftX sets up", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [], outputs: [CONTROL_ENTRY] },
+      settings: createDewesoftXSettings(true),
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    const option = await screen.findByRole("option", { name: /0x7000:01/ });
+    await waitFor(() => expect(getChannelItemStatus(option)).toBe("warning"));
   });
 
   it("should ask for a found slave in place of one with no network", async () => {

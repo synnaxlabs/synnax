@@ -213,7 +213,7 @@ const identifierProblem = (
 };
 
 /** @returns why the slaves of the task cannot run on one network, or null. */
-const networksProblem = (slaves: SlaveDevice[]): string | null => {
+const mixedNetworksProblem = (slaves: SlaveDevice[]): string | null => {
   const networks = unique
     .unique(slaves.map((s) => s.properties.network).filter((n) => n !== ""))
     .sort();
@@ -265,13 +265,13 @@ const problemsOf = (
   onRack: SlaveOnRack[],
 ): Problem[] => {
   const used = slaves.filter((s) => channels.some((ch) => ch.device === s.key));
-  const networks = networksProblem(used);
+  const mixed = mixedNetworksProblem(used);
   const enabled = Map.groupBy(
     channels.filter((ch) => !ch.disabled),
     (ch) => ch.device,
   );
   const problems: Problem[] =
-    networks == null ? [] : [{ path: ["channels"], message: networks }];
+    mixed == null ? [] : [{ path: ["channels"], message: mixed }];
   channels.forEach((ch, i) => {
     const slave = used.find((s) => s.key === ch.device);
     if (slave == null) return;
@@ -292,10 +292,10 @@ const problemsOf = (
 /**
  * Checks the channels of a task against their slaves as the user edits: one network for
  * every slave, no other slave with the position, serial number, or identifier of a
- * slave, a configured slave for each channel, and for each enabled channel its entry
- * and, on inputs, the settings of the input it reads. A channel whose slave has not
- * loaded is not checked, so a deploy runs {@link checkSlaves} too. The deploy config
- * schema checks that each channel has a device and an entry.
+ * slave, a configured slave that a scan found for each channel, and for each enabled
+ * channel its entry and, on inputs, the settings of the input it reads. A channel whose
+ * slave has not loaded is not checked, so a deploy runs {@link checkSlaves} too. The
+ * deploy config schema checks that each channel has a device and an entry.
  * @param slaves - The slaves that the channels of the task use.
  * @param onRack - The slaves on the rack of the task.
  */
