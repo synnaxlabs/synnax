@@ -10,7 +10,7 @@
 ch:
   addr: clickhouse:9000
   user: default
-  password: uptrace
+  password:
   database: uptrace
   max_execution_time: 30s
 

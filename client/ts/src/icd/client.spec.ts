@@ -552,6 +552,19 @@ describe("icd", () => {
       await client.icds.delete(keys);
       await expect(client.icds.retrieve(keys)).rejects.toThrow(NotFoundError);
     });
+
+    it("should notify another client of a delete", async () => {
+      const ic = await client.icds.create(createNew());
+      const other = createTestClient();
+      await other.connect();
+      const deleted: icd.Key[] = [];
+      const stop = other.icds.onDelete((key) => deleted.push(key));
+      await other.icds.retrieve(ic.key);
+      await client.icds.delete(ic.key);
+      await expect.poll(() => deleted).toEqual([ic.key]);
+      stop();
+      await other.close();
+    });
   });
 
   describe("resources", () => {
