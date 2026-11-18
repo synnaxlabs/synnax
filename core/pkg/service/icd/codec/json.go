@@ -250,7 +250,7 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 			case icd.NowTimestampDefault:
 				f.generate = appendNow
 			case nil:
-				return jsonVariant{}, errDefaultType
+				return jsonVariant{}, errUntypedDefault
 			}
 		}
 	case icd.JSONJSONField:
@@ -265,11 +265,11 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 		if v.Default != nil {
 			switch d := v.Default.Variant.(type) {
 			case icd.ConstantUUIDDefault:
-				out.fallback = strconv.AppendQuote(nil, d.Value.String())
+				f.fallback = d.Value[:]
 			case icd.RandomUUIDDefault:
 				f.generate = appendRandomUUID
 			case nil:
-				return jsonVariant{}, errDefaultType
+				return jsonVariant{}, errUntypedDefault
 			}
 		}
 	case icd.BytesJSONField:
@@ -285,7 +285,7 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 	return out, nil
 }
 
-var errDefaultType = errors.Wrap(validate.ErrValidation, "default: type is required")
+var errUntypedDefault = errors.Wrap(validate.ErrValidation, "default: type is required")
 
 func appendNow(dst []byte) []byte {
 	return telem.ByteOrder.AppendUint64(dst, uint64(telem.Now()))

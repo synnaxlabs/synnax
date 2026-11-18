@@ -35,6 +35,7 @@ const createNew = (name: string = "ICD"): icd.New => ({
             kind: "integer",
             scale: 0.1,
             units: "degC",
+            default: 250,
           },
         ],
       },
@@ -87,6 +88,7 @@ describe("icd", () => {
         kind: "integer",
         scale: 0.1,
         units: "degC",
+        default: 250,
       });
       const keys = [msg.key, ...fields.map((f) => f.key)];
       expect(new Set(keys).size).toEqual(keys.length);
@@ -102,7 +104,7 @@ describe("icd", () => {
               format: "text",
               prefix: "$T",
               fields: [
-                { encoding: "delimited", name: "temp", position: 1 },
+                { encoding: "delimited", name: "temp", position: 1, default: 0.5 },
                 { encoding: "tagged", name: "rh", tag: "RH=" },
               ],
             },
@@ -116,7 +118,13 @@ describe("icd", () => {
           delimiter: ",",
           prefix: "$T",
           fields: [
-            { encoding: "delimited", name: "temp", position: 1, scale: 1 },
+            {
+              encoding: "delimited",
+              name: "temp",
+              position: 1,
+              scale: 1,
+              default: 0.5,
+            },
             { encoding: "tagged", name: "rh", tag: "RH=" },
           ],
         },

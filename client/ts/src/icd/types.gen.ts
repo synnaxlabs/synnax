@@ -356,7 +356,10 @@ export const floatJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("float"),
   /** enumValues maps text labels in the document to values. */
   enumValues: payload.floatEntryZ.array().default(() => []),
-  /** default is the value when a read finds none or no channel is bound. */
+  /**
+   * default is the raw value, before scale and offset, when a read finds none or no
+   * channel is bound.
+   */
   default: payload.floatZ.optional(),
 });
 export interface FloatJSONField extends z.infer<typeof floatJSONFieldZ> {}
@@ -366,7 +369,10 @@ export const integerJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("integer"),
   /** enumValues maps text labels in the document to values. */
   enumValues: payload.integerEntryZ.array().default(() => []),
-  /** default is the value when a read finds none or no channel is bound. */
+  /**
+   * default is the raw value, before scale and offset, when a read finds none or no
+   * channel is bound.
+   */
   default: payload.integerZ.optional(),
 });
 export interface IntegerJSONField extends z.infer<typeof integerJSONFieldZ> {}
@@ -376,7 +382,10 @@ export const unsignedJSONFieldZ = jsonBaseFieldZ.extend({
   type: z.literal("unsigned"),
   /** enumValues maps text labels in the document to values. */
   enumValues: payload.unsignedEntryZ.array().default(() => []),
-  /** default is the value when a read finds none or no channel is bound. */
+  /**
+   * default is the raw value, before scale and offset, when a read finds none or no
+   * channel is bound.
+   */
   default: payload.unsignedZ.optional(),
 });
 export interface UnsignedJSONField extends z.infer<typeof unsignedJSONFieldZ> {}

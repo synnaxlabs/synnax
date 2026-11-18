@@ -117,6 +117,10 @@ func (c *checker) checkMessage(path []string, m Message) {
 					c.Addf(pathOf(fieldPath, "tag"), "tag is required")
 				}
 			}
+			if d := f.Base().Default; d != nil &&
+				(math.IsNaN(float64(*d)) || math.IsInf(float64(*d), 0)) {
+				c.Addf(pathOf(fieldPath, "default"), "default must be finite")
+			}
 		}
 	case JSONPayload:
 		if p.Match != nil {
@@ -313,7 +317,7 @@ func (c *checker) checkMultiplexor(
 		return
 	}
 	for i, v := range b.MultiplexValues {
-		if !fits(v, mux) {
+		if !fits(float64(v), mux) {
 			c.Addf(
 				pathOf(path, "multiplex_values", strconv.Itoa(i)),
 				"value %d does not fit the multiplexor %q",
@@ -387,7 +391,7 @@ func (c *checker) checkIdentifier(
 			)
 		case !integral(f):
 			c.Addf(pathOf(idPath, "field"), "the identifier must be an integer field")
-		case validBitLength(f.BitLength) && !fits(id.Value, f):
+		case validBitLength(f.BitLength) && !fits(float64(id.Value), f):
 			c.Addf(
 				pathOf(idPath, "value"),
 				"value %d does not fit the field %q",
@@ -441,12 +445,13 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
 	v := float64(*f.Default)
 	switch {
+	case math.IsNaN(v) || math.IsInf(v, 0):
+		c.Addf(path, "default must be finite")
 	case integral(f) && v != math.Trunc(v):
 		c.Addf(path, "default %g is not a whole number", v)
-	case integral(f) && !holds(v, f):
+	case integral(f) && !fits(v, f):
 		c.Addf(path, "default %g does not fit the field", v)
-	case f.Kind == payload.KindFloat && f.BitLength == 32 &&
-		math.Abs(v) > math.MaxFloat32 && !math.IsInf(v, 0):
+	case f.Kind == payload.KindFloat && f.BitLength == 32 && math.Abs(v) > math.MaxFloat32:
 		c.Addf(path, "default %g does not fit a 32-bit float", v)
 	}
 }
@@ -585,20 +590,8 @@ func integral(f BinaryField) bool {
 	return f.Kind == payload.KindInteger || f.Kind == payload.KindUnsigned
 }
 
-// fits reports whether the integer field f can hold v.
-func fits(v int32, f BinaryField) bool {
-	n := int64(f.BitLength)
-	if f.Kind == payload.KindUnsigned {
-		return v >= 0 && (n >= 31 || int64(v) < int64(1)<<n)
-	}
-	if n >= 32 {
-		return true
-	}
-	return int64(v) >= -(int64(1)<<(n-1)) && int64(v) < int64(1)<<(n-1)
-}
-
-// holds reports whether the integer field f can hold the whole number v.
-func holds(v float64, f BinaryField) bool {
+// fits reports whether the integer field f can hold the whole number v.
+func fits(v float64, f BinaryField) bool {
 	n := int(f.BitLength)
 	if f.Kind == payload.KindUnsigned {
 		return v >= 0 && v < math.Ldexp(1, n)

@@ -208,6 +208,7 @@ var _ = Describe("JSON", func() {
 
 	Describe("Generated defaults", func() {
 		decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
+			GinkgoHelper()
 			return MustSucceed(codec.NewJSON([]codec.JSONMessage{{
 				Name:     "reading",
 				Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},

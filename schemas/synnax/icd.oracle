@@ -238,7 +238,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Float?       {
-            @doc value "is the value when a read finds none or no channel is bound."
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
         }
 
         @doc value "is a JSON number read as a float."
@@ -248,7 +251,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Integer?       {
-            @doc value "is the value when a read finds none or no channel is bound."
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
         }
 
         @doc value "is a JSON number read as a signed integer."
@@ -258,7 +264,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
             @doc value "maps text labels in the document to values."
         }
         default     payload.Unsigned?       {
-            @doc value "is the value when a read finds none or no channel is bound."
+            @doc value """
+                is the raw value, before scale and offset, when a read finds none or no
+                channel is bound.
+            """
         }
 
         @doc value "is a JSON number read as an unsigned integer."

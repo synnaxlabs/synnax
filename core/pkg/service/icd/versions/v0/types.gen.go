@@ -764,7 +764,8 @@ type FloatJSONField struct {
 	JSONBaseField
 	// EnumValues maps text labels in the document to values.
 	EnumValues []payload.FloatEntry `json:"enum_values" msgpack:"enum_values"`
-	// Default is the value when a read finds none or no channel is bound.
+	// Default is the raw value, before scale and offset, when a read finds none or no
+	// channel is bound.
 	Default *payload.Float `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
@@ -788,7 +789,8 @@ type IntegerJSONField struct {
 	JSONBaseField
 	// EnumValues maps text labels in the document to values.
 	EnumValues []payload.IntegerEntry `json:"enum_values" msgpack:"enum_values"`
-	// Default is the value when a read finds none or no channel is bound.
+	// Default is the raw value, before scale and offset, when a read finds none or no
+	// channel is bound.
 	Default *payload.Integer `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
@@ -812,7 +814,8 @@ type UnsignedJSONField struct {
 	JSONBaseField
 	// EnumValues maps text labels in the document to values.
 	EnumValues []payload.UnsignedEntry `json:"enum_values" msgpack:"enum_values"`
-	// Default is the value when a read finds none or no channel is bound.
+	// Default is the raw value, before scale and offset, when a read finds none or no
+	// channel is bound.
 	Default *payload.Unsigned `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
