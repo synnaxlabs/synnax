@@ -373,6 +373,50 @@
           }
         },
         "expected": ["a", "c"]
+      },
+      {
+        "name": "nested matches the ranges in a range",
+        "where": { "nested": true },
+        "expected": []
+      },
+      {
+        "name": "a false nested matches the top-level ranges",
+        "where": { "nested": false },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "labeled matches the ranges with a label",
+        "where": { "labeled": true },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "a false labeled matches the ranges with no label",
+        "where": { "labeled": false },
+        "expected": ["c"]
+      },
+      {
+        "name": "stages matches the ranges in any of the stages",
+        "where": { "stages": ["to_do", "completed"] },
+        "expected": ["a", "b", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "stages leaves the ranges in other stages",
+        "where": { "stages": ["in_progress"] },
+        "expected": [],
+        "server_computed": true
+      },
+      {
+        "name": "recent matches the ranges in the span that ends now",
+        "where": { "recent": 3153600000000000000 },
+        "expected": ["a", "b", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "recent leaves the ranges before the span",
+        "where": { "recent": 3600000000000 },
+        "expected": [],
+        "server_computed": true
       }
     ]
   },

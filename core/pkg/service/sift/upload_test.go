@@ -59,13 +59,13 @@ var _ = Describe("Upload", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		f = MustOpen(sift.OpenFactory(factoryConfig()))
-		server = MustOpen(fake.Open(fake.Config{APIKey: apiKey}))
+		server = MustOpen(fake.Open(fake.Config{APIKey: fakeKey}))
 		t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})
 		configure(ctx)
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		dev = createDevice(ctx, sift.Properties{
 			URI:    server.Address(),
-			APIKey: createAPIKey(ctx, apiKey),
+			APIKey: createAPIKey(ctx, fakeKey),
 		})
 		idx = createIndex(ctx)
 		ch = createData(ctx, idx)
@@ -86,7 +86,9 @@ var _ = Describe("Upload", func() {
 			"asset":    "stand",
 		})
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
-		return stat.Details.Data["status"].(string)
+		key, ok := stat.Details.Data["status"].(string)
+		Expect(ok).To(BeTrue())
+		return key
 	}
 
 	statusOf := func(ctx context.Context, key status.Key) AsyncAssertion {
@@ -112,7 +114,28 @@ var _ = Describe("Upload", func() {
 			),
 			HaveField("AssetIds", ConsistOf("asset-stand")),
 		)))
-		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", rng.Key))
+		Expect(
+			uploadStatus(ctx, key),
+		).To(HaveField("Details.Range", HaveValue(Equal(rng.Key))))
+	})
+
+	It("Should send a plain time span without a run", func(ctx SpecContext) {
+		stat := execCommand(ctx, dt, t, "upload", map[string]any{
+			"device":     dev.Key,
+			"time_range": telem.TimeRange{Start: at(2), End: at(4)},
+			"channels":   []channel.Key{ch.Key()},
+			"asset":      "stand",
+		})
+		Expect(stat.Variant).To(Equal(status.VariantSuccess))
+		key, ok := stat.Details.Data["status"].(string)
+		Expect(ok).To(BeTrue())
+		statusOf(ctx, key).Should(SatisfyAll(
+			HaveField("Name", "stand"),
+			HaveField("Variant", status.VariantSuccess),
+			HaveField("Description", "Sent 2 samples to asset stand."),
+		))
+		Expect(server.Runs()).To(BeEmpty())
+		Expect(uploadStatus(ctx, key)).To(HaveField("Details.Range", BeNil()))
 	})
 
 	It("Should tag the run with the labels of the range", func(ctx SpecContext) {
@@ -183,7 +206,7 @@ var _ = Describe("Upload", func() {
 	It("Should start the waiting uploads of a device oldest first",
 		func(ctx SpecContext) {
 			server.Pause()
-			want := []string{rng.Name}
+			want := append(make([]string, 0, 4), rng.Name)
 			upload(ctx)
 			Eventually(server.Streams).Should(Equal(1))
 			for range 3 {
@@ -193,9 +216,10 @@ var _ = Describe("Upload", func() {
 			}
 			server.Resume()
 			Eventually(func() []string {
-				var names []string
-				for _, r := range server.Runs() {
-					names = append(names, r.Name)
+				runs := server.Runs()
+				names := make([]string, len(runs))
+				for i, r := range runs {
+					names[i] = r.Name
 				}
 				return names
 			}).WithTimeout(10 * time.Second).Should(Equal(want))
@@ -222,7 +246,7 @@ var _ = Describe("Upload", func() {
 				Time:    telem.Now(),
 				Details: sift.UploadDetails{
 					Device:    moved.Key,
-					Range:     foreign.Key,
+					Range:     &foreign.Key,
 					TimeRange: foreign.TimeRange,
 					Channels:  []channel.Key{ch.Key()},
 					Asset:     "stand",
@@ -257,6 +281,7 @@ var _ = Describe("Upload", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return deviceSvc.NewWriter(tx).Create(ctx, &moved)
 			})).To(Succeed())
+			deleteAfterSpec(moved)
 			s := sift.UploadStatus{
 				Key:     "sift_upload:" + uuid.NewV7().String(),
 				Name:    rng.Name,
@@ -265,7 +290,7 @@ var _ = Describe("Upload", func() {
 				Time:    telem.Now(),
 				Details: sift.UploadDetails{
 					Device:    moved.Key,
-					Range:     rng.Key,
+					Range:     &rng.Key,
 					TimeRange: rng.TimeRange,
 					Channels:  []channel.Key{ch.Key()},
 					Asset:     "stand",
@@ -387,14 +412,13 @@ var _ = Describe("Upload", func() {
 		})
 
 	It("Should resume an upload after the task restarts", func(ctx SpecContext) {
-		server.Pause()
+		// The upload cannot finish before the stop: Sift holds its run.
+		server.PauseRuns()
 		key := upload(ctx)
-		statusOf(ctx, key).Should(HaveField("Message", "Uploading to Sift"))
-		stopped := make(chan error, 1)
-		go func() { stopped <- dt.Stop(false) }()
-		server.Resume()
-		Eventually(stopped).WithTimeout(10 * time.Second).Should(Receive(Succeed()))
+		statusOf(ctx, key).Should(HaveField("Details.Samples", BeEquivalentTo(4)))
+		Expect(dt.Stop(false)).To(Succeed())
 		Expect(uploadStatus(ctx, key)).To(HaveField("Variant", status.VariantLoading))
+		server.ResumeRuns()
 		configure(ctx)
 		statusOf(ctx, key).Should(HaveField("Variant", status.VariantSuccess))
 		Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
@@ -519,13 +543,6 @@ var _ = Describe("Upload", func() {
 				"asset":    "stand",
 			}
 		}, "device: required"),
-		Entry("no range", func() map[string]any {
-			return map[string]any{
-				"device":   dev.Key,
-				"channels": []channel.Key{ch.Key()},
-				"asset":    "stand",
-			}
-		}, "range: required"),
 		Entry("a device that does not exist", func() map[string]any {
 			return map[string]any{
 				"device":   missingDevice,
@@ -572,6 +589,33 @@ var _ = Describe("Upload", func() {
 				"asset":  "stand",
 			}
 		}, "channels: must be non-empty"),
+		Entry("no range or time range", func() map[string]any {
+			return map[string]any{
+				"device":   dev.Key,
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "a range or a time range is required"),
+		Entry("a range and a time range", func() map[string]any {
+			return map[string]any{
+				"device":     dev.Key,
+				"range":      rng.Key,
+				"time_range": telem.TimeRange{Start: at(1), End: at(2)},
+				"channels":   []channel.Key{ch.Key()},
+				"asset":      "stand",
+			}
+		}, "cannot be set with a range"),
+		Entry("a time range in the future", func() map[string]any {
+			return map[string]any{
+				"device": dev.Key,
+				"time_range": telem.TimeRange{
+					Start: telem.Now().Add(telem.Hour),
+					End:   telem.Now().Add(2 * telem.Hour),
+				},
+				"channels": []channel.Key{ch.Key()},
+				"asset":    "stand",
+			}
+		}, "time range starts in the future, so it has no data yet"),
 		Entry("a channel that Sift cannot take", func() map[string]any {
 			GinkgoHelper()
 			ctx := context.Background()

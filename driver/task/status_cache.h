@@ -30,9 +30,8 @@ class StatusCache {
         /// after a newer status.
         std::mutex mu;
         synnax::task::Status status;
-        /// @brief true once the task has left this Driver. Set without mu, so a drop
-        /// never waits on a write.
-        std::atomic<bool> dropped = false;
+        /// @brief true once the task has left this Driver. Guarded by mu.
+        bool dropped = false;
     };
 
     const synnax::status::Client client;
@@ -80,7 +79,7 @@ public:
 
     /// @brief forgets the latest status of the task and discards its later statuses, so
     /// that neither a re-send nor a late report writes one. Call it once the task has
-    /// left this Driver. Never waits on a write.
+    /// left this Driver. Waits for a write of the task's own status in progress.
     void drop(const synnax::task::Key &key);
 
     /// @brief writes and keeps the statuses of the task again after drop. Call it

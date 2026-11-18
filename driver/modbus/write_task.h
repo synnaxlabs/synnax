@@ -344,7 +344,7 @@ public:
     WriteTaskSink(const std::shared_ptr<device::Manager> &devs, WriteTaskConfig cfg):
         Sink(cfg.cmd_keys()), config(std::move(cfg)), devs(devs) {}
 
-    x::errors::Error start() override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
         auto [d, err] = this->devs->acquire(
             this->config.props.connection,
             this->config.props.requests

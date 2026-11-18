@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"strconv"
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
@@ -93,12 +94,12 @@ func (e *EntryReadChannel) SetDefaults() {
 	e.Scale.Variant = taskv2.NoneScale{}
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EntryReadChannel) ApplyDefaults() {
-	if e.Scale.Variant == nil {
-		e.Scale.Variant = taskv2.NoneScale{}
-	}
-	e.Scale.ApplyDefaults()
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e EntryReadChannel) Validate() error {
+	v := validate.New("EntryReadChannel")
+	v.Exec(func() error { return validate.PathedError(e.Scale.Validate(), "scale") })
+	return v.Error()
 }
 
 // UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
@@ -197,14 +198,16 @@ func (u ReadChannel) Type() ReadChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadChannel) ApplyDefaults() {
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case EntryReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
+		v.Exec(variant.Validate)
 	}
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -362,6 +365,14 @@ func (u WriteChannel) Type() WriteChannelType {
 	return ""
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteChannel) Validate() error {
+	v := validate.New("WriteChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u WriteChannel) Base() BaseWriteChannel {
 	switch variant := u.Variant.(type) {
@@ -397,14 +408,6 @@ type ReadConfig struct {
 	StartupParameters []SlaveStartupParameters `json:"startup_parameters" msgpack:"startup_parameters"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
@@ -434,6 +437,9 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.Exec(r.ReadConfig.Validate)
+	for i := range r.Channels {
+		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -447,16 +453,6 @@ type WriteConfig struct {
 	ExecutionRate telem.Rate `json:"execution_rate" msgpack:"execution_rate"`
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	if w.StateRate == 0 {
-		w.StateRate = 25
-	}
-	if w.ExecutionRate == 0 {
-		w.ExecutionRate = 1000
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -490,6 +486,9 @@ func (w WriteConfig) Validate() error {
 	v := validate.New("WriteConfig")
 	v.GreaterThan("state_rate", w.StateRate, 0)
 	v.GreaterThan("execution_rate", w.ExecutionRate, 0)
+	for i := range w.Channels {
+		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 

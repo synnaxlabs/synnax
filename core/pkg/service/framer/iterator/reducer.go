@@ -251,6 +251,12 @@ func (p *requestPlanner) transform(
 			return Request{}, false, err
 		}
 		p.reducer.groupSizes.Store(&sizes)
+	case CommandSeekFirst,
+		CommandSeekLast,
+		CommandSeekLE,
+		CommandSeekGE,
+		CommandValid,
+		CommandError:
 	}
 	return req, true, nil
 }

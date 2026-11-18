@@ -104,6 +104,7 @@ var _ = Describe("CollectReferenced", func() {
 		Expect(table.Add(resolution.Type{
 			Name:          "TaskState",
 			Namespace:     "task",
+			FilePath:      "schemas/task.oracle",
 			QualifiedName: "task.TaskState",
 			Form: resolution.EnumForm{
 				Values: []resolution.EnumValue{{Name: "active"}},
@@ -112,6 +113,7 @@ var _ = Describe("CollectReferenced", func() {
 		Expect(table.Add(resolution.Type{
 			Name:          "DataType",
 			Namespace:     "telem",
+			FilePath:      "schemas/telem.oracle",
 			QualifiedName: "telem.DataType",
 			Form: resolution.EnumForm{
 				Values: []resolution.EnumValue{{Name: "float32"}},
@@ -121,6 +123,7 @@ var _ = Describe("CollectReferenced", func() {
 		structs := []resolution.Type{{
 			Name:          "Record",
 			Namespace:     "test",
+			FilePath:      "schemas/test.oracle",
 			QualifiedName: "test.Record",
 			Form: resolution.StructForm{
 				Fields: []resolution.Field{
@@ -140,6 +143,7 @@ var _ = Describe("CollectReferenced", func() {
 		Expect(table.Add(resolution.Type{
 			Name:          "TaskState",
 			Namespace:     "task",
+			FilePath:      "schemas/task.oracle",
 			QualifiedName: "task.TaskState",
 			Form: resolution.EnumForm{
 				Values: []resolution.EnumValue{{Name: "active"}},
@@ -148,6 +152,7 @@ var _ = Describe("CollectReferenced", func() {
 		Expect(table.Add(resolution.Type{
 			Name:          "DataType",
 			Namespace:     "telem",
+			FilePath:      "schemas/telem.oracle",
 			QualifiedName: "telem.DataType",
 			Form: resolution.EnumForm{
 				Values: []resolution.EnumValue{{Name: "float32"}},
@@ -157,6 +162,7 @@ var _ = Describe("CollectReferenced", func() {
 		structs := []resolution.Type{{
 			Name:          "Record",
 			Namespace:     "task",
+			FilePath:      "schemas/task.oracle",
 			QualifiedName: "task.Record",
 			Form: resolution.StructForm{
 				Fields: []resolution.Field{
@@ -171,6 +177,31 @@ var _ = Describe("CollectReferenced", func() {
 		result := enum.CollectReferenced(structs, table)
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].Name).To(Equal("TaskState"))
+	})
+
+	It("should exclude an enum from another schema with the same file name", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Kind",
+			Namespace:     "color",
+			FilePath:      "schemas/x/color.oracle",
+			QualifiedName: "color.Kind",
+			Form: resolution.EnumForm{
+				Values: []resolution.EnumValue{{Name: "solid"}},
+			},
+		})).To(Succeed())
+		structs := []resolution.Type{{
+			Name:          "Named",
+			Namespace:     "color",
+			FilePath:      "schemas/synnax/color.oracle",
+			QualifiedName: "color.Named",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "kind", Type: resolution.TypeRef{Name: "color.Kind"}},
+				},
+			},
+		}}
+		Expect(enum.CollectReferenced(structs, table)).To(BeEmpty())
 	})
 
 	It("should handle empty structs slice", func() {
@@ -658,15 +689,12 @@ var _ = Describe("CollectNamespaceEnums", func() {
 			Domains:       fileDomains,
 		})).To(Succeed())
 
-		customPathFunc := func(typ resolution.Type, t *resolution.Table) string {
-			return enum.FindPBOutputPath(typ, t)
-		}
 		result := enum.CollectNamespaceEnums(
 			"control",
 			"x/go/control/pb",
 			table,
 			"pb",
-			customPathFunc,
+			enum.FindPBOutputPath,
 		)
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].Name).To(Equal("Status"))

@@ -174,7 +174,7 @@ private:
     std::vector<T> buf;
 
     /// @brief implements common::Sink to claim the hardware and start it.
-    x::errors::Error start() override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
         // DAQmx rejects a second task with a live task's name.
         this->hw_writer.reset();
         auto [hw, err] = this->make_hw(this->cfg);

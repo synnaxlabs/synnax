@@ -196,7 +196,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				bases = []channel.Channel{
 					{
 						Name:     UniqueChannelName(),
@@ -554,7 +554,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				bases []channel.Channel
 				calcs []channel.Channel
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				calc1Name := UniqueChannelName()
 				bases = []channel.Channel{{
 					Name:     UniqueChannelName(),
@@ -639,6 +639,80 @@ var _ = Describe("Calculation", Ordered, func() {
 			)
 		})
 
+		Specify("Calculation of Calculations in Separate Groups", func(
+			ctx SpecContext,
+		) {
+			bases := make([]channel.Channel, 5)
+			for i := range bases {
+				bases[i] = channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+			}
+			sumA, sumB := UniqueChannelName(), UniqueChannelName()
+			calcs := []channel.Channel{
+				{
+					Name:        sumA,
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression: fmt.Sprintf(
+						"return %s + %s",
+						bases[0].Name,
+						bases[1].Name,
+					),
+				},
+				{
+					Name:        sumB,
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression: fmt.Sprintf(
+						"return %s + %s + %s",
+						bases[2].Name,
+						bases[3].Name,
+						bases[4].Name,
+					),
+				},
+				{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s + %s", sumA, sumB),
+				},
+			}
+			w, sOutlet, cancel := open(
+				ctx,
+				nil,
+				&bases,
+				&calcs,
+				func(calcs []channel.Channel) channel.Keys {
+					return []channel.Key{calcs[2].Key()}
+				},
+			)
+			defer cancel()
+			est := calcs[2]
+			for _, v := range []int64{1, 10} {
+				series := make([]telem.Series, len(bases))
+				for i := range bases {
+					series[i] = telem.NewSeriesV(v)
+				}
+				Expect(w.Write(frame.NewMulti(
+					channel.KeysFromChannels(bases),
+					series,
+				))).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.Get(est.Key()).Series).To(HaveLen(1))
+				Expect(res.Frame.Get(est.Key()).Series[0]).
+					To(telem.MatchSeriesDataV(5 * v))
+				Consistently(sOutlet.Outlet(), 100*time.Millisecond).
+					ShouldNot(Receive())
+			}
+		})
+
 		Describe("Reset Channels", func() {
 			var base, sig channel.Channel
 			// Requests only calc, writes [10, 20, 30] with the signal off, then [5, 7]
@@ -688,7 +762,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					To(telem.MatchSeriesDataV[int64](7))
 			}
 
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				base = channel.Channel{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
@@ -713,7 +787,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s", base.Name),
+					Expression:  "return " + base.Name,
 					Operations: []channel.Operation{{
 						Type:         channel.OperationTypeMax,
 						ResetChannel: sig.Key(),
@@ -757,7 +831,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return %s", base.Name),
+					Expression:  "return " + base.Name,
 					Operations: []channel.Operation{{
 						Type:         channel.OperationTypeMax,
 						ResetChannel: resetCalc.Key(),
@@ -1019,7 +1093,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return 100 / %s", base.Name),
+					Expression:  "return 100 / " + base.Name,
 				}
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &dep)
@@ -1113,7 +1187,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
-					Expression:  fmt.Sprintf("return 100 / %s", bases[0].Name),
+					Expression:  "return 100 / " + bases[0].Name,
 				}}
 				var cancel context.CancelFunc
 				w, out, cancel = open(

@@ -16,6 +16,8 @@ import "schemas/synnax/task"
 import "schemas/x/telem"
 
 @go output "core/pkg/service/sift"
+@py output "client/py/synnax/sift"
+@ts output "client/ts/src/sift"
 
 Properties struct {
     uri     string = "" {
@@ -99,8 +101,11 @@ UploadDetails struct {
     device     device.Key      {
         @doc value "is the key of the Sift device the upload sends to."
     }
-    range      ranger.Key      {
-        @doc value "is the key of the range whose data the upload sends."
+    range      ranger.Key?     {
+        @doc value """
+            is the key of the range whose data the upload sends. An upload of a plain
+            time span has none.
+        """
     }
     time_range telem.TimeRange {
         @doc value "is the span of data the upload sends."
@@ -116,6 +121,7 @@ UploadDetails struct {
     }
     samples    int64 = 0 {
         @doc value "is the number of values Sift has confirmed."
+        @ts type   "number"
     }
 
     @doc value "is the state of an upload to Sift, held in the details of its status."

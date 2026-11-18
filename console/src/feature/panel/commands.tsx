@@ -9,7 +9,7 @@
 
 import { panel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, Panel } from "@synnaxlabs/pluto";
 
 import { openIconPicker } from "@/feature/panel/IconPicker";
 import { OPEN_WINDOW_TRIGGER, useOpenWindow } from "@/feature/panel/useOpenWindow";
@@ -41,10 +41,11 @@ const useOpenIconPicker = () => {
 
 const useCanChangeIcon = (): boolean => {
   const selected = Session.Panel.useSelectSelected();
-  const canEdit = Access.useUpdateGranted(
+  const granted = Access.useUpdateGranted(
     panel.resourceID(selected == null ? [] : [selected]),
   );
-  return selected != null && canEdit;
+  const owned = Panel.useOwned({ key: selected ?? null });
+  return selected != null && (granted || owned);
 };
 
 const ChangeIconCommand = Command.create({

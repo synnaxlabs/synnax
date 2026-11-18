@@ -12,8 +12,9 @@ import { capture, fixtures } from "@/index";
 import { createKey, openCredentials } from "./common/credentials";
 
 /**
- * Docs `reference/enterprise/users` (Manage sign-in): right-click a user in the users
- * toolbar and select Manage sign-in, create an API key, then set a new password.
+ * Docs `reference/enterprise/users` (Manage sign-in): right-click a user on the Users
+ * page of Settings and select Manage sign-in, create an API key, then set a new
+ * password.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.createUsers([
@@ -23,14 +24,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.login(session);
   await capture.clearPanel(session);
 
-  await capture.openToolbar(session, "user");
-  await capture.resizeToolbar(session, 400);
-  // The toolbar groups users by role and the groups start collapsed.
-  const drawer = page.locator(".console-nav__drawer").first();
-  await session.click(drawer.getByText("Viewer", { exact: true }).first(), {
-    text: true,
-  });
-  const item = capture.treeItem(page, "user:", "grace");
+  await capture.openSettings(session, "Users");
+  const item = page.getByRole("option", { name: "grace", exact: true });
   await session.waitFor(item);
   await session.moveTo({ x: 800, y: 450 });
 

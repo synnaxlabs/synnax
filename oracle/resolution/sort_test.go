@@ -16,14 +16,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// sorted returns a field of type ref marked `@index sorted`, naming sub when it is not
-// empty.
-func sorted(name string, ref resolution.TypeRef, sub string) resolution.Field {
+// sorted returns a field of type ref marked `@index sorted`, naming each of subs.
+func sorted(name string, ref resolution.TypeRef, subs ...string) resolution.Field {
 	expr := resolution.Expression{Name: "sorted"}
-	if sub != "" {
-		expr.Values = []resolution.ExpressionValue{
-			{Kind: resolution.ValueKindIdent, IdentValue: sub},
-		}
+	for _, sub := range subs {
+		expr.Values = append(expr.Values, resolution.ExpressionValue{
+			Kind:       resolution.ValueKindIdent,
+			IdentValue: sub,
+		})
 	}
 	return resolution.Field{
 		Name: name,
@@ -44,13 +44,15 @@ var _ = Describe("Sorts", func() {
 			Namespace:     "test",
 			Form: resolution.StructForm{Fields: []resolution.Field{
 				{Name: "start", Type: resolution.TypeRef{Name: "int64"}},
+				{Name: "end", Type: resolution.TypeRef{Name: "int64"}},
+				{Name: "label", Type: resolution.TypeRef{Name: "string"}},
 			}},
 		})).To(Succeed())
 	})
 
 	It("Should return a sort for each marked field, in field order", func() {
 		sorts := MustSucceed(resolution.Sorts([]resolution.Field{
-			sorted("name", resolution.TypeRef{Name: "string"}, ""),
+			sorted("name", resolution.TypeRef{Name: "string"}),
 			{Name: "count", Type: resolution.TypeRef{Name: "int32"}},
 			sorted("span", resolution.TypeRef{Name: "test.Span"}, "start"),
 		}, table))
@@ -63,6 +65,18 @@ var _ = Describe("Sorts", func() {
 		Expect(sorts[1].Type).To(Equal(resolution.TypeRef{Name: "int64"}))
 		Expect(sorts[1].Leaf().Name).To(Equal("start"))
 		Expect(sorts[1].Path).To(HaveLen(2))
+	})
+
+	It("Should return a sort for each sub-field that a mark names", func() {
+		sorts := MustSucceed(resolution.Sorts([]resolution.Field{
+			sorted("span", resolution.TypeRef{Name: "test.Span"}, "start", "label"),
+		}, table))
+		Expect(sorts).To(HaveLen(2))
+		Expect(sorts[0].Name).To(Equal("span_start"))
+		Expect(sorts[0].Textual).To(BeFalse())
+		Expect(sorts[1].Name).To(Equal("span_label"))
+		Expect(sorts[1].Textual).To(BeTrue())
+		Expect(sorts[1].Leaf().Name).To(Equal("label"))
 	})
 
 	It("Should return no sorts for unmarked fields", func() {
@@ -79,7 +93,7 @@ var _ = Describe("Sorts", func() {
 		Entry(
 			"on an optional field",
 			func() resolution.Field {
-				f := sorted("name", resolution.TypeRef{Name: "string"}, "")
+				f := sorted("name", resolution.TypeRef{Name: "string"})
 				f.Optional = true
 				return f
 			}(),
@@ -87,7 +101,7 @@ var _ = Describe("Sorts", func() {
 		),
 		Entry(
 			"on a value that is not a string or a number",
-			sorted("flag", resolution.TypeRef{Name: "bool"}, ""),
+			sorted("flag", resolution.TypeRef{Name: "bool"}),
 			"flag: only a string or a number can be sorted",
 		),
 		Entry(
@@ -97,13 +111,13 @@ var _ = Describe("Sorts", func() {
 		),
 		Entry(
 			"that names no sub-field",
-			sorted("span", resolution.TypeRef{Name: "test.Span"}, "end"),
-			"span: Span has no field end",
+			sorted("span", resolution.TypeRef{Name: "test.Span"}, "start", "stop"),
+			"span: Span has no field stop",
 		),
 		Entry(
 			"that shares its field with a lookup mark",
 			func() resolution.Field {
-				f := sorted("name", resolution.TypeRef{Name: "string"}, "")
+				f := sorted("name", resolution.TypeRef{Name: "string"})
 				dom := f.Domains["index"]
 				dom.Expressions = append(dom.Expressions, resolution.Expression{
 					Name: "lookup",

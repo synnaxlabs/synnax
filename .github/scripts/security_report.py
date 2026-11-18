@@ -7,16 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Builds the private security report from the scans that security_scan.sh wrote.
+"""Builds the private security report from the scans that security_scan.sh wrote and,
+with --agents, the encrypted agent reports.
 
-Usage: security_report.py <out> [--publish]
+Usage: security_report.py <out> [--agents] [--publish]
 
-Writes the report to <out>/report.md. --publish also files it as a Linear issue in the
-SY team, when it holds a finding or a failed scan, and posts the count and the issue
-link to Slack. If Linear fails, posts the count and the run link to Slack and raises.
-Prints each scan's count and no finding, because logs on a public repository are
-public, so a failed filing keeps only the count: run the workflow again for the report.
-Exits non-zero when a scan failed.
+--agents reads AGENT_JOB_<AREA>, the JSON of each agent job's result and outputs, and
+decrypts each report with the GPG private key in REPORT_PRIVATE_KEY. Writes the report
+to <out>/report.md. --publish also files it as a Linear issue in the SY team, when it
+holds a finding or a failed scan, and posts the count and the issue link to Slack. If
+Linear fails, posts the count and the run link to Slack and raises. Prints each scan's
+count and no finding, because logs on a public repository are public, so a failed filing
+keeps only the count: run the workflow again for the report. Exits non-zero when a scan
+or an agent failed.
 
 Environment for --publish: LINEAR_CLIENT_ID, LINEAR_CLIENT_SECRET, SLACK_WEBHOOK_URL,
 and RUN_URL.
@@ -25,7 +28,10 @@ and RUN_URL.
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
+import tempfile
 import urllib.request
 from collections import defaultdict
 from collections.abc import Callable
@@ -45,6 +51,7 @@ COUNTED = {"error", "warning"}
 LISTED = 25
 # Characters in the whole report, which keeps it within a Linear description.
 LIMIT = 60_000
+SEVERITY = re.compile(r"^### (Critical|High|Medium|Low): (.+)$", re.MULTILINE)
 
 # Sends a JSON payload to a URL with headers and returns the response body.
 Send = Callable[[str, dict[str, Any], dict[str, str]], bytes]
@@ -66,6 +73,7 @@ class Scan:
     exit_code: int
     findings: list[Finding]
     log: str
+    body: str = ""
 
 
 def read_findings(sarif: dict[str, Any]) -> list[Finding]:
@@ -116,6 +124,8 @@ def render_scan(scan: Scan) -> list[str]:
             "",
         ]
     lines = [f"## {scan.name}: {len(scan.findings)} findings", ""]
+    if scan.body:
+        return [*lines, scan.body, ""]
     by_rule: dict[tuple[str, str], list[Finding]] = defaultdict(list)
     for f in scan.findings:
         by_rule[(f.rule, f.level)].append(f)
@@ -128,21 +138,68 @@ def render_scan(scan: Scan) -> list[str]:
     return lines
 
 
+def gpg(home: str, *args: str, text: str) -> str:
+    cmd = ["gpg", "--homedir", home, "--batch", "--quiet", *args]
+    done = subprocess.run(cmd, input=text, capture_output=True, text=True)
+    if done.returncode != 0:
+        raise RuntimeError(f"gpg failed: {done.stderr.strip()}")
+    return done.stdout
+
+
+def read_agents(jobs: dict[str, Any], key: str) -> list[Scan]:
+    """Decrypts the report of each agent job, keyed by area, with the private key."""
+    scans = []
+    # A short home, since the gpg-agent socket path has a length limit.
+    with tempfile.TemporaryDirectory(dir="/tmp") as home:
+        try:
+            gpg(home, "--import", text=key)
+            imported = ""
+        except RuntimeError as e:
+            imported = str(e)
+        for area, job in sorted(jobs.items()):
+            name = f"agent-{area}"
+            armor = job.get("outputs", {}).get("report", "")
+            if imported:
+                scans.append(Scan(name, 1, [], imported))
+                continue
+            if job["result"] != "success" or not armor:
+                log = f"The agent job ended with {job['result']} and no report."
+                scans.append(Scan(name, 1, [], log))
+                continue
+            try:
+                body = gpg(home, "--decrypt", text=armor).strip()
+            except RuntimeError as e:
+                scans.append(Scan(name, 1, [], str(e)))
+                continue
+            findings = [
+                Finding(m[1], m[1].lower(), "", m[2]) for m in SEVERITY.finditer(body)
+            ]
+            if not findings and not body.startswith("No findings."):
+                log = f"The report has no finding and no `No findings.`:\n\n{body}"
+                scans.append(Scan(name, 1, [], log))
+                continue
+            scans.append(Scan(name, 0, findings, "", body))
+        subprocess.run(["gpgconf", "--homedir", home, "--kill", "all"], check=True)
+    return scans
+
+
 def render(scans: list[Scan], run_url: str) -> str:
     total = sum(len(s.findings) for s in scans)
     lines = [f"Findings: {total}.", ""]
     if run_url:
         lines += [f"Run: {run_url}", ""]
+    ends = []
     for scan in scans:
         lines += render_scan(scan)
+        ends.append((scan.name, len("\n".join(lines))))
     report = "\n".join(lines)
     if len(report) <= LIMIT:
         return report
     cut = report.rfind("\n", 0, LIMIT - 200)
-    omitted = report[cut:].count("\n- ")
+    first = next(name for name, end in ends if end > cut)
     return (
         f"{report[:cut]}\n\nThe report stops at the size limit of a Linear issue. "
-        f"It omits {len(report) - cut} characters and {omitted} listed findings."
+        f"It omits {len(report) - cut} characters, from the {first} section on."
     )
 
 
@@ -223,11 +280,20 @@ def main(
 ) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("out", type=Path)
+    p.add_argument("--agents", action="store_true")
     p.add_argument("--publish", action="store_true")
     args = p.parse_args(argv)
     scans = read_scans(args.out)
     if not scans:
         sys.exit(f"{args.out} holds no scan")
+    # The agent reports have no size cap, so they go after the bounded scanner sections.
+    if args.agents:
+        jobs = {
+            name.removeprefix("AGENT_JOB_").lower(): json.loads(value)
+            for name, value in os.environ.items()
+            if name.startswith("AGENT_JOB_")
+        }
+        scans += read_agents(jobs, os.environ["REPORT_PRIVATE_KEY"])
     report = render(scans, os.environ.get("RUN_URL", ""))
     (args.out / "report.md").write_text(report)
     for scan in scans:

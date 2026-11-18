@@ -391,4 +391,44 @@ sequence main {
     ASSERT_NE(main_scope, nullptr);
     ASSERT_EQ(main_scope->steps.size(), 2);
 }
+
+/// @brief it should return the calculated channels that an Arc reads, nested ones
+/// included, with dependencies first.
+TEST(TestArc, testRetrieveWithCalculations) {
+    const auto client = new_test_client();
+    const auto base_ch = ASSERT_NIL_P(
+        client.channels.create(make_unique_channel_name("calc_base"), x::telem::INT64_T)
+    );
+    const auto out = ASSERT_NIL_P(
+        client.channels.create(make_unique_channel_name("calc_out"), x::telem::INT64_T)
+    );
+    channel::Channel inner{
+        .name = make_unique_channel_name("calc_inner"),
+        .data_type = x::telem::INT64_T,
+        .is_virtual = true,
+        .expression = "return " + base_ch.name + " + 1",
+    };
+    ASSERT_NIL(client.channels.create(inner));
+    channel::Channel outer{
+        .name = make_unique_channel_name("calc_outer"),
+        .data_type = x::telem::INT64_T,
+        .is_virtual = true,
+        .expression = "return " + inner.name + " * 2",
+    };
+    ASSERT_NIL(client.channels.create(outer));
+    Arc arc = AutomationArc{{
+        .name = random_arc_name("calculations"),
+        .source = TextSource{.text = {.raw = outer.name + " -> " + out.name}},
+    }};
+    ASSERT_NIL(client.arcs.create(arc));
+    const auto retrieved = ASSERT_NIL_P(
+        client.arcs.retrieve(base(arc).key, RetrieveOptions{.include_program = true})
+    );
+    const auto &calculations = std::get<AutomationArc>(retrieved).calculations;
+    ASSERT_EQ(calculations.size(), 2);
+    ASSERT_EQ(calculations[0].channel, inner.key);
+    ASSERT_EQ(calculations[1].channel, outer.key);
+    for (const auto &c: calculations)
+        ASSERT_FALSE(c.program.wasm.empty());
+}
 }

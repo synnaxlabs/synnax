@@ -10,30 +10,32 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { plural } from "pluralize";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
-import { useContext, useFormContext } from "@/platform/view/context";
+import { CSS } from "@/platform/css";
+import { useContext, useSearchContext } from "@/platform/view/context";
 
-export const Search = (): ReactElement | null => {
-  const { search } = useFormContext("View.Search");
-  const { editable, resourceType } = useContext("View.Search");
-  const [value, setValue] = useState("");
-  const handleChange = (v: string) => {
-    setValue(v);
-    search(v);
-  };
-  if (!editable) return null;
+/**
+ * The search field of a frame, which holds the term. It saves nothing, so every reader
+ * gets it.
+ */
+export const Search = (): ReactElement => {
+  const { resourceType } = useContext("View.Search");
+  const { term, setTerm } = useSearchContext("View.Search");
   return (
-    <Input.Text
-      size="small"
-      level="h5"
-      color={9}
-      startContent={startContent}
-      variant="text"
-      value={value}
-      onChange={handleChange}
-      placeholder={`Search ${plural(resourceType)}...`}
-    />
+    <div className={CSS.BE("view", "search")}>
+      <Input.Text
+        size="small"
+        level="h5"
+        color={9}
+        startContent={startContent}
+        variant="text"
+        grow
+        value={term}
+        onChange={setTerm}
+        placeholder={`Search ${plural(resourceType)}...`}
+      />
+    </div>
   );
 };
 

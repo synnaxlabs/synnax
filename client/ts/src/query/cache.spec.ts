@@ -55,7 +55,7 @@ class MockStreamer implements framer.Streamer {
       if (fr != null) return { done: false, value: fr };
       if (this.dropped) throw new Error("conn dropped");
       if (this.done) return { done: true, value: undefined };
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await sleep.sleep(TimeSpan.milliseconds(5));
     }
   }
 
@@ -99,7 +99,7 @@ const lateFrameStreamer = (frame: framer.Frame): framer.Streamer => {
   let closed = false;
   let emitted = false;
   const next = async (): Promise<IteratorResult<framer.Frame>> => {
-    while (!closed) await new Promise((resolve) => setTimeout(resolve, 2));
+    while (!closed) await sleep.sleep(TimeSpan.milliseconds(2));
     if (emitted) return { done: true, value: undefined };
     emitted = true;
     return { done: false, value: frame };
@@ -1075,7 +1075,7 @@ describe("Cache", () => {
       await cache.reset();
       release([{ key: "kept", name: "old-cluster" }]);
       await gate;
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await sleep.sleep(TimeSpan.milliseconds(5));
       expect(table.get("kept")).toBeUndefined();
       expect(table.keys()).toEqual([]);
       await cache.close();

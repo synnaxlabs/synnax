@@ -20,9 +20,19 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { deep, strings, TimeSpan } from "@synnaxlabs/x";
+import { deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
+import { clashMessage, findClash } from "@/feature/ethercat/device/identifier";
+import {
+  formatLocation,
+  slotZ,
+  suggestIdentifiers,
+} from "@/feature/ethercat/device/location";
+import {
+  useRestartTasks,
+  useRunningOnNetwork,
+} from "@/feature/ethercat/device/queries";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
@@ -50,15 +60,13 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device } from "@/platform/device";
+import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 const AUTO = -1;
 const STALE = -2;
 
 const BADGE_CLASS = CSS.BE("ethercat-sync", "badge");
-
-/** The start of the name of a network that the IgH master runs. */
-const IGH_PREFIX = "igh:";
 
 const STALE_ERROR =
   "The device no longer lists this mode, so the network fails to start. Pick a mode.";
@@ -260,27 +268,44 @@ const useForm = PDevice.createForm(SLAVE_SCHEMAS, INITIAL_VALUES);
 
 // A check reports issues without making the form invalid, so its errors stop the save.
 const beforeSave = async ({
+  client,
   getStatuses,
   set,
+  setStatus,
+  value,
 }: Flux.FormBeforeSaveParams<
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SLAVE_SCHEMAS>
 >): Promise<boolean> => {
   if (getStatuses().some(({ variant }) => variant === "error")) return false;
+  const other = findClash(value(), await client.devices.retrieve({}));
+  if (other != null) {
+    setStatus(path.properties.identifier, {
+      variant: "error",
+      message: clashMessage(other),
+    });
+    return false;
+  }
   set(path.configured, true);
   return true;
 };
 
+const SLOT_FORMAT: PDevice.LocationFormat = { shape: "slot" };
+
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "EtherCAT slave",
+  placeholder: "EtherCAT module",
   "aria-label": "Name",
 } as const;
 
 const General = (): ReactElement => {
-  const name = Form.useFieldValue(path.name);
+  const networkName =
+    Form.useFieldValue(path.properties.networkName, { optional: true }) ?? undefined;
+  const position = Form.useFieldValue(path.properties.position);
   const { set } = Form.useContext();
+  const slot = { networkName, position };
+  const ideas = suggestIdentifiers(slot);
   return (
     <Form.Section title="General">
       <Form.TextField
@@ -293,23 +318,41 @@ const General = (): ReactElement => {
         <Text.Text level="small" color={9}>
           A short prefix for every channel on this device.
         </Text.Text>
-        <Flex.Box x align="center" wrap>
-          <Icon.Bolt />
-          {strings.createShortIdentifiers(name ?? "").map((id) => (
-            <Button.Button
-              key={id}
-              onClick={() => set(path.properties.identifier, id)}
-              size="small"
-              variant="text"
+        {ideas.length > 0 && (
+          // The ideas wrap apart from the icon, so the icon never sits alone on a line.
+          <Flex.Box x align="start" gap="small">
+            <Flex.Box
+              x
+              align="center"
+              className={CSS.BE("ethercat-configure", "ideas-icon")}
             >
-              {id}
-            </Button.Button>
-          ))}
-        </Flex.Box>
+              <Icon.Bolt />
+            </Flex.Box>
+            <Flex.Box x align="center" wrap>
+              {ideas.map((id) => (
+                <Button.Button
+                  key={id}
+                  onClick={() => set(path.properties.identifier, id)}
+                  size="small"
+                  variant="text"
+                >
+                  {id}
+                </Button.Button>
+              ))}
+            </Flex.Box>
+          </Flex.Box>
+        )}
       </Flex.Box>
     </Form.Section>
   );
 };
+
+interface SaveOptions {
+  /** Opens a task for the slave after the save. */
+  createTask?: (deviceKey: string) => void;
+  /** Restarts the tasks that run on the network after the save. */
+  restart?: boolean;
+}
 
 /**
  * The form that sets the name, identifier, sync mode, settings, and startup parameters
@@ -326,8 +369,11 @@ export const Configure = ({
     query: { key: deviceKey },
     beforeSave,
   });
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   // Save sets configured, so the dialog keeps the slave as it was at open.
   const [opened] = useState(form.value);
+  const openedSlot = slotZ.parse(opened.properties);
   const checked = useRef(false);
   // The checks show the platform's messages in place of the stored schema's.
   useEffect(() => form.addCheck(path.name, Device.nameZ), [form]);
@@ -345,11 +391,10 @@ export const Configure = ({
   const shared = settings?.mode?.shared === true;
   const network = Form.useFieldValue(path.properties.network, { ctx: form });
   const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
-  // The IgH master runs no DC sync, so it does not run the choice of the catalog.
-  const catalog =
-    given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
-      ? given
-      : null;
+  // The network applies the settings of each slave on it, configured or not.
+  const running = useRunningOnNetwork(opened.rack, network);
+  const { update: restartTasks } = useRestartTasks();
+  const catalog = given != null && !isStale(modes, given) ? given : null;
   const { capture } = Analytics.use();
   const stale = choice != null && isStale(modes, choice);
   const index = choice == null ? autoIndex(modes, catalog) : choice.index;
@@ -364,7 +409,7 @@ export const Configure = ({
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
-  const save = async (createTask?: (deviceKey: string) => void) => {
+  const save = async ({ createTask, restart = false }: SaveOptions = {}) => {
     // A new slave has no identifier, so its check applies from the first Save on.
     if (!checked.current) {
       form.addCheck(path.properties.identifier, Device.identifierZ);
@@ -377,6 +422,7 @@ export const Configure = ({
     if (!opened.configured) capture("device_configured", { make: MAKE });
     createTask?.(deviceKey);
     close();
+    if (restart) restartTasks({ rack: opened.rack, network });
   };
   // In auto, the Mode select says what runs. Cycles show only to fix a failed start.
   let help: HelpProps | null = null;
@@ -428,8 +474,17 @@ export const Configure = ({
         !shared && CSS.M("wide"),
       )}
     >
-      <Modal.Header icon={<Icon.Logo.EtherCAT />}>
-        {[opened.name, "Configure"]}
+      <Modal.Header
+        icon={<Icon.Logo.EtherCAT />}
+        badge={
+          <Device.LocationBadge
+            value={formatLocation(opened.location, openedSlot)}
+            // An older Driver names no network, so show only the slot of its location.
+            format={openedSlot.networkName == null ? SLOT_FORMAT : undefined}
+          />
+        }
+      >
+        {["Configure", opened.name]}
       </Modal.Header>
       <Modal.Body align="stretch" gap="large">
         <Form.Form<PDevice.FormSchema<typeof SLAVE_SCHEMAS>> {...form}>
@@ -444,6 +499,7 @@ export const Configure = ({
             {shared ? (
               <Form.Sections>
                 <General />
+                <SlaveSettings />
                 {syncMode}
               </Form.Sections>
             ) : (
@@ -466,7 +522,7 @@ export const Configure = ({
       <Modal.Footer>
         <Nav.Bar.Start gap="small">
           {onBack != null && (
-            <Button.Button variant="text" onClick={onBack}>
+            <Button.Button variant="text" onClick={onBack} disabled={busy}>
               <Icon.Arrow.Left />
               Back
             </Button.Button>
@@ -479,7 +535,7 @@ export const Configure = ({
           {onCreateReadTask != null && !opened.configured && pdos.inputs.length > 0 && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
-              onClick={() => void save(onCreateReadTask)}
+              onClick={() => void save({ createTask: onCreateReadTask })}
             >
               Save and create read task
             </Button.Button>
@@ -489,11 +545,19 @@ export const Configure = ({
             pdos.outputs.length > 0 && (
               <Button.Button
                 status={status.keepVariants(variant, "loading")}
-                onClick={() => void save(onCreateWriteTask)}
+                onClick={() => void save({ createTask: onCreateWriteTask })}
               >
                 Save and create write task
               </Button.Button>
             )}
+          {running.length > 0 && (
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => void save({ restart: true })}
+            >
+              Save and restart tasks
+            </Button.Button>
+          )}
           <Button.Button
             status={status.keepVariants(variant, "loading")}
             onClick={() => void save()}

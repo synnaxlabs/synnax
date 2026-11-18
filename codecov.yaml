@@ -45,6 +45,8 @@ ignore:
   - "**/parser/*_parser.go"
   - "**/parser/*parser_*listener.go"
   - "**/parser/*parser_*visitor.go"
+  # Bazel instruments C++ tests so that the headers they include get coverage.
+  - "**/*_test.cpp"
   # generate_mock.py
   - "driver/ni/daqmx/mock.h"
   - "**/examples/**"

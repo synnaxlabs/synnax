@@ -25,9 +25,6 @@ ORG=synnaxlabs
 REPO=$ORG/synnax
 HOME_DIR=/home/runner
 IDLE_MINUTES=${idle_minutes}
-SEAT=${seat}
-AGENT=${agent}
-RUNNERS=${runners}
 POOL=${pool}
 export DEBIAN_FRONTEND=noninteractive
 
@@ -85,7 +82,7 @@ curl -fsSL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install
 RAW_URL=https://raw.githubusercontent.com/$REPO/main
 curl -fsSL "$RAW_URL/scripts/install_clang_format.sh" \
     | env UV_TOOL_DIR=/opt/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin bash
-# Each agent job updates the agent CLIs to the latest release before it runs.
+# The global agent CLIs sign the seat in. Each agent job installs its own latest copy.
 npm install -g "pnpm@$PNPM_VERSION" @anthropic-ai/claude-code@latest \
     @openai/codex@latest
 
@@ -99,7 +96,7 @@ common --repository_cache=$HOME_DIR/.cache/bazel-repo
 common --experimental_disk_cache_gc_max_size=100G
 EOF
 
-# Each runner copies this install, then updates itself.
+# Each runner copies this install, then updates itself. `seat.sh register` adds them.
 RUNNER_DIR=/opt/actions-runner
 mkdir -p "$RUNNER_DIR"
 RUNNER_URL=https://github.com/actions/runner/releases/download/v$RUNNER_VERSION
@@ -109,38 +106,6 @@ curl -fsSL "$RUNNER_URL/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz" \
 echo "PATH=/usr/local/go/bin:$HOME_DIR/go/bin:/usr/local/bin:/usr/bin:/bin" \
     > "$RUNNER_DIR/.env"
 chown -R runner:runner "$HOME_DIR"
-
-# Registers the seat's runners in the agent-runners group and starts each as a service.
-# All run as the runner user, so they share its agent login. A Claude seat adds a runner
-# that only Label - Classify uses, so a label never waits behind a long agent job. It
-# is safe to run again.
-# Usage: register-agent-runners <organization registration token>
-cat > /usr/local/bin/register-agent-runners << EOF
-#!/bin/bash
-set -euo pipefail
-token=\$1
-register() {
-    dir=$HOME_DIR/runners/\$1
-    if [ ! -e "\$dir/.runner" ]; then
-        mkdir -p "\$dir"
-        cp -R $RUNNER_DIR/. "\$dir"
-        chown -R runner:runner "\$dir"
-        cd "\$dir"
-        sudo -u runner ./config.sh --unattended --replace \
-            --url https://github.com/$ORG --runnergroup agent-runners \
-            --token "\$token" --name "agent-$SEAT-\$1" --labels "\$2"
-    fi
-    cd "\$dir"
-    if [ ! -e .service ]; then ./svc.sh install runner; fi
-    ./svc.sh start
-}
-if [ $POOL = review ]; then
-    for i in \$(seq $RUNNERS); do register "\$i" "review,seat-$SEAT"; done
-else
-    for i in \$(seq $RUNNERS); do register "\$i" "agent,agent-$AGENT,seat-$SEAT"; done
-fi
-EOF
-chmod +x /usr/local/bin/register-agent-runners
 
 # Warms the Go build cache and the pnpm store before an agent seat's first job. Review
 # seats build nothing. A failed warm only makes the first job slower, so it must not

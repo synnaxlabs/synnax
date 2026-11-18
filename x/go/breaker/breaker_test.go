@@ -101,34 +101,65 @@ var _ = Describe("Breaker", func() {
 		Eventually(waited).Should(Receive(BeTrue()))
 	}
 
-	It("By default should not allow retry", func(specCtx SpecContext) {
-		ctx, cancel := context.WithCancel(specCtx)
-		DeferCleanup(cancel)
-		b := MustSucceed(breaker.NewBreaker(ctx))
-		Expect(b.Wait()).To(BeFalse())
+	It("By default should not allow retry", func(ctx SpecContext) {
+		b := MustSucceed(breaker.NewBreaker())
+		Expect(b.Wait(ctx)).To(BeFalse())
 	})
 
 	It("Should stop waiting when the context is canceled", func(specCtx SpecContext) {
 		ctx, cancel := context.WithCancel(specCtx)
 		DeferCleanup(cancel)
 		clock := &timetestutil.Clock{}
-		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
+		b := MustSucceed(breaker.NewBreaker(breaker.Config{
 			BaseInterval: time.Hour,
 			MaxRetries:   breaker.InfiniteRetries,
 			Clock:        clock,
 		}))
 		waited := make(chan bool, 1)
 		var wg sync.WaitGroup
-		wg.Go(func() { waited <- b.Wait() })
+		wg.Go(func() { waited <- b.Wait(ctx) })
 		Eventually(clock.Pending).Should(Equal(1))
 		cancel()
 		Eventually(waited).Should(Receive(BeFalse()))
 		wg.Wait()
 	})
 
+	It("Should not wait on a canceled context", func(specCtx SpecContext) {
+		canceled, cancel := context.WithCancel(specCtx)
+		cancel()
+		clock := &timetestutil.Clock{}
+		b := MustSucceed(breaker.NewBreaker(breaker.Config{
+			BaseInterval: time.Hour,
+			MaxRetries:   breaker.InfiniteRetries,
+			Clock:        clock,
+		}))
+		Expect(b.Wait(canceled)).To(BeFalse())
+		Expect(clock.Pending()).To(Equal(0))
+	})
+
+	It(
+		"Should wait again on a live context after a canceled wait",
+		func(ctx SpecContext) {
+			canceled, cancel := context.WithCancel(ctx)
+			cancel()
+			clock := &timetestutil.Clock{}
+			b := MustSucceed(breaker.NewBreaker(breaker.Config{
+				BaseInterval: 10 * time.Millisecond,
+				MaxRetries:   1,
+				Clock:        clock,
+			}))
+			Expect(b.Wait(canceled)).To(BeFalse())
+			waited := make(chan bool, 1)
+			var wg sync.WaitGroup
+			wg.Go(func() { waited <- b.Wait(ctx) })
+			advanceTo(clock, waited, 10*time.Millisecond)
+			wg.Wait()
+		},
+	)
+
 	It("Should scale the interval every time it waits", func(ctx SpecContext) {
 		clock := &timetestutil.Clock{}
-		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
+		b := MustSucceed(breaker.NewBreaker(breaker.Config{
 			BaseInterval: 10 * time.Millisecond,
 			Scale:        2,
 			MaxRetries:   10,
@@ -139,11 +170,11 @@ var _ = Describe("Breaker", func() {
 		var wg sync.WaitGroup
 		wg.Go(func() {
 			for range 5 {
-				waited <- b.Wait()
+				waited <- b.Wait(ctx)
 			}
 		})
-		for _, interval := range []time.Duration{10, 20, 40, 80, 160} {
-			advanceTo(clock, waited, interval*time.Millisecond)
+		for _, ms := range []int{10, 20, 40, 80, 160} {
+			advanceTo(clock, waited, time.Duration(ms)*time.Millisecond)
 		}
 		wg.Wait()
 		Expect(clock.Now().Sub(start)).To(Equal(310 * time.Millisecond))
@@ -151,7 +182,7 @@ var _ = Describe("Breaker", func() {
 
 	It("Should stop allowing retries at the maximum", func(ctx SpecContext) {
 		clock := &timetestutil.Clock{}
-		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
+		b := MustSucceed(breaker.NewBreaker(breaker.Config{
 			BaseInterval: 10 * time.Millisecond,
 			Scale:        1,
 			MaxRetries:   2,
@@ -160,18 +191,18 @@ var _ = Describe("Breaker", func() {
 		waited := make(chan bool, 1)
 		var wg sync.WaitGroup
 		for range 2 {
-			wg.Go(func() { waited <- b.Wait() })
+			wg.Go(func() { waited <- b.Wait(ctx) })
 			advanceTo(clock, waited, 10*time.Millisecond)
 			wg.Wait()
 		}
-		Expect(b.Wait()).To(BeFalse())
+		Expect(b.Wait(ctx)).To(BeFalse())
 		Expect(clock.Pending()).To(Equal(0))
 	})
 
 	Describe("Reset", func() {
 		It("Should return the breaker to the base interval", func(ctx SpecContext) {
 			clock := &timetestutil.Clock{}
-			b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
+			b := MustSucceed(breaker.NewBreaker(breaker.Config{
 				BaseInterval: 10 * time.Millisecond,
 				Scale:        2,
 				MaxRetries:   10,
@@ -181,7 +212,7 @@ var _ = Describe("Breaker", func() {
 			wait := func(interval time.Duration) {
 				GinkgoHelper()
 				var wg sync.WaitGroup
-				wg.Go(func() { waited <- b.Wait() })
+				wg.Go(func() { waited <- b.Wait(ctx) })
 				advanceTo(clock, waited, interval)
 				wg.Wait()
 			}
@@ -194,7 +225,7 @@ var _ = Describe("Breaker", func() {
 
 	It("Should stop scaling the interval at the max interval", func(ctx SpecContext) {
 		clock := &timetestutil.Clock{}
-		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
+		b := MustSucceed(breaker.NewBreaker(breaker.Config{
 			BaseInterval: 10 * time.Millisecond,
 			Scale:        10,
 			MaxInterval:  20 * time.Millisecond,
@@ -205,11 +236,11 @@ var _ = Describe("Breaker", func() {
 		var wg sync.WaitGroup
 		wg.Go(func() {
 			for range 4 {
-				waited <- b.Wait()
+				waited <- b.Wait(ctx)
 			}
 		})
-		for _, interval := range []time.Duration{10, 20, 20, 20} {
-			advanceTo(clock, waited, interval*time.Millisecond)
+		for _, ms := range []int{10, 20, 20, 20} {
+			advanceTo(clock, waited, time.Duration(ms)*time.Millisecond)
 		}
 		wg.Wait()
 	})

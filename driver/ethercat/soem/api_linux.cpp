@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <cerrno>
+#include <filesystem>
+#include <string>
 #include <system_error>
 
 #include <arpa/inet.h>
@@ -46,5 +48,14 @@ bool ProdAPI::dewesoft_filter_bound(const char *) {
 
 std::optional<std::string> ProdAPI::adapter_name(const char *) {
     return std::nullopt;
+}
+
+bool ProdAPI::on_usb(const char *ifname) {
+    std::error_code ec;
+    const auto subsystem = std::filesystem::read_symlink(
+        "/sys/class/net/" + std::string(ifname) + "/device/subsystem",
+        ec
+    );
+    return !ec && subsystem.filename() == "usb";
 }
 }

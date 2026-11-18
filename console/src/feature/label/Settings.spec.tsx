@@ -33,6 +33,7 @@ import {
   clickAndSettle,
   commitTextEdit,
   createConsoleWrapper,
+  openContextMenu,
   uniqueName,
 } from "@/testutil";
 
@@ -63,12 +64,6 @@ const search = async (term: string, count = 1): Promise<void> => {
   await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(count));
 };
 
-const openMenu = async (name: string): Promise<void> => {
-  await act(async () => {
-    fireEvent.contextMenu(await screen.findByText(name));
-  });
-};
-
 const deleted = async (key: label.Key): Promise<boolean> => {
   try {
     await client.labels.retrieve(key);
@@ -94,11 +89,47 @@ describe("Label.Settings", () => {
       .toBe(1);
   });
 
+  it("should keep the create item open and empty after a create", async () => {
+    await renderLabels();
+    await clickAndSettle("Create label");
+    const name = uniqueName("label");
+    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+      target: { value: name },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    await screen.findByText(name);
+    // The list can show the label before the create resolves and remounts the item.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Label name")).toHaveProperty("value", ""),
+    );
+  });
+
+  it("should list a new label first until the page closes", async () => {
+    const prefix = uniqueName("order");
+    await createLabel(`${prefix}-a`);
+    await renderLabels();
+    await search(prefix);
+    await clickAndSettle("Create label");
+    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+      target: { value: `${prefix}-z` },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(2));
+    const names = screen
+      .getAllByRole("option")
+      .map((o) => o.getAttribute("aria-label"));
+    expect(names).toEqual([`${prefix}-z`, `${prefix}-a`]);
+  });
+
   it("should rename a label from its menu", async () => {
     const l = await createLabel();
     await renderLabels();
     await search(l.name);
-    await openMenu(l.name);
+    await openContextMenu(l.name);
     await clickAndSettle("Rename");
     const name = uniqueName("renamed");
     commitTextEdit(await awaitTextEditingElement(), name);
@@ -133,11 +164,12 @@ describe("Label.Settings", () => {
     screen
       .getAllByRole("checkbox", { name: "Select" })
       .forEach((box) => fireEvent.click(box));
-    await openMenu(a.name);
+    await openContextMenu(a.name);
     expect(screen.queryByText("Rename")).toBeNull();
     await clickAndSettle("Delete");
+    const confirm = await screen.findByRole("button", { name: "Delete" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      fireEvent.click(confirm);
     });
     await expect.poll(async () => await deleted(a.key)).toBe(true);
     await expect.poll(async () => await deleted(b.key)).toBe(true);
@@ -175,7 +207,7 @@ describe("Label.Settings", () => {
     await renderLabels(limited);
     await search(l.name);
     const line = screen.getByRole("option", { name: l.name });
-    await openMenu(l.name);
+    await openContextMenu(l.name);
     // Delete proves the menu's grants answered, so the missing Rename is the gate.
     expect(await screen.findByText("Delete")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();

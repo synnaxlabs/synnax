@@ -1335,6 +1335,7 @@ TEST(HTTPWriteTask, NaNSkipsOnlyItsEndpoint) {
 
 /// @brief it should report a NaN command as a task warning and keep running.
 TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
+    x::breaker::Breaker cancel;
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {{
@@ -1374,7 +1375,7 @@ TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
         std::make_shared<pipeline::testutil::WriterFactory>(),
         pipeline::testutil::simple_streamer_factory({1}, reads)
     );
-    ASSERT_TRUE(write_task.start("start"));
+    ASSERT_TRUE(write_task.start("start", cancel));
 
     ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
         [&] { return server.received_requests().size(); },

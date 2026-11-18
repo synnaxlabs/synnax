@@ -13,12 +13,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/sift/versions/v0"
+	"github.com/synnaxlabs/x/defaults"
 )
 
 var _ = Describe("ScanConfig", func() {
 	It("Should default the scan rate", func() {
 		cfg := v0.ScanConfig{}
-		cfg.ApplyDefaults()
+		cfg = defaults.Fill(cfg)
 		Expect(cfg.Rate).To(BeNumerically(">", 0))
 	})
 })

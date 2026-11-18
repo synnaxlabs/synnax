@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 from console.base import ResourceClient
+from console.notifications import click_past
 
 
 class ArcClient(ResourceClient):
@@ -70,32 +71,13 @@ class ArcClient(ResourceClient):
         editor.locator(".monaco-editor.focused").wait_for(state="visible", timeout=5000)
         self._paste_source(editor, source)
 
-    def _paste_source(self, editor: Locator, source: str, max_retries: int = 3) -> None:
-        """Paste source code into the Monaco editor with retry on failure.
-
-        Clipboard paste in headless browsers can intermittently fail, so we
-        verify the editor received content and retry if it didn't.
-        """
+    def _paste_source(self, editor: Locator, source: str) -> None:
         if source == "":
             return
-        for attempt in range(max_retries):
-            self.layout.press_key("ControlOrMeta+a")
-            self.layout.page.evaluate(f"navigator.clipboard.writeText({source!r})")
-            self.layout.sleep(100)
-            self.layout.press_key("ControlOrMeta+v")
-            self.layout.sleep(500)
-            line_count = editor.locator(".view-line").count()
-            if line_count > 1:
-                return
-            if attempt < max_retries - 1:
-                editor.click()
-                editor.locator(".monaco-editor.focused").wait_for(
-                    state="visible", timeout=5000
-                )
-
-        raise RuntimeError(
-            f"Failed to paste Arc source into editor after {max_retries} attempts"
-        )
+        self.layout.page.evaluate(f"navigator.clipboard.writeText({source!r})")
+        self.layout.press_key("ControlOrMeta+a")
+        self.layout.press_key("ControlOrMeta+v")
+        expect(editor.locator(".view-line")).not_to_have_count(1, timeout=5000)
 
     def find_item(self, name: str) -> Locator | None:
         """Find an Arc item in the panel by name.
@@ -160,36 +142,26 @@ class ArcClient(ResourceClient):
         :param rack_name: The name of the rack to select.
         """
         controls = self._get_controls()
-        rack_select = controls.locator(".console-rack-select")
+        rack_select = controls.locator(".console-rack-select__trigger")
         rack_select.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        rack_select.click()
+        click_past(rack_select)
         self.layout.select_from_dropdown(rack_name, placeholder="Search")
 
     def deploy(self) -> None:
         """Deploy the Arc from the editor controls.
 
         Play deploys and starts a stopped task; a drifted deployment shows a
-        Redeploy button instead. Waits for "Started task" and retries once on
-        timeout to handle transient Driver slowness.
+        Redeploy button instead. Waits for "Started task".
         """
-        for attempt in range(2):
-            controls = self._get_controls()
-            self.notifications.close_all()
-            redeploy_btn = controls.locator(".console-task-redeploy--visible button")
-            if redeploy_btn.count() > 0:
-                redeploy_btn.click()
-            else:
-                play_btn = controls.locator("button:has(.lyra-icon--play)")
-                play_btn.wait_for(state="visible", timeout=5000)
-                play_btn.click()
-            started = controls.locator("text=Started task")
-            try:
-                started.wait_for(state="visible", timeout=30000)
-                return
-            except PlaywrightTimeoutError:
-                if attempt == 1:
-                    raise
+        controls = self._get_controls()
+        redeploy_btn = controls.locator(".console-task-redeploy--visible button")
+        if redeploy_btn.count() > 0:
+            click_past(redeploy_btn)
+        else:
+            play_btn = controls.locator("button:has(.lyra-icon--play)")
+            play_btn.wait_for(state="visible", timeout=5000)
+            click_past(play_btn)
+        controls.locator("text=Started task").wait_for(state="visible", timeout=30000)
 
     def get_status(self) -> str:
         """Expand the diagnostics panel, click copy, and return clipboard text."""
@@ -229,8 +201,7 @@ class ArcClient(ResourceClient):
         controls = self._get_controls()
         stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         stop_btn.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        stop_btn.click()
+        click_past(stop_btn)
         controls.locator("text=Stopped task").wait_for(state="visible", timeout=30000)
 
     def is_running(self) -> bool:

@@ -40,21 +40,6 @@ FlexAlignment = Literal["start", "center", "end", "stretch"]
 Key: TypeAlias = UUID
 
 
-class Row(BaseModel):
-    """Is a single row in a table, with a key, height, and ordered cell keys.
-
-    Attributes:
-        key: Is the unique identifier for this row within the table.
-        size: Is the height of the row in pixels.
-        cells: Is the ordered list of cell keys in this row from left to right. Each key
-            points at an entry in the table's cells map.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    size: float = Field(default=36, ge=1, allow_inf_nan=False)
-    cells: list[str] = Field(default_factory=list)
-
-
 class Column(BaseModel):
     """Is a single column in a table, with a key and width.
 
@@ -63,7 +48,7 @@ class Column(BaseModel):
         size: Is the width of the column in pixels.
     """
 
-    key: str = Field(default_factory=lambda: str(uuid4()))
+    key: str = Field(min_length=1, default_factory=lambda: str(uuid4()))
     size: float = Field(default=72, ge=1, allow_inf_nan=False)
 
 
@@ -108,8 +93,8 @@ class ValueCellConfig(BaseModel):
     staleness_color: color.Color | None = None
 
 
-# Is the per-cell configuration stored in the table cells map. The variant selects
-# which Pluto cell component renders the cell.
+# Is the configuration of one cell. The variant selects which Pluto cell component
+# renders the cell.
 CellConfig = Annotated[
     TextCellConfig | ValueCellConfig,
     Field(discriminator="variant"),
@@ -126,7 +111,7 @@ class Where(BaseModel):
         key: Selects by key.
         groups: Matches the tables in any of the given groups.
         grouped: Matches the tables in a group, or in no group when false.
-        projects: Matches the tables owned by any of the given projects.
+        projects: Matches the tables in any of the given projects.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -175,46 +160,15 @@ class Cursor(BaseModel):
 
 
 class Cell(BaseModel):
-    """Is a keyed cell configuration used by actions that address cells explicitly.
-    Inside the table state itself, cell configurations are stored in the cells map keyed
-    by cell key.
+    """Is one cell of a row, with its key and config.
 
     Attributes:
         key: Is the unique identifier for this cell within the table.
-        config: Is the cell's variant-discriminated configuration.
+        config: Is the content the cell draws and its settings.
     """
 
     key: str
     config: CellConfig
-
-
-class Table(BaseModel):
-    """Is a tabular data display component for viewing structured telemetry data. Tables
-    support multiple columns, channel data sources, and customizable formatting options.
-
-    Attributes:
-        key: Is the unique identifier for this table.
-        name: Is a human-readable name for the table.
-        rows: Are the table rows in display order, top to bottom.
-        columns: Are the table columns in display order, left to right.
-        cells: Contains all cells in the table, keyed by cell key. Cell positions are
-            derived from rows[*].cells[*] references; cells not referenced by any row
-            are orphaned and will be pruned on the next structural edit.
-        group: Is the group the table sits in, if any.
-        project: Is the project that owns the table.
-    """
-
-    key: Key = Field(default_factory=uuid4)
-    name: str
-    rows: list[Row] = Field(default_factory=list)
-    columns: list[Column] = Field(default_factory=list)
-    cells: dict[str, CellConfig] = Field(default_factory=dict)
-    group: group_.Key | None = None
-    project: project_.Key | None = None
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
 
 
 class RetrieveRequest(BaseModel):
@@ -235,6 +189,45 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class Row(BaseModel):
+    """Is a single row in a table, with a key, height, and cells.
+
+    Attributes:
+        key: Is the unique identifier for this row within the table.
+        size: Is the height of the row in pixels.
+        cells: Are the cells of the row, from left to right.
+    """
+
+    key: str = Field(min_length=1, default_factory=lambda: str(uuid4()))
+    size: float = Field(default=36, ge=1, allow_inf_nan=False)
+    cells: list[Cell] = Field(default_factory=list)
+
+
+class Table(BaseModel):
+    """Is a tabular data display component for viewing structured telemetry data. Tables
+    support multiple columns, channel data sources, and customizable formatting options.
+
+    Attributes:
+        key: Is the unique identifier for this table.
+        name: Is a human-readable name for the table.
+        rows: Are the table rows in display order, top to bottom.
+        columns: Are the table columns in display order, left to right.
+        group: Is the group the table sits in, if any.
+        project: Is the project that holds the table.
+    """
+
+    key: Key = Field(default_factory=uuid4)
+    name: str = Field(min_length=1)
+    rows: list[Row] = Field(default_factory=list)
+    columns: list[Column] = Field(default_factory=list)
+    group: group_.Key | None = None
+    project: project_.Key | None = None
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class RetrieveResponse(BaseModel):

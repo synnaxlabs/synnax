@@ -223,15 +223,16 @@ describe("line", () => {
       });
     });
 
-    it("should read its bounds with the extremes of every sample kept", () => {
+    it("should read its bounds across the x window with every extreme kept", () => {
       const m = mount([X1], [Y1]);
       const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
-      expect(m.line.yBounds({ lower: 0, upper: 2 })).toEqual({
+      const xWindow = { lower: 0, upper: 2 };
+      expect(m.line.yBounds(xWindow)).toEqual({
         bounds: { lower: 10, upper: 30 },
         loading: false,
       });
       values.forEach((value) =>
-        expect(value.mock.calls).toEqual([[{ extremesKept: true }]]),
+        expect(value.mock.calls).toEqual([[{ extremesKept: true, bounds: xWindow }]]),
       );
     });
 

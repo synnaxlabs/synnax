@@ -71,10 +71,18 @@ type Channel struct {
 // schema constraints.
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
+	v.NotEmptyString("name", c.Name)
 	for i := range c.Operations {
 		v.Exec(func() error { return validate.PathedError(c.Operations[i].Validate(), "operations", strconv.Itoa(i)) })
 	}
 	return v.Error()
+}
+
+// CountLimitedResponse holds the count of the channels that count against the license
+// channel limit (not internal, not virtual).
+type CountLimitedResponse struct {
+	// Count is how many channels count against the license channel limit.
+	Count uint32 `json:"count" msgpack:"count"`
 }
 
 // Cursor is a position in an order of channels: the sort value and the key of a

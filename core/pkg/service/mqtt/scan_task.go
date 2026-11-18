@@ -212,13 +212,13 @@ func browseDuration(ms int) time.Duration {
 	return min(duration, maxBrowseDuration)
 }
 
-// browseConfig returns the broker device of a browse, its properties, and the config
-// of its client. A browse has its own client and client ID. A wildcard subscription
+// browseConfig returns the properties of a browse's broker device and the config of
+// its client. A browse has its own client and client ID. A wildcard subscription
 // on the shared connection would overlap the subscriptions of the tasks.
 func (s *scanner) browseConfig(
 	ctx context.Context,
 	key device.Key,
-) (device.Device, properties, clientConfig, error) {
+) (properties, clientConfig, error) {
 	var dev device.Device
 	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return s.device.NewRetrieve().
@@ -226,22 +226,22 @@ func (s *scanner) browseConfig(
 			Entry(&dev).
 			Exec(ctx, snap)
 	}); err != nil {
-		return device.Device{}, properties{}, clientConfig{}, err
+		return properties{}, clientConfig{}, err
 	}
 	props, err := parseProperties(dev)
 	if err != nil {
-		return device.Device{}, properties{}, clientConfig{}, err
+		return properties{}, clientConfig{}, err
 	}
 	cfg, err := newClientConfigOf(dev, props)
 	if err != nil {
-		return device.Device{}, properties{}, clientConfig{}, err
+		return properties{}, clientConfig{}, err
 	}
 	// A broker drops the older of two sessions with one client ID, so each browse and
 	// sample derives an ID of its own.
 	cfg.clientID = deriveClientID(uuid.New().String())
 	// A browse is never the host application, so it sets no STATE last will.
 	cfg.hostID = ""
-	return dev, props, cfg, nil
+	return props, cfg, nil
 }
 
 // payloadSample returns the start of a text payload.

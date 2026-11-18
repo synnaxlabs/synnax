@@ -84,9 +84,14 @@ macOS while the service is installed, `login` also reads the
 [environment file](/reference/enterprise/driver/configuration#environment-file), which
 only root can read. Restart a running Driver to use the new key.
 
-| Flag           | Default                                                                 | Description                 |
-| -------------- | ----------------------------------------------------------------------- | --------------------------- |
-| `--state-file` | see [State file](/reference/enterprise/driver/configuration#state-file) | The path of the state file. |
+For a Core with a certificate from your own authority, give the CA certificate with
+`--ca-cert`. `login` then uses TLS, trusts only the certificates in that file, and does
+not ask for `Secure`.
+
+| Flag           | Default                                                                 | Description                          |
+| -------------- | ----------------------------------------------------------------------- | ------------------------------------ |
+| `--state-file` | see [State file](/reference/enterprise/driver/configuration#state-file) | The path of the state file.          |
+| `--ca-cert`    | none                                                                    | The path of the CA certificate file. |
 
 <Divider.Divider x />
 
@@ -160,6 +165,11 @@ or `false`.
   Connect to the Core over TLS. Takes a value: `--secure true`.
 </Field.Item>
 
+<Field.Item name="--ca-cert">
+  The path to a PEM file of the CA certificates that sign the certificate of the Core.
+  Turns TLS on unless `--secure false` is also given, which is an error.
+</Field.Item>
+
 <Field.Item name="--correct-skew" default="true">
   Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of
   the computer. Takes a value.
@@ -172,8 +182,9 @@ or `false`.
 </Field.Item>
 
 <Field.Item name="--op-timeout" default="60">
-  The number of seconds after which a task operation that has not finished gives the
-  task the error "Failed to complete task operation".
+  The number of seconds that one step of a task operation, such as a start, can run
+  before the task status warns "Still working after" that time. The operation keeps
+  running.
 </Field.Item>
 
 <Field.Item name="--poll-interval" default="1">
@@ -189,13 +200,14 @@ or `false`.
 </Field.Item>
 
 <Field.Item name="--enable-integrations">
-  Integrations to add, separated by commas: `arc`, `ethercat`, `http`, `labjack`,
-  `modbus`, `ni`, or `opc`.
+  The only integrations to run, separated by commas: `arc`, `ethercat`, `http`,
+  `labjack`, `modbus`, `ni`, or `opc`. For example, `--enable-integrations http`. You
+  cannot use it with `--disable-integrations`.
 </Field.Item>
 
 <Field.Item name="--disable-integrations">
   Integrations to remove, separated by commas. For example, `--disable-integrations
-  ni,labjack`.
+  ni,labjack`. You cannot use it with `--enable-integrations`.
 </Field.Item>
 
 </Field.List>

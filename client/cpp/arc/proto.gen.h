@@ -155,7 +155,7 @@ uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
 inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
 uuid_set_from_proto(const ::service::arc::pb::UuidSet &pb) {
     ::x::filter::Set<x::uuid::UUID> cpp;
-    if (!pb.eq().empty()) {
+    if (pb.has_eq()) {
         auto [v, err] = x::uuid::UUID::parse(pb.eq());
         if (err) return {{}, err};
         cpp.eq = v;
@@ -198,7 +198,7 @@ Base::from_proto(const ::service::arc::pb::Base &pb) {
         if (err) return {{}, err};
         cpp.source = v;
     }
-    if (!pb.directory().empty()) {
+    if (pb.has_directory()) {
         auto [v, err] = x::uuid::UUID::parse(pb.directory());
         if (err) return {{}, err};
         cpp.directory = v;
@@ -317,6 +317,30 @@ Where::from_proto(const ::service::arc::pb::Where &pb) {
             if (err) return {{}, err};
             cpp.directories->push_back(v);
         }
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::arc::pb::Calculation, x::errors::Error>
+Calculation::to_proto() const {
+    ::service::arc::pb::Calculation pb;
+    pb.set_channel(this->channel);
+    {
+        auto [v, err] = this->program.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_program() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Calculation, x::errors::Error>
+Calculation::from_proto(const ::service::arc::pb::Calculation &pb) {
+    Calculation cpp;
+    cpp.channel = pb.channel();
+    {
+        auto [v, err] = ::arc::program::Program::from_proto(pb.program());
+        if (err) return {{}, err};
+        cpp.program = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -489,13 +513,15 @@ AutomationArc::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_program() = v;
     }
-    if (this->changes.has_value()) {
-        auto *wrapper = pb.mutable_changes();
-        for (const auto &item: *this->changes) {
-            auto [v, err] = item.to_proto();
-            if (err) return {{}, err};
-            *wrapper->add_values() = v;
-        }
+    for (const auto &item: this->changes) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_changes() = v;
+    }
+    for (const auto &item: this->calculations) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_calculations() = v;
     }
     return {pb, x::errors::NIL};
 }
@@ -508,14 +534,13 @@ AutomationArc::from_proto(const ::service::arc::pb::ArcAutomationPayload &pb) {
         if (err) return {{}, err};
         cpp.program = v;
     }
-    if (pb.has_changes()) {
-        cpp.changes.emplace();
-        if (auto err = x::pb::from_proto_repeated<Change>(
-                *cpp.changes,
-                pb.changes().values()
-            ))
-            return {{}, err};
-    }
+    if (auto err = x::pb::from_proto_repeated<Change>(cpp.changes, pb.changes()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Calculation>(
+            cpp.calculations,
+            pb.calculations()
+        ))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

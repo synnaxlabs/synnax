@@ -18,7 +18,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v4"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -26,8 +26,6 @@ import (
 // nonZeroV3 builds a v3.Data with every model field populated so passthrough
 // regressions in v4.Migrate surface.
 func nonZeroV3() v3.Data {
-	GinkgoHelper()
-	label := "pressure"
 	return v3.Data{
 		Version: v3.Version,
 		Key:     "plot-1",
@@ -44,87 +42,83 @@ func nonZeroV3() v3.Data {
 			Y4: []channel.Key{},
 		},
 		Ranges: v0.Ranges{X1: []string{"00000000-0000-0000-0000-000000000010"}},
-		Axes: v2.AxesContainer{
-			Axes: v2.Axes{
-				X1: v2.Axis{
-					Key:            "x1",
-					Label:          "time",
-					LabelDirection: "x",
-					LabelLevel:     "small",
-					Bounds:         spatial.Bounds{Lower: 0, Upper: 100},
-					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
-					TickSpacing:    75,
-					Type:           "time",
-				},
-				X2: v2.Axis{
-					Key:            "x2",
-					Label:          "",
-					LabelDirection: "x",
-					LabelLevel:     "small",
-					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
-					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
-					TickSpacing:    75,
-					Type:           "time",
-				},
-				Y1: v2.Axis{
-					Key:            "y1",
-					Label:          "p",
-					LabelDirection: "y",
-					LabelLevel:     "small",
-					Bounds:         spatial.Bounds{Lower: -1, Upper: 5},
-					AutoBounds:     v0.AutoBounds{Lower: false, Upper: false},
-					TickSpacing:    60,
-				},
-				Y2: v2.Axis{
-					Key:            "y2",
-					Label:          "",
-					LabelDirection: "y",
-					LabelLevel:     "small",
-					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
-					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
-					TickSpacing:    75,
-				},
-				Y3: v2.Axis{
-					Key:            "y3",
-					Label:          "",
-					LabelDirection: "y",
-					LabelLevel:     "small",
-					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
-					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
-					TickSpacing:    75,
-				},
-				Y4: v2.Axis{
-					Key:            "y4",
-					Label:          "",
-					LabelDirection: "y",
-					LabelLevel:     "small",
-					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
-					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
-					TickSpacing:    75,
-				},
+		Axes:   nonZeroAxes(),
+		Lines:  nonZeroLines(),
+		Rules:  nonZeroRules(),
+	}
+}
+
+// nonZeroAxes builds axes with a labeled, bounded X1 and Y1 and unset others.
+func nonZeroAxes() v2.AxesContainer {
+	return v2.AxesContainer{
+		Axes: v2.Axes{
+			X1: v2.Axis{
+				Key:            "x1",
+				Label:          "time",
+				LabelDirection: "x",
+				LabelLevel:     "small",
+				Bounds:         spatial.Bounds{Lower: 0, Upper: 100},
+				AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
+				TickSpacing:    75,
+				Type:           "time",
 			},
+			X2: unsetAxis("x2", "x", "time"),
+			Y1: v2.Axis{
+				Key:            "y1",
+				Label:          "p",
+				LabelDirection: "y",
+				LabelLevel:     "small",
+				Bounds:         spatial.Bounds{Lower: -1, Upper: 5},
+				AutoBounds:     v0.AutoBounds{Lower: false, Upper: false},
+				TickSpacing:    60,
+			},
+			Y2: unsetAxis("y2", "y", ""),
+			Y3: unsetAxis("y3", "y", ""),
+			Y4: unsetAxis("y4", "y", ""),
 		},
-		Lines: []v0.Line{
-			{
-				Key:            "y1-rng1-ch10",
-				Label:          &label,
-				Color:          MustSucceed(color.FromHex("#ff0000")),
-				StrokeWidth:    2,
-				Downsample:     1,
-				DownsampleMode: "decimate",
-			},
+	}
+}
+
+func unsetAxis(key, labelDirection, axisType string) v2.Axis {
+	return v2.Axis{
+		Key:            key,
+		Label:          "",
+		LabelDirection: labelDirection,
+		LabelLevel:     "small",
+		Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
+		AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
+		TickSpacing:    75,
+		Type:           axisType,
+	}
+}
+
+func nonZeroLines() []v0.Line {
+	GinkgoHelper()
+	label := "pressure"
+	return []v0.Line{
+		{
+			Key:            "y1-rng1-ch10",
+			Label:          &label,
+			Color:          MustSucceed(color.FromHex("#ff0000")),
+			StrokeWidth:    2,
+			Downsample:     1,
+			DownsampleMode: "decimate",
 		},
-		Rules: []v0.Rule{
-			{
-				Key:       "r1",
-				Label:     "max",
-				Color:     MustSucceed(color.FromHex("#0000ff")),
-				Axis:      "y1",
-				LineWidth: 1,
-				LineDash:  0,
-				Units:     "psi",
-				Position:  4.5,
-			},
+	}
+}
+
+func nonZeroRules() []v0.Rule {
+	GinkgoHelper()
+	return []v0.Rule{
+		{
+			Key:       "r1",
+			Label:     "max",
+			Color:     MustSucceed(color.FromHex("#0000ff")),
+			Axis:      "y1",
+			LineWidth: 1,
+			LineDash:  0,
+			Units:     "psi",
+			Position:  4.5,
 		},
 	}
 }

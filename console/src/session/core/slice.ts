@@ -35,9 +35,6 @@ export interface Core extends z.infer<typeof coreZ> {}
 /** The local Core a desktop session starts with. */
 const LOCAL_KEY = "LOCAL";
 
-/** The public demo Core. */
-const DEMO_KEY = "DEMO";
-
 /**
  * The Core serving a browser Console. Stored state is scoped to the page's origin and a
  * served Console's address is that origin, so a session sees one served Core.
@@ -60,21 +57,24 @@ const LOCAL: Core = {
   secure: false,
 };
 
-const DEMO: Core = {
-  key: DEMO_KEY,
-  name: "Demo",
-  host: "demo.synnaxlabs.com",
-  port: 9090,
-  username: "synnax",
-  password: "seldon",
-  secure: true,
-};
+// Releases through 0.61 shipped a default Core for a public demo deployment that no
+// longer exists. A user who repointed that record at their own Core keeps it.
+const RETIRED_DEMO_KEY = "DEMO";
+const RETIRED_DEMO_HOST = "demo.synnaxlabs.com";
 
-export const sliceStateZ = z.object({
-  version: z.literal(0).default(0),
-  selected: z.string().optional(),
-  cores: z.record(z.string(), coreZ).default({ [LOCAL_KEY]: LOCAL, [DEMO_KEY]: DEMO }),
-});
+export const sliceStateZ = z
+  .object({
+    version: z.literal(0).default(0),
+    selected: z.string().optional(),
+    cores: z.record(z.string(), coreZ).default({ [LOCAL_KEY]: LOCAL }),
+  })
+  .transform((state) => {
+    const { [RETIRED_DEMO_KEY]: demo, ...cores } = state.cores;
+    if (demo?.host !== RETIRED_DEMO_HOST) return state;
+    const selected = state.selected === RETIRED_DEMO_KEY ? undefined : state.selected;
+    return { ...state, selected, cores };
+  });
+
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});

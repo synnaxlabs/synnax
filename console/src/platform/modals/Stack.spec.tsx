@@ -9,9 +9,10 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
-import { lazy, type PropsWithChildren, type ReactElement } from "react";
+import { lazy, type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Modals } from "@/platform/modals";
@@ -107,6 +108,24 @@ describe("Stack", () => {
     renderWithModals(<LazyOpener />);
     clickText("open-lazy");
     await waitFor(() => expect(screen.getByText("lazy loaded")).toBeTruthy());
+  });
+
+  it("should show a crash of the modal content inside its dialog", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const Crash: Modals.Content<Record<never, never>, void> = () => {
+      throw new Error("boom");
+    };
+    const useOpenCrash = Modals.create(Crash);
+    const CrashOpener = (): ReactElement => {
+      const open = useOpenCrash();
+      return <Button.Button onClick={() => open()}>open-crash</Button.Button>;
+    };
+    renderWithModals(<CrashOpener />);
+    clickText("open-crash");
+    const dialog = await screen.findByRole("dialog");
+    const message = dialog.querySelector(".pluto-error-fallback__message");
+    expect(message?.textContent).toBe("boom\nCore: none");
+    errorSpy.mockRestore();
   });
 
   describe("triggers", () => {
@@ -210,6 +229,34 @@ describe("Stack", () => {
       act(() => modals.push(Listener, { selfClosing: true }, () => {}));
       act(() => press("ControlLeft", "Enter"));
       expect(modals.isAnyOpen()).toBe(false);
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    const Saving: Modals.Content = () => {
+      const [busy, setBusy] = useState(true);
+      Modals.useBusy(busy);
+      return (
+        <Modal.Frame>
+          <Button.Button onClick={() => setBusy(false)}>finish</Button.Button>
+        </Modal.Frame>
+      );
+    };
+
+    it("should keep a busy modal open on Escape until it is idle", () => {
+      const { modals } = renderPage(["Control", "T"]);
+      act(() => modals.push(Saving, {}, () => {}));
+      act(() => press("Escape"));
+      expect(modals.isAnyOpen()).toBe(true);
+      clickText("finish");
+      act(() => press("Escape"));
+      expect(modals.isAnyOpen()).toBe(false);
+    });
+
+    it("should keep a busy modal open on the close trigger", () => {
+      const { callback, modals } = renderPage(["Control", "W"]);
+      act(() => modals.push(Saving, {}, () => {}));
+      act(() => press("ControlLeft", "KeyW"));
+      expect(modals.isAnyOpen()).toBe(true);
       expect(callback).not.toHaveBeenCalled();
     });
 

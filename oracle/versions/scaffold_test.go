@@ -188,4 +188,32 @@ Details struct {
 		Expect(out).To(ContainSubstring("Details struct"))
 		Expect(out).To(ContainSubstring("running bool"))
 	})
+
+	It("Should qualify a dependency that shares the resource name", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/versions/channel/v0.oracle", "Code = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/channel/v0"
+
+Channel struct {
+    key    uuid @key
+    status Details {
+        @go marshal omit
+    }
+
+    @go marshal
+}
+
+Details struct {
+    code channel.Code
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		r := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		out := MustSucceed(versions.Scaffold(
+			ctx, r, chains["schemas/synnax/channel"],
+		))
+		Expect(out).To(ContainSubstring("code channel.Code"))
+	})
 })

@@ -15,6 +15,7 @@ import { Symbol } from "@/schematic/node/groupBox/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
 export * from "@/schematic/node/groupBox/config";
+export * from "@/schematic/node/groupBox/context";
 
 const Preview = (): ReactElement => <div />;
 

@@ -43,8 +43,10 @@ ChannelEntry struct {
         @ref on_delete     detach
         @validate required
     }
-    color            color.Color       {
-        @doc value "is the display color for the channel."
+    color            color.Color?      {
+        @doc value """
+            is the display color for the channel. Absent uses the text color of the log.
+        """
     }
     notation         notation.Notation = "standard" {
         @doc value "is the numeric notation used to render samples."
@@ -106,7 +108,7 @@ Log struct {
         @ref on_delete detach
     }
     project              project.Key?   {
-        @doc value     "is the project that owns the log."
+        @doc value     "is the project that holds the log."
         @ref kind      place
         @ref on_delete cascade
     }
@@ -151,12 +153,11 @@ Log struct {
 
     action SetChannelColor {
         channel channel.Key
-        color   color.Color
+        color   color.Color?
 
         @doc value """
-            sets the display color of the entry identified by channel. The zero color
-            resets it to the text color of the log. No-op when no entry references the
-            channel.
+            sets the display color of the entry identified by channel. Absent resets it
+            to the text color of the log. No-op when no entry references the channel.
         """
     }
 
@@ -286,7 +287,7 @@ Where filter Log {
         @doc value "matches the logs in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the logs owned by any of the given projects."
+        @doc value "matches the logs in any of the given projects."
     }
 
     @doc value         "is a filter that selects logs."

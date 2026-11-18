@@ -31,9 +31,10 @@ import {
   useDownloadAsCSV,
 } from "@/feature/lineplot/useDownloadAsCSV";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
+import { Sift } from "@/feature/sift";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Panel } from "@/platform/panel";
+import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
@@ -42,7 +43,7 @@ const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
-  range: ranger.Payload;
+  range: Base.Range.MenuProps;
 }
 
 const RangeAnnotationContextMenu = ({
@@ -50,32 +51,26 @@ const RangeAnnotationContextMenu = ({
   range,
 }: RangeAnnotationContextMenuProps): ReactElement => {
   const downloadAsCSV = useDownloadAsCSV();
-  const handleDownloadAsCSV = () =>
-    downloadAsCSV({ timeRanges: [range.timeRange], lines, name: range.name });
-  const addRangeToNewPlot = Range.useAddToNewPlot();
-  const handleOpenInNewPlot = () => addRangeToNewPlot([range.key]);
-  const openTab = Panel.useOpenTab();
-  const handleViewDetails = () => {
-    openTab({ variant: "resource", resource: ranger.resourceID(range.key) });
-  };
   return (
-    <ContextMenu.Menu>
-      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
-        <Icon.Annotate />
-        View details
-      </Menu.Item>
-      <Menu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
-        <Icon.LinePlot />
-        Open in new plot
-      </Menu.Item>
-      <Menu.Divider />
-      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
-        <Icon.CSV />
-        Download as CSV
-      </Menu.Item>
-      <Menu.Divider />
-      <ContextMenu.ReloadConsoleItem />
-    </ContextMenu.Menu>
+    <Range.ContextMenu
+      keys={[range.key]}
+      primaryMenuItems={
+        <Menu.Item itemKey="zoom" onClick={range.onZoom}>
+          {range.zoomed ? <Icon.Expand /> : <Icon.Zoom />}
+          {range.zoomed ? "Zoom out" : "Zoom to range"}
+        </Menu.Item>
+      }
+      onDownloadCSV={(ranges) =>
+        downloadAsCSV({
+          timeRanges: ranges.map((r) => r.timeRange),
+          lines,
+          name: range.name,
+        })
+      }
+      extraMenuItems={
+        <Sift.Range.UploadMenuItem rangeKey={range.key} rangeName={range.name} />
+      }
+    />
   );
 };
 
@@ -168,6 +163,7 @@ const ContextMenuContent = ({
           <Menu.Item itemKey="download" onClick={handleDownloadCSV}>
             <Icon.CSV /> Download region as CSV
           </Menu.Item>
+          <Sift.Range.UploadRegionMenuItem name={name} getTimeRange={getTimeRange} />
           <Menu.Divider />
         </>
       )}
@@ -242,7 +238,7 @@ const Internal = (): ReactElement => {
   const rangeProviderProps = {
     visible: vis.annotations.visible,
     onHasAnnotationsChange: setHasAnnotations,
-    menu: (p: ranger.Payload) => (
+    menu: (p: Base.Range.MenuProps) => (
       <RangeAnnotationContextMenu lines={csvLines} range={p} />
     ),
   };

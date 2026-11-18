@@ -10,6 +10,7 @@
 import { type Event, type License } from "@/server/db/schema";
 import { roleName } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
+import { type Status } from "@/server/license/status";
 
 /** Clock reads dates and times in one time zone. */
 export interface Clock {
@@ -60,29 +61,11 @@ export const machineName = (a: {
   fingerprint: string[];
 }): string => a.name ?? shortHash(a.fingerprint);
 
-export type LicenseStatus = "active" | "expiring" | "expired" | "revoked";
-
-export const STATUSES: LicenseStatus[] = ["active", "expiring", "expired", "revoked"];
-
-export const STATUS_LABELS: Record<LicenseStatus, string> = {
+export const STATUS_LABELS: Record<Status, string> = {
   active: "Active",
   expiring: "Expiring",
   expired: "Expired",
   revoked: "Revoked",
-};
-
-/** EXPIRING is how long before its expiry a license starts asking to be renewed. */
-const EXPIRING = 30 * 24 * 60 * 60 * 1000;
-
-/** statusOf derives a license's state from its dates at `now`. */
-export const statusOf = (lic: License, now: Date): LicenseStatus => {
-  if (lic.revokedAt != null) return "revoked";
-  if (lic.expiresAt == null) return "active";
-  const left = lic.expiresAt.getTime() - now.getTime();
-  if (left <= 0) return "expired";
-  // A Desktop license renews itself on a short term, so a near expiry is normal there.
-  if (lic.edition === "desktop" || left > EXPIRING) return "active";
-  return "expiring";
 };
 
 export interface Standing {
@@ -135,6 +118,7 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   accept_invitation: "Invitation accepted",
   change_role: "Role changed",
   remove_member: "Member removed",
+  change_desktop_channels: "Desktop channels changed",
 };
 
 const REASON_LABELS: Partial<Record<string, string>> = {

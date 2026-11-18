@@ -15,20 +15,27 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import {
+  useResultSlave,
+  useSlavesByKeys,
+  useSlavesOnRack,
+} from "@/feature/ethercat/device/queries";
+import { needsSetup } from "@/feature/ethercat/device/SetupNote";
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   WriteChannelDetails,
   WriteDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
+import { ChannelUsage } from "@/feature/ethercat/task/ChannelUsage";
+import { slavesZ } from "@/feature/ethercat/task/checks";
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
   createSlaveChannels,
   findChannelsToCreate,
-  retrieveAndValidateSlaves,
   retrieveByName,
+  retrieveSlaves,
 } from "@/feature/ethercat/task/configure";
 import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
@@ -75,22 +82,22 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const names =
-    slave != null && hasEntry(ch) && entryAt(slave.properties.pdos.outputs, ch) != null
+    slave?.configured === true &&
+    hasEntry(ch) &&
+    entryAt(slave.properties.pdos.outputs, ch) != null
       ? writeChannelNames(slave, ch)
       : undefined;
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
       port={<PortLabel ch={ch} entries={slave?.properties.pdos.outputs ?? []} />}
-      status={ch.type === "unresolved" ? "error" : undefined}
       path={entry}
       channel={ch.cmdChannel}
       defaultName={names?.cmd}
       stateChannel={ch.stateChannel}
       stateDefaultName={names?.state}
       skipped={ch.disabled}
-      hasTareButton={false}
-      canTare={false}
+      warned={!ch.disabled && slave != null && needsSetup(slave)}
       nameDirection="y"
       portMaxChars={20}
     />
@@ -122,6 +129,8 @@ const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
+  const onRack = useSlavesOnRack(slaves?.[0]?.rack);
+  PForm.useCheck(path.config, slavesZ("outputs", slaves ?? [], onRack ?? []));
   const resolve = (ch: WriteChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
@@ -131,31 +140,39 @@ const Form: FC = () => {
     };
   };
   return (
-    <Task.Views.ListAndDetails<WriteChannel>
-      path={path.config.channels}
-      listItem={listItem}
-      details={channelDetails}
-      detailsTitle={detailsTitle}
-      createChannel={createWriteChannel}
-      contextMenuItems={contextMenuItems}
-      resolve={resolve}
-    />
+    <Flex.Box y grow empty>
+      <Task.Views.ListAndDetails<WriteChannel>
+        path={path.config.channels}
+        listItem={listItem}
+        details={channelDetails}
+        detailsTitle={detailsTitle}
+        createChannel={createWriteChannel}
+        contextMenuItems={contextMenuItems}
+        resolve={resolve}
+      />
+      <ChannelUsage
+        indexOptions={WRITE_INDEX_OPTIONS}
+        pdoType="outputs"
+        path={path.config.channels}
+        slaves={slaves}
+      />
+    </Flex.Box>
   );
 };
 
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = async ({
   client,
-  deviceKey,
+  deviceKeys,
   config,
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (config == null)
     cfg.channels =
-      deviceKey == null
+      deviceKeys.length === 0
         ? [createWriteChannel([])]
         : await createSlaveChannels(
             client,
-            deviceKey,
+            deviceKeys,
             "outputs",
             createSlaveWriteChannel,
             createWriteChannel([]),
@@ -173,8 +190,11 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
-  const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<WriteChannel>(client, config.channels, "outputs");
+  const { slaves, rack, channelsBySlaveKey } = await retrieveSlaves<WriteChannel>(
+    client,
+    "outputs",
+    config,
+  );
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];

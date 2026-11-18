@@ -100,7 +100,7 @@ class Client:
             project. When omitted, a schematic is created from the ``name`` and
             ``project`` keyword arguments.
         :param name: The name of the schematic to create when ``schematics`` is omitted.
-        :param project: The key of the project that owns the schematic when
+        :param project: The key of the project that holds the schematic when
             ``schematics`` is omitted.
         :returns: The created schematic, or a list of created schematics when
             ``schematics`` is a list.

@@ -40,6 +40,7 @@ var _ = Describe("RelationshipNormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Relationship{
 				From: resource.ID{Type: resource.TypeGroup, Key: "devices"},
 				Type: v0.RelationshipTypeParentOf,
@@ -64,7 +65,7 @@ var _ = Describe("RelationshipNormalizeKeys", func() {
 				Where(gorp.MatchKeys[string, v0.Relationship](e.GorpKey())).
 				Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
-			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })

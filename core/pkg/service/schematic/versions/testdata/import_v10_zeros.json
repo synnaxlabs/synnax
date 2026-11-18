@@ -2,7 +2,22 @@
   "version": 10,
   "type": "schematic",
   "name": "Zeros",
-  "nodes": [],
+  "nodes": [
+    {
+      "key": "g1",
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "key": "g2",
+      "position": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  ],
   "edges": [],
   "configs": {
     "g1": {

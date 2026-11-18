@@ -33,6 +33,7 @@ import {
   createConsoleWrapper,
   createStatusConsoleWrapper,
   renderWithConsole,
+  UNLICENSED_STATUS,
 } from "@/testutil";
 
 const CORE_KEY = "core-key";
@@ -47,6 +48,18 @@ const UNREACHABLE: connection.Status = {
   message: "Cannot reach Core",
   description: "Cannot reach Core at localhost:9090",
   details: { ...connection.DEFAULT_STATUS.details, reason: "unreachable" },
+};
+
+const AUTH_FAILED: connection.Status = {
+  ...UNREACHABLE,
+  message: "Failed to authenticate",
+  details: { ...connection.DEFAULT_STATUS.details, reason: "auth" },
+};
+
+const INCOMPATIBLE: connection.Status = {
+  ...UNREACHABLE,
+  message: "Core version not supported",
+  details: { ...connection.DEFAULT_STATUS.details, reason: "incompatible" },
 };
 
 describe("Core.Badge", () => {
@@ -83,6 +96,19 @@ describe("Core.Badge", () => {
     expect(
       within(tooltip).getByText("Cannot reach Core at localhost:9090"),
     ).toBeTruthy();
+  });
+
+  it.each<[string, connection.Status]>([
+    ["Unreachable", UNREACHABLE],
+    ["Unlicensed", UNLICENSED_STATUS],
+    ["Unauthenticated", AUTH_FAILED],
+    ["Incompatible", INCOMPATIBLE],
+  ])("should label the failed connection %s by its reason", async (label, status) => {
+    const { wrapper } = await createStatusConsoleWrapper({ client: null, status });
+    const { container } = render(<Core.Badge />, { wrapper });
+    hoverCoreBadge(container);
+    const tooltip = await screen.findByRole("tooltip");
+    expect(within(tooltip).getByText(label)).toBeTruthy();
   });
 
   it("should show the logged-in user's name in the trigger", async () => {

@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createAction, type Middleware, type PayloadAction } from "@reduxjs/toolkit";
-import {
-  type CrudeTimeSpan,
-  deep,
-  type record,
-  scheduler,
-  TimeSpan,
-} from "@synnaxlabs/x";
+import { type CrudeTimeSpan, deep, record, scheduler, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Entry, openSugaredKV, type SugaredKV } from "@/session/persist/kv";
@@ -57,6 +51,8 @@ export type SliceSchemas<S extends object> = {
 
 /** A slice keying its state by window, which is what a lens splits. */
 export interface Windowed {
+  /** The schema version of the slice, which a window partition keeps. */
+  version?: number;
   windows: Record<string, unknown>;
 }
 
@@ -116,7 +112,7 @@ export interface Scopes<S extends object> {
 }
 
 const scopeKeys = <S extends object>(scope: SliceSchemas<S>): Array<SliceKey<S>> =>
-  Object.keys(scope) as Array<SliceKey<S>>;
+  record.keys(scope);
 
 /**
  * @throws {Error} if a slice of S is in no scope and not declared transient, or is
@@ -350,7 +346,7 @@ class Partition<S extends object> {
   }
 
   private keys(): Array<SliceKey<S>> {
-    return Object.keys(this.schemas) as Array<SliceKey<S>>;
+    return record.keys(this.schemas);
   }
 
   /** Every key the partition occupies, for deleting it whole. */

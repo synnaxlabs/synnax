@@ -7,11 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <mutex>
+
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 #include "absl/log/globals.h"
 #include "gtest/gtest.h"
 
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
@@ -91,6 +101,16 @@ x::breaker::Config fast_breaker(const int max_retries) {
     };
 }
 
+/// @brief returns an address in the caller's stack frame. Calls from the same stack
+/// depth return the same address.
+std::uintptr_t stack_address() {
+#ifdef _MSC_VER
+    return reinterpret_cast<std::uintptr_t>(_AddressOfReturnAddress());
+#else
+    return reinterpret_cast<std::uintptr_t>(__builtin_frame_address(0));
+#endif
+}
+
 /// @brief a writer factory that fails each open or each close until an outage ends.
 class OutageWriterFactory final : public WriterFactory {
     /// @brief whether the outage fails opens instead of closes.
@@ -102,6 +122,10 @@ public:
     /// @brief the frames written after the outage.
     const std::shared_ptr<x::sync::List<x::telem::Frame>>
         writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    /// @brief the lowest stack address of an open.
+    std::uintptr_t stack_min = UINTPTR_MAX;
+    /// @brief the highest stack address of an open.
+    std::uintptr_t stack_max = 0;
 
     /// @param on_open whether the outage fails opens instead of closes.
     /// @param retries the number of retries the outage lasts.
@@ -110,6 +134,9 @@ public:
 
     std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &) override {
+        const auto address = stack_address();
+        this->stack_min = std::min(this->stack_min, address);
+        this->stack_max = std::max(this->stack_max, address);
         if (this->remaining == 0)
             return {std::make_unique<testutil::Writer>(this->writes), x::errors::NIL};
         this->remaining--;
@@ -121,19 +148,24 @@ public:
     }
 };
 
-/// @brief expects the pipeline to write a frame after an outage that would overflow
-/// the thread's stack if each retry grew it.
+/// @brief expects the pipeline to write a frame after an outage, and to open the
+/// writer at the same stack depth on each retry.
 void expect_writes_after_long_outage(const bool on_open) {
     absl::SetMinLogLevel(absl::LogSeverityAtLeast::kInfinity);
     x::defer::defer restore([] {
         absl::SetMinLogLevel(absl::LogSeverityAtLeast::kInfo);
     });
-    const auto factory = std::make_shared<OutageWriterFactory>(on_open, 100'000);
+    const auto factory = std::make_shared<OutageWriterFactory>(on_open, 1'000);
     auto pipeline = Acquisition(
         factory,
         synnax::framer::WriterConfig(),
         std::make_shared<ScriptedSource>(std::vector<x::errors::Error>{}),
-        fast_breaker(x::breaker::RETRY_INFINITELY)
+        // Windows can round any nonzero wait up to a timer tick.
+        x::breaker::Config{
+            .name = "pipeline",
+            .base_interval = x::telem::TimeSpan::ZERO(),
+            .max_retries = x::breaker::RETRY_INFINITELY,
+        }
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
@@ -143,6 +175,7 @@ void expect_writes_after_long_outage(const bool on_open) {
         std::chrono::milliseconds(1)
     );
     ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(factory->stack_min, factory->stack_max);
 }
 
 /// @brief it should retry opening the writer through a long outage.
@@ -230,6 +263,125 @@ TEST(AcquisitionPipeline, ReopensWriterOnUnreachableWrite) {
     ASSERT_EVENTUALLY_GE(writes->size(), 3);
     ASSERT_TRUE(pipeline.stop());
     ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 2);
+}
+
+/// @brief a source that numbers its frames from 0 and sends an authority change with
+/// the first one.
+class CountingSource final : public Source {
+    uint64_t reads = 0;
+    Authorities first;
+
+public:
+    explicit CountingSource(Authorities first = {.authorities = {42}}):
+        first(std::move(first)) {}
+
+    x::errors::Error read(
+        x::breaker::Breaker &,
+        x::telem::Frame &fr,
+        Authorities &authorities
+    ) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        if (this->reads == 0) authorities = this->first;
+        fr.emplace(1, x::telem::Series(this->reads++));
+        return x::errors::NIL;
+    }
+};
+
+/// @brief it should open a reopened writer with the authorities the pipeline last set,
+/// not the ones it started with.
+TEST(AcquisitionPipeline, ReopensWriterWithLastSetAuthorities) {
+    const auto factory = std::make_shared<testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{},
+        std::vector{freighter::UNREACHABLE},
+        std::vector{1}
+    );
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig{.channels = {1, 2}, .authorities = {100}},
+        std::make_shared<CountingSource>(
+            Authorities{.keys = {2}, .authorities = {200}}
+        ),
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(factory->writes->size(), 2);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(factory->writer_opens.load(std::memory_order_acquire), 2);
+    EXPECT_EQ(
+        factory->config.authorities,
+        (std::vector<x::control::Authority>{100, 200})
+    );
+}
+
+/// @brief it should open the writer with its configured authorities again after a
+/// restart.
+TEST(AcquisitionPipeline, RestartOpensWriterWithConfiguredAuthorities) {
+    const auto factory = std::make_shared<testutil::WriterFactory>();
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig{.channels = {1}, .authorities = {100}},
+        std::make_shared<CountingSource>(),
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_EQ(factory->writer_opens.load(std::memory_order_acquire), 2);
+    ASSERT_TRUE(pipeline.stop());
+    EXPECT_EQ(factory->config.authorities, std::vector<x::control::Authority>{100});
+}
+
+/// @brief it should write a frame whose write failed to the reopened writer, so an
+/// outage the pipeline finds on a write loses no data.
+TEST(AcquisitionPipeline, WritesFailedFrameToReopenedWriter) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto factory = std::make_shared<testutil::WriterFactory>(
+        writes,
+        std::vector<x::errors::Error>{},
+        std::vector{freighter::UNREACHABLE},
+        std::vector{1}
+    );
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        std::make_shared<CountingSource>(),
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 3);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(factory->writer_opens.load(std::memory_order_acquire), 2);
+    const auto written = writes->snapshot();
+    for (size_t i = 0; i < 3; i++)
+        EXPECT_EQ(written[i].at<uint64_t>(1, 0), i);
+}
+
+/// @brief it should set authorities whose change failed on the reopened writer.
+TEST(AcquisitionPipeline, SetsFailedAuthoritiesOnReopenedWriter) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto factory = std::make_shared<testutil::WriterFactory>(
+        writes,
+        std::vector<x::errors::Error>{},
+        std::vector{freighter::UNREACHABLE},
+        std::vector<int>{},
+        std::vector{freighter::UNREACHABLE}
+    );
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        std::make_shared<CountingSource>(),
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EQ(factory->writer_opens.load(std::memory_order_acquire), 2);
+    const auto changes = factory->authority_changes->snapshot();
+    ASSERT_EQ(changes.size(), 2);
+    EXPECT_EQ(changes[1].authorities, std::vector<x::control::Authority>{42});
+    EXPECT_EQ(writes->snapshot()[0].at<uint64_t>(1, 0), 0);
 }
 
 /// @brief it should not retry opening the writer when write returns false and the
@@ -409,6 +561,90 @@ TEST(AcquisitionPipeline, NominalShutdownDoesNotReportError) {
     ASSERT_EVENTUALLY_TRUE(source->read_called.load());
     pipeline.stop();
     ASSERT_NIL(source->stopped_err);
+}
+
+/// @brief a source whose read waits for an interrupt, or for five seconds.
+class InterruptibleSource final : public Source {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool interrupted = false;
+
+public:
+    std::atomic<bool> reading{false};
+    /// @brief whether the breaker still ran when the read woke.
+    std::atomic<bool> running_on_wake{true};
+    /// @brief whether the interrupt, not the five-second limit, woke the read.
+    std::atomic<bool> woken{false};
+    x::errors::Error stopped_err = x::errors::NIL;
+
+    x::errors::Error
+    read(x::breaker::Breaker &breaker, x::telem::Frame &, Authorities &) override {
+        std::unique_lock lock(this->mu);
+        this->reading = true;
+        this->woken = this->cv.wait_for(lock, std::chrono::seconds(5), [this] {
+            return this->interrupted;
+        });
+        this->running_on_wake = breaker.running();
+        return errors::NOMINAL_SHUTDOWN_ERROR;
+    }
+
+    void interrupt() override {
+        {
+            std::lock_guard lock(this->mu);
+            this->interrupted = true;
+        }
+        this->cv.notify_all();
+    }
+
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->stopped_err = err;
+    }
+};
+
+/// @brief it should interrupt a read that blocks after the breaker stops, so stop
+/// returns without waiting for the read.
+TEST(AcquisitionPipeline, StopInterruptsBlockedRead) {
+    const auto source = std::make_shared<InterruptibleSource>();
+    auto pipeline = Acquisition(
+        std::make_shared<testutil::WriterFactory>(),
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_TRUE(source->reading.load());
+    ASSERT_TRUE(pipeline.stop());
+    EXPECT_TRUE(source->woken.load());
+    EXPECT_FALSE(source->running_on_wake.load());
+    ASSERT_NIL(source->stopped_err);
+}
+
+/// @brief a source whose read fails with a critical error.
+class FailingSource final : public Source {
+public:
+    std::atomic<int> interrupts{0};
+
+    x::errors::Error
+    read(x::breaker::Breaker &, x::telem::Frame &, Authorities &) override {
+        return x::errors::Error(errors::CRITICAL_HARDWARE_ERROR);
+    }
+
+    void interrupt() override { this->interrupts++; }
+};
+
+/// @brief it should not interrupt the source when the pipeline already stopped itself.
+TEST(AcquisitionPipeline, StopSkipsInterruptAfterPipelineStopsItself) {
+    const auto source = std::make_shared<FailingSource>();
+    auto pipeline = Acquisition(
+        std::make_shared<testutil::WriterFactory>(),
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config()
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    ASSERT_FALSE(pipeline.stop());
+    EXPECT_EQ(source->interrupts.load(), 0);
 }
 
 class AuthoritySource final : public Source {
@@ -913,8 +1149,8 @@ public:
 };
 }
 
-/// @brief it should open the writer again while the Core is unreachable, and stop on
-/// another error.
+/// @brief it should open the writer again while the Core is unreachable, past the
+/// retry limit of the breaker, and stop on another error.
 TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
     const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
         freighter::UNREACHABLE,
@@ -929,12 +1165,60 @@ TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
         source,
         x::breaker::Config{
             .base_interval = x::telem::MICROSECOND * 10,
-            .max_retries = 5,
+            .max_retries = 1,
         }
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_EQ(factory->opens.load(), 4);
     pipeline.stop();
     ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
+}
+
+/// @brief it should retry a hardware error right after the Core comes back from an
+/// outage longer than the retry limit of the breaker.
+TEST(AcquisitionPipeline, RetriesHardwareErrorAfterCoreOutage) {
+    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
+    const auto factory = std::make_shared<testutil::WriterFactory>(
+        writes,
+        std::vector{
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            freighter::UNREACHABLE,
+            x::errors::NIL,
+        }
+    );
+    const auto source = std::make_shared<ScriptedSource>(std::vector{TEMPORARY});
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
+    ASSERT_TRUE(pipeline.stop());
+    ASSERT_NIL(source->stopped_err);
+}
+
+/// @brief it should stop with the license error when the Core stays unlicensed past
+/// the retry limit of the breaker.
+TEST(AcquisitionPipeline, StopsOnLicenseErrorPastLimit) {
+    const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
+        synnax::errors::LICENSE_MISSING,
+        synnax::errors::LICENSE_MISSING,
+        x::errors::UNKNOWN,
+    });
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    pipeline.stop();
+    ASSERT_EQ(factory->opens.load(), 2);
+    ASSERT_MATCHES(source->stopped_err, synnax::errors::LICENSE_MISSING);
 }
 }

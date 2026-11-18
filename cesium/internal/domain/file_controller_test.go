@@ -391,7 +391,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
-						Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
+						Expect(w1.Commit(ctx, 10*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w1.Close()).To(Succeed())
 
 						By("Closing the db")
@@ -419,7 +419,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w2.Write([]byte{15, 16, 17}))
-						Expect(w2.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 17*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 
 						Expect(w3.Close()).To(Succeed())
@@ -454,7 +454,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
-						Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
+						Expect(w1.Commit(ctx, 10*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w1.Close()).To(Succeed())
 
 						By("Acquiring a new writer: this should give us 2.domain")
@@ -462,7 +462,7 @@ var _ = Describe("File Controller", Ordered, func() {
 							Start: 11 * telem.SecondTS,
 						}))
 						MustSucceed(w2.Write([]byte{11, 12, 13}))
-						Expect(w2.Commit(ctx, 13*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 13*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 
 						By("Closing the db")
@@ -481,7 +481,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w3.Write([]byte{15, 16, 17}))
-						Expect(w3.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
+						Expect(w3.Commit(ctx, 17*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w3.Close()).To(Succeed())
 
 						By("Acquiring a new writer: this should still go to file 2")
@@ -490,7 +490,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w4.Write([]byte{20, 21, 22, 23}))
-						Expect(w4.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+						Expect(w4.Commit(ctx, 23*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(w4.Close()).To(Succeed())
 
 						Expect(
@@ -509,7 +509,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w5.Write([]byte{30, 31, 32, 33}))
-						Expect(w5.Commit(ctx, 33*telem.SecondTS+1)).To(Succeed())
+						Expect(w5.Commit(ctx, 33*telem.SecondTS+1, nil)).To(Succeed())
 
 						By("Acquiring a new writer: this should go to file 4")
 						w6 := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
@@ -517,7 +517,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w6.Write([]byte{40, 41, 42, 43, 44, 45}))
-						Expect(w6.Commit(ctx, 45*telem.SecondTS+1)).To(Succeed())
+						Expect(w6.Commit(ctx, 45*telem.SecondTS+1, nil)).To(Succeed())
 
 						Expect(w5.Close()).To(Succeed())
 						Expect(w6.Close()).To(Succeed())
@@ -604,7 +604,7 @@ var _ = Describe("File Controller", Ordered, func() {
 							Start: 1 * telem.SecondTS,
 						}))
 						MustSucceed(w1.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-						Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
+						Expect(w1.Commit(ctx, 10*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
@@ -627,7 +627,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						}))
 
 						MustSucceed(w2.Write([]byte{11, 12, 13, 14}))
-						Expect(w2.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 14*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
@@ -636,7 +636,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						).To(Equal(int64(4)))
 
 						MustSucceed(w2.Write([]byte{15, 16, 17, 18, 19, 20, 21}))
-						Expect(w2.Commit(ctx, 21*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 21*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
@@ -648,7 +648,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						).To(Equal(int64(0)))
 
 						MustSucceed(w2.Write([]byte{22, 23, 24, 25}))
-						Expect(w2.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
+						Expect(w2.Commit(ctx, 25*telem.SecondTS+1, nil)).To(Succeed())
 						Expect(
 							MustSucceed(fs.Stat("1.domain")).Size(),
 						).To(Equal(int64(10)))
@@ -686,7 +686,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					w := openAt(ctx, second)
 					MustSucceed(w.Write([]byte{1, 2, 3}))
 					end := (telem.TimeStamp(second) * telem.SecondTS) + 1
-					Expect(w.Commit(ctx, end)).To(Succeed())
+					Expect(w.Commit(ctx, end, nil)).To(Succeed())
 					return w
 				}
 				// readAsync closes the returned channel once a read on the first domain
@@ -931,7 +931,7 @@ var _ = Describe("File Controller", Ordered, func() {
 							End:   20 * telem.SecondTS,
 						}))
 						MustSucceed(w1.Write([]byte{1, 2, 3, 4, 5}))
-						Expect(w1.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
+						Expect(w1.Commit(ctx, 15*telem.SecondTS, nil)).To(Succeed())
 						Expect(w1.Close()).To(Succeed())
 						rec.Reset()
 
@@ -973,7 +973,7 @@ var _ = Describe("File Controller", Ordered, func() {
 							End:   20 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
+						Expect(w.Commit(ctx, 15*telem.SecondTS, nil)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 
 						// Reset after writes to scope the assertion to reader I/O.

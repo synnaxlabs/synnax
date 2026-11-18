@@ -7,12 +7,53 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+# On Python 3.15 and later, each submodule below loads on first use of a name it
+# exports, so `import synnax` loads only what a script uses. Older versions ignore
+# this list.
+__lazy_modules__ = [
+    "synnax",
+    "synnax.access.policy",
+    "synnax.access.role",
+    "synnax.arc",
+    "synnax.channel",
+    "synnax.control",
+    "synnax.device",
+    "synnax.enumeration",
+    "synnax.exceptions",
+    "synnax.framer",
+    "synnax.icd",
+    "synnax.label",
+    "synnax.lineplot",
+    "synnax.log",
+    "synnax.options",
+    "synnax.panel",
+    "synnax.project",
+    "synnax.rack",
+    "synnax.ranger",
+    "synnax.schematic",
+    "synnax.status",
+    "synnax.synnax",
+    "synnax.table",
+    "synnax.task",
+    "synnax.telem",
+    "synnax.timing",
+    "synnax.user.payload",
+    "synnax.view",
+    "x",
+    "x.color",
+    "x.exceptions",
+]
+
 from importlib.metadata import version as _version
 
 from synnax import (
+    color,
+    enumeration,
     ethercat,
+    group,
     http,
     kafka,
+    label,
     labjack,
     license,
     lineplot,
@@ -24,6 +65,7 @@ from synnax import (
     opcua,
     pagerduty,
     resource,
+    sift,
     status,
 )
 from synnax.access.policy import Policy
@@ -75,6 +117,7 @@ from synnax.framer import (
     WriterClosed,
     WriterMode,
 )
+from synnax.icd import ICD
 from synnax.label import Label
 from synnax.lineplot import LinePlot
 from synnax.log import Log
@@ -121,7 +164,7 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, poll, sleep
 from synnax.user.payload import User
 from synnax.view import View
-from x import color, filter as filter
+from x import filter as filter
 from x.color import Color
 from x.exceptions import ContiguityError, Error
 
@@ -130,6 +173,7 @@ __version__ = _version("synnax")
 
 __all__ = [
     "AUTO_SPAN",
+    "ICD",
     "AccessDenied",
     "Aggregation",
     "Alignment",
@@ -221,6 +265,7 @@ __all__ = [
     "color",
     "convert_time_units",
     "elapsed_seconds",
+    "enumeration",
     "ethercat",
     "group",
     "http",
@@ -238,6 +283,7 @@ __all__ = [
     "pagerduty",
     "poll",
     "resource",
+    "sift",
     "sleep",
     "status",
 ]

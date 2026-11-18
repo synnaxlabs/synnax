@@ -9,11 +9,13 @@
 
 #pragma once
 
+#include <mutex>
 #include <string>
 #include <thread>
 
 #include "absl/log/log.h"
 
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/thread/thread.h"
@@ -22,6 +24,9 @@ namespace driver::pipeline {
 class Base {
     /// @brief the primary thread that runs the pipeline.
     std::thread thread;
+    /// @brief guards thread while start() assigns it, as the new thread can read it in
+    /// stop() before the assignment completes.
+    std::mutex thread_mu;
     /// @brief the name to assign to the pipeline thread.
     std::string thread_name;
 
@@ -52,6 +57,22 @@ protected:
     ):
         thread_name(std::move(thread_name)), breaker(breaker_config) {}
 
+    /// @brief backs off after a request to the Core fails with err. Waits with no
+    /// retry limit while the Core is unreachable, and within the limit for any other
+    /// temporarily unavailable error.
+    /// @returns true if the pipeline should retry, false if it should stop.
+    bool wait_for_core(const x::errors::Error &err) {
+        if (synnax::errors::is_unreachable(err))
+            return this->breaker.wait_unlimited(err);
+        return synnax::errors::is_temporarily_unavailable(err) &&
+               this->breaker.wait(err);
+    }
+
+    /// @brief unblocks a pipeline thread that waits in a call the breaker cannot wake,
+    /// such as a hardware read. Called by a stop() from another thread that stops the
+    /// breaker, before it joins the pipeline thread.
+    virtual void interrupt() {}
+
 public:
     virtual ~Base() = default;
 
@@ -69,6 +90,7 @@ public:
     virtual bool start() {
         if (!this->breaker.running() && this->thread.joinable()) this->thread.join();
         if (!this->breaker.start()) return false;
+        std::lock_guard lock(this->thread_mu);
         this->thread = std::thread(&Base::run_internal, this);
         return true;
     }
@@ -85,9 +107,14 @@ public:
     /// the thread.
     virtual bool stop() {
         const auto stopped = this->breaker.stop();
-        if (this->thread.get_id() != std::this_thread::get_id() &&
-            this->thread.joinable())
-            this->thread.join();
+        {
+            std::lock_guard lock(this->thread_mu);
+            if (this->thread.get_id() == std::this_thread::get_id() ||
+                !this->thread.joinable())
+                return stopped;
+        }
+        if (stopped) this->interrupt();
+        this->thread.join();
         return stopped;
     }
 

@@ -66,7 +66,7 @@ var hoverDocs = map[string]string{
 	"@index": "**@index**\n\nIndex configuration for the field.\n\n" +
 		"Expressions: `lookup`, `sorted`",
 	"@ref": "**@ref**\n\nThe field holds the keys of other resources.\n\n" +
-		"Expressions: `on_delete cascade|restrict|detach` (required), " +
+		"Expressions: `on_delete cascade|restrict|detach|inline` (required), " +
 		"`kind place|use` (required), `types` (required for resource IDs), " +
 		"`unique`, `acyclic`",
 	"@resource": "**@resource**\n\nResource type.\n\nUse `@resource type \"name\"`.",

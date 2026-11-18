@@ -67,6 +67,32 @@ var _ = Describe("Writer", func() {
 			Expect(leaf.Tabs[0].Key()).To(Equal(key))
 		})
 
+		It("Should accept a tab that displays an ICD", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			root := leafNode(panel.Tab{Variant: panel.ResourceTab{
+				Key: uuid.New(),
+				Resource: resource.ID{
+					Type: resource.TypeICD,
+					Key:  uuid.New().String(),
+				},
+			}})
+			p := panel.Panel{Name: "icd", Root: root, Project: &proj.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		})
+
+		It("Should accept a tab that displays a view", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			root := leafNode(panel.Tab{Variant: panel.ResourceTab{
+				Key: uuid.New(),
+				Resource: resource.ID{
+					Type: resource.TypeView,
+					Key:  uuid.New().String(),
+				},
+			}})
+			p := panel.Panel{Name: "view", Root: root, Project: &proj.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+		})
+
 		DescribeTable("Should reject a caller-provided tree that violates invariants",
 			func(ctx SpecContext, root func() panel.Node, expected string) {
 				tx := DeferClose(db.OpenTx())
@@ -99,7 +125,7 @@ var _ = Describe("Writer", func() {
 			Entry("split size out of bounds", func() panel.Node {
 				return splitNode(spatial.DirectionX, 1.5,
 					leafNode(tab(uuid.New())), leafNode(tab(uuid.New())))
-			}, "split size must be in [0, 1]"),
+			}, "size: must be less than or equal to 1"),
 			Entry("nil child node", func() panel.Node {
 				return splitNode(spatial.DirectionX, 0.5,
 					leafNode(tab(uuid.New())), panel.Node{})
@@ -226,6 +252,26 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
+
+	DescribeTable("Should reject an Apply that resizes a split outside [0, 1]",
+		func(ctx SpecContext, size float64, expected string) {
+			tx := DeferClose(db.OpenTx())
+			p := panel.Panel{Name: "resized", Project: &proj.Key, Root: splitNode(
+				spatial.DirectionX,
+				0.5,
+				leafNode(tab(uuid.New())),
+				leafNode(tab(uuid.New())),
+			)}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+			resize := panel.NewResizeSplitAction(
+				panel.ResizeSplitPayload{Split: 1, Size: size},
+			)
+			Expect(svc.NewWriter(tx).Apply(ctx, p.Key, resize)).
+				Error().To(MatchError(ContainSubstring(expected)))
+		},
+		Entry("above 1", 1.5, "size: must be less than or equal to 1"),
+		Entry("below 0", -0.1, "size: must be greater than or equal to 0"),
+	)
 
 	Describe("Apply of a project move", func() {
 		It("Should move the panel into the project", func(ctx SpecContext) {

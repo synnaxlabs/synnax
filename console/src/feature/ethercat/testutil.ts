@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat, type Synnax } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
+import { device, type ethercat, type Synnax } from "@synnaxlabs/client";
+import { id, TimeStamp } from "@synnaxlabs/x";
 
 import { type Description } from "@/feature/ethercat/device/settings";
 import {
@@ -90,6 +90,54 @@ export const STRAIN_SAMPLE_ENTRY: ethercat.PDOEntry = {
   subIndex: 1,
   bitLength: 32,
   dataType: "uint32",
+};
+
+/**
+ * Builds the catalog of a strain input that {@link STRAIN_ENTRY} reads, whose
+ * excitation polarity picks one of two excitation voltage fields at 0x8040:1C: up to 24
+ * V when unipolar (0) and up to 12 V when bipolar (1). held holds the values that the
+ * card holds at the scan.
+ */
+export const createExcitationDescription = (
+  held: { polarity?: number; voltage?: number } = {},
+): Description => {
+  const polarity = { index: 0x8040, subIndex: 0x21 };
+  const voltage = {
+    index: 0x8040,
+    subIndex: 0x1c,
+    name: "Excitation voltage",
+    dataType: "float32",
+    default: 0,
+    value: held.voltage,
+    unit: "V",
+    min: 0,
+  };
+  return {
+    device: [],
+    channels: [
+      {
+        entries: [{ index: STRAIN_ENTRY.index, subIndex: STRAIN_ENTRY.subIndex }],
+        settings: [
+          {
+            ...polarity,
+            name: "Excitation polarity",
+            dataType: "uint16",
+            default: 0,
+            value: held.polarity,
+            unit: "",
+            options: [
+              { value: 0, name: "Unipolar" },
+              { value: 1, name: "Bipolar" },
+            ],
+            visibleWhen: [],
+          },
+          { ...voltage, max: 24, visibleWhen: [{ ...polarity, values: [0] }] },
+          { ...voltage, max: 12, visibleWhen: [{ ...polarity, values: [1] }] },
+        ],
+        requires: [],
+      },
+    ],
+  };
 };
 
 /**
@@ -265,7 +313,10 @@ export const createUnresolvedWriteChannel = (
 
 /**
  * Creates an EtherCAT slave device on the live Core. `properties` are merged over
- * ZERO_SLAVE_PROPERTIES; `properties.name` doubles as the device name when set.
+ * ZERO_SLAVE_PROPERTIES; `properties.name` doubles as the device name when set. Each
+ * slave gets a random position unless `properties.position` sets one, since two slaves
+ * at one position on a network cannot run in a task. Its location names the slot, as a
+ * scan does.
  */
 export const createSlaveDevice = async (
   client: Synnax,
@@ -274,19 +325,58 @@ export const createSlaveDevice = async (
   configured = true,
 ): Promise<SlaveDevice> => {
   const key = id.create();
+  const position = properties.position ?? Math.floor(Math.random() * 2 ** 31);
   return await client.devices.create(
     {
       key,
       name: properties.name ?? `EtherCAT Slave ${key}`,
       rack: rackKey,
-      location: "test-location",
+      location: `soem:eth0.Slot ${position}`,
       make: MAKE,
       model: SLAVE_MODEL,
       configured,
-      properties: { ...ZERO_SLAVE_PROPERTIES, ...properties },
+      properties: {
+        ...ZERO_SLAVE_PROPERTIES,
+        ...properties,
+        position,
+      },
     },
     SLAVE_SCHEMAS,
   );
+};
+
+/** Gives the slave the status that a scan gives a slave that the Driver reaches. */
+export const createReachedStatus = async (
+  client: Synnax,
+  slave: SlaveDevice,
+): Promise<void> => {
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "success",
+    message: "Discovered",
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected: true },
+  });
+};
+
+/** Gives the slave a warning status, as a scan of the Driver does. */
+export const createWarningStatus = async (
+  client: Synnax,
+  slave: SlaveDevice,
+  message: string,
+  description: string,
+  connected = true,
+): Promise<void> => {
+  await client.statuses.set({
+    owner: device.resourceID(slave.key),
+    name: slave.name,
+    variant: "warning",
+    message,
+    description,
+    time: TimeStamp.now(),
+    details: { rack: slave.rack, connected },
+  });
 };
 
 /** Creates a slave on eth0 whose eight channels repeat the same entry names. */

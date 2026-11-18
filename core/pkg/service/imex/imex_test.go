@@ -50,14 +50,14 @@ var _ = Describe("ImEx", func() {
 		Describe("UnmarshalJSONFrom", func() {
 			It(
 				"Should extract promoted headers and retain the body for typed decode",
-				func(ctx SpecContext) {
+				func() {
 					src := []byte(`{"version":54,"type":"log","name":"n","foo":1}`)
 					var env imex.Envelope
 					Expect(json.Unmarshal(src, &env)).To(Succeed())
 					Expect(env.Version).To(Equal(imex.Version(54)))
 					Expect(env.Type).To(Equal("log"))
 					Expect(env.Name).To(Equal("n"))
-					p := MustSucceed(env.Decode[wirePayload](ctx))
+					p := MustSucceed(env.Decode[wirePayload]())
 					Expect(p.Foo).To(Equal(1))
 					Expect(p.Name).To(Equal("n"))
 				},
@@ -156,9 +156,7 @@ var _ = Describe("ImEx", func() {
 
 			// Consoles before v0.57 exported with JSON.stringify, which writes a lone
 			// surrogate as an escape.
-			It("Should replace a lone surrogate a v0.56 Console exported", func(
-				ctx SpecContext,
-			) {
+			It("Should replace a lone surrogate a v0.56 Console exported", func() {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode([]byte(
 					`{"version":1,"type":"log","name":"Tank \ud83d level"}`,
@@ -166,11 +164,11 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Name).To(Equal("Tank \uFFFD level"))
 				p := MustSucceed(env.Decode[struct {
 					Name string `json:"name"`
-				}](ctx))
+				}]())
 				Expect(p.Name).To(Equal("Tank \uFFFD level"))
 			})
 
-			It("Should replace invalid UTF-8", func(ctx SpecContext) {
+			It("Should replace invalid UTF-8", func() {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode(
 					[]byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
@@ -178,7 +176,7 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Name).To(Equal("\uFFFD"))
 			})
 
-			It("Should reject a duplicate object name", func(ctx SpecContext) {
+			It("Should reject a duplicate object name", func() {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode(
 					[]byte(`{"version":1,"name":"a","name":"b"}`), &env,
@@ -210,7 +208,7 @@ var _ = Describe("ImEx", func() {
 
 			It(
 				"Should preserve int64 precision on payload values past 2^53",
-				func(ctx SpecContext) {
+				func() {
 					// 1700000000000000000 is roughly a current Unix nanosecond
 					// timestamp, well past float64's 53-bit mantissa
 					// (9007199254740992). The previous float64-based decode lost the
@@ -225,7 +223,7 @@ var _ = Describe("ImEx", func() {
 					type tsPayload struct {
 						TS int64 `json:"ts"`
 					}
-					p := MustSucceed(env.Decode[tsPayload](ctx))
+					p := MustSucceed(env.Decode[tsPayload]())
 					Expect(p.TS).To(Equal(big))
 				},
 			)
@@ -281,13 +279,13 @@ var _ = Describe("ImEx", func() {
 		})
 
 		Describe("Decode", func() {
-			It("Should decode the body into the requested type", func(ctx SpecContext) {
+			It("Should decode the body into the requested type", func() {
 				src := []byte(
 					`{"version":1,"type":"log","name":"n","foo":42,"bar":"x"}`,
 				)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
-				p := MustSucceed(env.Decode[wirePayload](ctx))
+				p := MustSucceed(env.Decode[wirePayload]())
 				Expect(p.Name).To(Equal("n"))
 				Expect(p.Foo).To(Equal(42))
 				Expect(p.Bar).To(Equal("x"))
@@ -295,23 +293,23 @@ var _ = Describe("ImEx", func() {
 
 			It(
 				"Should error cleanly when called on an envelope with no codec bound",
-				func(ctx SpecContext) {
+				func() {
 					// Encode-side and hand-constructed envelopes have no codec bound;
 					// Decode must return a descriptive error rather than panicking on a
 					// nil-interface dispatch.
 					env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-					Expect(env.Decode[wirePayload](ctx)).Error().
+					Expect(env.Decode[wirePayload]()).Error().
 						To(MatchError(ContainSubstring("no codec bound")))
 				},
 			)
 
-			It("Should fail on a type mismatch in the body", func(ctx SpecContext) {
+			It("Should fail on a type mismatch in the body", func() {
 				src := []byte(
 					`{"version":1,"type":"log","name":"n","foo":"not a number"}`,
 				)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
-				Expect(env.Decode[wirePayload](ctx)).Error().To(
+				Expect(env.Decode[wirePayload]()).Error().To(
 					MatchError(ContainSubstring("decode envelope body")),
 				)
 			})
@@ -811,8 +809,9 @@ var _ = Describe("ImEx", func() {
 						Inner string `json:"inner"`
 					}
 					type payload struct {
-						Wrapped `       json:"wrapped"`
-						Name    string `json:"name"`
+						Wrapped `json:"wrapped"`
+
+						Name string `json:"name"`
 					}
 					env := imex.Envelope{Version: 1, Type: "log"}
 					Expect(env.Encode(payload{Inner: "v", Name: "n"})).To(Succeed())
@@ -829,7 +828,7 @@ var _ = Describe("ImEx", func() {
 		Describe("Round-trip", func() {
 			It(
 				"Should preserve nested content across Encode → Marshal → Unmarshal → Decode",
-				func(ctx SpecContext) {
+				func() {
 					type payload struct {
 						Name          string  `json:"name"`
 						Channels      []int64 `json:"channels"`
@@ -848,7 +847,7 @@ var _ = Describe("ImEx", func() {
 					Expect(roundEnv.Version).To(Equal(imex.Version(7)))
 					Expect(roundEnv.Type).To(Equal("log"))
 					Expect(roundEnv.Name).To(Equal("n"))
-					Expect(roundEnv.Decode[payload](ctx)).To(Equal(src))
+					Expect(roundEnv.Decode[payload]()).To(Equal(src))
 				},
 			)
 		})

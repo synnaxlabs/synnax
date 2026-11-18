@@ -137,6 +137,7 @@ var _ = Describe("SearchIndex", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		p = openFixture[channelEntry](ctx, db, resource.TypeChannel)
 		p.create(
 			ctx,
@@ -197,6 +198,7 @@ var _ = Describe("TableProvider", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		channels = openFixture[channelEntry](ctx, db, resource.TypeChannel)
 		channels.create(
 			ctx,
@@ -321,6 +323,7 @@ var _ = Describe("TableProvider", func() {
 					}},
 					gorp.WithCodec(msgpack.Codec),
 				))
+				StartRun(lagging.Run)
 				f := openFixture[channelEntry](ctx, lagging, resource.TypeChannel)
 				cfg := f.config(resource.TypeChannel)
 				cfg.Hidden = func(*channelEntry) bool { return false }

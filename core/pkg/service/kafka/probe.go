@@ -39,7 +39,6 @@ const defaultPort = "9092"
 // driver.Failure for the first stage that fails, and a validation error when props
 // cannot open a client.
 func testConnection(ctx context.Context, props Properties) error {
-	props.ApplyDefaults()
 	if err := validateProperties(props); err != nil {
 		return err
 	}

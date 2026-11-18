@@ -152,13 +152,6 @@ type Title struct {
 	Visible bool `json:"visible" msgpack:"visible"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Title) ApplyDefaults() {
-	if t.Level == "" {
-		t.Level = text.LevelH4
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (t *Title) SetDefaults() {
 	t.Level = text.LevelH4
@@ -198,29 +191,6 @@ type Legend struct {
 	Hidden bool `json:"hidden" msgpack:"hidden"`
 	// Position is the anchor position of the legend within the plot container.
 	Position spatial.StickyXY `json:"position" msgpack:"position"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Legend) ApplyDefaults() {
-	if l.Position.X == 0 {
-		l.Position.X = 50
-	}
-	if l.Position.Y == 0 {
-		l.Position.Y = 50
-	}
-	if l.Position.Root.X == "" {
-		l.Position.Root.X = spatial.XLocationLeft
-	}
-	if l.Position.Root.Y == "" {
-		l.Position.Root.Y = spatial.YLocationTop
-	}
-	if l.Position.Units.X == "" {
-		l.Position.Units.X = spatial.StickyUnitPx
-	}
-	if l.Position.Units.Y == "" {
-		l.Position.Units.Y = spatial.StickyUnitPx
-	}
-	l.Position.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -323,19 +293,6 @@ type Axis struct {
 	Type *TickType `json:"type,omitzero" msgpack:"type,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *Axis) ApplyDefaults() {
-	if a.LabelDirection == "" {
-		a.LabelDirection = spatial.DirectionX
-	}
-	if a.LabelLevel == "" {
-		a.LabelLevel = text.LevelSmall
-	}
-	if a.TickSpacing == 0 {
-		a.TickSpacing = 75
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (a *Axis) SetDefaults() {
 	a.LabelDirection = spatial.DirectionX
@@ -369,6 +326,9 @@ func (a Axis) Validate() error {
 	v.Ternaryf("key", !a.Key.IsValid(), "invalid key: %v", a.Key)
 	v.Ternaryf("label_direction", !a.LabelDirection.IsValid(), "invalid label_direction: %v", a.LabelDirection)
 	v.Ternaryf("label_level", !a.LabelLevel.IsValid(), "invalid label_level: %v", a.LabelLevel)
+	if a.Type != nil {
+		v.Ternaryf("type", !a.Type.IsValid(), "invalid type: %v", *a.Type)
+	}
 	return v.Error()
 }
 
@@ -386,46 +346,6 @@ type Axes struct {
 	Y3 Axis `json:"y3" msgpack:"y3"`
 	// Y4 is the y4 axis configuration.
 	Y4 Axis `json:"y4" msgpack:"y4"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *Axes) ApplyDefaults() {
-	if a.X1.Key == "" {
-		a.X1.Key = AxisKeyX1
-	}
-	if a.X2.Key == "" {
-		a.X2.Key = AxisKeyX2
-	}
-	if a.Y1.Key == "" {
-		a.Y1.Key = AxisKeyY1
-	}
-	if a.Y1.LabelDirection == "" {
-		a.Y1.LabelDirection = spatial.DirectionY
-	}
-	if a.Y2.Key == "" {
-		a.Y2.Key = AxisKeyY2
-	}
-	if a.Y2.LabelDirection == "" {
-		a.Y2.LabelDirection = spatial.DirectionY
-	}
-	if a.Y3.Key == "" {
-		a.Y3.Key = AxisKeyY3
-	}
-	if a.Y3.LabelDirection == "" {
-		a.Y3.LabelDirection = spatial.DirectionY
-	}
-	if a.Y4.Key == "" {
-		a.Y4.Key = AxisKeyY4
-	}
-	if a.Y4.LabelDirection == "" {
-		a.Y4.LabelDirection = spatial.DirectionY
-	}
-	a.X1.ApplyDefaults()
-	a.X2.ApplyDefaults()
-	a.Y1.ApplyDefaults()
-	a.Y2.ApplyDefaults()
-	a.Y3.ApplyDefaults()
-	a.Y4.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -501,19 +421,6 @@ type Line struct {
 	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Line) ApplyDefaults() {
-	if l.StrokeWidth == 0 {
-		l.StrokeWidth = 2
-	}
-	if l.Downsample == 0 {
-		l.Downsample = 1
-	}
-	if l.DownsampleMode == "" {
-		l.DownsampleMode = DownsampleModeDecimate
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (l *Line) SetDefaults() {
 	l.StrokeWidth = 2
@@ -567,13 +474,6 @@ type Rule struct {
 	Units string `json:"units" msgpack:"units"`
 	// Position is the value-space position of the rule along its anchored axis.
 	Position float64 `json:"position" msgpack:"position"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *Rule) ApplyDefaults() {
-	if r.LineWidth == 0 {
-		r.LineWidth = 1
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -632,19 +532,6 @@ type LinePlot struct {
 	Lines []Line `json:"lines" msgpack:"lines"`
 	// Rules holds annotation rules drawn over the plot.
 	Rules []Rule `json:"rules" msgpack:"rules"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
-	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

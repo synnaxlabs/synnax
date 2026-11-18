@@ -8,13 +8,16 @@
 # included in the file licenses/APL.txt.
 
 # Fails when the runner scaler's workflow_job webhook stops getting through. Without it,
-# the scaler misses queued jobs and they get cancelled.
+# the scaler misses queued jobs and they get cancelled. Also fails when an agent seat's
+# CLI is signed out, so its jobs fail, and when a shared Claude login needs a new token.
 
 name: Check - Runners
 
 on:
   schedule:
     - cron: "17 * * * *"
+    # Logins expire over days, so their warning posts once a day.
+    - cron: "5 15 * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -25,6 +28,7 @@ env:
 jobs:
   webhook:
     name: Check the webhook
+    if: github.event.schedule != '5 15 * * *'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,7 +43,7 @@ jobs:
         id: token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.RUNNERS_GH_APP_ID }}
+          client-id: ${{ vars.RUNNERS_GH_CLIENT_ID }}
           private-key: ${{ secrets.RUNNERS_GH_APP_KEY }}
           permission-actions: read
           permission-repository-hooks: read
@@ -66,6 +70,96 @@ jobs:
           # The check prints a summary only when it could read the deliveries.
           if [ -z "$summary" ]; then
             text="Runner webhook check could not run. $RUN_URL"
+          fi
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"
+
+  seats:
+    name: Check the seat sign-ins
+    if: github.event.schedule != '5 15 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Assume the seat sign-in role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          role-to-assume: arn:aws:iam::004704223095:role/synnax-agent-seat-auth
+          aws-region: us-east-1
+
+      - name: Check the sign-ins
+        shell: bash
+        run: |
+          python3 -I .github/scripts/seat_auth.py | tee "$RUNNER_TEMP/seats.txt"
+
+      - name: Post the failure to Slack
+        if: failure() && github.event_name == 'schedule'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          out=$(grep signed-out "$RUNNER_TEMP/seats.txt" 2> /dev/null || true)
+          text="Agent seats signed out: ${out//$'\n'/; }. Sign each in with"
+          text+=" infra/agent-runner/seat.sh login <seat>. $RUN_URL"
+          # The check prints signed-out seats only when it could read them.
+          if [ -z "$out" ]; then
+            text="Agent seat sign-in check could not run. $RUN_URL"
+          fi
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"
+
+  logins:
+    name: Check the Claude logins
+    if: github.event.schedule != '17 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Assume the seat sign-in role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          role-to-assume: arn:aws:iam::004704223095:role/synnax-agent-seat-auth
+          aws-region: us-east-1
+
+      - name: Check the logins
+        shell: bash
+        run: |
+          python3 -I .github/scripts/login_expiry.py | tee "$RUNNER_TEMP/logins.txt"
+
+      - name: Post the failure to Slack
+        if: failure() && github.event_name == 'schedule'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          out=$(grep -E 'store a new token|no login' "$RUNNER_TEMP/logins.txt" \
+            2> /dev/null || true)
+          text="Claude logins need a person: ${out//$'\n'/; }. Run"
+          text+=" claude setup-token, then infra/agent-runner/seat.sh token <login>."
+          text+=" $RUN_URL"
+          # The check prints a login line only when it could read the logins.
+          if [ -z "$out" ]; then
+            text="Claude login check could not run. $RUN_URL"
           fi
           jq --null-input --arg text "$text" '{text: $text}' |
             curl --fail --silent --show-error \

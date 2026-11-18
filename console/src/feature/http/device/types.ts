@@ -91,6 +91,7 @@ export const checkDuplicateKeys =
       if (k === "") return;
       if (seen.has(k))
         ctx.issues.push({
+          continue: true,
           code: "custom",
           input: ctx.value,
           message: `Duplicate ${label} "${String(k)}"`,

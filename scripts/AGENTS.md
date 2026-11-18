@@ -38,10 +38,21 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
 - `python3 scripts/check_docstrings_py.py [directory ...]` reports Google-style
   docstring sections (`Args:`, `Returns:`, `Raises:`, `Yields:`) and `:return:` fields.
   Each Python package's CI job runs it.
+- `uv run --project scripts scripts/check_suppressions_py.py` reports every Python
+  suppression in the tracked and untracked files: `# type: ignore`, `# noqa`, and
+  `# pyright: ignore` comments, file-level directives such as `# ruff: noqa` and
+  `# mypy: ignore-errors`, `typing.cast` calls under any name, and any use of
+  `TYPE_CHECKING`. It skips generated files. The `suppressions-py` CI job runs it.
 - `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
   module or test code use. It runs Knip in production mode, then traces each finding. An
   export that only other modules' tests use is allowed only in a test utility directory
   (`testutil`, `test`, or `mock`).
+- `pack_ts.sh <package> <dir>` — builds and packs `@synnaxlabs/<package>` and its Synnax
+  dependencies, then installs it in a new project in `<dir>`.
+  `check_declarations_ts.sh <package> <dir>` then runs `tsc` on that project with
+  `skipLibCheck` off, with `bundler` and `nodenext` resolution, and with the oldest
+  supported TypeScript (pinned in the script) and the repo's TypeScript. With
+  `--window`, it only fails if the pin is out of the two-year window (Nightly runs it).
 
 ## Copyright headers
 
@@ -112,13 +123,32 @@ disabling a sanitizer wholesale.
 The controller for the self-hosted CI runners, deployed to the `Sandbox-Windows` EC2
 instance. `controller.py` polls GitHub and EC2, writes fleet state to the Synnax Core on
 that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC2 starts
-and stops. Its own uv project and CI job. A pool in `scaler.py` must use the label the
-workflows request (`windows-test-bot`, not `windows-latest`), or its jobs never start an
-instance.
+and stops. The scaler drains a runner with `<runner>_gh_cmd` first. Once GitHub shows
+the runner offline, the scaler deletes its registration, then stops its instance; the
+GitHub App needs administration write for the delete. Its own uv project and CI job. A
+pool in `pools.py` must use the label the workflows request (`windows-test-bot`, not
+`windows-latest`), or its jobs never start an instance.
 
-Deploy with the `Deploy - Runners` workflow: it copies the `RUNNERS_*` repo secrets into
-Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Never start
-the scripts by hand on the box.
+The agent deploy also installs `start-runner.sh` and `start-runner.ps1`. On each start
+they set the labels of a runner GitHub lists, and register a runner it does not list.
+`STARTS` in `agent_deploy.py` gives each pool's runner name prefix and labels by the
+instance's `Name` tag; a new pool needs an entry.
+
+`seats.py` starts a stopped agent or review seat (`infra/agent-runner`) when a job that
+asks for its labels queues. It finds a seat by its instance tags, because the seat
+runners belong to the organization. A seat stops itself when it is idle. Each seat it
+starts gets a usable Claude login from `logins.py`, the shared pool of subscription
+tokens in Secrets Manager.
+
+Deploy with the `Deploy - Runners` workflow. Its checkboxes select the controller, a
+Core release or dev build, a backup of the Core, and the runner agents, and the steps
+run in one fixed order. It copies the `RUNNERS_*` repo secrets into Parameter Store and
+runs `deploy.ps1` and `core.ps1` on the box over SSM. Never start the scripts by hand on
+the box.
+
+`agent.py` runs on each runner. From the box, `agent_deploy.py` starts each stopped
+runner and installs `agent_boot.py` on all of them. The scaler stops the idle runners
+again. `agent_boot.py` downloads the agent at the deployed commit on each start.
 
 The `Sync - Runner webhook ranges` workflow runs `hook_ranges.py` daily. It keeps the
 controller's TCP 9091 rules in sync with the `hooks` ranges in GitHub's meta API.

@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -37,7 +38,7 @@ func MergeLive(
 	ctx context.Context, r *Resolver, chain Chain, source string,
 ) (string, error) {
 	livePath := chain.LivePath()
-	surf, err := r.Surface(ctx, livePath, chain.Current())
+	surf, err := r.Surface(livePath, chain.Current())
 	if err != nil {
 		return "", err
 	}
@@ -46,7 +47,7 @@ func MergeLive(
 	if len(surf) == 0 {
 		return "", nil
 	}
-	cur, err := r.File(ctx, livePath, chain.Current())
+	cur, err := r.File(livePath, chain.Current())
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +56,7 @@ func MergeLive(
 		return "", errors.Wrapf(err, "failed to parse %s.oracle", livePath)
 	}
 
-	nsToPath, err := chainNamespacePaths(ctx, r, chain)
+	importsOf, err := importsByVersion(r, chain)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +65,7 @@ func MergeLive(
 			return versionOwned(domain, expr.Name)
 		},
 		Qualifier: func(ns string) string {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+			if versionNS.MatchString(ns) {
 				return ""
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
@@ -74,7 +75,7 @@ func MergeLive(
 		},
 		Resolve: func(name string) (resolution.Type, bool) {
 			for _, k := range chain.Numbers {
-				f, err := r.File(ctx, livePath, k)
+				f, err := r.File(livePath, k)
 				if err != nil {
 					continue
 				}
@@ -102,6 +103,12 @@ func MergeLive(
 			}
 			return nil
 		},
+		ExtraVariantLines: func(name, variant string) []string {
+			if ex, ok := lc.extras[name]; ok {
+				return ex.variantLines[variant]
+			}
+			return nil
+		},
 		ExtraBodyBlocks: func(name string) []string {
 			if ex, ok := lc.extras[name]; ok {
 				return ex.actionBlocks
@@ -110,7 +117,7 @@ func MergeLive(
 		},
 	}
 
-	imports := set.New(lc.imports...)
+	referenced := make(set.Set[string])
 	var parts []string
 	rendered := make(set.Set[string])
 	renderMember := func(name string) {
@@ -141,26 +148,46 @@ func MergeLive(
 			}
 		}
 		t.Domains = domains
-		for ns := range referencedNamespaces(t, opts.Resolve) {
-			if versionNS.MatchString(ns) || ns == chain.Resource {
+		for name := range referencedNames(t, opts.Resolve) {
+			ns, _, _ := strings.Cut(name, ".")
+			if versionNS.MatchString(ns) {
 				continue
 			}
 			if live, _, ok := ParseDepNS(ns); ok {
-				ns = resourceOf(live)
-			}
-			if p, ok := nsToPath[ns]; ok {
-				imports.Add(p)
+				referenced.Add(live)
+			} else if p, ok := importsOf[def.Version][name]; ok {
+				referenced.Add(p)
+			} else if p, ok := importsOf[def.Version][ns]; ok {
+				referenced.Add(p)
 			}
 		}
 		parts = append(parts, strings.TrimSuffix(Render([]Decl{{Type: t}}, opts), "\n"))
 		rendered.Add(name)
 	}
 
+	liveNames := make(set.Set[string])
+	useLive := func(src ...string) {
+		for _, s := range src {
+			liveNames.Add(analyzer.QualifiedNames(s).Slice()...)
+		}
+	}
+	useLive(lc.fileDomains...)
+	for _, ex := range lc.extras {
+		useLive(ex.typeLines...)
+		useLive(ex.actionBlocks...)
+		for _, lines := range ex.fieldLines {
+			useLive(lines...)
+		}
+		for _, lines := range ex.valueLines {
+			useLive(lines...)
+		}
+	}
 	for _, name := range lc.order {
 		if _, member := surf[name]; member {
 			renderMember(name)
 			continue
 		}
+		useLive(lc.raw[name])
 		parts = append(parts, lc.raw[name])
 	}
 	for _, name := range cur.Order {
@@ -169,22 +196,38 @@ func MergeLive(
 		}
 		renderMember(name)
 	}
+	var body strings.Builder
+	if len(lc.fileDomains) > 0 {
+		body.WriteString(strings.Join(lc.fileDomains, "\n"))
+		body.WriteString("\n\n")
+	}
+	body.WriteString(strings.Join(parts, "\n\n"))
+	body.WriteString("\n")
+	bodyAST, diag := parser.Parse(body.String())
+	if diag != nil && !diag.Ok() {
+		return "", errors.Newf(
+			"failed to parse merged %s.oracle: %s", livePath, diag.String(),
+		)
+	}
+	importList, err := liveImportList(
+		lc.imports,
+		referenced,
+		analyzer.UsedNamespaces(bodyAST),
+		liveNames,
+		r.loader,
+	)
+	if err != nil {
+		return "", err
+	}
 
 	var b strings.Builder
-	importList := imports.Slice()
-	slices.Sort(importList)
 	for _, imp := range importList {
 		fmt.Fprintf(&b, "import %q\n", imp)
 	}
 	if len(importList) > 0 {
 		b.WriteString("\n")
 	}
-	if len(lc.fileDomains) > 0 {
-		b.WriteString(strings.Join(lc.fileDomains, "\n"))
-		b.WriteString("\n\n")
-	}
-	b.WriteString(strings.Join(parts, "\n\n"))
-	b.WriteString("\n")
+	b.WriteString(body.String())
 
 	formatted, err := formatter.Format(b.String())
 	if err != nil {
@@ -234,128 +277,231 @@ func checkErasedDocs(
 	)
 }
 
-// chainNamespacePaths maps each dependency resource namespace a chain's files can
-// reference to its live import path, unioned across every version file.
-func chainNamespacePaths(
-	ctx context.Context, r *Resolver, chain Chain,
-) (map[string]string, error) {
-	m := make(map[string]string)
-	add := func(livePath string) error {
-		ns := resourceOf(livePath)
-		if existing, ok := m[ns]; ok && existing != livePath {
-			return errors.Newf(
-				"namespace %s is ambiguous between %s and %s", ns, existing, livePath,
-			)
-		}
-		m[ns] = livePath
-		return nil
+// liveImportList returns the sorted imports of a merged live file: each referenced
+// path, plus each live import that the file still uses. A live import in a namespace
+// that referenced paths take stays only for a name in the live text that it declares
+// and they do not.
+func liveImportList(
+	own []string,
+	referenced, used, liveNames set.Set[string],
+	loader analyzer.FileLoader,
+) ([]string, error) {
+	takers := make(map[string][]string)
+	for p := range referenced {
+		ns := resourceOf(p)
+		takers[ns] = append(takers[ns], p)
 	}
-	for _, k := range chain.Numbers {
-		f, err := r.File(ctx, chain.LivePath(), k)
+	imports := referenced.Copy()
+	for _, p := range own {
+		ns := resourceOf(p)
+		taken := takers[ns]
+		if len(taken) == 0 {
+			if used.Contains(ns) {
+				imports.Add(p)
+			}
+			continue
+		}
+		var members []string
+		for name := range liveNames {
+			if member, ok := strings.CutPrefix(name, ns+"."); ok {
+				members = append(members, member)
+			}
+		}
+		if referenced.Contains(p) || len(members) == 0 {
+			continue
+		}
+		mine, err := declaredNames(loader, p)
 		if err != nil {
 			return nil, err
 		}
-		for depLive := range f.Pins {
-			if err := add(depLive); err != nil {
+		theirs := make(set.Set[string])
+		for _, t := range taken {
+			names, err := declaredNames(loader, t)
+			if err != nil {
 				return nil, err
 			}
+			theirs.Add(names.Slice()...)
 		}
-		for _, p := range f.LivePaths {
-			if err := add(p); err != nil {
-				return nil, err
+		if slices.ContainsFunc(members, func(m string) bool {
+			return mine.Contains(m) && !theirs.Contains(m)
+		}) {
+			imports.Add(p)
+		}
+	}
+	return slices.Sorted(maps.Keys(imports)), nil
+}
+
+// declaredNames returns the names of the top-level declarations in the schema at path.
+func declaredNames(loader analyzer.FileLoader, path string) (set.Set[string], error) {
+	src, _, err := loader.Load(path)
+	if err != nil {
+		return nil, err
+	}
+	ast, diag := parser.Parse(src)
+	if diag != nil && !diag.Ok() {
+		return nil, errors.Newf("failed to parse %s.oracle: %s", path, diag.String())
+	}
+	names := make(set.Set[string])
+	for _, def := range ast.AllDefinition() {
+		if name, ok := definitionName(def); ok {
+			names.Add(name)
+		}
+	}
+	return names, nil
+}
+
+// importsByVersion maps each version of a chain to the live path of each dependency its
+// file imports, keyed by resource namespace. When two imports share a namespace, it
+// keys each qualified name that they declare instead. A declaration resolves the names
+// it references through the imports of the file that declares it, inherited fields
+// included.
+func importsByVersion(r *Resolver, chain Chain) (map[int]map[string]string, error) {
+	m := make(map[int]map[string]string, len(chain.Numbers))
+	for _, k := range chain.Numbers {
+		f, err := r.File(chain.LivePath(), k)
+		if err != nil {
+			return nil, err
+		}
+		byNS := make(map[string][]string, len(f.Pins)+len(f.LivePaths))
+		for _, p := range append(slices.Collect(maps.Keys(f.Pins)), f.LivePaths...) {
+			ns := resourceOf(p)
+			byNS[ns] = append(byNS[ns], p)
+		}
+		paths := make(map[string]string, len(byNS))
+		for ns, ps := range byNS {
+			if len(ps) == 1 {
+				paths[ns] = ps[0]
+				continue
+			}
+			for _, p := range ps {
+				names, err := importedNames(r, f, p)
+				if err != nil {
+					return nil, err
+				}
+				for name := range names {
+					paths[ns+"."+name] = p
+				}
 			}
 		}
+		m[k] = paths
 	}
 	return m, nil
 }
 
-// referencedNamespaces collects the namespace qualifiers a declaration's references
-// name: field types, defaults, extends, union variants (inline payloads included),
-// distinct bases, and alias targets.
-func referencedNamespaces(
+// importedNames returns the names that the import p of f declares: the pinned surface
+// for a versioned dependency, or the live schema's declarations.
+func importedNames(r *Resolver, f *File, p string) (set.Set[string], error) {
+	v, pinned := f.Pins[p]
+	if !pinned {
+		return declaredNames(r.loader, p)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.surfaceNames(p, v)
+}
+
+// referencedNames collects the qualified names a declaration's references name: field
+// types, defaults, extends, union variants (inline payloads included), distinct bases,
+// and alias targets.
+func referencedNames(
 	t resolution.Type, resolve func(string) (resolution.Type, bool),
 ) set.Set[string] {
-	out := make(set.Set[string])
-	var walkRef func(ref resolution.TypeRef)
-	var walkFields func(fields []resolution.Field)
-	walkRef = func(ref resolution.TypeRef) {
-		if ref.TypeParam != nil {
-			return
-		}
-		if ns, _, found := strings.Cut(ref.Name, "."); found {
-			out.Add(ns)
-		}
-		for _, a := range ref.TypeArgs {
-			walkRef(a)
-		}
-	}
-	var walkValue func(v resolution.ExpressionValue)
-	walkValue = func(v resolution.ExpressionValue) {
-		if v.Kind == resolution.ValueKindIdent {
-			if ns, _, found := strings.Cut(v.IdentValue, "."); found {
-				out.Add(ns)
-			}
-		}
-		for _, e := range v.Elements {
-			walkValue(e)
-		}
-		for _, f := range v.Fields {
-			walkValue(f.Value)
-		}
-	}
-	walkFields = func(fields []resolution.Field) {
-		for _, f := range fields {
-			walkRef(f.Type)
-			if f.Default != nil {
-				walkValue(*f.Default)
-			}
-		}
-	}
+	n := qualifiedNames{out: make(set.Set[string])}
 	switch f := t.Form.(type) {
 	case resolution.StructForm:
-		walkFields(f.Fields)
-		for _, e := range f.Extends {
-			walkRef(e)
-		}
+		n.fields(f.Fields)
+		n.refs(f.Extends)
 		for _, p := range f.TypeParams {
 			if p.Constraint != nil {
-				walkRef(*p.Constraint)
+				n.ref(*p.Constraint)
 			}
 			if p.Default != nil {
-				walkRef(*p.Default)
+				n.ref(*p.Default)
 			}
 		}
 	case resolution.EnumForm:
-		for _, e := range f.Extends {
-			walkRef(e)
-		}
+		n.refs(f.Extends)
 	case resolution.UnionForm:
-		for _, v := range f.Variants {
-			if v.Inline && resolve != nil {
-				if pt, ok := resolve(v.Type.Name); ok {
-					if sf, isStruct := pt.Form.(resolution.StructForm); isStruct {
-						walkFields(sf.Fields)
-						continue
-					}
-				}
-			}
-			walkRef(v.Type)
-		}
-		for _, e := range f.Extends {
-			walkRef(e)
-		}
-		for _, e := range f.Included {
-			walkRef(e)
-		}
-		if f.BorrowsEnum() {
-			walkRef(f.Enum)
-		}
+		n.union(f, resolve)
 	case resolution.DistinctForm:
-		walkRef(f.Base)
+		n.ref(f.Base)
 	case resolution.AliasForm:
-		walkRef(f.Target)
+		n.ref(f.Target)
 	}
-	return out
+	return n.out
+}
+
+// qualifiedNames collects the qualified names that references and values name.
+type qualifiedNames struct{ out set.Set[string] }
+
+func (n qualifiedNames) ref(ref resolution.TypeRef) {
+	if ref.TypeParam != nil {
+		return
+	}
+	if strings.Contains(ref.Name, ".") {
+		n.out.Add(ref.Name)
+	}
+	n.refs(ref.TypeArgs)
+}
+
+func (n qualifiedNames) refs(refs []resolution.TypeRef) {
+	for _, r := range refs {
+		n.ref(r)
+	}
+}
+
+func (n qualifiedNames) value(v resolution.ExpressionValue) {
+	if v.Kind == resolution.ValueKindIdent && strings.Contains(v.IdentValue, ".") {
+		n.out.Add(v.IdentValue)
+	}
+	for _, e := range v.Elements {
+		n.value(e)
+	}
+	for _, f := range v.Fields {
+		n.value(f.Value)
+	}
+}
+
+func (n qualifiedNames) fields(fields []resolution.Field) {
+	for _, f := range fields {
+		n.ref(f.Type)
+		if f.Default != nil {
+			n.value(*f.Default)
+		}
+	}
+}
+
+// union collects the names of the union's variants, walking an inline variant's payload
+// fields in place of the variant.
+func (n qualifiedNames) union(
+	f resolution.UnionForm, resolve func(string) (resolution.Type, bool),
+) {
+	for _, v := range f.Variants {
+		if sf, ok := inlinePayload(v, resolve); ok {
+			n.fields(sf.Fields)
+			continue
+		}
+		n.ref(v.Type)
+	}
+	n.refs(f.Extends)
+	n.refs(f.Included)
+	if f.BorrowsEnum() {
+		n.ref(f.Enum)
+	}
+}
+
+func inlinePayload(
+	v resolution.UnionVariant, resolve func(string) (resolution.Type, bool),
+) (resolution.StructForm, bool) {
+	if !v.Inline || resolve == nil {
+		return resolution.StructForm{}, false
+	}
+	pt, ok := resolve(v.Type.Name)
+	if !ok {
+		return resolution.StructForm{}, false
+	}
+	sf, ok := pt.Form.(resolution.StructForm)
+	return sf, ok
 }
 
 // docDomain synthesizes a @doc value domain.
@@ -377,6 +523,8 @@ type declExtras struct {
 	typeLines  []string
 	fieldLines map[string][]string
 	valueLines map[string][]string
+	// variantLines are keyed by union variant name.
+	variantLines map[string][]string
 	// actionBlocks are the declaration's action definitions, verbatim. Actions are
 	// live-owned: they are wire mutations, not persisted content.
 	actionBlocks []string
@@ -468,8 +616,9 @@ func extractLive(source string) (*liveContent, error) {
 		lc.order = append(lc.order, name)
 		lc.raw[name] = text(def)
 		ex := &declExtras{
-			fieldLines: make(map[string][]string),
-			valueLines: make(map[string][]string),
+			fieldLines:   make(map[string][]string),
+			valueLines:   make(map[string][]string),
+			variantLines: make(map[string][]string),
 		}
 		lc.extras[name] = ex
 		lc.declared.Add(name)
@@ -561,25 +710,32 @@ func extractLive(source string) (*liveContent, error) {
 				for _, ad := range body.AllActionDef() {
 					ex.actionBlocks = append(ex.actionBlocks, text(ad))
 				}
-				ignore := func(string) {}
 				for _, v := range body.AllUnionVariant() {
+					var variant string
+					add := func(line string) {
+						ex.variantLines[variant] = append(
+							ex.variantLines[variant], line,
+						)
+					}
 					switch uv := v.(type) {
 					case *parser.NamedVariantContext:
-						path := name + "." + uv.VariantName().GetText()
+						variant = uv.VariantName().GetText()
+						path := name + "." + variant
 						lc.declared.Add(path)
 						if vb := uv.UnionVariantBody(); vb != nil {
 							for _, d := range vb.AllDomain() {
-								liveOwned(d, path, ignore)
+								liveOwned(d, path, add)
 							}
 						}
 					case *parser.InlineVariantContext:
-						path := name + "." + uv.VariantName().GetText()
+						variant = uv.VariantName().GetText()
+						path := name + "." + variant
 						lc.declared.Add(path)
 						if uv.StructBody() == nil {
 							continue
 						}
 						for _, d := range uv.StructBody().AllDomain() {
-							liveOwned(d, path, ignore)
+							liveOwned(d, path, add)
 						}
 						for _, fd := range uv.StructBody().AllFieldDef() {
 							collectField(fd, ex, uv.VariantName().GetText()+".")

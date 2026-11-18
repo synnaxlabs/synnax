@@ -77,6 +77,19 @@ class Client:
             keys = [keys]
         self._client.send("/view/delete", _DeleteRequest(keys=keys), Empty)
 
+    def dispatch(
+        self, key: Key, actions: actions_gen.Action | list[actions_gen.Action]
+    ) -> None:
+        """Applies actions to a view, in order, in one transaction.
+
+        :param key: The key of the view.
+        :param actions: The actions to apply, such as a set of ``sort`` or ``icon``.
+        :raises NotFoundError: If no view has the given key.
+        :raises ValidationError: If an action is invalid.
+        """
+        req = _DispatchRequest(key=key, actions=normalize(actions))
+        self._client.send("/view/dispatch", req, Empty)
+
     def rename(self, key: Key, name: str) -> None:
         """Renames a view.
 
@@ -84,9 +97,9 @@ class Client:
         :param name: The new name for the view.
         :raises NotFoundError: If no view has the given key.
         """
-        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/view/dispatch", req, Empty)
+        self.dispatch(
+            key, actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        )
 
     @overload
     def retrieve(

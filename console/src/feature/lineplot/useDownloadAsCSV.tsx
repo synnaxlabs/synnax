@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import {
+  type channel,
+  DisconnectedError,
+  type Synnax as Client,
+  UnsupportedError,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { LinePlot } from "@synnaxlabs/pluto";
-import { resolveWindow, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
+import { Status } from "@synnaxlabs/lyra/status";
+import { LinePlot, Synnax } from "@synnaxlabs/pluto";
+import { resolveWindow, TimeRange, TimeSpan, TimeStamp, unique } from "@synnaxlabs/x";
 
 import { Framer } from "@/platform/framer";
 import { Session } from "@/session";
@@ -27,14 +33,51 @@ export interface DownloadAsCSVParams {
   name: string;
 }
 
+// The modal holds its range in float nanoseconds, which round by up to 128 ns, so a
+// live window ends this far past the newest sample to keep it inside.
+const ROUNDING_MARGIN = TimeSpan.MILLISECOND;
+
+const channelsOf = (lines: DownloadLine[]): channel.Key[] =>
+  unique.unique(
+    lines
+      .flatMap((l) => [l.channels.y, l.channels.x])
+      .filter((v): v is channel.Key => v != null && v !== 0),
+  );
+
+// Returns the end of the newest stored sample of the channel, or null when it stores
+// none.
+const readNewest = async (
+  client: Client,
+  key: channel.Key,
+): Promise<TimeStamp | null> => {
+  try {
+    const { series } = await client.readLatest([key], 1);
+    return series.findLast((s) => !s.timeRange.isZero)?.timeRange.end ?? null;
+  } catch (e) {
+    // The Core stores no samples for a calculation over virtual channels.
+    if (UnsupportedError.matches(e)) return null;
+    throw e as Error;
+  }
+};
+
+// Returns where a live window of the plot ends: the end of the newest stored sample of
+// its channels, or now when they store none. Each channel reads alone, since the Core
+// rejects a read that holds a calculation over virtual channels.
+const readEdge = async (
+  client: Client,
+  channels: channel.Key[],
+): Promise<TimeStamp> => {
+  const newest = await Promise.all(channels.map((k) => readNewest(client, k)));
+  const ends = newest.filter((t): t is TimeStamp => t != null);
+  return ends.length === 0
+    ? TimeStamp.now()
+    : ends.reduce((a, b) => TimeStamp.max(a, b));
+};
+
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
   return ({ timeRanges, lines, name }) => {
-    const channels = unique.unique(
-      lines
-        .flatMap((l) => [l.channels.y, l.channels.x])
-        .filter((v): v is channel.Key => v != null && v !== 0),
-    );
+    const channels = channelsOf(lines);
     const timeRange = TimeRange.merge(...timeRanges);
     openDownloadCSVModal({
       timeRange: timeRange.numeric,
@@ -46,17 +89,24 @@ export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
 };
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const derived = LinePlot.useLines({ key });
   const ranges = LinePlot.useRanges({ key });
   const name = LinePlot.useName({ key });
   const windows = Session.Range.useResolveWindows(ranges);
-  return () => {
-    const now = TimeStamp.now();
-    const lines: DownloadLine[] = derived.map((d) => ({
-      channels: { x: d.xChannel, y: d.yChannel },
-    }));
-    const timeRanges = windows.map((w) => resolveWindow(w, now));
-    downloadAsCSV({ timeRanges, lines, name });
-  };
+  return () =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const lines: DownloadLine[] = derived.map((d) => ({
+        channels: { x: d.xChannel, y: d.yChannel },
+      }));
+      const live = windows.some((w) => w.variant === "dynamic");
+      const end = live
+        ? (await readEdge(client, channelsOf(lines))).add(ROUNDING_MARGIN)
+        : TimeStamp.now();
+      const timeRanges = windows.map((w) => resolveWindow(w, end));
+      downloadAsCSV({ timeRanges, lines, name });
+    }, "Failed to download plot as CSV");
 };

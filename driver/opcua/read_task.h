@@ -525,7 +525,7 @@ public:
     /// @brief retrieves the device again, so a changed trusted server certificate takes
     /// effect on restart. A server that is off or refuses Sessions does not stop the
     /// start, since the reads connect again.
-    x::errors::Error start() override {
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
         auto [c, err] = this->connector.start();
         if (!err) err = this->use(std::move(c));
         if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR)) {
@@ -560,11 +560,12 @@ public:
 
     /// @brief re-arms the block timer. Without it, the first block after a restart
     /// spans only the time the read took instead of a full acquisition window.
-    x::errors::Error start() override {
+    x::errors::Error
+    start(const std::string &cmd_key, x::breaker::Breaker &cancel) override {
         this->sample_clock = common::SoftwareTimedSampleClock(
             this->cfg.sample_rate / this->array_size
         );
-        return BaseReadTaskSource::start();
+        return BaseReadTaskSource::start(cmd_key, cancel);
     }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {

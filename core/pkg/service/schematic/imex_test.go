@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -51,8 +52,9 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("schematic"))
 			Expect(env.Name).To(Equal("exported"))
 
+			wire := WireRoundTrip(env)
 			decoded := MustSucceed(
-				WireRoundTrip(env).Decode[schematic.Schematic](ctx),
+				wire.Decode[schematic.Schematic](),
 			)
 			Expect(decoded.Name).To(Equal("exported"))
 		})
@@ -103,10 +105,10 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Name).To(Equal("Server Typed"))
 			Expect(res.Nodes).To(HaveLen(1))
 			Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
-			Expect(res.Edges[0].Source).To(
-				Equal(schematic.Handle{Node: "n1", Param: "out"}),
-			)
-			Expect(res.Configs).To(HaveKey("n1"))
+			Expect(res.Nodes[0].Config.Variant).
+				To(BeAssignableToTypeOf(schematic.ValveNodeConfig{}))
+			// The file's only edge connects to a node it lacks.
+			Expect(res.Edges).To(BeEmpty())
 		})
 
 		It(
@@ -119,9 +121,9 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
-				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveElementConfig)
+				cfg, ok := res.Nodes[0].Config.Variant.(schematic.ValveNodeConfig)
 				Expect(ok).To(BeTrue())
-				Expect(cfg.OnClickDelay).To(HaveValue(Equal(2.0)))
+				Expect(cfg.OnClickDelay).To(Equal(2 * telem.Millisecond))
 			},
 		)
 
@@ -138,16 +140,12 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Legacy Schematic"))
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(3)))
-				Expect(res.Edges[0].Source).To(
-					Equal(schematic.Handle{Node: "n1", Param: "a"}),
-				)
-				Expect(res.Edges[0].Target).To(
-					Equal(schematic.Handle{Node: "n2", Param: "b"}),
-				)
-				cfg, ok := res.Configs["n1"].Variant.(schematic.ValveElementConfig)
+				// The file's only edge connects to a node it lacks.
+				Expect(res.Edges).To(BeEmpty())
+				cfg, ok := res.Nodes[0].Config.Variant.(schematic.ValveNodeConfig)
 				Expect(ok).To(BeTrue())
 				Expect(cfg.StrokeColor).
-					To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
+					To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
 			},
 		)
 
@@ -191,9 +189,21 @@ var _ = Describe("ImEx", func() {
 				"versions/testdata/import_v10_zero_scale.json",
 				imex.ImportOptions{Parent: proj.ResourceID()},
 			)
-			valve, ok := res.Configs["v1"].Variant.(schematic.ValveElementConfig)
+			valve, ok := res.Nodes[0].Config.Variant.(schematic.ValveNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(valve.Scale).To(Equal(1.0))
+		})
+
+		It("Should import group members as valid parents", func(ctx SpecContext) {
+			res := importAndRetrieve(
+				ctx,
+				"versions/testdata/import_v11_groups.json",
+				imex.ImportOptions{Parent: proj.ResourceID()},
+			)
+			Expect(res.Nodes).To(HaveLen(3))
+			Expect(res.Nodes[0].Parent).To(BeNil())
+			Expect(res.Nodes[1].Parent).To(HaveValue(Equal("g1")))
+			Expect(res.Nodes[2].Parent).To(HaveValue(Equal("g1")))
 		})
 
 		It("Should reject a zero parent", func(ctx SpecContext) {
@@ -252,11 +262,15 @@ var _ = Describe("ImEx", func() {
 				original := schematic.Schematic{
 					Project: &proj.Key,
 					Name:    "round-trip",
-					Nodes:   []schematic.Node{{Key: "n1", ZIndex: 5}},
+					Nodes: []schematic.Node{
+						{Key: "n1", ZIndex: 5, Config: tankCfg("Pump", "#ff0000")},
+						{Key: "n2", Config: tankCfg("Tank", "")},
+					},
 					Edges: []schematic.Edge{{
 						Key:    "e1",
 						Source: schematic.Handle{Node: "n1", Param: "out"},
 						Target: schematic.Handle{Node: "n2", Param: "in"},
+						Config: pipeCfg("#00ff00"),
 					}},
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

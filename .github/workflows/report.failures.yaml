@@ -1,0 +1,87 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Posts to Slack when a scheduled run fails: on the first failure of a streak, then on
+# the first failure of each UTC day while it lasts. A self-reporting workflow posts its
+# own failures from a job, so this posts for it only when the run did not start.
+name: Report - Failures
+
+on:
+  workflow_run:
+    workflows:
+      - Agent - Bug hunt
+      - Agent - Console QA
+      - Agent - Lint
+      - Agent - Nightly
+      - Agent - Shepherd
+      - Check - Go exports
+      - Check - Rulesets
+      - Check - Runners
+      - CodeQL
+      - Dispatch - Agents
+      - Fuzz - Go
+      - Nightly
+      - Relay - Sweep
+      - Report - Agents
+      - Report - Sedosaur
+      - Security
+      - Sync - Runner webhook ranges
+      - Test - HITL
+      - Warm - Browsers
+      - Warm - Windows
+    types:
+      - completed
+
+permissions:
+  actions: read
+
+jobs:
+  report:
+    name: Report
+    if: >-
+      github.event.workflow_run.event == 'schedule' && contains(fromJSON('["failure",
+      "timed_out", "startup_failure"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post the failure to Slack
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
+          CREATED: ${{ github.event.workflow_run.created_at }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SELF_REPORTING: >-
+            ["Agent - Console QA", "Agent - Lint", "Check - Runners", "Test - HITL"]
+        run: |
+          self=$(jq --arg name "$WORKFLOW" 'index($name) != null' <<< "$SELF_REPORTING")
+          if [ "$self" = true ] && [ "$CONCLUSION" != startup_failure ]; then
+            echo "$WORKFLOW posts its own failures"
+            exit 0
+          fi
+          # Earlier scheduled runs, newest first.
+          posted=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
+            -X GET -f event=schedule -f created="<$CREATED" -F per_page=100 |
+            jq --arg day "${CREATED:0:10}" --argjson self "$self" '
+              def failed: .conclusion
+                | if $self then . == "startup_failure"
+                  else IN("failure", "timed_out", "startup_failure") end;
+              .workflow_runs as $runs
+              | ($runs[0] // {} | failed)
+                and any($runs[]; failed and .created_at[:10] == $day)')
+          if [ "$posted" = true ]; then
+            echo "$WORKFLOW already reported a failure today"
+            exit 0
+          fi
+          text="Scheduled run of $WORKFLOW ended in $CONCLUSION: $RUN_URL"
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"

@@ -9,6 +9,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from pathlib import Path
 from typing import Protocol
 
 import synnax as sy
@@ -84,6 +85,10 @@ class RunOptions:
     headed: bool = False
     slow_mo: int = 0
     driver_rack: str = "Node 1 Embedded Driver"
+    core_binary: Path | None = None
+    """Starts a Core of a test's own, such as one the test restarts."""
+    driver_binary: Path | None = None
+    """Starts a standalone Driver, which outlives a restart of its Core."""
 
 
 DEFAULT_OPTIONS = RunOptions()

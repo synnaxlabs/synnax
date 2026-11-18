@@ -22,7 +22,8 @@ import { Session } from "@/session";
 
 /** The connected Core: its address, connection status, and version. */
 export const Settings = (): ReactElement | null => {
-  const { variant, details } = Synnax.useConnectionStatus();
+  const status = Synnax.useConnectionStatus();
+  const { variant, details } = status;
   const core = Session.Core.useSelectSelected();
   if (core == null) return null;
   const address = `${core.host}:${core.port}`;
@@ -42,7 +43,7 @@ export const Settings = (): ReactElement | null => {
         </Flex.Box>
       </PlatformSettings.Entry>
       <PlatformSettings.Entry label="Status">
-        <Text.Text status={variant}>{Connection.STATUS_LABELS[variant]}</Text.Text>
+        <Text.Text status={variant}>{Connection.label(status)}</Text.Text>
       </PlatformSettings.Entry>
       {details.nodeVersion != null && (
         <PlatformSettings.Entry label="Version">

@@ -7,30 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { DataType, errors, primitive } from "@synnaxlabs/x";
-
 import {
-  check,
-  fill,
-  findInput,
-  sameAddress,
-} from "@/feature/ethercat/device/settings";
-import { canSwitch, isShared, of, onlyReaderOf } from "@/feature/ethercat/device/setup";
+  channel,
+  type device,
+  type ethercat,
+  NotFoundError,
+  type Synnax,
+} from "@synnaxlabs/client";
+import { errors, primitive, unique } from "@synnaxlabs/x";
+
+import { clashProblem, findClash } from "@/feature/ethercat/device/identifier";
+import { fill, findInput, sameAddress } from "@/feature/ethercat/device/settings";
+import { isShared } from "@/feature/ethercat/device/setup";
 import {
   MAKE,
   SLAVE_MODEL,
   SLAVE_SCHEMAS,
   type SlaveDevice,
-  type SlaveProperties,
+  toSlaveOnRack,
 } from "@/feature/ethercat/device/types";
+import { type CheckedConfig, checkSlaves } from "@/feature/ethercat/task/checks";
 import {
-  addressKey,
-  DIRECTIONS,
-  entryAt,
   type EntryChannel,
   type EntryReadChannel,
-  getUnresolvedMessage,
   hasEntry,
   mappedChannels,
   type PDOType,
@@ -42,147 +41,78 @@ import { Device as PlatformDevice } from "@/platform/device";
 
 type Channel = ReadChannel | WriteChannel;
 
-export interface SlaveValidationResult<C extends Channel> {
+export interface Slaves<C extends Channel> {
   slaves: SlaveDevice[];
   rack: number;
   channelsBySlaveKey: Map<string, Extract<C, EntryChannel>[]>;
 }
 
-/** @returns the size in bytes of the number type that holds an entry. */
-const entryWidth = (bitLength: number): number => {
-  if (bitLength <= 8) return 1;
-  if (bitLength <= 16) return 2;
-  if (bitLength <= 32) return 4;
-  return 8;
-};
-
-/** @returns what the user must do before Synnax can read an entry of the slave. */
-const onlyReaderStep = (props: SlaveProperties): string => {
-  if (of(props).kind === "switched") return "Restart the power of the slave.";
-  return canSwitch(props)
-    ? "In Configure, switch the slave to Synnax."
-    : "Pick another entry.";
-};
-
-const validateEntries = <C extends Channel>(
-  slave: SlaveDevice,
-  channels: C[],
-  pdoType: PDOType,
-): Extract<C, EntryChannel>[] => {
-  const used = new Set<string>();
-  const entries = slave.properties.pdos[pdoType];
-  return channels
-    .filter((ch) => !ch.disabled)
-    .map((ch) => {
-      if (ch.type === "unresolved")
-        throw new Error(getUnresolvedMessage(ch.pdo, slave, pdoType));
-      if (!hasEntry(ch))
-        throw new Error(
-          `A channel on slave ${slave.name} has no entry. Pick an entry.`,
-        );
-      const address = ethercat.formatAddress(ch);
-      const entry = entryAt(entries, ch);
-      if (entry == null)
-        throw new Error(
-          `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
-            "Pick an entry.",
-        );
-      const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
-      if (reader != null)
-        throw new Error(
-          `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
-            `reads. ${onlyReaderStep(slave.properties)}`,
-        );
-      const dataType = new DataType(ch.dataType);
-      const width = entryWidth(entry.bitLength);
-      if (
-        !(dataType.isInteger || dataType.isFloat) ||
-        dataType.density.valueOf() !== width
-      )
-        throw new Error(
-          `Data type ${ch.dataType} does not fit entry ${address} on slave ` +
-            `${slave.name}, which holds ${entry.bitLength} bits. Pick a ${width} ` +
-            "byte number type.",
-        );
-      const key = addressKey(ch);
-      if (used.has(key))
-        throw new Error(
-          `More than one channel uses entry ${address} on slave ${slave.name}. ` +
-            "Pick a different entry for one of them.",
-        );
-      used.add(key);
-      return ch;
-    });
-};
-
 /**
- * @returns a channel from create for each usable entry on the side of the slave with
- * the key, or the empty channel on the slave when it has none. When the catalog of the
- * slave describes some of its entries, only those can get a channel, so status entries
- * stay out of the task.
+ * @returns a channel from create for each usable entry on the side of the slaves with
+ * the keys, in bus order, or the empty channel on the first slave when they have none.
+ * When the catalog of a slave describes some of its entries, only those can get a
+ * channel, so status entries stay out of the task.
  */
 export const createSlaveChannels = async <C extends Channel>(
   client: Synnax,
-  key: string,
+  keys: device.Key[],
   pdoType: PDOType,
   create: (slave: SlaveDevice, entry: ethercat.PDOEntry) => C,
   empty: C,
 ): Promise<C[]> => {
-  const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const { properties } = slave;
-  const described = (entry: ethercat.PDOEntry) =>
-    findInput(properties.settings, entry) != null;
-  const usable = usableEntries(properties, pdoType);
-  const entries = properties.pdos[pdoType].some(described)
-    ? usable.filter(described)
-    : usable;
-  if (entries.length === 0) return [{ ...empty, device: key }];
-  return entries.map((entry) => create(slave, entry));
+  const slaves = await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS });
+  const channels = slaves
+    .sort((a, b) => a.properties.position - b.properties.position)
+    .flatMap((slave) => {
+      const { properties } = slave;
+      const described = (entry: ethercat.PDOEntry) =>
+        findInput(properties.settings, entry) != null;
+      const usable = usableEntries(properties, pdoType);
+      const entries = properties.pdos[pdoType].some(described)
+        ? usable.filter(described)
+        : usable;
+      return entries.map((entry) => create(slave, entry));
+    });
+  return channels.length === 0 ? [{ ...empty, device: keys[0] }] : channels;
 };
 
 /**
- * Retrieves the slaves the channels use and checks the entries of the enabled channels.
- * @returns the slaves, their rack, and the enabled channels of each slave.
- * @throws {Error} if the slaves are on different networks, or if an enabled channel has
- * no entry, an entry its slave lacks, an input that only another program reads, or an
- * entry another channel uses.
+ * Retrieves the slaves the channels use and runs the checks of the form on them, as a
+ * deploy can start before the form loads the slaves.
+ * @returns the slaves, their rack, and the enabled channels with an entry on each
+ * slave.
+ * @throws {NotFoundError} if a slave of a channel no longer exists.
+ * @throws {Error} if the task cannot start on its slaves.
  */
-export const retrieveAndValidateSlaves = async <C extends Channel>(
+export const retrieveSlaves = async <C extends Channel>(
   client: Synnax,
-  channels: C[],
   pdoType: PDOType,
-): Promise<SlaveValidationResult<C>> => {
-  const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
+  config: CheckedConfig & { channels: C[] },
+): Promise<Slaves<C>> => {
+  const { channels } = config;
+  const slaveKeys = unique.unique(channels.map((ch) => ch.device));
   const slaves = await client.devices.retrieve({
     key: slaveKeys,
     schemas: SLAVE_SCHEMAS,
   });
-
   PlatformDevice.checkFound(slaveKeys, slaves);
-  for (const slave of slaves) PlatformDevice.checkConfigured(slave);
-
-  const networks = [...new Set(slaves.map((s) => s.properties.network))];
-  if (networks.length > 1)
-    throw new Error(
-      `All slaves must be on the same network. Found: ${networks.join(", ")}. ` +
-        "Pick slaves on one network.",
-    );
-  if (networks.length === 0 || !networks[0])
-    throw new Error(
-      "No network found for the selected slaves. Scan the network again.",
-    );
-
+  const onRack = await client.devices.retrieve({
+    make: MAKE,
+    model: SLAVE_MODEL,
+    rack: slaves[0].rack,
+    schemas: SLAVE_SCHEMAS,
+    includeStatus: true,
+  });
+  checkSlaves(pdoType, config, slaves, onRack.map(toSlaveOnRack));
   const channelsBySlaveKey = new Map<string, Extract<C, EntryChannel>[]>();
   for (const slave of slaves)
     channelsBySlaveKey.set(
       slave.key,
-      validateEntries(
-        slave,
-        channels.filter((ch) => ch.device === slave.key),
-        pdoType,
+      channels.filter(
+        (ch): ch is Extract<C, EntryChannel> =>
+          ch.device === slave.key && !ch.disabled && hasEntry(ch),
       ),
     );
-
   return { slaves, rack: slaves[0].rack, channelsBySlaveKey };
 };
 
@@ -190,7 +120,6 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
  * @returns the startup parameters of each slave: a value for every field of each input
  * that an enabled channel reads, in the order of the slave's catalog. Values the task
  * held stay. A slave that other software sets up gets none.
- * @throws {Error} if a value breaks a limit or a rule of the catalog.
  */
 export const fillStartupParameters = (
   slaves: SlaveDevice[],
@@ -207,17 +136,9 @@ export const fillStartupParameters = (
     );
     const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
     const parameters: ethercat.StartupParameter[] = [];
-    for (const input of inputs) {
-      const ch = entries.find((e) => input.entries.some((a) => sameAddress(a, e)));
-      if (ch == null) continue;
-      const filledInput = fill(input.settings, prior);
-      const [problem] = check(input, filledInput);
-      if (problem != null)
-        throw new Error(
-          `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
-        );
-      parameters.push(...filledInput);
-    }
+    for (const input of inputs)
+      if (entries.some((e) => input.entries.some((a) => sameAddress(a, e))))
+        parameters.push(...fill(input.settings, prior).values);
     if (parameters.length > 0) filled.push({ device: slave.key, parameters });
   }
   return filled;
@@ -248,18 +169,8 @@ const checkIndexFree = async (
   slave: SlaveDevice,
   index: channel.Channel,
 ): Promise<void> => {
-  const identifier = channel.escapeInvalidName(slave.properties.identifier);
-  const other = (await client.devices.retrieve({})).find(
-    ({ key, properties }) =>
-      key !== slave.key &&
-      typeof properties?.identifier === "string" &&
-      channel.escapeInvalidName(properties.identifier) === identifier,
-  );
-  if (other != null)
-    throw new Error(
-      `Device ${other.name} has an identifier that gives the same channel names as ` +
-        `${slave.properties.identifier}. Change the identifier of one of them.`,
-    );
+  const other = findClash(slave, await client.devices.retrieve({}));
+  if (other != null) throw new Error(clashProblem(slave, other));
   const others = (
     await client.devices.retrieve({
       make: MAKE,
@@ -286,8 +197,8 @@ const checkIndexFree = async (
   );
   if (owner != null)
     throw new Error(
-      `Slave ${owner.name} uses the index channel ${index.name}. Change the ` +
-        `identifier of slave ${slave.name}.`,
+      `Module ${owner.name} uses the index channel ${index.name}. Change the ` +
+        `identifier of module ${slave.name}.`,
     );
 };
 
@@ -325,7 +236,7 @@ export const checkOrCreateIndex = async (
       if (!idx.isIndex)
         throw new Error(
           `A channel named ${name} already exists and is not an index. Change the ` +
-            `identifier of slave ${slave.name}.`,
+            `identifier of module ${slave.name}.`,
         );
       await checkIndexFree(client, slave, idx);
     } else

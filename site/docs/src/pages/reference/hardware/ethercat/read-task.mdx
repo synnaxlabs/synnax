@@ -39,12 +39,12 @@ sample rate of each read task, from 100 Hz to 10 kHz. If no such rate exists, fo
 example for read tasks at 3 kHz and 4 kHz, the task does not start. See
 [how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
 
-Each sample has the time of the network cycle that read it. Without IgH, if a module on
-the network has a distributed clock, the Driver measures that time with the distributed
-clock. The timestamps then show when the EtherCAT frame passed the modules, without the
-jitter of the computer clock, and they stay in line with the computer clock. When the
-computer is busy, a cycle can still run late, and its timestamp shows the delay. See
-[timing](/reference/hardware/tasks#timing).
+Each sample has the time of the network cycle that read it. If a module on the network
+has a distributed clock, the Driver measures that time with the distributed clock. With
+IgH, a module must also run in a DC sync mode. The timestamps then show when the
+EtherCAT frame passed the modules, without the jitter of the computer clock, and they
+stay in line with the computer clock. When the computer is busy, a cycle can still run
+late, and its timestamp shows the delay. See [timing](/reference/hardware/tasks#timing).
 
 <Divider.Divider x />
 
@@ -56,7 +56,9 @@ computer is busy, a cycle can still run late, and its timestamp shows the delay.
 1. In the devices toolbar, right-click a module and select **Create read task**. The
    task starts with a channel for each input of the module. On a module whose settings
    Synnax knows, such as a Dewesoft module, it starts with the measurement inputs only.
-   To remove a channel, right-click it and select **Remove**.
+   To read several modules of one network in one task, select them first. The Console
+   configures each module that is not configured yet. To remove a channel, right-click
+   it and select **Remove**.
 2. Set **Sample rate** and **Stream rate**.
 3. Click <Icon.Play /> (**Start**).
 
@@ -64,6 +66,19 @@ To add a channel, click **Add channel**, select the module in **Device**, and se
 entry in **Entry**. A new channel starts with the module of the last channel, and **Data
 type** shows the type of the entry. To add every input of a module at once, right-click
 one of its channels and select **Add every input of** _module name_.
+
+The **Device** list ends with **Connect EtherCAT network**, which opens the list of
+modules that the Driver found and selects the module that you pick. When you select a
+module that is not configured, its Configure dialog opens.
+
+If Synnax knows the module, a channel shows **Settings** for its input, such as the
+range and the filter. The Driver writes them as startup parameters when the task starts.
+See [Dewesoft](/reference/hardware/ethercat/dewesoft).
+
+Under the channels, the task shows how many channels **Start** creates and how many are
+in use, such as "Start creates 4 channels and 1 time channel, 12 of 100 channels in
+use." When the new channels would pass the channel limit of your license, it asks you to
+delete channels first.
 
 The Console creates the channels and names them after the identifier of the module and
 the name of the entry, such as `ai1_Value` for a module with the identifier `ai1`. If
@@ -79,6 +94,13 @@ records into it. Otherwise, a channel name that is in use stops the deploy with 
 
 Starting or stopping a task does not restart the network. The other tasks on the port
 keep running.
+
+When you click **Start**, the status shows each step: "Configuring task", "Starting
+task", "Scanning _port_" and "Starting _port_" when the network is stopped, then
+"Started task". "Waiting for another task" shows while another task starts the network,
+or while a scan or a save in the Configure dialog uses the port. "Retrying the start"
+shows when the Driver tries again after a failure. A start that takes more than 45
+seconds fails.
 
 <Video id="hardware/ethercat/read-task" />
 
@@ -185,6 +207,17 @@ one of them, pass the name of the PDO that holds the entry as the third argument
 
 <Divider.Divider x />
 
+## Tare channels
+
+Tare sets the current value of a `float32` or `float64` channel to zero, such as a
+[scaled](#scales) channel. The task must be running.
+
+1. In the channel list, click **Tare** on a float channel. To tare several channels,
+   select them, right-click, and select **Tare**.
+2. The values of those channels start from zero.
+
+<Divider.Divider x />
+
 ## Task options
 
 | Setting                                           | Default | Notes                                                     |
@@ -193,6 +226,7 @@ one of them, pass the name of the PDO that holds the entry as the third argument
 | Stream rate <small>`stream_rate`</small>          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
 | Data saving <small>`data_saving_disabled`</small> | On      | See [data saving](/reference/hardware/tasks#data-saving). |
 | Auto start <small>`auto_start`</small>            | Off     | Starts the task each time the Driver starts.              |
+| <small>`startup_parameters`</small>               | None    | CoE settings that the task writes when it starts.         |
 
 TypeScript uses the same fields in camel case, such as `sampleRate`.
 
@@ -319,20 +353,90 @@ is the one that the task read before, and it keeps the old channel.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"A channel on slave ... has no entry. Pick an entry."}>
+<Problem.Item message={["Device is required", "Entry is required"]}>
 <Problem.Cause>
 
-A channel has no entry selected.
+A channel has no module or no entry selected. The Console shows this problem when you
+start the task.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Select an entry in **Entry**, or remove the channel.
+Select the module in **Device** and an entry in **Entry**, or remove the channel.
 
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... has no input entry at ..."}>
+<Problem.Item message={"Found no device with key ..."}>
+<Problem.Cause>
+
+A module of the task was deleted.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select another module in **Device**, or remove the channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... is not configured. Configure it to start the task."}>
+<Problem.Cause>
+
+A module of the task is not configured.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Right-click the module, select **Configure**, and click **Save**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Entry ... on module ... sends data that only ... reads."}>
+<Problem.Cause>
+
+The module runs the setup of another program, such as DewesoftX, and only that program
+can read the entry.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Do the step that the message gives: switch the module to Synnax in the Configure dialog,
+restart the power of the module, or select another entry.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... sets up this device"}>
+<Problem.Cause>
+
+Another program, such as DewesoftX, sets up the module. The channel list marks each
+channel on the module in yellow, and the details of the channel show this warning.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click **Switch to Synnax** in the warning. If the warning tells you to set up the module
+in the other program, do that.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Another task sets ... of module ... to ..."}>
+<Problem.Cause>
+
+Two read tasks write different values to one setting of a module.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give both tasks the same value, or stop the other task.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Module ... has no input entry at ..."}>
 <Problem.Cause>
 
 The module has no input entry at the address of the channel.
@@ -402,7 +506,22 @@ Set another name in **Channel**.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
+<Problem.Item message={"... has an identifier that gives the same channel names as ..."}>
+<Problem.Cause>
+
+Two modules have the same identifier, such as `do4`. The message names the slot of each
+module.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Right-click one of the modules, select **Configure**, and change its
+[identifier](/reference/hardware/devices#identifiers).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["Module ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
 <Problem.Cause>
 
 The index channel name `<identifier>_time` belongs to another module, or to a channel
@@ -463,9 +582,24 @@ Use sample rates with a small common multiple, such as 250 Hz and 1 kHz.
 <Problem.Item message={"Failed to read data"}>
 <Problem.Cause>
 
-A module on the port stopped responding, so every network cycle fails. Every read task
-on the port shows this warning and pauses. The task keeps trying, at most 5 seconds
-apart, and its data starts again when the module responds.
+Every network cycle on the port failed, for example because the cable to the first
+module is disconnected. The description gives the reason. The task tries again, at most
+5 seconds apart, and its data starts again when the cycles pass.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the cable to the first module and the power of the modules.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["Lost contact with module ... (...).", "Module ... (...) is not in OP."]}>
+<Problem.Cause>
+
+The task shows **Dropped samples**. A module of the task stopped responding or left OP.
+The task loses its samples until the module returns. The other tasks on the port
+continue.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -476,8 +610,53 @@ which module is lost. Check its power and its cable.
 </Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={"The task cannot keep up with the bus."}>
+<Problem.Cause>
+
+The task shows **Dropped samples**. The task reads its samples from the bus slower than
+the bus collects them.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower the stream rate of the task.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... is a USB adapter, which can hold frames back. ..."} id="a-usb-adapter-drops-samples">
+<Problem.Cause>
+
+The task shows **Dropped samples**, and the port is on a USB Ethernet adapter. A USB
+adapter can hold a frame back past the end of its bus cycle. That cycle fails, and each
+read task that samples on that cycle loses its sample. More cycles fail at higher rates.
+On macOS, the warning gives only `Bus cycles failed: process data receive failed.`
+
+For example, a Realtek USB Ethernet adapter on a Windows computer, with one Dewesoft
+IOLITE 6xSTG module, missed 753 of 180,297 samples (0.4%) in 3 minutes at 1 kHz. Other
+adapters and computers give other results.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Connect the modules to a PCIe or onboard Ethernet port. To keep the USB adapter, make
+the network cycle slower:
+
+1. Stop every task on the port.
+2. Lower the sample rates of the read tasks and the execution rates of the write tasks.
+   Keep each read rate a divisor of the fastest one, such as 500 Hz and 250 Hz. The
+   network cycles at a common multiple of the read rates, so a rate such as 300 Hz next
+   to 500 Hz makes it cycle faster.
+3. Start the tasks again.
+
+See
+[how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
+
+</Problem.Fix>
+</Problem.Item>
+
 </Problem.List>
 
 For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
-`No EtherCAT slaves found on ...`, see
+`No EtherCAT modules found on ...`, see
 [Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).

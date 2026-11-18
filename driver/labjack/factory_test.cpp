@@ -28,6 +28,9 @@ const std::string LJM_MISSING = "LabJack LJM shared library is not installed. Do
 /// @brief a LabJack factory whose LJM library fails to load once, then loads.
 class FactoryTest : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     synnax::task::Task task;
@@ -41,6 +44,7 @@ protected:
     );
 
     void SetUp() override {
+        this->cancel.start();
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
         this->ctx = std::make_shared<task::MockContext>(this->client);
         const auto rack = ASSERT_NIL_P(this->client->racks.create("labjack_factory"));
@@ -80,6 +84,8 @@ protected:
             },
         };
     }
+
+    void TearDown() override { this->cancel.stop(); }
 };
 
 /// @brief it should fail to configure a read task while LJM does not load, and
@@ -88,7 +94,8 @@ TEST_F(FactoryTest, ConfigureFailsUntilLJMLoads) {
     const auto [failed, failed_handled] = this->factory.configure_task(
         this->ctx,
         this->task,
-        "configure_cmd"
+        "configure_cmd",
+        this->cancel
     );
     EXPECT_TRUE(failed_handled);
     EXPECT_EQ(failed, nullptr);
@@ -101,7 +108,8 @@ TEST_F(FactoryTest, ConfigureFailsUntilLJMLoads) {
     const auto [configured, handled] = this->factory.configure_task(
         this->ctx,
         this->task,
-        "configure_cmd"
+        "configure_cmd",
+        this->cancel
     );
     EXPECT_TRUE(handled);
     EXPECT_NE(configured, nullptr);
@@ -115,7 +123,8 @@ TEST_F(FactoryTest, AutoStartReportsMissingLJMAtBoot) {
     const auto [tsk, handled] = this->factory.configure_task(
         this->ctx,
         this->task,
-        task::NO_COMMAND
+        task::NO_COMMAND,
+        this->cancel
     );
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
@@ -137,24 +146,27 @@ TEST_F(FactoryTest, ScannerWarnsUntilLJMLoads) {
             .type = SCAN_TASK_TYPE,
             .config = {{"rate", 20}},
         },
-        task::NO_COMMAND
+        task::NO_COMMAND,
+        this->cancel
     );
     ASSERT_TRUE(handled);
     ASSERT_NE(scan_task, nullptr);
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
         this->ctx->snapshot().size(),
-        3,
+        4,
         std::chrono::seconds(5),
         std::chrono::milliseconds(10)
     );
     scan_task->stop(false);
     const auto statuses = this->ctx->snapshot();
-    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(statuses[0].message, "Started scan task");
-    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(statuses[1].message, "Failed to scan for devices");
-    EXPECT_EQ(statuses[1].description, LJM_MISSING);
-    EXPECT_EQ(statuses[2].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(statuses[2].message, "Scan task running");
+    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_LOADING);
+    EXPECT_EQ(statuses[0].message, "Starting task");
+    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(statuses[1].message, "Started scan task");
+    EXPECT_EQ(statuses[2].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(statuses[2].message, "Failed to scan for devices");
+    EXPECT_EQ(statuses[2].description, LJM_MISSING);
+    EXPECT_EQ(statuses[3].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(statuses[3].message, "Scan task running");
 }
 }

@@ -29,6 +29,9 @@ type GenerateContext struct {
 	Enums      []resolution.Type
 	TypeDefs   []resolution.Type
 	Unions     []resolution.Type
+	// FilePath is the schema file that the output renders. Two schemas with one file
+	// name share a namespace, so locality checks compare this path.
+	FilePath string
 }
 
 type FileGenerator interface {
@@ -67,262 +70,201 @@ func (g *Generator) allows(outputPath string) bool {
 }
 
 func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
-	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-
-	var skip SkipFunc
-	if g.IncludeHand {
-		skip = func(typ resolution.Type) bool { return omit.IsType(typ, g.Domain) }
-	} else {
-		skip = func(typ resolution.Type) bool { return omit.IsSkipped(typ, g.Domain) }
-	}
-
-	var typeDefCollector *Collector
-	if g.CollectTypeDefs {
-		typeDefCollector = NewCollector(g.Domain, req).WithSkipFunc(skip)
-		if err := typeDefCollector.AddAll(req.Resolutions.DistinctTypes()); err != nil {
-			return nil, err
-		}
-		if err := typeDefCollector.AddAll(req.Resolutions.AliasTypes()); err != nil {
-			return nil, err
-		}
-	}
-
-	structCollector := NewCollector(g.Domain, req).WithSkipFunc(skip)
-	if err := structCollector.AddAll(req.Resolutions.StructTypes()); err != nil {
+	gen, err := g.collect(req)
+	if err != nil {
 		return nil, err
 	}
-
-	var unionCollector *Collector
-	if g.CollectUnions {
-		unionCollector = NewCollector(g.Domain, req).WithSkipFunc(skip)
-		if err := unionCollector.AddAll(req.Resolutions.UnionTypes()); err != nil {
+	if err := gen.structs.ForEach(gen.emitStructs); err != nil {
+		return nil, err
+	}
+	if gen.unions != nil {
+		if err := gen.unions.ForEach(gen.emitUnions); err != nil {
 			return nil, err
 		}
 	}
+	if gen.enums != nil {
+		if err := gen.enums.ForEach(gen.emitEnums); err != nil {
+			return nil, err
+		}
+	}
+	if gen.typeDefs != nil {
+		if err := gen.typeDefs.ForEach(gen.emitTypeDefs); err != nil {
+			return nil, err
+		}
+	}
+	return &plugin.Response{Files: gen.files}, nil
+}
 
-	var enumCollector *Collector
+// generation is the state of one Generate call. A collector is nil when the generator
+// does not collect its kind of type.
+type generation struct {
+	g        *Generator
+	req      *plugin.Request
+	typeDefs *Collector
+	structs  *Collector
+	unions   *Collector
+	enums    *Collector
+	files    []plugin.File
+}
+
+func (g *Generator) collect(req *plugin.Request) (*generation, error) {
+	gen := &generation{g: g, req: req, files: make([]plugin.File, 0)}
+	skip := g.skipFunc()
+	if g.CollectTypeDefs {
+		gen.typeDefs = NewCollector(g.Domain, req).WithSkipFunc(skip)
+		if err := gen.typeDefs.AddAll(req.Resolutions.DistinctTypes()); err != nil {
+			return nil, err
+		}
+		if err := gen.typeDefs.AddAll(req.Resolutions.AliasTypes()); err != nil {
+			return nil, err
+		}
+	}
+	gen.structs = NewCollector(g.Domain, req).WithSkipFunc(skip)
+	if err := gen.structs.AddAll(req.Resolutions.StructTypes()); err != nil {
+		return nil, err
+	}
+	if g.CollectUnions {
+		gen.unions = NewCollector(g.Domain, req).WithSkipFunc(skip)
+		if err := gen.unions.AddAll(req.Resolutions.UnionTypes()); err != nil {
+			return nil, err
+		}
+	}
 	if g.CollectEnums {
-		enumCollector = NewCollector(g.Domain, req).
+		gen.enums = NewCollector(g.Domain, req).
 			WithPathFunc(func(typ resolution.Type) string { return output.GetPath(typ, g.Domain) }).
 			WithSkipFunc(nil)
 		for _, e := range enum.CollectWithOwnOutput(req.Resolutions.EnumTypes(), g.Domain) {
-			if err := enumCollector.Add(e); err != nil {
+			if err := gen.enums.Add(e); err != nil {
 				return nil, err
 			}
 		}
 	}
+	return gen, nil
+}
 
-	err := structCollector.ForEach(
-		func(outputPath string, structs []resolution.Type) error {
-			enums := enum.CollectReferenced(structs, req.Resolutions)
-			if enumCollector != nil && enumCollector.Has(outputPath) {
-				if g.MergeByName {
-					enums = MergeTypesByName(enums, enumCollector.Remove(outputPath))
-				} else {
-					enums = MergeTypes(enums, enumCollector.Remove(outputPath))
-				}
-			}
-			if g.CollectEnums && len(structs) > 0 {
-				namespace := structs[0].Namespace
-				namespaceEnums := enum.CollectNamespaceEnums(
-					namespace,
-					outputPath,
-					req.Resolutions,
-					g.Domain,
-					nil,
-				)
-				if g.MergeByName {
-					enums = MergeTypesByName(enums, namespaceEnums)
-				} else {
-					enums = MergeTypes(enums, namespaceEnums)
-				}
-			}
-			if g.ExtraEnumsFunc != nil {
-				enums = MergeTypes(
-					enums,
-					g.ExtraEnumsFunc(structs, req.Resolutions, outputPath),
-				)
-			}
-			if g.FilterEnums != nil {
-				enums = g.FilterEnums(enums, outputPath)
-			}
-			var typeDefs []resolution.Type
-			if typeDefCollector != nil && typeDefCollector.Has(outputPath) {
-				typeDefs = typeDefCollector.Remove(outputPath)
-			}
-			var unions []resolution.Type
-			if unionCollector != nil && unionCollector.Has(outputPath) {
-				unions = unionCollector.Remove(outputPath)
-			}
-			if !g.allows(outputPath) {
-				return nil
-			}
+func (g *Generator) skipFunc() SkipFunc {
+	if g.IncludeHand {
+		return func(typ resolution.Type) bool { return omit.IsType(typ, g.Domain) }
+	}
+	return func(typ resolution.Type) bool { return omit.IsSkipped(typ, g.Domain) }
+}
 
-			ctx := &GenerateContext{
-				Namespace:  structs[0].Namespace,
-				OutputPath: outputPath,
-				Structs:    structs,
-				Enums:      enums,
-				TypeDefs:   typeDefs,
-				Unions:     unions,
-				Table:      req.Resolutions,
-				RepoRoot:   req.RepoRoot,
-			}
-			content, err := g.FileGenerator.GenerateFile(ctx)
-			if err != nil {
-				return errors.Wrapf(err, "failed to generate %s", outputPath)
-			}
-			if content == "" {
-				return nil
-			}
-			resp.Files = append(resp.Files, plugin.File{
-				Path:    fmt.Sprintf("%s/%s", outputPath, g.FilePattern),
-				Content: []byte(content),
-			})
-			return nil
-		},
+func (gen *generation) emitStructs(outputPath string, structs []resolution.Type) error {
+	referenced := enum.CollectReferenced(structs, gen.req.Resolutions)
+	enums := gen.ownEnums(referenced, outputPath, structs[0].Namespace)
+	if gen.g.ExtraEnumsFunc != nil {
+		extra := gen.g.ExtraEnumsFunc(structs, gen.req.Resolutions, outputPath)
+		enums = MergeTypes(enums, extra)
+	}
+	if gen.g.FilterEnums != nil {
+		enums = gen.g.FilterEnums(enums, outputPath)
+	}
+	typeDefs := take(gen.typeDefs, outputPath)
+	unions := take(gen.unions, outputPath)
+	return gen.emit(&GenerateContext{
+		Namespace:  structs[0].Namespace,
+		FilePath:   structs[0].FilePath,
+		OutputPath: outputPath,
+		Structs:    structs,
+		Enums:      enums,
+		TypeDefs:   typeDefs,
+		Unions:     unions,
+	})
+}
+
+func (gen *generation) emitUnions(outputPath string, unions []resolution.Type) error {
+	referenced := enum.CollectReferenced(unions, gen.req.Resolutions)
+	enums := gen.ownEnums(referenced, outputPath, unions[0].Namespace)
+	typeDefs := take(gen.typeDefs, outputPath)
+	return gen.emit(&GenerateContext{
+		Namespace:  unions[0].Namespace,
+		FilePath:   unions[0].FilePath,
+		OutputPath: outputPath,
+		Enums:      enums,
+		TypeDefs:   typeDefs,
+		Unions:     unions,
+	})
+}
+
+func (gen *generation) emitEnums(outputPath string, enums []resolution.Type) error {
+	typeDefs := take(gen.typeDefs, outputPath)
+	return gen.emit(&GenerateContext{
+		Namespace:  enums[0].Namespace,
+		FilePath:   enums[0].FilePath,
+		OutputPath: outputPath,
+		Enums:      enums,
+		TypeDefs:   typeDefs,
+	})
+}
+
+func (gen *generation) emitTypeDefs(
+	outputPath string,
+	typeDefs []resolution.Type,
+) error {
+	return gen.emit(&GenerateContext{
+		Namespace:  typeDefs[0].Namespace,
+		FilePath:   typeDefs[0].FilePath,
+		OutputPath: outputPath,
+		TypeDefs:   typeDefs,
+	})
+}
+
+// ownEnums merges into enums the enums that generate into outputPath on their own, and,
+// when the generator collects enums, the enums of namespace. It removes the merged
+// enums from the enum collector so that they get no file of their own.
+func (gen *generation) ownEnums(
+	enums []resolution.Type,
+	outputPath, namespace string,
+) []resolution.Type {
+	if gen.enums != nil && gen.enums.Has(outputPath) {
+		enums = gen.merge(enums, gen.enums.Remove(outputPath))
+	}
+	if !gen.g.CollectEnums {
+		return enums
+	}
+	namespaceEnums := enum.CollectNamespaceEnums(
+		namespace,
+		outputPath,
+		gen.req.Resolutions,
+		gen.g.Domain,
+		nil,
 	)
+	return gen.merge(enums, namespaceEnums)
+}
+
+func (gen *generation) merge(a, b []resolution.Type) []resolution.Type {
+	if gen.g.MergeByName {
+		return MergeTypesByName(a, b)
+	}
+	return MergeTypes(a, b)
+}
+
+// emit generates the file of ctx when the path filter allows its output path. It sets
+// the fields of ctx that every file shares.
+func (gen *generation) emit(ctx *GenerateContext) error {
+	if !gen.g.allows(ctx.OutputPath) {
+		return nil
+	}
+	ctx.Table = gen.req.Resolutions
+	ctx.RepoRoot = gen.req.RepoRoot
+	content, err := gen.g.FileGenerator.GenerateFile(ctx)
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "failed to generate %s", ctx.OutputPath)
 	}
-
-	if unionCollector != nil {
-		err = unionCollector.ForEach(
-			func(outputPath string, unions []resolution.Type) error {
-				namespace := unions[0].Namespace
-				enums := enum.CollectReferenced(unions, req.Resolutions)
-				if enumCollector != nil && enumCollector.Has(outputPath) {
-					if g.MergeByName {
-						enums = MergeTypesByName(
-							enums,
-							enumCollector.Remove(outputPath),
-						)
-					} else {
-						enums = MergeTypes(enums, enumCollector.Remove(outputPath))
-					}
-				}
-				if g.CollectEnums {
-					namespaceEnums := enum.CollectNamespaceEnums(
-						namespace,
-						outputPath,
-						req.Resolutions,
-						g.Domain,
-						nil,
-					)
-					if g.MergeByName {
-						enums = MergeTypesByName(enums, namespaceEnums)
-					} else {
-						enums = MergeTypes(enums, namespaceEnums)
-					}
-				}
-				var typeDefs []resolution.Type
-				if typeDefCollector != nil && typeDefCollector.Has(outputPath) {
-					typeDefs = typeDefCollector.Remove(outputPath)
-				}
-				if !g.allows(outputPath) {
-					return nil
-				}
-
-				ctx := &GenerateContext{
-					Namespace:  namespace,
-					OutputPath: outputPath,
-					Enums:      enums,
-					TypeDefs:   typeDefs,
-					Unions:     unions,
-					Table:      req.Resolutions,
-					RepoRoot:   req.RepoRoot,
-				}
-				content, err := g.FileGenerator.GenerateFile(ctx)
-				if err != nil {
-					return errors.Wrapf(err, "failed to generate %s", outputPath)
-				}
-				if content == "" {
-					return nil
-				}
-				resp.Files = append(resp.Files, plugin.File{
-					Path:    fmt.Sprintf("%s/%s", outputPath, g.FilePattern),
-					Content: []byte(content),
-				})
-				return nil
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
+	if content == "" {
+		return nil
 	}
+	gen.files = append(gen.files, plugin.File{
+		Path:    fmt.Sprintf("%s/%s", ctx.OutputPath, gen.g.FilePattern),
+		Content: []byte(content),
+	})
+	return nil
+}
 
-	if enumCollector != nil {
-		err = enumCollector.ForEach(
-			func(outputPath string, enums []resolution.Type) error {
-				var typeDefs []resolution.Type
-				if typeDefCollector != nil && typeDefCollector.Has(outputPath) {
-					typeDefs = typeDefCollector.Remove(outputPath)
-				}
-				if !g.allows(outputPath) {
-					return nil
-				}
-
-				ctx := &GenerateContext{
-					Namespace:  enums[0].Namespace,
-					OutputPath: outputPath,
-					Structs:    nil,
-					Enums:      enums,
-					TypeDefs:   typeDefs,
-					Table:      req.Resolutions,
-					RepoRoot:   req.RepoRoot,
-				}
-				content, err := g.FileGenerator.GenerateFile(ctx)
-				if err != nil {
-					return errors.Wrapf(err, "failed to generate %s", outputPath)
-				}
-				if content == "" {
-					return nil
-				}
-				resp.Files = append(resp.Files, plugin.File{
-					Path:    fmt.Sprintf("%s/%s", outputPath, g.FilePattern),
-					Content: []byte(content),
-				})
-				return nil
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
+// take removes and returns the types that c holds for outputPath. c may be nil.
+func take(c *Collector, outputPath string) []resolution.Type {
+	if c == nil || !c.Has(outputPath) {
+		return nil
 	}
-
-	if typeDefCollector != nil {
-		err = typeDefCollector.ForEach(
-			func(outputPath string, typeDefs []resolution.Type) error {
-				if !g.allows(outputPath) {
-					return nil
-				}
-				ctx := &GenerateContext{
-					Namespace:  typeDefs[0].Namespace,
-					OutputPath: outputPath,
-					Structs:    nil,
-					Enums:      nil,
-					TypeDefs:   typeDefs,
-					Table:      req.Resolutions,
-					RepoRoot:   req.RepoRoot,
-				}
-				content, err := g.FileGenerator.GenerateFile(ctx)
-				if err != nil {
-					return errors.Wrapf(err, "failed to generate %s", outputPath)
-				}
-				if content == "" {
-					return nil
-				}
-				resp.Files = append(resp.Files, plugin.File{
-					Path:    fmt.Sprintf("%s/%s", outputPath, g.FilePattern),
-					Content: []byte(content),
-				})
-				return nil
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return resp, nil
+	return c.Remove(outputPath)
 }

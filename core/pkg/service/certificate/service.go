@@ -167,11 +167,8 @@ func (s *Service) checkExpiry(ctx context.Context) error {
 func (s *Service) Close() error { return s.closer.Close() }
 
 // Changes returns the changes that the commit c made to certificates.
-func (s *Service) Changes(
-	ctx context.Context,
-	c gorp.Commit,
-) gorp.TxReader[Key, Certificate] {
-	return s.table.Changes(ctx, c)
+func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Certificate] {
+	return s.table.Changes(c)
 }
 
 // Actions returns the action batches that Writer attaches to its transactions.

@@ -25,6 +25,8 @@ import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
+const LABELS: Tag.TagsProps["noun"] = { one: "label", other: "labels" };
+
 export interface ItemProps extends List.ItemProps<status.Key> {}
 
 export const Item = (props: ItemProps): ReactElement | null => {
@@ -48,8 +50,12 @@ export const Item = (props: ItemProps): ReactElement | null => {
       checkable
       justify="between"
     >
-      <Flex.Box x grow>
-        <Text.Text level="p" weight={450}>
+      <Flex.Box x grow className={CSS.BE("status", "list-item-summary")}>
+        <Text.Text
+          level="p"
+          weight={450}
+          className={CSS.BE("status", "list-item-text")}
+        >
           <Base.Indicator
             variant={variant}
             className={CSS.BE("status", "list-item-indicator")}
@@ -68,9 +74,13 @@ export const Item = (props: ItemProps): ReactElement | null => {
           </Text.Text>
         </Text.Text>
       </Flex.Box>
-      <Flex.Box x align="center">
+      <Flex.Box x align="center" className={CSS.BE("status", "list-item-meta")}>
         {item.labels.length > 0 && (
-          <Tag.Tags variant="text">
+          <Tag.Tags
+            variant="text"
+            noun={LABELS}
+            className={CSS.BE("status", "list-item-labels")}
+          >
             <Label.Tags keys={item.labels} />
           </Tag.Tags>
         )}

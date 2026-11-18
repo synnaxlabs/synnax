@@ -8,19 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic, ValidationError } from "@synnaxlabs/client";
-import { color, id } from "@synnaxlabs/x";
+import { color, type dimensions, id, unique } from "@synnaxlabs/x";
 import DOMPurify from "dompurify";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const LINK_ATTRIBUTES = new Set(["href", "xlink:href"]);
 
 /**
- * Parses svg into an inert element safe to mount in the document. It removes scripts,
- * event handlers, foreignObject, and links to anything outside the markup.
+ * Parses svg without the sanitizer of {@link parseSVG}, at a small part of its cost.
+ * Use it only for markup that ships with Pluto.
  * @returns the root svg element, or null when the markup is empty, malformed, or not
  * rooted in an svg element.
  */
-export const parseSVG = (svg: string): SVGSVGElement | null => {
+export const parseTrusted = (svg: string): SVGSVGElement | null => {
   if (svg.length === 0) return null;
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
   const root = doc.documentElement;
@@ -30,6 +30,36 @@ export const parseSVG = (svg: string): SVGSVGElement | null => {
     doc.querySelector("parsererror") != null
   )
     return null;
+  return root as unknown as SVGSVGElement;
+};
+
+/**
+ * @returns the size of the view box of svg, or null when the markup is empty,
+ * malformed, or not rooted in an svg element. It does not sanitize the markup, so it
+ * costs a small part of {@link parseSVG}.
+ */
+export const measure = (svg: string): dimensions.Dimensions | null => {
+  const root = parseTrusted(svg);
+  if (root == null) return null;
+  const viewBox = root.getAttribute("viewBox");
+  if (viewBox) {
+    const [, , width, height] = viewBox.split(" ").map(Number);
+    return { width, height };
+  }
+  if (root.viewBox?.baseVal)
+    return { width: root.viewBox.baseVal.width, height: root.viewBox.baseVal.height };
+  return { width: 100, height: 100 };
+};
+
+/**
+ * Parses svg into an inert element safe to mount in the document. It removes scripts,
+ * event handlers, foreignObject, and links to anything outside the markup.
+ * @returns the root svg element, or null when the markup is empty, malformed, or not
+ * rooted in an svg element.
+ */
+export const parseSVG = (svg: string): SVGSVGElement | null => {
+  const root = parseTrusted(svg);
+  if (root == null) return null;
   // A fresh instance keeps the hook off the shared default one.
   const purify = DOMPurify(window);
   purify.addHook("uponSanitizeAttribute", (_, attr) => {
@@ -44,7 +74,7 @@ export const parseSVG = (svg: string): SVGSVGElement | null => {
     // document, and the SVG profile allows none.
     SANITIZE_DOM: false,
   });
-  return root as unknown as SVGSVGElement;
+  return root;
 };
 
 /// VISUAL_ELEMENTS are the SVG tags that carry paint (fill/stroke) and therefore
@@ -81,7 +111,7 @@ const isRendered = (el: Element): boolean => {
 
 /// collectVisualElements returns every painted shape in the tree, skipping shapes that
 /// live inside non-rendering containers (defs, clipPath, mask, ...).
-const collectVisualElements = (svg: Element): SVGElement[] =>
+export const collectVisualElements = (svg: Element): SVGElement[] =>
   VISUAL_ELEMENTS.flatMap((tag) =>
     Array.from(svg.querySelectorAll<SVGElement>(tag)),
   ).filter(isRendered);
@@ -96,13 +126,19 @@ interface ElementGroup {
   colorPair: ColorPair;
 }
 
+/** Parses an SVG paint value, or returns undefined when it names no single color. */
+const parsePaint = (paint: string): color.Color | undefined => {
+  const res = color.colorZ.safeParse(paint);
+  return res.success ? res.data : undefined;
+};
+
 /**
  * Resolves an SVG paint value to a Color. A missing or unparseable paint reads as
  * fully transparent, which is how an unpainted element renders.
  */
 const normalizeColor = (colorStr: string | null | undefined): color.Color => {
-  if (colorStr == null || colorStr === "") return color.ZERO;
-  return color.fromCSS(colorStr) ?? color.ZERO;
+  if (colorStr == null || colorStr === "") return color.TRANSPARENT;
+  return parsePaint(colorStr) ?? color.TRANSPARENT;
 };
 
 const getElementColors = (element: SVGElement): ColorPair => {
@@ -114,12 +150,13 @@ const getElementColors = (element: SVGElement): ColorPair => {
 const getColorPairKey = (colorPair: ColorPair): string =>
   `${color.hex(colorPair.stroke)}|${color.hex(colorPair.fill)}`;
 
-const generateSelector = (element: SVGElement): string => {
-  if (element.id) return `#${element.id}`;
+/** Returns a CSS selector that matches the element within its SVG. */
+export const selector = (element: SVGElement): string => {
+  if (element.id) return `#${CSS.escape(element.id)}`;
   const dataRegionId = element.getAttribute("data-region-id");
-  if (dataRegionId) return `[data-region-id="${dataRegionId}"]`;
+  if (dataRegionId) return `[data-region-id="${CSS.escape(dataRegionId)}"]`;
   if (element.classList.length > 0)
-    return `.${Array.from(element.classList).join(".")}`;
+    return `.${Array.from(element.classList, CSS.escape).join(".")}`;
   const tagName = element.tagName.toLowerCase();
   const parent = element.parentElement;
   if (!parent) return tagName;
@@ -133,7 +170,7 @@ const generateSelector = (element: SVGElement): string => {
     parent.tagName.toLowerCase() === "svg"
       ? ""
       : parent instanceof SVGElement
-        ? `${generateSelector(parent)} > `
+        ? `${selector(parent)} > `
         : "";
   return `${parentSelector}${tagName}:nth-of-type(${index})`;
 };
@@ -152,8 +189,8 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
     groups.get(key)!.elements.push(element);
   });
   return Array.from(groups.values()).map((group, index) => {
-    const selectors = group.elements.map(generateSelector);
-    const uniqueSelectors = Array.from(new Set(selectors));
+    const selectors = group.elements.map(selector);
+    const uniqueSelectors = unique.unique(selectors);
     const regionIndex = index + 1;
     const region: schematic.symbol.Region = {
       key: `region-${regionIndex}`,
@@ -173,15 +210,15 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
  */
 export const paint = (svg: string, selectors: string[]): ColorPair => {
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
-  for (const selector of selectors) {
-    const el = doc.querySelector(selector);
+  for (const sel of selectors) {
+    const el = doc.querySelector(sel);
     if (el != null)
       return {
         stroke: normalizeColor(el.getAttribute("stroke")),
         fill: normalizeColor(el.getAttribute("fill")),
       };
   }
-  return { stroke: color.ZERO, fill: color.ZERO };
+  return { stroke: color.TRANSPARENT, fill: color.TRANSPARENT };
 };
 
 const REGION_ID_ATTRIBUTE = "data-region-id";
@@ -247,7 +284,7 @@ const paintToAttribute = (computed: string): string | null => {
   // the reference verbatim.
   if (trimmed.startsWith("url(")) return trimmed;
   if (trimmed === "none") return "none";
-  const parsed = color.fromCSS(trimmed);
+  const parsed = parsePaint(trimmed);
   // Fall back to the raw computed value for anything unparseable (e.g. context-fill);
   // it remains a valid presentation-attribute value.
   return parsed == null ? trimmed : color.hex(parsed);

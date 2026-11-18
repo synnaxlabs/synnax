@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <array>
 #include <format>
 #include <string_view>
@@ -56,12 +57,65 @@ constexpr std::array<std::pair<uint32_t, std::string_view>, 32> ABORT_REASONS{{
     {0x08000023, "Object dictionary dynamic generation failed or no object dictionary"},
     {0x08000024, "No data available"},
 }};
+
+// Aborts about the transfer or the device state, not the object or its value.
+constexpr std::array<uint32_t, 7> TEMPORARY_ABORTS{
+    0x05030000,
+    0x05040000,
+    0x05040005,
+    0x060A0023,
+    0x08000020,
+    0x08000021,
+    0x08000022,
+};
+
+std::string abort_reason(const uint32_t code) {
+    for (const auto &[known, reason]: ABORT_REASONS)
+        if (known == code) return std::string(reason);
+    return std::format("unknown abort code 0x{:08X}", code);
+}
 }
 
 std::string sdo_abort_reason(const uint32_t code) {
     if (code == 0) return "no response";
-    for (const auto &[known, reason]: ABORT_REASONS)
-        if (known == code) return std::string(reason);
-    return std::format("unknown abort code 0x{:08X}", code);
+    return abort_reason(code);
+}
+
+const x::errors::Error &startup_parameter_error(const uint32_t code) {
+    if (code == 0 ||
+        std::ranges::find(TEMPORARY_ABORTS, code) != TEMPORARY_ABORTS.end())
+        return STARTUP_PARAMETER_ERROR;
+    return STARTUP_PARAMETER_REJECTED;
+}
+
+bool SDOFailure::permanent() const {
+    switch (this->kind) {
+        case Kind::NO_REPLY:
+        case Kind::UNEXPECTED_REPLY:
+            return false;
+        case Kind::ABORTED:
+            return std::ranges::find(TEMPORARY_ABORTS, this->abort_code) ==
+                   TEMPORARY_ABORTS.end();
+        case Kind::REPLY_TOO_LARGE:
+        case Kind::MAILBOX_ERROR:
+            return true;
+    }
+    std::unreachable();
+}
+
+std::string SDOFailure::reason() const {
+    switch (this->kind) {
+        case Kind::NO_REPLY:
+            return "no response";
+        case Kind::ABORTED:
+            return abort_reason(this->abort_code);
+        case Kind::UNEXPECTED_REPLY:
+            return "the module sent an unexpected reply";
+        case Kind::REPLY_TOO_LARGE:
+            return "the reply is larger than the read allows";
+        case Kind::MAILBOX_ERROR:
+            return "the module refused the mailbox request";
+    }
+    std::unreachable();
 }
 }

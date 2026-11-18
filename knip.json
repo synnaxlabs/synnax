@@ -15,7 +15,11 @@
     "client/ts": {
       "entry": ["src/index.ts!", "src/testutil/index.ts"],
       "project": ["src/**/*.ts!"],
-      "ignoreIssues": { "src/**/where.gen.ts": ["exports"] }
+      "ignoreIssues": { "src/**/where.gen.ts": ["exports"] },
+      "ignoreBinaries": ["openssl"]
+    },
+    "client/ts/examples/node": {
+      "entry": ["*.js"]
     },
     "drift": {
       "entry": ["src/index.ts!", "src/react/index.ts!", "src/tauri/index.ts!"],
@@ -23,7 +27,8 @@
     },
     "freighter/ts": {
       "entry": ["src/index.ts!"],
-      "project": ["src/**/*.ts!"]
+      "project": ["src/**/*.ts!"],
+      "ignoreBinaries": ["openssl"]
     },
     "lyra": {
       "entry": ["src/*/index.ts!"],
@@ -45,7 +50,9 @@
       "ignoreIssues": {
         "src/app/nav/{bar,drawer}/{Bottom,Left,Top}.tsx": ["exports"],
         "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
-        "src/platform/*/filter/{Chips,MenuItem}.tsx": ["exports"],
+        "src/feature/sift/range/{UploadMenuItem,Uploads}.tsx": ["exports"],
+        "src/platform/view/filter/{Chip,Chips,Menu}.tsx": ["exports"],
+        "src/platform/icd/picker/*.tsx": ["exports"],
         "src/platform/task/{fields,payload,port,views}/*.tsx": ["exports"]
       }
     },

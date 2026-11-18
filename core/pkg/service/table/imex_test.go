@@ -50,7 +50,8 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("table"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(WireRoundTrip(env).Decode[table.Table](ctx))
+			wire := WireRoundTrip(env)
+			decoded := MustSucceed(wire.Decode[table.Table]())
 			Expect(decoded.Name).To(Equal("exported"))
 		})
 
@@ -98,12 +99,10 @@ var _ = Describe("ImEx", func() {
 				imex.ImportOptions{Parent: proj.ResourceID()},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
-			Expect(res.Rows).To(Equal([]table.Row{
-				{Key: "row-0", Size: 30, Cells: []string{"c1"}},
-			}))
+			Expect(res.Rows).To(HaveLen(1))
+			Expect(keysOf(res.Rows[0])).To(Equal([]string{"c1"}))
 			Expect(res.Columns).To(Equal([]table.Column{{Key: "col-0", Size: 100}}))
-			Expect(res.Cells).To(HaveKey("c1"))
-			Expect(asText(res.Cells["c1"]).Value).To(Equal("hi"))
+			Expect(asText(configOf(res, "c1")).Value).To(Equal("hi"))
 		})
 
 		It(
@@ -116,7 +115,7 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Rows).To(HaveLen(1))
-				Expect(asText(res.Cells["c1"]).Weight).To(Equal(700.0))
+				Expect(asText(configOf(res, "c1")).Weight).To(Equal(700.0))
 			},
 		)
 
@@ -132,17 +131,15 @@ var _ = Describe("ImEx", func() {
 					},
 				)
 				Expect(res.Name).To(Equal("Legacy Table"))
-				Expect(res.Rows).To(Equal([]table.Row{
-					{Key: "row-0", Size: 30, Cells: []string{"c1", "c2"}},
-				}))
+				Expect(res.Rows).To(HaveLen(1))
+				Expect(keysOf(res.Rows[0])).To(Equal([]string{"c1", "c2"}))
 				Expect(res.Columns).To(Equal([]table.Column{
 					{Key: "col-0", Size: 100},
 					{Key: "col-1", Size: 120},
 				}))
-				Expect(res.Cells).To(HaveLen(2))
-				Expect(res.Cells["c2"].Variant).
+				Expect(configOf(res, "c2").Variant).
 					To(BeAssignableToTypeOf(table.ValueCellConfig{}))
-				Expect(asText(res.Cells["c1"]).Weight).To(Equal(700.0))
+				Expect(asText(configOf(res, "c1")).Weight).To(Equal(700.0))
 			},
 		)
 
@@ -236,7 +233,7 @@ var _ = Describe("ImEx", func() {
 				original := table.Table{
 					Project: &proj.Key,
 					Name:    "round-trip",
-					Rows:    []table.Row{{Key: "r0", Size: 42, Cells: []string{"c1"}}},
+					Rows:    []table.Row{row("r0", 42, textCfg("hi"), "c1")},
 					Columns: []table.Column{{Key: "c0", Size: 77}},
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

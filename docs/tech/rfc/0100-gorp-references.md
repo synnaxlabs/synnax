@@ -88,11 +88,14 @@ Status struct {
 
 - `kind place | use`: Required. `place` says where the dependent sits, and `use` says
   what the dependent depends on.
-- `on_delete cascade | restrict | detach`: Required. `cascade` deletes the dependent.
-  `restrict` refuses the delete while the dependent exists. `detach` keeps the dependent
-  and removes the target: it clears an optional scalar, writes zero to a scalar with a
-  zero default, and removes an array element. A required field in an array element
-  detaches by removing the element. Oracle refuses `detach` on any other field.
+- `on_delete cascade | restrict | detach | inline`: Required. `cascade` deletes the
+  dependent. `restrict` refuses the delete while the dependent exists. `detach` keeps
+  the dependent and removes the target: it clears an optional scalar, writes zero to a
+  scalar with a zero default, and removes an array element. A required field in an array
+  element detaches by removing the element. Oracle refuses `detach` on any other field.
+  `inline` keeps the dependent and sets the union that holds the key to the variant that
+  the target's `Inline()` method returns. Oracle allows it only on a required key of a
+  union variant that a field holds.
 - `types`: Required on a `resource.ID` field, and allowed only there.
 - `unique`: At most one dependent per target. A field that holds no target is exempt.
 - `acyclic`: A chain of references in one table must not come back to its start.

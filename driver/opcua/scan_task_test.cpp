@@ -32,6 +32,9 @@
 namespace driver::opcua {
 class TestScanTask : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to configure_task and exec.
+    x::breaker::Breaker cancel;
+
     /// @brief the certificate that the secured server presents.
     static inline certificate::Identity server_id;
     /// @brief a certificate that no server presents.
@@ -63,6 +66,7 @@ protected:
     static void TearDownTestSuite() { std::filesystem::remove_all(store_dir); }
 
     void SetUp() override {
+        this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
         ctx = std::make_shared<task::MockContext>(client);
         dir = std::filesystem::temp_directory_path() /
@@ -88,13 +92,14 @@ protected:
     }
 
     void TearDown() override {
+        this->cancel.stop();
         if (secured_server) secured_server->stop();
         std::filesystem::remove_all(dir);
     }
 
     void start_secured_server(
         const certificate::Identity &id,
-        std::vector<certificate::Certificate> trusted_clients = {}
+        std::vector<x::x509::Certificate> trusted_clients = {}
     ) {
         auto cfg = testutil::ServerConfig::create_default();
         cfg.port = 4871;
@@ -174,7 +179,7 @@ TEST_F(TestScanTask, testBasicScan) {
         .args = scan_cmd
     };
 
-    scan_task->exec(cmd);
+    scan_task->exec(cmd, this->cancel);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
@@ -260,7 +265,7 @@ TEST_F(TestScanTask, testConnectionPooling) {
         .args = scan_cmd
     };
 
-    scan_task->exec(cmd1);
+    scan_task->exec(cmd1, this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 
@@ -271,7 +276,7 @@ TEST_F(TestScanTask, testConnectionPooling) {
         .args = scan_cmd
     };
 
-    scan_task->exec(cmd2);
+    scan_task->exec(cmd2, this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
 }
@@ -303,7 +308,7 @@ TEST_F(TestScanTask, testTestConnection) {
         .args = test_conn_cmd
     };
 
-    scan_task->exec(cmd);
+    scan_task->exec(cmd, this->cancel);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
@@ -340,7 +345,7 @@ TEST_F(TestScanTask, testInvalidConnection) {
         .args = scan_cmd
     };
 
-    scan_task->exec(cmd);
+    scan_task->exec(cmd, this->cancel);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
@@ -664,7 +669,9 @@ TEST_F(TestScanTask, testTestConnectionUntrustedCertificate) {
     ASSERT_TRUE(rejected.details.data.has_value());
     EXPECT_EQ(
         x::json::json(rejected.details.data.value()),
-        x::json::json({{"server_certificate", server_id.certificate.info().to_json()}})
+        x::json::json(
+            {{"server_certificate", certificate::info(server_id.certificate).to_json()}}
+        )
     );
 
     conn_cfg.server_certificate = server_id.certificate;
@@ -804,7 +811,7 @@ TEST_F(TestScanTask, testGetCertificate) {
     ASSERT_TRUE(status.details.data.has_value());
     EXPECT_EQ(
         x::json::json(status.details.data.value()),
-        x::json::json({{"current", current.certificate.info().to_json()}})
+        x::json::json({{"current", certificate::info(current.certificate).to_json()}})
     );
 }
 
@@ -827,7 +834,7 @@ TEST_F(TestScanTask, testRegenerateCertificate) {
     ASSERT_TRUE(status.details.data.has_value());
     EXPECT_EQ(
         x::json::json(status.details.data.value()),
-        x::json::json({{"current", current.certificate.info().to_json()}})
+        x::json::json({{"current", certificate::info(current.certificate).to_json()}})
     );
 }
 

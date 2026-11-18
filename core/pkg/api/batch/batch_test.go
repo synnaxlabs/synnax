@@ -43,9 +43,10 @@ var _ = Describe("Batch", func() {
 	)
 	BeforeEach(func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		sets = 0
 		set := func(ctx context.Context, tx gorp.Tx, req setRequest) (setResponse, error) {
-			prev, closer, err := tx.Get(ctx, []byte(req.Key))
+			prev, closer, err := tx.Get([]byte(req.Key))
 			if err == nil {
 				defer func() { Expect(closer.Close()).To(Succeed()) }()
 			}
@@ -61,7 +62,7 @@ var _ = Describe("Batch", func() {
 			"/refuse": batch.Route(refuse),
 		})
 	})
-	decode := func(ctx context.Context, body string) batch.ExecRequest {
+	decode := func(body string) batch.ExecRequest {
 		GinkgoHelper()
 		var req batch.ExecRequest
 		Expect(json.Codec.Decode([]byte(body), &req)).To(Succeed())
@@ -76,9 +77,9 @@ var _ = Describe("Batch", func() {
 		})
 		return res, err
 	}
-	stored := func(ctx context.Context, key string) string {
+	stored := func(key string) string {
 		GinkgoHelper()
-		v, closer, err := db.Get(ctx, []byte(key))
+		v, closer, err := db.Get([]byte(key))
 		if err != nil {
 			return ""
 		}
@@ -89,7 +90,7 @@ var _ = Describe("Batch", func() {
 	It(
 		"Should run the requests in order and return each response",
 		func(ctx SpecContext) {
-			res := MustSucceed(exec(ctx, decode(ctx, `{"requests": [
+			res := MustSucceed(exec(ctx, decode(`{"requests": [
 			{"endpoint": "/set", "payload": {"key": "a", "value": "1"}},
 			{"endpoint": "/set", "payload": {"key": "a", "value": "2"}}
 		]}`)))
@@ -97,7 +98,7 @@ var _ = Describe("Batch", func() {
 				setResponse{Previous: ""},
 				setResponse{Previous: "1"},
 			}))
-			Expect(stored(ctx, "a")).To(Equal("2"))
+			Expect(stored("a")).To(Equal("2"))
 		},
 	)
 
@@ -111,11 +112,11 @@ var _ = Describe("Batch", func() {
 		var req batch.ExecRequest
 		Expect(msgpack.Codec.Decode(body, &req)).To(Succeed())
 		MustSucceed(exec(ctx, req))
-		Expect(stored(ctx, "b")).To(Equal("3"))
+		Expect(stored("b")).To(Equal("3"))
 	})
 
 	It("Should stop at the first error and commit nothing", func(ctx SpecContext) {
-		Expect(exec(ctx, decode(ctx, `{"requests": [
+		Expect(exec(ctx, decode(`{"requests": [
 			{"endpoint": "/set", "payload": {"key": "c", "value": "1"}},
 			{"endpoint": "/refuse", "payload": {}},
 			{"endpoint": "/set", "payload": {"key": "d", "value": "1"}}
@@ -124,14 +125,14 @@ var _ = Describe("Batch", func() {
 			MatchError("requests.1: refused"),
 		))
 		Expect(sets).To(Equal(1))
-		Expect(stored(ctx, "c")).To(BeEmpty())
-		Expect(stored(ctx, "d")).To(BeEmpty())
+		Expect(stored("c")).To(BeEmpty())
+		Expect(stored("d")).To(BeEmpty())
 	})
 
 	It(
 		"Should refuse an unknown endpoint before running anything",
 		func(ctx SpecContext) {
-			Expect(exec(ctx, decode(ctx, `{"requests": [
+			Expect(exec(ctx, decode(`{"requests": [
 			{"endpoint": "/set", "payload": {"key": "e", "value": "1"}},
 			{"endpoint": "/channel/create", "payload": {}}
 		]}`))).Error().To(MatchError(ContainSubstring(
@@ -142,12 +143,12 @@ var _ = Describe("Batch", func() {
 	)
 
 	It("Should reject a request with no payload", func(ctx SpecContext) {
-		Expect(exec(ctx, decode(ctx, `{"requests": [{"endpoint": "/set"}]}`))).
+		Expect(exec(ctx, decode(`{"requests": [{"endpoint": "/set"}]}`))).
 			Error().To(MatchError("requests.0.payload: required: validation error"))
 	})
 
 	It("Should reject a payload that does not decode", func(ctx SpecContext) {
-		Expect(exec(ctx, decode(ctx, `{"requests": [
+		Expect(exec(ctx, decode(`{"requests": [
 			{"endpoint": "/set", "payload": {"key": 12}}
 		]}`))).Error().To(SatisfyAll(
 			HaveField("Path", Equal([]string{"requests", "0", "payload"})),

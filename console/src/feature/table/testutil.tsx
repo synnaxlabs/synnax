@@ -24,6 +24,7 @@ import {
   type ReactElement,
   Suspense,
 } from "react";
+import { type z } from "zod";
 
 import { Modals } from "@/platform/modals";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
@@ -36,15 +37,33 @@ let projectKey: string | undefined;
 export const project = async (): Promise<string> =>
   (projectKey ??= (await client.projects.create({ name: id.create() })).key);
 
+type CellInput = z.input<typeof clientTable.cellConfigZ>;
+
+/** The key of the row that createCellRow builds. */
+export const ROW_KEY = "r0";
+
+// createCellRow builds a table body with one row that holds a cell per entry of
+// configs, keyed by the entry key, and a column per cell.
+export const createCellRow = (
+  configs: Record<string, CellInput>,
+): Pick<table.New, "rows" | "columns"> => {
+  const cells = Object.entries(configs).map(([key, config]) => ({ key, config }));
+  return {
+    rows: [{ key: ROW_KEY, size: 36, cells }],
+    columns: cells.map(() => ({ size: 72 })),
+  };
+};
+
 // createCellGrid builds a two-cell text table body: cells "a" and "b" in one row.
-export const createCellGrid = (): Pick<table.New, "rows" | "columns" | "cells"> => ({
-  rows: [{ size: 36, cells: ["a", "b"] }],
-  columns: [{ size: 72 }, { size: 72 }],
-  cells: {
+export const createCellGrid = (): Pick<table.New, "rows" | "columns"> =>
+  createCellRow({
     a: { variant: "text", value: "Cell A", level: "h5", fillColor: "#ff0000ff" },
     b: { variant: "text", value: "Cell B", level: "h5", fillColor: "#00ff00ff" },
-  },
-});
+  });
+
+/** @returns the config of the cell with the key, or undefined when no row holds it. */
+export const configOf = (t: table.Table, key: string): table.CellConfig | undefined =>
+  t.rows.flatMap((r) => r.cells).find((c) => c.key === key)?.config;
 
 // loadTable primes key's flux cache through the production retrieve path. The
 // single-hook bootstrap keeps the suspending useEnsure from being followed by

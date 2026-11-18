@@ -40,11 +40,6 @@ type ReadChannel struct {
 	Field string `json:"field" msgpack:"field"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadChannel) ApplyDefaults() {
-	r.BaseChannel.ApplyDefaults()
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadChannel) SetDefaults() {
 	r.BaseChannel.SetDefaults()
@@ -104,13 +99,6 @@ func (ArraySampling) isSamplingVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (a *ArraySampling) SetDefaults() {
 	a.Size = 1
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *ArraySampling) ApplyDefaults() {
-	if a.Size == 0 {
-		a.Size = 1
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -206,24 +194,16 @@ func (u Sampling) Type() SamplingType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Sampling) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case ArraySampling:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Sampling) Validate() error {
+	v := validate.New("Sampling")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case ArraySampling:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // ReadConfig configures an OPC UA read task.
@@ -238,24 +218,6 @@ type ReadConfig struct {
 	// NanFillEnabled is true when a bad value of a float channel is written as NaN.
 	// When false, a bad value skips the read for every channel that shares its index.
 	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.SampleRate == 0 {
-		r.SampleRate = 50
-	}
-	if r.StreamRate == 0 {
-		r.StreamRate = 25
-	}
-	if r.Sampling.Variant == nil {
-		r.Sampling.Variant = UnarySampling{}
-	}
-	r.ReadConfig.ApplyDefaults()
-	r.Sampling.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.

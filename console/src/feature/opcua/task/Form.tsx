@@ -49,6 +49,7 @@ import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
+import { Section } from "@/platform/section";
 import { Task } from "@/platform/task";
 
 export interface ExtraItemProps<C extends Channel> {
@@ -72,11 +73,13 @@ const ChannelListItem = <C extends Channel>({
   children,
   getChannelKeyAndID,
   path,
+  tareable = false,
   ...rest
 }: ChannelListItemProps<C>) => {
   const item = PForm.useFieldValue(path);
   const fields = deep.widen<Channel>(path);
   const nodeIdState = PForm.useFieldState(fields.nodeId, { optional: true });
+  PForm.useStatusDisplay(nodeIdState == null ? null : fields.nodeId);
   if (item == null) return null;
   const { nodeName, nodeId } = item;
   const opcNode = nodeId.length > 0 ? nodeId : "No node selected";
@@ -120,6 +123,7 @@ const ChannelListItem = <C extends Channel>({
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
+        {tareable && <Task.TareButton channel={channel} disabled={item.disabled} />}
         <Task.EnabledCheckbox path={fields.disabled} />
       </Flex.Box>
     </Select.Item>
@@ -176,7 +180,7 @@ const Header = <C extends Channel>({
       );
     }, "Failed to import channels");
   return (
-    <PHeader.Header className={CSS.B("opc-task-header")}>
+    <Section.Header className={CSS.B("opc-task-header")}>
       <PHeader.Title weight={500} color={10} level="p">
         Channels
       </PHeader.Title>
@@ -202,7 +206,7 @@ const Header = <C extends Channel>({
           <Icon.Export />
         </Button.Button>
       </PHeader.Actions>
-    </PHeader.Header>
+    </Section.Header>
   );
 };
 
@@ -299,7 +303,7 @@ const describeMissing = ({ truncated, skipped }: Search): string | null => {
 
 interface ChannelListProps<C extends Channel> extends Pick<
   Task.ChannelListProps<C>,
-  "contextMenuItems" | "path" | "resolve"
+  "contextMenuItems" | "path" | "resolve" | "tareable"
 > {
   children: Component.RenderProp<ExtraItemProps<C>>;
   device: Device;
@@ -465,7 +469,7 @@ export interface FormProps<C extends Channel>
     Required<
       Pick<ChannelListProps<C>, "convertNodeToChannel" | "contextMenuItems" | "path">
     >,
-    Pick<ChannelListProps<C>, "indexed"> {
+    Pick<ChannelListProps<C>, "indexed" | "tareable"> {
   children?: Component.RenderProp<ExtraItemProps<C>>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
@@ -484,6 +488,7 @@ const Body = <C extends Channel>({
   path,
   resolve,
   indexed,
+  tareable,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
   const resolveOnDevice = (channel: C) => resolve(device, channel);
@@ -498,6 +503,7 @@ const Body = <C extends Channel>({
         path={path}
         resolve={resolveOnDevice}
         indexed={indexed}
+        tareable={tareable}
       >
         {children}
       </ChannelList>

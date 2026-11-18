@@ -10,7 +10,7 @@
 import "zod/compile";
 
 import { ResizeObserver } from "@juggle/resize-observer";
-import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
+import { installDragEvent, preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { shortenKeepAlive } from "@synnaxlabs/x/testutil/keepAlive";
 import { configure } from "@testing-library/react";
@@ -38,6 +38,8 @@ installTestWebSocket();
 
 preloadTimeLanguage();
 
+installDragEvent();
+
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
@@ -57,6 +59,11 @@ beforeAll(() => {
       removeListener: () => {},
     }),
   );
+  // jsdom has no font set. Fonts never load, so no load event fires.
+  Object.defineProperty(document, "fonts", {
+    value: new EventTarget(),
+    configurable: true,
+  });
 });
 
 afterAll(() => {

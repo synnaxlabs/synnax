@@ -41,14 +41,11 @@ see the [reference](/reference/ranges/reference#properties).
 2. Enter a name.
 3. Optional: change the start or end time on the timeline, and set a **Parent range**
    and labels.
-4. Click **Save to Core**.
+4. Click **Create**.
 
-A new range starts now and has no end, so it is in progress until you complete it.
-
-To keep the range only in this Console, click **Save locally**. A local range has no
-parent and no labels, and the ranges toolbar marks it with an **L**. To store it later,
-right-click it in the ranges toolbar and select **Save to Core**. See
-[saved and local ranges](/reference/ranges/reference#saved-and-local-ranges).
+A new range starts now and has no end, so it is in progress until you stop it. A range
+that starts later shows in the ranges toolbar only when you
+[favorite it](/reference/ranges/find#favorites).
 
 <Video id="client/ranges/create" />
 
@@ -146,10 +143,14 @@ For child ranges, aborts, and limits, see [create ranges in Arc](/reference/rang
 
   <Fragment slot="console">
 
-Set the **Parent range** in the create dialog. You can also click <Icon.Add /> in the
-child ranges section of the [range overview](/reference/ranges/find#range-overview), or
-right-click a range in the ranges toolbar or the range explorer and select **Create
-child range**.
+Set the **Parent range** in the create dialog. You can also do one of these steps:
+
+- On the [range overview](/reference/ranges/find#range-overview), click <Icon.Add />
+  (**Create child range**) in the child ranges section. A range with no child ranges
+  shows a **Child range** line instead.
+- Right-click a range in the ranges toolbar or the range explorer and select **Start
+  child range**. In the ranges toolbar, the child range starts now: enter its name and
+  press **Enter**.
 
 <Video id="client/ranges/create-child" />
 

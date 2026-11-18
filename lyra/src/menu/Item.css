@@ -42,6 +42,13 @@
         outline: none;
     }
 
+    /* While the pointer travels toward an open submenu, the items it crosses do not
+       light. */
+    &.lyra-btn.lyra-menu-item--aiming {
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+    }
+
     /* Menu items are rows: they speak the list selection tier, not the
        control-tier default. */
     &.lyra-btn.lyra--selected {

@@ -12,6 +12,7 @@ package domain
 import (
 	"context"
 	"math"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -69,10 +71,6 @@ var (
 	ErrStartAfterWrite = errors.New(
 		"cannot set the start of a domain writer after it writes",
 	)
-	defaultWriterConfig = WriterConfig{
-		EnableAutoCommit:         new(true),
-		AutoIndexPersistInterval: 1 * telem.Second,
-	}
 )
 
 // domain returns the time range of the domain the configuration forms. If End is not
@@ -140,9 +138,10 @@ type Writer struct {
 	// len is the number of bytes written by all internal writers of the domain writer
 	// since it last ended a domain.
 	len int64
-	// lastIndexPersist stores the timestamp of the last time changes to index were
-	// flushed to disk.
-	lastIndexPersist telem.TimeStamp
+	// lastIndexPersist is the clock reading when changes to the index were last flushed
+	// to disk.
+	lastIndexPersist time.Time
+	clock            xtime.Clock
 	// fileKey represents the key of the file written to by the writer. One can convert
 	// it to a filename via the fileKeyToName function.
 	fileKey uint16
@@ -153,6 +152,10 @@ type Writer struct {
 	// started denotes whether the writer has a start. A writer without one cannot
 	// write.
 	started bool
+	// staged denotes whether the writer's last commit was in a Group, so that the index
+	// can hold a staged domain at stagedStart.
+	staged      bool
+	stagedStart telem.TimeStamp
 	// closed denotes whether the writer is closed. A closed writer returns an error
 	// when attempts to Write or Commit with it are made.
 	closed bool
@@ -165,7 +168,10 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		return nil, ErrDBClosed
 	}
 
-	cfg, err := config.New(defaultWriterConfig, cfg)
+	cfg, err := config.New(WriterConfig{
+		EnableAutoCommit:         new(true),
+		AutoIndexPersistInterval: 1 * telem.Second,
+	}, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +197,8 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		idx:              db.idx,
 		presetEnd:        !cfg.End.IsZero(),
 		started:          started,
-		lastIndexPersist: telem.Now(),
+		lastIndexPersist: db.cfg.Clock.Now(),
+		clock:            db.cfg.Clock,
 		onClose: func() {
 			db.resourceCount.Add(-1)
 		},
@@ -263,7 +270,7 @@ func (w *Writer) switchFile(ctx context.Context) error {
 	return nil
 }
 
-// Writer writes binary telemetry to the domain. Write is not safe to call concurrently
+// Write writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
 func (w *Writer) Write(p []byte) (int, error) {
@@ -289,26 +296,31 @@ func (w *Writer) Write(p []byte) (int, error) {
 // the DB, Commit will return an ErrWriteConflict. If
 // WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed
 // would only be persisted to disk after the set interval.
-func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
+//
+// When g is not nil, the commit is in g: readers see the domain as it was before the
+// commit until g publishes. A writer holds one such domain at a time, so readers also
+// see it once the writer commits to another domain or closes.
+func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp, g *Group) error {
 	var (
-		now = telem.Now()
+		now = w.clock.Now()
 		// the only time we do not shouldPersist is when EnableAutoCommit and the
 		// interval is not met yet.
 		shouldPersist = !*w.EnableAutoCommit ||
-			w.lastIndexPersist.Span(now) >= w.AutoIndexPersistInterval
+			now.Sub(w.lastIndexPersist) >= w.AutoIndexPersistInterval.Duration()
 	)
 
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && shouldPersist {
 		w.lastIndexPersist = now
 	}
 
-	return w.commit(ctx, end, shouldPersist)
+	return w.commit(ctx, end, shouldPersist, g)
 }
 
 func (w *Writer) commit(
 	ctx context.Context,
 	end telem.TimeStamp,
 	shouldPersist bool,
+	g *Group,
 ) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	defer span.End()
@@ -345,31 +357,54 @@ func (w *Writer) commit(
 		size:    uint32(length),
 		fileKey: w.fileKey,
 	}
-	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
-
-	write, err := f(ctx, ptr, shouldPersist)
-	if err != nil {
+	if err := w.index(ctx, ptr, shouldPersist, g); err != nil {
 		return span.Error(err)
-	}
-	// The index holds the pointer even when persisting it fails, so a retry updates it.
-	w.prevCommit = commitEnd
-	if shouldPersist {
-		if err := w.idx.run(write); err != nil {
-			return span.Error(err)
-		}
 	}
 
 	if switchingFile {
-		if err := w.switchFile(ctx); err != nil {
+		if err := w.rollover(ctx, commitEnd); err != nil {
 			return span.Error(err)
-		}
-		w.Start = commitEnd
-		w.prevCommit = 0
-		if w.OnRollover != nil {
-			w.OnRollover(commitEnd)
 		}
 	}
 
+	return nil
+}
+
+// index inserts or updates ptr in the index, persisting it when shouldPersist is true.
+func (w *Writer) index(
+	ctx context.Context,
+	ptr pointer,
+	shouldPersist bool,
+	g *Group,
+) error {
+	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
+
+	write, err := f(ctx, ptr, shouldPersist, g)
+	if err != nil {
+		return err
+	}
+	if w.staged && w.stagedStart != ptr.Start {
+		w.idx.reveal(w.stagedStart)
+	}
+	w.staged, w.stagedStart = g != nil, ptr.Start
+	// The index holds the pointer even when persisting it fails, so a retry updates it.
+	w.prevCommit = ptr.End
+	if shouldPersist {
+		return w.idx.run(write)
+	}
+	return nil
+}
+
+// rollover moves the writer to a new file whose first domain starts at end.
+func (w *Writer) rollover(ctx context.Context, end telem.TimeStamp) error {
+	if err := w.switchFile(ctx); err != nil {
+		return err
+	}
+	w.Start = end
+	w.prevCommit = 0
+	if w.OnRollover != nil {
+		w.OnRollover(end)
+	}
 	return nil
 }
 
@@ -401,6 +436,10 @@ func (w *Writer) Close() error {
 func (w *Writer) release() error {
 	defer w.onClose()
 	w.closed = true
+	if w.staged {
+		w.idx.reveal(w.stagedStart)
+		w.staged = false
+	}
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
 		return w.idx.persist()
 	}

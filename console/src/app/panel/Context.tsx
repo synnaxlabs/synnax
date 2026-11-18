@@ -12,6 +12,7 @@ import { type PropsWithChildren } from "react";
 import { Selector } from "@/app/selector";
 import { Settings } from "@/app/settings";
 import { Arc } from "@/feature/arc";
+import { ICD } from "@/feature/icd";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Range } from "@/feature/range";
@@ -20,10 +21,12 @@ import { Status } from "@/feature/status";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { Panel } from "@/platform/panel";
+import { View } from "@/platform/view";
 
 const TABS: Panel.Tabs = {
   ...Status.TABS,
   ...Arc.TABS,
+  ...ICD.TABS,
   ...Range.TABS,
   ...Selector.TABS,
   ...LinePlot.TABS,
@@ -32,6 +35,10 @@ const TABS: Panel.Tabs = {
   ...Table.TABS,
   ...Task.TABS,
   ...Settings.TABS,
+  [View.TAB_TYPE]: View.createTab({
+    range: Range.Explorer.TAB,
+    status: Status.Explorer.TAB,
+  }),
 };
 
 export interface ContextProps extends PropsWithChildren {}

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/symbol"
@@ -22,6 +23,8 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // analyze parses and runs full source-level analysis with the STL prelude
@@ -72,7 +75,7 @@ var _ = Describe("Imports", func() {
 		It("Should reject time.now without an import", func() {
 			d := analyze(`
 trig -> get_now() -> now_out
-func get_now() {t u8} i64 {
+func get_now() {t u8} i64 ns {
     return time.now()
 }
 `, chans)
@@ -86,7 +89,7 @@ func get_now() {t u8} i64 {
 import time
 
 trig -> get_now() -> now_out
-func get_now() {t u8} i64 {
+func get_now() {t u8} i64 ns {
     return time.now()
 }
 `, chans)
@@ -107,7 +110,7 @@ trig -> time.now() -> now_out
 import ( time control )
 
 trig -> control.set_authority(value=200, channel=valve_cmd)
-func get_now() i64 { return time.now() }
+func get_now() i64 ns { return time.now() }
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
@@ -188,14 +191,31 @@ sensor -> trig.sin() -> output
 	})
 
 	Describe("diagnostics", func() {
-		It("Should report unused imports", func() {
+		It("Should report an unused import as a warning", func() {
 			d := analyze(`
 import time
 
-trig -> set_authority(value=200, channel=valve_cmd)
+func double() {v f64} f64 { return v * 2 }
+sensor -> double() -> output
 `, chans)
-			Expect(d.Ok()).To(BeFalse())
-			Expect(messages(d)).To(ContainSubstring(`imported module "time" is unused`))
+			Expect(d.Ok()).To(BeTrue())
+			Expect(*d).To(HaveLen(1))
+			Expect((*d)[0].Severity).To(Equal(protocol.DiagnosticSeverityWarning))
+			Expect(messages(d)).To(ContainSubstring(`unused import: "time"`))
+		})
+
+		It("Should compile a program with an unused import", func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			for _, c := range chans {
+				root.Parent.AddChild(&c)
+			}
+			MustSucceed(arc.CompileText(ctx, arc.Text{Raw: `
+import time
+
+func double() {v f64} f64 { return v * 2 }
+// trig -> time.now() -> now_out
+sensor -> double() -> output
+`}, root))
 		})
 
 		It("Should report duplicate imports", func() {
@@ -203,7 +223,7 @@ trig -> set_authority(value=200, channel=valve_cmd)
 import ( time time )
 
 trig -> get_now() -> now_out
-func get_now() {t u8} i64 {
+func get_now() {t u8} i64 ns {
     return time.now()
 }
 `, chans)
@@ -229,7 +249,7 @@ sensor -> avg() -> output
 `, chans)
 			Expect(
 				messages(d),
-			).ToNot(ContainSubstring(`imported module "banana" is unused`))
+			).ToNot(ContainSubstring(`unused import: "banana"`))
 		})
 
 		It("Should not flag a misspelled member as an unused import", func() {
@@ -241,7 +261,7 @@ trig -> time.doesnotexist() -> now_out
 			Expect(d.Ok()).To(BeFalse())
 			Expect(
 				messages(d),
-			).ToNot(ContainSubstring(`imported module "time" is unused`))
+			).ToNot(ContainSubstring(`unused import: "time"`))
 		})
 	})
 
@@ -292,7 +312,7 @@ import time
 import control
 
 trig -> control.set_authority(value=200, channel=valve_cmd)
-func get_now() i64 { return time.now() }
+func get_now() i64 ns { return time.now() }
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})

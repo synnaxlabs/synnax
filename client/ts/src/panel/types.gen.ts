@@ -15,6 +15,7 @@ import { z } from "zod";
 import { group } from "@/group";
 import { project } from "@/project";
 import { resource } from "@/resource";
+import { user } from "@/user";
 
 export const ORDER_FIELDS = ["name"] as const;
 export const orderFieldZ = z.enum(ORDER_FIELDS);
@@ -65,6 +66,8 @@ export type Where = {
   groups?: group.Key[];
   grouped?: boolean;
   projects?: project.Key[];
+  owners?: user.Key[];
+  owned?: boolean;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -85,8 +88,12 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the panels in a group, or in no group when false. */
   grouped: z.boolean().optional(),
-  /** projects matches the panels owned by any of the given projects. */
+  /** projects matches the panels in any of the given projects. */
   projects: zod.nullToUndefined(project.keyZ.array()),
+  /** owners matches the drafts of any of the given users. */
+  owners: zod.nullToUndefined(user.keyZ.array()),
+  /** owned matches the drafts, or the shared panels when false. */
+  owned: z.boolean().optional(),
 });
 
 /**
@@ -207,7 +214,7 @@ export const NODE_SCHEMAS: {
   split: splitNodeZ,
 };
 
-/** Panel is a project-owned tree of visualization tabs. */
+/** Panel is a tree of visualization tabs in a project. */
 export const panelZ = z.object({
   /** key is the unique identifier for this panel. */
   key: keyZ.default(uuid.create),
@@ -224,8 +231,10 @@ export const panelZ = z.object({
   color: color.colorZ.optional(),
   /** group is the group the panel sits in, if any. */
   group: group.keyZ.optional(),
-  /** project is the project that owns the panel. */
+  /** project is the project that holds the panel. */
   project: project.keyZ.optional(),
+  /** owner is the user whose draft the panel is. Nil for a shared panel. */
+  owner: user.keyZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
 export interface New extends z.input<typeof panelZ> {}

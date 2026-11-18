@@ -30,8 +30,12 @@ const auto QUEUE_FULL_INPUT = QUEUE_FULL.sub("input");
 const auto QUEUE_FULL_OUTPUT = QUEUE_FULL.sub("output");
 /// @brief WASM code called panic(), execution cannot continue.
 const auto WASM_PANIC = BASE.sub("wasm_panic");
-/// @brief WASM execution trapped, execution cannot continue.
+/// @brief WASM execution trapped.
 const auto WASM_TRAP = BASE.sub("wasm_trap");
+/// @brief WASM execution used its whole loop budget in one cycle.
+const auto LOOP_BUDGET = WASM_TRAP.sub("loop_budget");
+/// @brief the runtime stopped a WASM call that was still running.
+const auto INTERRUPTED = BASE.sub("interrupted");
 /// @brief the runtime was closed and accepts no more input.
 const auto CLOSED = BASE.sub("closed");
 /// @brief Non-fatal warning base type - execution continues.

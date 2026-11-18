@@ -29,13 +29,7 @@ on:
         type: string
         default: ""
     secrets:
-      CLAUDE_CODE_APP_ID:
-        required: false
       CLAUDE_CODE_APP_PRIVATE_KEY:
-        required: false
-      CLAUDE_CODE_OAUTH_TOKEN:
-        required: false
-      CODEX_APP_ID:
         required: false
       CODEX_APP_PRIVATE_KEY:
         required: false
@@ -102,18 +96,15 @@ jobs:
     permissions:
       actions: read
       contents: read
-      id-token: write
     uses: ./.github/workflows/agent.yaml
     with:
       prompt: ${{ needs.prompt.outputs.prompt }}
       agent: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
       output: report
       timeout-minutes: 120
+      licensed: true
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 

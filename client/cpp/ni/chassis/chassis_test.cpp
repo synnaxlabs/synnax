@@ -10,6 +10,8 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/ni/chassis/json.gen.h"
+#include "client/cpp/ni/chassis/proto.gen.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::ni::chassis {
 /// @brief it should keep the field group of an update through JSON.
@@ -22,5 +24,19 @@ TEST(Update, RoundTripsGroup) {
     const auto parsed = parse_update(parser);
     ASSERT_TRUE(parser.ok());
     ASSERT_EQ(std::get<ConfigurationUpdate>(parsed).name, "PXIe-1071");
+}
+
+/// @brief it should round trip a chassis through protobuf.
+TEST(Chassis, RoundTripsProto) {
+    const Chassis chassis{
+        .key = x::uuid::create(),
+        .rack = 65537,
+        .name = "cDAQ-9189",
+        .resource_name = "{GUID}",
+        .model = "cDAQ-9189",
+    };
+    const auto pb = ASSERT_NIL_P(chassis.to_proto());
+    const auto parsed = ASSERT_NIL_P(Chassis::from_proto(pb));
+    ASSERT_EQ(parsed.to_json(), chassis.to_json());
 }
 }

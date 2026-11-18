@@ -28,11 +28,7 @@ import (
 // Reader is a readable key-value store.
 type Reader interface {
 	// Get returns the value for the given key.
-	Get(
-		ctx context.Context,
-		key []byte,
-		opts ...any,
-	) ([]byte, io.Closer, error)
+	Get(key []byte, opts ...any) ([]byte, io.Closer, error)
 	// OpenIterator returns an Iterator using the given IteratorOptions.
 	OpenIterator(opts IteratorOptions) (Iterator, error)
 }

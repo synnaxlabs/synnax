@@ -17,11 +17,13 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -32,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -52,6 +55,7 @@ import (
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -59,6 +63,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // graphNodeSpec describes a graph node along with its function type and configuration
@@ -103,9 +109,12 @@ var _ = Describe("Task", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		st := DeferClose(storagetestutil.OpenLayer(ctx))
+		st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+		hookedKV := hookkv.Wrap(st.KV)
+		hookedDB := gorp.Wrap(hookedKV)
+		StartRun(hookedDB.Run)
 		node := testutil.NewNode(ctx, distribution.LayerConfig{
-			Storage: &storage.Layer{KV: hookkv.Wrap(st.KV), TS: st.TS},
+			Storage: &storage.Layer{KV: hookedKV, TS: st.TS, Gorp: hookedDB},
 		})
 		db = node.DB
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -243,7 +252,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	configToMap := func(cfg arctask.Config) map[string]any {
 		GinkgoHelper()
-		cfg.ApplyDefaults()
+		cfg = defaults.Fill(cfg)
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
@@ -284,7 +293,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	openTestStreamer := func(ctx context.Context, keys channel.Keys, bufferSize int) (
 		responses <-chan framer.StreamerResponse,
-		close func(),
+		stop func(),
 	) {
 		GinkgoHelper()
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
@@ -768,7 +777,7 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
-			"Should not write a status when config is invalid at boot",
+			"Should write an error status when config is invalid at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 					DB:         db,
@@ -790,12 +799,15 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Variant).To(BeEquivalentTo("error"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
 		It(
-			"Should not write a status when GetProgram fails at boot",
+			"Should write an error status when GetProgram fails at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 					DB:         db,
@@ -817,7 +829,10 @@ var _ = Describe("Task", Ordered, func() {
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchOwners[task.StatusDetails](task.ResourceID(svcTask.Key))).
-					Entry(&stat).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				Expect(stat.Variant).To(BeEquivalentTo("error"))
+				Expect(stat.Message).To(Equal("Failed to configure task"))
+				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
 
@@ -931,6 +946,7 @@ var _ = Describe("Task", Ordered, func() {
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 				Ranger:     rangerSvc,
 				Now:        telem.Now,
+				LoopBudget: 1000,
 			}
 		}
 
@@ -941,9 +957,9 @@ var _ = Describe("Task", Ordered, func() {
 
 			DescribeTable(
 				"Should fail when a required field is missing",
-				func(clear func(*arctask.FactoryConfig), field string) {
+				func(unset func(*arctask.FactoryConfig), field string) {
 					cfg := full()
-					clear(&cfg)
+					unset(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
 				Entry(
@@ -976,6 +992,11 @@ var _ = Describe("Task", Ordered, func() {
 					func(c *arctask.FactoryConfig) { c.Ranger = nil },
 					"ranger",
 				),
+				Entry(
+					"loop_budget",
+					func(c *arctask.FactoryConfig) { c.LoopBudget = 0 },
+					"loop_budget",
+				),
 			)
 		})
 
@@ -989,6 +1010,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
 				Expect(merged.GetProgram).ToNot(BeNil())
 				Expect(merged.Now).ToNot(BeNil())
+				Expect(merged.LoopBudget).To(Equal(src.LoopBudget))
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -1037,7 +1059,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "stop"})).To(Succeed())
 		})
 
-		It("Should be idempotent on stop", func(ctx SpecContext) {
+		It("Should be idempotent on stop", func() {
 			Expect(arcTask.Stop(true)).To(Succeed())
 			Expect(arcTask.Stop(true)).To(Succeed())
 		})
@@ -1478,6 +1500,84 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Close()).To(Succeed())
 				Consistently(oneRange).Should(Succeed())
+			},
+		)
+
+		It("Should name a range from a format string input", func(ctx SpecContext) {
+			trig := createVirtualCh(ctx, "fmt_range_trig", telem.Uint8T)
+			name := "fmt_range_" + uuid.New().String()[:8]
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				import ranges
+
+				n := 7
+				%s -> ranges.create(name=f"%s {n}")
+			`, trig.Name, name)}
+
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-fmt-range-name",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(
+				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+			)
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+			time.Sleep(20 * time.Millisecond)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{trig.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(
+				w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+			).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				g.Expect(rangerSvc.NewRetrieve().
+					Where(ranger.MatchNames(name+" 7")).
+					Count(ctx, db)).To(Equal(1))
+			}).Should(Succeed())
+		})
+
+		It(
+			"Should name a range from a format string that reads a computed variable in a call",
+			func(ctx SpecContext) {
+				name := "fmt_call_range_" + uuid.New().String()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import (
+					    ranges
+					    time
+					)
+					a := "da" + "y"
+
+					true => sequence {
+					    key := ranges.create(f"%s ({time.format(time.now(), a)})")
+					    time.wait(5s)
+					}
+				`, name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-fmt-call-range-name",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name+" (day)")).
+						Count(ctx, db)).To(Equal(1))
+				}).Should(Succeed())
 			},
 		)
 	})
@@ -3665,6 +3765,54 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Runtime Error Handling", func() {
+		DescribeTable("Should stop a task whose cycle uses its whole loop budget", func(
+			ctx SpecContext,
+			source string,
+		) {
+			prog := arc.Text{Raw: source}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-tick-limit",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			factory := newTextFactory(
+				ctx,
+				prog,
+				arctask.FactoryConfig{LoopBudget: 1000},
+			)
+			t := MustSucceed(factory.ConfigureTask(ctx, svcTask, "cmd-1"))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Program ran too long"))
+				g.Expect(stat.Details.Running).To(BeFalse())
+			}).Should(Succeed())
+			Expect(t.Stop(false)).To(MatchError(runtime.ErrLoopBudget))
+		},
+			Entry("one looping node", `
+				func spin() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+			`),
+			Entry("two looping nodes on one trigger", `
+				func spin() {
+					for {}
+				}
+				func spin_again() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+				interval(period=10ms) -> spin_again()
+			`),
+		)
+
 		It("Should trap a cycle that makes too many strings", func(ctx SpecContext) {
 			prog := arc.Text{Raw: `
 				func grow() {
@@ -3749,7 +3897,7 @@ var _ = Describe("Task", Ordered, func() {
 					g.Expect(stat.Description).
 						To(HavePrefix("The divide_test node failed: "))
 					g.Expect(stat.Description).
-						To(ContainSubstring("integer divide by zero"))
+						To(HaveSuffix(": integer divide by zero"))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).Should(Succeed())
 			},
@@ -3914,6 +4062,149 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(
 				foundValid,
 			).To(BeTrue(), "Expected to receive valid output (5) after error")
+		})
+
+		Describe("Error log", func() {
+			const message = "runtime error in arc node"
+
+			var now atomic.Int64
+			BeforeEach(func() { now.Store(int64(telem.Now())) })
+
+			// run starts one divide node for each name. settle waits for each frame.
+			run := func(ctx SpecContext, names ...string) (
+				logs *observer.ObservedLogs,
+				write func(samples ...int32),
+				settle func(),
+			) {
+				GinkgoHelper()
+				inputCh := createVirtualCh(ctx, "log_input", telem.Int32T)
+				var raw strings.Builder
+				outputs := make(channel.Keys, 0, len(names))
+				for _, name := range names {
+					outputCh := createVirtualCh(ctx, "log_output", telem.Int32T)
+					outputs = append(outputs, outputCh.Key())
+					fmt.Fprintf(&raw, `
+						func %s(out chan i32) {d i32} {
+							out = 100 / d
+						}
+						%s -> %s(out=%s)
+					`, name, inputCh.Name, name, outputCh.Name)
+				}
+				core, logs := observer.New(zap.WarnLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-error-log",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(newTextFactory(
+					ctx,
+					arc.Text{Raw: raw.String()},
+					arctask.FactoryConfig{
+						Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+						Now: func() telem.TimeStamp {
+							return telem.TimeStamp(now.Load())
+						},
+					},
+				).ConfigureTask(ctx, svcTask, "cmd-1"))
+				responses, closeStreamer := openTestStreamer(ctx, outputs, 100)
+				DeferCleanup(closeStreamer)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				DeferCleanup(func() { Expect(t.Stop(true)).To(Succeed()) })
+				time.Sleep(20 * time.Millisecond)
+				w := MustOpen(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{inputCh.Key()},
+					Start: telem.Now(),
+				}))
+				write = func(samples ...int32) {
+					GinkgoHelper()
+					Expect(w.Write(
+						frame.NewUnary(inputCh.Key(), telem.NewSeriesV(samples...)),
+					)).To(BeTrue())
+				}
+				settle = func() {
+					GinkgoHelper()
+					write(2)
+					for settled := 0; settled < len(outputs); {
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+						for _, key := range outputs {
+							if fr.Frame.Get(key).Len() > 0 {
+								settled++
+							}
+						}
+					}
+				}
+				return logs, write, settle
+			}
+
+			It("Should log one line for a node that fails with one error on each cycle",
+				func(ctx SpecContext) {
+					logs, write, settle := run(ctx, "divide")
+					for range 20 {
+						write(0)
+					}
+					settle()
+					Expect(logs.FilterMessage(message).Len()).To(Equal(1))
+				},
+			)
+
+			It(
+				"Should log an error again after 5 s, with the count of failures not logged",
+				func(ctx SpecContext) {
+					logs, write, settle := run(ctx, "divide")
+					for range 20 {
+						write(0)
+					}
+					settle()
+					now.Add(int64(6 * telem.Second))
+					write(0)
+					settle()
+					entries := logs.FilterMessage(message).All()
+					Expect(entries).To(HaveLen(2))
+					Expect(entries[1].ContextMap()).
+						To(HaveKeyWithValue("skipped", int64(19)))
+				},
+			)
+
+			It("Should log each different error of one node", func(ctx SpecContext) {
+				logs, write, settle := run(ctx, "divide")
+				for range 10 {
+					write(0)
+					write(0, 0)
+				}
+				settle()
+				Expect(logs.FilterMessage(message).Len()).To(Equal(2))
+			})
+
+			It("Should log at most 10 different errors of one node inside 5 s",
+				func(ctx SpecContext) {
+					logs, write, settle := run(ctx, "divide")
+					for count := 1; count <= 12; count++ {
+						write(make([]int32, count)...)
+					}
+					settle()
+					Expect(logs.FilterMessage(message).Len()).To(Equal(10))
+				},
+			)
+
+			It("Should limit the lines of each node apart from the other nodes",
+				func(ctx SpecContext) {
+					logs, write, settle := run(ctx, "divide_a", "divide_b")
+					for range 20 {
+						write(0)
+					}
+					settle()
+					entries := logs.FilterMessage(message).All()
+					Expect(entries).To(HaveLen(2))
+					Expect(entries[0].ContextMap()["node"]).
+						ToNot(Equal(entries[1].ContextMap()["node"]))
+				},
+			)
 		})
 	})
 

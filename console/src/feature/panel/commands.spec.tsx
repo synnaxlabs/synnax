@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { access, panel, project, user } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { uuid } from "@synnaxlabs/x";
@@ -110,12 +114,52 @@ describe("Panel Commands", () => {
       await screen.findByText(pan.name);
       await openCommandPalette();
       await selectCommand(CHANGE_ICON);
+      const valve = await screen.findByLabelText("Valve");
       await act(async () => {
-        fireEvent.click(await screen.findByLabelText("Valve"));
+        fireEvent.click(valve);
       });
       await waitFor(async () =>
         expect((await client.panels.retrieve({ key: pan.key })).icon).toEqual("valve"),
       );
+    });
+
+    it("should offer the command on the user's own draft, not on a shared panel", async () => {
+      const proj = await client.projects.create({ name: uniqueName("project") });
+      const shared = await client.panels.create({
+        name: uniqueName("shared"),
+        project: proj.key,
+      });
+      const viewer = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      const draft = await viewer.panels.create({
+        name: uniqueName("draft"),
+        project: proj.key,
+        owner: (await viewer.users.current.retrieve()).key,
+      });
+      const { openCommandPalette, store } = await renderPalette({
+        client: viewer,
+        commands: Panel.COMMANDS,
+      });
+      const select = (key: panel.Key): void => {
+        act(() => {
+          store.dispatch(Session.Panel.select({ key, windowKey: Drift.MAIN_WINDOW }));
+        });
+      };
+      select(draft.key);
+      await openCommandPalette();
+      // Showing on the draft proves the access checks have answered.
+      expect(await screen.findByText(CHANGE_ICON)).toBeTruthy();
+      select(shared.key);
+      await waitFor(() => expect(screen.queryByText(CHANGE_ICON)).toBeNull());
     });
 
     it("should hide the command when no panel is selected", async () => {

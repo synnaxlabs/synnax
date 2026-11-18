@@ -17,7 +17,7 @@ const NAME = "Pressurant Feed";
 const PURPLE = "#b300ff";
 const VALVE = "booster-iso";
 
-type Config = NonNullable<schematic.New["configs"]>[string];
+type Config = NonNullable<schematic.New["nodes"]>[number]["config"];
 
 /** Symbols draw this much larger than their default size, to read on camera. */
 const SCALE = 1.4;
@@ -92,22 +92,15 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
     ["press", "8", "press-iso", "1"],
     ["press-iso", "2", "ox-tank", "2"],
   ];
-  const configs: Record<string, Config> = {};
-  for (const [k, , config] of nodes) configs[k] = config;
-  const edges = pipes.map(([source, sp, target, tp]) => {
-    const k = `${source}-${target}`;
-    configs[k] = { variant: "pipe", strokeColor: PURPLE, segments: [] };
-    return {
-      key: k,
-      source: { node: source, param: sp },
-      target: { node: target, param: tp },
-    };
-  });
   return {
     name: NAME,
-    nodes: nodes.map(([k, position]) => ({ key: k, position })),
-    edges,
-    configs,
+    nodes: nodes.map(([k, position, config]) => ({ key: k, position, config })),
+    edges: pipes.map(([source, sp, target, tp]) => ({
+      key: `${source}-${target}`,
+      source: { node: source, param: sp },
+      target: { node: target, param: tp },
+      config: { variant: "pipe", strokeColor: PURPLE, segments: [] },
+    })),
   };
 };
 

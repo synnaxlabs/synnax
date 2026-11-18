@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Properties", func() {
@@ -55,11 +56,30 @@ var _ = Describe("Properties", func() {
 			To(MatchError(ContainSubstring(`unknown mechanism "kerberos"`)))
 	})
 
-	Describe("ApplyDefaults", func() {
-		It("Should default the SASL mechanism to none", func() {
-			props := kafka.Properties{Brokers: []string{"localhost:9092"}}
-			props.ApplyDefaults()
+	Describe("Decode", func() {
+		It("Should default an absent SASL mechanism to none from JSON", func() {
+			var props kafka.Properties
+			Expect(json.Unmarshal([]byte(`{"brokers":["localhost:9092"]}`), &props)).
+				To(Succeed())
 			Expect(props.Sasl.Variant).To(Equal(kafka.NoneSASL{}))
+		})
+
+		It("Should default an absent SASL mechanism to none from msgpack", func() {
+			b := MustSucceed(msgpack.Marshal(map[string]any{
+				"brokers": []string{"localhost:9092"},
+			}))
+			var props kafka.Properties
+			Expect(msgpack.Unmarshal(b, &props)).To(Succeed())
+			Expect(props.Sasl.Variant).To(Equal(kafka.NoneSASL{}))
+		})
+
+		It("Should keep an explicit null SASL mechanism", func() {
+			var props kafka.Properties
+			Expect(json.Unmarshal(
+				[]byte(`{"brokers":["localhost:9092"],"sasl":null}`),
+				&props,
+			)).To(Succeed())
+			Expect(props.Sasl.Variant).To(BeNil())
 		})
 	})
 })

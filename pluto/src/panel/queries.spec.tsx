@@ -7,8 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, type project, query, ranger, type resource } from "@synnaxlabs/client";
-import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  panel,
+  type project,
+  query,
+  ranger,
+  type resource,
+  type user,
+} from "@synnaxlabs/client";
+import {
+  createEmptyRole,
+  createPanelProject,
+  createTestClient,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { color, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -290,6 +302,11 @@ describe("Panel queries", () => {
   });
 
   describe("useKeysByProject", () => {
+    let me: user.Key;
+    beforeAll(async () => {
+      me = (await client.users.current.retrieve()).key;
+    });
+
     const newProject = async (): Promise<project.Key> =>
       (
         await client.projects.create({
@@ -307,9 +324,12 @@ describe("Panel queries", () => {
         </Provider>
       );
       const rendered: RenderHookResult<panel.Key[], unknown> =
-        await renderHookSuspended(() => Panel.useKeysByProject({ project: key }), {
-          wrapper: suspended,
-        });
+        await renderHookSuspended(
+          () => Panel.useKeysByProject({ project: key, user: me }),
+          {
+            wrapper: suspended,
+          },
+        );
       await waitFor(() => expect(rendered.result.current).not.toBeNull());
       return rendered;
     };
@@ -325,6 +345,24 @@ describe("Panel queries", () => {
       const { result } = await retrieveKeys(projectKey);
       expect(result.current).toEqual([mine.key]);
       expect(result.current).not.toContain(theirs.key);
+    });
+
+    it("should return the shared panels and the drafts of the user", async () => {
+      const projectKey = await newProject();
+      const role = await createEmptyRole(client);
+      const other = await client.users.create({
+        username: uuid.create(),
+        password: "test",
+        name: "other",
+        role: role.key,
+      });
+      const [shared, mine] = await client.panels.create([
+        { name: "shared", project: projectKey },
+        { name: "mine", project: projectKey, owner: me },
+        { name: "theirs", project: projectKey, owner: other.key },
+      ]);
+      const { result } = await retrieveKeys(projectKey);
+      expect([...result.current].sort()).toEqual([shared.key, mine.key].sort());
     });
 
     it("should reject creating a panel without a project", async () => {
@@ -393,7 +431,9 @@ describe("Panel queries", () => {
       // The rename reaches the project's cached answer, so the subscription fired
       // and the hook had every chance to hand back a new array.
       await waitFor(() => {
-        const window = client.panels.watch({ projects: [projectKey] }).getCached();
+        const window = client.panels
+          .watch({ where: panel.visibleTo(projectKey, me) })
+          .getCached();
         expect(window?.records.map(({ name }) => name)).toContain("after-rename");
       });
       expect(result.current).toBe(before);
@@ -1713,6 +1753,50 @@ describe("Panel queries", () => {
       ]);
       expect(leafTabKeys(src.root)).toEqual([]);
       expect(leafTabKeys(dst.root)).toEqual([open.key]);
+    });
+  });
+
+  describe("useCanEdit", () => {
+    const roles = new RoleClients(client);
+
+    const renderCanEdit = async (as: typeof client, key: panel.Key) => {
+      const Synnax = await createAsyncSynnaxWrapper({ client: as });
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Synnax>
+          <Panel.Scope.Provider value={key}>{children}</Panel.Scope.Provider>
+        </Synnax>
+      );
+      return renderHook(
+        () => ({
+          edit: Panel.useCanEdit(),
+          loaded: Panel.useResult({ key }).data != null,
+        }),
+        { wrapper: Wrapper },
+      );
+    };
+
+    it("should let a Viewer edit its own draft", async () => {
+      const viewer = await roles.get("Viewer");
+      const me = (await viewer.users.current.retrieve()).key;
+      const draft = await viewer.panels.create({
+        name: "draft",
+        project: await createPanelProject(client),
+        owner: me,
+      });
+      const { result } = await renderCanEdit(viewer, draft.key);
+      await waitFor(() => expect(result.current.edit).toBe(true));
+    });
+
+    it("should not let a Viewer edit a shared panel", async () => {
+      const viewer = await roles.get("Viewer");
+      const shared = await client.panels.create({
+        name: "shared",
+        project: await createPanelProject(client),
+      });
+      const { result } = await renderCanEdit(viewer, shared.key);
+      await waitFor(() => expect(result.current.loaded).toBe(true));
+      await act(async () => {});
+      expect(result.current.edit).toBe(false);
     });
   });
 });

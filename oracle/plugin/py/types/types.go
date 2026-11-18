@@ -14,6 +14,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -78,6 +79,7 @@ type pyFileGenerator struct{ fileNamePattern string }
 func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
 	content, err := generatePyFile(
 		ctx.Namespace,
+		ctx.FilePath,
 		ctx.OutputPath,
 		g.fileNamePattern,
 		ctx.Structs,
@@ -94,6 +96,7 @@ func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 
 func generatePyFile(
 	namespace string,
+	filePath string,
 	outputPath string,
 	fileNamePattern string,
 	structs []resolution.Type,
@@ -104,6 +107,7 @@ func generatePyFile(
 ) ([]byte, error) {
 	data := &templateData{
 		Namespace:       namespace,
+		FilePath:        filePath,
 		OutputPath:      outputPath,
 		GeneratedModule: strings.TrimSuffix(fileNamePattern, ".py"),
 		Structs:         make([]structData, 0, len(structs)),
@@ -117,10 +121,12 @@ func generatePyFile(
 	if len(structs) > 0 {
 		data.imports.addPydantic("BaseModel")
 	}
+	for _, typ := range slices.Concat(structs, enums, typeDefs, unions) {
+		if getPyName(typ) == "Field" {
+			data.imports.field = "PydanticField"
+		}
+	}
 
-	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
-	rawKeyFields := key.Collect(structs, table, skip)
-	keyFields := convertKeyFields(rawKeyFields, data)
 	inOutput := func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "py") == outputPath
 	}
@@ -160,7 +166,7 @@ func generatePyFile(
 		}
 	}
 	for _, u := range unions {
-		form := u.Form.(resolution.UnionForm)
+		form := resolution.MustForm[resolution.UnionForm](u)
 		for _, v := range form.Variants {
 			_, declared := resolver.VariantBases(form, v, "py", table)
 			for _, field := range declared {
@@ -212,11 +218,12 @@ func generatePyFile(
 	// dependency (e.g. Functions before IR), so the trailing input order only
 	// matters inside a cycle. Any forward reference that remains is resolved by the
 	// model_rebuild() calls emitted at the end of the file.
-	var combinedTypes []resolution.Type
-	combinedTypes = append(combinedTypes, aliasTypeDefs...)
-	combinedTypes = append(combinedTypes, structs...)
-	combinedTypes = append(combinedTypes, unions...)
-	combinedTypes = append(combinedTypes, trailingTypeDefs...)
+	combinedTypes := slices.Concat(
+		aliasTypeDefs,
+		structs,
+		unions,
+		trailingTypeDefs,
+	)
 
 	sortedTypes := table.TopologicalSort(combinedTypes)
 
@@ -237,7 +244,7 @@ func generatePyFile(
 				TypeDef:   tdd,
 			})
 		case resolution.StructForm:
-			sd, err := processStruct(typ, table, data, keyFields)
+			sd, err := processStruct(typ, table, data)
 			if err != nil {
 				return nil, err
 			}
@@ -272,7 +279,7 @@ func generatePyFile(
 				data.RebuildModels = append(data.RebuildModels, sd.PyName)
 			}
 		case resolution.UnionForm:
-			u := processUnion(typ, table, data, keyFields)
+			u := processUnion(typ, table, data)
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsUnion: true,
 				Union:   u,
@@ -301,17 +308,6 @@ func (d *templateData) missingIncludesErr() error {
 		"types with no generated Python declaration need a @py include module: %s",
 		sortedJoin(d.missingIncludes),
 	)
-}
-
-func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
-	result := make([]keyFieldData, 0, len(fields))
-	for _, f := range fields {
-		result = append(result, keyFieldData{
-			Name:   f.Name,
-			PyType: primitiveToPython(f.Primitive, data),
-		})
-	}
-	return result
 }
 
 func extractResource(
@@ -381,7 +377,7 @@ func typeDefRefsSameNamespaceType(td resolution.Type, table *resolution.Table) b
 		if !ok {
 			resolved, ok = table.Lookup(td.Namespace, ref.Name)
 		}
-		return ok && resolved.Namespace == td.Namespace
+		return ok && resolved.FilePath == td.FilePath
 	}
 	switch form := td.Form.(type) {
 	case resolution.AliasForm:
@@ -418,7 +414,7 @@ func structHasForwardRef(
 		if !ok {
 			resolved, ok = table.Lookup(typ.Namespace, ref.Name)
 		}
-		if !ok || resolved.Namespace != typ.Namespace {
+		if !ok || resolved.FilePath != typ.FilePath {
 			return false
 		}
 		if pos, ok := typePos[resolved.QualifiedName]; ok && pos >= selfIdx {
@@ -452,7 +448,7 @@ func processTypeDef(
 		data.imports.addTyping("TypeAlias")
 		return typeDefData{
 			Name:       typ.Name,
-			BaseType:   typeDefBaseToPython(form.Base, typ.Namespace, table, data),
+			BaseType:   typeDefBaseToPython(form.Base, typ.FilePath, table, data),
 			IsDistinct: false,
 		}, nil
 	case resolution.AliasForm:
@@ -494,9 +490,8 @@ func declareTypeVars(
 		declared = append(declared, tpd)
 		tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
 		// An omitted optional type argument means its bound, or arbitrary JSON when
-		// unbounded. TypeVar defaults need typing_extensions on Python 3.12.
+		// unbounded.
 		if tp.Optional {
-			data.imports.typeVarDefault = true
 			tvd.Default = tpd.Constraint
 			if tvd.Default == "" {
 				data.imports.addPydantic("JsonValue")
@@ -556,7 +551,7 @@ func constraintToPython(
 	}
 	// Handle enums
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := enum.FindOutputPath(resolved, table, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -568,7 +563,7 @@ func constraintToPython(
 	}
 	// Handle structs
 	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -584,7 +579,7 @@ func constraintToPython(
 
 func typeDefBaseToPython(
 	typeRef resolution.TypeRef,
-	currentNamespace string,
+	filePath string,
 	table *resolution.Table,
 	data *templateData,
 ) string {
@@ -609,8 +604,8 @@ func typeDefBaseToPython(
 	}
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
-		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 	// Try to resolve another typedef
@@ -621,7 +616,7 @@ func typeDefBaseToPython(
 	}
 	switch resolved.Form.(type) {
 	case resolution.DistinctForm, resolution.AliasForm:
-		if resolved.Namespace != currentNamespace {
+		if resolved.FilePath != filePath {
 			ns := resolved.Namespace
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
@@ -649,7 +644,6 @@ func processStruct(
 	entry resolution.Type,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
 ) (structData, error) {
 	sd := structData{
 		Name:   entry.Name,
@@ -718,7 +712,7 @@ func processStruct(
 				for _, field := range flat {
 					sd.Fields = append(
 						sd.Fields,
-						processField(field, table, data, keyFields, form.OmittedFields),
+						processField(field, table, data, form.OmittedFields),
 					)
 					if hashableKey(field) {
 						sd.KeyField = fieldName(field.Name)
@@ -789,7 +783,6 @@ func processStruct(
 							childField,
 							table,
 							data,
-							keyFields,
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
@@ -801,7 +794,6 @@ func processStruct(
 							pf,
 							table,
 							data,
-							keyFields,
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
@@ -820,7 +812,6 @@ func processStruct(
 						field,
 						table,
 						data,
-						keyFields,
 						form.OmittedFields,
 					)
 					sd.Fields = append(sd.Fields, fd)
@@ -838,7 +829,7 @@ func processStruct(
 			redefinedFields := make(set.Set[string])
 			for _, field := range form.Fields {
 				redefinedFields.Add(field.Name)
-				fd := processField(field, table, data, keyFields, form.OmittedFields)
+				fd := processField(field, table, data, form.OmittedFields)
 				sd.Fields = append(sd.Fields, fd)
 				// Only a required @key field yields a __hash__.
 				if hashableKey(field) {
@@ -861,7 +852,7 @@ func processStruct(
 				// Find the field type from parent
 				for _, pf := range parentFields {
 					if pf.Name == omittedName {
-						data.imports.addPydantic("Field")
+						data.imports.addField()
 						// Run the inherited field through the normal field
 						// pipeline so it keeps its real type, default, and
 						// validation; processField adds exclude=True because the
@@ -872,7 +863,6 @@ func processStruct(
 							pf,
 							table,
 							data,
-							keyFields,
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
@@ -888,7 +878,7 @@ func processStruct(
 	allFields := resolution.UnifiedFields(entry, table)
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
+		sd.Fields = append(sd.Fields, processField(field, table, data, nil))
 		// Only a required @key field yields a __hash__.
 		if hashableKey(field) {
 			sd.KeyField = fieldName(field.Name)
@@ -915,7 +905,7 @@ func buildExtendsExpr(
 
 	// A base class defined in another schema module must be imported and
 	// referenced through its module alias (e.g. task_.ReadConfig).
-	if parent.Namespace != data.Namespace {
+	if parent.FilePath != data.FilePath {
 		outputPath := output.GetPath(parent, "py")
 		if outputPath == "" {
 			outputPath = parent.Namespace
@@ -964,7 +954,6 @@ func processField(
 	field resolution.Field,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
 	excludedFields []string,
 ) fieldData {
 	wireName := casing.FieldSnake(field.Name)
@@ -979,11 +968,14 @@ func processField(
 	}
 
 	baseType := typeToPython(field.Type, table, data)
-	validateDomain := field.Domains["validate"]
+	// The Core mints a key, so a client sends its zero value on create. An optional
+	// field is never required.
+	_, isKey := field.Domains["key"]
 	fieldConstraints := collectValidation(
-		validateDomain,
+		validation.FieldRules(field, table),
 		field.Default,
 		field.Type,
+		!isKey && !field.Optional,
 		table,
 		data,
 	)
@@ -1030,7 +1022,7 @@ func processField(
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
-		fd.PyType = fd.PyType + " | None"
+		fd.PyType += " | None"
 	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
 		if kind == "Array" {
 			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
@@ -1120,9 +1112,9 @@ func buildDefault(
 
 	if optional {
 		if hasConstraints {
-			data.imports.addPydantic("Field")
 			return fmt.Sprintf(
-				" = Field(default=None, %s)",
+				" = %s(default=None, %s)",
+				data.imports.addField(),
 				strings.Join(constraints, ", "),
 			)
 		}
@@ -1136,35 +1128,46 @@ func buildDefault(
 		if len(constraints) == 1 && strings.HasPrefix(constraints[0], "default=") {
 			return " = " + strings.TrimPrefix(constraints[0], "default=")
 		}
-		data.imports.addPydantic("Field")
-		return fmt.Sprintf(" = Field(%s)", strings.Join(constraints, ", "))
+		return fmt.Sprintf(
+			" = %s(%s)",
+			data.imports.addField(),
+			strings.Join(constraints, ", "),
+		)
 	}
 
 	return ""
 }
 
 func collectValidation(
-	domain resolution.Domain,
+	rules *validation.Rules,
 	defaultVal *resolution.ExpressionValue,
 	typeRef resolution.TypeRef,
+	refusesZero bool,
 	table *resolution.Table,
 	data *templateData,
 ) []string {
-	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return nil
 	}
+	required := rules.Required && refusesZero
 	var constraints []string
-	isString := resolution.IsPrimitive(typeRef.Name) &&
-		resolution.IsStringPrimitive(typeRef.Name)
 	primitive := key.ResolvePrimitive(typeRef, table)
+	isString := resolution.IsStringPrimitive(primitive)
 	isNumber := resolution.IsNumberPrimitive(primitive)
+	// A required string, aliased or not, is nonempty. A UUID has no length.
+	requiredString := required && resolution.PrimitiveBase(typeRef, table) == "string"
+	if requiredString && !isString && rules.MinLength == nil {
+		constraints = append(constraints, "min_length=1")
+	}
 	if isString {
-		if rules.MinLength != nil {
+		switch {
+		case rules.MinLength != nil:
 			constraints = append(
 				constraints,
 				fmt.Sprintf("min_length=%d", *rules.MinLength),
 			)
+		case requiredString:
+			constraints = append(constraints, "min_length=1")
 		}
 		if rules.MaxLength != nil {
 			constraints = append(
@@ -1174,6 +1177,11 @@ func collectValidation(
 		}
 	}
 	if isNumber {
+		// A required unsigned integer is nonzero, so it is greater than zero.
+		if required && strings.HasPrefix(primitive, "uint") && rules.Min == nil &&
+			rules.GT == nil {
+			constraints = append(constraints, "gt=0")
+		}
 		if rules.Min != nil {
 			if rules.Min.IsInt {
 				constraints = append(constraints, fmt.Sprintf("ge=%d", rules.Min.Int))
@@ -1196,7 +1204,7 @@ func collectValidation(
 			}
 		}
 		isFloat := primitive == "float32" || primitive == "float64"
-		if isFloat && len(constraints) > 0 {
+		if isFloat && (len(constraints) > 0 || rules.Finite) {
 			constraints = append(constraints, "allow_inf_nan=False")
 		}
 	}
@@ -1284,7 +1292,7 @@ func collectValidation(
 				table,
 			); ok {
 				variantRef := enumVariantToPython(ev, table, data)
-				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
+				constraints = append(constraints, "default="+variantRef)
 			}
 			if uv, ok := validation.ResolveUnionVariant(
 				defaultVal.IdentValue,
@@ -1308,9 +1316,11 @@ func collectValidation(
 			} else {
 				constraints = append(
 					constraints,
-					fmt.Sprintf(
-						"default_factory=lambda: %s",
-						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					"default_factory=lambda: "+pyDefaultLiteral(
+						typeRef,
+						*defaultVal,
+						table,
+						data,
 					),
 				)
 			}
@@ -1325,9 +1335,11 @@ func collectValidation(
 				} else {
 					constraints = append(
 						constraints,
-						fmt.Sprintf(
-							"default_factory=lambda: %s",
-							pyDefaultLiteral(typeRef, *defaultVal, table, data),
+						"default_factory=lambda: "+pyDefaultLiteral(
+							typeRef,
+							*defaultVal,
+							table,
+							data,
 						),
 					)
 				}
@@ -1335,9 +1347,11 @@ func collectValidation(
 				// Models are mutable, so they must use default_factory, never default=.
 				constraints = append(
 					constraints,
-					fmt.Sprintf(
-						"default_factory=lambda: %s",
-						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					"default_factory=lambda: "+pyDefaultLiteral(
+						typeRef,
+						*defaultVal,
+						table,
+						data,
 					),
 				)
 			}
@@ -1359,7 +1373,7 @@ func pyDefaultLiteral(
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", val.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", val.IntValue)
+		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", val.FloatValue)
 	case resolution.ValueKindBool:
@@ -1437,7 +1451,7 @@ func pyStructLiteral(
 	}
 	className := getPyName(resolved)
 	className = importLocalHand(resolved, className, data)
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.FilePath {
 		outputPath := output.GetPath(resolved, "py")
 		if outputPath == "" {
 			outputPath = resolved.Namespace
@@ -1546,7 +1560,7 @@ func enumVariantToPython(
 	}
 	enumName := domain.GetName(ev.Type, "py")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
-	if ev.Type.Namespace != data.Namespace {
+	if ev.Type.FilePath != data.FilePath {
 		outputPath := enum.FindOutputPath(ev.Type, table, "py")
 		if outputPath == "" {
 			outputPath = ev.Type.Namespace
@@ -1566,7 +1580,7 @@ func unionVariantToPython(
 	data *templateData,
 ) string {
 	variantName := casing.VariantTypeName(getPyName(uv.Type), uv.Variant.Name)
-	if uv.Type.Namespace == data.Namespace {
+	if uv.Type.FilePath == data.FilePath {
 		return importLocalHand(uv.Type, variantName, data)
 	}
 	outputPath := enum.FindOutputPath(uv.Type, table, "py")
@@ -1628,23 +1642,23 @@ func sizedIntBounds(
 	return b, ok
 }
 
-// mapKeyToPython returns the Python type of a map key. A sized integer key carries
-// its range in its type, since the bounds of a field do not reach its dict keys.
-func mapKeyToPython(
+// boundedArgToPython returns the Python type of a map key or value. A sized integer
+// carries its range in its type, since the bounds of a field do not reach into a dict.
+func boundedArgToPython(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 	data *templateData,
 ) string {
-	keyType := typeToPython(typeRef, table, data)
+	pyType := typeToPython(typeRef, table, data)
 	bounds, ok := sizedIntBounds(typeRef, table)
 	if !ok {
-		return keyType
+		return pyType
 	}
 	data.imports.addTyping("Annotated")
 	data.imports.addPydantic("Field")
 	return fmt.Sprintf(
 		"Annotated[%s, Field(ge=%s, le=%s)]",
-		keyType,
+		pyType,
 		bounds.min,
 		bounds.max,
 	)
@@ -1655,7 +1669,7 @@ func mapKeyToPython(
 // declares no such type. It returns the name to reference, which is an alias when the
 // import takes one. A missing module is recorded so generation fails.
 func importLocalHand(typ resolution.Type, name string, data *templateData) string {
-	if typ.Namespace != data.Namespace || !omit.IsSkipped(typ, "py") {
+	if typ.FilePath != data.FilePath || !omit.IsSkipped(typ, "py") {
 		return name
 	}
 	module := domain.GetStringFromType(typ, "py", "include")
@@ -1736,8 +1750,8 @@ func typeToPython(
 
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
-		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 
@@ -1752,7 +1766,7 @@ func typeToPython(
 	pyName = importLocalHand(resolved, pyName, data)
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1763,7 +1777,7 @@ func typeToPython(
 		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
 
 	case resolution.EnumForm:
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := enum.FindOutputPath(resolved, table, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1774,7 +1788,7 @@ func typeToPython(
 		return pyName
 
 	case resolution.DistinctForm:
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1799,7 +1813,7 @@ func typeToPython(
 			)
 			return typeToPython(target, table, data)
 		}
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1810,7 +1824,7 @@ func typeToPython(
 		return pyName
 
 	case resolution.UnionForm:
-		if resolved.Namespace != data.Namespace {
+		if resolved.FilePath != data.FilePath {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
@@ -1841,8 +1855,8 @@ func typeRefToPythonAlias(
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
 		return fmt.Sprintf(
 			"dict[%s, %s]",
-			mapKeyToPython(typeRef.TypeArgs[0], table, data),
-			typeToPython(typeRef.TypeArgs[1], table, data),
+			boundedArgToPython(typeRef.TypeArgs[0], table, data),
+			boundedArgToPython(typeRef.TypeArgs[1], table, data),
 		)
 	}
 	resolved, ok := typeRef.Resolve(table)
@@ -1860,7 +1874,7 @@ func typeRefToPythonAlias(
 	pyName := getPyName(resolved)
 	pyName = importLocalHand(resolved, pyName, data)
 	var baseName string
-	if resolved.Namespace != data.Namespace {
+	if resolved.FilePath != data.FilePath {
 		outputPath := output.GetPath(resolved, "py")
 		if outputPath == "" {
 			outputPath = resolved.Namespace
@@ -1965,12 +1979,12 @@ type importManager struct {
 	reserved set.Set[string]
 	uuid     []string
 	typing   []string
-	// typeVarDefault is true when a TypeVar takes a default, so TypeVar comes from
-	// typing_extensions instead of typing.
-	typeVarDefault bool
-	enum           []string
-	pydantic       []string
-	synnax         []string
+	enum     []string
+	pydantic []string
+	// field is the name pydantic's Field is imported as. It differs from "Field" when
+	// the file declares a type of that name.
+	field  string
+	synnax []string
 	// resource holds imports from synnax.resource.
 	resource []string
 	// codec holds imports from x.codec.
@@ -1984,6 +1998,7 @@ type importManager struct {
 func newImportManager() *importManager {
 	return &importManager{
 		reserved: make(set.Set[string]),
+		field:    "Field",
 	}
 }
 
@@ -2014,6 +2029,12 @@ func (m *importManager) addPydantic(name string) {
 	if !lo.Contains(m.pydantic, name) {
 		m.pydantic = append(m.pydantic, name)
 	}
+}
+
+// addField imports pydantic's Field and returns the name to call it by.
+func (m *importManager) addField() string {
+	m.addPydantic("Field")
+	return m.field
 }
 
 func (m *importManager) addSynnax(name string) {
@@ -2126,6 +2147,9 @@ type templateData struct {
 	Resource   *resourceData
 	Namespace  string
 	OutputPath string
+	// FilePath is the schema file that this file renders. A type is local when it comes
+	// from this file: two schemas with one file name share a namespace.
+	FilePath string
 	// GeneratedModule is the module name of each generated file.
 	GeneratedModule string
 	Structs         []structData
@@ -2166,13 +2190,20 @@ type resourceData struct {
 
 func (d *templateData) UUIDImports() []string { return d.imports.uuid }
 func (d *templateData) TypingImports() []string {
-	if len(d.TypeVars) == 0 || d.imports.typeVarDefault {
+	if len(d.TypeVars) == 0 {
 		return d.imports.typing
 	}
 	return append(slices.Clone(d.imports.typing), "TypeVar")
 }
-func (d *templateData) EnumImports() []string     { return d.imports.enum }
-func (d *templateData) PydanticImports() []string { return d.imports.pydantic }
+func (d *templateData) EnumImports() []string { return d.imports.enum }
+func (d *templateData) PydanticImports() []string {
+	return lo.Map(d.imports.pydantic, func(name string, _ int) string {
+		if name == "Field" && d.imports.field != name {
+			return name + " as " + d.imports.field
+		}
+		return name
+	})
+}
 func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
 func (d *templateData) ResourceImports() []string { return d.imports.resource }
 func (d *templateData) CodecImports() []string    { return d.imports.codec }
@@ -2180,19 +2211,6 @@ func (d *templateData) CodecImports() []string    { return d.imports.codec }
 func (d *templateData) NamespaceImports() []namespaceImportData { return d.imports.namespaces }
 
 func (d *templateData) ModuleImports() []moduleImportData { return d.imports.modules }
-
-// TypingExtensionsImports returns the names imported from typing_extensions.
-func (d *templateData) TypingExtensionsImports() []string {
-	if d.imports.typeVarDefault {
-		return []string{"TypeVar"}
-	}
-	return nil
-}
-
-type keyFieldData struct {
-	Name   string
-	PyType string
-}
 
 type typeParamData struct {
 	// Name is the TypeVar name (e.g., "V").
@@ -2517,7 +2535,7 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{ end -}}
 {{ .Name }} = Annotated[
     {{ range $i, $v := .Variants }}{{ if $i }} | {{ end }}{{ $v.ClassName }}{{ end }},
-    Field(discriminator="{{ .DiscName }}"),
+    {{ .Field }}(discriminator="{{ .DiscName }}"),
 ]
 {{- end }}
 {{- end }}
@@ -2543,9 +2561,6 @@ from uuid import {{ join .UUIDImports ", " }}
 {{- end }}
 {{- if .TypingImports }}
 from typing import {{ join .TypingImports ", " }}
-{{- end }}
-{{- if .TypingExtensionsImports }}
-from typing_extensions import {{ join .TypingExtensionsImports ", " }}
 {{- end }}
 {{- if .EnumImports }}
 from enum import {{ join .EnumImports ", " }}

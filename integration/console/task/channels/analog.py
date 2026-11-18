@@ -74,9 +74,7 @@ class Analog:
 
         # Configure channel type
         layout.click_btn("Channel type")
-        layout.select_from_dropdown(
-            chan_type, exact=True, reopen=lambda: layout.click_btn("Channel type")
-        )
+        layout.select_from_dropdown(chan_type, exact=True)
         values["Channel type"] = chan_type
 
         # Get device (set by task.add_channel)
@@ -95,7 +93,6 @@ class Analog:
             layout.select_from_dropdown(
                 terminal_label,
                 exact=True,
-                reopen=lambda: layout.click_btn("Terminal configuration"),
             )
             values["Terminal configuration"] = terminal_label
         elif self.has_terminal_config():
@@ -127,7 +124,6 @@ class Analog:
             layout.select_from_dropdown(
                 scale_label,
                 exact=True,
-                reopen=lambda: layout.click_btn("Custom scaling"),
             )
             values["Custom scaling"] = scale_label
         elif chan_type not in no_custom_scale_types:
@@ -188,9 +184,7 @@ class Analog:
             # value it already holds would hang. Skip when it already matches.
             if self.layout.get_dropdown_value(label) != value:
                 self.layout.click_btn(label)
-                self.layout.select_from_dropdown(
-                    value, exact=True, reopen=lambda: self.layout.click_btn(label)
-                )
+                self.layout.select_from_dropdown(value, exact=True)
             if track:
                 self.form_values[label] = value
         elif track:

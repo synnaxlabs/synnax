@@ -114,7 +114,7 @@ class Set(BaseModel, Generic[T]):
 # SetDict is the dict form of Set.
 SetDict = TypedDict(
     "SetDict",
-    {"eq": T, "in": list[T]},  # type: ignore[valid-type]
+    {"eq": "T", "in": "list[T]"},
     total=False,
 )
 
@@ -152,7 +152,7 @@ class Ordered(BaseModel, Generic[T]):
 # OrderedDict is the dict form of Ordered.
 OrderedDict = TypedDict(
     "OrderedDict",
-    {"eq": T, "in": list[T], "gt": T, "gte": T, "lt": T, "lte": T},  # type: ignore[valid-type]
+    {"eq": "T", "in": "list[T]", "gt": "T", "gte": "T", "lt": "T", "lte": "T"},
     total=False,
 )
 

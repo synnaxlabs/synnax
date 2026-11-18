@@ -21,7 +21,7 @@ var _ = Describe("OpenLayer", func() {
 	It("Should open an in-memory storage layer", func(ctx SpecContext) {
 		l := testutil.OpenLayer(ctx)
 		Expect(l.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
-		value, closer := MustSucceed2(l.KV.Get(ctx, []byte("foo")))
+		value, closer := MustSucceed2(l.KV.Get([]byte("foo")))
 		Expect(value).To(Equal([]byte("bar")))
 		Expect(closer.Close()).To(Succeed())
 		Expect(l.Close()).To(Succeed())

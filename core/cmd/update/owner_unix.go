@@ -12,10 +12,12 @@
 package update
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"syscall"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 // matchOwner gives the owner of dir each file in it that root owns, when root runs the
@@ -29,20 +31,57 @@ func matchOwner(dir string) error {
 	if err != nil {
 		return err
 	}
-	owner := info.Sys().(*syscall.Stat_t)
+	owner := status(info)
 	if owner.Uid == 0 {
 		return nil
 	}
-	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if info, err = d.Info(); err != nil {
-			return err
-		}
-		if info.Sys().(*syscall.Stat_t).Uid != 0 {
-			return nil
-		}
-		return os.Lchown(path, int(owner.Uid), int(owner.Gid))
-	})
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	// The root stops a symlink that the owner of dir adds during the walk from sending
+	// a chown outside dir.
+	walkErr := fs.WalkDir(
+		root.FS(),
+		".",
+		func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && !d.Type().IsRegular() {
+				return nil
+			}
+			return chownRootOwned(root, path, owner)
+		},
+	)
+	return errors.Combine(walkErr, root.Close())
+}
+
+// chownRootOwned gives owner the regular file or directory at path when root owns it.
+// It checks and changes the inode it opened, so the owner of dir cannot swap in a hard
+// link to a root-owned file outside dir between the check and the chown. Special files
+// and files with more than one link keep their owner.
+func chownRootOwned(root *os.Root, path string, owner *syscall.Stat_t) error {
+	f, err := root.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return errors.Combine(err, f.Close())
+	}
+	st := status(info)
+	sole := info.IsDir() || (info.Mode().IsRegular() && st.Nlink == 1)
+	if st.Uid != 0 || !sole {
+		return f.Close()
+	}
+	return errors.Combine(f.Chown(int(owner.Uid), int(owner.Gid)), f.Close())
+}
+
+func status(info fs.FileInfo) *syscall.Stat_t {
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		panic(fmt.Sprintf("file info of %s is a %T", info.Name(), info.Sys()))
+	}
+	return st
 }

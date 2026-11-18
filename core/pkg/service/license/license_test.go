@@ -10,12 +10,14 @@
 package license_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/mldsa"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net"
 	"net/url"
 	"reflect"
@@ -28,11 +30,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -58,6 +65,57 @@ func (p *pausedDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 		<-p.resume
 	}
 	return iter, err
+}
+
+var errFault = errors.New("fault")
+
+// legacyKey is where Cores before signed license keys stored a numeric key.
+var legacyKey = []byte("bGljZW5zZUtleQ==")
+
+type faultyCloser struct{}
+
+func (faultyCloser) Close() error { return errFault }
+
+type faultyIterator struct{ kv.Iterator }
+
+func (i faultyIterator) Close() error { return errors.Combine(i.Iterator.Close(), errFault) }
+
+// faultyDB fails the step that fault names when the service removes numeric keys.
+type faultyDB struct {
+	kv.DB
+	fault string
+}
+
+func (f *faultyDB) Get(key []byte, opts ...any) ([]byte, io.Closer, error) {
+	value, closer, err := f.DB.Get(key, opts...)
+	if !bytes.Equal(key, legacyKey) {
+		return value, closer, err
+	}
+	switch f.fault {
+	case "get":
+		return nil, nil, errors.Combine(closer.Close(), errFault)
+	case "release":
+		return value, faultyCloser{}, errors.Combine(err, closer.Close())
+	}
+	return value, closer, err
+}
+
+func (f *faultyDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	switch f.fault {
+	case "iterate":
+		return nil, errFault
+	case "close":
+		iter, err := f.DB.OpenIterator(opts)
+		return faultyIterator{Iterator: iter}, err
+	}
+	return f.DB.OpenIterator(opts)
+}
+
+func (f *faultyDB) Delete(ctx context.Context, key []byte) error {
+	if f.fault == "delete" {
+		return errFault
+	}
+	return f.DB.Delete(ctx, key)
 }
 
 // numericKey is an unsigned numeric license key.
@@ -123,9 +181,14 @@ var _ = Describe("License", func() {
 	Describe("ServiceConfig", func() {
 		DescribeTable(
 			"should reject a missing field",
-			func(field string, clear func(c *license.ServiceConfig)) {
-				c := license.DefaultServiceConfig.Override(cfg)
-				clear(&c)
+			func(field string, unset func(c *license.ServiceConfig)) {
+				c := cfg
+				c.CheckInterval = time.Hour
+				c.WarningTime = time.Hour
+				c.Grace = time.Hour
+				c.Rollback = time.Hour
+				c.Loopback = new(false)
+				unset(&c)
 				Expect(c.Validate()).To(MatchError(ContainSubstring(field)))
 			},
 			Entry("db", "db", func(c *license.ServiceConfig) { c.DB = nil }),
@@ -147,11 +210,11 @@ var _ = Describe("License", func() {
 			Entry("loopback", "loopback",
 				func(c *license.ServiceConfig) { c.Loopback = nil }),
 		)
-		It("should keep defaults the override leaves zero", func() {
-			c := license.DefaultServiceConfig.Override(cfg)
-			Expect(c.Grace).To(Equal(license.DefaultServiceConfig.Grace))
-			Expect(c.Rollback).To(Equal(license.DefaultServiceConfig.Rollback))
-			Expect(c.Validate()).To(Succeed())
+		It("should keep the values the override leaves zero", func() {
+			base := license.ServiceConfig{Grace: time.Hour, Rollback: time.Minute}
+			c := base.Override(cfg)
+			Expect(c.Grace).To(Equal(time.Hour))
+			Expect(c.Rollback).To(Equal(time.Minute))
 		})
 	})
 
@@ -330,13 +393,20 @@ var _ = Describe("License", func() {
 			},
 		)
 		DescribeTable(
-			"should ignore and keep a numeric key an earlier Core stored",
+			"should remove a numeric key an earlier Core stored",
 			func(ctx SpecContext, key []byte) {
 				Expect(db.Set(ctx, key, []byte(numericKey))).To(Succeed())
-				Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
-				value, closer := MustSucceed2(db.Get(ctx, key))
-				Expect(string(value)).To(Equal(numericKey))
-				Expect(closer.Close()).To(Succeed())
+				store(ctx, newLicense())
+				core, logs := observer.New(zapcore.WarnLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				svc := open(ctx, license.ServiceConfig{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				})
+				Expect(svc.Retrieve().State).To(Equal(license.StateOk))
+				Expect(logs.All()).To(BeEmpty())
+				Expect(db.Get(key)).Error().To(MatchError(query.ErrNotFound))
 			},
 			Entry(
 				"at the key Cores used before signed keys",
@@ -346,6 +416,20 @@ var _ = Describe("License", func() {
 				"under the license prefix",
 				append([]byte("license/"), uuid.New().String()...),
 			),
+		)
+		DescribeTable(
+			"should fail to open when it cannot remove numeric keys",
+			func(ctx SpecContext, fault string) {
+				Expect(db.Set(ctx, legacyKey, []byte(numericKey))).To(Succeed())
+				Expect(license.OpenService(ctx, cfg, license.ServiceConfig{
+					DB: &faultyDB{DB: db, fault: fault},
+				})).Error().To(MatchError(errFault))
+			},
+			Entry("on a failed read", "get"),
+			Entry("on a failed release of the read", "release"),
+			Entry("on a failed scan", "iterate"),
+			Entry("on a failed close of the scan", "close"),
+			Entry("on a failed delete", "delete"),
 		)
 		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
 			expired := newLicense()
@@ -458,10 +542,10 @@ var _ = Describe("License", func() {
 		state := func(svc *license.Service) func() license.State {
 			return func() license.State { return svc.Retrieve().State }
 		}
-		mark := func(ctx SpecContext) func() int64 {
+		mark := func() func() int64 {
 			return func() int64 {
 				GinkgoHelper()
-				raw, closer := MustSucceed2(db.Get(ctx, []byte("highWater")))
+				raw, closer := MustSucceed2(db.Get([]byte("highWater")))
 				Expect(closer.Close()).To(Succeed())
 				return int64(binary.LittleEndian.Uint64(raw))
 			}
@@ -493,9 +577,9 @@ var _ = Describe("License", func() {
 		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
 			svc := open(ctx, clocked, license.ServiceConfig{Key: sign(newLicense())})
-			Expect(mark(ctx)()).To(Equal(now.UnixNano()))
+			Expect(mark()()).To(Equal(now.UnixNano()))
 			clock.Store(now.Add(-2 * day).UnixNano())
-			Consistently(mark(ctx)).
+			Consistently(mark()).
 				WithTimeout(100 * time.Millisecond).
 				Should(Equal(now.UnixNano()))
 			Expect(svc.Close()).To(Succeed())
@@ -780,13 +864,14 @@ var _ = Describe("License", func() {
 			lic := newLicense()
 			lic.Channels = 10
 			MustSucceed(svc.Activate(ctx, sign(lic)))
-			pld := errors.Encode(ctx, svc.CheckChannelLimit(11), false)
+			codec := errors.NewCodec(license.ErrorProvider())
+			pld := codec.Encode(svc.CheckChannelLimit(11), false)
 			Expect(pld.Type).To(Equal("sy.license.too_many"))
 			Expect(pld.Data).To(Equal(
 				"limit is 10 channels: using more channels than allowed by the " +
 					"license: license error",
 			))
-			Expect(errors.Decode(ctx, pld)).To(And(
+			Expect(codec.Decode(pld)).To(And(
 				MatchError(license.ErrTooMany),
 				MatchError(ContainSubstring("limit is 10 channels")),
 			))

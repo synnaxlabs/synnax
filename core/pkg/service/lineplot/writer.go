@@ -14,9 +14,11 @@ import (
 	"slices"
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
+	v10 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v10"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
@@ -25,6 +27,7 @@ type Writer struct {
 	tx         gorp.Tx
 	table      *gorp.Table[Key, LinePlot]
 	dispatcher actions.Dispatcher[Key, Action]
+	color      *color.Service
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -34,10 +37,10 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates the given line plot, assigning a new key when lp.Key is zero. The line
-// plot must belong to a project. A line plot in a group belongs to the project that
-// holds the group. Create returns an error wrapping validate.ErrValidation when a line
-// plot with lp.Key exists.
+// Create creates the given line plot, assigning a new key when lp.Key is zero. Each
+// line and rule with no color gets a series color. The line plot must belong to a
+// project. A line plot in a group belongs to the project that holds the group. Create
+// returns an error wrapping validate.ErrValidation when a line plot with lp.Key exists.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
@@ -51,11 +54,18 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	}
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
-	lp.Lines = v8.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
-	if err := lp.Validate(); err != nil {
+	lp.Lines = v10.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
+	colored, err := w.fillColors(ctx, *lp)
+	if err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(lp.Project); err != nil {
+	if *lp, err = Reduce(*lp, colored...); err != nil {
+		return err
+	}
+	if err = lp.Validate(); err != nil {
+		return err
+	}
+	if err := project.CheckMember(lp.Project); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(lp).Exec(ctx, w.tx); err != nil {
@@ -116,10 +126,11 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 // Apply applies a sequence of actions to the line plot with the given key and attaches
 // them to the transaction of w, so its commit broadcasts them with the dispatch key of
-// w. A move into a group also moves the line plot into the project that holds the
-// group, and a move into another project moves it out of its group. Apply attaches the
-// actions of each such move after acts and returns them. It returns a validation error,
-// and stores nothing, if the actions leave the line plot invalid.
+// w. Each line and rule with no color gets a series color. A move into a group also
+// moves the line plot into the project that holds the group, and a move into another
+// project moves it out of its group. Apply attaches the actions of each such color and
+// move after acts and returns them. It returns a validation error, and stores nothing,
+// if the actions leave the line plot invalid.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var added []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
@@ -128,8 +139,17 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err != nil {
 				return LinePlot{}, err
 			}
+			colored, err := w.fillColors(ctx, next)
+			if err != nil {
+				return LinePlot{}, err
+			}
+			if next, err = Reduce(next, colored...); err != nil {
+				return LinePlot{}, err
+			}
+			added = colored
 			var placed project.Placement
-			if placed, added, err = project.Place(
+			var moved []Action
+			if placed, moved, err = project.Place(
 				ctx,
 				w.tx,
 				resource.TypeLineplot,
@@ -140,14 +160,70 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			); err != nil {
 				return LinePlot{}, err
 			}
+			added = append(added, moved...)
 			next.Group, next.Project = placed.Group, placed.Project
 			if err = next.Validate(); err != nil {
 				return LinePlot{}, err
 			}
-			return next, project.ValidateOwner(next.Project)
+			return next, project.CheckMember(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
 	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
 	return added, nil
+}
+
+// fillColors returns an action for each line and each rule of lp with no color. Each
+// action gives its line or rule a series color from pickSeries.
+func (w Writer) fillColors(ctx context.Context, lp LinePlot) ([]Action, error) {
+	lines := lo.Map(lp.Lines, func(l Line, _ int) *color.Ref { return l.Color })
+	rules := lo.Map(lp.Rules, func(r Rule, _ int) *color.Ref { return r.Color })
+	if !slices.Contains(lines, nil) && !slices.Contains(rules, nil) {
+		return nil, nil
+	}
+	series, err := w.color.Series(ctx, w.tx)
+	if err != nil || len(series) == 0 {
+		return nil, err
+	}
+	var acts []Action
+	for i, pick := range pickSeries(series, lines) {
+		if pick != nil {
+			acts = append(acts, NewSetLineColorAction(
+				SetLineColorPayload{Key: lp.Lines[i].Key, Color: pick},
+			))
+		}
+	}
+	for i, pick := range pickSeries(series, rules) {
+		if pick != nil {
+			acts = append(acts, NewSetRuleColorAction(
+				SetRuleColorPayload{Key: lp.Rules[i].Key, Color: pick},
+			))
+		}
+	}
+	return acts, nil
+}
+
+// pickSeries returns a series color for each empty color in colors, and nil for each
+// set one. Each pick is the series color that the fewest colors and earlier picks use,
+// and a tie goes to the first series color.
+func pickSeries(series []color.Key, colors []*color.Ref) []*color.Ref {
+	uses := make(map[color.Key]int, len(series))
+	for _, c := range colors {
+		if c == nil {
+			continue
+		}
+		if n, ok := c.Variant.(color.NamedRef); ok {
+			uses[n.Key]++
+		}
+	}
+	picks := make([]*color.Ref, len(colors))
+	for i, c := range colors {
+		if c != nil {
+			continue
+		}
+		pick := lo.MinBy(series, func(a, b color.Key) bool { return uses[a] < uses[b] })
+		uses[pick]++
+		picks[i] = &color.Ref{Variant: color.NamedRef{Key: pick}}
+	}
+	return picks
 }

@@ -33,6 +33,7 @@ import {
   singleWhere,
 } from "@/channel/payload";
 import {
+  countLimitedResponseZ,
   type Key,
   keyZ,
   type Name,
@@ -463,6 +464,7 @@ export class Client extends query.Retriever<
    * @param params - The keys or the names of the channels to retrieve, or a request.
    * Note that this method does not support mixing keys and names in the same call. A
    * name matches exactly. To match a pattern, pass `{ where: { name: { regex } } }`.
+   * An empty array retrieves no channels. To retrieve every channel, pass `{}`.
    */
   async retrieve(
     params: PrimitiveParams | Payload[] | query.RequestInput<typeof retrieveParamsZ>,
@@ -523,6 +525,21 @@ export class Client extends query.Retriever<
     await this.writer.delete({ names });
     const cached = this.byName.get(names);
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
+  }
+
+  /**
+   * Retrieves how many channels count against the license channel limit (not internal,
+   * not virtual).
+   * @throws {AccessDeniedError} if the caller cannot retrieve every channel.
+   */
+  async countLimited(): Promise<number> {
+    const { count } = await this.cfg.unary.send(
+      "/channel/count-limited",
+      {},
+      z.object({}),
+      countLimitedResponseZ,
+    );
+    return count;
   }
 
   /** Renames the channels in one transaction, giving each key the name at its index. */

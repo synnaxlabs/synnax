@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
@@ -33,13 +34,6 @@ type RegisterValue struct {
 	BytesSwapped bool `json:"bytes_swapped" msgpack:"bytes_swapped"`
 	// WordsSwapped is true when the word order of multi-register values is swapped.
 	WordsSwapped bool `json:"words_swapped" msgpack:"words_swapped"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *RegisterValue) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "uint8"
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -111,11 +105,6 @@ func (h *HoldingRegisterReadChannel) SetDefaults() {
 	h.RegisterValue.SetDefaults()
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HoldingRegisterReadChannel) ApplyDefaults() {
-	h.RegisterValue.ApplyDefaults()
-}
-
 // InputRegisterReadChannel reads a typed value from one or more input registers.
 type InputRegisterReadChannel struct {
 	BaseReadChannel
@@ -129,11 +118,6 @@ func (InputRegisterReadChannel) isReadChannelVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (i *InputRegisterReadChannel) SetDefaults() {
 	i.RegisterValue.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (i *InputRegisterReadChannel) ApplyDefaults() {
-	i.RegisterValue.ApplyDefaults()
 }
 
 // ReadChannel is a single Modbus read channel. The type field selects the register
@@ -255,17 +239,12 @@ func (u ReadChannel) Type() ReadChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case HoldingRegisterReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case InputRegisterReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -351,11 +330,6 @@ func (HoldingRegisterWriteChannel) isWriteChannelVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (h *HoldingRegisterWriteChannel) SetDefaults() {
 	h.RegisterValue.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *HoldingRegisterWriteChannel) ApplyDefaults() {
-	h.RegisterValue.ApplyDefaults()
 }
 
 // WriteChannel is a single Modbus write channel. The type field selects the register
@@ -444,14 +418,12 @@ func (u WriteChannel) Type() WriteChannelType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case HoldingRegisterWriteChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteChannel) Validate() error {
+	v := validate.New("WriteChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -488,14 +460,6 @@ type ReadConfig struct {
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
@@ -525,6 +489,9 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.Exec(r.ReadConfig.Validate)
+	for i := range r.Channels {
+		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -535,21 +502,19 @@ type WriteConfig struct {
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
 	for i := range w.Channels {
-		w.Channels[i].ApplyDefaults()
+		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
+	return v.Error()
 }
 
 // ScanConfig configures a Modbus scan task.
 type ScanConfig struct {
 	task.ScanConfig
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	s.ScanConfig.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.

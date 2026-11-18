@@ -148,6 +148,44 @@ describe("Input.Table", () => {
     });
   });
 
+  describe("wrapped cell controls", () => {
+    /** @returns the shadow control in every cell, each inside a wrapper, by row. */
+    const renderWrapped = async (
+      rows: number,
+      columns: number,
+    ): Promise<Element[][]> => {
+      const value = Array.from({ length: rows }, () => Array<string>(columns).fill(""));
+      const { container } = await renderThemed(
+        <Input.Table value={value} onChange={() => {}}>
+          {value[0].map((_, i) => (
+            <Input.TableColumn key={i} name={`Column ${i}`} type="string">
+              {({ value, onChange, variant }) => (
+                <div>
+                  <Input.Text value={value} onChange={onChange} variant={variant} />
+                </div>
+              )}
+            </Input.TableColumn>
+          ))}
+        </Input.Table>,
+      );
+      return Array.from(container.querySelectorAll("tbody tr"), (row) =>
+        Array.from(row.querySelectorAll(`.${CSS.BM("btn", "shadow")}`)),
+      );
+    };
+
+    it("should square a control away from the corners of the box", async () => {
+      const cells = await renderWrapped(3, 3);
+      expect(radii(cells[1][1])).toEqual([SQUARE, SQUARE, SQUARE, SQUARE]);
+    });
+
+    it("should round only the outer corner of the bottom controls", async () => {
+      const cells = await renderWrapped(2, 2);
+      const r = rounded();
+      expect(radii(cells[1][0])).toEqual([SQUARE, SQUARE, SQUARE, r]);
+      expect(radii(cells[1][1])).toEqual([SQUARE, SQUARE, r, SQUARE]);
+    });
+  });
+
   describe("width", () => {
     it("should keep declared column widths in a wider container", async () => {
       const table = await renderWide([10, 12]);

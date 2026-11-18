@@ -55,6 +55,7 @@ func newEnv(ctx SpecContext, interval telem.TimeSpan) *env {
 	e.now.Store(int64(telem.NewTimeStamp(start)))
 	clock := func() telem.TimeStamp { return telem.TimeStamp(e.now.Load()) }
 	e.db = DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(e.db.Run)
 	e.status = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: e.db}))
 	grants := MustOpen(grant.OpenService(ctx, grant.ServiceConfig{DB: e.db}))
 	e.secrets = MustOpen(secret.OpenService(ctx, secret.ServiceConfig{
@@ -129,6 +130,14 @@ func stored(name, pemText string) certificate.Certificate {
 	}}
 }
 
+// storedOf returns the stored variant of c.
+func storedOf(c certificate.Certificate) certificate.StoredCertificate {
+	GinkgoHelper()
+	s, ok := c.Variant.(certificate.StoredCertificate)
+	Expect(ok).To(BeTrue())
+	return s
+}
+
 func (e *env) create(
 	ctx SpecContext,
 	c certificate.Certificate,
@@ -169,7 +178,7 @@ func (e *env) expiry(ctx SpecContext, key certificate.Key) status.Status[any] {
 // resolveKey reads the private key secret of c as the Driver of a rack would.
 func (e *env) resolveKey(ctx SpecContext, c certificate.Certificate) []byte {
 	GinkgoHelper()
-	key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+	key := *storedOf(c).PrivateKey
 	rk := rack.Key(1).ResourceID()
 	g := MustSucceed(e.secrets.Grant(ctx, e.db, rk, key))
 	return MustSucceed(e.secrets.Resolve(ctx, rk, g, key))[key]
@@ -180,7 +189,7 @@ func (e *env) keyName(ctx SpecContext, c certificate.Certificate) string {
 	GinkgoHelper()
 	var s secret.Secret
 	Expect(e.secrets.NewRetrieve().
-		Where(secret.MatchKeys(*c.Variant.(certificate.StoredCertificate).PrivateKey)).
+		Where(secret.MatchKeys(*storedOf(c).PrivateKey)).
 		Entry(&s).
 		Exec(ctx, e.db)).To(Succeed())
 	return s.Base().Name
@@ -243,7 +252,7 @@ var _ = Describe("Service", func() {
 					stored("Plant", newCertificate(key, "a", time.Hour)),
 					encodeKey(key),
 				)
-				secretKey := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				secretKey := *storedOf(c).PrivateKey
 				Expect(e.secrets.Uses(ctx, e.db, secretKey)).
 					To(Equal([]resource.ID{c.ResourceID()}))
 			},
@@ -274,7 +283,7 @@ var _ = Describe("Service", func() {
 				var changes []gorp.EntryChange[certificate.Key, certificate.Certificate]
 				DeferCleanup(
 					e.db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
-						for ch := range e.svc.Changes(ctx, c) {
+						for ch := range e.svc.Changes(c) {
 							changes = append(changes, ch)
 						}
 					}),

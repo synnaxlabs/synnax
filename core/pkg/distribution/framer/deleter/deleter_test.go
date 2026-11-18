@@ -213,7 +213,7 @@ func newChannelSet() []channel.Channel {
 func storageScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	dist := testutil.OpenNode(ctx)
+	dist := testutil.OpenNode(GinkgoT().Context())
 	channels = MustSucceed(dist.CreateChannels(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })

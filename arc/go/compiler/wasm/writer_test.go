@@ -17,12 +17,40 @@ import (
 )
 
 var _ = Describe("WASM Writer", func() {
+	Describe("WriteLoopBudget", func() {
+		It("Should take one unit from the budget and trap at zero or less", func() {
+			w := wasm.NewWriter()
+			w.WriteLoopBudget(3)
+			Expect(w.Bytes()).To(Equal([]byte{
+				byte(wasm.OpGlobalGet), 3,
+				byte(wasm.OpI64Const), 1,
+				byte(wasm.OpI64Sub),
+				byte(wasm.OpGlobalSet), 3,
+				byte(wasm.OpGlobalGet), 3,
+				byte(wasm.OpI64Const), 0,
+				byte(wasm.OpI64LeS),
+				byte(wasm.OpIf), 0x40,
+				byte(wasm.OpUnreachable),
+				byte(wasm.OpEnd),
+			}))
+		})
+	})
+
 	Describe("Instruction Encoding", func() {
 		var encoder *wasm.Writer
 
 		BeforeEach(func() {
 			encoder = wasm.NewWriter()
 		})
+
+		DescribeTable("WriteTruncSat should encode the 0xfc prefix and the opcode",
+			func(op wasm.TruncSatOpcode, expected []byte) {
+				encoder.WriteTruncSat(op)
+				Expect(encoder.Bytes()).To(Equal(expected))
+			},
+			Entry("i32.trunc_sat_f32_s", wasm.OpI32TruncSatF32S, []byte{0xfc, 0x00}),
+			Entry("i64.trunc_sat_f64_u", wasm.OpI64TruncSatF64U, []byte{0xfc, 0x07}),
+		)
 
 		Context("Constant Instructions", func() {
 			It("Should encode i32.const", func() {

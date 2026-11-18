@@ -9,19 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-settings__content {
-    gap: 6rem;
-    width: 100%;
-    max-width: 120rem;
-    padding: 8rem 6rem;
-    margin: 0 auto;
-}
-
 .console-settings__card {
     padding: 0 3rem;
-    background: var(--pluto-gray-l1);
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius-medium);
 }
 
 .console-settings__card--flush {
@@ -36,6 +25,10 @@
     & + & {
         border-top: var(--pluto-border);
     }
+}
+
+.console-settings__body {
+    padding: 3rem 0;
 }
 
 .console-settings__entry-text {

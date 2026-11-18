@@ -16,19 +16,26 @@ import { Channel } from "@synnaxlabs/pluto";
 import { deep, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import {
+  useResultSlave,
+  useSlavesByKeys,
+  useSlavesOnRack,
+} from "@/feature/ethercat/device/queries";
+import { needsSetup } from "@/feature/ethercat/device/SetupNote";
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   ReadChannelDetails,
   ReadDetailsTitle,
 } from "@/feature/ethercat/task/ChannelDetails";
+import { ChannelUsage } from "@/feature/ethercat/task/ChannelUsage";
+import { slavesZ } from "@/feature/ethercat/task/checks";
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
   createSlaveChannels,
   fillStartupParameters,
-  retrieveAndValidateSlaves,
+  retrieveSlaves,
 } from "@/feature/ethercat/task/configure";
 import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
@@ -94,7 +101,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   );
   const dataTypes = useDataTypes(slave == null ? [] : [slave]);
   const named =
-    slave != null &&
+    slave?.configured === true &&
     dataTypes != null &&
     hasEntry(ch) &&
     entryAt(slave.properties.pdos.inputs, ch) != null;
@@ -103,14 +110,12 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       {...props}
       nameDirection="y"
       port={<PortLabel ch={ch} entries={slave?.properties.pdos.inputs ?? []} />}
-      status={ch.type === "unresolved" ? "error" : undefined}
       path={entry}
       channel={ch.channel}
       defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}
       suffix={named ? readNameSuffix(slave, ch, dataTypes) : undefined}
       skipped={ch.disabled}
-      hasTareButton={false}
-      canTare={false}
+      warned={!ch.disabled && slave != null && needsSetup(slave)}
       portMaxChars={20}
     />
   );
@@ -147,6 +152,8 @@ const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
+  const onRack = useSlavesOnRack(slaves?.[0]?.rack);
+  PForm.useCheck(path.config, slavesZ("inputs", slaves ?? [], onRack ?? []));
   const dataTypes = useDataTypes(slaves ?? []);
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
@@ -154,31 +161,40 @@ const Form: FC = () => {
     return { channel: readChannelOf(slave, ch, dataTypes) };
   };
   return (
-    <Task.Views.ListAndDetails<ReadChannel>
-      path={path.config.channels}
-      listItem={listItem}
-      details={channelDetails}
-      detailsTitle={detailsTitle}
-      createChannel={createReadChannel}
-      contextMenuItems={contextMenuItems}
-      resolve={resolve}
-    />
+    <Flex.Box y grow empty>
+      <Task.Views.ListAndDetails<ReadChannel>
+        path={path.config.channels}
+        listItem={listItem}
+        details={channelDetails}
+        detailsTitle={detailsTitle}
+        createChannel={createReadChannel}
+        contextMenuItems={contextMenuItems}
+        resolve={resolve}
+        tareable
+      />
+      <ChannelUsage
+        indexOptions={READ_INDEX_OPTIONS}
+        pdoType="inputs"
+        path={path.config.channels}
+        slaves={slaves}
+      />
+    </Flex.Box>
   );
 };
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
   client,
-  deviceKey,
+  deviceKeys,
   config,
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (config == null)
     cfg.channels =
-      deviceKey == null
+      deviceKeys.length === 0
         ? [createReadChannel([])]
         : await createSlaveChannels(
             client,
-            deviceKey,
+            deviceKeys,
             "inputs",
             createSlaveReadChannel,
             createReadChannel([]),
@@ -203,11 +219,13 @@ const checkNamesUnique = (names: string[]): void => {
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
-  const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
+  const { slaves, rack, channelsBySlaveKey } = await retrieveSlaves<ReadChannel>(
+    client,
+    "inputs",
+    config,
+  );
 
-  // The settings and name checks run before any create, so their failure leaves
-  // nothing behind.
+  // The checks run before any create, so their failure leaves nothing behind.
   config.startupParameters = fillStartupParameters(
     slaves,
     config.channels,

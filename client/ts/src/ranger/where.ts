@@ -16,4 +16,9 @@ export const LINES: Lines = {
   overlaps: (range, value) => new TimeRange(value).overlapsWith(range.timeRange),
   labels: (range, keys) => range.labels.some((key) => keys.includes(key)),
   parents: (range, keys) => range.parent != null && keys.includes(range.parent),
+  nested: (range, nested) => (range.parent != null) === nested,
+  labeled: (range, labeled) => range.labels.length > 0 === labeled,
+  // Both read the Core's clock, so only the Core checks them.
+  stages: null,
+  recent: null,
 };

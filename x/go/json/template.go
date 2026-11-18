@@ -70,7 +70,7 @@ func NewTemplate(fields []TemplateField) (Template, error) {
 		}
 	}
 	var t Template
-	text, err := t.render(fields, root, nil)
+	text, err := render(fields, root, nil, &t.segments)
 	if err != nil {
 		return Template{}, err
 	}
@@ -126,17 +126,19 @@ func overlapError(fields []TemplateField, a, b int) error {
 }
 
 // render appends n to text, which holds the JSON text since the last slot. Each slot
-// ends a segment. It returns the JSON text since the last slot.
-func (t *Template) render(
+// ends a segment, which render appends to segments. It returns the JSON text since the
+// last slot.
+func render(
 	fields []TemplateField,
 	n *templateNode,
 	text []byte,
+	segments *[]segment,
 ) ([]byte, error) {
 	if n.field != -1 {
 		if lit := fields[n.field].Literal; lit != nil {
 			return append(text, lit...), nil
 		}
-		t.segments = append(t.segments, segment{prefix: text, field: n.field})
+		*segments = append(*segments, segment{prefix: text, field: n.field})
 		return nil, nil
 	}
 	text = append(text, '{')
@@ -149,7 +151,7 @@ func (t *Template) render(
 			return nil, err
 		}
 		text = append(text, ':')
-		if text, err = t.render(fields, n.members[name], text); err != nil {
+		if text, err = render(fields, n.members[name], text, segments); err != nil {
 			return nil, err
 		}
 	}

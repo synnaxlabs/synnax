@@ -21,7 +21,7 @@ actionlint:
 
 bazel: &bazel
   - .bazelignore
-  - .bazeliskrc
+  - .bazelversion
   - .bazelrc
   - .gitmodules
   - MODULE.bazel
@@ -286,6 +286,8 @@ exports_go:
   - *core
   - *freighter_integration
   - *oracle
+  - .github/exports-go.json
+  - .github/scripts/go_affected.py
 
 exports_py:
   - *client_py
@@ -350,6 +352,7 @@ driver: &driver
 
 soem:
   - *cpp
+  - vendor/open62541/codegen.bzl
   - vendor/soem/**
 
 # Every path that changes a C++ CodeQL analysis.
@@ -404,14 +407,18 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
-  - .github/workflows/ci.yaml
+  - .github/workflows/**
   - deploy/preview/**
+  - scripts/agent/**
   - scripts/common/**
 
 scripts:
   - *py
   - client/py/**
   - scripts/**
+
+suppressions_py:
+  - "**/*.py"
 
 runners:
   - *py

@@ -14,6 +14,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { flux } from "@/flux/aether";
 import {
+  type Bar,
   drawBars,
   drawFills,
   drawTooltip,
@@ -37,6 +38,8 @@ export type SelectedState = z.infer<typeof selectedStateZ>;
 export const providerStateZ = z.object({
   cursor: xy.xyZ.or(z.null()),
   visible: z.boolean().optional().default(true),
+  /** The menu of the hovered range is open, so its tooltip hides. */
+  menuOpen: z.boolean().default(false),
   hovered: selectedStateZ.or(z.null()),
   count: z.number(),
   /** The strip's height in pixels, or 0 when no range is in view. */
@@ -144,9 +147,13 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     );
     const count = packed.length;
     const height = stripHeight(lanes);
-    const { cursor, visible } = this.state;
-    const hovered =
-      visible && cursor != null ? hitTest(bars, region, lanes, cursor) : null;
+    const { cursor, visible, menuOpen, hovered: shown } = this.state;
+    // The range of an open menu stays hovered while a live plot slides it away from the
+    // cursor, so the menu keeps acting on the range the user clicked.
+    let hovered: Bar | null = null;
+    if (visible && menuOpen && shown != null)
+      hovered = bars.find((b) => b.range.key === shown.key) ?? null;
+    else if (visible && cursor != null) hovered = hitTest(bars, region, lanes, cursor);
     if (visible) {
       const clearScissor = draw.canvas.scissor(
         box.construct(
@@ -157,7 +164,8 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       drawFills(draw, bars, region, hovered);
       drawBars(draw, bars, region, lanes, hovered);
       clearScissor();
-      if (hovered != null && cursor != null) drawTooltip(draw, hovered, cursor, region);
+      if (hovered != null && cursor != null && !menuOpen)
+        drawTooltip(draw, hovered, cursor, region);
     }
     const viewportScale = dataToDecimalScale.scale(box.xBounds(viewport));
     const r = hovered?.range;
@@ -171,13 +179,14 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
             color: r.color,
             labels: r.labels,
             timeRange: r.timeRange,
+            hasChildren: r.hasChildren,
             viewport: {
               lower: viewportScale.pos(Number(r.timeRange.start.valueOf())),
               upper: viewportScale.pos(Number(r.timeRange.end.valueOf())),
             },
           };
     if (hoveredState != null) this.setState((s) => ({ ...s, hovered: hoveredState }));
-    else if (this.state.hovered != null)
+    else if (shown != null && !menuOpen)
       this.setState((s) => ({ ...s, hovered: null }));
     if (this.state.count !== count || this.state.height !== height)
       this.setState((s) => ({ ...s, count, height }));

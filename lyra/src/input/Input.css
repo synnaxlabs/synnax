@@ -150,15 +150,6 @@
         }
     }
 
-    &.lyra-btn.lyra--shadow {
-        --pluto-bg: transparent;
-        --pluto-border-color: transparent;
-        --pluto-hover-bg: var(--pluto-fill-hover);
-        --pluto-active-bg: var(--pluto-fill-press);
-        --pluto-hover-border-color: var(--pluto-gray-l7);
-        --pluto-active-border-color: var(--pluto-gray-l8);
-    }
-
     &.lyra-btn--text,
     &.lyra-btn--preview {
         background: none;
@@ -192,16 +183,16 @@
 
 /* A shadow cell's packed neighbors (drag handle, alias sync, copy) hide until the
    group is hovered or focused. The cell itself is excluded: its value always reads. */
-.lyra-input__container:has(> .lyra--shadow) {
-    & > *:not(.lyra--shadow) {
+.lyra-input__container:has(> .lyra-btn--shadow) {
+    & > *:not(.lyra-btn--shadow) {
         opacity: 0;
     }
 
-    &:is(:hover, :focus-within) > *:not(.lyra--shadow) {
+    &:is(:hover, :focus-within) > *:not(.lyra-btn--shadow) {
         opacity: 1;
     }
 
-    &:hover > .lyra--shadow:not(:focus-within) {
+    &:hover > .lyra-btn--shadow:not(:focus-within) {
         border-color: var(--pluto-hover-border-color);
         background: var(--pluto-hover-bg);
     }

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { compare, uuid } from "@synnaxlabs/x";
+import { unique, uuid } from "@synnaxlabs/x";
 
 import { Node } from "@/schematic/node";
 import { type Diagram } from "@/vis/diagram";
@@ -18,31 +18,30 @@ const { PADDING, TOP_PADDING } = Node.GroupBox;
 const isConfig = (c: schematic.ElementConfig | undefined): c is Node.GroupBox.Config =>
   c?.variant === Node.GroupBox.VARIANT;
 
-// Membership forms a forest: a group's config lists its member symbols' keys, and
-// a group is itself a symbol, so it can be a member of another group. parentOf is
-// that relation inverted.
+/** buildParentOf maps the key of each grouped node to the key of its group. */
 export const buildParentOf = (
-  configs: Record<string, schematic.ElementConfig>,
+  nodes: readonly schematic.Node[],
 ): Map<string, string> => {
   const parentOf = new Map<string, string>();
-  for (const [key, config] of Object.entries(configs)) {
-    if (!isConfig(config)) continue;
-    // First wins: corrupt data claiming a key for two groups keeps the first.
-    for (const m of config.members) if (!parentOf.has(m)) parentOf.set(m, key);
-  }
+  for (const n of nodes) if (n.parent != null) parentOf.set(n.key, n.parent);
   return parentOf;
 };
 
-// The visited set guards against cycles in corrupt or hand-edited data.
-const rootOf = (parentOf: Map<string, string>, key: string): string => {
-  const visited = new Set<string>();
-  let current = key;
-  while (true) {
-    const parent = parentOf.get(current);
-    if (parent == null || visited.has(parent)) return current;
-    visited.add(current);
-    current = parent;
+/** childrenOf maps the key of each group to the keys of the nodes it holds. */
+export const childrenOf = (parentOf: Map<string, string>): Map<string, string[]> => {
+  const children = new Map<string, string[]>();
+  for (const [key, parent] of parentOf) {
+    const list = children.get(parent);
+    if (list == null) children.set(parent, [key]);
+    else list.push(key);
   }
+  return children;
+};
+
+const rootOf = (parentOf: Map<string, string>, key: string): string => {
+  let current = key;
+  for (let p = parentOf.get(key); p != null; p = parentOf.get(p)) current = p;
+  return current;
 };
 
 // Selected keys resolve to their outermost group (or themselves when ungrouped):
@@ -68,7 +67,6 @@ export const canGroup = (
 export interface CreateParams {
   selected: readonly string[];
   nodes: readonly schematic.Node[];
-  configs: Record<string, schematic.ElementConfig>;
 }
 
 export interface CreateResult {
@@ -78,17 +76,17 @@ export interface CreateResult {
 }
 
 /**
- * createActions builds the one-batch group action: a setNode inserting a group
- * whose members are the outermost groups (or ungrouped symbols) the selection
- * resolves to. The box sizes itself from its members at render time. Returns
- * null when fewer than two resolve.
+ * createActions builds the one-batch group action: a setNode inserting a group, and a
+ * parent set on each outermost group (or ungrouped symbol) the selection resolves to.
+ * The box sizes itself from its members at render time. Returns null when fewer than
+ * two resolve.
  */
 export const createActions = ({
   selected,
   nodes,
-  configs,
 }: CreateParams): CreateResult | null => {
-  const memberNodes = resolveOutermost(selected, nodes, buildParentOf(configs));
+  const parentOf = buildParentOf(nodes);
+  const memberNodes = resolveOutermost(selected, nodes, parentOf);
   if (memberNodes.length < 2) return null;
   let minX = Infinity;
   let minY = Infinity;
@@ -99,43 +97,33 @@ export const createActions = ({
   const key = uuid.create();
   const members = memberNodes.map((n) => n.key);
   // Not Node.createConfig: it reads every symbol, and this file loads at startup.
-  const config = { variant: Node.GroupBox.VARIANT, members };
+  const config = { variant: Node.GroupBox.VARIANT };
   const node = {
     key,
     position: { x: minX - PADDING, y: minY - TOP_PADDING },
     zIndex: -1,
+    config,
   };
   return {
-    actions: [schematic.setNode({ node, config })],
-    selection: [key, ...withMembers(members, configs)],
+    actions: [
+      schematic.setNode({ node }),
+      ...members.map((m) =>
+        schematic.set({ path: ["nodes", m, "parent"], value: key }),
+      ),
+    ],
+    selection: [key, ...withMembers(members, parentOf)],
   };
 };
 
 const collectMembers = (
   key: string,
-  configs: Record<string, schematic.ElementConfig>,
+  children: Map<string, string[]>,
   out: Set<string>,
 ): void => {
-  const config = configs[key];
-  if (!isConfig(config)) return;
-  for (const m of config.members) {
-    if (out.has(m)) continue;
-    out.add(m);
-    collectMembers(m, configs, out);
+  for (const c of children.get(key) ?? []) {
+    out.add(c);
+    collectMembers(c, children, out);
   }
-};
-
-/**
- * remapMembers rewrites a pasted group config's members onto the pasted keys,
- * dropping members that were not pasted. Non-group configs pass through.
- */
-export const remapMembers = (
-  config: schematic.ElementConfig | undefined,
-  remap: Record<string, string>,
-): schematic.ElementConfig | undefined => {
-  if (!isConfig(config)) return config;
-  const members = config.members.map((m) => remap[m]).filter((m) => m != null);
-  return { ...config, members };
 };
 
 /**
@@ -143,10 +131,11 @@ export const remapMembers = (
  */
 export const withMembers = (
   keys: readonly string[],
-  configs: Record<string, schematic.ElementConfig>,
+  parentOf: Map<string, string>,
 ): string[] => {
+  const children = childrenOf(parentOf);
   const out = new Set(keys);
-  for (const key of keys) collectMembers(key, configs, out);
+  for (const key of keys) collectMembers(key, children, out);
   return [...out];
 };
 
@@ -159,23 +148,23 @@ export const fanOutMoves = (
   current: schematic.Schematic,
   actions: schematic.Action[],
 ): schematic.Action[] => {
-  const { nodes, configs } = current;
   const moved = new Set<string>();
   for (const a of actions)
     if (a.type === "set_node_position") moved.add(a.setNodePosition.key);
   if (moved.size === 0) return actions;
+  const { nodes } = current;
   const nodeByKey = new Map(nodes.map((n) => [n.key, n]));
+  const children = childrenOf(buildParentOf(nodes));
   const out = [...actions];
   for (const action of actions) {
     if (action.type !== "set_node_position") continue;
     const { key, position } = action.setNodePosition;
-    if (!isConfig(configs[key])) continue;
     const prev = nodeByKey.get(key);
-    if (prev == null) continue;
+    if (prev == null || !isConfig(prev.config)) continue;
     const dx = position.x - prev.position.x;
     const dy = position.y - prev.position.y;
     const members = new Set<string>();
-    collectMembers(key, configs, members);
+    collectMembers(key, children, members);
     for (const m of members) {
       if (moved.has(m)) continue;
       const node = nodeByKey.get(m);
@@ -216,13 +205,9 @@ const underLocked = (
   parentOf: Map<string, string>,
   configs: Record<string, schematic.ElementConfig>,
 ): boolean => {
-  const visited = new Set<string>();
-  let parent = parentOf.get(key);
-  while (parent != null && !visited.has(parent)) {
-    const config = configs[parent];
+  for (let p = parentOf.get(key); p != null; p = parentOf.get(p)) {
+    const config = configs[p];
     if (isConfig(config) && config.locked === true) return true;
-    visited.add(parent);
-    parent = parentOf.get(parent);
   }
   return false;
 };
@@ -237,7 +222,7 @@ export const drillIn = (
   configs: Record<string, schematic.ElementConfig>,
 ): string[] | null => {
   if (!parentOf.has(key) || underLocked(key, parentOf, configs)) return null;
-  return withMembers([key], configs);
+  return withMembers([key], parentOf);
 };
 
 /** shielded returns the keys that sit inside a locked group. */
@@ -251,8 +236,8 @@ export const shielded = (
 export const closure = (
   keys: readonly string[],
   parentOf: Map<string, string>,
-  configs: Record<string, schematic.ElementConfig>,
-): string[] => withMembers([...new Set(keys.map((k) => rootOf(parentOf, k)))], configs);
+): string[] =>
+  withMembers(unique.unique(keys.map((k) => rootOf(parentOf, k))), parentOf);
 
 /** canUngroup returns whether the selection includes a group. */
 export const canUngroup = (
@@ -266,73 +251,36 @@ export interface UngroupResult {
   freed: string[];
 }
 
-// Resolves an ungrouped group to its members, recursively.
-const resolveUngrouped = (
-  key: string,
-  targets: Set<string>,
-  configs: Record<string, schematic.ElementConfig>,
-  visited: Set<string>,
-): string[] => {
-  if (!targets.has(key)) return [key];
-  if (visited.has(key)) return [];
-  visited.add(key);
-  const config = configs[key];
-  if (!isConfig(config)) return [];
-  return config.members.flatMap((m) => resolveUngrouped(m, targets, configs, visited));
-};
-
 /**
- * ungroupActions builds the one-batch ungroup action: removes the selected
- * groups and the immediate parents of selected members, promoting a removed
- * group's members into the closest enclosing group that remains. Returns null
- * when the selection touches no group.
+ * ungroupActions builds the one-batch ungroup action: removes the selected groups and
+ * the immediate parents of selected members. Removing a group moves its members into
+ * its own parent. Returns null when the selection touches no group.
  */
 export const ungroupActions = (
   selected: readonly string[],
-  configs: Record<string, schematic.ElementConfig>,
+  nodes: readonly schematic.Node[],
 ): UngroupResult | null => {
-  const parentOf = buildParentOf(configs);
+  const parentOf = buildParentOf(nodes);
+  const groups = new Set(nodes.filter((n) => isConfig(n.config)).map((n) => n.key));
   const targets = new Set<string>();
   for (const key of selected)
-    if (isConfig(configs[key])) targets.add(key);
+    if (groups.has(key)) targets.add(key);
     else {
       const parent = parentOf.get(key);
       if (parent != null) targets.add(parent);
     }
   if (targets.size === 0) return null;
   // A selected group's nested groups are selected too; ungroup only the outermost.
-  const nested = [...targets].filter((key) => {
-    const visited = new Set<string>();
-    let parent = parentOf.get(key);
-    while (parent != null && !visited.has(parent)) {
-      if (targets.has(parent)) return true;
-      visited.add(parent);
-      parent = parentOf.get(parent);
-    }
-    return false;
-  });
-  for (const key of nested) targets.delete(key);
-  const actions: schematic.Action[] = [];
-  for (const [key, config] of Object.entries(configs)) {
-    if (!isConfig(config) || targets.has(key)) continue;
-    const next = config.members.flatMap((m) =>
-      resolveUngrouped(m, targets, configs, new Set()),
-    );
-    if (!compare.arraysEqual(next, config.members))
-      actions.push(
-        ...schematic.setChanged({
-          key,
-          base: config,
-          next: { ...config, members: next },
-        }),
-      );
-  }
-  const freed: string[] = [];
-  for (const key of targets) {
-    actions.push(schematic.removeNode({ key }));
-    const config = configs[key];
-    if (!isConfig(config)) continue;
-    for (const m of config.members) if (!targets.has(m)) freed.push(m);
-  }
-  return { actions, freed: withMembers(freed, configs) };
+  for (const key of [...targets])
+    for (let p = parentOf.get(key); p != null; p = parentOf.get(p))
+      if (targets.has(p)) {
+        targets.delete(key);
+        break;
+      }
+  const children = childrenOf(parentOf);
+  const freed = [...targets].flatMap((key) => children.get(key) ?? []);
+  return {
+    actions: [...targets].map((key) => schematic.removeNode({ key })),
+    freed: withMembers(freed, parentOf),
+  };
 };

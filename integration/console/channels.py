@@ -14,6 +14,7 @@ from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError,
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
+from console.notifications import click_past
 
 
 class Spec(TypedDict, total=False):
@@ -107,9 +108,6 @@ class ChannelClient(ResourceClient):
         :param virtual: Boolean indicating whether the channel is virtual.
         :returns: True if the channel was created successfully.
         """
-        if is_index and data_type == sy.DataType.UNKNOWN:
-            data_type = sy.DataType.TIMESTAMP
-
         self.open_create_modal()
         self.layout.locator("input[placeholder='Channel name']").fill(name)
         if is_index:
@@ -155,9 +153,6 @@ class ChannelClient(ResourceClient):
             is_index = ch_config.get("is_index", False)
             index = ch_config.get("index", "")
             virtual = ch_config.get("virtual", False)
-
-            if is_index and data_type == sy.DataType.UNKNOWN:
-                data_type = sy.DataType.TIMESTAMP
 
             if i == 0:
                 self.layout.command_palette("Create channel")
@@ -234,11 +229,10 @@ class ChannelClient(ResourceClient):
         sy.sleep(0.2)
         self.layout.type_text(expression)
 
-        self.notifications.close_all()
         save_btn = self.layout.locator("button").filter(has_text="Save").first
         if save_btn.count() == 0:
             save_btn = self.layout.locator("button").filter(has_text="Create").first
-        save_btn.click()
+        click_past(save_btn)
 
         try:
             name_input.wait_for(state="hidden", timeout=3000)
@@ -512,15 +506,17 @@ class ChannelClient(ResourceClient):
             raise ValueError(f"Channel {name} not found")
 
         self.layout.delete_with_confirmation(item)
-
-        for i, notification in enumerate(self.notifications.check()):
-            message = notification.message
-            description = notification.description
-            if message == "Failed to delete Channel" and name in description:
-                self.notifications.close(notification_index=i)
-                raise RuntimeError(f"{message} {name}, {description}")
-
-        self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
+        try:
+            self.tree.wait_for_removal(self.ITEM_PREFIX, name, exact=True)
+        except PlaywrightTimeoutError as e:
+            failure = (
+                self.layout.page.get_by_role("status")
+                .filter(has_text="Failed to delete Channel")
+                .filter(has_text=name)
+            )
+            if failure.count() > 0:
+                raise RuntimeError(failure.first.inner_text()) from e
+            raise
         self.hide_channels()
 
     def list_all(self) -> list[str]:

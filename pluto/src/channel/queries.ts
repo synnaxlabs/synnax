@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { actions, channel, DataType, query } from "@synnaxlabs/client";
-import { control, deep, primitive, TimeSpan, verbs } from "@synnaxlabs/x";
+import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
+import { useEffect } from "react";
 import { z } from "zod";
 
 import {
@@ -22,6 +23,7 @@ import {
 import { resolveIcon } from "@/channel/resolveIcon";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
+import { Synnax } from "@/synnax";
 
 export const formSchema = channel.payloadZ
   .required({ expression: true })
@@ -127,6 +129,38 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   RetrieveMultipleQuery,
   channel.Channel[]
 >(retrieveMultipleDefinition);
+
+const { useResult: useResultCountLimitedQuery, useRefresh: useRefreshCountLimited } =
+  Flux.createRetrieve<Record<string, never>, number>({
+    name: "channel count",
+    retrieve: async ({ client }) => await client.channels.countLimited(),
+    retryUnreachable: true,
+  });
+
+const COUNT_REFRESH_DEBOUNCE = TimeSpan.milliseconds(100);
+
+/**
+ * @returns how many channels count against the license channel limit, fetched again
+ * after channel changes.
+ */
+export const useResultCountLimited = (): Flux.Result<number> => {
+  const client = Synnax.use();
+  const refresh = useRefreshCountLimited();
+  useEffect(() => {
+    if (client == null) return;
+    // The cache keeps the count of an earlier mount, which missed the changes since.
+    refresh({});
+    const debounced = scheduler.debounce(() => refresh({}), COUNT_REFRESH_DEBOUNCE);
+    const release = client.channels.store.subscribeBatch((events) => {
+      if (events.some(query.isChange)) debounced();
+    });
+    return () => {
+      debounced.cancel();
+      release();
+    };
+  }, [client, refresh]);
+  return useResultCountLimitedQuery({});
+};
 
 const retrieveInitialFormValues = async ({
   query: { key },

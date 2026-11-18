@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	xcolor "github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -62,8 +64,9 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("lineplot"))
 			Expect(env.Name).To(Equal("exported"))
 
+			wire := WireRoundTrip(env)
 			decoded := MustSucceed(
-				WireRoundTrip(env).Decode[lineplot.LinePlot](ctx),
+				wire.Decode[lineplot.LinePlot](),
 			)
 			Expect(decoded.Name).To(Equal("exported"))
 		})
@@ -317,6 +320,53 @@ var _ = Describe("ImEx", func() {
 					Y4: []channel.Key{},
 				}))
 				Expect(res.Ranges).To(Equal([]ranger.Ref{recentRef}))
+			},
+		)
+
+		It(
+			"Should give a line whose named color is missing a series color",
+			func(ctx SpecContext) {
+				custom := color.Named{
+					Name:  "Custom",
+					Light: MustSucceed(xcolor.Parse("#123456")),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Create(ctx, &custom)
+				})).To(Succeed())
+				original := defaults.Fill(lineplot.LinePlot{
+					Project:  &proj.Key,
+					Name:     "custom colored",
+					Channels: lineplot.Channels{Y1: []channel.Key{ch4}},
+					Lines: []lineplot.Line{{
+						YAxis:    lineplot.YAxisKeyY1,
+						YChannel: ch4,
+						Color:    &color.Ref{Variant: color.NamedRef{Key: custom.Key}},
+					}},
+				})
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &original)
+				})).To(Succeed())
+				env := MustSucceed(
+					svc.Export(ctx, db, lineplot.ResourceID(original.Key)),
+				)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Delete(ctx, custom.Key)
+				})).To(Succeed())
+				var id resource.ID
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
+						imex.ImportOptions{Parent: proj.ResourceID()})
+					return err
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().
+					Where(lineplot.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				series := MustSucceed(colorSvc.Series(ctx, db))
+				Expect(res.Lines[0].Color).To(Equal(
+					&color.Ref{Variant: color.NamedRef{Key: series[0]}},
+				))
 			},
 		)
 	})

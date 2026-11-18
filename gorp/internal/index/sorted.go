@@ -25,6 +25,28 @@ type Entry[K comparable, V cmp.Ordered] struct {
 	Key   K
 }
 
+// Bound is one end of a range of values. A nil *Bound leaves its end of the range open.
+type Bound[V cmp.Ordered] struct {
+	Value V
+	// Exclusive leaves Value out of the range.
+	Exclusive bool
+}
+
+// InRange reports whether value lies between lower and upper.
+func InRange[V cmp.Ordered](value V, lower, upper *Bound[V]) bool {
+	if lower != nil {
+		if c := cmp.Compare(value, lower.Value); c < 0 || (c == 0 && lower.Exclusive) {
+			return false
+		}
+	}
+	if upper != nil {
+		if c := cmp.Compare(value, upper.Value); c > 0 || (c == 0 && upper.Exclusive) {
+			return false
+		}
+	}
+	return true
+}
+
 // Sorted is an ordered index from values of type V to the primary keys of type K that
 // hold them. It answers exact-match lookups like Lookup and also walks its entries in
 // value order, then key order. Sorted is safe for concurrent use.
@@ -148,11 +170,119 @@ func (s *Sorted[S, K, V]) Committing(values ...V) []K {
 	return committingKeys(&s.overlay, values)
 }
 
+// Range returns the keys whose values lie between lower and upper, with the changes of
+// scope applied. It blocks until the bulk load finishes. The caller owns the returned
+// slice, which is never nil.
+func (s *Sorted[S, K, V]) Range(scope S, lower, upper *Bound[V]) ([]K, error) {
+	<-s.population.done
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if err := s.population.err; err != nil {
+		return nil, err
+	}
+	lo, hi := s.span(lower, upper)
+	keys := make([]K, hi-lo)
+	for i, e := range s.entries[lo:hi] {
+		keys[i] = e.Key
+	}
+	d, ok := s.overlay.get(scope)
+	if !ok {
+		return keys, nil
+	}
+	keys = slices.DeleteFunc(keys, func(k K) bool {
+		_, staged := d.state[k]
+		return staged
+	})
+	return appendInRange(keys, d, lower, upper), nil
+}
+
+// CommittingRange returns the keys that a transaction in its commit maps to a value
+// between lower and upper. See Lookup.Committing for its contract.
+func (s *Sorted[S, K, V]) CommittingRange(lower, upper *Bound[V]) []K {
+	s.overlay.mu.RLock()
+	defer s.overlay.mu.RUnlock()
+	var keys []K
+	for scope, d := range s.overlay.deltas {
+		if scope.Committing() {
+			keys = appendInRange(keys, d, lower, upper)
+		}
+	}
+	return keys
+}
+
+// Count returns the number of committed entries whose values lie between lower and
+// upper, in O(log n). It blocks until the bulk load finishes.
+func (s *Sorted[S, K, V]) Count(lower, upper *Bound[V]) int {
+	<-s.population.done
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	lo, hi := s.span(lower, upper)
+	return hi - lo
+}
+
+// Keep returns each key of keys that Range or CommittingRange would return, in
+// O(len(keys)). It blocks until the bulk load finishes. The caller owns the returned
+// slice.
+func (s *Sorted[S, K, V]) Keep(scope S, keys []K, lower, upper *Bound[V]) []K {
+	committing := set.New(s.CommittingRange(lower, upper)...)
+	<-s.population.done
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var state map[K]staged[V]
+	if d, ok := s.overlay.get(scope); ok {
+		state = d.state
+	}
+	kept := make([]K, 0, len(keys))
+	for _, k := range keys {
+		v, ok := s.reverse[k]
+		if st, in := state[k]; in {
+			ok = !st.deleted
+			if ok {
+				v = st.values[0]
+			}
+		}
+		if (ok && InRange(v, lower, upper)) || committing.Contains(k) {
+			kept = append(kept, k)
+		}
+	}
+	return kept
+}
+
+// Len returns the number of committed entries. It blocks until the bulk load finishes.
+func (s *Sorted[S, K, V]) Len() int {
+	<-s.population.done
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.entries)
+}
+
+// appendInRange appends to keys each key that d maps to a value between lower and
+// upper.
+func appendInRange[K comparable, V cmp.Ordered](
+	keys []K,
+	d *delta[K, V],
+	lower, upper *Bound[V],
+) []K {
+	for k, st := range d.state {
+		if !st.deleted && InRange(st.values[0], lower, upper) {
+			keys = append(keys, k)
+		}
+	}
+	return keys
+}
+
 // Walk returns up to limit committed entries in ascending order, or in descending order
 // when desc is true. A non-nil after starts the walk strictly past *after, which need
-// not be an entry of the index. A limit of 0 means no limit. Walk does not see staged
-// changes, blocks until the bulk load finishes, and returns nil if the load failed.
-func (s *Sorted[S, K, V]) Walk(desc bool, after *Entry[K, V], limit int) []Entry[K, V] {
+// not be an entry of the index. A non-nil in skips each entry whose key it rejects, and
+// the skipped entries do not count toward limit. A limit of 0 means no limit. Walk does
+// not see staged changes, blocks until the bulk load finishes, and returns nil if the
+// load failed.
+func (s *Sorted[S, K, V]) Walk(
+	desc bool,
+	after *Entry[K, V],
+	limit int,
+	in func(K) bool,
+) []Entry[K, V] {
 	if limit < 0 {
 		return nil
 	}
@@ -168,13 +298,18 @@ func (s *Sorted[S, K, V]) Walk(desc bool, after *Entry[K, V], limit int) []Entry
 	}
 	walked := make([]Entry[K, V], 0, n)
 	full := func() bool { return limit > 0 && len(walked) >= limit }
+	visit := func(e Entry[K, V]) {
+		if in == nil || in(e.Key) {
+			walked = append(walked, e)
+		}
+	}
 	if desc {
 		start := len(s.entries) - 1
 		if after != nil {
 			start = s.position(*after) - 1
 		}
 		for i := start; i >= 0 && !full(); i-- {
-			walked = append(walked, s.entries[i])
+			visit(s.entries[i])
 		}
 		return walked
 	}
@@ -186,7 +321,7 @@ func (s *Sorted[S, K, V]) Walk(desc bool, after *Entry[K, V], limit int) []Entry
 		}
 	}
 	for i := start; i < len(s.entries) && !full(); i++ {
-		walked = append(walked, s.entries[i])
+		visit(s.entries[i])
 	}
 	return walked
 }
@@ -236,6 +371,27 @@ func (s *Sorted[S, K, V]) upperBound(value V) int {
 	return sort.Search(len(s.entries), func(i int) bool {
 		return s.entries[i].Value > value
 	})
+}
+
+// span returns the positions [lo, hi) of the committed entries whose values lie between
+// lower and upper.
+func (s *Sorted[S, K, V]) span(lower, upper *Bound[V]) (lo, hi int) {
+	lo, hi = 0, len(s.entries)
+	if lower != nil {
+		if lower.Exclusive {
+			lo = s.upperBound(lower.Value)
+		} else {
+			lo = s.lowerBound(lower.Value)
+		}
+	}
+	if upper != nil {
+		if upper.Exclusive {
+			hi = s.lowerBound(upper.Value)
+		} else {
+			hi = s.upperBound(upper.Value)
+		}
+	}
+	return lo, max(lo, hi)
 }
 
 // position returns the first index whose entry orders at or after e.

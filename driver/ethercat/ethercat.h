@@ -56,7 +56,8 @@ class Factory final : public task::Factory {
 public:
     /// @brief constructs a Factory with the default manager. Each bus start reads the
     /// settings of the slave devices saved on rack through client, and stops retrying
-    /// after op_timeout, the timeout of a task operation.
+    /// within three quarters of op_timeout, the step limit of a task operation, so its
+    /// error shows before the start warns that it is slow.
     Factory(
         std::shared_ptr<synnax::Synnax> client,
         synnax::rack::Key rack,
@@ -66,7 +67,8 @@ public:
 
     /// @brief constructs a Factory with a custom manager. Each bus start reads the
     /// settings of the slave devices saved on rack through client, and stops retrying
-    /// after op_timeout, the timeout of a task operation.
+    /// within three quarters of op_timeout, the step limit of a task operation, so its
+    /// error shows before the start warns that it is slow.
     Factory(
         std::unique_ptr<master::Manager> manager,
         std::shared_ptr<synnax::Synnax> client,
@@ -85,13 +87,15 @@ public:
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override;
 
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override;
 };
 

@@ -79,12 +79,19 @@ func unmarshalKey[K gorp.Key](sample []byte) (K, error) {
 	return *v.Key, nil
 }
 
-// unmarshalKeySample returns the key that keySample encodes as sample.
+// unmarshalKeySample returns the key that keySample encodes as sample. It fails when a
+// fixed-size key and sample differ in length.
 func unmarshalKeySample[K gorp.Key](sample []byte) (K, error) {
 	var k K
 	if v := reflect.ValueOf(&k).Elem(); v.Kind() == reflect.String {
 		v.SetString(string(sample))
 		return k, nil
+	}
+	if size := int(unsafe.Sizeof(k)); len(sample) != size {
+		return k, errors.Newf(
+			"[signals] - delete sample has %d bytes, but a %T key has %d",
+			len(sample), k, size,
+		)
 	}
 	copy(unsafe.Slice((*byte)(unsafe.Pointer(&k)), unsafe.Sizeof(k)), sample)
 	return k, nil

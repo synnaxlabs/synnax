@@ -197,14 +197,16 @@ func (u Proof) Method() Method {
 	return ""
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Proof) Validate() error {
+	v := validate.New("Proof")
+	v.Ternary("method", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case PasswordProof:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case APIKeyProof:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }

@@ -9,6 +9,7 @@
 
 import re
 
+from console.notifications import click_past
 from console.schematic.symbol import Properties, Symbol
 from x.notation import Notation
 
@@ -85,7 +86,7 @@ class Value(Symbol):
 
         # Navigate to Properties > Telemetry tab
         self.open_properties_tab()
-        self.page.get_by_text("Telemetry").click()
+        click_past(self.page.get_by_text("Telemetry"))
 
         if channel_name is not None:
             self.set_channel(section="Source", channel_name=channel_name)

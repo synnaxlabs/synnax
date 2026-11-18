@@ -33,7 +33,8 @@ const (
 	stepArray
 	// stepVariant switches a union to one of its variants.
 	stepVariant
-	// stepLeaf reads the @ref field itself.
+	// stepLeaf reads the @ref field itself, or the value it reaches when field is
+	// empty.
 	stepLeaf
 )
 
@@ -57,8 +58,10 @@ func (s refStep) id() string {
 		return "[]"
 	case stepVariant:
 		return "|" + s.union.QualifiedName + "." + s.variant
-	default:
+	case stepField, stepLeaf:
 		return s.field
+	default:
+		panic(fmt.Sprintf("unknown step kind %d", s.kind))
 	}
 }
 
@@ -338,6 +341,9 @@ type nestedRef struct {
 	// DetachBody is the body of the reference's Detach function, empty when the
 	// reference cannot drop a target.
 	DetachBody string
+	// InlineBody is the body of the reference's Inline function, empty unless OnDelete
+	// is "Inline".
+	InlineBody string
 	// usesSlices is true when the generated code calls the slices package.
 	usesSlices bool
 }
@@ -425,6 +431,10 @@ func (rd *renderer) walk(
 	for _, n := range nodes {
 		switch n.step.kind {
 		case stepLeaf:
+			if n.step.field == "" {
+				leaf(b, expr)
+				continue
+			}
 			leaf(b, expr+"."+n.step.field)
 		case stepField:
 			next := expr + "." + n.step.field
@@ -547,6 +557,8 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 					rd.info.ElemGoType,
 					rd.target(k),
 				)
+			case leafRequired:
+				panic("detach walk reached a required leaf")
 			}
 		})
 		return b.String(), nil
@@ -613,6 +625,117 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 			b.WriteString("return false\n})\n")
 		},
 	)
+	return b.String(), nil
+}
+
+// variantLeaf names a union variant and its field that holds an inlined key.
+type variantLeaf struct{ variant, field string }
+
+// unionSites returns the paths from e to each union that holds the key of ref, the
+// variant fields that hold it, and whether every union sits in an optional field. It
+// returns an error when ref cannot inline.
+func (rd *renderer) unionSites(
+	ref *walkedRef,
+) (heads [][]refStep, leaves []variantLeaf, optional bool, err error) {
+	fail := func(reason string) ([][]refStep, []variantLeaf, bool, error) {
+		return nil, nil, false, errors.Newf(
+			"@ref field %s %s, so it cannot inline",
+			ref.path,
+			reason,
+		)
+	}
+	var union string
+	optional = true
+	for _, s := range ref.sites {
+		at := len(s.steps) - 2
+		if s.mode != leafRequired {
+			return fail("is not required")
+		}
+		if at < 1 || s.steps[at].kind != stepVariant {
+			return fail("is not a field of a union variant that a field holds")
+		}
+		v := s.steps[at]
+		if union == "" {
+			union = v.union.QualifiedName
+		} else if union != v.union.QualifiedName {
+			return fail("sits in different unions")
+		}
+		leaf := variantLeaf{variant: rd.variantGoType(v), field: s.steps[at+1].field}
+		if !slices.Contains(leaves, leaf) {
+			leaves = append(leaves, leaf)
+		}
+		holder := s.steps[at-1]
+		optional = optional && holder.kind == stepField && holder.optional
+		heads = append(
+			heads,
+			append(slices.Clone(s.steps[:at]), refStep{kind: stepLeaf}),
+		)
+	}
+	return heads, leaves, optional, nil
+}
+
+// inlineBody returns the code that replaces each union in e whose variant holds the
+// target t with the variant that the target's Inline method returns.
+func (rd *renderer) inlineBody(ref *walkedRef) (string, error) {
+	heads, leaves, _, err := rd.unionSites(ref)
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	fmt.Fprintf(
+		&b,
+		"var target %s\nif err := gorp.NewRetrieve[%s, %s]().\n"+
+			"Where(gorp.MatchKeys[%s, %s](t)).\nEntry(&target).\n"+
+			"Exec(ctx, tx); err != nil {\nreturn err\n}\n",
+		rd.info.TargetGoType,
+		rd.info.ElemGoType,
+		rd.info.TargetGoType,
+		rd.info.ElemGoType,
+		rd.info.TargetGoType,
+	)
+	rd.walk(&b, buildTree(heads), "e", true, func(b *strings.Builder, expr string) {
+		for _, l := range leaves {
+			v := rd.nextVar("v")
+			fmt.Fprintf(
+				b,
+				"if %s, ok := %s.Variant.(%s); ok && %s.%s == t {\n"+
+					"%s.Variant = target.Inline()\n}\n",
+				v,
+				expr,
+				l.variant,
+				v,
+				l.field,
+				expr,
+			)
+		}
+	})
+	b.WriteString("return nil\n")
+	return b.String(), nil
+}
+
+// inlineDetachBody returns the code that clears each union in e whose variant holds
+// the target t, or nothing when a union sits in a required field and cannot clear.
+func (rd *renderer) inlineDetachBody(ref *walkedRef) (string, error) {
+	heads, leaves, optional, err := rd.unionSites(ref)
+	if err != nil || !optional {
+		return "", err
+	}
+	var b strings.Builder
+	rd.walk(&b, buildTree(heads), "e", true, func(b *strings.Builder, expr string) {
+		for _, l := range leaves {
+			v := rd.nextVar("v")
+			fmt.Fprintf(
+				b,
+				"if %s, ok := %s.Variant.(%s); ok && %s.%s == t {\n%s = nil\n}\n",
+				v,
+				expr,
+				l.variant,
+				v,
+				l.field,
+				expr,
+			)
+		}
+	})
 	return b.String(), nil
 }
 
@@ -689,11 +812,18 @@ func renderNestedRefs(
 			EntryType:   entryType,
 			TargetsBody: rd.targetsBody(ref),
 		}
-		detach, err := rd.detachBody(ref)
+		if info.OnDelete == "Inline" {
+			nr.InlineBody, err = rd.inlineBody(ref)
+			if err == nil {
+				nr.DetachBody, err = rd.inlineDetachBody(ref)
+			}
+		} else {
+			nr.DetachBody, err = rd.detachBody(ref)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
 		}
-		nr.DetachBody, nr.usesSlices = detach, rd.usesSlices
+		nr.usesSlices = rd.usesSlices
 		out = append(out, nr)
 	}
 	return out, nil
@@ -766,4 +896,11 @@ func extractReferencesInfo(
 		return referencesInfo{}, err
 	}
 	return referencesInfo{GoName: goName, KeyType: keyType, Refs: refs}, nil
+}
+
+// inlines reports whether any of refs inlines its deleted targets.
+func inlines(refs []nestedRef) bool {
+	return slices.ContainsFunc(refs, func(ref nestedRef) bool {
+		return ref.InlineBody != ""
+	})
 }

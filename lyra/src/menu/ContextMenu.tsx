@@ -11,10 +11,10 @@ import "@/menu/ContextMenu.css";
 
 import { box, location, unique, xy } from "@synnaxlabs/x";
 import {
-  type KeyboardEvent,
   type ReactNode,
   type RefCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -25,6 +25,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
+import { Filtered, useFilter } from "@/menu/filter";
 import {
   CONTEXT_MENU_CLASS,
   CONTEXT_OPEN_ATTRIBUTE,
@@ -33,13 +34,14 @@ import {
 } from "@/menu/types";
 import { position } from "@/position";
 import { Triggers } from "@/triggers";
-import { ACTIVATION_KEYS, isMoveKey, moveIndex } from "@/util";
 
 interface ContextMenuState {
   visible: boolean;
   keys: string[];
   position: xy.XY;
   cursor: xy.XY;
+  /** The context target the menu opened over. Null for a menu opened at a point. */
+  target: HTMLElement | null;
 }
 
 /** Supported event types for triggering a context menu. */
@@ -69,11 +71,12 @@ const INITIAL_STATE: ContextMenuState = {
   position: xy.ZERO,
   cursor: xy.ZERO,
   keys: [],
+  target: null,
 };
 
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
 
-const MENU_ITEMS = '[role="menuitem"]:not([aria-disabled="true"])';
+const OPEN_DIALOG = `.${CSS.BE("dialog", "frame")}.${CSS.visible(true)}`;
 
 const findTarget = (target: HTMLElement): HTMLElement => {
   let candidate = target;
@@ -114,25 +117,25 @@ const PREFERENCES: position.LocationPreference[] = [
 export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
-  const targetRef = useRef<HTMLElement | null>(null);
   // The menu holds the focus while it is open, then gives it back to this element.
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
-  const clearTarget = () => {
-    targetRef.current?.removeAttribute(CONTEXT_OPEN_ATTRIBUTE);
-    targetRef.current = null;
-  };
-
-  // Clear the stamped target if the hook unmounts while a menu is open.
-  useEffect(() => clearTarget, [clearTarget]);
+  // Only the item the menu opened over holds the hover look, even when the menu acts
+  // on a wider selection.
+  const { target: stamped } = state;
+  useEffect(() => {
+    if (stamped == null) return;
+    stamped.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
+    return () => stamped.removeAttribute(CONTEXT_OPEN_ATTRIBUTE);
+  }, [stamped]);
 
   const handleOpen: ContextMenuOpen = (e) => {
     const p = xy.construct(e);
-    clearTarget();
     const active = document.activeElement;
     if (active instanceof HTMLElement && menuRef.current?.contains(active) !== true)
       returnFocusRef.current = active;
     let keys: string[] = [];
+    let opened: HTMLElement | null = null;
     if (typeof e === "object" && "preventDefault" in e) {
       e.preventDefault();
       e.stopPropagation();
@@ -143,14 +146,9 @@ export const useContextMenu = (): UseContextMenuReturn => {
           .map((el) => el.dataset.menuKey ?? el.id)
           .filter((key) => key.length > 0),
       );
-      // Only the row the menu physically opened over holds the hover look, even
-      // when the menu acts on a wider selection.
-      if (target.classList.contains(CONTEXT_TARGET)) {
-        targetRef.current = target;
-        target.setAttribute(CONTEXT_OPEN_ATTRIBUTE, "");
-      }
+      if (target.classList.contains(CONTEXT_TARGET)) opened = target;
     }
-    setMenuState({ visible: true, keys, position: p, cursor: p });
+    setMenuState({ visible: true, keys, position: p, cursor: p, target: opened });
   };
 
   const calculatePosition = () => {
@@ -164,13 +162,34 @@ export const useContextMenu = (): UseContextMenuReturn => {
         target: box.construct(prev.cursor, 0, 0),
         prefer: PREFERENCES,
       });
-      const nextPos = box.topLeft(adjustedDialog);
+      // A menu that fits nowhere around the cursor slides into the window.
+      const nextPos = xy.construct(
+        Math.max(
+          0,
+          Math.min(
+            box.left(adjustedDialog),
+            window.innerWidth - box.width(adjustedDialog),
+          ),
+        ),
+        Math.max(
+          0,
+          Math.min(
+            box.top(adjustedDialog),
+            window.innerHeight - box.height(adjustedDialog),
+          ),
+        ),
+      );
       if (xy.equals(prev.position, nextPos)) return prev;
       return { ...prev, position: nextPos };
     });
   };
 
   const resizeRef = useResize(calculatePosition, { enabled: state.visible });
+  // A menu that opens at a new cursor keeps its size, so no resize places it there.
+  const { cursor, visible } = state;
+  useLayoutEffect(() => {
+    if (visible) calculatePosition();
+  }, [visible, cursor]);
   const combinedRef = useCombinedRefs(menuRef, resizeRef);
 
   useWindowResize(calculatePosition, { enabled: state.visible });
@@ -191,14 +210,15 @@ export const useContextMenu = (): UseContextMenuReturn => {
   }, [state.visible]);
 
   const hide = (returnFocus: boolean): void => {
-    clearTarget();
     const back = returnFocusRef.current;
     returnFocusRef.current = null;
     // An item that moved the focus, such as one that opened a modal, keeps it there.
+    const menu = menuRef.current;
     if (
       returnFocus &&
       back?.isConnected === true &&
-      menuRef.current?.contains(document.activeElement) === true
+      menu != null &&
+      Dialog.contains(menu, document.activeElement)
     )
       back.focus({ preventScroll: true });
     setMenuState(INITIAL_STATE);
@@ -211,6 +231,8 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const visibleRef = useSyncedRef(state.visible);
   const handleEscape = ({ stage, stopPropagation }: Triggers.UseEvent) => {
     if (stage !== "start" || !visibleRef.current) return;
+    // A menu with an open submenu leaves Escape to it, so Escape closes one level.
+    if (menuRef.current?.querySelector(OPEN_DIALOG) != null) return;
     hideMenu();
     stopPropagation();
   };
@@ -241,7 +263,8 @@ export interface ContextMenuProps
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 
-const Internal = ({
+// The surface of an open menu. It mounts only while the menu is open.
+const Surface = ({
   ref,
   menu,
   visible,
@@ -251,36 +274,19 @@ const Internal = ({
   keys,
   className,
   cursor,
+  target,
   style,
   onClick,
   onKeyDown,
   ...rest
-}: ContextMenuProps): ReactNode | null => {
+}: ContextMenuProps): ReactNode => {
+  const filter = useFilter();
+  const combinedRef = useCombinedRefs(ref, filter.ref);
   const menuStyle = { ...xy.css(position), ...style };
-  // The move keys walk the focus through the items, which are buttons that Enter and
-  // Space click. The menu keeps these keys from a list behind it that answers window
-  // keys.
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    onKeyDown?.(e);
-    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-    const target = e.target as HTMLElement;
-    // Keys typed into a field inside the menu keep their own meaning.
-    if (target !== e.currentTarget && !target.matches(MENU_ITEMS)) return;
-    if (ACTIVATION_KEYS.includes(e.key)) return e.stopPropagation();
-    const key = Triggers.eventKey(e);
-    if (!isMoveKey(key)) return;
-    e.stopPropagation();
-    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(MENU_ITEMS));
-    if (items.length === 0) return;
-    e.preventDefault();
-    const index = moveIndex(key, items.indexOf(target), items.length, e.repeat);
-    if (index != null) items[index].focus();
-  };
-  if (!visible) return null;
   return createPortal(
     <Flex.Box
       className={CSS.cls(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
-      ref={ref}
+      ref={combinedRef}
       role="menu"
       tabIndex={-1}
       style={menuStyle}
@@ -289,7 +295,10 @@ const Internal = ({
         onClick?.(e);
       }}
       gap="tiny"
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => {
+        onKeyDown?.(e);
+        filter.onKeyDown(e);
+      }}
       {...rest}
       // React bubbles events out of the portal to the owner's ancestors, where an outer
       // context menu would open on top of this one.
@@ -298,11 +307,16 @@ const Internal = ({
         e.stopPropagation();
       }}
     >
-      {menu?.({ keys, visible, position, cursor })}
+      <Filtered filter={filter}>
+        {menu?.({ keys, visible, position, cursor, target })}
+      </Filtered>
     </Flex.Box>,
     document.body,
   );
 };
+
+const Internal = (props: ContextMenuProps): ReactNode | null =>
+  props.visible ? <Surface {...props} /> : null;
 
 /**
  * Menu.ContextMenu wraps a set of children with a context menu. When the user

@@ -13,7 +13,16 @@ change, as after a merge of the base, so the head needs no review of its own."""
 import json
 import re
 
-from review.post import GH, Target, newest, recheck, reviewed, write
+from review.post import (
+    GH,
+    Target,
+    authority,
+    current,
+    newest,
+    recheck,
+    reviewed,
+    write,
+)
 
 LISTED = 300
 """The most files that a comparison of two commits lists."""
@@ -25,8 +34,9 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     """Completes the check run of the target with the review of the newest commit that
     the bot reviewed, when that review succeeded for the key and the diff from the base
     to that commit is the diff to the head. The line numbers of the two diffs can
-    differ. The head scores 5/5 when a member dismissed every finding of the review.
-    Returns whether the head got the review.
+    differ. A review under older rules does not carry. The head scores 5/5 when every
+    finding of the review is dismissed by someone with write access or withdrawn by the
+    bot. Returns whether the head got the review.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
@@ -34,7 +44,7 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
     if old is None or old == t.head:
         return False
     run = newest(t, gh, old, key)
-    if run is None or run["conclusion"] != "success":
+    if run is None or run["conclusion"] != "success" or not current(run):
         return False
     before = _diff(t, gh, old)
     if before is None or before != _diff(t, gh, t.head):
@@ -44,12 +54,11 @@ def carry(t: Target, gh: GH, *, key: str) -> bool:
         "title": run["output"]["title"],
         "summary": f"The diff is the same as at {link}, so this is its review.\n\n"
         + run["output"]["summary"],
+        "text": run["output"]["text"],
     }
-    if run["output"]["text"]:
-        output["text"] = run["output"]["text"]
     done = {"status": "completed", "conclusion": "success", "output": output}
     write(gh, "PATCH", f"repos/{t.repo}/check-runs/{t.check_run}", done)
-    recheck(t, gh)
+    recheck(t, gh, authority(t, gh))
     return True
 
 

@@ -264,6 +264,38 @@ TEST(StatusCacheTest, DropDiscardsLaterStatuses) {
     EXPECT_TRUE(transport->sent().empty());
 }
 
+/// @brief it should wait for a re-send write of the task in progress before it drops
+/// the task, so the re-send never writes the status of a task that left this Driver.
+TEST(StatusCacheTest, DropWaitsForAResendWriteInProgress) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
+    const auto owner = synnax::task::resource_id(task.key);
+    const auto transport = std::make_shared<HoldingSetClient>(owner, 1);
+    StatusCache cache(synnax::status::Client(nullptr, transport, nullptr, nullptr));
+    synnax::task::Status status{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .owner = owner,
+    };
+    ASSERT_NIL(cache.set(status));
+    // Declared before the guard, so the guard releases the hung write before the future
+    // waits for the drop.
+    std::future<void> dropped;
+    std::thread resend([&] { ASSERT_NIL(cache.resend()); });
+    x::defer::defer release([&] {
+        transport->release();
+        resend.join();
+    });
+    ASSERT_EVENTUALLY_TRUE(transport->holding.load());
+    dropped = std::async(std::launch::async, [&] { cache.drop(task.key); });
+    ASSERT_EQ(
+        dropped.wait_for(std::chrono::milliseconds(200)),
+        std::future_status::timeout
+    );
+    transport->release();
+    ASSERT_EQ(dropped.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+    ASSERT_NIL(cache.resend());
+    EXPECT_EQ(transport->count(owner), 2);
+}
+
 /// @brief it should write and keep the statuses of a task claimed again after a drop.
 TEST(StatusCacheTest, ClaimWritesStatusesAgain) {
     const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "returned"};

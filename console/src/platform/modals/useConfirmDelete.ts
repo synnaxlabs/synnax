@@ -11,7 +11,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { array } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 
-import { useConfirm } from "@/platform/modals/useConfirm";
+import {
+  type ConfirmOption,
+  type ConfirmParams,
+  useConfirm,
+  useConfirmWithOption,
+} from "@/platform/modals/useConfirm";
 
 interface UseConfirmDeleteProps {
   /** Singular, capitalized noun for the resource, e.g. "Range". */
@@ -32,9 +37,33 @@ interface ConfirmDeleteItem {
 const deleteTitle = (type: string): string => `${type}.Delete`;
 const deletePlural = (type: string): string => pluralize.plural(type.toLowerCase());
 
+type ConfirmDeleteItems = ConfirmDeleteItem | ConfirmDeleteItem[];
+
+// The React Compiler leaves an overloaded function declaration in a hook unset on the
+// first render, so the overloads live outside the hook.
+const createConfirmDelete = (
+  confirm: ReturnType<typeof useConfirm>,
+  confirmWithOption: ReturnType<typeof useConfirmWithOption>,
+  paramsOf: (items: ConfirmDeleteItems) => ConfirmParams,
+) => {
+  function confirmDelete(
+    items: ConfirmDeleteItems,
+    option: ConfirmOption,
+  ): Promise<{ option: boolean } | null>;
+  function confirmDelete(items: ConfirmDeleteItems): Promise<boolean>;
+  async function confirmDelete(items: ConfirmDeleteItems, option?: ConfirmOption) {
+    const params = paramsOf(items);
+    if (option == null) return (await confirm(params)) ?? false;
+    return await confirmWithOption({ ...params, option });
+  }
+  return confirmDelete;
+};
+
 /**
  * Prompts for confirmation before deleting resources. One item is named; two or more
- * collapse to a count, keeping the message bounded however large the selection.
+ * collapse to a count, keeping the message bounded however large the selection. With an
+ * option, the prompt shows it as a checkbox and resolves with its state, or null when
+ * the user cancels.
  */
 export const useConfirmDelete = ({
   type,
@@ -44,20 +73,20 @@ export const useConfirmDelete = ({
   description = "This action cannot be undone.",
 }: UseConfirmDeleteProps) => {
   const confirm = useConfirm();
-  return async (items_: ConfirmDeleteItem | ConfirmDeleteItem[]): Promise<boolean> => {
+  const confirmWithOption = useConfirmWithOption();
+  const paramsOf = (items_: ConfirmDeleteItems): ConfirmParams => {
     const items = array.toArray(items_);
     let message = `Are you sure you want to delete ${items.length} ${plural}?`;
     if (items.length === 1)
       message = `Are you sure you want to delete ${items[0].name}?`;
-    return (
-      (await confirm({
-        message,
-        description,
-        confirm: { variant: "error", label: "Delete" },
-        cancel: { label: "Cancel" },
-        title,
-        icon: Icon.resolve(icon ?? type),
-      })) ?? false
-    );
+    return {
+      message,
+      description,
+      confirm: { variant: "error", label: "Delete" },
+      cancel: { label: "Cancel" },
+      title,
+      icon: Icon.resolve(icon ?? type),
+    };
   };
+  return createConfirmDelete(confirm, confirmWithOption, paramsOf);
 };

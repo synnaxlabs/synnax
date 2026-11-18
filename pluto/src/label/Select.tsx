@@ -13,12 +13,15 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
-import { type ReactElement } from "react";
+import { state } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
 import { Flux } from "@/flux";
+import { useResultMultiple } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 
-const ListItem = ({
+/** An option of a label select: the color of the label, then its name. */
+export const ListItem = ({
   itemKey,
   ...rest
 }: List.ItemRenderProps<label.Key>): ReactElement | null => {
@@ -45,12 +48,12 @@ export interface SelectMultipleProps
 const MultipleTag = (
   props: Select.MultipleTagProps<label.Key>,
 ): ReactElement | null => {
-  const { itemKey } = props;
+  const { itemKey, onClick } = props;
   const item = List.useItem<label.Key, label.Label>(itemKey);
   const { onSelect } = Select.useItemState<label.Key>(itemKey);
   if (item == null) return null;
   return (
-    <Tag.Tag color={item.color} onClose={onSelect} size="small">
+    <Tag.Tag color={item.color} onClose={onSelect} onClick={onClick} size="small">
       {item.name}
     </Tag.Tag>
   );
@@ -62,33 +65,68 @@ const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<label.Key> = {
   variant: "text",
 };
 
+interface BaseProps extends Omit<
+  Select.MultipleProps<label.Key, label.Label | undefined>,
+  "resourceName" | "children"
+> {}
+
+const Base = (props: BaseProps): ReactElement => (
+  <Select.Multiple<label.Key, label.Label | undefined>
+    haulType={HAUL_TYPE}
+    renderTag={labelRenderTag}
+    icon={<Icon.Label />}
+    triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
+    variant="floating"
+    {...props}
+    resourceName="label"
+  >
+    {listItemRenderProp}
+  </Select.Multiple>
+);
+
+/**
+ * Selects labels. Until the user first opens it, it reads only the labels of its value:
+ * the list of every label mounts on the first open, since a page can hold one of these
+ * per item.
+ */
 export const SelectMultiple = ({
   filter,
   query,
+  onVisibleChange,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, getItem, subscribe, status, more, search } = Flux.useList(
-    (client: Synnax) => client.labels,
-    { name: "labels", query, filter },
+  const [opened, setOpened] = useState(
+    rest.visible === true || rest.initialVisible === true,
   );
+  if (rest.visible === true && !opened) setOpened(true);
+  const list = Flux.useList((client: Synnax) => client.labels, {
+    name: "labels",
+    query: opened ? query : null,
+    filter,
+  });
+  const labels = useResultMultiple({ keys: rest.value }).data ?? [];
+  const getValueItem = List.createGetItem<label.Key, label.Label | undefined>(
+    (key) => labels.find((l) => l.key === key),
+    (keys) => labels.filter((l) => keys.includes(l.key)),
+  );
+  // It is closed until the first open, so the dialog's last state is false.
+  const handleVisibleChange = (next: state.SetArg<boolean>): void => {
+    if (!opened && state.executeSetter(next, false)) setOpened(true);
+    onVisibleChange?.(next);
+  };
+  // A change to virtual mounts the trigger again, so the list stays static once open.
   return (
-    <Select.Multiple<label.Key, label.Label | undefined>
-      haulType={HAUL_TYPE}
-      getItem={getItem}
-      onFetchMore={more}
-      onSearch={search}
-      status={status}
-      renderTag={labelRenderTag}
-      icon={<Icon.Label />}
-      triggerProps={SELECT_MULTIPLE_TRIGGER_PROPS}
-      variant="floating"
+    <Base
+      getItem={opened ? list.getItem : getValueItem}
+      onFetchMore={opened ? list.more : undefined}
+      onSearch={opened ? list.search : undefined}
+      status={opened ? list.status : undefined}
+      virtual={false}
       {...rest}
-      data={data}
-      subscribe={subscribe}
-      resourceName="label"
-    >
-      {listItemRenderProp}
-    </Select.Multiple>
+      data={opened ? list.data : rest.value}
+      subscribe={opened ? list.subscribe : undefined}
+      onVisibleChange={handleVisibleChange}
+    />
   );
 };
 

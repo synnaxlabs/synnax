@@ -31,6 +31,11 @@
     margin-left: auto;
 }
 
+/* As tall as an idea, so the icon centers on the first line of ideas. */
+.console-ethercat-configure__ideas-icon {
+    height: var(--pluto-height-small);
+}
+
 .console-ethercat-configure__columns {
     display: grid;
     grid-auto-flow: column;

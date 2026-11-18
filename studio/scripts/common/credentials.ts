@@ -19,24 +19,41 @@ export const openCredentials = async (
   const { page } = session;
   await capture.contextMenu(session, item, "Manage sign-in");
   const modal = page.locator(capture.MODAL).first();
-  await session.waitFor(modal.getByPlaceholder("Key name", { exact: true }));
+  await session.waitFor(modal.getByRole("button", { name: "Create key", exact: true }));
   await session.hold(600);
   await session.zoom(modal);
   await session.hold(800);
   return modal;
 };
 
-/** createKey enters a key name, clicks Create key, and waits for the key to show. */
+/**
+ * openCreateKey clicks Create key in the sign-in dialog, names the key, and creates it.
+ * Returns the create dialog, which then shows the token once.
+ */
+export const openCreateKey = async (
+  session: capture.CaptureSession,
+  modal: Locator,
+  name: string,
+): Promise<Locator> => {
+  await session.click(modal.getByRole("button", { name: "Create key", exact: true }));
+  const create = session.page.locator(capture.MODAL).last();
+  await session.click(create.getByPlaceholder("Key name", { exact: true }));
+  await session.type(name);
+  await session.hold(400);
+  await session.click(create.getByRole("button", { name: "Create", exact: true }));
+  await session.waitFor(create.getByText(`Copy the key for ${name}`, { exact: true }));
+  return create;
+};
+
+/** createKey creates a key, shows its token, and waits for the key to list. */
 export const createKey = async (
   session: capture.CaptureSession,
   modal: Locator,
   name: string,
 ): Promise<void> => {
-  await session.click(modal.getByPlaceholder("Key name", { exact: true }));
-  await session.type(name);
-  await session.hold(400);
-  await session.click(modal.getByRole("button", { name: "Create key", exact: true }));
-  await session.waitFor(modal.getByText("Copy this key now", { exact: false }));
-  await session.waitFor(modal.getByText(name, { exact: true }));
+  const create = await openCreateKey(session, modal, name);
   await session.hold(1800);
+  await session.click(create.getByRole("button", { name: "Done", exact: true }));
+  await session.waitFor(modal.getByText(name, { exact: true }));
+  await session.hold(1200);
 };

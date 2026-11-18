@@ -534,6 +534,36 @@ var _ = Describe("Type", func() {
 		})
 	})
 
+	Describe("Kinds outside the enum", func() {
+		outside := types.Type{Kind: types.Kind(99)}
+		DescribeTable(
+			"Should panic in each predicate",
+			func(predicate func(types.Type) any) {
+				Expect(func() { predicate(outside) }).To(
+					PanicWith("unknown type kind Kind(99)"),
+				)
+			},
+			Entry("IsNumeric", func(t types.Type) any { return t.IsNumeric() }),
+			Entry("IsInteger", func(t types.Type) any { return t.IsInteger() }),
+			Entry(
+				"IsSignedInteger",
+				func(t types.Type) any { return t.IsSignedInteger() },
+			),
+			Entry(
+				"IsUnsignedInteger",
+				func(t types.Type) any { return t.IsUnsignedInteger() },
+			),
+			Entry("IsFloat", func(t types.Type) any { return t.IsFloat() }),
+			Entry("Is64Bit", func(t types.Type) any { return t.Is64Bit() }),
+			Entry("IsFixedWidth", func(t types.Type) any { return t.IsFixedWidth() }),
+			Entry("ToTelem", func(t types.Type) any { return t.ToTelem() }),
+		)
+
+		It("Should print the kind's number", func() {
+			Expect(outside.String()).To(Equal("Kind(99)"))
+		})
+	})
+
 	Describe("String", func() {
 		DescribeTable("Should return correct strings for primitives",
 			func(t types.Type, expected string) {

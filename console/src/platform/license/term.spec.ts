@@ -30,7 +30,7 @@ const EXP = 1_803_859_200;
 
 describe("License.describeTerm", () => {
   it("should describe a subscription by its expiry", () => {
-    expect(License.describeTerm({ ...BASE, exp: EXP })).toBe("Expires 2027-03-01");
+    expect(License.describeTerm({ ...BASE, exp: EXP })).toBe("Expires Mar 1, 2027");
   });
 
   it("should describe a perpetual license by its version ceiling", () => {
@@ -41,7 +41,7 @@ describe("License.describeTerm", () => {
 
   it("should describe a subscription with a version fallback", () => {
     expect(License.describeTerm({ ...BASE, exp: EXP, maxVersion: "0.62" })).toBe(
-      "Subscription until 2027-03-01, then versions up to 0.62",
+      "Subscription until Mar 1, 2027, then versions up to 0.62",
     );
   });
 

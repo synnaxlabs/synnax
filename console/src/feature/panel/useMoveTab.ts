@@ -13,6 +13,7 @@ import { Panel, Synnax } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
+import { Panel as PlatformPanel } from "@/platform/panel";
 import { Session } from "@/session";
 
 const DEFAULT_NAME = "New panel";
@@ -47,11 +48,13 @@ export const useMintPanelForTab = (): MintPanelForTab => {
   const { updateAsync: create } = Panel.useCreate();
   const { dispatch } = Panel.useDispatch();
   const client = Synnax.use();
+  const getIconKey = PlatformPanel.useGetIconKey();
   return async ({ panel: source, tab }) => {
     const key = uuid.create();
     const created = await create({
       key,
       name: await resolveName(client, tab),
+      icon: getIconKey(tab),
       project: projectKey,
       root: { variant: "leaf", tabs: [tab] },
     });

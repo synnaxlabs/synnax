@@ -10,7 +10,9 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Configure } from "@/feature/ethercat/device/Configure";
-import { INTEGRATION_KEY, MAKE } from "@/feature/ethercat/device/types";
+import { formatLocation, slotZ } from "@/feature/ethercat/device/location";
+import { ScanAction } from "@/feature/ethercat/device/ScanAction";
+import { INTEGRATION_KEY, MAKE, SLAVE_MODEL } from "@/feature/ethercat/device/types";
 import { SCAN_TYPE } from "@/feature/ethercat/task/types";
 import { type Device } from "@/platform/device";
 
@@ -18,14 +20,19 @@ export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
   name: "EtherCAT",
   title: "EtherCAT network",
-  description: "Slaves on an EtherCAT network adapter.",
+  description: "Modules on an EtherCAT network adapter.",
   icon: <Icon.Logo.EtherCAT />,
   make: MAKE,
   scanType: SCAN_TYPE,
   location: { shape: "slot" },
   Configure,
+  ScanAction,
+  modelNames: { [SLAVE_MODEL]: "Module" },
   checks: [
-    "The Driver can open the adapter. On Linux, this needs root or CAP_NET_RAW.",
-    "The slaves have power and a cable to that adapter.",
+    "The Driver can open the adapter. On Windows, this needs Npcap, installed with " +
+      "the default options. On Linux, it needs root or CAP_NET_RAW.",
+    "The modules have power and a cable to that adapter.",
   ],
+  formatLocation: (device) =>
+    formatLocation(device.location, slotZ.parse(device.properties)),
 };

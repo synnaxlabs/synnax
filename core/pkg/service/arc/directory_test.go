@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -257,8 +258,8 @@ var _ = Describe("Directories", func() {
 			second := newAutomation(
 				arc.Base{Key: uuid.New(), Name: "dup", Directory: &root},
 			)
-			first.ApplyDefaults()
-			second.ApplyDefaults()
+			first = defaults.Fill(first)
+			second = defaults.Fill(second)
 			Expect(gorp.NewCreate[arc.Key, arc.Arc]().
 				Entries(&[]arc.Arc{first, second}).
 				Exec(ctx, tx)).To(Succeed())
@@ -324,7 +325,7 @@ var _ = Describe("Directories", func() {
 				m := newModule(
 					arc.Base{Key: uuid.New(), Name: "time", Directory: &lib.Key},
 				)
-				m.ApplyDefaults()
+				m = defaults.Fill(m)
 				Expect(gorp.NewCreate[arc.Key, arc.Arc]().
 					Entry(&m).
 					Exec(ctx, tx)).To(Succeed())

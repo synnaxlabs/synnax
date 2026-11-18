@@ -24,6 +24,7 @@ var _ = Describe("Set", func() {
 			Expect(s.Bounded()).To(BeFalse())
 			Expect(s.Keys()).To(BeNil())
 			Expect(s.Contains(42)).To(BeTrue())
+			Expect(s.Probe()(42)).To(BeTrue())
 		})
 	})
 
@@ -39,6 +40,8 @@ var _ = Describe("Set", func() {
 			Expect(empty.Keys()).To(BeEmpty())
 			Expect(empty.Keys()).ToNot(BeNil())
 			Expect(empty.Contains(1)).To(BeFalse())
+			Expect(s.Probe()(2)).To(BeTrue())
+			Expect(s.Probe()(4)).To(BeFalse())
 		},
 		Entry("Of", keyset.Of[int]),
 		Entry("Hashed", keyset.Hashed[int]),

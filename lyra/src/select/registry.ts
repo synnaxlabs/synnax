@@ -66,7 +66,9 @@ export interface Registry {
   isHidden: (key: record.Key) => boolean;
   /** @returns the number of unpinned fixed items the search has not hidden. */
   countVisible: () => number;
-  /** Hides the unpinned fixed items whose text does not contain the term. */
+  /** @returns the search term. */
+  getTerm: () => string;
+  /** Sets the search term and hides the unpinned fixed items whose text misses it. */
   setTerm: (term: string) => void;
   /** @returns the element a fixed item's label renders into, created on first use. */
   getLabel: (key: record.Key) => HTMLElement;
@@ -131,7 +133,9 @@ const useRegistry = (): Registry => {
     hasItem: (key) => itemsRef.current.has(key),
     getText: (key) => itemsRef.current.get(key)?.text,
     isHidden: (key) => itemsRef.current.get(key)?.hidden ?? false,
+    getTerm: () => termRef.current,
     setTerm: (term) => {
+      if (term === termRef.current) return;
       termRef.current = term;
       const changed: record.Key[] = [];
       itemsRef.current.forEach((item, key) => {
@@ -140,7 +144,7 @@ const useRegistry = (): Registry => {
         item.hidden = hidden;
         changed.push(key);
       });
-      if (changed.length > 0) notifyListeners(changed);
+      notifyListeners(changed);
     },
     countVisible: () => {
       let count = 0;
@@ -199,6 +203,8 @@ const getText = (registry: Registry, key?: record.Key): string | undefined =>
 
 const countVisible = (registry: Registry): number => registry.countVisible();
 
+const getTerm = (registry: Registry): string => registry.getTerm();
+
 const isHiddenItem = (registry: Registry, key?: record.Key): boolean =>
   key != null && registry.isHidden(key);
 
@@ -216,6 +222,9 @@ export const useText = (key: record.Key | undefined): string | undefined =>
  */
 export const useVisibleCount = (): number =>
   useRegistryValue("Select.useVisibleCount", countVisible);
+
+/** @returns the search term. It re-renders the caller whenever the term changes. */
+export const useTerm = (): string => useRegistryValue("Select.useTerm", getTerm);
 
 /** @returns whether the search term hides the fixed item with the given key. */
 export const useIsHidden = (key: record.Key): boolean =>

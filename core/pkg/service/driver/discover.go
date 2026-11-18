@@ -47,12 +47,33 @@ func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config)
 	if err == nil {
 		return nil
 	}
+	if f, ok := certificateFailure(err); ok {
+		return f
+	}
+	var header tls.RecordHeaderError
+	if errors.As(err, &header) {
+		return Failure{
+			Message: "Server does not use TLS",
+			Description: "The server answered without TLS. Turn off TLS, or connect " +
+				"to the TLS port of the server.",
+		}
+	}
+	return Failure{
+		Message: "TLS handshake failed",
+		Description: fmt.Sprintf(
+			"%s. Check that this port of the server uses TLS.", err,
+		),
+	}
+}
+
+// certificateFailure returns the Failure for a handshake error that rejects the
+// certificate of the server, and reports whether err is such an error.
+func certificateFailure(err error) (Failure, bool) {
 	var (
 		authority    x509.UnknownAuthorityError
 		hostname     x509.HostnameError
 		invalid      x509.CertificateInvalidError
 		verification *tls.CertificateVerificationError
-		header       tls.RecordHeaderError
 	)
 	switch {
 	case errors.As(err, &authority):
@@ -62,14 +83,14 @@ func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config)
 				"%s. Set the CA certificate that signed the certificate of the server.",
 				err,
 			),
-		}
+		}, true
 	case errors.As(err, &hostname):
 		return Failure{
 			Message: "Certificate does not match the address",
 			Description: fmt.Sprintf(
 				"%s. Connect with a host name that the certificate names.", err,
 			),
-		}
+		}, true
 	case errors.As(err, &invalid):
 		return Failure{
 			Message: "Certificate not valid",
@@ -77,7 +98,7 @@ func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config)
 				"%s. Check the dates and the usage of the certificate of the server.",
 				err,
 			),
-		}
+		}, true
 	// macOS returns most rejections as untyped errors, an unknown CA among them.
 	case errors.As(err, &verification):
 		return Failure{
@@ -87,20 +108,9 @@ func Handshake(ctx context.Context, conn net.Conn, addr string, cfg *tls.Config)
 					"that signed it.",
 				err,
 			),
-		}
-	case errors.As(err, &header):
-		return Failure{
-			Message: "Server does not use TLS",
-			Description: "The server answered without TLS. Turn off TLS, or connect " +
-				"to the TLS port of the server.",
-		}
+		}, true
 	default:
-		return Failure{
-			Message: "TLS handshake failed",
-			Description: fmt.Sprintf(
-				"%s. Check that this port of the server uses TLS.", err,
-			),
-		}
+		return Failure{}, false
 	}
 }
 

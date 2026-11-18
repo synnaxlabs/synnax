@@ -410,6 +410,37 @@ See [Find channels](/reference/channels/find).
 - TypeScript: a writer opened with a bare channel list no longer sets `start` to now. An
   overlap with stored data fails the first write instead of the open.
 
+#### HTTP requests
+
+Each retrieve request for a resource selects records with `where`. The Core refuses a
+0.60 body because it refuses fields that it does not know. The Python and TypeScript
+clients send the new body.
+
+| Endpoint                     | 0.60 body                                            | 0.61 body                                                              |
+| ---------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| `/api/v1/task/retrieve`      | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/task/retrieve`      | `{"rack": 1}`                                        | `{"where": {"rack": {"eq": 1}}}`                                       |
+| `/api/v1/schematic/retrieve` | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/lineplot/retrieve`  | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/log/retrieve`       | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/table/retrieve`     | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/panel/retrieve`     | `{"keys": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}` | `{"where": {"key": {"in": ["6e9e2d8c-3f5a-4b1e-9c2d-7a8b9c0d1e2f"]}}}` |
+| `/api/v1/channel/retrieve`   | `{"keys": [1048577]}`                                | `{"request": {"where": {"key": {"in": [1048577]}}}}`                   |
+
+The task filters `names`, `types`, `internal`, and `snapshot` also move into `where`, as
+`name`, `type`, `internal`, and `snapshot`, such as
+`{"where": {"type": {"eq": "modbus_read"}}}`. `offset` and `ignore_not_found_error` are
+gone. Page with `limit` and `after`.
+
+- The `range`, `device`, `rack`, `arc`, `label`, `user`, `project`, `status`, `view`,
+  `schematic/symbol`, `access/role`, and `access/policy` retrieve requests move `keys`
+  into `where` in the same way. The `control` and `range/alias` retrieve requests keep
+  their 0.60 body.
+- A key with no record is left out of the response instead of failing the request.
+- `"limit": 0` returns no records. Before, it returned all records.
+- `/api/v1/ontology/retrieve` is now `/api/v1/resource/retrieve`, which takes only
+  `ids`.
+
 #### Arc
 
 - A function takes its inputs in parentheses and its triggers in braces. The Core
@@ -420,6 +451,35 @@ See [Find channels](/reference/channels/find).
   `range(n, i64(100))` with `n` an `i32`. The Core adds casts to stored and imported
   Arcs, such as `range(i64(n), i64(100))`, but not where an argument reads a channel or
   a module value. Add the casts to those calls and to new Arc text.
+
+#### Driver state file
+
+From Driver 0.61.0 to 0.61.4, on Linux and macOS, these commands change the owners and
+modes of the Driver state. They replace the values that a setup step, such as an init
+container, gives these paths:
+
+- `start`, `login`, and `clear` set the state file to mode `0600`, at any path. At a
+  `--state-file` path, the user that runs the Driver must own the file, or the command
+  fails.
+- At the default path, `install`, `start`, `login`, and `clear` also do one of these:
+  - On Linux, when root runs the command and a `synnax` user exists, they give the
+    directory to root and the `synnax` group with mode `0751`. They give the state file
+    to the `synnax` user. They create the `opcua` directory if it is missing and give it
+    to the `synnax` user with mode `0700`.
+  - Else, they set a state directory that the Driver user owns to `0700`. They replace a
+    state file that another user owns with a copy that the Driver user owns, so the
+    Driver user must be able to write to the directory.
+- The state directory and the state file must not be symbolic links, such as a file in a
+  mounted Kubernetes Secret, or the command fails.
+
+Give the state directory and the state file to the user that runs the Driver.
+
+Driver 0.61.5 stops these changes in `start` and `clear`: they do not change the mode or
+owner of a state directory or state file that exists. Only `install` and `login` that
+root runs change them. A command fails if other users can read the state file, or if a
+user other than the Driver user owns it. When root runs the Driver, the `synnax` user
+can also own it. Set the state file to mode `0600` and give it to the user that runs the
+Driver.
 
 #### Hardware
 

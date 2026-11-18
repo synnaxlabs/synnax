@@ -23,7 +23,7 @@ const gaugeState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
-  color: color.colorZ.default(color.ZERO),
+  color: color.colorZ.optional(),
   stalenessColor: color.colorZ.optional(),
   precision: z.number().default(2),
   minWidth: z.number().default(60),
@@ -82,8 +82,7 @@ export class Gauge
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l9;
-    else i.textColor = this.state.color;
+    i.textColor = this.state.color ?? i.theme.colors.gray.l9;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.staleness = staleness.useInternalRegistration(
       ctx,
@@ -99,9 +98,7 @@ export class Gauge
     });
     i.requestRender = render.useOptionalRequestor(ctx);
 
-    i.strokeColor = color.isZero(this.state.color)
-      ? colorFallback(i.theme)
-      : this.state.color;
+    i.strokeColor = this.state.color ?? colorFallback(i.theme);
 
     const b = this.state.box;
     const baseRadius = box.width(b) / 2;

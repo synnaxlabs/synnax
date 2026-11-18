@@ -21,11 +21,13 @@ import {
 
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
+import { Group } from "@/schematic/group";
 import { Node } from "@/schematic/node";
 import {
   useAllEdges,
   useConfigs,
   useElementConfig,
+  useParentOf,
   useSingleDispatch,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
@@ -102,14 +104,14 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       if (sourceNode == null || targetNode == null) return;
       const source = resolveEndpoint(sourceNode.internals, edge.source.param);
       const target = resolveEndpoint(targetNode.internals, edge.target.param);
-      if (source == null || target == null) return;
       const cfg = configs.get(edge.key) as Edge.Config | undefined;
+      if (source == null || target == null || cfg == null) return;
       const segments = Edge.Segmented.build({
         source,
         target,
         sourceBox: internalNodeBox(sourceNode),
         targetBox: internalNodeBox(targetNode),
-        middleSegments: cfg?.segments ?? [],
+        middleSegments: cfg.segments,
       });
       const points = Edge.Segmented.segmentsToPoints(
         source.position,
@@ -117,7 +119,10 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
         zoom,
         true,
       );
-      if (points.length >= 2) polylines.push({ key: edge.key, points, order });
+      if (points.length < 2) return;
+      const { strokeWidth } = cfg;
+      const width = Edge.resolveSpec(cfg.variant).renderedWidth(strokeWidth);
+      polylines.push({ key: edge.key, points, order, strokeWidth, width });
     });
     jumpStore.commit(Edge.Jumps.findCrossings(polylines));
   };
@@ -157,11 +162,21 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
   return <Edge.Jumps.Context value={jumpStore}>{children}</Edge.Jumps.Context>;
 };
 
+const Provider = ({ children }: PropsWithChildren): ReactElement => {
+  const parentOf = useParentOf();
+  const members = Group.childrenOf(parentOf);
+  return (
+    <Node.GroupBox.MembersProvider value={members}>
+      <EdgeJumpProvider>{children}</EdgeJumpProvider>
+    </Node.GroupBox.MembersProvider>
+  );
+};
+
 export const Diagram = Base.create({
   node: Component.renderProp(NodeRenderer),
   edge: Component.renderProp(EdgeRenderer),
   connectionLine: Component.renderProp(Edge.ConnectionLine),
-  Provider: EdgeJumpProvider,
+  Provider,
 });
 
 export const nodeChangesToActions = (
@@ -185,10 +200,8 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Acti
     switch (ch.type) {
       case "add":
         return [
-          schematic.addEdge({ edge: ch.edge }),
-          schematic.setConfig({
-            key: ch.edge.key,
-            config: Edge.REGISTRY.pipe.defaultConfig(),
+          schematic.addEdge({
+            edge: { ...ch.edge, config: Edge.REGISTRY.pipe.defaultConfig() },
           }),
         ];
       case "remove":

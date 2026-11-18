@@ -35,6 +35,7 @@ inline Range Range::parse(x::json::Parser parser) {
             std::vector<::synnax::label::Key>{}
         ),
         .parent = parser.field<std::optional<Key>>("parent"),
+        .has_children = parser.field<bool>("has_children", false),
     };
 }
 
@@ -51,6 +52,7 @@ inline x::json::json Range::to_json() const {
         j["labels"] = arr;
     }
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
+    j["has_children"] = this->has_children;
     return j;
 }
 
@@ -66,6 +68,10 @@ inline Where Where::parse(x::json::Parser parser) {
             "labels"
         ),
         .parents = parser.field<std::optional<std::vector<Key>>>("parents"),
+        .nested = parser.field<std::optional<bool>>("nested"),
+        .labeled = parser.field<std::optional<bool>>("labeled"),
+        .stages = parser.field<std::optional<std::vector<std::string>>>("stages"),
+        .recent = parser.field<std::optional<::x::telem::TimeSpan>>("recent"),
     };
 }
 
@@ -89,6 +95,10 @@ inline x::json::json Where::to_json() const {
             arr.push_back(item.to_json());
         j["parents"] = arr;
     }
+    if (this->nested.has_value()) j["nested"] = *this->nested;
+    if (this->labeled.has_value()) j["labeled"] = *this->labeled;
+    if (this->stages.has_value()) j["stages"] = *this->stages;
+    if (this->recent.has_value()) j["recent"] = this->recent->nanoseconds();
     return j;
 }
 
@@ -99,6 +109,9 @@ inline Cursor Cursor::parse(x::json::Parser parser) {
         .time_range_start = parser.field<std::optional<::x::telem::TimeStamp>>(
             "time_range_start"
         ),
+        .time_range_end = parser.field<std::optional<::x::telem::TimeStamp>>(
+            "time_range_end"
+        ),
     };
 }
 
@@ -108,6 +121,8 @@ inline x::json::json Cursor::to_json() const {
     if (this->name.has_value()) j["name"] = *this->name;
     if (this->time_range_start.has_value())
         j["time_range_start"] = this->time_range_start->nanoseconds();
+    if (this->time_range_end.has_value())
+        j["time_range_end"] = this->time_range_end->nanoseconds();
     return j;
 }
 

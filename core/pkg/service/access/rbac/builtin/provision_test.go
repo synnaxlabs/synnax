@@ -32,6 +32,7 @@ var _ = Describe("Provision", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB: db,
 		}))
@@ -61,7 +62,7 @@ var _ = Describe("Provision", func() {
 	})
 
 	DescribeTable(
-		"Should grant access to secrets and certificates",
+		"Should grant access to secrets, certificates, named colors, and enumerations",
 		func(
 			ctx SpecContext,
 			name string,
@@ -94,6 +95,49 @@ var _ = Describe("Provision", func() {
 			"Viewer certificates",
 			"Viewer",
 			resource.TypeCertificate,
+			[]access.Action{access.ActionRetrieve},
+		),
+		Entry("Owner named colors", "Owner", resource.TypeColor, access.AllActions),
+		Entry(
+			"Engineer named colors",
+			"Engineer Edit Access",
+			resource.TypeColor,
+			access.AllActions,
+		),
+		Entry(
+			"Operator named colors",
+			"Operator View Access",
+			resource.TypeColor,
+			[]access.Action{access.ActionRetrieve},
+		),
+		Entry(
+			"Viewer named colors",
+			"Viewer",
+			resource.TypeColor,
+			[]access.Action{access.ActionRetrieve},
+		),
+		Entry(
+			"Owner enumerations",
+			"Owner",
+			resource.TypeEnumeration,
+			access.AllActions,
+		),
+		Entry(
+			"Engineer enumerations",
+			"Engineer Edit Access",
+			resource.TypeEnumeration,
+			access.AllActions,
+		),
+		Entry(
+			"Operator enumerations",
+			"Operator View Access",
+			resource.TypeEnumeration,
+			[]access.Action{access.ActionRetrieve},
+		),
+		Entry(
+			"Viewer enumerations",
+			"Viewer",
+			resource.TypeEnumeration,
 			[]access.Action{access.ActionRetrieve},
 		),
 		Entry(

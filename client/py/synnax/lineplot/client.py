@@ -86,7 +86,7 @@ class Client:
             project. When omitted, a line plot is created from the ``name`` and
             ``project`` keyword arguments.
         :param name: The name of the line plot to create when ``line_plots`` is omitted.
-        :param project: The key of the project that owns the line plot when
+        :param project: The key of the project that holds the line plot when
             ``line_plots`` is omitted.
         :returns: The created line plot, or a list of created line plots when
             ``line_plots`` is a list.

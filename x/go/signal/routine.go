@@ -75,7 +75,7 @@ const (
 const (
 	// cancelOnExit defines if the routine should cancel the context upon exiting.
 	cancelOnExit contextPolicy = iota + 1
-	// cancelOnFail defines if the routine should cancel the context upon exiting
+	// cancelOnFail defines if the routine should cancel the context upon exiting.
 	cancelOnFail
 )
 
@@ -140,7 +140,7 @@ func RecoverWithoutErrOnPanic() RoutineOption {
 
 // WithBaseRetryInterval sets the base interval for the breaker used to restart the
 // goroutine. The base retry interval is how much time the breaker waits before trying
-// to restart for the first time. (Default: 1 second)
+// to restart for the first time. (Default: 1 second).
 func WithBaseRetryInterval(retryInterval time.Duration) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg.BaseInterval = retryInterval
@@ -166,7 +166,7 @@ func WithRetryOnPanic(maxRetries ...int) RoutineOption {
 }
 
 // WithRetryScale sets the scale on the breaker used to restart the goroutine. The scale
-// defines the rate by which the interval between two retries grow. (Default: 1)
+// defines the rate by which the interval between two retries grow. (Default: 1).
 func WithRetryScale(scale float64) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg.Scale = scale
@@ -238,7 +238,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	}
 
 	if r.useBreaker {
-		r.breaker, r.state.err = breaker.NewBreaker(r.ctx, r.breakerCfg)
+		r.breaker, r.state.err = breaker.NewBreaker(r.breakerCfg)
 		if r.state.err != nil {
 			return r.ctx, false
 		}
@@ -391,7 +391,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 						}()
 						err = f(ctx)
 					}()
-					if !recovered || !r.useBreaker || !r.breaker.Wait() {
+					if !recovered || !r.useBreaker || !r.breaker.Wait(ctx) {
 						break
 					}
 				}

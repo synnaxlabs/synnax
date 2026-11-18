@@ -14,18 +14,15 @@ import {
   createTestClientAs,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { createElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { useModal } from "@/platform/credential/useModal";
-import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
+import { findButton, openModal, pressEscape } from "@/platform/modals/testutil";
 import {
-  CaptureStatuses,
+  clickAndSettle,
   createTestClientWithGrants,
-  getIconButton,
-  getIconButtons,
+  openContextMenu,
   uniqueName,
 } from "@/testutil";
 
@@ -34,6 +31,13 @@ const type = async (placeholder: string, value: string): Promise<void> => {
   fireEvent.change(await screen.findByPlaceholderText(placeholder), {
     target: { value },
   });
+};
+
+// Fills and submits the create modal over the dialog.
+const createKey = async (name: string): Promise<void> => {
+  fireEvent.click(await screen.findByText("Create key"));
+  await type("Key name", name);
+  fireEvent.click(findButton("Create"));
 };
 
 const expectPassword = async (username: string, password: string): Promise<void> => {
@@ -62,19 +66,21 @@ describe("useModal", () => {
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     const name = uniqueName("key");
-    await type("Key name", name);
-    fireEvent.click(findButton("Create key"));
-    await screen.findByText(name);
+    await createKey(name);
+    await screen.findByText(`Copy the key for ${name}`);
+    expect(screen.getByText(/^syk_/)).toBeTruthy();
     const [created] = await client.auth.retrieveKeys([id]);
     expect(created.name).toEqual(name);
-    expect(screen.getByDisplayValue(/^syk_/)).toBeTruthy();
-    fireEvent.click(getIconButton(document.body, "delete"));
+    fireEvent.click(findButton("Done"));
+    await waitFor(() => expect(screen.queryByText(/^syk_/)).toBeNull());
+    await openContextMenu(name);
+    await clickAndSettle("Delete");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await screen.findByText("No API keys");
-    expect(screen.queryByDisplayValue(/^syk_/)).toBeNull();
     expect(await client.auth.retrieveKeys([id])).toHaveLength(0);
   });
 
-  it("should delete a key whose creation ends after the dialog closes", async () => {
+  it("should stay open while a key saves", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
@@ -83,63 +89,15 @@ describe("useModal", () => {
       role,
     });
     const id = user.resourceID(subject.key);
-    const create = client.auth.createKey.bind(client.auth);
-    let release = (): void => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
-    let createdKey: string | undefined;
-    vi.spyOn(client.auth, "createKey").mockImplementation(async (params) => {
-      await gate;
-      const res = await create(params);
-      createdKey = res.key.key;
-      return res;
-    });
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
-    await type("Key name", uniqueName("key"));
-    fireEvent.click(findButton("Create key"));
-    fireEvent.click(findDismissButton());
-    release();
-    await waitFor(() => expect(createdKey).toBeDefined());
-    await waitFor(async () =>
-      expect((await client.auth.retrieveKeys([id])).map((k) => k.key)).not.toContain(
-        createdKey,
-      ),
-    );
-  });
-
-  it("should show an error when deleting an unused key fails", async () => {
-    const client = createTestClient();
-    const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-      role,
-    });
-    const id = user.resourceID(subject.key);
-    const create = client.auth.createKey.bind(client.auth);
-    let release = (): void => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
-    vi.spyOn(client.auth, "createKey").mockImplementation(async (params) => {
-      await gate;
-      return await create(params);
-    });
-    vi.spyOn(client.auth, "deleteKeys").mockRejectedValue(new Error("denied"));
-    let statuses: Status.NotificationSpec[] = [];
-    await openModal(useModal, {
-      client,
-      params: { subject: id },
-      extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
-    });
-    await screen.findByText("No API keys");
-    await type("Key name", uniqueName("key"));
-    fireEvent.click(findButton("Create key"));
-    fireEvent.click(findDismissButton());
-    release();
-    await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain(
-        "Failed to delete an unused API key",
-      ),
-    );
+    const name = uniqueName("key");
+    await createKey(name);
+    expect(findButton("Cancel").getAttribute("aria-disabled")).toBe("true");
+    pressEscape();
+    await screen.findByText(`Copy the key for ${name}`);
+    pressEscape();
+    await waitFor(() => expect(screen.queryByText(/^syk_/)).toBeNull());
   });
 
   it("should manage a rack's keys and offer no password", async () => {
@@ -150,9 +108,8 @@ describe("useModal", () => {
     await screen.findByText("No API keys");
     expect(screen.queryByPlaceholderText("New password")).toBeNull();
     const name = uniqueName("key");
-    await type("Key name", name);
-    fireEvent.click(findButton("Create key"));
-    await screen.findByText(name);
+    await createKey(name);
+    await screen.findByText(`Copy the key for ${name}`);
     expect(await client.auth.retrieveKeys([id])).toHaveLength(1);
   });
 
@@ -166,8 +123,8 @@ describe("useModal", () => {
     await openModal(useModal, { client: viewer, params: { subject: id } });
     await screen.findByText(name);
     expect(screen.queryByText("Create key")).toBeNull();
-    expect(screen.queryByPlaceholderText("Key name")).toBeNull();
-    expect(getIconButtons(document.body, "delete")).toHaveLength(0);
+    await openContextMenu(name);
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 
   it("should offer a rack key to a caller who may change the rack", async () => {
@@ -193,6 +150,24 @@ describe("useModal", () => {
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
     await expectPassword(username, "changed123");
+  });
+
+  it("should stay open while a password saves", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({
+      username: uniqueName("user"),
+      password: "password123",
+      role,
+    });
+    await openModal(useModal, {
+      client,
+      params: { subject: user.resourceID(subject.key) },
+    });
+    await type("New password", "changed123");
+    fireEvent.click(findButton("Set password"));
+    pressEscape();
+    expect(await screen.findByText("Successfully changed password")).toBeTruthy();
   });
 
   it("should let an owner set another user's password", async () => {

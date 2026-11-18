@@ -88,7 +88,7 @@ class Client:
             When omitted, a log is created from the ``name`` and ``project`` keyword
             arguments.
         :param name: The name of the log to create when ``logs`` is omitted.
-        :param project: The key of the project that owns the log when ``logs`` is
+        :param project: The key of the project that holds the log when ``logs`` is
             omitted.
         :returns: The created log, or a list of created logs when ``logs`` is a list.
         :raises ValidationError: If a log does not belong to a project.

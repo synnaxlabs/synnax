@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -105,11 +107,11 @@ func createGroup(ctx SpecContext, name string, parent resource.ID) group.Group {
 	return g
 }
 
-func createTask(ctx SpecContext, name string) task.Task {
+func createTask(ctx SpecContext) task.Task {
 	GinkgoHelper()
 	t := task.Task{
 		Rack: testRack.Key,
-		Name: name,
+		Name: "Sequence",
 		Type: pagerduty.AlertTaskType,
 	}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -249,7 +251,8 @@ var _ = Describe("Export", func() {
 		Expect(decode(files["Metrics Log.json"])).To(HaveKeyWithValue("type", "log"))
 		panelBody := decode(files["Controls.json"])
 		Expect(panelBody).To(HaveKeyWithValue("type", "panel"))
-		root := panelBody["root"].(map[string]any)
+		root, ok := panelBody["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Metrics Log.json"),
 		))
@@ -267,7 +270,8 @@ var _ = Describe("Export", func() {
 		)
 		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Propulsion/Tanks/Pressure.json"))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Propulsion/Tanks/Pressure.json"),
 		))
@@ -277,6 +281,30 @@ var _ = Describe("Export", func() {
 	It("Should drop a group with no exported members", func(ctx SpecContext) {
 		proj := createProject(ctx, "Sparse")
 		createGroup(ctx, "Empty Group", proj.ResourceID())
+		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
+		Expect(files).To(HaveLen(1))
+		Expect(members).To(BeEmpty())
+	})
+
+	It("Should leave a draft out of the export", func(ctx SpecContext) {
+		proj := createProject(ctx, "Drafts")
+		draft := panel.Panel{Name: "Scratch", Root: leaf(), Project: &proj.Key}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			r := role.Role{Name: "drafter"}
+			if err := roleSvc.NewWriter(tx, false).Create(ctx, &r); err != nil {
+				return err
+			}
+			u, err := userSvc.NewWriter(tx).Create(ctx, user.User{
+				Key:  uuid.New(),
+				Name: "drafter",
+				Role: r.Key,
+			})
+			if err != nil {
+				return err
+			}
+			draft.Owner = &u.Key
+			return panelSvc.NewWriter(tx).Create(ctx, &draft)
+		})).To(Succeed())
 		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(1))
 		Expect(members).To(BeEmpty())
@@ -294,7 +322,8 @@ var _ = Describe("Export", func() {
 		)
 		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(3))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(HaveKeyWithValue("resource", "Kept.json")))
 		Expect(members).ToNot(ContainElement(lp.ResourceID()))
 	})
@@ -303,13 +332,14 @@ var _ = Describe("Export", func() {
 		ctx SpecContext,
 	) {
 		proj := createProject(ctx, "Panel Tasks")
-		t := createTask(ctx, "Sequence")
+		t := createTask(ctx)
 		p := createPanel(
 			ctx, "Controls", proj.Key, leaf(resourceTab(t.ResourceID())),
 		)
 		files, members := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Sequence.json"))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Sequence.json"),
 		))
@@ -333,7 +363,8 @@ var _ = Describe("Export", func() {
 				"text": map[string]any{"raw": "x := 1"},
 			}),
 		))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(ConsistOf(
 			HaveKeyWithValue("resource", "Startup.json"),
 		))
@@ -342,7 +373,7 @@ var _ = Describe("Export", func() {
 
 	It("Should place a task referenced by two panels once", func(ctx SpecContext) {
 		proj := createProject(ctx, "Shared Task")
-		t := createTask(ctx, "Sequence")
+		t := createTask(ctx)
 		createPanel(
 			ctx, "First", proj.Key, leaf(resourceTab(t.ResourceID())),
 		)
@@ -353,7 +384,8 @@ var _ = Describe("Export", func() {
 		Expect(files).To(HaveLen(4))
 		Expect(files).To(HaveKey("Sequence.json"))
 		for _, name := range []string{"First.json", "Second.json"} {
-			root := decode(files[name])["root"].(map[string]any)
+			root, ok := decode(files[name])["root"].(map[string]any)
+			Expect(ok).To(BeTrue())
 			Expect(root["tabs"]).To(ConsistOf(
 				HaveKeyWithValue("resource", "Sequence.json"),
 			))
@@ -370,7 +402,8 @@ var _ = Describe("Export", func() {
 		createPanel(ctx, "Controls", proj.Key, leaf(resourceTab(dangling)))
 		files, _ := MustSucceed2(svc.Export(ctx, db, proj.Key, xjson.Codec))
 		Expect(files).To(HaveLen(2))
-		root := decode(files["Controls.json"])["root"].(map[string]any)
+		root, ok := decode(files["Controls.json"])["root"].(map[string]any)
+		Expect(ok).To(BeTrue())
 		Expect(root["tabs"]).To(BeEmpty())
 	})
 
@@ -771,7 +804,7 @@ var _ = Describe("Import", func() {
 
 	It("Should leave imported tasks under the rack", func(ctx SpecContext) {
 		src := createProject(ctx, "Panel Tasks")
-		t := createTask(ctx, "Sequence")
+		t := createTask(ctx)
 		createPanel(
 			ctx, "Controls", src.Key, leaf(resourceTab(t.ResourceID())),
 		)
@@ -1088,7 +1121,7 @@ var _ = Describe("Legacy import", func() {
 	It("Should import legacy task files through the leaf machinery", func(
 		ctx SpecContext,
 	) {
-		t := createTask(ctx, "Sequence")
+		t := createTask(ctx)
 		env := MustSucceed(imexSvc.Export(ctx, db, task.ResourceID(t.Key)))
 		tx = DeferClose(db.OpenTx())
 		proj := importLegacy(ctx, zip.Files{

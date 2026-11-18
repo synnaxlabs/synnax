@@ -80,8 +80,8 @@ export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
 export const readConfigZ = task.readConfigZ
   .omit({ sampleRate: true, streamRate: true })
   .extend({
-    sampleRate: z.number().default(50),
-    streamRate: z.number().default(25),
+    sampleRate: z.number().min(0).default(50),
+    streamRate: z.number().min(0).default(25),
     device: device.keyZ.default(""),
     sampling: samplingZ.prefault({ type: "unary" }),
     channels: readChannelZ.array().default(() => []),

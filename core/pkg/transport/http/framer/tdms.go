@@ -270,9 +270,9 @@ func newTDMSDataType(dt telem.DataType) (tdmsDataType, error) {
 		return tdmsTimeStamp, nil
 	case telem.StringT, telem.JSONT, telem.UUIDT, telem.BytesT:
 		return tdmsString, nil
-	default:
-		return 0, errors.Newf("data type %s has no TDMS form", dt)
+	case telem.UnknownT:
 	}
+	return 0, errors.Newf("data type %s has no TDMS form", dt)
 }
 
 // tdmsNaN returns the NaN sample of t, or nil when t is not a float type.
@@ -282,8 +282,11 @@ func tdmsNaN(t tdmsDataType) []byte {
 		return telem.ByteOrder.AppendUint32(nil, math.Float32bits(float32(math.NaN())))
 	case tdmsF64:
 		return telem.ByteOrder.AppendUint64(nil, math.Float64bits(math.NaN()))
-	default:
+	case tdmsI8, tdmsI16, tdmsI32, tdmsI64, tdmsU8, tdmsU16, tdmsU32, tdmsU64,
+		tdmsString, tdmsBoolean, tdmsTimeStamp:
 		return nil
+	default:
+		panic(fmt.Sprintf("unknown TDMS data type %#x", uint32(t)))
 	}
 }
 
@@ -519,9 +522,12 @@ func (c *tdmsChannel) appendSamples(k int) error {
 			c.data = appendTDMSTimeStamp(c.data, ts)
 		}
 		c.skip(k)
-	default:
+	case tdmsI8, tdmsI16, tdmsI32, tdmsI64, tdmsU8, tdmsU16, tdmsU32, tdmsU64, tdmsF32,
+		tdmsF64, tdmsBoolean:
 		c.data = append(c.data, c.pending[0].Data[c.offset:c.offset+k*c.size]...)
 		c.skip(k)
+	default:
+		return errors.Newf("unknown TDMS data type %#x", uint32(c.tdmsType))
 	}
 	return nil
 }

@@ -13,7 +13,6 @@ import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import (
-    TYPE_CHECKING,
     Any,
     Literal,
     Protocol as BaseProtocol,
@@ -51,10 +50,6 @@ from x import filter
 from x.params import deprecate_positional
 from x.timing import Timer
 
-# synnax.arc imports synnax.task at load time.
-if TYPE_CHECKING:
-    from synnax import arc
-
 
 class _CreateRequest(BaseModel):
     tasks: list[Payload]
@@ -82,15 +77,13 @@ class _CopyResponse(BaseModel):
     task: Payload
 
 
-_CREATE_ENDPOINT = "/task/create"
-_DELETE_ENDPOINT = "/task/delete"
 _RETRIEVE_ENDPOINT = "/task/retrieve"
 _COPY_ENDPOINT = "/task/copy"
 
 _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
-# The Driver fails an operation that takes longer than 60 s. A wait past this limit
-# lost its command, for example to a Driver restart.
+# Each loading status of a command restarts the wait for its next status. A wait past
+# this limit lost its command, for example to a Driver restart.
 _FINAL_STATUS_TIMEOUT = 2 * TimeSpan.MINUTE
 
 
@@ -224,8 +217,8 @@ class Task:
         :param type_: The type of command to execute.
         :param args: The arguments to pass to the command.
         :param timeout: How long to wait for the driver to acknowledge the command.
-        Once it does, the wait for the final status lasts two minutes or the timeout,
-        whichever is longer.
+        Once it does, each loading status restarts the wait for the next status, which
+        lasts two minutes or the timeout, whichever is longer.
         :raises TimeoutError: If the driver does not acknowledge the command or send
         its final status in time.
         :raises RuntimeError: If the rack of the task reports that its driver is down
@@ -266,10 +259,12 @@ class Task:
                     if status.details is not None and status.details.cmd == key:
                         if status.variant != VARIANT_LOADING:
                             return status
+                        # A loading status shows the Driver still works on the
+                        # command, so the wait starts again.
                         if not acknowledged:
                             acknowledged = True
                             span = max(span, _FINAL_STATUS_TIMEOUT)
-                            timer = Timer()
+                        timer = Timer()
 
 
 def _config_devices(config: Mapping[str, Any]) -> list[str]:
@@ -341,8 +336,8 @@ class StarterStopperMixin:
         start.
 
         :param timeout: How long to wait for the driver to acknowledge the start. Once
-            it does, the wait for the final status lasts two minutes or the timeout,
-            whichever is longer.
+            it does, each loading status restarts the wait for the next status, which
+            lasts two minutes or the timeout, whichever is longer.
         :raises TimeoutError: If the driver does not acknowledge the start or send its
             final status in time.
         :raises RuntimeError: If the driver fails to start the task, or if the driver
@@ -356,8 +351,8 @@ class StarterStopperMixin:
         stop.
 
         :param timeout: How long to wait for the driver to acknowledge the stop. Once
-            it does, the wait for the final status lasts two minutes or the timeout,
-            whichever is longer.
+            it does, each loading status restarts the wait for the next status, which
+            lasts two minutes or the timeout, whichever is longer.
         :raises TimeoutError: If the driver does not acknowledge the stop or send its
             final status in time.
         :raises RuntimeError: If the driver of the task goes down during the wait. An
@@ -368,7 +363,7 @@ class StarterStopperMixin:
 
     @deprecate_positional("timeout")
     @contextmanager
-    def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
+    def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None]:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.
@@ -410,7 +405,6 @@ class JSONConfigMixin[C: BaseModel](Protocol):
 class Client:
     _client: UnaryClient
     _frame_client: framer.Client
-    _default_rack: rack_.Rack | None
     _racks: rack_.Client
     _device_client: device_.Client
     instrumentation: Instrumentation = NOOP
@@ -428,7 +422,6 @@ class Client:
         self._frame_client = frame_client
         self._racks = rack_client
         self._device_client = device_client
-        self._default_rack = None
         self.instrumentation = instrumentation
 
     @overload
@@ -491,9 +484,8 @@ class Client:
         if pld.rack != 0:
             return pld
         if rack == 0:
-            if self._default_rack is None:
-                self._default_rack = self._racks.retrieve_embedded_rack()
-            rack = self._default_rack.key
+            integration = pld.type.split("_", 1)[0]
+            rack = self._racks.retrieve_embedded_rack(integration).key
         pld.rack = rack
         return pld
 
@@ -501,13 +493,15 @@ class Client:
         """Saves the task's configuration to the cluster. The config is deployed
         to the driver on the next start command. A task that names devices, in its
         config or its channels, goes on their rack, whatever rack it holds. A task
-        that names no device goes on its rack, or on the embedded rack when it has
-        none. Configure creates a task that does not exist yet, and sets the name,
-        rack, and config of a task that does.
+        that names no device goes on its rack, or, when it has none, on the
+        embedded rack that runs its integration: the start of its type, before the
+        first underscore. Configure creates a task that does not exist yet, and sets
+        the name, rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
-        :raises NotFoundError: If the config names a device that does not exist.
+        :raises NotFoundError: If the config names a device that does not exist, or
+            if the task needs an embedded rack and none runs its integration.
         :raises ValidationError: If the devices are on different racks, or if the task
             exists and the config has a field that its type does not declare.
         """
@@ -564,7 +558,7 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        arcs: arc.Key | list[arc.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -583,7 +577,7 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        arcs: arc.Key | list[arc.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -602,7 +596,7 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        arcs: arc.Key | list[arc.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -624,7 +618,7 @@ class Client:
         type: filter.StringInput = ...,
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
-        arcs: arc.Key | list[arc.Key] = ...,
+        arcs: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -729,16 +723,15 @@ class Client:
 
     def list(self, rack: rack_.Key | None = None) -> list[Task]:
         """Lists all tasks on a rack. If no rack is specified, lists all tasks on the
-        default rack. Excludes internal system tasks (scanner tasks and rack state).
+        racks embedded in the Core. Excludes internal system tasks (scanner tasks and
+        rack state).
 
-        :param rack: The rack key to list tasks from. If None, uses the default rack.
+        :param rack: The rack key to list tasks from. If None, uses the embedded racks.
         :returns: A list of all user-created tasks on the specified rack.
         """
         if rack is None:
-            if self._default_rack is None:
-                self._default_rack = self._racks.retrieve_embedded_rack()
-            rack = self._default_rack.key
-
+            embedded = self._racks.retrieve(embedded=True)
+            return self.retrieve(rack=[r.key for r in embedded], internal=False)
         return self.retrieve(rack=rack, internal=False)
 
     def copy(self, key: Key, name: str) -> Task:

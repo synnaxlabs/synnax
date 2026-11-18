@@ -25,12 +25,19 @@ const x::errors::Error LICENSE_MISSING = LICENSE.sub("missing");
 /// @brief the Core refuses requests because its license has expired.
 const x::errors::Error LICENSE_EXPIRED = LICENSE.sub("expired");
 
-/// @brief whether the Core is unreachable or refuses requests until a license is
-/// activated. Both clear without a restart, so the caller can wait and retry.
+/// @brief whether the Core is unreachable or did not answer in time.
+/// @param err the error a request to the Core returned.
+inline bool is_unreachable(const x::errors::Error &err) {
+    return err.matches(freighter::UNREACHABLE) || err.matches(freighter::TIMEOUT);
+}
+
+/// @brief whether the Core is unreachable, did not answer in time, or refuses requests
+/// until a license is activated. These clear without a restart, so the caller can wait
+/// and retry.
 /// @param err the error a request to the Core returned.
 /// @returns true if the caller should wait and retry, false if the error is permanent.
 inline bool is_temporarily_unavailable(const x::errors::Error &err) {
-    return err.matches(freighter::UNREACHABLE) || err.matches(LICENSE_MISSING) ||
+    return is_unreachable(err) || err.matches(LICENSE_MISSING) ||
            err.matches(LICENSE_EXPIRED);
 }
 
@@ -64,16 +71,21 @@ not_found_error(const std::string &resource_name, const std::string &query) {
 /// @param name the name of the record type, such as "range".
 /// @param where the JSON form of the filter that the retrieve sent. The errors
 /// describe it.
+/// @param search_term the search term that the retrieve sent, or an empty string. The
+/// errors name it.
 /// @param count the number of records that the retrieve found.
 /// @returns NIL when count is 1, NOT_FOUND when it is 0, or MULTIPLE_RESULTS.
 inline x::errors::Error check_one(
     const std::string &name,
     const x::json::json &where,
+    const std::string &search_term,
     const std::size_t count
 ) {
     if (count == 1) return x::errors::NIL;
     const auto description = x::filter::describe(where);
-    const auto clause = description.empty() ? "" : " where " + description;
+    std::string clause = description.empty() ? "" : " where " + description;
+    if (!search_term.empty())
+        clause = " matching " + x::json::json(search_term).dump() + clause;
     if (count == 0)
         return x::errors::Error(x::errors::NOT_FOUND, "Found no " + name + clause);
     return x::errors::Error(

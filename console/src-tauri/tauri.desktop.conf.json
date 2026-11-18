@@ -12,7 +12,17 @@
       "icons/desktop/icon.icns",
       "icons/desktop/icon.ico"
     ],
-    "externalBin": ["binaries/synnax-core"]
+    "externalBin": ["binaries/synnax-core"],
+    "linux": {
+      "deb": {
+        "depends": [
+          "desktop-file-utils",
+          "libc6 (>= 2.39)",
+          "libstdc++6 (>= 13)",
+          "libsystemd0"
+        ]
+      }
+    }
   },
   "plugins": {
     "updater": {

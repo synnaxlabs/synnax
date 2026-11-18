@@ -156,7 +156,7 @@ class MultiEdit(ConsoleCase):
         schematic.select([valve_a, valve_b, value_a])
         expect(colors.field("Stroke")).to_have_attribute("placeholder", "Mixed")
         expect(colors.selection_swatches()).to_have_count(2)
-        red = colors.selection_colors().index("rgba(255, 0, 0, 1)")
+        red = colors.selection_colors().index("#ff0000")
 
         colors.recolor(colors.selection_swatches().nth(red), "00ff00")
         expect_stroke(valve_b, GREEN)

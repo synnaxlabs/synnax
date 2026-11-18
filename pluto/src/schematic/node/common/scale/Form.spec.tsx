@@ -110,9 +110,9 @@ describe("tank colors", () => {
         <TankForm showFillTab />
       </FormWrapper>,
     );
-    expect(swatchColor(container, "Stroke")).toBe("rgba(255, 0, 0, 1)");
+    expect(swatchColor(container, "Stroke")).toBe("#ff0000");
     fireEvent.click(getByRole("tab", { name: "Fill" }));
-    expect(swatchColor(container, "Axis")).toBe("rgba(0, 255, 0, 1)");
+    expect(swatchColor(container, "Axis")).toBe("#00ff00");
   });
 });
 

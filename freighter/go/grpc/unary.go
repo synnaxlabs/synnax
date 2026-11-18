@@ -47,6 +47,8 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 	ServiceDesc *grpc.ServiceDesc
 	// Exec is a function that executes the grpc request.
 	Exec func(context.Context, grpc.ClientConnInterface, RQT) (RST, error)
+	// Errors decodes the errors that the server returns.
+	Errors *errors.Codec
 	freighter.MiddlewareCollector
 }
 
@@ -62,6 +64,8 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 	ServiceDesc *grpc.ServiceDesc
 	// handler is the handler that will be called when a request is received.
 	handler func(context.Context, RQ) (RS, error)
+	// Errors encodes the errors that the handler returns.
+	Errors *errors.Codec
 	freighter.MiddlewareCollector
 	// Internal indicates whether the service is for go-to-go communication only,
 	// allowing for more advanced error encoding that propagates stack traces, causes,
@@ -70,11 +74,11 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 func (*UnaryClient[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return reporter.Report()
+	return report()
 }
 
 func (*UnaryServer[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return reporter.Report()
+	return report()
 }
 
 // BindTo implements the BindableTransport interface.
@@ -94,7 +98,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 			Context:  ctx,
 			Target:   address.Newf("%s.%s", target, u.ServiceDesc.ServiceName),
 			Role:     freighter.RoleClient,
-			Protocol: reporter.Protocol,
+			Protocol: protocol,
 			Params:   make(freighter.Params),
 			Variant:  freighter.VariantUnary,
 		},
@@ -118,9 +122,9 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 					Role:     iCtx.Role,
 				}
 				if err != nil {
-					p := &errors.Payload{}
-					p.Unmarshal(status.Convert(err).Message())
-					return oCtx, errors.Decode(iCtx, *p)
+					return oCtx, u.Errors.Decode(
+						errors.ParsePayload(status.Convert(err).Message()),
+					)
 				}
 				res, err = u.ResponseTranslator.Backward(iCtx, tRes)
 				return oCtx, err
@@ -140,7 +144,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := freighter.Context{
 				Context:  ctx.Context,
-				Protocol: reporter.Protocol,
+				Protocol: protocol,
 				Target:   ctx.Target,
 				Params:   ctx.Params,
 				Role:     freighter.RoleServer,
@@ -164,7 +168,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 	)
 	if err != nil {
 		var zero RST
-		return zero, errors.Encode(ctx, err, u.Internal)
+		return zero, u.Errors.Encode(err, u.Internal)
 	}
 	return tRes, nil
 }

@@ -16,7 +16,7 @@ import {
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, deep, type record, verbs } from "@synnaxlabs/x";
+import { array, deep, record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -128,7 +128,7 @@ export const VISUALIZATIONS: Record<
   panel: (client) => client.panels,
 };
 
-export const VISUALIZATION_TYPES = Object.keys(VISUALIZATIONS) as VisualizationType[];
+export const VISUALIZATION_TYPES = record.keys(VISUALIZATIONS);
 
 export const isVisualizationType = (type: resource.Type): type is VisualizationType =>
   type in VISUALIZATIONS;

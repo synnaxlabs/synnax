@@ -49,6 +49,7 @@ func bigGraphArc(nodes int) arc.Base {
 }
 
 func benchHash(b *testing.B, a arc.Base) {
+	b.Helper()
 	b.ReportAllocs()
 	for b.Loop() {
 		if _, err := arc.Hash(a); err != nil {

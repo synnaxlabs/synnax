@@ -266,6 +266,14 @@ when most types need it, declare it file-level and omit the exceptions.
   `@go wire omit` keeps it out of JSON and msgpack (`json:"-" msgpack:"-"`), so the API
   can return a stored record without a secret. Both are version-owned.
 
+## Protobuf field numbers
+
+A message numbers its fields by position. To change a field's wire type, give it a new
+number with `@pb number N` and reserve the old one with `@pb reserved N` on the struct
+or inline union variant, so old and new readers skip each other's field. One
+`@pb reserved` line lists every reserved number. A number two fields share, or a field
+on a reserved number, fails generation.
+
 ## Path actions
 
 `@patch` marks a field of a document (a struct with `action Set = patch.Set`) that path
@@ -275,6 +283,23 @@ struct that a `@patch` field reaches, in the version package that declares the s
 struct with a hand-written Go JSON decoder, such as `color.Color`, declares
 `@go json hand` and gets no `Patch` method. Only a whole set changes it, and that set
 runs the decoder.
+
+`@patch` on a field of a list entry, such as `Node.config`, limits the paths into that
+entry to its `@patch` fields. A path that ends at the list or at one entry then fails,
+so only a declared action adds, removes, or replaces an entry. A struct with `@patch`
+fields that a document reaches outside a list fails generation.
+
+## Filters and sorted indexes
+
+A typed line of a `filter` calls `Match<Line>` in the Go package of its target, with the
+line's value. `@go match <Func>` on the line calls an existing matcher instead, such as
+`nested bool { @go match MatchHasParent }`. A line that takes an operator cannot carry
+it.
+
+`@index sorted` with several values on a struct field declares one sorted index per
+sub-field: `@index sorted start end` on `time_range` gives `OrderByTimeRangeStart` and
+`OrderByTimeRangeEnd`. Hand-written matchers filter each index by a range of values with
+`SortedIndex.FilterRange`.
 
 ## Rules
 

@@ -140,7 +140,7 @@ export const DefaultContextMenu = ({
   const { undo, canUndo } = useUndo({ key: resourceKey });
   const { redo, canRedo } = useRedo({ key: resourceKey });
   return (
-    <Menu.Menu level="small" gap="small">
+    <Menu.Menu gap="small">
       {editable && (
         <>
           <Menu.UndoRedoItems

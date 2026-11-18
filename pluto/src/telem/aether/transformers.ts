@@ -264,7 +264,7 @@ export class BandColor extends MultiSourceTransformer<
     phase = 0,
   }: Record<string, math.Numeric | string>): color.Color {
     const value = source === "" ? NaN : Number(source);
-    const background = this.props.background ?? color.ZERO;
+    const background = this.props.background ?? color.TRANSPARENT;
     const i = this.bands.findLastIndex(({ threshold }) => threshold <= value);
     if (i === -1) return background;
     const owner = this.bands[i];
@@ -273,8 +273,8 @@ export class BandColor extends MultiSourceTransformer<
     if (!this.props.smooth || next == null) return owner.color;
     return color.fromGradient(
       [
-        { key: "owner", position: owner.threshold, color: owner.color },
-        { key: "next", position: next.threshold, color: next.color },
+        { position: owner.threshold, color: owner.color },
+        { position: next.threshold, color: next.color },
       ],
       value,
     );

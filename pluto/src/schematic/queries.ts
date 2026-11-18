@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, query, schematic } from "@synnaxlabs/client";
-import { compare, verbs } from "@synnaxlabs/x";
+import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
+import { array, map, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -59,39 +59,70 @@ export const useAllNodes = Scope.bindHook(createSelector(({ nodes }) => nodes));
 
 export const useAllEdges = Scope.bindHook(createSelector(({ edges }) => edges));
 
-export const useAllConfigs = Scope.bindHook(createSelector(({ configs }) => configs));
+// Entry equality keeps the record's reference stable across edits that change no
+// config, such as a drag.
+const configsEqual = (
+  a: Record<string, ElementConfig>,
+  b: Record<string, ElementConfig>,
+): boolean => {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
+};
+
+export const useAllConfigs = Scope.bindHook(
+  createSelector((s, _, client) => client.schematics.configsOf(s), configsEqual),
+);
 
 // Value equality keeps the map's reference stable across unrelated config edits,
 // so consumers memoizing on it re-run only when group membership changes.
 export const useParentOf = Scope.bindHook(
-  createSelector(({ configs }) => Group.buildParentOf(configs), compare.mapsEqual),
+  createSelector(({ nodes }) => Group.buildParentOf(nodes), map.equal),
 );
 
 export interface ConfigParams extends KeyParams {
   elKey: string;
 }
 
+const configOf = (
+  { nodes, edges }: schematic.Schematic,
+  elKey: string,
+): ElementConfig | undefined =>
+  (nodes.find((n) => n.key === elKey) ?? edges.find((e) => e.key === elKey))?.config;
+
 export const useElementConfig = Scope.bindHook(
   createSelector<ElementConfig | undefined, ConfigParams>(
-    ({ configs }, { elKey }) => configs[elKey] as ElementConfig | undefined,
+    (s, { elKey }, client) => client.schematics.configsOf(s)[elKey],
   ),
 );
+
+const useField = Scope.bindHook(
+  createSelector<schematic.ElementField, ConfigParams>((s, { elKey }, client) => {
+    const config = client.schematics.configsOf(s)[elKey];
+    if (config == null) throw new NotFoundError(`Schematic element ${elKey} not found`);
+    return schematic.fieldOf(config);
+  }),
+);
+
+interface FieldConfigParams extends ConfigParams {
+  field: schematic.ElementField;
+}
 
 const useDocumentConfigForm = Flux.createDocumentForm<
   schematic.Key,
   schematic.Schematic,
   typeof elementConfigZ,
-  ConfigParams
+  FieldConfigParams
 >({
   name: "schematic element",
   schema: elementConfigZ,
   domain: (client) => client.schematics,
   useEnsure,
-  toValues: ({ configs }, { elKey }) => configs[elKey],
-  pathOf: ({ elKey }) => ["configs", elKey],
+  toValues: (s, { elKey }) => configOf(s, elKey),
+  pathOf: ({ field, elKey }) => [field, elKey, "config"],
 });
 
-const useConfigFormBase = (query: ConfigParams) => useDocumentConfigForm({ query });
+const useConfigFormBase = (query: ConfigParams) =>
+  useDocumentConfigForm({ query: { ...query, field: useField(query) } });
 
 /** A form over one element's config in the cached schematic. */
 export const useConfigForm = Scope.bindHook(useConfigFormBase);
@@ -101,14 +132,15 @@ export interface ConfigsParams extends KeyParams {
 }
 
 export const useConfigs = Scope.bindHook(
-  createSelector<Map<string, ElementConfig>, ConfigsParams>(({ configs }, { keys }) => {
+  createSelector<Map<string, ElementConfig>, ConfigsParams>((s, { keys }, client) => {
+    const configs = client.schematics.configsOf(s);
     const result = new Map<string, ElementConfig>();
     for (const elKey of keys) {
-      const cfg = configs?.[elKey];
+      const cfg = configs[elKey];
       if (cfg != null) result.set(elKey, cfg);
     }
     return result;
-  }, compare.mapsEqual),
+  }, map.equal),
 );
 
 export interface NodesParams extends KeyParams {
@@ -122,7 +154,7 @@ export const useNodes = Scope.bindHook(
       const keySet = new Set(keys);
       return nodes.filter((n) => keySet.has(n.key));
     },
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 
@@ -183,13 +215,13 @@ const augmentWithEdgeSegments = (
   const updates = Edge.Segmented.updateSegmentsForPositionChanges({
     nodes: current.nodes,
     edges: current.edges,
-    props: current.configs,
     changes,
   });
   if (updates.length === 0) return actions;
+  const edgeByKey = new Map(current.edges.map((e) => [e.key, e]));
   const extra = updates.flatMap((u) => {
-    const existing = current.configs[u.key];
-    if (existing == null || !("segments" in existing)) return [];
+    const existing = edgeByKey.get(u.key)?.config;
+    if (existing == null) return [];
     return schematic.setChanged({
       key: u.key,
       base: existing,
@@ -199,30 +231,23 @@ const augmentWithEdgeSegments = (
   return [...actions, ...extra];
 };
 
-const isEdgeConfig = (c: schematic.ElementConfig): c is schematic.EdgeConfig =>
-  c.variant in schematic.EDGE_CONFIG_SCHEMAS;
-
 // An edge added in this batch whose config names no stroke takes its source symbol's
 // stroke, so a pipe drawn out of a colored symbol matches it.
 const inheritEdgeColor = (
   current: schematic.Schematic,
   actions: schematic.Action[],
 ): schematic.Action[] => {
-  const added = new Map<string, schematic.Edge>();
-  for (const a of actions)
-    if (a.type === "add_edge") added.set(a.addEdge.edge.key, a.addEdge.edge);
-  if (added.size === 0) return actions;
+  if (!actions.some((a) => a.type === "add_edge")) return actions;
+  const nodeByKey = new Map(current.nodes.map((n) => [n.key, n]));
   return actions.map((a) => {
-    if (a.type !== "set_config") return a;
-    const { key, config } = a.setConfig;
-    const edge = added.get(key);
-    if (edge == null || !isEdgeConfig(config) || config.strokeColor != null) return a;
-    const source = current.configs[edge.source.node];
+    if (a.type !== "add_edge") return a;
+    const { edge } = a.addEdge;
+    if (edge.config.strokeColor != null) return a;
+    const source = nodeByKey.get(edge.source.node)?.config;
     if (source == null || !("strokeColor" in source) || source.strokeColor == null)
       return a;
-    return schematic.setConfig({
-      key,
-      config: { ...config, strokeColor: source.strokeColor },
+    return schematic.addEdge({
+      edge: { ...edge, config: { ...edge.config, strokeColor: source.strokeColor } },
     });
   });
 };
@@ -268,13 +293,10 @@ export const useGroup = (): ((selected: readonly string[]) => string[] | null) =
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.watch({ key }).getCached();
+    if (client == null) return null;
+    const s = client.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
-    const result = Group.createActions({
-      selected,
-      nodes: s.nodes,
-      configs: s.configs,
-    });
+    const result = Group.createActions({ selected, nodes: s.nodes });
     if (result == null) return null;
     dispatch(result.actions);
     return result.selection;
@@ -291,9 +313,10 @@ export const useUngroup = (): ((selected: readonly string[]) => string[] | null)
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.watch({ key }).getCached();
+    if (client == null) return null;
+    const s = client.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
-    const result = Group.ungroupActions(selected, s.configs);
+    const result = Group.ungroupActions(selected, s.nodes);
     if (result == null) return null;
     dispatch(result.actions);
     return result.freed;

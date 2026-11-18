@@ -191,16 +191,18 @@ func (u Certificate) Source() secret.Source {
 	return ""
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u Certificate) Validate() error {
+	v := validate.New("Certificate")
+	v.Ternary("source", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case StoredCertificate:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case FileCertificate:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.

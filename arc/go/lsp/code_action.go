@@ -94,8 +94,7 @@ func (s *Server) CodeAction(
 	}
 	for _, diag := range params.Context.Diagnostics {
 		code, _ := diag.Code.(protocol.String)
-		switch string(code) {
-		case string(codes.DeclarationAfterStep.Code):
+		if string(code) == string(codes.DeclarationAfterStep.Code) {
 			// One hoist covers the document, so every such warning shares it.
 			if hoist == nil {
 				hoist = hoistDeclarationsQuickFix(snap)

@@ -53,18 +53,8 @@ type Log struct {
 	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
 	// Group is the group the log sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the log.
+	// Project is the project that holds the log.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *Log) ApplyDefaults() {
-	if l.TimeZone == "" {
-		l.TimeZone = "local"
-	}
-	for i := range l.Channels {
-		l.Channels[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -96,8 +86,6 @@ func (l *Log) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (l Log) Validate() error {
 	v := validate.New("Log")
 	v.Ternaryf("time_zone", !l.TimeZone.IsValid(), "invalid time_zone: %v", l.TimeZone)
-	v.NotEmptyString("name", l.Name)
-	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}

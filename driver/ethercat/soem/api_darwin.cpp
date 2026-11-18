@@ -24,4 +24,8 @@ bool ProdAPI::dewesoft_filter_bound(const char *) {
 std::optional<std::string> ProdAPI::adapter_name(const char *) {
     return std::nullopt;
 }
+
+bool ProdAPI::on_usb(const char *) {
+    return false;
+}
 }

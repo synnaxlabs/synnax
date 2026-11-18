@@ -17,16 +17,20 @@ import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
+  awaitTare,
+  clickFailedDeploy,
   commitFieldInput,
   createTaskReadOnlyClient,
   createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskRunning,
   reportTaskStopped,
   selectFromDropdown,
+  START_FAILURE,
 } from "@/platform/task/testutil";
-import { getIconButton } from "@/testutil";
+import { findIconButton, getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -58,6 +62,33 @@ const createDraft = async (
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.READ_SCHEMAS);
 
 describe("Read", () => {
+  it("should tare a float channel from its button while the task runs", async () => {
+    const dev = await createModbusDevice(client);
+    const float = await client.channels.create({
+      name: uniqueName("tare"),
+      dataType: "float32",
+      virtual: true,
+    });
+    const entry = Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+      type: "holding_register",
+      key: id.create(),
+      address: 0,
+      dataType: "float32",
+      channel: float.key,
+    });
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [entry],
+    });
+    await reportTaskRunning(client, draft);
+    const args = await awaitTare(client, draft.key, async () => {
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await findIconButton(container, "tare"));
+    });
+    expect(args).toEqual({ keys: [float.key] });
+  });
+
   it("should build channels in the form and create them on the Core on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
@@ -303,6 +334,28 @@ describe("Read", () => {
     commitFieldInput(address, "300004");
     await screen.findByText("300004");
     expect(address.getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("should leave an address that two channels read to its field on Start", async () => {
+    const dev = await createModbusDevice(client);
+    const holding = () =>
+      Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+        type: "holding_register",
+        key: id.create(),
+        address: 10,
+        dataType: "uint16",
+      });
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [holding(), holding()],
+    });
+    const onStatuses = vi.fn();
+    const { container } = await renderRead({ client, taskKey: draft.key, onStatuses });
+    await clickFailedDeploy(container);
+    const addresses = screen.getAllByLabelText("Address");
+    expect(addresses[1].getAttribute("aria-invalid")).toBe("true");
+    expect(onStatuses.mock.calls.flat(2)).not.toContainEqual(START_FAILURE);
   });
 
   describe("byte and word order", () => {

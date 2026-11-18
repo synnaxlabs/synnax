@@ -119,6 +119,24 @@ export const openToolbar = async (
 };
 
 /**
+ * openSettings opens the Settings tab from the gear in the top bar and selects
+ * `section` (e.g. "Users") in its section list, as recorded input.
+ */
+export const openSettings = async (
+  session: CaptureSession,
+  section: string,
+): Promise<void> => {
+  const { page } = session;
+  await session.click(page.getByRole("button", { name: "Settings", exact: true }), {
+    zoom: false,
+  });
+  const item = page.getByRole("menuitem", { name: section, exact: true }).first();
+  await session.waitFor(item);
+  await session.click(item, { text: true, zoom: false });
+  await session.waitFor(page.getByRole("heading", { name: section, exact: true }));
+};
+
+/**
  * resizeToolbar sets the open left drawer's width by dragging its resize handle, then
  * returns the cursor to the drawer's main-nav icon. The width is per-rail state, so a
  * setup-time resize persists for every toolbar opened on that rail during recording.

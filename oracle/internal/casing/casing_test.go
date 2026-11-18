@@ -150,6 +150,13 @@ var _ = Describe("VariantTypeName", func() {
 		Entry("ci union", "CIChannel", "ci_two_edge_sep", "CITwoEdgeSepChannel"),
 		Entry("ao union", "AOChannel", "ao_voltage", "AOVoltageChannel"),
 		Entry("plain union takes the variant first", "Scale", "linear", "LinearScale"),
+		Entry("json variant", "Payload", "json", "JSONPayload"),
+		Entry(
+			"variant that is the whole acronym keeps it twice",
+			"JSONField",
+			"json",
+			"JSONJSONField",
+		),
 		Entry(
 			"plain union with a multi-word variant",
 			"ReadChannel",

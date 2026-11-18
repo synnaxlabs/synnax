@@ -38,8 +38,8 @@ const (
 	FlexAlignmentStretch FlexAlignment = v3.FlexAlignmentStretch
 )
 
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
+// CellConfig is the configuration of one cell. The variant selects which Pluto cell
+// component renders the cell.
 type CellConfig = v3.CellConfig
 
 // CellConfigVariant is implemented by every CellConfig variant.
@@ -91,20 +91,6 @@ type Table struct {
 	// Range is the range that owns the table, if any. Exactly one of project and range
 	// is set.
 	Range *ranger.Key `json:"range,omitzero" msgpack:"range,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *Table) ApplyDefaults() {
-	for i := range t.Rows {
-		t.Rows[i].ApplyDefaults()
-	}
-	for i := range t.Columns {
-		t.Columns[i].ApplyDefaults()
-	}
-	for key, value := range t.Cells {
-		value.ApplyDefaults()
-		t.Cells[key] = value
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

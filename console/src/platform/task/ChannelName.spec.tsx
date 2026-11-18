@@ -58,6 +58,14 @@ describe("ChannelName", () => {
     );
   });
 
+  it("should show the default name of a new channel that the form names nowhere", async () => {
+    await renderInTaskForm(<Task.ChannelName channel={0} defaultName="pressure_0" />, {
+      values: { config: { name: "" } },
+    });
+    await waitFor(() => expect(screen.getByText("pressure_0")).toBeTruthy());
+    expect(screen.getByRole("img", { name: "New channel" })).toBeTruthy();
+  });
+
   it("should mark a named channel with no default as new", async () => {
     await renderInTaskForm(
       <Task.ChannelName channel={0} namePath={path.config.name} />,

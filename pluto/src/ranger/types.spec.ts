@@ -25,6 +25,7 @@ const PAYLOAD: ranger.Payload = {
   name: "Test Range",
   timeRange: new TimeRange(TimeStamp.now(), TimeStamp.now().add(TimeStamp.SECOND)),
   labels: [],
+  hasChildren: false,
 };
 
 const OTHER: Haul.Item = { type: "other_type", key: "other" };

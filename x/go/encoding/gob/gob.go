@@ -15,7 +15,6 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/x/encoding"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // Codec is a gob implementation of encoding.Codec.
@@ -29,8 +28,7 @@ func (c *codec) Decode(data []byte, value any) error {
 
 func (*codec) DecodeStream(r io.Reader, value any) error {
 	if err := gob.NewDecoder(r).Decode(value); err != nil {
-		data, ioErr := io.ReadAll(r)
-		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
+		return encoding.SugarDecodingError(value, err)
 	}
 	return nil
 }

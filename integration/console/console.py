@@ -18,6 +18,7 @@ from console.channels import ChannelClient
 from console.cluster import ClusterClient
 from console.devices import DevicesClient
 from console.docs import DocsClient
+from console.enumerations import EnumerationClient
 from console.labels import LabelClient
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
@@ -25,6 +26,7 @@ from console.pages import PagesClient
 from console.panels import PanelsClient
 from console.project import ProjectClient
 from console.range import Client as RangesClient
+from console.secrets import CertificateClient, SecretClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
 
@@ -44,11 +46,14 @@ class Console:
     client: sy.Synnax
     cluster: ClusterClient
     docs: DocsClient
+    enumerations: EnumerationClient
     labels: LabelClient
+    certificates: CertificateClient
     layout: LayoutClient
     notifications: NotificationsClient
     devices: DevicesClient
     ranges: RangesClient
+    secrets: SecretClient
     statuses: StatusesClient
     tasks: TaskClient
     project: ProjectClient
@@ -63,6 +68,9 @@ class Console:
         self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
         self.labels = LabelClient(layout=self.layout, client=self.client)
+        self.enumerations = EnumerationClient(layout=self.layout, client=self.client)
+        self.secrets = SecretClient(self.layout)
+        self.certificates = CertificateClient(self.layout)
         self.devices = DevicesClient(layout=self.layout, client=self.client)
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)

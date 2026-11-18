@@ -12,7 +12,7 @@ import { color } from "@synnaxlabs/x";
 /**
  * Creates a set of CSS variables representing different opacities of a given color.
  * @param prefix - The prefix to use for the CSS variable names.
- * @param opacities - A list of the opacities to create
+ * @param opacities - A list of the opacities to create, as percentages
  * @returns Record mapping the CSS variable names to their values.
  */
 export const createHexOpacityVariants = (
@@ -21,8 +21,5 @@ export const createHexOpacityVariants = (
   opacities: readonly number[],
 ): Record<string, string> =>
   Object.fromEntries(
-    opacities.map((o) => [
-      `${prefix}-${o}`,
-      color.hex(color.setAlpha(color.construct(hex), o)),
-    ]),
+    opacities.map((o) => [`${prefix}-${o}`, color.hex(color.setOpacity(hex, o / 100))]),
   );

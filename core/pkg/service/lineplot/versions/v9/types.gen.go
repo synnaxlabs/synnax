@@ -158,21 +158,8 @@ type LinePlot struct {
 	Rules []Rule `json:"rules" msgpack:"rules"`
 	// Group is the group the line plot sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
-	// Project is the project that owns the line plot.
+	// Project is the project that holds the line plot.
 	Project *project.Key `json:"project,omitzero" msgpack:"project,omitempty"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinePlot) ApplyDefaults() {
-	l.Title.ApplyDefaults()
-	l.Legend.ApplyDefaults()
-	l.Axes.ApplyDefaults()
-	for i := range l.Lines {
-		l.Lines[i].ApplyDefaults()
-	}
-	for i := range l.Rules {
-		l.Rules[i].ApplyDefaults()
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -205,9 +192,11 @@ func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	v.NotEmptyString("name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
+	for i := range l.Ranges {
+		v.Exec(func() error { return validate.PathedError(l.Ranges[i].Validate(), "ranges", strconv.Itoa(i)) })
+	}
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
 	for i := range l.Lines {
 		v.Exec(func() error { return validate.PathedError(l.Lines[i].Validate(), "lines", strconv.Itoa(i)) })

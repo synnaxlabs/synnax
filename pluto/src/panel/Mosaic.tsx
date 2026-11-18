@@ -422,11 +422,7 @@ export const Mosaic = ({
   const menuProps = Menu.useContextMenu();
   const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (props) => {
     const tabKey: panel.TabKey | undefined = props.keys[0];
-    const content = (
-      <Menu.Menu level="small" gap="small">
-        {contextMenu?.(props)}
-      </Menu.Menu>
-    );
+    const content = <Menu.Menu gap="small">{contextMenu?.(props)}</Menu.Menu>;
     if (tabKey == null) return content;
     return <TabScope.Provider value={tabKey}>{content}</TabScope.Provider>;
   };

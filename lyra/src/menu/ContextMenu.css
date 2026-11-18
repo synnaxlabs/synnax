@@ -12,14 +12,18 @@
 .lyra-menu-context {
     position: fixed;
     z-index: 8;
+
+    /* The menu keeps its width while it filters. */
+    min-width: min(32rem, 100vw);
     /* stylelint-disable-next-line declaration-no-important -- outranks the bordered Box
        rule */
     border: var(--pluto-border-l6) !important;
-    background-color: var(--pluto-gray-l2);
+    background-color: var(--pluto-gray-l1-l2);
 
     --pluto-fill-rest: var(--pluto-gray-l3);
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
+    --pluto-btn-transition: none;
 
     box-shadow: var(--pluto-shadow-overlay);
     border-radius: var(--pluto-border-radius-large);

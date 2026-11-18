@@ -13,7 +13,7 @@ import { type ClipboardEvent, type RefObject, useRef } from "react";
 
 import { type ClipboardHandler } from "@/vis/diagram/Diagram";
 
-const VERSION = 1;
+const VERSION = 2;
 
 interface Payload<N, E, C> {
   version: number;

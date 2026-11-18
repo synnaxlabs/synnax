@@ -42,78 +42,61 @@ type benchStreamerEnv struct {
 	streamerSvc *streamer.Service
 }
 
+// mustOpen fails the benchmark with a message naming what when err is not nil.
+func mustOpen[T any](b *testing.B, what string, v T, err error) T {
+	b.Helper()
+	if err != nil {
+		b.Fatalf("failed to open %s: %v", what, err)
+	}
+	return v
+}
+
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
+	b.Helper()
 	RegisterTestingT(b)
-	node := testutil.OpenNode(b.Context())
-
-	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
-		DB: node.DB,
-	})
-	if err != nil {
-		b.Fatalf("failed to open group service: %v", err)
-	}
-
-	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
-		DB: node.DB,
-	})
-	if err != nil {
-		b.Fatalf("failed to open label service: %v", err)
-	}
-
-	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
-		DB: node.DB,
-	})
-	if err != nil {
-		b.Fatalf("failed to open status service: %v", err)
-	}
-
-	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
+	ctx := b.Context()
+	node := testutil.OpenNode(ctx)
+	groupSvc, err := group.OpenService(ctx, group.ServiceConfig{DB: node.DB})
+	groupSvc = mustOpen(b, "group service", groupSvc, err)
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{DB: node.DB})
+	labelSvc = mustOpen(b, "label service", labelSvc, err)
+	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{DB: node.DB})
+	statusSvc = mustOpen(b, "status service", statusSvc, err)
+	channelSvc, err := channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
 	})
-	if err != nil {
-		b.Fatalf("failed to open channel service: %v", err)
-	}
+	channelSvc = mustOpen(b, "channel service", channelSvc, err)
 	writerSvc, err := writer.NewService(writer.ServiceConfig{
 		DB:      node.DB,
 		Framer:  node.Framer,
 		Channel: channelSvc,
 	})
-	if err != nil {
-		b.Fatalf("failed to open writer service: %v", err)
-	}
-	channelGraph, err := calcgraph.Open(b.Context(), calcgraph.Config{
+	writerSvc = mustOpen(b, "writer service", writerSvc, err)
+	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
 		DB:      node.DB,
 		Channel: channelSvc,
 		Status:  statusSvc,
 	})
-	if err != nil {
-		b.Fatalf("failed to open channel calculation graph: %v", err)
-	}
-	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
+	channelGraph = mustOpen(b, "channel calculation graph", channelGraph, err)
+	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:           node.DB,
 		Framer:       node.Framer,
 		Writer:       writerSvc,
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	})
-	if err != nil {
-		b.Fatalf("failed to open calculation service: %v", err)
-	}
-
+	calc = mustOpen(b, "calculation service", calc, err)
 	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
 		Framer:      node.Framer,
 		Channel:     channelSvc,
 		Calculation: calc,
 	})
-	if err != nil {
-		b.Fatalf("failed to open streamer service: %v", err)
-	}
-
+	streamerSvc = mustOpen(b, "streamer service", streamerSvc, err)
 	return &benchStreamerEnv{
-		ctx:  b.Context(),
+		ctx:  ctx,
 		node: node,
 		closer: io.MultiCloser{
 			calc, channelSvc, statusSvc, labelSvc, groupSvc, node,
@@ -124,6 +107,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 }
 
 func (e *benchStreamerEnv) close(b *testing.B) {
+	b.Helper()
 	if err := e.closer.Close(); err != nil {
 		b.Errorf("failed to close env: %v", err)
 	}
@@ -133,6 +117,7 @@ func (e *benchStreamerEnv) createVirtualChannel(
 	b *testing.B,
 	name string,
 ) *channel.Channel {
+	b.Helper()
 	ch := &channel.Channel{
 		Name:     name,
 		DataType: telem.Float32T,
@@ -151,6 +136,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 	prefix string,
 	numDataChannels int,
 ) (*channel.Channel, []*channel.Channel) {
+	b.Helper()
 	indexCh := &channel.Channel{
 		Name:     prefix + "_time",
 		DataType: telem.TimestampT,
@@ -181,6 +167,7 @@ func (e *benchStreamerEnv) createCalculation(
 	b *testing.B,
 	name, expression string,
 ) *channel.Channel {
+	b.Helper()
 	calc := &channel.Channel{
 		Name:       name,
 		DataType:   telem.Float32T,
@@ -192,6 +179,74 @@ func (e *benchStreamerEnv) createCalculation(
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc
+}
+
+// benchPipeline is a writer on writerKeys and a running streamer that has sent its
+// open ack.
+type benchPipeline struct {
+	w      *framer.Writer
+	inlet  confluence.Inlet[streamer.Request]
+	outlet confluence.Outlet[streamer.Response]
+	cancel context.CancelFunc
+}
+
+// openPipeline opens a writer on writerKeys and a streamer with cfg, waits for the
+// open ack, then waits for settle.
+func (e *benchStreamerEnv) openPipeline(
+	b *testing.B,
+	writerKeys []channel.Key,
+	cfg streamer.Config,
+	settle time.Duration,
+) *benchPipeline {
+	b.Helper()
+	w, err := e.node.Framer.OpenWriter(e.ctx, framer.WriterConfig{
+		Start: telem.SecondTS,
+		Keys:  writerKeys,
+	})
+	if err != nil {
+		b.Fatalf("failed to open writer: %v", err)
+	}
+	p := &benchPipeline{w: w}
+	cfg.SendOpenAck = true
+	s, err := e.streamerSvc.New(e.ctx, cfg)
+	if err != nil {
+		p.closeWriter(b)
+		b.Fatalf("failed to create streamer: %v", err)
+	}
+	var sCtx signal.Context
+	sCtx, p.cancel = signal.Isolated()
+	p.inlet, p.outlet = confluence.Attach(s)
+	s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	<-p.outlet.Outlet()
+	time.Sleep(settle)
+	return p
+}
+
+func (p *benchPipeline) closeWriter(b *testing.B) {
+	b.Helper()
+	if err := p.w.Close(); err != nil {
+		b.Errorf("failed to close writer: %v", err)
+	}
+}
+
+func (p *benchPipeline) close(b *testing.B) {
+	b.Helper()
+	p.cancel()
+	p.closeWriter(b)
+}
+
+// writeAndAwait writes fr and waits for one streamer response, failing the benchmark
+// on a timeout.
+func (p *benchPipeline) writeAndAwait(b *testing.B, fr frame.Frame, iteration int) {
+	b.Helper()
+	if _, err := p.w.Write(fr); err != nil {
+		b.Fatalf("failed to write: %v", err)
+	}
+	select {
+	case <-p.outlet.Outlet():
+	case <-time.After(500 * time.Millisecond):
+		b.Fatalf("timeout waiting for streamer response on iteration %d", iteration)
+	}
 }
 
 func BenchmarkStreamerCalc_Throughput(b *testing.B) {
@@ -237,7 +292,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if _, err := w.Write(fr); err != nil {
 			b.Fatalf("failed to write: %v", err)
 		}
@@ -294,7 +349,7 @@ func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := w.Write(fr); err != nil {
 					b.Fatalf("failed to write: %v", err)
 				}
@@ -315,39 +370,18 @@ func BenchmarkStreamerCalc_WithCalculation(b *testing.B) {
 	calc := env.createCalculation(b, "calc_sum", "return calc_sensor_0 + calc_sensor_1")
 	keys := []channel.Key{indexCh.Key(), dataChannels[0].Key(), dataChannels[1].Key()}
 
-	w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
-		Start: telem.SecondTS,
-		Keys:  keys,
-	})
-	if err != nil {
-		b.Fatalf("failed to open writer: %v", err)
-	}
-	defer func() {
-		if err := w.Close(); err != nil {
-			b.Errorf("failed to close writer: %v", err)
-		}
-	}()
-
-	s, err := env.streamerSvc.New(env.ctx, streamer.Config{
-		Keys:        []channel.Key{calc.Key()},
-		SendOpenAck: true,
-	})
-	if err != nil {
-		b.Fatalf("failed to create streamer: %v", err)
-	}
-
-	sCtx, cancel := signal.Isolated()
-	defer cancel()
-	inlet, outlet := confluence.Attach(s)
-	s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	<-outlet.Outlet()
-	time.Sleep(100 * time.Millisecond)
+	p := env.openPipeline(
+		b,
+		keys,
+		streamer.Config{Keys: []channel.Key{calc.Key()}},
+		100*time.Millisecond,
+	)
+	defer p.close(b)
 
 	const samplesPerFrame = 100
-	timeout := 500 * time.Millisecond
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		baseTS := telem.TimeStamp(i*samplesPerFrame+1) * telem.SecondTS
 		timestamps := make([]telem.TimeStamp, samplesPerFrame)
 		data1 := make([]float32, samplesPerFrame)
@@ -357,22 +391,14 @@ func BenchmarkStreamerCalc_WithCalculation(b *testing.B) {
 			data1[j] = float32(j)
 			data2[j] = float32(j * 2)
 		}
-		fr := frame.NewMulti(keys, []telem.Series{
+		p.writeAndAwait(b, frame.NewMulti(keys, []telem.Series{
 			telem.NewSeriesV(timestamps...),
 			telem.NewSeriesV(data1...),
 			telem.NewSeriesV(data2...),
-		})
-		if _, err := w.Write(fr); err != nil {
-			b.Fatalf("failed to write: %v", err)
-		}
-		select {
-		case <-outlet.Outlet():
-		case <-time.After(timeout):
-			b.Fatalf("timeout waiting for streamer response on iteration %d", i)
-		}
+		}), i)
 	}
 	b.StopTimer()
-	inlet.Close()
+	p.inlet.Close()
 	b.ReportMetric(float64(samplesPerFrame*b.N)/b.Elapsed().Seconds(), "samples/sec")
 }
 
@@ -421,7 +447,7 @@ func BenchmarkStreamerCalc_FrameSize(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := w.Write(fr); err != nil {
 					b.Fatalf("failed to write: %v", err)
 				}
@@ -460,39 +486,18 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 
 			keys := []channel.Key{indexCh.Key(), dataChannels[0].Key()}
 
-			w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
-				Start: telem.SecondTS,
-				Keys:  keys,
-			})
-			if err != nil {
-				b.Fatalf("failed to open writer: %v", err)
-			}
-			defer func() {
-				if err := w.Close(); err != nil {
-					b.Errorf("failed to close writer: %v", err)
-				}
-			}()
-
-			s, err := env.streamerSvc.New(env.ctx, streamer.Config{
-				Keys:        []channel.Key{finalCalc.Key()},
-				SendOpenAck: true,
-			})
-			if err != nil {
-				b.Fatalf("failed to create streamer: %v", err)
-			}
-
-			sCtx, cancel := signal.Isolated()
-			defer cancel()
-			inlet, outlet := confluence.Attach(s)
-			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-			<-outlet.Outlet()
-			time.Sleep(100 * time.Millisecond)
+			p := env.openPipeline(
+				b,
+				keys,
+				streamer.Config{Keys: []channel.Key{finalCalc.Key()}},
+				100*time.Millisecond,
+			)
+			defer p.close(b)
 
 			const samplesPerFrame = 100
-			timeout := 500 * time.Millisecond
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for i := range b.N {
 				baseTS := telem.TimeStamp(i*samplesPerFrame+1) * telem.SecondTS
 				timestamps := make([]telem.TimeStamp, samplesPerFrame)
 				data := make([]float32, samplesPerFrame)
@@ -500,21 +505,13 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 					timestamps[j] = baseTS + telem.TimeStamp(j)*telem.SecondTS
 					data[j] = float32(j)
 				}
-				fr := frame.NewMulti(keys, []telem.Series{
+				p.writeAndAwait(b, frame.NewMulti(keys, []telem.Series{
 					telem.NewSeriesV(timestamps...),
 					telem.NewSeriesV(data...),
-				})
-				if _, err := w.Write(fr); err != nil {
-					b.Fatalf("failed to write: %v", err)
-				}
-				select {
-				case <-outlet.Outlet():
-				case <-time.After(timeout):
-					b.Fatalf("timeout waiting for streamer response on iteration %d", i)
-				}
+				}), i)
 			}
 			b.StopTimer()
-			inlet.Close()
+			p.inlet.Close()
 			b.ReportMetric(
 				float64(samplesPerFrame*b.N)/b.Elapsed().Seconds(),
 				"samples/sec",

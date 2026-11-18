@@ -31,14 +31,10 @@ export interface Params<S, A extends Action> {
   client: Synnax;
   /** Session store, for state pulls, subscriptions, and dispatch. */
   store: Store<S, A>;
-}
-
-/** Dependencies the host hands to a reconcile. */
-export interface ReconcileParams<S, A extends Action> extends Params<S, A> {
   /**
-   * Whether the pass ended because the client changed, the Core reset, or the client
-   * closed. The store may then hold another Core's state, so a reconcile checks it
-   * before it dispatches after an await.
+   * Whether the callback's work ended because the client changed or closed, or, for a
+   * reconcile, because the Core reset. The store may then hold another Core's state, so
+   * a callback checks it before it dispatches or reports a failure after an await.
    */
   ended: () => boolean;
 }
@@ -53,7 +49,7 @@ export interface Callbacks<S, A extends Action> {
    * Idempotent boundary repair. Pulls state at call time. Absent only for a
    * synchronizer holding no session state to repair.
    */
-  reconcile?: (params: ReconcileParams<S, A>) => void | Promise<void>;
+  reconcile?: (params: Params<S, A>) => void | Promise<void>;
   /** Mounts steady-state subscriptions: client feeds and store watches. */
   listen?: (params: Params<S, A>) => destructor.Destructor;
 }

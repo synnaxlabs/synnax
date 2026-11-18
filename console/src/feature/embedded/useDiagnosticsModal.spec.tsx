@@ -62,7 +62,14 @@ const DIAGNOSTICS = {
     readies: 2,
     readyAt: 1790014509000,
     timeToReadyMs: 420,
-    lastExit: { reason: "crashed", message: "exited with 3", uptimeSeconds: 12 },
+    lastExit: {
+      reason: "crashed",
+      message: "exited with 3",
+      uptimeSeconds: 12,
+      exitCode: 3,
+    },
+    waits: 0,
+    lastWaitMs: null,
   },
   dataDir: "/data/synnax",
   logDir: "/logs/synnax",
@@ -341,7 +348,11 @@ describe("Embedded diagnostics", () => {
   });
 
   it("should restart a stopped Synnax without a confirmation", async () => {
-    const { commands } = await openDiagnostics({ state: "failed", message: "gave up" });
+    const { commands } = await openDiagnostics({
+      state: "failed",
+      reason: "crashed",
+      message: "gave up",
+    });
     expect(await screen.findByText("gave up")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));
     await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_restart"));

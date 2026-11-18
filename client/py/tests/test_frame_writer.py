@@ -9,14 +9,14 @@
 
 import asyncio
 from types import MappingProxyType
-from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 import pytest
+from pydantic import BaseModel
 
 import synnax as sy
-from freighter import EOF, WebsocketClient
+from freighter import EOF, Middleware, Stream
 from freighter.mock import MockUnaryClient
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import create_registry
@@ -25,8 +25,6 @@ from synnax.framer.frame import FramePayload
 from synnax.framer.writer import (
     Writer,
     WriterCommand,
-    WriterRequest,
-    WriterResponse,
 )
 from tests.channel import RetrieveCounter
 from x.codec import Codec
@@ -378,7 +376,7 @@ class TestWriter:
         """Should raise a validation error when writing timestamps that are out of
         order"""
         time_ch, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError, match="commit timestamp"):
+        with pytest.raises(sy.ValidationError, match="must not be before"):
             with client.open_writer(
                 start=sy.TimeSpan.SECOND,
                 channels=[time_ch.key, data_ch.key],
@@ -560,7 +558,7 @@ class TestWriter:
     def test_commit_result_stream_ended_during_commit(self) -> None:
         transport = _EndableTransport()
         writer = _open_endable(transport)
-        transport.stream_.ended = True
+        transport.end.ended = True
         with pytest.raises(EOF):
             writer.commit_result()
 
@@ -964,18 +962,26 @@ class TestWriter:
         assert list(f) == ["line1\nline2", "no newline"]
 
 
-class _EndableStream:
-    """A writer stream that a spec can end as the Core would."""
+class _End:
+    """Whether a spec ended the writer stream, as the Core would."""
 
     ended = False
     send_closed = False
 
-    def send(self, req: WriterRequest) -> None: ...
 
-    def receive(self, timeout: float | None = None) -> WriterResponse:
-        if self.ended or self.send_closed:
+class _EndableStream[RQ: BaseModel, RS: BaseModel]:
+    """A writer stream that a spec can end as the Core would."""
+
+    def __init__(self, res_t: type[RS], end: _End) -> None:
+        self._res_t = res_t
+        self._end = end
+
+    def send(self, request: RQ) -> None: ...
+
+    def receive(self, *, timeout: float | None = None) -> RS:
+        if self._end.ended or self._end.send_closed:
             raise EOF()
-        return WriterResponse(
+        return self._res_t(
             command=WriterCommand.OPEN,
             end=sy.TimeStamp(0),
             err=ExceptionPayload(type=None, data=None),
@@ -986,26 +992,30 @@ class _EndableStream:
         return False
 
     def close_send(self) -> None:
-        self.send_closed = True
+        self._end.send_closed = True
 
 
 class _EndableTransport:
     """A stream transport whose writer stream a spec can end."""
 
     def __init__(self) -> None:
-        self.stream_ = _EndableStream()
+        self.end = _End()
+
+    def use(self, *middleware: Middleware) -> None: ...
 
     def with_codec(self, codec: Codec) -> "_EndableTransport":
         return self
 
-    def stream(self, target: str, req_t: Any, res_t: Any) -> _EndableStream:
-        return self.stream_
+    def stream[RQ: BaseModel, RS: BaseModel](
+        self, target: str, req_t: type[RQ], res_t: type[RS]
+    ) -> Stream[RQ, RS]:
+        return _EndableStream[RQ, RS](res_t, self.end)
 
 
 def _open_endable(transport: _EndableTransport) -> Writer:
     return Writer(
         start=None,
-        client=cast(WebsocketClient, transport),
+        client=transport,
         registry=create_registry(),
         adapter=WriteFrameAdapter(retriever=Retriever(client=MockUnaryClient())),
     )

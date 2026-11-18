@@ -937,13 +937,6 @@ type AnalogInputPort struct {
 	Negative uint16 `json:"negative" msgpack:"negative"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AnalogInputPort) ApplyDefaults() {
-	if a.DefaultTerminalConfig == "" {
-		a.DefaultTerminalConfig = TerminalConfigCfgDefault
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (a *AnalogInputPort) SetDefaults() {
 	a.DefaultTerminalConfig = TerminalConfigCfgDefault
@@ -1054,17 +1047,14 @@ type Hardware struct {
 	AoCurrentRanges []spatial.Bounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (h *Hardware) ApplyDefaults() {
-	for i := range h.AnalogInputs {
-		h.AnalogInputs[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (h Hardware) Validate() error {
 	v := validate.New("Hardware")
+	v.GreaterThanEq("ai_min_rate", h.AiMinRate, 0)
+	v.GreaterThanEq("ai_max_single_channel_rate", h.AiMaxSingleChannelRate, 0)
+	v.GreaterThanEq("ai_max_multi_channel_rate", h.AiMaxMultiChannelRate, 0)
+	v.GreaterThanEq("ao_max_rate", h.AoMaxRate, 0)
 	for i := range h.AnalogInputs {
 		v.Exec(func() error {
 			return validate.PathedError(h.AnalogInputs[i].Validate(), "analog_inputs", strconv.Itoa(i))

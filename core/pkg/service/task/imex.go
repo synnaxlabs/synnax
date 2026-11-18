@@ -108,7 +108,7 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 			validate.ErrValidation, "unknown task type %q", env.Type,
 		)
 	}
-	body, err := env.Decode[map[string]any](ctx)
+	body, err := env.Decode[map[string]any]()
 	if err != nil {
 		return nil, err
 	}

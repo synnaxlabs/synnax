@@ -20,7 +20,8 @@
 
 namespace x::color {
 
-/// @brief Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
+/// @brief Color is an RGBA color with every component 0-255. A default Color is opaque
+/// black.
 struct Color {
     /// @brief r is the red component (0-255).
     std::uint8_t r = 0;
@@ -28,18 +29,21 @@ struct Color {
     std::uint8_t g = 0;
     /// @brief b is the blue component (0-255).
     std::uint8_t b = 0;
-    /// @brief a is the alpha component (0-1).
-    double a = 0;
+    /// @brief a is the alpha component (0-255).
+    std::uint8_t a = 255;
 
-    /// @brief parses a color from a JSON parser. Accepts a hex string ("#ff0000" or
-    /// "#ff000080"), an [R, G, B] or [R, G, B, A] array, an {r, g, b, a} object, or a
-    /// legacy {"rgba255": [R, G, B, A]} object. An alpha above 1 is lifted from the
-    /// legacy 0-255 scale onto 0-1. JSON null and the empty string both parse to the
-    /// zero Color. Mirrors the Go color.Color decoders.
-    static Color parse(x::json::Parser parser);
+    bool operator==(const Color &) const = default;
 
-    /// @brief serializes the color to its {r, g, b, a} JSON representation.
+    /// @brief parses a color from a JSON string in any form x::color::parse accepts.
+    /// Accumulates an error on the parser for any other JSON value.
+    static Color parse(const x::json::Parser &parser);
+
+    /// @brief serializes the color to its hex string.
     [[nodiscard]] x::json::json to_json() const;
+
+    /// @brief returns the color as a lowercase "#rrggbb" string when it is opaque, and
+    /// as "#rrggbbaa" otherwise.
+    [[nodiscard]] std::string hex() const;
 
     using proto_type = ::x::color::pb::Color;
 
@@ -51,7 +55,10 @@ struct Color {
     from_proto(const ::x::color::pb::Color &pb);
 };
 
-/// @brief from_css parses a CSS color: a '#'-prefixed hex or an rgb()/rgba() value.
-/// Mirrors the Go color.FromCSS.
-std::pair<Color, x::errors::Error> from_css(const std::string &input);
+/// @brief parses a color string. Accepts a CSS color name or the transparent keyword,
+/// hex with an optional '#' and 3, 4, 6, or 8 digits, rgb() or rgba(), and hsl() or
+/// hsla(), in comma or space syntax with an optional 0-1 or percentage alpha. A value
+/// without an alpha is opaque.
+/// @returns a validation error for any other string or an out-of-range value.
+std::pair<Color, x::errors::Error> parse(const std::string &input);
 }

@@ -17,6 +17,7 @@ import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/patch"
 import "schemas/x/spatial"
+import "schemas/x/telem"
 import "schemas/x/text"
 
 @go output "core/pkg/service/schematic"
@@ -41,6 +42,17 @@ Node struct {
             actions.
         """
     }
+    config   NodeConfig {
+        @doc value "is the symbol the node draws and its settings."
+        @patch
+    }
+    parent   string?    {
+        @doc value """
+            is the key of the group box node that contains the node. Absent when the
+            node is at the top level.
+        """
+        @patch
+    }
 
     @doc value  "is a diagram node representing a symbol in the schematic."
     @go marshal
@@ -62,14 +74,18 @@ Handle struct {
 }
 
 Edge struct {
-    key    string {
+    key    string     {
         @doc value "is the unique edge identifier within the schematic."
     }
-    source Handle {
+    source Handle     {
         @doc value "is the source endpoint of the edge."
     }
-    target Handle {
+    target Handle     {
         @doc value "is the target endpoint of the edge."
+    }
+    config EdgeConfig {
+        @doc value "is the style of the connection and the path it traces."
+        @patch
     }
 
     @doc value  "is a connection between two nodes in the schematic."
@@ -98,6 +114,11 @@ SegmentedEdgeConfig struct {
             the source handle to the target handle.
         """
     }
+    stroke_width uint8 = 2 {
+        @doc value    "is the stroke width of the edge in pixels."
+        @validate max 20
+        @validate min 1
+    }
 
     @doc value  "is the configuration shared by every segmented edge variant."
     @go marshal
@@ -113,8 +134,8 @@ EdgeConfig union on variant {
     data      SegmentedEdgeConfig
 
     @doc value  """
-        is the per-edge configuration stored in the schematic configs map. The variant
-        selects the visual style of the connection.
+        is the configuration of one edge. The variant selects the visual style of the
+        connection.
     """
     @go marshal
 }
@@ -186,8 +207,11 @@ LabelConfig struct {
     direction       spatial.Direction = spatial.DirectionX {
         @doc value "is the axis along which the label text flows."
     }
-    max_inline_size float64 = 150 {
-        @doc value "is the maximum inline size of the label in pixels before wrapping."
+    max_inline_size uint16 = 150 {
+        @doc value    """
+            is the maximum inline size of the label in pixels before wrapping.
+        """
+        @validate min 1
     }
     align           FlexAlignment = FlexAlignmentCenter {
         @doc value "is the alignment of the label text within its box."
@@ -238,17 +262,26 @@ ControlStateConfig struct {
 }
 
 ToggleConfig struct extends LabeledConfig, ScaledConfig, StalenessConfig {
-    state_channel   channel.Key?        {
-        @doc value "is the channel whose value drives the symbol's active state."
+    state_channel   channel.Key = 0 {
+        @doc value """
+            is the channel whose value drives the symbol's active state, or 0 when none
+            does.
+        """
     }
-    command_channel channel.Key?        {
-        @doc value "is the channel actuation commands are written to."
+    command_channel channel.Key = 0 {
+        @doc value """
+            is the channel actuation commands are written to, or 0 when the symbol
+            writes to none.
+        """
     }
-    control         ControlStateConfig? {
+    control         ControlStateConfig = {} {
         @doc value "is the control state display configuration."
     }
-    on_click_delay  float64 = 0 {
-        @doc value "is the debounce delay applied to clicks, in milliseconds."
+    on_click_delay  telem.TimeSpan = 0 {
+        @doc value    "is the debounce delay applied to clicks."
+        @ts type      telem.NumericTimeSpan
+        @validate max 2147483647000000
+        @validate min 0
     }
 
     @doc value  """
@@ -351,11 +384,14 @@ NodeConfig union on variant {
         dimensions    spatial.Dimensions = { width = 125, height = 200 } {
             @doc value "is the rendered size of the box in pixels."
         }
-        border_radius float64 = 3 {
-            @doc value "is the uniform corner radius of the box in pixels."
+        border_radius uint16?            {
+            @doc value """
+                is the uniform corner radius of the box in pixels. Absent draws 3.
+            """
         }
-        stroke_width  float64 = 2 {
-            @doc value "is the border stroke width in pixels."
+        stroke_width  uint8?             {
+            @doc value    "is the border stroke width in pixels. Absent draws 2."
+            @validate max 20
         }
 
         @doc value "is the configuration for box annotation symbols."
@@ -364,30 +400,34 @@ NodeConfig union on variant {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the button."
         }
-        level           text.Level?         {
-            @doc value "is the typography level of the button text."
+        on_click_delay  telem.TimeSpan = 0 {
+            @doc value    "is the debounce delay applied to clicks."
+            @ts type      telem.NumericTimeSpan
+            @validate max 2147483647000000
+            @validate min 0
         }
-        on_click_delay  float64 = 0 {
-            @doc value "is the debounce delay applied to clicks, in milliseconds."
-        }
-        command_channel channel.Key?        {
-            @doc value "is the channel button presses are written to."
+        command_channel channel.Key = 0 {
+            @doc value """
+                is the channel button presses are written to, or 0 when the symbol
+                writes to none.
+            """
         }
         mode            ButtonMode = ButtonModeFire {
             @doc value "is the actuation behavior of the button."
         }
-        fill_color      color.Color?        {
+        fill_color      color.Color?       {
             @doc value "is the fill color of the button, which its border follows."
         }
-        control         ControlStateConfig? {
+        control         ControlStateConfig = {} {
             @doc value "is the control state display configuration."
         }
 
         @doc value "is the configuration for button symbols."
     }
     circle extends LabeledConfig {
-        radius       float64 = 20 {
-            @doc value "is the radius of the circle in pixels."
+        radius       uint16 = 20 {
+            @doc value    "is the radius of the circle in pixels."
+            @validate min 1
         }
         stroke_color color.Color? {
             @doc value "is the border color of the circle."
@@ -395,14 +435,15 @@ NodeConfig union on variant {
         fill_color   color.Color? {
             @doc value "is the fill color of the circle."
         }
-        stroke_width float64 = 2 {
-            @doc value "is the border stroke width in pixels."
+        stroke_width uint8?       {
+            @doc value    "is the border stroke width in pixels. Absent draws 2."
+            @validate max 20
         }
 
         @doc value "is the configuration for circle annotation symbols."
     }
     gauge extends LabeledConfig, NumericTelemConfig, StalenessConfig {
-        position     spatial.XY?        {
+        position     spatial.XY = { x = 0, y = 0 } {
             @doc value "is the offset of the gauge contents within the symbol."
         }
         stroke_color color.Color?       {
@@ -411,8 +452,9 @@ NodeConfig union on variant {
         bounds       spatial.Bounds = { lower = 0, upper = 100 } {
             @doc value "is the numeric range displayed by the gauge."
         }
-        bar_width    float64 = 10 {
-            @doc value "is the thickness of the gauge arc in pixels."
+        bar_width    uint16 = 10 {
+            @doc value    "is the thickness of the gauge arc in pixels."
+            @validate min 1
         }
         location     spatial.LocationXY = {
             x = spatial.XCenterLocationLeft,
@@ -433,16 +475,25 @@ NodeConfig union on variant {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the input."
         }
-        command_channel channel.Key?        {
-            @doc value "is the channel submitted values are written to."
+        command_channel channel.Key = 0 {
+            @doc value """
+                is the channel submitted values are written to, or 0 when the symbol
+                writes to none.
+            """
         }
-        state_channel   channel.Key?        {
-            @doc value "is the channel that reports the value the device holds."
+        state_channel   channel.Key = 0 {
+            @doc value """
+                is the channel that reports the value the device holds, or 0 when none
+                does.
+            """
         }
-        dimensions      spatial.Dimensions? {
-            @doc value "is the rendered size of the input in pixels."
+        dimensions      spatial.Dimensions = { width = 0, height = 0 } {
+            @doc value """
+                is the rendered size of the input in pixels. Zero sizes it to its
+                content.
+            """
         }
-        fill_color      color.Color?        {
+        fill_color      color.Color?       {
             @doc value """
                 is the fill color of the Set button, which the input border follows.
             """
@@ -450,23 +501,30 @@ NodeConfig union on variant {
         disabled        bool = false {
             @doc value "indicates whether the input rejects interaction."
         }
-        inline_size     float64 = 150 {
-            @doc value """
+        inline_size     uint16 = 150 {
+            @doc value    """
                 is the width of the field in pixels, not counting the Set button.
             """
+            @validate min 1
         }
-        on_click_delay  float64 = 0 {
-            @doc value "is the debounce delay applied to clicks, in milliseconds."
+        on_click_delay  telem.TimeSpan = 0 {
+            @doc value    "is the debounce delay applied to clicks."
+            @ts type      telem.NumericTimeSpan
+            @validate max 2147483647000000
+            @validate min 0
         }
-        control         ControlStateConfig? {
+        control         ControlStateConfig = {} {
             @doc value "is the control state display configuration."
         }
 
         @doc value "is the configuration for free-form input symbols."
     }
     light extends LabeledConfig, ScaledConfig, StalenessConfig {
-        channel      channel.Key?    {
-            @doc value "is the channel whose value drives the light's on state."
+        channel      channel.Key = 0 {
+            @doc value """
+                is the channel whose value drives the light's on state, or 0 when none
+                does.
+            """
         }
         threshold    spatial.Bounds? {
             @doc value "is the value range within which the light is considered on."
@@ -490,52 +548,59 @@ NodeConfig union on variant {
         end          spatial.XY = { x = 100, y = 0 } {
             @doc value "is the second endpoint, offset from the node position."
         }
-        stroke_width float64 = 2 {
-            @doc value "is the stroke width of the line in pixels."
+        stroke_width uint8 = 2 {
+            @doc value    "is the stroke width of the line in pixels."
+            @validate max 20
+            @validate min 1
         }
 
         @doc value "is the configuration for straight line symbols."
     }
     off_page_reference extends LabeledConfig {
-        orientation            spatial.OuterLocation = spatial.OuterLocationRight {
+        orientation                      spatial.OuterLocation = spatial.OuterLocationRight {
             @doc value "is the direction the reference arrow points."
         }
-        fill_color             color.Color?          {
+        fill_color                       color.Color?          {
             @doc value """
                 is the fill color of a linked reference. An unlinked reference draws its
                 outline in this color.
             """
         }
-        page                   Page?                 {
-            @doc value "is the page this reference links to."
+        page                             Page = { type = PageTypeSchematic, key = "" } {
+            @doc value """
+                is the page this reference links to. An empty key links to no page.
+            """
         }
-        dbl_click_nav_disabled bool = false {
+        double_click_navigation_disabled bool = false {
             @doc value "stops double-clicking from navigating to the linked page."
         }
 
         @doc value "is the configuration for off-page reference symbols."
     }
     polygon extends LabeledConfig {
-        num_sides       float64 = 6 {
-            @doc value "is the number of sides of the polygon."
+        num_sides     uint8 = 6 {
+            @doc value    "is the number of sides of the polygon."
+            @validate min 3
         }
-        side_length     float64 = 20 {
-            @doc value "is the length of each side in pixels."
+        side_length   uint16 = 20 {
+            @doc value    "is the length of each side in pixels."
+            @validate min 1
         }
-        rotation        float64 = 0 {
+        rotation      float64 = 0 {
             @doc value "is the rotation of the polygon in degrees."
         }
-        corner_rounding float64 = 0 {
-            @doc value "is the corner rounding radius in pixels."
+        border_radius uint16 = 0 {
+            @doc value "is the corner radius of the polygon in pixels."
         }
-        stroke_color    color.Color? {
+        stroke_color  color.Color? {
             @doc value "is the border color of the polygon."
         }
-        fill_color      color.Color? {
+        fill_color    color.Color? {
             @doc value "is the fill color of the polygon."
         }
-        stroke_width    float64 = 2 {
-            @doc value "is the border stroke width in pixels."
+        stroke_width  uint8?       {
+            @doc value    "is the border stroke width in pixels. Absent draws 2."
+            @validate max 20
         }
 
         @doc value "is the configuration for polygon annotation symbols."
@@ -544,21 +609,28 @@ NodeConfig union on variant {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the select."
         }
-        command_channel channel.Key?        {
-            @doc value "is the channel the selected value is written to."
+        command_channel channel.Key = 0 {
+            @doc value """
+                is the channel the selected value is written to, or 0 when the symbol
+                writes to none.
+            """
         }
-        state_channel   channel.Key?        {
-            @doc value "is the channel that reports the state the device holds."
+        state_channel   channel.Key = 0 {
+            @doc value """
+                is the channel that reports the state the device holds, or 0 when none
+                does.
+            """
         }
-        fill_color      color.Color?        {
+        fill_color      color.Color?       {
             @doc value """
                 is the fill color of the Set button, which the select border follows.
             """
         }
-        inline_size     float64 = 100 {
-            @doc value """
+        inline_size     uint16 = 100 {
+            @doc value    """
                 is the width of the field in pixels, not counting the Set button.
             """
+            @validate min 1
         }
         options         StateMapping[] = [] {
             @doc value "is the set of selectable states."
@@ -566,10 +638,13 @@ NodeConfig union on variant {
         disabled        bool = false {
             @doc value "indicates whether the select rejects interaction."
         }
-        on_click_delay  float64 = 0 {
-            @doc value "is the debounce delay applied to clicks, in milliseconds."
+        on_click_delay  telem.TimeSpan = 0 {
+            @doc value    "is the debounce delay applied to clicks."
+            @ts type      telem.NumericTimeSpan
+            @validate max 2147483647000000
+            @validate min 0
         }
-        control         ControlStateConfig? {
+        control         ControlStateConfig = {} {
             @doc value "is the control state display configuration."
         }
 
@@ -582,7 +657,7 @@ NodeConfig union on variant {
                 Any other value reads as vertical.
             """
         }
-        position    spatial.XY?           {
+        position    spatial.XY = { x = 0, y = 0 } {
             @doc value "is the offset of the scale contents within the symbol."
         }
         dimensions  spatial.Dimensions = { width = 34, height = 160 } {
@@ -598,16 +673,25 @@ NodeConfig union on variant {
         size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the setpoint."
         }
-        command_channel channel.Key?        {
-            @doc value "is the channel submitted setpoints are written to."
+        command_channel channel.Key = 0 {
+            @doc value """
+                is the channel submitted setpoints are written to, or 0 when the symbol
+                writes to none.
+            """
         }
-        state_channel   channel.Key?        {
-            @doc value "is the channel that reports the value the device holds."
+        state_channel   channel.Key = 0 {
+            @doc value """
+                is the channel that reports the value the device holds, or 0 when none
+                does.
+            """
         }
-        dimensions      spatial.Dimensions? {
-            @doc value "is the rendered size of the setpoint in pixels."
+        dimensions      spatial.Dimensions = { width = 0, height = 0 } {
+            @doc value """
+                is the rendered size of the setpoint in pixels. Zero sizes it to its
+                content.
+            """
         }
-        fill_color      color.Color?        {
+        fill_color      color.Color?       {
             @doc value """
                 is the fill color of the Set button, which the setpoint border follows.
             """
@@ -618,29 +702,37 @@ NodeConfig union on variant {
         disabled        bool = false {
             @doc value "indicates whether the setpoint rejects interaction."
         }
-        inline_size     float64 = 100 {
-            @doc value """
+        inline_size     uint16 = 100 {
+            @doc value    """
                 is the width of the field in pixels, not counting the Set button.
             """
+            @validate min 1
         }
-        on_click_delay  float64 = 0 {
-            @doc value "is the debounce delay applied to clicks, in milliseconds."
+        on_click_delay  telem.TimeSpan = 0 {
+            @doc value    "is the debounce delay applied to clicks."
+            @ts type      telem.NumericTimeSpan
+            @validate max 2147483647000000
+            @validate min 0
         }
-        control         ControlStateConfig? {
+        control         ControlStateConfig = {} {
             @doc value "is the control state display configuration."
         }
 
         @doc value "is the configuration for numeric setpoint symbols."
     }
     state_indicator extends LabeledConfig, StalenessConfig {
-        channel      channel.Key?   {
-            @doc value "is the channel whose value selects the displayed state."
+        channel      channel.Key = 0 {
+            @doc value """
+                is the channel whose value selects the displayed state, or 0 when none
+                does.
+            """
         }
         stroke_color color.Color?   {
             @doc value "is the border color of the indicator."
         }
-        inline_size  float64 = 100 {
-            @doc value "is the inline size of the indicator in pixels."
+        inline_size  uint16 = 100 {
+            @doc value    "is the inline size of the indicator in pixels."
+            @validate min 1
         }
         options      StateMapping[] = [] {
             @doc value "is the set of displayable states."
@@ -661,11 +753,15 @@ NodeConfig union on variant {
         tooltip      string[] = [] {
             @doc value "is the list of tooltip lines shown on hover."
         }
-        inline_size  float64 = 100 {
-            @doc value "is the inline size of the display in pixels."
+        inline_size  uint16 = 100 {
+            @doc value    "is the inline size of the display in pixels."
+            @validate min 1
         }
-        channel      channel.Key? {
-            @doc value "is the channel whose string value the symbol displays."
+        channel      channel.Key = 0 {
+            @doc value """
+                is the channel whose string value the symbol displays, or 0 when it
+                displays none.
+            """
         }
         level        text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed text."
@@ -678,8 +774,9 @@ NodeConfig union on variant {
         text_color        color.Color?  {
             @doc value "is the text color."
         }
-        width             float64 = 75 {
-            @doc value "is the rendered width of the text box in pixels."
+        inline_size       uint16 = 75 {
+            @doc value    "is the rendered inline size of the text box in pixels."
+            @validate min 1
         }
         align             FlexAlignment = FlexAlignmentCenter {
             @doc value "is the alignment of the text within the box."
@@ -690,14 +787,14 @@ NodeConfig union on variant {
         level             text.Level = text.LevelP {
             @doc value "is the typography level of the text."
         }
-        value             string = "Text box" {
+        value             string = "" {
             @doc value "is the text content of the box."
         }
 
         @doc value "is the configuration for text box annotation symbols."
     }
     value extends LabeledConfig, NumericTelemConfig, StalenessConfig {
-        position     spatial.XY?        {
+        position     spatial.XY = { x = 0, y = 0 } {
             @doc value "is the offset of the value contents within the symbol."
         }
         stroke_color color.Color?       {
@@ -721,8 +818,9 @@ NodeConfig union on variant {
         units        string = "" {
             @doc value "is the unit suffix displayed after the value."
         }
-        inline_size  float64 = 70 {
-            @doc value "is the inline size of the value in pixels."
+        inline_size  uint16 = 70 {
+            @doc value    "is the inline size of the value in pixels."
+            @validate min 1
         }
         level        text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed value."
@@ -817,7 +915,7 @@ NodeConfig union on variant {
     tank extends LabeledConfig, ScaleIndicatorConfig {
         -caret_hidden
         -scale_hidden
-        position      spatial.XY?           {
+        position      spatial.XY = { x = 0, y = 0 } {
             @doc value "is the offset of the tank contents within the symbol."
         }
         stroke_color  color.Color?          {
@@ -829,13 +927,10 @@ NodeConfig union on variant {
         dimensions    spatial.Dimensions = { width = 125, height = 200 } {
             @doc value "is the rendered size of the tank in pixels."
         }
-        border_radius border.Radius = {
-            top_left = { x = 50, y = 10 },
-            top_right = { x = 50, y = 10 },
-            bottom_left = { x = 50, y = 10 },
-            bottom_right = { x = 50, y = 10 }
-        } {
-            @doc value "is the corner radius of the tank."
+        border_radius border.Radius?        {
+            @doc value """
+                is the corner radius of the tank. Absent draws 50 by 10 percent.
+            """
         }
         caret_visible bool = false {
             @doc value "shows the caret marking the current level."
@@ -877,10 +972,7 @@ NodeConfig union on variant {
         @doc value "is the configuration for user-defined static symbols."
     }
     group_box {
-        members string[] = [] {
-            @doc value "lists the keys of the symbols the group contains."
-        }
-        locked  bool = false {
+        locked bool = false {
             @doc value "pins the group and its members in place."
         }
 
@@ -891,16 +983,8 @@ NodeConfig union on variant {
     }
 
     @doc value  """
-        is the per-node configuration stored in the schematic configs map. The variant
-        selects the symbol rendered for the node and the fields that accompany it.
-    """
-    @go marshal
-}
-
-ElementConfig union on variant extends NodeConfig, EdgeConfig {
-    @doc value  """
-        is the per-element configuration stored in the schematic configs map: a node
-        config or an edge config, discriminated by variant.
+        is the configuration of one node. The variant selects the symbol rendered for
+        the node and the fields that accompany it.
     """
     @go marshal
 }
@@ -910,33 +994,31 @@ Schematic struct {
         @doc value "is the unique identifier for this schematic."
         @key
     }
-    name    string                     {
+    name    string       {
         @doc value         "is a human-readable name for the schematic."
         @index sorted
+        @patch
         @search
         @validate required
     }
     nodes   Node[] = [] {
         @doc value "contains all diagram nodes in the schematic."
+        @patch
     }
     edges   Edge[] = [] {
         @doc value "contains all connections between nodes."
+        @patch
     }
-    configs map<string, ElementConfig> = {} {
-        @doc value        """
-            contains per-element configuration keyed by node or edge key. The variant of
-            each value selects the symbol or edge style it configures.
-        """
-        @ts preserve_keys
-    }
-    group   group.Key?                 {
+    group   group.Key?   {
         @doc value     "is the group the schematic sits in, if any."
         @group scope   project
+        @patch
         @ref kind      place
         @ref on_delete detach
     }
-    project project.Key?               {
-        @doc value     "is the project that owns the schematic."
+    project project.Key? {
+        @doc value     "is the project that holds the schematic."
+        @patch
         @ref kind      place
         @ref on_delete cascade
     }
@@ -958,13 +1040,11 @@ Schematic struct {
     }
 
     action SetNode {
-        node   Node
-        config ElementConfig?
+        node Node
 
         @doc value """
             inserts the node if no node with the same key exists, otherwise replaces the
-            existing node in place. A present config replaces the entry stored under the
-            node's key in the schematic configs map.
+            existing node and its config in place.
         """
     }
 
@@ -972,8 +1052,9 @@ Schematic struct {
         key string
 
         @doc value """
-            removes the node, its config, and the edges that connect to it and their
-            configs. No-op when no node has the key.
+            removes the node and the edges that connect to it. The children of a removed
+            group box move to the parent of the group box. No-op when no node has the
+            key.
         """
     }
 
@@ -989,44 +1070,35 @@ Schematic struct {
     action RemoveEdge {
         key string
 
-        @doc value "removes the edge with the given key and its config, if present."
-    }
-
-    action SetConfig {
-        key    string
-        config ElementConfig
-
-        @doc value """
-            replaces the config entry stored under the given node or edge key. No-op
-            when no node or edge has the key.
-        """
+        @doc value "removes the edge with the given key, if present."
     }
 
     action Set = patch.Set {
         @doc value """
-            replaces the value at a path in the schematic's name or element configs.
-            No-op when no node or edge has the config's key.
+            replaces the value at a path in the schematic's name, group, or project, or
+            in the config of a node or edge. No-op when no node or edge has the key.
         """
     }
 
     action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the schematic's
-            element configs. No-op when no node or edge has the config's key.
+            group or project, or in the config of a node or edge. No-op when no node or
+            edge has the key.
         """
     }
 
     action Insert = patch.Insert {
         @doc value """
-            adds an entry to a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
+            adds an entry to a list in the config of a node or edge. No-op when no node
+            or edge has the key.
         """
     }
 
     action Move = patch.Move {
         @doc value """
-            moves an entry in a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
+            moves an entry in a list in the config of a node or edge. No-op when no node
+            or edge has the key.
         """
     }
 
@@ -1052,7 +1124,7 @@ Where filter Schematic {
         @doc value "matches the schematics in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the schematics owned by any of the given projects."
+        @doc value "matches the schematics in any of the given projects."
     }
 
     @doc value         "is a filter that selects schematics."
@@ -1133,12 +1205,13 @@ Page struct {
 }
 
 StalenessConfig struct {
-    staleness_timeout float64 = 5 {
-        @doc value """
-            is the duration in seconds after which the value is considered stale.
-        """
+    staleness_timeout telem.TimeSpan = 5000000000 {
+        @doc value    "is the span after which the value is considered stale."
+        @ts type      telem.NumericTimeSpan
+        @validate max 9007199254740991
+        @validate min 1000000000
     }
-    staleness_color   color.Color? {
+    staleness_color   color.Color?   {
         @doc value "is the color applied when the value is stale."
     }
 
@@ -1149,11 +1222,14 @@ StalenessConfig struct {
 }
 
 NumericTelemConfig struct {
-    channel         channel.Key?      {
-        @doc value "is the channel whose value the symbol displays."
+    channel         channel.Key = 0 {
+        @doc value """
+            is the channel whose value the symbol displays, or 0 when it displays none.
+        """
     }
-    rolling_average int32?            {
-        @doc value "is the sample window for rolling-average smoothing."
+    rolling_average uint16 = 1 {
+        @doc value    "is the number of samples in the rolling average."
+        @validate min 1
     }
     precision       uint8?            {
         @doc value    """
@@ -1174,7 +1250,8 @@ NumericTelemConfig struct {
 
 ScaledConfig struct {
     scale float64 = 1 {
-        @doc value "is the rendered scale multiplier of the symbol."
+        @doc value   "is the rendered scale multiplier of the symbol."
+        @validate gt 0
     }
 
     @doc value  "is the base configuration for any symbol drawn at a scale multiplier."

@@ -281,6 +281,36 @@ func (cv *config) Patch(c patch.Cursor) error {
 	}
 }
 
+// namedEntry takes path actions only through its name, and roster holds a list of it.
+type namedEntry struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
+func (ne *namedEntry) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "name":
+		return patch.Value(&ne.Name, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+func (ne *namedEntry) PatchKey() string { return ne.Key }
+
+type roster struct {
+	Entries []namedEntry `json:"entries"`
+}
+
+func (r *roster) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "entries":
+		return patch.EntryFields(&r.Entries, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
 var _ = Describe("Patch of lists, unions, and JSON values", func() {
 	var base config
 	BeforeEach(func() {
@@ -526,6 +556,60 @@ var _ = Describe("Patch of lists, unions, and JSON values", func() {
 					},
 				},
 				"[channels, c1, type]: the guard names no union that the path goes into",
+			),
+		)
+	})
+
+	Describe("Entry fields", func() {
+		var doc roster
+		BeforeEach(func() {
+			doc = roster{Entries: []namedEntry{{Key: "a", Name: "A"}}}
+		})
+
+		It("Should apply an action to an editable field of an entry", func() {
+			Expect(apply(&doc, set("Z", "entries", "a", "name"))).To(Succeed())
+			Expect(doc.Entries).To(Equal([]namedEntry{{Key: "a", Name: "Z"}}))
+		})
+
+		DescribeTable("Should reject a path that does not reach an editable field",
+			func(a patch.Action, msg string) {
+				Expect(apply(&doc, a)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry(
+				"a set of the list",
+				set([]any{}, "entries"),
+				"[entries]: the path must go into an editable field of one entry",
+			),
+			Entry(
+				"a set of an entry",
+				set(map[string]any{"key": "a", "name": "Z"}, "entries", "a"),
+				"[entries, a]: the path must go into an editable field of one entry",
+			),
+			Entry(
+				"a removal of an entry",
+				patch.Remove{Path: []string{"entries"}, Key: "a"},
+				"[entries, a]: the path must go into an editable field of one entry",
+			),
+			Entry(
+				"an insert",
+				patch.Insert{
+					Path:  []string{"entries"},
+					Value: map[string]any{"key": "b", "name": "B"},
+				},
+				"[entries]: the path must go into an editable field of one entry",
+			),
+			Entry(
+				"a move",
+				patch.Move{Path: []string{"entries"}, Key: "a"},
+				"[entries]: the path must go into an editable field of one entry",
+			),
+			Entry(
+				"a set of a field that is not editable",
+				set("b", "entries", "a", "key"),
+				"[entries, a, key]: the path names no editable field",
 			),
 		)
 	})

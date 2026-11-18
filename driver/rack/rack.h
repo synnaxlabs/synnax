@@ -21,8 +21,11 @@
 #include <algorithm>
 #include <filesystem>
 #include <iterator>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -47,6 +50,9 @@ namespace driver::rack {
 /// @brief the persisted state file or its directory cannot be used safely, such as
 /// when either is a symbolic link.
 const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
+/// @brief the Core is now another cluster, or became compatible or incompatible with
+/// this Driver. The Driver must start again to load it.
+const x::errors::Error CORE_CHANGED = x::errors::SY.sub("driver").sub("core_changed");
 
 /// @brief the directory in the state directory that holds OPC UA certificates. The
 /// Linux service user owns it.
@@ -244,18 +250,6 @@ struct Config {
         return {cfg, err};
     }
 
-    void override_integrations(
-        const std::vector<std::string> &enable,
-        const std::vector<std::string> &disable
-    ) {
-        std::set i_set(this->integrations.begin(), this->integrations.end());
-        for (const auto &integration: disable)
-            i_set.erase(integration);
-        for (const auto &integration: enable)
-            i_set.insert(integration);
-        this->integrations = std::vector(i_set.begin(), i_set.end());
-    }
-
     /// @brief permanently saves connection parameters to the persisted state file.
     static x::errors::Error
     save_conn_params(x::args::Parser &args, const synnax::Config &conn_params);
@@ -271,11 +265,12 @@ struct Config {
 
     static x::errors::Error clear_persisted_state(x::args::Parser &args);
 
-    /// @brief applies the persisted state ownership and modes without opening the
-    /// state. Run as root once the Linux service user exists, it gives that user the
-    /// state that an earlier login left to root. Skips state that does not exist. On
-    /// Windows, it creates the state directory of the computer for LocalSystem and the
-    /// administrators alone, and returns an error when another user owns it.
+    /// @brief sets the owner and mode of the persisted state without opening it. Only
+    /// root commands call it, and without root it changes nothing. As root on Linux, it
+    /// gives the state to the service user. With a --state-file, it changes only that
+    /// file. Skips state that does not exist. On Windows, it creates the state
+    /// directory for LocalSystem and the administrators alone, and returns an error
+    /// when another user owns it.
     static x::errors::Error secure_persisted_state(x::args::Parser &args);
 
     /// @brief moves the state and OPC UA certificates of the user to the state of the
@@ -313,6 +308,11 @@ struct Config {
     /// it logs in with the password and loads the saved rack. Writes the rack with this
     /// Driver's version and integrations, and records an incompatible Core version.
     [[nodiscard]] x::errors::Error load_remote();
+
+    /// @brief checks the Core again, after the Driver lost it.
+    /// @returns CORE_CHANGED when the Core is now another cluster, or became compatible
+    /// or incompatible with this Driver, or the error of a check that failed.
+    [[nodiscard]] x::errors::Error check_core() const;
 };
 
 /// @brief clears the persisted state file, removing all cached information.
@@ -323,26 +323,40 @@ x::errors::Error clear_persisted_state();
 /// of tasks that are assigned to it.
 class Rack {
     std::thread run_thread;
+    /// @brief guards task_manager.
+    std::mutex mu;
     std::unique_ptr<task::Manager> task_manager;
-    x::breaker::Breaker breaker = x::breaker::Breaker({
-        .name = "driver",
-        .base_interval = x::telem::SECOND,
-        .max_retries = 200,
-        .scale = 1.1f,
-        .max_interval = x::telem::MINUTE,
-    });
+    x::breaker::Breaker breaker;
     x::errors::Error run_err = x::errors::NIL;
 
     /// @brief returns true if the error cannot be recovered from and the rack
     /// should stop operations and shut down. Calls on_shutdown unless a stop caused
-    /// the exit.
-    bool
-    should_exit(const x::errors::Error &err, const std::function<void()> &on_shutdown);
+    /// the exit. While reconnecting, it waits for an unreachable Core with no limit.
+    bool should_exit(
+        const x::errors::Error &err,
+        const std::function<void()> &on_shutdown,
+        bool reconnecting = false
+    );
 
     /// @brief starts the main loop for the rack.
     void run(x::args::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
+    /// @brief creates a rack that backs off from Core errors with breaker_config. After
+    /// its first run, it waits for an unreachable Core with no retry limit. It waits
+    /// for any other temporarily unavailable error within max_retries.
+    explicit Rack(
+        const x::breaker::Config &breaker_config =
+            {
+                .name = "driver",
+                .base_interval = x::telem::SECOND,
+                .max_retries = 200,
+                .scale = 1.1f,
+                .max_interval = x::telem::MINUTE,
+            }
+    ):
+        breaker(breaker_config) {}
+
     /// @brief destructor ensures thread is properly joined
     ~Rack();
 

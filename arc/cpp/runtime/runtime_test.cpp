@@ -18,6 +18,7 @@
 #include "arc/cpp/ir/testutil/testutil.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/testutil/mock_loop.h"
+#include "arc/cpp/runtime/testutil/module.h"
 
 namespace arc::runtime {
 /// @brief builds a time module on a throwaway strings state. These runtimes bind
@@ -45,7 +46,7 @@ std::shared_ptr<Runtime> create_test_runtime(
 
     return std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         nullptr,
         nullptr,
         nullptr,
@@ -80,7 +81,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
 
     auto runtime = std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         state,
         std::move(scheduler),
         std::move(loop),
@@ -198,6 +199,18 @@ TEST(RuntimeLifecycleTest, StopReturnsTrueWhenRunning) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
     EXPECT_EQ(loop->wake_count, 1);
+}
+
+/// @brief it should report running from a start until the stop that follows it.
+TEST(RuntimeLifecycleTest, RunningFollowsStartAndStop) {
+    auto [runtime, loop] = create_lifecycle_runtime(
+        std::make_unique<testutil::MockLoop>()
+    );
+    EXPECT_FALSE(runtime->running());
+    ASSERT_TRUE(runtime->start());
+    EXPECT_TRUE(runtime->running());
+    ASSERT_TRUE(runtime->stop());
+    EXPECT_FALSE(runtime->running());
 }
 
 /// @brief Test that runtime can be restarted after stop.
@@ -348,7 +361,7 @@ TEST(RuntimeLifecycleTest, LoopStartFailureCallsErrorHandler) {
 
     auto runtime = std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         state,
         std::move(scheduler),
         std::move(mock),
@@ -490,7 +503,7 @@ struct DeadlineRuntimeFixture {
 
         auto rt = std::make_shared<Runtime>(
             cfg,
-            nullptr,
+            testutil::empty_module(),
             state,
             std::move(scheduler),
             std::move(mock_loop),
@@ -554,7 +567,7 @@ TEST(RuntimeClockTest, ResumesAboveReservedStamps) {
     };
     auto runtime = std::make_shared<Runtime>(
         cfg,
-        nullptr,
+        testutil::empty_module(),
         state,
         std::move(scheduler),
         std::move(mock_loop),

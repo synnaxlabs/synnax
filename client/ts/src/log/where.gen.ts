@@ -79,7 +79,7 @@ const inputs = {
   groups: filter.listInputZ(group.keyZ).exactOptional(),
   /** grouped matches the logs in a group, or in no group when false. */
   grouped: z.boolean().exactOptional(),
-  /** projects matches the logs owned by any of the given projects. */
+  /** projects matches the logs in any of the given projects. */
   projects: filter.listInputZ(project.keyZ).exactOptional(),
 };
 

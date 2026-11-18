@@ -79,6 +79,13 @@
     transform: translateY(1px);
 }
 
+/* A star carries its ink low, under a thin top point, so it moves up to the center of
+   its ink. */
+.lyra-icon--star-filled,
+.lyra-icon--star-outlined {
+    transform: translateY(-3.6%);
+}
+
 .lyra-icon--logo-ethercat {
     --pluto-icon-aspect: 1.25;
 }
@@ -141,4 +148,9 @@
 
 .lyra-icon--logo-pagerduty {
     transform: scale(0.8);
+}
+
+/* Its thin stroke reads lighter than the filled icons beside it. */
+.lyra-icon--timeline {
+    stroke-width: 3;
 }

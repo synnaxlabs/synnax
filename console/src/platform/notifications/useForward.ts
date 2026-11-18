@@ -22,13 +22,13 @@ export type Kind = "reply" | "alarm" | "state";
 /** Parameters for {@link Rule.inUse}. */
 export interface InUseParams {
   client: Client;
-  /** The key of the thing that owns the status. */
+  /** The key of the thing that owns the status, or of the status if nothing does. */
   key: string;
 }
 
 /** How the statuses of the things of one feature notify. */
 export interface Rule {
-  /** @returns the kind of a status that one of the feature's things owns. */
+  /** @returns the kind of one of the feature's statuses. */
   kind: (status: status.Status) => Kind;
   /**
    * @returns whether the thing that a state is about is in use. Runs only when a
@@ -42,6 +42,12 @@ export interface Rule {
 /** The rule of each feature, by the resource type of the things that own statuses. */
 export type Rules = Partial<Record<resource.Type, Rule>>;
 
+/**
+ * The rule of each feature for the statuses that no thing owns, by the prefix of their
+ * keys. A status that no thing owns and no prefix matches is an alarm.
+ */
+export type KeyRules = Record<string, Rule>;
+
 const WARNING_DELAY = TimeSpan.seconds(5);
 const PROBLEM_VARIANTS: status.Variant[] = ["warning", "error"];
 const ROUTINE_VARIANTS: status.Variant[] = ["success", "loading", "disabled"];
@@ -51,8 +57,15 @@ interface Owner {
   key: string;
 }
 
-const getOwner = (rules: Rules, { owner }: status.Status): Owner | null => {
-  if (owner == null) return null;
+const getOwner = (
+  rules: Rules,
+  keyRules: KeyRules,
+  { key, owner }: status.Status,
+): Owner | null => {
+  if (owner == null) {
+    const prefix = Object.keys(keyRules).find((p) => key.startsWith(p));
+    return prefix == null ? null : { rule: keyRules[prefix], key };
+  }
   const rule = rules[owner.type];
   if (rule == null) return null;
   return { rule, key: owner.key };
@@ -71,6 +84,7 @@ interface Problem {
 interface ForwarderParams {
   client: Client;
   rules: Rules;
+  keyRules: KeyRules;
   add: Status.Adder;
 }
 
@@ -81,7 +95,12 @@ interface Forwarder {
   stop: () => void;
 }
 
-const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => {
+const createForwarder = ({
+  client,
+  rules,
+  keyRules,
+  add,
+}: ForwarderParams): Forwarder => {
   const problems = new Map<status.Key, Problem>();
 
   const show = (problem: Problem): void => {
@@ -136,7 +155,7 @@ const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => 
   };
 
   const write = (stat: status.Status): void => {
-    const owner = getOwner(rules, stat);
+    const owner = getOwner(rules, keyRules, stat);
     const kind = owner?.rule.kind(stat) ?? "alarm";
     if (kind !== "state") retire(stat.key);
     if (owner == null || kind === "alarm") {
@@ -174,13 +193,14 @@ const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => 
  * delayed warning notifies only if its status is still bad 5 s after the problem
  * starts. Mount it once, in the main window.
  * @param rules - The rules of the features whose things own statuses.
+ * @param keyRules - The rules of the features whose statuses no thing owns.
  */
-export const useForward = (rules: Rules): void => {
+export const useForward = (rules: Rules, keyRules: KeyRules = {}): void => {
   const client = Synnax.use();
   const add = Status.useAdder();
   useEffect(() => {
     if (client == null) return;
-    const forwarder = createForwarder({ client, rules, add });
+    const forwarder = createForwarder({ client, rules, keyRules, add });
     const removeWriteListener = client.statuses.onWrite(forwarder.write);
     const removeDeleteListener = client.statuses.onDelete(forwarder.remove);
     return () => {
@@ -188,5 +208,5 @@ export const useForward = (rules: Rules): void => {
       removeDeleteListener();
       forwarder.stop();
     };
-  }, [client, rules, add]);
+  }, [client, rules, keyRules, add]);
 };

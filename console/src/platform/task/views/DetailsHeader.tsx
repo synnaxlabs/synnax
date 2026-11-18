@@ -16,6 +16,7 @@ import { binary, type deep } from "@synnaxlabs/x";
 import { type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
+import { Section } from "@/platform/section";
 
 export interface DetailsHeaderProps {
   /** The form path of the selected item, or null when nothing is selected. */
@@ -31,7 +32,7 @@ export const DetailsHeader = ({ path, children, start }: DetailsHeaderProps) => 
   const text =
     path == null ? "" : () => binary.JSON_CODEC.encodeString(get(path).value);
   return (
-    <Header.Header>
+    <Section.Header>
       <Flex.Box x align="center" gap="small" className={CSS.BE("panes", "title")}>
         {start}
         {path == null || children == null ? (
@@ -64,6 +65,6 @@ export const DetailsHeader = ({ path, children, start }: DetailsHeaderProps) => 
           <Icon.JSON />
         </Button.Copy>
       </Header.Actions>
-    </Header.Header>
+    </Section.Header>
   );
 };

@@ -17,9 +17,6 @@
 
 .console-license-info__stat {
     padding: 2rem 2.5rem;
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius);
-    background: var(--pluto-gray-l1);
 }
 
 .console-license-info__detail {

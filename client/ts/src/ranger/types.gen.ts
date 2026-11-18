@@ -15,7 +15,11 @@ import { z } from "zod";
 import { label } from "@/label";
 import { resource } from "@/resource";
 
-export const ORDER_FIELDS = ["name", "time_range_start"] as const;
+export const STAGES = ["to_do", "in_progress", "completed"] as const;
+export const stageZ = z.enum(STAGES);
+export type Stage = z.infer<typeof stageZ>;
+
+export const ORDER_FIELDS = ["name", "time_range_start", "time_range_end"] as const;
 export const orderFieldZ = z.enum(ORDER_FIELDS);
 export type OrderField = z.infer<typeof orderFieldZ>;
 
@@ -57,6 +61,11 @@ export const payloadZ = z.object({
    * range.
    */
   parent: keyZ.optional(),
+  /**
+   * hasChildren is true when a range is nested in the range, derived on read and not
+   * persisted.
+   */
+  hasChildren: z.boolean().default(false),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -70,6 +79,10 @@ export type Where = {
   overlaps?: telem.TimeRange;
   labels?: label.Key[];
   parents?: Key[];
+  nested?: boolean;
+  labeled?: boolean;
+  stages?: Stage[];
+  recent?: telem.TimeSpan;
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -94,6 +107,17 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   labels: zod.nullToUndefined(label.keyZ.array()),
   /** parents matches the ranges nested in any of the given ranges. */
   parents: zod.nullToUndefined(keyZ.array()),
+  /** nested matches the ranges nested in a range, or top-level ranges when false. */
+  nested: z.boolean().optional(),
+  /** labeled matches ranges that have a label, or ranges with none when false. */
+  labeled: z.boolean().optional(),
+  /** stages matches ranges in any of the given stages at the Core's clock. */
+  stages: zod.nullToUndefined(stageZ.array()),
+  /**
+   * recent matches ranges that overlap the span ending now, or starting now if
+   * negative.
+   */
+  recent: telem.timeSpanZ.optional(),
 });
 
 /**
@@ -109,6 +133,11 @@ export const cursorZ = z.object({
    * sorts by it.
    */
   timeRangeStart: telem.timeStampZ.optional(),
+  /**
+   * timeRangeEnd is the time range end of the range at the position, when the order
+   * sorts by it.
+   */
+  timeRangeEnd: telem.timeStampZ.optional(),
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
@@ -146,7 +175,7 @@ export const REF_SCHEMAS: {
   window: windowRefZ,
 };
 
-export const newZ = payloadZ.partial({ key: true });
+export const newZ = payloadZ.omit({ hasChildren: true }).partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 /** RetrieveResponse holds the ranges a RetrieveRequest selects. */

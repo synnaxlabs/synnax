@@ -10,6 +10,7 @@
 """Waits and limits for the latencies that the HITL performance tests measure."""
 
 import time
+from collections.abc import Callable
 
 import numpy as np
 
@@ -18,13 +19,19 @@ from framework.streamer import Stream
 from framework.test_case import TestCase
 
 
-def wait_for(streamer: Stream, channel: str, value: float, *, timeout_s: float) -> bool:
-    """Reads streamer until the last value of channel equals value. Returns False when
-    timeout_s passes first."""
+def wait_for(
+    streamer: Stream,
+    channel: str | int,
+    reached: Callable[[float], bool],
+    *,
+    timeout_s: float,
+) -> bool:
+    """Reads streamer until reached holds for the last value of channel. Returns False
+    when timeout_s passes first."""
     deadline = time.perf_counter() + timeout_s
     while (remaining := deadline - time.perf_counter()) > 0:
         frame = streamer.read(timeout=sy.TimeSpan.from_seconds(remaining))
-        if frame is not None and frame[channel].to_numpy()[-1] == value:
+        if frame is not None and reached(frame[channel].to_numpy()[-1]):
             return True
     return False
 

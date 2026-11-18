@@ -279,7 +279,7 @@ func Analyze(
 		FmtStrings: aCtx.FmtStrings,
 	}
 	if len(irNodes) > 0 {
-		if d := stratifier.Stratify(aCtx, &out, aCtx.Diagnostics); d != nil && !d.Ok() {
+		if d := stratifier.Stratify(&out, aCtx.Diagnostics); d != nil && !d.Ok() {
 			return ir.IR{}, d
 		}
 	}

@@ -15,10 +15,11 @@ namespace driver::arc {
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (task.type != TASK_TYPE) return {nullptr, false};
-    return common::handle_config_err(ctx, task, configure(ctx, task), cmd_key);
+    return common::handle_config_err(ctx, task, configure(ctx, task), cmd_key, cancel);
 }
 
 std::pair<common::ConfigureResult, x::errors::Error> Factory::configure(

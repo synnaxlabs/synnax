@@ -64,6 +64,8 @@ type Calculator struct {
 	err error
 	// failed is true from a failed step until the next clean step with output.
 	failed bool
+	// budget limits the loop iterations and function calls of each step.
+	budget runtime.Budget
 }
 
 type Config struct {
@@ -107,113 +109,58 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var cs calcState
 	cs.channel = stlchannels.NewProgramState(cfg.Module.Dependencies.ChannelDigests)
 	cs.series = series.NewProgramState()
 	cs.strings = stlstrings.NewProgramState()
-
-	channelMod, err := stlchannels.NewHost(ctx, nil, cs.channel, cs.strings)
+	f, err := newHostFactory(ctx, cs)
 	if err != nil {
 		return nil, err
 	}
-
-	mathMod, err := stlmath.NewHost(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	f := node.CompoundFactory{
-		channelMod,
-		selector.NewHost(),
-		constant.NewHost(),
-		variable.NewHost(),
-		stlop.NewHost(),
-		stable.NewHost(),
-		mathMod,
-	}
-
-	var closers io.MultiCloser
+	var (
+		closers io.MultiCloser
+		budget  runtime.Budget
+	)
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, closers.Close())
 		}
 	}()
-
 	if len(cfg.Module.WASM) > 0 {
-		var statefulMod *stateful.Host
-		var stringsMod *stlstrings.Host
-		var errorsMod *stlerrors.Host
-		wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
-		closers = append(closers, io.CloserFunc(func() error {
-			return wasmRT.Close(ctx)
-		}))
-		if statefulMod, err = stateful.NewHost(
+		var mod *wasm.Module
+		if mod, budget, err = openGuest(
 			ctx,
-			wasmRT,
-			cs.series,
-			cs.strings,
+			cfg.Module.WASM,
+			cs,
+			&closers,
 		); err != nil {
 			return nil, err
 		}
-		if _, err = series.NewHost(ctx, wasmRT, cs.series); err != nil {
-			return nil, err
-		}
-		if stringsMod, err = stlstrings.NewHost(
-			ctx,
-			wasmRT,
-			cs.strings,
-			nil,
-		); err != nil {
-			return nil, err
-		}
-		if _, err = stlmath.NewHost(ctx, wasmRT); err != nil {
-			return nil, err
-		}
-		if errorsMod, err = stlerrors.NewHost(ctx, wasmRT, nil); err != nil {
-			return nil, err
-		}
-
-		guest, guestErr := wasmRT.Instantiate(ctx, cfg.Module.WASM)
-		if guestErr != nil {
-			return nil, guestErr
-		}
-		stringsMod.SetMemory(guest.Memory())
-		errorsMod.SetMemory(guest.Memory())
-		closers = append(closers,
-			io.CloserFunc(func() error {
-				// Pass context.TODO() to the closer here, instead of the ctx passed
-				// into open for safety reasons. WASM says that the context is only
-				// used for tracing purposes.
-				return guest.Close(context.TODO())
-			}),
-		)
-		f = append(f, &wasm.Module{
-			Module:        guest,
-			Memory:        guest.Memory(),
-			Strings:       cs.strings,
-			NodeKeySetter: statefulMod,
-		})
+		f = append(f, mod)
 	}
-
 	cs.nodes = node.New(cfg.Module.IR)
-	nodes := make(map[string]node.Node)
-	for _, irNode := range cfg.Module.Nodes {
-		n, nodeErr := f.Create(node.Config{
-			Node:    irNode,
-			Program: cfg.Module.Program,
-			State:   cs.nodes.Node(irNode.Key),
-		})
-		if nodeErr != nil {
-			return nil, nodeErr
-		}
-		nodes[irNode.Key] = n
+	nodes, err := createNodes(f, cfg.Module, cs.nodes)
+	if err != nil {
+		return nil, err
 	}
-
 	sched, err := scheduler.New(cfg.Module.IR, nodes)
 	if err != nil {
 		return nil, err
 	}
+	c := newCalculator(cfg, sched, cs, closers, budget)
+	closers = nil
+	return c, nil
+}
+
+// newCalculator returns a calculator that runs sched and keeps the first error of a
+// step.
+func newCalculator(
+	cfg Config,
+	sched *scheduler.Scheduler,
+	cs calcState,
+	closers io.MultiCloser,
+	budget runtime.Budget,
+) *Calculator {
 	c := &Calculator{
 		cfg:       cfg,
 		scheduler: sched,
@@ -223,6 +170,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		start:     telem.Now(),
 		clock:     telem.MonoClock{Source: cfg.Now},
 		failed:    cfg.Failed,
+		budget:    budget,
 	}
 	sched.SetErrorHandler(scheduler.ErrorHandlerFunc(
 		func(_ context.Context, _ string, err error) {
@@ -231,8 +179,107 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 			}
 		},
 	))
-	closers = nil
-	return c, nil
+	return c
+}
+
+// newHostFactory returns a factory of the nodes that the host modules of the calculator
+// provide.
+func newHostFactory(ctx context.Context, cs calcState) (node.CompoundFactory, error) {
+	channelMod, err := stlchannels.NewHost(ctx, nil, cs.channel, cs.strings)
+	if err != nil {
+		return nil, err
+	}
+	mathMod, err := stlmath.NewHost(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return node.CompoundFactory{
+		channelMod,
+		selector.NewHost(),
+		constant.NewHost(),
+		variable.NewHost(),
+		stlop.NewHost(),
+		stable.NewHost(),
+		mathMod,
+	}, nil
+}
+
+// createNodes creates each node of mod with f, keyed by node key.
+func createNodes(
+	f node.CompoundFactory,
+	mod compiler.Module,
+	state *node.ProgramState,
+) (map[string]node.Node, error) {
+	nodes := make(map[string]node.Node)
+	for _, irNode := range mod.Nodes {
+		n, err := f.Create(node.Config{
+			Node:    irNode,
+			Program: mod.Program,
+			State:   state.Node(irNode.Key),
+		})
+		if err != nil {
+			return nil, err
+		}
+		nodes[irNode.Key] = n
+	}
+	return nodes, nil
+}
+
+// openGuest instantiates the WASM module wasmBytes in a new runtime with the host
+// modules it imports. It appends the closers of the runtime and the guest to closers,
+// and returns the guest as a node module with its loop budget.
+func openGuest(
+	ctx context.Context,
+	wasmBytes []byte,
+	cs calcState,
+	closers *io.MultiCloser,
+) (*wasm.Module, runtime.Budget, error) {
+	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	*closers = append(*closers, io.CloserFunc(func() error {
+		return wasmRT.Close(ctx)
+	}))
+	statefulMod, err := stateful.NewHost(ctx, wasmRT, cs.series, cs.strings)
+	if err != nil {
+		return nil, runtime.Budget{}, err
+	}
+	if _, err = series.NewHost(ctx, wasmRT, cs.series); err != nil {
+		return nil, runtime.Budget{}, err
+	}
+	stringsMod, err := stlstrings.NewHost(ctx, wasmRT, cs.strings, nil)
+	if err != nil {
+		return nil, runtime.Budget{}, err
+	}
+	if _, err = stlmath.NewHost(ctx, wasmRT); err != nil {
+		return nil, runtime.Budget{}, err
+	}
+	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
+	if err != nil {
+		return nil, runtime.Budget{}, err
+	}
+	guest, err := wasmRT.Instantiate(ctx, wasmBytes)
+	if err != nil {
+		return nil, runtime.Budget{}, err
+	}
+	stringsMod.SetMemory(guest.Memory())
+	errorsMod.SetMemory(guest.Memory())
+	*closers = append(*closers,
+		io.CloserFunc(func() error {
+			// Pass context.TODO() to the closer here, instead of the ctx passed into
+			// open for safety reasons. WASM says that the context is only used for
+			// tracing purposes.
+			return guest.Close(context.TODO())
+		}),
+	)
+	budget, err := runtime.NewBudget(guest, runtime.DefaultLoopBudget)
+	if err != nil {
+		return nil, runtime.Budget{}, err
+	}
+	return &wasm.Module{
+		Module:        guest,
+		Memory:        guest.Memory(),
+		Strings:       cs.strings,
+		NodeKeySetter: statefulMod,
+	}, budget, nil
 }
 
 func (c *Calculator) WriteTo() channel.Keys { return c.deps.Writes.Slice() }
@@ -265,12 +312,15 @@ func (c *Calculator) String() string {
 // is free to discard the returned value.
 //
 // The first error a node reports during the step is returned, with no new calculations.
+// A step that uses its whole loop budget returns an error wrapping
+// runtime.ErrLoopBudget.
 func (c *Calculator) Next(
 	ctx context.Context,
 	input,
 	output framer.Frame,
 ) (framer.Frame, bool, error) {
 	c.state.channel.Ingest(input.ToStorage())
+	c.budget.Reset()
 	var (
 		ofr         = output.ToStorage()
 		currChanged bool
@@ -301,8 +351,12 @@ func (c *Calculator) Next(
 	// when a required input channel never sends data, consumed series accumulate
 	// indefinitely in channel.reads.
 	c.state.channel.ClearReads()
-	if err := c.err; err != nil {
-		c.err = nil
+	err := c.err
+	c.err = nil
+	if budgetErr := c.budget.Err(); budgetErr != nil {
+		return framer.Frame{}, false, budgetErr
+	}
+	if err != nil {
 		return framer.Frame{}, false, err
 	}
 	if !changed {

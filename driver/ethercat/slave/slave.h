@@ -14,16 +14,22 @@
 #include <cstdint>
 #include <format>
 #include <limits>
+#include <numeric>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/dc/dc.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -204,9 +210,8 @@ private:
 struct Config {
     /// @brief whether the slave joins cyclic exchange.
     bool enabled = true;
-    /// @brief the mode the user chose. With nullopt, the SOEM master runs the mode that
-    /// Properties::catalog_op_mode gives, else the one that dc::select picks, and the
-    /// IgH master sets up no DC sync.
+    /// @brief the mode the user chose. With nullopt, the master runs the mode that
+    /// Properties::catalog_op_mode gives, else the one that dc::select picks.
     std::optional<dc::Choice> op_mode;
     /// @brief CoE objects written to the slave before each move to SAFE-OP, unless
     /// another program sets up the slave.
@@ -245,7 +250,7 @@ struct Properties {
     /// @brief revision number for hardware/firmware versioning.
     uint32_t revision{};
     /// @brief serial number of the device (if available).
-    uint32_t serial{};
+    uint64_t serial{};
     /// @brief human-readable name of the slave device.
     std::string name;
     /// @brief discovered input PDOs (TxPDO, slave→master).
@@ -287,10 +292,44 @@ struct Properties {
         return this->settings->at("mode").value("shared", false);
     }
 
+    /// @brief returns the program that sets the slave up, or alone reads an input of
+    /// it, in the mode the card held at the scan, or an empty string.
+    [[nodiscard]] std::string shared_with() const {
+        if (!this->settings || !this->settings->contains("mode")) return "";
+        const auto &mode = this->settings->at("mode");
+        const auto program = mode.value("shared_with", "");
+        return program.empty() ? mode.value("only_read_by", "") : program;
+    }
+
+    /// @brief returns the program that alone reads an input entry of the slave, or an
+    /// empty string when Synnax can read each of them.
+    [[nodiscard]] std::string only_reader() const {
+        if (!this->settings || !this->settings->contains("channels")) return "";
+        for (const auto &channel: this->settings->at("channels"))
+            for (const auto &entry: channel.at("entries"))
+                if (entry.contains("only_read_by") &&
+                    this->find_pdo(
+                        entry.at("index").get<uint16_t>(),
+                        entry.at("sub_index").get<uint8_t>(),
+                        true
+                    ))
+                    return entry.at("only_read_by").get<std::string>();
+        return "";
+    }
+
+    /// @brief whether the card was switched to Synnax but still runs the layout of
+    /// another program, as until its power restarts.
+    [[nodiscard]] bool switched() const {
+        if (!this->settings || !this->settings->contains("mode")) return false;
+        const auto &mode = this->settings->at("mode");
+        return mode.contains("switch") && mode.at("switch").empty() &&
+               !this->only_reader().empty();
+    }
+
     /// @brief parses slave properties from JSON.
     static Properties parse(x::json::Parser &parser) {
         Properties props;
-        props.serial = parser.field<uint32_t>("serial");
+        props.serial = parser.field<uint64_t>("serial");
         props.vendor_id = parser.field<uint32_t>("vendor_id");
         props.product_code = parser.field<uint32_t>("product_code");
         props.revision = parser.field<uint32_t>("revision");
@@ -365,16 +404,22 @@ struct Status {
     std::string pdo_discovery_error;
     /// @brief why the read of the settings failed, or empty when it succeeded.
     std::string settings_error;
+    /// @brief why the read of the serial number got no answer, or empty when the slave
+    /// answered. The serial number of a slave with one is not known.
+    std::string serial_error;
+    /// @brief whether the slave was below PRE-OP when the master read it. The master
+    /// then reads only its SII, such as its identity, PDOs, and sync modes.
+    bool starting = false;
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
 /// message about one or more such slaves ends with it once.
-inline constexpr std::string_view DC_SYNC_ADVICE =
+inline const std::string DC_SYNC_ADVICE =
     "To fix \"Invalid DC SYNC configuration\", right-click the device, select "
     "Configure, and pick another sync mode.";
 
 /// @brief advice for a slave that reports an invalid input or output configuration.
-inline constexpr std::string_view
+inline const std::string
     MODE_RESTART_ADVICE = "If the mode of the device changed, restart its power.";
 
 /// @brief why the bus started without a slave that refused a state.
@@ -384,7 +429,9 @@ struct Refusal {
     std::string reason;
     /// @brief what the user can do about the refusal, such as DC_SYNC_ADVICE, or empty
     /// for none. Each message about the refusal ends with it.
-    std::string_view advice;
+    std::string advice;
+    /// @brief the AL status code of the refusal, or 0 when the master cannot read it.
+    uint16_t code = 0;
 
     bool operator==(const Refusal &) const = default;
 };
@@ -438,6 +485,189 @@ struct Health {
 struct DiscoveryResult {
     Properties properties;
     Status status;
+    /// @brief when the Engine last saw the slave restart, or std::nullopt when its
+    /// master cannot see a restart. The first scan of the Engine counts as one.
+    std::optional<x::telem::TimeStamp> restarted_at;
+
+    /// @brief whether the serial number of the slave is not known: its SII serial
+    /// number is 0, and the master did not read its CoE serial number.
+    [[nodiscard]] bool serial_unread() const {
+        return this->properties.serial == 0 &&
+               (this->status.starting || !this->status.serial_error.empty());
+    }
 };
 
+/// @brief gives serial number 0 to each slave that has the vendor, product, and serial
+/// number of a slave before it, so that a serial number names one slave. A slave with
+/// serial number 0 has its position as its identity.
+inline void clear_duplicate_serials(std::vector<DiscoveryResult> &slaves) {
+    for (auto it = slaves.begin(); it != slaves.end(); ++it) {
+        auto &props = it->properties;
+        if (props.serial == 0) continue;
+        if (std::any_of(slaves.begin(), it, [&props](const DiscoveryResult &s) {
+                const auto &p = s.properties;
+                return p.vendor_id == props.vendor_id &&
+                       p.product_code == props.product_code && p.serial == props.serial;
+            }))
+            props.serial = 0;
+    }
+}
+
+/// @brief the identity of a slave that the Core saved.
+struct Identity {
+    /// @brief the position where the Core saved the slave.
+    uint16_t position = 0;
+    /// @brief the vendor ID of the slave.
+    uint32_t vendor_id = 0;
+    /// @brief the product code of the slave.
+    uint32_t product_code = 0;
+    /// @brief the serial number, or 0 when the slave is known by position.
+    uint64_t serial = 0;
+    /// @brief the name of the slave, for errors.
+    std::string name;
+
+    /// @brief whether the slave is the unit that live describes.
+    [[nodiscard]] bool same_unit(const Properties &live) const {
+        return live.vendor_id == this->vendor_id &&
+               live.product_code == this->product_code && live.serial == this->serial;
+    }
+};
+
+namespace details {
+/// @brief returns the indices of saved in order of saved position, then name.
+inline std::vector<size_t> by_position(const std::vector<Identity> &saved) {
+    std::vector<size_t> order(saved.size());
+    // NOLINTNEXTLINE(modernize-use-ranges): macOS libc++ has no std::ranges::iota.
+    std::iota(order.begin(), order.end(), 0);
+    std::ranges::sort(order, {}, [&saved](const size_t i) {
+        return std::tie(saved[i].position, saved[i].name);
+    });
+    return order;
+}
+}
+
+/// @brief finds each saved slave on bus. A slave with a serial number is the unit with
+/// its vendor, product, and serial number at any position. A unit at the saved
+/// position of a slave goes to that slave before a moved slave takes it. A slave with
+/// serial number 0 is the slave of its model at its saved position, unless a slave with
+/// a serial number found it. So is a slave that found no unit, when the serial number
+/// of the slave at its saved position is unread. Several slaves can find one slave on
+/// bus this way.
+/// @returns the position on bus of saved[i] at index i, or nullopt when it is not on
+/// bus.
+[[nodiscard]] inline std::vector<std::optional<uint16_t>>
+locate(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus) {
+    std::vector<std::optional<uint16_t>> found(saved.size());
+    const auto at = [&bus](const uint16_t position) -> const DiscoveryResult * {
+        const auto it = std::ranges::find(bus, position, [](const DiscoveryResult &d) {
+            return d.properties.position;
+        });
+        return it == bus.end() ? nullptr : &*it;
+    };
+    const auto known_unit = [](const Identity &s, const DiscoveryResult &live) {
+        return !live.serial_unread() && s.same_unit(live.properties);
+    };
+    std::set<uint16_t> units;
+    const auto order = details::by_position(saved);
+    for (const auto i: order)
+        if (const auto *live = at(saved[i].position);
+            saved[i].serial != 0 && live != nullptr && known_unit(saved[i], *live)) {
+            found[i] = saved[i].position;
+            units.insert(saved[i].position);
+        }
+    for (const auto i: order) {
+        if (saved[i].serial == 0 || found[i]) continue;
+        const auto it = std::ranges::find_if(bus, [&](const DiscoveryResult &d) {
+            return !units.contains(d.properties.position) && known_unit(saved[i], d);
+        });
+        if (it == bus.end()) continue;
+        found[i] = it->properties.position;
+        units.insert(it->properties.position);
+    }
+    for (const auto i: order) {
+        const auto &s = saved[i];
+        const auto *live = at(s.position);
+        if (found[i] || units.contains(s.position) || live == nullptr ||
+            live->properties.vendor_id != s.vendor_id ||
+            live->properties.product_code != s.product_code)
+            continue;
+        if (s.serial == 0 || live->serial_unread()) found[i] = s.position;
+    }
+    return found;
+}
+
+/// @brief finds each saved slave on bus as locate does.
+/// @returns the position on bus of saved[i] at index i, or errors::TOPOLOGY_MISMATCH
+/// for the saved slave with the lowest saved position that it does not find, or when
+/// two slaves have one saved position.
+[[nodiscard]] inline std::pair<std::vector<uint16_t>, x::errors::Error>
+bind(const std::vector<Identity> &saved, const std::vector<DiscoveryResult> &bus) {
+    const auto mismatch = [](const std::string &message) {
+        return std::pair{
+            std::vector<uint16_t>{},
+            x::errors::Error(errors::TOPOLOGY_MISMATCH, message)
+        };
+    };
+    const auto order = details::by_position(saved);
+    for (size_t i = 1; i < order.size(); ++i)
+        if (const auto &a = saved[order[i - 1]], &b = saved[order[i]];
+            a.position == b.position)
+            return mismatch(
+                std::format(
+                    "{} and {} are both saved as module {}.",
+                    a.name,
+                    b.name,
+                    b.position
+                )
+            );
+    const auto found = locate(saved, bus);
+    std::vector<uint16_t> positions(saved.size());
+    for (const auto i: order) {
+        if (const auto &position = found[i]) {
+            positions[i] = *position;
+            continue;
+        }
+        const auto &s = saved[i];
+        if (s.serial != 0)
+            return mismatch(
+                std::format("{} (serial {}) is not on the bus.", s.name, s.serial)
+            );
+        const auto unit = std::ranges::find(found, std::optional(s.position));
+        if (unit != found.end()) {
+            const auto &other = saved[unit - found.begin()];
+            return mismatch(
+                std::format(
+                    "Module {} ({}) is not on the bus. Module {} is {} (serial {}).",
+                    s.position,
+                    s.name,
+                    s.position,
+                    other.name,
+                    other.serial
+                )
+            );
+        }
+        const auto live = std::ranges::find(
+            bus,
+            s.position,
+            [](const DiscoveryResult &d) { return d.properties.position; }
+        );
+        if (live == bus.end())
+            return mismatch(
+                std::format("Module {} ({}) is not on the bus.", s.position, s.name)
+            );
+        const auto &props = live->properties;
+        const bool vendor = props.vendor_id != s.vendor_id;
+        return mismatch(
+            std::format(
+                "Module {} ({}): expected {} {:#010x}, found {:#010x}.",
+                s.position,
+                s.name,
+                vendor ? "vendor_id" : "product_code",
+                vendor ? s.vendor_id : s.product_code,
+                vendor ? props.vendor_id : props.product_code
+            )
+        );
+    }
+    return {positions, x::errors::NIL};
+}
 }

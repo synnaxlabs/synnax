@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/color"
 import "schemas/synnax/group"
 import "schemas/synnax/project"
 import "schemas/synnax/ranger"
-import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/patch"
 import "schemas/x/spatial"
@@ -210,32 +210,33 @@ Axes struct {
 }
 
 Line struct {
-    key          string       {
+    key          string      {
         @doc value """
             is the line's stable identity, a UUID string. It is a function of the plot's
             key and the line's y-axis, y-channel, and x-channel, so the Core and the
             Console derive the same key for the same line.
         """
     }
-    y_axis       YAxisKey     {
+    y_axis       YAxisKey    {
         @doc value "is the y-axis the line is drawn against."
     }
-    y_channel    channel.Key  {
+    y_channel    channel.Key {
         @doc value "is the channel plotted on the y-axis."
     }
     x_channel    channel.Key = 0 {
         @doc value "is the channel plotted on the x-axis, or 0 to plot against time."
     }
-    label        string?      {
+    label        string?     {
         @doc value """
             is the user-specified line label. Null means derive from the channel name at
             render time; non-null is an override.
         """
     }
-    color        color.Color? {
+    color        color.Ref?  {
         @doc value """
-            is the line color. When null, the Console assigns one from the visualization
-            palette at render time.
+            is the line color, a named color or a fixed color. A write with no color
+            gets the series color that the fewest other lines use, and a tie goes to the
+            first.
         """
     }
     stroke_width float64 = 2 {
@@ -254,19 +255,20 @@ Line struct {
 }
 
 Rule struct {
-    key        string       {
+    key        string     {
         @doc value "is the unique rule identifier within the line plot."
     }
-    label      string       {
+    label      string     {
         @doc value "is the human-readable label rendered alongside the rule."
     }
-    color      color.Color? {
+    color      color.Ref? {
         @doc value """
-            is the display color of the rule. When null, the Console assigns a default
-            at render time.
+            is the display color of the rule, a named color or a fixed color. A write
+            with no color gets the series color that the fewest other rules use, and a
+            tie goes to the first.
         """
     }
-    axis       AxisKey      {
+    axis       AxisKey    {
         @doc value "is the axis the rule is anchored to."
     }
     line_width float64 = 1 {
@@ -278,7 +280,7 @@ Rule struct {
     units      string = "" {
         @doc value "is the unit label displayed next to the position value."
     }
-    position   float64      {
+    position   float64    {
         @doc value "is the value-space position of the rule along its anchored axis."
     }
 
@@ -330,7 +332,7 @@ LinePlot struct {
         @ref on_delete detach
     }
     project  project.Key? {
-        @doc value     "is the project that owns the line plot."
+        @doc value     "is the project that holds the line plot."
         @ref kind      place
         @ref on_delete cascade
     }
@@ -497,11 +499,11 @@ LinePlot struct {
 
     action SetLineColor {
         key   string
-        color color.Color?
+        color color.Ref?
 
         @doc value """
-            sets the color of the line identified by key. Null resets it to a palette
-            color assigned at render time.
+            sets the color of the line identified by key to a named or a fixed color.
+            Null gives the line the series color that the fewest other lines use.
         """
     }
 
@@ -556,11 +558,11 @@ LinePlot struct {
 
     action SetRuleColor {
         key   string
-        color color.Color?
+        color color.Ref?
 
         @doc value """
-            sets the color of the rule identified by key. Null resets it to a default
-            color assigned at render time.
+            sets the color of the rule identified by key to a named or a fixed color.
+            Null gives the rule the series color that the fewest other rules use.
         """
     }
 
@@ -645,7 +647,7 @@ Where filter LinePlot {
         @doc value "matches the line plots in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the line plots owned by any of the given projects."
+        @doc value "matches the line plots in any of the given projects."
     }
 
     @doc value         "is a filter that selects line plots."

@@ -106,7 +106,7 @@ func (c Config) Validate() error {
 }
 
 // Relay is the central mechanism for streaming real-time telemetry within the
-// distribution layer. It moves
+// distribution layer. It moves frames from writers to the streamers that demand them.
 type Relay struct {
 	ins      alamos.Instrumentation
 	demands  confluence.Inlet[demand]

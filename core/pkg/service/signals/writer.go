@@ -32,7 +32,7 @@ import (
 
 // feed adds the samples that one commit gives its change channels to a frame.
 type feed interface {
-	append(ctx context.Context, c gorp.Commit, fr framer.Frame) framer.Frame
+	append(c gorp.Commit, fr framer.Frame) framer.Frame
 	// records returns the Record of each channel of the feed. It runs once the channels
 	// have keys.
 	records() map[channel.Key]Record
@@ -143,7 +143,7 @@ type changeWriter struct {
 func (w *changeWriter) write(ctx context.Context, c gorp.Commit) {
 	var fr framer.Frame
 	for _, f := range w.feeds {
-		fr = f.append(ctx, c, fr)
+		fr = f.append(c, fr)
 	}
 	if fr.Empty() {
 		return

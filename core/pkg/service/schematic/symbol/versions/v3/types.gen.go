@@ -52,11 +52,6 @@ type Symbol struct {
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *Symbol) ApplyDefaults() {
-	s.Data.ApplyDefaults()
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (s *Symbol) SetDefaults() {
 	s.Data.SetDefaults()
@@ -85,7 +80,6 @@ func (s *Symbol) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (s Symbol) Validate() error {
 	v := validate.New("Symbol")
-	v.NotEmptyString("name", s.Name)
 	v.Exec(func() error { return validate.PathedError(s.Data.Validate(), "data") })
 	return v.Error()
 }

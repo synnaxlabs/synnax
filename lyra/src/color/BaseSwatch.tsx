@@ -22,12 +22,14 @@ export const HAUL_TYPE = "color";
 const COLOR_VAR = CSS.variable("swatch", "color");
 const TEXT_VAR = CSS.variable("swatch", "text");
 
-export type HaulItem = Haul.Item<typeof HAUL_TYPE, color.Hex, undefined>;
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, undefined>;
 
-const createHaulItem = (key: color.Hex): HaulItem => ({
+const createHaulItem = (key: string): HaulItem => ({
   type: HAUL_TYPE,
   key,
 });
+
+const FACTS = ["Color"];
 
 const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
   items.filter((item): item is HaulItem => item.type === HAUL_TYPE);
@@ -76,7 +78,15 @@ export const BaseSwatch = ({
       square
       disabled={disabled}
       draggable={draggable}
-      onDragStart={() => startDrag([createHaulItem(hex)])}
+      onDragStart={(event) =>
+        startDrag({
+          event,
+          items: [createHaulItem(hex)],
+          preview: (
+            <Haul.Preview swatch={color.cssString(value)} name={hex} facts={FACTS} />
+          ),
+        })
+      }
       style={{
         ...style,
         [COLOR_VAR]: color.cssString(value),

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import { type access, user } from "@synnaxlabs/client";
 import { array, deep, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -41,6 +41,20 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   update: async ({ client, data }) => {
     const { key, name } = data;
     await client.users.rename(key, name);
+    return data;
+  },
+});
+
+export interface SetRoleParams {
+  key: user.Key;
+  role: access.role.Key;
+}
+
+export const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
+  name: "user role",
+  verbs: { present: "change", past: "changed", participle: "changing" },
+  update: async ({ client, data }) => {
+    await client.users.setRole(data.key, data.role);
     return data;
   },
 });

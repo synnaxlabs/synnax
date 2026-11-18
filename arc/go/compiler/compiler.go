@@ -47,7 +47,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-const FmtStrSyntheticPrefix = "fmt$"
+// ScaleSyntheticPrefix marks a synthesized function that converts its input to the
+// unit of its output.
+const ScaleSyntheticPrefix = "scale$"
 
 type compiledFunction struct {
 	scopeName string
@@ -92,8 +94,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		resolver.RegisterLocal(f.Key, uint32(i))
 	}
 
-	outputMemoryCounter := uint32(0x1000)
-	outputMemoryBases := make(map[string]uint32)
+	mem := &outputMemory{next: 0x1000, bases: make(map[string]uint32)}
 
 	var (
 		compiled     []compiledFunction
@@ -103,59 +104,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		if t, ok := batchTargetFor(i); ok {
 			batchTargets = append(batchTargets, t)
 		}
-		if strings.HasPrefix(i.Key, FmtStrSyntheticPrefix) {
-			cf, err := compileFmtStrSynthetic(compCtx, i)
+		if cf, ok, err := compileSynthetic(compCtx, i, program.Functions); ok {
 			if err != nil {
 				return Output{}, err
 			}
 			compiled = append(compiled, cf)
 			continue
 		}
-		if strings.HasPrefix(i.Key, ir.DispatcherSyntheticPrefix) {
-			cf, err := compileDispatcherSynthetic(compCtx, i, program.Functions)
-			if err != nil {
-				return Output{}, err
-			}
-			compiled = append(compiled, cf)
-			continue
-		}
-		params := i.Inputs
-		var returnType types.Type
-		defaultOutput, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
-		hasNamedOutputs := len(i.Outputs) > 1 ||
-			(len(i.Outputs) == 1 && !hasDefaultOutput)
-		if !hasNamedOutputs {
-			returnType = defaultOutput.Type
-		}
-
-		var outputMemoryBase uint32
-		if hasNamedOutputs {
-			outputMemoryBase = outputMemoryCounter
-			outputMemoryBases[i.Key] = outputMemoryBase
-			var size uint32 = 8
-			for _, oParam := range i.Outputs {
-				if !oParam.Type.IsValid() {
-					return Output{}, errors.Newf(
-						"function %s has output %q with unresolved type",
-						i.Key, oParam.Name,
-					)
-				}
-				if oParam.Type.Kind == types.KindString {
-					size += 4
-				} else {
-					size += uint32(oParam.Type.Density())
-				}
-			}
-			outputMemoryCounter += size
-		}
-
-		cf, err := compileItem(
-			compCtx,
-			i,
-			params,
-			returnType,
-			outputMemoryBase,
-		)
+		cf, err := compileUserFunction(compCtx, i, mem)
 		if err != nil {
 			return Output{}, err
 		}
@@ -169,21 +125,95 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	resolver.FinalizeAndPatch(compCtx.Module)
 
+	return Output{
+		WASM:              generateModule(compCtx.Module, compiled, indexFunctions),
+		OutputMemoryBases: mem.bases,
+	}, nil
+}
+
+// generateModule adds the compiled functions to m, exports each one but the index
+// functions, and returns the WASM bytes.
+func generateModule(
+	m *wasm.Module,
+	compiled, indexFunctions []compiledFunction,
+) []byte {
 	for _, cf := range compiled {
-		funcIdx := compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
-		compCtx.Module.AddExport(cf.scopeName, wasm.ExportKindFunc, funcIdx)
+		funcIdx := m.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
+		m.AddExport(cf.scopeName, wasm.ExportKindFunc, funcIdx)
 	}
 	for _, cf := range indexFunctions {
-		compCtx.Module.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
+		m.AddFunction(cf.typeIdx, cf.locals, cf.writer.Bytes())
 	}
+	m.EnableMemory()
+	m.AddExport("memory", wasm.ExportKindMemory, 0)
+	return m.Generate()
+}
 
-	compCtx.Module.EnableMemory()
-	compCtx.Module.AddExport("memory", wasm.ExportKindMemory, 0)
+// compileSynthetic compiles fn when the analyzer synthesized it. It returns false when
+// fn is a user-written function.
+func compileSynthetic(
+	rootCtx ccontext.Context[antlr.ParserRuleContext],
+	fn ir.Function,
+	functions ir.Functions,
+) (compiledFunction, bool, error) {
+	switch {
+	case strings.HasPrefix(fn.Key, ir.DispatcherSyntheticPrefix):
+		cf, err := compileDispatcherSynthetic(rootCtx, fn, functions)
+		return cf, true, err
+	case strings.HasPrefix(fn.Key, ScaleSyntheticPrefix):
+		cf, err := compileScaleSynthetic(rootCtx, fn)
+		return cf, true, err
+	default:
+		return compiledFunction{}, false, nil
+	}
+}
 
-	return Output{
-		WASM:              compCtx.Module.Generate(),
-		OutputMemoryBases: outputMemoryBases,
-	}, nil
+// outputMemory hands out the memory regions that hold the named outputs of each
+// function.
+type outputMemory struct {
+	next  uint32
+	bases map[string]uint32
+}
+
+func compileUserFunction(
+	rootCtx ccontext.Context[antlr.ParserRuleContext],
+	fn ir.Function,
+	mem *outputMemory,
+) (compiledFunction, error) {
+	defaultOutput, hasDefaultOutput := fn.Outputs.Get(ir.DefaultOutputParam)
+	hasNamedOutputs := len(fn.Outputs) > 1 ||
+		(len(fn.Outputs) == 1 && !hasDefaultOutput)
+	if !hasNamedOutputs {
+		return compileItem(rootCtx, fn, fn.Inputs, defaultOutput.Type, 0)
+	}
+	base := mem.next
+	mem.bases[fn.Key] = base
+	size, err := outputMemorySize(fn)
+	if err != nil {
+		return compiledFunction{}, err
+	}
+	mem.next += size
+	return compileItem(rootCtx, fn, fn.Inputs, types.Type{}, base)
+}
+
+// outputMemorySize returns the bytes that the named outputs of fn take in memory,
+// including the 8-byte dirty mask.
+func outputMemorySize(fn ir.Function) (uint32, error) {
+	var size uint32 = 8
+	for _, oParam := range fn.Outputs {
+		if !oParam.Type.IsValid() {
+			return 0, errors.Newf(
+				"function %s has output %q with unresolved type",
+				fn.Key, oParam.Name,
+			)
+		}
+		if oParam.Type.Kind == types.KindString {
+			size += 4
+		} else {
+			size += uint32(oParam.Type.Density())
+		}
+	}
+	return size, nil
 }
 
 func compileItem(
@@ -212,6 +242,8 @@ func compileItem(
 
 	funcT := wasm.FunctionType{Params: wasmParams, Results: wasmResults}
 	typeIdx := ctx.Module.AddType(funcT)
+	// Recursion has no loop, so each call also takes from the budget.
+	ctx.Writer.WriteLoopBudget(ctx.LoopBudget)
 
 	if outputMemoryBase > 0 {
 		ctx.Writer.WriteI32Const(int32(outputMemoryBase))
@@ -219,36 +251,8 @@ func compileItem(
 		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
 	}
 
-	if blockCtx, ok := body.(parser.IBlockContext); ok {
-		_, err = statement.CompileBlock(ctx.Child(blockCtx))
-		if err != nil {
-			return compiledFunction{}, errors.Wrapf(
-				err,
-				"failed to compile function '%s' body",
-				ctx.Scope.Name,
-			)
-		}
-	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {
-		if err = compileExpression(ctx.Child(exprCtx)); err != nil {
-			return compiledFunction{}, errors.Wrapf(
-				err,
-				"failed to compile expression '%s'",
-				ctx.Scope.Name,
-			)
-		}
-	} else if fnCtx, ok := body.(parser.IFunctionContext); ok {
-		head, tail := parser.FunctionNameParts(fnCtx)
-		if _, err = expression.CompileCall(
-			ctx.Child(fnCtx), head, tail, symbol.FunctionArguments(fnCtx),
-		); err != nil {
-			return compiledFunction{}, errors.Wrapf(
-				err,
-				"failed to compile call '%s'",
-				ctx.Scope.Name,
-			)
-		}
-	} else {
-		return compiledFunction{}, errors.Newf("unsupported body type for '%s'", key)
+	if err = compileBody(ctx, key, body, results); err != nil {
+		return compiledFunction{}, err
 	}
 
 	return compiledFunction{
@@ -257,6 +261,46 @@ func compileItem(
 		locals:    collectLocals(ctx.Scope),
 		writer:    ctx.Writer,
 	}, nil
+}
+
+func compileBody(
+	ctx ccontext.Context[antlr.ParserRuleContext],
+	key string,
+	body antlr.ParserRuleContext,
+	results types.Type,
+) error {
+	switch body := body.(type) {
+	case parser.IBlockContext:
+		if _, err := statement.CompileBlock(ctx.Child(body)); err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to compile function '%s' body",
+				ctx.Scope.Name,
+			)
+		}
+	case parser.IExpressionContext:
+		t, err := expression.Compile(ctx.Child(body))
+		if err == nil && types.UnitsConvertible(t.Unit, results.Unit) {
+			err = expression.EmitCast(ctx, t, results)
+		}
+		if err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to compile expression '%s'",
+				ctx.Scope.Name,
+			)
+		}
+	case parser.IFunctionContext:
+		head, tail := parser.FunctionNameParts(body)
+		if _, err := expression.CompileCall(
+			ctx.Child(body), head, tail, symbol.FunctionArguments(body),
+		); err != nil {
+			return errors.Wrapf(err, "failed to compile call '%s'", ctx.Scope.Name)
+		}
+	default:
+		return errors.Newf("unsupported body type for '%s'", key)
+	}
+	return nil
 }
 
 // functionScope returns the symbol fn compiles in. A function lowered from a module
@@ -268,41 +312,33 @@ func functionScope(fn ir.Function) (*symbol.Symbol, error) {
 	return fn.Symbol, nil
 }
 
-func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
-	_, err := expression.Compile(ctx)
-	return err
-}
-
-// compileFmtStrSynthetic emits a WASM body returning the formatted string
-// handle for an analyzer-synthesized Function. Lifted variable reads arrive
-// as params.
-func compileFmtStrSynthetic(
+// compileScaleSynthetic emits a WASM body that returns its one input in the type and
+// unit of its output. An integer truncates toward zero.
+func compileScaleSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
 ) (compiledFunction, error) {
-	scope, err := functionScope(fn)
-	if err != nil {
-		return compiledFunction{}, err
-	}
-	ctx := rootCtx.WithScope(scope).WithNewWriter()
-	params := make([]wasm.ValueType, 0, len(fn.Inputs))
-	for _, p := range fn.Inputs {
-		params = append(params, wasm.ConvertType(p.Type))
-	}
-	funcT := wasm.FunctionType{
-		Params:  params,
-		Results: []wasm.ValueType{wasm.ConvertType(types.String())},
-	}
-	typeIdx := ctx.Module.AddType(funcT)
-	lit, ok := fn.Body.AST.(parser.ILiteralContext)
-	if !ok {
+	if len(fn.Inputs) != 1 || len(fn.Outputs) != 1 {
 		return compiledFunction{}, errors.Newf(
-			"format string %s has no literal",
-			fn.Key,
+			"unit conversion %s takes one input and one output", fn.Key,
 		)
 	}
-	strTerm := parser.StringTerminal(lit)
-	if _, err := expression.EmitFmtSegments(ctx, strTerm); err != nil {
+	in, out := fn.Inputs[0].Type, fn.Outputs[0].Type
+	if in.Kind == types.KindVarRef && in.Elem != nil {
+		in = *in.Elem
+	}
+	if !types.UnitsConvertible(in.Unit, out.Unit) {
+		return compiledFunction{}, errors.Newf(
+			"unit conversion %s cannot convert %s to %s", fn.Key, in, out,
+		)
+	}
+	ctx := rootCtx.WithNewWriter()
+	typeIdx := ctx.Module.AddType(wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.ConvertType(in)},
+		Results: []wasm.ValueType{wasm.ConvertType(out)},
+	})
+	ctx.Writer.WriteLocalGet(0)
+	if err := expression.EmitCast(ctx, in, out); err != nil {
 		return compiledFunction{}, err
 	}
 	return compiledFunction{
@@ -358,20 +394,8 @@ func compileDispatcherSynthetic(
 			ctx.Writer.WriteBinaryOp(wasm.OpI32Eq)
 			ctx.Writer.WriteIf(blockT)
 		}
-		for _, p := range bfn.Inputs {
-			slot, ok := slots[p.Name]
-			if !ok {
-				return compiledFunction{}, errors.Newf(
-					"dispatcher %s missing input %q for branch %q", fn.Key, p.Name, key,
-				)
-			}
-			ctx.Writer.WriteLocalGet(slot)
-		}
-		ctx.Resolver.EmitLocalCall(ctx.Writer, ctx.WriterID, key, types.Type{})
-		if bout, ok := bfn.Outputs.Get(ir.DefaultOutputParam); ok {
-			if err := expression.EmitCast(ctx, bout.Type, out.Type); err != nil {
-				return compiledFunction{}, err
-			}
+		if err := emitBranchCall(ctx, fn.Key, bfn, slots, out.Type); err != nil {
+			return compiledFunction{}, err
 		}
 		if !last {
 			ctx.Writer.WriteElse()
@@ -387,6 +411,32 @@ func compileDispatcherSynthetic(
 	}, nil
 }
 
+// emitBranchCall calls the dispatcher branch with the dispatcher params it reads and
+// casts its result to the dispatcher output type.
+func emitBranchCall(
+	ctx ccontext.Context[antlr.ParserRuleContext],
+	dispatcher string,
+	branch ir.Function,
+	slots map[string]int,
+	outType types.Type,
+) error {
+	for _, p := range branch.Inputs {
+		slot, ok := slots[p.Name]
+		if !ok {
+			return errors.Newf(
+				"dispatcher %s missing input %q for branch %q",
+				dispatcher, p.Name, branch.Key,
+			)
+		}
+		ctx.Writer.WriteLocalGet(slot)
+	}
+	ctx.Resolver.EmitLocalCall(ctx.Writer, ctx.WriterID, branch.Key, types.Type{})
+	if bout, ok := branch.Outputs.Get(ir.DefaultOutputParam); ok {
+		return expression.EmitCast(ctx, bout.Type, outType)
+	}
+	return nil
+}
+
 // blockTypeFor returns the value-producing block type for vt.
 func blockTypeFor(vt wasm.ValueType) wasm.BlockType {
 	switch vt {
@@ -396,8 +446,10 @@ func blockTypeFor(vt wasm.ValueType) wasm.BlockType {
 		return wasm.BlockTypeF32
 	case wasm.F64:
 		return wasm.BlockTypeF64
-	default:
+	case wasm.I32:
 		return wasm.BlockTypeI32
+	default:
+		panic(errors.Newf("unknown wasm value type %#x", byte(vt)))
 	}
 }
 
@@ -410,7 +462,9 @@ func collectLocals(scope *symbol.Symbol) []wasm.ValueType {
 			locals = append(locals, wasm.ConvertType(child.Type))
 		case symbol.KindBlock, symbol.KindLoop:
 			locals = append(locals, collectLocals(child)...)
-		default:
+		case symbol.KindChannel, symbol.KindFunction, symbol.KindInput,
+			symbol.KindSequence, symbol.KindStage, symbol.KindConstant,
+			symbol.KindModule, symbol.KindModuleAlias, symbol.KindAmbient:
 		}
 	}
 	return locals

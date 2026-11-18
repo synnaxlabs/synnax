@@ -1,0 +1,17 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87 48">
+  <line x1="43.5" y1="27" x2="43.5" y2="1" />
+  <path d="M19.64 1 L66.68 1" stroke-linecap="round" />
+  <path
+        d="M43.5 27L6.35453 8.20349C4.35901 7.19372 2 8.64384 2 10.8803V43.1197C2 45.3562 4.35901 46.8063 6.35453 45.7965L43.5 27ZM43.5 27L80.6455 8.20349C82.641 7.19372 85 8.64384 85 10.8803V43.1197C85 45.3562 82.641 46.8063 80.6455 45.7965L43.5 27Z"
+    />
+</svg>

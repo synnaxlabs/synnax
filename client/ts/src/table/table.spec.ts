@@ -29,6 +29,24 @@ const mkValue = (units?: string): table.CellConfig =>
     units == null ? { variant: "value" } : { variant: "value", units },
   );
 
+// row builds a row whose cells each hold the config that configs gives under its key.
+const row = (
+  key: string,
+  size: number,
+  configs: Record<string, table.CellConfig>,
+): table.Row => ({
+  key,
+  size,
+  cells: Object.entries(configs).map(([k, config]) => ({ key: k, config })),
+});
+
+const keysOf = (r: table.Row): string[] => r.cells.map((c) => c.key);
+
+const configOf = (t: table.Table, key: string): table.CellConfig | undefined =>
+  t.rows.flatMap((r) => r.cells).find((c) => c.key === key)?.config;
+
+const allKeys = (t: table.Table): string[] => t.rows.flatMap(keysOf);
+
 describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
@@ -98,38 +116,51 @@ describe("Table", () => {
       const t = await client.tables.create({
         project: proj.key,
         name: "ConfigTest",
-        cells: {
-          a: {
-            variant: "value",
-            channel: 42,
-            rollingAverage: 5,
-            precision: 3,
-            notation: "scientific",
-            redline: {
-              bands: [
-                { key: "hi", threshold: 90, color: [255, 0, 0, 1], flashing: true },
-              ],
-              smooth: true,
-            },
-            fillColor: [0, 255, 0, 1],
-            units: "psi",
-            stalenessTimeout: 5,
+        rows: [
+          {
+            cells: [
+              {
+                key: "a",
+                config: {
+                  variant: "value",
+                  channel: 42,
+                  rollingAverage: 5,
+                  precision: 3,
+                  notation: "scientific",
+                  redline: {
+                    bands: [
+                      {
+                        key: "hi",
+                        threshold: 90,
+                        color: [255, 0, 0, 255],
+                        flashing: true,
+                      },
+                    ],
+                    smooth: true,
+                  },
+                  fillColor: [0, 255, 0, 255],
+                  units: "psi",
+                  stalenessTimeout: 5,
+                },
+              },
+            ],
           },
-        },
+        ],
+        columns: [{}],
       });
       const retrieved = await client.tables.retrieve(t.key);
-      const cfg = retrieved.cells.a;
-      expect(cfg.variant).toEqual("value");
-      if (cfg.variant !== "value") return;
+      const cfg = configOf(retrieved, "a");
+      expect(cfg?.variant).toEqual("value");
+      if (cfg?.variant !== "value") return;
       expect(cfg.channel).toEqual(42);
       expect(cfg.rollingAverage).toEqual(5);
       expect(cfg.precision).toEqual(3);
       expect(cfg.notation).toEqual("scientific");
       expect(cfg.redline).toEqual({
-        bands: [{ key: "hi", threshold: 90, color: [255, 0, 0, 1], flashing: true }],
+        bands: [{ key: "hi", threshold: 90, color: [255, 0, 0, 255], flashing: true }],
         smooth: true,
       });
-      expect(cfg.fillColor).toEqual([0, 255, 0, 1]);
+      expect(cfg.fillColor).toEqual([0, 255, 0, 255]);
       expect(cfg.units).toEqual("psi");
       expect(cfg.stalenessTimeout).toEqual(5);
     });
@@ -140,9 +171,16 @@ describe("Table", () => {
         client.tables.create({
           project: proj.key,
           name: "BadConfig",
-          cells: {
-            a: { variant: "hologram" } as unknown as table.CellConfig,
-          },
+          rows: [
+            {
+              cells: [
+                {
+                  key: "a",
+                  config: { variant: "hologram" } as unknown as table.CellConfig,
+                },
+              ],
+            },
+          ],
         }),
       ).rejects.toThrow();
     });
@@ -154,15 +192,11 @@ describe("Table", () => {
       return await client.tables.create({
         project: proj.key,
         name: "Dispatch",
-        rows: [{ key: "r0", size: 30, cells: ["a", "b"] }],
+        rows: [row("r0", 30, { a: mkText("A"), b: mkText("B") })],
         columns: [
           { key: "c0", size: 80 },
           { key: "c1", size: 100 },
         ],
-        cells: {
-          a: { variant: "text", value: "A" },
-          b: { variant: "text", value: "B" },
-        },
       });
     };
 
@@ -190,8 +224,7 @@ describe("Table", () => {
       ]);
       const res = await client.tables.retrieve(t.key);
       expect(res.rows).toHaveLength(2);
-      expect(res.rows[1]).toEqual({ key: "r1", size: 40, cells: ["c", "d"] });
-      expect(res.cells.c).toEqual(mkText("C"));
+      expect(res.rows[1]).toEqual(row("r1", 40, { c: mkText("C"), d: mkText("D") }));
     });
 
     test("addRow derives the same bootstrap column keys as the Core", async () => {
@@ -215,7 +248,6 @@ describe("Table", () => {
       await client.tables.dispatch(t.key, [table.removeRow({ key: "r0" })]);
       const res = await client.tables.retrieve(t.key);
       expect(res.rows).toEqual([]);
-      expect(Object.keys(res.cells)).toEqual([]);
     });
 
     test("addCol inserts a column at the given index across every row", async () => {
@@ -230,7 +262,7 @@ describe("Table", () => {
       ]);
       const res = await client.tables.retrieve(t.key);
       expect(res.columns.map((c) => c.key)).toEqual(["c0", "mid", "c1"]);
-      expect(res.rows[0].cells).toEqual(["a", "mid-1", "b"]);
+      expect(keysOf(res.rows[0])).toEqual(["a", "mid-1", "b"]);
     });
 
     test("removeCol drops every cell in that column", async () => {
@@ -238,8 +270,7 @@ describe("Table", () => {
       await client.tables.dispatch(t.key, [table.removeCol({ key: "c0" })]);
       const res = await client.tables.retrieve(t.key);
       expect(res.columns).toHaveLength(1);
-      expect(res.rows[0].cells).toEqual(["b"]);
-      expect(res.cells.a).toBeUndefined();
+      expect(keysOf(res.rows[0])).toEqual(["b"]);
     });
 
     test("resize actions update size in place", async () => {
@@ -261,7 +292,7 @@ describe("Table", () => {
         }),
       ]);
       const res = await client.tables.retrieve(t.key);
-      expect(res.cells.a).toEqual(mkValue("psi"));
+      expect(configOf(res, "a")).toEqual(mkValue("psi"));
     });
 
     test("setCell is a no-op for an unknown key", async () => {
@@ -270,8 +301,7 @@ describe("Table", () => {
         table.setCell({ cell: { key: "ghost", config: mkText() } }),
       ]);
       const res = await client.tables.retrieve(t.key);
-      expect(res.cells.ghost).toBeUndefined();
-      expect(Object.keys(res.cells).sort()).toEqual(["a", "b"]);
+      expect(allKeys(res)).toEqual(["a", "b"]);
     });
 
     test("multi-action sequence applies atomically", async () => {
@@ -293,7 +323,7 @@ describe("Table", () => {
       const res = await client.tables.retrieve(t.key);
       expect(res.name).toEqual("multi");
       expect(res.rows).toHaveLength(2);
-      expect(res.cells.c).toEqual(mkValue("psi"));
+      expect(configOf(res, "c")).toEqual(mkValue("psi"));
     });
   });
 
@@ -309,44 +339,37 @@ describe("Table", () => {
       name,
       rows: [],
       columns: [],
-      cells: {},
     });
 
     const createTable2x2 = (): table.Table => ({
       key: KEY,
       name: "before",
       rows: [
-        { key: "r0", size: 36, cells: ["a", "b"] },
-        { key: "r1", size: 36, cells: ["c", "d"] },
+        row("r0", 36, { a: mkText("A"), b: mkText("B") }),
+        row("r1", 36, { c: mkText("C"), d: mkText("D") }),
       ],
       columns: [
         { key: "c0", size: 80 },
         { key: "c1", size: 100 },
       ],
-      cells: {
-        a: mkText("A"),
-        b: mkText("B"),
-        c: mkText("C"),
-        d: mkText("D"),
-      },
     });
 
     const createTable3x3 = (): table.Table => {
-      const keys = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
+      const values = (keys: string[]) =>
+        Object.fromEntries(keys.map((k) => [k, mkValue("psi")]));
       return {
         key: KEY,
         name: "t",
         rows: [
-          { key: "r0", size: 36, cells: ["a", "b", "c"] },
-          { key: "r1", size: 36, cells: ["d", "e", "f"] },
-          { key: "r2", size: 36, cells: ["g", "h", "i"] },
+          row("r0", 36, values(["a", "b", "c"])),
+          row("r1", 36, values(["d", "e", "f"])),
+          row("r2", 36, values(["g", "h", "i"])),
         ],
         columns: [
           { key: "c0", size: 80 },
           { key: "c1", size: 80 },
           { key: "c2", size: 80 },
         ],
-        cells: Object.fromEntries(keys.map((k) => [k, mkValue("psi")])),
       };
     };
 
@@ -375,9 +398,8 @@ describe("Table", () => {
         const { next, inverse } = table.reduceAll(
           {
             ...emptyState(),
-            rows: [{ key: "r0", size: 30, cells: ["a"] }],
+            rows: [row("r0", 30, { a: mkText("1") })],
             columns: [{ key: "c0", size: 80 }],
-            cells: { a: mkText("1") },
           },
           [
             table.setCell({
@@ -385,7 +407,7 @@ describe("Table", () => {
             }),
           ],
         );
-        expect(next.cells.a.variant).toEqual("value");
+        expect(configOf(next, "a")?.variant).toEqual("value");
         expect(inverse).toHaveLength(1);
         expect(inverse[0].type).toEqual("set_cell");
         if (inverse[0].type === "set_cell")
@@ -421,7 +443,7 @@ describe("Table", () => {
           { key: "n-0000", size: 72 },
           { key: "n-0001", size: 72 },
         ]);
-        expect(next.rows[0].cells).toEqual(["a", "b"]);
+        expect(keysOf(next.rows[0])).toEqual(["a", "b"]);
       });
 
       test("addCol on an empty table bootstraps one default row per cell", () => {
@@ -438,8 +460,8 @@ describe("Table", () => {
         ]);
         expect(next.columns).toHaveLength(1);
         expect(next.rows).toEqual([
-          { key: "n-0000", size: 36, cells: ["a"] },
-          { key: "n-0001", size: 36, cells: ["b"] },
+          row("n-0000", 36, { a: mkText() }),
+          row("n-0001", 36, { b: mkText() }),
         ]);
       });
     });
@@ -454,40 +476,29 @@ describe("Table", () => {
         const { next } = table.reduceAll(
           {
             ...emptyState(),
-            rows: [{ key: "r0", size: 36, cells: ["a", "b"] }],
+            rows: [row("r0", 36, { a: mkText(), b: mkText() })],
             columns: [
               { key: "c0", size: 80 },
               { key: "c1", size: 80 },
             ],
-            cells: {
-              a: mkText(),
-              b: mkText(),
-            },
           },
           [table.addRow({ index: 1, size: 36, cells: [], cellTemplate: template })],
         );
-        expect(next.rows[1].cells).toEqual([DERIVED_KEY_0, DERIVED_KEY_1]);
-        expect(next.cells[DERIVED_KEY_0]).toEqual(mkText("t"));
+        expect(keysOf(next.rows[1])).toEqual([DERIVED_KEY_0, DERIVED_KEY_1]);
+        expect(configOf(next, DERIVED_KEY_0)).toEqual(mkText("t"));
       });
 
       test("addCol replicates the template across existing rows", () => {
         const { next } = table.reduceAll(
           {
             ...emptyState(),
-            rows: [
-              { key: "r0", size: 36, cells: ["a"] },
-              { key: "r1", size: 36, cells: ["b"] },
-            ],
+            rows: [row("r0", 36, { a: mkText() }), row("r1", 36, { b: mkText() })],
             columns: [{ key: "c0", size: 80 }],
-            cells: {
-              a: mkText(),
-              b: mkText(),
-            },
           },
           [table.addCol({ index: 1, size: 80, cells: [], cellTemplate: template })],
         );
-        expect(next.rows[0].cells).toEqual(["a", DERIVED_KEY_0]);
-        expect(next.rows[1].cells).toEqual(["b", DERIVED_KEY_1]);
+        expect(keysOf(next.rows[0])).toEqual(["a", DERIVED_KEY_0]);
+        expect(keysOf(next.rows[1])).toEqual(["b", DERIVED_KEY_1]);
       });
 
       test("addCol with template adds an empty column when rows are empty", () => {
@@ -503,7 +514,6 @@ describe("Table", () => {
         );
         expect(next.rows).toHaveLength(0);
         expect(next.columns).toHaveLength(3);
-        expect(next.cells).toEqual({});
       });
 
       test("addRow with template adds an empty row when columns are empty", () => {
@@ -513,7 +523,6 @@ describe("Table", () => {
         );
         expect(next.rows).toHaveLength(2);
         expect(next.rows[1].cells).toEqual([]);
-        expect(next.cells).toEqual({});
       });
 
       test("addRow with template on an empty table produces a 1x1 grid", () => {
@@ -527,7 +536,7 @@ describe("Table", () => {
           }),
         ]);
         expect(next.columns).toEqual([{ key: "n-0000", size: 72 }]);
-        expect(next.rows[0].cells).toEqual([DERIVED_KEY_0]);
+        expect(keysOf(next.rows[0])).toEqual([DERIVED_KEY_0]);
       });
     });
 
@@ -539,9 +548,8 @@ describe("Table", () => {
       };
       const baseWithOneCell: table.Table = {
         ...emptyState(),
-        rows: [{ key: "r0", size: 60, cells: ["a"] }],
+        rows: [row("r0", 60, { a: mkText() })],
         columns: [{ key: "c0", size: 80 }],
-        cells: { a: mkText() },
       };
       test.for<{
         name: string;
@@ -588,7 +596,7 @@ describe("Table", () => {
     });
 
     describe("move", () => {
-      const cellsOf = (t: table.Table): string[][] => t.rows.map((r) => r.cells);
+      const cellsOf = (t: table.Table): string[][] => t.rows.map(keysOf);
 
       test.for<{ name: string; action: table.Action; expected: string[][] }>([
         {
@@ -649,7 +657,6 @@ describe("Table", () => {
         const original = createTable3x3();
         const { next, inverse } = table.reduceAll(original, [action]);
         expect(cellsOf(next)).toEqual(expected);
-        expect(next.cells).toEqual(original.cells);
         const { next: restored } = table.reduceAll(next, inverse);
         expect(restored).toEqual(original);
       });
@@ -687,7 +694,7 @@ describe("Table", () => {
 
       test("moveCol leaves a row missing a cell at either index unchanged", () => {
         const state = createTable3x3();
-        state.rows[1].cells = ["d", "e"];
+        state.rows[1].cells = state.rows[1].cells.slice(0, 2);
         const { next, inverse } = table.reduceAll(state, [
           table.moveCol({ key: "c0", to: 2 }),
         ]);
@@ -804,23 +811,23 @@ describe("Table", () => {
         ]);
         expect(next.rows).toHaveLength(rows);
         expect(next.columns).toHaveLength(columns);
-        if (row0 != null) expect(next.rows[0].cells).toEqual(row0);
+        if (row0 != null) expect(keysOf(next.rows[0])).toEqual(row0);
       });
 
       test("resets surviving cells to the template variant", () => {
         const { next } = table.reduceAll(createTable3x3(), [
           table.eraseCells({ cells: ["b", "e"], template: textTemplate }),
         ]);
-        expect(next.cells.b.variant).toEqual("text");
-        expect(next.cells.e.variant).toEqual("text");
-        expect(next.cells.a.variant).toEqual("value");
+        expect(configOf(next, "b")?.variant).toEqual("text");
+        expect(configOf(next, "e")?.variant).toEqual("text");
+        expect(configOf(next, "a")?.variant).toEqual("value");
       });
 
-      test("drops cells from the map when their row is fully removed", () => {
+      test("drops the cells of a fully removed row", () => {
         const { next } = table.reduceAll(createTable3x3(), [
           table.eraseCells({ cells: ["d", "e", "f"], template: textTemplate }),
         ]);
-        for (const k of ["d", "e", "f"]) expect(next.cells[k]).toBeUndefined();
+        expect(allKeys(next)).toEqual(["a", "b", "c", "g", "h", "i"]);
       });
 
       test("inverse restores the prior state on undo", () => {
@@ -848,7 +855,7 @@ describe("Table", () => {
         const { next, inverse } = table.reduceAll(state, [
           table.eraseCells({ cells: ["b", "b", "b"], template: textTemplate }),
         ]);
-        expect(next.cells.b.variant).toEqual("text");
+        expect(configOf(next, "b")?.variant).toEqual("text");
         const { next: restored } = table.reduceAll(next, inverse);
         expect(restored).toEqual(state);
       });

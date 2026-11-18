@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Read-only GitHub Actions API access as a GitHub App installation: runner status and
-the two job reads jobs.py builds on."""
+"""GitHub Actions API access as a GitHub App installation: runner status, runner
+removal, and the two job reads jobs.py builds on."""
 
 import json
 import ssl
@@ -34,13 +34,15 @@ Send = Callable[[urllib.request.Request], dict]
 
 
 def send(req: urllib.request.Request) -> dict:
-    """Sends req to GitHub and returns the decoded JSON response."""
+    """Sends req to GitHub and returns the decoded JSON response, empty for a response
+    with no body."""
     with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as resp:
-        return json.load(resp)
+        body = resp.read()
+    return json.loads(body) if body else {}
 
 
 class GitHub:
-    """Read-only access to the repository's Actions API as the GitHub App app_id, signed
+    """Access to the repository's Actions API as the GitHub App app_id, signed
     with its PEM private key. Safe for concurrent use. After GitHub rejects the
     installation token with a 401, the next call mints a new one.
 
@@ -108,10 +110,10 @@ class GitHub:
             self.expires = datetime.fromisoformat(minted["expires_at"]).timestamp()
             return self.token
 
-    def get(self, path: str) -> dict:
+    def call(self, path: str, *, method: str = "GET") -> dict:
         token = self.installation_token()
         try:
-            return self.request(f"{API}/repos/{REPO}{path}", token=token)
+            return self.request(f"{API}/repos/{REPO}{path}", token=token, method=method)
         except urllib.error.HTTPError as e:
             # GitHub revoked the token early, so the next call mints a new one.
             if e.code == 401:
@@ -126,17 +128,32 @@ class GitHub:
         items: list[dict] = []
         page = 1
         while True:
-            batch = self.get(f"{path}{sep}per_page=100&page={page}")[key]
+            batch = self.call(f"{path}{sep}per_page=100&page={page}")[key]
             items.extend(batch)
             if len(batch) < 100:
                 return items
             page += 1
 
-    def busy(self, runner: str) -> bool:
-        """Whether GitHub has a job assigned to the runner now. GitHub sets this at
-        assignment, seconds before the runner status poll or a webhook shows it."""
-        listed = self.get(f"/actions/runners?name={runner}")["runners"]
-        return any(r["busy"] for r in listed)
+    def offline(self, runner: str) -> bool:
+        """Whether GitHub shows the runner offline with no job assigned to it."""
+        listed = self.call(f"/actions/runners?name={runner}")["runners"]
+        return all(r["status"] == "offline" and not r["busy"] for r in listed)
+
+    def delete(self, runner: str) -> bool:
+        """Removes the runner's registration, so GitHub assigns it no more jobs. Returns
+        True once no registration is left, and False when GitHub refuses because the
+        runner has a job. Needs the app's administration write permission.
+
+        :raises urllib.error.HTTPError: on any other refusal.
+        """
+        for r in self.call(f"/actions/runners?name={runner}")["runners"]:
+            try:
+                self.call(f"/actions/runners/{r['id']}", method="DELETE")
+            except urllib.error.HTTPError as e:
+                if e.code == 422:
+                    return False
+                raise
+        return True
 
     def runner_status(self) -> tuple[dict[str, int], dict[str, set[str]]]:
         """Maps each runner to its status value, and to the labels it registered

@@ -50,6 +50,7 @@ var _ = Describe("Actions", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 		rec = &Recorder[rack.Key, rack.Action]{}
 		DeferCleanup(s.rack.Actions().OnChange(rec.Record))

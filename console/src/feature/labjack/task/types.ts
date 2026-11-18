@@ -85,6 +85,7 @@ const validateNegativeChannel = ({
   const pair = negativeChannelOf(port);
   if (negChan == null || negChan === pair) return;
   issues.push({
+    continue: true,
     code: "custom",
     message:
       pair == null

@@ -43,6 +43,7 @@ cc_test(
     ],
     deps = [
         "//client/cpp/errors",
+        "//driver/errors",
         "//driver/pipeline",
         "//driver/pipeline/testutil",
         "//x/cpp/defer",

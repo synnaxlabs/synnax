@@ -10,8 +10,16 @@
       "tests": [
         { "case": "hitl/ethercat" },
         { "case": "hitl/ethercat_settings" },
-        { "case": "hitl/ethercat_arc" }
+        { "case": "hitl/ethercat_commands" },
+        { "case": "hitl/ethercat_arc" },
+        { "case": "hitl/ethercat_startup" },
+        { "case": "hitl/ethercat_scan" },
+        { "case": "hitl/ethercat_frames" }
       ]
+    },
+    {
+      "sequence_name": "LabJack",
+      "tests": [{ "case": "hitl/labjack" }]
     },
     {
       "sequence_name": "cRIO",
@@ -20,6 +28,11 @@
         { "case": "hitl/crio_ni" },
         { "case": "hitl/crio_arc" }
       ]
+    },
+    {
+      "sequence_name": "EtherCAT Driver restarts",
+      "isolated": true,
+      "tests": [{ "case": "hitl/ethercat_restarts" }]
     }
   ]
 }

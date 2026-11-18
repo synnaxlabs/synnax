@@ -40,6 +40,19 @@ const openConfirm = async ({
     [items],
   );
 
+const OPTION = {
+  label: "Also delete the 2 channels it created",
+  description: "Their recorded data is deleted too.",
+};
+
+const useConfirmTaskWithOption = () => {
+  const confirmDelete = useConfirmDelete({ type: "Task" });
+  return (items: { name: string }) => confirmDelete(items, OPTION);
+};
+
+const openConfirmWithOption = async () =>
+  await renderModalOpener(useConfirmTaskWithOption, [{ name: "Task A" }]);
+
 // The header splits a dotted title into one breadcrumb segment per part, so the whole
 // string never appears as a single node.
 const headerText = (): string =>
@@ -113,5 +126,35 @@ describe("useConfirmDelete", () => {
       icon: "Library",
     });
     await screen.findByText("Are you sure you want to delete 2 ICDs?");
+  });
+  describe("with an option", () => {
+    it("should show the option and resolve it on when the user checks it", async () => {
+      const handle = await openConfirmWithOption();
+      fireEvent.click(await screen.findByRole("checkbox", { name: OPTION.label }));
+      expect(screen.getByText(OPTION.description)).toBeTruthy();
+      fireEvent.click(findButton("Delete"));
+      await expect(handle.result()).resolves.toEqual({ option: true });
+    });
+
+    it("should resolve the option off when the user leaves it unchecked", async () => {
+      const handle = await openConfirmWithOption();
+      await screen.findByRole("checkbox", { name: OPTION.label });
+      fireEvent.click(findButton("Delete"));
+      await expect(handle.result()).resolves.toEqual({ option: false });
+    });
+
+    it("should resolve null when the user cancels", async () => {
+      const handle = await openConfirmWithOption();
+      fireEvent.click(await screen.findByRole("checkbox", { name: OPTION.label }));
+      fireEvent.click(findButton("Cancel"));
+      await expect(handle.result()).resolves.toBeNull();
+    });
+
+    it("should resolve null when dismissed without an answer", async () => {
+      const handle = await openConfirmWithOption();
+      await screen.findByRole("checkbox", { name: OPTION.label });
+      fireEvent.click(findDismissButton());
+      await expect(handle.result()).resolves.toBeNull();
+    });
   });
 });

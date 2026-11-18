@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, schematic, type Synnax, TimeStamp } from "@synnaxlabs/client";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { type Page } from "playwright";
 
 import { capture, fixtures } from "@/index";
@@ -69,7 +70,7 @@ const createChannels = async (client: Synnax): Promise<Channels> => {
   };
 };
 
-type Config = NonNullable<schematic.New["configs"]>[string];
+type Config = NonNullable<schematic.New["nodes"]>[number]["config"];
 
 const label = (text: string) => ({ label: text, level: "h4" as const });
 
@@ -91,55 +92,71 @@ const value = (text: string, ch: channel.Key): Config => ({
 const feed = (ch: Channels): schematic.New => ({
   name: NAME,
   nodes: [
-    { key: "supply", position: { x: 0, y: 100 } },
-    { key: "supply_pt", position: { x: 0, y: 320 } },
-    { key: "reg", position: { x: 230, y: 160 } },
-    { key: "setpoint", position: { x: 200, y: 0 } },
-    { key: "tank", position: { x: 520, y: 60 } },
-    { key: "tank_pt", position: { x: 520, y: 340 } },
+    {
+      key: "supply",
+      position: { x: 0, y: 100 },
+      config: {
+        variant: "tank",
+        label: label("Nitrogen supply"),
+        dimensions: { width: 90, height: 250 },
+      },
+    },
+    {
+      key: "supply_pt",
+      position: { x: 0, y: 320 },
+      config: value("Supply pressure", ch.supply),
+    },
+    {
+      key: "reg",
+      position: { x: 230, y: 160 },
+      config: { variant: "electric_regulator", scale: 1.6 },
+    },
+    {
+      key: "setpoint",
+      position: { x: 200, y: 0 },
+      config: {
+        variant: "setpoint",
+        label: label(SETPOINT),
+        size: "huge",
+        inlineSize: 130,
+        commandChannel: ch.cmd,
+        stateChannel: ch.regulator,
+        units: "psi",
+        // Nobody holds control in the shot, so the control state widget says nothing.
+        control: { hidden: true },
+      },
+    },
+    {
+      key: "tank",
+      position: { x: 520, y: 60 },
+      config: {
+        variant: "tank",
+        label: label("Tank"),
+        dimensions: { width: 150, height: 250 },
+        channel: ch.tank,
+        bounds: { lower: 0, upper: 500 },
+      },
+    },
+    {
+      key: "tank_pt",
+      position: { x: 520, y: 340 },
+      config: value("Tank pressure", ch.tank),
+    },
   ],
   edges: [
     {
       key: "supply_to_reg",
       source: { node: "supply", param: "8" },
       target: { node: "reg", param: "1" },
+      config: { variant: "pipe", segments: [] },
     },
     {
       key: "reg_to_tank",
       source: { node: "reg", param: "2" },
       target: { node: "tank", param: "7" },
+      config: { variant: "pipe", segments: [] },
     },
   ],
-  configs: {
-    supply: {
-      variant: "tank",
-      label: label("Nitrogen supply"),
-      dimensions: { width: 90, height: 250 },
-    },
-    supply_pt: value("Supply pressure", ch.supply),
-    reg: { variant: "electric_regulator", scale: 1.6 },
-    setpoint: {
-      variant: "setpoint",
-      label: label(SETPOINT),
-      size: "huge",
-      inlineSize: 130,
-      commandChannel: ch.cmd,
-      stateChannel: ch.regulator,
-      units: "psi",
-      // Nobody holds control in the shot, so the control state widget says nothing.
-      control: { hidden: true },
-    },
-    tank: {
-      variant: "tank",
-      label: label("Tank"),
-      dimensions: { width: 150, height: 250 },
-      channel: ch.tank,
-      bounds: { lower: 0, upper: 500 },
-    },
-    tank_pt: value("Tank pressure", ch.tank),
-    supply_to_reg: { variant: "pipe", segments: [] },
-    reg_to_tank: { variant: "pipe", segments: [] },
-  },
 });
 
 interface XY {
@@ -332,7 +349,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
           [ch.regulator]: [jitter(READINGS.regulator, 0.04)],
           [ch.tank]: [jitter(READINGS.tank, 0.2)],
         });
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep.sleep(TimeSpan.milliseconds(100));
       }
       await writer.close();
     })();

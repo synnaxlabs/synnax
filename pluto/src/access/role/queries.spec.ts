@@ -8,11 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access, NotFoundError } from "@synnaxlabs/client";
-import {
-  createEmptyRole,
-  createTestClient,
-  TEST_CREDENTIALS,
-} from "@synnaxlabs/client/testutil";
+import { createEmptyRole, createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -22,8 +18,6 @@ import { Role } from "@/access/role";
 import { Flux } from "@/flux";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-
-const path = Role.changeRoleFormPath;
 
 const client = createTestClient();
 
@@ -285,90 +279,9 @@ describe("queries", () => {
       expect(result.current.status.message).toEqual("Failed to delete role");
       expect(result.current.status.description).toEqual(
         `cannot delete role ${role.name} because user ${u.name} ` +
-          "uses it as its role: validation error",
+          "uses it as its role",
       );
       expect((await client.access.roles.retrieve(role.key)).key).toEqual(role.key);
-    });
-  });
-
-  describe("useChangeRoleForm", () => {
-    it("should retrieve the current role for a user", async () => {
-      const role = await createEmptyRole(client);
-      const testUser = await client.users.create({
-        username: `retrieve-for-${id.create()}`,
-        name: "Test User",
-        password: "password123",
-        role: role.key,
-      });
-
-      const { result } = await renderHookSuspended(
-        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.value().role).toEqual(role.key);
-    });
-
-    it("should change a user's role when saved", async () => {
-      const [from, to] = await Promise.all([
-        createEmptyRole(client),
-        createEmptyRole(client),
-      ]);
-      const testUser = await client.users.create({
-        username: `change-role-${id.create()}`,
-        name: "Change Role",
-        password: "password123",
-        role: from.key,
-      });
-
-      const { result } = await renderHookSuspended(
-        () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
-        { wrapper },
-      );
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value().role).toEqual(from.key);
-
-      act(() => {
-        result.current.form.set(path.role, to.key);
-      });
-
-      await act(async () => {
-        result.current.save();
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const stored = await createTestClient().users.retrieve(testUser.key);
-      expect(stored.role).toEqual(to.key);
-    });
-
-    it("should report an error when the Core refuses the change", async () => {
-      const role = await createEmptyRole(client);
-      const root = await client.users.retrieve({
-        username: TEST_CREDENTIALS.username,
-      });
-
-      const { result } = await renderHookSuspended(
-        () => Role.useChangeRoleForm({ query: { key: root.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set(path.role, role.key);
-      });
-      await act(async () => {
-        result.current.save();
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("error"));
-      expect(result.current.status.description).toEqual(
-        `cannot change the role of root user ${root.name}: validation error`,
-      );
-      const stored = await createTestClient().users.retrieve(root.key);
-      expect(stored.role).toEqual(root.role);
     });
   });
 });

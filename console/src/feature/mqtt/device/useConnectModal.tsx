@@ -248,17 +248,17 @@ export const useConnectModal = PlatformDevice.createConnectModal(
   INTEGRATION_KEY,
 );
 
-const groupsRenderProp = Component.renderProp(
-  ({ value, onChange, ...rest }: Input.Control<string[]>) => (
-    <Input.Text
-      {...rest}
-      value={value.join(", ")}
-      onChange={(text) => onChange(parseGroups(text))}
-      onlyChangeOnBlur
-      placeholder="All groups"
-    />
-  ),
+const GroupsInput = ({ value, onChange, ...rest }: Input.Control<string[]>) => (
+  <Input.Text
+    {...rest}
+    value={value.join(", ")}
+    onChange={(text) => onChange(parseGroups(text))}
+    onlyChangeOnBlur
+    placeholder="All groups"
+  />
 );
+
+const groupsRenderProp = Component.renderProp(GroupsInput);
 
 const parseGroups = (text: string): string[] =>
   text
@@ -293,7 +293,7 @@ const KEEP_ALIVE_INPUT_PROPS = { placeholder: "30s" } as const;
 
 const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
 
-const PASSWORD_INPUT_PROPS = { type: "password" } as const;
+const PASSWORD_INPUT_PROPS = { type: "password", placeholder: "None" } as const;
 
 const CA_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/ca.pem" } as const;
 
@@ -305,10 +305,12 @@ const HOST_ID_INPUT_PROPS = { placeholder: "Passive host" } as const;
 
 const createOptionalNumericRenderProp = (
   props: Omit<Input.NumericProps, "value" | "onChange" | "onClear">,
-) =>
-  Component.renderProp((p: Input.Control<number | undefined>) => (
+) => {
+  const OptionalNumeric = (p: Input.Control<number | undefined>) => (
     <Input.Numeric {...p} {...props} onClear={() => p.onChange(undefined)} />
-  ));
+  );
+  return Component.renderProp(OptionalNumeric);
+};
 
 const renderPort = createOptionalNumericRenderProp(PORT_INPUT_PROPS);
 

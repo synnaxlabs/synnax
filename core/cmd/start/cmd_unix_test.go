@@ -18,7 +18,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -32,31 +31,6 @@ import (
 )
 
 var _ = Describe("Start", func() {
-	// startCore starts a Core with in-memory storage and the given extra flags. It
-	// returns once the Core is running, with the writing end of the Core's stdin and
-	// the Core's address.
-	startCore := func(flags ...string) (*gexec.Session, io.WriteCloser, string) {
-		GinkgoHelper()
-		l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
-		addr := l.Addr().String()
-		Expect(l.Close()).To(Succeed())
-		dir := GinkgoT().TempDir()
-		cmd := exec.Command(
-			MustSucceed(os.Executable()),
-			append([]string{
-				"start", "--mem", "--insecure", "--no-driver",
-				"--listen", addr, "--data", dir,
-			}, flags...)...,
-		)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), coreEnv+"=1")
-		stdin := MustSucceed(cmd.StdinPipe())
-		session := MustSucceed(gexec.Start(cmd, GinkgoWriter, GinkgoWriter))
-		DeferCleanup(func() { session.Kill().Wait() })
-		Eventually(session.Out, 30*time.Second).Should(gbytes.Say("Synnax is running"))
-		return session, stdin, addr
-	}
-
 	// holdShutdown opens a request to the Core at addr and leaves its body unsent. The
 	// Core waits on the request when it shuts down, until its 5s read timeout from the
 	// request ends it, so stop signals sent in that window reach a shutting-down Core.
@@ -84,6 +58,14 @@ var _ = Describe("Start", func() {
 		Entry("SIGINT", syscall.SIGINT),
 		Entry("SIGTERM", syscall.SIGTERM),
 	)
+
+	It("Should write the error that ends it as the first line of stderr", func() {
+		session, _, _ := launchCore("--session-idle-timeout", "-1s")
+		Eventually(session, 30*time.Second).Should(gexec.Exit())
+		Expect(session.ExitCode()).ToNot(BeZero())
+		first, _, _ := bytes.Cut(session.Err.Contents(), []byte("\n"))
+		Expect(string(first)).To(ContainSubstring("session_idle_timeout"))
+	})
 
 	It("Should exit at once when a second signal arrives during shutdown", func() {
 		session, _, addr := startCore()

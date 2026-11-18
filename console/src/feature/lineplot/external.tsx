@@ -29,6 +29,7 @@ const TAB: Panel.Tab = {
   Content: Panel.lazyComponent(() => import("@/feature/lineplot/LinePlot"), "LinePlot"),
   Toolbar: Panel.lazyComponent(() => import("@/feature/lineplot/toolbar"), "Toolbar"),
   Icon: Icon.LinePlot,
+  iconKey: "line-plot",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     { useEnsure: Base.useEnsure, useName: Base.useName, useRename: Base.useRename },

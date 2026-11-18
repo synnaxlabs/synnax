@@ -34,10 +34,11 @@ export const UncappedFeed = (): ReactElement => {
 
 interface ForwardProps {
   rules: Notifications.Rules;
+  keyRules?: Notifications.KeyRules;
 }
 
-const Forward = ({ rules }: ForwardProps): ReactElement => {
-  Notifications.useForward(rules);
+const Forward = ({ rules, keyRules }: ForwardProps): ReactElement => {
+  Notifications.useForward(rules, keyRules);
   return <UncappedFeed />;
 };
 
@@ -48,10 +49,11 @@ const Forward = ({ rules }: ForwardProps): ReactElement => {
 export const renderForward = async (
   client: Synnax,
   rules: Notifications.Rules,
+  keyRules?: Notifications.KeyRules,
 ): Promise<void> => {
   await waitForStreamLive(client.connection);
   const { wrapper } = await createConsoleWrapper({ client });
-  render(<Forward rules={rules} />, { wrapper });
+  render(<Forward rules={rules} keyRules={keyRules} />, { wrapper });
 };
 
 /**

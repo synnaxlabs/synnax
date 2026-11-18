@@ -159,10 +159,12 @@ Viewport struct {
 }
 
 Decimal = float64 {
-    @doc value """
+    @doc value    """
         is a normalized value in [0, 1] expressed as a decimal fraction of a whole, such
         as a container's extent.
     """
+    @validate max 1
+    @validate min 0
 }
 
 Bounds struct<T extends numeric = float64> {

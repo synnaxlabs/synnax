@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // generatedLangs are the language domains whose omission rules the analyzer validates.
@@ -454,4 +455,158 @@ func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
 			}
 		}
 	}
+}
+
+// validateFiniteRules errors on a finite rule on a field or a type that is not a float.
+func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
+	report := func(t resolution.Type, name string, ref resolution.TypeRef) {
+		if base := resolution.PrimitiveBase(ref, table); base != "float32" &&
+			base != "float64" {
+			diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+				"%s has a finite rule, but its type is not a float", name,
+			))
+		}
+	}
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			if validation.Parse(t.Domains["validate"]).Finite {
+				report(t, t.QualifiedName, resolution.TypeRef{Name: t.QualifiedName})
+			}
+		case resolution.StructForm:
+			for _, f := range ownedFields(t, form, table) {
+				if validation.Parse(f.Domains["validate"]).Finite {
+					report(t, t.QualifiedName+"."+f.Name, f.Type)
+				}
+			}
+		}
+	}
+}
+
+// validatePatternRules errors on a field or a type that sets a pattern rule when its
+// type chain already sets one, since one value cannot carry both patterns.
+func validatePatternRules(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			chain := validation.TypeChain(
+				resolution.TypeRef{Name: t.QualifiedName},
+				table,
+			)
+			if hasPattern(t.Domains) && len(chain) > 0 &&
+				validation.TypeRules(chain[1:]).Pattern != nil {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s has a pattern rule, but its type already sets one",
+					t.QualifiedName,
+				))
+			}
+		case resolution.StructForm:
+			for _, f := range ownedFields(t, form, table) {
+				if !hasPattern(f.Domains) {
+					continue
+				}
+				chain := validation.TypeChain(f.Type, table)
+				if validation.TypeRules(chain).Pattern != nil {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+						"%s.%s has a pattern rule, but its type already sets one",
+						t.QualifiedName, f.Name,
+					))
+				}
+			}
+		}
+	}
+}
+
+// ownedFields returns the unified fields of t that t checks: the fields it declares,
+// and the inherited fields its parents type with a type parameter that t substitutes.
+// A parent checks the rest.
+func ownedFields(
+	t resolution.Type,
+	form resolution.StructForm,
+	table *resolution.Table,
+) []resolution.Field {
+	generic := set.New[string]()
+	for _, ext := range form.Extends {
+		if parent, _, ok := resolution.Dealias(ext, table); ok {
+			for _, f := range resolution.UnifiedFields(parent, table) {
+				if f.Type.IsTypeParam() {
+					generic.Add(f.Name)
+				}
+			}
+		}
+	}
+	return lo.Filter(
+		resolution.UnifiedFields(t, table),
+		func(f resolution.Field, _ int) bool {
+			_, declared := form.Field(f.Name)
+			return declared || generic.Contains(f.Name)
+		},
+	)
+}
+
+// validateRuleRanges errors on a field or a type whose merged rules no value can
+// satisfy, and on a length rule on a type that is not a string. It reports where a rule
+// first empties the range, so a field or type without rules of its own never reports.
+// It does not check the type arguments of a generic struct used as a field type.
+func validateRuleRanges(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			own := validation.Parse(t.Domains["validate"])
+			if validation.IsEmpty(own) {
+				continue
+			}
+			ref := resolution.TypeRef{Name: t.QualifiedName}
+			if (own.MinLength != nil || own.MaxLength != nil) &&
+				resolution.PrimitiveBase(ref, table) != "string" {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s has a length rule, but its type is not a string",
+					t.QualifiedName,
+				))
+			}
+			chain := validation.TypeChain(ref, table)
+			if len(chain) > 0 &&
+				emptiesRange(own, validation.TypeRules(chain[1:])) {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s has rules that no value can satisfy",
+					t.QualifiedName,
+				))
+			}
+		case resolution.StructForm:
+			for _, f := range ownedFields(t, form, table) {
+				own := validation.Parse(f.Domains["validate"])
+				inherited := validation.TypeRules(validation.TypeChain(f.Type, table))
+				if emptiesRange(own, inherited) {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+						"%s.%s has rules that no value can satisfy",
+						t.QualifiedName, f.Name,
+					))
+				}
+			}
+		}
+	}
+}
+
+// emptiesRange reports whether own rules empty the range that inherited rules leave.
+func emptiesRange(own, inherited *validation.Rules) bool {
+	return !validation.IsEmpty(own) && !isEmptyRange(inherited) &&
+		isEmptyRange(validation.Merge(own, inherited))
+}
+
+// isEmptyRange reports whether a lower bound of rules exceeds its upper bound.
+func isEmptyRange(rules *validation.Rules) bool {
+	if rules.Max != nil {
+		if rules.Min != nil && rules.Min.Compare(*rules.Max) > 0 {
+			return true
+		}
+		if rules.GT != nil && rules.GT.Compare(*rules.Max) >= 0 {
+			return true
+		}
+	}
+	return rules.MinLength != nil && rules.MaxLength != nil &&
+		*rules.MinLength > *rules.MaxLength
+}
+
+func hasPattern(domains map[string]resolution.Domain) bool {
+	return validation.Parse(domains["validate"]).Pattern != nil
 }

@@ -14,12 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -29,7 +31,8 @@ var _ = Describe("Migrations", func() {
 		"Should key the rows and columns of a table stored by a v2 Core",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
-			v2Chain := versions.Migrations[:len(versions.Migrations)-6]
+			StartRun(db.Run)
+			v2Chain := versions.Migrations[:len(versions.Migrations)-7]
 			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Table]{
 				DB:         db,
 				Migrations: v2Chain,
@@ -46,7 +49,7 @@ var _ = Describe("Migrations", func() {
 					"a": {Variant: v2.TextCellConfig{Value: "A"}},
 				},
 			}
-			stored.ApplyDefaults()
+			stored = defaults.Fill(stored)
 			Expect(gorp.NewCreate[v2.Key, v2.Table]().Entry(&stored).Exec(ctx, db)).
 				To(Succeed())
 			proj := projectv3.Project{Key: uuid.New(), Name: "Project"}
@@ -71,16 +74,55 @@ var _ = Describe("Migrations", func() {
 			Expect(gorp.NewRetrieve[versions.Key, versions.Table]().
 				Where(gorp.MatchKeys[versions.Key, versions.Table](stored.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
+			text := func(key, value string) versions.Cell {
+				c := versions.Cell{
+					Key: key,
+					Config: versions.CellConfig{
+						Variant: versions.TextCellConfig{Value: value},
+					},
+				}
+				c.Config = defaults.Fill(c.Config)
+				return c
+			}
 			Expect(got.Rows).To(Equal([]versions.Row{
-				{Key: "row-0", Size: 36, Cells: []string{"a", "b"}},
-				{Key: "row-1", Size: 40, Cells: []string{"c", "d"}},
+				{
+					Key:   "row-0",
+					Size:  36,
+					Cells: []versions.Cell{text("a", "A"), text("b", "")},
+				},
+				{
+					Key:   "row-1",
+					Size:  40,
+					Cells: []versions.Cell{text("c", ""), text("d", "")},
+				},
 			}))
 			Expect(got.Columns).To(Equal([]versions.Column{
 				{Key: "col-0", Size: 72},
 				{Key: "col-1", Size: 100},
 			}))
-			Expect(got.Cells).To(HaveKey("a"))
 			Expect(got.Validate()).To(Succeed())
 		},
 	)
+
+	// Applied migrations are tracked by key, so renaming or reordering an entry
+	// re-runs or skips it on stores that already migrated. The chain is pinned
+	// verbatim; extend it for a new version, never edit shipped entries.
+	It("Should pin the migration chain keys in order", func() {
+		Expect(lo.Map(
+			versions.Migrations,
+			func(m gorp.Migration, _ int) string { return m.Key() },
+		)).To(Equal([]string{
+			"normalize_keys",
+			"msgpack_to_orc",
+			"v55_lift_typed_table",
+			"v2_typed_cell_configs",
+			"v3_row_and_column_keys",
+			"v61_add_group",
+			"v61_table_group_membership",
+			"v61_table_owner",
+			"v62_table_delete_range_owned",
+			"v62_table_drop_range",
+			"v62_color_bytes_cells_in_rows",
+		}))
+	})
 })

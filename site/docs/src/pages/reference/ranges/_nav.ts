@@ -46,6 +46,10 @@ export const RANGES_NAV: Nav.PageNavNode = {
       name: "Export data",
     },
     {
+      href: "/reference/ranges/sift",
+      name: "Send data to Sift",
+    },
+    {
       href: "/reference/ranges/reference",
       name: "Reference",
     },

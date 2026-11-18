@@ -121,6 +121,25 @@ func (r RetrieveRequest) order() (serviceranger.Order, error) {
 			*r.After.TimeRangeStart,
 			r.After.Key,
 		), nil
+	case OrderFieldTimeRangeEnd:
+		if r.After == nil {
+			return serviceranger.OrderByTimeRangeEnd(dir), nil
+		}
+		if r.After.TimeRangeEnd == nil {
+			return nil, validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"is required to resume an order by time_range_end",
+				),
+				"after",
+				"time_range_end",
+			)
+		}
+		return serviceranger.OrderByTimeRangeEndAfter(
+			dir,
+			*r.After.TimeRangeEnd,
+			r.After.Key,
+		), nil
 	}
 	return nil, validate.PathedError(
 		errors.Wrapf(

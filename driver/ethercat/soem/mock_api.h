@@ -17,6 +17,7 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <span>
@@ -38,8 +39,10 @@ struct MockSlaveInfo {
     /// @brief the state of the slave on the bus. readstate and statecheck copy it into
     /// the SOEM slave table.
     uint16_t state = EC_STATE_INIT;
-    uint32_t eep_man = 0;
-    uint32_t eep_id = 0;
+    /// @brief the identity that config_init reads from the EEPROM, which is not in the
+    /// catalog. A vendor and product of 0 is a failed read.
+    uint32_t eep_man = 0xFFFF;
+    uint32_t eep_id = 0xFFFF;
     uint32_t eep_rev = 0;
     uint32_t eep_ser = 0;
     std::string name;
@@ -67,9 +70,21 @@ struct MockSlaveInfo {
     /// @brief CoE objects keyed by index and sub-index. SDOread returns them, and a
     /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
+    /// @brief 8-byte CoE objects keyed by index and sub-index. As in SOEM, SDOread
+    /// fails a read that allows fewer bytes with packet error 3.
+    std::map<std::pair<uint16_t, uint8_t>, uint64_t> sdo_objects_64;
     /// @brief abort codes for objects that reject SDO reads, keyed by index and
-    /// sub-index.
+    /// sub-index. A code of 0 makes the read get no reply.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_read_aborts;
+    /// @brief the SOEM packet error codes of objects whose SDO read replies SOEM
+    /// rejects, keyed by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint16_t> sdo_read_packet_errors;
+    /// @brief objects whose SDO reads the slave answers with a mailbox error, keyed by
+    /// index and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> sdo_read_mailbox_errors;
+    /// @brief objects whose SDO reads bring a CoE emergency from the slave, keyed by
+    /// index and sub-index.
+    std::set<std::pair<uint16_t, uint8_t>> sdo_read_emergencies;
     /// @brief whether the slave lists complete access in its CoE details.
     bool complete_access = false;
     /// @brief the bytes that a complete access read of each object returns, keyed by
@@ -78,6 +93,9 @@ struct MockSlaveInfo {
     /// @brief abort codes for objects that reject SDO writes, keyed by index and
     /// sub-index. A code of 0 makes the write time out.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
+    /// @brief the SOEM packet error codes of objects whose SDO write replies SOEM
+    /// rejects, keyed by index and sub-index.
+    std::map<std::pair<uint16_t, uint8_t>, uint16_t> sdo_write_packet_errors;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
     /// and sub-index.
     std::map<std::pair<uint16_t, uint8_t>, std::pair<std::string, uint16_t>> oe_entries;
@@ -114,6 +132,8 @@ public:
     std::set<std::string> filtered_interfaces;
     /// @brief the Windows adapter names that adapter_name returns, keyed by interface.
     std::map<std::string, std::string> adapter_names;
+    /// @brief the interfaces whose adapters are on USB.
+    std::set<std::string> usb_interfaces;
     int init_return = 1;
     int config_init_return = 1;
     int config_map_return = 64;
@@ -140,6 +160,18 @@ public:
     std::atomic<uint16_t> read_state{EC_STATE_INIT};
     /// @brief read_state at each send_processdata call.
     std::vector<uint16_t> send_states;
+    /// @brief the slaves whose AL status reads get no answer.
+    std::set<uint16_t> silent_slaves;
+    /// @brief what al_status returns for each slave.
+    std::map<uint16_t, uint16_t> al_statuses;
+    /// @brief the process data sends in flight, oldest first, with the DC time that
+    /// each carries when host_dc_offset is set.
+    std::vector<std::optional<int64_t>> processdata_in_flight;
+    /// @brief the number of drop_processdata calls.
+    int drop_count = 0;
+    /// @brief guards the slave states that readstate writes and that a cycle thread
+    /// reads in receive_processdata.
+    std::mutex state_mu;
     int sync_dc_count = 0;
     /// @brief the working counter sync_dc returns.
     int sync_dc_return = 1;
@@ -158,6 +190,10 @@ public:
     int dropped_state_reads = 0;
     /// @brief the state reconfig_slave returns and leaves the slave in.
     int reconfig_return = EC_STATE_SAFE_OP;
+    /// @brief the value reset_slave returns.
+    int reset_return = 1;
+    /// @brief slaves passed to reset_slave, with the number of reconfigs before each.
+    std::vector<std::pair<uint16_t, size_t>> reset_slaves;
     std::vector<uint16_t> reconfigured_slaves;
     /// @brief the value recover_slave returns.
     int recover_return = 1;
@@ -186,6 +222,8 @@ public:
     std::vector<RegisterWrite> register_writes;
     /// @brief the working counter write_register returns.
     int write_register_return = 1;
+    /// @brief the timeouts of write_register and read_register, in call order.
+    std::vector<int> register_timeouts;
     /// @brief slaves whose register writes return a working counter of 0.
     std::set<uint16_t> unwritable_slaves;
     /// @brief the number of state change requests before each register write, in the
@@ -197,19 +235,21 @@ public:
     std::map<std::pair<uint16_t, uint16_t>, int64_t> register_values;
     /// @brief the working counter read_register returns.
     int read_register_return = 1;
-    /// @brief registers, keyed by slave and address, whose reads get no answer.
+    /// @brief registers, keyed by slave and address, whose reads get no reply.
     std::set<std::pair<uint16_t, uint16_t>> unanswered_reads;
     int configdc_count = 0;
     /// @brief the host clock that the reference clock of host_dc_offset and
     /// latch_receive_times run on.
     x::loop::HostClock clock;
-    /// @brief when set, each send_processdata sets the DC time to the clock time plus
-    /// this, in nanoseconds, like a reference clock that runs on.
+    /// @brief when set, each frame carries the clock time of its send plus this, in
+    /// nanoseconds, like a reference clock that runs on. Its receive sets the DC time.
     std::optional<int64_t> host_dc_offset;
     /// @brief the number of latch_receive_times calls.
     int latch_count = 0;
     /// @brief the clock time of the last latch_receive_times call, in nanoseconds.
     int64_t latched_at = 0;
+    /// @brief the timeout of the last latch_receive_times call.
+    int latch_timeout = 0;
     /// @brief the value latch_receive_times returns.
     int latch_return = 1;
 
@@ -254,6 +294,10 @@ public:
         return it->second;
     }
 
+    bool on_usb(const char *ifname) override {
+        return this->usb_interfaces.contains(ifname);
+    }
+
     int init(const char *) override {
         this->init_called = true;
         return this->init_return;
@@ -287,8 +331,9 @@ public:
         return this->config_init_return;
     }
 
-    /// @brief like ecx_config_map_group, maps the slaves of group into iomap, sets the
-    /// group sizes and working counters, and runs the PO2SOconfig hook of each slave.
+    /// @brief like ecx_config_map_group, checks that each slave of group reaches
+    /// PRE-OP, maps the slaves into iomap, sets the group sizes and working counters,
+    /// and runs the PO2SOconfig hook of each slave.
     int config_map_group(void *iomap, uint8_t group) override {
         auto *base = static_cast<uint8_t *>(iomap);
         this->mapped_group = group;
@@ -300,6 +345,7 @@ public:
             for (int sm = 2; sm < EC_MAXSM; ++sm)
                 if (slave.SM[sm].SMlength != 0) this->sms_cleared_at_map = false;
             const auto pos = static_cast<uint16_t>(i + 1);
+            this->statecheck(pos, EC_STATE_PRE_OP, 0);
             this->run_PO2SOconfig(pos);
             const auto &info = this->slave_infos[i];
             slave.Ibits = info.Ibits;
@@ -318,17 +364,49 @@ public:
     }
 
     int send_processdata(uint8_t group) override {
-        if (this->host_dc_offset) this->context.DCtime = now() + *this->host_dc_offset;
         this->send_count++;
         this->send_states.push_back(this->read_state.load());
         this->processdata_groups.push_back(group);
+        if (this->send_return > 0)
+            this->processdata_in_flight.push_back(
+                this->host_dc_offset ? std::optional(now() + *this->host_dc_offset)
+                                     : std::nullopt
+            );
         return this->send_return;
     }
 
+    /// @brief like the patched SOEM receive, reads the state each slave is in on the
+    /// bus, or 0 for a slave in silent_slaves or when the frame does not come back.
     int receive_processdata(uint8_t group, int) override {
         this->receive_count++;
         this->processdata_groups.push_back(group);
+        std::lock_guard lock(this->state_mu);
+        // Keeps the entries, so a cycle allocates nothing.
+        for (auto &[_, status]: this->al_statuses)
+            status = 0;
+        if (this->processdata_in_flight.empty()) return EC_NOFRAME;
+        if (this->receive_return < 0) return this->receive_return;
+        if (const auto dc = this->processdata_in_flight.front())
+            this->context.DCtime = *dc;
+        this->processdata_in_flight.erase(this->processdata_in_flight.begin());
+        for (size_t i = 0; i < this->slave_infos.size(); ++i) {
+            const auto pos = static_cast<uint16_t>(i + 1);
+            this->al_statuses[pos] = this->silent_slaves.contains(pos)
+                                       ? 0
+                                       : this->bus_state_of(pos);
+        }
         return this->receive_return;
+    }
+
+    void drop_processdata() override {
+        this->drop_count++;
+        if (!this->processdata_in_flight.empty())
+            this->processdata_in_flight.erase(this->processdata_in_flight.begin());
+    }
+
+    [[nodiscard]] uint16_t al_status(const uint16_t slave) const override {
+        const auto it = this->al_statuses.find(slave);
+        return it == this->al_statuses.end() ? 0 : it->second;
     }
 
     /// @brief like ecx_writestate, requests the state in the slave table entry of the
@@ -344,6 +422,7 @@ public:
     }
 
     int readstate() override {
+        std::lock_guard lock(this->state_mu);
         this->readstate_count++;
         if (this->dropped_state_reads > 0) {
             this->dropped_state_reads--;
@@ -401,7 +480,8 @@ public:
         return this->sync_dc_return;
     }
 
-    int latch_receive_times(int) override {
+    int latch_receive_times(const int timeout) override {
+        this->latch_timeout = timeout;
         this->latched_at = now();
         this->latch_count++;
         return this->latch_return;
@@ -419,8 +499,9 @@ public:
         uint16_t slave,
         uint16_t address,
         std::vector<uint8_t> data,
-        int
+        const int timeout
     ) override {
+        this->register_timeouts.push_back(timeout);
         this->requests_before_write.push_back(this->state_change_requests.size());
         const int wkc = this->unwritable_slaves.contains(slave)
                           ? 0
@@ -443,14 +524,15 @@ public:
         uint16_t slave,
         uint16_t address,
         std::span<uint8_t> data,
-        int
+        const int timeout
     ) override {
+        this->register_timeouts.push_back(timeout);
         const auto it = this->register_values.find({slave, address});
         const auto bytes = x::binary::to_little_endian(
             it == this->register_values.end() ? int64_t{0} : it->second
         );
         std::copy_n(bytes.begin(), data.size(), data.begin());
-        if (this->unanswered_reads.contains({slave, address})) return 0;
+        if (this->unanswered_reads.contains({slave, address})) return EC_NOFRAME;
         return this->read_register_return;
     }
 
@@ -464,6 +546,11 @@ public:
             this->context.slavelist[slave].state = info->state;
         }
         return this->reconfig_return;
+    }
+
+    int reset_slave(uint16_t slave, int) override {
+        this->reset_slaves.emplace_back(slave, this->reconfigured_slaves.size());
+        return this->reset_return;
     }
 
     int recover_slave(uint16_t slave, int) override {
@@ -522,10 +609,36 @@ public:
             std::memcpy(p, it->second.data(), *psize);
             return 1;
         }
+        for (const auto &[objects, type]:
+             {std::pair{&info.sdo_read_emergencies, EC_ERR_TYPE_EMERGENCY},
+              std::pair{&info.sdo_read_mailbox_errors, EC_ERR_TYPE_MBX_ERROR}})
+            if (objects->contains({index, sub_index})) {
+                ec_errort err{};
+                err.Etype = type;
+                err.Slave = slave;
+                this->errors.push_back(err);
+            }
+        if (info.sdo_read_mailbox_errors.contains({index, sub_index})) return 0;
         if (const auto abort = info.sdo_read_aborts.find({index, sub_index});
             abort != info.sdo_read_aborts.end()) {
-            this->push_sdo_abort(slave, index, sub_index, abort->second);
+            if (abort->second != 0)
+                this->push_sdo_abort(slave, index, sub_index, abort->second);
             return 0;
+        }
+        if (const auto packet = info.sdo_read_packet_errors.find({index, sub_index});
+            packet != info.sdo_read_packet_errors.end()) {
+            this->push_packet_error(slave, index, sub_index, packet->second);
+            return 0;
+        }
+        if (const auto wide = info.sdo_objects_64.find({index, sub_index});
+            wide != info.sdo_objects_64.end()) {
+            if (std::cmp_less(*psize, sizeof(wide->second))) {
+                this->push_packet_error(slave, index, sub_index, 3);
+                return 0;
+            }
+            *psize = sizeof(wide->second);
+            std::memcpy(p, &wide->second, *psize);
+            return 1;
         }
         const auto &objects = info.sdo_objects;
         const auto it = objects.find({index, sub_index});
@@ -533,6 +646,7 @@ public:
             this->push_sdo_abort(slave, index, sub_index, 0x06020000);
             return 0;
         }
+        *psize = std::min(*psize, static_cast<int>(sizeof(it->second)));
         std::memcpy(p, &it->second, *psize);
         return 1;
     }
@@ -551,6 +665,11 @@ public:
             {slave, index, sub_index, std::vector(bytes, bytes + psize)}
         );
         auto &info = this->slave_infos.at(slave - 1);
+        if (const auto packet = info.sdo_write_packet_errors.find({index, sub_index});
+            packet != info.sdo_write_packet_errors.end()) {
+            this->push_packet_error(slave, index, sub_index, packet->second);
+            return 0;
+        }
         const auto it = info.sdo_write_aborts.find({index, sub_index});
         if (it == info.sdo_write_aborts.end()) {
             uint32_t value = 0;
@@ -571,6 +690,22 @@ public:
         err.Index = index;
         err.SubIdx = sub_index;
         err.AbortCode = static_cast<int32>(code);
+        this->errors.push_back(err);
+    }
+
+    /// @brief appends a SOEM packet error for the object to the SOEM error list.
+    void push_packet_error(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t sub_index,
+        uint16_t code
+    ) {
+        ec_errort err{};
+        err.Etype = EC_ERR_TYPE_PACKET_ERROR;
+        err.Slave = slave;
+        err.Index = index;
+        err.SubIdx = sub_index;
+        err.ErrorCode = code;
         this->errors.push_back(err);
     }
 
@@ -621,7 +756,13 @@ public:
     ) override {
         const auto &entries = this->slave_infos.at(od_list->Slave - 1).oe_entries;
         const auto it = entries.find({od_list->Index[item], sub_index});
-        if (it == entries.end()) return 0;
+        if (it == entries.end()) {
+            ec_errort err{};
+            err.Etype = EC_ERR_TYPE_SDOINFO_ERROR;
+            err.Slave = od_list->Slave;
+            this->errors.push_back(err);
+            return 0;
+        }
         oe_list->Entries++;
         std::strncpy(oe_list->Name[sub_index], it->second.first.c_str(), EC_MAXNAME);
         oe_list->DataType[sub_index] = it->second.second;

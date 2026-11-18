@@ -65,6 +65,17 @@ class Operation(BaseModel):
     )
 
 
+class CountLimitedResponse(BaseModel):
+    """Holds the count of the channels that count against the license channel limit (not
+    internal, not virtual).
+
+    Attributes:
+        count: Is how many channels count against the license channel limit.
+    """
+
+    count: int = Field(ge=0, le=4294967295)
+
+
 class Where(BaseModel):
     """Is a filter that selects channels.
 
@@ -183,7 +194,7 @@ class Payload(BaseModel):
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
-    name: Name
+    name: Name = Field(min_length=1)
     leaseholder: node.Key = Field(default=node.Key(0), ge=0, le=4095)
     data_type: telem.DataType
     is_index: bool = False

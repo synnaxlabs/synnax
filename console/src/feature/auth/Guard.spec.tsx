@@ -183,7 +183,7 @@ describe("auth guard", () => {
     expect(selected).toBe(key);
     const added = Object.values(store.getState()[Session.Core.SLICE_NAME].cores)
       .map(({ key: k }) => k)
-      .filter((k) => k !== "LOCAL" && k !== "DEMO");
+      .filter((k) => k !== "LOCAL");
     expect(added).toEqual([selected]);
   });
 

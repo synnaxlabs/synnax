@@ -9,7 +9,7 @@
 
 import { log, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   createElement,
@@ -54,8 +54,7 @@ const ch = (n: number): number => {
 const entry = (
   channel: number,
   overrides: Partial<log.ChannelEntry> = {},
-): log.ChannelEntry =>
-  log.channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
+): log.ChannelEntry => log.channelEntryZ.parse({ channel, ...overrides });
 
 describe("log queries", () => {
   let wrapper: FC<PropsWithChildren>;

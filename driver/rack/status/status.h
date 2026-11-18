@@ -102,20 +102,15 @@ public:
         ctx(ctx),
         health(std::move(health)) {}
 
-    void run() override {
-        synnax::task::Status stat{
-            .name = this->task.name,
-            .variant = ::synnax::status::VARIANT_SUCCESS,
-            .message = "Started",
-            .time = x::telem::TimeStamp::now(),
-            .details =
-                synnax::task::StatusDetails{
-                    .running = true,
-                    .config_hash = this->task.config_hash,
-                },
-            .owner = synnax::task::resource_id(this->task.key),
-        };
+    /// @brief writes the started status, then starts the heartbeat. The status is in
+    /// place when this returns, so a status that the last run left is never kept.
+    bool start() override {
+        auto stat = this->task_status("Started", true);
         this->ctx->set_status(stat);
+        return Base::start();
+    }
+
+    void run() override {
         bool resend_pending = false;
         auto last_beat = x::telem::TimeStamp::now();
         while (breaker.running()) {
@@ -153,9 +148,7 @@ public:
             }
             resend_pending = false;
         }
-        stat.message = "Stopped";
-        stat.time = x::telem::TimeStamp::now();
-        stat.details.running = false;
+        auto stat = this->task_status("Stopped", false);
         this->ctx->set_status(stat);
     };
 
@@ -174,6 +167,23 @@ public:
             .owner = synnax::task::resource_id(this->task.key),
         };
         this->ctx->set_status(stat);
+    }
+
+private:
+    [[nodiscard]] synnax::task::Status
+    task_status(const std::string &message, const bool running) const {
+        return synnax::task::Status{
+            .name = this->task.name,
+            .variant = ::synnax::status::VARIANT_SUCCESS,
+            .message = message,
+            .time = x::telem::TimeStamp::now(),
+            .details =
+                synnax::task::StatusDetails{
+                    .running = running,
+                    .config_hash = this->task.config_hash,
+                },
+            .owner = synnax::task::resource_id(this->task.key),
+        };
     }
 };
 
@@ -231,7 +241,8 @@ struct Factory final : task::Factory {
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &cmd_key
+        const std::string &cmd_key,
+        x::breaker::Breaker &cancel
     ) override {
         if (task.type == TASK_TYPE)
             return {Task::configure(ctx, task, this->health), true};
@@ -241,7 +252,8 @@ struct Factory final : task::Factory {
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::rack::Rack &rack
+        const synnax::rack::Rack &rack,
+        x::breaker::Breaker &cancel
     ) override {
         common::delete_legacy_task_by_type(
             rack,
@@ -254,7 +266,8 @@ struct Factory final : task::Factory {
             rack,
             TASK_NAME,
             TASK_TYPE,
-            INTEGRATION_NAME
+            INTEGRATION_NAME,
+            cancel
         );
     }
 

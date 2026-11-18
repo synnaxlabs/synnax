@@ -1,0 +1,26 @@
+VERSION ""
+
+NS_ :
+	BA_DEF_
+	BA_
+	VAL_
+	BA_DEF_DEF_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: Ecu Gateway
+
+BO_ 2147484416 Telemetry: 8 Ecu
+ SG_ Group M : 0|4@1+ (1,0) [0|15] "" Gateway
+ SG_ Channel m0M : 4|4@1+ (1,0) [0|15] "" Gateway
+ SG_ Voltage m0 : 8|16@1+ (0.001,0) [0|65.535] "V" Gateway
+ SG_ Current m4 : 8|16@1- (0.01,0) [-327.68|327.67] "A" Gateway
+ SG_ Status m1 : 8|8@1+ (1,0) [0|255] "" Gateway
+ SG_ Flags m3 : 16|8@1+ (1,0) [0|255] "" Gateway
+
+SG_MUL_VAL_ 2147484416 Channel Group 0-0;
+SG_MUL_VAL_ 2147484416 Voltage Channel 0-3;
+SG_MUL_VAL_ 2147484416 Current Channel 4-5, 8-9;
+SG_MUL_VAL_ 2147484416 Status Group 1-2;
+SG_MUL_VAL_ 2147484416 Flags Group 3-3;

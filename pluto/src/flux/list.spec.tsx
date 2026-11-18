@@ -16,7 +16,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { color, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, id, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,7 +30,7 @@ const SynnaxWrapper = wrapper;
 const ranges = (c: typeof client) => c.ranges;
 
 // The Core tokenizes a search term on punctuation, so a term must be one word.
-const randomWord = (): string => `rng${Math.random().toString(36).slice(2)}`;
+const randomWord = (): string => `rng${id.create()}`;
 
 // The Core indexes a new name for search a moment after the create returns.
 const waitForIndex = async (name: string): Promise<void> => {
@@ -427,6 +427,26 @@ describe("useList", () => {
     await act(async () => await sleep.sleep(TimeSpan.milliseconds(50)));
     expect(result.current.answered).toBe(false);
     expect(result.current.data).toEqual([]);
+  });
+
+  it("should read the first page of an eager list as it mounts", async () => {
+    const a = await create("a");
+    const b = await create("b");
+    const c = await create("c");
+    const { result } = renderHook(
+      () =>
+        Flux.useList(ranges, {
+          name: "ranges",
+          query: byName(),
+          pageSize: 2,
+          eager: true,
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key]));
+    expect(result.current.complete).toBe(false);
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.data).toEqual([a.key, b.key, c.key]));
   });
 
   it("should start the list on a search", async () => {

@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"strconv"
 
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
@@ -149,6 +150,14 @@ func (u ReadChannel) Type() ReadChannelType {
 		return UnresolvedReadChannelType
 	}
 	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u ReadChannel) Validate() error {
+	v := validate.New("ReadChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -303,6 +312,14 @@ func (u WriteChannel) Type() WriteChannelType {
 	return ""
 }
 
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u WriteChannel) Validate() error {
+	v := validate.New("WriteChannel")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
+
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
 func (u WriteChannel) Base() BaseWriteChannel {
 	switch variant := u.Variant.(type) {
@@ -336,11 +353,6 @@ type ReadConfig struct {
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	r.ReadConfig.ApplyDefaults()
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.ReadConfig.SetDefaults()
@@ -370,6 +382,9 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.Exec(r.ReadConfig.Validate)
+	for i := range r.Channels {
+		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -383,16 +398,6 @@ type WriteConfig struct {
 	ExecutionRate telem.Rate `json:"execution_rate" msgpack:"execution_rate"`
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels" msgpack:"channels"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	if w.StateRate == 0 {
-		w.StateRate = 25
-	}
-	if w.ExecutionRate == 0 {
-		w.ExecutionRate = 1000
-	}
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -418,6 +423,18 @@ func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		w.SetDefaults()
 	}
 	return dec.Decode((*plain)(w))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	v.GreaterThanEq("state_rate", w.StateRate, 0)
+	v.GreaterThanEq("execution_rate", w.ExecutionRate, 0)
+	for i := range w.Channels {
+		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // ScanConfig configures an EtherCAT scan task.

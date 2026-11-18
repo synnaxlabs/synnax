@@ -62,6 +62,7 @@ func (e *benchIterEnv) writeHist(
 	count int,
 	spacing telem.TimeSpan,
 ) {
+	b.Helper()
 	keys := make([]channel.Key, len(dataChannels)+1)
 	keys[0] = indexCh.Key()
 	for i, ch := range dataChannels {
@@ -152,6 +153,7 @@ func BenchmarkIteratorHistorical(b *testing.B) {
 }
 
 func runHistCase(b *testing.B, env *benchIterEnv, keys []channel.Key) {
+	b.Helper()
 	b.ReportAllocs()
 	b.ResetTimer()
 	read := 0

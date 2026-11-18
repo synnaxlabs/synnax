@@ -47,6 +47,7 @@ var _ = Describe("Status", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		store = memkv.New()
 		db = DeferClose(gorp.Wrap(store))
+		StartRun(db.Run)
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
@@ -1239,7 +1240,7 @@ var _ = Describe("Status", Ordered, func() {
 			var keys []status.Key
 			DeferCleanup(
 				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
-					for ch := range svc.Changes(ctx, c) {
+					for ch := range svc.Changes(c) {
 						keys = append(keys, ch.Key)
 					}
 				}),

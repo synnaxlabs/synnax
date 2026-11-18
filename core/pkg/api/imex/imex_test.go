@@ -360,7 +360,7 @@ var _ = Describe("Export", func() {
 })
 
 var _ = Describe("JSONCodec", func() {
-	It("Should write the same bytes for the same value", func(ctx SpecContext) {
+	It("Should write the same bytes for the same value", func() {
 		v := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
 		first := MustSucceed(apiimex.JSONCodec.Encode(v))
 		for range 20 {
@@ -371,7 +371,7 @@ var _ = Describe("JSONCodec", func() {
 })
 
 var _ = Describe("ImportCodec", func() {
-	It("Should replace a lone surrogate with U+FFFD", func(ctx SpecContext) {
+	It("Should replace a lone surrogate with U+FFFD", func() {
 		var env imex.Envelope
 		Expect(apiimex.ImportCodec.Decode(
 			[]byte(`{"version":1,"name":"Tank \ud83d"}`), &env,
@@ -381,20 +381,18 @@ var _ = Describe("ImportCodec", func() {
 })
 
 var _ = Describe("ResolveEncoding", func() {
-	It("Should return a pretty JSON encoder for the JSON encoding", func(
-		ctx SpecContext,
-	) {
+	It("Should return a pretty JSON encoder for the JSON encoding", func() {
 		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
 		Expect(enc.Extension()).To(Equal(".json"))
 		b := MustSucceed(enc.Encode(map[string]int{"value": 1}))
 		Expect(string(b)).To(Equal("{\n  \"value\": 1\n}\n"))
 	})
-	It("Should write markup literally rather than escaped", func(ctx SpecContext) {
+	It("Should write markup literally rather than escaped", func() {
 		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
 		b := MustSucceed(enc.Encode(map[string]string{"svg": `<svg id="a"/>`}))
 		Expect(string(b)).To(ContainSubstring(`"<svg id=\"a\"/>"`))
 	})
-	It("Should write markup in an envelope body literally", func(ctx SpecContext) {
+	It("Should write markup in an envelope body literally", func() {
 		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
 		type symbol struct {
 			SVG string `json:"svg"`

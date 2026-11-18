@@ -70,14 +70,7 @@ const createGroupedChannel = async (
 describe("channel/Toolbar", () => {
   it("opens the create channel modal from the toolbar action", async () => {
     await renderChannelToolbar();
-    // The calculated-channel action's composite icon also contains an add glyph, so
-    // pick the add button that is not the calculated action.
-    const create = await waitFor(() => {
-      const calculated = getIconButton(document.body, "calculation");
-      const btn = getIconButtons(document.body, "add").find((b) => b !== calculated);
-      if (btn == null) throw new Error("create channel action not rendered");
-      return btn;
-    });
+    const create = await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(create);
     expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Index" })).toBeTruthy();
@@ -86,7 +79,9 @@ describe("channel/Toolbar", () => {
   it("opens the create calculated channel modal from the toolbar action", async () => {
     // Monaco cannot run in jsdom, so the expression editor's boundary catches.
     await renderChannelToolbar(() => {});
-    const button = await waitFor(() => getIconButton(document.body, "calculation"));
+    const button = await waitFor(() =>
+      getIconButton(document.body, "calculated-channel-create"),
+    );
     await act(async () => fireEvent.click(button));
     expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
     expect(await screen.findByText("Derivative")).toBeTruthy();
@@ -104,7 +99,7 @@ describe("channel/Toolbar permissions", () => {
     const header = document.querySelector(".console-toolbar__header");
     assertDefined(header);
     expect(getIconButtons(header, "add")).toHaveLength(0);
-    expect(queryIcon(header, "calculation")).toBeNull();
+    expect(queryIcon(header, "calculated-channel-create")).toBeNull();
   });
 
   it("should hide the toolbar itself from a subject who cannot read channels", async () => {

@@ -14,17 +14,17 @@ import { useContext } from "@/form/Context";
 import { useSyncedRef } from "@/hooks/ref";
 
 /**
- * Runs the handler when the form asks the field at the path to take focus, while the
- * caller is mounted. See {@link ContextValue.focus}.
+ * Runs the handler with the path that the form asks to take focus, when the handler is
+ * the one that takes it, while the caller is mounted. See {@link ContextValue.focus}.
  */
 export const useFocusHandler = (
   path: deep.Target<unknown>,
-  handler: () => void,
+  handler: (path: string) => void,
 ): void => {
   const { addFocusHandler } = useContext(undefined, `useFocusHandler(${String(path)})`);
   const handlerRef = useSyncedRef(handler);
   useEffect(
-    () => addFocusHandler(path, () => handlerRef.current()),
+    () => addFocusHandler(path, (target) => handlerRef.current(target)),
     [addFocusHandler, path, handlerRef],
   );
 };

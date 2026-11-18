@@ -32,6 +32,7 @@ var _ = Describe("Table", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		table = MustOpen(directory.OpenTable(ctx, directory.TableConfig{DB: db}))
 	})
 	create := func(
@@ -66,7 +67,7 @@ var _ = Describe("Table", func() {
 			var names []string
 			DeferCleanup(
 				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
-					for ch := range table.Changes(ctx, c) {
+					for ch := range table.Changes(c) {
 						names = append(names, ch.Value.Name)
 					}
 				}),

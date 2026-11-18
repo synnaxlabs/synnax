@@ -183,7 +183,7 @@ describe("IconPicker", () => {
 
     it("should stop at the last icon when the line below is short", () => {
       const c = renderPicker();
-      fireEvent.change(search(c), { target: { value: "e" } });
+      fireEvent.change(search(c), { target: { value: "r" } });
       const shown = names(c);
       expect(shown.length % 10).not.toEqual(0);
       fireEvent.keyDown(search(c), { key: "ArrowDown" });

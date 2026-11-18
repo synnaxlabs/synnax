@@ -49,6 +49,7 @@ export const EVENT_KINDS = [
   "accept_invitation",
   "change_role",
   "remove_member",
+  "change_desktop_channels",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
@@ -58,6 +59,11 @@ export const organization = pgTable("organization", {
   name: text("name").notNull(),
   clerkOrgID: text("clerk_org_id").unique(),
   ownerUserID: text("owner_user_id").unique(),
+  /**
+   * desktopChannels is the channel cap of the Desktop licenses of a personal
+   * organization, 0 for unlimited, or null for the default.
+   */
+  desktopChannels: integer("desktop_channels"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 export type Organization = typeof organization.$inferSelect;

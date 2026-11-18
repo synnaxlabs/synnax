@@ -18,13 +18,15 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 
-const BASE: Modals.ConfirmParams = {
+type ConfirmParams = Parameters<ReturnType<typeof Modals.useConfirm>>[0];
+
+const BASE: ConfirmParams = {
   message: "Are you sure?",
   description: "This cannot be undone.",
 };
 
 const openConfirm = async (
-  params: Modals.ConfirmParams,
+  params: ConfirmParams,
 ): Promise<ModalOpenerHandle<Promise<boolean | null>>> =>
   await renderModalOpener(Modals.useConfirm, [params]);
 

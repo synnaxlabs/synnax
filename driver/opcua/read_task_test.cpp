@@ -45,6 +45,8 @@ void expect_rate(const double measured, const int rate_hz) {
 
 class TestReadTask : public ::testing::Test {
 protected:
+    /// @brief the cancel token given to each start.
+    x::breaker::Breaker cancel;
     synnax::task::Task task;
     x::json::json task_cfg_json;
     std::shared_ptr<task::MockContext> ctx;
@@ -351,7 +353,7 @@ protected:
 TEST_F(TestReadTask, testBasicReadTask) {
     auto start = x::telem::TimeStamp::now();
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
     EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
@@ -401,7 +403,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
 /// node's channel in a warning.
 TEST_F(TestReadTask, testMissingNodeSkipsIndex) {
     const auto source = this->create_source(mixed_cfg("NS=1;S=NonExistentNode", false));
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -425,7 +427,7 @@ TEST_F(TestReadTask, testReadsStructureFields) {
     const auto source = this->create_source(
         this->motor_cfg({"Speed", "Position.Y", "Running"})
     );
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -442,7 +444,7 @@ TEST_F(TestReadTask, testReadsStructureFields) {
 /// field's channel in a warning.
 TEST_F(TestReadTask, testUnknownFieldSkipsIndex) {
     const auto source = this->create_source(this->motor_cfg({"Speed", "Torque"}));
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -465,7 +467,7 @@ TEST_F(TestReadTask, testReadsFieldOfAddedNode) {
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
     const auto source = this->create_source(this->motor_cfg({"Speed"}));
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto missing = source->read(breaker, fr);
@@ -518,7 +520,7 @@ TEST_F(TestReadTask, testRejectsInvalidField) {
 /// the other channels on its index.
 TEST_F(TestReadTask, testMissingNodeFillsNaN) {
     const auto source = this->create_source(mixed_cfg("NS=1;S=NonExistentNode", true));
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -539,7 +541,7 @@ TEST_F(TestReadTask, testReadsNamespaceURINode) {
     const auto source = this->create_source(
         mixed_cfg("nsu=urn:open62541.server.application;s=TestFloat", false)
     );
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -556,7 +558,7 @@ TEST_F(TestReadTask, testUnknownNamespaceIsMissingNode) {
     const auto source = this->create_source(
         mixed_cfg("nsu=urn:missing;s=TestFloat", false)
     );
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -575,7 +577,7 @@ TEST_F(TestReadTask, testUnknownNamespaceKeepsOtherChannels) {
     const auto source = this->create_source(
         mixed_cfg("nsu=urn:missing;s=TestFloat", true)
     );
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_NIL(source->read(breaker, fr).error);
@@ -614,7 +616,7 @@ TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
         {"sample_rate", 50},
         {"stream_rate", 25},
     });
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_NIL(source->read(breaker, fr).error);
@@ -647,7 +649,7 @@ TEST_F(TestReadTask, testNamespaceAddedAfterStart) {
         {"sample_rate", 50},
         {"stream_rate", 25},
     });
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto missing = source->read(breaker, fr);
@@ -673,7 +675,7 @@ TEST_F(TestReadTask, testSplitsReadAtServerLimit) {
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
     const auto source = this->create_source(task_cfg_json);
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     const auto res = source->read(breaker, fr);
@@ -689,7 +691,7 @@ TEST_F(TestReadTask, testSplitsReadAtServerLimit) {
 /// once the server returns.
 TEST_F(TestReadTask, testRecoversAfterServerRestart) {
     const auto source = this->create_source(task_cfg_json);
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_NIL(source->read(breaker, fr).error);
@@ -707,7 +709,7 @@ TEST_F(TestReadTask, testRecoversAfterServerRestart) {
 TEST_F(TestReadTask, testStartsWhileServerOff) {
     server->stop();
     const auto source = this->create_source(task_cfg_json);
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_MATCHES(source->read(breaker, fr).error, errors::UNREACHABLE);
@@ -728,7 +730,7 @@ TEST_F(TestReadTask, testReconnectUsesUpdatedDevice) {
     moved_server.start();
     ASSERT_TRUE(moved_server.wait_until_ready());
     const auto source = this->create_source(task_cfg_json);
-    ASSERT_NIL(source->start());
+    ASSERT_NIL(source->start("start_cmd", this->cancel));
     connection::Config moved_cfg;
     moved_cfg.endpoint = endpoint;
     ASSERT_NIL(ctx->client->devices.dispatch(
@@ -751,7 +753,7 @@ TEST_F(TestReadTask, testReconnectUsesUpdatedDevice) {
 /// again once the server returns.
 TEST_F(TestReadTask, testServerOutageWarns) {
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     server->stop();
     ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
@@ -904,7 +906,7 @@ TEST_F(TestReadTask, testStreamRateOptionalInArraySampling) {
 /// @brief it should handle rapid start and stop cycles.
 TEST_F(TestReadTask, testRapidStartStop) {
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     rt->stop("stop_cmd", true);
 
@@ -922,7 +924,7 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
     {
         const auto rt1 = create_task();
         EXPECT_EQ(conn_pool->size(), 0);
-        rt1->start("start1");
+        rt1->start("start1", this->cancel);
         EXPECT_EQ(conn_pool->size(), 1);
         EXPECT_EQ(conn_pool->available_count(endpoint), 0);
         rt1->stop("stop1", true);
@@ -934,7 +936,7 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
     {
         const auto rt2 = create_task();
         EXPECT_EQ(conn_pool->size(), 1);
-        rt2->start("start2");
+        rt2->start("start2", this->cancel);
         EXPECT_EQ(conn_pool->size(), 1);
         EXPECT_EQ(conn_pool->available_count(endpoint), 0);
         rt2->stop("stop2", true);
@@ -963,7 +965,7 @@ TEST_F(TestReadTask, testStartUsesUpdatedDevice) {
              .value = testutil::connection_json(moved_cfg)}
         )}
     ));
-    rt->start("start");
+    rt->start("start", this->cancel);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop", true);
     EXPECT_EQ(conn_pool->available_count(endpoint), 1);
@@ -998,7 +1000,7 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     ));
     auto p = x::json::Parser(task_cfg_json);
     UnaryReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
-    ASSERT_NIL(source.start());
+    ASSERT_NIL(source.start("start_cmd", this->cancel));
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
     ASSERT_NIL(source.read(breaker, fr).error);
@@ -1023,11 +1025,11 @@ TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     const auto rt2 = create_task();
     EXPECT_EQ(conn_pool->size(), 0);
 
-    rt1->start("start1");
+    rt1->start("start1", this->cancel);
     EXPECT_EQ(conn_pool->size(), 1);
     EXPECT_EQ(conn_pool->available_count(endpoint), 0);
 
-    rt2->start("start2");
+    rt2->start("start2", this->cancel);
     EXPECT_EQ(conn_pool->size(), 2);
     EXPECT_EQ(conn_pool->available_count(endpoint), 0);
 
@@ -1071,7 +1073,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     rt->stop("stop_cmd", true);
 
@@ -1084,7 +1086,7 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     // Test that UnaryReadTaskSource properly skips frames with invalid data
     // and returns a warning message
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     // Let it run for a bit to collect some data
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -1103,7 +1105,7 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
 TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
     // Test that empty frames (with size 0) are not written to Synnax
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     // Very short run to minimize data collection
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -1123,7 +1125,7 @@ TEST_F(TestReadTask, testMultipleChannelsWithMixedData) {
     // Test that the read task handles multiple channels with different data types
     // This exercises the loop in UnaryReadTaskSource::read that processes all channels
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1141,7 +1143,7 @@ TEST_F(TestReadTask, testMultipleChannelsWithMixedData) {
 TEST_F(TestReadTask, testBooleanChannelDataHandling) {
     // Test that boolean channels are properly read and converted to UINT8
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1157,7 +1159,7 @@ TEST_F(TestReadTask, testBooleanChannelDataHandling) {
 TEST_F(TestReadTask, testFloatChannelDataHandling) {
     // Test that float channels are properly read and written
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1173,7 +1175,7 @@ TEST_F(TestReadTask, testFloatChannelDataHandling) {
 TEST_F(TestReadTask, testDoubleChannelDataHandling) {
     // Test that double channels are properly read and written
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1189,7 +1191,7 @@ TEST_F(TestReadTask, testDoubleChannelDataHandling) {
 TEST_F(TestReadTask, testIntegerChannelDataHandling) {
     // Test that integer channels (int8, int16, int32, int64) are properly read
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1213,7 +1215,7 @@ TEST_F(TestReadTask, testIntegerChannelDataHandling) {
 TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
     // Test that unsigned integer channels (uint16, uint32, uint64) are properly read
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
 
@@ -1267,7 +1269,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     rt->stop("stop_cmd", true);
 
@@ -1280,7 +1282,7 @@ TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     // Test that warning messages contain channel information for debugging
     // This tests the error message formatting in read_task.h lines 258-262 and 326-328
     const auto rt = create_task();
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
 
     // Let it run briefly
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -1357,7 +1359,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
@@ -1438,7 +1440,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
@@ -1519,7 +1521,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
@@ -1634,7 +1636,7 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
         mock_factory
     );
 
-    rt->start("start_cmd");
+    rt->start("start_cmd", this->cancel);
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
         this->mock_factory->writes->size(),
         static_cast<size_t>(3),
@@ -1672,7 +1674,7 @@ TEST_F(TestReadTask, testHoldsSampleRate) {
         this->mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
 
         const auto rt = create_task();
-        rt->start("start_cmd");
+        rt->start("start_cmd", this->cancel);
         ASSERT_EVENTUALLY_GE(this->mock_factory->writes->size(), 1);
         std::this_thread::sleep_for(RATE_SPAN.chrono());
         rt->stop("stop_cmd", true);

@@ -17,7 +17,8 @@ import { type Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Channel, Log, Notation, Telem } from "@synnaxlabs/pluto";
 import {
-  color,
+  array,
+  type color,
   DataType,
   notation,
   type TimestampFormat,
@@ -54,7 +55,7 @@ const ChannelRow = ({
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const config = Log.useChannelEntry({ channel });
-  const otherChannels = Log.useChannelKeys().filter((key) => key !== channel);
+  const otherChannels = array.remove(Log.useChannelKeys(), channel);
   const query = { key: channel };
   const { data: dataType } = Channel.useResultDataType(query);
   const { data: chName } = Channel.useResultName(query);
@@ -77,9 +78,8 @@ const ChannelRow = ({
     dispatch(log.setChannelTimestampFormat({ channel, format }));
   const handleTimeZoneChange = (timeZone: TimeZone) =>
     dispatch(log.setChannelTimestampTimeZone({ channel, timeZone }));
-  // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = (c?: color.Color) =>
-    dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
+    dispatch(log.setChannelColor({ channel, color: c }));
   // Clearing the row's channel removes the row.
   const handleChannelChange = (to: channel.Key | null) =>
     dispatch(
@@ -89,7 +89,6 @@ const ChannelRow = ({
     );
   if (config == null) return null;
   const { alias, timestampConfig, precision, notation } = config;
-  const hasCustomColor = !color.isZero(config.color);
   return (
     <List.Item
       itemKey={channel}
@@ -174,7 +173,7 @@ const ChannelRow = ({
           </>
         )}
         <Color.Swatch
-          value={hasCustomColor ? config.color : undefined}
+          value={config.color}
           fallback={defaultColor}
           onChange={handleColorChange}
           disabled={disabled}

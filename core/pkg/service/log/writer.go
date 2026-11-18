@@ -76,7 +76,7 @@ func (w Writer) Create(ctx context.Context, l *Log) error {
 	if err := validateWrite(*l); err != nil {
 		return err
 	}
-	if err := project.ValidateOwner(l.Project); err != nil {
+	if err := project.CheckMember(l.Project); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(l).Exec(ctx, w.tx); err != nil {
@@ -169,7 +169,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			if err = validateWrite(next); err != nil {
 				return Log{}, err
 			}
-			return next, project.ValidateOwner(next.Project)
+			return next, project.CheckMember(next.Project)
 		}).Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}

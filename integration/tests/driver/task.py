@@ -25,6 +25,8 @@ from pydantic import ValidationError
 
 import synnax as sy
 from framework.test_case import TestCase
+from framework.utils import hold
+from freighter.websocket import ConnectionClosedError
 from x.telem import to_float
 
 _STATUS_CHANNEL = "sy_status_set"
@@ -196,7 +198,7 @@ def send_and_verify_commands(
                 finally:
                     try:
                         writer.close()
-                    except Exception:
+                    except (sy.Error, ConnectionClosedError):
                         pass
                 if verified and statuses is not None and task_key is not None:
                     task_errors = _buffered_task_errors(statuses, task_key)
@@ -212,7 +214,7 @@ def send_and_verify_commands(
                 ">>> Retrying command send and verify... "
                 f"({attempt + 1}/{max_attempts})"
             )
-            sy.sleep(2)  # noqa: TID251 retry backoff
+            hold(2, reason="retry backoff")
     raise AssertionError(
         f"{prefix}Failed to send and verify commands after "
         f"{max_attempts} attempts: {last_err}"
@@ -366,6 +368,109 @@ def status_text(status: sy.task.Status) -> str:
     return ": ".join(part for part in (status.message, status.description) if part)
 
 
+class StatusWatch:
+    """Records the statuses that a set of tasks writes, from when the watch opens. Use
+    it as a context manager, which closes its streamer."""
+
+    def __init__(self, client: sy.Synnax, keys: list[sy.task.Key]) -> None:
+        self._owners = [sy.task.resource_id(k) for k in keys]
+        self._streamer = client.open_streamer([_STATUS_CHANNEL])
+        self._returned: set[int] = set()
+        self.seen: list[sy.task.Status] = []
+        """Every status of the tasks that the watch read, in order."""
+
+    def __enter__(self) -> "StatusWatch":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self._streamer.close()
+
+    def _read(self, timeout: sy.TimeSpan) -> None:
+        frame = self._streamer.read(timeout=timeout)
+        if frame is None or _STATUS_CHANNEL not in frame:
+            return
+        for raw in frame[_STATUS_CHANNEL]:
+            try:
+                status = sy.task.Status.model_validate(raw)
+            except ValidationError:
+                continue
+            if status.owner in self._owners:
+                self.seen.append(status)
+
+    def wait(
+        self,
+        matches: Callable[[sy.task.Status], bool],
+        *,
+        timeout: sy.TimeSpan,
+        expected: str,
+    ) -> sy.task.Status:
+        """Returns the first status that matches and that no earlier wait returned.
+
+        :param expected: Names the status in the error.
+        :raises TimeoutError: If no status matches within timeout.
+        """
+        timer = sy.Timer()
+        while True:
+            for i, status in enumerate(self.seen):
+                if i not in self._returned and matches(status):
+                    self._returned.add(i)
+                    return status
+            remaining = timeout - timer.elapsed()
+            if remaining <= sy.TimeSpan.ZERO:
+                raise TimeoutError(
+                    f"Expected {expected} within {timeout}, but saw {self.texts()}"
+                )
+            self._read(remaining)
+
+    def answer(self, key: str, *, timeout: sy.TimeSpan) -> sy.task.Status:
+        """Returns the final status that answers the command key."""
+        return self.wait(
+            lambda s: command_of(s) == key and s.variant != "loading",
+            timeout=timeout,
+            expected=f"an answer to command {key}",
+        )
+
+    def collect(self, duration: sy.TimeSpan) -> list[sy.task.Status]:
+        """Returns the statuses that arrive in the next duration."""
+        start = len(self.seen)
+        timer = sy.Timer()
+        while (remaining := duration - timer.elapsed()) > sy.TimeSpan.ZERO:
+            self._read(remaining)
+        return self.seen[start:]
+
+    def texts(self) -> list[str]:
+        """Returns the variant and text of each status the watch read."""
+        return [f"{s.variant}: {status_text(s)}" for s in self.seen]
+
+
+def command_of(status: sy.task.Status) -> str:
+    """Returns the key of the command that a status answers, or an empty string."""
+    return status.details.cmd if status.details is not None else ""
+
+
+def is_running(status: sy.task.Status) -> bool:
+    """Returns true if a status reports its task as running."""
+    return status.details is not None and status.details.running
+
+
+def expect_status(
+    status: sy.task.Status,
+    *,
+    variant: str,
+    message: str,
+    description: str,
+    running: bool,
+) -> None:
+    """Checks the variant, text, and running state of a status.
+
+    :raises AssertionError: If one of them differs.
+    """
+    want = (variant, message, description, running)
+    got = (status.variant, status.message, status.description, is_running(status))
+    if got != want:
+        raise AssertionError(f"Expected the status {want}, but got {got}")
+
+
 def assert_streamed_values(
     client: sy.Synnax,
     streamer: sy.Streamer,
@@ -470,7 +575,7 @@ def collect_samples(
                     f"samples, last frame had {batch}"
                 )
     start = sy.TimeStamp.now()
-    sy.sleep(duration.seconds)  # noqa: TID251 fixed sample window
+    hold(duration.seconds, reason="fixed sample window")
     return start
 
 
@@ -740,14 +845,13 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                     )
             try:
                 self.client.channels.delete(ch.key)
+            except sy.Error:
+                pass
+            else:
                 raise AssertionError(
                     f"Channel '{ch.name}' deletion should have been rejected while "
                     "task is running"
                 )
-            except AssertionError:
-                raise
-            except Exception:
-                pass  # Win condition
 
     def assert_sample_count(
         self,
@@ -800,7 +904,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
                         "Task is not streaming data with data_saving disabled"
                     )
             start_time = sy.TimeStamp.now()
-            sy.sleep(duration.seconds * 1.25)  # noqa: TID251 fixed sample window
+            hold(duration.seconds * 1.25, reason="fixed sample window")
 
         end_time = sy.TimeStamp.now()
         time_range = sy.TimeRange(start_time, end_time)

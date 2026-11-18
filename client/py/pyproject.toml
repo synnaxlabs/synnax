@@ -14,19 +14,15 @@ readme = "README.md"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.12,<4"
+requires-python = ">=3.13,<4"
 dependencies = [
     "alamos",
     "synnax-freighter",
     "synnax-x",
-    "click>=8.5.0,<9",
     "keyring>=25.7.0,<26",
-    "matplotlib>=3.11.2,<4",
     "numpy>=2.5.4,<3",
     "pandas>=3.0.6,<4",
     "pydantic>=2.14.1,<3",
-    "rich>=15.0.0,<16",
-    "typing-extensions>=4.16.0,<5",
     "urllib3>=2.8.0,<3",
 ]
 
@@ -65,10 +61,12 @@ exclude = ["examples"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py313"
 extend-exclude = ["*_pb2.py", "*_pb2.pyi"]
 
 [tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
 select = [
     "F",
     "I",
@@ -78,6 +76,8 @@ select = [
     "E7",
     "E9",
     "PLE",
+    "PLR1722",
+    "PLW1514",
     "UP",
     "SIM",
     "C4",
@@ -85,6 +85,7 @@ select = [
     "PIE",
     "PERF",
     "RUF",
+    "S110",
     "PT",
 ]
 ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF001"]
@@ -94,7 +95,7 @@ known-first-party = ["synnax", "alamos", "freighter", "x"]
 combine-as-imports = true
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
@@ -132,7 +133,9 @@ markers = [
     "channel: mark test as a channel test",
     "cli: mark test as a cli test",
     "color: mark test as a color test",
+    "enumeration: mark test as an enumeration test",
     "control: mark test as a control test",
+    "core: the test needs a running Core",
     "deprecation: mark test as a deprecation test",
     "device: mark test as a device test",
     "view: mark test as a view test",
@@ -144,11 +147,11 @@ markers = [
     "frame_codec: mark test as a frame codec test",
     "iterator: mark test as a reader test",
     "internal: mark test as an internal test",
+    "icd: mark test as an ICD test",
     "label: mark test as a label test",
     "labjack: mark test as a labjack test",
     "lineplot: mark test as a line plot test",
     "log: mark test as a log test",
-    "io: mark test as an io test",
     "multi_node: mark test as a multi_node test",
     "modbus: mark test as a modbus test",
     "mqtt: mark test as an mqtt test",
@@ -158,6 +161,7 @@ markers = [
     "project: mark test as a project test",
     "panel: mark test as a panel test",
     "rack: mark test as a rack test",
+    "sift: mark test as a sift test",
     "ranger: mark test as a ranger test",
     "resource: mark test as a resource test",
     "role: mark test as a role test",
@@ -171,7 +175,6 @@ markers = [
     "task: mark test as a task test",
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
-    "tsconvert: mark test as a tsconvert test",
     "reader: mark test as a frame reader test",
     "writer: mark test as a frame writer test",
     "streamer: mark test as a frame streamer test",
@@ -183,6 +186,7 @@ markers = [
 
 [tool.coverage.run]
 omit = ["*/actions_gen.py", "*/types_gen.py"]
+patch = ["subprocess"]
 
 [build-system]
 requires = ["hatchling"]

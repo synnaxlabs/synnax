@@ -13,7 +13,7 @@ import { describe, expect, it, test } from "vitest";
 import { table } from "@/table";
 
 describe("table action wire decode", () => {
-  test("preserves cell keys through the set-channel schema", () => {
+  test("decodes the cells of each row through the set-channel schema", () => {
     const wire = {
       key: "c211c9f3-0b3c-4f5a-9185-e9cabc09a091",
       dispatch_key: "abc",
@@ -25,12 +25,16 @@ describe("table action wire decode", () => {
             table: {
               key: "c211c9f3-0b3c-4f5a-9185-e9cabc09a091",
               name: "Metrics Table",
-              rows: [{ size: 36, cells: ["UnSv19BHjPB", "SMm7XhRkCJM"] }],
+              rows: [
+                {
+                  size: 36,
+                  cells: [
+                    { key: "UnSv19BHjPB", config: { variant: "value" } },
+                    { key: "SMm7XhRkCJM", config: { variant: "text" } },
+                  ],
+                },
+              ],
               columns: [{ size: 72 }, { size: 72 }],
-              cells: {
-                UnSv19BHjPB: { variant: "value" },
-                SMm7XhRkCJM: { variant: "value" },
-              },
             },
           },
         },
@@ -45,11 +49,11 @@ describe("table action wire decode", () => {
     const action = parsed.actions[0];
     expect(action.type).toEqual("create");
     if (action.type !== "create") return;
-    expect(Object.keys(action.create.table.cells)).toEqual([
-      "UnSv19BHjPB",
-      "SMm7XhRkCJM",
+    const [row] = action.create.table.rows;
+    expect(row.cells.map(({ key, config }) => [key, config.variant])).toEqual([
+      ["UnSv19BHjPB", "value"],
+      ["SMm7XhRkCJM", "text"],
     ]);
-    expect(action.create.table.cells.UnSv19BHjPB.variant).toEqual("value");
   });
 });
 
@@ -57,37 +61,66 @@ describe("table path actions", () => {
   const create = (): table.Table =>
     table.tableZ.parse({
       name: "Readings",
-      cells: {
-        a: { variant: "text", value: "Pressure" },
-        b: { variant: "text", value: "Flow" },
-      },
+      rows: [
+        {
+          key: "r0",
+          cells: [
+            { key: "a", config: { variant: "text", value: "Pressure" } },
+            { key: "b", config: { variant: "text", value: "Flow" } },
+          ],
+        },
+      ],
     });
+  const configPath = (key: string, ...fields: string[]) => [
+    "rows",
+    "r0",
+    "cells",
+    key,
+    "config",
+    ...fields,
+  ];
   const set = (path: string[], value: unknown) => table.set({ path, value });
 
   it("should set a field of a cell config from its wire form", () => {
     const state = create();
     const { next, targets } = table.reduceAll(state, [
-      set(["cells", "a", "fill_color"], "#ff0000"),
+      set(configPath("a", "fill_color"), "#ff0000"),
     ]);
-    expect(next.cells.a).toMatchObject({ variant: "text", fillColor: "#ff0000" });
-    expect(next.cells.b).toBe(state.cells.b);
+    expect(next.rows[0].cells[0].config).toMatchObject({
+      variant: "text",
+      fillColor: [255, 0, 0, 255],
+    });
+    expect(next.rows[0].cells[1]).toBe(state.rows[0].cells[1]);
     expect(targets).toEqual(["a"]);
   });
 
   it("should return a wire-form inverse that restores the cell", () => {
     const state = create();
     const { next, inverse } = table.reduceAll(state, [
-      set(["cells", "a", "value"], "Temperature"),
+      set(configPath("a", "value"), "Temperature"),
     ]);
     expect(inverse).toEqual([
-      table.set({ path: ["cells", "a", "value"], value: "Pressure" }),
+      table.set({ path: configPath("a", "value"), value: "Pressure" }),
     ]);
     expect(table.reduceAll(next, inverse).next).toEqual(state);
   });
 
-  it("should throw for a path to the cells map", () => {
-    expect(() => table.reduceAll(create(), [set(["cells"], {})])).toThrow(
-      "cells is not inside an entry of cells",
+  it("should do nothing when no row holds the cell", () => {
+    const state = create();
+    const { next, inverse } = table.reduceAll(state, [
+      set(["rows", "ghost", "cells", "a", "config", "value"], "Temperature"),
+    ]);
+    expect(next).toBe(state);
+    expect(inverse).toEqual([]);
+  });
+
+  it.each([
+    ["the rows", ["rows"]],
+    ["the size of a row", ["rows", "r0", "size"]],
+    ["the key of a cell", ["rows", "r0", "cells", "a", "key"]],
+  ])("should throw for a path to %s", (_, path) => {
+    expect(() => table.reduceAll(create(), [set(path, 1)])).toThrow(
+      "[Table] - a path into rows must go into the config of one cell",
     );
   });
 
@@ -103,8 +136,71 @@ describe("table path actions", () => {
     expect(table.kindOf([set(["name"], "Other")])).toEqual("set");
   });
 
-  it("should not classify a nested set outside the cells as a cell edit", () => {
+  it("should not classify a nested set outside the rows as a cell edit", () => {
     expect(table.kindOf([set(["layout", "a"], 1)])).toEqual("set");
+  });
+});
+
+describe("table edits after an insert in one batch", () => {
+  const text = (value: string): table.CellConfig =>
+    table.cellConfigZ.parse({ variant: "text", value });
+  const create = (): table.Table =>
+    table.tableZ.parse({
+      name: "Readings",
+      columns: [{ key: "k0" }, { key: "k1" }],
+      rows: [
+        {
+          key: "r0",
+          cells: [
+            { key: "a", config: text("A") },
+            { key: "b", config: text("B") },
+          ],
+        },
+        {
+          key: "r1",
+          cells: [
+            { key: "c", config: text("C") },
+            { key: "d", config: text("D") },
+          ],
+        },
+      ],
+    });
+  const setValue = (row: string, key: string, value: string) =>
+    table.set({ path: ["rows", row, "cells", key, "config", "value"], value });
+
+  it("should edit a cell of a row inserted earlier in the batch", () => {
+    const insert = table.addRow({
+      index: 2,
+      key: "r2",
+      size: 36,
+      cells: [{ key: "e", config: text("Old") }],
+    });
+    // A dispatch applies the actions before the last one alone to encode the batch.
+    table.reduceAll(create(), [insert]);
+    const { next } = table.reduceAll(create(), [insert, setValue("r2", "e", "New")]);
+    expect(next.rows[2].cells[0].config).toEqual(text("New"));
+  });
+
+  it("should edit one replica of a cell template without changing the others", () => {
+    const { next } = table.reduceAll(create(), [
+      table.addRow({
+        index: 2,
+        key: "r2",
+        size: 36,
+        cellTemplate: { key: "t", config: text("Old") },
+      }),
+      setValue("r2", "t-0000", "New"),
+    ]);
+    expect(next.rows[2].cells.map((c) => c.config)).toEqual([text("New"), text("Old")]);
+  });
+
+  it("should edit one erased cell without changing the others", () => {
+    const { next } = table.reduceAll(create(), [
+      table.eraseCells({ cells: ["a", "d"], template: text("") }),
+      setValue("r0", "a", "New"),
+    ]);
+    expect(next.rows[0].cells[0].config).toEqual(text("New"));
+    expect(next.rows[1].cells[1].config).toEqual(text(""));
   });
 });
 
@@ -115,9 +211,15 @@ describe("table setChanged", () => {
   it("should keep an edit to another field that base does not hold", () => {
     const state = table.tableZ.parse({
       name: "Readings",
-      cells: { a: text("Pressure", { fillColor: "#ff0000" }) },
+      rows: [
+        {
+          key: "r0",
+          cells: [{ key: "a", config: text("Pressure", { fillColor: "#ff0000" }) }],
+        },
+      ],
     });
     const actions = table.setChanged({
+      row: "r0",
       key: "a",
       base: text("Pressure"),
       next: text("Flow"),
@@ -126,18 +228,23 @@ describe("table setChanged", () => {
       state,
       actions.map((a) => table.encode(state, a)),
     );
-    expect(next.cells.a).toEqual(text("Flow", { fillColor: "#ff0000" }));
+    expect(next.rows[0].cells[0].config).toEqual(
+      text("Flow", { fillColor: "#ff0000" }),
+    );
   });
 
   it("should list no action when nothing differs", () => {
     const base = text("Pressure");
-    expect(table.setChanged({ key: "a", base, next: text("Pressure") })).toEqual([]);
+    expect(
+      table.setChanged({ row: "r0", key: "a", base, next: text("Pressure") }),
+    ).toEqual([]);
   });
 
   it("should classify edits to one cell as one kind", () => {
     const base = text("Pressure");
-    const single = table.setChanged({ key: "a", base, next: text("Flow") });
+    const single = table.setChanged({ row: "r0", key: "a", base, next: text("Flow") });
     const both = table.setChanged({
+      row: "r0",
       key: "a",
       base,
       next: text("Flow", { fillColor: "#ff0000" }),
@@ -150,8 +257,8 @@ describe("table setChanged", () => {
 
   it("should not classify edits to two cells as one kind", () => {
     const base = text("Pressure");
-    const a = table.setChanged({ key: "a", base, next: text("Flow") });
-    const b = table.setChanged({ key: "b", base, next: text("Flow") });
+    const a = table.setChanged({ row: "r0", key: "a", base, next: text("Flow") });
+    const b = table.setChanged({ row: "r0", key: "b", base, next: text("Flow") });
     expect(table.kindOf([...a, ...b])).toEqual("transaction");
   });
 });

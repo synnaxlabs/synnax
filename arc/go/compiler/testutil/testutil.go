@@ -10,6 +10,7 @@
 package testutil
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -66,111 +67,315 @@ func FinalizeContext(ctx ccontext.Context[antlr.ParserRuleContext]) []byte {
 	return ctx.Writer.Bytes()
 }
 
-func assemble(instructions ...any) []byte {
-	encoder := wasm.NewWriter()
+// operandWriter writes op and its operands from rest, returning how many entries of
+// rest it consumed.
+type operandWriter func(w *wasm.Writer, op wasm.Opcode, rest []any) int
 
+// operand returns rest[0], which must be a T.
+func operand[T any](rest []any) T {
+	v, ok := rest[0].(T)
+	if !ok {
+		panic(fmt.Sprintf("operand is a %T, not a %T", rest[0], v))
+	}
+	return v
+}
+
+func noOperand(w *wasm.Writer, op wasm.Opcode, _ []any) int {
+	w.WriteOpcode(op)
+	return 0
+}
+
+func i32Const(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	w.WriteI32Const(operand[int32](rest))
+	return 1
+}
+
+func i64Const(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	w.WriteI64Const(operand[int64](rest))
+	return 1
+}
+
+func f32Const(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	w.WriteF32Const(operand[float32](rest))
+	return 1
+}
+
+func f64Const(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	w.WriteF64Const(operand[float64](rest))
+	return 1
+}
+
+func localGet(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	w.WriteLocalGet(operand[int](rest))
+	return 1
+}
+
+func localSet(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	w.WriteLocalSet(operand[int](rest))
+	return 1
+}
+
+// call writes a fixed 5-byte LEB128 index to match WriteCallPlaceholder and PatchCall.
+func call(w *wasm.Writer, op wasm.Opcode, rest []any) int {
+	w.WriteOpcode(op)
+	switch v := rest[0].(type) {
+	case uint32:
+		w.WriteLEB128Fixed5(uint64(v))
+	case uint64:
+		w.WriteLEB128Fixed5(v)
+	case int:
+		w.WriteLEB128Fixed5(uint64(v))
+	default:
+		panic(fmt.Sprintf("call index must be an integer, got %T", rest[0]))
+	}
+	return 1
+}
+
+// blockType returns the optional block type at the head of rest and how many entries
+// it consumed. A byte names a value type.
+func blockType(rest []any) (wasm.BlockType, int) {
+	if len(rest) == 0 {
+		return wasm.BlockTypeEmpty, 0
+	}
+	switch bt := rest[0].(type) {
+	case wasm.BlockType:
+		return bt, 1
+	case byte:
+		switch wasm.ValueType(bt) {
+		case wasm.I32:
+			return wasm.BlockTypeI32, 1
+		case wasm.I64:
+			return wasm.BlockTypeI64, 1
+		case wasm.F32:
+			return wasm.BlockTypeF32, 1
+		case wasm.F64:
+			return wasm.BlockTypeF64, 1
+		default:
+			return wasm.BlockTypeEmpty, 1
+		}
+	}
+	return wasm.BlockTypeEmpty, 0
+}
+
+func ifBlock(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	bt, n := blockType(rest)
+	w.WriteIf(bt)
+	return n
+}
+
+func block(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	bt, n := blockType(rest)
+	w.WriteBlock(bt)
+	return n
+}
+
+func loop(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	bt, n := blockType(rest)
+	w.WriteLoop(bt)
+	return n
+}
+
+func br(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	w.WriteBr(operand[uint32](rest))
+	return 1
+}
+
+func brIf(w *wasm.Writer, _ wasm.Opcode, rest []any) int {
+	w.WriteBrIf(operand[uint32](rest))
+	return 1
+}
+
+// operandWriters holds the writer for every opcode the assembler accepts.
+var operandWriters = map[wasm.Opcode]operandWriter{
+	wasm.OpUnreachable:       noOperand,
+	wasm.OpNop:               noOperand,
+	wasm.OpBlock:             block,
+	wasm.OpLoop:              loop,
+	wasm.OpIf:                ifBlock,
+	wasm.OpElse:              noOperand,
+	wasm.OpEnd:               noOperand,
+	wasm.OpBr:                br,
+	wasm.OpBrIf:              brIf,
+	wasm.OpBrTable:           noOperand,
+	wasm.OpReturn:            noOperand,
+	wasm.OpCall:              call,
+	wasm.OpCallIndirect:      noOperand,
+	wasm.OpDrop:              noOperand,
+	wasm.OpSelect:            noOperand,
+	wasm.OpLocalGet:          localGet,
+	wasm.OpLocalSet:          localSet,
+	wasm.OpLocalTee:          noOperand,
+	wasm.OpGlobalGet:         noOperand,
+	wasm.OpGlobalSet:         noOperand,
+	wasm.OpI32Load:           noOperand,
+	wasm.OpI64Load:           noOperand,
+	wasm.OpF32Load:           noOperand,
+	wasm.OpF64Load:           noOperand,
+	wasm.OpI32Load8S:         noOperand,
+	wasm.OpI32Load8U:         noOperand,
+	wasm.OpI32Load16S:        noOperand,
+	wasm.OpI32Load16U:        noOperand,
+	wasm.OpI32Store:          noOperand,
+	wasm.OpI64Store:          noOperand,
+	wasm.OpF32Store:          noOperand,
+	wasm.OpF64Store:          noOperand,
+	wasm.OpI32Store8:         noOperand,
+	wasm.OpI32Store16:        noOperand,
+	wasm.OpMemorySize:        noOperand,
+	wasm.OpMemoryGrow:        noOperand,
+	wasm.OpI32Const:          i32Const,
+	wasm.OpI64Const:          i64Const,
+	wasm.OpF32Const:          f32Const,
+	wasm.OpF64Const:          f64Const,
+	wasm.OpI32Eqz:            noOperand,
+	wasm.OpI32Eq:             noOperand,
+	wasm.OpI32Ne:             noOperand,
+	wasm.OpI32LtS:            noOperand,
+	wasm.OpI32LtU:            noOperand,
+	wasm.OpI32GtS:            noOperand,
+	wasm.OpI32GtU:            noOperand,
+	wasm.OpI32LeS:            noOperand,
+	wasm.OpI32LeU:            noOperand,
+	wasm.OpI32GeS:            noOperand,
+	wasm.OpI32GeU:            noOperand,
+	wasm.OpI64Eqz:            noOperand,
+	wasm.OpI64Eq:             noOperand,
+	wasm.OpI64Ne:             noOperand,
+	wasm.OpI64LtS:            noOperand,
+	wasm.OpI64LtU:            noOperand,
+	wasm.OpI64GtS:            noOperand,
+	wasm.OpI64GtU:            noOperand,
+	wasm.OpI64LeS:            noOperand,
+	wasm.OpI64LeU:            noOperand,
+	wasm.OpI64GeS:            noOperand,
+	wasm.OpI64GeU:            noOperand,
+	wasm.OpF32Eq:             noOperand,
+	wasm.OpF32Ne:             noOperand,
+	wasm.OpF32Lt:             noOperand,
+	wasm.OpF32Gt:             noOperand,
+	wasm.OpF32Le:             noOperand,
+	wasm.OpF32Ge:             noOperand,
+	wasm.OpF64Eq:             noOperand,
+	wasm.OpF64Ne:             noOperand,
+	wasm.OpF64Lt:             noOperand,
+	wasm.OpF64Gt:             noOperand,
+	wasm.OpF64Le:             noOperand,
+	wasm.OpF64Ge:             noOperand,
+	wasm.OpI32Clz:            noOperand,
+	wasm.OpI32Ctz:            noOperand,
+	wasm.OpI32Popcnt:         noOperand,
+	wasm.OpI32Add:            noOperand,
+	wasm.OpI32Sub:            noOperand,
+	wasm.OpI32Mul:            noOperand,
+	wasm.OpI32DivS:           noOperand,
+	wasm.OpI32DivU:           noOperand,
+	wasm.OpI32RemS:           noOperand,
+	wasm.OpI32RemU:           noOperand,
+	wasm.OpI32And:            noOperand,
+	wasm.OpI32Or:             noOperand,
+	wasm.OpI32Xor:            noOperand,
+	wasm.OpI32Shl:            noOperand,
+	wasm.OpI32ShrS:           noOperand,
+	wasm.OpI32ShrU:           noOperand,
+	wasm.OpI32Rotl:           noOperand,
+	wasm.OpI32Rotr:           noOperand,
+	wasm.OpI64Clz:            noOperand,
+	wasm.OpI64Ctz:            noOperand,
+	wasm.OpI64Popcnt:         noOperand,
+	wasm.OpI64Add:            noOperand,
+	wasm.OpI64Sub:            noOperand,
+	wasm.OpI64Mul:            noOperand,
+	wasm.OpI64DivS:           noOperand,
+	wasm.OpI64DivU:           noOperand,
+	wasm.OpI64RemS:           noOperand,
+	wasm.OpI64RemU:           noOperand,
+	wasm.OpI64And:            noOperand,
+	wasm.OpI64Or:             noOperand,
+	wasm.OpI64Xor:            noOperand,
+	wasm.OpI64Shl:            noOperand,
+	wasm.OpI64ShrS:           noOperand,
+	wasm.OpI64ShrU:           noOperand,
+	wasm.OpI64Rotl:           noOperand,
+	wasm.OpI64Rotr:           noOperand,
+	wasm.OpF32Abs:            noOperand,
+	wasm.OpF32Neg:            noOperand,
+	wasm.OpF32Ceil:           noOperand,
+	wasm.OpF32Floor:          noOperand,
+	wasm.OpF32Trunc:          noOperand,
+	wasm.OpF32Nearest:        noOperand,
+	wasm.OpF32Sqrt:           noOperand,
+	wasm.OpF32Add:            noOperand,
+	wasm.OpF32Sub:            noOperand,
+	wasm.OpF32Mul:            noOperand,
+	wasm.OpF32Div:            noOperand,
+	wasm.OpF32Min:            noOperand,
+	wasm.OpF32Max:            noOperand,
+	wasm.OpF32Copysign:       noOperand,
+	wasm.OpF64Abs:            noOperand,
+	wasm.OpF64Neg:            noOperand,
+	wasm.OpF64Ceil:           noOperand,
+	wasm.OpF64Floor:          noOperand,
+	wasm.OpF64Trunc:          noOperand,
+	wasm.OpF64Nearest:        noOperand,
+	wasm.OpF64Sqrt:           noOperand,
+	wasm.OpF64Add:            noOperand,
+	wasm.OpF64Sub:            noOperand,
+	wasm.OpF64Mul:            noOperand,
+	wasm.OpF64Div:            noOperand,
+	wasm.OpF64Min:            noOperand,
+	wasm.OpF64Max:            noOperand,
+	wasm.OpF64Copysign:       noOperand,
+	wasm.OpI32WrapI64:        noOperand,
+	wasm.OpI32TruncF32S:      noOperand,
+	wasm.OpI32TruncF32U:      noOperand,
+	wasm.OpI32TruncF64S:      noOperand,
+	wasm.OpI32TruncF64U:      noOperand,
+	wasm.OpI64ExtendI32S:     noOperand,
+	wasm.OpI64ExtendI32U:     noOperand,
+	wasm.OpI64TruncF32S:      noOperand,
+	wasm.OpI64TruncF32U:      noOperand,
+	wasm.OpI64TruncF64S:      noOperand,
+	wasm.OpI64TruncF64U:      noOperand,
+	wasm.OpF32ConvertI32S:    noOperand,
+	wasm.OpF32ConvertI32U:    noOperand,
+	wasm.OpF32ConvertI64S:    noOperand,
+	wasm.OpF32ConvertI64U:    noOperand,
+	wasm.OpF32DemoteF64:      noOperand,
+	wasm.OpF64ConvertI32S:    noOperand,
+	wasm.OpF64ConvertI32U:    noOperand,
+	wasm.OpF64ConvertI64S:    noOperand,
+	wasm.OpF64ConvertI64U:    noOperand,
+	wasm.OpF64PromoteF32:     noOperand,
+	wasm.OpI32ReinterpretF32: noOperand,
+	wasm.OpI64ReinterpretF64: noOperand,
+	wasm.OpF32ReinterpretI32: noOperand,
+	wasm.OpF64ReinterpretI64: noOperand,
+}
+
+func assemble(instructions ...any) []byte {
+	var out bytes.Buffer
+	encoder := wasm.NewWriter()
 	for i := 0; i < len(instructions); i++ {
 		switch instr := instructions[i].(type) {
 		case wasm.Opcode:
-			switch instr {
-			case wasm.OpI32Const:
-				encoder.WriteI32Const(instructions[i+1].(int32))
-				i++ // Skip the operand
-			case wasm.OpI64Const:
-				encoder.WriteI64Const(instructions[i+1].(int64))
-				i++ // Skip the operand
-			case wasm.OpF32Const:
-				encoder.WriteF32Const(instructions[i+1].(float32))
-				i++ // Skip the operand
-			case wasm.OpF64Const:
-				encoder.WriteF64Const(instructions[i+1].(float64))
-				i++ // Skip the operand
-			case wasm.OpLocalGet:
-				encoder.WriteLocalGet(instructions[i+1].(int))
-				i++ // Skip the operand
-			case wasm.OpLocalSet:
-				encoder.WriteLocalSet(instructions[i+1].(int))
-				i++ // Skip the operand
-			case wasm.OpCall:
-				// Use fixed 5-byte LEB128 to match WriteCallPlaceholder+PatchCall
-				// encoding
-				encoder.WriteOpcode(wasm.OpCall)
-				switch v := instructions[i+1].(type) {
-				case uint32:
-					encoder.WriteLEB128Fixed5(uint64(v))
-				case uint64:
-					encoder.WriteLEB128Fixed5(v)
-				case int:
-					encoder.WriteLEB128Fixed5(uint64(v))
-				}
-				i++ // Skip the operand
-			case wasm.OpIf:
-				// Check if there's a block type following
-				if i+1 < len(instructions) {
-					// First check if it's a BlockType interface
-					if bt, ok := instructions[i+1].(wasm.BlockType); ok {
-						encoder.WriteIf(bt)
-						i++ // Skip the block type
-					} else if bt, ok := instructions[i+1].(byte); ok {
-						// It's a block type byte (for backward compatibility)
-						switch wasm.ValueType(bt) {
-						case wasm.I32:
-							encoder.WriteIf(wasm.BlockTypeI32)
-						case wasm.I64:
-							encoder.WriteIf(wasm.BlockTypeI64)
-						case wasm.F32:
-							encoder.WriteIf(wasm.BlockTypeF32)
-						case wasm.F64:
-							encoder.WriteIf(wasm.BlockTypeF64)
-						default:
-							encoder.WriteIf(wasm.BlockTypeEmpty)
-						}
-						i++ // Skip the block type
-					} else {
-						encoder.WriteIf(wasm.BlockTypeEmpty)
-					}
-				} else {
-					encoder.WriteIf(wasm.BlockTypeEmpty)
-				}
-			case wasm.OpBlock:
-				if i+1 < len(instructions) {
-					if bt, ok := instructions[i+1].(wasm.BlockType); ok {
-						encoder.WriteBlock(bt)
-						i++
-					} else {
-						encoder.WriteBlock(wasm.BlockTypeEmpty)
-					}
-				} else {
-					encoder.WriteBlock(wasm.BlockTypeEmpty)
-				}
-			case wasm.OpLoop:
-				if i+1 < len(instructions) {
-					if bt, ok := instructions[i+1].(wasm.BlockType); ok {
-						encoder.WriteLoop(bt)
-						i++
-					} else {
-						encoder.WriteLoop(wasm.BlockTypeEmpty)
-					}
-				} else {
-					encoder.WriteLoop(wasm.BlockTypeEmpty)
-				}
-			case wasm.OpBr:
-				encoder.WriteBr(instructions[i+1].(uint32))
-				i++
-			case wasm.OpBrIf:
-				encoder.WriteBrIf(instructions[i+1].(uint32))
-				i++
-			default:
-				// Simple opcode with no operands
-				encoder.WriteOpcode(instr)
+			write, ok := operandWriters[instr]
+			if !ok {
+				panic(fmt.Sprintf("assemble: no operand writer for opcode %s", instr))
 			}
+			i += write(encoder, instr, instructions[i+1:])
+		case wasm.TruncSatOpcode:
+			encoder.WriteTruncSat(instr)
+		case []byte:
+			out.Write(encoder.Bytes())
+			out.Write(instr)
+			encoder = wasm.NewWriter()
 		}
 	}
-
-	return encoder.Bytes()
+	out.Write(encoder.Bytes())
+	return out.Bytes()
 }
 
-// opcodeMatcher is a custom Gomega matcher for comparing opcode sequences
+// opcodeMatcher is a custom Gomega matcher for comparing opcode sequences.
 type opcodeMatcher struct {
 	expected wasm.OPCodes
 }
@@ -307,10 +512,7 @@ func (m *opcodeMatcher) NegatedFailureMessage(actual any) string {
 		return fmt.Sprintf("Expected not to match, but got invalid type %T", actual)
 	}
 
-	return fmt.Sprintf(
-		"Expected opcodes not to match, but they did:\n  %s",
-		actualOpcodes.String(),
-	)
+	return "Expected opcodes not to match, but they did:\n  " + actualOpcodes.String()
 }
 
 func opcodesFromBytes(data []byte) wasm.OPCodes {
@@ -335,4 +537,12 @@ func ImportNames(ctx context.Context, m *wasm.Module) []string {
 		_, names[i], _ = imp.Import()
 	}
 	return names
+}
+
+// LoopBudget returns the instructions that each loop header and function entry run
+// against the loop budget global, which a root compiler context declares at index 0.
+func LoopBudget() []byte {
+	w := wasm.NewWriter()
+	w.WriteLoopBudget(0)
+	return w.Bytes()
 }

@@ -7,16 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = [
-#     "boto3",
-#     "certifi>=2026.10.19",
-#     "PyJWT[crypto]>=2.10,<3",
-#     "synnax>=0.60,<0.61",
-# ]
-# ///
-
 """Dispatches each write to a runner's command channel to the matching script.
 
     <runner>_ec2_cmd    true  ec2_on.py       false  ec2_off.py
@@ -59,7 +49,7 @@ RETRY_DELAY = 5 * sy.TimeSpan.SECOND
 # interrupted, so the signal only lands once the read returns.
 READ_TIMEOUT = sy.TimeSpan.SECOND
 
-Handler = Callable[[str], str]
+Handler = Callable[[str], str | None]
 Handlers = dict[str, dict[bool, Handler]]
 
 
@@ -109,7 +99,8 @@ def dispatch(
             continue
         log(f"{runner}: {command}={value}")
         try:
-            log(handler(runner))
+            if (skipped := handler(runner)) is not None:
+                log(skipped)
         except Exception as e:
             log.error(f"{runner} {command}={value}", e)
 

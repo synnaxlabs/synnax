@@ -82,7 +82,12 @@ func (p *Plugin) generateFile(
 	outputPath string,
 	req *plugin.Request,
 ) ([]byte, error) {
-	fp := pytypes.NewFieldProcessor(typ.Namespace, outputPath, req.Resolutions)
+	fp := pytypes.NewFieldProcessor(
+		typ.Namespace,
+		typ.FilePath,
+		outputPath,
+		req.Resolutions,
+	)
 	fp.AddTyping("Annotated")
 	fp.AddTyping("Literal")
 	fp.AddPydantic("BaseModel")

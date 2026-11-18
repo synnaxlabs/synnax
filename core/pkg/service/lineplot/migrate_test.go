@@ -56,11 +56,12 @@ var _ = Describe("Stored v7 line plots", func() {
 		func(ctx SpecContext) {
 			db, keys := openChannels(ctx, 1)
 			ch := keys[0]
-			// Mark the chain through v7 as applied, so only the v8 steps run on open.
+			// Mark the chain through v7 as applied, so only the later steps run on
+			// open.
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "LinePlot",
-				Migrations: versions.Migrations[:len(versions.Migrations)-6],
+				Migrations: versions.Migrations[:len(versions.Migrations)-7],
 			})).To(Succeed())
 			saved := ranger.Range{
 				Key:       uuid.New(),
@@ -114,8 +115,9 @@ var _ = Describe("Stored v7 line plots", func() {
 				Entry(&owner).
 				Exec(ctx, db)).To(Succeed())
 			MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-				DB:   db,
-				ImEx: imex.NewService(),
+				DB:    db,
+				ImEx:  imex.NewService(),
+				Color: colorSvc,
 			}))
 			var got lineplot.LinePlot
 			Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
@@ -160,8 +162,9 @@ var _ = Describe("Stored v7 line plots", func() {
 			Entry(&stored).
 			Exec(ctx, db)).To(Succeed())
 		MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
-			DB:   db,
-			ImEx: imex.NewService(),
+			DB:    db,
+			ImEx:  imex.NewService(),
+			Color: colorSvc,
 		}))
 		var got lineplot.LinePlot
 		Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().

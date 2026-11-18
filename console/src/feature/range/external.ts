@@ -12,10 +12,8 @@ import { Overview } from "@/feature/range/overview";
 import { type Panel } from "@/platform/panel";
 
 export * from "@/feature/range/commands";
-export * from "@/feature/range/ContextMenu";
 export * from "@/feature/range/explorer";
 export * from "@/feature/range/link";
-export * from "@/feature/range/list";
 export * from "@/feature/range/overview";
 export * from "@/feature/range/search";
 export * from "@/feature/range/Toolbar";

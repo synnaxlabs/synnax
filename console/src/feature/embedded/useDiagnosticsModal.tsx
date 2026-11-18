@@ -64,8 +64,10 @@ const STATE_MESSAGES: Record<SupervisorStatus["state"], string> = {
   starting: "Starting",
   running: "Running",
   restarting: "Restarting",
+  waiting: "Waiting for data folder",
   failed: "Stopped unexpectedly",
   stopping: "Stopping",
+  exiting: "Stopping to exit",
   stopped: "Stopped",
 };
 
@@ -73,8 +75,10 @@ const STATE_VARIANTS: Record<SupervisorStatus["state"], status.Variant> = {
   starting: "loading",
   running: "success",
   restarting: "loading",
+  waiting: "loading",
   failed: "error",
   stopping: "loading",
+  exiting: "loading",
   stopped: "warning",
 };
 

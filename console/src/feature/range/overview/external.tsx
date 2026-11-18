@@ -19,6 +19,7 @@ const TAB: Panel.Tab = {
     "Overview",
   ),
   Icon: Icon.Range,
+  iconKey: "range",
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Name: Panel.createEditableTabName(
     {

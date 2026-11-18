@@ -81,7 +81,7 @@ const inputs = {
   groups: filter.listInputZ(group.keyZ).exactOptional(),
   /** grouped matches the schematics in a group, or in no group when false. */
   grouped: z.boolean().exactOptional(),
-  /** projects matches the schematics owned by any of the given projects. */
+  /** projects matches the schematics in any of the given projects. */
   projects: filter.listInputZ(project.keyZ).exactOptional(),
 };
 

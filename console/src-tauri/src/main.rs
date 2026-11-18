@@ -33,6 +33,13 @@ use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
 
 fn main() {
+    // WebKitGTK's DMABUF renderer draws a black window when the WebKitGTK bundled in an
+    // AppImage runs on the host's graphics stack.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("APPIMAGE").is_some() {
+        // SAFETY: no other thread runs yet.
+        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
+    }
     let prevent = tauri_plugin_prevent_default::Builder::new()
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
@@ -53,6 +60,7 @@ fn main() {
         supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,
         supervisor::commands::supervisor_stop,
+        supervisor::commands::supervisor_quit,
         supervisor::commands::supervisor_reset,
         supervisor::commands::supervisor_show_logs,
         supervisor::commands::supervisor_show_data,
@@ -61,11 +69,17 @@ fn main() {
         supervisor::commands::supervisor_export_diagnostics,
         supervisor::commands::supervisor_api_key,
         supervisor::commands::supervisor_save_api_key,
+        supervisor::commands::supervisor_forget_legacy_api_key,
+        supervisor::commands::supervisor_legacy_api_key,
         install::install_info,
     ]);
+    #[cfg(target_os = "linux")]
+    let builder = builder.plugin(desktop::webkit::init());
     builder
         .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            #[cfg(feature = "desktop")]
+            supervisor::commands::relaunched(app);
             if let Some(win) = app.get_webview_window("main") {
                 let _ = win.unminimize();
                 let _ = win.show();
@@ -87,6 +101,32 @@ fn main() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+            // The .deb registers the app's scheme in its desktop file, but an AppImage
+            // installs none, so it registers the scheme itself. A host without the
+            // desktop tools only loses links to the app.
+            #[cfg(target_os = "linux")]
+            if std::env::var_os("APPIMAGE").is_some() {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register_all() {
+                    let schemes = app
+                        .config()
+                        .plugins
+                        .0
+                        .get("deep-link")
+                        .and_then(|c| c.pointer("/desktop/schemes"))
+                        .and_then(|s| s.as_array())
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|s| s.as_str())
+                        .map(|s| format!("{s}://"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    eprintln!(
+                        "failed to register {schemes}: {e}. Install desktop-file-utils \
+                         and xdg-utils to open {schemes} links."
+                    );
+                }
+            }
             #[cfg(target_os = "macos")]
             let app_handle = app.handle().clone();
             #[cfg(target_os = "macos")]
@@ -110,8 +150,16 @@ fn main() {
         .expect("error while building tauri application")
         .run(|_app, _event| {
             #[cfg(feature = "desktop")]
-            if let tauri::RunEvent::Exit = _event {
-                supervisor::commands::shutdown(_app);
+            match _event {
+                tauri::RunEvent::ExitRequested { code, api, .. } => {
+                    supervisor::commands::exit_requested(_app, code, &api);
+                }
+                // Windows ends a session with `Exit` and no `ExitRequested` first.
+                tauri::RunEvent::Exit => supervisor::commands::shutdown(_app),
+                // macOS opens a running app again with `Reopen`, not a second process.
+                #[cfg(target_os = "macos")]
+                tauri::RunEvent::Reopen { .. } => supervisor::commands::relaunched(_app),
+                _ => {}
             }
         });
 }

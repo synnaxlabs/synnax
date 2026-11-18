@@ -19,6 +19,7 @@ import { useSyncedRef } from "@/hooks/ref";
 import { useDestructors } from "@/hooks/useDestructors";
 import { useMemoCompare } from "@/memo";
 import { ACTIVATION_KEYS } from "@/util/event";
+import { ownsEvent } from "@/util/focus";
 
 export interface UseHoldProps<E extends Element> {
   onClick?: MouseEventHandler<E>;
@@ -48,10 +49,11 @@ const releaseTargets = (): [EventTarget, string][] => [
 ];
 
 /**
- * Gates onClick behind a press-and-hold of onClickDelay. Only a primary press starts
- * the hold. A release, drag, window blur, unmount, or disable cancels it. The hold
- * releases itself when it fires, so the control does not read as pressed after the
- * actuation changes its state.
+ * Gates onClick behind a press-and-hold of onClickDelay. Only a primary press that the
+ * element owns starts the hold, so a press on a nested control or in a portal does not.
+ * A release, drag, window blur, unmount, or disable cancels it. The hold releases
+ * itself when it fires, so the control does not read as pressed after the actuation
+ * changes its state.
  */
 export const useHold = <E extends Element>({
   onClick,
@@ -79,7 +81,7 @@ export const useHold = <E extends Element>({
 
   const handleMouseDown: MouseEventHandler<E> = (e) => {
     onMouseDown?.(e);
-    if (disabled || e.button !== 0) return;
+    if (disabled || e.button !== 0 || !ownsEvent(e)) return;
     destructors.cleanup();
     setPressed(true);
     const targets = releaseTargets();

@@ -21,7 +21,7 @@ const expectColors = (el: Element, text: string, fill: string): void => {
 describe("Badge", () => {
   it("should be gray without a status", async () => {
     const { getByText } = await renderThemed(<Badge.Badge>Dev3</Badge.Badge>);
-    expectColors(getByText("Dev3").element(), "--pluto-gray-l9", "--pluto-gray-l3");
+    expectColors(getByText("Dev3").element(), "--pluto-gray-l10", "--pluto-gray-l3");
   });
 
   it.each([
@@ -33,6 +33,17 @@ describe("Badge", () => {
       <Badge.Badge status={status}>Word</Badge.Badge>,
     );
     expectColors(getByText("Word").element(), text, fill);
+  });
+
+  it("should use the theme font inside a parent that sets none", async () => {
+    const { getByText } = await renderThemed(
+      <div>
+        <Badge.Badge>Dev3</Badge.Badge>
+      </div>,
+    );
+    expect(computed(getByText("Dev3").element(), "font-family")).toBe(
+      resolve("var(--pluto-font-family)", "font-family"),
+    );
   });
 
   it("should color the auto badge violet", async () => {

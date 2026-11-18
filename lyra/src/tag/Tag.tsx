@@ -41,7 +41,7 @@ export const Tag = ({
   ...rest
 }: TagProps): ReactElement => {
   const cssColor = color.cssString(pColor);
-  if (icon == null && pColor != null) icon = <Icon.Circle color={cssColor} />;
+  if (icon == null && pColor != null) icon = <Icon.Dot color={cssColor} />;
   const closeIcon =
     onClose == null ? undefined : (
       <Button.Close
@@ -67,6 +67,8 @@ export const Tag = ({
       align="center"
       gap="small"
       onDragStart={onDragStart}
+      // A tag with no action of its own is part of what holds it, such as a trigger.
+      propagateClick={rest.onClick == null}
       {...rest}
     >
       {icon}

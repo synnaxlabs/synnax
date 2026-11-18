@@ -17,47 +17,11 @@
     height: 1em;
     flex-shrink: 0;
 
-    &.lyra-icon--composite {
-        transform: scale(1.15);
-    }
-
-    & *:is(path, circle):is(:not([fill="none"]), [stroke="#000"]):not(.lyra-sub__bg) {
+    & *:is(path, circle):is(:not([fill="none"]), [stroke="#000"]) {
         /* stylelint-disable declaration-no-important -- paths take the icon's color
            whatever rule targets them */
         stroke: inherit !important;
         fill: inherit !important;
         /* stylelint-enable declaration-no-important */
     }
-
-    & .lyra-icon__halo {
-        color: var(--pluto-btn-bg, var(--pluto-gray-l0));
-
-        & :is(path, circle, rect, line, polyline, polygon) {
-            stroke-width: 3;
-            stroke-linejoin: round;
-        }
-    }
-
-    & .lyra-sub__bg {
-        transition: var(--pluto-btn-transition);
-        /* stylelint-disable-next-line declaration-no-important -- the badge backing
-           matches the button behind it whatever rule targets it */
-        fill: var(--pluto-btn-bg, var(--pluto-gray-l0)) !important;
-    }
-
-    .lyra-sub {
-        --pluto-scale: scale(calc(var(--pluto-base-scale, 1) * 0.8));
-
-        &.lyra-icon--add * {
-            stroke-width: 0.5rem;
-        }
-    }
-}
-
-.lyra--clickable:hover .lyra-icon .lyra-sub {
-    background: var(--pluto-hover-bg);
-}
-
-.lyra--clickable:active .lyra-icon .lyra-sub {
-    background: var(--pluto-active-bg);
 }

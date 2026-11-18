@@ -48,7 +48,6 @@ class LoginForms(ConsoleCase):
         cluster = self.console.cluster
         self._wait(self.page.get_by_text("Cores", exact=True))
         self._wait(cluster.core_item("Local"))
-        self._wait(cluster.core_item("Demo"))
 
     def test_connect_modal_validation(self) -> None:
         """An empty submit is rejected with field-level requirements."""

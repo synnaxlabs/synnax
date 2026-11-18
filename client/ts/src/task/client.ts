@@ -110,9 +110,9 @@ const isRackHealthy = (stat: status.Status): boolean =>
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 /**
- * How long an acknowledged command waits for its final status. The Driver fails an
- * operation that takes longer than 60 s, so this limit ends only a wait whose command
- * was lost, for example to a Driver restart.
+ * How long an acknowledged command waits for its next status. Each loading status
+ * restarts the wait, so this limit ends only a wait whose command was lost, for example
+ * to a Driver restart.
  */
 const FINAL_STATUS_TIMEOUT = TimeSpan.minutes(2);
 
@@ -150,8 +150,9 @@ export interface ExecuteCommandsParams {
 /** A command awaited to completion, as issued from the task itself. */
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
   /**
-   * How long to wait for the Driver to acknowledge the command. Once it does, the wait
-   * for the final status lasts two minutes or the timeout, whichever is longer.
+   * How long to wait for the Driver to acknowledge the command. Once it does, each
+   * loading status restarts the wait for the next status, which lasts two minutes or
+   * the timeout, whichever is longer.
    */
   timeout?: CrudeTimeSpan;
 }
@@ -372,6 +373,12 @@ export interface ClientConfig {
   statuses: status.Client;
 }
 
+interface Parsed {
+  schema: z.ZodType;
+  tasks: WeakMap<Task, Task | undefined>;
+  deleted: WeakMap<query.Deleted<Task>, query.Deleted<Task>>;
+}
+
 /**
  * Creates, reads, deletes, and commands tasks on a Core. Reach it through
  * `client.hardware.tasks`. Reads are served from a cache a change stream keeps current.
@@ -389,6 +396,7 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
+  private readonly parsed = new WeakMap<Schemas, Parsed>();
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -686,14 +694,14 @@ export class Client extends query.Retriever<
    */
   private optimisticStatus(cmd: Command, key: status.Key): Status {
     // Carry the last known deploy info forward: zeroing it would make this
-    // optimistic status claim the task deployed with an empty config/rack.
+    // optimistic status claim the task deployed with an empty config/rack. The status
+    // data has a shape only the task type knows, so this status carries none.
     const latest = this.latestStatusOf(cmd.task);
     const owner = resourceID(cmd.task);
     const details = {
       cmd: "",
       configHash: latest?.details.configHash ?? "",
       rack: latest?.details.rack ?? 0,
-      data: {},
     };
     const cached = this.store.get(cmd.task);
     const name = cached?.name ?? latest?.name ?? "";
@@ -718,8 +726,8 @@ export class Client extends query.Retriever<
     });
   }
 
-  // A waiting command shows each new problem of its rack, since the Core copies an
-  // outage onto running tasks only.
+  // A waiting command shows each new problem of its rack, since the Core's outage copy
+  // carries no command key and so never answers the command.
   private standInForDownRack(rackStatus: status.Status): void {
     for (const [task, pending] of this.commandDeadlines) {
       const down = this.downRackStatus(this.store.get(task)?.rack);
@@ -840,6 +848,44 @@ export class Client extends query.Retriever<
       .toArray(payloads)
       .map((payload) => new Task(payload, schemas, this.cfg.framer));
     return isSingle ? res[0] : res;
+  }
+
+  /**
+   * Parses a cached task through schemas, so a typed reader never sees an untyped task
+   * that another consumer wrote into the cache. A task that fails to parse returns
+   * undefined. The result is memoized per schemas and cached task, so the same input
+   * always returns the same instance.
+   */
+  parse<S extends Schemas>(
+    cached: query.Cached<Task> | undefined,
+    schemas: S,
+  ): query.Cached<Task<S>> | undefined {
+    if (cached === undefined) return undefined;
+    let p = this.parsed.get(schemas);
+    if (p == null) {
+      p = { schema: payloadZ(schemas), tasks: new WeakMap(), deleted: new WeakMap() };
+      this.parsed.set(schemas, p);
+    }
+    const { schema, tasks, deleted } = p;
+    const parseOne = (t: Task): Task<S> | undefined => {
+      if (tasks.has(t)) return tasks.get(t) as Task<S> | undefined;
+      const result = schema.safeParse(t.payload);
+      // payloadZ types each optional schema as a union with its default, so the parsed
+      // payload narrows to the typed one here.
+      const typed = result.success
+        ? this.sugar(result.data as Payload<S>, schemas)
+        : undefined;
+      tasks.set(t, typed);
+      return typed;
+    };
+    if (!query.Deleted.matches(cached)) return parseOne(cached);
+    const held = deleted.get(cached);
+    if (held != null) return held as query.Deleted<Task<S>>;
+    const corpse = parseOne(cached.corpse);
+    if (corpse === undefined) return undefined;
+    const next = new query.Deleted(corpse, cached.deletedAt);
+    deleted.set(cached, next);
+    return next;
   }
 
   /**
@@ -1036,7 +1082,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     ? parsedTimeout
     : FINAL_STATUS_TIMEOUT;
   const collect = async (
-    acknowledge: (cmd: string) => void,
+    acknowledge: (cmd: string, loading: boolean) => void,
   ): Promise<Status<StatusData>[]> => {
     let states: Status<StatusData>[] = [];
     while (true) {
@@ -1060,7 +1106,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
         const state = res.data;
         if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
         // Any reply acknowledges its command. A loading reply is not the final one.
-        acknowledge(state.details.cmd);
+        acknowledge(state.details.cmd, state.variant === "loading");
         if (state.variant === "loading") continue;
         states = [...states.filter((s) => s.key !== state.key), state];
         if (states.length === cmdKeys.length) return states;
@@ -1079,10 +1125,12 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
         }, span.milliseconds);
       let timer = timeOutAfter(parsedTimeout);
       const acknowledged = new Set<string>();
-      const acknowledge = (cmd: string): void => {
-        if (acknowledged.has(cmd)) return;
+      // A loading status shows the Driver still works on its command, so once every
+      // command is acknowledged, it starts the wait again.
+      const acknowledge = (cmd: string, loading: boolean): void => {
+        const first = !acknowledged.has(cmd);
         acknowledged.add(cmd);
-        if (acknowledged.size < cmdKeys.length) return;
+        if (acknowledged.size < cmdKeys.length || (!first && !loading)) return;
         clearTimeout(timer);
         timer = timeOutAfter(finalTimeout);
       };

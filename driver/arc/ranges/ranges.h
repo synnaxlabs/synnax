@@ -47,7 +47,7 @@ inline std::string dispatch_create(
 ) {
     std::optional<x::color::Color> c;
     if (!color_hex.empty()) {
-        auto [parsed, err] = x::color::from_css(color_hex);
+        auto [parsed, err] = x::color::parse(color_hex);
         if (err) {
             report(
                 CREATE_FAILURE_MSG,

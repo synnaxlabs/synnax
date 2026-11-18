@@ -19,6 +19,7 @@ import { box, direction, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
+import { type RowLayout } from "@/table/queries";
 import { transform } from "@/table/shift";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -38,7 +39,7 @@ export const getCellColumn = (index: number): string => {
 
 export interface ColumnIndicatorsProps extends Pick<IndicatorProps, "onMovePress"> {
   columns: table.Column[];
-  rows: table.Row[];
+  rows: RowLayout[];
   selected: string[];
   editable: boolean;
   onSelect: (index: number, ev: React.MouseEvent) => void;

@@ -11,7 +11,6 @@ package v2_test
 
 import (
 	"context"
-	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,8 +19,8 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -80,6 +79,7 @@ var _ = Describe("Migrate", func() {
 		It("Should point the routing key at a secret that its write creates",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
 				cfg := v2.TaskConfig{PlainRoutingKey: new("plain")}
 				write := v2.ResolveTaskConfig(create, "Pump", &cfg)
 				Expect(made).To(BeEmpty())
@@ -104,6 +104,7 @@ var _ = Describe("Migrate", func() {
 			ctx SpecContext,
 		) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			fail := func(context.Context, gorp.Tx, secret.Key, string, []byte) error {
 				return errors.New("create failed")
 			}
@@ -113,90 +114,54 @@ var _ = Describe("Migrate", func() {
 		})
 	})
 
-	Describe("NewMigration", func() {
-		var db *gorp.DB
-		BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
+	Describe("PlainRoutingKeyKVKey", func() {
+		It("Should return the prefix followed by the config key", func() {
+			key := uuid.MustParse("0d3b5a0e-6f0c-4f0e-9a43-6a1f6d2f3c11")
+			Expect(string(v2.PlainRoutingKeyKVKey(key))).To(Equal(
+				"sy_pagerduty_plain_routing_key/0d3b5a0e-6f0c-4f0e-9a43-6a1f6d2f3c11",
+			))
+		})
+	})
 
-		// store writes a v1 config and, unless orphan, the task that owns it.
-		store := func(ctx SpecContext, name, routingKey string, orphan bool) uuid.UUID {
-			GinkgoHelper()
-			var old v1.TaskConfig
-			old.Key, old.RoutingKey = uuid.New(), routingKey
-			Expect(gorp.WrapWriter[uuid.UUID, v1.TaskConfig](db).Set(ctx, old)).
-				To(Succeed())
-			if !orphan {
-				Expect(gorp.WrapWriter[task.Key, task.Task](db).Set(ctx, task.Task{
-					Key:  old.Key,
-					Name: name,
-					Type: "pagerduty_alert",
-				})).To(Succeed())
-			}
-			return old.Key
-		}
-		open := func(ctx SpecContext) (*gorp.Table[uuid.UUID, v2.TaskConfig], error) {
-			return gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.TaskConfig]{
-				DB:         db,
-				Migrations: []gorp.Migration{v2.NewMigration(create)},
-			})
-		}
-		read := func(ctx SpecContext, key uuid.UUID) v2.TaskConfig {
-			GinkgoHelper()
-			var cfg v2.TaskConfig
-			Expect(gorp.NewRetrieve[uuid.UUID, v2.TaskConfig]().
-				Where(gorp.MatchKeys[uuid.UUID, v2.TaskConfig](key)).
-				Entry(&cfg).
+	Describe("Migration", func() {
+		It("Should lift each stored v1 config and stage its plain routing key", func(
+			ctx SpecContext,
+		) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
+			var withKey, withoutKey v1.TaskConfig
+			withKey.Key, withoutKey.Key = uuid.New(), uuid.New()
+			withKey.RoutingKey = "0123456789abcdef0123456789abcdef"
+			withKey.Alerts = []v1.Alert{{Key: "a", Status: "s"}}
+			Expect(gorp.WrapWriter[uuid.UUID, v1.TaskConfig](db).
+				Set(ctx, withKey, withoutKey)).To(Succeed())
+			table := MustOpen(gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[uuid.UUID, v2.TaskConfig]{
+					DB:         db,
+					Migrations: []gorp.Migration{v2.Migration},
+				},
+			))
+			var cfgs []v2.TaskConfig
+			Expect(table.NewRetrieve().
+				Where(gorp.MatchKeys[uuid.UUID, v2.TaskConfig](
+					withKey.Key,
+					withoutKey.Key,
+				)).
+				Entries(&cfgs).
 				Exec(ctx, db)).To(Succeed())
-			return cfg
-		}
-
-		It("Should move each stored routing key into a secret named after its task",
-			func(ctx SpecContext) {
-				withKey := store(
-					ctx,
-					"Pump alerts",
-					"0123456789abcdef0123456789abcdef",
-					false,
-				)
-				withoutKey := store(ctx, "Draft", "", false)
-				MustOpen(open(ctx))
-				Expect(made).To(Equal([]created{{
-					name:  "Pump alerts routing key",
-					value: "0123456789abcdef0123456789abcdef",
-				}}))
-				migrated := read(ctx, withKey)
-				Expect(migrated.RoutingKey).ToNot(BeNil())
-				Expect(migrated.PlainRoutingKey).To(BeNil())
-				Expect(read(ctx, withoutKey).RoutingKey).To(BeNil())
-			},
-		)
-
-		It("Should do nothing without stored configs", func(ctx SpecContext) {
-			MustOpen(open(ctx))
-			Expect(made).To(BeEmpty())
+			Expect(cfgs[0].Alerts).To(Equal(withKey.Alerts))
+			for _, cfg := range cfgs {
+				Expect(cfg.RoutingKey).To(BeNil())
+				Expect(cfg.PlainRoutingKey).To(BeNil())
+			}
+			staged, closer := MustSucceed2(
+				db.Get(v2.PlainRoutingKeyKVKey(withKey.Key)),
+			)
+			Expect(string(staged)).To(Equal(withKey.RoutingKey))
+			Expect(closer.Close()).To(Succeed())
+			Expect(db.Get(v2.PlainRoutingKeyKVKey(withoutKey.Key))).Error().
+				To(MatchError(query.ErrNotFound))
 		})
-
-		It("Should fail when a config has no task", func(ctx SpecContext) {
-			store(ctx, "", "0123456789abcdef0123456789abcdef", true)
-			Expect(open(ctx)).Error().
-				To(MatchError(ContainSubstring("tasks of PagerDuty configs")))
-		})
-
-		It("Should fail with the config key when a secret create fails",
-			func(ctx SpecContext) {
-				key := store(ctx, "Pump", "0123456789abcdef0123456789abcdef", false)
-				create = func(
-					context.Context,
-					gorp.Tx,
-					secret.Key,
-					string,
-					[]byte,
-				) error {
-					return errors.New("create failed")
-				}
-				Expect(open(ctx)).Error().To(MatchError(ContainSubstring(
-					fmt.Sprintf("config %s: create failed", key),
-				)))
-			},
-		)
 	})
 })

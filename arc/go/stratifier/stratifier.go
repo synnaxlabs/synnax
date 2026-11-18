@@ -15,8 +15,9 @@
 package stratifier
 
 import (
-	"context"
+	"slices"
 
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
@@ -28,7 +29,6 @@ import (
 // The program is modified in place. Diagnostics are appended to diag; the
 // returned value is diag for convenient chaining.
 func Stratify(
-	_ context.Context,
 	prog *ir.IR,
 	diag *diagnostics.Diagnostics,
 ) *diagnostics.Diagnostics {
@@ -90,6 +90,8 @@ func stratifyScope(
 				}
 			}
 		}
+	case ir.ScopeModeUnspecified:
+		panic("scope " + s.Key + " has no mode")
 	}
 	return diag
 }
@@ -116,20 +118,52 @@ func stratifyParallel(
 		s.Strata = nil
 		return diag
 	}
-
 	// ownership maps every node key reachable through the scope's members to
 	// the index of the owning member. Nested scopes are treated as atomic:
 	// any node they contain (directly or transitively) is owned by the
 	// member that wraps them at this level.
 	ownership := collectOwnership(members)
+	stratum, ok := assignStrata(members, edges, ownership, bumped)
+	if !ok {
+		cycle := findCycle(members, edges, ownership)
+		diag.Add(codes.DataflowCycle.Atf(
+			nil,
+			"cycle detected in dataflow graph within scope '%s': %v",
+			s.Key, cycle,
+		))
+		return diag
+	}
+	s.Strata = bucketStrata(members, stratum)
+	// Recurse into nested scope members. Transitions and activations are not dataflow
+	// edges and do not participate in stratification; they are handled at runtime by
+	// the scheduler.
+	for si := range s.Strata {
+		for mi := range s.Strata[si] {
+			if s.Strata[si][mi].Scope == nil {
+				continue
+			}
+			if d := stratifyScope(
+				s.Strata[si][mi].Scope,
+				edges,
+				bumped,
+				diag,
+			); d != nil && !d.Ok() {
+				return d
+			}
+		}
+	}
+	return diag
+}
 
-	// Longest-path stratum assignment. Each member starts at stratum 0; for
-	// each cross-member edge, push the target's stratum past the source's.
-	// Activation handles on nested gated scopes count as implicit
-	// dependencies: the handle's source must run before the scope can
-	// activate, so the scope lands after its source. Converges in at most
-	// len(members) passes over the constraint set; a failure to converge
-	// indicates a cycle.
+// assignStrata computes a longest-path stratum for each member. Bumped members start
+// at stratum 1. An edge or an activation handle puts its target after its source. It
+// returns false when the relaxation does not converge, which means a cycle.
+func assignStrata(
+	members ir.Members,
+	edges []ir.Edge,
+	ownership map[string]int,
+	bumped set.Set[string],
+) ([]int, bool) {
 	stratum := make([]int, len(members))
 	for i, m := range members {
 		if m.NodeKey != nil && bumped.Contains(*m.NodeKey) {
@@ -137,89 +171,71 @@ func stratifyParallel(
 		}
 	}
 	maxPasses := len(members) + 1
-	for pass := 0; pass <= maxPasses; pass++ {
-		changed := false
-		for _, e := range edges {
-			src, srcOK := ownership[e.Source.Node]
-			tgt, tgtOK := ownership[e.Target.Node]
-			if !srcOK || !tgtOK || src == tgt {
-				continue
-			}
-			if stratum[src] >= stratum[tgt] {
-				stratum[tgt] = stratum[src] + 1
-				changed = true
-			}
-		}
-		for i, m := range members {
-			if m.Scope == nil {
-				continue
-			}
-			for _, a := range m.Scope.Activations {
-				src, ok := ownership[a.On.Node]
-				if !ok || src == i {
-					continue
-				}
-				if stratum[src] >= stratum[i] {
-					stratum[i] = stratum[src] + 1
-					changed = true
-				}
-			}
-		}
-		if !changed {
-			break
-		}
+	for pass := 0; relaxStrata(members, edges, ownership, stratum); pass++ {
 		if pass == maxPasses {
-			cycle := findCycle(members, edges, ownership)
-			diag.Add(diagnostics.Errorf(
-				nil,
-				"cycle detected in dataflow graph within scope '%s': %v",
-				s.Key, cycle,
-			))
-			return diag
+			return nil, false
 		}
 	}
+	return stratum, true
+}
 
-	// Bucket members by computed stratum, preserving source order within
-	// each stratum. Empty strata are dropped so the resulting slice is dense.
-	maxStratum := 0
-	for _, p := range stratum {
-		if p > maxStratum {
-			maxStratum = p
+// relaxStrata runs one relaxation pass over stratum and reports whether any stratum
+// changed.
+func relaxStrata(
+	members ir.Members,
+	edges []ir.Edge,
+	ownership map[string]int,
+	stratum []int,
+) bool {
+	changed := false
+	raise := func(src, tgt int) {
+		if stratum[src] >= stratum[tgt] {
+			stratum[tgt] = stratum[src] + 1
+			changed = true
 		}
 	}
-	buckets := make([]ir.Members, maxStratum+1)
+	for _, e := range edges {
+		if src, tgt, ok := memberEdge(e, ownership); ok {
+			raise(src, tgt)
+		}
+	}
+	for i, m := range members {
+		if m.Scope == nil {
+			continue
+		}
+		for _, a := range m.Scope.Activations {
+			if src, ok := ownership[a.On.Node]; ok && src != i {
+				raise(src, i)
+			}
+		}
+	}
+	return changed
+}
+
+// memberEdge projects e onto the indices of the members that own its ends. It reports
+// false when an end has no owner or both ends share one.
+func memberEdge(e ir.Edge, ownership map[string]int) (int, int, bool) {
+	src, srcOK := ownership[e.Source.Node]
+	tgt, tgtOK := ownership[e.Target.Node]
+	return src, tgt, srcOK && tgtOK && src != tgt
+}
+
+// bucketStrata groups members by stratum, keeping source order within each stratum, and
+// drops empty strata other than stratum 0. Stratum 0 stays even when empty: the
+// scheduler dispatches index 0 unconditionally, so floored members must not slide back
+// into it.
+func bucketStrata(members ir.Members, stratum []int) []ir.Members {
+	buckets := make([]ir.Members, slices.Max(stratum)+1)
 	for i, m := range members {
 		buckets[stratum[i]] = append(buckets[stratum[i]], m)
 	}
-	// Stratum 0 stays even when empty: the scheduler dispatches index 0
-	// unconditionally, so floored members must not slide back into it.
 	dense := buckets[:0]
 	for i, b := range buckets {
 		if len(b) > 0 || i == 0 {
 			dense = append(dense, b)
 		}
 	}
-	s.Strata = dense
-
-	// Recurse into nested scope members. Transitions and activations are
-	// not dataflow edges and do not participate in stratification; they are
-	// handled at runtime by the scheduler.
-	for si := range s.Strata {
-		for mi := range s.Strata[si] {
-			if s.Strata[si][mi].Scope != nil {
-				if d := stratifyScope(
-					s.Strata[si][mi].Scope,
-					edges,
-					bumped,
-					diag,
-				); d != nil &&
-					!d.Ok() {
-					return d
-				}
-			}
-		}
-	}
-	return diag
+	return dense
 }
 
 // collectOwnership builds a map from every node key reachable through the
@@ -274,61 +290,59 @@ func findCycle(
 	edges []ir.Edge,
 	ownership map[string]int,
 ) []string {
-	graph := make(map[int][]int, len(members))
-	for _, e := range edges {
-		src, srcOK := ownership[e.Source.Node]
-		tgt, tgtOK := ownership[e.Target.Node]
-		if !srcOK || !tgtOK || src == tgt {
-			continue
-		}
-		graph[src] = append(graph[src], tgt)
+	f := cycleFinder{
+		graph:    make(map[int][]int, len(members)),
+		visited:  make(set.Set[int]),
+		recStack: make(set.Set[int]),
 	}
-	var (
-		visited  = make(set.Set[int])
-		recStack = make(set.Set[int])
-		path     []int
-		cycle    []int
-	)
-	var dfs func(int) bool
-	dfs = func(n int) bool {
-		visited.Add(n)
-		recStack.Add(n)
-		path = append(path, n)
-		for _, nb := range graph[n] {
-			if !visited.Contains(nb) {
-				if dfs(nb) {
-					return true
-				}
-			} else if recStack.Contains(nb) {
-				start := -1
-				for i, v := range path {
-					if v == nb {
-						start = i
-						break
-					}
-				}
-				if start >= 0 {
-					cycle = append(append(cycle[:0], path[start:]...), nb)
-					return true
-				}
-			}
+	for _, e := range edges {
+		if src, tgt, ok := memberEdge(e, ownership); ok {
+			f.graph[src] = append(f.graph[src], tgt)
 		}
-		recStack.Remove(n)
-		path = path[:len(path)-1]
-		return false
 	}
 	for i := range members {
-		if !visited.Contains(i) {
-			if dfs(i) {
-				break
-			}
+		if !f.visited.Contains(i) && f.visit(i) {
+			break
 		}
 	}
-	labels := make([]string, 0, len(cycle))
-	for _, idx := range cycle {
+	labels := make([]string, 0, len(f.cycle))
+	for _, idx := range f.cycle {
 		labels = append(labels, memberLabel(members[idx]))
 	}
 	return labels
+}
+
+type cycleFinder struct {
+	graph    map[int][]int
+	visited  set.Set[int]
+	recStack set.Set[int]
+	path     []int
+	cycle    []int
+}
+
+// visit runs a depth-first search from n and reports whether it found a cycle.
+func (f *cycleFinder) visit(n int) bool {
+	f.visited.Add(n)
+	f.recStack.Add(n)
+	f.path = append(f.path, n)
+	for _, nb := range f.graph[n] {
+		if !f.visited.Contains(nb) {
+			if f.visit(nb) {
+				return true
+			}
+			continue
+		}
+		if !f.recStack.Contains(nb) {
+			continue
+		}
+		if start := slices.Index(f.path, nb); start >= 0 {
+			f.cycle = append(append(f.cycle[:0], f.path[start:]...), nb)
+			return true
+		}
+	}
+	f.recStack.Remove(n)
+	f.path = f.path[:len(f.path)-1]
+	return false
 }
 
 func memberLabel(m ir.Member) string {

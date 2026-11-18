@@ -17,12 +17,13 @@ import (
 )
 
 var _ = Describe("Errors", func() {
+	codec := errors.NewCodec(license.ErrorProvider())
 	DescribeTable(
 		"should round-trip a license error under its wire type",
-		func(ctx SpecContext, err error, wireType string) {
-			pld := errors.Encode(ctx, err, false)
+		func(err error, wireType string) {
+			pld := codec.Encode(err, false)
 			Expect(pld.Type).To(Equal(wireType))
-			decoded := errors.Decode(ctx, pld)
+			decoded := codec.Decode(pld)
 			Expect(decoded).To(MatchError(err))
 			Expect(decoded).To(MatchError(license.ErrLicense))
 		},
@@ -36,8 +37,8 @@ var _ = Describe("Errors", func() {
 	)
 	It(
 		"should decode an unknown license subtype as a license error",
-		func(ctx SpecContext) {
-			decoded := errors.Decode(ctx, errors.Payload{
+		func() {
+			decoded := codec.Decode(errors.Payload{
 				Type: "sy.license.revoked",
 				Data: "revoked",
 			})
@@ -45,9 +46,9 @@ var _ = Describe("Errors", func() {
 			Expect(decoded).ToNot(MatchError(license.ErrMissing))
 		},
 	)
-	It("should defer other errors to other encoders", func(ctx SpecContext) {
+	It("should defer other errors to other encoders", func() {
 		errTest := errors.New("test error")
-		decoded := errors.Decode(ctx, errors.Encode(ctx, errTest, false))
+		decoded := codec.Decode(codec.Encode(errTest, false))
 		Expect(decoded).ToNot(MatchError(license.ErrLicense))
 		Expect(decoded).To(MatchError("test error"))
 	})

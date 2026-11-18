@@ -59,7 +59,7 @@ export const Input = ({
       placeholder={mixed ? "Mixed" : "Auto"}
       startContent={mixed || value == null ? undefined : "#"}
       text={mixed || value == null ? "" : color.hex(value).slice(1)}
-      alpha={color.aValue(value ?? fallback)}
+      alpha={color.opacity(value ?? fallback)}
       onChange={onChange}
       onClear={() => onChange(undefined)}
       onlyChangeOnBlur={onlyChangeOnBlur}

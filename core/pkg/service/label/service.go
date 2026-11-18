@@ -95,11 +95,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) Close() error { return s.closer.Close() }
 
 // Changes returns the changes that c made to labels.
-func (s *Service) Changes(
-	ctx context.Context,
-	c gorp.Commit,
-) gorp.TxReader[Key, Label] {
-	return s.table.Changes(ctx, c)
+func (s *Service) Changes(c gorp.Commit) gorp.TxReader[Key, Label] {
+	return s.table.Changes(c)
 }
 
 // Actions returns the action batches that Dispatch and Writer attach to their

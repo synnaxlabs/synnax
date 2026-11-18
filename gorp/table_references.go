@@ -91,7 +91,7 @@ func (t *Table[K, E]) exists(
 		return false, err
 	}
 	codec := key.NewCodec[K](t.keyPrefix)
-	_, closer, err := snap.Get(ctx, codec.Encode(pk))
+	_, closer, err := snap.Get(codec.Encode(pk))
 	if errors.Is(err, query.ErrNotFound) {
 		return false, nil
 	}
@@ -134,7 +134,14 @@ func (t *Table[K, E]) detach(
 		return err
 	}
 	for _, op := range ops {
-		t.references[op.ref].detachTarget(&e, op.target)
+		ref := t.references[op.ref]
+		if ref.onDeletePolicy() != Inline {
+			ref.detachTarget(&e, op.target)
+			continue
+		}
+		if err = ref.inlineTarget(ctx, tx, &e, op.target); err != nil {
+			return err
+		}
 	}
 	w := t.writer(tx, false)
 	w.derived = true
@@ -162,6 +169,33 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 	}
 	w := t.writer(tx, false)
 	return w.Delete(ctx, keys...)
+}
+
+// watches implements registeredTable.
+func (t *Table[K, E]) watches(table string) bool {
+	_, ok := t.onTargetSet[table]
+	return ok
+}
+
+// targetSet implements registeredTable.
+func (t *Table[K, E]) targetSet(
+	ctx context.Context,
+	tx Tx,
+	k string,
+	table string,
+) error {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return err
+	}
+	var e E
+	if err = t.NewRetrieve().
+		Where(MatchKeys[K, E](pk)).
+		Entry(&e).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	return t.onTargetSet[table](ctx, tx, e)
 }
 
 // Dependents returns the entries of every open table that hold a reference to the entry

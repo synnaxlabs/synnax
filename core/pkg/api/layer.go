@@ -31,12 +31,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/api/certificate"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/color"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
+	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
@@ -59,6 +62,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // LayerConfig is the configuration for opening the API layer.
@@ -89,6 +93,12 @@ type Transport struct {
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
+	// ChannelCountLimited returns how many channels count against the license channel
+	// limit.
+	ChannelCountLimited freighter.UnaryServer[
+		channel.CountLimitedRequest,
+		channel.CountLimitedResponse,
+	]
 	// ChannelDispatch applies actions to a channel.
 	ChannelDispatch freighter.UnaryServer[channel.DispatchRequest, channel.DispatchResponse]
 	// CONNECTIVITY
@@ -162,6 +172,13 @@ type Transport struct {
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
 	LinePlotDelete   freighter.UnaryServer[lineplot.DeleteRequest, struct{}]
 	LinePlotDispatch freighter.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]
+	// ICD
+	ICDCreate   freighter.UnaryServer[icd.CreateRequest, icd.CreateResponse]
+	ICDRetrieve freighter.UnaryServer[icd.RetrieveRequest, icd.RetrieveResponse]
+	ICDCheck    freighter.UnaryServer[icd.CheckRequest, icd.CheckResponse]
+	ICDDispatch freighter.UnaryServer[icd.DispatchRequest, struct{}]
+	ICDImport   freighter.UnaryServer[icd.ImportRequest, icd.ImportResponse]
+	ICDDelete   freighter.UnaryServer[icd.DeleteRequest, struct{}]
 	// PANEL
 	PanelCreate   freighter.UnaryServer[panel.CreateRequest, panel.CreateResponse]
 	PanelRetrieve freighter.UnaryServer[panel.RetrieveRequest, panel.RetrieveResponse]
@@ -175,6 +192,37 @@ type Transport struct {
 	LabelRemove   freighter.UnaryServer[label.RemoveRequest, struct{}]
 	// LabelDispatch applies path actions to a label.
 	LabelDispatch freighter.UnaryServer[label.DispatchRequest, struct{}]
+	// COLOR
+	ColorCreate   freighter.UnaryServer[color.CreateRequest, color.CreateResponse]
+	ColorRetrieve freighter.UnaryServer[color.RetrieveRequest, color.RetrieveResponse]
+	ColorDelete   freighter.UnaryServer[color.DeleteRequest, struct{}]
+	// ColorDispatch applies path actions to a named color.
+	ColorDispatch freighter.UnaryServer[color.DispatchRequest, struct{}]
+	// ColorRetrieveBuiltins returns the shipped values of the built-in named colors.
+	ColorRetrieveBuiltins freighter.UnaryServer[struct{}, color.RetrieveBuiltinsResponse]
+	// ENUMERATION
+	EnumerationCreate freighter.UnaryServer[
+		enumeration.CreateRequest,
+		enumeration.CreateResponse,
+	]
+	EnumerationRetrieve freighter.UnaryServer[
+		enumeration.RetrieveRequest,
+		enumeration.RetrieveResponse,
+	]
+	EnumerationDelete freighter.UnaryServer[enumeration.DeleteRequest, struct{}]
+	// EnumerationDispatch applies path actions to an enumeration.
+	EnumerationDispatch freighter.UnaryServer[enumeration.DispatchRequest, struct{}]
+	// EnumerationRetrieveBuiltins returns the shipped values of the built-in
+	// enumerations.
+	EnumerationRetrieveBuiltins freighter.UnaryServer[
+		struct{},
+		enumeration.RetrieveBuiltinsResponse,
+	]
+	// EnumerationRetrieveDependents returns the records that use an enumeration.
+	EnumerationRetrieveDependents freighter.UnaryServer[
+		enumeration.RetrieveDependentsRequest,
+		enumeration.RetrieveDependentsResponse,
+	]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
@@ -267,6 +315,7 @@ type Transport struct {
 type Layer struct {
 	Project      *project.Service
 	LinePlot     *lineplot.Service
+	ICD          *icd.Service
 	User         *user.Service
 	Framer       *framer.Service
 	Channel      *channel.Service
@@ -287,6 +336,8 @@ type Layer struct {
 	Table        *table.Service
 	Panel        *panel.Service
 	Label        *label.Service
+	Color        *color.Service
+	Enumeration  *enumeration.Service
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
@@ -301,6 +352,9 @@ type Layer struct {
 	binder       *bind.Service
 	config       config.LayerConfig
 }
+
+// Errors returns the codec that encodes the errors the API sends to clients.
+func (l *Layer) Errors() *errors.Codec { return l.config.Errors }
 
 // BindTo binds the API layer to the provided Transport implementation.
 func (l *Layer) BindTo(t Transport) {
@@ -365,6 +419,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ChannelCreate,
 		t.ChannelRetrieve,
 		t.ChannelDelete,
+		t.ChannelCountLimited,
 		t.ChannelDispatch,
 
 		// FRAME
@@ -430,6 +485,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
 
+		// ICD
+		t.ICDCreate,
+		t.ICDRetrieve,
+		t.ICDCheck,
+		t.ICDDispatch,
+		t.ICDImport,
+		t.ICDDelete,
+
 		// PANEL
 		t.PanelCreate,
 		t.PanelRetrieve,
@@ -455,6 +518,21 @@ func (l *Layer) BindTo(t Transport) {
 		t.LabelAdd,
 		t.LabelRemove,
 		t.LabelDispatch,
+
+		// COLOR
+		t.ColorCreate,
+		t.ColorRetrieve,
+		t.ColorDelete,
+		t.ColorDispatch,
+		t.ColorRetrieveBuiltins,
+
+		// ENUMERATION
+		t.EnumerationCreate,
+		t.EnumerationRetrieve,
+		t.EnumerationDelete,
+		t.EnumerationDispatch,
+		t.EnumerationRetrieveBuiltins,
+		t.EnumerationRetrieveDependents,
 
 		// RACK
 		t.RackCreate,
@@ -596,6 +674,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ChannelRetrieve.BindHandler(bind.Read(l.binder, l.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
 	t.ChannelDelete.BindHandler(bind.Write(l.binder, l.Channel.Delete))
+	t.ChannelCountLimited.BindHandler(bind.Read(l.binder, l.Channel.CountLimited))
 	t.ChannelDispatch.BindHandler(bind.Write(l.binder, l.Channel.Dispatch))
 
 	// FRAME
@@ -673,6 +752,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.LinePlotRetrieve.BindHandler(bind.Read(l.binder, l.LinePlot.Retrieve))
 	t.LinePlotDelete.BindHandler(bind.Write(l.binder, l.LinePlot.Delete))
 
+	// ICD
+	t.ICDCreate.BindHandler(bind.Write(l.binder, l.ICD.Create))
+	t.ICDRetrieve.BindHandler(bind.Read(l.binder, l.ICD.Retrieve))
+	t.ICDCheck.BindHandler(bind.Read(l.binder, l.ICD.Check))
+	t.ICDDispatch.BindHandler(bind.Write(l.binder, l.ICD.Dispatch))
+	t.ICDImport.BindHandler(bind.Write(l.binder, l.ICD.Import))
+	t.ICDDelete.BindHandler(bind.Write(l.binder, l.ICD.Delete))
+
 	// PANEL
 	t.PanelCreate.BindHandler(bind.Write(l.binder, l.Panel.Create))
 	t.PanelRetrieve.BindHandler(bind.Read(l.binder, l.Panel.Retrieve))
@@ -698,6 +785,23 @@ func (l *Layer) BindTo(t Transport) {
 	t.LabelAdd.BindHandler(bind.Write(l.binder, l.Label.Add))
 	t.LabelRemove.BindHandler(bind.Write(l.binder, l.Label.Remove))
 	t.LabelDispatch.BindHandler(bind.Write(l.binder, l.Label.Dispatch))
+
+	// COLOR
+	t.ColorCreate.BindHandler(bind.Write(l.binder, l.Color.Create))
+	t.ColorRetrieve.BindHandler(bind.Read(l.binder, l.Color.Retrieve))
+	t.ColorDelete.BindHandler(bind.Write(l.binder, l.Color.Delete))
+	t.ColorDispatch.BindHandler(bind.Write(l.binder, l.Color.Dispatch))
+	t.ColorRetrieveBuiltins.BindHandler(l.Color.RetrieveBuiltins)
+
+	// ENUMERATION
+	t.EnumerationCreate.BindHandler(bind.Write(l.binder, l.Enumeration.Create))
+	t.EnumerationRetrieve.BindHandler(bind.Read(l.binder, l.Enumeration.Retrieve))
+	t.EnumerationDelete.BindHandler(bind.Write(l.binder, l.Enumeration.Delete))
+	t.EnumerationDispatch.BindHandler(bind.Write(l.binder, l.Enumeration.Dispatch))
+	t.EnumerationRetrieveBuiltins.BindHandler(l.Enumeration.RetrieveBuiltins)
+	t.EnumerationRetrieveDependents.BindHandler(
+		bind.Read(l.binder, l.Enumeration.RetrieveDependents),
+	)
 
 	// RACK
 	t.RackCreate.BindHandler(bind.Write(l.binder, l.Rack.Create))
@@ -801,9 +905,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	l := &Layer{config: cfg}
 	if l.binder, err = bind.NewService(bind.ServiceConfig{
-		DB:   cfg.Distribution.DB,
-		RBAC: cfg.Service.RBAC,
-		Held: auth.HeldTables(),
+		DB:          cfg.Distribution.DB,
+		RBAC:        cfg.Service.RBAC,
+		Held:        auth.HeldTables(),
+		Owned:       panel.OwnedTables(),
+		OwnedPlaces: panel.OwnedPlaces(),
 	}); err != nil {
 		return nil, err
 	}
@@ -843,6 +949,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		Records:         cfg.Service.Signals.Records(),
+		Errors:          cfg.Errors,
 	}); err != nil {
 		return nil, err
 	}
@@ -913,6 +1020,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}); err != nil {
 		return nil, err
 	}
+	if l.ICD, err = icd.NewService(icd.ServiceConfig{
+		ICD: cfg.Service.ICD,
+	}); err != nil {
+		return nil, err
+	}
 	if l.Panel, err = panel.NewService(panel.ServiceConfig{
 		Panel: cfg.Service.Panel,
 	}); err != nil {
@@ -922,6 +1034,16 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Label:  cfg.Service.Label,
 		Ranger: cfg.Service.Ranger,
 		Status: cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Color, err = color.NewService(color.ServiceConfig{
+		Color: cfg.Service.Color,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Enumeration, err = enumeration.NewService(enumeration.ServiceConfig{
+		Enumeration: cfg.Service.Enumeration,
 	}); err != nil {
 		return nil, err
 	}
@@ -981,6 +1103,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Instrumentation: cfg.Instrumentation,
 		Arc:             cfg.Service.Arc,
 		Status:          cfg.Service.Status,
+		Channel:         cfg.Service.Channel,
 		RBAC:            cfg.Service.RBAC,
 		DispatchChannel: bind.Write(l.binder, l.Channel.Dispatch),
 		Stopper:         cfg.Service.TaskStopper,

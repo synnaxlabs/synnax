@@ -31,23 +31,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 	if env.Version > legacy.LastVersion {
 		lp, err = autoDecodeEnvelope(ctx, env)
 	} else {
-		// Every Console line plot file is a state: the exporter writes the slice entry,
-		// which embeds the body inline under a stamped version. Ride the storage lift,
-		// which dispatches on that version.
-		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
-			if err = imex.RequireFields(
-				body, "a line plot", "axes", "channels",
-			); err == nil {
-				var lp5 v5.LinePlot
-				lp5, err = v5.MigrateLinePlot(
-					ctx, v0.LinePlot{Name: env.Name, Data: body},
-				)
-				if err == nil {
-					lp, err = liftFirst(ctx, lp5)
-				}
-			}
-		}
+		lp, err = decodeConsoleEnvelope(ctx, env)
 	}
 	if err != nil {
 		return LinePlot{}, err
@@ -66,4 +50,23 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 	// here for every path.
 	lp.Name = env.Name
 	return lp, nil
+}
+
+// decodeConsoleEnvelope lifts a Console-written line plot envelope to a current-version
+// LinePlot. Every Console line plot file is a state: the exporter writes the slice
+// entry, which embeds the body inline under a stamped version. It rides the storage
+// lift, which dispatches on that version.
+func decodeConsoleEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error) {
+	body, err := env.Decode[msgpack.EncodedJSON]()
+	if err != nil {
+		return LinePlot{}, err
+	}
+	if err = imex.RequireFields(body, "a line plot", "axes", "channels"); err != nil {
+		return LinePlot{}, err
+	}
+	lp5, err := v5.MigrateLinePlot(ctx, v0.LinePlot{Name: env.Name, Data: body})
+	if err != nil {
+		return LinePlot{}, err
+	}
+	return liftFirst(ctx, lp5)
 }

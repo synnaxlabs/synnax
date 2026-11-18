@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { scheduler, TimeSpan, url } from "@synnaxlabs/x";
+import { id, scheduler, TimeSpan, url } from "@synnaxlabs/x";
 import {
   type ReactNode,
   type Ref,
@@ -239,9 +239,8 @@ const tagHoverSeverity =
 
 const useTheme = (hasCustomTheme: boolean) => {
   const theme = Theming.use();
-  const prefersDark = theme.key.includes("Dark");
-  if (hasCustomTheme) return prefersDark ? BASE_THEMES.dark : BASE_THEMES.light;
-  return prefersDark ? "vs-dark" : "vs";
+  if (hasCustomTheme) return theme.dark ? BASE_THEMES.dark : BASE_THEMES.light;
+  return theme.dark ? "vs-dark" : "vs";
 };
 
 interface UseReturn {
@@ -298,12 +297,10 @@ const resolveLanguageFeatures = (): Promise<ILanguageFeaturesService | null> =>
 
 const createBlockURI = (): string => {
   const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
-  const id = Math.random().toString(36).substring(7);
-  return `arc://block/${id}#${encoded}`;
+  return `arc://block/${id.create()}#${encoded}`;
 };
 
-const createModuleURI = (): string =>
-  `arc://module/${Math.random().toString(36).substring(7)}`;
+const createModuleURI = (): string => `arc://module/${id.create()}`;
 
 const createCustomURI = (isBlock: boolean, isModule: boolean): string | undefined => {
   if (isBlock) return createBlockURI();
@@ -571,7 +568,7 @@ const EditorInternal = ({
         selection.startColumn !== selection.endColumn);
 
     return (
-      <Menu.Menu level="small" gap="small">
+      <Menu.Menu gap="small">
         <Menu.Item
           itemKey="cut"
           trigger={Triggers.CUT}

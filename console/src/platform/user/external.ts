@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/user/Info";
-export * from "@/platform/user/useAssignRoleModal";
 export * from "@/platform/user/useRegisterModal";

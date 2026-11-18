@@ -39,9 +39,9 @@ describe("Session.Context", () => {
     expect(result.current.selected).toBeUndefined();
 
     act(() => {
-      result.current.dispatch(Session.Core.select("DEMO"));
+      result.current.dispatch(Session.Core.select("LOCAL"));
     });
-    expect(result.current.selected).toBe("DEMO");
+    expect(result.current.selected).toBe("LOCAL");
   });
 });
 

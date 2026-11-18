@@ -15,24 +15,21 @@ import { type ReactElement, useState } from "react";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 
-const HEX_DIGITS = /^#?[0-9a-f]+$/i;
 const HEX_WITHOUT_ALPHA = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const COMPLETE_HEX = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 /**
- * Parses what the user typed or pasted into a hex box. Bare hex digits need no `#`,
- * and any other CSS color also parses. A hex with no alpha digits keeps `alpha`, or is
- * opaque when `alpha` is 0, so a new color never lands invisible.
+ * Parses what the user typed or pasted into a hex box: a color name, or a hex, rgb(),
+ * or hsl() color. A hex with no alpha digits keeps `alpha`, or is opaque when `alpha`
+ * is 0, so a new color never lands invisible.
  */
 export const parseHexInput = (text: string, alpha: number): color.Color | undefined => {
   const trimmed = text.trim();
-  const isHex = HEX_DIGITS.test(trimmed);
-  const parsed = color.fromCSS(
-    isHex && !trimmed.startsWith("#") ? `#${trimmed}` : trimmed,
-  );
-  if (parsed == null) return undefined;
+  const res = color.colorZ.safeParse(trimmed);
+  if (!res.success) return undefined;
+  const parsed = res.data;
   if (!HEX_WITHOUT_ALPHA.test(trimmed)) return parsed;
-  return color.setAlpha(parsed, alpha === 0 ? 1 : alpha);
+  return color.setOpacity(parsed, alpha === 0 ? 1 : alpha);
 };
 
 export interface HexTextProps extends Omit<

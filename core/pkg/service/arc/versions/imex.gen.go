@@ -29,7 +29,7 @@ const Latest = v4.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	switch env.Version {
 	case v3.Version:
-		t3, err := env.Decode[v3.Arc](ctx)
+		t3, err := env.Decode[v3.Arc]()
 		if err != nil {
 			return Arc{}, err
 		}
@@ -39,7 +39,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 		}
 		return t4, nil
 	case v4.Version:
-		return env.Decode[Arc](ctx)
+		return env.Decode[Arc]()
 	}
 	return Arc{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

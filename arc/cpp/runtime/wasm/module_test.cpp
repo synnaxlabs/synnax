@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <fstream>
 #include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -235,6 +237,127 @@ func double() {val f32} f32 {
     ASSERT_EQ(results.size(), 1);
     ASSERT_TRUE(results[0].changed);
     EXPECT_FLOAT_EQ(std::get<float>(results[0].value), 10.0f);
+}
+
+const std::string LOOP_BUDGET_SOURCE = R"(
+func spin() {
+    for {}
+}
+
+func count() i64 {
+    n := 0
+    for n < 100 {
+        n = n + 1
+    }
+    return n
+}
+)";
+
+/// @brief it should trap a loop that uses the whole loop budget.
+TEST(LoopBudgetTest, TrapsALoopThatUsesTheWholeBudget) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(client, LOOP_BUDGET_SOURCE);
+    auto module = ASSERT_NIL_P(Module::open({.program = program, .loop_budget = 1000}));
+    auto spin = ASSERT_NIL_P(module->func("spin"));
+    std::vector<Module::Function::Result> results;
+    module->reset_loop_budget();
+    ASSERT_OCCURRED_AS(spin.call({}, results), errors::LOOP_BUDGET);
+    ASSERT_TRUE(module->loop_budget_used());
+}
+
+/// @brief it should interrupt every later call until resume once a call uses the whole
+/// loop budget.
+TEST(LoopBudgetTest, InterruptsLaterCallsUntilResume) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(client, LOOP_BUDGET_SOURCE);
+    auto module = ASSERT_NIL_P(Module::open({.program = program, .loop_budget = 1000}));
+    auto spin = ASSERT_NIL_P(module->func("spin"));
+    auto count = ASSERT_NIL_P(module->func("count"));
+    std::vector<Module::Function::Result> results;
+    module->reset_loop_budget();
+    ASSERT_OCCURRED_AS(spin.call({}, results), errors::LOOP_BUDGET);
+    ASSERT_OCCURRED_AS(count.call({}, results), errors::INTERRUPTED);
+    module->resume();
+    module->reset_loop_budget();
+    ASSERT_NIL(count.call({}, results));
+    ASSERT_EQ(std::get<int64_t>(results[0].value), 100);
+}
+
+/// @brief it should reject a loop budget that is not positive.
+TEST(LoopBudgetTest, OpenRejectsANonPositiveBudget) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(client, LOOP_BUDGET_SOURCE);
+    ASSERT_OCCURRED_AS_P(
+        Module::open({.program = program, .loop_budget = 0}),
+        x::errors::VALIDATION
+    );
+}
+
+/// @brief it should run a loop that stays under the loop budget.
+TEST(LoopBudgetTest, RunsALoopUnderTheBudget) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(client, LOOP_BUDGET_SOURCE);
+    auto module = ASSERT_NIL_P(Module::open({.program = program, .loop_budget = 1000}));
+    auto count = ASSERT_NIL_P(module->func("count"));
+    std::vector<Module::Function::Result> results;
+    module->reset_loop_budget();
+    ASSERT_NIL(count.call({}, results));
+    ASSERT_EQ(std::get<int64_t>(results[0].value), 100);
+    ASSERT_FALSE(module->loop_budget_used());
+}
+
+/// @brief it should give the guest its whole loop budget again on reset.
+TEST(LoopBudgetTest, ResetGivesTheWholeBudgetAgain) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(client, LOOP_BUDGET_SOURCE);
+    auto module = ASSERT_NIL_P(Module::open({.program = program, .loop_budget = 150}));
+    auto count = ASSERT_NIL_P(module->func("count"));
+    std::vector<Module::Function::Result> results;
+    for (int i = 0; i < 3; i++) {
+        module->reset_loop_budget();
+        ASSERT_NIL(count.call({}, results));
+    }
+}
+
+/// @brief it should reject a module that does not export the loop budget global.
+TEST(LoopBudgetTest, OpenRejectsAModuleWithoutTheBudgetGlobal) {
+    program::Program prog;
+    // An empty module that exports only its memory.
+    prog.wasm = {
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, // magic and version
+        0x05, 0x03, 0x01, 0x00, 0x01, // memory section: one memory of one page
+        0x07, 0x0a, 0x01, 0x06, 'm',  'e',  'm',  'o',  'r', 'y', 0x02, 0x00, // export
+    };
+    ASSERT_OCCURRED_AS_P(Module::open({.program = prog}), x::errors::VALIDATION);
+}
+
+/// @brief it should stop a running call with INTERRUPTED, fail later calls the same
+/// way, and run calls again after resume.
+TEST(FunctionCallTest, InterruptStopsRunningCall) {
+    const auto client = new_test_client();
+    const auto program = testutil::compile_text(client, R"(
+func spin() i32 {
+    val i32 := 0
+    for { val = val + 1 }
+    return val
+}
+func one() i32 { return 1 }
+)");
+    auto module = ASSERT_NIL_P(Module::open({.program = program}));
+    auto spin = ASSERT_NIL_P(module->func("spin"));
+    std::thread interrupter([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        module->interrupt();
+    });
+    std::vector<Module::Function::Result> results;
+    const auto err = spin.call({}, results);
+    interrupter.join();
+    ASSERT_OCCURRED_AS(err, errors::INTERRUPTED);
+    auto one = ASSERT_NIL_P(module->func("one"));
+    ASSERT_OCCURRED_AS(one.call({}, results), errors::INTERRUPTED);
+    module->resume();
+    ASSERT_NIL(one.call({}, results));
+    EXPECT_EQ(std::get<int32_t>(results[0].value), 1);
 }
 
 /// @brief it should decode a float input value stored as text.

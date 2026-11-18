@@ -19,6 +19,7 @@ const organization = (key: string, kind: Organization["kind"]): Organization => 
   name: key,
   clerkOrgID: kind === "team" ? `clerk-${key}` : null,
   ownerUserID: kind === "personal" ? "user" : null,
+  desktopChannels: null,
   createdAt: new Date(0),
 });
 

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -31,7 +32,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const apiKey = "sift-api-key"
+const fakeKey = "sift-api-key"
 
 // failingKV fails every commit, so that no status write lands.
 type failingKV struct{ kv.DB }
@@ -54,9 +55,9 @@ var _ = Describe("Factory", func() {
 	Describe("OpenFactory", func() {
 		DescribeTable(
 			"Should require each service",
-			func(field string, clear func(*sift.FactoryConfig)) {
+			func(field string, unset func(*sift.FactoryConfig)) {
 				cfg := factoryConfig()
-				clear(&cfg)
+				unset(&cfg)
 				Expect(sift.OpenFactory(cfg)).Error().To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(field+": must be non-nil"),
@@ -165,7 +166,7 @@ var _ = Describe("Factory", func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			server = MustOpen(fake.Open(fake.Config{
-				APIKey: apiKey,
+				APIKey: fakeKey,
 				Assets: []string{"stand", "pad"},
 			}))
 			t = newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
@@ -183,7 +184,7 @@ var _ = Describe("Factory", func() {
 				func(ctx SpecContext) {
 					dev := createDevice(ctx, sift.Properties{
 						URI:    server.Address(),
-						APIKey: createAPIKey(ctx, apiKey),
+						APIKey: createAPIKey(ctx, fakeKey),
 					})
 					Eventually(func() device.Status {
 						return deviceStatus(ctx, dev)
@@ -224,7 +225,7 @@ var _ = Describe("Factory", func() {
 		Describe("test_connection", func() {
 			It("Should connect with an API key the grant names",
 				func(ctx SpecContext) {
-					key := createAPIKey(ctx, apiKey)
+					key := createAPIKey(ctx, fakeKey)
 					g := grantToRack(ctx, key)
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{
@@ -250,7 +251,7 @@ var _ = Describe("Factory", func() {
 
 			DescribeTable("Should connect through a URI copied from a browser",
 				func(ctx SpecContext, format string) {
-					key := createAPIKey(ctx, apiKey)
+					key := createAPIKey(ctx, fakeKey)
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{
 							URI:    fmt.Sprintf(format, server.Address()),
@@ -267,7 +268,7 @@ var _ = Describe("Factory", func() {
 
 			It("Should say that a closed port refused the connection",
 				func(ctx SpecContext) {
-					key := createAPIKey(ctx, apiKey)
+					key := createAPIKey(ctx, fakeKey)
 					stat := exec(ctx, "test_connection", map[string]any{
 						"connection": sift.Properties{URI: "127.0.0.1:1", APIKey: key},
 						"grant":      grantToRack(ctx, key),
@@ -282,7 +283,7 @@ var _ = Describe("Factory", func() {
 
 			It("Should fail without a grant, even for the key of a saved device",
 				func(ctx SpecContext) {
-					key := createAPIKey(ctx, apiKey)
+					key := createAPIKey(ctx, fakeKey)
 					createDevice(
 						ctx,
 						sift.Properties{URI: server.Address(), APIKey: key},
@@ -301,7 +302,7 @@ var _ = Describe("Factory", func() {
 
 			It("Should fail for a connection with no address", func(ctx SpecContext) {
 				stat := exec(ctx, "test_connection", map[string]any{
-					"connection": sift.Properties{APIKey: createAPIKey(ctx, apiKey)},
+					"connection": sift.Properties{APIKey: createAPIKey(ctx, fakeKey)},
 				})
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(ContainSubstring("uri"))
@@ -315,10 +316,12 @@ var _ = Describe("Factory", func() {
 				for i := range names {
 					names[i] = fmt.Sprintf("asset-%04d", i)
 				}
-				paged := MustOpen(fake.Open(fake.Config{APIKey: apiKey, Assets: names}))
+				paged := MustOpen(
+					fake.Open(fake.Config{APIKey: fakeKey, Assets: names}),
+				)
 				dev := createDevice(ctx, sift.Properties{
 					URI:    paged.Address(),
-					APIKey: createAPIKey(ctx, apiKey),
+					APIKey: createAPIKey(ctx, fakeKey),
 				})
 				stat := exec(ctx, "list_assets", map[string]any{"device": dev.Key})
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
@@ -331,19 +334,91 @@ var _ = Describe("Factory", func() {
 			It("Should list the assets the device can see", func(ctx SpecContext) {
 				dev := createDevice(ctx, sift.Properties{
 					URI:    server.Address(),
-					APIKey: createAPIKey(ctx, apiKey),
+					APIKey: createAPIKey(ctx, fakeKey),
 				})
 				stat := exec(ctx, "list_assets", map[string]any{"device": dev.Key})
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Details.Data).To(HaveKeyWithValue(
-					"assets",
-					ConsistOf("pad", "stand"),
+				Expect(stat.Details.Data).To(SatisfyAll(
+					HaveKeyWithValue("assets", ConsistOf("pad", "stand")),
+					HaveKeyWithValue("last", ""),
 				))
 			})
+
+			It("Should return the asset of the newest upload from the device",
+				func(ctx SpecContext) {
+					dev := createDevice(ctx, sift.Properties{
+						URI:    server.Address(),
+						APIKey: createAPIKey(ctx, fakeKey),
+					})
+					record := func(device, asset string) {
+						GinkgoHelper()
+						s := sift.UploadStatus{
+							Key:     "sift_upload:" + uuid.NewV7().String(),
+							Name:    asset,
+							Variant: status.VariantSuccess,
+							Message: "Uploaded to Sift",
+							Time:    telem.Now(),
+							Details: sift.UploadDetails{Device: device, Asset: asset},
+						}
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							return statusSvc.NewWriter(tx).Set(ctx, &s)
+						})).To(Succeed())
+					}
+					record(dev.Key, "stand")
+					record(dev.Key, "pad")
+					record("other", "rig")
+					stat := exec(ctx, "list_assets", map[string]any{"device": dev.Key})
+					Expect(stat.Details.Data).To(HaveKeyWithValue("last", "pad"))
+				})
 
 			It("Should fail for a device that does not exist", func(ctx SpecContext) {
 				stat := exec(ctx, "list_assets", map[string]any{"device": "missing"})
 				Expect(stat.Variant).To(Equal(status.VariantError))
+			})
+		})
+
+		Describe("list_uploads", func() {
+			record := func(ctx SpecContext, rng *ranger.Key) string {
+				GinkgoHelper()
+				s := sift.UploadStatus{
+					Key:     "sift_upload:" + uuid.NewV7().String(),
+					Name:    "upload",
+					Variant: status.VariantSuccess,
+					Message: "Uploaded to Sift",
+					Time:    telem.Now(),
+					Details: sift.UploadDetails{Range: rng, Asset: "stand"},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &s)
+				})).To(Succeed())
+				return s.Key
+			}
+
+			It(
+				"Should list the uploads of a range, newest first",
+				func(ctx SpecContext) {
+					rng, other := uuid.NewV7(), uuid.NewV7()
+					first := record(ctx, &rng)
+					record(ctx, &other)
+					second := record(ctx, &rng)
+					stat := exec(ctx, "list_uploads", map[string]any{"range": rng})
+					Expect(stat.Variant).To(Equal(status.VariantSuccess))
+					Expect(stat.Details.Data).To(
+						HaveKeyWithValue("uploads", Equal([]any{second, first})),
+					)
+				},
+			)
+
+			It("Should list no uploads for a range with none", func(ctx SpecContext) {
+				stat := exec(ctx, "list_uploads", map[string]any{"range": uuid.NewV7()})
+				Expect(stat.Details.Data).To(HaveKeyWithValue("uploads", BeEmpty()))
+			})
+
+			It("Should reject a command without a range", func(ctx SpecContext) {
+				record(ctx, nil)
+				stat := exec(ctx, "list_uploads", map[string]any{})
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("range: required"))
 			})
 		})
 	})

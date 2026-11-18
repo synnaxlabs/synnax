@@ -11,6 +11,7 @@ import { type APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { POST as channelsRoute } from "@/pages/api/users/[id]/channels";
 import { POST as deleteRoute } from "@/pages/api/users/[id]/delete";
 import {
   activation,
@@ -244,6 +245,71 @@ describe("user routes", () => {
       expect((await owned(personal)).licenses).toHaveLength(1);
       expect(await store.query.select().from(invitation)).toHaveLength(1);
       expect(await h.directory.account(ADA)).not.toBeNull();
+    });
+  });
+
+  describe("POST /api/users/[id]/channels", () => {
+    const setChannels = async (channels: string, id = ADA) =>
+      await call(channelsRoute, {
+        params: { id },
+        path: `/api/users/${id}/channels`,
+        body: { channels },
+      });
+
+    const capOf = async (org: Organization) => ({
+      organization: (
+        await store.query
+          .select()
+          .from(organization)
+          .where(eq(organization.key, org.key))
+      )[0].desktopChannels,
+      licenses: (
+        await store.query
+          .select()
+          .from(license)
+          .where(eq(license.organization, org.key))
+      ).map((l) => l.channels),
+    });
+
+    it("should reject a member who is not staff", async () => {
+      const personal = await createDesktop(ADA);
+      h.signIn(BOB);
+      await expectError(await setChannels("200"), 403, "Staff only");
+      expect(await capOf(personal)).toEqual({ organization: null, licenses: [0] });
+    });
+
+    it("should set the cap of the user's Desktop licenses", async () => {
+      const personal = await createDesktop(ADA);
+      h.signIn(STAFF);
+      expect((await setChannels("200")).status).toBe(204);
+      expect(await capOf(personal)).toEqual({ organization: 200, licenses: [200] });
+    });
+
+    it("should restore the default cap for an empty value", async () => {
+      const personal = await createDesktop(ADA);
+      h.signIn(STAFF);
+      await setChannels("200");
+      expect((await setChannels("")).status).toBe(204);
+      expect(await capOf(personal)).toEqual({ organization: null, licenses: [55] });
+    });
+
+    it("should refuse a value that is not a whole number", async () => {
+      await createDesktop(ADA);
+      h.signIn(STAFF);
+      await expectError(
+        await setChannels("many"),
+        400,
+        "Channels must be a whole number, 0 for unlimited",
+      );
+    });
+
+    it("should answer 404 for a user who never visited the portal", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await setChannels("200"),
+        404,
+        "Personal organization not found",
+      );
     });
   });
 });

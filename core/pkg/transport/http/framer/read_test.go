@@ -22,6 +22,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -147,10 +149,26 @@ func splitRecords(body []byte) (data [][]byte, terminator []byte) {
 	return data, terminator
 }
 
+// failFirstWriter fails its first write and buffers every write after it.
+type failFirstWriter struct {
+	bytes.Buffer
+	failed bool
+}
+
+var errFirstWrite = errors.New("first write failed")
+
+func (w *failFirstWriter) Write(p []byte) (int, error) {
+	if !w.failed {
+		w.failed = true
+		return 0, errFirstWrite
+	}
+	return w.Buffer.Write(p)
+}
+
 var _ = Describe("Read", func() {
 	Describe("NewFrameEncoder", func() {
 		It("Should emit the frame media type", func(ctx SpecContext) {
-			Expect(framer.NewFrameEncoder(ctx).ContentType()).
+			Expect(framer.NewFrameEncoder(ctx, errors.NewCodec()).ContentType()).
 				To(Equal("application/vnd.synnax.frame"))
 		})
 
@@ -166,7 +184,8 @@ var _ = Describe("Read", func() {
 				telem.NewSeriesV[float32](1, 2, 3),
 			)
 			b := MustSucceed(
-				framer.NewFrameEncoder(ctx).Encode(read(ctx, index, channels...)),
+				framer.NewFrameEncoder(ctx, errors.NewCodec()).
+					Encode(read(ctx, index, channels...)),
 			)
 			data, terminator := splitRecords(b)
 			Expect(terminator).To(BeEmpty())
@@ -199,7 +218,7 @@ var _ = Describe("Read", func() {
 				}},
 			})
 			data, terminator := splitRecords(
-				MustSucceed(framer.NewFrameEncoder(ctx).Encode(res)),
+				MustSucceed(framer.NewFrameEncoder(ctx, errors.NewCodec()).Encode(res)),
 			)
 			Expect(terminator).To(BeEmpty())
 			Expect(data).To(HaveLen(1))
@@ -230,7 +249,7 @@ var _ = Describe("Read", func() {
 				svcframer.IteratorConfig{ChunkSize: 2},
 			)
 			res.Latest = 2
-			b := MustSucceed(framer.NewFrameEncoder(ctx).Encode(res))
+			b := MustSucceed(framer.NewFrameEncoder(ctx, errors.NewCodec()).Encode(res))
 			data, terminator := splitRecords(b)
 			Expect(terminator).To(BeEmpty())
 			Expect(data).To(HaveLen(1))
@@ -260,7 +279,7 @@ var _ = Describe("Read", func() {
 				svcframer.IteratorConfig{ChunkSize: 2},
 			)
 			res.Earliest = 2
-			b := MustSucceed(framer.NewFrameEncoder(ctx).Encode(res))
+			b := MustSucceed(framer.NewFrameEncoder(ctx, errors.NewCodec()).Encode(res))
 			data, terminator := splitRecords(b)
 			Expect(terminator).To(BeEmpty())
 			Expect(data).To(HaveLen(1))
@@ -278,18 +297,44 @@ var _ = Describe("Read", func() {
 		) {
 			index, channels := createIndexed(ctx, telem.Float32T)
 			b := MustSucceed(
-				framer.NewFrameEncoder(ctx).Encode(read(ctx, index, channels...)),
+				framer.NewFrameEncoder(ctx, errors.NewCodec()).
+					Encode(read(ctx, index, channels...)),
 			)
 			data, terminator := splitRecords(b)
 			Expect(data).To(BeEmpty())
 			Expect(terminator).To(BeEmpty())
 		})
 
+		It("Should end the body with the error that stopped the read", func(
+			ctx SpecContext,
+		) {
+			index, channels := createIndexed(ctx, telem.Float32T)
+			write(
+				ctx,
+				index,
+				telem.NewSeriesSecondsTSV(1, 2),
+				channels,
+				telem.NewSeriesV[float32](1, 2),
+			)
+			var w failFirstWriter
+			Expect(framer.NewFrameEncoder(ctx, errors.NewCodec()).EncodeStream(
+				&w,
+				read(ctx, index, channels...),
+			)).To(Succeed())
+			data, terminator := splitRecords(w.Bytes())
+			Expect(data).To(BeEmpty())
+			var pld errors.Payload
+			Expect(json.Codec.Decode(terminator, &pld)).To(Succeed())
+			Expect(errors.NewCodec().Decode(pld)).To(MatchError(errFirstWrite.Error()))
+		})
+
 		It("Should return an error when the value is not a read response", func(
 			ctx SpecContext,
 		) {
 			var buf bytes.Buffer
-			Expect(framer.NewFrameEncoder(ctx).EncodeStream(&buf, 42)).
+			Expect(
+				framer.NewFrameEncoder(ctx, errors.NewCodec()).EncodeStream(&buf, 42),
+			).
 				To(MatchError(ContainSubstring("cannot encode a value of type int")))
 		})
 	})

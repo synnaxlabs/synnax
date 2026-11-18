@@ -23,7 +23,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v1"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -34,6 +34,7 @@ var _ = Describe("MigrateDevice", func() {
 	migrateSeed := func(ctx SpecContext, seed v0.Device) v1.Device {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Device]().
 			Entry(&seed).Exec(ctx, db)).To(Succeed())
@@ -105,7 +106,7 @@ var _ = Describe("MigrateDevice", func() {
 		Expect(got.Model).To(Equal(seed.Model))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Configured).To(Equal(seed.Configured))
-		Expect(got.Properties).To(Equal(msgpack.EncodedJSON(seed.Properties)))
+		Expect(got.Properties).To(Equal(seed.Properties))
 		Expect(got.Status).To(BeNil())
 		Expect(got.Parent).To(BeNil())
 	})
@@ -154,6 +155,7 @@ var _ = Describe("HTTPHealthCheckMigration", func() {
 	migrateDevice := func(ctx SpecContext, d v1.Device) v1.Device {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.NewCreate[v1.Key, v1.Device]().Entry(&d).Exec(ctx, db)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -189,7 +191,8 @@ var _ = Describe("HTTPHealthCheckMigration", func() {
 			got := migrateDevice(ctx, v1.Device{
 				Key: "k53-http", Make: "http", Properties: v053Properties(),
 			})
-			hc := got.Properties["health_check"].(map[string]any)
+			hc, ok := got.Properties["health_check"].(map[string]any)
+			Expect(ok).To(BeTrue())
 			Expect(hc["headers"]).To(Equal([]any{
 				map[string]any{"name": "Accept", "value": "application/json"},
 				map[string]any{"name": "X-Token", "value": "abc"},
@@ -203,7 +206,8 @@ var _ = Describe("HTTPHealthCheckMigration", func() {
 	It("Should leave a health check that already lists its headers untouched",
 		func(ctx SpecContext) {
 			props := v053Properties()
-			hc := props["health_check"].(map[string]any)
+			hc, ok := props["health_check"].(map[string]any)
+			Expect(ok).To(BeTrue())
 			hc["headers"] = []any{map[string]any{"name": "X-Token", "value": "abc"}}
 			delete(hc, "query_params")
 			got := migrateDevice(

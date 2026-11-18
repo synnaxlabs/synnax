@@ -90,6 +90,11 @@ export interface TauriRuntimeProps {
   window?: WebviewWindow;
   /** Where macOS draws the window controls in each window the runtime creates. */
   trafficLightPosition?: xy.XY;
+  /**
+   * Runs before the runtime closes the window with the given label. The window stays
+   * open until it resolves.
+   */
+  beforeClose?: (label: string) => Promise<void>;
 }
 
 /** A Tauri backed implementation of the drift Runtime. */
@@ -99,11 +104,13 @@ export class TauriRuntime<
 > implements Runtime<S, A> {
   private readonly win: WebviewWindow;
   private readonly trafficLightPosition?: LogicalPosition;
+  private readonly beforeClose?: (label: string) => Promise<void>;
   private unsubscribe: Record<string, UnlistenFn>;
   private monitorChangePoll: NodeJS.Timeout | null = null;
 
-  constructor({ window, trafficLightPosition }: TauriRuntimeProps = {}) {
+  constructor({ window, trafficLightPosition, beforeClose }: TauriRuntimeProps = {}) {
     this.win = window ?? getCurrentWindow();
+    this.beforeClose = beforeClose;
     if (trafficLightPosition != null)
       this.trafficLightPosition = new LogicalPosition(
         trafficLightPosition.x,
@@ -243,6 +250,7 @@ export class TauriRuntime<
   }
 
   async close(label: string): Promise<void> {
+    await this.beforeClose?.(label);
     const win = await WebviewWindow.getByLabel(label);
     if (win != null)
       try {

@@ -10,7 +10,6 @@
 package control
 
 import (
-	"context"
 	"math"
 	"strings"
 
@@ -32,14 +31,14 @@ var (
 	ErrUnauthorized = errors.Wrap(ErrControl, "unauthorized")
 )
 
-func encode(_ context.Context, err error) (errors.Payload, bool) {
+func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrUnauthorized) {
 		return errors.Payload{Type: unauthorized, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
 }
 
-func decode(_ context.Context, p errors.Payload) (error, bool) {
+func decode(_ *errors.Codec, p errors.Payload) (error, bool) {
 	if !strings.HasPrefix(p.Type, errorPrefix) {
 		return nil, false
 	}
@@ -49,4 +48,7 @@ func decode(_ context.Context, p errors.Payload) (error, bool) {
 	return errors.Wrap(ErrControl, p.Data), true
 }
 
-func init() { errors.Register(encode, decode) }
+// ErrorProvider encodes and decodes control errors for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{Encode: encode, Decode: decode}
+}

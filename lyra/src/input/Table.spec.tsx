@@ -135,7 +135,7 @@ describe("Input.Table", () => {
   it("should render every cell as a shadow input", () => {
     renderTable();
     const chassis = cell("Raw", "1").closest(".lyra-input");
-    expect(chassis?.classList.contains("lyra--shadow")).toBe(true);
+    expect(chassis?.classList.contains("lyra-btn--shadow")).toBe(true);
   });
 
   it("should render no row header until a labeler asks for one", () => {
@@ -402,6 +402,18 @@ describe("Input.Table", () => {
       expect(onChange).toHaveBeenCalledWith([
         [1, 10],
         [2, 70],
+      ]);
+    });
+
+    it("should pass the rows a paste has added so far to createRow", () => {
+      const onChange = renderTable({
+        createRow: (value) => [Number(value.at(-1)?.[0] ?? 0) + 1, -1],
+      });
+      paste(cell("Scaled", "1"), "11\n21\n31");
+      expect(onChange).toHaveBeenCalledWith([
+        [1, 11],
+        [2, 21],
+        [3, 31],
       ]);
     });
 

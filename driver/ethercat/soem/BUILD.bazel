@@ -48,26 +48,6 @@ cc_test(
 )
 
 cc_library(
-    name = "sii",
-    srcs = ["sii.cpp"],
-    hdrs = ["sii.h"],
-    deps = [
-        "//driver/ethercat/dc",
-        "//driver/ethercat/pdo",
-        "//driver/ethercat/telem",
-    ],
-)
-
-cc_test(
-    name = "sii_test",
-    srcs = ["sii_test.cpp"],
-    deps = [
-        ":sii",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_library(
     name = "soem_api",
     srcs = select({
         "@platforms//os:linux": ["api_linux.cpp"],
@@ -90,6 +70,54 @@ cc_library(
         "@platforms//os:windows": [":util"],
         "//conditions:default": [],
     }),
+)
+
+cc_library(
+    name = "filter",
+    srcs = select({
+        "@platforms//os:windows": ["filter_windows.cpp"],
+        "//conditions:default": ["filter_noop.cpp"],
+    }),
+    hdrs = ["filter.h"],
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//x/cpp/errors",
+    ] + select({
+        "@platforms//os:windows": [
+            ":util",
+            "//x/cpp/base64",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "filter_test",
+    srcs = select({
+        "@platforms//os:windows": ["filter_windows_test.cpp"],
+        "//conditions:default": ["filter_noop_test.cpp"],
+    }),
+    deps = [
+        ":filter",
+        "//driver/ethercat/errors",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "api_linux_test",
+    srcs = ["api_linux_test.cpp"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        ":soem_api",
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_test(
@@ -121,7 +149,6 @@ cc_library(
     hdrs = ["master.h"],
     visibility = ["//driver/ethercat:__pkg__"],
     deps = [
-        ":sii",
         ":soem_api",
         ":util",
         "//driver/ethercat/coe",
@@ -130,6 +157,8 @@ cc_library(
         "//driver/ethercat/esi",
         "//driver/ethercat/esi:settings",
         "//driver/ethercat/master",
+        "//driver/ethercat/master:dc",
+        "//driver/ethercat/sii",
         "//driver/ethercat/slave",
         "//driver/ethercat/telem",
         "//x/cpp/binary",
@@ -153,6 +182,7 @@ cc_test(
         "//driver/ethercat/esi:settings",
         "//driver/ethercat/master:contract",
         "//driver/ethercat/testutil:stg",
+        "//x/cpp/bench:alloc",
         "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",

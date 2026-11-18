@@ -86,8 +86,11 @@ type Server struct {
 	failures  []error
 	paused    chan struct{}
 	runs      []*runsv2.Run
+	runsHeld  chan struct{}
 	runFails  []error
 	updFails  []error
+	runReject error
+	updReject error
 	cfgFails  []error
 }
 
@@ -111,6 +114,9 @@ func Open(cfg Config) (*Server, error) {
 		points:   make(map[channelKey]map[time.Time]any),
 	}
 	s.grpc = grpc.NewServer(
+		// A fixed window stops gRPC from growing it, so a paused stream backs up its
+		// client after 64 KiB.
+		grpc.InitialWindowSize(64<<10),
 		grpc.ChainUnaryInterceptor(s.authorizeUnary),
 		grpc.ChainStreamInterceptor(s.authorizeStream),
 	)
@@ -222,6 +228,22 @@ func (s *Server) FailRunUpdates(errs ...error) {
 	s.updFails = append(s.updFails, errs...)
 }
 
+// RejectRuns makes every call to CreateAdhocRun return err, until a call with nil. The
+// errors of FailRuns return first.
+func (s *Server) RejectRuns(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.runReject = err
+}
+
+// RejectRunUpdates makes every call to UpdateRun return err, until a call with nil.
+// The errors of FailRunUpdates return first.
+func (s *Server) RejectRunUpdates(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.updReject = err
+}
+
 // FailConfigs makes each of the next calls to CreateIngestionConfig return one of
 // errs, in order.
 func (s *Server) FailConfigs(errs ...error) {
@@ -246,6 +268,26 @@ func (s *Server) Resume() {
 	if s.paused != nil {
 		close(s.paused)
 		s.paused = nil
+	}
+}
+
+// PauseRuns holds each call to CreateAdhocRun until ResumeRuns or until its client
+// cancels it.
+func (s *Server) PauseRuns() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.runsHeld == nil {
+		s.runsHeld = make(chan struct{})
+	}
+}
+
+// ResumeRuns lets calls to CreateAdhocRun continue.
+func (s *Server) ResumeRuns() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.runsHeld != nil {
+		close(s.runsHeld)
+		s.runsHeld = nil
 	}
 }
 
@@ -407,11 +449,11 @@ func (s *Server) IngestWithConfigDataStream(
 	s.mu.Unlock()
 	var received []*ingestv1.IngestWithConfigDataStreamRequest
 	for {
-		if err := s.waitResumed(stream.Context()); err != nil {
+		if err := s.wait(stream.Context(), &s.paused); err != nil {
 			return err
 		}
 		req, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -437,15 +479,16 @@ func (s *Server) IngestWithConfigDataStream(
 	return stream.SendAndClose(&ingestv1.IngestWithConfigDataStreamResponse{})
 }
 
-func (s *Server) waitResumed(ctx context.Context) error {
+// wait returns when the channel at held is nil or closed, or when ctx is done.
+func (s *Server) wait(ctx context.Context, held *chan struct{}) error {
 	s.mu.Lock()
-	paused := s.paused
+	ch := *held
 	s.mu.Unlock()
-	if paused == nil {
+	if ch == nil {
 		return nil
 	}
 	select {
-	case <-paused:
+	case <-ch:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -557,15 +600,21 @@ func (s *Server) authorizeStream(
 
 // CreateAdhocRun implements runsv2.RunServiceServer.
 func (s *Server) CreateAdhocRun(
-	_ context.Context,
+	ctx context.Context,
 	req *runsv2.CreateAdhocRunRequest,
 ) (*runsv2.CreateAdhocRunResponse, error) {
+	if err := s.wait(ctx, &s.runsHeld); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.runFails) > 0 {
 		err := s.runFails[0]
 		s.runFails = s.runFails[1:]
 		return nil, err
+	}
+	if s.runReject != nil {
+		return nil, s.runReject
 	}
 	if err := checkRun(req.Name, req.StartTime, req.StopTime); err != nil {
 		return nil, err
@@ -636,6 +685,9 @@ func (s *Server) UpdateRun(
 		err := s.updFails[0]
 		s.updFails = s.updFails[1:]
 		return nil, err
+	}
+	if s.updReject != nil {
+		return nil, s.updReject
 	}
 	if req.Run == nil || req.UpdateMask == nil {
 		return nil, status.Error(

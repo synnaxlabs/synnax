@@ -112,7 +112,7 @@ class TestClient:
         virtual_channel: sy.Channel,
     ) -> None:
         """Should store the default timestamp config of a channel entry."""
-        entry = sy.log.ChannelEntry(channel=virtual_channel.key, color=sy.Color())
+        entry = sy.log.ChannelEntry(channel=virtual_channel.key)
         log = client.logs.create(
             sy.Log(name="Default", channels=[entry], project=project.key)
         )

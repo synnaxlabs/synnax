@@ -43,6 +43,25 @@ describe("Controls.Bar", () => {
     expect(onDeploy).toHaveBeenCalledTimes(1);
   });
 
+  it("should stop a task whose start is loading", async () => {
+    const onDeploy = vi.fn();
+    const onStop = vi.fn();
+    const { container } = await renderWithConsole(
+      <Task.Controls.Bar
+        status={createTaskStatus({ variant: "loading", message: "Starting task" })}
+        running={false}
+        startStopVariant="loading"
+        onDeploy={onDeploy}
+        onStop={onStop}
+      />,
+    );
+    const button = getIconButton(container, "stop");
+    expect(button.getAttribute("aria-disabled")).not.toBe("true");
+    fireEvent.click(button);
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(onDeploy).not.toHaveBeenCalled();
+  });
+
   it("should invoke onDeploy from the redeploy button when drifted", async () => {
     const onDeploy = vi.fn();
     await renderWithConsole(

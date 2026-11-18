@@ -52,6 +52,9 @@ enum Type {
   TYPE_ARC_DIRECTORY = 32;
   TYPE_SECRET = 33;
   TYPE_CERTIFICATE = 34;
+  TYPE_COLOR = 35;
+  TYPE_ICD = 36;
+  TYPE_ENUMERATION = 37;
 }
 
 // ID is a unique identifier for a Resource. An example:

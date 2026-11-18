@@ -48,15 +48,15 @@ var _ = Describe("PebbleKV", func() {
 			key := []byte("key")
 			value := []byte("value")
 			Expect(db.Set(ctx, key, value)).To(Succeed())
-			got, closer := MustSucceed2(db.Get(ctx, key))
+			got, closer := MustSucceed2(db.Get(key))
 			Expect(got).To(Equal(value))
 			Expect(closer.Close()).To(Succeed())
 
-			Expect(db.Get(ctx, []byte("non-existent"))).Error().
+			Expect(db.Get([]byte("non-existent"))).Error().
 				To(MatchError(query.ErrNotFound))
 
 			Expect(db.Delete(ctx, key)).To(Succeed())
-			Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should handle transactions correctly", func(ctx SpecContext) {
@@ -67,7 +67,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
-			got, closer := MustSucceed2(db.Get(ctx, key))
+			got, closer := MustSucceed2(db.Get(key))
 			Expect(got).To(Equal(value))
 			Expect(closer.Close()).To(Succeed())
 
@@ -77,7 +77,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Set(ctx, rollbackKey, rollbackValue)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
-			Expect(db.Get(ctx, rollbackKey)).Error().To(MatchError(query.ErrNotFound))
+			Expect(db.Get(rollbackKey)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -87,7 +87,7 @@ var _ = Describe("PebbleKV", func() {
 				key := []byte("abc-tx-key")
 				value := []byte("abc-tx-value")
 				Expect(tx.Set(ctx, key, value)).To(Succeed())
-				Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
+				Expect(db.Get(key)).Error().To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -168,10 +168,10 @@ var _ = Describe("PebbleKV", func() {
 			key := []byte("tx-get-key")
 			value := []byte("tx-get-value")
 
-			Expect(tx.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
+			Expect(tx.Get(key)).Error().To(MatchError(query.ErrNotFound))
 
 			Expect(tx.Set(ctx, key, value)).To(Succeed())
-			got, closer := MustSucceed2(tx.Get(ctx, key))
+			got, closer := MustSucceed2(tx.Get(key))
 			Expect(got).To(Equal(value))
 			Expect(closer.Close()).To(Succeed())
 
@@ -179,7 +179,9 @@ var _ = Describe("PebbleKV", func() {
 		})
 
 		It("Should report engine info", func() {
-			report := db.(alamos.ReportProvider).Report()
+			provider, ok := db.(alamos.ReportProvider)
+			Expect(ok).To(BeTrue())
+			report := provider.Report()
 			Expect(report["engine"]).To(Equal("pebble"))
 		})
 
@@ -201,7 +203,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Set(ctx, key, []byte("applied-value"))).To(Succeed())
 			applied := false
 			Expect(tx.Commit(ctx, kv.OnApplied(func() {
-				v, closer := MustSucceed2(db.Get(ctx, key))
+				v, closer := MustSucceed2(db.Get(key))
 				Expect(v).To(Equal([]byte("applied-value")))
 				Expect(closer.Close()).To(Succeed())
 				applied = true

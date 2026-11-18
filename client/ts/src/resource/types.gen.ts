@@ -47,6 +47,9 @@ export const TYPES = [
   "arc_directory",
   "secret",
   "certificate",
+  "color",
+  "icd",
+  "enumeration",
 ] as const;
 export const typeZ = z.enum(TYPES);
 export type Type = z.infer<typeof typeZ>;

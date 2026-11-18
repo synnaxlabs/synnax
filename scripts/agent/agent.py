@@ -25,20 +25,26 @@ Outputs:
 --recipient, with report, keeps the report private on a public repository: it writes
 only the report encrypted to the GPG public key file KEY, as the `report` step output.
 The agent gets no GitHub token, and its stderr, CLI state, and output files are
-discarded.
+discarded. It uses the agent's login in place.
 
 The last stdout line is the PR URL for pr and comment, and is also written as `pr-url`
 to $GITHUB_OUTPUT when it is set. --dry-run runs the agent but pushes, comments, and
 opens nothing.
 
+When Claude Code stops at the usage limit of its login, the wrapper writes the reset
+time, in Unix seconds, as the `limited-until` step output and exits with LIMITED. When
+Claude rejects the token of its login, the wrapper writes the time the agent started, in
+Unix seconds, as the `login-broken` step output and exits with REJECTED.
+
 Environment: AGENT_DEFAULT picks the agent when --agent is absent. GH_TOKEN is the
 GitHub App installation token for `gh` and for Git pushes. AGENT_GIT_NAME and
-AGENT_GIT_EMAIL are the bot identity for commits. CLAUDE_CODE_OAUTH_TOKEN or a Codex
-login authenticates the CLI. pr and comment need a clean checkout.
+AGENT_GIT_EMAIL are the bot identity for commits. A Claude Code or Codex login
+authenticates the CLI. pr and comment need a clean checkout.
 """
 
 import argparse
 import base64
+import json
 import os
 import re
 import secrets
@@ -47,10 +53,12 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.parse
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 AGENTS = ("claude", "codex")
 OUTPUTS = ("pr", "comment", "report")
@@ -59,6 +67,8 @@ ASSETS_BRANCH = "agent-assets"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 TEMPLATE = Path(".github/pull_request_template.md")
 LINEAR_URL = "https://linear.app/synnax/issue/"
+LIMITED = 75
+REJECTED = 77
 # Claude Code otherwise appends a co-author trailer, which the repository rules forbid.
 CLAUDE_SETTINGS = '{"attribution":{"commit":"","pr":""}}'
 
@@ -196,7 +206,8 @@ def instructions(opts: Options, *, out: Path) -> str:
 
 def agent_command(opts: Options, *, prompt: str, out: Path) -> list[str]:
     if opts.agent == "claude":
-        cmd = [opts.bin or "claude", "-p", "--output-format", "text"]
+        cmd = [opts.bin or "claude", "-p", "--output-format", "stream-json"]
+        cmd += ["--verbose"]
         cmd += ["--dangerously-skip-permissions", "--settings", CLAUDE_SETTINGS]
         if opts.max_turns is not None:
             cmd += ["--max-turns", str(opts.max_turns)]
@@ -260,9 +271,9 @@ class Runner:
 
 def run_agent(
     cmd: list[str], *, env: dict[str, str], seconds: float, quiet: bool = False
-) -> str:
-    """Runs the agent in its own process group and returns its stdout. quiet discards
-    its stderr.
+) -> tuple[int, str]:
+    """Runs the agent in its own process group and returns its exit code and stdout.
+    quiet discards its stderr.
 
     On a timeout or an interrupt, kills the whole group, so no build or server it
     started outlives it.
@@ -284,23 +295,103 @@ def run_agent(
             os.killpg(proc.pid, signal.SIGKILL)
         proc.communicate()
         raise
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, cmd[:1])
-    return stdout
+    return proc.returncode, stdout
+
+
+class UsageLimit(Exception):
+    """The agent stopped at the usage limit of its login, which resets at until, in
+    Unix seconds."""
+
+    def __init__(self, until: int) -> None:
+        super().__init__(f"usage limit until {until}")
+        self.until = until
+
+
+class LoginRejected(Exception):
+    """Claude rejected the token of the agent's login: it was revoked, expired, or is
+    invalid. The agent started at started, in Unix seconds."""
+
+    def __init__(self, message: str, *, started: int) -> None:
+        super().__init__(message)
+        self.started = started
+
+
+def refusal(events: Iterable[dict[str, Any]]) -> tuple[int | None, bool]:
+    """Returns the reset time of the usage limit that rejected a Claude Code
+    stream-json run, if any, and whether Claude rejected the token of its login."""
+    until, rejected = None, False
+    for event in events:
+        if event["type"] == "rate_limit_event":
+            info = event["rate_limit_info"]
+            until = info.get("resetsAt") if info["status"] == "rejected" else None
+        elif event["type"] == "assistant":
+            rejected |= event.get("error") == "authentication_failed"
+    return until, rejected
+
+
+def claude_result(stream: str) -> tuple[str, bool, int | None, bool]:
+    """Returns the final message of a Claude Code stream-json run, whether the run
+    failed, and its refusal."""
+    events = [json.loads(line) for line in stream.splitlines()]
+    message, failed = "", True
+    for event in events:
+        if event["type"] == "result":
+            message, failed = event.get("result", ""), event["is_error"]
+    return message, failed, *refusal(events)
+
+
+def run_cli(
+    opts: Options, cmd: list[str], *, env: dict[str, str], quiet: bool = False
+) -> str:
+    """Runs the agent CLI and returns its final message on stdout.
+
+    Raises UsageLimit when Claude Code fails at a usage limit, LoginRejected when
+    Claude rejects its token, and CalledProcessError on any other failure.
+    """
+    started = int(time.time())
+    code, stdout = run_agent(
+        cmd, env=env, seconds=opts.timeout_minutes * 60, quiet=quiet
+    )
+    if opts.agent != "claude":
+        if code != 0:
+            raise subprocess.CalledProcessError(code, cmd[:1])
+        return stdout
+    message, failed, until, rejected = claude_result(stdout)
+    if failed and until is not None:
+        raise UsageLimit(until)
+    if failed and rejected:
+        raise LoginRejected(message, started=started)
+    if code != 0 or failed:
+        raise subprocess.CalledProcessError(code, cmd[:1], output=message)
+    return message
 
 
 def private_env(env: dict[str, str], *, out: Path) -> dict[str, str]:
     """Returns env with no GitHub token or step output files, and with the CLI state
-    of the agent in out, so no later job on the runner can read the session."""
-    codex = out / "codex"
+    of the agent in out, so no later job on the runner can read the session. Both CLIs
+    use the seat's login in place, so a refresh by any job on the seat reaches all."""
+    claude, codex = out / "claude", out / "codex"
+    claude.mkdir()
     codex.mkdir()
-    home = Path(env.get("CODEX_HOME") or Path.home() / ".codex")
-    for name in ("auth.json", "config.toml"):
-        if (home / name).is_file():
-            shutil.copy(home / name, codex / name)
+    # Codex writes a refresh to the target of a linked login, under a lock beside it.
+    seat_codex = Path(env.get("CODEX_HOME") or Path.home() / ".codex")
+    if (seat_codex / "auth.json").is_file():
+        (codex / "auth.json").symlink_to(seat_codex / "auth.json")
+    if (seat_codex / "config.toml").is_file():
+        shutil.copy(seat_codex / "config.toml", codex / "config.toml")
+    # Claude Code keeps its login, and the lock that guards a refresh, in this store.
+    store = "CLAUDE_SECURESTORAGE_CONFIG_DIR"
+    seat_claude = (
+        env.get(store, env.get("CLAUDE_CONFIG_DIR")) or Path.home() / ".claude"
+    )
     hidden = {"GH_TOKEN", "GITHUB_TOKEN", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"}
     kept = {k: v for k, v in env.items() if k not in hidden}
-    return {**kept, "CLAUDE_CONFIG_DIR": str(out / "claude"), "CODEX_HOME": str(codex)}
+    return {
+        **kept,
+        "CLAUDE_CONFIG_DIR": str(claude),
+        store: str(seat_claude),
+        "CODEX_HOME": str(codex),
+    }
 
 
 def encrypt(text: str, *, recipient: Path) -> str:
@@ -396,6 +487,19 @@ def git_auth(env: dict[str, str]) -> dict[str, str]:
 
 
 def main(argv: Sequence[str]) -> int:
+    try:
+        return deliver(argv)
+    except UsageLimit as e:
+        write_output(dict(os.environ), name="limited-until", value=str(e.until))
+        print(f"The agent reached the usage limit of its login: {e}", file=sys.stderr)
+        return LIMITED
+    except LoginRejected as e:
+        write_output(dict(os.environ), name="login-broken", value=str(e.started))
+        print(f"Claude rejected the token of the agent's login: {e}", file=sys.stderr)
+        return REJECTED
+
+
+def deliver(argv: Sequence[str]) -> int:
     env = git_identity(dict(os.environ))
     opts = parse(argv, env=env)
     pushes = opts.output != "report"
@@ -449,10 +553,8 @@ def main(argv: Sequence[str]) -> int:
     cmd = agent_command(opts, prompt=prompt, out=out)
     if opts.recipient is not None:
         try:
-            env_private = {**private_env(env, out=out), "AGENT_OUT_DIR": str(out)}
-            stdout = run_agent(
-                cmd, env=env_private, seconds=opts.timeout_minutes * 60, quiet=True
-            )
+            agent_env = {**private_env(env, out=out), "AGENT_OUT_DIR": str(out)}
+            stdout = run_cli(opts, cmd, env=agent_env, quiet=True)
             message = read(out / "last-message.md") or stdout.strip()
             write_output(
                 env, name="report", value=encrypt(message, recipient=opts.recipient)
@@ -464,7 +566,7 @@ def main(argv: Sequence[str]) -> int:
     report = opts.output == "report" and not opts.dry_run
     agent_env = git_auth(env) if report else env
     agent_env = {**agent_env, "AGENT_OUT_DIR": str(out)}
-    stdout = run_agent(cmd, env=agent_env, seconds=opts.timeout_minutes * 60)
+    stdout = run_cli(opts, cmd, env=agent_env)
     message = read(out / "last-message.md") or stdout.strip()
 
     images = find_images(opts, out=out)

@@ -7,12 +7,27 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.view.actions_gen import (
+    Action,
+    CreatePayload,
+    InsertPayload,
+    MovePayload,
+    RemovePayload,
+    SetPayload,
+    create,
+    insert,
+    move,
+    remove,
+    set,
+)
 from synnax.view.client import Client
 from synnax.view.types_gen import (
     TYPE_RESOURCE_ID,
     Cursor,
     Key,
     Order,
+    RangeLayout,
+    RangeSort,
     RangeView,
     StatusView,
     Type,
@@ -24,15 +39,28 @@ from synnax.view.types_gen import (
 
 __all__ = [
     "TYPE_RESOURCE_ID",
+    "Action",
     "Client",
+    "CreatePayload",
     "Cursor",
+    "InsertPayload",
     "Key",
+    "MovePayload",
     "Order",
+    "RangeLayout",
+    "RangeSort",
     "RangeView",
+    "RemovePayload",
+    "SetPayload",
     "StatusView",
     "Type",
     "View",
     "Where",
     "WhereInput",
+    "create",
+    "insert",
+    "move",
+    "remove",
     "resource_id",
+    "set",
 ]

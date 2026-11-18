@@ -25,7 +25,7 @@ describe("colorFallback", () => {
   });
 
   it("should return no fill for a variant that declares no fill fallback", () => {
-    expect(colorFallback("fillColor", "tank", THEME)).toEqual(color.ZERO);
+    expect(colorFallback("fillColor", "tank", THEME)).toEqual(color.TRANSPARENT);
   });
 
   it("should return the default for a stroke or text the variant does not override", () => {

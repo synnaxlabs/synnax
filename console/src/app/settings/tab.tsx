@@ -16,6 +16,7 @@ const TAB_TYPE = "settings";
 
 const TAB: Panel.Tab = {
   Icon: Icon.Settings,
+  iconKey: "gear",
   Name: Panel.createStaticTabName({ name: "Settings", icon: <Icon.Settings /> }),
   Content: Panel.lazyComponent(() => import("@/app/settings/Settings"), "Settings"),
 };
@@ -25,15 +26,22 @@ export const TABS: Panel.Tabs = { [TAB_TYPE]: TAB };
 /** The key of the Labels section. */
 export const LABELS_SECTION = "labels";
 
+/** The key of the License section. */
+export const LICENSE_SECTION = "license";
+
 /**
- * Returns a function that opens the Settings tab, or selects it when it is open. The
- * tab shows the given section, else the section the window showed last.
+ * Returns a function that opens the Settings tab in a draft of the user, or selects it
+ * when a draft holds it. The tab shows the given section, else the section the window
+ * showed last.
  */
 export const useOpen = (section?: string): (() => void) => {
   const openTab = Panel.useOpenTab();
   const dispatch = Session.useDispatch();
   return () => {
     if (section != null) dispatch(Session.Nav.selectSettingsSection({ section }));
-    openTab({ variant: "view", type: TAB_TYPE }, { singleton: true });
+    openTab(
+      { variant: "view", type: TAB_TYPE },
+      { singleton: true, draft: { name: "Settings" } },
+    );
   };
 };

@@ -33,6 +33,10 @@ const (
 	PathLogDispatch             = "/log/dispatch"
 	PathTableDispatch           = "/table/dispatch"
 	PathLabelDispatch           = "/label/dispatch"
+	PathColorDelete             = "/color/delete"
+	PathColorDispatch           = "/color/dispatch"
+	PathEnumerationDelete       = "/enumeration/delete"
+	PathEnumerationDispatch     = "/enumeration/dispatch"
 	PathRackDispatch            = "/rack/dispatch"
 	PathTaskDispatch            = "/task/dispatch"
 	PathDeviceDispatch          = "/device/dispatch"
@@ -70,6 +74,10 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathLogDispatch:             batch.Route(l.Log.Dispatch),
 		PathTableDispatch:           batch.Route(l.Table.Dispatch),
 		PathLabelDispatch:           batch.Route(l.Label.Dispatch),
+		PathColorDelete:             batch.Route(l.Color.Delete),
+		PathColorDispatch:           batch.Route(l.Color.Dispatch),
+		PathEnumerationDelete:       batch.Route(l.Enumeration.Delete),
+		PathEnumerationDispatch:     batch.Route(l.Enumeration.Dispatch),
 		PathRackDispatch:            batch.Route(l.Rack.Dispatch),
 		PathTaskDispatch:            batch.Route(l.Task.Dispatch),
 		PathDeviceDispatch:          batch.Route(l.Device.Dispatch),

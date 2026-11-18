@@ -9,7 +9,7 @@
 
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { OS } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Shell } from "@/platform/shell";
 import { Theme } from "@/platform/theme";
@@ -18,7 +18,12 @@ import { Window } from "@/platform/window";
 import { Session } from "@/session";
 
 export interface NavProps {
+  /** Target Core shown in the connection island; omit to hide it. */
   connection?: Shell.ConnectionCore | null;
+  /** Content of an island after the version, such as a back button. */
+  start?: ReactNode;
+  /** Buttons that share the island of the theme toggle. */
+  actions?: ReactNode;
 }
 
 /**
@@ -26,7 +31,7 @@ export interface NavProps {
  * window controls, version, and connection state. Web builds and child windows
  * show only the connection island.
  */
-export const Nav = ({ connection }: NavProps): ReactElement => {
+export const Nav = ({ connection, start, actions }: NavProps): ReactElement => {
   const os = OS.use();
   const chrome = Session.Runtime.ENGINE === "tauri" && Session.Runtime.isMainWindow();
   return (
@@ -38,12 +43,14 @@ export const Nav = ({ connection }: NavProps): ReactElement => {
             <Version.Badge />
           </Shell.Island>
         )}
+        {start != null && <Shell.Island>{start}</Shell.Island>}
       </Flex.Box>
       <Flex.Box x align="center" gap="medium">
-        <Shell.Island square>
-          <Theme.Toggle size="medium" textColor={9} />
-        </Shell.Island>
         <Shell.Connection core={connection} />
+        <Shell.Island square={actions == null}>
+          <Theme.Toggle size="medium" textColor={9} />
+          {actions}
+        </Shell.Island>
         {chrome && os === "Windows" && (
           <Shell.Island data-tauri-drag-region>
             <Window.Controls visibleIfOS="Windows" forceOS={os} />

@@ -20,6 +20,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -64,8 +65,7 @@ func MigrateChannelEntry(
 		Format:   old.Timestamp.Format,
 		TimeZone: old.Timestamp.Tz,
 	}
-	out.ApplyDefaults()
-	return out, nil
+	return defaults.Fill(out), nil
 }
 
 func cutToCharacters(s string, n int) string {

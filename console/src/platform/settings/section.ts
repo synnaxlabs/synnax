@@ -20,7 +20,7 @@ export interface Section {
   useVisible?: () => boolean;
 }
 
-/** A named run of sections in the section list, such as Preferences. */
+/** A named run of sections in the section list, such as Console. */
 export interface Group {
   key: string;
   name: string;

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/migrate"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -63,7 +64,7 @@ func parseStoredString(old v2.ReadChannel) (storedString, bool) {
 // to 1 through 250. Every other variant keeps its shape. An empty v2 data type becomes
 // uint8, the v2 default.
 func MigrateReadChannel(ctx context.Context, old v2.ReadChannel) (ReadChannel, error) {
-	old.ApplyDefaults()
+	old = defaults.Fill(old)
 	s, ok := parseStoredString(old)
 	if !ok {
 		return autoMigrateReadChannel(ctx, old)
@@ -116,7 +117,7 @@ func MigrateWriteChannel(
 	ctx context.Context,
 	old v2.WriteChannel,
 ) (WriteChannel, error) {
-	old.ApplyDefaults()
+	old = defaults.Fill(old)
 	return autoMigrateWriteChannel(ctx, old)
 }
 

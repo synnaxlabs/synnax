@@ -22,9 +22,9 @@ type FieldData = fieldData
 type FieldProcessor struct {
 	// Includes receives the headers that the rendered types need.
 	Includes *includes.Manager
-	// Namespace is the schema namespace of the file. A type in this namespace renders
-	// by its bare name.
-	Namespace string
+	// FilePath is the schema file of the generated file. A type from this schema
+	// renders by its bare name.
+	FilePath string
 	// Table resolves the field types.
 	Table *resolution.Table
 }
@@ -34,6 +34,6 @@ func (fp *FieldProcessor) ProcessField(
 	field resolution.Field,
 	parent resolution.Type,
 ) FieldData {
-	data := &templateData{Manager: fp.Includes, table: fp.Table, rawNs: fp.Namespace}
+	data := &templateData{Manager: fp.Includes, table: fp.Table, filePath: fp.FilePath}
 	return New(DefaultOptions()).processField(field, parent, data)
 }

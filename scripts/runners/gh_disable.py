@@ -7,11 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "synnax>=0.60,<0.61"]
-# ///
-
 """Stops the runner service on an instance over SSM. Cancels a job in progress.
 
     uv run gh_disable.py windows-build-bot-i-0f44

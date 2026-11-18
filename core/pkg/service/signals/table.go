@@ -38,7 +38,7 @@ type TableConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// gorp.Table.Changes.
 	//
 	// [REQUIRED]
-	Changes func(context.Context, gorp.Commit) gorp.TxReader[K, E]
+	Changes func(gorp.Commit) gorp.TxReader[K, E]
 	// Resource returns the resource of the entry with the given key. A streamer sends a
 	// sample of the set or delete channel only to a subject that can retrieve it.
 	//
@@ -147,16 +147,12 @@ type tableFeed[K gorp.Key, E gorp.Entry[K]] struct {
 	del channel.Channel
 }
 
-func (f *tableFeed[K, E]) append(
-	ctx context.Context,
-	c gorp.Commit,
-	fr framer.Frame,
-) framer.Frame {
+func (f *tableFeed[K, E]) append(c gorp.Commit, fr framer.Frame) framer.Frame {
 	var (
 		sets    = telem.Series{DataType: telem.JSONT}
 		deletes = telem.Series{DataType: f.del.DataType}
 	)
-	for ch := range f.cfg.Changes(ctx, c) {
+	for ch := range f.cfg.Changes(c) {
 		if ch.Kind == gorp.ChangeDelete {
 			deletes.Data = append(deletes.Data, keySample(ch.Key)...)
 			continue

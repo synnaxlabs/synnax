@@ -16,6 +16,7 @@ from playwright.sync_api import FloatRect, Locator, Page
 
 import synnax as sy
 from console.layout import LayoutClient
+from console.notifications import click_past
 from x.control import Authority
 from x.notation import Notation
 
@@ -134,28 +135,30 @@ class Symbol(ABC):
         """
 
     def _disable_edit_mode(self) -> None:
+        # Callers press or hold the symbol next, which goes through the hit test.
         self.notifications.close_all()
         disable_btn = self.page.get_by_role(
             "button", name="Disable editing", exact=True
         )
         if disable_btn.count() > 0:
-            disable_btn.click()
+            click_past(disable_btn)
             self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
                 state="visible", timeout=3000
             )
 
     def _enable_edit_mode(self) -> None:
+        # Callers then click or drag the symbol through the hit test.
         self.notifications.close_all()
         enable_editing_link = self.page.get_by_text("enable editing", exact=False)
         if enable_editing_link.count() > 0:
-            enable_editing_link.click()
+            click_past(enable_editing_link)
             self.page.get_by_role(
                 "button", name="Disable editing", exact=True
             ).wait_for(state="visible", timeout=2000)
             return
         enable_btn = self.page.get_by_role("button", name="Enable editing", exact=True)
         if enable_btn.count() > 0:
-            enable_btn.click()
+            click_past(enable_btn)
 
     def click(self) -> None:
         """Click the symbol to select it."""
@@ -175,7 +178,7 @@ class Symbol(ABC):
         self.layout.show_visualization_toolbar()
         style_tab = self.page.get_by_text("Style", exact=True).first
         style_tab.wait_for(state="visible", timeout=5000)
-        style_tab.click()
+        click_past(style_tab)
         self.layout.fill_input_field("Label", label)
         self.label = label
 
@@ -185,7 +188,7 @@ class Symbol(ABC):
 
     def set_channel(self, *, section: str, channel_name: str) -> None:
         if channel_name is not None:
-            self.layout.click(self.channel_trigger(section))
+            click_past(self.channel_trigger(section))
             self.layout.select_from_dropdown(
                 channel_name, placeholder="Search", exact=True
             )
@@ -274,14 +277,11 @@ class Symbol(ABC):
         self.click()
         self.open_properties_tab()
         if tab:
-            self.page.get_by_text(tab).last.click()
+            click_past(self.page.get_by_text(tab).last)
         return {}
 
     def open_properties_tab(self) -> None:
-        """Open the symbol Properties tab.
-
-        Toasts stack over the tab strip and swallow coordinate clicks, so the
-        click is dispatched on the tab itself.
-        """
+        """Open the symbol Properties tab."""
+        # The setters that follow click the form through the hit test.
         self.notifications.close_all()
-        self.page.get_by_text("Properties").dispatch_event("click")
+        click_past(self.page.get_by_text("Properties"))

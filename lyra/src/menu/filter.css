@@ -1,0 +1,63 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* A search spans the top of a menu, over a hairline, with the look of a select's. Its
+   input never sets the width of the menu. */
+:is(.lyra-dialog__dialog.lyra-menu-dialog, .lyra-menu-context) > .lyra-input {
+    contain: inline-size;
+    flex-shrink: 0;
+    width: calc(100% + 2rem);
+    height: var(--pluto-height-large);
+    min-height: var(--pluto-height-large);
+    margin: -1rem -1rem 1rem;
+    border-width: 0 0 var(--pluto-border-width);
+    border-radius: calc(var(--pluto-border-radius-large) - var(--pluto-border-width))
+        calc(var(--pluto-border-radius-large) - var(--pluto-border-width)) 0 0;
+}
+
+/* The gap between the parts of a context menu makes up the rest of the room. */
+.lyra-flex.lyra-menu-context > .lyra-input {
+    margin-bottom: 0.5rem;
+}
+
+/* While the search has the focus, the first match is lit, unless the pointer lights
+   another item. Enter picks the lit item. */
+:is(.lyra-menu-dialog, .lyra-menu-context):has(> .lyra-menu-filter:focus-within):not(
+        :has([role="menuitem"]:not([aria-disabled="true"]):hover)
+    )
+    .lyra-btn[role="menuitem"][data-highlighted] {
+    --pluto-btn-bg: var(--pluto-hover-bg);
+    --pluto-btn-border-color: var(--pluto-hover-border-color);
+}
+
+.lyra-menu-filter__empty {
+    display: flex;
+    align-items: center;
+    height: var(--pluto-height-medium);
+    padding: 0 1.5rem;
+}
+
+/* The line shows only when no item matches. */
+:has(> .lyra-menu-filter__empty):has([role="menuitem"]) > .lyra-menu-filter__empty {
+    display: none;
+}
+
+/* A divider shows only between items that match. A hidden element counts as nothing. */
+.lyra-menu-filter ~ [hidden],
+.lyra-menu-filter + .lyra-menu__divider,
+.lyra-menu-filter + [hidden] + .lyra-menu__divider,
+.lyra-menu-filter ~ .lyra-menu__divider + [hidden] + .lyra-menu__divider,
+.lyra-menu-filter
+    ~ .lyra-menu__divider:not(
+        :has(~ :not(.lyra-menu__divider, .lyra-menu-filter__empty, [hidden]))
+    ) {
+    display: none;
+}

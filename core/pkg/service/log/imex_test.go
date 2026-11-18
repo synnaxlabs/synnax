@@ -75,7 +75,7 @@ var _ = Describe("ImEx", func() {
 					Channels: []log.ChannelEntry{
 						{
 							Channel: ch1,
-							Color:   MustSucceed(color.FromHex("#ff0000")),
+							Color:   new(MustSucceed(color.Parse("#ff0000"))),
 						},
 					},
 					TimestampPrecision: 2,
@@ -86,7 +86,8 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("exported"))
 
-				decoded := MustSucceed(WireRoundTrip(env).Decode[log.Log](ctx))
+				wire := WireRoundTrip(env)
+				decoded := MustSucceed(wire.Decode[log.Log]())
 				Expect(decoded.Name).To(Equal("exported"))
 				Expect(decoded.TimestampPrecision).To(Equal(uint8(2)))
 				Expect(decoded.ChannelNamesHidden).To(BeTrue())
@@ -236,7 +237,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Channels[0].Channel).To(Equal(ch1))
 				Expect(
 					res.Channels[0].Color,
-				).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
+				).To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
 				Expect(res.Channels[0].Precision).To(Equal(new(uint8(2))))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
@@ -281,7 +282,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Channels[0].Channel).To(Equal(ch1))
 				Expect(
 					res.Channels[0].Color,
-				).To(Equal(MustSucceed(color.FromHex("#7f1d1d"))))
+				).To(HaveValue(Equal(MustSucceed(color.Parse("#7f1d1d")))))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
 				Expect(res.Channels[0].Precision).To(Equal(new(uint8(2))))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
@@ -292,6 +293,7 @@ var _ = Describe("ImEx", func() {
 					res.Channels[0].TimestampConfig.TimeZone,
 				).To(Equal(telem.TimeZoneUTC))
 				Expect(res.Channels[1].Channel).To(Equal(ch5))
+				Expect(res.Channels[1].Color).To(BeNil())
 			},
 		)
 

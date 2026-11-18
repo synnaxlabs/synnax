@@ -20,5 +20,5 @@ export interface MenuProps extends PropsWithChildren {}
  * dividers next to nothing hide themselves.
  */
 export const Menu = (props: MenuProps): ReactElement => (
-  <PMenu.Menu {...props} level="small" gap="small" />
+  <PMenu.Menu {...props} gap="small" />
 );

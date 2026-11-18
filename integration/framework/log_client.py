@@ -16,6 +16,7 @@ from enum import Enum, auto
 from typing import Protocol
 
 import synnax as sy
+from freighter.websocket import ConnectionClosedError
 
 
 class LogMode(Enum):
@@ -96,8 +97,8 @@ class SynnaxChannelSink:
     def emit(self, entry: LogEntry) -> None:
         try:
             self._writer.write(self._channel.key, [entry.message])
-        except Exception:
-            pass  # Best-effort; do not let logging errors affect test results
+        except (sy.Error, ConnectionClosedError):
+            pass  # A failed log write must not fail the test.
 
     def flush(self) -> None:
         pass

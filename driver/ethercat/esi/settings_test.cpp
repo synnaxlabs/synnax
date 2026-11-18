@@ -270,6 +270,19 @@ TEST(ReadSettings, Gives6xSTGInStandaloneModeItsSyncMode) {
         })
     );
     EXPECT_TRUE(mode["switch"].empty());
+    EXPECT_FALSE(mode.contains("unlisted"));
+}
+
+/// @brief it should mark a mode that the catalog of the card does not list.
+TEST(ReadSettings, MarksAModeThatTheCatalogDoesNotList) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(7))
+    );
+    ASSERT_TRUE(settings.has_value());
+    const auto &mode = settings.value()["mode"];
+    EXPECT_EQ(mode["value"], 7);
+    EXPECT_TRUE(mode["unlisted"].get<bool>());
+    EXPECT_FALSE(mode["switch"].empty());
 }
 
 /// @brief it should name the object that holds the mode of a 6xSTG.
@@ -353,15 +366,17 @@ TEST(ReadSettings, Switches6xSTGThatSavesEachChangeWithoutTheSaveWrite) {
     EXPECT_EQ(change[0]["sub_index"], 9);
 }
 
-/// @brief it should give a 6xSTG in SM mode no sync mode when the SII lists no mode
-/// with the catalog's assign activate value.
-TEST(ReadSettings, OmitsTheSyncModeThatTheSIIDoesNotList) {
+/// @brief it should give a 6xSTG in SM mode no sync mode, and name the catalog's assign
+/// activate value, when the SII lists no mode with it.
+TEST(ReadSettings, NamesTheSyncModeThatTheSIIDoesNotList) {
     const std::vector<dc::OpMode> sm_only{{.name = "SM", .assign_activate = 0}};
     const auto settings = ASSERT_NIL_P(
         read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, sm_only, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
-    EXPECT_FALSE(settings.value()["mode"].contains("op_mode"));
+    const auto &mode = settings.value()["mode"];
+    EXPECT_FALSE(mode.contains("op_mode"));
+    EXPECT_EQ(mode["unlisted_assign_activate"], 0x0300);
 }
 
 /// @brief it should return no settings for a product that the catalog does not
@@ -388,7 +403,7 @@ TEST(ReadSettings, SelectsTheDescriptionOfTheRevision) {
     );
     ASSERT_TRUE(inputs.has_value());
     EXPECT_TRUE(inputs.value()["device"].empty());
-    EXPECT_EQ(inputs.value()["mode"]["index"], 0x8020);
+    EXPECT_FALSE(inputs.value().contains("mode"));
 }
 
 /// @brief it should return no settings for a revision that no description of the

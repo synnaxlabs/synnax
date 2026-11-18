@@ -29,7 +29,7 @@ var _ = Describe("surface command", func() {
 			"widget.oracle": "Valve struct { name string }\nValve struct { size int32 }\n",
 		})
 		DeferCleanup(cleanup)
-		Expect(fail(1, "surface")).To(SatisfyAll(
+		Expect(fail("surface")).To(SatisfyAll(
 			ContainSubstring("duplicate type definition: widget.Valve"),
 			ContainSubstring("analysis failed"),
 		))

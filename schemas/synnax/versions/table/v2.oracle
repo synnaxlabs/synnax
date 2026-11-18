@@ -116,8 +116,8 @@ CellConfig union on variant {
     }
 
     @doc value  """
-        is the per-cell configuration stored in the table cells map. The variant selects
-        which Pluto cell component renders the cell.
+        is the configuration of one cell. The variant selects which Pluto cell component
+        renders the cell.
     """
     @go marshal
 }

@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -15,146 +17,144 @@
 #include "x/cpp/testutil/testutil.h"
 
 namespace x::color {
-namespace {
 
-void expect_css(
-    const std::string &input,
-    std::uint8_t r,
-    std::uint8_t g,
-    std::uint8_t b,
-    double a
-) {
-    SCOPED_TRACE(input);
-    const auto c = ASSERT_NIL_P(from_css(input));
-    EXPECT_EQ(c.r, r);
-    EXPECT_EQ(c.g, g);
-    EXPECT_EQ(c.b, b);
-    EXPECT_DOUBLE_EQ(c.a, a);
+struct ParseCase {
+    std::string input;
+    Color expected;
+};
+
+/// @brief it should parse every form of the color string grammar.
+TEST(Parse, ParsesEveryForm) {
+    const std::vector<ParseCase> cases = {
+        {"red", {255, 0, 0, 255}},
+        {" RebeccaPurple ", {102, 51, 153, 255}},
+        {"transparent", {0, 0, 0, 0}},
+        {"#ff8000", {255, 128, 0, 255}},
+        {"ff8000", {255, 128, 0, 255}},
+        {"#FF8000", {255, 128, 0, 255}},
+        {"#ff000080", {255, 0, 0, 128}},
+        {"#00000000", {0, 0, 0, 0}},
+        {"#f80", {255, 136, 0, 255}},
+        {"#f808", {255, 136, 0, 136}},
+        {"  #f80  ", {255, 136, 0, 255}},
+        {"rgb(59, 196, 84)", {59, 196, 84, 255}},
+        {"rgb(59,196,84)", {59, 196, 84, 255}},
+        {"rgba(59, 196, 84)", {59, 196, 84, 255}},
+        {"rgb(59, 196, 84, 0.5)", {59, 196, 84, 128}},
+        {"rgba(59, 196, 84, 0.5)", {59, 196, 84, 128}},
+        {"rgba(0, 0, 0, 0)", {0, 0, 0, 0}},
+        {"rgb(59 196 84)", {59, 196, 84, 255}},
+        {"rgb(59 196 84 / 0.5)", {59, 196, 84, 128}},
+        {"rgb(59 196 84/50%)", {59, 196, 84, 128}},
+        {"rgb(100%, 0%, 50%)", {255, 0, 128, 255}},
+        {"RGB(1, 2, 3)", {1, 2, 3, 255}},
+        {"hsl(0, 100%, 50%)", {255, 0, 0, 255}},
+        {"hsl(120, 100, 50)", {0, 255, 0, 255}},
+        {"hsla(240, 100%, 50%, 0.25)", {0, 0, 255, 64}},
+        {"hsl(240 100% 50% / 25%)", {0, 0, 255, 64}},
+        {"hsl(360deg 100% 50%)", {255, 0, 0, 255}},
+        {"hsl(-120, 100%, 50%)", {0, 0, 255, 255}},
+        {"hsl(0, 0%, 100%)", {255, 255, 255, 255}},
+    };
+    for (const auto &[input, expected]: cases) {
+        SCOPED_TRACE(input);
+        EXPECT_EQ(ASSERT_NIL_P(parse(input)), expected);
+    }
 }
 
-void expect_css_error(const std::string &input, const std::string &msg) {
-    SCOPED_TRACE(input);
-    auto [c, err] = from_css(input);
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_NE(err.message().find(msg), std::string::npos) << err.message();
+/// @brief it should reject a string outside the grammar or a value out of range.
+TEST(Parse, RejectsInvalidStrings) {
+    for (const std::string input:
+         {"",
+          "   ",
+          "reddish",
+          "#",
+          "#12345",
+          "#1234567",
+          "#gggggg",
+          "rgb(1, 2)",
+          "rgb(1, 2, 3, 4, 5)",
+          "rgb(1 2 3 0.5)",
+          "rgb(1 2 / 3 / 4)",
+          "rgb(1, 2, 3",
+          "rgb(300, 0, 0)",
+          "rgb(-1, 0, 0)",
+          "rgb(101%, 0%, 0%)",
+          "rgba(1, 2, 3, 1.5)",
+          "rgba(1, 2, 3, -0.5)",
+          "rgb(1, 2, x)",
+          "rgb(1px, 2, 3)",
+          "hsl(0, 101%, 50%)",
+          "hsl(0, 100%, -1%)",
+          "hsl(0rad, 100%, 50%)",
+          "hwb(0, 0%, 0%)"}) {
+        SCOPED_TRACE(input);
+        ASSERT_OCCURRED_AS_P(parse(input), x::errors::VALIDATION);
+    }
 }
 
-Color parse_json(const x::json::json &j) {
-    SCOPED_TRACE(j.dump());
-    x::json::Parser parser(j);
-    const auto c = Color::parse(parser);
-    EXPECT_NIL(parser.error());
-    return c;
+/// @brief it should default to opaque black.
+TEST(Color, DefaultsToOpaqueBlack) {
+    EXPECT_EQ(Color{}, (Color{0, 0, 0, 255}));
 }
 
-void expect_parsed(
-    const x::json::json &j,
-    std::uint8_t r,
-    std::uint8_t g,
-    std::uint8_t b,
-    double a
-) {
-    const auto c = parse_json(j);
-    EXPECT_EQ(c.r, r) << j.dump();
-    EXPECT_EQ(c.g, g) << j.dump();
-    EXPECT_EQ(c.b, b) << j.dump();
-    EXPECT_DOUBLE_EQ(c.a, a) << j.dump();
-}
+/// @brief it should write six digits for an opaque color and eight otherwise.
+TEST(Color, WritesShortHexWhenOpaque) {
+    EXPECT_EQ((Color{255, 128, 1, 255}.hex()), "#ff8001");
+    EXPECT_EQ((Color{255, 128, 1, 64}.hex()), "#ff800140");
+    EXPECT_EQ((Color{0, 0, 0, 0}.hex()), "#00000000");
+    EXPECT_EQ((Color{255, 128, 1, 64}.to_json()), x::json::json("#ff800140"));
+    EXPECT_EQ(Color{}.to_json(), x::json::json("#000000"));
 }
 
-TEST(ColorFromCSS, ParsesValidStrings) {
-    expect_css("#ff0000", 255, 0, 0, 1.0);
-    expect_css("#ff000080", 255, 0, 0, 128.0 / 255.0);
-    expect_css("rgb(59,196,84)", 59, 196, 84, 1.0);
-    expect_css("rgb(255, 0, 0)", 255, 0, 0, 1.0);
-    expect_css("rgba(59,196,84,0.5)", 59, 196, 84, 0.5);
-    expect_css("rgba(0,0,0,1)", 0, 0, 0, 1.0);
-    expect_css("  rgb(1,2,3)  ", 1, 2, 3, 1.0);
+/// @brief it should parse any string form from JSON.
+TEST(Color, ParsesJSONStrings) {
+    x::json::Parser hex(x::json::json("#ff800080"));
+    EXPECT_EQ(Color::parse(hex), (Color{255, 128, 0, 128}));
+    EXPECT_TRUE(hex.ok());
+    x::json::Parser rgb(x::json::json("rgb(1, 2, 3)"));
+    EXPECT_EQ(Color::parse(rgb), (Color{1, 2, 3, 255}));
+    EXPECT_TRUE(rgb.ok());
 }
 
-TEST(ColorFromCSS, RejectsInvalidStrings) {
-    expect_css_error("#gggggg", "invalid hex");
-    expect_css_error("#12345", "invalid hex");
-    expect_css_error("#fff", "invalid hex");
-    expect_css_error("rgb(1,2,3,0.5)", "rgb() takes 3 channels");
-    expect_css_error("rgba(1,2,3)", "rgba() requires");
-    expect_css_error("rgba(1,2,3,1.5)", "alpha must be 0-1");
-    expect_css_error("rgb(300,0,0)", "channels must be 0-255");
-    expect_css_error("00ff00", "must be a hex value");
-    expect_css_error("red", "must be a hex value");
-    expect_css_error("rgb(1,2)", "must be a hex value");
-    expect_css_error("", "must be a hex value");
+/// @brief it should reject JSON that is not a color string.
+TEST(Color, RejectsNonStringJSON) {
+    const std::vector<std::pair<x::json::json, std::string>> cases = {
+        {x::json::json(nullptr), "color must be a string: null"},
+        {x::json::json(""), "invalid color \"\": the string is empty"},
+        {x::json::json::object(), "color must be a string: {}"},
+        {x::json::json::array({122, 44, 38, 0.5}),
+         "color must be a string: [122,44,38"},
+        {x::json::json({{"r", 255}, {"a", 0.5}}), "color must be a string: {\"a\""},
+    };
+    for (const auto &[j, want]: cases) {
+        SCOPED_TRACE(j.dump());
+        x::json::Parser parser(j);
+        Color::parse(parser);
+        ASSERT_FALSE(parser.ok());
+        const auto msg = parser.errors->at(0)["message"].get<std::string>();
+        EXPECT_NE(msg.find(want), std::string::npos) << msg;
+    }
 }
 
-TEST(ColorParse, ParsesStructForm) {
-    expect_parsed({{"r", 255}, {"g", 128}, {"b", 0}, {"a", 0.5}}, 255, 128, 0, 0.5);
+/// @brief it should round trip every alpha through JSON and protobuf.
+TEST(Color, RoundTripsEveryAlpha) {
+    for (int a = 0; a < 256; a++) {
+        const Color c{.r = 100, .g = 200, .b = 50, .a = static_cast<std::uint8_t>(a)};
+        SCOPED_TRACE(c.hex());
+        x::json::Parser parser(c.to_json());
+        EXPECT_EQ(Color::parse(parser), c);
+        EXPECT_TRUE(parser.ok());
+        const auto pb = ASSERT_NIL_P(c.to_proto());
+        ::x::color::pb::Color decoded_pb;
+        ASSERT_TRUE(decoded_pb.ParseFromString(pb.SerializeAsString()));
+        EXPECT_EQ(ASSERT_NIL_P(Color::from_proto(decoded_pb)), c);
+    }
 }
 
-TEST(ColorParse, ParsesHexString) {
-    expect_parsed("#ff8000", 255, 128, 0, 1.0);
-    expect_parsed("#ff000080", 255, 0, 0, 128.0 / 255.0);
-}
-
-TEST(ColorParse, ParsesArrays) {
-    expect_parsed(x::json::json::array({122, 44, 38}), 122, 44, 38, 1.0);
-    expect_parsed(x::json::json::array({122, 44, 38, 0.5}), 122, 44, 38, 0.5);
-}
-
-TEST(ColorParse, ParsesLegacyRGBA255Object) {
-    expect_parsed({{"rgba255", {122, 44, 38, 0.5}}}, 122, 44, 38, 0.5);
-}
-
-TEST(ColorParse, ParsesNullAndEmptyStringAsZero) {
-    expect_parsed(nullptr, 0, 0, 0, 0.0);
-    expect_parsed("", 0, 0, 0, 0.0);
-}
-
-TEST(ColorParse, LiftsLegacyAlphaOntoUnitScale) {
-    expect_parsed(x::json::json::array({28, 28, 28, 255}), 28, 28, 28, 1.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 128}), 255, 0, 0, 128.0 / 255.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 1.5}), 255, 0, 0, 1.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 2}), 255, 0, 0, 1.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 2.01}), 255, 0, 0, 2.01 / 255.0);
-    expect_parsed(x::json::json::array({255, 0, 0, 1}), 255, 0, 0, 1.0);
-    expect_parsed({{"r", 5}, {"g", 5}, {"b", 5}, {"a", 255}}, 5, 5, 5, 1.0);
-    expect_parsed({{"rgba255", {5, 5, 5, 255}}}, 5, 5, 5, 1.0);
-}
-
-TEST(ColorParse, AccumulatesErrorOnBadInput) {
-    x::json::Parser bad_length(x::json::json::array({1, 2}));
-    Color::parse(bad_length);
-    EXPECT_FALSE(bad_length.ok());
-    EXPECT_EQ(bad_length.errors->at(0)["message"], "invalid color array length: 2");
-    x::json::Parser bad_element(x::json::json::array({1, 2, "x", 1}));
-    Color::parse(bad_element);
-    EXPECT_FALSE(bad_element.ok());
-    EXPECT_EQ(
-        bad_element.errors->at(0)["message"],
-        "color array elements must be numbers"
-    );
-    x::json::Parser out_of_range(x::json::json::array({300, 0, 0}));
-    Color::parse(out_of_range);
-    EXPECT_FALSE(out_of_range.ok());
-    EXPECT_EQ(
-        out_of_range.errors->at(0)["message"],
-        "color array elements must be within [0, 255]"
-    );
-    x::json::Parser alpha_above_scale({{"r", 5}, {"g", 5}, {"b", 5}, {"a", 300}});
-    Color::parse(alpha_above_scale);
-    EXPECT_FALSE(alpha_above_scale.ok());
-    EXPECT_EQ(alpha_above_scale.errors->at(0)["path"], "a");
-    EXPECT_EQ(
-        alpha_above_scale.errors->at(0)["message"],
-        "alpha is above the 0-255 scale"
-    );
-    x::json::Parser bad_hex(x::json::json("#xyz"));
-    Color::parse(bad_hex);
-    EXPECT_FALSE(bad_hex.ok());
-    EXPECT_EQ(bad_hex.errors->at(0)["message"], "invalid hex color length: #xyz");
-}
-
-TEST(ColorParse, RoundTripsToJSON) {
-    const Color original{.r = 100, .g = 200, .b = 50, .a = 0.75};
-    expect_parsed(original.to_json(), 100, 200, 50, 0.75);
+/// @brief it should pack the color into one proto field as 0xRRGGBBAA.
+TEST(Color, PacksTheProtoColorIntoOneField) {
+    const Color c{.r = 0x12, .g = 0x34, .b = 0x56, .a = 0x78};
+    EXPECT_EQ(ASSERT_NIL_P(c.to_proto()).rgba(), 0x12345678u);
 }
 }

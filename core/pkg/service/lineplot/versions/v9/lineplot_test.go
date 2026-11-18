@@ -34,12 +34,4 @@ var _ = Describe("LinePlot", func() {
 			}))
 		})
 	})
-
-	Describe("Validate", func() {
-		It("Should reject an empty name", func() {
-			lp := v9.LinePlot{}
-			lp.ApplyDefaults()
-			Expect(lp.Validate()).To(MatchError(ContainSubstring("name: required")))
-		})
-	})
 })

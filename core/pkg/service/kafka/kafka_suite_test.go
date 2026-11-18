@@ -75,14 +75,15 @@ func TestKafka(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	st := DeferClose(storagetestutil.OpenLayer(ctx))
+	st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 	hookedKV = hookkv.Wrap(st.KV)
 	faultyFS = WrapFaultyFS(xfs.NewMem())
+	tsDB := DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS})))
+	StartRun(tsDB.Run)
+	hookedDB := gorp.Wrap(hookedKV)
+	StartRun(hookedDB.Run)
 	node := testutil.NewNode(ctx, distribution.LayerConfig{
-		Storage: &storage.Layer{
-			KV: hookedKV,
-			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
-		},
+		Storage: &storage.Layer{KV: hookedKV, TS: tsDB, Gorp: hookedDB},
 	})
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -335,8 +336,12 @@ func newLeaderlessCluster(ctx context.Context, topic string) *kfake.Cluster {
 		int16(kmsg.ListOffsets),
 		func(kreq kmsg.Request) (kmsg.Response, error, bool) {
 			c.KeepControl()
-			req := kreq.(*kmsg.ListOffsetsRequest)
-			res := req.ResponseKind().(*kmsg.ListOffsetsResponse)
+			req, ok := kreq.(*kmsg.ListOffsetsRequest)
+			if !ok {
+				return nil, errors.Newf("list offsets request is a %T", kreq), true
+			}
+			res := kmsg.NewPtrListOffsetsResponse()
+			res.Version = req.Version
 			for _, rt := range req.Topics {
 				t := kmsg.NewListOffsetsResponseTopic()
 				t.Topic = rt.Topic

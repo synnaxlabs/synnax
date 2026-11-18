@@ -14,7 +14,6 @@ var (
 	// DimNone represents a dimensionless quantity.
 	DimNone = Dimensions{}
 
-	// Base dimensions
 	DimLength      = Dimensions{Length: 1}
 	DimMass        = Dimensions{Mass: 1}
 	DimTime        = Dimensions{Time: 1}
@@ -24,7 +23,6 @@ var (
 	DimCount       = Dimensions{Count: 1}
 	DimData        = Dimensions{Data: 1}
 
-	// Derived dimensions (computed via multiplication/division of base dimensions)
 	DimPressure = Dimensions{
 		Mass:   1,
 		Length: -1,

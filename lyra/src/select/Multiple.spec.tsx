@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
+import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -40,7 +41,11 @@ describe("Select.Multiple", () => {
     );
   });
 
-  const createSelectMultiple = () => {
+  const createSelectMultiple = (
+    initialValue: string[] = [],
+    /** Replaces the keys of the data, as a list that has not loaded every page. */
+    dataKeys?: string[],
+  ) => {
     const onChange = vi.fn();
     const SelectMultiple = (
       props: Omit<
@@ -51,7 +56,7 @@ describe("Select.Multiple", () => {
       const { data, getItem, search } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const [value, setValue] = useState<string[]>([]);
+      const [value, setValue] = useState<string[]>(initialValue);
       const handleChange = (keys: string[]) => {
         setValue(keys);
         onChange(keys);
@@ -60,7 +65,7 @@ describe("Select.Multiple", () => {
         <Triggers.Provider>
           <Select.Multiple<string, TestEntry>
             getItem={getItem}
-            data={data}
+            data={dataKeys ?? data}
             value={value}
             onChange={handleChange}
             resourceName="Test Item"
@@ -164,6 +169,17 @@ describe("Select.Multiple", () => {
     fireEvent.click(c.getByText("First Item Option"));
     fireEvent.click(c.getByLabelText("Remove First Item"));
     expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  it("should toggle the selection dialog when the user clicks a tag", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple />);
+    fireEvent.click(c.getByText("Test Items"));
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("First Item"));
+    expect(c.queryByText("Second Item Option")).toBeNull();
+    fireEvent.click(c.getByText("First Item"));
+    expect(c.getByText("Second Item Option")).toBeTruthy();
   });
 
   it("should allow the caller to search for an item", () => {
@@ -291,6 +307,129 @@ describe("Select.Multiple", () => {
     expect(
       c.getByRole("option", { name: "First Item Option" }).classList,
     ).not.toContain("lyra-btn--prevent-click");
+  });
+
+  describe("drag preview", () => {
+    const dragTag = (props: Partial<Select.MultipleProps<string, TestEntry>> = {}) => {
+      const { SelectMultiple } = createSelectMultiple(["1"]);
+      const c = render(
+        <Haul.Provider>
+          <SelectMultiple haulType="test-item" {...props} />
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(c.getByText("First Item"));
+      return document.querySelector(".lyra-haul__layer")?.textContent;
+    };
+
+    it("should picture a dragged tag by its name", () => {
+      expect(dragTag()).toBe("First Item");
+    });
+
+    it("should picture a dragged tag with the preview that its trigger renders", () => {
+      const renderHaulPreview = (entry: unknown) =>
+        `Custom ${(entry as TestEntry).name}`;
+      expect(dragTag({ triggerProps: { renderHaulPreview } })).toBe(
+        "Custom First Item",
+      );
+    });
+  });
+
+  describe("selected first", () => {
+    const options = (c: RenderResult): string[] =>
+      c.getAllByRole("option").map((option) => option.textContent ?? "");
+    const toggle = (c: RenderResult): void => {
+      fireEvent.click(c.getByRole("button", { name: "Test Items" }));
+    };
+
+    it("should list the selected items first when the dialog opens", () => {
+      const { SelectMultiple } = createSelectMultiple(["3"]);
+      const c = render(<SelectMultiple />);
+      toggle(c);
+      expect(options(c)).toEqual([
+        "Third Item Option",
+        "First Item Option",
+        "Second Item Option",
+      ]);
+    });
+
+    it("should keep the order while the dialog stays open", () => {
+      const { SelectMultiple, onChange } = createSelectMultiple(["3"]);
+      const c = render(<SelectMultiple />);
+      toggle(c);
+      fireEvent.click(c.getByText("Second Item Option"));
+      fireEvent.click(c.getByText("Third Item Option"));
+      expect(onChange).toHaveBeenLastCalledWith(["2"]);
+      expect(options(c)).toEqual([
+        "Third Item Option",
+        "First Item Option",
+        "Second Item Option",
+      ]);
+    });
+
+    it("should list the new selection first when the dialog opens again", () => {
+      const { SelectMultiple } = createSelectMultiple();
+      const c = render(<SelectMultiple />);
+      toggle(c);
+      fireEvent.click(c.getByText("Second Item Option"));
+      toggle(c);
+      toggle(c);
+      expect(options(c)).toEqual([
+        "Second Item Option",
+        "First Item Option",
+        "Third Item Option",
+      ]);
+    });
+
+    it("should list the matches of a search in their own order", () => {
+      const { SelectMultiple } = createSelectMultiple(["3"]);
+      const c = render(<SelectMultiple />);
+      toggle(c);
+      const search = c.getByPlaceholderText("Search Test Items...");
+      fireEvent.change(search, { target: { value: "Item" } });
+      expect(options(c)).toEqual([
+        "First Item Option",
+        "Second Item Option",
+        "Third Item Option",
+      ]);
+      fireEvent.change(search, { target: { value: "" } });
+      expect(options(c)).toEqual([
+        "Third Item Option",
+        "First Item Option",
+        "Second Item Option",
+      ]);
+    });
+
+    it("should leave out a selected key that names no item", () => {
+      const { SelectMultiple } = createSelectMultiple(["deleted"]);
+      const c = render(<SelectMultiple />);
+      toggle(c);
+      expect(options(c)).toEqual([
+        "First Item Option",
+        "Second Item Option",
+        "Third Item Option",
+      ]);
+    });
+
+    it("should treat a search of only spaces as a search", () => {
+      const { SelectMultiple } = createSelectMultiple(["3"]);
+      const c = render(<SelectMultiple />);
+      toggle(c);
+      fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
+        target: { value: " " },
+      });
+      expect(c.queryAllByRole("option")).toHaveLength(0);
+    });
+
+    it("should list a selected item that the data has not loaded", () => {
+      const { SelectMultiple } = createSelectMultiple(["3"], ["1", "2"]);
+      const c = render(<SelectMultiple />);
+      toggle(c);
+      expect(options(c)).toEqual([
+        "Third Item Option",
+        "First Item Option",
+        "Second Item Option",
+      ]);
+    });
   });
 
   describe("replaceOnSingle", () => {

@@ -11,7 +11,6 @@ package pagerduty
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -178,8 +177,7 @@ func (t *alertTask) sendStatusEvent(
 		t.sendEvent(ctx, t.buildTriggerEvent(s, t.alertsByStatus[s.Key]), routingKey)
 	case status.VariantSuccess:
 		t.sendEvent(ctx, t.buildResolveEvent(s.Key), routingKey)
-	default:
-		// Loading and disabled statuses send no event.
+	case status.VariantLoading, status.VariantDisabled:
 	}
 }
 
@@ -189,7 +187,7 @@ func (t *alertTask) buildTriggerEvent(
 ) pagerduty.V2Event {
 	summary := s.Message
 	if s.Description != "" {
-		summary += fmt.Sprintf(": %s", s.Description)
+		summary += ": " + s.Description
 	}
 	// PagerDuty requires a source, which an unnamed status lacks.
 	source := s.Name
@@ -228,9 +226,9 @@ func mapSeverity(variant status.Variant, errorsCritical bool) string {
 		return "warning"
 	case status.VariantInfo:
 		return "info"
-	default:
-		return "info"
+	case status.VariantSuccess, status.VariantLoading, status.VariantDisabled:
 	}
+	panic("no PagerDuty severity for variant " + string(variant))
 }
 
 // sendEvent sends event with routingKey. A failed send sets an error status on the

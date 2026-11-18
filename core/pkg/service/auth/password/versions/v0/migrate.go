@@ -40,10 +40,7 @@ func NewMove() gorp.Migration {
 	return migrate.New("v0.move_credentials_to_passwords", move)
 }
 
-func subjectsByUsername(
-	ctx context.Context,
-	tx gorp.Tx,
-) (_ map[string]resource.ID, err error) {
+func subjectsByUsername(tx gorp.Tx) (_ map[string]resource.ID, err error) {
 	iter, err := gorp.WrapReader[userv0.Key, userv0.User](tx).
 		OpenIterator(gorp.IterOptions{})
 	if err != nil {
@@ -52,7 +49,7 @@ func subjectsByUsername(
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	subjects := make(map[string]resource.ID)
 	for iter.First(); iter.Valid(); iter.Next() {
-		u := iter.Value(ctx)
+		u := iter.Value()
 		if err = iter.Error(); err != nil {
 			return nil, err
 		}
@@ -62,7 +59,7 @@ func subjectsByUsername(
 }
 
 func move(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
-	subjects, err := subjectsByUsername(ctx, tx)
+	subjects, err := subjectsByUsername(tx)
 	if err != nil {
 		return err
 	}
@@ -77,7 +74,7 @@ func move(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err erro
 		usernames []string
 	)
 	for iter.First(); iter.Valid(); iter.Next() {
-		old := iter.Value(ctx)
+		old := iter.Value()
 		if err = iter.Error(); err != nil {
 			return err
 		}

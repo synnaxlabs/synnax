@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import threading
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -24,9 +25,12 @@ from review import (
     Doc,
     Finding,
     Lens,
+    LoginRejected,
     PullRequest,
+    UsageLimit,
     Window,
     load,
+    render,
     run,
 )
 from review.__main__ import claude as launch, main
@@ -63,6 +67,7 @@ def config(**kw: Any) -> Config:
         "diff_chars": 100_000,
         "caps": {"P0": 2, "P1": 4},
         "prompt": "Review the pull request.",
+        "judge": "Judge the rebuttal.",
         "docs": [
             Doc(path="AGENTS.md", description="Rules", text="Every rule."),
             Doc(path="go.md", description="Go", text="Go only.", paths=("**/*.go",)),
@@ -225,6 +230,7 @@ class TestLoad:
             "diff_chars = 1\ncaps = {}\ncontext = []\n"
         )
         (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         (home / "rules" / "go.md").write_text(
             '+++\ndescription = "Go"\npaths = ["**/*.go"]\n+++\n\nNo panics.\n'
         )
@@ -242,6 +248,7 @@ class TestLoad:
             '[[lens]]\nname = "Races"\nfocus = "Trace each interleaving."\n'
         )
         (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         assert load(tmp_path).lenses == [LENSES[0]]
 
     def test_should_load_the_lenses_of_the_repository(self) -> None:
@@ -254,6 +261,7 @@ class TestLoad:
         (home / "rules").mkdir(parents=True)
         (home / "config.toml").write_text("context = []\ncolour = 1\n")
         (home / "prompt.md").write_text("Review it.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         with pytest.raises(TypeError, match="unexpected keyword argument 'colour'"):
             load(tmp_path)
 
@@ -313,9 +321,24 @@ class TestPrompt:
         ]
         stdin = review(pr=pull(dismissed=dismissed)).system
         assert (
-            "# Dismissed findings\n\nA member dismissed each of these findings. Do not "
-            "report them again in any form, and do not let them lower the score.\n\n"
+            "# Dismissed findings\n\nSomeone with write access dismissed each of these "
+            "findings. Do not report them again in any form, and do not let them lower "
+            "the score.\n\n"
             "- `a.go`: Old bug. Reason: Meant. See #1.\n- `b.go`: Nit"
+        ) in stdin
+
+    def test_should_list_the_withdrawn_findings_apart(self) -> None:
+        dismissed = [
+            Dismissal(path="a.go", title="Old bug", reason="Meant."),
+            Dismissal(path="b.go", title="Nit", reason="Checked.", withdrawn=True),
+        ]
+        stdin = review(pr=pull(dismissed=dismissed)).system
+        assert "\n\n- `a.go`: Old bug. Reason: Meant.\n\n# Withdrawn" in stdin
+        assert (
+            "# Withdrawn findings\n\nYou withdrew each of these findings after a "
+            "rebuttal on its thread, and its file has not changed since. Do not report "
+            "them again in any form, and do not let them lower the score.\n\n"
+            "- `b.go`: Nit. Reason: Checked."
         ) in stdin
 
     def test_should_leave_out_dismissals_when_there_are_none(self) -> None:
@@ -351,15 +374,23 @@ class TestPrompt:
         review(workdir=tmp_path)
         assert list(tmp_path.iterdir()) == []
 
-    def test_should_show_the_commits_since_the_last_review(self) -> None:
-        stdin = review(pr=pull(new=NEW_COMMITS)).system
-        assert "# Commits since your last review\n\nReview these" in stdin
+    def test_should_show_the_changes_since_the_last_review(self) -> None:
+        stdin = review(pr=pull(new=NEW_COMMITS, reviewed=True)).system
+        assert "# Changes since your last review\n\nReview these" in stdin
         assert NEW_COMMITS in stdin
+
+    def test_should_say_when_nothing_changed_since_the_last_review(self) -> None:
+        stdin = review(pr=pull(reviewed=True)).system
+        assert "# Changes since your last review\n\nNone: the changes" in stdin
+
+    def test_should_show_no_changes_on_a_first_review(self) -> None:
+        assert "# Changes since your last review" not in review().system
 
     def test_should_put_new_commits_too_long_to_show_in_a_file(
         self, tmp_path: Path
     ) -> None:
-        stdin = review(config(diff_chars=150), pull(new=NEW_COMMITS), tmp_path).system
+        pr = pull(new=NEW_COMMITS, reviewed=True)
+        stdin = review(config(diff_chars=150), pr, tmp_path).system
         assert "+fixed" not in stdin
         assert "Read all of `new.diff` first." in stdin
         assert (tmp_path / "new.diff").read_text() == NEW_COMMITS
@@ -403,6 +434,12 @@ class TestScore:
         claude = FakeClaude(3, [finding("P1")])
         assert run(config(), pull(), claude=claude, workdir=WORK)[0].score == 3
 
+    def test_should_cap_a_lone_p2_at_4(self) -> None:
+        caps = {"P0": 2, "P1": 4, "P2": 4}
+        claude = FakeClaude(5, [finding("P2")])
+        got = run(config(caps=caps), pull(), claude=claude, workdir=WORK)[0]
+        assert got.score == 4
+
     def test_should_raise_when_claude_ends_with_an_error(self) -> None:
         claude = FakeClaude()
         claude.out = {"is_error": True, "subtype": "error_max_turns", "result": "Out."}
@@ -410,6 +447,49 @@ class TestScore:
             RuntimeError, match=r"claude ended with error_max_turns: Out\."
         ):
             run(config(), pull(), claude=claude, workdir=WORK)
+
+    def test_should_raise_the_last_message_when_claude_exits_with_an_error(
+        self,
+    ) -> None:
+        def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
+            yield json.dumps({"type": "result", "result": "Usage limit reached."})
+            raise subprocess.CalledProcessError(1, args)
+
+        with pytest.raises(
+            RuntimeError,
+            match=r"claude exited with status 1 after .*Usage limit reached\.",
+        ):
+            run(config(), pull(), claude=claude, workdir=WORK)
+
+    def test_should_raise_when_claude_exits_with_an_error_and_no_message(
+        self,
+    ) -> None:
+        def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
+            yield from ()
+            raise subprocess.CalledProcessError(2, args)
+
+        with pytest.raises(
+            RuntimeError, match=r"claude exited with status 2 after no message"
+        ):
+            run(config(), pull(), claude=claude, workdir=WORK)
+
+    def test_should_raise_the_usage_limit_that_stopped_claude(self) -> None:
+        claude = FakeClaude()
+        claude.limits = [{"status": "rejected", "resetsAt": 1_795_266_000}]
+        claude.out = {"is_error": True, "subtype": "success", "result": "Limit."}
+        with pytest.raises(UsageLimit) as e:
+            run(config(), pull(), claude=claude, workdir=WORK)
+        assert e.value.until == 1_795_266_000
+
+    def test_should_raise_a_rejected_token_when_claude_exits(self) -> None:
+        def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
+            yield json.dumps({"type": "assistant", "error": "authentication_failed"})
+            raise subprocess.CalledProcessError(1, args)
+
+        before = int(time.time())
+        with pytest.raises(LoginRejected) as e:
+            run(config(), pull(), claude=claude, workdir=WORK)
+        assert before <= e.value.started <= int(time.time())
 
 
 class TestLenses:
@@ -503,7 +583,7 @@ class TestLenses:
             yield '{"type": "system"}\n'
             raise subprocess.CalledProcessError(1, args)
 
-        with pytest.raises(subprocess.CalledProcessError):
+        with pytest.raises(RuntimeError, match=r"after .*system"):
             run(config(lenses=LENSES), pull(), claude=claude, workdir=WORK)
         assert lenses == []
 
@@ -643,9 +723,9 @@ class TestLenses:
         assert (got.score, got.verdict) == (2, "From edges.")
 
     def test_should_take_the_first_summary_when_the_scores_tie(self) -> None:
-        races = FakeClaude(4)
+        races = FakeClaude(4, [at("P2", 12)])
         races.out["structured_output"]["verdict"] = "From races."
-        _, (got, _) = self.lenses(races, FakeClaude(4))
+        _, (got, _) = self.lenses(races, FakeClaude(4, [at("P2", 30)]))
         assert (got.score, got.verdict) == (4, "From races.")
 
     def test_should_return_each_pass_before_the_join(self) -> None:
@@ -792,6 +872,7 @@ class TestMain:
             "diff_chars = 1000\ncaps = {}\ncontext = []\n"
         )
         (home / "prompt.md").write_text("Use the trusted policy.\n")
+        (home / "judge.md").write_text("Judge it.\n")
         head = tmp_path / "head"
         head.mkdir()
         git(head, "init", "-q")
@@ -806,7 +887,9 @@ class TestMain:
         executable(
             bindir / "gh",
             f"open({str(tmp_path / 'gh.log')!r}, 'a').write(' '.join(sys.argv))\n"
-            "if 'graphql' not in sys.argv:\n"
+            "if any(a.endswith('/comments') for a in sys.argv):\n"
+            "    pass\n"
+            "elif 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n",
         )
         prompt = tmp_path / "prompt.txt"
@@ -872,17 +955,32 @@ class TestMain:
             "limits": {},
         }
 
+    def test_should_write_the_reset_of_a_usage_limit_and_fail(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        limit = {"status": "rejected", "resetsAt": 1_795_266_000}
+        stream = [
+            {"type": "rate_limit_event", "rate_limit_info": limit},
+            {"type": "result", "is_error": True, "subtype": "success"},
+        ]
+        monkeypatch.setattr(
+            "review.__main__.claude",
+            lambda args, stdin, cwd: iter(json.dumps(m) for m in stream),
+        )
+        with pytest.raises(ExceptionGroup):
+            main(["run", str(tmp_path / "review.json")])
+        assert output.read_text() == "limited-until=1795266000\n"
+
     def test_should_show_the_open_and_dismissed_findings(
         self, tmp_path: Path, env: dict[str, str]
     ) -> None:
         def node(title: str, *replies: str) -> dict[str, Any]:
             bot = {"__typename": "Bot", "login": "sedosaur"}
-            first = {"author": bot, "body": f"<img> **{title}**"}
+            first = {"databaseId": 1, "author": bot, "body": f"<img> **{title}**"}
             person = {"__typename": "User", "login": "m"}
-            later = [
-                {"author": person, "authorAssociation": "MEMBER", "body": r}
-                for r in replies
-            ]
+            later = [{"author": person, "body": r} for r in replies]
             comments = [first, *later]
             return {
                 "id": title,
@@ -895,17 +993,34 @@ class TestMain:
             json.dumps(n) + "\n"
             for n in [node("Open bug"), node("Meant", "@sedosaur dismiss, on purpose")]
         )
+        far = Finding(severity="P2", title="Stale doc", body="B.", path="b.md", line=4)
+        body = render.outside([far], blob="https://github.com/o/r/blob/h")
+        bot = {"__typename": "Bot", "login": "sedosaur[bot]"}
+        gone = {"comment": 4, "path": "c.md", "title": "Gone", "reason": "moved"}
+        answer = f"<!-- sedosaur_answer {json.dumps(gone)} -->\n\nDismissed."
+        comment = "\n".join(
+            json.dumps({"id": i, "login": "sedosaur[bot]", "author": bot, "body": b})
+            for i, b in [(3, body), (5, answer)]
+        )
         executable(
             tmp_path / "bin" / "gh",
-            "if 'graphql' not in sys.argv:\n"
+            "if any(a.endswith('/permission') for a in sys.argv):\n"
+            "    print('write')\n"
+            "elif any(a.endswith('/comments') for a in sys.argv):\n"
+            f"    print({comment!r})\n"
+            "elif 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
             "elif any('reviewThreads' in a for a in sys.argv):\n"
             f"    print({nodes!r}, end='')\n",
         )
         main(["run", str(tmp_path / "review.json")])
         text = (tmp_path / "prompt.txt").read_text()
-        assert "# Earlier findings still open\n\n- `a.go`: Open bug\n" in text
+        held = (
+            "# Earlier findings still open\n\n- `a.go`: Open bug\n- `b.md`: Stale doc\n"
+        )
+        assert held in text
         assert "\n\n- `a.go`: Meant. Reason: on purpose\n" in text
+        assert "\n- `c.md`: Gone. Reason: moved\n" in text
 
     def test_should_replay_without_the_open_threads_or_a_check_run(
         self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
@@ -934,7 +1049,9 @@ class TestMain:
         )
         executable(
             tmp_path / "bin" / "gh",
-            "if 'graphql' not in sys.argv:\n"
+            "if any(a.endswith('/comments') for a in sys.argv):\n"
+            "    pass\n"
+            "elif 'graphql' not in sys.argv:\n"
             "    print(json.dumps({'title': 'Fix A', 'body': 'Fixes A.'}))\n"
             "elif any('userContentEdits' in a for a in sys.argv):\n"
             f"    print({edits!r}, end='')\n",
@@ -946,11 +1063,11 @@ class TestMain:
 
     def prompt_after_reviews_of(self, tmp_path: Path, *commits: str) -> str:
         """Runs a review after reviews of the commits, newest first, and returns the
-        section of new commits in the prompt."""
+        section of changes since the last review in the prompt."""
         self.review_after_reviews_of(tmp_path, *commits)
         text = (tmp_path / "prompt.txt").read_text()
-        _, found, new = text.partition("# Commits since your last review")
-        return new.split("# Rules")[0] if found else ""
+        _, found, new = text.partition("# Changes since your last review")
+        return new.split("# Diff")[0] if found else ""
 
     def test_should_show_the_commits_since_the_last_review(
         self, tmp_path: Path, env: dict[str, str]
@@ -965,11 +1082,102 @@ class TestMain:
         new = self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"], env["BASE_SHA"])
         assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
 
-    def test_should_skip_a_reviewed_commit_that_a_force_push_dropped(
+    @staticmethod
+    def side(head: Path, base: str, files: dict[str, str]) -> str:
+        """Commits files on a branch from the base, and returns the commit. The checkout
+        goes back to the branch before, whose history does not hold the commit."""
+        git(head, "checkout", "-qb", "side", base)
+        for name, text in files.items():
+            (head / name).write_text(text)
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "side")
+        commit = git(head, "rev-parse", "HEAD")
+        git(head, "checkout", "-q", "-")
+        return commit
+
+    def test_should_show_the_files_that_changed_after_a_force_push(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = Path(env["HEAD_DIR"])
+        dropped = self.side(head, env["BASE_SHA"], {"a.go": "one\ntwo\n"})
+        (head / "b.go").write_text("three\n")
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "more")
+        monkeypatch.setenv("HEAD_SHA", git(head, "rev-parse", "HEAD"))
+        new = self.prompt_after_reviews_of(tmp_path, dropped)
+        assert "diff --git a/b.go b/b.go" in new
+        assert "a.go" not in new
+
+    def test_should_compare_with_the_last_review_after_an_amend(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = Path(env["HEAD_DIR"])
+        older = env["HEAD_SHA"]
+        amended = self.side(head, older, {"b.go": "three\n"})
+        (head / "c.go").write_text("four\n")
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "amend")
+        monkeypatch.setenv("HEAD_SHA", git(head, "rev-parse", "HEAD"))
+        new = self.prompt_after_reviews_of(tmp_path, amended, older)
+        assert "diff --git a/c.go b/c.go" in new
+        assert "no longer changes these files:\n- `b.go`" in new
+
+    def test_should_fetch_a_reviewed_commit_that_the_checkout_lacks(
         self, tmp_path: Path, env: dict[str, str]
     ) -> None:
-        new = self.prompt_after_reviews_of(tmp_path, "d" * 40, env["BASE_SHA"])
-        assert f"commit {env['HEAD_SHA']}\n\nhead\n" in new
+        head = Path(env["HEAD_DIR"])
+        origin = tmp_path / "origin.git"
+        git(tmp_path, "clone", "-q", "--bare", str(head), str(origin))
+        git(origin, "config", "uploadpack.allowAnySHA1InWant", "true")
+        other = tmp_path / "other"
+        git(tmp_path, "clone", "-q", str(origin), str(other))
+        files = {"a.go": "one\ntwo\n", "b.go": "three\n"}
+        dropped = self.side(other, env["BASE_SHA"], files)
+        git(other, "push", "-q", "origin", "side")
+        git(head, "remote", "add", "origin", str(origin))
+        new = self.prompt_after_reviews_of(tmp_path, dropped)
+        assert "no longer changes these files:\n- `b.go`" in new
+
+    def test_should_show_a_binary_file_whose_content_changed(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = Path(env["HEAD_DIR"])
+        dropped = self.side(
+            head, env["BASE_SHA"], {"a.go": "one\ntwo\n", "c.bin": "\0old"}
+        )
+        (head / "c.bin").write_text("\0new")
+        git(head, "add", ".")
+        git(head, "commit", "-qm", "binary")
+        monkeypatch.setenv("HEAD_SHA", git(head, "rev-parse", "HEAD"))
+        new = self.prompt_after_reviews_of(tmp_path, dropped)
+        assert "diff --git a/c.bin b/c.bin" in new
+        assert "a.go" not in new
+
+    def test_should_show_the_whole_diff_when_a_force_push_lost_the_commit(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        new = self.prompt_after_reviews_of(tmp_path, "d" * 40)
+        assert "diff --git a/a.go b/a.go" in new
+
+    def test_should_show_the_files_that_a_merge_changed(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = Path(env["HEAD_DIR"])
+        self.side(head, env["BASE_SHA"], {"b.go": "three\n"})
+        git(head, "merge", "-q", "--no-ff", "-m", "merge", "side")
+        monkeypatch.setenv("HEAD_SHA", git(head, "rev-parse", "HEAD"))
+        new = self.prompt_after_reviews_of(tmp_path, env["HEAD_SHA"])
+        assert "diff --git a/b.go b/b.go" in new
+        assert "a.go" not in new
+
+    def test_should_name_the_files_that_left_the_pull_request(
+        self, tmp_path: Path, env: dict[str, str]
+    ) -> None:
+        files = {"a.go": "one\ntwo\n", "b.go": "three\n"}
+        dropped = self.side(Path(env["HEAD_DIR"]), env["BASE_SHA"], files)
+        new = self.prompt_after_reviews_of(tmp_path, dropped)
+        assert "no longer changes these files:\n- `b.go`" in new
+        assert "None:" not in new
 
     def test_should_show_no_new_commits_without_an_earlier_review(
         self, tmp_path: Path, env: dict[str, str]
@@ -996,10 +1204,10 @@ class TestMain:
         lenses = self.lenses_after_reviews_of(tmp_path, env["HEAD_SHA"])
         assert lenses == [None, "Races"]
 
-    def test_should_run_the_lenses_after_a_review_that_a_force_push_dropped(
+    def test_should_skip_the_lenses_after_a_review_that_a_force_push_dropped(
         self, tmp_path: Path, env: dict[str, str]
     ) -> None:
-        assert self.lenses_after_reviews_of(tmp_path, "d" * 40) == [None, "Races"]
+        assert self.lenses_after_reviews_of(tmp_path, "d" * 40) == [None]
 
     def test_should_skip_the_lenses_after_a_review_of_an_earlier_commit(
         self, tmp_path: Path, env: dict[str, str]

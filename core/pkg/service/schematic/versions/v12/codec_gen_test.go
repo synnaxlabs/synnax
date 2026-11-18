@@ -20,8 +20,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
-	symbolv2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v3"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
@@ -34,6 +33,15 @@ import (
 )
 
 var (
+	fullyPopulatedSegmentedEdgeConfig = v12.SegmentedEdgeConfig{
+		StrokeColor: new(color.Color{
+			R: 3,
+			G: 4,
+			B: 5,
+			A: 5.5,
+		}),
+		Segments: []v12.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+	}
 	fullyPopulatedStaticSymbolConfig = v12.StaticSymbolConfig{
 		Label: v12.LabelConfig{
 			Label:         "test_2",
@@ -202,18 +210,29 @@ var (
 		}),
 		OnClickDelay: 24.5,
 	}
-	fullyPopulatedSegmentedEdgeConfig = v12.SegmentedEdgeConfig{
-		StrokeColor: new(color.Color{
-			R: 3,
-			G: 4,
-			B: 5,
-			A: 5.5,
-		}),
-		Segments: []v12.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-	}
 )
 
 var _ = Describe("Codec", func() {
+	Describe("EdgeConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.EdgeConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.EdgeConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("pipe variant", v12.EdgeConfig{Variant: v12.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("electric variant", v12.EdgeConfig{Variant: v12.ElectricEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("secondary variant", v12.EdgeConfig{Variant: v12.SecondaryEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("jacketed variant", v12.EdgeConfig{Variant: v12.JacketedEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("hydraulic variant", v12.EdgeConfig{Variant: v12.HydraulicEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("pneumatic variant", v12.EdgeConfig{Variant: v12.PneumaticEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("data variant", v12.EdgeConfig{Variant: v12.DataEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+		)
+	})
 	Describe("ElementConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v12.ElementConfig) {
@@ -854,7 +873,7 @@ var _ = Describe("Codec", func() {
 			Entry("custom_actuator variant", v12.ElementConfig{Variant: v12.CustomActuatorElementConfig{
 				ToggleConfig: fullyPopulatedToggleConfig,
 				SpecKey:      "test_1",
-				StateOverrides: []symbolv2.State{
+				StateOverrides: []symbol.State{
 					{
 						Key:  "test_3",
 						Name: "test_4",
@@ -874,7 +893,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig: fullyPopulatedLabeledConfig,
 				ScaledConfig:  fullyPopulatedScaledConfig,
 				SpecKey:       "test_1",
-				StateOverrides: []symbolv2.State{
+				StateOverrides: []symbol.State{
 					{
 						Key:  "test_3",
 						Name: "test_4",
@@ -1524,7 +1543,7 @@ var _ = Describe("Codec", func() {
 			Entry("custom_actuator variant", v12.NodeConfig{Variant: v12.CustomActuatorNodeConfig{
 				ToggleConfig: fullyPopulatedToggleConfig,
 				SpecKey:      "test_1",
-				StateOverrides: []symbolv2.State{
+				StateOverrides: []symbol.State{
 					{
 						Key:  "test_3",
 						Name: "test_4",
@@ -1544,7 +1563,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig: fullyPopulatedLabeledConfig,
 				ScaledConfig:  fullyPopulatedScaledConfig,
 				SpecKey:       "test_1",
-				StateOverrides: []symbolv2.State{
+				StateOverrides: []symbol.State{
 					{
 						Key:  "test_3",
 						Name: "test_4",
@@ -1670,6 +1689,23 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeEdgeConfig(b *testing.B) {
+	seed := v12.EdgeConfig{Variant: v12.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.EdgeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
 	seed := v12.ElementConfig{Variant: v12.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 	w := orc.NewWriter(0)
@@ -1773,6 +1809,85 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeEdgeConfig(f *testing.F) {
+	{
+		seed := v12.EdgeConfig{Variant: v12.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.ElectricEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.SecondaryEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.JacketedEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.HydraulicEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.PneumaticEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.DataEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.EdgeConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.EdgeConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeElementConfig(f *testing.F) {
@@ -3113,7 +3228,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		seed := v12.ElementConfig{Variant: v12.CustomActuatorElementConfig{
 			ToggleConfig: fullyPopulatedToggleConfig,
 			SpecKey:      "test_1",
-			StateOverrides: []symbolv2.State{
+			StateOverrides: []symbol.State{
 				{
 					Key:  "test_3",
 					Name: "test_4",
@@ -3140,7 +3255,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			LabeledConfig: fullyPopulatedLabeledConfig,
 			ScaledConfig:  fullyPopulatedScaledConfig,
 			SpecKey:       "test_1",
-			StateOverrides: []symbolv2.State{
+			StateOverrides: []symbol.State{
 				{
 					Key:  "test_3",
 					Name: "test_4",
@@ -4570,7 +4685,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		seed := v12.NodeConfig{Variant: v12.CustomActuatorNodeConfig{
 			ToggleConfig: fullyPopulatedToggleConfig,
 			SpecKey:      "test_1",
-			StateOverrides: []symbolv2.State{
+			StateOverrides: []symbol.State{
 				{
 					Key:  "test_3",
 					Name: "test_4",
@@ -4597,7 +4712,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig: fullyPopulatedLabeledConfig,
 			ScaledConfig:  fullyPopulatedScaledConfig,
 			SpecKey:       "test_1",
-			StateOverrides: []symbolv2.State{
+			StateOverrides: []symbol.State{
 				{
 					Key:  "test_3",
 					Name: "test_4",

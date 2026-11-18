@@ -23,6 +23,7 @@ import {
   scopedActionZ,
   set,
 } from "@/schematic/actions.gen";
+import { type ElementConfig } from "@/schematic/element";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -51,7 +52,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({ key: keyZ, name: z.string() });
 
-const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.MEMBER_LINES };
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -98,6 +99,7 @@ export class Client extends query.Retriever<
   /** Builds requests that move schematics out of their group and into a project. */
   readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
+  private readonly configs = new WeakMap<Schematic, Record<string, ElementConfig>>();
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -152,6 +154,21 @@ export class Client extends query.Retriever<
       (keys, to) => project.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;
+  }
+
+  /**
+   * @returns the config of every node and edge of the schematic, by element key. Calls
+   * with the same schematic object return the same record.
+   */
+  configsOf(schematic: Schematic): Record<string, ElementConfig> {
+    let configs = this.configs.get(schematic);
+    if (configs == null) {
+      configs = {};
+      for (const n of schematic.nodes) configs[n.key] = n.config;
+      for (const e of schematic.edges) configs[e.key] = e.config;
+      this.configs.set(schematic, configs);
+    }
+    return configs;
   }
 
   async create(

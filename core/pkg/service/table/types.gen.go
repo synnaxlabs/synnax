@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -36,8 +35,8 @@ const (
 	FlexAlignmentStretch FlexAlignment = versions.FlexAlignmentStretch
 )
 
-// CellConfig is the per-cell configuration stored in the table cells map. The variant
-// selects which Pluto cell component renders the cell.
+// CellConfig is the configuration of one cell. The variant selects which Pluto cell
+// component renders the cell.
 type CellConfig = versions.CellConfig
 
 // CellConfigVariant is implemented by every CellConfig variant.
@@ -59,7 +58,10 @@ type TextCellConfig = versions.TextCellConfig
 // ValueCellConfig is the configuration for live telemetry value cells.
 type ValueCellConfig = versions.ValueCellConfig
 
-// Row is a single row in a table, with a key, height, and ordered cell keys.
+// Cell is one cell of a row, with its key and config.
+type Cell = versions.Cell
+
+// Row is a single row in a table, with a key, height, and cells.
 type Row = versions.Row
 
 // Column is a single column in a table, with a key and width.
@@ -69,29 +71,6 @@ type Column = versions.Column
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
 type Table = versions.Table
-
-// Cell is a keyed cell configuration used by actions that address cells explicitly.
-// Inside the table state itself, cell configurations are stored in the cells map keyed
-// by cell key.
-type Cell struct {
-	// Key is the unique identifier for this cell within the table.
-	Key string `json:"key" msgpack:"key"`
-	// Config is the cell's variant-discriminated configuration.
-	Config CellConfig `json:"config" msgpack:"config"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Cell) ApplyDefaults() {
-	c.Config.ApplyDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (c Cell) Validate() error {
-	v := validate.New("Cell")
-	v.Exec(func() error { return validate.PathedError(c.Config.Validate(), "config") })
-	return v.Error()
-}
 
 // Where is a filter that selects tables.
 type Where struct {
@@ -107,6 +86,6 @@ type Where struct {
 	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
 	// Grouped matches the tables in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
-	// Projects matches the tables owned by any of the given projects.
+	// Projects matches the tables in any of the given projects.
 	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
 }

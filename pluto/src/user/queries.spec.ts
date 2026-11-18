@@ -46,7 +46,7 @@ describe("User queries", () => {
   describe("useDelete", () => {
     it("should delete a single user", async () => {
       const testUser = await client.users.create({
-        username: `test-user-${Date.now()}`,
+        username: `test-user-${id.create()}`,
         name: "Test User",
         password: "password123",
         role: role.key,
@@ -67,13 +67,13 @@ describe("User queries", () => {
 
     it("should delete multiple users", async () => {
       const user1 = await client.users.create({
-        username: `user1-${Date.now()}`,
+        username: `user1-${id.create()}`,
         name: "User One",
         password: "password123",
         role: role.key,
       });
       const user2 = await client.users.create({
-        username: `user2-${Date.now()}`,
+        username: `user2-${id.create()}`,
         name: "User Two",
         password: "password123",
         role: role.key,
@@ -94,10 +94,41 @@ describe("User queries", () => {
     });
   });
 
+  describe("useSetRole", () => {
+    it("should change a user's role", async () => {
+      const to = await createEmptyRole(client);
+      const testUser = await client.users.create({
+        username: `set-role-${id.create()}`,
+        name: "Test User",
+        password: "password123",
+        role: role.key,
+      });
+      const { result } = renderHook(() => User.useSetRole(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ key: testUser.key, role: to.key });
+      });
+      expect(result.current.variant).toEqual("success");
+      expect((await client.users.retrieve(testUser.key)).role).toEqual(to.key);
+    });
+
+    it("should report an error when the Core refuses the change", async () => {
+      const root = await client.users.retrieve({ username: TEST_CREDENTIALS.username });
+      const { result } = renderHook(() => User.useSetRole(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({ key: root.key, role: role.key });
+      });
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.status.description).toEqual(
+        `cannot change the role of root user ${root.name}`,
+      );
+      expect((await client.users.retrieve(root.key)).role).not.toEqual(role.key);
+    });
+  });
+
   describe("useRename", () => {
     it("should change a user's name", async () => {
       const testUser = await client.users.create({
-        username: `original-${Date.now()}`,
+        username: `original-${id.create()}`,
         name: "Test User",
         password: "password123",
         role: role.key,
@@ -137,7 +168,7 @@ describe("User queries", () => {
   describe("use", () => {
     it("should retrieve a user by key", async () => {
       const testUser = await client.users.create({
-        username: `retrieve-test-${Date.now()}`,
+        username: `retrieve-test-${id.create()}`,
         name: "Retrieve Test",
         password: "password123",
         role: role.key,
@@ -196,7 +227,7 @@ describe("User queries", () => {
 
     it("should cache retrieved users", async () => {
       const testUser = await client.users.create({
-        username: `cached-user-${Date.now()}`,
+        username: `cached-user-${id.create()}`,
         name: "Cached User",
         password: "password123",
         role: role.key,

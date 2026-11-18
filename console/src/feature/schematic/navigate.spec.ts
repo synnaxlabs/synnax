@@ -29,7 +29,7 @@ import {
 } from "@/testutil";
 
 interface RenderNavigateParams {
-  configs?: Record<string, schematic.ElementConfig>;
+  configs?: Record<string, schematic.NodeConfig>;
   editable?: boolean;
 }
 
@@ -38,8 +38,11 @@ const renderNavigateHook = async ({
   editable = false,
 }: RenderNavigateParams) => {
   const source = await createSchematic({
-    nodes: Object.keys(configs).map((key) => ({ key, position: { x: 0, y: 0 } })),
-    configs,
+    nodes: Object.entries(configs).map(([key, config]) => ({
+      key,
+      position: { x: 0, y: 0 },
+      config,
+    })),
   });
   const hook = await renderHookWithConsole(
     () => ({
@@ -58,8 +61,8 @@ const renderNavigateHook = async ({
 const offPageConfig = (
   page: schematic.Page | undefined,
   overrides: Record<string, unknown> = {},
-): schematic.ElementConfig =>
-  schematic.offPageReferenceElementConfigZ.parse({
+): schematic.NodeConfig =>
+  schematic.offPageReferenceNodeConfigZ.parse({
     variant: "off_page_reference",
     label: { label: "Target Ref" },
     page,
@@ -153,7 +156,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
       configs: {
         n1: offPageConfig(
           { type: "schematic", key: target.key },
-          { dblClickNavDisabled: true },
+          { doubleClickNavigationDisabled: true },
         ),
       },
     });
@@ -187,7 +190,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { result, store } = await renderNavigateHook({
       configs: {
-        n1: schematic.valveElementConfigZ.parse({ variant: "valve" }),
+        n1: schematic.valveNodeConfigZ.parse({ variant: "valve" }),
         ctl: offPageConfig({ type: "schematic", key: control.key }),
       },
     });

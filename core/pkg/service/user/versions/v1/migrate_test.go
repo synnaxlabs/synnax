@@ -25,6 +25,7 @@ var _ = Describe("v0 -> v1 User migration", func() {
 	migrateUser := func(ctx SpecContext, old v0.User) v1.User {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.WrapWriter[v0.Key, v0.User](db).Set(ctx, old)).To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,

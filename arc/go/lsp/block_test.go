@@ -22,7 +22,7 @@ import (
 	"go.lsp.dev/uri"
 )
 
-// generateBlockURI creates a URI with block metadata
+// generateBlockURI creates a URI with block metadata.
 func generateBlockURI(id string) uri.URI {
 	// Base64 encode of {"is_block":true}: eyJpc19ibG9jayI6dHJ1ZX0=
 	encoded := "eyJpc19ibG9jayI6dHJ1ZX0="

@@ -24,6 +24,7 @@ export interface MemberRule {
 /** The rule of each type that can sit in a group. */
 export const MEMBER_RULES = {
   channel: { scope: "channel", pinned: false },
+  color: { scope: "color", pinned: false },
   device: { scope: "device", pinned: true },
   lineplot: { scope: "project", pinned: false },
   log: { scope: "project", pinned: false },

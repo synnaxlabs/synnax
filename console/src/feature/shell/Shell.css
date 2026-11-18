@@ -66,6 +66,11 @@
         height 0.25s ease;
 }
 
+/* Clears the islands: their 2rem inset and 6rem height. */
+.console-shell__page {
+    padding-top: 8rem;
+}
+
 /* Keeps sub-250ms transients faint by fading them in. */
 .console-shell__card > * {
     animation: console-shell-reveal 0.25s ease;

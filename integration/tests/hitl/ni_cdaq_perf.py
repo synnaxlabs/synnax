@@ -10,6 +10,8 @@
 """Performance of the Driver with the real cDAQ-9185 (SY2) of the HITL station."""
 
 import time
+from functools import partial
+from operator import eq
 
 import synnax as sy
 from tests.hitl import latency
@@ -50,7 +52,7 @@ class CDAQDigitalWriteLatency(CDAQDigitalWrite):
                 start = time.perf_counter()
                 writer.write({_CMD: value, "hitl_cdaq_do_cmd_time": sy.TimeStamp.now()})
                 if not latency.wait_for(
-                    streamer, _STATE, value, timeout_s=_STATE_TIMEOUT_S
+                    streamer, _STATE, partial(eq, value), timeout_s=_STATE_TIMEOUT_S
                 ):
                     self.fail(f"No state {value} in {_STATE_TIMEOUT_S} s")
                 latencies_ms.append((time.perf_counter() - start) * 1000)

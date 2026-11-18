@@ -97,16 +97,6 @@ type ReadConfig struct {
 	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	if r.Rate == 0 {
-		r.Rate = 1
-	}
-	for i := range r.Endpoints {
-		r.Endpoints[i].ApplyDefaults()
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadConfig) SetDefaults() {
 	r.Rate = 1
@@ -135,6 +125,7 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
+	v.GreaterThanEq("rate", r.Rate, 0)
 	for i := range r.Endpoints {
 		v.Exec(func() error { return validate.PathedError(r.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
 	}

@@ -12,25 +12,11 @@ package pb
 import (
 	"strings"
 	"text/template"
-
-	"github.com/synnaxlabs/x/pluralize"
 )
 
 var templateFuncs = template.FuncMap{
-	"join":      strings.Join,
-	"lcFirst":   lcFirst,
-	"pluralize": pluralizeDistinct,
-}
-
-// pluralizeDistinct returns the plural form of a name for use as a slice function name.
-// If the plural is the same as the singular (already-plural words like "Channels",
-// "Properties"), it appends "List" to avoid name collisions.
-func pluralizeDistinct(name string) string {
-	plural := pluralize.String(name)
-	if plural == name {
-		return name + "List"
-	}
-	return plural
+	"join":    strings.Join,
+	"lcFirst": lcFirst,
 }
 
 // lcFirst lowercases the first character of a string.
@@ -99,9 +85,9 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 			if err != nil {
 				return nil, err
 			}
-			pb.{{.PBName}}[k] = converted
+			pb.{{.PBName}}[{{or .MapValueConversion.ForwardKeyExpr "k"}}] = converted
 {{- else}}
-			pb.{{.PBName}}[k] = {{.MapValueConversion.ForwardValueExpr}}
+			pb.{{.PBName}}[{{or .MapValueConversion.ForwardKeyExpr "k"}}] = {{.MapValueConversion.ForwardValueExpr}}
 {{- end}}
 		}
 	}
@@ -208,14 +194,20 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	if pb.{{.PBName}} != nil {
 		r.{{.GoName}} = make({{.MapValueConversion.GoMapType}}, len(pb.{{.PBName}}))
 		for k, v := range pb.{{.PBName}} {
+{{- if .MapValueConversion.NarrowKeyType}}
+			key, err := xpb.Narrow[{{.MapValueConversion.NarrowKeyType}}](k)
+			if err != nil {
+				return {{$goType}}{}, err
+			}
+{{- end}}
 {{- if .MapValueConversion.BackwardHasError}}
 			converted, err := {{.MapValueConversion.BackwardValueExpr}}
 			if err != nil {
 				return {{$goType}}{}, err
 			}
-			r.{{.GoName}}[k] = converted
+			r.{{.GoName}}[{{if .MapValueConversion.NarrowKeyType}}key{{else}}k{{end}}] = converted
 {{- else}}
-			r.{{.GoName}}[k] = {{.MapValueConversion.BackwardValueExpr}}
+			r.{{.GoName}}[{{if .MapValueConversion.NarrowKeyType}}key{{else}}k{{end}}] = {{.MapValueConversion.BackwardValueExpr}}
 {{- end}}
 		}
 	}
@@ -271,8 +263,8 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	return r, nil
 }
 
-// {{pluralize .Name}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
-func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
+// {{.SliceName}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.SliceName}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
 	result := make([]*{{.PBType}}, len(rs))
 	for i := range rs {
 		var err error
@@ -284,8 +276,8 @@ func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
 	return result, nil
 }
 
-// {{pluralize .Name}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
-func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
+// {{.SliceName}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.SliceName}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
 	result := make([]{{.GoType}}, len(pbs))
 	for i, pb := range pbs {
 		var err error
@@ -359,8 +351,8 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	return r, nil
 }
 
-// {{pluralize .Name}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
-func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
+// {{.SliceName}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.SliceName}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
 	result := make([]*{{.PBType}}, len(rs))
 	for i := range rs {
 		var err error
@@ -372,8 +364,8 @@ func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
 	return result, nil
 }
 
-// {{pluralize .Name}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
-func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
+// {{.SliceName}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.SliceName}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
 	result := make([]{{.GoType}}, len(pbs))
 	for i, pb := range pbs {
 		var err error
@@ -484,9 +476,9 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 			if err != nil {
 				return nil, err
 			}
-			pb.{{.PBName}}[k] = converted
+			pb.{{.PBName}}[{{or .MapValueConversion.ForwardKeyExpr "k"}}] = converted
 {{- else}}
-			pb.{{.PBName}}[k] = {{.MapValueConversion.ForwardValueExpr}}
+			pb.{{.PBName}}[{{or .MapValueConversion.ForwardKeyExpr "k"}}] = {{.MapValueConversion.ForwardValueExpr}}
 {{- end}}
 		}
 	}
@@ -590,14 +582,20 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	if pb.{{.PBName}} != nil {
 		r.{{.GoName}} = make({{.MapValueConversion.GoMapType}}, len(pb.{{.PBName}}))
 		for k, v := range pb.{{.PBName}} {
+{{- if .MapValueConversion.NarrowKeyType}}
+			key, err := xpb.Narrow[{{.MapValueConversion.NarrowKeyType}}](k)
+			if err != nil {
+				return {{$goType}}{}, err
+			}
+{{- end}}
 {{- if .MapValueConversion.BackwardHasError}}
 			converted, err := {{.MapValueConversion.BackwardValueExpr}}
 			if err != nil {
 				return {{$goType}}{}, err
 			}
-			r.{{.GoName}}[k] = converted
+			r.{{.GoName}}[{{if .MapValueConversion.NarrowKeyType}}key{{else}}k{{end}}] = converted
 {{- else}}
-			r.{{.GoName}}[k] = {{.MapValueConversion.BackwardValueExpr}}
+			r.{{.GoName}}[{{if .MapValueConversion.NarrowKeyType}}key{{else}}k{{end}}] = {{.MapValueConversion.BackwardValueExpr}}
 {{- end}}
 		}
 	}
@@ -650,8 +648,8 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	return r, nil
 }
 
-// {{pluralize .Name}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
-func {{pluralize .Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
+// {{.SliceName}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.SliceName}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	rs []{{.GoType}},
 {{- range .TypeParams}}
 	translate{{.Name}} func({{.Name}}) (*anypb.Any, error),
@@ -668,8 +666,8 @@ func {{pluralize .Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{
 	return result, nil
 }
 
-// {{pluralize .Name}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
-func {{pluralize .Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
+// {{.SliceName}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.SliceName}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	pbs []*{{.PBType}},
 {{- range .TypeParams}}
 	translate{{.Name}} func(*anypb.Any) ({{.Name}}, error),

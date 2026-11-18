@@ -32,13 +32,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -115,7 +118,7 @@ type LayerConfig struct {
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
-	// [OPTIONAL] - Defaults to license.DefaultServiceConfig.
+	// [OPTIONAL] - Defaults to the license service defaults.
 	License license.ServiceConfig
 	// SecretsKey protects the value of every stored secret. It encrypts the random data
 	// key that encrypts each value.
@@ -128,6 +131,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true (validation enabled)
 	ValidateChannelNames *bool
+	// EmbeddedDriverDisabled is true when the Core runs without its embedded Driver.
+	//
+	// [OPTIONAL] - Defaults to false.
+	EmbeddedDriverDisabled bool
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -155,6 +162,11 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		other.SessionIdleTimeout,
 	)
 	c.License = c.License.Override(other.License)
+	c.EmbeddedDriverDisabled = override.If(
+		c.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+	)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
@@ -203,6 +215,8 @@ type Layer struct {
 	Schematic *schematic.Service
 	// LinePlot is for working with line plot visualizations.
 	LinePlot *lineplot.Service
+	// ICD is for working with interface control documents.
+	ICD *icd.Service
 	// Log is for working with log visualizations.
 	Log *log.Service
 	// Table is for working with table visualizations.
@@ -211,10 +225,14 @@ type Layer struct {
 	Panel *panel.Service
 	// Label is for working with user-defined labels that can be attached to various
 	// data structures within Synnax.
-	Label  *label.Service
-	Rack   *rack.Service
-	Task   *task.Service
-	Device *device.Service
+	Label *label.Service
+	// Color stores named colors.
+	Color *color.Service
+	// Enumeration stores enumerations.
+	Enumeration *enumeration.Service
+	Rack        *rack.Service
+	Task        *task.Service
+	Device      *device.Service
 	// NI owns the NI chassis, devices, and stored configuration records of the NI task
 	// types.
 	NI *ni.Service
@@ -365,6 +383,19 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
+	if l.Color, err = color.OpenService(ctx, color.ServiceConfig{
+		Instrumentation: cfg.Child("color"),
+		DB:              cfg.Distribution.DB,
+		Group:           l.Group,
+	}); !ok(err, l.Color) {
+		return nil, err
+	}
+	if l.Enumeration, err = enumeration.OpenService(ctx, enumeration.ServiceConfig{
+		Instrumentation: cfg.Child("enumeration"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.Enumeration) {
+		return nil, err
+	}
 	if l.Status, err = status.OpenService(
 		ctx,
 		status.ServiceConfig{
@@ -493,6 +524,48 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if err = l.Signals.PublishTable(
 		ctx,
+		signals.TableConfig[color.Key, color.Named]{
+			SetName:    "sy_color_set",
+			DeleteName: "sy_color_delete",
+			Changes:    l.Color.Changes,
+			Resource:   color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[color.Key, color.Action]{
+			Name:     "sy_color_action_set",
+			Actions:  l.Color.Actions(),
+			Resource: color.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
+		signals.TableConfig[enumeration.Key, enumeration.Enumeration]{
+			SetName:    "sy_enumeration_set",
+			DeleteName: "sy_enumeration_delete",
+			Changes:    l.Enumeration.Changes,
+			Resource:   enumeration.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishActions(
+		ctx,
+		signals.ActionConfig[enumeration.Key, enumeration.Action]{
+			Name:     "sy_enumeration_action_set",
+			Actions:  l.Enumeration.Actions(),
+			Resource: enumeration.ResourceID,
+		},
+	); !ok(err, nil) {
+		return nil, err
+	}
+	if err = l.Signals.PublishTable(
+		ctx,
 		signals.TableConfig[status.Key, status.Status[any]]{
 			Changes:  l.Status.Changes,
 			Resource: status.ResourceID,
@@ -587,11 +660,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
-		Instrumentation: cfg.Child("rack"),
-		DB:              cfg.Distribution.DB,
-		HostKey:         cfg.Distribution.Identity.HostKey,
-		Status:          l.Status,
-		DriverRole:      roles.Builtin.DriverKey,
+		Instrumentation:        cfg.Child("rack"),
+		DB:                     cfg.Distribution.DB,
+		HostKey:                cfg.Distribution.Identity.HostKey,
+		Status:                 l.Status,
+		DriverRole:             roles.Builtin.DriverKey,
+		EmbeddedDriverDisabled: cfg.EmbeddedDriverDisabled,
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
@@ -708,7 +782,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
+		Color:           l.Color,
 	}); !ok(err, l.LinePlot) {
+		return nil, err
+	}
+	if l.ICD, err = icd.OpenService(ctx, icd.ServiceConfig{
+		Instrumentation: cfg.Child("icd"),
+		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
+		ImEx:            l.ImEx,
+	}); !ok(err, l.ICD) {
 		return nil, err
 	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
@@ -842,6 +925,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		ICD:             l.ICD,
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
@@ -925,8 +1009,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeArcDirectory:    l.Arc.DirectoryResources(),
 			resource.TypeCertificate:     l.Certificate.Resources(),
 			resource.TypeChannel:         l.Channel.Resources(),
+			resource.TypeColor:           l.Color.Resources(),
 			resource.TypeDevice:          l.Device.Resources(),
+			resource.TypeEnumeration:     l.Enumeration.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
+			resource.TypeICD:             l.ICD.Resources(),
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
@@ -985,9 +1072,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Namespace:       "Composition",
 		Migrations: append(
 			l.Panel.CompositionMigrations(),
+			newGroupRemovalReport(l.Resource, l.Status),
 			ontologyDropMigration,
 			l.Group.BuiltinDeleteMigration(),
 			rangeAliasDropMigration,
+			l.PagerDuty.SecretMigration(taskNames(l.Task)),
 		),
 	}); !ok(err, nil) {
 		return nil, err
@@ -1044,6 +1133,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
+		ICD:             l.ICD,
 	})
 	if !ok(err, mqttFactory) {
 		return nil, err

@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@synnaxlabs/lyra/context";
-import { type xy } from "@synnaxlabs/x";
 import { useSyncExternalStore } from "react";
 
 import { type Store } from "@/schematic/edge/common/jumps/store";
+import { type Path } from "@/schematic/edge/common/path";
 
 const [Context, useStore] = context.create<Store>({
   displayName: "Jumps.Context",
@@ -20,7 +20,7 @@ const [Context, useStore] = context.create<Store>({
 
 export { Context };
 
-export const useCrossings = (key: string): xy.XY[] => {
+export const useCrossings = (key: string): Path.Crossing[] => {
   const store = useStore("useCrossings");
   const subscribe = (onChange: () => void) => store.subscribe(key, onChange);
   const getSnapshot = () => store.get(key);

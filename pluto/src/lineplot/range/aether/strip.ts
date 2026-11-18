@@ -11,8 +11,13 @@ import { type ranger } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { type bounds, box, color, location, xy } from "@synnaxlabs/x";
 
-import { legible, over, withLightness } from "@/lineplot/range/aether/legible";
 import { type Draw2D } from "@/vis/draw2d";
+
+/** @returns the color with its OKLCH lightness set, keeping its chroma and hue. */
+const withLightness = (c: color.Color, l: number, alpha = 255): color.Color => {
+  const [, ch, h] = color.oklch(c);
+  return color.fromOKLCH([l, ch, h, alpha / 255]);
+};
 
 /** A range's bar in the annotation strip, in canvas pixels. */
 export interface Bar {
@@ -126,7 +131,7 @@ export const layout = (
       {
         range,
         color: c,
-        display: legible(c, t),
+        display: theme.legible(c, t),
         start,
         end,
         x0,
@@ -203,7 +208,7 @@ export const drawFills = (
     if (bar !== hovered && bar.enclosing) return;
     draw.container({
       region: box.construct({ x: bar.x0, y: top }, { x: bar.x1, y: bottom }),
-      backgroundColor: color.setAlpha(
+      backgroundColor: color.setOpacity(
         bar.display,
         bar === hovered ? fill * HOVERED_FILL_SCALE : fill,
       ),
@@ -212,7 +217,7 @@ export const drawFills = (
     });
   });
   shown.forEach((bar) => {
-    const stroke = color.setAlpha(
+    const stroke = color.setOpacity(
       bar.display,
       bar === hovered ? HOVERED_EDGE_ALPHA : EDGE_ALPHA,
     );
@@ -259,7 +264,7 @@ export const drawBars = (
     ctx.beginPath();
     ctx.roundRect(box.left(b), box.top(b), box.width(b), box.height(b), radii);
     const tint = hovered === bar ? s.hoveredBar : s.bar;
-    ctx.fillStyle = color.hex(over(bar.color, t.colors.gray.l0, tint));
+    ctx.fillStyle = color.hex(color.over(bar.color, t.colors.gray.l0, tint));
     ctx.fill();
     ctx.beginPath();
     ctx.roundRect(
@@ -269,7 +274,7 @@ export const drawBars = (
       box.height(b) - 1,
       radii,
     );
-    ctx.strokeStyle = color.hex(color.setAlpha(bar.display, s.stroke));
+    ctx.strokeStyle = color.hex(color.setOpacity(bar.display, s.stroke));
     ctx.lineWidth = 1;
     ctx.setLineDash([]);
     ctx.stroke();

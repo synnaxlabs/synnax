@@ -110,14 +110,6 @@ type Panel struct {
 	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *Panel) ApplyDefaults() {
-	if p.Root.Variant == nil {
-		v0 := LeafNode{}
-		p.Root.Variant = v0
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (p *Panel) SetDefaults() {
 	{

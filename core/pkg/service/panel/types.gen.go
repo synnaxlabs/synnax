@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 )
 
@@ -87,7 +88,7 @@ type SplitNode = versions.SplitNode
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = versions.Key
 
-// Panel is a project-owned tree of visualization tabs.
+// Panel is a tree of visualization tabs in a project.
 type Panel = versions.Panel
 
 // Where is a filter that selects panels.
@@ -104,6 +105,10 @@ type Where struct {
 	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
 	// Grouped matches the panels in a group, or in no group when false.
 	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
-	// Projects matches the panels owned by any of the given projects.
+	// Projects matches the panels in any of the given projects.
 	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
+	// Owners matches the drafts of any of the given users.
+	Owners []user.Key `json:"owners,omitzero" msgpack:"owners,omitempty"`
+	// Owned matches the drafts, or the shared panels when false.
+	Owned *bool `json:"owned,omitzero" msgpack:"owned,omitempty"`
 }

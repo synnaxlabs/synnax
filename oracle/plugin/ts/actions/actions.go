@@ -94,6 +94,7 @@ func (p *Plugin) generateFile(
 	fp := &tstypes.FieldProcessor{
 		Imports:    mgr,
 		Namespace:  typ.Namespace,
+		FilePath:   typ.FilePath,
 		OutputPath: outputPath,
 		Request:    req,
 	}

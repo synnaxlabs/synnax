@@ -94,7 +94,7 @@ func (d db) Set(ctx context.Context, key, value []byte) error {
 }
 
 // Get implement kv.DB.
-func (d db) Get(_ context.Context, key []byte, _ ...any) ([]byte, io.Closer, error) {
+func (d db) Get(key []byte, _ ...any) ([]byte, io.Closer, error) {
 	b, c, err := d.DB.Get(key)
 	return b, c, translateError(err)
 }
@@ -153,11 +153,7 @@ func (txn *tx) Set(_ context.Context, key, value []byte) error {
 }
 
 // Get implements kv.Writer.
-func (txn *tx) Get(
-	_ context.Context,
-	key []byte,
-	_ ...any,
-) ([]byte, io.Closer, error) {
+func (txn *tx) Get(key []byte, _ ...any) ([]byte, io.Closer, error) {
 	b, closer, err := txn.Batch.Get(key)
 	return b, closer, translateError(err)
 }

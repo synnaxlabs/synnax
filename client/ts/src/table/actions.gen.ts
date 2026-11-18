@@ -50,8 +50,8 @@ export const addRowPayloadZ = z.object({
 export type AddRowPayload = z.infer<typeof addRowPayloadZ>;
 
 /**
- * RemoveRow removes the row with the given key. All cells referenced by the removed row
- * are also dropped from the cells map. No-op if no row has the key.
+ * RemoveRow removes the row with the given key and its cells. No-op if no row has the
+ * key.
  */
 export const removeRowPayloadZ = z.object({
   key: z.string(),
@@ -71,9 +71,8 @@ export type RemoveRowPayload = z.infer<typeof removeRowPayloadZ>;
  *
  * Derived replica keys come from the template's key with the last four hex digits
  * replaced by the row index. Bootstrapped rows derive their keys from the column's key
- * the same way. Cells whose row index exceeds the row count are added to the cells map
- * but not referenced by any row. Out-of-range indices clamp to the end of every row's
- * cells list.
+ * the same way. Cells whose index exceeds the row count are dropped. Out-of-range
+ * indices clamp to the end of every row's cells list.
  */
 export const addColPayloadZ = z.object({
   index: z.uint32(),
@@ -86,8 +85,8 @@ export const addColPayloadZ = z.object({
 export type AddColPayload = z.infer<typeof addColPayloadZ>;
 
 /**
- * RemoveCol removes the column with the given key. All cells in that column (across
- * every row) are dropped from the cells map. No-op if no column has the key.
+ * RemoveCol removes the column with the given key and its cell in every row. No-op if
+ * no column has the key.
  */
 export const removeColPayloadZ = z.object({
   key: z.string(),
@@ -137,8 +136,8 @@ export const moveColPayloadZ = z.object({
 export type MoveColPayload = z.infer<typeof moveColPayloadZ>;
 
 /**
- * SetCell replaces the cell at cell.key with the provided value. No-op if no cell with
- * that key exists in the table.
+ * SetCell replaces the config of the cell with the key cell.key. No-op if no row holds
+ * a cell with that key.
  */
 export const setCellPayloadZ = z.object({
   cell: cellZ,
@@ -150,8 +149,7 @@ export type SetCellPayload = z.infer<typeof setCellPayloadZ>;
  * EraseCells erases the cells whose keys are in cells. Any row whose every cell is in
  * the selection is removed entirely; same for columns. Cells that survive that
  * row/column removal have their config replaced with the template, keeping their
- * original keys. Cells in the selection whose keys are not in the table's cells map are
- * silently skipped.
+ * original keys. Keys that no row holds are skipped.
  */
 export const eraseCellsPayloadZ = z.object({
   cells: z
@@ -163,22 +161,34 @@ export const eraseCellsPayloadZ = z.object({
 
 export type EraseCellsPayload = z.infer<typeof eraseCellsPayloadZ>;
 
-/** Set replaces the value at a path in the table. */
+/**
+ * Set replaces the value at a path in the table's name, group, or project, or in the
+ * config of a cell. No-op when no row holds the cell.
+ */
 export const setPayloadZ = patch.setZ;
 
 export type SetPayload = patch.Set;
 
-/** Remove removes an entry from a list or a field from an object in the table. */
+/**
+ * Remove removes the table's group or project, or an entry or field in the config of a
+ * cell. No-op when no row holds the cell.
+ */
 export const removePayloadZ = patch.removeZ;
 
 export type RemovePayload = patch.Remove;
 
-/** Insert adds an entry to a list in the table's cells. */
+/**
+ * Insert adds an entry to a list in the config of a cell. No-op when no row holds the
+ * cell.
+ */
 export const insertPayloadZ = patch.insertZ;
 
 export type InsertPayload = patch.Insert;
 
-/** Move moves an entry in a list in the table's cells. */
+/**
+ * Move moves an entry in a list in the config of a cell. No-op when no row holds the
+ * cell.
+ */
 export const movePayloadZ = patch.moveZ;
 
 export type MovePayload = patch.Move;

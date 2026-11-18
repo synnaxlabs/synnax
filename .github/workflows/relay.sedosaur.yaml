@@ -8,10 +8,13 @@
 # included in the file licenses/APL.txt.
 
 # Asks Sedosaur for a review when a pull request opens or is ready, and when a member
-# or an agent mentions `@sedosaur` or `@greptile` in a comment. A push never asks. Sends
-# Sedosaur a reply that mentions it on the thread of one of its findings, such as a
-# dismissal. Both hold secrets, so they run from the default branch through a dispatch.
-# A fork's token cannot dispatch, and the review skips a fork.
+# or an agent mentions `@sedosaur` or `@greptile` in a comment. A line `@sedosaur review
+# repeat=true` asks for a review of a head that has one. A push never asks. Sends
+# Sedosaur each reply that a writer or an agent posts on the thread of one of its
+# findings, with or without a mention, so it can take a dismissal or judge a rebuttal,
+# and a comment that dismisses a finding outside the diff. Both hold secrets, so they
+# run from the default branch through a dispatch. A fork's token cannot dispatch, and
+# the review skips a fork.
 
 name: Relay - Sedosaur
 run-name: ${{ github.event.pull_request.number || github.event.issue.number }}
@@ -44,11 +47,13 @@ jobs:
             github.event.comment.author_association)
           || contains(fromJSON('["synnax-claude-code[bot]", "synnax-codex[bot]"]'),
             github.event.comment.user.login))
+        && !contains(github.event.comment.body, '@sedosaur dismiss')
         && (contains(github.event.comment.body, '@sedosaur')
           || contains(github.event.comment.body, '@greptile')))
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      contents: read
     env:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
@@ -56,25 +61,61 @@ jobs:
       REF: ${{ github.event.repository.default_branch }}
       COMMENT: ${{ github.event.comment.id }}
     steps:
-      # A comment never asks for a repeat, so a head with a review gets no other one.
-      # No retry through gh_api.sh: a dispatch that fails with a 5xx can still start a
-      # run. When the dispatch is lost, a member can ask again with a comment.
+      # The default branch, never the code of the pull request.
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Read the request
+        id: request
+        env:
+          BODY: ${{ github.event.comment.body }}
+        run: python3 .github/scripts/sedosaur_request.py >> "$GITHUB_OUTPUT"
+
+      # A newer run replaces a queued one, so a request made while a repeat waits is a
+      # repeat too. Only a person gets a reply to a skipped request. Agents ask again by
+      # design. No retry through gh_api.sh: a dispatch that fails with a 5xx can still
+      # start a run. When the dispatch is lost, a member can ask again with a comment.
       - name: Start Review - Sedosaur
+        env:
+          REPEAT: ${{ steps.request.outputs.repeat }}
+          REPLY:
+            ${{ steps.request.outputs.requested == 'true' &&
+            github.event.comment.user.type != 'Bot' }}
         run: |
+          if [ "$REPEAT" != true ]; then
+            waiting=$(gh run list --workflow review.sedosaur.yaml --limit 100 \
+              --json displayTitle,status --jq '[.[] | select(.displayTitle ==
+                "\(env.PR) repeat" and .status != "in_progress" and
+                .status != "completed")] | length')
+            if [ "$waiting" -gt 0 ]; then
+              REPEAT=true
+            fi
+          fi
           gh workflow run review.sedosaur.yaml --ref "$REF" -f pr="$PR" \
-            -f comment="$COMMENT"
+            -f comment="$COMMENT" -f repeat="$REPEAT" -f reply="$REPLY"
 
   dismiss:
     name: Relay reply
+    # A review comment event does not give a member with a private membership the
+    # association MEMBER, so the step reads the permission of a person from the API.
     if: >-
-      github.event_name == 'pull_request_review_comment'
+      (github.event_name == 'pull_request_review_comment'
         && github.event.comment.in_reply_to_id
         && github.event.pull_request.head.repo.full_name == github.repository
-        && contains(github.event.comment.body, '@sedosaur')
+        && (github.event.comment.user.type == 'User'
+          || contains(fromJSON('["synnax-claude-code[bot]", "synnax-codex[bot]"]'),
+            github.event.comment.user.login)))
+      || (github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && contains(github.event.comment.body, '@sedosaur dismiss')
         && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
             github.event.comment.author_association)
           || contains(fromJSON('["synnax-claude-code[bot]", "synnax-codex[bot]"]'),
-            github.event.comment.user.login))
+            github.event.comment.user.login)))
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -82,16 +123,31 @@ jobs:
     env:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
-      PR: ${{ github.event.pull_request.number }}
+      PR: ${{ github.event.pull_request.number || github.event.issue.number }}
       REF: ${{ github.event.repository.default_branch }}
       COMMENT: ${{ github.event.comment.id }}
       THREAD: ${{ github.event.comment.in_reply_to_id }}
+      LOGIN: ${{ github.event.comment.user.login }}
+      KIND: ${{ github.event.comment.user.type }}
     steps:
-      # A reply points at the first comment of its thread.
+      # A reply points at the first comment of its thread. Only a reply on the thread of
+      # a finding, from a person with write access or an agent, gets an answer. A
+      # comment on the pull request has no thread.
       - name: Start Dismiss - Sedosaur
         run: |
-          author=$(gh api "repos/$GH_REPO/pulls/comments/$THREAD" --jq .user.login)
-          if [ "$author" = "sedosaur[bot]" ]; then
-            gh workflow run dismiss.sedosaur.yaml --ref "$REF" -f pr="$PR" \
-              -f comment="$COMMENT"
+          if [ -n "$THREAD" ]; then
+            author=$(gh api "repos/$GH_REPO/pulls/comments/$THREAD" --jq .user.login)
+            if [ "$author" != "sedosaur[bot]" ]; then
+              exit 0
+            fi
+            if [ "$KIND" = "User" ]; then
+              access=$(gh api "repos/$GH_REPO/collaborators/$LOGIN/permission" \
+                --jq .permission)
+              case "$access" in
+                admin | write) ;;
+                *) exit 0 ;;
+              esac
+            fi
           fi
+          gh workflow run dismiss.sedosaur.yaml --ref "$REF" -f pr="$PR" \
+            -f comment="$COMMENT"

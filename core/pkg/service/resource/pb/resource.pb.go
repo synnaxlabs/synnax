@@ -71,6 +71,9 @@ const (
 	Type_TYPE_ARC_DIRECTORY    Type = 32
 	Type_TYPE_SECRET           Type = 33
 	Type_TYPE_CERTIFICATE      Type = 34
+	Type_TYPE_COLOR            Type = 35
+	Type_TYPE_ICD              Type = 36
+	Type_TYPE_ENUMERATION      Type = 37
 )
 
 // Enum value maps for Type.
@@ -111,6 +114,9 @@ var (
 		32: "TYPE_ARC_DIRECTORY",
 		33: "TYPE_SECRET",
 		34: "TYPE_CERTIFICATE",
+		35: "TYPE_COLOR",
+		36: "TYPE_ICD",
+		37: "TYPE_ENUMERATION",
 	}
 	Type_value = map[string]int32{
 		"TYPE_ARC":              0,
@@ -148,6 +154,9 @@ var (
 		"TYPE_ARC_DIRECTORY":    32,
 		"TYPE_SECRET":           33,
 		"TYPE_CERTIFICATE":      34,
+		"TYPE_COLOR":            35,
+		"TYPE_ICD":              36,
+		"TYPE_ENUMERATION":      37,
 	}
 )
 
@@ -248,7 +257,7 @@ const file_core_pkg_service_resource_pb_resource_proto_rawDesc = "" +
 	"+core/pkg/service/resource/pb/resource.proto\x12\x13service.resource.pb\"E\n" +
 	"\x02ID\x12-\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x19.service.resource.pb.TypeR\x04type\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\x97\x05\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\xcb\x05\n" +
 	"\x04Type\x12\f\n" +
 	"\bTYPE_ARC\x10\x00\x12\x10\n" +
 	"\fTYPE_BUILTIN\x10\x01\x12\x10\n" +
@@ -290,7 +299,11 @@ const file_core_pkg_service_resource_pb_resource_proto_rawDesc = "" +
 	"\x11TYPE_OPCUA_SERVER\x10\x1f\x12\x16\n" +
 	"\x12TYPE_ARC_DIRECTORY\x10 \x12\x0f\n" +
 	"\vTYPE_SECRET\x10!\x12\x14\n" +
-	"\x10TYPE_CERTIFICATE\x10\"B\xcc\x01\n" +
+	"\x10TYPE_CERTIFICATE\x10\"\x12\x0e\n" +
+	"\n" +
+	"TYPE_COLOR\x10#\x12\f\n" +
+	"\bTYPE_ICD\x10$\x12\x14\n" +
+	"\x10TYPE_ENUMERATION\x10%B\xcc\x01\n" +
 	"\x17com.service.resource.pbB\rResourceProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/resource/pb\xa2\x02\x03SRP\xaa\x02\x13Service.Resource.Pb\xca\x02\x13Service\\Resource\\Pb\xe2\x02\x1fService\\Resource\\Pb\\GPBMetadata\xea\x02\x15Service::Resource::Pbb\x06proto3"
 
 var (

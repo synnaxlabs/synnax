@@ -15,13 +15,12 @@ from playwright.sync_api import Locator
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
-from console.notifications import NotificationsClient
+from console.notifications import click_past
 
 
 def fill_configure(
     modal: Locator,
     *,
-    notifications: NotificationsClient,
     name: str,
     identifier: str,
     action: str = "Save",
@@ -29,7 +28,6 @@ def fill_configure(
     """Fill the open configure form of a device and submit it.
 
     :param modal: The modal that shows the form.
-    :param notifications: The notifications of the page that shows the modal.
     :param name: Name of the device.
     :param identifier: Prefix for the channels of the device.
     :param action: The submit button, "Save" or "Save and create read task".
@@ -37,7 +35,7 @@ def fill_configure(
     # A required field's label ends in an asterisk.
     modal.get_by_label(re.compile(r"^Name\b")).fill(name)
     modal.get_by_label(re.compile(r"^Identifier\b")).fill(identifier)
-    notifications.clear_and_click(modal.get_by_role("button", name=action, exact=True))
+    click_past(modal.get_by_role("button", name=action, exact=True))
 
 
 class DevicesClient(ResourceClient):
@@ -379,7 +377,6 @@ class DevicesClient(ResourceClient):
         self.modal.wait_for(state="visible", timeout=5000)
         fill_configure(
             self.modal,
-            notifications=self.layout.notifications,
             name=device_name,
             identifier=identifier,
         )
@@ -415,17 +412,13 @@ class DevicesClient(ResourceClient):
         self.modal.get_by_label("Name", exact=True).fill(name)
         self.modal.get_by_label(re.compile(r"^Host\b")).fill(host)
         self.modal.get_by_label(re.compile(r"^Port\b")).fill(str(port))
-        self.layout.notifications.clear_and_click(
-            self.modal.get_by_role("button", name="Connect", exact=True)
-        )
+        click_past(self.modal.get_by_role("button", name="Connect", exact=True))
 
     def fill_connect_serial(self, *, name: str, serial_port: str) -> None:
         """Fill the open connect form of a serial device and click Connect."""
         self.modal.get_by_label("Name", exact=True).fill(name)
         self.modal.get_by_label(re.compile(r"^Serial port\b")).fill(serial_port)
-        self.layout.notifications.clear_and_click(
-            self.modal.get_by_role("button", name="Connect", exact=True)
-        )
+        click_past(self.modal.get_by_role("button", name="Connect", exact=True))
 
     def found(self, name: str) -> Locator:
         """The item of a device in the open find view."""
@@ -441,12 +434,9 @@ class DevicesClient(ResourceClient):
         :param identifier: Prefix for the channels of the device.
         :param action: The submit button, "Save" or "Save and create read task".
         """
-        self.layout.notifications.clear_and_click(
-            self.found(name).get_by_role("button", name="Configure", exact=True)
-        )
+        click_past(self.found(name).get_by_role("button", name="Configure", exact=True))
         fill_configure(
             self.modal,
-            notifications=self.layout.notifications,
             name=device_name,
             identifier=identifier,
             action=action,

@@ -60,6 +60,16 @@ download_artifacts() {
         exit 1
     fi
 
+    # A test that restarts its Core runs this Driver apart from the Core.
+    echo "Downloading synnax-driver-${os_suffix} artifact..."
+    .github/scripts/download_run_artifacts.sh "$run_id" "synnax-driver-${os_suffix}" \
+        ./driver-binaries
+    if ! ls ./driver-binaries/synnax-driver-*/synnax-driver-v* 1> /dev/null 2>&1; then
+        echo "❌ Error: No synnax-driver executable found in driver-binaries directory"
+        ls -laR ./driver-binaries/ || echo "No ./driver-binaries directory found"
+        exit 1
+    fi
+
     echo "✅ Artifacts downloaded successfully"
 }
 
@@ -83,6 +93,10 @@ setup_binaries() {
         exit 1
     fi
 
+    cp ./driver-binaries/synnax-driver-*/synnax-driver-v* \
+        "$HOME/synnax-binaries/synnax-driver"
+    echo "✅ Driver binary copied successfully"
+
     chmod +x $HOME/synnax-binaries/synnax*
 
     # Verify setup
@@ -103,7 +117,8 @@ main() {
     if [ -n "${REF_RUN_ID:-}" ] \
         && [ -f "$HOME/synnax-binaries/.run-id" ] \
         && [ "$(cat "$HOME/synnax-binaries/.run-id")" = "$run_key" ] \
-        && [ -f "$HOME/synnax-binaries/synnax" ]; then
+        && [ -f "$HOME/synnax-binaries/synnax" ] \
+        && [ -f "$HOME/synnax-binaries/synnax-driver" ]; then
         echo "Binaries for run $REF_RUN_ID already present, skipping download"
         exit 0
     fi

@@ -21,11 +21,17 @@ import { Island } from "@/platform/shell/Island";
    answered, so the island stays nominal and the surface behind it carries the error. */
 const ANSWERED: connection.Reason[] = ["auth", "unlicensed", "incompatible"];
 
-const variantOf = (status?: connection.Status | null): connection.Status["variant"] => {
-  if (status == null) return "loading";
+interface Summary {
+  variant: connection.Status["variant"];
+  label: string;
+}
+
+const summarize = (status?: connection.Status | null): Summary => {
+  if (status == null)
+    return { variant: "loading", label: PlatformConnection.VARIANT_LABELS.loading };
   if (status.variant === "error" && ANSWERED.includes(status.details.reason))
-    return "success";
-  return status.variant;
+    return { variant: "success", label: PlatformConnection.VARIANT_LABELS.success };
+  return { variant: status.variant, label: PlatformConnection.label(status) };
 };
 
 export interface ConnectionCore {
@@ -60,7 +66,7 @@ export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
       : { host: core.host, port: core.port, secure: core.secure },
   );
   if (core == null) return null;
-  const variant = variantOf(isActive ? live : checked);
+  const { variant, label } = summarize(isActive ? live : checked);
   return (
     <Island
       gap="medium"
@@ -87,7 +93,7 @@ export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
         {core.host}:{core.port}
       </Text.Text>
       <Text.Text status={variant} className={CSS.BE("shell", "connection-status")}>
-        {PlatformConnection.STATUS_LABELS[variant]}
+        {label}
       </Text.Text>
     </Island>
   );

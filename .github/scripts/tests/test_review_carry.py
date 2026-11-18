@@ -51,7 +51,7 @@ def check_run(**kw: Any) -> dict[str, Any]:
         "output": {
             "title": "Confidence Score: 4/5",
             "summary": "Fix one thing.\n\nFindings: 1 P1.",
-            "text": None,
+            "text": render.RULES,
         },
     }
     return run | kw
@@ -66,7 +66,6 @@ def thread(*replies: dict[str, Any]) -> dict[str, Any]:
     first = {
         "databaseId": 1,
         "author": {"__typename": "Bot", "login": "sedosaur"},
-        "authorAssociation": "NONE",
         "body": "<picture></picture> **Samples**\n\nText.",
     }
     return {
@@ -80,7 +79,6 @@ def thread(*replies: dict[str, Any]) -> dict[str, Any]:
 DISMISSAL = {
     "databaseId": 2,
     "author": {"__typename": "User", "login": "someone"},
-    "authorAssociation": "MEMBER",
     "body": "@sedosaur dismiss",
 }
 
@@ -115,6 +113,10 @@ class FakeGH:
             return lines(self.edits)
         if path == f"repos/{REPO}/check-runs/55":
             return KEY + "\n"
+        if path == f"repos/{REPO}/issues/7/comments":
+            return ""
+        if path == f"repos/{REPO}/collaborators/someone/permission":
+            return "write\n"
         for commit, runs in self.runs.items():
             if path.startswith(f"repos/{REPO}/commits/{commit}/check-runs?"):
                 return lines(runs)
@@ -144,18 +146,19 @@ class TestCarry:
             f"The diff is the same as at [aaaaaaa](https://github.com/{REPO}/commit/"
             f"{OLD}), so this is its review.\n\nFix one thing.\n\nFindings: 1 P1."
         )
-        assert "text" not in output
+        assert output["text"] == render.RULES
 
-    def test_should_keep_the_text_of_the_review(self, gh: FakeGH) -> None:
+    def test_should_not_carry_a_review_under_older_rules(self, gh: FakeGH) -> None:
         listing = render.listing([])
         gh.runs[OLD] = [check_run(output=check_run()["output"] | {"text": listing})]
-        assert carry(TARGET, gh, key=KEY)
-        assert gh.writes[0][2]["output"]["text"] == listing
+        assert not carry(TARGET, gh, key=KEY)
+        assert gh.writes == []
 
     def test_should_score_the_head_5_when_its_findings_are_dismissed(
         self, gh: FakeGH
     ) -> None:
-        listing = render.LISTING_START + '[["a.go", "Samples"]]' + render.LISTING_END
+        listing = render.RULES + render.LISTING_START + '[["a.go", "Samples"]]'
+        listing += render.LISTING_END
         gh.runs[OLD] = [check_run(output=check_run()["output"] | {"text": listing})]
         gh.threads = [thread(DISMISSAL)]
         assert carry(TARGET, gh, key=KEY)

@@ -92,6 +92,14 @@ type WindowRef struct {
 
 func (WindowRef) isRefVariant() {}
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WindowRef) Validate() error {
+	v := validate.New("WindowRef")
+	v.Exec(func() error { return validate.PathedError(w.Window.Validate(), "window") })
+	return v.Error()
+}
+
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
 type Ref struct {
@@ -164,4 +172,16 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		)
 	}
 	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Ref) Validate() error {
+	v := validate.New("Ref")
+	v.Ternary("variant", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case WindowRef:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
 }

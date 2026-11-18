@@ -119,8 +119,8 @@ class ReadConfig(task.ReadConfig):
             index.
     """
 
-    sample_rate: telem.Rate = telem.Rate(50)
-    stream_rate: telem.Rate = telem.Rate(25)
+    sample_rate: telem.Rate = Field(default=telem.Rate(50), ge=0, allow_inf_nan=False)
+    stream_rate: telem.Rate = Field(default=telem.Rate(25), ge=0, allow_inf_nan=False)
     device: device_.Key = ""
     sampling: Sampling = Field(default_factory=lambda: UnarySampling(type="unary"))
     channels: list[ReadChannel] = Field(default_factory=list)

@@ -17,9 +17,9 @@ import { Form } from "@/schematic/node/common/form";
 
 const path = deep.path<schematic.LineNodeConfig>();
 
-const WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
+const STROKE_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   ...Form.STROKE_WIDTH_INPUT_PROPS,
-  bounds: { lower: 1, upper: 21 },
+  bounds: { lower: 1, upper: 20 },
 };
 
 export const LineForm = (): ReactElement => (
@@ -30,7 +30,7 @@ export const LineForm = (): ReactElement => (
         path={path.strokeWidth}
         label="Stroke width"
         padHelpText={false}
-        inputProps={WIDTH_INPUT_PROPS}
+        inputProps={STROKE_WIDTH_INPUT_PROPS}
       />
     </Base.Section>
   </Base.Sections>

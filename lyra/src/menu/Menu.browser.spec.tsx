@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Menu } from "@/menu";
+import { Select } from "@/select";
 import { computed, renderThemed, resolve } from "@/styletest";
 
 const ITEMS = (
@@ -70,6 +71,77 @@ const LoadingMenu = ({ items }: { items: Promise<void> }): ReactElement => {
   );
 };
 
+// Fills the window, so a click at any point of the window opens the menu there.
+const AreaMenu = ({ count }: { count: number }): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          {Array.from({ length: count }, (_, i) => (
+            <Menu.Item key={i} itemKey={`item-${i}`}>
+              {`Item ${i}`}
+            </Menu.Item>
+          ))}
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <div
+        style={{ position: "fixed", inset: 0 }}
+        onContextMenu={ctx.open}
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        Area
+      </div>
+    </Menu.ContextMenu>
+  );
+};
+
+// A menu item and a submenu whose options show in the menu search.
+const SearchMenu = (): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          <Menu.Item itemKey="report">Leak report</Menu.Item>
+          <Menu.Divider />
+          <Menu.Sub itemKey="labels" textValue="Labels">
+            <Menu.SubTrigger>Labels</Menu.SubTrigger>
+            <Select.Frame<string, undefined>
+              multiple
+              value={[]}
+              onChange={() => {}}
+              data={["Leak check"]}
+            >
+              <Select.Dialog surface="menu" filtered aria-label="Labels">
+                <Select.Body<string> resourceName="label" onSearch={() => {}}>
+                  {({ key, ...p }) => (
+                    <Select.Item<string> key={key} {...p}>
+                      {p.itemKey}
+                    </Select.Item>
+                  )}
+                </Select.Body>
+              </Select.Dialog>
+            </Select.Frame>
+          </Menu.Sub>
+          <Menu.Divider />
+          <Menu.Item itemKey="rename">Rename</Menu.Item>
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <div className={Menu.CONTEXT_TARGET} onContextMenu={ctx.open}>
+        Target
+      </div>
+    </Menu.ContextMenu>
+  );
+};
+
+const menuBox = (): DOMRect | undefined =>
+  document.querySelector('[role="menu"]')?.getBoundingClientRect();
+
 describe("Menu", () => {
   it("should fill a selected item with the list selection tier", async () => {
     const { getByRole } = await renderThemed(ITEMS);
@@ -108,7 +180,9 @@ describe("Menu", () => {
       await userEvent.click(getByText("Target"), { button: "right" });
       const menu = page.getByRole("menu").element();
       expect(computed(menu, "position")).toBe("fixed");
-      expect(computed(menu, "background-color")).toBe(resolve("var(--pluto-gray-l2)"));
+      expect(computed(menu, "background-color")).toBe(
+        resolve("var(--pluto-gray-l1-l2)"),
+      );
       expect(computed(menu, "box-shadow")).toBe(
         resolve("var(--pluto-shadow-overlay)", "box-shadow"),
       );
@@ -125,6 +199,40 @@ describe("Menu", () => {
       );
       expect(computed(rename, "background-color")).not.toBe(resolve("transparent"));
       expect(computed(rename, "outline-style")).toBe("none");
+    });
+
+    it("should size and light an option in the search as a menu item", async () => {
+      const { getByText } = await renderThemed(<SearchMenu />);
+      await userEvent.click(getByText("Target"), { button: "right" });
+      await userEvent.keyboard("leak");
+      const item = page.getByRole("menuitem", { name: "Leak report" }).element();
+      const option = page.getByRole("menuitem", { name: /Leak check/ }).element();
+      for (const property of [
+        "height",
+        "padding-left",
+        "padding-right",
+        "border-radius",
+      ])
+        expect(computed(option, property)).toBe(computed(item, property));
+      const lit = computed(item, "background-color");
+      expect(lit).not.toBe(resolve("transparent"));
+      await userEvent.hover(option);
+      await expect.poll(() => computed(option, "background-color")).toBe(lit);
+      expect(computed(item, "background-color")).toBe(resolve("transparent"));
+    });
+
+    it("should hide the dividers around a selection with no option that matches", async () => {
+      const { getByText } = await renderThemed(<SearchMenu />);
+      await userEvent.click(getByText("Target"), { button: "right" });
+      // The selection's search never answers, so its stale option stays listed.
+      await userEvent.keyboard("rena");
+      await expect
+        .element(page.getByRole("menuitem", { name: "Rename" }))
+        .toBeVisible();
+      const shown = Array.from(document.querySelectorAll(".lyra-menu__divider")).filter(
+        (el) => computed(el, "display") !== "none",
+      );
+      expect(shown).toEqual([]);
     });
 
     const openLoading = async () => {
@@ -159,6 +267,38 @@ describe("Menu", () => {
       expect(document.activeElement).toBe(field);
     });
 
+    it("should keep the top of a menu taller than the window in the window", async () => {
+      const count = Math.ceil((window.innerHeight * 1.3) / 28);
+      const { getByText } = await renderThemed(<AreaMenu count={count} />);
+      const y = window.innerHeight / 2;
+      await userEvent.click(getByText("Area"), {
+        button: "right",
+        position: { x: 20, y },
+      });
+      await expect
+        .poll(() => menuBox()?.height ?? 0)
+        .toBeGreaterThan(window.innerHeight);
+      expect(menuBox()?.top).toBe(0);
+    });
+
+    it("should fit the window again when it opens a second time at one spot", async () => {
+      // About 60% of the window high, so it fits only above a cursor near the bottom.
+      const count = Math.ceil((window.innerHeight * 0.6) / 28);
+      const { getByText } = await renderThemed(<AreaMenu count={count} />);
+      const area = getByText("Area");
+      const spot = { x: 20, y: window.innerHeight * 0.8 };
+      const outside = { x: window.innerWidth - 10, y: 10 };
+      for (let i = 0; i < 2; i++) {
+        await userEvent.click(area, { button: "right", position: spot });
+        await expect.poll(() => menuBox()?.height ?? 0).toBeGreaterThan(0);
+        await expect
+          .poll(() => menuBox()?.bottom)
+          .toBeLessThanOrEqual(window.innerHeight);
+        await userEvent.click(area, { position: outside });
+        await expect.poll(() => menuBox()).toBeUndefined();
+      }
+    });
+
     it("should leave the focus to a click outside", async () => {
       const { getByText } = await renderThemed(<FocusMenu />);
       const opener = getByText("Opener").element() as HTMLElement;
@@ -167,7 +307,10 @@ describe("Menu", () => {
       await expect
         .poll(() => document.activeElement?.getAttribute("role"))
         .toBe("menu");
-      await userEvent.click(getByText("Canvas"));
+      // The menu covers the left of the canvas.
+      const canvas = getByText("Canvas");
+      const { width } = canvas.element().getBoundingClientRect();
+      await userEvent.click(canvas, { position: { x: width - 4, y: 4 } });
       await expect.poll(() => document.querySelector('[role="menu"]')).toBeNull();
       expect(document.activeElement).not.toBe(opener);
     });

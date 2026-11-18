@@ -23,6 +23,10 @@ on:
         required: false
         type: boolean
         default: false
+    outputs:
+      core_image:
+        description: The Core image the tests ran against, pinned by digest
+        value: ${{ jobs.core-image.outputs.image }}
     secrets:
       APPLE_CERTIFICATE:
         required: false
@@ -146,6 +150,7 @@ jobs:
       protobuf: ${{ steps.filter.outputs.protobuf }}
       py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      suppressions_py: ${{ steps.filter.outputs.suppressions_py }}
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
@@ -160,6 +165,8 @@ jobs:
       x_ts: ${{ steps.filter.outputs.x_ts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
@@ -170,26 +177,35 @@ jobs:
         with:
           version: latest-known
 
-      # Compares against the same base as the filter.
+      # The first parent of a pull request's merge checkout is its current base.
+      - name: Find the base
+        id: base
+        env:
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          base=$GROUP_BASE
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            base=$(git rev-parse HEAD^1)
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
       - name: Find the jobs a CI edit selects
         id: ci
         env:
-          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ steps.base.outputs.sha }}
         run: |
           jobs=$(uv run --locked --project .github/scripts \
-            python .github/scripts/changed_jobs.py "${PR_BASE:-$GROUP_BASE}")
+            python .github/scripts/changed_jobs.py "$BASE")
           echo "$jobs"
           echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
 
       - name: Find whether the change touches only unit tests
         id: spec
         env:
-          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ steps.base.outputs.sha }}
         run: |
           spec_only=$(uv run --locked --project .github/scripts \
-            python .github/scripts/spec_only.py "${PR_BASE:-$GROUP_BASE}")
+            python .github/scripts/spec_only.py "$BASE")
           echo "$spec_only"
           echo "spec_only=$spec_only" >> "$GITHUB_OUTPUT"
 
@@ -253,7 +269,9 @@ jobs:
       coverage_flag: alamos-ts
       directory: alamos/ts
       macos: *full
+      node_lts: true
       package: alamos
+      packed: true
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -270,6 +288,7 @@ jobs:
     with:
       clang_tidy: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: arc-cpp
       directories: arc/cpp
       macos: *full
       rust: true
@@ -277,6 +296,7 @@ jobs:
       test_flags: --spawn_strategy=local --jobs=1
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   arc-go:
@@ -339,12 +359,14 @@ jobs:
     with:
       clang_tidy: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: client-cpp
       directories: client/cpp client/clib
       macos: *full
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-py:
@@ -359,7 +381,10 @@ jobs:
       coverage_flag: client-py
       coverage_module: synnax
       directory: client/py
+      free_threaded: true
+      macos: *full
       type_check_dir: ./synnax ./examples ./tests
+      windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -391,7 +416,13 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-ts
       directory: client/ts
+      examples_package: "@synnaxlabs/client-examples"
+      macos: *full
+      node_lts: true
       package: client
+      packed: true
+      runtimes: true
+      windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -428,8 +459,10 @@ jobs:
       cached: ${{ github.event_name == 'pull_request' }}
       coverage_flag: core
       directory: core
+      os_specific: true
       macos: *full
       shards: 3
+      warmed: true
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -446,6 +479,21 @@ jobs:
     with:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
+
+  # Fails a pull request that adds a runtime or development dependency with a high or
+  # critical advisory. A merge group has no diff to review, so the job skips it. The
+  # dependency graph does not cover Bazel, so security.yaml audits the C++ dependencies.
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime, development
 
   desktop-shell:
     needs: changes
@@ -546,6 +594,7 @@ jobs:
       apt_packages: libsystemd-dev
       clang_tidy: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
+      coverage_flag: driver
       directories: driver
       macos: *full
       rust: true
@@ -554,6 +603,7 @@ jobs:
       test_tags: -hardware
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   # The EtherCAT bus runs on its own thread, and a streamer can set its channels
@@ -591,42 +641,93 @@ jobs:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
+  # Fails on the exported identifiers no other package uses that the change adds, and
+  # on every one of a module and usage that .github/exports-go.json gates, for Linux. It
+  # checks each changed module and each module that depends on one. Check - Go exports
+  # reports every finding each night.
   exports-go:
     needs: changes
     if:
-      inputs.full || needs.changes.outputs.exports_go == 'true' ||
-      contains(fromJSON(needs.changes.outputs.ci), 'exports-go')
+      ${{ !inputs.full && (needs.changes.outputs.exports_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'exports-go')) }}
     runs-on: ubuntu-latest
-    # The proxy drops streams at times, so a failed fetch falls back to the source.
     env:
+      # The proxy drops streams at times, so a failed fetch falls back to the source.
       GOPROXY: https://proxy.golang.org|direct
+      MODULES: >-
+        alamos/go arc/go cesium core freighter/go freighter/integration gorp oracle x/go
     steps:
+      # The first parent is the code the change applies to: the target branch of a pull
+      # request, or the merge group entries ahead.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+
+      - name: Select the changed modules and their dependents
+        id: modules
+        run: |
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          # shellcheck disable=SC2086
+          affected=$(python3 .github/scripts/go_affected.py $MODULES <<< "$changed" |
+            xargs)
+          if grep -qx .github/exports-go.json <<< "$changed"; then
+            affected=$MODULES
+          fi
+          echo "affected=$affected" >> "$GITHUB_OUTPUT"
+          echo "Modules to check: ${affected:-none}"
+
+      - name: Check out the base
+        if: steps.modules.outputs.affected != ''
+        run: git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
 
       # The check compiles nothing, and the modules download faster than a cache
       # restores.
       - name: Set up Go
+        if: steps.modules.outputs.affected != ''
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: x/go/go.mod
           cache: false
 
       - name: Download the Go modules
+        if: steps.modules.outputs.affected != ''
         run: |
-          .github/scripts/go_mod_download.sh alamos/go arc/go cesium core freighter/go \
-            freighter/integration gorp oracle x/go
+          # shellcheck disable=SC2086
+          .github/scripts/go_mod_download.sh $MODULES
 
       - name: Build the check
+        if: steps.modules.outputs.affected != ''
         working-directory: x/go
         run: go build -o "$RUNNER_TEMP/exports" ./cmd/exports
 
-      - name: Check exported identifiers no other package uses
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
+      - name: Check for new exported identifiers no other package uses
+        if: steps.modules.outputs.affected != ''
+        env:
+          AFFECTED: ${{ steps.modules.outputs.affected }}
         run: |
-          "$RUNNER_TEMP/exports" alamos/go arc/go cesium core freighter/go \
-            freighter/integration gorp oracle x/go
+          set +e
+          # shellcheck disable=SC2086
+          "$RUNNER_TEMP/exports" -goos linux -base "$RUNNER_TEMP/base" \
+            -gates .github/exports-go.json -workspace "${MODULES// /,}" $AFFECTED \
+            > "$RUNNER_TEMP/findings.txt"
+          status=$?
+          set -e
+          if [ "$status" -eq 1 ]; then
+            sed -E 's/^([^:]+):([0-9]+): (.*)$/::error file=\1,line=\2::\3/' \
+              "$RUNNER_TEMP/findings.txt"
+            {
+              echo "## New or gated exported Go identifiers no other package uses"
+              echo
+              echo "Unexport each one, or move a helper that other packages' tests"
+              echo "need into a \`testutil\` package."
+              echo
+              echo '```'
+              cat "$RUNNER_TEMP/findings.txt"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
 
   exports-py:
     needs: changes
@@ -645,6 +746,26 @@ jobs:
 
       - name: Check names that are public without need
         run: uv run --project scripts scripts/check_exports_py.py
+
+  # Fails on any Python suppression in the repository: `# type: ignore`, `# noqa`,
+  # `# pyright: ignore`, `cast` calls, and `TYPE_CHECKING`.
+  suppressions-py:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.suppressions_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'suppressions-py')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - name: Check for Python suppressions
+        run: uv run --project scripts scripts/check_suppressions_py.py
 
   format:
     uses: ./.github/workflows/test.format.yaml
@@ -687,11 +808,13 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
+      coverage_flag: freighter-cpp
       directories: freighter/cpp
       macos: *full
       targets: //freighter/cpp/...
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   freighter-go:
@@ -777,7 +900,9 @@ jobs:
       coverage_flag: freighter-ts
       directory: freighter/ts
       freighter_image: ${{ needs.freighter-image.outputs.image }}
+      node_lts: true
       package: freighter
+      packed: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -797,7 +922,8 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # A merge group that changes only unit tests skips integration.
+  # A merge group that changes only unit tests skips integration. A merge group tests on
+  # Ubuntu alone, as Windows runners cost about twice as much. A full run adds Windows.
   integration:
     needs: changes
     if:
@@ -811,7 +937,8 @@ jobs:
       packages: write
     uses: ./.github/workflows/test.integration.yaml
     with:
-      ubuntu: *full
+      ubuntu: true
+      windows: *full
     secrets:
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -1135,11 +1262,13 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
+      coverage_flag: x-cpp
       directories: x/cpp
       macos: *full
       targets: //x/cpp/...
       windows: *full
     secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   x-go:
@@ -1151,6 +1280,7 @@ jobs:
     with:
       coverage_flag: x-go
       directory: x/go
+      os_specific: true
       macos: *full
       windows: *full
     secrets:
@@ -1166,6 +1296,7 @@ jobs:
       coverage_flag: x-py
       coverage_module: x
       directory: x/py
+      free_threaded: true
       macos: *full
       windows: *full
     secrets:
@@ -1195,7 +1326,9 @@ jobs:
       coverage_flag: x-ts
       directory: x/ts
       macos: *full
+      node_lts: true
       package: x
+      packed: true
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -1264,6 +1397,7 @@ jobs:
       - copyright
       - core
       - core-image
+      - dependency-review
       - desktop-shell
       - docs
       - docs-site
@@ -1302,6 +1436,7 @@ jobs:
       - soem
       - stylelint
       - stylelint-config
+      - suppressions-py
       - vite-plugin
       - www
       - www-site

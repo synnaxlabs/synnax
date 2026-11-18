@@ -33,7 +33,7 @@ const coreItem = (session: capture.CaptureSession, name: string) =>
 
 /**
  * removeCore drops a Core from the list off camera. The session ships with a
- * "Local" and a "Demo" entry, neither of which answers on the capture's port.
+ * "Local" entry, which does not answer on the capture's port.
  */
 const removeCore = async (
   session: capture.CaptureSession,
@@ -70,7 +70,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .filter({ hasText: "Add a Core" })
     .first();
   await session.waitFor(addCore);
-  await removeCore(session, "Demo");
   await removeCore(session, "Local");
   await session.settle(1500);
   await session.moveTo({ x: 756, y: 760 });

@@ -166,18 +166,14 @@ const COLUMNS = [170, 150, 70, 120, 120];
 const HEADER_HEIGHT = 48;
 const ROW_HEIGHT = 78;
 
-type Cells = NonNullable<table.New["cells"]>;
-type CellConfig = Cells[string];
+type Cell = NonNullable<NonNullable<table.New["rows"]>[number]["cells"]>[number];
+type CellConfig = Cell["config"];
 
 /** limitTable lays out every reading with its live value, units, and limits. */
 const limitTable = (keys: Map<string, channel.Key>): table.New => {
-  const cells: Cells = {};
-  const add = (config: CellConfig): string => {
-    const key = `cell-${Object.keys(cells).length}`;
-    cells[key] = config;
-    return key;
-  };
-  const quiet = (value: string): string =>
+  let count = 0;
+  const add = (config: CellConfig): Cell => ({ key: `cell-${count++}`, config });
+  const quiet = (value: string): Cell =>
     add({ variant: "text", value, level: "h5", textColor: QUIET });
   const header = {
     size: HEADER_HEIGHT,
@@ -218,7 +214,6 @@ const limitTable = (keys: Map<string, channel.Key>): table.New => {
     name: NAME,
     columns: COLUMNS.map((size) => ({ size })),
     rows: [header, ...rows],
-    cells,
   };
 };
 

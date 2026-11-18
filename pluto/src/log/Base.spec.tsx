@@ -61,7 +61,7 @@ const DEFAULT_STATE = {
   channels: [],
   telem: { type: "noop-log-source", props: {}, variant: "source", valueType: "log" },
   font: "p",
-  color: { r: 0, g: 0, b: 0, a: 0 },
+  color: "#00000000",
   overshoot: { x: 0, y: 0 },
   selectionStart: -1,
   selectionEnd: -1,

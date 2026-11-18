@@ -39,28 +39,32 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (task.type == SCAN_TASK_TYPE)
         return common::handle_config_err(
             ctx,
             task,
             configure_scan(processor, ctx, task),
-            cmd_key
+            cmd_key,
+            cancel
         );
     if (task.type == READ_TASK_TYPE)
         return common::handle_config_err(
             ctx,
             task,
             configure_read(ctx, task, this->processor),
-            cmd_key
+            cmd_key,
+            cancel
         );
     if (task.type == WRITE_TASK_TYPE)
         return common::handle_config_err(
             ctx,
             task,
             configure_write(ctx, task, this->processor),
-            cmd_key
+            cmd_key,
+            cancel
         );
     return {nullptr, false};
 }
@@ -68,7 +72,8 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::rack::Rack &rack
+    const synnax::rack::Rack &rack,
+    x::breaker::Breaker &cancel
 ) {
     return common::configure_initial_factory_tasks(
         this,
@@ -76,7 +81,8 @@ Factory::configure_initial_tasks(
         rack,
         "HTTP Scanner",
         SCAN_TASK_TYPE,
-        INTEGRATION_NAME
+        INTEGRATION_NAME,
+        cancel
     );
 }
 }

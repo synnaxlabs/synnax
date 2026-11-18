@@ -108,6 +108,20 @@ describe("Panel Slice", () => {
       expect(mounted(state)).toEqual([KEYS[2], KEYS[1], KEYS[0]]);
     });
 
+    it("should keep a hydrated selection mounted once the window leaves it", () => {
+      let hydrated = run(Panel.select({ key: KEYS[0] }));
+      Panel.PERSIST_EXCLUDE.forEach(
+        (exclude) => (hydrated = exclude(deep.copy(hydrated))),
+      );
+      const store = createMinimalStore({
+        reducer: rootReducer,
+        preloadedState: { [Panel.SLICE_NAME]: hydrated[Panel.SLICE_NAME] },
+        middleware: (getDefault) => getDefault().concat(Panel.MIDDLEWARE),
+      });
+      store.dispatch(Panel.select({ key: KEYS[1] }));
+      expect(mounted(store.getState())).toEqual([KEYS[1], KEYS[0]]);
+    });
+
     it("should move a reselected panel back to the front without duplicating it", () => {
       const state = selectAll(KEYS[0], KEYS[1], KEYS[0]);
       expect(mounted(state)).toEqual([KEYS[0], KEYS[1]]);

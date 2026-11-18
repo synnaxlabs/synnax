@@ -27,6 +27,8 @@ Key = v0.Key
 Panel struct extends v3.Panel {
     -range
     project project.Key? {
-        @doc value "is the project that owns the panel."
+        @doc value "is the project that holds the panel."
     }
+
+    @doc value "is a tree of visualization tabs in a project."
 }

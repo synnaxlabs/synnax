@@ -5,7 +5,7 @@ implementations in HTTP and a streaming implementation using WebSockets.
 
 ## Developing
 
-Freighter uses Python 3.12+ and [uv](https://docs.astral.sh/uv/) for dependency
+Freighter uses Python 3.13+ and [uv](https://docs.astral.sh/uv/) for dependency
 management. To install the dependencies, run:
 
 ```sh

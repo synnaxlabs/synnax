@@ -9,7 +9,7 @@
 
 import { type panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Panel } from "@synnaxlabs/pluto";
+import { Panel, User } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
 
 import {
@@ -77,12 +77,13 @@ export const selectOrder = (state: StoreState): panel.Key[] => state[SLICE_NAME]
 const useSelectOrder = (): panel.Key[] => Select.useMemo(selectOrder, []);
 
 /**
- * @returns the selected project's panels in the strip's order. Every surface listing
- * panels reads it, so the order the user set in the strip is the order they see
- * everywhere. Suspends until the project's panels resolve.
+ * @returns the selected project's shared panels and the user's drafts, in the strip's
+ * order. Every surface listing panels reads it, so the order the user set in the strip
+ * is the order they see everywhere. Suspends until the panels resolve.
  */
 export const useSelectOrderedKeys = (): panel.Key[] => {
-  const keys = Panel.useKeysByProject({ project: Project.useSelectSelected() });
+  const { key: user } = User.use({});
+  const keys = Panel.useKeysByProject({ project: Project.useSelectSelected(), user });
   const order = useSelectOrder();
   // The query answers membership, the session answers order. A key the session has
   // not reconciled yet lands at the end in answer order: the sort is stable and

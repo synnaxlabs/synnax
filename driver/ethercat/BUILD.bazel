@@ -21,7 +21,6 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/common",
-        "//driver/ethercat/errors",
         "//driver/ethercat/slave",
         "//x/cpp/errors",
         "//x/cpp/json",
@@ -33,6 +32,7 @@ cc_test(
     srcs = ["slaves_test.cpp"],
     deps = [
         ":slaves",
+        "//driver/ethercat/errors",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
@@ -45,6 +45,7 @@ cc_library(
         "read_task.h",
         "scan_task.cpp",
         "scan_task.h",
+        "steps.h",
         "write_task.h",
     ],
     hdrs = [
@@ -63,16 +64,19 @@ cc_library(
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//driver/ethercat/soem",
+        "//driver/ethercat/soem:filter",
         "//driver/ethercat/telem",
         "//driver/pipeline",
         "//driver/task",
         "//driver/transform",
         "//x/cpp/breaker",
+        "//x/cpp/defer",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/lib",
         "//x/cpp/telem",
         "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:vlog_is_on",
     ] + select({
         ":linux": [
             "//driver/ethercat/igh",

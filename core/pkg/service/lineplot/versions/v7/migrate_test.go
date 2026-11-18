@@ -10,7 +10,6 @@
 package v7_test
 
 import (
-	"context"
 	"embed"
 	"encoding/hex"
 	"io"
@@ -40,7 +39,7 @@ func loadWire(name string) []byte {
 	))
 }
 
-func decodeV6(ctx context.Context) v6.LinePlot {
+func decodeV6() v6.LinePlot {
 	GinkgoHelper()
 	var lp v6.LinePlot
 	Expect(orc.Codec.Decode(loadWire("v6_initial.hex"), &lp)).To(Succeed())
@@ -50,7 +49,7 @@ func decodeV6(ctx context.Context) v6.LinePlot {
 var _ = Describe("MigrateLinePlot", func() {
 	It("Should carry every field but the line reduction settings",
 		func(ctx SpecContext) {
-			in := decodeV6(ctx)
+			in := decodeV6()
 			out := MustSucceed(v7.MigrateLinePlot(ctx, in))
 			Expect(out.Key).To(Equal(in.Key))
 			Expect(out.Name).To(Equal(in.Name))
@@ -71,7 +70,7 @@ var _ = Describe("MigrateLinePlot", func() {
 
 	It("Should round-trip the migrated plot through the v7 codec",
 		func(ctx SpecContext) {
-			out := MustSucceed(v7.MigrateLinePlot(ctx, decodeV6(ctx)))
+			out := MustSucceed(v7.MigrateLinePlot(ctx, decodeV6()))
 			encoded := MustSucceed(orc.Codec.Encode(out))
 			var decoded v7.LinePlot
 			Expect(orc.Codec.Decode(encoded, &decoded)).To(Succeed())
@@ -116,13 +115,19 @@ var _ = Describe("MigrateLine", func() {
 		Expect(out.Label).To(HaveValue(Equal("pressure")))
 		Expect(out.StrokeWidth).To(Equal(3.0))
 	})
+
+	It("Should give a stored zero stroke width the default", func(ctx SpecContext) {
+		Expect(MustSucceed(v7.MigrateLine(ctx, v6.Line{Key: "k"})).StrokeWidth).
+			To(Equal(2.0))
+	})
 })
 
 var _ = Describe("Storage migration", func() {
 	It("Should lift a stored v6 entry to v7 through the gorp migration",
 		func(ctx SpecContext) {
-			stored := decodeV6(ctx)
+			stored := decodeV6()
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx, gorp.TableConfig[v6.Key, v6.LinePlot]{DB: db},
 			))
@@ -142,7 +147,7 @@ var _ = Describe("Storage migration", func() {
 })
 
 var _ = Describe("v7 wire format", func() {
-	It("Should decode the pinned v7 payload", func(ctx SpecContext) {
+	It("Should decode the pinned v7 payload", func() {
 		var lp v7.LinePlot
 		Expect(orc.Codec.Decode(loadWire("v7_initial.hex"), &lp)).To(Succeed())
 		Expect(lp.Lines).To(HaveLen(2))
@@ -152,14 +157,14 @@ var _ = Describe("v7 wire format", func() {
 		Expect(lp.Lines[1].Detail).To(Equal(v7.DetailLow))
 	})
 
-	It("Should re-encode the payload byte for byte", func(ctx SpecContext) {
+	It("Should re-encode the payload byte for byte", func() {
 		raw := loadWire("v7_initial.hex")
 		var lp v7.LinePlot
 		Expect(orc.Codec.Decode(raw, &lp)).To(Succeed())
 		Expect(orc.Codec.Encode(lp)).To(Equal(raw))
 	})
 
-	It("Should reject every truncation of a stored payload", func(ctx SpecContext) {
+	It("Should reject every truncation of a stored payload", func() {
 		raw := loadWire("v7_initial.hex")
 		for n := 3; n < len(raw); n++ {
 			var lp v7.LinePlot

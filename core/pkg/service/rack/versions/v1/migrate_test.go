@@ -21,7 +21,7 @@ import (
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -31,6 +31,7 @@ var _ = Describe("MigrateRack", func() {
 	migrateSeed := func(ctx SpecContext, seed v0.Rack) v1.Rack {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Rack]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
 			Entry(&seed).Exec(ctx, db)).To(Succeed())

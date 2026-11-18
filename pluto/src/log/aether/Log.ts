@@ -10,6 +10,7 @@
 import { log, type status } from "@synnaxlabs/client";
 import { type theme } from "@synnaxlabs/lyra/theme";
 import {
+  array,
   bounds,
   box,
   color,
@@ -58,7 +59,7 @@ export const logStateZ = log.logZ
     channelDataTypes: z.record(z.string(), z.string()).default({}),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
-    color: color.colorZ.default(color.ZERO),
+    color: color.colorZ.optional(),
     overshoot: xy.xyZ.default({ x: 0, y: 0 }),
     // position is the time of the entry at the bottom of a paused view: a decimal count
     // of nanoseconds, since a number cannot hold it exactly. Empty while live.
@@ -190,7 +191,7 @@ const ZERO_SCROLLBACK: ScrollbackState = {
 };
 
 const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
-  const p = theme.key === "synnaxDark" ? DARK_PREFIX : LIGHT_PREFIX;
+  const p = theme.dark ? DARK_PREFIX : LIGHT_PREFIX;
   const [h, s, l, a] = color.hsla(c);
   return color.fromHSLA([
     Math.min(360, Math.round(h * p.hue)),
@@ -253,9 +254,6 @@ const formatNumber = (
   return notation.stringifyNumber(number, precision, valueNotation);
 };
 
-const sameEntries = (a: number[], b: number[]): boolean =>
-  a.length === b.length && a.every((entry, i) => entry === b[i]);
-
 // Moves a wrap point off the second half of a surrogate pair, so a row never splits an
 // emoji.
 const wrapPoint = (value: string, at: number): number => {
@@ -315,8 +313,7 @@ export class Log
         this.seeking = BigInt(this.state.position);
     }
 
-    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l11;
-    else i.textColor = this.state.color;
+    i.textColor = this.state.color ?? i.theme.colors.gray.l11;
 
     i.lineHeight = i.theme.typography[this.state.font].size * i.theme.sizes.base;
     i.charWidth = i.draw2d.measureCharWidth(this.state.font);
@@ -338,14 +335,14 @@ export class Log
       i.prefixColors = {};
       i.valueColors = {};
       for (const [key, cfg] of Object.entries(configs))
-        if (!color.isZero(cfg.color)) {
+        if (cfg.color != null) {
           i.prefixColors[key] = muteColor(cfg.color, i.theme);
           i.valueColors[key] = color.construct(cfg.color);
         }
     }
     i.configs = configs;
 
-    i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
+    i.selectionColor = color.setOpacity(i.theme.colors.primary.z, 0.25);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
@@ -651,7 +648,7 @@ export class Log
       this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
-      !sameEntries(this.state.rowEntries, rowEntries)
+      !array.equal(this.state.rowEntries, rowEntries)
     )
       this.setState((s) => ({
         ...s,
@@ -762,12 +759,10 @@ export class Log
   // Returns the position of the entry, or -1 when it was evicted.
   private locate(entry: LogEntry): number {
     const time = entry.timestamp.valueOf();
-    let [lo, hi] = [0, this.entries.length];
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (this.entries[mid].timestamp.valueOf() < time) lo = mid + 1;
-      else hi = mid;
-    }
+    const lo = array.partitionPoint(
+      this.entries.length,
+      (i) => this.entries[i].timestamp.valueOf() >= time,
+    );
     for (let i = lo; i < this.entries.length; i++) {
       if (this.entries[i] === entry) return i;
       if (this.entries[i].timestamp.valueOf() !== time) break;
@@ -816,12 +811,10 @@ export class Log
     const reached = time >= this.entries[0].timestamp.valueOf();
     if (!reached && telem.wrapped.exhausted === false) return;
     if (reached) {
-      let [lo, hi] = [0, this.entries.length];
-      while (lo < hi) {
-        const mid = (lo + hi) >>> 1;
-        if (this.entries[mid].timestamp.valueOf() <= time) lo = mid + 1;
-        else hi = mid;
-      }
+      const lo = array.partitionPoint(
+        this.entries.length,
+        (i) => this.entries[i].timestamp.valueOf() > time,
+      );
       this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
       this.scrollState.tail = 0;
     }

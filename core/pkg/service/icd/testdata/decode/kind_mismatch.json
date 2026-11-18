@@ -1,0 +1,29 @@
+{
+  "description": "A string field cannot write to a float channel.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "s",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/s",
+            "type": "string"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "error": "message reading: field s: cannot write string values to float64 channels: validation error"
+}

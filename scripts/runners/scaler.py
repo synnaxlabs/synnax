@@ -9,14 +9,18 @@
 
 """Pure-demand pool scaling, driven by controller.py's poll cycle. Queued self-hosted
 jobs beyond a pool's idle runners start its offline instances; once a pool's queue is
-empty, runners idle past the cooldown are stopped. Commands write <runner>_ec2_cmd
-for dispatch.py to act on."""
+empty, runners idle past the cooldown are drained, unregistered from GitHub, then
+stopped. A drain writes false to <runner>_gh_cmd for agent.py to act on, and a start or
+a stop writes <runner>_ec2_cmd for dispatch.py to act on."""
 
 import synnax as sy
 
 from commander import Commander
-from common import IDLE, OFFLINE, instance_for
+from common import IDLE, OFFLINE, Writes, instance_for
+from gate import Gate
+from github import GitHub
 from log import Log
+from pools import POOLS, Pool, pool_of
 
 # Writing false to this virtual boolean channel disables scaling, true enables it.
 SCALER_CMD = "runner_scaler_cmd"
@@ -25,52 +29,37 @@ SCALER_ENABLED = "runner_scaler_enabled"
 # Every line the scaler logs, one sample per line.
 SCALER_LOG = "runner_scaler_log"
 
-# A pool is the label a job asks for and its runners carry.
-Pool = str
-
-POOLS: dict[Pool, str] = {
-    "windows-build-bot": "Windows Build",
-    "ubuntu-build-bot": "Ubuntu Build",
-    "windows-test-bot": "Windows Test",
-    "ubuntu-test-bot": "Ubuntu Test",
-}
-# These name a self-hosted pool outright. The rest are shared with GitHub-hosted
-# runners, so a job only counts as ours when it also carries "self-hosted".
-DEDICATED_LABELS = {
-    "windows-build-bot",
-    "ubuntu-build-bot",
-    "windows-test-bot",
-    "ubuntu-test-bot",
-}
-
-
-def pool_of(labels: set[str]) -> Pool | None:
-    """The pool a runner belongs to, from the labels it registered with."""
-    return next((label for label in sorted(labels) if label in POOLS), None)
-
-
-def job_pool(labels: set[str]) -> Pool | None:
-    """The pool a queued job needs, None when it is not ours to serve."""
-    if "self-hosted" not in labels and not labels & DEDICATED_LABELS:
-        return None
-    return pool_of(labels)
-
 
 class Scaler:
     """Busy runners, runners with a job in progress, and instances up less than
-    boot_grace whose runner is offline are never touched. Instances still booting,
-    and runners just commanded to start, count toward a pool's demand. While
-    disabled, the writer is closed and nothing is written, but idle time keeps
-    accruing and each decision is logged once, marked [DISABLED], so enabling clears
-    whatever backlog built up."""
+    boot_grace whose runner is offline and not drained are never touched. Instances
+    still booting, and runners just commanded to start, count toward a pool's demand. An
+    instance stops only after its runner is drained and offline: the agent holds a drain
+    while a job runs, so a runner that takes a job after the decision keeps its
+    instance. The runner's GitHub registration is deleted before the stop, so GitHub
+    cannot assign a job to a runner that is going down; a runner GitHub still has a job
+    for keeps its instance and is enabled again to take the job. The caller reports a
+    runner GitHub does not list as offline, and its start registers it again. A drain is
+    sent again each RECOMMAND_DELAY while the runner stays online. Once the instance is
+    stopped, the runner is enabled again for its next start, unless the gate is closed.
+    While disabled, the writer is closed and no drain, start, stop, or delete is sent,
+    but idle time keeps accruing and each decision is logged once, marked [DISABLED], so
+    enabling clears whatever backlog built up. A runner this scaler drained is enabled
+    again while disabled, so no drain outlives the switch.
+
+    :param gate: Sends the runner commands, and holds the last one of each runner.
+    :param github: Deletes runner registrations.
+    """
 
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Writes,
         cooldown: sy.TimeSpan,
         boot_grace: sy.TimeSpan,
         log: Log,
+        gate: Gate,
+        github: GitHub,
         enabled: bool = True,
     ) -> None:
         self.commander = Commander(
@@ -81,10 +70,15 @@ class Scaler:
             describe=self.describe,
         )
         self.log = log
+        self.gate = gate
+        self.github = github
         self.cooldown = cooldown
         self.boot_grace = boot_grace
         self.enabled = enabled
         self.idle_since: dict[str, sy.TimeStamp] = {}
+        # The runners this scaler drained that are still drained.
+        self.drains: set[str] = set()
+        # The decisions logged while disabled, by command channel.
         self.logged: dict[str, bool] = {}
         self.announced: dict[Pool, str] = {}
 
@@ -104,9 +98,10 @@ class Scaler:
         found: dict[str, dict],
         running: set[str],
         stops: bool = True,
-    ) -> None:
-        """Starts instances for queued jobs and, when stops is set, stops idle
-        runners past their cooldown."""
+    ) -> set[str]:
+        """Starts instances for queued jobs and, when stops is set, drains idle
+        runners past their cooldown and stops the instances of the drained ones.
+        Returns the runners on their way up."""
         self.refresh_writer(known)
         # After the command writer opens, so commands land after its start.
         now = sy.TimeStamp.now()
@@ -118,9 +113,9 @@ class Scaler:
                 return False
             if status.get(r) == IDLE:
                 return True
-            return (
-                status.get(r) == OFFLINE
-                and now.span(found[iid]["launched"]) >= self.boot_grace
+            # A drained runner does not come online, so it gets no time to boot.
+            return status.get(r) == OFFLINE and (
+                self.drained(r) or now.span(found[iid]["launched"]) >= self.boot_grace
             )
 
         for r in known:
@@ -132,7 +127,7 @@ class Scaler:
         offline: dict[Pool, list[str]] = {}
         # Instances on their way up, which take a queued job once their runner
         # connects.
-        booting: dict[Pool, int] = {}
+        booting: dict[Pool, list[str]] = {}
         # Offline-past-grace runners are stoppable but cannot take a job.
         stoppable: dict[Pool, list[str]] = {}
         # Recently commanded runners still count, they just cannot be commanded again.
@@ -148,17 +143,20 @@ class Scaler:
                 offline.setdefault(pool, []).append(r)
             elif r in self.idle_since:
                 stoppable.setdefault(pool, []).append(r)
-                if status.get(r) == IDLE:
+                # A drained runner is on its way down, so it covers no queued job.
+                if status.get(r) == IDLE and not self.drained(r):
                     idle.setdefault(pool, []).append(r)
             elif state in ("stopped", "pending") or (
                 state == "running" and status.get(r) == OFFLINE and r not in running
             ):
-                booting[pool] = booting.get(pool, 0) + 1
+                booting.setdefault(pool, []).append(r)
         commands: dict[str, bool] = {}
         for pool, n in queued.items():
+            if not POOLS[pool].scaled:
+                continue
             spare = offline.get(pool, [])
             startable = [r for r in spare if r in ready]
-            covered = len(idle.get(pool, [])) + booting.get(pool, 0)
+            covered = len(idle.get(pool, [])) + len(booting.get(pool, []))
             starting = startable[: max(n - covered, 0)]
             # Once a pool has been acted on, stay quiet until something changes for
             # it; only a pool with nothing left to start keeps reporting.
@@ -167,22 +165,69 @@ class Scaler:
             commands.update(dict.fromkeys(starting, True))
         for pool in [p for p in self.announced if p not in queued]:
             del self.announced[pool]
+        runners_ready = self.gate.commander.ready(known, now=now)
+        drains: dict[str, bool] = {}
         for pool, runners in stoppable.items():
-            if not stops or queued.get(pool, 0):
+            if not POOLS[pool].scaled or not stops:
                 continue
             for r in runners:
-                if r in ready and now.span(self.idle_since[r]) >= self.cooldown:
-                    commands[r] = False
+                if now.span(self.idle_since[r]) < self.cooldown:
+                    continue
+                down = status.get(r) == OFFLINE
+                if down and self.drained(r):
+                    if r in ready:
+                        commands[r] = False
+                # An online runner stays up to take a job of its pool's queue.
+                elif (down or not queued.get(pool, 0)) and (
+                    not self.drained(r) or r in runners_ready
+                ):
+                    drains[r] = False
+        # Runners GitHub refused to delete because it bound a job to them.
+        bound: set[str] = set()
+        if self.enabled:
+            for r in [r for r, start in commands.items() if not start]:
+                if not self.github.delete(r):
+                    del commands[r]
+                    bound.add(r)
+                    # A fresh cooldown gives the runner time to take the job.
+                    self.idle_since.pop(r, None)
+                    self.log(f"{r} has a job, starting its runner to take it")
+        self.drains = {r for r in self.drains if self.drained(r)}
+        enables: dict[str, bool] = {}
+        for r in known if self.gate.enabled else ():
+            iid = instance_for(r, found=found)
+            if iid is None or not self.drained(r):
+                continue
+            state = found[iid]["state"]
+            if self.enabled:
+                enabling = state == "stopped"
+            else:
+                # A running instance whose stop was just commanded can still go down,
+                # and a runner enabled on it could take a job.
+                enabling = r in self.drains and (
+                    state == "stopped" or (state == "running" and r in ready)
+                )
+            if enabling or r in bound:
+                enables[r] = True
+        if enables:
+            self.gate.commander.command(enables, now=now)
+        if drains:
+            self.command(drains, commander=self.gate.commander, now=now)
+            self.drains |= {r for r in drains if self.drained(r)}
         if commands:
-            self.command(commands, now=now)
+            self.command(commands, commander=self.commander, now=now)
+        return {r for runners in booting.values() for r in runners}
+
+    def drained(self, runner: str) -> bool:
+        last = self.gate.commander.commanded.get(runner)
+        return last is not None and not last[1]
 
     def announce(self, pool: Pool, *, queued: int, spare: int, starting: int) -> None:
         """Logs a pool's demand once per distinct message, so a queue that sits for
         several polls does not repeat itself."""
         action = f"starting {starting}" if starting else "none to start"
-        line = (
-            f"{POOLS[pool]}: {queued} jobs queued, {spare} instances offline, {action}"
-        )
+        title = POOLS[pool].title
+        line = f"{title}: {queued} jobs queued, {spare} instances offline, {action}"
         if self.announced.get(pool) != line:
             self.announced[pool] = line
             self.log(line)
@@ -196,17 +241,23 @@ class Scaler:
             return f"{name}=False (idle)"
         return f"{name}=False (idle {now.span(since).trunc(sy.TimeSpan.SECOND)})"
 
-    def command(self, commands: dict[str, bool], *, now: sy.TimeStamp) -> None:
+    def command(
+        self, commands: dict[str, bool], *, commander: Commander, now: sy.TimeStamp
+    ) -> None:
         if not self.enabled:
             # Log each decision once, and leave commanded alone so enabling acts
             # on the backlog without waiting out RECOMMAND_DELAY.
-            fresh = {r: v for r, v in commands.items() if self.logged.get(r) != v}
+            fresh = {
+                r: v
+                for r, v in commands.items()
+                if self.logged.get(commander.channel(r)) != v
+            }
             if fresh:
-                self.logged.update(fresh)
-                self.log(f"[DISABLED] {self.commander.lines(fresh, now=now)}")
+                self.logged.update({commander.channel(r): v for r, v in fresh.items()})
+                self.log(f"[DISABLED] {commander.lines(fresh, now=now)}")
             return
         self.logged.clear()
-        self.commander.command(commands, now=now)
+        commander.command(commands, now=now)
 
     def close(self) -> None:
         self.commander.close()

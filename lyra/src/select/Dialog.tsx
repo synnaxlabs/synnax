@@ -21,10 +21,25 @@ import { createPortal } from "react-dom";
 import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
 import { Input } from "@/input";
-import { ClosedContext } from "@/select/scope";
+import { Menu } from "@/menu";
+import { usePath } from "@/menu/filter";
+import { ClosedContext, InlineContext } from "@/select/scope";
 
 /** Props for {@link Dialog}. */
-export interface DialogProps extends BaseDialog.DialogProps {}
+export interface DialogProps extends BaseDialog.DialogProps {
+  /**
+   * The surface the dialog draws. A menu surface looks like a `Menu.Dialog`: its search
+   * spans the top, and its options take the size of menu items. It does not filter as
+   * the user types.
+   */
+  surface?: "dialog" | "menu";
+  /**
+   * The options that match the filter of the menu show in the menu, after the name of
+   * the submenu, while the menu filters by text that the name does not match. Only a
+   * select in a `Menu.Sub` uses it.
+   */
+  filtered?: boolean;
+}
 
 const subscribe = (): destructor.Destructor => destructor.NOOP;
 const getSnapshot = (): boolean => true;
@@ -40,18 +55,33 @@ const Closed = ({ children }: PropsWithChildren): ReactNode => {
  * element outside the page, so a selected fixed {@link Item} can still show its label
  * in the trigger.
  */
-export const Dialog = ({ className, children, ...rest }: DialogProps): ReactNode => {
+export const Dialog = ({
+  ref,
+  className,
+  children,
+  surface = "dialog",
+  filtered = false,
+  ...rest
+}: DialogProps): ReactNode => {
   const { visible } = BaseDialog.useContext();
+  // Under a submenu that the menu filter passes, a selection shows its options in the
+  // menu or nothing.
+  const nested = usePath().length > 0;
+  const cls = CSS.cls(CSS.BE("select", "dialog"), className);
+  const menuSurface = Menu.useSurface(ref, cls);
   // False on the server and during hydration, since the server renders no portal.
   const hydrated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const content = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
-  if (!visible) return hydrated && <Closed>{content}</Closed>;
+  if (nested && filtered) return <InlineContext value>{content}</InlineContext>;
+  if (!visible || nested) return hydrated && <Closed>{content}</Closed>;
+  if (surface === "menu")
+    return (
+      <BaseDialog.Dialog {...menuSurface} {...rest}>
+        {content}
+      </BaseDialog.Dialog>
+    );
   return (
-    <BaseDialog.Dialog
-      {...rest}
-      className={CSS.cls(CSS.BE("select", "dialog"), className)}
-      bordered={false}
-    >
+    <BaseDialog.Dialog ref={ref} {...rest} className={cls} bordered={false}>
       {content}
     </BaseDialog.Dialog>
   );

@@ -84,7 +84,7 @@ func NewInstrumentedEntry[IK, OK gorp.Key, I gorp.Entry[IK], O gorp.Entry[OK]](
 			}
 			defer func() { err = errors.Combine(err, iter.Close()) }()
 			for iter.First(); iter.Valid(); iter.Next() {
-				old := iter.Value(ctx)
+				old := iter.Value()
 				if err = iter.Error(); err != nil {
 					return err
 				}

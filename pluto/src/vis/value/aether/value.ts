@@ -22,16 +22,16 @@ import { staleness } from "@/vis/staleness/aether";
 
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
-// Below this contrast against the background a color is illegible and gets
-// swapped for a legible gray. Rough guard, tune later.
-const MIN_LEGIBLE_CONTRAST = 1.1;
+// Below this contrast against the background a color is illegible and gets swapped for
+// a legible gray.
+const MIN_LEGIBLE_CONTRAST = 1.5;
 
 const valueState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   level: text.levelZ.default("p"),
-  color: color.colorZ.default(color.ZERO),
+  color: color.colorZ.optional(),
   precision: z.number().default(2),
   stalenessColor: color.colorZ.optional(),
   minWidth: z.number().default(60),
@@ -159,10 +159,10 @@ export class Value
     const background = theme.colors.gray.l0;
     const legible = theme.colors.gray.l11;
     // Honor an explicit color unless it's illegible against the background.
-    if (color.isZero(this.state.color)) return legible;
-    if (color.contrast(background, this.state.color) < MIN_LEGIBLE_CONTRAST)
+    const c = this.state.color;
+    if (c == null || color.contrast(background, c) < MIN_LEGIBLE_CONTRAST)
       return legible;
-    return this.state.color;
+    return c;
   }
 
   render({ viewportScale = scale.XY.IDENTITY }): void {
@@ -201,19 +201,15 @@ export class Value
       : null;
     try {
       if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
-        const colorValue = backgroundTelem.value().data;
-        const isZero = color.isZero(colorValue);
-        if (!isZero) {
-          canvas.fillStyle = color.hex(colorValue);
-          const width = this.state.useWidthForBackground
-            ? (this.state.width ?? this.state.minWidth)
-            : box.width(b);
-          canvas.fillRect(
-            ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
-            width + this.state.valueBackgroundOverScan.x,
-            bHeight + this.state.valueBackgroundOverScan.y,
-          );
-        }
+        canvas.fillStyle = color.hex(backgroundTelem.value().data);
+        const width = this.state.useWidthForBackground
+          ? (this.state.width ?? this.state.minWidth)
+          : box.width(b);
+        canvas.fillRect(
+          ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
+          width + this.state.valueBackgroundOverScan.x,
+          bHeight + this.state.valueBackgroundOverScan.y,
+        );
       }
 
       const textColor = this.getTextColor();

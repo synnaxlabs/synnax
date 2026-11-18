@@ -59,7 +59,7 @@ var _ = Describe("Restore", func() {
 			Expect(recordedVersion(dir)).To(Equal("0.59.0"))
 
 			l = openLayer(ctx, dir, "0.59.0")
-			value, closer := MustSucceed2(l.KV.Get(ctx, []byte("key")))
+			value, closer := MustSucceed2(l.KV.Get([]byte("key")))
 			Expect(string(value)).To(Equal("before"))
 			Expect(closer.Close()).To(Succeed())
 			Expect(MustSucceed(l.TS.RetrieveChannel(ctx, dataCh.Key)).Name).
@@ -109,7 +109,7 @@ var _ = Describe("Restore", func() {
 			))
 			Expect(entries(filepath.Join(dir, "kv"))).ToNot(ContainElement("stale"))
 			l = openLayer(ctx, dir, "0.59.0")
-			Expect(l.KV.Get(ctx, []byte("key"))).Error().
+			Expect(l.KV.Get([]byte("key"))).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(l.Close()).To(Succeed())
 		},
@@ -204,7 +204,7 @@ var _ = Describe("Restore", func() {
 			Expect(filepath.Join(dir, restoreMarkerFile)).
 				ToNot(BeAnExistingFile())
 			l = openLayer(ctx, dir, "0.60.0")
-			value, closer := MustSucceed2(l.KV.Get(ctx, []byte("key")))
+			value, closer := MustSucceed2(l.KV.Get([]byte("key")))
 			Expect(string(value)).To(Equal("after"))
 			Expect(closer.Close()).To(Succeed())
 			Expect(MustSucceed(l.TS.RetrieveChannel(ctx, indexCh.Key)).Name).

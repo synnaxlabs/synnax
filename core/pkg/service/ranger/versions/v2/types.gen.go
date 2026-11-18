@@ -17,7 +17,6 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a range, represented as a UUID.
@@ -41,14 +40,6 @@ type Range struct {
 	// Parent is the key of the range this range is nested in. Empty for a top-level
 	// range.
 	Parent *Key `json:"parent,omitzero" msgpack:"parent,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (r Range) Validate() error {
-	v := validate.New("Range")
-	v.NotEmptyString("name", r.Name)
-	return v.Error()
 }
 
 // Where is a filter that selects ranges.

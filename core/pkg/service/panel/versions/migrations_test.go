@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
@@ -24,10 +25,12 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v4"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v5"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	projectv3 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v1"
+	colorv2 "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -42,6 +45,7 @@ var _ = Describe("Migrations", func() {
 	BeforeEach(func(sCtx SpecContext) {
 		ctx = sCtx
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 	})
 	// recordComposition marks the given migrations as run by the composition pass.
 	recordComposition := func(migrations ...gorp.Migration) {
@@ -126,7 +130,9 @@ var _ = Describe("Migrations", func() {
 			p3 := MustSucceed(
 				v3.MigratePanel(ctx, MustSucceed(v2.MigratePanel(ctx, p1))),
 			)
-			want := MustSucceed(v4.MigratePanel(ctx, p3))
+			want := MustSucceed(
+				v5.MigratePanel(ctx, MustSucceed(v4.MigratePanel(ctx, p3))),
+			)
 			want.Project = &owner
 			Expect(retrieve(old.Key)).To(Equal(want))
 		})
@@ -141,7 +147,7 @@ var _ = Describe("Migrations", func() {
 				Key:   uuid.New(),
 				Name:  "Main",
 				Icon:  &icon,
-				Color: new(color.Color),
+				Color: &color.Color{R: 1, A: 0.5},
 				Root: v2.Node{Variant: v2.LeafNode{Tabs: []v2.Tab{
 					{Variant: v2.ViewTab{
 						TabBase: v2.TabBase{Key: uuid.New()},
@@ -158,11 +164,16 @@ var _ = Describe("Migrations", func() {
 				To(Succeed())
 			owner := own(stored.Key)
 			openTable()
-			want := MustSucceed(
-				v4.MigratePanel(ctx, MustSucceed(v3.MigratePanel(ctx, stored))),
-			)
+			want := MustSucceed(v5.MigratePanel(
+				ctx,
+				MustSucceed(
+					v4.MigratePanel(ctx, MustSucceed(v3.MigratePanel(ctx, stored))),
+				),
+			))
 			want.Project = &owner
-			Expect(retrieve(stored.Key)).To(Equal(want))
+			got := retrieve(stored.Key)
+			Expect(got).To(Equal(want))
+			Expect(got.Color).To(HaveValue(Equal(colorv2.Color{R: 1, A: 128})))
 		})
 
 		It("Should remove the Arc explorer tabs of a v0.58 Core", func() {
@@ -183,9 +194,12 @@ var _ = Describe("Migrations", func() {
 			own(old.Key)
 			recordComposition(v0.ResourceTabTypesMigration)
 			openTable()
-			tabs := retrieve(old.Key).Root.Variant.(versions.LeafNode).Tabs
-			Expect(tabs).To(HaveLen(1))
-			Expect(tabs[0].Variant.(versions.ViewTab).Key).To(Equal(docs))
+			lf, ok := retrieve(old.Key).Root.Variant.(versions.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(lf.Tabs).To(HaveLen(1))
+			view, ok := lf.Tabs[0].Variant.(versions.ViewTab)
+			Expect(ok).To(BeTrue())
+			Expect(view.Key).To(Equal(docs))
 		})
 
 		It("Should remove the Arc explorer tabs of a v0.60 Core", func() {
@@ -221,10 +235,14 @@ var _ = Describe("Migrations", func() {
 				To(Succeed())
 			own(stored.Key)
 			openTable()
-			root := retrieve(stored.Key).Root.Variant.(versions.SplitNode)
-			Expect(root.First.Variant.(versions.LeafNode).Tabs).To(BeEmpty())
-			Expect(root.Last.Variant.(versions.LeafNode).Tabs).
-				To(Equal([]versions.Tab{docs}))
+			root, ok := retrieve(stored.Key).Root.Variant.(versions.SplitNode)
+			Expect(ok).To(BeTrue())
+			first, ok := root.First.Variant.(versions.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(first.Tabs).To(BeEmpty())
+			last, ok := root.Last.Variant.(versions.LeafNode)
+			Expect(ok).To(BeTrue())
+			Expect(last.Tabs).To(Equal([]versions.Tab{docs}))
 		})
 	})
 
@@ -255,10 +273,35 @@ var _ = Describe("Migrations", func() {
 			var panels []versions.Panel
 			Expect(table.NewRetrieve().Entries(&panels).Exec(ctx, db)).To(Succeed())
 			Expect(panels).To(HaveLen(1))
-			lf := panels[0].Root.Variant.(versions.LeafNode)
+			lf, ok := panels[0].Root.Variant.(versions.LeafNode)
+			Expect(ok).To(BeTrue())
 			Expect(lf.Tabs).To(HaveLen(1))
-			Expect(lf.Tabs[0].Variant.(versions.ResourceTab).Resource).To(Equal(lpID))
+			tab, ok := lf.Tabs[0].Variant.(versions.ResourceTab)
+			Expect(ok).To(BeTrue())
+			Expect(tab.Resource).To(Equal(lpID))
 			Expect(panels[0].Project).To(Equal(&projectKey))
 		})
+	})
+
+	// Applied migrations are tracked by key, so renaming or reordering an entry
+	// re-runs or skips it on stores that already migrated. The chain is pinned
+	// verbatim; extend it for a new version, never edit shipped entries.
+	It("Should pin the migration chain keys in order", func() {
+		Expect(lo.Map(
+			versions.Migrations,
+			func(m gorp.Migration, _ int) string { return m.Key() },
+		)).To(Equal([]string{
+			"msgpack_to_orc",
+			"v56_strip_invalid_resource_tabs",
+			"v60_drop_view_args",
+			"v60_add_icon_and_color",
+			"v61_add_group",
+			"v61_panel_group_membership",
+			"v61_panel_owner",
+			"v61_strip_arc_explorer_tabs",
+			"v62_panel_delete_range_owned",
+			"v62_panel_drop_range",
+			"v62_color_alpha_byte",
+		}))
 	})
 })

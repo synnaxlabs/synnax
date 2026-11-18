@@ -28,7 +28,7 @@ type TimeSpan = v0.TimeSpan
 // predictable boundary handling.
 type TimeRange = v0.TimeRange
 
-// Window is a window of time: a rolling span that ends now, or a fixed range.
+// Window is a window of time: a rolling span or a fixed range.
 type Window = v0.Window
 
 // WindowVariant is implemented by every Window variant.
@@ -51,7 +51,8 @@ type DynamicWindow = v0.DynamicWindow
 type StaticWindow = v0.StaticWindow
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
-// frequencies and calculate sample counts over time intervals.
+// frequencies and calculate sample counts over time intervals. A rate is never
+// negative.
 type Rate = v0.Rate
 
 // Size is a byte measurement used for storage capacity and data volume representation.

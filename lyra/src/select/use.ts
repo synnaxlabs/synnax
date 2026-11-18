@@ -118,16 +118,15 @@ export interface UseReturn<K extends record.Key> extends Omit<
 // The registry holds keys of every selection's type, so the order narrows them to K.
 const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
   const registry = useRegistryContext("Select.Frame");
-  const { data } = List.useData<K>();
-  const { scrollToIndex } = List.useScroller();
+  const { scrollToIndex, getData, subscribeData } = List.useUtilContext<K>();
   const getRowElement = List.useGetElement();
-  const getOrder = () => registry.getOrder(data) as K[];
+  const getOrder = () => registry.getOrder(getData()) as K[];
   const getElement = (key: K) =>
     registry.hasItem(key) ? registry.getElement(key) : getRowElement(key);
   const scrollTo = (key: K, direction: location.Y) => {
     const element = registry.getElement(key);
     if (element != null) element.scrollIntoView({ block: "nearest" });
-    else scrollToIndex(data.indexOf(key), direction);
+    else scrollToIndex(getData().indexOf(key), direction);
   };
   const click = (key: K) => getElement(key)?.click();
   const doubleClick = (key: K) =>
@@ -153,7 +152,14 @@ const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
     click,
     doubleClick,
     contextMenu,
-    subscribe: registry.subscribe,
+    subscribe: (listener) => {
+      const stopRegistry = registry.subscribe(listener);
+      const stopData = subscribeData(listener);
+      return () => {
+        stopRegistry();
+        stopData();
+      };
+    },
   };
 };
 
@@ -268,7 +274,7 @@ export const useMultiple = <K extends record.Key>({
     const value = array.toArray(valueRef.current).filter((v) => v != null);
     // If the control key is held, we can still allow multiple selection.
     if (ctrl.current.held && replaceOnSingle)
-      if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
+      if (value.includes(key)) nextSelected = array.remove(value, key);
       else nextSelected = [...value, key];
     else if (shift.current.held && shiftValue !== null) {
       const order = getOrder();
@@ -290,7 +296,7 @@ export const useMultiple = <K extends record.Key>({
       shiftValueRef.current = key;
       if (replaceOnSingle)
         nextSelected = value.includes(key) && value.length === 1 ? [] : [key];
-      else if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
+      else if (value.includes(key)) nextSelected = array.remove(value, key);
       else nextSelected = [...value, key];
     }
     const v = unique.unique(nextSelected);

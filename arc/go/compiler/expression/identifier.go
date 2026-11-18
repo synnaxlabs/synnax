@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 )
 
 func compileIdentifier[ASTNode antlr.ParserRuleContext](
@@ -40,30 +41,9 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			return types.Type{}, err
 		}
 	}
-	chanRef := ctx.Hint.Kind == types.KindChan
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
-		if scope.Type.Kind == types.KindChan {
-			EmitChannelKey(ctx, scope)
-			if chanRef {
-				return scope.Type, nil
-			}
-			emitChannelRead(ctx, scope.Type)
-			return scope.Type.Unwrap(), nil
-		}
-		// A never-reassigned literal flow variable collapses to its initial value;
-		// reassigned and computed reads are lifted into params before compilation.
-		if scope.Kind == symbol.KindVariable && !SameFunction(ctx.Scope, scope) {
-			if scope.DefaultValue != nil {
-				return castAndEmitConst(ctx, scope)
-			}
-			return types.Type{}, errors.Newf(
-				"cannot read '%s': its initializer is not a compile-time constant",
-				name,
-			)
-		}
-		ctx.Writer.WriteLocalGet(scope.ID)
-		return scope.Type, nil
+		return compileVariableRead(ctx, scope, name)
 	case symbol.KindStatefulVariable:
 		// Reassigned is only tracked at flow level; a never-written $= there is
 		// its initial value. Func-local statefuls always load their cell.
@@ -77,21 +57,55 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		emitStatefulLoad(ctx, scope.ID, scope.Type)
 		return scope.Type, nil
 	case symbol.KindChannel:
-		EmitChannelKey(ctx, scope)
-		if chanRef {
-			return scope.Type, nil
-		}
-		emitChannelRead(ctx, scope.Type)
-		return scope.Type.Unwrap(), nil
+		return compileChannelRead(ctx, scope), nil
 	case symbol.KindConstant:
 		return compileFloatConstant(ctx, scope)
-	default:
+	case symbol.KindFunction, symbol.KindBlock, symbol.KindOutput, symbol.KindSequence,
+		symbol.KindStage, symbol.KindLoop, symbol.KindModule, symbol.KindModuleAlias,
+		symbol.KindAmbient:
+	}
+	return types.Type{}, errors.Newf(
+		"unsupported symbol kind: %v for '%s'",
+		scope.Kind,
+		name,
+	)
+}
+
+func compileVariableRead[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	scope *symbol.Symbol,
+	name string,
+) (types.Type, error) {
+	if scope.Type.Kind == types.KindChan {
+		return compileChannelRead(ctx, scope), nil
+	}
+	// A never-reassigned literal flow variable collapses to its initial value;
+	// reassigned and computed reads are lifted into params before compilation.
+	if scope.Kind == symbol.KindVariable && !SameFunction(ctx.Scope, scope) {
+		if scope.DefaultValue != nil {
+			return castAndEmitConst(ctx, scope)
+		}
 		return types.Type{}, errors.Newf(
-			"unsupported symbol kind: %v for '%s'",
-			scope.Kind,
+			"cannot read '%s': its initializer is not a compile-time constant",
 			name,
 		)
 	}
+	ctx.Writer.WriteLocalGet(scope.ID)
+	return scope.Type, nil
+}
+
+// compileChannelRead emits the channel key of scope, and its latest value unless the
+// hint asks for the channel itself.
+func compileChannelRead[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	scope *symbol.Symbol,
+) types.Type {
+	EmitChannelKey(ctx, scope)
+	if ctx.Hint.Kind == types.KindChan {
+		return scope.Type
+	}
+	emitChannelRead(ctx, scope.Type)
+	return scope.Type.Unwrap()
 }
 
 // liftedInput returns the input of the enclosing function that carries a read of the
@@ -183,6 +197,10 @@ func castAndEmitConst[ASTNode antlr.ParserRuleContext](
 		if f, ok := asFloat64(v); ok {
 			cast = f
 		}
+	case types.KindInvalid, types.KindChan, types.KindSeries, types.KindVariable,
+		types.KindNumericConstant, types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef:
 	}
 	if cast == nil {
 		return types.Type{}, errors.Newf(
@@ -215,6 +233,8 @@ func asInt64(v any) (int64, bool) {
 	case uint32:
 		return int64(n), true
 	case uint64:
+		return int64(n), true
+	case telem.TimeSpan:
 		return int64(n), true
 	}
 	return 0, false
@@ -266,10 +286,14 @@ func emitZeroValue[ASTNode antlr.ParserRuleContext](
 		ctx.Writer.WriteF32Const(0.0)
 	case types.KindF64:
 		ctx.Writer.WriteF64Const(0.0)
-	case types.KindString:
+	case types.KindInvalid, types.KindString, types.KindChan, types.KindSeries,
+		types.KindVariable, types.KindNumericConstant, types.KindIntegerConstant,
+		types.KindFloatConstant, types.KindExactIntegerFloatConstant,
+		types.KindFunction, types.KindSequence, types.KindStage, types.KindVarRef,
+		types.KindBool:
 		ctx.Writer.WriteI32Const(0)
 	default:
-		ctx.Writer.WriteI32Const(0)
+		panic("unknown type kind " + t.Kind.String())
 	}
 }
 

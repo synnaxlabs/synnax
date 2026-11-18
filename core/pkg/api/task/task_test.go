@@ -665,7 +665,7 @@ func stallWrites(ctx SpecContext) {
 		responses = make([]confluence.Outlet[ts.StreamerResponse], streamerCount)
 	)
 	for i := range streamerCount {
-		streamer := MustSucceed(node.Storage.TS.NewStreamer(ctx, ts.StreamerConfig{
+		streamer := MustSucceed(node.Storage.TS.NewStreamer(ts.StreamerConfig{
 			Channels: []ts.ChannelKey{ch.Key().StorageKey()},
 		}))
 		requests[i], responses[i] = confluence.Attach(streamer, 1)
@@ -1011,7 +1011,9 @@ var _ = Describe("Copy", func() {
 		func(ctx SpecContext) {
 			t = createAlerts(ctx)
 			grantAll(ctx, u, copyNeeds()...)
-			routingKey := uuid.MustParse(t.Config["routing_key"].(string))
+			rawKey, ok := t.Config["routing_key"].(string)
+			Expect(ok).To(BeTrue())
+			routingKey := uuid.MustParse(rawKey)
 			Expect(copyAs(ctx)).Error().
 				To(denied(u, access.ActionRetrieve, secret.ResourceID(routingKey)))
 			Expect(countCopies(ctx)).To(BeZero())

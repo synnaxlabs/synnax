@@ -31,13 +31,17 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("uuid acronym", "my_uuid", "MyUUID"),
 		Entry("multiple acronyms", "http_url", "HTTPURL"),
 		Entry("acronym at start", "id", "ID"),
+		Entry("acronym prefix of a word", "identifier", "Identifier"),
+		Entry("acronym prefix mid-name", "bus_identifier", "BusIdentifier"),
 		Entry("iso acronym", "iso", "ISO"),
 		Entry("utc acronym", "utc", "UTC"),
+		Entry("usb acronym", "usb", "USB"),
 		Entry("word starting with an acronym", "slave", "Slave"),
 		Entry("word containing an acronym", "ratio", "Ratio"),
 		Entry("plural acronym", "ids", "IDs"),
 		Entry("acronym with a digit suffix", "iso8601", "ISO8601"),
 		Entry("utf8 acronym", "utf8", "UTF8"),
+		Entry("icd acronym", "icd_hash", "ICDHash"),
 	)
 
 	DescribeTable("should pass screaming-case identifiers through unchanged",
@@ -160,11 +164,11 @@ var _ = Describe("DeriveVersionedAlias", func() {
 	})
 })
 
-var _ = Describe("VersionAliases", func() {
+var _ = Describe("ImportAliases", func() {
 	const current = "github.com/synnaxlabs/arc/graph/versions/v1"
 
 	It("Should give the newest version the bare name and older ones a suffix", func() {
-		Expect(naming.VersionAliases([]string{
+		Expect(naming.ImportAliases([]string{
 			"github.com/synnaxlabs/arc/types/versions/v1",
 			"github.com/synnaxlabs/arc/ir/versions/v0",
 			"github.com/synnaxlabs/arc/types/versions/v0",
@@ -178,7 +182,7 @@ var _ = Describe("VersionAliases", func() {
 	})
 
 	It("Should compare versions by number, not text", func() {
-		Expect(naming.VersionAliases([]string{
+		Expect(naming.ImportAliases([]string{
 			"github.com/synnaxlabs/x/color/versions/v10",
 			"github.com/synnaxlabs/x/color/versions/v9",
 		}, current)).To(Equal(map[string]string{
@@ -188,7 +192,7 @@ var _ = Describe("VersionAliases", func() {
 	})
 
 	It("Should suffix every version when the resource's root is imported", func() {
-		Expect(naming.VersionAliases([]string{
+		Expect(naming.ImportAliases([]string{
 			"github.com/synnaxlabs/synnax/core/status",
 			"github.com/synnaxlabs/synnax/core/status/versions/v1",
 		}, current)).To(Equal(map[string]string{
@@ -197,7 +201,7 @@ var _ = Describe("VersionAliases", func() {
 	})
 
 	It("Should prefix resources that share a name with their parent directory", func() {
-		Expect(naming.VersionAliases([]string{
+		Expect(naming.ImportAliases([]string{
 			"github.com/synnaxlabs/synnax/core/arc/task/versions/v0",
 			"github.com/synnaxlabs/synnax/core/arc/task/versions/v1",
 			"github.com/synnaxlabs/synnax/core/rack/task/versions/v0",
@@ -211,7 +215,7 @@ var _ = Describe("VersionAliases", func() {
 	})
 
 	It("Should prefix a shared name even when one resource has one version", func() {
-		Expect(naming.VersionAliases([]string{
+		Expect(naming.ImportAliases([]string{
 			"github.com/synnaxlabs/synnax/core/arc/task/versions/v0",
 			"github.com/synnaxlabs/synnax/core/rack/task/versions/v1",
 		}, current)).To(Equal(map[string]string{
@@ -221,7 +225,7 @@ var _ = Describe("VersionAliases", func() {
 	})
 
 	It("Should suffix every version when another package takes the name", func() {
-		Expect(naming.VersionAliases([]string{
+		Expect(naming.ImportAliases([]string{
 			"github.com/synnaxlabs/pluto/color",
 			"github.com/synnaxlabs/x/color/versions/v0",
 		}, current)).To(Equal(map[string]string{
@@ -229,15 +233,26 @@ var _ = Describe("VersionAliases", func() {
 		}))
 	})
 
+	It("Should prefix packages that share a name with their parent directory", func() {
+		Expect(naming.ImportAliases([]string{
+			"github.com/synnaxlabs/synnax/pkg/service/color",
+			"github.com/synnaxlabs/x/color",
+			"github.com/synnaxlabs/x/telem",
+		}, current)).To(Equal(map[string]string{
+			"github.com/synnaxlabs/synnax/pkg/service/color": "servicecolor",
+			"github.com/synnaxlabs/x/color":                  "xcolor",
+		}))
+	})
+
 	It("Should leave out a resource imported at one version", func() {
-		Expect(naming.VersionAliases([]string{
+		Expect(naming.ImportAliases([]string{
 			"github.com/synnaxlabs/x/color/versions/v0",
 			"github.com/synnaxlabs/x/encoding/orc",
 		}, current)).To(BeEmpty())
 	})
 
 	It("Should leave out the predecessors of the file's own resource", func() {
-		Expect(naming.VersionAliases([]string{
+		Expect(naming.ImportAliases([]string{
 			"github.com/synnaxlabs/arc/graph/versions/v0",
 			"github.com/synnaxlabs/arc/ir/versions/v0",
 		}, current)).To(BeEmpty())

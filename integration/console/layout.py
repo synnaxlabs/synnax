@@ -23,7 +23,7 @@ from playwright.sync_api import (
 
 import synnax as sy
 from console.context_menu import ContextMenu
-from console.notifications import NotificationsClient
+from console.notifications import NotificationsClient, click_past
 from console.tree import Tree
 
 AriaRole = Literal[
@@ -134,6 +134,7 @@ class LayoutClient:
 
     MODAL_SELECTOR = "div.lyra-dialog__dialog.lyra--modal.lyra--visible"
     SETTINGS_NAV_SELECTOR = "nav[aria-label='Settings']"
+    SETTINGS_CREATE_SELECTOR = ".console-settings-table__create"
     # Text.Editable carries the class whether or not it is editing; the attribute is
     # what marks the element that currently takes keystrokes.
     EDITABLE_SELECTOR = ".lyra-text--editable[contenteditable='true']"
@@ -169,15 +170,9 @@ class LayoutClient:
         )
         return self.page.locator(".lyra-form-section").filter(has=header)
 
-    def command_palette(self, command: str, *, retries: int = 3) -> None:
+    def command_palette(self, command: str) -> None:
         """Execute a command via the command palette."""
-        self._palette(
-            query=command,
-            input_text=f">{command}",
-            empty_message="No commands found",
-            error_prefix="Command palette",
-            retries=retries,
-        )
+        self._palette(query=command, input_text=f">{command}")
 
     def choose_import_file(self, path: str | list[str]) -> None:
         """Send ``path`` through the "Import components" palette file chooser.
@@ -191,85 +186,32 @@ class LayoutClient:
             self.command_palette("Import components")
         fc_info.value.set_files(path)
 
-    def search_palette(self, query: str, *, retries: int = 3) -> None:
+    def search_palette(self, query: str) -> None:
         """Search for a resource via the command palette (without > prefix)."""
-        self._palette(
-            query=query,
-            input_text=query,
-            empty_message="No results found",
-            error_prefix="Search palette",
-            retries=retries,
+        self._palette(query=query, input_text=query)
+
+    def _palette(self, *, query: str, input_text: str) -> None:
+        palette_btn = self.page.locator(".console-palette button").first
+        palette_btn.wait_for(state="visible", timeout=5000)
+        palette_btn.click(timeout=5000)
+        palette_input = self.page.locator(
+            ".console-palette__input input[role='textbox']"
         )
-
-    def _palette(
-        self,
-        *,
-        query: str,
-        input_text: str,
-        empty_message: str,
-        error_prefix: str,
-        retries: int,
-    ) -> None:
-        """Internal palette implementation used by command_palette and
-        search_palette.
-        """
-        for attempt in range(retries):
-            palette_btn = self.page.locator(".console-palette button").first
-            palette_btn.wait_for(state="visible", timeout=5000)
-            palette_btn.click(timeout=5000)
-
-            palette_input = self.page.locator(
-                ".console-palette__input input[role='textbox']"
-            )
-            palette_input.wait_for(state="visible", timeout=5000)
-            palette_input.press("ControlOrMeta+a")
-            palette_input.type(input_text, timeout=5000)
-
-            try:
-                self.dialog.get_by_role("option").first.wait_for(
-                    state="attached", timeout=10000
-                )
-            except PlaywrightTimeoutError as e:
-                no_results = self.page.get_by_text(empty_message).is_visible()
-                if no_results and attempt < retries - 1:
-                    self.page.keyboard.press("Escape")
-                    sy.sleep(2)
-                    continue
-
-                input_value = palette_input.input_value()
-                palette_open = self.page.locator(
-                    ".console-palette__content"
-                ).is_visible()
-                list_container = self.page.locator(".console-palette__list")
-                list_visible = list_container.is_visible()
-                list_html = ""
-                try:
-                    list_html = list_container.inner_html(timeout=5000)[:1000]
-                except Exception:
-                    list_html = "<failed to get>"
-                raise RuntimeError(
-                    f"{error_prefix} list items not appearing. "
-                    f"Input: '{input_value}'. "
-                    f"Palette open: {palette_open}. "
-                    f"List visible: {list_visible}. "
-                    f"List HTML: {list_html}"
-                ) from e
-
-            target_result = (
-                self.dialog.get_by_role("option").filter(has_text=query).first
-            )
-            try:
-                target_result.wait_for(state="visible", timeout=5000)
-            except PlaywrightTimeoutError as e:
-                input_value = palette_input.input_value()
-                options = self.dialog.get_by_role("option").all_text_contents()
-                raise RuntimeError(
-                    f"{error_prefix}: Could not find '{query}'. "
-                    f"Input value: '{input_value}'. "
-                    f"Available options: {options}"
-                ) from e
-            target_result.click(timeout=5000)
-            return
+        palette_input.wait_for(state="visible", timeout=5000)
+        palette_input.press("ControlOrMeta+a")
+        palette_input.type(input_text, timeout=5000)
+        # A command shows once its visibility query answers, without a new search.
+        target = self.dialog.get_by_role("option").filter(has_text=query).first
+        try:
+            target.wait_for(state="visible", timeout=10000)
+        except PlaywrightTimeoutError as e:
+            options = self.dialog.get_by_role("option").all_text_contents()
+            raise RuntimeError(
+                f"Palette: could not find '{query}'. "
+                f"Input value: '{palette_input.input_value()}'. "
+                f"Available options: {options}"
+            ) from e
+        target.click(timeout=5000)
 
     def command_exists(self, command: str) -> bool:
         """Report whether the command palette offers ``command``.
@@ -426,13 +368,7 @@ class LayoutClient:
             .locator("button")
             .first
         )
-        button.wait_for(state="attached", timeout=300)
-        try:
-            button.click(timeout=5000)
-        except PlaywrightTimeoutError:
-            # Toasts stack over the bottom of a form and swallow the click.
-            self.notifications.close_all()
-            button.click(timeout=5000)
+        click_past(button)
 
     def click_checkbox(self, checkbox_label: str) -> None:
         """Click a checkbox by label."""
@@ -442,13 +378,7 @@ class LayoutClient:
             .locator("input[type='checkbox']")
             .first
         )
-        checkbox.wait_for(state="attached", timeout=300)
-        try:
-            checkbox.click(timeout=5000)
-        except PlaywrightTimeoutError:
-            # Toasts stack over the bottom of a form and swallow the click.
-            self.notifications.close_all()
-            checkbox.click(timeout=5000)
+        click_past(checkbox)
 
     def get_toggle(self, toggle_label: str) -> bool:
         """Get the value of a toggle by label."""
@@ -486,10 +416,16 @@ class LayoutClient:
             value, timeout=5000
         )
 
-    def get_selected_button(self, button_options: list[str]) -> str:
-        """Get the currently selected button from a button group (no label)."""
+    def get_selected_button(
+        self, button_options: list[str], *, scope: Locator | None = None
+    ) -> str:
+        """Get the currently selected button from a button group (no label).
+
+        :param scope: Where the button group lives. Defaults to the whole page.
+        """
+        parent = self.page if scope is None else scope
         for option in button_options:
-            text_el = self.page.get_by_text(option, exact=True).first
+            text_el = parent.get_by_text(option, exact=True).first
             if text_el.count() == 0:
                 continue
             button = text_el.locator("xpath=ancestor-or-self::button[1]").first
@@ -503,13 +439,15 @@ class LayoutClient:
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
     def select_labels(self, labels: list[str], *, scope: Locator | None = None) -> None:
-        """Pick labels from a "Labels" dropdown.
+        """Pick labels from an empty "Labels" dropdown.
 
         :param labels: The label names to select.
         :param scope: Where the trigger lives. Defaults to the whole page.
         """
         parent = self.page if scope is None else scope
-        parent.get_by_role("button", name="Labels", exact=True).click(timeout=5000)
+        trigger = parent.get_by_role("button", name="Labels", exact=True)
+        # Only its parts take a click, and an empty trigger has only its placeholder.
+        click_past(trigger.locator(".lyra-select-multiple-trigger-placeholder"))
         for name in labels:
             self.select_from_dropdown(name, exact=True)
         self.press_escape()
@@ -520,15 +458,13 @@ class LayoutClient:
         *,
         placeholder: str | None = None,
         exact: bool = False,
-        reopen: Callable[[], None] | None = None,
     ) -> None:
         """Select an item from an open dropdown.
 
         :param text: Visible text of the item to select.
         :param placeholder: Search input placeholder to filter with before selecting.
         :param exact: Match the whole item text, ignoring case, instead of a substring.
-        :param reopen: Re-opens the dropdown. Called before a retry when the dialog
-            closed before the item was found (e.g. a re-render dismissed it).
+        :raises RuntimeError: If the item does not show within 5 seconds.
         """
         name = re.compile(rf"^{re.escape(text)}$", re.IGNORECASE) if exact else text
         target = self.dialog.get_by_role("option", name=name)
@@ -538,60 +474,21 @@ class LayoutClient:
             if placeholder is not None
             else generic
         )
-        loaded = self.dialog.get_by_role("option").or_(
-            self.dialog.locator(".lyra-list__scroll--empty")
-        )
-        loading = self.dialog.locator(".lyra-icon--loading")
-
-        def apply_search(refill: bool = False) -> None:
-            # The dropdown renders its search input and options together, so either
-            # one appearing means it is open.
-            generic.or_(target).first.wait_for(state="visible", timeout=5000)
-            # Type only once the first page has settled: a search that races the
-            # initial answer is overwritten by it.
-            loaded.first.wait_for(state="visible", timeout=5000)
-            expect(loading).to_have_count(0, timeout=5000)
-            search_input = specific if specific.count() > 0 else generic
-            if search_input.count() == 0:
-                return
-            if refill:
-                search_input.fill("")
-            if search_input.input_value() != text:
-                search_input.fill(text)
-            sy.sleep(0.1)
-
+        # The dropdown renders its search input and options together, so either one
+        # showing means it is open.
+        generic.or_(target).first.wait_for(state="visible", timeout=5000)
+        search_input = specific if specific.count() > 0 else generic
+        if search_input.count() > 0 and search_input.input_value() != text:
+            search_input.fill(text)
+        item = target.first
         try:
-            apply_search()
-        except (PlaywrightTimeoutError, AssertionError):
-            pass  # The retry loop below waits again and runs the recovery path.
-        last_recovery_error: Exception | None = None
-        for _ in range(5):
-            try:
-                item = target.first
-                item.wait_for(state="visible", timeout=5000)
-                item.click(timeout=5000)
-                return
-            except Exception:
-                try:
-                    # Toasts overlap the dropdown and swallow the click.
-                    self.notifications.close_all()
-                    if reopen is not None and self.dialog.count() == 0:
-                        reopen()
-                        apply_search()
-                    else:
-                        # A fresh search replaces a list a late answer overwrote.
-                        apply_search(refill=True)
-                except Exception as e:
-                    # A failed recovery consumes this retry instead of aborting.
-                    last_recovery_error = e
-                    sy.sleep(1)
-                continue
-
-        items = self.dialog.get_by_role("option").all_text_contents()
-        message = f"Could not find item '{text}' in dropdown. Available items: {items}"
-        if last_recovery_error is not None:
-            message += f" (last recovery attempt failed: {last_recovery_error})"
-        raise RuntimeError(message)
+            item.wait_for(state="visible", timeout=5000)
+        except PlaywrightTimeoutError as e:
+            items = self.dialog.get_by_role("option").all_text_contents()
+            raise RuntimeError(
+                f"Could not find item '{text}' in dropdown. Available items: {items}"
+            ) from e
+        click_past(item)
 
     def click(self, selector: str | Locator) -> None:
         """Click an element by text selector or Locator.
@@ -622,7 +519,7 @@ class LayoutClient:
         sy.sleep(0.1)
 
     @contextmanager
-    def _bring_to_front(self, element: Locator) -> Generator[Locator, None, None]:
+    def _bring_to_front(self, element: Locator) -> Generator[Locator]:
         """Context manager that temporarily brings an element to the front.
 
         Sets z-index to 9999 to ensure the element is clickable even if other
@@ -641,15 +538,16 @@ class LayoutClient:
         finally:
             element.evaluate(f"el => el.style.zIndex = '{original_z_index}'")
 
-    def get_tab(self, name: str) -> Locator:
+    def get_tab(self, name: str | re.Pattern[str]) -> Locator:
         """Get a tab locator by its name.
 
-        :param name: The name/title of the tab to find
+        :param name: The name/title of the tab to find, or a pattern it matches
         :returns: Locator for the tab element
         """
+        pattern = name if isinstance(name, re.Pattern) else f"^{re.escape(name)}$"
         return (
             self.page.locator(self.TAB_SELECTOR)
-            .filter(has_text=re.compile(f"^{re.escape(name)}$"))
+            .filter(has_text=re.compile(pattern))
             .filter(has=self.page.locator("[aria-label='Close']"))
             .first
         )
@@ -769,14 +667,43 @@ class LayoutClient:
             nav.wait_for(state="visible", timeout=5000)
         return nav
 
-    def close_tab(self, name: str) -> None:
+    def open_settings_create(self, button: str) -> Locator:
+        """Open the create item of the shown Settings page.
+
+        :param button: The name of the page's create button, such as "Create label".
+        :returns: The create item.
+        """
+        self.page.get_by_role("button", name=button, exact=True).click()
+        item = self.page.locator(self.SETTINGS_CREATE_SELECTOR)
+        item.wait_for(state="visible", timeout=5000)
+        return item
+
+    def submit_settings_create(self, item: Locator, name_field: Locator) -> None:
+        """Confirm a filled create item, then close it.
+
+        :param item: The create item from open_settings_create.
+        :param name_field: A field of the item that the create empties.
+        """
+        item.get_by_role("button", name="Create", exact=True).click()
+        # The item stays open and starts empty again once the Core has the new one.
+        expect(name_field).to_have_value("", timeout=5000)
+        item.get_by_role("button", name="Cancel", exact=True).click()
+        item.wait_for(state="hidden", timeout=5000)
+
+    @staticmethod
+    def _tab_name_text(tab: Locator) -> Locator:
+        """Return the text of the tab's name. A name in parts, such as a saved view's,
+        ends with the part that a rename edits."""
+        return tab.locator("p").last
+
+    def close_tab(self, name: str | re.Pattern[str]) -> None:
         """Close a tab using a randomly selected modality.
 
         Randomly chooses between:
         - Click close button (X)
         - Context menu -> Close
 
-        :param name: Name of the tab to close
+        :param name: Name of the tab to close, or a pattern it matches
         """
         self.close_left_toolbar()
         tab = self.get_tab(name)
@@ -789,7 +716,7 @@ class LayoutClient:
             tab.hover()
             tab.get_by_label("Close", exact=True).click()
         else:
-            self.ctx_menu.action(tab.locator("p"), "Close", exact=False)
+            self.ctx_menu.action(self._tab_name_text(tab), "Close", exact=False)
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
@@ -816,14 +743,14 @@ class LayoutClient:
         renamed_from_menu = False
         if modality == "context_menu":
             # Only tabs backed by a resource carry a Rename item.
-            self.ctx_menu.open_on(tab.locator("p"))
+            self.ctx_menu.open_on(self._tab_name_text(tab))
             renamed_from_menu = self.ctx_menu.has_option("Rename", exact=False)
             if renamed_from_menu:
                 self.ctx_menu.click_option("Rename", exact=False)
             else:
                 self.ctx_menu.close()
         if not renamed_from_menu:
-            tab.locator("p").first.dblclick()
+            self._tab_name_text(tab).dblclick()
 
         # The tab name uses Text.Editable which becomes contentEditable (not an input)
         editable_text = tab.locator("p[contenteditable='true']").first
@@ -869,18 +796,22 @@ class LayoutClient:
         tab = self.get_read_only_tab(tab_name)
         tab.wait_for(state="visible", timeout=5000)
         tab.click()
-        self.ctx_menu.action(tab.locator("p"), "Focus", exact=False)
+        self.ctx_menu.action(self._tab_name_text(tab), "Focus", exact=False)
 
-    def show_visualization_toolbar(self) -> None:
-        """Show the bottom Component toolbar via its nav toggle."""
+    def show_visualization_toolbar(self) -> Locator:
+        """Show the bottom Component toolbar via its nav toggle.
+
+        :returns: The toolbar's drawer.
+        """
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.lyra--location-bottom.lyra--visible"
         )
         if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
-            return
+            return bottom_drawer
 
         self.page.get_by_role("menuitem", name="Component", exact=True).click()
         bottom_drawer.wait_for(state="visible", timeout=5000)
+        return bottom_drawer
 
     def hide_visualization_toolbar(self) -> None:
         """Hide the bottom Component toolbar via its nav toggle."""
@@ -1085,27 +1016,6 @@ class LayoutClient:
         finally:
             cdp.detach()
 
-    def show_toolbar(self, shortcut_key: str, *, item_prefix: str) -> None:
-        """Show a navigation toolbar using keyboard shortcut.
-
-        :param shortcut_key: The keyboard shortcut (e.g., "d", "u", "r").
-        :param item_prefix: The ID prefix of items in the panel (e.g., "rack:",
-            "role:").
-        """
-        items = self.page.locator(f"div[id^='{item_prefix}']")
-        if items.count() > 0 and items.first.is_visible():
-            return
-        # Right after login the nav item may still be hidden (its permission
-        # query is loading), which swallows the shortcut, so retry the press.
-        for attempt in range(3):
-            self.press_key(shortcut_key)
-            try:
-                items.first.wait_for(state="visible", timeout=3000)
-                return
-            except PlaywrightTimeoutError:
-                if attempt == 2:
-                    raise
-
     def get_list_item(self, selector: str, *, name: str) -> Locator:
         """Get a list item locator by CSS selector filtered by text content."""
         return self.page.locator(selector).filter(has_text=name).first
@@ -1175,8 +1085,7 @@ class LayoutClient:
         """
         modal = self.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
-        self.notifications.close_all()
-        modal.get_by_role("button", name="Delete", exact=True).click()
+        click_past(modal.get_by_role("button", name="Delete", exact=True))
         modal.wait_for(state="hidden", timeout=5000)
 
     def delete_with_confirmation(self, item: Locator) -> None:

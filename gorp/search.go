@@ -48,27 +48,22 @@ func NewSearchIndex[K Key, E Entry[K]](
 // Name implements Index.
 func (s *SearchIndex[K, E]) Name() string { return s.name }
 
-//nolint:unused
 func (s *SearchIndex[K, E]) populate() (func(E), func(error)) {
 	insert, finish := s.store.Populate()
 	return func(entry E) { insert(entry.GorpKey(), s.text(&entry)) },
 		func(err error) { finish(populateErr(s.name, err)) }
 }
 
-//nolint:unused
 func (s *SearchIndex[K, E]) set(entry E) {
 	s.store.Set(entry.GorpKey(), s.text(&entry))
 }
 
-//nolint:unused
 func (s *SearchIndex[K, E]) delete(key K) { s.store.Delete(key) }
 
-//nolint:unused
 func (s *SearchIndex[K, E]) stageSet(tx Tx, entry E) {
 	s.store.Stage(tx.txIdentity(), entry.GorpKey(), s.text(&entry))
 }
 
-//nolint:unused
 func (s *SearchIndex[K, E]) stageDelete(tx Tx, key K) {
 	s.store.StageDelete(tx.txIdentity(), key)
 }

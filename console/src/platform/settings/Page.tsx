@@ -14,18 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
-
-export interface PageProps extends PropsWithChildren {
-  title: string;
-}
-
-/** Lays out one section of Settings: its title, then its groups. */
-export const Page = ({ title, children }: PageProps): ReactElement => (
-  <Flex.Box y className={CSS.BE("settings", "content")}>
-    <Text.Text level="h3">{title}</Text.Text>
-    {children}
-  </Flex.Box>
-);
+import { useCardBackground } from "@/platform/settings/background";
 
 export interface CardProps extends PropsWithChildren {
   title?: string;
@@ -34,19 +23,27 @@ export interface CardProps extends PropsWithChildren {
 }
 
 /** Holds related entries in one card, under an optional title. */
-export const Card = ({ title, flush = false, children }: CardProps): ReactElement => (
-  <Flex.Box y gap="medium">
-    {title != null && <Text.Text level="h5">{title}</Text.Text>}
-    <div
-      className={CSS.cls(
-        CSS.BE("settings", "card"),
-        flush && CSS.BEM("settings", "card", "flush"),
-      )}
-    >
-      {children}
-    </div>
-  </Flex.Box>
-);
+export const Card = ({ title, flush = false, children }: CardProps): ReactElement => {
+  const background = useCardBackground();
+  return (
+    <Flex.Box y gap="medium">
+      {title != null && <Text.Text level="h5">{title}</Text.Text>}
+      <Flex.Box
+        y
+        empty
+        bordered
+        rounded="medium"
+        background={background}
+        className={CSS.cls(
+          CSS.BE("settings", "card"),
+          flush && CSS.BEM("settings", "card", "flush"),
+        )}
+      >
+        {children}
+      </Flex.Box>
+    </Flex.Box>
+  );
+};
 
 export interface EntryProps extends PropsWithChildren {
   label: string;
@@ -73,6 +70,13 @@ export const Entry = ({ label, description, children }: EntryProps): ReactElemen
         description
       )}
     </Flex.Box>
+    {children}
+  </Flex.Box>
+);
+
+/** Holds content that is not a list of entries, such as a form, inside a card. */
+export const Body = ({ children }: PropsWithChildren): ReactElement => (
+  <Flex.Box y className={CSS.BE("settings", "body")}>
     {children}
   </Flex.Box>
 );

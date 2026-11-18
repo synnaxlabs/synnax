@@ -29,7 +29,7 @@ func GreaterThanF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -83,7 +83,7 @@ func GreaterThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -137,7 +137,7 @@ func LessThanF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -191,7 +191,7 @@ func LessThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -245,7 +245,7 @@ func EqualF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -299,7 +299,7 @@ func NotEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -353,7 +353,7 @@ func AddF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -398,7 +398,7 @@ func SubtractF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -443,7 +443,7 @@ func MultiplyF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -488,7 +488,7 @@ func DivideF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -533,7 +533,7 @@ func GreaterThanF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -587,7 +587,7 @@ func GreaterThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -641,7 +641,7 @@ func LessThanF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -695,7 +695,7 @@ func LessThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -749,7 +749,7 @@ func EqualF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -803,7 +803,7 @@ func NotEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -857,7 +857,7 @@ func AddF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -902,7 +902,7 @@ func SubtractF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -947,7 +947,7 @@ func MultiplyF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -992,7 +992,7 @@ func DivideF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -1037,7 +1037,7 @@ func GreaterThanI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1091,7 +1091,7 @@ func GreaterThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1145,7 +1145,7 @@ func LessThanI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1199,7 +1199,7 @@ func LessThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1253,7 +1253,7 @@ func EqualI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1307,7 +1307,7 @@ func NotEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1361,7 +1361,7 @@ func AddI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1406,7 +1406,7 @@ func SubtractI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1451,7 +1451,7 @@ func MultiplyI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1496,7 +1496,7 @@ func DivideI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -1541,7 +1541,7 @@ func GreaterThanI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -1595,7 +1595,7 @@ func GreaterThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -1649,7 +1649,7 @@ func LessThanI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -1703,7 +1703,7 @@ func LessThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -1757,7 +1757,7 @@ func EqualI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -1811,7 +1811,7 @@ func NotEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -1865,7 +1865,7 @@ func AddI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -1910,7 +1910,7 @@ func SubtractI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -1955,7 +1955,7 @@ func MultiplyI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -2000,7 +2000,7 @@ func DivideI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -2045,7 +2045,7 @@ func GreaterThanI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2099,7 +2099,7 @@ func GreaterThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2153,7 +2153,7 @@ func LessThanI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2207,7 +2207,7 @@ func LessThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2261,7 +2261,7 @@ func EqualI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2315,7 +2315,7 @@ func NotEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2369,7 +2369,7 @@ func AddI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2414,7 +2414,7 @@ func SubtractI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2459,7 +2459,7 @@ func MultiplyI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2504,7 +2504,7 @@ func DivideI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -2549,7 +2549,7 @@ func GreaterThanI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -2603,7 +2603,7 @@ func GreaterThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -2657,7 +2657,7 @@ func LessThanI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -2711,7 +2711,7 @@ func LessThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -2765,7 +2765,7 @@ func EqualI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -2819,7 +2819,7 @@ func NotEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -2873,7 +2873,7 @@ func AddI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -2918,7 +2918,7 @@ func SubtractI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -2963,7 +2963,7 @@ func MultiplyI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -3008,7 +3008,7 @@ func DivideI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -3053,7 +3053,7 @@ func GreaterThanU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3107,7 +3107,7 @@ func GreaterThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3161,7 +3161,7 @@ func LessThanU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3215,7 +3215,7 @@ func LessThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3269,7 +3269,7 @@ func EqualU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3323,7 +3323,7 @@ func NotEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3377,7 +3377,7 @@ func AddU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3422,7 +3422,7 @@ func SubtractU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3467,7 +3467,7 @@ func MultiplyU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3512,7 +3512,7 @@ func DivideU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -3557,7 +3557,7 @@ func GreaterThanU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -3611,7 +3611,7 @@ func GreaterThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -3665,7 +3665,7 @@ func LessThanU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -3719,7 +3719,7 @@ func LessThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -3773,7 +3773,7 @@ func EqualU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -3827,7 +3827,7 @@ func NotEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -3881,7 +3881,7 @@ func AddU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -3926,7 +3926,7 @@ func SubtractU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -3971,7 +3971,7 @@ func MultiplyU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -4016,7 +4016,7 @@ func DivideU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -4061,7 +4061,7 @@ func GreaterThanU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4115,7 +4115,7 @@ func GreaterThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4169,7 +4169,7 @@ func LessThanU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4223,7 +4223,7 @@ func LessThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4277,7 +4277,7 @@ func EqualU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4331,7 +4331,7 @@ func NotEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4385,7 +4385,7 @@ func AddU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4430,7 +4430,7 @@ func SubtractU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4475,7 +4475,7 @@ func MultiplyU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4520,7 +4520,7 @@ func DivideU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -4565,7 +4565,7 @@ func GreaterThanU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -4619,7 +4619,7 @@ func GreaterThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -4673,7 +4673,7 @@ func LessThanU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -4727,7 +4727,7 @@ func LessThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -4781,7 +4781,7 @@ func EqualU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -4835,7 +4835,7 @@ func NotEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -4889,7 +4889,7 @@ func AddU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -4934,7 +4934,7 @@ func SubtractU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -4979,7 +4979,7 @@ func MultiplyU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -5024,7 +5024,7 @@ func DivideU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -5069,7 +5069,7 @@ func ModuloF64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float64](rhs.Data)
@@ -5114,7 +5114,7 @@ func ModuloF32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, float32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, float32](rhs.Data)
@@ -5159,7 +5159,7 @@ func ModuloI64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int64](rhs.Data)
@@ -5204,7 +5204,7 @@ func ModuloI32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int32](rhs.Data)
@@ -5249,7 +5249,7 @@ func ModuloI16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int16](rhs.Data)
@@ -5294,7 +5294,7 @@ func ModuloI8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, int8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, int8](rhs.Data)
@@ -5339,7 +5339,7 @@ func ModuloU64(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint64](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint64](rhs.Data)
@@ -5384,7 +5384,7 @@ func ModuloU32(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint32](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint32](rhs.Data)
@@ -5429,7 +5429,7 @@ func ModuloU16(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint16](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint16](rhs.Data)
@@ -5474,7 +5474,7 @@ func ModuloU8(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
@@ -5519,7 +5519,7 @@ func And(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, bool](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, bool](rhs.Data)
@@ -5564,7 +5564,7 @@ func Or(lhs, rhs telem.Series, output *telem.Series) {
 	if rhsLen > maxLen {
 		maxLen = rhsLen
 	}
-	output.Resize(maxLen)
+	*output = output.Resized(maxLen)
 
 	lhsData := unsafe.CastSlice[uint8, bool](lhs.Data)
 	rhsData := unsafe.CastSlice[uint8, bool](rhs.Data)
@@ -5604,7 +5604,7 @@ func Or(lhs, rhs telem.Series, output *telem.Series) {
 
 func Not(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
-	output.Resize(inputLen)
+	*output = output.Resized(inputLen)
 
 	inData := unsafe.CastSlice[uint8, bool](input.Data)
 	outData := unsafe.CastSlice[uint8, bool](output.Data)
@@ -5616,7 +5616,7 @@ func Not(input telem.Series, output *telem.Series) {
 
 func AndScalar(series telem.Series, scalar bool, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, bool](series.Data)
 	outData := unsafe.CastSlice[uint8, bool](output.Data)
@@ -5628,7 +5628,7 @@ func AndScalar(series telem.Series, scalar bool, output *telem.Series) {
 
 func OrScalar(series telem.Series, scalar bool, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, bool](series.Data)
 	outData := unsafe.CastSlice[uint8, bool](output.Data)
@@ -5640,7 +5640,7 @@ func OrScalar(series telem.Series, scalar bool, output *telem.Series) {
 
 func NegateF64(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
-	output.Resize(inputLen)
+	*output = output.Resized(inputLen)
 
 	inData := unsafe.CastSlice[uint8, float64](input.Data)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
@@ -5652,7 +5652,7 @@ func NegateF64(input telem.Series, output *telem.Series) {
 
 func NegateF32(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
-	output.Resize(inputLen)
+	*output = output.Resized(inputLen)
 
 	inData := unsafe.CastSlice[uint8, float32](input.Data)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
@@ -5664,7 +5664,7 @@ func NegateF32(input telem.Series, output *telem.Series) {
 
 func NegateI64(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
-	output.Resize(inputLen)
+	*output = output.Resized(inputLen)
 
 	inData := unsafe.CastSlice[uint8, int64](input.Data)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
@@ -5676,7 +5676,7 @@ func NegateI64(input telem.Series, output *telem.Series) {
 
 func NegateI32(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
-	output.Resize(inputLen)
+	*output = output.Resized(inputLen)
 
 	inData := unsafe.CastSlice[uint8, int32](input.Data)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
@@ -5688,7 +5688,7 @@ func NegateI32(input telem.Series, output *telem.Series) {
 
 func NegateI16(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
-	output.Resize(inputLen)
+	*output = output.Resized(inputLen)
 
 	inData := unsafe.CastSlice[uint8, int16](input.Data)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
@@ -5700,7 +5700,7 @@ func NegateI16(input telem.Series, output *telem.Series) {
 
 func NegateI8(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
-	output.Resize(inputLen)
+	*output = output.Resized(inputLen)
 
 	inData := unsafe.CastSlice[uint8, int8](input.Data)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
@@ -5727,7 +5727,7 @@ func AvgF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 	if freshStart {
@@ -5755,7 +5755,7 @@ func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 	// Find minimum in new input samples
@@ -5791,7 +5791,7 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 
 	// Find maximum in new input samples
@@ -5833,7 +5833,7 @@ func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
 
 	if freshStart {
@@ -5861,7 +5861,7 @@ func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
 
 	// Find minimum in new input samples
@@ -5897,7 +5897,7 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
 
 	// Find maximum in new input samples
@@ -5939,7 +5939,7 @@ func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
 
 	if freshStart {
@@ -5967,7 +5967,7 @@ func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
 
 	// Find minimum in new input samples
@@ -6003,7 +6003,7 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
 
 	// Find maximum in new input samples
@@ -6045,7 +6045,7 @@ func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
 
 	if freshStart {
@@ -6073,7 +6073,7 @@ func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
 
 	// Find minimum in new input samples
@@ -6109,7 +6109,7 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
 
 	// Find maximum in new input samples
@@ -6151,7 +6151,7 @@ func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
 
 	if freshStart {
@@ -6179,7 +6179,7 @@ func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
 
 	// Find minimum in new input samples
@@ -6215,7 +6215,7 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
 
 	// Find maximum in new input samples
@@ -6257,7 +6257,7 @@ func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
 
 	if freshStart {
@@ -6285,7 +6285,7 @@ func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
 
 	// Find minimum in new input samples
@@ -6321,7 +6321,7 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
 
 	// Find maximum in new input samples
@@ -6363,7 +6363,7 @@ func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
 
 	if freshStart {
@@ -6391,7 +6391,7 @@ func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
 
 	// Find minimum in new input samples
@@ -6427,7 +6427,7 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
 
 	// Find maximum in new input samples
@@ -6469,7 +6469,7 @@ func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
 
 	if freshStart {
@@ -6497,7 +6497,7 @@ func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
 
 	// Find minimum in new input samples
@@ -6533,7 +6533,7 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
 
 	// Find maximum in new input samples
@@ -6575,7 +6575,7 @@ func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
 
 	if freshStart {
@@ -6603,7 +6603,7 @@ func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
 
 	// Find minimum in new input samples
@@ -6639,7 +6639,7 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
 
 	// Find maximum in new input samples
@@ -6681,7 +6681,7 @@ func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
 
 	if freshStart {
@@ -6709,7 +6709,7 @@ func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
 
 	// Find minimum in new input samples
@@ -6745,7 +6745,7 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
-	output.Resize(1)
+	*output = output.Resized(1)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
 
 	// Find maximum in new input samples
@@ -6774,8 +6774,8 @@ func DerivativeF64(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, float64](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -6802,8 +6802,8 @@ func DerivativeF32(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, float32](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -6830,8 +6830,8 @@ func DerivativeI64(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, int64](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -6858,8 +6858,8 @@ func DerivativeI32(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, int32](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -6886,8 +6886,8 @@ func DerivativeI16(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, int16](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -6914,8 +6914,8 @@ func DerivativeI8(input, inputTime telem.Series, prevVal *float64, prevTS *telem
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, int8](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -6942,8 +6942,8 @@ func DerivativeU64(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, uint64](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -6970,8 +6970,8 @@ func DerivativeU32(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, uint32](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -6998,8 +6998,8 @@ func DerivativeU16(input, inputTime telem.Series, prevVal *float64, prevTS *tele
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, uint16](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -7026,8 +7026,8 @@ func DerivativeU8(input, inputTime telem.Series, prevVal *float64, prevTS *telem
 	n := input.Len()
 	inData := unsafe.CastSlice[uint8, uint8](input.Data)
 	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
-	output.Resize(n)
-	outputTime.Resize(n)
+	*output = output.Resized(n)
+	*outputTime = outputTime.Resized(n)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
 	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
@@ -7052,7 +7052,7 @@ func DerivativeU8(input, inputTime telem.Series, prevVal *float64, prevTS *telem
 
 func AddScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
@@ -7064,7 +7064,7 @@ func AddScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 
 func SubtractScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
@@ -7076,7 +7076,7 @@ func SubtractScalarF64(series telem.Series, scalar float64, output *telem.Series
 
 func MultiplyScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
@@ -7088,7 +7088,7 @@ func MultiplyScalarF64(series telem.Series, scalar float64, output *telem.Series
 
 func DivideScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
@@ -7100,7 +7100,7 @@ func DivideScalarF64(series telem.Series, scalar float64, output *telem.Series) 
 
 func AddScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
@@ -7112,7 +7112,7 @@ func AddScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 
 func SubtractScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
@@ -7124,7 +7124,7 @@ func SubtractScalarF32(series telem.Series, scalar float32, output *telem.Series
 
 func MultiplyScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
@@ -7136,7 +7136,7 @@ func MultiplyScalarF32(series telem.Series, scalar float32, output *telem.Series
 
 func DivideScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
@@ -7148,7 +7148,7 @@ func DivideScalarF32(series telem.Series, scalar float32, output *telem.Series) 
 
 func AddScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
@@ -7160,7 +7160,7 @@ func AddScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 
 func SubtractScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
@@ -7172,7 +7172,7 @@ func SubtractScalarI64(series telem.Series, scalar int64, output *telem.Series) 
 
 func MultiplyScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
@@ -7184,7 +7184,7 @@ func MultiplyScalarI64(series telem.Series, scalar int64, output *telem.Series) 
 
 func DivideScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
@@ -7196,7 +7196,7 @@ func DivideScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 
 func AddScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
@@ -7208,7 +7208,7 @@ func AddScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 
 func SubtractScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
@@ -7220,7 +7220,7 @@ func SubtractScalarI32(series telem.Series, scalar int32, output *telem.Series) 
 
 func MultiplyScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
@@ -7232,7 +7232,7 @@ func MultiplyScalarI32(series telem.Series, scalar int32, output *telem.Series) 
 
 func DivideScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
@@ -7244,7 +7244,7 @@ func DivideScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 
 func AddScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
@@ -7256,7 +7256,7 @@ func AddScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 
 func SubtractScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
@@ -7268,7 +7268,7 @@ func SubtractScalarI16(series telem.Series, scalar int16, output *telem.Series) 
 
 func MultiplyScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
@@ -7280,7 +7280,7 @@ func MultiplyScalarI16(series telem.Series, scalar int16, output *telem.Series) 
 
 func DivideScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
@@ -7292,7 +7292,7 @@ func DivideScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 
 func AddScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
@@ -7304,7 +7304,7 @@ func AddScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 
 func SubtractScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
@@ -7316,7 +7316,7 @@ func SubtractScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 
 func MultiplyScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
@@ -7328,7 +7328,7 @@ func MultiplyScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 
 func DivideScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
@@ -7340,7 +7340,7 @@ func DivideScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 
 func AddScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
@@ -7352,7 +7352,7 @@ func AddScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 
 func SubtractScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
@@ -7364,7 +7364,7 @@ func SubtractScalarU64(series telem.Series, scalar uint64, output *telem.Series)
 
 func MultiplyScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
@@ -7376,7 +7376,7 @@ func MultiplyScalarU64(series telem.Series, scalar uint64, output *telem.Series)
 
 func DivideScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
@@ -7388,7 +7388,7 @@ func DivideScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 
 func AddScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
@@ -7400,7 +7400,7 @@ func AddScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 
 func SubtractScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
@@ -7412,7 +7412,7 @@ func SubtractScalarU32(series telem.Series, scalar uint32, output *telem.Series)
 
 func MultiplyScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
@@ -7424,7 +7424,7 @@ func MultiplyScalarU32(series telem.Series, scalar uint32, output *telem.Series)
 
 func DivideScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
@@ -7436,7 +7436,7 @@ func DivideScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 
 func AddScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
@@ -7448,7 +7448,7 @@ func AddScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 
 func SubtractScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
@@ -7460,7 +7460,7 @@ func SubtractScalarU16(series telem.Series, scalar uint16, output *telem.Series)
 
 func MultiplyScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
@@ -7472,7 +7472,7 @@ func MultiplyScalarU16(series telem.Series, scalar uint16, output *telem.Series)
 
 func DivideScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
@@ -7484,7 +7484,7 @@ func DivideScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 
 func AddScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
@@ -7496,7 +7496,7 @@ func AddScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 
 func SubtractScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
@@ -7508,7 +7508,7 @@ func SubtractScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 
 func MultiplyScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
@@ -7520,7 +7520,7 @@ func MultiplyScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 
 func DivideScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
@@ -7532,7 +7532,7 @@ func DivideScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 
 func ReverseSubtractScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
@@ -7544,7 +7544,7 @@ func ReverseSubtractScalarF64(series telem.Series, scalar float64, output *telem
 
 func ReverseDivideScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
@@ -7556,7 +7556,7 @@ func ReverseDivideScalarF64(series telem.Series, scalar float64, output *telem.S
 
 func ReverseSubtractScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
@@ -7568,7 +7568,7 @@ func ReverseSubtractScalarF32(series telem.Series, scalar float32, output *telem
 
 func ReverseDivideScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
@@ -7580,7 +7580,7 @@ func ReverseDivideScalarF32(series telem.Series, scalar float32, output *telem.S
 
 func ReverseSubtractScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
@@ -7592,7 +7592,7 @@ func ReverseSubtractScalarI64(series telem.Series, scalar int64, output *telem.S
 
 func ReverseDivideScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
@@ -7604,7 +7604,7 @@ func ReverseDivideScalarI64(series telem.Series, scalar int64, output *telem.Ser
 
 func ReverseSubtractScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
@@ -7616,7 +7616,7 @@ func ReverseSubtractScalarI32(series telem.Series, scalar int32, output *telem.S
 
 func ReverseDivideScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
@@ -7628,7 +7628,7 @@ func ReverseDivideScalarI32(series telem.Series, scalar int32, output *telem.Ser
 
 func ReverseSubtractScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
@@ -7640,7 +7640,7 @@ func ReverseSubtractScalarI16(series telem.Series, scalar int16, output *telem.S
 
 func ReverseDivideScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
@@ -7652,7 +7652,7 @@ func ReverseDivideScalarI16(series telem.Series, scalar int16, output *telem.Ser
 
 func ReverseSubtractScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
@@ -7664,7 +7664,7 @@ func ReverseSubtractScalarI8(series telem.Series, scalar int8, output *telem.Ser
 
 func ReverseDivideScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
@@ -7676,7 +7676,7 @@ func ReverseDivideScalarI8(series telem.Series, scalar int8, output *telem.Serie
 
 func ReverseSubtractScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
@@ -7688,7 +7688,7 @@ func ReverseSubtractScalarU64(series telem.Series, scalar uint64, output *telem.
 
 func ReverseDivideScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
@@ -7700,7 +7700,7 @@ func ReverseDivideScalarU64(series telem.Series, scalar uint64, output *telem.Se
 
 func ReverseSubtractScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
@@ -7712,7 +7712,7 @@ func ReverseSubtractScalarU32(series telem.Series, scalar uint32, output *telem.
 
 func ReverseDivideScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
@@ -7724,7 +7724,7 @@ func ReverseDivideScalarU32(series telem.Series, scalar uint32, output *telem.Se
 
 func ReverseSubtractScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
@@ -7736,7 +7736,7 @@ func ReverseSubtractScalarU16(series telem.Series, scalar uint16, output *telem.
 
 func ReverseDivideScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
@@ -7748,7 +7748,7 @@ func ReverseDivideScalarU16(series telem.Series, scalar uint16, output *telem.Se
 
 func ReverseSubtractScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
@@ -7760,7 +7760,7 @@ func ReverseSubtractScalarU8(series telem.Series, scalar uint8, output *telem.Se
 
 func ReverseDivideScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
@@ -7772,7 +7772,7 @@ func ReverseDivideScalarU8(series telem.Series, scalar uint8, output *telem.Seri
 
 func ReverseModuloScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
@@ -7784,7 +7784,7 @@ func ReverseModuloScalarF64(series telem.Series, scalar float64, output *telem.S
 
 func ReverseModuloScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
@@ -7796,7 +7796,7 @@ func ReverseModuloScalarF32(series telem.Series, scalar float32, output *telem.S
 
 func ReverseModuloScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
@@ -7808,7 +7808,7 @@ func ReverseModuloScalarI64(series telem.Series, scalar int64, output *telem.Ser
 
 func ReverseModuloScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
@@ -7820,7 +7820,7 @@ func ReverseModuloScalarI32(series telem.Series, scalar int32, output *telem.Ser
 
 func ReverseModuloScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
@@ -7832,7 +7832,7 @@ func ReverseModuloScalarI16(series telem.Series, scalar int16, output *telem.Ser
 
 func ReverseModuloScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
@@ -7844,7 +7844,7 @@ func ReverseModuloScalarI8(series telem.Series, scalar int8, output *telem.Serie
 
 func ReverseModuloScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
@@ -7856,7 +7856,7 @@ func ReverseModuloScalarU64(series telem.Series, scalar uint64, output *telem.Se
 
 func ReverseModuloScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
@@ -7868,7 +7868,7 @@ func ReverseModuloScalarU32(series telem.Series, scalar uint32, output *telem.Se
 
 func ReverseModuloScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
@@ -7880,7 +7880,7 @@ func ReverseModuloScalarU16(series telem.Series, scalar uint16, output *telem.Se
 
 func ReverseModuloScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
@@ -7892,7 +7892,7 @@ func ReverseModuloScalarU8(series telem.Series, scalar uint8, output *telem.Seri
 
 func ModuloScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := unsafe.CastSlice[uint8, float64](output.Data)
@@ -7904,7 +7904,7 @@ func ModuloScalarF64(series telem.Series, scalar float64, output *telem.Series) 
 
 func ModuloScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := unsafe.CastSlice[uint8, float32](output.Data)
@@ -7916,7 +7916,7 @@ func ModuloScalarF32(series telem.Series, scalar float32, output *telem.Series) 
 
 func ModuloScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := unsafe.CastSlice[uint8, int64](output.Data)
@@ -7928,7 +7928,7 @@ func ModuloScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 
 func ModuloScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := unsafe.CastSlice[uint8, int32](output.Data)
@@ -7940,7 +7940,7 @@ func ModuloScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 
 func ModuloScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := unsafe.CastSlice[uint8, int16](output.Data)
@@ -7952,7 +7952,7 @@ func ModuloScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 
 func ModuloScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := unsafe.CastSlice[uint8, int8](output.Data)
@@ -7964,7 +7964,7 @@ func ModuloScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 
 func ModuloScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := unsafe.CastSlice[uint8, uint64](output.Data)
@@ -7976,7 +7976,7 @@ func ModuloScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 
 func ModuloScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := unsafe.CastSlice[uint8, uint32](output.Data)
@@ -7988,7 +7988,7 @@ func ModuloScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 
 func ModuloScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := unsafe.CastSlice[uint8, uint16](output.Data)
@@ -8000,7 +8000,7 @@ func ModuloScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 
 func ModuloScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := unsafe.CastSlice[uint8, uint8](output.Data)
@@ -8012,7 +8012,7 @@ func ModuloScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 
 func GreaterThanScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := output.Data
@@ -8028,7 +8028,7 @@ func GreaterThanScalarF64(series telem.Series, scalar float64, output *telem.Ser
 
 func GreaterThanOrEqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := output.Data
@@ -8044,7 +8044,7 @@ func GreaterThanOrEqualScalarF64(series telem.Series, scalar float64, output *te
 
 func LessThanScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := output.Data
@@ -8060,7 +8060,7 @@ func LessThanScalarF64(series telem.Series, scalar float64, output *telem.Series
 
 func LessThanOrEqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := output.Data
@@ -8076,7 +8076,7 @@ func LessThanOrEqualScalarF64(series telem.Series, scalar float64, output *telem
 
 func EqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := output.Data
@@ -8092,7 +8092,7 @@ func EqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 
 func NotEqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float64](series.Data)
 	outData := output.Data
@@ -8108,7 +8108,7 @@ func NotEqualScalarF64(series telem.Series, scalar float64, output *telem.Series
 
 func GreaterThanScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := output.Data
@@ -8124,7 +8124,7 @@ func GreaterThanScalarF32(series telem.Series, scalar float32, output *telem.Ser
 
 func GreaterThanOrEqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := output.Data
@@ -8140,7 +8140,7 @@ func GreaterThanOrEqualScalarF32(series telem.Series, scalar float32, output *te
 
 func LessThanScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := output.Data
@@ -8156,7 +8156,7 @@ func LessThanScalarF32(series telem.Series, scalar float32, output *telem.Series
 
 func LessThanOrEqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := output.Data
@@ -8172,7 +8172,7 @@ func LessThanOrEqualScalarF32(series telem.Series, scalar float32, output *telem
 
 func EqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := output.Data
@@ -8188,7 +8188,7 @@ func EqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 
 func NotEqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, float32](series.Data)
 	outData := output.Data
@@ -8204,7 +8204,7 @@ func NotEqualScalarF32(series telem.Series, scalar float32, output *telem.Series
 
 func GreaterThanScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := output.Data
@@ -8220,7 +8220,7 @@ func GreaterThanScalarI64(series telem.Series, scalar int64, output *telem.Serie
 
 func GreaterThanOrEqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := output.Data
@@ -8236,7 +8236,7 @@ func GreaterThanOrEqualScalarI64(series telem.Series, scalar int64, output *tele
 
 func LessThanScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := output.Data
@@ -8252,7 +8252,7 @@ func LessThanScalarI64(series telem.Series, scalar int64, output *telem.Series) 
 
 func LessThanOrEqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := output.Data
@@ -8268,7 +8268,7 @@ func LessThanOrEqualScalarI64(series telem.Series, scalar int64, output *telem.S
 
 func EqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := output.Data
@@ -8284,7 +8284,7 @@ func EqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 
 func NotEqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int64](series.Data)
 	outData := output.Data
@@ -8300,7 +8300,7 @@ func NotEqualScalarI64(series telem.Series, scalar int64, output *telem.Series) 
 
 func GreaterThanScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := output.Data
@@ -8316,7 +8316,7 @@ func GreaterThanScalarI32(series telem.Series, scalar int32, output *telem.Serie
 
 func GreaterThanOrEqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := output.Data
@@ -8332,7 +8332,7 @@ func GreaterThanOrEqualScalarI32(series telem.Series, scalar int32, output *tele
 
 func LessThanScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := output.Data
@@ -8348,7 +8348,7 @@ func LessThanScalarI32(series telem.Series, scalar int32, output *telem.Series) 
 
 func LessThanOrEqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := output.Data
@@ -8364,7 +8364,7 @@ func LessThanOrEqualScalarI32(series telem.Series, scalar int32, output *telem.S
 
 func EqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := output.Data
@@ -8380,7 +8380,7 @@ func EqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 
 func NotEqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int32](series.Data)
 	outData := output.Data
@@ -8396,7 +8396,7 @@ func NotEqualScalarI32(series telem.Series, scalar int32, output *telem.Series) 
 
 func GreaterThanScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := output.Data
@@ -8412,7 +8412,7 @@ func GreaterThanScalarI16(series telem.Series, scalar int16, output *telem.Serie
 
 func GreaterThanOrEqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := output.Data
@@ -8428,7 +8428,7 @@ func GreaterThanOrEqualScalarI16(series telem.Series, scalar int16, output *tele
 
 func LessThanScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := output.Data
@@ -8444,7 +8444,7 @@ func LessThanScalarI16(series telem.Series, scalar int16, output *telem.Series) 
 
 func LessThanOrEqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := output.Data
@@ -8460,7 +8460,7 @@ func LessThanOrEqualScalarI16(series telem.Series, scalar int16, output *telem.S
 
 func EqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := output.Data
@@ -8476,7 +8476,7 @@ func EqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 
 func NotEqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int16](series.Data)
 	outData := output.Data
@@ -8492,7 +8492,7 @@ func NotEqualScalarI16(series telem.Series, scalar int16, output *telem.Series) 
 
 func GreaterThanScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := output.Data
@@ -8508,7 +8508,7 @@ func GreaterThanScalarI8(series telem.Series, scalar int8, output *telem.Series)
 
 func GreaterThanOrEqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := output.Data
@@ -8524,7 +8524,7 @@ func GreaterThanOrEqualScalarI8(series telem.Series, scalar int8, output *telem.
 
 func LessThanScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := output.Data
@@ -8540,7 +8540,7 @@ func LessThanScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 
 func LessThanOrEqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := output.Data
@@ -8556,7 +8556,7 @@ func LessThanOrEqualScalarI8(series telem.Series, scalar int8, output *telem.Ser
 
 func EqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := output.Data
@@ -8572,7 +8572,7 @@ func EqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 
 func NotEqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, int8](series.Data)
 	outData := output.Data
@@ -8588,7 +8588,7 @@ func NotEqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 
 func GreaterThanScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := output.Data
@@ -8604,7 +8604,7 @@ func GreaterThanScalarU64(series telem.Series, scalar uint64, output *telem.Seri
 
 func GreaterThanOrEqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := output.Data
@@ -8620,7 +8620,7 @@ func GreaterThanOrEqualScalarU64(series telem.Series, scalar uint64, output *tel
 
 func LessThanScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := output.Data
@@ -8636,7 +8636,7 @@ func LessThanScalarU64(series telem.Series, scalar uint64, output *telem.Series)
 
 func LessThanOrEqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := output.Data
@@ -8652,7 +8652,7 @@ func LessThanOrEqualScalarU64(series telem.Series, scalar uint64, output *telem.
 
 func EqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := output.Data
@@ -8668,7 +8668,7 @@ func EqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 
 func NotEqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint64](series.Data)
 	outData := output.Data
@@ -8684,7 +8684,7 @@ func NotEqualScalarU64(series telem.Series, scalar uint64, output *telem.Series)
 
 func GreaterThanScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := output.Data
@@ -8700,7 +8700,7 @@ func GreaterThanScalarU32(series telem.Series, scalar uint32, output *telem.Seri
 
 func GreaterThanOrEqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := output.Data
@@ -8716,7 +8716,7 @@ func GreaterThanOrEqualScalarU32(series telem.Series, scalar uint32, output *tel
 
 func LessThanScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := output.Data
@@ -8732,7 +8732,7 @@ func LessThanScalarU32(series telem.Series, scalar uint32, output *telem.Series)
 
 func LessThanOrEqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := output.Data
@@ -8748,7 +8748,7 @@ func LessThanOrEqualScalarU32(series telem.Series, scalar uint32, output *telem.
 
 func EqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := output.Data
@@ -8764,7 +8764,7 @@ func EqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 
 func NotEqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint32](series.Data)
 	outData := output.Data
@@ -8780,7 +8780,7 @@ func NotEqualScalarU32(series telem.Series, scalar uint32, output *telem.Series)
 
 func GreaterThanScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := output.Data
@@ -8796,7 +8796,7 @@ func GreaterThanScalarU16(series telem.Series, scalar uint16, output *telem.Seri
 
 func GreaterThanOrEqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := output.Data
@@ -8812,7 +8812,7 @@ func GreaterThanOrEqualScalarU16(series telem.Series, scalar uint16, output *tel
 
 func LessThanScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := output.Data
@@ -8828,7 +8828,7 @@ func LessThanScalarU16(series telem.Series, scalar uint16, output *telem.Series)
 
 func LessThanOrEqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := output.Data
@@ -8844,7 +8844,7 @@ func LessThanOrEqualScalarU16(series telem.Series, scalar uint16, output *telem.
 
 func EqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := output.Data
@@ -8860,7 +8860,7 @@ func EqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 
 func NotEqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint16](series.Data)
 	outData := output.Data
@@ -8876,7 +8876,7 @@ func NotEqualScalarU16(series telem.Series, scalar uint16, output *telem.Series)
 
 func GreaterThanScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := output.Data
@@ -8892,7 +8892,7 @@ func GreaterThanScalarU8(series telem.Series, scalar uint8, output *telem.Series
 
 func GreaterThanOrEqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := output.Data
@@ -8908,7 +8908,7 @@ func GreaterThanOrEqualScalarU8(series telem.Series, scalar uint8, output *telem
 
 func LessThanScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := output.Data
@@ -8924,7 +8924,7 @@ func LessThanScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 
 func LessThanOrEqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := output.Data
@@ -8940,7 +8940,7 @@ func LessThanOrEqualScalarU8(series telem.Series, scalar uint8, output *telem.Se
 
 func EqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := output.Data
@@ -8956,7 +8956,7 @@ func EqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 
 func NotEqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	length := series.Len()
-	output.Resize(length)
+	*output = output.Resized(length)
 
 	inData := unsafe.CastSlice[uint8, uint8](series.Data)
 	outData := output.Data

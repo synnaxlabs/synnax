@@ -10,7 +10,7 @@
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { LabJack } from "@/feature/labjack";
@@ -21,10 +21,13 @@ import {
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
+  clickFailedDeploy,
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  START_FAILURE,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
@@ -126,6 +129,28 @@ describe("Write", () => {
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
     await waitFor(() => expect(screen.getByText("FIO5")).toBeTruthy());
+  });
+
+  it("should copy the selected channel, not the last one, when Add is pressed", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createDigitalWriteChannel("DIO4"),
+        createAnalogWriteChannel("DAC0"),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    const fio4 = await findChannelListItem("FIO4");
+    fireEvent.click(within(fio4).getByRole("checkbox", { name: "Select" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["digital", "DIO4"],
+        ["analog", "DAC0"],
+        ["digital", "DIO5"],
+      ]),
+    );
   });
 
   it("should update the port from the grid the port button opens", async () => {
@@ -511,6 +536,19 @@ describe("Write", () => {
 });
 
 describe("Write disabled channels", () => {
+  it("should leave an error on the channels to the list on Start", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("FIO4", { disabled: true })]),
+    );
+    const onStatuses = vi.fn();
+    const { container } = await renderWrite({ client, taskKey: draft.key, onStatuses });
+    await clickFailedDeploy(container);
+    expect(screen.getByText("At least one enabled channel is required")).toBeTruthy();
+    expect(onStatuses.mock.calls.flat(2)).not.toContainEqual(START_FAILURE);
+  });
+
   it("should show no conflict for a port a disabled channel shares", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(

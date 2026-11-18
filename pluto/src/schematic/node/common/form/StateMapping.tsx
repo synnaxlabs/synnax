@@ -74,7 +74,7 @@ const StateMappingListItem = ({
       {showColor && (
         <Color.Field
           path={basePath.color}
-          fallback={color.ZERO}
+          fallback={color.TRANSPARENT}
           showLabel={false}
           showHelpText={false}
         />

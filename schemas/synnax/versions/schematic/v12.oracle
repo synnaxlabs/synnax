@@ -30,7 +30,9 @@ Segment = v9.Segment
 
 SegmentedEdgeConfig = v9.SegmentedEdgeConfig
 
-EdgeConfig = v9.EdgeConfig
+EdgeConfig union on variant extends v9.EdgeConfig {
+    @go migrate
+}
 
 FlexAlignment = v9.FlexAlignment
 
@@ -48,9 +50,10 @@ StalenessConfig = v9.StalenessConfig
 
 NumericTelemConfig struct extends v9.NumericTelemConfig {
     precision uint8? {
-        @doc value """
+        @doc value    """
             is the number of decimal places shown, from 0 to 17. Absent shows 2.
         """
+        @validate max 17
     }
 }
 
@@ -72,7 +75,9 @@ PageType = v9.PageType
 
 Page = v9.Page
 
-NodeConfig union on variant extends v10.NodeConfig {}
+NodeConfig union on variant extends v10.NodeConfig {
+    @go migrate
+}
 
 ElementConfig union on variant extends v10.ElementConfig {}
 
@@ -80,6 +85,6 @@ Schematic struct extends v11.Schematic {
     -snapshot
     -range
     project project.Key? {
-        @doc value "is the project that owns the schematic."
+        @doc value "is the project that holds the schematic."
     }
 }

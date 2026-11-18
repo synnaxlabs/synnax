@@ -75,6 +75,10 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Records map[channel.Key]signals.Record
+	// Errors encodes the errors that streams send to clients.
+	//
+	// [REQUIRED]
+	Errors *errors.Codec
 }
 
 var (
@@ -91,6 +95,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Records = override.Nil(c.Records, other.Records)
+	c.Errors = override.Nil(c.Errors, other.Errors)
 	return c
 }
 
@@ -101,6 +106,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("errors", c.Errors)
 	return v.Error()
 }
 
@@ -110,6 +116,7 @@ type Service struct {
 	channel  *channel.Service
 	internal *framer.Service
 	records  map[channel.Key]signals.Record
+	errs     *errors.Codec
 	alamos.Instrumentation
 }
 
@@ -125,6 +132,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		channel:         cfg.Channel,
 		access:          cfg.RBAC,
 		records:         cfg.Records,
+		errs:            cfg.Errors,
 	}, nil
 }
 
@@ -389,7 +397,7 @@ func (s *Service) Iterate(ctx context.Context, stream IteratorStream) error {
 			ctx context.Context,
 			res IteratorResponse,
 		) (IteratorResponse, bool, error) {
-			res.Error = errors.Encode(ctx, res.Error, false)
+			res.Error = s.errs.Encode(res.Error, false)
 			return res, true, nil
 		},
 	}
@@ -680,7 +688,7 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 			return WriterResponse{
 				Command:    i.Command,
 				Authorized: i.Authorized,
-				Err:        errors.Encode(ctx, i.Err, false),
+				Err:        s.errs.Encode(i.Err, false),
 				End:        i.End,
 			}, true, nil
 		},
@@ -750,7 +758,7 @@ func (s *Service) openWriter(
 	// Let the client know the writer is ready to receive segments.
 	if err := stream.Send(WriterResponse{
 		Command: framer.WriterCommandOpen,
-		Err:     errors.Encode(ctx, nil, false),
+		Err:     errors.Payload{Type: errors.TypeNil},
 	}); err != nil {
 		return nil, errors.Combine(err, release(w))
 	}

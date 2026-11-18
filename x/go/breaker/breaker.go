@@ -20,7 +20,7 @@ import (
 )
 
 // InfiniteRetries lifts the retry limit: a breaker configured with it keeps waiting for
-// as long as its context is live.
+// as long as the context passed to Wait is live.
 const InfiniteRetries = -1
 
 // Config configures a Breaker.
@@ -80,33 +80,31 @@ func (c Config) Validate() error {
 var _ config.Config[Config] = Config{}
 
 // Breaker waits an exponentially growing interval between retries, giving up once it
-// reaches MaxRetries or its context is canceled. A Breaker is not safe for concurrent
-// use.
+// reaches MaxRetries or the context passed to Wait is canceled. A Breaker is not safe
+// for concurrent use.
 type Breaker struct {
-	ctx          context.Context
 	cfg          Config
 	currInterval time.Duration
 	retryCount   int
 }
 
-// NewBreaker creates a new breaker on the given context and configuration. If the
-// context is canceled while the breaker is waiting, the breaker stops waiting
-// immediately.
-func NewBreaker(ctx context.Context, configs ...Config) (Breaker, error) {
+// NewBreaker creates a new breaker with the given configuration.
+func NewBreaker(configs ...Config) (Breaker, error) {
 	cfg, err := config.New(Config{Scale: 1, Clock: xtime.Real}, configs...)
 	if err != nil {
 		return Breaker{}, err
 	}
-	b := Breaker{cfg: cfg, ctx: ctx}
+	b := Breaker{cfg: cfg}
 	b.Reset()
 	return b, nil
 }
 
-// Wait returns a boolean indicating whether the breaker can wait again. A breaker
-// cannot wait if its context is canceled or if it reached its maximum retry count. Wait
-// waits an exponentially increasing amount of time each time it is called.
-func (b *Breaker) Wait() bool {
-	if b.cfg.MaxRetries != InfiniteRetries && b.retryCount == b.cfg.MaxRetries {
+// Wait waits an exponentially increasing amount of time each time it is called, and
+// returns true once the wait ends. It returns false without waiting when the breaker
+// reached its maximum retry count, and returns false as soon as ctx is canceled.
+func (b *Breaker) Wait(ctx context.Context) bool {
+	if ctx.Err() != nil ||
+		b.cfg.MaxRetries != InfiniteRetries && b.retryCount == b.cfg.MaxRetries {
 		return false
 	}
 
@@ -115,7 +113,7 @@ func (b *Breaker) Wait() bool {
 	timer := b.cfg.Clock.RunAt(deadline, func() { close(fired) })
 	select {
 	case <-fired:
-	case <-b.ctx.Done():
+	case <-ctx.Done():
 		timer.Stop()
 		return false
 	}

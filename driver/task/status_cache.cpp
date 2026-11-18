@@ -84,12 +84,19 @@ std::optional<synnax::task::Status> StatusCache::latest(const synnax::task::Key 
 
 void StatusCache::drop(const synnax::task::Key &key) {
     const auto owner = synnax::task::resource_id(key);
-    std::lock_guard lock{this->mu};
-    this->released.insert(owner);
-    const auto it = this->entries.find(owner);
-    if (it == this->entries.end()) return;
-    it->second->dropped = true;
-    this->entries.erase(it);
+    std::shared_ptr<Entry> entry;
+    {
+        std::lock_guard lock{this->mu};
+        this->released.insert(owner);
+        const auto it = this->entries.find(owner);
+        if (it == this->entries.end()) return;
+        entry = it->second;
+        this->entries.erase(it);
+    }
+    // Set under the lock of the writes, so a re-send that passed its check finishes
+    // its write first.
+    std::lock_guard lock{entry->mu};
+    entry->dropped = true;
 }
 
 void StatusCache::claim(const synnax::task::Key &key) {

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel, type device, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { caseconv } from "@synnaxlabs/x";
 
@@ -19,6 +20,7 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Sift } from "@/feature/sift";
 import { type Task } from "@/platform/task";
 
 export const INTEGRATIONS: Task.Integration[] = [
@@ -31,7 +33,15 @@ export const INTEGRATIONS: Task.Integration[] = [
   NI.Task.INTEGRATION,
   OPCUA.Task.INTEGRATION,
   PagerDuty.Task.INTEGRATION,
+  Sift.Task.INTEGRATION,
 ];
+
+const PLOT_CHANNELS: Record<string, Task.PlotChannels> = Object.fromEntries(
+  INTEGRATIONS.flatMap(({ plotChannels }) => Object.entries(plotChannels ?? {})),
+);
+
+export const getPlotChannels = (type: string): Task.PlotChannels | undefined =>
+  PLOT_CHANNELS[type];
 
 const TASK_ICON = <Icon.Task />;
 
@@ -45,3 +55,32 @@ export const parseType = (type: string): string => {
     caseconv.capitalize(first);
   return `${[name, ...rest].join(" ")} task`;
 };
+
+// The task types whose Start creates the channels that their configs name.
+const OWNED_CHANNELS: Record<string, (config: unknown) => channel.Key[]> = {
+  [EtherCAT.Task.READ_TYPE]: EtherCAT.Task.readChannelsOf,
+  [EtherCAT.Task.WRITE_TYPE]: EtherCAT.Task.writeChannelsOf,
+};
+
+/**
+ * @returns the keys of the channels that the Start of the task creates. A task of a
+ * type that names channels it does not own, such as a Sift upload, returns none.
+ */
+export const ownedChannelsOf = ({
+  type,
+  config,
+}: Pick<task.Payload, "type" | "config">): channel.Key[] =>
+  OWNED_CHANNELS[type]?.(config) ?? [];
+
+// The task types whose restore checks that the devices their configs name exist.
+const DEVICES: Record<string, (config: unknown) => device.Key[]> = {
+  [EtherCAT.Task.READ_TYPE]: EtherCAT.Task.devicesOf,
+  [EtherCAT.Task.WRITE_TYPE]: EtherCAT.Task.devicesOf,
+};
+
+/** @returns the keys of the devices that the config of the task names. */
+export const devicesOf = ({
+  type,
+  config,
+}: Pick<task.Payload, "type" | "config">): device.Key[] =>
+  DEVICES[type]?.(config) ?? [];

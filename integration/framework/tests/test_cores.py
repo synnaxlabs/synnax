@@ -21,7 +21,8 @@ pytestmark = pytest.mark.skipif(
 )
 
 # Prints its arguments, then the license and ready lines unless told otherwise, and
-# runs until interrupted.
+# runs until interrupted. A launch on a data directory that it used before holds back
+# its ready line for a second.
 FAKE_CORE = """#!/usr/bin/env python3
 import os
 import signal
@@ -31,6 +32,10 @@ import time
 print(" ".join(sys.argv[1:]), flush=True)
 if os.environ.get("FAKE_CORE_EXIT"):
     sys.exit(3)
+launched = os.path.join(sys.argv[sys.argv.index("-d") + 1], "launched")
+if os.path.exists(launched):
+    time.sleep(1)
+open(launched, "w").close()
 if not os.environ.get("FAKE_CORE_UNLICENSED"):
     print("license active", flush=True)
 print("Synnax is running and available at here", flush=True)
@@ -150,3 +155,31 @@ class TestStart:
                 count=1,
                 log_dir=tmp_path,
             )
+
+
+class TestProcess:
+    def test_restart(self, binary: Path, first_port: int, tmp_path: Path) -> None:
+        """Should start the Core again with the same arguments and data, and wait
+        for its new ready line."""
+        core = cores.Core(
+            connection=SynnaxConnection(port=first_port),
+            log_path=tmp_path / "core.log",
+        )
+        process = cores.Process(
+            binary=binary, core=core, persisted=True, driver_disabled=True
+        )
+        try:
+            process.wait_ready()
+            first = process._popen
+            process.restart()
+            assert first.returncode == 0
+            assert process._popen.poll() is None
+            lines = core.log_path.read_text().splitlines()
+            args = [line for line in lines if line.startswith("start")]
+            assert len(args) == 2
+            assert args[0] == args[1]
+            assert lines.count("Synnax is running and available at here") == 2
+            assert "--no-driver" in args[0]
+            assert " -m" not in args[0]
+        finally:
+            cores.stop([process])

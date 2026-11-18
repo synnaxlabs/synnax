@@ -302,10 +302,7 @@ describe("Channel", () => {
       await expect(
         client.channels.retrieve({ where: { name: { eq: name } } }),
       ).rejects.toThrow(
-        new PathError(
-          ["where", "name"],
-          new ValidationError("no operator set: validation error"),
-        ),
+        new PathError(["where", "name"], new ValidationError("no operator set")),
       );
     });
     test("retrieve by name", async () => {
@@ -324,6 +321,14 @@ describe("Channel", () => {
       await expect(
         async () => await client.channels.retrieve("1-1000"),
       ).rejects.toThrow(NotFoundError);
+    });
+    test("retrieve no channels for an empty array", async () => {
+      await client.channels.create({
+        name: id.create(),
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      expect(await client.channels.retrieve([])).toEqual([]);
     });
     test("retrieve by search term", async () => {
       const prefix = id.create();
@@ -398,6 +403,19 @@ describe("Channel", () => {
     });
   });
 
+  describe("countLimited", () => {
+    it("should return the count from the Core", async () => {
+      // Other spec files create and delete channels on the same Core at once, so the
+      // exact count is pinned in the Core's specs.
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      expect(await client.channels.countLimited()).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe("delete", async () => {
     test("delete by key", async () => {
       const channel = await client.channels.create({
@@ -450,8 +468,7 @@ describe("Channel", () => {
       });
       await expect(client.channels.delete(channel.key)).rejects.toThrow(
         new ValidationError(
-          `cannot delete channel ${channel.name} because task ${task.name} uses it: ` +
-            "validation error",
+          `cannot delete channel ${channel.name} because task ${task.name} uses it`,
         ),
       );
       await client.tasks.delete(task.key);
@@ -473,7 +490,7 @@ describe("Channel", () => {
       await expect(client.channels.delete(index.key)).rejects.toThrow(
         new ValidationError(
           `cannot delete channel ${index.name} because channel ${data.name} uses ` +
-            "it as its index: validation error",
+            "it as its index",
         ),
       );
       await client.channels.delete(data.key);

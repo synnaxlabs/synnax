@@ -19,6 +19,7 @@ import { type FC, type ReactElement } from "react";
 import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
+import { useStatusDisplay } from "@/form/useStatusDisplay";
 import { Input } from "@/input";
 import { Select } from "@/select";
 
@@ -67,6 +68,7 @@ export const Field = <I = string | number, O = I>({
 }: FieldProps<I, O>): ReactElement | null => {
   // A hidden field may bind a path its config lacks.
   const field = useField<I, O>(path, { onChange, optional: !visible });
+  useStatusDisplay(field != null && visible ? path : null);
   const markable = emptiable ?? children == null;
   if (field == null || !visible) return null;
   const key = String(path);

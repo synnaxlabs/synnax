@@ -64,6 +64,39 @@ std::optional<std::string> to_utf8(const std::wstring &wide) {
         return std::nullopt;
     return utf8;
 }
+
+/// @brief reads a string value of the Connection key of the adapter of ifname, or
+/// returns std::nullopt when it is missing or empty.
+std::optional<std::wstring> connection_value(const char *ifname, const wchar_t *value) {
+    const auto guid = wide_adapter_guid(ifname);
+    if (!guid) return std::nullopt;
+    const auto path = std::wstring(NETWORK_ADAPTERS) + *guid + L"\\Connection";
+    DWORD size = 0;
+    if (RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            path.c_str(),
+            value,
+            RRF_RT_REG_SZ,
+            nullptr,
+            nullptr,
+            &size
+        ) != ERROR_SUCCESS)
+        return std::nullopt;
+    std::wstring data(size / sizeof(wchar_t), L'\0');
+    if (RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            path.c_str(),
+            value,
+            RRF_RT_REG_SZ,
+            nullptr,
+            data.data(),
+            &size
+        ) != ERROR_SUCCESS)
+        return std::nullopt;
+    data.resize(std::wcslen(data.c_str()));
+    if (data.empty()) return std::nullopt;
+    return data;
+}
 }
 
 x::errors::Error ProdAPI::check_socket(const char *) {
@@ -83,33 +116,13 @@ bool ProdAPI::dewesoft_filter_bound(const char *ifname) {
 }
 
 std::optional<std::string> ProdAPI::adapter_name(const char *ifname) {
-    const auto guid = wide_adapter_guid(ifname);
-    if (!guid) return std::nullopt;
-    const auto path = std::wstring(NETWORK_ADAPTERS) + *guid + L"\\Connection";
-    DWORD size = 0;
-    if (RegGetValueW(
-            HKEY_LOCAL_MACHINE,
-            path.c_str(),
-            L"Name",
-            RRF_RT_REG_SZ,
-            nullptr,
-            nullptr,
-            &size
-        ) != ERROR_SUCCESS)
-        return std::nullopt;
-    std::wstring name(size / sizeof(wchar_t), L'\0');
-    if (RegGetValueW(
-            HKEY_LOCAL_MACHINE,
-            path.c_str(),
-            L"Name",
-            RRF_RT_REG_SZ,
-            nullptr,
-            name.data(),
-            &size
-        ) != ERROR_SUCCESS)
-        return std::nullopt;
-    name.resize(std::wcslen(name.c_str()));
-    if (name.empty()) return std::nullopt;
-    return to_utf8(name);
+    const auto name = connection_value(ifname, L"Name");
+    if (!name) return std::nullopt;
+    return to_utf8(*name);
+}
+
+bool ProdAPI::on_usb(const char *ifname) {
+    const auto id = connection_value(ifname, L"PnPInstanceID");
+    return id && id->starts_with(L"USB\\");
 }
 }

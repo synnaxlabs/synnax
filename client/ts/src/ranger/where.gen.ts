@@ -18,6 +18,7 @@ import {
   type Order,
   type OrderField,
   type Payload,
+  stageZ,
   type Where,
 } from "@/ranger/types.gen";
 
@@ -30,6 +31,10 @@ export interface Lines {
     ((record: Payload, value: NonNullable<Where["overlaps"]>) => boolean) | null;
   labels: ((record: Payload, value: NonNullable<Where["labels"]>) => boolean) | null;
   parents: ((record: Payload, value: NonNullable<Where["parents"]>) => boolean) | null;
+  nested: ((record: Payload, value: NonNullable<Where["nested"]>) => boolean) | null;
+  labeled: ((record: Payload, value: NonNullable<Where["labeled"]>) => boolean) | null;
+  stages: ((record: Payload, value: NonNullable<Where["stages"]>) => boolean) | null;
+  recent: ((record: Payload, value: NonNullable<Where["recent"]>) => boolean) | null;
 }
 
 /**
@@ -58,6 +63,22 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
     if (lines.parents == null) throw new Error("only the Core can check parents");
     if (!lines.parents(record, where.parents)) return false;
   }
+  if (where.nested != null) {
+    if (lines.nested == null) throw new Error("only the Core can check nested");
+    if (!lines.nested(record, where.nested)) return false;
+  }
+  if (where.labeled != null) {
+    if (lines.labeled == null) throw new Error("only the Core can check labeled");
+    if (!lines.labeled(record, where.labeled)) return false;
+  }
+  if (where.stages != null) {
+    if (lines.stages == null) throw new Error("only the Core can check stages");
+    if (!lines.stages(record, where.stages)) return false;
+  }
+  if (where.recent != null) {
+    if (lines.recent == null) throw new Error("only the Core can check recent");
+    if (!lines.recent(record, where.recent)) return false;
+  }
   return true;
 };
 
@@ -73,7 +94,11 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     where.name?.regex != null ||
     (where.overlaps != null && lines.overlaps == null) ||
     (where.labels != null && lines.labels == null) ||
-    (where.parents != null && lines.parents == null));
+    (where.parents != null && lines.parents == null) ||
+    (where.nested != null && lines.nested == null) ||
+    (where.labeled != null && lines.labeled == null) ||
+    (where.stages != null && lines.stages == null) ||
+    (where.recent != null && lines.recent == null));
 
 const inputs = {
   /** key selects by key. */
@@ -86,6 +111,17 @@ const inputs = {
   labels: filter.listInputZ(label.keyZ).exactOptional(),
   /** parents matches the ranges nested in any of the given ranges. */
   parents: filter.listInputZ(keyZ).exactOptional(),
+  /** nested matches the ranges nested in a range, or top-level ranges when false. */
+  nested: z.boolean().exactOptional(),
+  /** labeled matches ranges that have a label, or ranges with none when false. */
+  labeled: z.boolean().exactOptional(),
+  /** stages matches ranges in any of the given stages at the Core's clock. */
+  stages: filter.listInputZ(stageZ).exactOptional(),
+  /**
+   * recent matches ranges that overlap the span ending now, or starting now if
+   * negative.
+   */
+  recent: telem.timeSpanZ.exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -132,6 +168,10 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "overlaps",
         "labels",
         "parents",
+        "nested",
+        "labeled",
+        "stages",
+        "recent",
       ]),
     );
 
@@ -152,6 +192,8 @@ export const cursor = (record: Payload, order?: Order): Cursor => {
       return { key: record.key, name: record.name };
     case "time_range_start":
       return { key: record.key, timeRangeStart: record.timeRange.start };
+    case "time_range_end":
+      return { key: record.key, timeRangeEnd: record.timeRange.end };
   }
 };
 
@@ -164,6 +206,10 @@ const compareValues = (field: OrderField, a: Cursor, b: Cursor): number => {
       if (a.timeRangeStart == null || b.timeRangeStart == null)
         throw new Error("a cursor has no time_range_start");
       return telem.TimeStamp.sort(a.timeRangeStart, b.timeRangeStart);
+    case "time_range_end":
+      if (a.timeRangeEnd == null || b.timeRangeEnd == null)
+        throw new Error("a cursor has no time_range_end");
+      return telem.TimeStamp.sort(a.timeRangeEnd, b.timeRangeEnd);
   }
 };
 

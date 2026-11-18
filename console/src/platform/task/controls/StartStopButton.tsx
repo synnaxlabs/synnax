@@ -29,7 +29,10 @@ export const StartStopButton = ({
 }: StartStopButtonProps): ReactElement => (
   <Button.Button
     status={statusVariant ?? (running ? "error" : undefined)}
-    onClick={onClick}
+    // The first click turns Start into Stop, so a double click must not also stop.
+    onClick={(e) => {
+      if (e.detail <= 1) onClick();
+    }}
     size="medium"
     variant="filled"
     tooltip={running ? "Stop" : "Start"}

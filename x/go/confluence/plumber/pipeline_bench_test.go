@@ -26,15 +26,17 @@ func BenchmarkPipelineFlow(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		pipe := plumber.New()
-		for i, addr := range addrs {
+		var prev address.Address
+		for _, addr := range addrs {
 			t := &confluence.LinearTransform[int, int]{}
 			t.Transform = func(_ context.Context, v int) (int, bool, error) {
 				return v, true, nil
 			}
 			pipe.SetSegment(addr, t)
-			if i > 0 {
-				pipe.MustConnect[int](addrs[i-1], addr, 1)
+			if prev != "" {
+				pipe.MustConnect[int](prev, addr, 1)
 			}
+			prev = addr
 		}
 		seg := &plumber.Segment[int, int]{
 			Pipeline:         pipe,

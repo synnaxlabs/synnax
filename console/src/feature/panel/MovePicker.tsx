@@ -17,14 +17,15 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Errors, Panel } from "@synnaxlabs/pluto";
+import { array } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { renderIcon } from "@/feature/panel/icon";
 import {
   type TabOrigin,
   useMoveTab,
   useMoveTabToNewPanel,
 } from "@/feature/panel/useMoveTab";
+import { Appearance } from "@/platform/appearance";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
@@ -43,19 +44,19 @@ const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   const color = Panel.useColor({ key: props.itemKey });
   return (
     <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
-      {renderIcon({ icon, color })}
+      {Appearance.renderIcon({ icon, color, fallback: Icon.Panel })}
       <Text.Text overflow="fade">{name}</Text.Text>
     </Select.Item>
   );
 };
 
-const listItem = Component.renderProp(
-  (props: List.ItemProps<panel.Key>): ReactElement => (
-    <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
-      <Row {...props} />
-    </Errors.SuspenseBoundary>
-  ),
+const ListItem = (props: List.ItemProps<panel.Key>): ReactElement => (
+  <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
+    <Row {...props} />
+  </Errors.SuspenseBoundary>
 );
+
+const listItem = Component.renderProp(ListItem);
 
 export interface MovePickerParams {
   /** The tab being moved, and the panel it currently sits in. */
@@ -69,7 +70,7 @@ const Content = ({
   const keys = Session.Panel.useSelectOrderedKeys();
   const moveTab = useMoveTab();
   const moveToNewPanel = useMoveTabToNewPanel();
-  const data = keys.filter((key) => key !== origin.panel);
+  const data = array.remove(keys, origin.panel);
   const handleChange = (key: panel.Key) => {
     if (key === NEW_PANEL_KEY) moveToNewPanel(origin);
     else moveTab(origin, key);

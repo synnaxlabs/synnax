@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -40,9 +41,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	binder = MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		DB:          db,
+		RBAC:        svc.RBAC,
+		Held:        apiauth.HeldTables(),
+		Owned:       apipanel.OwnedTables(),
+		OwnedPlaces: apipanel.OwnedPlaces(),
 	}))
 })
 

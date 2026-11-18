@@ -12,6 +12,7 @@ import "@/schematic/edge/common/segmented/Segmented.css";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color, deep } from "@synnaxlabs/x";
@@ -20,9 +21,20 @@ import { type CSSProperties, type ReactElement } from "react";
 import { CSS } from "@/css";
 import { type Variant } from "@/schematic/edge/registry";
 
-const path = deep.path<{ strokeColor?: color.Color; variant: Variant }>();
+const path = deep.path<{
+  strokeColor?: color.Color;
+  strokeWidth: number;
+  variant: Variant;
+}>();
 
 const SELECT_STYLE: CSSProperties = { width: "25rem" };
+
+const STROKE_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
+  dragScale: { y: 0.1, x: 0.02 },
+  bounds: { lower: 1, upper: 20 },
+  integer: true,
+  endContent: "px",
+};
 
 interface SelectVariantProps extends Omit<
   Select.SingleSimpleProps<Variant>,
@@ -49,6 +61,12 @@ export const Form = (): ReactElement => {
         path={path.strokeColor}
         label="Stroke"
         fallback={theme.colors.gray.l11}
+      />
+      <Base.NumericField
+        path={path.strokeWidth}
+        label="Stroke width"
+        padHelpText={false}
+        inputProps={STROKE_WIDTH_INPUT_PROPS}
       />
       <Base.Field path={path.variant} label="Variant" padHelpText={false}>
         {(p) => <SelectVariant {...p} />}

@@ -28,6 +28,7 @@ var _ = Describe("Observe", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(OpenGorpMsgpackDB())
+		StartRun(db.Run)
 		entryTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
 		)
@@ -35,6 +36,50 @@ var _ = Describe("Observe", func() {
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, grape]{DB: db}),
 		)
 	})
+	Describe("Indexes", func() {
+		var (
+			nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+			table   *gorp.Table[int32, indexedEntry]
+			found   [][]int32
+		)
+		BeforeEach(func(ctx SpecContext) {
+			nameIdx = gorp.NewLookupIndex(
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+			table = DeferClose(openIndexedTable(ctx, db, nameIdx))
+			found = nil
+			DeferCleanup(table.Observe().OnChange(func(
+				ctx context.Context,
+				r gorp.TxReader[int32, indexedEntry],
+			) {
+				for ch := range r {
+					found = append(
+						found,
+						MustSucceed(nameIdx.Get(ctx, nil, ch.Value.Name)),
+					)
+				}
+			}))
+		})
+		It("Should hold a write made without a transaction", func(ctx SpecContext) {
+			w := gorp.WrapWriter[int32, indexedEntry](db)
+			for i, name := range []string{"a", "b", "c"} {
+				Expect(w.Set(ctx, indexedEntry{ID: 1, Name: name})).To(Succeed())
+				Expect(found).To(HaveLen(i + 1))
+				Expect(found[i]).To(ConsistOf(int32(1)))
+			}
+		})
+		It("Should hold a write made in a transaction", func(ctx SpecContext) {
+			for i, name := range []string{"a", "b", "c"} {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return gorp.WrapWriter[int32, indexedEntry](tx).
+						Set(ctx, indexedEntry{ID: 1, Name: name})
+				})).To(Succeed())
+				Expect(found).To(HaveLen(i + 1))
+				Expect(found[i]).To(ConsistOf(int32(1)))
+			}
+		})
+	})
+
 	It(
 		"Should correctly observe a change to the key value store",
 		func(ctx SpecContext) {
@@ -157,6 +202,7 @@ var _ = Describe("Changes", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(OpenGorpMsgpackDB())
+		StartRun(db.Run)
 		entryTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
 		)
@@ -189,7 +235,7 @@ var _ = Describe("Changes", func() {
 					Exec(ctx, tx)
 			})).To(Succeed())
 			Expect(commits).To(HaveLen(2))
-			Expect(slices.Collect(entryTable.Changes(ctx, commits[1]))).To(Equal(
+			Expect(slices.Collect(entryTable.Changes(commits[1]))).To(Equal(
 				[]gorp.EntryChange[int32, entry]{
 					{
 						Key:   2,
@@ -214,7 +260,7 @@ var _ = Describe("Changes", func() {
 			}).
 			Exec(ctx, db)).To(Succeed())
 		Expect(commits).To(HaveLen(2))
-		Expect(slices.Collect(entryTable.Changes(ctx, commits[1]))).To(Equal(
+		Expect(slices.Collect(entryTable.Changes(commits[1]))).To(Equal(
 			[]gorp.EntryChange[int32, entry]{
 				{Key: 1, Value: entry{ID: 1, Data: "uno"}, Kind: gorp.ChangeUpdate},
 			},
@@ -244,7 +290,7 @@ var _ = Describe("Changes", func() {
 			Where(gorp.MatchKeys[string, refDevice]("a")).
 			Exec(ctx, db)).To(Succeed())
 		Expect(commits).To(HaveLen(3))
-		Expect(slices.Collect(devices.Changes(ctx, commits[2]))).To(ConsistOf(
+		Expect(slices.Collect(devices.Changes(commits[2]))).To(ConsistOf(
 			gorp.EntryChange[string, refDevice]{Key: "a", Kind: gorp.ChangeDelete},
 			gorp.EntryChange[string, refDevice]{
 				Key:     "b",
@@ -259,6 +305,6 @@ var _ = Describe("Changes", func() {
 			Entry(&grape{ID: 3, Data: "three"}).
 			Exec(ctx, db)).To(Succeed())
 		Expect(commits).To(HaveLen(1))
-		Expect(slices.Collect(entryTable.Changes(ctx, commits[0]))).To(BeEmpty())
+		Expect(slices.Collect(entryTable.Changes(commits[0]))).To(BeEmpty())
 	})
 })

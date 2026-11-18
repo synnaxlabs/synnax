@@ -69,17 +69,13 @@ const HEADER_FILL = "#80808033";
 /** A gray legible on both themes, a step quieter than the labels. */
 const UNITS_COLOR = "#8a8f98";
 
-type Cells = NonNullable<table.New["cells"]>;
-type CellConfig = Cells[string];
+type Cell = NonNullable<NonNullable<table.New["rows"]>[number]["cells"]>[number];
+type CellConfig = Cell["config"];
 
 /** readings lays out a header and each reading's label, units, and live value. */
 const readings = (keys: Map<string, channel.Key>): table.New => {
-  const cells: Cells = {};
-  const add = (config: CellConfig): string => {
-    const key = `cell-${Object.keys(cells).length}`;
-    cells[key] = config;
-    return key;
-  };
+  let count = 0;
+  const add = (config: CellConfig): Cell => ({ key: `cell-${count++}`, config });
   const header = {
     key: "header",
     size: HEADER_HEIGHT,
@@ -114,7 +110,7 @@ const readings = (keys: Map<string, channel.Key>): table.New => {
       ],
     };
   });
-  return { name: NAME, columns: COLUMNS, rows: [header, ...rows], cells };
+  return { name: NAME, columns: COLUMNS, rows: [header, ...rows] };
 };
 
 /**

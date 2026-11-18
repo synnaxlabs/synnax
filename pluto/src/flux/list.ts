@@ -16,7 +16,7 @@ import {
 import { useMemoArray, useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
   type CrudeTimeSpan,
-  type destructor,
+  destructor,
   primitive,
   type record,
   TimeSpan,
@@ -70,6 +70,8 @@ export interface UseListParams<Q, E extends record.Keyed<record.Key>, I = E["key
   pageSize?: number;
   /** How many records the list reads at first. Defaults to `pageSize`. */
   initialSize?: number;
+  /** Reads the first page as the list mounts, instead of on the first `more`. */
+  eager?: boolean;
   /** How long a search term waits before the list reads it. */
   searchDebounce?: CrudeTimeSpan;
   /** Maps a key to the read of a record outside the list. Defaults to the key. */
@@ -121,14 +123,13 @@ interface Answer<E extends record.Keyed<record.Key>> {
 
 const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
-const noop = () => {};
 const keyItem = <I>(key: record.Key): I => key as I;
 
 /**
  * Reads a live list of the records of a domain client: a filter, the client's declared
  * order, and a window that grows by pages. The client cache keeps the window current,
  * so the hook holds no records of its own. The list reads nothing until the first call
- * to `more` or `search`, so a closed select costs no fetch.
+ * to `more` or `search`, so a closed select costs no fetch, unless it is eager.
  *
  * @param source - Selects the domain client, e.g. `(client) => client.ranges`.
  */
@@ -140,6 +141,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     filter,
     pageSize = DEFAULT_PAGE_SIZE,
     initialSize = pageSize,
+    eager = false,
     searchDebounce = DEFAULT_SEARCH_DEBOUNCE,
     itemQuery = keyItem,
   }: UseListParams<NoInfer<Q>, E, I>,
@@ -147,7 +149,8 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   type K = E["key"];
   const op = `retrieve ${name}`;
   const client = Synnax.use();
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(eager);
+  if (eager && !started) setStarted(true);
   const [term, setTerm] = useState("");
   // The list starts with the term, so the first search reads no unsearched page.
   const debouncedSearch = useDebouncedCallback(
@@ -171,7 +174,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const list =
     retriever == null || listQuery == null ? null : retriever.watch(listQuery);
   const current = useSyncExternalStore(
-    (callback) => (list == null ? noop : list.onChange(callback)),
+    (callback) => (list == null ? destructor.NOOP : list.onChange(callback)),
     () => list?.getCached(),
   );
   // A new query, such as a new search term, shows the last answer until its own lands.
@@ -275,7 +278,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   }) as GetItem<K, E>;
 
   const subscribe = (callback: () => void, key: K): destructor.Destructor => {
-    if (retriever == null || primitive.isZero(key)) return noop;
+    if (retriever == null || primitive.isZero(key)) return destructor.NOOP;
     const read = () => callback();
     readers.current.add(read);
     const live = retriever.watch(itemQuery(key));

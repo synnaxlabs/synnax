@@ -67,7 +67,7 @@ func pipeAndCollect(
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		log.PipeToLogger(r, logger, started, startedOnce)
+		log.PipeToLogger(r, logger, started, startedOnce, nil)
 	}()
 	MustSucceed(w.Write([]byte(input)))
 	Expect(w.Close()).To(Succeed())
@@ -255,11 +255,11 @@ var _ = Describe("PipeToLogger", func() {
 				done2 := make(chan struct{})
 				go func() {
 					defer close(done1)
-					log.PipeToLogger(r1, logger, started, once)
+					log.PipeToLogger(r1, logger, started, once, nil)
 				}()
 				go func() {
 					defer close(done2)
-					log.PipeToLogger(r2, logger, started, once)
+					log.PipeToLogger(r2, logger, started, once, nil)
 				}()
 				MustSucceed(w1.Write([]byte(
 					"I20260208 14:34:22.000000 0x16d327000 rack.cpp:200] started successfully\n",
@@ -291,7 +291,7 @@ var _ = Describe("PipeToLogger", func() {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			log.PipeToLogger(r, logger, nil, nil)
+			log.PipeToLogger(r, logger, nil, nil, nil)
 		}()
 		Expect(w.Close()).To(Succeed())
 		Eventually(done).Should(BeClosed())
@@ -301,10 +301,101 @@ var _ = Describe("PipeToLogger", func() {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			log.PipeToLogger(errClosedReader{}, logger, nil, nil)
+			log.PipeToLogger(errClosedReader{}, logger, nil, nil, nil)
 		}()
 		Eventually(done).Should(BeClosed())
 		Expect(buffer.String()).ToNot(ContainSubstring("ERROR"))
+	})
+
+	Describe("last error", func() {
+		lastError := func(input string) string {
+			GinkgoHelper()
+			return log.PipeToLogger(
+				io.NopCloser(strings.NewReader(input)),
+				logger,
+				nil,
+				nil,
+				nil,
+			)
+		}
+
+		It("Should report a load on the first formatted line only", func() {
+			var calls []bool
+			log.PipeToLogger(
+				io.NopCloser(strings.NewReader(
+					"driver: loading\n"+
+						"I20260208 14:34:21.000000 0x1 rack.cpp:50] first\n"+
+						"I20260208 14:34:21.000000 0x1 rack.cpp:51] second\n",
+				)),
+				logger,
+				nil,
+				nil,
+				func(crashed bool) { calls = append(calls, crashed) },
+			)
+			Expect(calls).To(Equal([]bool{false}))
+		})
+
+		It("Should report a crash banner as a crashed load", func() {
+			var calls []bool
+			log.PipeToLogger(
+				io.NopCloser(strings.NewReader(
+					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n",
+				)),
+				logger,
+				nil,
+				nil,
+				func(crashed bool) { calls = append(calls, crashed) },
+			)
+			Expect(calls).To(Equal([]bool{true}))
+		})
+
+		It("Should not report a load for a loader error", func() {
+			var calls []bool
+			log.PipeToLogger(
+				io.NopCloser(strings.NewReader(
+					"driver: version `GLIBC_2.39' not found\n",
+				)),
+				logger,
+				nil,
+				nil,
+				func(crashed bool) { calls = append(calls, crashed) },
+			)
+			Expect(calls).To(BeEmpty())
+		})
+
+		It("Should return the message of the last error line", func() {
+			Expect(lastError(
+				"E20260208 14:34:21.000000 0x1 rack.cpp:50] first\n" +
+					"E20260208 14:34:21.000000 0x1 rack.cpp:51] second\n" +
+					"I20260208 14:34:21.000000 0x1 rack.cpp:52] after\n",
+			)).To(Equal("second"))
+		})
+
+		It("Should return a line written before the first formatted line", func() {
+			Expect(lastError(
+				"driver: version `GLIBC_2.39' not found (required by driver)\n",
+			)).To(Equal("driver: version `GLIBC_2.39' not found (required by driver)"))
+		})
+
+		It("Should return a loader error with brackets in its prefix", func() {
+			Expect(lastError(
+				"dyld[1234]: Library not loaded: @rpath/libfoo.dylib\n",
+			)).To(Equal("dyld[1234]: Library not loaded: @rpath/libfoo.dylib"))
+		})
+
+		It("Should not return a continuation line of an info line", func() {
+			Expect(lastError(
+				"I20260208 14:34:21.000000 0x1 rack.cpp:50] running\n" +
+					"  continued\n",
+			)).To(BeEmpty())
+		})
+
+		It("Should return the banner of a crash dump", func() {
+			Expect(lastError(
+				"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n" +
+					"stack trace:\n",
+			)).To(Equal("*** synnax-driver crashed: SIGSEGV (segmentation fault) ***"))
+		})
 	})
 
 	Describe("crash output", func() {
@@ -417,7 +508,7 @@ var _ = Describe("PipeToLogger", func() {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				log.PipeToLogger(r, l, nil, nil)
+				log.PipeToLogger(r, l, nil, nil, nil)
 			}()
 			MustSucceed(w.Write([]byte(input)))
 			Expect(w.Close()).To(Succeed())

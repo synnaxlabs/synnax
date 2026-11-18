@@ -34,15 +34,4 @@ var _ = Describe("Log", func() {
 			}))
 		})
 	})
-
-	Describe("Validate", func() {
-		It("Should reject an empty name and an invalid timestamp precision", func() {
-			l := v4.Log{TimestampPrecision: 4}
-			l.ApplyDefaults()
-			Expect(l.Validate()).To(SatisfyAll(
-				MatchError(ContainSubstring("name")),
-				MatchError(ContainSubstring("timestamp_precision")),
-			))
-		})
-	})
 })

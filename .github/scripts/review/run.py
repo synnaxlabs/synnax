@@ -9,6 +9,7 @@
 
 import json
 import re
+import subprocess
 import tempfile
 import threading
 import time
@@ -18,6 +19,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
+
+from agent.agent import refusal
 
 from review.findings import SCHEMA, SEVERITIES, Dismissal, Finding, Review, parse
 from review.render import fence
@@ -29,8 +32,27 @@ the lines of its stdout as they arrive."""
 REST = "rest.diff"
 """The file in the working directory that holds the diff the prompt leaves out."""
 NEW = "new.diff"
-"""The file in the working directory that holds the new commits when they are too long
-to show."""
+"""The file in the working directory that holds the changes since the last review when
+they are too long to show."""
+
+
+class UsageLimit(RuntimeError):
+    """Claude Code stopped at the usage limit of its login, which resets at until, in
+    Unix seconds."""
+
+    def __init__(self, until: int) -> None:
+        super().__init__(f"usage limit until {until}")
+        self.until = until
+
+
+class LoginRejected(RuntimeError):
+    """Claude rejected the token of the login. Claude Code started at started, in Unix
+    seconds."""
+
+    def __init__(self, started: int) -> None:
+        super().__init__("Claude rejected the token of the login")
+        self.started = started
+
 
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
@@ -96,11 +118,13 @@ class Config:
     caps: dict[str, int]
     """The highest score a review can give while it has a finding of the severity."""
     prompt: str
+    judge: str
+    """The method of a judgment of a rebuttal to a finding."""
     docs: list[Doc]
     lenses: list[Lens]
     """The focus of each extra pass. One pass always reviews the pull request with the
-    rules. When no earlier commit in the history of the head has a review, the passes of
-    the lenses run beside it, and the review joins the findings of all passes."""
+    rules. On the first review of a pull request, the passes of the lenses run beside
+    it, and the review joins the findings of all passes."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -200,9 +224,12 @@ class PullRequest:
     """The path and title of each finding of an earlier review still open."""
     dismissed: list[Dismissal] = field(default_factory=list)
     new: str = ""
-    """The patches of the pull request's own commits after the last review, if any."""
+    """The patches of the changes since the last review, if any."""
+    dropped: list[str] = field(default_factory=list)
+    """The files that the pull request changed at the last review but no longer
+    changes."""
     reviewed: bool = False
-    """Whether the bot reviewed an earlier commit in the history of the head."""
+    """Whether the bot reviewed another commit of the pull request."""
 
 
 def load(root: Path) -> Config:
@@ -235,7 +262,11 @@ def load(root: Path) -> Config:
         )
     lenses = [Lens(**lens) for lens in data.pop("lens", [])]
     return Config(
-        **data, prompt=(home / "prompt.md").read_text(), docs=docs, lenses=lenses
+        **data,
+        prompt=(home / "prompt.md").read_text(),
+        judge=(home / "judge.md").read_text(),
+        docs=docs,
+        lenses=lenses,
     )
 
 
@@ -291,23 +322,39 @@ def _shared(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
             "# Earlier findings still open",
             "\n".join(f"- `{path}`: {title}" for path, title in sorted(pr.open)),
         ]
-    if pr.dismissed:
+    members = [d for d in pr.dismissed if not d.withdrawn]
+    withdrawn = [d for d in pr.dismissed if d.withdrawn]
+    if members:
         parts += [
             "# Dismissed findings",
-            "A member dismissed each of these findings. Do not report them again in "
-            "any form, and do not let them lower the score.",
-            "\n".join(_dismissal(d) for d in pr.dismissed),
+            "Someone with write access dismissed each of these findings. Do not "
+            "report them again in any form, and do not let them lower the score.",
+            "\n".join(_dismissal(d) for d in members),
         ]
-    if pr.new:
+    if withdrawn:
         parts += [
-            "# Commits since your last review",
-            "Review these changes first, as new code: a fix for an earlier finding can "
-            "add a bug. Anchor findings to the line numbers of the full diff.",
+            "# Withdrawn findings",
+            "You withdrew each of these findings after a rebuttal on its thread, and "
+            "its file has not changed since. Do not report them again in any form, "
+            "and do not let them lower the score.",
+            "\n".join(_dismissal(d) for d in withdrawn),
         ]
-        if _shows_new(config, pr):
-            parts.append(fence(pr.new, "diff"))
-        else:
-            parts.append(f"They are too long to show. Read all of `{NEW}` first.")
+    if pr.reviewed:
+        parts.append("# Changes since your last review")
+        if pr.dropped:
+            listed = "\n".join(f"- `{p}`" for p in pr.dropped)
+            parts.append(f"The pull request no longer changes these files:\n{listed}")
+        if not pr.new and not pr.dropped:
+            parts.append("None: the changes of the pull request are the same.")
+        elif pr.new:
+            parts.append(
+                "Review these changes first, as new code: a fix for an earlier finding "
+                "can add a bug. Anchor findings to the line numbers of the full diff."
+            )
+            if _shows_new(config, pr):
+                parts.append(fence(pr.new, "diff"))
+            else:
+                parts.append(f"They are too long to show. Read all of `{NEW}` first.")
     parts += [
         "# Diff",
         f"The repository at the head of the pull request is in `{pr.head}`.",
@@ -334,7 +381,7 @@ def _rules(config: Config, pr: PullRequest) -> str:
 
 
 def _shows_new(config: Config, pr: PullRequest) -> bool:
-    """Reports whether the new commits fit in the prompt."""
+    """Reports whether the changes since the last review fit in the prompt."""
     return len(pr.new) <= config.diff_chars // 3
 
 
@@ -343,11 +390,12 @@ def _command(
     *,
     head: Path,
     system: Path,
+    schema: dict[str, Any] = SCHEMA,
     effort: str | None = None,
     partial: bool = False,
 ) -> list[str]:
     """Returns the `claude` command that reviews the code checked out at head, with the
-    shared prompt in the file at system.
+    shared prompt in the file at system, and answers in the JSON of the schema.
 
     Restricted mode confines the tools to the working directory and head, and ignores
     every settings file. Partial messages show when the first response begins.
@@ -371,7 +419,7 @@ def _command(
         "stream-json",
         "--verbose",
         "--json-schema",
-        json.dumps(SCHEMA),
+        json.dumps(schema),
         "--no-session-persistence",
         "--append-system-prompt-file",
         str(system),
@@ -379,9 +427,12 @@ def _command(
     ]
 
 
-def _cap(review: Review, caps: dict[str, int]) -> Review:
-    """Lowers the score of a review to the cap of its most severe finding."""
-    limit = min((caps.get(f.severity, 5) for f in review.findings), default=5)
+def _score(review: Review, caps: dict[str, int]) -> Review:
+    """Scores a review 5 when it has no finding. Otherwise lowers its score to the cap
+    of its most severe finding."""
+    if not review.findings:
+        return replace(review, score=5)
+    limit = min(caps.get(f.severity, 5) for f in review.findings)
     return replace(review, score=min(review.score, limit))
 
 
@@ -411,8 +462,8 @@ def _merge(
     each other pass in the same file: first by title and end line, then by title, then
     by end line when the titles share a third of their words. Two findings that end on
     one line with titles less alike stay apart, since they can be two problems. The
-    review keeps the more severe of joined findings, else the one that continues an open
-    thread. The verdict and summary come from the pass with the lowest capped score."""
+    review keeps the more severe of joined findings, then the one that continues an open
+    thread. The verdict and summary come from the pass with the lowest score."""
 
     def rank(f: Finding) -> tuple[int, bool]:
         return SEVERITIES.index(f.severity), (f.path, f.title) not in open
@@ -422,12 +473,19 @@ def _merge(
     ) -> list[tuple[set[int], Finding]]:
         kept: list[tuple[set[int], Finding]] = []
         for passes, f in found:
-            hits = (q for q, k in kept if k.path == f.path and same(k, f))
-            hit = next((q for q in hits if not q & passes), None)
-            if hit is None:
+            i = next(
+                (
+                    i
+                    for i, (q, k) in enumerate(kept)
+                    if k.path == f.path and same(k, f) and not q & passes
+                ),
+                None,
+            )
+            if i is None:
                 kept.append((set(passes), f))
-            else:
-                hit |= passes
+                continue
+            q, k = kept[i]
+            kept[i] = (q | passes, k)
         return kept
 
     every = [({i}, f) for i, r in enumerate(reviews) for f in r.findings]
@@ -435,10 +493,9 @@ def _merge(
     found = join(found, lambda k, f: (k.title, k.line) == (f.title, f.line))
     found = join(found, lambda k, f: k.title == f.title)
     found = join(found, lambda k, f: k.line == f.line and _alike(k.title, f.title))
-    lead = min(reviews, key=lambda r: _cap(r, caps).score)
-    return replace(
-        lead, score=min(r.score for r in reviews), findings=[f for _, f in found]
-    )
+    scored = [_score(r, caps) for r in reviews]
+    lead = min(scored, key=lambda r: r.score)
+    return replace(lead, findings=[f for _, f in found])
 
 
 def _pass(
@@ -457,19 +514,57 @@ def _pass(
     command = _command(
         config, head=pr.head, system=system, effort=effort, partial=bool(started)
     )
+    out, usage = _stream(command, text, claude=claude, workdir=workdir, started=started)
+    return parse(out), usage
+
+
+def _stream(
+    command: list[str],
+    text: str,
+    *,
+    claude: Claude,
+    workdir: Path,
+    started: threading.Event | None = None,
+) -> tuple[dict[str, Any], Usage]:
+    """Runs Claude Code, and returns its structured output and what it cost. Sets
+    started, if given, once the first response begins.
+
+    :raises UsageLimit: If Claude Code stops at the usage limit of its login.
+    :raises LoginRejected: If Claude rejects the token of the login.
+    :raises RuntimeError: If Claude Code ends with another error.
+    """
+    begun = int(time.time())
     messages: list[dict[str, Any]] = []
-    for line in claude(command, text, workdir):
-        if not line.strip():
-            continue
-        m = json.loads(line)
-        if m["type"] != "stream_event":
-            messages.append(m)
-        elif started and m["event"]["type"] == "message_start":
-            started.set()
+    try:
+        for line in claude(command, text, workdir):
+            if not line.strip():
+                continue
+            m = json.loads(line)
+            if m["type"] != "stream_event":
+                messages.append(m)
+            elif started and m["event"]["type"] == "message_start":
+                started.set()
+    except subprocess.CalledProcessError as e:
+        _refused(messages, started=begun)
+        # The last message tells why Claude Code exited: a usage limit, an API error.
+        last = json.dumps(messages[-1]) if messages else "no message"
+        raise RuntimeError(
+            f"claude exited with status {e.returncode} after {last}"
+        ) from e
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
+        _refused(messages, started=begun)
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
-    return parse(out["structured_output"]), Usage.of(out, messages)
+    structured: dict[str, Any] = out["structured_output"]
+    return structured, Usage.of(out, messages)
+
+
+def _refused(messages: list[dict[str, Any]], *, started: int) -> None:
+    until, rejected = refusal(messages)
+    if until is not None:
+        raise UsageLimit(until)
+    if rejected:
+        raise LoginRejected(started)
 
 
 def run(
@@ -477,14 +572,15 @@ def run(
 ) -> tuple[Review, Usage, list[Pass]]:
     """Reviews a pull request, and returns the review, what it cost, and each pass.
 
-    The passes of the lenses run only when no earlier commit in the history of the head
-    has a review. They start once the first response of the pass with the rules begins,
-    so they read the shared prompt from the prompt cache. They do not start when that
-    pass fails first.
+    The passes of the lenses run only on the first review of the pull request. They
+    start once the first response of the pass with the rules begins, so they read the
+    shared prompt from the prompt cache. They do not start when that pass fails first.
 
     :param claude: Called from one thread for each pass when the lenses run.
     :param workdir: An empty directory that Claude Code starts in and can read.
-    :raises RuntimeError: If Claude Code ends with an error.
+    :raises UsageLimit: If Claude Code stops at the usage limit of its login.
+    :raises LoginRejected: If Claude rejects the token of the login.
+    :raises RuntimeError: If Claude Code ends with another error.
     """
     shown, rest = _cut(_numbered(pr.diff), config.diff_chars)
     if rest:
@@ -501,7 +597,7 @@ def run(
                 config, pr, rules, system=system, claude=claude, workdir=workdir
             )
             only = Pass(lens=None, review=review, usage=usage)
-            return _cap(review, config.caps), usage, [only]
+            return _score(review, config.caps), usage, [only]
         started = threading.Event()
         begin = time.monotonic()
         with ThreadPoolExecutor(1 + len(lenses)) as pool:
@@ -543,4 +639,4 @@ def run(
     ]
     review = _merge([p.review for p in passes], caps=config.caps, open=pr.open)
     usage = Usage.combine([p.usage for p in passes], duration_ms=wall)
-    return _cap(review, config.caps), usage, passes
+    return _score(review, config.caps), usage, passes

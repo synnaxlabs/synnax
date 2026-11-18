@@ -304,6 +304,8 @@ describe("Analytics.Provider", () => {
             readyAt: null,
             timeToReadyMs: null,
             lastExit: null,
+            waits: 0,
+            lastWaitMs: null,
           };
         return undefined;
       });

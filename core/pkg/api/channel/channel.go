@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -172,10 +171,7 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	translated, err := translateChannelsBackward(req.Channels)
-	if err != nil {
-		return CreateResponse{}, err
-	}
+	translated := translateChannelsBackward(req.Channels)
 	for i := range translated {
 		translated[i].Internal = false
 	}
@@ -295,14 +291,12 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 
 // translateChannelsBackward translates a slice of api channel structs to a
 // slice of internal channel structs.
-func translateChannelsBackward(
-	channels []Channel,
-) ([]channel.Channel, error) {
+func translateChannelsBackward(channels []Channel) []channel.Channel {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
 		tCh := channel.Channel{
 			Name:        ch.Name,
-			Leaseholder: node.Key(ch.Leaseholder),
+			Leaseholder: ch.Leaseholder,
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			LocalIndex:  ch.Index.LocalKey(),
@@ -319,7 +313,29 @@ func translateChannelsBackward(
 
 		translated[i] = tCh
 	}
-	return translated, nil
+	return translated
+}
+
+// CountLimitedRequest is a request for the count of the channels that count against the
+// license channel limit.
+type CountLimitedRequest struct{}
+
+var _ bind.Named = CountLimitedRequest{}
+
+// Named implements bind.Named. The count covers every channel, so it names the channel
+// type.
+func (CountLimitedRequest) Named() []resource.ID {
+	return []resource.ID{{Type: resource.TypeChannel}}
+}
+
+// CountLimited returns how many channels count against the license channel limit (not
+// internal, not virtual).
+func (s *Service) CountLimited(
+	context.Context,
+	bind.Snapshot,
+	CountLimitedRequest,
+) (CountLimitedResponse, error) {
+	return CountLimitedResponse{Count: s.internal.CountLimited()}, nil
 }
 
 type DeleteRequest struct {

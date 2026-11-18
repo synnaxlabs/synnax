@@ -126,8 +126,8 @@ CellConfig union on variant {
     }
 
     @doc value  """
-        is the per-cell configuration stored in the table cells map. The variant selects
-        which Pluto cell component renders the cell.
+        is the configuration of one cell. The variant selects which Pluto cell component
+        renders the cell.
     """
     @go marshal
 }
@@ -137,14 +137,12 @@ Cell struct {
         @doc value "is the unique identifier for this cell within the table."
     }
     config CellConfig {
-        @doc value "is the cell's variant-discriminated configuration."
+        @doc value "is the content the cell draws and its settings."
+        @patch
     }
 
-    @doc value """
-        is a keyed cell configuration used by actions that address cells explicitly.
-        Inside the table state itself, cell configurations are stored in the cells map
-        keyed by cell key.
-    """
+    @doc value  "is one cell of a row, with its key and config."
+    @go marshal
 }
 
 Row struct {
@@ -156,14 +154,12 @@ Row struct {
         @doc value    "is the height of the row in pixels."
         @validate min 1
     }
-    cells string[] {
-        @doc value """
-            is the ordered list of cell keys in this row from left to right. Each key
-            points at an entry in the table's cells map.
-        """
+    cells Cell[] = [] {
+        @doc value "are the cells of the row, from left to right."
+        @patch
     }
 
-    @doc value  "is a single row in a table, with a key, height, and ordered cell keys."
+    @doc value  "is a single row in a table, with a key, height, and cells."
     @go marshal
 }
 
@@ -186,34 +182,30 @@ Table struct {
         @doc value "is the unique identifier for this table."
         @key
     }
-    name    string                  {
+    name    string       {
         @doc value         "is a human-readable name for the table."
         @index sorted
+        @patch
         @search
         @validate required
     }
     rows    Row[] = [] {
         @doc value "are the table rows in display order, top to bottom."
+        @patch
     }
     columns Column[] = [] {
         @doc value "are the table columns in display order, left to right."
     }
-    cells   map<string, CellConfig> = {} {
-        @doc value        """
-            contains all cells in the table, keyed by cell key. Cell positions are
-            derived from rows[*].cells[*] references; cells not referenced by any row
-            are orphaned and will be pruned on the next structural edit.
-        """
-        @ts preserve_keys
-    }
-    group   group.Key?              {
+    group   group.Key?   {
         @doc value     "is the group the table sits in, if any."
         @group scope   project
+        @patch
         @ref kind      place
         @ref on_delete detach
     }
-    project project.Key?            {
-        @doc value     "is the project that owns the table."
+    project project.Key? {
+        @doc value     "is the project that holds the table."
+        @patch
         @ref kind      place
         @ref on_delete cascade
     }
@@ -257,8 +249,8 @@ Table struct {
         key string
 
         @doc value """
-            removes the row with the given key. All cells referenced by the removed row
-            are also dropped from the cells map. No-op if no row has the key.
+            removes the row with the given key and its cells. No-op if no row has the
+            key.
         """
     }
 
@@ -284,9 +276,8 @@ Table struct {
 
             Derived replica keys come from the template's key with the last four hex
             digits replaced by the row index. Bootstrapped rows derive their keys from
-            the column's key the same way. Cells whose row index exceeds the row count
-            are added to the cells map but not referenced by any row. Out-of-range
-            indices clamp to the end of every row's cells list.
+            the column's key the same way. Cells whose index exceeds the row count are
+            dropped. Out-of-range indices clamp to the end of every row's cells list.
         """
     }
 
@@ -294,8 +285,8 @@ Table struct {
         key string
 
         @doc value """
-            removes the column with the given key. All cells in that column (across
-            every row) are dropped from the cells map. No-op if no column has the key.
+            removes the column with the given key and its cell in every row. No-op if no
+            column has the key.
         """
     }
 
@@ -342,8 +333,8 @@ Table struct {
         cell Cell
 
         @doc value """
-            replaces the cell at cell.key with the provided value. No-op if no cell with
-            that key exists in the table.
+            replaces the config of the cell with the key cell.key. No-op if no row holds
+            a cell with that key.
         """
     }
 
@@ -355,27 +346,36 @@ Table struct {
             erases the cells whose keys are in cells. Any row whose every cell is in the
             selection is removed entirely; same for columns. Cells that survive that
             row/column removal have their config replaced with the template, keeping
-            their original keys. Cells in the selection whose keys are not in the
-            table's cells map are silently skipped.
+            their original keys. Keys that no row holds are skipped.
         """
     }
 
     action Set = patch.Set {
-        @doc value "replaces the value at a path in the table."
+        @doc value """
+            replaces the value at a path in the table's name, group, or project, or in
+            the config of a cell. No-op when no row holds the cell.
+        """
     }
 
     action Remove = patch.Remove {
         @doc value """
-            removes an entry from a list or a field from an object in the table.
+            removes the table's group or project, or an entry or field in the config of
+            a cell. No-op when no row holds the cell.
         """
     }
 
     action Insert = patch.Insert {
-        @doc value "adds an entry to a list in the table's cells."
+        @doc value """
+            adds an entry to a list in the config of a cell. No-op when no row holds the
+            cell.
+        """
     }
 
     action Move = patch.Move {
-        @doc value "moves an entry in a list in the table's cells."
+        @doc value """
+            moves an entry in a list in the config of a cell. No-op when no row holds
+            the cell.
+        """
     }
 
     @create
@@ -400,7 +400,7 @@ Where filter Table {
         @doc value "matches the tables in a group, or in no group when false."
     }
     projects project.Key[] {
-        @doc value "matches the tables owned by any of the given projects."
+        @doc value "matches the tables in any of the given projects."
     }
 
     @doc value         "is a filter that selects tables."

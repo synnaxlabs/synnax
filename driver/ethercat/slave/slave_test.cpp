@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <map>
+#include <string>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/testutil/testutil.h"
@@ -156,6 +159,15 @@ TEST(PropertiesParse, ReadsTheSettingsOfTheCatalog) {
         Properties{.name = "6xSTG", .settings = settings}.to_json()
     );
     EXPECT_EQ(Properties::parse(parser).settings, settings);
+}
+
+/// @brief it should read back a serial number of 8 bytes, as IOLITE modules give.
+TEST(PropertiesParse, ReadsAnEightByteSerialNumber) {
+    auto parser = x::json::Parser(
+        Properties{.position = 1, .serial = 0x000000DB21014087}.to_json()
+    );
+    EXPECT_EQ(Properties::parse(parser).serial, 0x000000DB21014087);
+    ASSERT_NIL(parser.error());
 }
 
 /// @brief it should leave the settings empty for a slave that the catalog does not
@@ -664,5 +676,270 @@ TEST(PropertiesCatalogOpMode, ReturnsNoneWhenTheCatalogGivesNone) {
     EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
     props.settings = x::json::json{{"mode", {{"value", 1}, {"shared", true}}}};
     EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+}
+
+namespace {
+/// @brief returns a slave at position on the bus with a product and a serial number.
+DiscoveryResult on_bus(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial = 0,
+    const uint32_t vendor_id = 2
+) {
+    DiscoveryResult result;
+    result.properties.position = position;
+    result.properties.vendor_id = vendor_id;
+    result.properties.product_code = product_code;
+    result.properties.serial = serial;
+    return result;
+}
+
+/// @brief returns a slave saved at position with a product and a serial number.
+Identity saved(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial = 0,
+    const uint32_t vendor_id = 2
+) {
+    return {
+        .position = position,
+        .vendor_id = vendor_id,
+        .product_code = product_code,
+        .serial = serial,
+        .name = "Module " + std::to_string(position),
+    };
+}
+
+/// @brief returns a slave at position on the bus with SII serial number 0 whose CoE
+/// serial number read got no answer.
+DiscoveryResult unread_on_bus(const uint16_t position, const uint32_t product_code) {
+    auto result = on_bus(position, product_code);
+    result.status.serial_error = "no answer";
+    return result;
+}
+
+/// @brief returns a slave at position on the bus that was below PRE-OP at the scan,
+/// with serial as the serial number from its SII.
+DiscoveryResult starting_on_bus(
+    const uint16_t position,
+    const uint32_t product_code,
+    const uint32_t serial = 0
+) {
+    auto result = on_bus(position, product_code, serial);
+    result.status.starting = true;
+    return result;
+}
+
+using Positions = std::vector<uint16_t>;
+using Located = std::vector<std::optional<uint16_t>>;
+}
+
+/// @brief it should find each slave at its saved position, and ignore other slaves.
+TEST(Bind, FindsTheSlavesAtTheirSavedPositions) {
+    EXPECT_EQ(
+        ASSERT_NIL_P(bind(
+            {saved(1, 0x1), saved(2, 0x2, 777)},
+            {on_bus(1, 0x1), on_bus(2, 0x2, 777), on_bus(3, 0x3)}
+        )),
+        (Positions{1, 2})
+    );
+}
+
+/// @brief it should reject a saved position with no slave.
+TEST(Bind, RejectsAMissingSlave) {
+    const auto err = bind({saved(2, 0x2)}, {on_bus(1, 0x1)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(err.data, "Module 2 (Module 2) is not on the bus.");
+}
+
+/// @brief it should reject a slave of another vendor at a saved position.
+TEST(Bind, RejectsAnotherVendor) {
+    const auto err = bind({saved(1, 0x1, 0, 0x99)}, {on_bus(1, 0x1)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "Module 1 (Module 1): expected vendor_id 0x00000099, found 0x00000002."
+    );
+}
+
+/// @brief it should reject another product at a saved position.
+TEST(Bind, RejectsAnotherProduct) {
+    const auto err = bind({saved(1, 0x87654321)}, {on_bus(1, 0x12345678)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "Module 1 (Module 1): expected product_code 0x87654321, found 0x12345678."
+    );
+}
+
+/// @brief it should report the mismatch at the lowest saved position.
+TEST(Bind, ReportsTheLowestMismatchedPosition) {
+    const auto err = bind(
+                         {saved(4, 0x9), saved(3, 0x9), saved(1, 0x1)},
+                         {on_bus(1, 0x1), on_bus(3, 0x3), on_bus(4, 0x4)}
+    )
+                         .second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "Module 3 (Module 3): expected product_code 0x00000009, found 0x00000003."
+    );
+}
+
+/// @brief it should find a slave with a serial number after it moves.
+TEST(Bind, FindsASlaveBySerialNumberAfterItMoves) {
+    EXPECT_EQ(
+        ASSERT_NIL_P(
+            bind({saved(2, 0x1, 777)}, {on_bus(1, 0x1, 888), on_bus(4, 0x1, 777)})
+        ),
+        (Positions{4})
+    );
+}
+
+/// @brief it should reject a slave whose serial number is not on the bus, even when a
+/// slave of its model is at its position.
+TEST(Bind, RejectsASlaveWhoseSerialNumberIsNotOnTheBus) {
+    const auto err = bind({saved(1, 0x1, 777)}, {on_bus(1, 0x1, 888)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(err.data, "Module 1 (serial 777) is not on the bus.");
+}
+
+/// @brief it should find each of two slaves with one serial number at its saved
+/// position.
+TEST(Bind, FindsSlavesWithOneSerialNumberAtTheirPositions) {
+    EXPECT_EQ(
+        ASSERT_NIL_P(bind(
+            {saved(2, 0x1, 777), saved(1, 0x1, 777)},
+            {on_bus(1, 0x1, 777), on_bus(2, 0x1, 777)}
+        )),
+        (Positions{2, 1})
+    );
+}
+
+/// @brief it should keep a slave at its saved position before it gives a moved slave
+/// with one serial number a position.
+TEST(Bind, KeepsASlaveAtItsPositionBeforeItMovesAnother) {
+    EXPECT_EQ(
+        ASSERT_NIL_P(bind(
+            {saved(1, 0x1, 777), saved(3, 0x1, 777)},
+            {on_bus(3, 0x1, 777), on_bus(5, 0x1, 777)}
+        )),
+        (Positions{5, 3})
+    );
+}
+
+/// @brief it should reject a slave with serial number 0 whose position holds the unit
+/// of a slave with a serial number.
+TEST(Bind, RejectsASlaveWhosePositionHoldsAKnownUnit) {
+    auto known = saved(3, 0x1, 777);
+    known.name = "Known";
+    const auto err = bind({saved(1, 0x1), known}, {on_bus(1, 0x1, 777)}).second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "Module 1 (Module 1) is not on the bus. Module 1 is Known (serial 777)."
+    );
+}
+
+/// @brief it should reject two slaves with one saved position.
+TEST(Bind, RejectsTwoSlavesWithOneSavedPosition) {
+    auto other = saved(1, 0x1, 888);
+    other.name = "Other";
+    const auto err = bind(
+                         {saved(1, 0x1, 777), other},
+                         {on_bus(1, 0x1, 888), on_bus(2, 0x1, 777)}
+    )
+                         .second;
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(err.data, "Module 1 and Other are both saved as module 1.");
+}
+
+/// @brief it should leave out each saved slave that it does not find on the bus.
+TEST(Locate, LeavesOutTheSlavesThatItDoesNotFind) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1), saved(2, 0x2), saved(3, 0x3, 777), saved(4, 0x4, 888)},
+            {on_bus(1, 0x1), on_bus(2, 0x9), on_bus(5, 0x3, 777)}
+        ),
+        (Located{1, std::nullopt, 5, std::nullopt})
+    );
+}
+
+/// @brief it should find each of two slaves with serial numbers that share a saved
+/// position.
+TEST(Locate, FindsTheSlavesOfOneSavedPosition) {
+    EXPECT_EQ(
+        locate(
+            {saved(2, 0x1, 777), saved(2, 0x1, 888)},
+            {on_bus(2, 0x1, 888), on_bus(4, 0x1, 777)}
+        ),
+        (Located{4, 2})
+    );
+}
+
+/// @brief it should give the slave at a saved position to the slave with its serial
+/// number before a slave with serial number 0 saved there.
+TEST(Locate, GivesAUnitToItsSerialNumberBeforeItsPosition) {
+    EXPECT_EQ(
+        locate({saved(1, 0x1), saved(3, 0x1, 777)}, {on_bus(1, 0x1, 777)}),
+        (Located{std::nullopt, 1})
+    );
+}
+
+/// @brief it should find a slave with an unread serial number for each slave of its
+/// model saved at its position.
+TEST(Locate, FindsASlaveWithAnUnreadSerialNumberAtItsPosition) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(1, 0x1, 888), saved(2, 0x2, 999)},
+            {unread_on_bus(1, 0x1), unread_on_bus(2, 0x9)}
+        ),
+        (Located{1, 1, std::nullopt})
+    );
+}
+
+/// @brief it should give a slave with an unread serial number to a saved slave only
+/// after each unit with a known serial number goes to its saved slave.
+TEST(Locate, GivesASlaveWithAnUnreadSerialNumberToASlaveThatFoundNoUnit) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(1, 0x1, 888)},
+            {unread_on_bus(1, 0x1), on_bus(4, 0x1, 777)}
+        ),
+        (Located{4, 1})
+    );
+}
+
+/// @brief it should find a slave with SII serial number 0 that was below PRE-OP at the
+/// scan only at its saved position, as its serial number is unread.
+TEST(Locate, FindsAStartingSlaveWithNoSIISerialOnlyAtItsPosition) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(3, 0x1, 888)},
+            {starting_on_bus(1, 0x1), starting_on_bus(5, 0x1)}
+        ),
+        (Located{1, std::nullopt})
+    );
+}
+
+/// @brief it should find a slave that was below PRE-OP at the scan by its nonzero SII
+/// serial number at any position.
+TEST(Locate, FindsAStartingSlaveByItsSIISerialNumber) {
+    EXPECT_EQ(
+        locate(
+            {saved(1, 0x1, 777), saved(3, 0x1, 888)},
+            {starting_on_bus(1, 0x1, 999), starting_on_bus(5, 0x1, 888)}
+        ),
+        (Located{std::nullopt, 5})
+    );
+}
+
+/// @brief it should find one slave for several slaves with serial number 0 saved at its
+/// position.
+TEST(Locate, FindsOneSlaveForSlavesWithNoSerialNumber) {
+    EXPECT_EQ(
+        locate({saved(1, 0x1), saved(1, 0x1)}, {on_bus(1, 0x1, 777)}),
+        (Located{1, 1})
+    );
 }
 }

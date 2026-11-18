@@ -35,6 +35,7 @@ var _ = Describe("Group", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
@@ -445,7 +446,7 @@ var _ = Describe("Group", Ordered, func() {
 			var names []string
 			DeferCleanup(
 				db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
-					for ch := range svc.Changes(ctx, c) {
+					for ch := range svc.Changes(c) {
 						names = append(names, ch.Value.Name)
 					}
 				}),

@@ -18,9 +18,10 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Sift } from "@/feature/sift";
 import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
 import { TAB } from "@/feature/task/tab";
-import { getIcon, parseType } from "@/feature/task/types";
+import { getIcon, getPlotChannels, parseType } from "@/feature/task/types";
 import { type Command } from "@/platform/command";
 import { type Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
@@ -35,7 +36,7 @@ export * from "@/feature/task/tree";
 export * from "@/feature/task/types";
 export * from "@/platform/task/external";
 
-export const REGISTRY: Task.Registry = { getIcon, parseType };
+export const REGISTRY: Task.Registry = { getIcon, parseType, getPlotChannels };
 
 export const COMMANDS: Command.Command[] = [
   ...EtherCAT.Task.COMMANDS,
@@ -47,6 +48,7 @@ export const COMMANDS: Command.Command[] = [
   ...NI.Task.COMMANDS,
   ...OPCUA.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,
+  ...Sift.Task.COMMANDS,
 ];
 
 export const TABS: Panel.Tabs = {

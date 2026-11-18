@@ -19,6 +19,7 @@ import {
   rack,
   ranger,
   type resource,
+  status,
   type Synnax as Client,
   task,
   user,
@@ -28,10 +29,27 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, assert, describe, expect, it, onTestFinished } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+} from "vitest";
 
+import { EtherCAT } from "@/feature/ethercat";
+import {
+  createIdentifier,
+  createSlaveDevice,
+  STATUS_ENTRY,
+} from "@/feature/ethercat/testutil";
 import { NI } from "@/feature/ni";
+import { createNIDevice } from "@/feature/ni/task/testutil";
 import { Task } from "@/feature/task";
 import { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
@@ -44,14 +62,18 @@ import {
   createSelectedPanel,
   createTaskStatus,
 } from "@/platform/task/testutil";
+import { Session } from "@/session";
 import {
   assertDefined,
   awaitTextEditing,
+  CaptureStatuses,
+  type CaptureStatusesProps,
   commitTextEdit,
   createConsoleWrapper,
   getIconButton,
   openContextMenu,
   queryIconButton,
+  resolveFocusedTab,
   uniqueName,
 } from "@/testutil";
 
@@ -152,6 +174,7 @@ const createTestTasksClient = async (roleName: BuiltInRole): Promise<Client> => 
 interface RenderToolbarOptions {
   as?: Client | BuiltInRole;
   analytics?: Analytics.Sink;
+  onStatuses?: CaptureStatusesProps["onStatuses"];
 }
 
 // A client keeps its list answer after the list unmounts and serves it without a fetch,
@@ -159,6 +182,7 @@ interface RenderToolbarOptions {
 const renderToolbar = async ({
   as,
   analytics = Analytics.NOOP,
+  onStatuses,
 }: RenderToolbarOptions = {}) => {
   if (typeof as !== "object") as = await createTestTasksClient(as ?? "Owner");
   onTestFinished(async () => await as.close());
@@ -173,6 +197,7 @@ const renderToolbar = async ({
       <Task.RegistryProvider registry={Task.REGISTRY}>
         {Task.TOOLBAR.content}
         <Modals.Stack />
+        {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
       </Task.RegistryProvider>
     </Analytics.Provider>,
     { wrapper },
@@ -195,6 +220,61 @@ const openContextMenuUntil = async (name: string, text: string): Promise<void> =
   await openContextMenu(name);
   await screen.findByText(text);
 };
+
+// A click can land before the list knows the row, so it repeats until the row
+// reads as selected. Control adds the row to the selection.
+const selectRow = async (name: string, control: boolean): Promise<void> => {
+  await screen.findByText(name);
+  await waitFor(() => {
+    const row = screen.getByText(name).closest(".lyra-list__item");
+    assertDefined(row, `no list item for ${name}`);
+    if (row.getAttribute("aria-selected") !== "true") {
+      if (control) fireEvent.keyDown(document.body, { code: "Control" });
+      fireEvent.click(screen.getByText(name));
+      if (control) fireEvent.keyUp(document.body, { code: "Control" });
+    }
+    expect(row.getAttribute("aria-selected")).toBe("true");
+  });
+};
+
+const selectRows = async (first: string, ...others: string[]): Promise<void> => {
+  await selectRow(first, false);
+  for (const name of others) await selectRow(name, true);
+};
+
+// A client that can delete the tasks of the test, but not Arcs or channels. The Core
+// updates the rack and deletes the status of each task that it deletes.
+const createTaskDeleter = async (): Promise<Client> =>
+  await createTestClientWithPolicy(client, [
+    {
+      name: uniqueName("retrieve"),
+      objects: [
+        ...task.resourceID(testTasks),
+        arc.TYPE_RESOURCE_ID,
+        arc.directory.TYPE_RESOURCE_ID,
+        rack.TYPE_RESOURCE_ID,
+        device.TYPE_RESOURCE_ID,
+        channel.TYPE_RESOURCE_ID,
+        ranger.TYPE_RESOURCE_ID,
+        panel.TYPE_RESOURCE_ID,
+        project.TYPE_RESOURCE_ID,
+        user.TYPE_RESOURCE_ID,
+        access.role.TYPE_RESOURCE_ID,
+        access.policy.TYPE_RESOURCE_ID,
+      ],
+      actions: ["retrieve"],
+    },
+    {
+      name: uniqueName("delete"),
+      objects: [task.TYPE_RESOURCE_ID, status.TYPE_RESOURCE_ID],
+      actions: ["delete"],
+    },
+    {
+      name: uniqueName("update"),
+      objects: [rack.TYPE_RESOURCE_ID],
+      actions: ["update"],
+    },
+  ]);
 
 const createArc = async (): Promise<arc.Arc> => {
   const a = await client.arcs.create({
@@ -340,27 +420,6 @@ describe("task/Toolbar Arc rows", () => {
   });
 
   describe("selection with a task", () => {
-    // A click can land before the list knows the row, so it repeats until the row
-    // reads as selected. Control adds the row to the selection.
-    const selectRow = async (name: string, control: boolean): Promise<void> => {
-      await screen.findByText(name);
-      await waitFor(() => {
-        const row = screen.getByText(name).closest(".lyra-list__item");
-        assertDefined(row, `no list item for ${name}`);
-        if (row.getAttribute("aria-selected") !== "true") {
-          if (control) fireEvent.keyDown(document.body, { code: "Control" });
-          fireEvent.click(screen.getByText(name));
-          if (control) fireEvent.keyUp(document.body, { code: "Control" });
-        }
-        expect(row.getAttribute("aria-selected")).toBe("true");
-      });
-    };
-
-    const selectRows = async (first: string, ...others: string[]): Promise<void> => {
-      await selectRow(first, false);
-      for (const name of others) await selectRow(name, true);
-    };
-
     it("starts the Arc and the task, reporting each", async () => {
       const { arc: a } = await createBoundArc();
       const t = await createTask({ running: false });
@@ -399,32 +458,7 @@ describe("task/Toolbar Arc rows", () => {
     it("hides Delete when the Arc cannot be deleted", async () => {
       const { arc: a } = await createBoundArc();
       const t = await createTask();
-      const taskDeleter = await createTestClientWithPolicy(client, [
-        {
-          name: uniqueName("retrieve"),
-          objects: [
-            ...task.resourceID(testTasks),
-            arc.TYPE_RESOURCE_ID,
-            arc.directory.TYPE_RESOURCE_ID,
-            rack.TYPE_RESOURCE_ID,
-            device.TYPE_RESOURCE_ID,
-            channel.TYPE_RESOURCE_ID,
-            ranger.TYPE_RESOURCE_ID,
-            panel.TYPE_RESOURCE_ID,
-            project.TYPE_RESOURCE_ID,
-            user.TYPE_RESOURCE_ID,
-            access.role.TYPE_RESOURCE_ID,
-            access.policy.TYPE_RESOURCE_ID,
-          ],
-          actions: ["retrieve"],
-        },
-        {
-          name: uniqueName("delete"),
-          objects: [task.TYPE_RESOURCE_ID],
-          actions: ["delete"],
-        },
-      ]);
-      await renderToolbar({ as: taskDeleter });
+      await renderToolbar({ as: await createTaskDeleter() });
       // The client sees Delete on the task alone, so its grants have loaded.
       await openContextMenuUntil(t.name, "Delete");
       fireEvent.keyDown(document.body, { code: "Escape" });
@@ -723,5 +757,288 @@ describe("task/Toolbar", () => {
       await openContextMenu(t.name);
       expect(await screen.findByText("Start")).toBeTruthy();
     });
+  });
+
+  describe("plot", () => {
+    const createValue = async () =>
+      await client.channels.create({
+        name: uniqueName("value"),
+        dataType: "float32",
+        virtual: true,
+      });
+
+    it("plots the enabled channels of a read task", async () => {
+      const [shown, skipped] = await Promise.all([createValue(), createValue()]);
+      const t = await createTask({
+        config: {
+          channels: [
+            { ...NI.Task.createAIChannel(), channel: shown.key, disabled: false },
+            { ...NI.Task.createAIChannel(), channel: skipped.key, disabled: true },
+          ],
+        },
+      });
+      const { store } = await renderToolbar();
+      const proj = await client.projects.create({ name: uniqueName("proj") });
+      store.dispatch(Session.Project.select(proj.key));
+      await openContextMenuUntil(t.name, "Plot");
+      fireEvent.click(screen.getByText("Plot"));
+      const tab = await resolveFocusedTab(
+        store,
+        client,
+        (tab) => tab.variant === "resource" && tab.resource.type === "lineplot",
+      );
+      assert(tab.variant === "resource", "the plot did not open in a resource tab");
+      const plot = await client.lineplots.retrieve(tab.resource.key);
+      expect(plot.name).toBe(`Plot for ${t.name}`);
+      expect(plot.channels.y1).toEqual([shown.key]);
+    });
+
+    it("offers no Plot for a write task", async () => {
+      const t = await createTask({ type: NI.Task.ANALOG_WRITE_TYPE });
+      await renderToolbar();
+      await openContextMenuUntil(t.name, "Edit configuration");
+      expect(screen.queryByText("Plot")).toBeNull();
+    });
+  });
+});
+
+describe("task/Toolbar channels of a deleted EtherCAT task", () => {
+  // Slaves stay on the Core, and a slave keeps its rack from deletion.
+  let slaveRack: rack.Rack;
+  beforeAll(async () => {
+    slaveRack = await client.racks.create({ name: uniqueName("ecat_rack") });
+  });
+
+  interface CreatedChannels {
+    index: channel.Channel;
+    channels: channel.Channel[];
+  }
+
+  const createChannels = async (count: number): Promise<CreatedChannels> => {
+    const index = await client.channels.create({
+      name: uniqueName("ecat_time"),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const channels = await client.channels.create(
+      Array.from({ length: count }, () => ({
+        name: uniqueName("ecat_channel"),
+        dataType: "uint16",
+        index: index.key,
+      })),
+    );
+    return { index, channels };
+  };
+
+  const createSlave = async (): Promise<string> =>
+    (
+      await createSlaveDevice(client, slaveRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+      })
+    ).key;
+
+  const createReadTask = async (channels: channel.Channel[]) => {
+    const slave = await createSlave();
+    return await createTask({
+      type: EtherCAT.Task.READ_TYPE,
+      config: EtherCAT.Task.READ_SCHEMAS.config.parse({
+        channels: channels.map((c, i) => ({
+          ...EtherCAT.Task.createEntryReadChannel(slave, {
+            ...STATUS_ENTRY,
+            subIndex: i + 1,
+          }),
+          channel: c.key,
+        })),
+      }),
+    });
+  };
+
+  const createWriteTask = async (cmd: channel.Channel, state: channel.Channel) => {
+    const slave = await createSlave();
+    return await createTask({
+      type: EtherCAT.Task.WRITE_TYPE,
+      config: EtherCAT.Task.WRITE_SCHEMAS.config.parse({
+        channels: [
+          {
+            ...EtherCAT.Task.createEntryWriteChannel(slave, STATUS_ENTRY),
+            cmdChannel: cmd.key,
+            stateChannel: state.key,
+          },
+        ],
+      }),
+    });
+  };
+
+  const retrieveKeys = async (channels: channel.Channel[]): Promise<channel.Key[]> =>
+    (
+      await client.channels.retrieve({
+        where: { key: { in: channels.map(({ key }) => key) } },
+      })
+    )
+      .map(({ key }) => key)
+      .sort();
+
+  const keysOf = (...channels: channel.Channel[]): channel.Key[] =>
+    channels.map(({ key }) => key).sort();
+
+  const openDelete = async (t: task.Task): Promise<void> => {
+    await openContextMenuUntil(t.name, "Delete");
+    fireEvent.click(screen.getByText("Delete"));
+    await screen.findByText(`Are you sure you want to delete ${t.name}?`);
+  };
+
+  const deleteWithChannels = (label: string): void => {
+    fireEvent.click(screen.getByRole("checkbox", { name: label }));
+    fireEvent.click(findButton("Delete"));
+  };
+
+  const expectDeleted = async (t: task.Task): Promise<void> =>
+    await waitFor(async () => {
+      await expect(client.tasks.retrieve(t.key)).rejects.toSatisfy((e) =>
+        NotFoundError.matches(e),
+      );
+    });
+
+  it("deletes the channels of the task and their index when the box is on", async () => {
+    const { index, channels } = await createChannels(2);
+    const t = await createReadTask(channels);
+    await renderToolbar();
+    await openDelete(t);
+    deleteWithChannels("Also delete the 3 channels it created");
+    await waitFor(async () =>
+      expect(await retrieveKeys([index, ...channels])).toEqual([]),
+    );
+    await expectDeleted(t);
+  });
+
+  it("deletes only the task when the box is off", async () => {
+    const { index, channels } = await createChannels(1);
+    const t = await createReadTask(channels);
+    await renderToolbar();
+    await openDelete(t);
+    const box = screen.getByRole("checkbox", {
+      name: "Also delete the 2 channels it created",
+    });
+    expect(box).toHaveProperty("checked", false);
+    fireEvent.click(findButton("Delete"));
+    await expectDeleted(t);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await retrieveKeys([index, ...channels])).toEqual(
+      keysOf(index, ...channels),
+    );
+  });
+
+  it("shows no box for a task that owns no channels", async () => {
+    const { channels } = await createChannels(1);
+    const dev = await createNIDevice(client);
+    const t = await createTask({
+      config: {
+        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+        channels: [
+          {
+            ...NI.Task.createAIChannel("ai_voltage"),
+            key: id.create(),
+            device: dev.key,
+            channel: channels[0].key,
+          },
+        ],
+      },
+    });
+    await renderToolbar();
+    await openDelete(t);
+    expect(within(screen.getByRole("dialog")).queryByRole("checkbox")).toBeNull();
+  });
+
+  it("deletes the command and state channels of a write task", async () => {
+    const {
+      index,
+      channels: [cmd, state],
+    } = await createChannels(2);
+    const t = await createWriteTask(cmd, state);
+    await renderToolbar();
+    await openDelete(t);
+    deleteWithChannels("Also delete the 3 channels it created");
+    await waitFor(async () =>
+      expect(await retrieveKeys([index, cmd, state])).toEqual([]),
+    );
+  });
+
+  it("keeps a channel that another task uses and reports why", async () => {
+    const {
+      index,
+      channels: [own, shared],
+    } = await createChannels(2);
+    const t = await createReadTask([own, shared]);
+    const other = await createReadTask([shared]);
+    let statuses: Status.NotificationSpec[] = [];
+    await renderToolbar({ onStatuses: (s) => (statuses = s) });
+    await openDelete(t);
+    deleteWithChannels("Also delete the 3 channels it created");
+    await waitFor(() => {
+      const kept = statuses.find(({ message }) => message === "Kept 2 channels");
+      assertDefined(kept, "no status names the kept channels");
+      expect(kept.description).toContain(`because task ${other.name} uses it`);
+    });
+    expect(await retrieveKeys([own, shared, index])).toEqual(keysOf(shared, index));
+  });
+
+  it("offers no channel that a task of another type names", async () => {
+    const ethercat = await createChannels(1);
+    const t = await createReadTask(ethercat.channels);
+    const unowned = await createChannels(1);
+    const dev = await createNIDevice(client);
+    const o = await createTask({
+      config: {
+        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+        channels: [
+          {
+            ...NI.Task.createAIChannel("ai_voltage"),
+            key: id.create(),
+            device: dev.key,
+            channel: unowned.channels[0].key,
+          },
+        ],
+      },
+    });
+    await renderToolbar();
+    await selectRows(t.name, o.name);
+    await openContextMenuUntil(o.name, "Delete");
+    fireEvent.click(screen.getByText("Delete"));
+    await screen.findByText("Are you sure you want to delete 2 tasks?");
+    deleteWithChannels("Also delete the 2 channels they created");
+    await waitFor(async () =>
+      expect(await retrieveKeys([ethercat.index, ...ethercat.channels])).toEqual([]),
+    );
+    expect(await retrieveKeys([unowned.index, ...unowned.channels])).toEqual(
+      keysOf(unowned.index, ...unowned.channels),
+    );
+  });
+
+  it("offers no box to a user who cannot delete channels", async () => {
+    const { index, channels } = await createChannels(1);
+    const t = await createReadTask(channels);
+    await renderToolbar({ as: await createTaskDeleter() });
+    await openDelete(t);
+    expect(within(screen.getByRole("dialog")).queryByRole("checkbox")).toBeNull();
+    fireEvent.click(findButton("Delete"));
+    await expectDeleted(t);
+    expect(await retrieveKeys([index, ...channels])).toEqual(
+      keysOf(index, ...channels),
+    );
+  });
+
+  it("keeps the task and its channels when the user cancels", async () => {
+    const { index, channels } = await createChannels(1);
+    const t = await createReadTask(channels);
+    await renderToolbar();
+    await openDelete(t);
+    fireEvent.click(screen.getByRole("checkbox", { name: /Also delete/ }));
+    fireEvent.click(findButton("Cancel"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect((await client.tasks.retrieve(t.key)).key).toBe(t.key);
+    expect(await retrieveKeys([index, ...channels])).toEqual(
+      keysOf(index, ...channels),
+    );
   });
 });

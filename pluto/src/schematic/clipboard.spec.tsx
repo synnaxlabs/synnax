@@ -49,6 +49,8 @@ const MIME = "web application/synnax-schematic+json";
 
 const client = createTestClient();
 
+const tank = (label: string) => ({ variant: "tank" as const, label: { label } });
+
 const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
   const proj = await client.projects.create({
     name: `project_${uuid.create()}`,
@@ -57,23 +59,18 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
     project: proj.key,
     name: `schem_${uuid.create()}`,
     nodes: [
-      { key: "n1", position: { x: 0, y: 0 } },
-      { key: "n2", position: { x: 100, y: 100 } },
-      { key: "n3", position: { x: 200, y: 200 } },
+      { key: "n1", position: { x: 0, y: 0 }, config: tank("Pump") },
+      { key: "n2", position: { x: 100, y: 100 }, config: tank("Valve") },
+      { key: "n3", position: { x: 200, y: 200 }, config: tank("Tank") },
     ],
     edges: [
       {
         key: "e1",
         source: { node: "n1", param: "out" },
         target: { node: "n2", param: "in" },
+        config: { variant: "pipe" },
       },
     ],
-    configs: {
-      n1: { variant: "tank", label: { label: "Pump" } },
-      n2: { variant: "tank", label: { label: "Valve" } },
-      n3: { variant: "tank", label: { label: "Tank" } },
-      e1: { variant: "pipe" },
-    },
   });
 };
 
@@ -111,9 +108,20 @@ const scoped = (Wrapper: FC<PropsWithChildren>, key: string): FC<PropsWithChildr
   return Scoped;
 };
 
+const copyAndPaste = async (
+  clipboard: ReturnType<typeof Schematic.useClipboard>,
+): Promise<void> => {
+  const copyData = createDataTransfer();
+  act(() => clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO));
+  const raw = copyData.getData(MIME);
+  expect(raw).not.toBe("");
+  const pasteEvent = createClipboardEvent(createDataTransfer({ [MIME]: raw }));
+  await act(async () => clipboard.onPaste(pasteEvent, { x: 500, y: 500 }));
+};
+
 describe("schematic clipboard", () => {
   describe("useClipboard", () => {
-    it("writes selected nodes, edges, and configs to clipboardData on copy", async () => {
+    it("writes the selected nodes and edges with their configs on copy", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
       await loadSchematic(Wrapper, schem.key);
@@ -135,11 +143,13 @@ describe("schematic clipboard", () => {
         "n2",
       ]);
       expect(payload.edges.map((e: schematic.Edge) => e.key)).toEqual(["e1"]);
-      expect(payload.configs.n1).toMatchObject({
-        variant: "tank",
-        label: { label: "Pump" },
+      const n1 = payload.nodes.find((n: schematic.Node) => n.key === "n1");
+      expect(n1.config).toMatchObject(tank("Pump"));
+      expect(payload.edges[0].config).toEqual({
+        variant: "pipe",
+        segments: [],
+        strokeWidth: 2,
       });
-      expect(payload.configs.e1).toEqual({ variant: "pipe", segments: [] });
       // Centroid of n1 (0,0) and n2 (100,100) = (50,50).
       expect(payload.anchor).toEqual({ x: 50, y: 50 });
       expect(event.preventDefault).toHaveBeenCalled();
@@ -222,23 +232,24 @@ describe("schematic clipboard", () => {
         project: proj.key,
         name: `schem_${uuid.create()}`,
         nodes: [
-          { key: "n1", position: { x: 0, y: 0 } },
-          { key: "n2", position: { x: 100, y: 100 } },
-          { key: "n3", position: { x: 200, y: 200 } },
+          { key: "n1", position: { x: 0, y: 0 }, config: tank("Pump") },
+          { key: "n2", position: { x: 100, y: 100 }, config: tank("Valve") },
+          { key: "n3", position: { x: 200, y: 200 }, config: tank("Tank") },
         ],
         edges: [
           {
             key: "e1",
             source: { node: "n1", param: "out" },
             target: { node: "n2", param: "in" },
+            config: { variant: "pipe" },
           },
           {
             key: "e2",
             source: { node: "n2", param: "out" },
             target: { node: "n3", param: "in" },
+            config: { variant: "pipe" },
           },
         ],
-        configs: {},
       });
     };
 
@@ -370,11 +381,7 @@ describe("schematic clipboard", () => {
       expect(pasteEvent.preventDefault).toHaveBeenCalled();
     });
 
-    it("remaps a pasted group's members onto the pasted keys", async () => {
-      interface GroupCfg {
-        variant?: string;
-        members?: string[];
-      }
+    it("remaps a pasted node's parent onto the pasted group", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const proj = await client.projects.create({
         name: `project_${uuid.create()}`,
@@ -383,16 +390,21 @@ describe("schematic clipboard", () => {
         project: proj.key,
         name: `schem_${uuid.create()}`,
         nodes: [
-          { key: "g1", position: { x: -30, y: -30 }, zIndex: -1 },
-          { key: "n1", position: { x: 0, y: 0 } },
-          { key: "n2", position: { x: 100, y: 100 } },
+          {
+            key: "g1",
+            position: { x: -30, y: -30 },
+            zIndex: -1,
+            config: { variant: "group_box" },
+          },
+          { key: "n1", position: { x: 0, y: 0 }, config: tank("Pump"), parent: "g1" },
+          {
+            key: "n2",
+            position: { x: 100, y: 100 },
+            config: tank("Valve"),
+            parent: "g1",
+          },
         ],
         edges: [],
-        configs: {
-          g1: { variant: "group_box", members: ["n1", "n2"] },
-          n1: { variant: "tank", label: { label: "Pump" } },
-          n2: { variant: "tank", label: { label: "Valve" } },
-        },
       });
       await loadSchematic(Wrapper, schem.key);
 
@@ -400,38 +412,46 @@ describe("schematic clipboard", () => {
         () => ({
           clipboard: Schematic.useClipboard({ selected: ["g1", "n1", "n2"] }),
           nodes: Schematic.useAllNodes({ key: schem.key }),
-          configs: Schematic.useAllConfigs({ key: schem.key }),
         }),
         { wrapper: scoped(Wrapper, schem.key) },
       );
-
-      const copyData = createDataTransfer();
-      act(() =>
-        result.current.clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO),
-      );
-      const raw = copyData.getData(MIME);
-      expect(raw).not.toBe("");
-
-      const pasteEvent = createClipboardEvent(createDataTransfer({ [MIME]: raw }));
-      await act(async () => {
-        result.current.clipboard.onPaste(pasteEvent, { x: 500, y: 500 });
-      });
+      await copyAndPaste(result.current.clipboard);
       await waitFor(() => expect(result.current.nodes).toHaveLength(6));
 
-      const originals = new Set(["g1", "n1", "n2"]);
-      const pastedKeys = result.current.nodes
-        .map((n) => n.key)
-        .filter((k) => !originals.has(k));
-      const pastedGroupKey = pastedKeys.find(
-        (k) =>
-          (result.current.configs[k] as GroupCfg | undefined)?.variant === "group_box",
+      const pasted = result.current.nodes.slice(3);
+      const pastedGroup = pasted.find((n) => n.config.variant === "group_box");
+      assert(pastedGroup != null);
+      expect(pastedGroup.parent).toBeUndefined();
+      const members = pasted.filter((n) => n !== pastedGroup);
+      expect(members.map((n) => n.parent)).toEqual([pastedGroup.key, pastedGroup.key]);
+    });
+
+    it("clears the parent of a node pasted without its group", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const proj = await client.projects.create({
+        name: `project_${uuid.create()}`,
+      });
+      const schem = await client.schematics.create({
+        project: proj.key,
+        name: `schem_${uuid.create()}`,
+        nodes: [
+          { key: "g1", position: { x: 0, y: 0 }, config: { variant: "group_box" } },
+          { key: "n1", position: { x: 0, y: 0 }, config: tank("Pump"), parent: "g1" },
+        ],
+        edges: [],
+      });
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ selected: ["n1"] }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
+        }),
+        { wrapper: scoped(Wrapper, schem.key) },
       );
-      assert(pastedGroupKey != null);
-      const pasted = result.current.configs[pastedGroupKey] as GroupCfg;
-      assert(pasted.members != null);
-      expect(pasted.members).toHaveLength(2);
-      expect(pasted.members.every((m) => pastedKeys.includes(m))).toEqual(true);
-      expect(pasted.members.some((m) => originals.has(m))).toEqual(false);
+      await copyAndPaste(result.current.clipboard);
+      await waitFor(() => expect(result.current.nodes).toHaveLength(3));
+      expect(result.current.nodes[2]).not.toHaveProperty("parent");
     });
 
     it("does nothing when the clipboard has no Synnax payload", async () => {
@@ -455,7 +475,7 @@ describe("schematic clipboard", () => {
       expect(event.preventDefault).not.toHaveBeenCalled();
     });
 
-    it("ignores a payload with a mismatched version", async () => {
+    it("ignores a payload from a Console that kept configs apart", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
       await loadSchematic(Wrapper, schem.key);
@@ -471,10 +491,10 @@ describe("schematic clipboard", () => {
       const event = createClipboardEvent(
         createDataTransfer({
           [MIME]: JSON.stringify({
-            version: 999,
-            nodes: [],
+            version: 1,
+            nodes: [{ key: "old", position: { x: 0, y: 0 } }],
             edges: [],
-            configs: {},
+            configs: { old: { variant: "value" } },
             anchor: { x: 0, y: 0 },
           }),
         }),

@@ -61,7 +61,7 @@ class RoleOperatorPermissions(RoleCase):
         self.owner_creates_pages()
         self.login_as_role()
         self.assert_badge_names_role()
-        self.assert_users_toolbar_hidden()
+        self.assert_users_page_hidden()
         self.creation_commands_are_hidden()
         self.mosaic_is_static()
         self.tab_menu_offers_no_writes()
@@ -71,8 +71,8 @@ class RoleOperatorPermissions(RoleCase):
     def owner_creates_pages(self) -> None:
         """As Owner: build the pages and leave their tabs open.
 
-        An Operator cannot open a tab, so anything they view has to already be
-        open in a panel an Engineer or Owner built.
+        An Operator cannot open a tab in a shared panel, so anything they view
+        has to already be open in a panel an Engineer or Owner built.
         """
         table = self.console.pages.create(Table, TABLE_NAME)
         self._cleanup_pages.append(table.page_name)

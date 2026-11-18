@@ -21,7 +21,7 @@ _STAGE_MENU_SELECTOR = ".pluto-stage-button__menu"
 _STAGE_TRANSITIONS: dict[str, tuple[str, ...]] = {
     "To do": ("Move to to do",),
     "In progress": ("Start", "Reopen"),
-    "Completed": ("Complete",),
+    "Completed": ("Stop",),
 }
 _STAGE_ICONS: dict[str, str] = {
     "To do": "lyra-icon--to-do",
@@ -76,7 +76,6 @@ class Surface(ResourceClient):
         self,
         name: str,
         *,
-        persisted: bool = True,
         parent: str | None = None,
         labels: list[str] | None = None,
         stage: str | None = None,
@@ -116,12 +115,7 @@ class Surface(ResourceClient):
             ).click(timeout=5000)
 
         if labels is not None:
-            self.layout.select_labels(labels)
+            self.layout.select_labels(labels, scope=modal)
 
-        if persisted:
-            save_button = modal.get_by_role("button", name="Save to Core")
-        else:
-            save_button = modal.get_by_role("button", name="Save locally")
-
-        save_button.click(timeout=2000)
+        modal.get_by_role("button", name="Create", exact=True).click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)

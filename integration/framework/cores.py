@@ -41,25 +41,55 @@ class Core:
 
 
 class Process:
-    """A Core that the conductor started."""
+    """A Core that the conductor or a test started."""
 
-    def __init__(self, *, binary: Path, core: Core) -> None:
+    def __init__(
+        self,
+        *,
+        binary: Path,
+        core: Core,
+        persisted: bool = False,
+        driver_disabled: bool = False,
+    ) -> None:
+        """:param persisted: Keeps the data on disk, so it outlives a restart.
+        :param driver_disabled: Starts the Core without its embedded Driver.
+        """
         self.core = core
         self._data = Path(tempfile.mkdtemp(prefix="synnax-core-"))
         core.log_path.parent.mkdir(parents=True, exist_ok=True)
         self._log = open(core.log_path, "wb")
-        # Only the first Core's Driver reads the NI devices.
-        args = [str(binary), "start", "-mi", "-l", core.address, "-d", str(self._data)]
+        args = [str(binary), "start", "-l", core.address, "-d", str(self._data), "-i"]
+        if not persisted:
+            args.append("-m")
+        if driver_disabled:
+            args.append("--no-driver")
         args += ["--username", core.connection.username]
         args += ["--password", core.connection.password]
+        # Only the first Core's Driver reads the NI devices.
         args += ["--disable-integrations", "ni"]
+        self._args = args
+        self._launch()
+
+    def _launch(self) -> None:
+        self._log_start = self.core.log_path.stat().st_size
         flags = 0
         if sys.platform == "win32":
             # Windows sends CTRL_BREAK_EVENT only to a new process group.
             flags = subprocess.CREATE_NEW_PROCESS_GROUP
         self._popen = subprocess.Popen(
-            args, stdout=self._log, stderr=subprocess.STDOUT, creationflags=flags
+            self._args, stdout=self._log, stderr=subprocess.STDOUT, creationflags=flags
         )
+
+    def restart(self) -> None:
+        """Stops the Core, starts it again on the same address and data directory,
+        and blocks until it runs. A Core that is not persisted starts empty.
+
+        :raises RuntimeError: If the Core does not start again.
+        """
+        self._interrupt()
+        self._wait_exited()
+        self._launch()
+        self.wait_ready()
 
     def wait_ready(self) -> None:
         """Blocks until the Core and its Driver are running.
@@ -74,7 +104,7 @@ class Process:
                     f"Core at {self.core.address} exited with code "
                     f"{self._popen.returncode}. See {self.core.log_path}"
                 )
-            log = self.core.log_path.read_bytes()
+            log = self.core.log_path.read_bytes()[self._log_start :]
             if _READY_LINE in log:
                 if _LICENSE_LINE not in log:
                     raise RuntimeError(
@@ -97,12 +127,15 @@ class Process:
         else:
             self._popen.send_signal(signal.SIGINT)
 
-    def _wait_stopped(self) -> None:
+    def _wait_exited(self) -> None:
         try:
             self._popen.wait(timeout=_STOP_TIMEOUT)
         except subprocess.TimeoutExpired:
             self._popen.kill()
             self._popen.wait()
+
+    def _wait_stopped(self) -> None:
+        self._wait_exited()
         self._log.close()
         shutil.rmtree(self._data, ignore_errors=True)
 

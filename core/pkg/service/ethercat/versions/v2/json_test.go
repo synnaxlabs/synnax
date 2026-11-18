@@ -60,14 +60,15 @@ var _ = Describe("JSON", func() {
 		})
 
 		DescribeTable("Should report an invalid type as a validation error",
-			func(ctx SpecContext, data string) {
+			func(data string) {
 				var decoded v2.ReadChannel
 				err := xjson.Codec.Decode([]byte(data), &decoded)
 				Expect(err).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("ReadChannel: unknown type")),
 				))
-				Expect(errors.Encode(ctx, err, false).Type).To(Equal("sy.validation"))
+				codec := errors.NewCodec(validate.ErrorProvider())
+				Expect(codec.Encode(err, false).Type).To(Equal("sy.validation"))
 			},
 			Entry("unknown", `{"type": "manual"}`),
 			Entry("missing", `{"key": "a"}`),

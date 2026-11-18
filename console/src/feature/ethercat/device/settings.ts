@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ethercat } from "@synnaxlabs/client";
+import { bounds, DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
 const ADDRESS = { index: z.number(), subIndex: z.number() };
@@ -103,9 +104,13 @@ export const findInput = (
 ): Input | undefined =>
   description?.channels.find((c) => c.entries.some((e) => sameAddress(e, address)));
 
+/** @returns the shortest form of the value that the slave held, or the default. */
+const heldValue = (field: Field): number =>
+  field.value == null ? field.default : shortestValue(field, field.value);
+
 /**
- * @returns the value at the address: the one in values, else the value that the slave
- * held at the scan or the default of the first field there.
+ * @returns the value at the address: the one in values, else the shortest form of the
+ * value that the slave held at the scan, or the default of the first field there.
  * @throws {Error} if no field and no value is at the address.
  */
 export const valueAt = (fields: Field[], values: Value[], address: Address): number => {
@@ -114,7 +119,7 @@ export const valueAt = (fields: Field[], values: Value[], address: Address): num
   const field = fields.find((f) => sameAddress(f, address));
   if (field == null)
     throw new Error(`No setting is at ${ethercat.formatAddress(address)}`);
-  return field.value ?? field.default;
+  return heldValue(field);
 };
 
 const holds = (fields: Field[], values: Value[], condition: Condition): boolean => {
@@ -137,17 +142,20 @@ const allows = ({ options, min, max }: Field, value: number): boolean =>
 
 /**
  * @returns a startup parameter for each address of the fields, in the order of the
- * fields, with the value in values or the default. A shown field whose value is not one
- * of its options takes its default, or its first option when the default is not one. A
- * hidden field takes its default when its value is not one of its options or is outside
- * its limits.
+ * fields, with the value in values or the one the slave held at the scan. A shown field
+ * whose value is not one of its options takes its default, or its first option when the
+ * default is not one. A shown field whose held value is outside its limits takes the
+ * nearest limit, with a note. A hidden field takes its default when its value is not
+ * one of its options or is outside its limits.
  */
-export const fill = (fields: Field[], values: Value[]): ethercat.StartupParameter[] => {
+export const fill = (fields: Field[], values: Value[]): Change => {
   const shown = visibleFields(fields, values);
   const parameters: ethercat.StartupParameter[] = [];
+  const notes: Note[] = [];
   for (const field of fields) {
     if (parameters.some((p) => sameAddress(p, field))) continue;
-    let value = valueAt(fields, values, field);
+    const given = values.find((v) => sameAddress(v, field))?.value;
+    let value = given ?? heldValue(field);
     const visible = shown.find((f) => sameAddress(f, field));
     if (visible == null) {
       if (!allows(field, value)) value = field.default;
@@ -158,28 +166,102 @@ export const fill = (fields: Field[], values: Value[]): ethercat.StartupParamete
       value = visible.options.some((o) => o.value === field.default)
         ? field.default
         : visible.options[0].value;
+    else if (given == null) {
+      const moved = toLimits(visible, value);
+      value = moved.value;
+      if (moved.note != null) notes.push(moved.note);
+    }
     const { index, subIndex, dataType } = field;
     parameters.push({ index, subIndex, dataType, value, name: "" });
   }
-  return parameters;
+  return { values: parameters, notes };
+};
+
+/**
+ * @returns the value with the fewest digits that the field stores as the value.
+ * @throws {RangeError} when the value is not finite.
+ */
+const shortestValue = ({ dataType }: Field, value: number): number => {
+  if (!Number.isFinite(value)) throw new RangeError(`${value} is not a finite value`);
+  if (!DataType.FLOAT32.equals(dataType)) return value;
+  // A typed value or a catalog limit is a float64 that float32 can fail to hold.
+  const stored = Math.fround(value);
+  let digits = 1;
+  while (Math.fround(Number(value.toPrecision(digits))) !== stored) digits++;
+  return Number(value.toPrecision(digits));
+};
+
+/**
+ * @returns the shortest text that reads back as the value of the field.
+ * @throws {RangeError} when the value is not finite.
+ */
+export const valueText = (field: Field, value: number): string =>
+  shortestValue(field, value).toString();
+
+/** A value that moved, and the text that says so. */
+export interface Note extends Address {
+  message: string;
+}
+
+/** Values, and a note for each value that moved. */
+export interface Change {
+  values: ethercat.StartupParameter[];
+  notes: Note[];
+}
+
+/** @returns the value inside the limits of the field, with a note if it moved. */
+const toLimits = (field: Field, value: number): { value: number; note?: Note } => {
+  const { min = -Infinity, max = Infinity, unit } = field;
+  const moved = bounds.clamp({ lower: min, upper: max }, value);
+  if (moved === value) return { value };
+  const suffix = unit === "" ? "" : ` ${unit}`;
+  const from = `${valueText(field, value)}${suffix}`;
+  const to = `${valueText(field, moved)}${suffix}`;
+  const message = `${field.name} changed from ${from} to ${to}.`;
+  return {
+    value: moved,
+    note: { index: field.index, subIndex: field.subIndex, message },
+  };
 };
 
 /**
  * @returns the values after the field at the address takes the value. The values of the
- * fields are filled as {@link fill} fills them, and the other values stay.
+ * fields are filled as {@link fill} fills them, and the other values stay. When the
+ * change shows another field at an address, as polarity picks the excitation voltage
+ * field, a value outside the limits of that field moves to the nearest limit. The notes
+ * name the values that the change moved.
  */
 export const set = (
   fields: Field[],
   values: ethercat.StartupParameter[],
   address: Address,
   value: number,
-): ethercat.StartupParameter[] => [
-  ...values.filter((v) => !fields.some((f) => sameAddress(f, v))),
-  ...fill(fields, [
+): Change => {
+  const before = fill(fields, values).values;
+  const shown = visibleFields(fields, before);
+  const { values: filled } = fill(fields, [
     { ...address, value },
-    ...values.filter((v) => !sameAddress(v, address)),
-  ]),
-];
+    ...before.filter((v) => !sameAddress(v, address)),
+  ]);
+  const revealed = visibleFields(fields, filled).filter(
+    (f) => !shown.includes(f) && !sameAddress(f, address),
+  );
+  const notes: Note[] = [];
+  for (const parameter of filled) {
+    const field = revealed.find((f) => sameAddress(f, parameter));
+    if (field == null) continue;
+    const moved = toLimits(field, parameter.value);
+    parameter.value = moved.value;
+    if (moved.note != null) notes.push(moved.note);
+  }
+  return {
+    values: [
+      ...values.filter((v) => !fields.some((f) => sameAddress(f, v))),
+      ...filled,
+    ],
+    notes,
+  };
+};
 
 const rangeMessage = ({ name, unit, min, max }: Field): string => {
   const suffix = unit === "" ? "" : ` ${unit}`;

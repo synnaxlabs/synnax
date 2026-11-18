@@ -27,6 +27,13 @@ on:
         required: false
         type: string
         default: ""
+      coverage_flag:
+        description:
+          Codecov flag for coverage of the sources in `directories` on Ubuntu, or empty
+          for no coverage
+        required: false
+        type: string
+        default: ""
       directories:
         description: Directories clang-format checks, separated by spaces
         required: false
@@ -72,6 +79,8 @@ on:
         type: boolean
         default: false
     secrets:
+      CODECOV_TOKEN:
+        required: false
       SYNNAX_LICENSE_TOKEN:
         required: false
   workflow_dispatch:
@@ -205,15 +214,45 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         env:
+          COVERAGE_FLAG: ${{ inputs.coverage_flag }}
+          DIRECTORIES: ${{ inputs.directories }}
           TARGETS: ${{ inputs.targets }}
           TAG_FLAG: ${{ steps.tags.outputs.flag }}
           TEST_FLAGS: ${{ inputs.test_flags }}
         run: |
           lsan="$GITHUB_WORKSPACE/scripts/sanitizers/lsan_suppressions.txt"
           read -ra args <<< "$BAZEL_REMOTE_CACHE_FLAGS $TARGETS $TAG_FLAG $TEST_FLAGS"
-          bazel test --jobs=4 \
+          verb="test"
+          if [ -n "$COVERAGE_FLAG" ]; then
+            verb=coverage
+            read -ra directories <<< "$DIRECTORIES"
+            filter=$(printf '^//%s[/:],' "${directories[@]}")
+            args+=(--combined_report=lcov --instrument_test_targets \
+              "--instrumentation_filter=${filter%,}")
+          fi
+          bazel "$verb" --jobs=4 \
             ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=all \
             --test_env=LSAN_OPTIONS=suppressions="$lsan" "${args[@]}"
+
+      # GCC counts the exception edge of every call as a branch, so Codecov marks most
+      # lines partial. Report line coverage only, as Go does.
+      - name: Strip branch coverage
+        if: runner.os == 'Linux' && inputs.coverage_flag != ''
+        run: |
+          grep -v '^BR[DFH]' bazel-out/_coverage/_coverage_report.dat \
+            > "$RUNNER_TEMP/coverage.lcov"
+
+      - name: Upload coverage
+        if: runner.os == 'Linux' && inputs.coverage_flag != ''
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        env:
+          CURL_HOME: ${{ github.workspace }}/.github/codecov
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: ${{ runner.temp }}/coverage.lcov
+          flags: ${{ inputs.coverage_flag }}
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Test (Windows)
         if: runner.os == 'Windows'

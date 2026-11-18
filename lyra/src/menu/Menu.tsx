@@ -12,6 +12,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { type Component } from "@/component";
 import { context } from "@/context";
+import { SubmenusContext, useSubmenus } from "@/menu/submenus";
 import { type Theming } from "@/theming";
 
 export interface ContextValue {
@@ -42,8 +43,8 @@ export interface MenuProps
 
 /**
  * Holds the shared state for a list of {@link Item}s: which one is selected, what
- * happens on click, and the text level, gap, and background they inherit. It renders no
- * element of its own.
+ * happens on click, the text level, gap, and background they inherit, and which of its
+ * {@link Sub}s is open. It renders no element of its own.
  *
  * @example
  * <Menu.Menu onChange={{ rename, delete: del }}>
@@ -58,6 +59,7 @@ export const Menu = ({
   background,
   value: selected = "",
 }: MenuProps): ReactElement => {
+  const submenus = useSubmenus();
   const onClick = (key: string) => {
     if (typeof onChange === "function") onChange(key);
     else if (onChange && key in onChange) onChange[key](key);
@@ -69,5 +71,9 @@ export const Menu = ({
     gap,
     background,
   };
-  return <Context value={ctxValue}>{children}</Context>;
+  return (
+    <Context value={ctxValue}>
+      <SubmenusContext value={submenus}>{children}</SubmenusContext>
+    </Context>
+  );
 };

@@ -21,7 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -38,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -63,6 +66,8 @@ var (
 	arcSvc      *arc.Service
 	testRack    rack.Rack
 	projectSvc  *project.Service
+	roleSvc     *role.Service
+	userSvc     *user.Service
 	tx          gorp.Tx
 )
 
@@ -84,6 +89,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	lineplotSvc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 		DB:   db,
 		ImEx: imex.NewService(),
+		Color: MustOpen(color.OpenService(ctx, color.ServiceConfig{
+			DB:    db,
+			Group: groupSvc,
+		})),
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
@@ -91,8 +100,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
-	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
+	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,
+	}))
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB:       db,
+		Password: MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db})),
 	}))
 	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:         db,

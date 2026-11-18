@@ -23,6 +23,7 @@ const payload = (
   name,
   timeRange: new TimeRange(new TimeStamp(start), new TimeStamp(end)),
   labels: [],
+  hasChildren: false,
 });
 
 describe("range translate", () => {

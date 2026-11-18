@@ -33,23 +33,24 @@ interface SummaryProps {
   status: connection.Status;
 }
 
-const Summary = ({
-  status: { variant, name, description },
-}: SummaryProps): ReactElement => (
-  <Flex.Box y gap="tiny">
-    <Text.Text status={variant} weight={650}>
-      {Connection.STATUS_LABELS[variant]}
-    </Text.Text>
-    <Text.Text color={9} weight={450}>
-      {name}
-    </Text.Text>
-    {primitive.isNonZero(description) && (
-      <Text.Text level="small" color={9}>
-        {description}
+const Summary = ({ status }: SummaryProps): ReactElement => {
+  const { variant, name, description } = status;
+  return (
+    <Flex.Box y gap="tiny">
+      <Text.Text status={variant} weight={650}>
+        {Connection.label(status)}
       </Text.Text>
-    )}
-  </Flex.Box>
-);
+      <Text.Text color={9} weight={450}>
+        {name}
+      </Text.Text>
+      {primitive.isNonZero(description) && (
+        <Text.Text level="small" color={9}>
+          {description}
+        </Text.Text>
+      )}
+    </Flex.Box>
+  );
+};
 
 const Content = (): ReactElement => {
   const status = Synnax.useConnectionStatus();
@@ -102,7 +103,7 @@ const Content = (): ReactElement => {
             level="small"
             className={CSS.BE("core-badge", "state")}
           >
-            {Connection.STATUS_LABELS[variant]}
+            {Connection.label(status)}
           </Text.Text>
         </Flex.Box>
         {core != null && (

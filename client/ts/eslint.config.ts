@@ -13,6 +13,6 @@ import type { Linter } from "eslint";
 // Off until the deep imports in this package are fixed.
 export default [
   ...cfg,
-  { ignores: ["examples"] },
+  { ignores: ["examples", "smoke"] },
   { rules: { "synnax/barrel-imports": "off" } },
 ] as Linter.Config[];

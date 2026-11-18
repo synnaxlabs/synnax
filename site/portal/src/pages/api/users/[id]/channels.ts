@@ -1,0 +1,34 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type APIRoute } from "astro";
+
+import { requireStaff } from "@/access";
+import { form, handle } from "@/respond";
+import { setChannels } from "@/server/license/desktop";
+
+/**
+ * POST sets the channel cap of the user's Desktop licenses to `channels`, 0 for
+ * unlimited, or the default when it is empty. Staff only.
+ */
+export const POST: APIRoute = async (context) =>
+  await handle(async () => {
+    const { portal } = context.locals;
+    const session = await portal.session();
+    requireStaff(session);
+    const body = await form(context);
+    const raw = (body.channels ?? "").trim();
+    await setChannels(portal.store, {
+      userID: context.params.id ?? "",
+      channels: raw === "" ? null : Number(raw),
+      actor: session.userID,
+      now: portal.now(),
+    });
+    return new Response(null, { status: 204 });
+  });

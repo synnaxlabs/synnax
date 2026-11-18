@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
-#include <format>
-#include <map>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -24,6 +23,7 @@
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/ethercat/scan_task.h"
+#include "driver/ethercat/soem/filter.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/write_task.h"
 
@@ -35,6 +35,10 @@
 
 namespace driver::ethercat {
 namespace {
+/// @brief the percent of a task operation's timeout that a bus start may use. The rest
+/// covers the scan and the reads before the start.
+constexpr int64_t START_SHARE_PERCENT = 75;
+
 #ifdef _WIN32
 const std::string PCAP_LIB_NAME = "wpcap.dll";
 #elif defined(__APPLE__)
@@ -72,12 +76,11 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
-/// @brief returns the settings saved for each slave on the network, keyed by position.
-/// Its errors call the network name.
+/// @brief returns the settings saved for the slaves on the network. Its errors call the
+/// network name.
 /// @returns errors::SLAVE_CONFIG_ERROR when a slave on the network has invalid
-/// properties, since the bus starts every slave on it, or when two devices at one
-/// position have different settings.
-std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
+/// properties, since the bus starts every slave on it.
+std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::rack::Key rack,
     const std::string &network,
@@ -95,12 +98,11 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
             {},
             x::errors::Error(
                 dev_err,
-                "The Driver could not read the slave settings for " + name +
+                "The Driver could not read the module settings for " + name +
                     " from the Core: " + dev_err.data
             )
         };
-    std::map<uint16_t, slave::Config> configs;
-    std::map<uint16_t, std::string> labels;
+    std::vector<engine::SavedSlave> saved;
     for (const auto &dev: devices) {
         auto parser = x::json::Parser(dev.properties);
         const auto props = slave::Properties::parse(parser);
@@ -110,40 +112,25 @@ std::pair<std::map<uint16_t, slave::Config>, x::errors::Error> slave_configs(
                 {},
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
-                    dev.name + " has invalid properties. Every slave on " + name +
+                    dev.name + " has invalid properties. Every module on " + name +
                         " starts with the bus, so fix them before you start the "
                         "task.\n" +
                         common::config_err_description(parser.error())
                 )
             };
-        const auto label = props.serial == 0
-                             ? dev.name
-                             : std::format("{} (serial {})", dev.name, props.serial);
-        const auto &config = props.config;
-        const auto [it, added] = configs.emplace(props.position, config);
-        if (added) {
-            labels[props.position] = label;
-            continue;
-        }
-        if (it->second == config) continue;
-        const auto [first, second] = std::minmax(labels[props.position], label);
-        return {
-            {},
-            x::errors::Error(
-                errors::SLAVE_CONFIG_ERROR,
-                std::format(
-                    "{} and {} are both saved at position {} on {} with different "
-                    "settings. Give them the same settings, or delete the device that "
-                    "is no longer on the bus.",
-                    first,
-                    second,
-                    props.position,
-                    name
-                )
-            )
-        };
+        saved.push_back({
+            .identity =
+                {
+                    .position = props.position,
+                    .vendor_id = props.vendor_id,
+                    .product_code = props.product_code,
+                    .serial = props.serial,
+                    .name = dev.name,
+                },
+            .config = props.config,
+        });
     }
-    return {configs, x::errors::NIL};
+    return {std::move(saved), x::errors::NIL};
 }
 }
 
@@ -176,7 +163,7 @@ Factory::Factory(
                 return slave_configs(client, rack, network, name);
             },
             std::move(rt_manager),
-            op_timeout
+            op_timeout * START_SHARE_PERCENT / 100
         )
     ) {}
 
@@ -195,7 +182,11 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
         task,
         ctx,
         common::unlimited_retry_config(task.name),
-        std::make_unique<ReadTaskSource>(eng, std::move(cfg))
+        std::make_unique<ReadTaskSource>(
+            eng,
+            std::move(cfg),
+            std::make_unique<StartSteps>(ctx, task)
+        )
     );
     return {std::move(result), x::errors::NIL};
 }
@@ -214,7 +205,11 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_write(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(eng, std::move(cfg))
+        std::make_unique<WriteTaskSink>(
+            eng,
+            std::move(cfg),
+            std::make_unique<StartSteps>(ctx, task)
+        )
     );
     return {std::move(result), x::errors::NIL};
 }
@@ -229,7 +224,13 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
     if (parser.error()) return {std::move(result), parser.error()};
     result.auto_start = !cfg.disabled;
     if (auto err = this->pool->check_available()) return {std::move(result), err};
-    auto scanner = std::make_unique<Scanner>(ctx, task, cfg, this->pool);
+    auto scanner = std::make_unique<Scanner>(
+        ctx,
+        task,
+        cfg,
+        this->pool,
+        soem::disable_dewesoft_filter
+    );
     result.task = std::make_unique<common::ScanTask>(
         std::move(scanner),
         ctx,
@@ -243,7 +244,8 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::string &cmd_key
+    const std::string &cmd_key,
+    x::breaker::Breaker &cancel
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
@@ -255,13 +257,14 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = this->configure_scan(ctx, task);
     else
         return {nullptr, false};
-    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key, cancel);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::rack::Rack &rack
+    const synnax::rack::Rack &rack,
+    x::breaker::Breaker &cancel
 ) {
     return common::configure_initial_factory_tasks(
         this,
@@ -269,7 +272,8 @@ Factory::configure_initial_tasks(
         rack,
         "EtherCAT Scanner",
         SCAN_TASK_TYPE,
-        INTEGRATION_NAME
+        INTEGRATION_NAME,
+        cancel
     );
 }
 

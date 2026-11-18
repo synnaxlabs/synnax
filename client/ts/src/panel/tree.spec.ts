@@ -109,6 +109,23 @@ describe("tree", () => {
     });
   });
 
+  describe("tabs", () => {
+    it("should return every tab in traversal order", () => {
+      const tree: panel.Node = {
+        variant: "split",
+        direction: "x",
+        size: 0.5,
+        first: leaf("a", "b"),
+        last: leaf("c"),
+      };
+      expect(panel.tabs(tree).map((t) => t.key)).toEqual(["a", "b", "c"]);
+    });
+
+    it("should return no tabs for an empty tree", () => {
+      expect(panel.tabs(undefined)).toEqual([]);
+    });
+  });
+
   describe("findTabByType", () => {
     const withView: panel.Node = {
       variant: "split",

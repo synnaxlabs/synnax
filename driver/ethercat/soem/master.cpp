@@ -13,9 +13,11 @@
 #include <format>
 #include <functional>
 #include <iterator>
+#include <span>
 #include <string_view>
 #include <thread>
 #include <tuple>
+#include <utility>
 
 #include "absl/log/log.h"
 
@@ -25,9 +27,10 @@
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/esi/settings.h"
+#include "driver/ethercat/master/dc.h"
+#include "driver/ethercat/sii/sii.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"
-#include "driver/ethercat/soem/sii.h"
 #include "driver/ethercat/soem/util.h"
 #include "driver/ethercat/telem/telem.h"
 
@@ -60,10 +63,23 @@ constexpr std::array<uint16_t, 16> TRANSIENT_FAULTS = {
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
 );
+/// The waits between the clock restores of a slave whose restores fail.
+const x::breaker::Config CLOCK_RETRY{
+    .name = "clock_restore",
+    .base_interval = x::telem::MILLISECOND * 100,
+    .scale = 2,
+    .max_interval = x::telem::SECOND * 10,
+};
 /// Timeout for one SDO (Service Data Object) read or write in microseconds.
 const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 /// The object in which a modular slave lists the identities of the modules it detects.
 constexpr uint16_t DETECTED_MODULES_INDEX = 0xF050;
+/// The CoE identity object and the sub-index that holds the serial number.
+constexpr uint16_t IDENTITY_INDEX = 0x1018;
+constexpr uint8_t SERIAL_SUB_INDEX = 4;
+/// The largest serial number that the Core and the Console store exactly. A rounded
+/// serial number would match no saved device, so a larger one counts as none.
+constexpr uint64_t MAX_SERIAL = (uint64_t{1} << 53) - 1;
 /// The largest object a complete access read returns: sub-index 0 as 16 bits, then 255
 /// entries of four bytes.
 constexpr size_t MAX_OBJECT_SIZE = 2 + (255 * 4);
@@ -82,8 +98,8 @@ int micros(const x::telem::TimeSpan span) {
 }
 
 /// @brief returns what the user can do about a slave that refuses a state with the AL
-/// status code, or an empty view for no advice.
-std::string_view refusal_advice(const uint16_t code) {
+/// status code, or an empty string for no advice.
+std::string refusal_advice(const uint16_t code) {
     switch (code) {
         case 0x001D: // Invalid output configuration
         case 0x001E: // Invalid input configuration
@@ -95,54 +111,93 @@ std::string_view refusal_advice(const uint16_t code) {
     }
 }
 
+/// @brief describes what a slave did with a datagram that failed with the working
+/// counter wkc: below 0 means no frame came back.
+std::string_view response(const int wkc) {
+    return wkc < 0 ? "did not reply to" : "refused";
+}
+
 }
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
+// SOEM indexes its group list by the group of each slave.
+static_assert(DISABLED_GROUP < EC_MAXGROUP);
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
 constexpr size_t DEFAULT_IOMAP_SIZE = 131072;
+/// What receive() says when no frame comes back.
+constexpr auto NO_FRAME = "process data receive failed";
+// receive() returns these by reference, so a cycle builds no error.
+const x::errors::Error NOT_ACTIVATED(errors::CYCLIC_ERROR, "master not activated");
+const x::errors::Error NO_FRAME_ERROR(errors::CYCLIC_ERROR, NO_FRAME);
+const x::errors::Error
+    FRAME_NOT_BACK(errors::FRAME_IN_FLIGHT, "process data frame has not come back");
+const x::errors::Error
+    REFERENCE_CLOCK_FRAME_FAILED(errors::CYCLIC_ERROR, "reference clock frame failed");
+const x::errors::Error PROCESS_DATA_HELD(
+    errors::WORKING_COUNTER_ERROR,
+    "no process data passes the modules until they reach SAFE-OP"
+);
+/// How recently a frame must have come back for a failed receive on a USB adapter to
+/// blame a late frame. A dead link gets the plain reason after it.
+constexpr auto LATE_FRAME_WINDOW = std::chrono::seconds(1);
 
 namespace {
-/// @brief empties the SOEM error list, returning the code of the latest SDO abort in it
-/// for the object, or 0 when it holds none.
-uint32_t pop_sdo_abort(
-    API &api,
-    const uint16_t slave,
-    const uint16_t index,
-    const uint8_t sub_index
-) {
-    uint32_t code = 0;
+/// The SOEM packet error codes of an SDO transfer.
+constexpr uint16_t UNEXPECTED_FRAME = 1;
+constexpr uint16_t CONTAINER_TOO_SMALL = 3;
+
+/// @brief empties the SOEM error list. Call it before an SDO transfer, so that
+/// pop_sdo_failure sees only the errors of that transfer.
+void clear_errors(API &api) {
+    ec_errort err{};
+    while (api.poperror(err)) {}
+}
+
+/// @brief empties the SOEM error list, returning why the SDO transfer since
+/// clear_errors failed. With no error, the transfer got no reply.
+errors::SDOFailure pop_sdo_failure(API &api) {
+    using Kind = errors::SDOFailure::Kind;
+    errors::SDOFailure failure;
     ec_errort err{};
     while (api.poperror(err))
-        if (err.Etype == EC_ERR_TYPE_SDO_ERROR && err.Slave == slave &&
-            err.Index == index && err.SubIdx == sub_index)
-            code = static_cast<uint32_t>(err.AbortCode);
-    return code;
+        if (err.Etype == EC_ERR_TYPE_SDO_ERROR)
+            failure = {
+                .kind = Kind::ABORTED,
+                .abort_code = static_cast<uint32_t>(err.AbortCode),
+            };
+        else if (err.Etype == EC_ERR_TYPE_MBX_ERROR)
+            failure = {.kind = Kind::MAILBOX_ERROR};
+        else if (
+            err.Etype == EC_ERR_TYPE_PACKET_ERROR && err.ErrorCode == UNEXPECTED_FRAME
+        )
+            failure = {.kind = Kind::UNEXPECTED_REPLY};
+        else if (
+            err.Etype == EC_ERR_TYPE_PACKET_ERROR &&
+            err.ErrorCode == CONTAINER_TOO_SMALL
+        )
+            failure = {.kind = Kind::REPLY_TOO_LARGE};
+    return failure;
 }
 
 /// @brief returns errors::REPLIES_BLOCKED when a filter on the adapter of iface blocks
 /// the replies, else errors::NO_SLAVES_FOUND. The message calls the adapter name.
 x::errors::Error
 no_slaves_error(API &api, const std::string &iface, const std::string &name) {
-    const auto found = "No EtherCAT slaves found on " + name + ". ";
+    const auto found = "No EtherCAT modules found on " + name + ". ";
     if (!api.dewesoft_filter_bound(iface.c_str()))
         return x::errors::Error(
             errors::NO_SLAVES_FOUND,
-            found + "Check the cable and the power of the first device."
+            found + "Check the cable and the power of the first module."
         );
     return x::errors::Error(
         errors::REPLIES_BLOCKED,
-        found + std::format(
-                    "The DewesoftX \"EthercatDAQ Filter\" on this adapter blocks "
-                    "EtherCAT replies. Clear it in the properties of \"{}\" "
-                    "(Settings > Network & internet > Advanced network settings > "
-                    "More network adapter options, then right-click the adapter > "
-                    "Properties).",
-                    name
-                )
+        found + "The DewesoftX network filter on this adapter blocks EtherCAT "
+                "replies, even with DewesoftX closed. To turn it off, click Turn off "
+                "DewesoftX filter under Connect device > EtherCAT network."
     );
 }
 }
@@ -192,14 +247,26 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() 
     return {this->slave_list, x::errors::NIL};
 }
 
-std::pair<size_t, x::errors::Error> Master::count_slaves() {
+std::pair<master::Change, x::errors::Error> Master::changed() {
     if (!this->initialized)
         return {
-            0,
+            {},
             x::errors::Error(errors::MASTER_INIT_ERROR, "master not initialized")
         };
-    const int count = this->api->count_bus_slaves();
-    return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
+    const int count = std::max(this->api->count_bus_slaves(), 0);
+    if (std::cmp_not_equal(count, this->slave_list.size()))
+        return {master::Change{.stale = true}, x::errors::NIL};
+    // A restarted slave answers in INIT, or not at all at the address the scan gave it.
+    this->api->readstate();
+    master::Change change;
+    for (const auto &slave: this->slave_list) {
+        const auto pos = slave.properties.position;
+        if (static_cast<uint8_t>(slave::from_al_state(this->record(pos).state)) <
+            static_cast<uint8_t>(slave.status.state))
+            change.restarted.insert(pos);
+    }
+    change.stale = !change.restarted.empty();
+    return {change, x::errors::NIL};
 }
 
 x::errors::Error Master::write_parameters(
@@ -208,6 +275,7 @@ x::errors::Error Master::write_parameters(
 ) {
     for (const auto &param: parameters) {
         const auto data = param.bytes();
+        clear_errors(*this->api);
         if (this->api->SDOwrite(
                 pos,
                 param.index,
@@ -218,12 +286,17 @@ x::errors::Error Master::write_parameters(
                 SDO_TIMEOUT
             ) > 0)
             continue;
+        const auto failure = pop_sdo_failure(*this->api);
+        if (failure.kind == errors::SDOFailure::Kind::ABORTED)
+            return x::errors::Error(
+                errors::startup_parameter_error(failure.abort_code),
+                "rejected startup parameter " + param.to_string() + ": " +
+                    failure.reason()
+            );
         return x::errors::Error(
             errors::STARTUP_PARAMETER_ERROR,
-            "rejected startup parameter " + param.to_string() + ": " +
-                errors::sdo_abort_reason(
-                    pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
-                )
+            "failed to write startup parameter " + param.to_string() + ": " +
+                failure.reason()
         );
     }
     return x::errors::NIL;
@@ -235,7 +308,7 @@ bool Master::write_startup_parameters(
 ) {
     const auto err = this->write_parameters(pos, parameters);
     if (err)
-        this->session.value().startup_failures[pos] = err.data;
+        this->session.value().startup_failures[pos] = err;
     else
         this->session.value().startup_failures.erase(pos);
     return !err;
@@ -256,7 +329,15 @@ master::Activation Master::activate(
                 "master already activated"
             )
         };
-    this->session.emplace().plan = plan;
+    auto &session = this->session.emplace();
+    session.plan = plan;
+    if (this->api->on_usb(this->iface_name.c_str()))
+        session.late_frame_err = x::errors::Error(
+            errors::CYCLIC_ERROR,
+            std::string(NO_FRAME) + ". " + this->name() +
+                " is a USB adapter, which can hold frames back. Use a PCIe or onboard "
+                "Ethernet adapter, or lower the rate of the fastest task on the network"
+        );
     return this->start(start_cycle);
 }
 
@@ -269,20 +350,50 @@ slave::Config Master::config(const uint16_t pos) const {
 master::Activation
 Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     auto &session = this->session.value();
-    auto [dc_setups, dc_err] = this->resolve_dc();
+    // A slave whose EEPROM read failed has no identity and no SII layout to map.
+    std::map<uint16_t, slave::Refusal> unidentified;
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
+        const auto pos = static_cast<uint16_t>(i);
+        const auto &rec = this->record(pos);
+        if (!this->config(pos).enabled || rec.eep_man != 0 || rec.eep_id != 0) continue;
+        unidentified[pos] = {
+            .reason = "gave no identity when the Driver read its EEPROM"
+        };
+        session.plan.slaves[pos].enabled = false;
+    }
+    const auto refuse_unidentified = [&] {
+        std::string msg;
+        for (const auto &[pos, refusal]: unidentified)
+            msg += std::format(
+                "{}module {} ({}) {}",
+                msg.empty() ? "" : "; ",
+                pos,
+                this->slave_name(pos),
+                refusal.reason
+            );
+        return master::Activation{
+            .err = x::errors::Error(errors::ACTIVATION_ERROR, msg),
+            .refusals = std::move(unidentified),
+        };
+    };
+    auto [dc_setups, dc_err] = master::resolve_dc(this->slave_list, session.plan);
     if (dc_err) return {.err = dc_err};
     session.dc_setups = std::move(dc_setups);
 
-    std::vector<uint16_t> parameterized;
+    // A startup parameter can change the PDO assignment of a slave, and the scan read
+    // only the SII of a starting slave.
+    std::vector<uint16_t> rereads;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         const auto pos = static_cast<uint16_t>(i);
         auto config = this->config(pos);
         this->record(pos).group = config.enabled ? ENABLED_GROUP : DISABLED_GROUP;
+        if (config.enabled && (!config.startup_parameters.empty() ||
+                               this->slave_list[pos - 1].status.starting))
+            rereads.push_back(pos);
         if (!config.enabled || config.startup_parameters.empty()) {
             this->api->set_PO2SOconfig(pos, nullptr);
             continue;
         }
-        parameterized.push_back(pos);
         this->api->set_PO2SOconfig(
             pos,
             [this, params = std::move(config.startup_parameters)](uint16_t p) {
@@ -308,26 +419,41 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     );
     this->api->context.manualstatechange = 0;
 
-    if (iomap_size <= 0)
+    if (iomap_size <= 0) {
+        if (!unidentified.empty()) return refuse_unidentified();
         return {
             .err = x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 "failed to configure PDO mapping"
             )
         };
+    }
 
     std::string failures;
-    for (const auto &[pos, failure]: session.startup_failures)
-        failures += (failures.empty() ? "" : "; ") + std::string("slave ") +
-                    std::to_string(pos) + " (" + this->slave_name(pos) + ") " + failure;
-    if (!failures.empty())
-        return {.err = x::errors::Error(errors::STARTUP_PARAMETER_ERROR, failures)};
-
-    // A startup parameter can change the slave's PDO assignment.
-    for (const auto pos: parameterized) {
-        auto result = this->discover_slave(pos);
-        this->slave_list[pos - 1] = std::move(result);
+    // One failure with no abort code is enough for a retry to help.
+    auto type = errors::STARTUP_PARAMETER_REJECTED;
+    for (const auto &[pos, failure]: session.startup_failures) {
+        failures += (failures.empty() ? "" : "; ") + std::string("module ") +
+                    std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+                    failure.data;
+        if (!failure.matches(errors::STARTUP_PARAMETER_REJECTED))
+            type = errors::STARTUP_PARAMETER_ERROR;
     }
+    if (!failures.empty()) return {.err = x::errors::Error(type, failures)};
+
+    for (const auto pos: rereads) {
+        auto result = this->discover_slave(pos);
+        auto &scanned = this->slave_list[pos - 1];
+        if (scanned.status.starting && !result.status.starting) {
+            this->read_serial(result);
+            this->read_settings(result);
+        } else {
+            result.properties.serial = scanned.properties.serial;
+            result.status.serial_error = std::move(scanned.status.serial_error);
+        }
+        scanned = std::move(result);
+    }
+    slave::clear_duplicate_serials(this->slave_list);
 
     this->api->configdc();
     // configdc makes only the frames of the reference slave's group carry the DC time.
@@ -338,10 +464,19 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     session.input_sz = group.Ibytes;
     session.output_sz = group.Obytes;
     session.expected_wkc = (group.outputsWKC * 2) + group.inputsWKC;
+    session.state_reads.clear();
+    for (int i = 1; i <= this->api->context.slavecount; ++i)
+        if (const auto pos = static_cast<uint16_t>(i);
+            this->config(pos).enabled && this->record(pos).Ibits > 0)
+            session.state_reads.push_back(pos);
+    session.cycles.reserve(master::MAX_FRAMES_IN_FLIGHT + 1);
+    session.inputless.reserve(session.state_reads.size());
     // A slave can stop its process data task for good when the master reads its inputs
     // while it moves to SAFE-OP.
     session.process_data_held.store(true, std::memory_order_release);
     start_cycle(this->image());
+    // The caller leaves out a refused slave only when the image maps another one.
+    if (!unidentified.empty()) return refuse_unidentified();
     if (auto err = this->start_dc()) return {.err = err};
 
     const int timeout = micros(this->cfg.state_change_timeout);
@@ -357,7 +492,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
         return {
             .err = x::errors::Error(
                 errors::STATE_CHANGE_ERROR,
-                "failed to reach OP: no process data passed the slaves in SAFE-OP"
+                "failed to reach OP: no process data passed the modules in SAFE-OP"
             )
         };
     return this->request_state(EC_STATE_OPERATIONAL, timeout);
@@ -365,6 +500,9 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
 
 void Master::deactivate() {
     if (this->session) {
+        auto &session = *this->session;
+        for (const auto &cycle: session.cycles)
+            if (cycle.frames > 0) this->api->drop_processdata();
         this->request_state(EC_STATE_INIT, micros(this->cfg.init_timeout));
         // INIT leaves the DC activation as it is.
         if (const auto err = this->clear_dc_activation())
@@ -378,24 +516,58 @@ void Master::deactivate() {
     }
 }
 
-x::errors::Error Master::receive() {
-    if (!this->session)
-        return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
+const x::errors::Error &Master::receive() {
+    if (!this->session) return NOT_ACTIVATED;
     auto &session = *this->session;
 
-    if (session.held_err) return session.held_err;
-    const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
+    session.shortfall.reset();
+    session.inputless.clear();
+    if (session.cycles.empty()) return NO_FRAME_ERROR;
+    int wkc = EC_NOFRAME;
+    if (session.cycles.front().frames > 0) {
+        // A frame that is not back yet can come back in a later cycle.
+        wkc = this->api->receive_processdata(ENABLED_GROUP, 0);
+        if (wkc < 0) {
+            const auto in_flight = session.cycles.size();
+            const auto age = this->cfg.clock.steady() - session.cycles.front().sent_at;
+            if (in_flight < master::MAX_FRAMES_IN_FLIGHT &&
+                (in_flight < master::MIN_FRAMES_IN_FLIGHT ||
+                 age < master::MAX_FRAME_AGE.chrono()))
+                return FRAME_NOT_BACK;
+            this->api->drop_processdata();
+        }
+    }
+    const Cycle cycle = session.cycles.front();
+    session.cycles.erase(session.cycles.begin());
+    if (cycle.held_err != nullptr) return *cycle.held_err;
 
-    if (wkc < 0)
-        return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
+    if (wkc < 0) {
+        if (session.late_frame_err && session.frame_sent_at &&
+            this->cfg.clock.steady() - *session.frame_sent_at < LATE_FRAME_WINDOW)
+            return session.late_frame_err;
+        return NO_FRAME_ERROR;
+    }
+    session.frame_sent_at = cycle.sent_at;
     this->frames.fetch_add(1, std::memory_order_release);
+    for (const auto pos: session.state_reads)
+        if (const auto state = this->api->al_status(pos) & 0x0F;
+            state != EC_STATE_SAFE_OP && state != EC_STATE_OPERATIONAL)
+            session.inputless.push_back(pos);
 
-    if (wkc != session.expected_wkc)
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "working counter mismatch: expected " +
-                std::to_string(session.expected_wkc) + ", got " + std::to_string(wkc)
-        );
+    if (wkc != session.expected_wkc) {
+        if (wkc < session.expected_wkc)
+            session.shortfall = static_cast<uint32_t>(session.expected_wkc - wkc);
+        if (wkc != session.mismatched_wkc) {
+            session.mismatched_wkc = wkc;
+            session.mismatch_err = x::errors::Error(
+                errors::WORKING_COUNTER_ERROR,
+                "working counter mismatch: expected " +
+                    std::to_string(session.expected_wkc) + ", got " +
+                    std::to_string(wkc)
+            );
+        }
+        return session.mismatch_err;
+    }
 
     // SOEM takes the DC time without the working counter of its datagram. A lost
     // reference clock gives a frozen time, and a reset one goes back. The frame read
@@ -403,7 +575,7 @@ x::errors::Error Master::receive() {
     if (const int64_t dc = this->api->context.DCtime;
         session.has_dc && dc > session.last_dc_time) {
         session.last_dc_time = dc;
-        const x::telem::TimeSpan sent_at(session.sent_at.time_since_epoch());
+        const x::telem::TimeSpan sent_at(cycle.sent_at.time_since_epoch());
         session.host_dc_offset.store(
             dc - sent_at.nanoseconds(),
             std::memory_order_relaxed
@@ -417,30 +589,45 @@ x::errors::Error Master::send() {
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
     auto &session = *this->session;
 
-    session.held_err = x::errors::NIL;
+    auto &cycle = session.cycles.emplace_back();
     if (session.process_data_held.load(std::memory_order_acquire)) {
         if (session.has_dc &&
             this->api->sync_dc(ENABLED_GROUP, PROCESSDATA_TIMEOUT) <= 0) {
-            session.held_err = x::errors::Error(
-                errors::CYCLIC_ERROR,
-                "reference clock frame failed"
-            );
-            return session.held_err;
+            cycle.held_err = &REFERENCE_CLOCK_FRAME_FAILED;
+            return REFERENCE_CLOCK_FRAME_FAILED;
         }
         if (session.has_dc) this->frames.fetch_add(1, std::memory_order_release);
-        session.held_err = x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "no process data passes the slaves until they reach SAFE-OP"
-        );
+        cycle.held_err = &PROCESS_DATA_HELD;
         return x::errors::NIL;
     }
-    const auto sent_at = this->cfg.clock.steady();
-    const int result = this->api->send_processdata(ENABLED_GROUP);
-
-    if (result <= 0)
+    cycle.sent_at = this->cfg.clock.steady();
+    // Drops the oldest sends until this send finds a buffer for each of its frames.
+    size_t in_flight = session.send_frames;
+    for (const auto &c: session.cycles)
+        in_flight += c.frames;
+    for (auto &oldest: session.cycles) {
+        if (in_flight <= PROCESS_DATA_BUFFERS) break;
+        if (oldest.frames == 0) continue;
+        this->api->drop_processdata();
+        in_flight -= oldest.frames;
+        oldest.frames = 0;
+    }
+    const int frames = this->api->send_processdata(ENABLED_GROUP);
+    if (frames <= 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
-    session.sent_at = sent_at;
+    cycle.frames = static_cast<size_t>(frames);
+    session.send_frames = cycle.frames;
     return x::errors::NIL;
+}
+
+std::optional<uint32_t> Master::shortfall() const {
+    if (!this->session) return std::nullopt;
+    return this->session->shortfall;
+}
+
+std::span<const uint16_t> Master::inputless() const {
+    if (!this->session) return {};
+    return this->session->inputless;
 }
 
 std::optional<x::telem::TimeStamp> Master::dc_time() const {
@@ -448,7 +635,7 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
     return master::DC_EPOCH + x::telem::TimeSpan(this->api->context.DCtime);
 }
 
-std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
+std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
     std::lock_guard lock(this->mailbox_mu);
     this->api->readstate();
     std::vector<slave::Health> health;
@@ -475,11 +662,17 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         if (const auto it = session.startup_failures.find(i);
             it != session.startup_failures.end()) {
             h.faulted = true;
-            h.startup_error = it->second;
+            h.startup_error = it->second.data;
         }
-        if (breaker.running()) this->recover(i, breaker);
     }
     return health;
+}
+
+void Master::recover(const x::breaker::Breaker &breaker) {
+    std::lock_guard lock(this->mailbox_mu);
+    for (int i = 1; i <= this->api->context.slavecount && breaker.running(); ++i)
+        if (this->record(i).group == ENABLED_GROUP)
+            this->recover_slave(static_cast<uint16_t>(i), breaker);
 }
 
 x::errors::Error Master::write(
@@ -489,8 +682,8 @@ x::errors::Error Master::write(
     std::lock_guard lock(this->mailbox_mu);
     if (const auto err = this->write_parameters(pos, parameters))
         return x::errors::Error(
-            errors::STARTUP_PARAMETER_ERROR,
-            "Slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+            err,
+            "Module " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                 err.data + "."
         );
     if (this->session)
@@ -510,35 +703,57 @@ void Master::update_lost(const uint16_t pos) {
     this->record(pos).islost = this->record(pos).state == EC_STATE_NONE ? 1 : 0;
 }
 
-void Master::recover(const uint16_t pos, const x::breaker::Breaker &breaker) {
-    if (this->session.value().startup_failures.contains(pos)) return;
+void Master::recover_slave(const uint16_t pos, const x::breaker::Breaker &breaker) {
+    auto &session = this->session.value();
+    if (session.startup_failures.contains(pos)) return;
     const uint16_t state = this->record(pos).state;
-    if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
+    const auto retry = session.clock_retries.find(pos);
+    const bool waiting = retry != session.clock_retries.end() &&
+                         this->cfg.clock.steady() < retry->second.at;
+    if (state == EC_STATE_OPERATIONAL)
+        session.clock_retries.erase(pos);
+    else if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
         this->record(pos).state = EC_STATE_SAFE_OP + EC_STATE_ACK;
         this->api->writestate(pos);
     } else if (state == EC_STATE_SAFE_OP) {
-        // From PRE-OP, the next check restores the clock again.
+        // From PRE-OP, a later check restores the clock again.
         this->record(pos).state = this->restore_failed(pos) ? EC_STATE_PRE_OP
                                                             : EC_STATE_OPERATIONAL;
         this->api->writestate(pos);
-    } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
+    } else if (
+        // Some slaves arm their inputs again only from cleared sync managers, as the
+        // first start leaves them, and reach OP with no inputs from a bare reconfig.
+        state > EC_STATE_NONE && !waiting &&
+        this->api->reset_slave(pos, EC_TIMEOUTRET3) == 1
+    ) {
         auto params = this->config(pos).startup_parameters;
-        const bool has_dc = this->record(pos).hasdc != 0;
-        if (has_dc || !params.empty())
+        const bool restorable = this->restores_clock(pos);
+        if (this->record(pos).hasdc && !restorable)
+            session.unrestored_clocks.insert(pos);
+        if (restorable || !params.empty())
             this->api->set_PO2SOconfig(
                 pos,
-                [this, pos, &breaker, params = std::move(params), has_dc](uint16_t) {
-                    if (!this->write_startup_parameters(pos, params) || !has_dc) return;
+                [this, pos, &breaker, params = std::move(params), restorable](
+                    uint16_t
+                ) {
+                    if (!this->write_startup_parameters(pos, params) || !restorable)
+                        return;
+                    auto &s = this->session.value();
                     const auto err = this->restore_dc(pos, breaker);
-                    if (err)
-                        this->session.value().dc_restore_errors[pos] = err.data;
-                    else
-                        this->session.value().dc_restore_errors.erase(pos);
+                    if (!err) {
+                        s.dc_restore_errors.erase(pos);
+                        return;
+                    }
+                    s.dc_restore_errors[pos] = err.data;
+                    auto &retry = s.clock_retries[pos];
+                    retry.failures++;
+                    retry.at = this->cfg.clock.steady() +
+                               CLOCK_RETRY.interval(retry.failures).chrono();
                 }
             );
         this->api->reconfig_slave(pos, RECOVERY_TIMEOUT);
         this->api->set_PO2SOconfig(pos, nullptr);
-        if (this->session.value().startup_failures.contains(pos)) {
+        if (session.startup_failures.contains(pos)) {
             this->record(pos).state = EC_STATE_PRE_OP;
             this->api->writestate(pos);
         }
@@ -553,9 +768,42 @@ void Master::populate_slaves() {
 
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         auto slave = this->discover_slave(i);
-        this->read_settings(slave);
+        if (!slave.status.starting) {
+            this->read_serial(slave);
+            this->read_settings(slave);
+        }
         this->slave_list.push_back(std::move(slave));
     }
+    slave::clear_duplicate_serials(this->slave_list);
+}
+
+void Master::read_serial(slave::DiscoveryResult &slave) {
+    const auto pos = slave.properties.position;
+    // A nonzero SII serial number is the identity of saved devices.
+    if (slave.properties.serial != 0 ||
+        (this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0)
+        return;
+    clear_errors(*this->api);
+    // CiA 301 gives the serial number 4 bytes, but IOLITE modules give it 8.
+    uint64_t serial = 0;
+    int size = sizeof(serial);
+    if (this->api->SDOread(
+            pos,
+            IDENTITY_INDEX,
+            SERIAL_SUB_INDEX,
+            FALSE,
+            &size,
+            &serial,
+            SDO_TIMEOUT
+        ) > 0) {
+        if (serial != 0 && serial <= MAX_SERIAL) slave.properties.serial = serial;
+        return;
+    }
+    const auto failure = pop_sdo_failure(*this->api);
+    // Only a slave that refuses the read for good has no CoE serial number.
+    if (failure.permanent()) return;
+    slave.status
+        .serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, failure).data;
 }
 
 void Master::read_settings(slave::DiscoveryResult &slave) {
@@ -585,8 +833,12 @@ slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
     result.properties.serial = this->record(pos).eep_ser;
     result.properties.name = this->slave_name(pos);
     result.status.state = slave::from_al_state(this->record(pos).state);
+    const auto state = result.status.state;
+    result.status.starting = state == slave::State::INIT ||
+                             state == slave::State::BOOT ||
+                             state == slave::State::UNKNOWN;
     Description unshared;
-    const auto model = this->read_model(pos);
+    const auto model = result.status.starting ? std::nullopt : this->read_model(pos);
     auto &description = model ? this->descriptions[*model] : unshared;
     this->discover_slave_pdos(result, description);
     result.properties.op_modes = this->read_op_modes(pos, description);
@@ -602,6 +854,7 @@ master::Image Master::image() {
     for (const auto &[pos, regs]: session.dc_setups)
         if (regs.sync0_cycle > 0 && (regs.assign_activate & dc::PDI_SYNC_UNIT) == 0)
             image.dc_sync.push_back(regs);
+    if (session.has_dc) image.reference_clock = this->record(0).DCnext;
     image.slaves = this->slave_list;
     const auto *base = this->iomap.data();
     for (const auto &slave: this->slave_list) {
@@ -620,11 +873,19 @@ master::Image Master::image() {
         const auto output_bits = pdo::total_bits(props.output_pdos);
         const auto mapped_input_bits = this->record(props.position).Ibits;
         const auto mapped_output_bits = this->record(props.position).Obits;
+        // A frame adds 2 for each slave that takes its outputs and 1 for each slave
+        // that gives its inputs.
+        if (const master::WorkingCounterShare share{
+                .outputs = mapped_output_bits > 0 ? 2U : 0U,
+                .inputs = mapped_input_bits > 0 ? 1U : 0U,
+            };
+            share != master::WorkingCounterShare{})
+            image.working_counter_shares[props.position] = share;
         if (input_bits != mapped_input_bits || output_bits != mapped_output_bits) {
             const auto err = x::errors::Error(
                 errors::PDO_MAPPING_ERROR,
                 std::format(
-                    "Slave {} ({}) maps {} input and {} output bits, but its "
+                    "Module {} ({}) maps {} input and {} output bits, but its "
                     "discovered PDO entries hold {} and {}.",
                     props.position,
                     props.name,
@@ -672,17 +933,11 @@ std::pair<uint32_t, x::errors::Error>
 Master::read_sdo(const uint16_t pos, const uint16_t index, const uint8_t sub_index) {
     uint32_t value = 0;
     int size = sizeof(value);
+    clear_errors(*this->api);
     if (this->api->SDOread(pos, index, sub_index, FALSE, &size, &value, SDO_TIMEOUT) >
         0)
         return {value, x::errors::NIL};
-    return {
-        0,
-        coe::read_error(
-            index,
-            sub_index,
-            pop_sdo_abort(*this->api, pos, index, sub_index)
-        )
-    };
+    return {0, coe::read_error(index, sub_index, pop_sdo_failure(*this->api))};
 }
 
 std::optional<std::vector<uint8_t>>
@@ -691,7 +946,7 @@ Master::read_object(const uint16_t pos, const uint16_t index) {
     int size = static_cast<int>(bytes.size());
     if (this->api->SDOread(pos, index, 0, TRUE, &size, bytes.data(), SDO_TIMEOUT) <=
         0) {
-        pop_sdo_abort(*this->api, pos, index, 0);
+        clear_errors(*this->api);
         return std::nullopt;
     }
     bytes.resize(static_cast<size_t>(size));
@@ -725,7 +980,8 @@ void Master::discover_slave_pdos(
     auto &props = slave.properties;
     const auto pos = props.position;
     x::errors::Error layout_err;
-    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0) {
+    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0 &&
+        !slave.status.starting) {
         coe::Read read = [this, pos](const uint16_t index, const uint8_t sub_index) {
             return this->read_sdo(pos, index, sub_index);
         };
@@ -764,8 +1020,9 @@ void Master::discover_slave_pdos(
             props.input_pdos.clear();
             props.output_pdos.clear();
             slave.status.pdo_discovery_error = std::format(
-                "SOEM cannot map this slave because sync manager {} has fixed PDOs and "
-                "the other sync managers have assigned PDOs. Use IgH for this slave",
+                "SOEM cannot map this module because sync manager {} has fixed PDOs "
+                "and the other sync managers have assigned PDOs. Use IgH for this "
+                "module",
                 fixed->index
             );
             // No esi::fill: SOEM would still leave the fixed sync manager unmapped.
@@ -838,15 +1095,12 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
         slave.status.pdo_discovery_error = "no PDOs found";
 }
 
-/// SII category that lists the synchronization modes of a slave.
-constexpr uint16_t SII_DC_CATEGORY = 60;
-
 std::vector<dc::OpMode>
 Master::read_op_modes(const uint16_t pos, Description &description) {
     auto &known = description.op_modes;
     if (!known.empty()) return known;
     auto modes = sii::parse_op_modes(
-        this->read_sii_category(pos, SII_DC_CATEGORY),
+        this->read_sii_category(pos, sii::DC),
         this->sii_strings(pos)
     );
     this->api->eeprom2pdi(pos);
@@ -900,19 +1154,20 @@ template<std::integral T>
 x::errors::Error
 Master::write_dc_register(const uint16_t pos, const uint16_t address, const T value) {
     const auto bytes = x::binary::to_little_endian(value);
-    if (this->api->write_register(
-            pos,
-            address,
-            {bytes.begin(), bytes.end()},
-            EC_TIMEOUTRET
-        ) == 1)
-        return x::errors::NIL;
+    const int wkc = this->api->write_register(
+        pos,
+        address,
+        {bytes.begin(), bytes.end()},
+        EC_TIMEOUTRET3
+    );
+    if (wkc == 1) return x::errors::NIL;
     return x::errors::Error(
         errors::ACTIVATION_ERROR,
         std::format(
-            "slave {} ({}) did not take a write to DC register 0x{:04X}",
+            "module {} ({}) {} a write to DC register 0x{:04X}",
             pos,
             this->slave_name(pos),
+            response(wkc),
             address
         )
     );
@@ -922,16 +1177,17 @@ template<std::integral T>
 std::pair<T, x::errors::Error>
 Master::read_dc_register(const uint16_t pos, const uint16_t address) {
     std::array<uint8_t, sizeof(T)> bytes{};
-    if (this->api->read_register(pos, address, bytes, EC_TIMEOUTRET) == 1)
-        return {x::binary::from_little_endian<T>(bytes), x::errors::NIL};
+    const int wkc = this->api->read_register(pos, address, bytes, EC_TIMEOUTRET3);
+    if (wkc == 1) return {x::binary::from_little_endian<T>(bytes), x::errors::NIL};
     return {
         0,
         x::errors::Error(
             errors::ACTIVATION_ERROR,
             std::format(
-                "slave {} ({}) did not answer a read of DC register 0x{:04X}",
+                "module {} ({}) {} a read of DC register 0x{:04X}",
                 pos,
                 this->slave_name(pos),
+                response(wkc),
                 address
             )
         )
@@ -959,81 +1215,6 @@ x::errors::Error Master::clear_dc_activation() {
     return x::errors::Error(errors::ACTIVATION_ERROR, failed);
 }
 
-std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() const {
-    const auto period = this->session.value().plan.period;
-    std::vector<DCSetup> setups;
-    std::vector<x::telem::TimeSpan> cycles;
-    std::string events;
-    for (const auto &slave: this->slave_list) {
-        const auto &props = slave.properties;
-        const auto config = this->config(props.position);
-        if (!config.enabled) continue;
-        const auto choice = config.op_mode ? config.op_mode : props.catalog_op_mode();
-        const auto [mode, select_err] = dc::select(props.op_modes, choice);
-        if (select_err)
-            return {
-                {},
-                x::errors::Error(
-                    errors::SLAVE_CONFIG_ERROR,
-                    std::format(
-                        "slave {} ({}) cannot use its chosen mode: {}",
-                        props.position,
-                        props.name,
-                        select_err.data
-                    )
-                )
-            };
-        if (!mode) continue;
-        auto [regs, err] = dc::resolve(
-            *mode,
-            period,
-            choice ? choice->cycles : dc::Cycles{}
-        );
-        if (err)
-            return {
-                {},
-                x::errors::Error(
-                    errors::SLAVE_CONFIG_ERROR,
-                    std::format(
-                        "slave {} ({}) cannot run its DC mode at a bus cycle of {}: {}",
-                        props.position,
-                        props.name,
-                        period.to_string(),
-                        err.data
-                    )
-                )
-            };
-        setups.push_back({.position = props.position, .registers = regs});
-        if (!regs.marks_data() || (regs.assign_activate & dc::PDI_SYNC_UNIT) != 0)
-            continue;
-        cycles.emplace_back(regs.sync0_cycle);
-        if (!events.empty()) events += ", ";
-        events += std::format(
-            "slave {} ({}) every {}",
-            props.position,
-            props.name,
-            cycles.back().to_string()
-        );
-    }
-    if (!cycles.empty() && dc::grid(period, cycles) <
-                               static_cast<double>(dc::MIN_EVENT_CYCLE.nanoseconds()))
-        return {
-            {},
-            x::errors::Error(
-                errors::SLAVE_CONFIG_ERROR,
-                std::format(
-                    "SYNC0 events do not line up with the bus cycle of {}: {}. Change "
-                    "the bus rate or the SYNC0 cycles so that a span of {} or more "
-                    "divides the bus cycle and each SYNC0 cycle.",
-                    period.to_string(),
-                    events,
-                    dc::MIN_EVENT_CYCLE.to_string()
-                )
-            )
-        };
-    return {setups, x::errors::NIL};
-}
-
 x::errors::Error Master::wait_for_dc_settle(
     const std::vector<uint16_t> &positions,
     const std::function<bool()> &stopped
@@ -1050,7 +1231,7 @@ x::errors::Error Master::wait_for_dc_settle(
         if (stopped()) return stop_err;
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
-            "no frame carried the reference clock to the slaves within " +
+            "no frame carried the reference clock to the modules within " +
                 this->cfg.dc_settle_timeout.to_string()
         );
     }
@@ -1076,7 +1257,7 @@ x::errors::Error Master::wait_for_dc_settle(
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
                 std::format(
-                    "the clock of slave {} ({}) is {} off the reference clock after "
+                    "the clock of module {} ({}) is {} off the reference clock after "
                     "{}. It must be within {} before SYNC0 starts.",
                     worst_pos,
                     this->slave_name(worst_pos),
@@ -1103,7 +1284,7 @@ x::errors::Error Master::start_dc() {
     return x::errors::NIL;
 }
 
-x::errors::Error Master::start_sync(const DCSetup &setup) {
+x::errors::Error Master::start_sync(const master::DCSetup &setup) {
     const auto &[pos, regs] = setup;
     const auto cuc = static_cast<uint8_t>(regs.assign_activate & 0xFF);
     const auto act = static_cast<uint8_t>(regs.assign_activate >> 8);
@@ -1143,10 +1324,17 @@ x::errors::Error Master::start_sync(const DCSetup &setup) {
 
 x::errors::Error Master::align_clock(const uint16_t pos) {
     const x::telem::TimeSpan latched_at(this->cfg.clock.steady().time_since_epoch());
-    if (this->api->latch_receive_times(EC_TIMEOUTRET) < 1)
+    // A resend latches the times again after latched_at, so the latch gets one try.
+    const int latched = this->api->latch_receive_times(EC_TIMEOUTRET);
+    if (latched < 0)
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
-            "no slave latched its receive time"
+            "the frame that latches the receive times got no reply"
+        );
+    if (latched == 0)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "no module latched its receive time"
         );
     const auto [local, local_err] = this->read_dc_register<int64_t>(pos, ECT_REG_DCSOF);
     if (local_err) return local_err;
@@ -1157,7 +1345,8 @@ x::errors::Error Master::align_clock(const uint16_t pos) {
         if (other == pos || this->record(other).group != ENABLED_GROUP ||
             !this->record(other).hasdc || this->record(other).islost ||
             (this->record(other).state & 0x0F) < EC_STATE_SAFE_OP ||
-            this->restore_failed(other))
+            this->restore_failed(other) ||
+            this->session.value().unrestored_clocks.contains(other))
             continue;
         const auto [other_local, other_local_err] = this->read_dc_register<int64_t>(
             other,
@@ -1204,7 +1393,7 @@ Master::restore_dc(const uint16_t pos, const x::breaker::Breaker &breaker) {
         }))
         return err;
     const auto &setups = this->session.value().dc_setups;
-    const auto setup = std::ranges::find(setups, pos, &DCSetup::position);
+    const auto setup = std::ranges::find(setups, pos, &master::DCSetup::position);
     if (setup == setups.end()) return x::errors::NIL;
     return this->start_sync(*setup);
 }
@@ -1246,6 +1435,12 @@ bool Master::restore_failed(const uint16_t pos) const {
     return this->session.value().dc_restore_errors.contains(pos);
 }
 
+bool Master::restores_clock(const uint16_t pos) const {
+    if (this->record(0).hasdc && this->record(0).DCnext == pos) return true;
+    const auto &setups = this->session.value().dc_setups;
+    return std::ranges::find(setups, pos, &master::DCSetup::position) != setups.end();
+}
+
 bool Master::wait_for_frame(
     const std::chrono::steady_clock::time_point deadline,
     const std::function<bool()> &stopped
@@ -1270,7 +1465,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
     std::map<uint16_t, slave::Refusal> refusing;
     for (const auto pos: failed) {
         if (!msg.empty()) msg += "; ";
-        msg += "slave " + std::to_string(pos) + " (" + this->slave_name(pos) +
+        msg += "module " + std::to_string(pos) + " (" + this->slave_name(pos) +
                ") is in " +
                slave::to_string(slave::from_al_state(this->record(pos).state));
         if (!this->al_error(pos)) continue;
@@ -1281,6 +1476,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
             refusing[pos] = {
                 .reason = "refused " + target + ": " + text,
                 .advice = refusal_advice(code),
+                .code = code,
             };
         msg += ": " + text;
     }

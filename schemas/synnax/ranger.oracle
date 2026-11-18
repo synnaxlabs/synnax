@@ -24,11 +24,11 @@ Key = uuid {
 }
 
 Range struct {
-    key        Key             {
+    key          Key             {
         @doc value "is the unique identifier for this range."
         @key
     }
-    name       string          {
+    name         string          {
         @doc value           "is a human-readable name for the range."
         @filter
         @index sorted
@@ -36,27 +36,27 @@ Range struct {
         @search
         @validate min_length 1
     }
-    time_range telem.TimeRange {
+    time_range   telem.TimeRange {
         @doc value    """
             is the temporal extent of the range, defining its start and end timestamps.
         """
-        @index sorted start
+        @index sorted start end
         @patch
         @ts type      telem.TimeRangeBounded
     }
-    color      color.Color?    {
+    color        color.Color?    {
         @doc value """
             is an optional display color for visual identification of the range in user
             interfaces.
         """
         @patch
     }
-    labels     label.Key[] = [] {
+    labels       label.Key[] = [] {
         @doc value     "are the keys of the labels attached to the range."
         @ref kind      use
         @ref on_delete detach
     }
-    parent     Key?            {
+    parent       Key?            {
         @doc value     """
             is the key of the range this range is nested in. Empty for a top-level
             range.
@@ -65,6 +65,13 @@ Range struct {
         @ref acyclic
         @ref kind      place
         @ref on_delete cascade
+    }
+    has_children bool = false {
+        @doc value  """
+            is true when a range is nested in the range, derived on read and not
+            persisted.
+        """
+        @go marshal omit
     }
 
     action Create {
@@ -112,10 +119,43 @@ Where filter Range {
     parents  Key[]           {
         @doc value "matches the ranges nested in any of the given ranges."
     }
+    nested   bool            {
+        @doc value """
+            matches the ranges nested in a range, or top-level ranges when false.
+        """
+        @go match  MatchHasParent
+    }
+    labeled  bool            {
+        @doc value "matches ranges that have a label, or ranges with none when false."
+        @go match  MatchHasLabels
+    }
+    stages   Stage[]         {
+        @doc value "matches ranges in any of the given stages at the Core's clock."
+    }
+    recent   telem.TimeSpan  {
+        @doc value """
+            matches ranges that overlap the span ending now, or starting now if
+            negative.
+        """
+    }
 
     @doc value         "is a filter that selects ranges."
     @go marshal
     @go request_output "core/pkg/api/ranger"
+}
+
+Stage enum {
+    to_do       = "to_do" {
+        @doc value "is a range that has not started."
+    }
+    in_progress = "in_progress" {
+        @doc value "is a range that has started and not ended."
+    }
+    completed   = "completed" {
+        @doc value "is a range that has ended."
+    }
+
+    @doc value "is where a range stands against the current time."
 }
 
 Ref union on variant {
@@ -144,6 +184,7 @@ Ref union on variant {
 }
 
 New struct extends Range {
+    -has_children
     key?
 
     @cpp omit

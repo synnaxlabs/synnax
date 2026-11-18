@@ -37,6 +37,7 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const path = deep.path<schematic.TankNodeConfig>();
 const display = deep.path<schematic.StringDisplayNodeConfig>();
 const element = deep.path<z.infer<typeof schematic.elementConfigZ>>();
+const pipePath = deep.path<schematic.PipeEdgeConfig>();
 
 const client = createTestClient();
 
@@ -45,18 +46,21 @@ const createTestSchematic = async (projectKey: string): Promise<schematic.Schema
     project: projectKey,
     name: "test_schematic",
     nodes: [
-      { key: "n1", position: { x: 0, y: 0 } },
-      { key: "n2", position: { x: 10, y: 10 } },
+      { key: "n1", position: { x: 0, y: 0 }, config: { variant: "tank" } },
+      { key: "n2", position: { x: 10, y: 10 }, config: { variant: "tank" } },
     ],
     edges: [
       {
         key: "e1",
         source: { node: "n1", param: "out" },
         target: { node: "n2", param: "in" },
+        config: { variant: "pipe" },
       },
     ],
-    configs: { n1: { variant: "tank" }, n2: { variant: "tank" } },
   });
+
+const pipe = (extra: object = {}): schematic.EdgeConfig =>
+  schematic.edgeConfigZ.parse({ variant: "pipe", ...extra });
 
 // Loads the schematic at `key` into the cache. Uses a single-hook bootstrap
 // component so the suspending `useEnsure` is not followed by
@@ -340,7 +344,7 @@ describe("schematic queries", () => {
       expect(result.current.size).toBe(0);
     });
 
-    it("useParentOf maps members to their group", async () => {
+    it("useParentOf maps grouped nodes to their group", async () => {
       const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
       const { result } = renderHook(
@@ -356,9 +360,14 @@ describe("schematic queries", () => {
           key: isolated.key,
           actions: [
             schematic.setNode({
-              node: { key: "g1", position: { x: 0, y: 0 } },
-              config: { variant: "group_box", members: ["n1", "n2"] },
+              node: {
+                key: "g1",
+                position: { x: 0, y: 0 },
+                config: { variant: "group_box" },
+              },
             }),
+            schematic.set({ path: ["nodes", "n1", "parent"], value: "g1" }),
+            schematic.set({ path: ["nodes", "n2", "parent"], value: "g1" }),
           ],
         });
       });
@@ -567,11 +576,19 @@ describe("schematic queries", () => {
   });
 
   describe("useDispatch — edge stroke preprocess", () => {
-    const EDGE: schematic.Edge = {
+    const edge = (config: schematic.EdgeConfig): schematic.Edge => ({
       key: "e2",
       source: { node: "n1", param: "out" },
       target: { node: "n2", param: "in" },
-    };
+      config,
+    });
+    const greenTank = schematic.setNode({
+      node: {
+        key: "n1",
+        position: { x: 0, y: 0 },
+        config: { variant: "tank", strokeColor: "#00ff00" },
+      },
+    });
 
     let schem: schematic.Schematic;
     let getEdgeCfg: () => schematic.ElementConfig | undefined;
@@ -581,18 +598,18 @@ describe("schematic queries", () => {
     beforeEach(async () => {
       schem = await createTestSchematic(proj.key);
       const loadUtils = await loadSchematic(Wrapper, schem.key);
-      const edge = renderHook(
-        () => Schematic.useElementConfig({ key: schem.key, elKey: EDGE.key }),
+      const cfg = renderHook(
+        () => Schematic.useElementConfig({ key: schem.key, elKey: "e2" }),
         { wrapper: Wrapper },
       );
       const disp = renderHook(() => Schematic.useDispatch(), { wrapper: Wrapper });
-      getEdgeCfg = () => edge.result.current;
+      getEdgeCfg = () => cfg.result.current;
       dispatch = async (...actions) =>
         await act(async () => {
           await disp.result.current.dispatchAsync({ key: schem.key, actions });
         });
       cleanup = () => {
-        edge.unmount();
+        cfg.unmount();
         disp.unmount();
         loadUtils.unmount();
       };
@@ -601,51 +618,31 @@ describe("schematic queries", () => {
     afterEach(() => cleanup());
 
     it("fills a new edge's stroke from its source symbol", async () => {
-      await dispatch(
-        schematic.setConfig({
-          key: "n1",
-          config: { variant: "tank", strokeColor: "#00ff00" },
-        }),
-      );
-      await dispatch(
-        schematic.addEdge({ edge: EDGE }),
-        schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
-      );
+      await dispatch(greenTank);
+      await dispatch(schematic.addEdge({ edge: edge(pipe()) }));
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          strokeColor: [0, 255, 0, 1],
+          strokeColor: [0, 255, 0, 255],
         }),
       );
     });
 
     it("keeps the stroke a new edge's config chose", async () => {
+      await dispatch(greenTank);
       await dispatch(
-        schematic.setConfig({
-          key: "n1",
-          config: { variant: "tank", strokeColor: "#00ff00" },
-        }),
-      );
-      await dispatch(
-        schematic.addEdge({ edge: EDGE }),
-        schematic.setConfig({
-          key: EDGE.key,
-          config: { variant: "pipe", strokeColor: "#0000ff" },
-        }),
+        schematic.addEdge({ edge: edge(pipe({ strokeColor: "#0000ff" })) }),
       );
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          strokeColor: [0, 0, 255, 1],
+          strokeColor: [0, 0, 255, 255],
         }),
       );
     });
 
     it("leaves a new edge alone when its source symbol has no stroke", async () => {
-      await dispatch(
-        schematic.addEdge({ edge: EDGE }),
-        schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
-      );
+      await dispatch(schematic.addEdge({ edge: edge(pipe()) }));
       await waitFor(() => expect(getEdgeCfg()).toMatchObject({ variant: "pipe" }));
       expect(getEdgeCfg()).not.toHaveProperty("strokeColor");
     });
@@ -664,6 +661,8 @@ describe("schematic queries", () => {
       segments?: Schematic.Edge.Segmented.Segment[];
     }
     const asEdgeCfg = (raw: unknown): EdgeCfg | undefined => raw as EdgeCfg | undefined;
+    const setSegments = (segments: Schematic.Edge.Segmented.Segment[]) =>
+      schematic.set({ path: ["edges", "e1", "config", "segments"], value: segments });
 
     let schem: schematic.Schematic;
     let getEdgeCfg: () => EdgeCfg | undefined;
@@ -712,12 +711,7 @@ describe("schematic queries", () => {
     afterEach(() => cleanup());
 
     it("adjusts a connected edge's stored segments when its source node moves", async () => {
-      await dispatch(
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", segments: SEGMENTS },
-        }),
-      );
+      await dispatch(setSegments(SEGMENTS));
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
 
       await dispatch(
@@ -733,12 +727,7 @@ describe("schematic queries", () => {
     });
 
     it("writes only the segments of a connected edge", async () => {
-      await dispatch(
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", segments: SEGMENTS },
-        }),
-      );
+      await dispatch(setSegments(SEGMENTS));
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
       const send = spyOnSend(client);
       await dispatch(
@@ -749,28 +738,26 @@ describe("schematic queries", () => {
       expect(req).toMatchObject({
         actions: [
           { type: "set_node_position" },
-          { type: "set", set: { path: ["configs", "e1", "segments"] } },
+          { type: "set", set: { path: ["edges", "e1", "config", "segments"] } },
         ],
       });
     });
 
-    it("does not synthesize a setConfig when the edge has no stored segments", async () => {
-      expect(getEdgeCfg()).toBeUndefined();
-
+    it("writes no segments when the edge has no stored segments", async () => {
+      expect(getEdgeCfg()?.segments).toEqual([]);
+      const send = spyOnSend(client);
       await dispatch(
         schematic.setNodePosition({ key: "n1", position: { x: 20, y: 0 } }),
       );
       await waitFor(() => expect(getNode("n1")?.position).toEqual({ x: 20, y: 0 }));
-      expect(getEdgeCfg()).toBeUndefined();
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
+      expect(req).toMatchObject({ actions: [{ type: "set_node_position" }] });
+      expect(getEdgeCfg()?.segments).toEqual([]);
     });
 
     it("leaves edge segments alone when source and target move by equal deltas", async () => {
-      await dispatch(
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", segments: SEGMENTS },
-        }),
-      );
+      await dispatch(setSegments(SEGMENTS));
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
 
       // n1 at (0,0), n2 at (10,10). Shift both by (+20, +5).
@@ -787,15 +774,15 @@ describe("schematic queries", () => {
 
     it("preserves non-segment edge config fields when a connected node moves", async () => {
       await dispatch(
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", strokeColor: "#ff00ff", segments: SEGMENTS },
+        schematic.set({
+          path: ["edges", "e1", "config"],
+          value: pipe({ strokeColor: "#ff00ff", segments: SEGMENTS }),
         }),
       );
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          strokeColor: [255, 0, 255, 1],
+          strokeColor: [255, 0, 255, 255],
           segments: SEGMENTS,
         }),
       );
@@ -806,7 +793,7 @@ describe("schematic queries", () => {
       await waitFor(() => {
         const cfg = getEdgeCfg();
         expect(cfg?.variant).toBe("pipe");
-        expect(cfg?.strokeColor).toEqual([255, 0, 255, 1]);
+        expect(cfg?.strokeColor).toEqual([255, 0, 255, 255]);
         expect(cfg?.segments?.[0]).toEqual({ direction: "x", length: 30 });
       });
     });
@@ -865,12 +852,7 @@ describe("schematic queries", () => {
         { direction: "x", length: 50 },
       ];
 
-      await dispatch(
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", segments: longSegments },
-        }),
-      );
+      await dispatch(setSegments(longSegments));
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(longSegments));
 
       await dispatch(
@@ -897,11 +879,6 @@ describe("schematic queries", () => {
       });
       return out;
     };
-
-    interface GroupCfg {
-      variant?: string;
-      members?: string[];
-    }
 
     let schem: schematic.Schematic;
     let ScopedWrapper: FC<PropsWithChildren>;
@@ -934,9 +911,11 @@ describe("schematic queries", () => {
       expect(selection.slice(1)).toEqual(["n1", "n2"]);
       const groupKey = selection[0];
       await waitFor(() => {
-        const cfg = result.current.configs[groupKey] as GroupCfg | undefined;
-        expect(cfg?.variant).toEqual("group_box");
-        expect(cfg?.members).toEqual(["n1", "n2"]);
+        expect(result.current.configs[groupKey]?.variant).toEqual("group_box");
+        const parents = result.current.nodes
+          .filter((n) => n.key === "n1" || n.key === "n2")
+          .map((n) => n.parent);
+        expect(parents).toEqual([groupKey, groupKey]);
         const groupNode = result.current.nodes.find((n) => n.key === groupKey);
         expect(groupNode?.zIndex).toEqual(-1);
         expect(groupNode?.position).toEqual({ x: -20, y: -40 });
@@ -981,6 +960,7 @@ describe("schematic queries", () => {
       await waitFor(() => {
         expect(result.current.configs[groupKey]).toBeUndefined();
         expect(result.current.nodes.some((n) => n.key === groupKey)).toEqual(false);
+        expect(result.current.nodes.every((n) => n.parent == null)).toEqual(true);
       });
     });
 
@@ -1010,18 +990,22 @@ describe("schematic queries", () => {
       vi.restoreAllMocks();
     });
 
-    const renderForm = async (key: schematic.Key) =>
+    const renderForm = async (key: schematic.Key, elKey = "n1") =>
       await renderHookSuspended(
         ({ elKey }: { elKey: string }) => Schematic.useConfigForm({ key, elKey }),
-        { wrapper: Wrapper, initialProps: { elKey: "n1" } },
+        { wrapper: Wrapper, initialProps: { elKey } },
       );
 
     // A fresh client reads the Core. A streaming client's cache can lag a dispatch.
     const fetchStoredConfig = async (
       key: schematic.Key,
       elKey: string,
-    ): Promise<schematic.ElementConfig> =>
-      (await createTestClient().schematics.retrieve({ key })).configs[elKey];
+    ): Promise<schematic.ElementConfig> => {
+      const fresh = createTestClient();
+      return fresh.schematics.configsOf(await fresh.schematics.retrieve({ key }))[
+        elKey
+      ];
+    };
 
     it("should show the element's config", async () => {
       const schem = await createTestSchematic(proj.key);
@@ -1065,21 +1049,17 @@ describe("schematic queries", () => {
         project: proj.key,
         name: "edge_variants",
         nodes: [
-          { key: "n1", position: { x: 0, y: 0 } },
-          { key: "n2", position: { x: 10, y: 10 } },
+          { key: "n1", position: { x: 0, y: 0 }, config: { variant: "tank" } },
+          { key: "n2", position: { x: 10, y: 10 }, config: { variant: "tank" } },
         ],
         edges: [
           {
             key: "e1",
             source: { node: "n1", param: "out" },
             target: { node: "n2", param: "in" },
+            config: { variant: "pipe", segments: [] },
           },
         ],
-        configs: {
-          n1: { variant: "tank" },
-          n2: { variant: "tank" },
-          e1: { variant: "pipe", segments: [] },
-        },
       });
       const { result } = await renderHookSuspended(
         () => Schematic.useConfigForm({ key: schem.key, elKey: "e1" }),
@@ -1088,6 +1068,16 @@ describe("schematic queries", () => {
       act(() => result.current.form.set(element.variant, "electric"));
       act(() => result.current.form.set(element.variant, "secondary"));
       expect(result.current.form.get(element.variant).value).toBe("secondary");
+    });
+
+    it("should send a change of an edge's variant to the Core", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key, "e1");
+      act(() => result.current.form.set(element.variant, "electric"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "e1")).toMatchObject({
+        variant: "electric",
+      });
     });
 
     it("should send an edit as a path action into the element's config", async () => {
@@ -1102,12 +1092,37 @@ describe("schematic queries", () => {
         actions: [
           {
             type: "set",
-            set: { path: ["configs", "n1", "scale_visible"], value: true },
+            set: {
+              path: ["nodes", "n1", "config", "scale_visible"],
+              value: true,
+            },
           },
         ],
       });
       expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
         scaleVisible: true,
+      });
+    });
+
+    it("should send an edge edit as a path action into the edge's config", async () => {
+      const red: color.RGBA = [255, 0, 0, 1];
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key, "e1");
+      const send = spyOnSend(client);
+      act(() => result.current.form.set(pipePath.strokeColor, red));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
+      expect(req).toMatchObject({
+        actions: [
+          {
+            type: "set",
+            set: { path: ["edges", "e1", "config", "stroke_color"] },
+          },
+        ],
+      });
+      expect(await fetchStoredConfig(schem.key, "e1")).toMatchObject({
+        strokeColor: red,
       });
     });
 
@@ -1118,7 +1133,10 @@ describe("schematic queries", () => {
       await act(async () => {
         await remote.schematics.dispatch(
           schem.key,
-          schematic.set({ path: ["configs", "n1", "scaleVisible"], value: true }),
+          schematic.set({
+            path: ["nodes", "n1", "config", "scaleVisible"],
+            value: true,
+          }),
         );
       });
       await waitFor(() =>
@@ -1130,8 +1148,13 @@ describe("schematic queries", () => {
       const schem = await client.schematics.create({
         project: proj.key,
         name: "test_schematic",
-        nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
-        configs: { n1: { variant: "string_display" } },
+        nodes: [
+          {
+            key: "n1",
+            position: { x: 0, y: 0 },
+            config: { variant: "string_display" },
+          },
+        ],
       });
       const { result } = await renderForm(schem.key);
       act(() => result.current.form.set(display.tooltip[0], "line"));
@@ -1139,6 +1162,35 @@ describe("schematic queries", () => {
       expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
         tooltip: ["line"],
       });
+    });
+
+    it("should throw when the element is not in the schematic", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const Form = (): ReactElement => {
+        Schematic.useConfigForm({ key: schem.key, elKey: "ghost" });
+        return <div />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={null}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Form />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+          { onCaughtError: () => {} },
+        );
+      });
+      await waitFor(() =>
+        expect(utils.getByTestId("error").textContent).toBe(
+          "Schematic element ghost not found",
+        ),
+      );
     });
 
     it("should edit the new element when the element key changes", async () => {

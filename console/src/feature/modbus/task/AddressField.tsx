@@ -36,6 +36,7 @@ export const AddressField = ({
 }: AddressFieldProps): ReactElement => {
   const channel = Form.useFieldValue(path);
   const field = Form.useField(path.address);
+  Form.useStatusDisplay(path.address);
   const invalid = field.status.variant !== "success";
   const [lo, hi] = addressSpan(channel);
   return (

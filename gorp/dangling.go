@@ -118,7 +118,7 @@ func (t *Table[K, E]) dropAllDangling(
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	var dropped bool
 	for iter.First(); iter.Valid(); iter.Next() {
-		e := iter.Value(ctx)
+		e := iter.Value()
 		if err = iter.Error(); err != nil {
 			return err
 		}

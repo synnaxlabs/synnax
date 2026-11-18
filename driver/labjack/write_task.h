@@ -167,7 +167,9 @@ public:
     }
 
     /// @brief claims the device and pulls values to their initial state.
-    x::errors::Error start() override { return this->connect(); }
+    x::errors::Error start(const std::string &, x::breaker::Breaker &) override {
+        return this->connect();
+    }
 
     /// @brief releases the claim on the device.
     x::errors::Error stop() override {

@@ -19,7 +19,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -116,13 +116,6 @@ type ReadField struct {
 	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadField) ApplyDefaults() {
-	if r.DataType == "" {
-		r.DataType = "float64"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadField) SetDefaults() {
 	r.DataType = "float64"
@@ -145,6 +138,16 @@ func (r *ReadField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		r.SetDefaults()
 	}
 	return dec.Decode((*plain)(r))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadField) Validate() error {
+	v := validate.New("ReadField")
+	if r.TimeFormat != nil {
+		v.Ternaryf("time_format", !r.TimeFormat.IsValid(), "invalid time_format: %v", *r.TimeFormat)
+	}
+	return v.Error()
 }
 
 // BaseReadEntry carries the fields every read entry shares.
@@ -194,21 +197,14 @@ func (p *PlainReadEntry) SetDefaults() {
 	p.Qos = QoSAtMostOnce
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PlainReadEntry) ApplyDefaults() {
-	if p.Qos == "" {
-		p.Qos = QoSAtMostOnce
-	}
-	for i := range p.Fields {
-		p.Fields[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PlainReadEntry) Validate() error {
 	v := validate.New("PlainReadEntry")
 	v.Ternaryf("qos", !p.Qos.IsValid(), "invalid qos: %v", p.Qos)
+	for i := range p.Fields {
+		v.Exec(func() error { return validate.PathedError(p.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
+	}
 	return v.Error()
 }
 
@@ -236,13 +232,6 @@ func (SparkplugReadEntry) isReadEntryVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (s *SparkplugReadEntry) SetDefaults() {
 	s.DataType = "float64"
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SparkplugReadEntry) ApplyDefaults() {
-	if s.DataType == "" {
-		s.DataType = "float64"
-	}
 }
 
 // ReadEntry is a single source of an MQTT read task. The type field selects a plain
@@ -332,27 +321,16 @@ func (u ReadEntry) Type() ReadEntryType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadEntry) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case PlainReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SparkplugReadEntry:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u ReadEntry) Validate() error {
+	v := validate.New("ReadEntry")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case PlainReadEntry:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -390,13 +368,6 @@ type ReadConfig struct {
 	Entries []ReadEntry `json:"entries" msgpack:"entries"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (r *ReadConfig) ApplyDefaults() {
-	for i := range r.Entries {
-		r.Entries[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r ReadConfig) Validate() error {
@@ -429,16 +400,6 @@ type ChannelField struct {
 	EnumValues []payload.EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *ChannelField) ApplyDefaults() {
-	if c.JSONType == "" {
-		c.JSONType = payload.JSONTypeNumber
-	}
-	if c.DataType == "" {
-		c.DataType = "float64"
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (c *ChannelField) SetDefaults() {
 	c.JSONType = payload.JSONTypeNumber
@@ -469,6 +430,9 @@ func (c *ChannelField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (c ChannelField) Validate() error {
 	v := validate.New("ChannelField")
 	v.Ternaryf("json_type", !c.JSONType.IsValid(), "invalid json_type: %v", c.JSONType)
+	if c.TimeFormat != nil {
+		v.Ternaryf("time_format", !c.TimeFormat.IsValid(), "invalid time_format: %v", *c.TimeFormat)
+	}
 	return v.Error()
 }
 
@@ -512,13 +476,6 @@ func (s *StaticWriteField) SetDefaults() {
 	s.JSONType = payload.JSONTypeNumber
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StaticWriteField) ApplyDefaults() {
-	if s.JSONType == "" {
-		s.JSONType = payload.JSONTypeNumber
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (s StaticWriteField) Validate() error {
@@ -543,18 +500,14 @@ func (g *GeneratedWriteField) SetDefaults() {
 	g.Generator = payload.GeneratorTypeUUID
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (g *GeneratedWriteField) ApplyDefaults() {
-	if g.Generator == "" {
-		g.Generator = payload.GeneratorTypeUUID
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (g GeneratedWriteField) Validate() error {
 	v := validate.New("GeneratedWriteField")
 	v.Ternaryf("generator", !g.Generator.IsValid(), "invalid generator: %v", g.Generator)
+	if g.TimeFormat != nil {
+		v.Ternaryf("time_format", !g.TimeFormat.IsValid(), "invalid time_format: %v", *g.TimeFormat)
+	}
 	return v.Error()
 }
 
@@ -645,29 +598,18 @@ func (u WriteField) Type() WriteFieldType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteField) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case StaticWriteField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case GeneratedWriteField:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u WriteField) Validate() error {
+	v := validate.New("WriteField")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case StaticWriteField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case GeneratedWriteField:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -741,17 +683,6 @@ func (p *PlainWriteTarget) SetDefaults() {
 	p.Qos = QoSAtLeastOnce
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (p *PlainWriteTarget) ApplyDefaults() {
-	if p.Qos == "" {
-		p.Qos = QoSAtLeastOnce
-	}
-	p.Channel.ApplyDefaults()
-	for i := range p.Fields {
-		p.Fields[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p PlainWriteTarget) Validate() error {
@@ -788,13 +719,6 @@ func (SparkplugWriteTarget) isWriteTargetVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (s *SparkplugWriteTarget) SetDefaults() {
 	s.TagType = SparkplugDataTypeDouble
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *SparkplugWriteTarget) ApplyDefaults() {
-	if s.TagType == "" {
-		s.TagType = SparkplugDataTypeDouble
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -892,29 +816,18 @@ func (u WriteTarget) Type() WriteTargetType {
 	return ""
 }
 
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *WriteTarget) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case PlainWriteTarget:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case SparkplugWriteTarget:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if the active variant
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
 func (u WriteTarget) Validate() error {
+	v := validate.New("WriteTarget")
+	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case PlainWriteTarget:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	case SparkplugWriteTarget:
-		return variant.Validate()
+		v.Exec(variant.Validate)
 	}
-	return nil
+	return v.Error()
 }
 
 // Base returns the fields every variant shares, or the zero value if Variant is nil.
@@ -952,13 +865,6 @@ type WriteConfig struct {
 	Targets []WriteTarget `json:"targets" msgpack:"targets"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteConfig) ApplyDefaults() {
-	for i := range w.Targets {
-		w.Targets[i].ApplyDefaults()
-	}
-}
-
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (w WriteConfig) Validate() error {
@@ -972,11 +878,6 @@ func (w WriteConfig) Validate() error {
 // ScanConfig configures an MQTT scan task.
 type ScanConfig struct {
 	task.ScanConfig
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScanConfig) ApplyDefaults() {
-	s.ScanConfig.ApplyDefaults()
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -1031,13 +932,6 @@ type EdgeTag struct {
 	CommandChannelName *string `json:"command_channel_name,omitzero" msgpack:"command_channel_name,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EdgeTag) ApplyDefaults() {
-	if e.TagType == "" {
-		e.TagType = SparkplugDataTypeDouble
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (e *EdgeTag) SetDefaults() {
 	e.TagType = SparkplugDataTypeDouble
@@ -1085,13 +979,6 @@ type EdgeConfig struct {
 	Authority uint8 `json:"authority" msgpack:"authority"`
 	// Tags contains the tags the edge node publishes.
 	Tags []EdgeTag `json:"tags" msgpack:"tags"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EdgeConfig) ApplyDefaults() {
-	for i := range e.Tags {
-		e.Tags[i].ApplyDefaults()
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

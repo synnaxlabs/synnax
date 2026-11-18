@@ -7,16 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = [
-#     "boto3",
-#     "certifi>=2026.10.19",
-#     "PyJWT[crypto]>=2.10,<3",
-#     "synnax>=0.60,<0.61",
-# ]
-# ///
-
 """Polls GitHub and EC2 every --interval and writes the fleet's state to Synnax.
 Also runs the scaler, the gate, and the cost fetch, and creates every channel below
 plus the agents' channels, for each new runner too, unless --no-create-channels.
@@ -24,8 +14,9 @@ plus the agents' channels, for each new runner too, unless --no-create-channels.
 Per-runner channels, written on change:
 
     <runner>_gh            int8 on gh_time:
-                               -1  channel exists but GitHub no longer lists the runner
-                                0  offline
+                               -1  channel exists but neither GitHub nor EC2 lists the
+                                   runner
+                                0  offline, or deleted from GitHub by the scaler
                                 1  online and idle
                                 2  online and busy
     <runner>_ec2           bool on ec2_time: instance running
@@ -36,6 +27,19 @@ Per-runner channels, written on change:
     <runner>_ec2_cmd       bool on its own index, for dispatch.py
     <runner>_gh_cmd        same
     <runner>_gh_state      bool on gh_state_time: the last gh_cmd sent
+
+Pool channels (pools.py), int32, written on change. <pool> is one of ubuntu_build,
+ubuntu_test, win_build, win_test, macos_build, and total. On runner_pool_time:
+
+    runner_<pool>_queued      jobs waiting
+    runner_<pool>_busy        runners on a job
+    runner_<pool>_idle        runners online with no job
+    runner_<pool>_starting    instances on their way up
+    runner_<pool>_offline     the rest of the pool
+
+On runner_pool_wait_time:
+
+    runner_<pool>_queue_wait  seconds the oldest waiting job has waited
 
 Cost channels (cost.py), float32 on the cost_query_time index. The totals come
 from a fetch every 6 h; every channel is written each minute, with live runner rates:
@@ -60,14 +64,20 @@ Sums, errors, and month projections are calculated channels, see cost.calculated
 
 Job starts and finishes arrive as workflow_job webhooks on --webhook-port (9091),
 checked against GH_WEBHOOK_SECRET; steps are polled from five running runs per
-cycle, and the queue is rebuilt from the API every 5 minutes. Runner names persist
-in registry.json so a removed runner keeps reporting -1.
+cycle, and the queue is rebuilt from the API every 5 minutes. Runner names and labels
+persist in registry.json so a removed runner keeps reporting.
 
-Scaler (scaler.py): starts stopped runners when jobs queue in their pool, stops
-runners idle past --idle-cooldown (3 min). An offline runner on an instance up longer
-than --boot-grace (2 min) counts as idle. --scale sets the start state (enabled);
-runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the state,
-runner_scaler_log carries its log.
+Scaler (scaler.py): starts stopped runners when jobs queue in their pool, drains
+runners idle past --idle-cooldown (1 min), and once a drained runner is offline,
+deletes its GitHub registration and stops its instance. An offline runner counts as
+idle when it is drained or its instance is up longer than --boot-grace (4 min).
+--scale sets the start state (enabled); runner_scaler_cmd switches it at runtime,
+runner_scaler_enabled beats the state, runner_scaler_log carries its log.
+
+Seats (seats.py): starts a stopped agent or review seat when a job that asks for its
+labels queues, or when such a job waits FULL_AFTER while every up seat is busy, on a
+login it picks (logins.py). The scaler switch holds these starts too, and they log to
+runner_scaler_log.
 
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);
@@ -82,13 +92,15 @@ while the last 3 polls all failed), runner_controller_log (every line logged her
 Reads the GH_APP_ID, GH_APP_KEY, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see
 common.secret).
 Needs AWS credentials from the boto3 chain that may DescribeInstances, DescribeVolumes,
-cloudwatch:GetMetricData, ce:GetCostAndUsage, ce:GetCostForecast, pricing:GetProducts,
-and ssm:GetParameter on /runners/*.
+StartInstances and tag the seats, cloudwatch:GetMetricData, ce:GetCostAndUsage,
+ce:GetCostForecast, pricing:GetProducts, ssm:GetParameter on /runners/*,
+iam:GetRole on the seat role, and list and tag the logins in Secrets Manager.
 """
 
 import argparse
 import os
 from concurrent.futures import Future, ThreadPoolExecutor, wait as futures_wait
+from typing import Protocol
 
 import synnax as sy
 
@@ -100,12 +112,15 @@ from common import (
     OFFLINE,
     ChannelCreateError,
     Channels,
+    Streams,
+    Writes,
     add_connection_args,
     channel_name,
     command_channels,
     connect,
     ec2_channels,
     gh_channels,
+    instance_for,
     instance_status,
     parameter_store,
     seconds,
@@ -126,9 +141,20 @@ from github import GitHub
 from heartbeat import Heartbeat
 from jobs import Jobs
 from log import Log
+from logins import SEAT_ROLE, Logins
+from pools import (
+    POOL_INDEX,
+    WAIT_INDEX,
+    PoolReport,
+    count_channels,
+    pool_counts,
+    pool_waits,
+    wait_channels,
+)
 from publisher import Publisher, on_change
 from registry import RunnerRegistry
 from scaler import SCALER_CMD, SCALER_ENABLED, SCALER_LOG, Scaler
+from seats import FULL_AFTER, Seats
 from subscription import Subscription
 from uptime import Uptime
 from webhook import Webhook
@@ -152,6 +178,20 @@ def resolve(futures: list[Future]) -> list:
     return [f.result() for f in futures]
 
 
+def fleet_status(
+    listed: dict[str, int], *, labels: dict[str, set[str]], found: dict[str, dict]
+) -> dict[str, int]:
+    """The status GitHub lists for each runner, and offline for a runner GitHub does not
+    list that has an EC2 instance, such as one whose registration the scaler deleted."""
+    return {
+        r: OFFLINE for r in labels if instance_for(r, found=found) is not None
+    } | listed
+
+
+class Core(Writes, Streams, Protocol):
+    """The part of the Core that the controller writes and streams."""
+
+
 class Controller:
     """One poll cycle: fetch GitHub and EC2 concurrently, refresh channels when the
     runner set changes, publish status and events, and let the gate and the scaler
@@ -161,7 +201,7 @@ class Controller:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Core,
         channels: Channels,
         github: GitHub,
         aws: AWS,
@@ -169,6 +209,7 @@ class Controller:
         jobs: Jobs,
         cost: Cost,
         scaler: Scaler,
+        seats: Seats,
         gate: Gate,
         log: Log,
         webhook: Webhook,
@@ -180,12 +221,15 @@ class Controller:
         self.jobs = jobs
         self.cost = cost
         self.scaler = scaler
+        self.seats = seats
         self.gate = gate
         self.log = log
         self.webhook = webhook
         self.pool = ThreadPoolExecutor(8)
         self.gh_index = channels.index(GH_INDEX)
         self.ec2_index = channels.index(EC2_INDEX)
+        self.pools_index = channels.index(POOL_INDEX)
+        self.waits_index = channels.index(WAIT_INDEX)
         self.known: set[str] = set()
         self.cost_index = channels.index(QUERY_TIME)
         # What the writer carries, so a fetch that adds a type retargets first.
@@ -196,6 +240,7 @@ class Controller:
         )
         self.last_gh: dict[str, int] = {}
         self.last_ec2: dict[str, bool] = {}
+        self.pool_report = PoolReport(publisher=self.status)
         self.cost_pending: dict[str, float] = {}
         self.events = Events(
             client=client, channels=channels, runners=set(), report=log.error
@@ -207,9 +252,21 @@ class Controller:
             report=log.error,
         )
 
+    def start_seats(self, found: dict[str, dict]) -> None:
+        """Starts the seats that the queued jobs wait for, given the instances found."""
+        self.seats.step(
+            queued=[job.labels for job in self.jobs.queued.values()],
+            found=found,
+            enabled=self.scaler.enabled,
+            stuck=self.jobs.stuck(after=FULL_AFTER),
+            connected=self.gate.enabled,
+        )
+
     def cycle(self, timer: sy.Timer) -> None:
-        (status, labels), found = self.fetch()
-        self.runners.add(set(status))
+        (listed, labels), found = self.fetch()
+        self.runners.add(labels)
+        labels = self.runners.labels()
+        status = fleet_status(listed, labels=labels, found=found)
         cost = self.cost.step(
             sy.TimeStamp.now(), known=self.runners.snapshot(), found=found
         )
@@ -248,7 +305,7 @@ class Controller:
         self.events.write(events)
         self.gate.step(self.known)
         # A closed gate would disconnect whatever the scaler started.
-        self.scaler.step(
+        booting = self.scaler.step(
             known=self.known,
             status=status,
             labels=labels,
@@ -257,6 +314,16 @@ class Controller:
             running=set(self.jobs.active),
             # An unread queue looks empty, which would stop runners jobs wait for.
             stops=self.jobs.ready,
+        )
+        self.start_seats(found)
+        now = sy.TimeStamp.now()
+        self.pool_report.step(
+            ready=self.jobs.ready,
+            counts=pool_counts(
+                status=status, labels=labels, queued=queued, booting=booting
+            ),
+            waits=pool_waits(self.jobs.waits(now)),
+            now=now,
         )
         self.log(
             f"busy={counts.get(BUSY, 0)} "
@@ -290,6 +357,8 @@ class Controller:
             self.channels.calculated(name, expression=expression)
         self.uptime.retarget(self.known)
         self.channels.data(index=self.ec2_index, channels=ec2_channels(self.known))
+        self.channels.data(index=self.pools_index, channels=count_channels())
+        self.channels.data(index=self.waits_index, channels=wait_channels())
         for name in command_channels(self.known):
             index = self.channels.index(f"{name}_time")
             self.channels.data(index=index, channels={name: sy.DataType.BOOLEAN})
@@ -302,6 +371,10 @@ class Controller:
                 *ec2_channels(self.known),
                 QUERY_TIME,
                 *cost,
+                POOL_INDEX,
+                *count_channels(),
+                WAIT_INDEX,
+                *wait_channels(),
             ]
         )
         self.events.retarget(self.known)
@@ -380,13 +453,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--idle-cooldown",
         type=seconds,
-        default=3 * sy.TimeSpan.MINUTE,
+        default=1 * sy.TimeSpan.MINUTE,
         help="idle seconds before the scaler stops a runner",
     )
     p.add_argument(
         "--boot-grace",
         type=seconds,
-        default=2 * sy.TimeSpan.MINUTE,
+        default=4 * sy.TimeSpan.MINUTE,
         help="seconds after launch before an offline runner counts as idle",
     )
     p.add_argument(
@@ -420,18 +493,21 @@ def main() -> None:
         index=channels.index(f"{GATE_CMD}_time"),
         channels={GATE_CMD: sy.DataType.BOOLEAN},
     )
-    scaler = Scaler(
-        client=client,
-        cooldown=args.idle_cooldown,
-        boot_grace=args.boot_grace,
-        log=Log(client=client, channels=channels, channel=SCALER_LOG),
-        enabled=args.scale == "enabled",
-    )
     gate = Gate(
         client=client,
         channels=channels,
         log=Log(client=client, channels=channels, channel=GATE_LOG),
         enabled=args.gh == "enabled",
+    )
+    scaler_log = Log(client=client, channels=channels, channel=SCALER_LOG)
+    scaler = Scaler(
+        client=client,
+        cooldown=args.idle_cooldown,
+        boot_grace=args.boot_grace,
+        log=scaler_log,
+        gate=gate,
+        github=github,
+        enabled=args.scale == "enabled",
     )
     toggles: dict[str, Toggle] = {
         SCALER_CMD: (
@@ -465,7 +541,7 @@ def main() -> None:
     )
     aws = AWS()
     runners = RunnerRegistry()
-    runners.add(set(github.runner_status()[0]))
+    runners.add(github.runner_status()[1])
     cost = Cost(log=log, aws=aws)
     cost.create_state(client, known=runners.snapshot())
     resync_pool = ThreadPoolExecutor(1)
@@ -478,6 +554,14 @@ def main() -> None:
         jobs=Jobs(github=github, log=log, pool=resync_pool),
         cost=cost,
         scaler=scaler,
+        seats=Seats(
+            aws=aws,
+            logins=Logins(
+                secrets=aws.secrets,
+                role=aws.iam.get_role(RoleName=SEAT_ROLE)["Role"]["RoleId"],
+            ),
+            log=scaler_log,
+        ),
         gate=gate,
         log=log,
         webhook=webhook,

@@ -21,12 +21,23 @@ from synnax.resource import ID
 from x import color as color_, filter, telem
 from x.filter import shorthand
 
+STAGE_TO_DO: Literal["to_do"] = "to_do"
+
+STAGE_IN_PROGRESS: Literal["in_progress"] = "in_progress"
+
+STAGE_COMPLETED: Literal["completed"] = "completed"
+
+
+Stage = Literal["to_do", "in_progress", "completed"]
+
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
 ORDER_FIELD_TIME_RANGE_START: Literal["time_range_start"] = "time_range_start"
 
+ORDER_FIELD_TIME_RANGE_END: Literal["time_range_end"] = "time_range_end"
 
-OrderField = Literal["name", "time_range_start"]
+
+OrderField = Literal["name", "time_range_start", "time_range_end"]
 
 Key: TypeAlias = UUID
 
@@ -57,6 +68,8 @@ class Payload(BaseModel):
         labels: Are the keys of the labels attached to the range.
         parent: Is the key of the range this range is nested in. Empty for a top-level
             range.
+        has_children: Is true when a range is nested in the range, derived on read and
+            not persisted.
     """
 
     key: Key
@@ -65,6 +78,7 @@ class Payload(BaseModel):
     color: color_.Color | None = None
     labels: list[label.Key] = Field(default_factory=list)
     parent: Key | None = None
+    has_children: bool = False
 
     @_override
     def __hash__(self) -> int:
@@ -83,6 +97,11 @@ class Where(BaseModel):
         overlaps: Matches ranges whose time range overlaps the given range.
         labels: Matches ranges that have any of the given labels.
         parents: Matches the ranges nested in any of the given ranges.
+        nested: Matches the ranges nested in a range, or top-level ranges when false.
+        labeled: Matches ranges that have a label, or ranges with none when false.
+        stages: Matches ranges in any of the given stages at the Core's clock.
+        recent: Matches ranges that overlap the span ending now, or starting now if
+            negative.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -95,8 +114,14 @@ class Where(BaseModel):
     overlaps: telem.TimeRange | None = None
     labels: list[label.Key] | None = None
     parents: list[Key] | None = None
+    nested: bool | None = None
+    labeled: bool | None = None
+    stages: list[Stage] | None = None
+    recent: telem.TimeSpan | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
 
-    @field_validator("labels", "parents", mode="before")
+    @field_validator("labels", "parents", "stages", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -115,6 +140,10 @@ WhereInput = TypedDict(
         "overlaps": telem.TimeRange,
         "labels": label.Key | list[label.Key],
         "parents": Key | list[Key],
+        "nested": bool,
+        "labeled": bool,
+        "stages": Stage | list[Stage],
+        "recent": telem.TimeSpan,
     },
     total=False,
 )
@@ -128,11 +157,16 @@ class Cursor(BaseModel):
         name: Is the name of the range at the position, when the order sorts by it.
         time_range_start: Is the time range start of the range at the position, when the
             order sorts by it.
+        time_range_end: Is the time range end of the range at the position, when the
+            order sorts by it.
     """
 
     key: Key
     name: str | None = None
     time_range_start: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+    time_range_end: telem.TimeStamp | None = Field(
         default=None, ge=-9223372036854775808, le=9223372036854775807
     )
 

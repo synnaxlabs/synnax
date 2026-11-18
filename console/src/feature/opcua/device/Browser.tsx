@@ -26,10 +26,17 @@ import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax } from "@synnaxlabs/pluto";
 import { array, type optional } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, useEffect, useState } from "react";
+import {
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactElement,
+  useEffect,
+  useState,
+} from "react";
 
 import { Details } from "@/feature/opcua/device/Details";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
+import { HaulPreview, resolveIcon } from "@/feature/opcua/device/HaulPreview";
 import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
 import {
@@ -40,18 +47,12 @@ import {
   type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
+import { Section } from "@/platform/section";
 
 /** A node in the browser, with the error of its last browse. */
 interface BrowserNode extends ScannedNode {
   error?: string;
 }
-
-const ICONS: Record<string, ReactElement> = {
-  VariableType: <Icon.Type />,
-  Variable: <Icon.Variable />,
-  ObjectType: <Icon.Type />,
-  Object: <Icon.Group />,
-};
 
 // A node can sit under more than one parent, so its key names the parent too.
 const nodeKey = (node: ScannedNode, parent?: ScannedNode): string =>
@@ -61,10 +62,6 @@ export interface BrowserProps {
   device: Device;
 }
 
-const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
-  bottomRight: Icon.Array,
-});
-
 const NodeItem = (props: Tree.ItemRenderProps<string>) => {
   const node = List.useItem<string, BrowserNode>(props.itemKey);
   const { getState } = Select.useContext<string>();
@@ -73,16 +70,18 @@ const NodeItem = (props: Tree.ItemRenderProps<string>) => {
     type: HAUL_TYPE,
     key: node?.key,
   });
-  const handleDragStart = () => {
-    if (node == null) return;
-    const selected = array.toArray(getState().value);
-    if (getItem != null && selected.includes(props.itemKey)) {
-      const nodes = getItem(selected);
-      startDrag(nodes.map(createHaulItem));
-    } else startDrag([createHaulItem(node)]);
-  };
   if (node == null) return null;
-  const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];
+  const handleDragStart = (event: DragEvent<HTMLElement>) => {
+    const selected = array.toArray(getState().value);
+    const nodes =
+      getItem != null && selected.includes(props.itemKey) ? getItem(selected) : [node];
+    startDrag({
+      event,
+      items: nodes.map(createHaulItem),
+      preview: <HaulPreview node={node} count={nodes.length} />,
+    });
+  };
+  const icon = resolveIcon(node);
   return (
     <Tree.Item {...props} draggable onDragStart={handleDragStart}>
       <Text.Text color={10} gap="small">
@@ -317,7 +316,7 @@ export const Browser = ({ device }: BrowserProps) => {
     );
   return (
     <Flex.Box empty className={CSS.B("opc-browser")}>
-      <Header.Header>
+      <Section.Header>
         <Header.Title weight={500} color={10}>
           Browser
         </Header.Title>
@@ -332,7 +331,7 @@ export const Browser = ({ device }: BrowserProps) => {
             <Icon.Refresh />
           </Button.Button>
         </Header.Actions>
-      </Header.Header>
+      </Section.Header>
       <Input.Text
         size="small"
         variant="text"

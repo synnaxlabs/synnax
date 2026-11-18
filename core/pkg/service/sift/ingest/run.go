@@ -73,7 +73,7 @@ func (e *Engine) putRun(ctx context.Context, r Run, create bool) (string, error)
 		return "", validate.Errorf("run key %q is not a UUID", r.Key)
 	}
 	key := xuuid.NewV5(rng, e.cfg.Asset).String()
-	brk, err := breaker.NewBreaker(ctx, e.cfg.Retry)
+	brk, err := breaker.NewBreaker(e.cfg.Retry)
 	if err != nil {
 		return "", err
 	}
@@ -90,7 +90,7 @@ func (e *Engine) putRun(ctx context.Context, r Run, create bool) (string, error)
 			return "", err
 		}
 		e.cfg.OnRunRetry(ctx, err)
-		if !brk.Wait() {
+		if !brk.Wait(ctx) {
 			if ctx.Err() != nil {
 				return "", ctx.Err()
 			}

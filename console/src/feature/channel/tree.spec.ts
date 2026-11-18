@@ -21,6 +21,7 @@ import { binary, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
+  render,
   type RenderOptions,
   screen,
   waitFor,
@@ -114,6 +115,30 @@ describe("channel/tree", () => {
       );
       expect(items).toHaveLength(1);
       expect(items[0].type).toBe("schematic-element");
+    });
+  });
+
+  describe("haulPreview", () => {
+    // The preview renders above every provider, so the spec renders it with none.
+    const factsOf = (ch: { key: channelClient.Key; name: string }): string | null => {
+      const resource = createResource(channelClient.resourceID(ch.key), ch.name);
+      const preview = Item.haulPreview({ resource, client, count: 1 });
+      const { container } = render(preview);
+      return container.querySelector(".lyra-haul-preview__facts")?.textContent ?? null;
+    };
+
+    it("previews a channel with its data type and index", async () => {
+      const index = await createChannel();
+      const ch = await createChannel({
+        dataType: DataType.FLOAT64,
+        isIndex: false,
+        index: index.key,
+      });
+      expect(factsOf(ch)).toBe(`float64·${index.name}`);
+    });
+
+    it("previews a channel missing from the cache by its type name", () => {
+      expect(factsOf({ key: 2 ** 20, name: "uncached" })).toBe("Channel");
     });
   });
 
@@ -266,9 +291,7 @@ describe("channel/tree", () => {
         expect(statuses).toContainEqual(
           expect.objectContaining({
             message: "Failed to delete channel",
-            description:
-              `cannot delete channel ${ch.name} because task ${task.name} uses it: ` +
-              "validation error",
+            description: `cannot delete channel ${ch.name} because task ${task.name} uses it`,
           }),
         ),
       );

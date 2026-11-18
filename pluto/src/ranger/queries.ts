@@ -7,8 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ranger } from "@synnaxlabs/client";
-import { deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
+import {
+  label,
+  query as clientQuery,
+  ranger,
+  type Synnax as SynnaxClient,
+} from "@synnaxlabs/client";
+import {
+  color,
+  type CrudeTimeRange,
+  deep,
+  destructor,
+  primitive,
+  TimeRange,
+  unique,
+  verbs,
+} from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -21,6 +35,7 @@ const PLURAL_RESOURCE_NAME = "ranges";
 const KV_RESOURCE_NAME = "metadata";
 const PLURAL_KV_RESOURCE_NAME = "metadata";
 const PARENT_RESOURCE_NAME = "parent range";
+const PLURAL_PARENT_RESOURCE_NAME = "parent ranges";
 
 export type RetrieveQuery = {
   key: ranger.Key;
@@ -36,7 +51,7 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => client?.ranges.onDelete((key) => onDelete(key)), [client]);
 };
 
-export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
+export const { useResult: useResultParent } = Flux.createRetrieve<
   RetrieveQuery,
   ranger.Range | null
 >({
@@ -47,6 +62,60 @@ export const { use: useParent, useResult: useResultParent } = Flux.createRetriev
     client.ranges.parent.watch(key).onChange(handler),
   getCached: ({ client, query: { key } }) =>
     client.ranges.parent.watch(key).getCached(),
+});
+
+export type AncestorsQuery = {
+  keys: ranger.Key[];
+};
+
+type Links = Record<ranger.Key, ranger.Key | null>;
+
+/** Adds the parent of each range to links, and returns the keys above that it lacks. */
+const link = (links: Links, ranges: ranger.Range[]): ranger.Key[] => {
+  ranges.forEach(({ key, parent }) => (links[key] = parent ?? null));
+  return unique.unique(
+    ranges.flatMap(({ parent }) => (parent == null || parent in links ? [] : [parent])),
+  );
+};
+
+const getCachedAncestors = (
+  client: SynnaxClient,
+  keys: ranger.Key[],
+): Links | undefined => {
+  const links: Links = {};
+  let level = keys;
+  while (level.length > 0) {
+    const ranges = client.ranges.watch(level).getCached();
+    if (!clientQuery.isLive(ranges)) return undefined;
+    level = link(links, ranges);
+  }
+  return links;
+};
+
+/**
+ * The parent of each of the ranges and of each range above them: a key maps to the key
+ * of its parent, or to null at the top. A move of one of them updates the answer.
+ */
+export const { useResult: useResultAncestors } = Flux.createRetrieve<
+  AncestorsQuery,
+  Links
+>({
+  name: PLURAL_PARENT_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys } }) => {
+    const links: Links = {};
+    let level = keys;
+    while (level.length > 0) level = link(links, await client.ranges.retrieve(level));
+    return links;
+  },
+  onChange: ({ client, query: { keys } }, handler) => {
+    const notify = () => handler(getCachedAncestors(client, keys));
+    const offSet = client.ranges.onSet(notify);
+    const offDelete = client.ranges.onDelete(notify);
+    return () => destructor.unwind(offSet, offDelete);
+  },
+  getCached: ({ client, query: { keys } }) => getCachedAncestors(client, keys),
+  // Each read builds new links, so equal links keep the answer.
+  equal: deep.equal,
 });
 
 export const { use, useEnsure, useTombstone, createSelector, useResult } =
@@ -81,7 +150,7 @@ const timeRangeZ = z
   });
 
 export const createFormSchema = z.object({
-  ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
+  ...ranger.newZ.omit({ timeRange: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
   timeRange: timeRangeZ,
@@ -162,7 +231,9 @@ export const { useResult: useResultMetaData } = Flux.createRetrieve<
     client.ranges.kv.watch(rangeKey).getCached(),
 });
 
-export const kvPairFormSchema = ranger.kv.pairZ;
+export const kvPairFormSchema = ranger.kv.pairZ.extend({
+  key: z.string().trim().min(1, "Key is required"),
+});
 
 export const kvPairFormPath = deep.path<z.infer<typeof kvPairFormSchema>>();
 
@@ -178,7 +249,8 @@ export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema
   schema: kvPairFormSchema,
   initialValues: ZERO_KV_PAIR_FORM_VALUES,
   update: async ({ client, value: getPair }) => {
-    const { key, value, range } = getPair();
+    // The form holds the text as typed, so the schema trims it.
+    const { key, value, range } = kvPairFormSchema.parse(getPair());
     await client.ranges.getKV(range).set(key, value);
   },
 });
@@ -246,18 +318,52 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export interface SetTimeRangeParams {
   key: ranger.Key;
-  timeRange: NumericTimeRange;
+  timeRange: CrudeTimeRange;
 }
 
 export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangeParams>({
   name: RESOURCE_NAME,
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
-    const { key, timeRange } = data;
+    const { start, end } = new TimeRange(data.timeRange);
+    // Bigints keep each stamp exact. A number rounds it by up to 128 ns.
+    const value = { start: start.valueOf(), end: end.valueOf() };
+    await client.ranges.dispatch(data.key, ranger.set({ path: ["timeRange"], value }));
+    return data;
+  },
+});
+
+export interface SetColorParams {
+  key: ranger.Key;
+  /** The color of the range. Undefined clears it. */
+  color?: color.Color;
+}
+
+export const { useUpdate: useSetColor } = Flux.createUpdate<SetColorParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, color: value } = data;
     await client.ranges.dispatch(
       key,
-      ranger.set({ path: ["timeRange"], value: timeRange }),
+      ranger.set({ path: ["color"], value: value == null ? null : color.hex(value) }),
     );
+    return data;
+  },
+});
+
+export interface SetParentParams {
+  key: ranger.Key;
+  /** The key of the new parent. Null makes the range a top-level range. */
+  parent: ranger.Key | null;
+}
+
+export const { useUpdate: useSetParent } = Flux.createUpdate<SetParentParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, parent } = data;
+    await client.ranges.dispatch(key, ranger.set({ path: ["parent"], value: parent }));
     return data;
   },
 });

@@ -12,6 +12,7 @@ package v2_test
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"io/fs"
 	"os"
 	"reflect"
 	"uuid"
@@ -25,7 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -41,12 +42,14 @@ import (
 // envelope-level Key and Name; the whole object is also handed through as the raw Data
 // blob, so any envelope-only keys (version, type) are simply ignored by the lenient v1
 // parse the way an unrecognized persisted field would be.
-func loadV55(path string) v0.Log {
+func loadV55(fixture string) v0.Log {
 	GinkgoHelper()
-	raw := MustSucceed(os.ReadFile(path))
+	raw := MustSucceed(fs.ReadFile(os.DirFS("../testdata"), fixture))
 	var m map[string]any
 	Expect(json.Unmarshal(raw, &m)).To(Succeed())
-	key := MustSucceed(uuid.Parse(m["key"].(string)))
+	rawKey, ok := m["key"].(string)
+	Expect(ok).To(BeTrue())
+	key := MustSucceed(uuid.Parse(rawKey))
 	name, _ := m["name"].(string)
 	return v0.Log{Key: key, Name: name, Data: m}
 }
@@ -274,7 +277,7 @@ var _ = Describe("MigrateLog", func() {
 	Describe("from testdata fixtures", func() {
 		It("Should fully migrate a well-formed v1 body", func(ctx SpecContext) {
 			out := MustSucceed(v2.MigrateLog(
-				ctx, loadV55("../testdata/import_v1.json"),
+				ctx, loadV55("import_v1.json"),
 			))
 			Expect(out.Name).To(Equal("Test Log V1"))
 			Expect(out.Channels).To(HaveLen(2))
@@ -296,7 +299,7 @@ var _ = Describe("MigrateLog", func() {
 			"Should default a malformed color hex to the zero color",
 			func(ctx SpecContext) {
 				out := MustSucceed(v2.MigrateLog(
-					ctx, loadV55("../testdata/import_invalid_color.json"),
+					ctx, loadV55("import_invalid_color.json"),
 				))
 				Expect(out.Name).To(Equal("Invalid Color"))
 				Expect(out.Channels).To(HaveLen(1))
@@ -309,7 +312,7 @@ var _ = Describe("MigrateLog", func() {
 			"Should lift a Console v0 body forward through the chain",
 			func(ctx SpecContext) {
 				out := MustSucceed(v2.MigrateLog(
-					ctx, loadV55("../testdata/import_v0.json"),
+					ctx, loadV55("import_v0.json"),
 				))
 				Expect(out.Name).To(Equal("Test Log V0"))
 				Expect(out.Channels).To(HaveLen(3))
@@ -327,12 +330,12 @@ var _ = Describe("MigrateLog", func() {
 			},
 			Entry(
 				"channels stored as a non-array",
-				"../testdata/import_bad_data.json",
+				"import_bad_data.json",
 				decodeError("/channels", reflect.TypeFor[[]legacy.ChannelEntry]()),
 			),
 			Entry(
 				"unsupported version stamp",
-				"../testdata/import_bad_version.json",
+				"import_bad_version.json",
 				MatchError(ContainSubstring("unknown log data version")),
 			),
 		)
@@ -343,6 +346,7 @@ var _ = Describe("MigrateLog", func() {
 			"Should re-encode and lift stored logs through the chain",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(db.Run)
 				stored := v0.Log{
 					Key:  uuid.New(),
 					Name: "chain-log",
@@ -391,6 +395,7 @@ var _ = Describe("Migration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := v0.Log{
 			Key:  uuid.New(),
 			Name: "unparseable",

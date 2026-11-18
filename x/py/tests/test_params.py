@@ -19,6 +19,7 @@ from x.exceptions import Error
 from x.params import deprecate_positional, require_named_params
 from x.telem import Density, MultiSeries, Rate, Series, Size, TimeRange, TimeSpan
 from x.telem.telem import convert_time_units
+from x.testutil import untyped
 from x.timing import Loop, poll, sleep
 
 
@@ -36,7 +37,7 @@ class TestRequireNamedParams:
             return "hello"
 
         with pytest.raises(TypeError, match="only accepts named") as exc:
-            greet("a", "b")  # type: ignore[call-arg]
+            untyped(greet)("a", "b")
         assert isinstance(exc.value, Error)
 
     def test_with_example_params(self) -> None:
@@ -45,31 +46,34 @@ class TestRequireNamedParams:
             return ""
 
         with pytest.raises(TypeError, match="user_id='12345'"):
-            lookup("a", "b")  # type: ignore[call-arg]
+            untyped(lookup)("a", "b")
 
     def test_non_positional_type_error_propagates(self) -> None:
         @require_named_params
         def bad(*, n: int) -> int:
-            return n + "oops"  # type: ignore[operator]
+            raise TypeError(f"unsupported operand: {n}")
 
         with pytest.raises(TypeError, match="unsupported operand"):
             bad(n=1)
 
 
 RELEASED_POSITIONAL_FORMS: dict[str, Callable[[], object]] = {
-    "Series": lambda: Series([1, 2], "float32"),  # type: ignore[call-arg]
-    "Series.to_numpy": lambda: Series([1, 2]).to_numpy(None, True),  # type: ignore[call-overload]
-    "MultiSeries.to_numpy": lambda: MultiSeries([Series([1])]).to_numpy(None, True),  # type: ignore[call-arg]
-    "Rate.byte_size": lambda: Rate(1).byte_size(TimeSpan.SECOND, Density.BIT64),  # type: ignore[call-arg]
-    "Rate.size_span": lambda: Rate(1).size_span(Size(64), Density.BIT64),  # type: ignore[call-arg]
-    "TimeRange.overlaps_with": lambda: TimeRange(start=0, end=10).overlaps_with(
-        TimeRange(start=5, end=15),
-        1,  # type: ignore[call-arg]
+    "Series": lambda: untyped(Series)([1, 2], "float32"),
+    "Series.to_numpy": lambda: untyped(Series([1, 2]).to_numpy)(None, True),
+    "MultiSeries.to_numpy": lambda: untyped(MultiSeries([Series([1])]).to_numpy)(
+        None, True
     ),
-    "convert_time_units": lambda: convert_time_units(np.array([1]), "s", "ms"),  # type: ignore[call-arg]
-    "sleep": lambda: sleep(0, False),  # type: ignore[call-arg]
-    "Loop": lambda: Loop(TimeSpan.MILLISECOND, False),  # type: ignore[call-arg]
-    "poll": lambda: poll(lambda: 1, TimeSpan.SECOND, TimeSpan.MILLISECOND),  # type: ignore[call-arg]
+    "Rate.byte_size": lambda: untyped(Rate(1).byte_size)(
+        TimeSpan.SECOND, Density.BIT64
+    ),
+    "Rate.size_span": lambda: untyped(Rate(1).size_span)(Size(64), Density.BIT64),
+    "TimeRange.overlaps_with": lambda: untyped(
+        TimeRange(start=0, end=10).overlaps_with
+    )(TimeRange(start=5, end=15), 1),
+    "convert_time_units": lambda: untyped(convert_time_units)(np.array([1]), "s", "ms"),
+    "sleep": lambda: untyped(sleep)(0, False),
+    "Loop": lambda: untyped(Loop)(TimeSpan.MILLISECOND, False),
+    "poll": lambda: untyped(poll)(lambda: 1, TimeSpan.SECOND, TimeSpan.MILLISECOND),
 }
 
 
@@ -90,9 +94,9 @@ class TestDeprecatePositional:
             return a, b, c
 
         with pytest.warns(DeprecationWarning, match="Passing b, c to .*f\\(\\)"):
-            assert f(1, 2, 3) == (1, 2, 3)  # type: ignore[call-arg]
+            assert untyped(f)(1, 2, 3) == (1, 2, 3)
         with pytest.warns(DeprecationWarning, match="Passing b to"):
-            assert f(1, 2, c=3) == (1, 2, 3)  # type: ignore[call-arg]
+            assert untyped(f)(1, 2, c=3) == (1, 2, 3)
 
     def test_too_many_positional_arguments_raise(self) -> None:
         @deprecate_positional("b")
@@ -100,7 +104,7 @@ class TestDeprecatePositional:
             return a + b
 
         with pytest.raises(TypeError, match="positional"):
-            f(1, 2, 3)  # type: ignore[call-arg]
+            untyped(f)(1, 2, 3)
 
     def test_positional_and_keyword_value_raise(self) -> None:
         @deprecate_positional("b")
@@ -111,7 +115,7 @@ class TestDeprecatePositional:
             pytest.warns(DeprecationWarning, match="Passing b"),
             pytest.raises(TypeError),
         ):
-            f(1, 2, b=2)  # type: ignore[misc]
+            untyped(f)(1, 2, b=2)
 
     def test_unknown_name_raises(self) -> None:
         with pytest.raises(ValueError, match="keyword-only"):
@@ -127,11 +131,11 @@ class TestDeprecatePositional:
 
         assert f("n") == ("n", "", 0)
         with pytest.warns(DeprecationWarning, match="Passing parent, name to"):
-            assert f("p", "n") == ("n", "p", 0)  # type: ignore[call-arg]
+            assert untyped(f)("p", "n") == ("n", "p", 0)
         with pytest.warns(DeprecationWarning, match="Passing parent, name, key to"):
-            assert f("p", "n", 1) == ("n", "p", 1)  # type: ignore[call-arg]
+            assert untyped(f)("p", "n", 1) == ("n", "p", 1)
         with pytest.warns(DeprecationWarning, match="Passing parent to"):
-            assert f("p", name="n") == ("n", "p", 0)  # type: ignore[misc]
+            assert untyped(f)("p", name="n") == ("n", "p", 0)
         assert f(name="n", parent="p") == ("n", "p", 0)
 
     def test_positional_name_without_keyword_only_name_raises(self) -> None:
@@ -149,9 +153,9 @@ class TestDeprecatePositional:
             return a, kwargs
 
         with pytest.warns(DeprecationWarning, match="Passing a, b to"):
-            assert f(None, 2) == (None, {"b": 2})  # type: ignore[call-arg]
+            assert untyped(f)(None, 2) == (None, {"b": 2})
         with pytest.warns(DeprecationWarning, match="Passing a, b to"):
-            assert f(1, None) == (1, {})  # type: ignore[call-arg]
+            assert untyped(f)(1, None) == (1, {})
 
     def test_unknown_name_without_kwargs_raises(self) -> None:
         with pytest.raises(ValueError, match="keyword-only"):
@@ -167,7 +171,7 @@ class TestDeprecatePositional:
 
         assert inspect.iscoroutinefunction(f)
         with pytest.warns(DeprecationWarning, match="Passing b"):
-            assert asyncio.run(f(1, 2)) == 3  # type: ignore[call-arg]
+            assert asyncio.run(untyped(f)(1, 2)) == 3
 
     @pytest.mark.parametrize(
         "call",

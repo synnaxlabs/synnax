@@ -33,7 +33,6 @@ var _ = Describe("Hash", func() {
 		write := func(h *content.Hash) {
 			h.String("a")
 			h.Bool(true)
-			h.Int(-3)
 			h.Uint(4)
 			h.Float(1.5)
 			h.Bytes([]byte{1, 2})

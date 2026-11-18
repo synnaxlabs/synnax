@@ -14,12 +14,23 @@ from typing import Any
 import synnax as sy
 
 from common import Channels
-from conftest import Client, core
+from conftest import Client
 from github import GitHub
-from jobs import Jobs
+from jobs import Jobs, Queued, completed_line, ref, started_line, step_events, view
 from log import Log
 
 LABELS = ["self-hosted", "ubuntu-test-bot"]
+CREATED = "2026-11-11T00:00:00Z"
+WAITING = Queued(
+    labels=set(LABELS), since=sy.TimeStamp(1_794_355_200 * sy.TimeSpan.SECOND)
+)
+
+
+def queued(id: int, *, labels: list[str] = LABELS, created: str = CREATED) -> dict:
+    return {
+        "action": "queued",
+        "workflow_job": {"id": id, "labels": labels, "created_at": created},
+    }
 
 
 class Responses(GitHub):
@@ -29,7 +40,7 @@ class Responses(GitHub):
         super().__init__("1", "")
         self.responses = responses
 
-    def get(self, path: str) -> dict:
+    def call(self, path: str, *, method: str = "GET") -> dict:
         return self.responses[path]
 
 
@@ -38,7 +49,7 @@ def runs(*ids: int) -> dict:
 
 
 def job(id: int, *, status: str) -> dict:
-    return {"id": id, "status": status, "labels": LABELS}
+    return {"id": id, "status": status, "labels": LABELS, "created_at": CREATED}
 
 
 def delivery(action: str, *, id: int) -> dict:
@@ -66,11 +77,11 @@ class Held(Executor):
         self.immediate = immediate
         self.pending: list[tuple[Future[Any], Callable[[], Any]]] = []
 
-    def submit(  # type: ignore[override]
-        self, fn: Callable[[], Any], /, *args: Any, **kwargs: Any
-    ) -> Future[Any]:
-        future: Future[Any] = Future()
-        self.pending.append((future, fn))
+    def submit[**P, T](
+        self, fn: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs
+    ) -> Future[T]:
+        future: Future[T] = Future()
+        self.pending.append((future, lambda: fn(*args, **kwargs)))
         if self.immediate:
             self.release()
         return future
@@ -83,8 +94,8 @@ class Held(Executor):
 
 def jobs(github: GitHub, *, client: Client, pool: Executor | None = None) -> Jobs:
     log = Log(
-        client=core(client),
-        channels=Channels(client=core(client), enabled=False),
+        client=client,
+        channels=Channels(client=client, enabled=False),
         channel="log",
     )
     return Jobs(github=github, log=log, pool=pool or Held())
@@ -97,11 +108,30 @@ class TestJobs:
         j = jobs(Responses({}), client=client)
         j.apply(
             [
-                {"action": "queued", "workflow_job": {"id": 1, "labels": LABELS}},
-                {"action": "queued", "workflow_job": {"id": 2, "labels": ["x"]}},
+                queued(1),
+                queued(2, labels=["x"]),
             ]
         )
         assert j.counts() == {"ubuntu-test-bot": 1}
+
+    def test_should_count_the_jobs_of_an_unscaled_pool(self, client: Client) -> None:
+        j = jobs(Responses({}), client=client)
+        j.apply([queued(1, labels=["self-hosted", "macos-build-bot"])])
+        assert j.counts() == {"macos-build-bot": 1}
+
+    def test_should_report_the_wait_of_the_oldest_job_per_pool(
+        self, client: Client
+    ) -> None:
+        j = jobs(Responses({}), client=client)
+        j.apply(
+            [
+                queued(1, created="2026-11-11T00:00:30Z"),
+                queued(2, created="2026-11-11T00:00:00Z"),
+                queued(3, labels=["x"]),
+            ]
+        )
+        now = WAITING.since + sy.TimeSpan.MINUTE
+        assert j.waits(now) == {"ubuntu-test-bot": 60}
 
     def test_should_rebuild_the_queue_from_in_progress_runs(
         self, client: Client
@@ -117,8 +147,29 @@ class TestJobs:
         )
         j = jobs(github, client=client)
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {2: set(LABELS)}
+        assert j.queued == {2: WAITING}
         assert j.counts() == {"ubuntu-test-bot": 1}
+
+    def test_should_count_as_stuck_only_long_waits_the_last_read_found(
+        self, client: Client
+    ) -> None:
+        github = Responses(
+            {
+                "/actions/runs?status=queued&per_page=100&page=1": runs(),
+                "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
+                "/actions/runs/7/jobs?per_page=100&page=1": {
+                    "jobs": [job(2, status="queued")]
+                },
+            }
+        )
+        after = 5 * sy.TimeSpan.MINUTE
+        late = jobs(github, client=client)
+        late.resync(WAITING.since + after)
+        late.apply([queued(1, labels=["self-hosted", "seat-claude-1"])])
+        assert late.stuck(after=after) == [set(LABELS)]
+        early = jobs(github, client=client)
+        early.resync(WAITING.since + sy.TimeSpan.MINUTE)
+        assert early.stuck(after=after) == []
 
     def test_should_keep_the_queue_until_the_resync_finishes(
         self, client: Client
@@ -134,13 +185,13 @@ class TestJobs:
         )
         pool = Held(immediate=False)
         j = jobs(github, client=client, pool=pool)
-        j.apply([{"action": "queued", "workflow_job": {"id": 1, "labels": LABELS}}])
+        j.apply([queued(1)])
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {1: set(LABELS)}
+        assert j.queued == {1: WAITING}
         assert not j.ready
         pool.release()
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {2: set(LABELS)}
+        assert j.queued == {2: WAITING}
         assert j.ready
 
     def test_should_keep_deliveries_that_arrive_during_a_resync(
@@ -160,13 +211,13 @@ class TestJobs:
         j.resync(sy.TimeStamp.now())
         j.apply(
             [
-                {"action": "queued", "workflow_job": {"id": 3, "labels": LABELS}},
+                queued(3),
                 delivery("in_progress", id=2),
             ]
         )
         pool.release()
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {3: set(LABELS)}
+        assert j.queued == {3: WAITING}
 
     def test_should_not_restore_a_job_that_finished_during_a_resync(
         self, client: Client
@@ -203,7 +254,7 @@ class TestJobs:
         )
         j = jobs(github, client=client)
         j.resync(sy.TimeStamp.now())
-        assert j.queued == {100: set(LABELS)}
+        assert j.queued == {100: WAITING}
 
     def test_should_restore_running_jobs_no_delivery_reported(
         self, client: Client
@@ -228,3 +279,65 @@ class TestJobs:
         j = jobs(Responses({}), client=client)
         j.apply([delivery("in_progress", id=2), delivery("completed", id=1)])
         assert j.active["runner"]["id"] == 2
+
+
+URL = "https://github.com/synnaxlabs/synnax/actions/runs/7/job/3"
+MERGE_QUEUE = "gh-readonly-queue/main/pr-5477-097af0cf39710cc05f8e65a521bcf9acbaab1e1f"
+
+
+def finished(conclusion: str, *, branch: str = "main") -> dict:
+    return delivery("completed", id=3)["workflow_job"] | {
+        "name": "Build (Windows)",
+        "html_url": URL,
+        "head_branch": branch,
+        "conclusion": conclusion,
+        "started_at": "2026-11-13T19:22:31Z",
+        "completed_at": "2026-11-13T19:28:10Z",
+    }
+
+
+class TestRef:
+    """Tests for the short name of the branch a job runs on."""
+
+    def test_should_name_the_pull_request_of_a_merge_queue_branch(self) -> None:
+        assert ref(MERGE_QUEUE) == "#5477"
+
+    def test_should_name_the_ticket_of_a_ticket_branch(self) -> None:
+        assert ref("sy-5823-runner-events") == "sy-5823"
+
+    def test_should_keep_any_other_branch(self) -> None:
+        assert ref("main") == "main"
+
+
+class TestEventLines:
+    """Tests for the text of the job and step lines."""
+
+    def test_should_name_the_job_and_its_url_when_it_starts(self) -> None:
+        line = started_line(view(finished("success", branch=MERGE_QUEUE)))
+        assert line == f"CI / Build (Windows) started  #5477  {URL}"
+
+    def test_should_leave_the_url_off_a_job_that_succeeded(self) -> None:
+        line = completed_line(finished("success", branch=MERGE_QUEUE))
+        assert line == "CI / Build (Windows) success 5m 39s  #5477"
+
+    def test_should_keep_the_url_on_a_job_that_did_not_succeed(self) -> None:
+        line = completed_line(finished("cancelled", branch=MERGE_QUEUE))
+        assert line == f"CI / Build (Windows) cancelled 5m 39s  #5477  {URL}"
+
+    def test_should_write_a_step_line_without_the_job(self) -> None:
+        running = {
+            "number": 1,
+            "name": "Build Core",
+            "status": "in_progress",
+            "conclusion": None,
+        }
+        done = running | {
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-11-13T19:22:39Z",
+            "completed_at": "2026-11-13T19:23:50Z",
+        }
+        assert step_events(before=[], after=[running]) == ["Build Core started"]
+        assert step_events(before=[running], after=[done]) == [
+            "Build Core success 1m 11s"
+        ]
