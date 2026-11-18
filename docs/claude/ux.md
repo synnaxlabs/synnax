@@ -417,9 +417,9 @@ bound, a log precision, or the line plot X channel.
 - An outlined group, such as a select in a form, keeps its outline at every step.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
-- A value in a list item or a property panel shows no caret, at rest, on hover, or while
-  open, so a `shadow` select has none. Selects in toolbars, forms, and settings always
-  show their caret. A select that shows only its icon has none.
+- A `shadow` select hides its caret at rest and shows it on hover, on focus, and while
+  open. The caret keeps its space while hidden, so the value never moves. A select that
+  shows only its icon has no caret.
 - An option with a description shows the icon beside the name and the description under
   the name, through `Select.ItemDescription`. The dropdown is wide enough for each
   description on one line. Only a narrow window wraps it, and it is never cut.
@@ -569,6 +569,10 @@ bound, a log precision, or the line plot X channel.
   none, it shows "Star a range to add it here". Recent sorts by end, newest first. A
   finished child of a running range shows in Recent with its muted parent, and nests
   under the parent when the parent ends.
+- Only the star and the Favorite menu item add a favorite. Plot, create, search, and
+  links never add one. The plot's Ranges picker searches every range, newest first, so
+  no range needs a star to be plotted. A range that has not started shows in the toolbar
+  only as a favorite.
 - The header holds the explorer, then + (the create form set to the last hour), then
   Start. + and Start are outlined `Toolbar.CreateAction` buttons. The toolbar has no
   active range, and new plots open on Rolling 30s.

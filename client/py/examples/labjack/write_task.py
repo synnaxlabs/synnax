@@ -24,6 +24,7 @@ Before running this example:
 This example controls an analog output (DAC0) and a digital output (FIO4).
 """
 
+import sys
 import time
 
 import synnax as sy
@@ -115,7 +116,7 @@ try:
     print("✓ Task configured successfully")
 except Exception as e:
     print(f"✗ Task configuration failed: {e}")
-    exit(1)
+    sys.exit(1)
 
 print("=" * 70)
 print("Starting LabJack Write Task")
