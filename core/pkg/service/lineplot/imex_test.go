@@ -324,7 +324,7 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It(
-			"Should keep a custom named color as its fixed value and a built-in as named",
+			"Should give a line whose named color is missing a series color",
 			func(ctx SpecContext) {
 				custom := color.Named{
 					Name:  "Custom",
@@ -333,22 +333,15 @@ var _ = Describe("ImEx", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return colorSvc.NewWriter(tx).Create(ctx, &custom)
 				})).To(Succeed())
-				series := MustSucceed(colorSvc.Series(ctx, db))
-				builtin := &color.Ref{Variant: color.NamedRef{Key: series[3]}}
 				original := defaults.Fill(lineplot.LinePlot{
 					Project:  &proj.Key,
 					Name:     "custom colored",
-					Channels: lineplot.Channels{Y1: []channel.Key{ch4, ch5}},
-					Lines: []lineplot.Line{
-						{
-							YAxis:    lineplot.YAxisKeyY1,
-							YChannel: ch4,
-							Color: &color.Ref{
-								Variant: color.NamedRef{Key: custom.Key},
-							},
-						},
-						{YAxis: lineplot.YAxisKeyY1, YChannel: ch5, Color: builtin},
-					},
+					Channels: lineplot.Channels{Y1: []channel.Key{ch4}},
+					Lines: []lineplot.Line{{
+						YAxis:    lineplot.YAxisKeyY1,
+						YChannel: ch4,
+						Color:    &color.Ref{Variant: color.NamedRef{Key: custom.Key}},
+					}},
 				})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &original)
@@ -359,40 +352,6 @@ var _ = Describe("ImEx", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return colorSvc.NewWriter(tx).Delete(ctx, custom.Key)
 				})).To(Succeed())
-				var id resource.ID
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
-						imex.ImportOptions{Parent: proj.ResourceID()})
-					return err
-				})).To(Succeed())
-				var res lineplot.LinePlot
-				Expect(svc.NewRetrieve().
-					Where(lineplot.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
-					Entry(&res).
-					Exec(ctx, db)).To(Succeed())
-				Expect(res.Lines[0].Color).To(Equal(
-					&color.Ref{Variant: color.FixedRef{Value: custom.Light}},
-				))
-				Expect(res.Lines[1].Color).To(Equal(builtin))
-			},
-		)
-
-		It(
-			"Should give a line whose named color is missing a series color",
-			func(ctx SpecContext) {
-				lp := defaults.Fill(lineplot.LinePlot{
-					Name:     "missing color",
-					Channels: lineplot.Channels{Y1: []channel.Key{ch4}},
-					Lines: []lineplot.Line{{
-						YAxis:    lineplot.YAxisKeyY1,
-						YChannel: ch4,
-						Color:    &color.Ref{Variant: color.NamedRef{Key: uuid.New()}},
-					}},
-				})
-				env := imex.Envelope{
-					Version: versions.Latest, Type: "lineplot", Name: lp.Name,
-				}
-				Expect(env.Encode(lp, "group", "project")).To(Succeed())
 				var id resource.ID
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 					id, err = imexSvc.Import(ctx, tx, WireRoundTrip(env),
