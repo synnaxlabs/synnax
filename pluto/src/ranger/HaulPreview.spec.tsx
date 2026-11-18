@@ -43,6 +43,16 @@ describe("Ranger.HaulPreview", () => {
     );
   });
 
+  it("should call a range with no start planned", () => {
+    const planned = createRange({
+      timeRange: { start: TimeStamp.MAX, end: TimeStamp.MAX },
+    });
+    const { container } = render(<Ranger.HaulPreview range={planned} />);
+    expect(container.querySelector(".lyra-haul-preview__facts")?.textContent).toBe(
+      "Planned",
+    );
+  });
+
   it("should fill the tile with the color of the range", () => {
     const { container } = render(
       <Ranger.HaulPreview range={createRange({ color: "#00ff00" })} />,

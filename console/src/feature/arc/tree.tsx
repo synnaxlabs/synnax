@@ -221,6 +221,7 @@ const ENTRY_TYPES = new Set<resource.Type>(["arc", "arc_directory"]);
 
 const DirectoryItem = Tree.createItem({
   icon: <Icon.Group />,
+  typeName: "Directory",
   folder: true,
   children: ({ client, id }) => [
     Tree.createSource(

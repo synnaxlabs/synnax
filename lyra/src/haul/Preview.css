@@ -108,7 +108,7 @@
     background: var(--pluto-primary-z);
     color: var(--pluto-text-on-primary);
     font-size: var(--pluto-tiny-size);
-    font-weight: 500;
+    font-weight: 400;
     line-height: 3.5rem;
     text-align: center;
     font-variant-numeric: tabular-nums;

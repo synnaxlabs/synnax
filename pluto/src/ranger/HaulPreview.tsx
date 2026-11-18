@@ -19,11 +19,18 @@ export interface HaulPreviewProps {
   count?: number;
 }
 
-/** The drag preview of a range: its color, name, start, and length. */
+/**
+ * The drag preview of a range: its color, name, start, and length. A planned range has
+ * no start, so it shows "Planned".
+ */
 export const HaulPreview = ({ range, count }: HaulPreviewProps): ReactElement => {
   const tr = new TimeRange(range.timeRange).makeValid();
-  const facts = [tr.start.toString("dateTime", "local")];
-  if (!tr.end.equals(TimeStamp.MAX)) facts.push(tr.span.toString("semantic"));
+  const facts: string[] = [];
+  if (tr.start.equals(TimeStamp.MAX)) facts.push("Planned");
+  else {
+    facts.push(tr.start.toString("dateTime", "local"));
+    if (!tr.end.equals(TimeStamp.MAX)) facts.push(tr.span.toString("semantic"));
+  }
   return (
     <Haul.Preview
       icon={<Icon.Range />}

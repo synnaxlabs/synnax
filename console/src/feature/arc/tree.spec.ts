@@ -86,6 +86,18 @@ describe("arc/tree", () => {
       expect(layer?.querySelector(".lyra-icon--module")).not.toBeNull();
       expect(layer?.textContent).toBe(`${mod.name}Arc`);
     });
+
+    it("should picture a directory with its type name", async () => {
+      const { root } = await createArcInDirectory();
+      const sub = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName("sub"),
+      });
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
+      fireEvent.dragStart(await findTreeRow(sub.name));
+      const layer = document.querySelector(".lyra-haul__layer");
+      expect(layer?.textContent).toBe(`${sub.name}Directory`);
+    });
   });
 
   describe("onSelect", () => {

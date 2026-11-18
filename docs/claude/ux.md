@@ -798,8 +798,8 @@ never so small that it is hard to read.
 
 - **Objects** use `Haul.Preview`: a tile, the name, then one line of facts. The frame
   stays the same, and each type fills the tile and the facts. A channel shows its data
-  type and index. A range shows its color, start, and length. Other tree resources show
-  their type name.
+  type and index. A range shows its color, start, and length, or "Planned" when it has
+  no start. Other tree resources show their type name.
 - **Colors** fill the tile: a swatch, a palette color, or a range with a color.
 - **Many objects** show the grabbed object's preview with two plates behind it and a
   count.
