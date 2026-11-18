@@ -102,26 +102,11 @@ updates:
       interval: monthly
     cooldown:
       default-days: 7
-    # These crates must match the minor version of their @tauri-apps package in the
-    # pnpm catalog, so only patches update here. A person bumps both sides together.
+    # Tauri crates must match the minor version of their @tauri-apps package in the
+    # pnpm catalog, so only patches update here. A dependency can still pull in a new
+    # minor, and the Tauri CLI then fails the build, so a person bumps both sides.
     ignore:
-      - dependency-name: tauri
-        update-types: [version-update:semver-major, version-update:semver-minor]
-      - dependency-name: tauri-plugin-deep-link
-        update-types: [version-update:semver-major, version-update:semver-minor]
-      - dependency-name: tauri-plugin-dialog
-        update-types: [version-update:semver-major, version-update:semver-minor]
-      - dependency-name: tauri-plugin-fs
-        update-types: [version-update:semver-major, version-update:semver-minor]
-      - dependency-name: tauri-plugin-os
-        update-types: [version-update:semver-major, version-update:semver-minor]
-      - dependency-name: tauri-plugin-process
-        update-types: [version-update:semver-major, version-update:semver-minor]
-      - dependency-name: tauri-plugin-shell
-        update-types: [version-update:semver-major, version-update:semver-minor]
-      - dependency-name: tauri-plugin-store
-        update-types: [version-update:semver-major, version-update:semver-minor]
-      - dependency-name: tauri-plugin-updater
+      - dependency-name: "tauri*"
         update-types: [version-update:semver-major, version-update:semver-minor]
     groups:
       rust:
