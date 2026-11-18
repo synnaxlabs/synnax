@@ -496,7 +496,15 @@ def _merge(
     found = join(found, lambda k, f: k.line == f.line and _alike(k.title, f.title))
     scored = [_score(r, caps) for r in reviews]
     lead = min(scored, key=lambda r: r.score)
-    fixed = {(x.path, x.title): x for r in reviews for x in r.fixed}
+    # A pass that reports a finding again outranks a pass that calls it fixed, even when
+    # a join renames the report.
+    again = {(f.path, f.title) for r in reviews for f in r.findings}
+    fixed = {
+        (x.path, x.title): x
+        for r in reviews
+        for x in r.fixed
+        if (x.path, x.title) not in again
+    }
     return replace(lead, findings=[f for _, f in found], fixed=list(fixed.values()))
 
 

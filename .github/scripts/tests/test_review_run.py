@@ -723,6 +723,15 @@ class TestLenses:
         _, (got, _) = self.lenses(races, edges)
         assert [f.title for f in got.fixed] == ["T", "U"]
 
+    def test_should_drop_a_fix_that_another_pass_reports_again(self) -> None:
+        races = FakeClaude(5, [at("P2", 10) | {"title": "T"}])
+        edges = FakeClaude(4, [at("P1", 10) | {"title": "T was renamed"}])
+        edges.out["structured_output"]["fixed"] = [
+            {"path": "a.go", "title": "T", "reason": "b.go locks it."}
+        ]
+        _, (got, _) = self.lenses(races, edges)
+        assert got.fixed == []
+
     def test_should_take_the_summary_of_the_pass_with_the_lowest_score(self) -> None:
         races = FakeClaude(5)
         races.out["structured_output"]["verdict"] = "From races."

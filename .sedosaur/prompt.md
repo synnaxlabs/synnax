@@ -89,7 +89,7 @@ and the bar for a finding stays the same.
 - Give a verdict on each earlier finding still open. When it still applies, report it
   again with its title. When the code fixed it, put its `path` and `title` in `fixed`,
   and in `reason` name the code that fixed it, in one sentence. The fix can be in a file
-  other than the finding's file.
+  other than the finding's file. Do not use `@` mentions in `reason`.
 
 ## Severity
 
