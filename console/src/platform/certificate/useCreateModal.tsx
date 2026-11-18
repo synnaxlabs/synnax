@@ -17,7 +17,6 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Certificate, Synnax } from "@synnaxlabs/pluto";
@@ -110,7 +109,6 @@ interface FileFieldsProps {
 
 const FileFields = ({ rack, picked, onPick }: FileFieldsProps): ReactElement => {
   const browse = FileBrowser.useModal();
-  const handleError = Status.useErrorHandler();
   const now = useNow(nextMinute);
   return (
     <>
@@ -124,13 +122,12 @@ const FileFields = ({ rack, picked, onPick }: FileFieldsProps): ReactElement => 
           const details = picked?.path === value ? picked.certificate : undefined;
           const validity =
             details == null ? null : Validity.describeDetails(details, now);
-          const handleBrowse = () =>
-            handleError(async () => {
-              const entry = await browse({ rack });
-              if (entry == null) return;
-              onPick(entry);
-              onChange(entry.path);
-            }, "Failed to browse files");
+          const handleBrowse = async () => {
+            const entry = await browse({ rack });
+            if (entry == null) return;
+            onPick(entry);
+            onChange(entry.path);
+          };
           return (
             <Flex.Box y gap="tiny" grow>
               <Flex.Box x gap="small" align="center">
@@ -145,7 +142,7 @@ const FileFields = ({ rack, picked, onPick }: FileFieldsProps): ReactElement => 
                 <Button.Button
                   variant="outlined"
                   tooltip="Browse"
-                  onClick={handleBrowse}
+                  onClick={() => void handleBrowse()}
                 >
                   <Icon.Folder />
                 </Button.Button>
