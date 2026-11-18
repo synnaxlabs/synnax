@@ -183,19 +183,17 @@ const Form: FC = () => {
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
   client,
-  deviceKey,
   deviceKeys,
   config,
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
-  const keys = deviceKeys ?? (deviceKey == null ? [] : [deviceKey]);
   if (config == null)
     cfg.channels =
-      keys.length === 0
+      deviceKeys.length === 0
         ? [createReadChannel([])]
         : await createSlaveChannels(
             client,
-            keys,
+            deviceKeys,
             "inputs",
             createSlaveReadChannel,
             createReadChannel([]),

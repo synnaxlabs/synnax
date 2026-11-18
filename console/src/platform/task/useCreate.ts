@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { array } from "@synnaxlabs/x";
 
 import { Panel } from "@/platform/panel";
 import { type GetInitialValues } from "@/platform/task/Form";
@@ -77,7 +78,7 @@ const create = async <S extends task.Schemas = task.Schemas>({
   } = await getInitialValues({
     client,
     deviceKey,
-    deviceKeys,
+    deviceKeys: array.toArray(deviceKeys ?? deviceKey),
     config,
   });
   return await client.tasks.create({ ...initial, rack: rackKey ?? initial.rack ?? 0 });
