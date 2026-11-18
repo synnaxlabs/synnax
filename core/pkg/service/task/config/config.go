@@ -68,8 +68,9 @@ type Store interface {
 		snap gorp.Snapshot,
 		key uuid.UUID,
 	) (msgpack.EncodedJSON, error)
-	// Hash returns the hash of the record stored under key, as Record.Hash does, or an
-	// error wrapping query.ErrNotFound when no record exists.
+	// Hash returns the hash of the record stored under key, as Record.Hash does, and of
+	// the referenced records that ServiceConfig.HashReferences reads through snap. It
+	// returns an error wrapping query.ErrNotFound when no record exists.
 	Hash(ctx context.Context, snap gorp.Snapshot, key uuid.UUID) (string, error)
 	// Delete removes the records stored under keys. Delete is idempotent.
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
@@ -101,6 +102,13 @@ type Store interface {
 	// a target from a record, with the key of the record. An error from the hook fails
 	// the delete. Set it before the store serves deletes.
 	OnDetach(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
+	// OnTargetSet sets the hook that runs in the transaction of each write that sets a
+	// record of one of HashedTables that a record uses, with the key of the record. An
+	// error from the hook fails the write. Set it before the store serves writes.
+	OnTargetSet(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
+	// HashedTables returns the names of the tables whose records Hash covers, as
+	// ServiceConfig.HashedTables does.
+	HashedTables() []string
 }
 
 // Decoded is a config blob in the current stored shape that is not yet checked against
@@ -156,6 +164,18 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// HashEntry writes the content of an entry to h.
 	// [REQUIRED]
 	HashEntry func(e *E, h *content.Hash)
+	// HashReferences writes to h the content of the records that e references and that
+	// change what its task runs, read through snap.
+	// [OPTIONAL] - nil when what the task runs depends on e alone.
+	HashReferences func(
+		ctx context.Context,
+		snap gorp.Snapshot,
+		e *E,
+		h *content.Hash,
+	) error
+	// HashedTables names the tables of the records that HashReferences reads.
+	// [REQUIRED] - when HashReferences is set, and empty otherwise.
+	HashedTables []string
 	// Migrations is the stored-shape migration chain for the record type. Empty for a
 	// type whose stored shape has never changed.
 	Migrations []gorp.Migration
@@ -203,6 +223,8 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.SetEntryKey = override.Nil(c.SetEntryKey, other.SetEntryKey)
 	c.PatchEntry = override.Nil(c.PatchEntry, other.PatchEntry)
 	c.HashEntry = override.Nil(c.HashEntry, other.HashEntry)
+	c.HashReferences = override.Nil(c.HashReferences, other.HashReferences)
+	c.HashedTables = override.Slice(c.HashedTables, other.HashedTables)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
 	c.References = override.Slice(c.References, other.References)
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
@@ -223,6 +245,11 @@ func (c ServiceConfig[E]) Validate() error {
 	v.NotNil("set_entry_key", c.SetEntryKey)
 	v.NotNil("patch_entry", c.PatchEntry)
 	v.NotNil("hash_entry", c.HashEntry)
+	v.Ternary(
+		"hashed_tables",
+		(c.HashReferences == nil) != (len(c.HashedTables) == 0),
+		"must be set exactly when hash_references is set",
+	)
 	v.NotNil("ladder.decode", c.Ladder.Decode)
 	return v.Error()
 }
@@ -234,6 +261,8 @@ type Service[E gorp.Entry[uuid.UUID]] struct {
 	table *gorp.Table[uuid.UUID, E]
 	// onDetach is nil until OnDetach sets it.
 	onDetach func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error
+	// onTargetSet is nil until OnTargetSet sets it.
+	onTargetSet func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error
 }
 
 // OpenService opens a Service for one task type. The service must be closed by
@@ -247,6 +276,13 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 		return nil, err
 	}
 	s := &Service[E]{cfg: cfg}
+	onTargetSet := make(
+		map[string]func(context.Context, gorp.Tx, E) error,
+		len(cfg.HashedTables),
+	)
+	for _, table := range cfg.HashedTables {
+		onTargetSet[table] = s.targetSet
+	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
 		DB:   cfg.DB,
 		Name: TableName(cfg.Type),
@@ -264,6 +300,7 @@ func OpenService[E gorp.Entry[uuid.UUID]](
 			}
 			return s.onDetach(ctx, tx, e.GorpKey())
 		},
+		OnTargetSet:     onTargetSet,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -444,7 +481,14 @@ func (s *Service[E]) Hash(
 	if err != nil {
 		return "", err
 	}
-	return s.hash(&e), nil
+	h := content.NewHash()
+	s.cfg.HashEntry(&e, &h)
+	if s.cfg.HashReferences != nil {
+		if err = s.cfg.HashReferences(ctx, snap, &e, &h); err != nil {
+			return "", err
+		}
+	}
+	return h.Sum(), nil
 }
 
 func encode[E any](e E) (msgpack.EncodedJSON, error) {
@@ -561,6 +605,23 @@ func (s *Service[E]) OnDetach(
 	hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error,
 ) {
 	s.onDetach = hook
+}
+
+// HashedTables implements Store.
+func (s *Service[E]) HashedTables() []string { return s.cfg.HashedTables }
+
+// OnTargetSet implements Store.
+func (s *Service[E]) OnTargetSet(
+	hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error,
+) {
+	s.onTargetSet = hook
+}
+
+func (s *Service[E]) targetSet(ctx context.Context, tx gorp.Tx, e E) error {
+	if s.onTargetSet == nil {
+		return nil
+	}
+	return s.onTargetSet(ctx, tx, e.GorpKey())
 }
 
 // Copy implements Store.

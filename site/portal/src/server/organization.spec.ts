@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { type Organization, organization } from "@/server/db/schema";
@@ -304,7 +305,7 @@ describe("organization", () => {
     });
 
     it("should return undefined for an unknown key", async () => {
-      expect(await retrieve(store, crypto.randomUUID())).toBeUndefined();
+      expect(await retrieve(store, uuid.create())).toBeUndefined();
     });
   });
 });

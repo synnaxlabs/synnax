@@ -39,6 +39,7 @@ cc_test(
         ":time",
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/loop",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/testutil:compile",
@@ -47,6 +48,7 @@ cc_test(
         "//client/cpp/testutil",
         "//x/cpp/mem",
         "//x/cpp/testutil",
+        "//x/cpp/thread/rt",
         "@googletest//:gtest_main",
     ],
 )

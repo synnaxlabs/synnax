@@ -33,7 +33,7 @@
               "offset": 0,
               "units": "",
               "pointer": "/v/x",
-              "type": "number"
+              "type": "float"
             }
           ]
         }

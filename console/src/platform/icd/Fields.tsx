@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/icd/Fields.css";
+
 import { type icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, type payload, type record, uuid } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { deep, payload, type record, uuid } from "@synnaxlabs/x";
+import { type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -100,11 +102,12 @@ const multiplexValues: Column<icd.BinaryField> = {
 
 const conversion = <F extends Field>(): Column<F>[] => [scale(), offset(), units()];
 
-type ValueType = "unsigned" | "signed" | "float";
+/** The kinds a binary field can hold. */
+type NumberKind = Extract<payload.Kind, "unsigned" | "integer" | "float">;
 
-const VALUE_TYPE_NAMES: Record<ValueType, string> = {
-  unsigned: "Unsigned",
-  signed: "Signed",
+const NUMBER_KIND_NAMES: Record<NumberKind, string> = {
+  unsigned: "Unsigned integer",
+  integer: "Signed integer",
   float: "Float",
 };
 
@@ -113,18 +116,21 @@ const BYTE_ORDER_NAMES: Record<icd.ByteOrder, string> = {
   big_endian: "Big endian",
 };
 
-const valueTypeOf = ({ signed, float }: icd.BinaryField): ValueType => {
-  if (float) return "float";
-  return signed ? "signed" : "unsigned";
-};
-
 /** A JSON field type, with a timestamp named by its format. */
-type JSONType = Exclude<icd.JSONFieldType, "timestamp"> | payload.TimeFormat;
+type JSONType = Exclude<payload.Kind, "timestamp"> | payload.TimeFormat;
+
+const isTimeFormat = (type: JSONType): type is payload.TimeFormat =>
+  payload.timeFormatZ.safeParse(type).success;
+
+const isNumberKind = (type: JSONType): type is NumberKind => type in NUMBER_KIND_NAMES;
 
 const JSON_TYPE_NAMES: Record<JSONType, string> = {
-  number: "Number",
+  ...NUMBER_KIND_NAMES,
   string: "String",
   boolean: "Boolean",
+  json: "JSON",
+  uuid: "UUID",
+  bytes: "Bytes (base64)",
   iso8601: "Timestamp (ISO 8601)",
   unix_sec: "Timestamp (s)",
   unix_ms: "Timestamp (ms)",
@@ -133,15 +139,19 @@ const JSON_TYPE_NAMES: Record<JSONType, string> = {
 };
 
 const jsonTypeOf = (field: icd.JSONField): JSONType =>
-  field.type === "timestamp" ? field.format : field.type;
+  field.type === "timestamp" ? field.timeFormat : field.type;
 
-/** Only a number field scales, so a new type drops the scale and offset. */
+/** Only a number field scales, so a field that stops being one drops its scaling. */
 const withJSONType = (field: icd.JSONField, type: JSONType): icd.JSONField => {
   const { key, name, pointer, units } = field;
   const base = { key, name, pointer, units, scale: 1, offset: 0 };
-  if (type === "number" || type === "string" || type === "boolean")
-    return { ...base, type };
-  return { ...base, type: "timestamp", format: type };
+  if (isTimeFormat(type)) return { ...base, type: "timestamp", timeFormat: type };
+  if (isNumberKind(type)) {
+    const { scale, offset, min, max } = field;
+    return { ...base, scale, offset, min, max, type, enumValues: [] };
+  }
+  if (type === "string" || type === "boolean") return { ...base, type, enumValues: [] };
+  return { ...base, type };
 };
 
 const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
@@ -172,8 +182,8 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       name: "Type",
       render: "type",
       width: 20,
-      get: valueTypeOf,
-      set: (f, cell) => ({ ...f, signed: cell === "signed", float: cell === "float" }),
+      get: ({ kind }) => kind,
+      set: (f, cell) => ({ ...f, kind: cell as NumberKind }),
     },
     ...conversion<icd.BinaryField>(),
     multiplexor,
@@ -220,7 +230,19 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
   ],
 };
 
+const createJSON = (name: string): icd.JSONField => ({
+  key: uuid.create(),
+  name,
+  scale: 1,
+  offset: 0,
+  units: "",
+  type: "float",
+  pointer: "",
+  enumValues: [],
+});
+
 const createField = (encoding: Encoding, name: string = ""): Field => {
+  if (encoding === "json") return createJSON(name);
   const base = { key: uuid.create(), name, scale: 1, offset: 0, units: "" };
   switch (encoding) {
     case "binary":
@@ -229,16 +251,13 @@ const createField = (encoding: Encoding, name: string = ""): Field => {
         startBit: 0,
         bitLength: 8,
         byteOrder: "little_endian",
-        signed: false,
-        float: false,
+        kind: "unsigned",
         multiplexValues: [],
       };
     case "delimited":
       return { ...base, encoding, position: 0 };
     case "tagged":
       return { ...base, encoding, tag: "" };
-    case "json":
-      return { ...base, type: "number", pointer: "" };
   }
 };
 
@@ -248,6 +267,10 @@ const uniqueFieldName = (names: string[]): string => {
   while (taken.has(`Field ${i}`)) i++;
   return `Field ${i}`;
 };
+
+/** @returns a float field that reads the whole document, named apart from taken. */
+export const createJSONField = (taken: string[]): icd.JSONField =>
+  createJSON(uniqueFieldName(taken));
 
 /**
  * Rebuilds the fields a grid shows from its rows. Each row updates the field at its
@@ -330,7 +353,7 @@ const renderColumn = (
     case "text":
       return <Input.TableColumn key={index} name={name} width={width} type="string" />;
     case "type":
-      return selectColumn(column, index, "type", VALUE_TYPE_NAMES);
+      return selectColumn(column, index, "type", NUMBER_KIND_NAMES);
     case "jsonType":
       return selectColumn(column, index, "type", JSON_TYPE_NAMES);
     case "byteOrder":
@@ -384,7 +407,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;
   return (
-    <Flex.Box y gap="small" className={CSS.BE("icd-editor", "fields")}>
+    <Flex.Box y gap="small" className={CSS.B("icd-fields")}>
       <Input.Table
         value={rows}
         onChange={handleChange}
@@ -400,5 +423,70 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         <Input.HelpText variant={status?.variant}>{helpText}</Input.HelpText>
       )}
     </Flex.Box>
+  );
+};
+
+export interface FieldsStatusProps {
+  /** The form path of the message's fields. */
+  path: deep.Target<unknown[]>;
+}
+
+/** Shows a problem with the fields of a message as a whole. */
+export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null => {
+  const status = Form.useStatuses(path).find(({ key }) => key === String(path));
+  if (status == null) return null;
+  return <Input.HelpText variant={status.variant}>{status.message}</Input.HelpText>;
+};
+
+const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
+
+export interface JSONFieldProps {
+  /** The form path of the field. */
+  path: deep.Path<icd.JSONField>;
+  /** Actions in the header of the field's section. */
+  actions?: ReactNode;
+}
+
+/** Edits one field of a JSON message: its name, pointer, type, and conversion. */
+export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
+  const { get, set, mode } = Form.useContext();
+  const field = Form.useFieldValue(path);
+  const type = jsonTypeOf(field);
+  const handleType = (next: JSONType) => {
+    if (next !== type) set(path, withJSONType(get(path).value, next));
+  };
+  return (
+    <Form.Section title="Field" actions={actions}>
+      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.pointer}
+        label="Pointer"
+        padHelpText={false}
+        inputProps={POINTER_INPUT_PROPS}
+      />
+      <Input.Item label="Type" padHelpText={false}>
+        <Select.Simple<JSONType>
+          resourceName="type"
+          value={type}
+          onChange={handleType}
+          variant="floating"
+          allowNone={false}
+          preview={mode === "preview"}
+        >
+          {Object.entries(JSON_TYPE_NAMES).map(([key, name]) => (
+            <Select.Item key={key} itemKey={key}>
+              {name}
+            </Select.Item>
+          ))}
+        </Select.Simple>
+      </Input.Item>
+      {isNumberKind(type) && (
+        <>
+          <Form.NumericField path={path.scale} label="Scale" padHelpText={false} />
+          <Form.NumericField path={path.offset} label="Offset" padHelpText={false} />
+        </>
+      )}
+      <Form.TextField path={path.units} label="Units" padHelpText={false} />
+    </Form.Section>
   );
 };
