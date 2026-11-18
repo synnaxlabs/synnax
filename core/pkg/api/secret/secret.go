@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
@@ -107,6 +108,8 @@ type Input struct {
 	Value string `json:"value" msgpack:"value"`
 	// FileName is the name of a file secret's file in the secrets folder of the rack.
 	FileName string `json:"file_name" msgpack:"file_name"`
+	// Rack is the rack that reads the file of a file secret.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Key selects the secret to replace. A zero key creates a new secret.
 	Key Key `json:"key" msgpack:"key"`
 }
@@ -116,18 +119,18 @@ func (in Input) secret() (Secret, error) {
 	v := validate.New("secret")
 	switch in.Source {
 	case secret.SourceStored:
-		if v.Ternary(
-			"file_name",
-			in.FileName != "",
-			"must be empty for a stored secret",
-		) {
-			return Secret{}, v.Error()
+		v.Ternary("file_name", in.FileName != "", "must be empty for a stored secret")
+		v.Ternary("rack", in.Rack != 0, "must be empty for a stored secret")
+		if err := v.Error(); err != nil {
+			return Secret{}, err
 		}
 		return Secret{Variant: secret.StoredSecret{Base: base}}, nil
 	case secret.SourceFile:
-		return Secret{
-			Variant: secret.FileSecret{Base: base, FileName: in.FileName},
-		}, nil
+		return Secret{Variant: secret.FileSecret{
+			Base:     base,
+			FileName: in.FileName,
+			Rack:     in.Rack,
+		}}, nil
 	}
 	v.Ternaryf("source", true, "must be stored or file, not %q", in.Source)
 	return Secret{}, v.Error()

@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -28,7 +27,7 @@ var _ = Describe("OpenService", func() {
 	It("Should open a service that stores and resolves secrets", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		r := rack.Key(1).ResourceID()
+		r := secrettestutil.CoreRack.ResourceID()
 		svc := secrettestutil.OpenService(ctx, db)
 		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "Key"}}}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
