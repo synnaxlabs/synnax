@@ -91,6 +91,8 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
   // the list.
   const hidden = [...keys, ...(nested.data ?? []).map((r) => r.key)];
   if (current != null) hidden.push(current);
+  // The Core returns nested ranges in no fixed order, and a new order is a new query.
+  hidden.sort();
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.ranges,
     {

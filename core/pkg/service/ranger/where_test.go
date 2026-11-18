@@ -213,6 +213,7 @@ var _ = Describe("Where", func() {
 		BeforeEach(func(ctx SpecContext) {
 			named = map[string]ranger.Key{}
 			create := func(name, parent string) {
+				GinkgoHelper()
 				r := ranger.Range{
 					Name:      name,
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
