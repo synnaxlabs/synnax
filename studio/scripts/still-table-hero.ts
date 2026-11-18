@@ -108,9 +108,9 @@ const COLUMNS = [200, 180, 90];
 const SECTION_HEIGHT = 48;
 const ROW_HEIGHT = 82;
 /** A gray that reads as a faint tint on both themes. */
-const SECTION_FILL = "#80808033";
+const SECTION_FILL = { type: "fixed", value: "#80808033" } as const;
 /** A gray legible on both themes, a step quieter than the labels. */
-const UNITS_COLOR = "#8a8f98";
+const UNITS_COLOR = { type: "fixed", value: "#8a8f98" } as const;
 
 type Cell = NonNullable<NonNullable<table.New["rows"]>[number]["cells"]>[number];
 type CellConfig = Cell["config"];
