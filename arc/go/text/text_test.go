@@ -11202,6 +11202,105 @@ var _ = Describe("Sequences and stages with parameters", func() {
 		}
 	})
 
+	DescribeTable(
+		"Should keep each argument in the dispatcher of a reassigned variable",
+		func(ctx SpecContext, declaration string) {
+			inter := analyze(ctx, declaration+`
+				start => scale(pressure, 3.0, valve)
+				start => scale(pressure, 5.0, valve_b)
+			`)
+			var gains, sources []float64
+			for _, n := range inter.Nodes {
+				if !strings.HasPrefix(n.Type, ir.DispatcherSyntheticPrefix) {
+					continue
+				}
+				gains = append(gains,
+					telem.CastNumeric[float64](MustBeOk(n.Inputs.Get("gain")).Value))
+				sources = append(sources,
+					telem.CastNumeric[float64](MustBeOk(n.Inputs.Get("src")).Value))
+				Expect(n.Channels.Read).To(HaveKey(uint32(102)))
+			}
+			Expect(gains).To(ConsistOf(3.0, 5.0))
+			Expect(sources).To(Equal([]float64{102, 102}))
+		},
+		Entry("of a sequence", `
+			sequence scale(src chan f64, gain f64, out chan f64) {
+				x := src * gain
+				stage first {
+					x -> out
+					start => next
+				}
+				stage second {
+					x = src * gain * 2.0
+					x -> out
+				}
+			}
+		`),
+		Entry("of a stage", `
+			stage scale(src chan f64, gain f64, out chan f64) {
+				x := src * gain
+				x = src * gain * 2.0
+				x -> out
+			}
+		`),
+	)
+
+	DescribeTable("Should compile a reassigned variable in a declaration with no call",
+		func(ctx SpecContext, declaration string) {
+			inter := analyze(ctx, declaration)
+			Expect(inter.Nodes).To(BeEmpty())
+		},
+		Entry("of a sequence", `
+			sequence scale(src chan f64, gain f64, out chan f64) {
+				x := src * gain
+				stage first {
+					x = src * gain * 2.0
+					x -> out
+				}
+			}
+		`),
+		Entry("of a stage", `
+			stage scale(src chan f64, gain f64, out chan f64) {
+				x := src * gain
+				x = src * gain * 2.0
+				x -> out
+			}
+		`),
+	)
+
+	DescribeTable("Should reject a change to a variable declared outside the body",
+		func(ctx SpecContext, outer, statement, message string) {
+			for _, take := range bodies("out chan f64", statement) {
+				parsed := MustSucceed(text.Parse(text.Text{Raw: outer + "\n" + take + `
+					start => take(valve)
+				`}))
+				_, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+				Expect(diagnostics.Errors()).To(HaveLen(1), take+diagnostics.String())
+				Expect(diagnostics.Errors()[0].Message).To(Equal(message), take)
+			}
+		},
+		Entry("a reassign of a variable that reads a channel",
+			"y := pressure * 2.0",
+			"y = pressure * 5.0\ny -> out",
+			"invalid assignment: cannot reassign top-level variable 'y'",
+		),
+		Entry("a rebind of a channel alias",
+			"y := valve_b",
+			"y = valve\n1.0 -> y",
+			"invalid assignment: cannot reassign top-level variable 'y'",
+		),
+		Entry("a write to a variable that reads a channel",
+			"y := pressure * 2.0",
+			"pressure * 5.0 -> y\ny -> out",
+			"read-only write: cannot write to channel-read variable y; it is read-only",
+		),
+		Entry("a write to a constant",
+			"k f64 := 1.0",
+			"2.0 -> k\nk -> out",
+			"invalid assignment: cannot reassign top-level variable 'k'",
+		),
+	)
+
 	It("Should jump from a sequence to the instance", func(ctx SpecContext) {
 		inter := analyze(ctx, declaration+`
 			sequence outer {

@@ -10692,6 +10692,148 @@ var _ = Describe("Sequence", func() {
 			Expect(lastF32(out, outB)).To(Equal(float32(16)))
 		})
 
+		// reassigned runs two calls and gives what each wrote before and after the
+		// gate.
+		reassigned := func(ctx SpecContext, source string) (before, after [2]float32) {
+			GinkgoHelper()
+			h := open(ctx, source)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+			level(h, ctx, 10)
+			out, _ := h.Flush()
+			before = [2]float32{lastF32(out, outA), lastF32(out, outB)}
+			trigger(h, ctx, gate)
+			h.Flush()
+			level(h, ctx, 20)
+			out, _ = h.Flush()
+			after = [2]float32{lastF32(out, outA), lastF32(out, outB)}
+			return before, after
+		}
+
+		DescribeTable("Should reassign a variable that reads a parameter of a sequence",
+			func(ctx SpecContext, source string, before, after [2]float32) {
+				gotBefore, gotAfter := reassigned(ctx, source)
+				Expect(gotBefore).To(Equal(before))
+				Expect(gotAfter).To(Equal(after))
+			},
+			Entry("a value parameter", `
+			sequence scale(gain f32, out chan f32) {
+			    x := tank * gain
+			    stage first {
+			        x -> out
+			        gate == 1 => next
+			    }
+			    stage second {
+			        x = tank * gain * 2
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(3, out_a)
+			start_b == 1 => scale(5, out_b)`,
+				[2]float32{30, 50}, [2]float32{120, 200},
+			),
+			Entry("a channel parameter", `
+			sequence scale(src chan f32, out chan f32) {
+			    x := src * 3
+			    stage first {
+			        x -> out
+			        gate == 1 => next
+			    }
+			    stage second {
+			        x = src * 6
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(tank, out_a)
+			start_b == 1 => scale(tank, out_b)`,
+				[2]float32{30, 30}, [2]float32{120, 120},
+			),
+			Entry("a channel parameter and a value parameter", `
+			sequence scale(src chan f32, gain f32, out chan f32) {
+			    x := src * gain
+			    stage first {
+			        x -> out
+			        gate == 1 => next
+			    }
+			    stage second {
+			        x = src * gain * 2
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(tank, 3, out_a)
+			start_b == 1 => scale(tank, 5, out_b)`,
+				[2]float32{30, 50}, [2]float32{120, 200},
+			),
+			Entry("a top-level constant as the argument", `
+			low f32 := 3
+			high f32 := 5
+			sequence scale(gain f32, out chan f32) {
+			    x := tank * gain
+			    stage first {
+			        x -> out
+			        gate == 1 => next
+			    }
+			    stage second {
+			        x = tank * gain * 2
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(low, out_a)
+			start_b == 1 => scale(high, out_b)`,
+				[2]float32{30, 50}, [2]float32{120, 200},
+			),
+			Entry("a variable of one stage", `
+			sequence scale(src chan f32, gain f32, out chan f32) {
+			    stage first {
+			        x := src * gain
+			        x = src * gain * 2
+			        x -> out
+			    }
+			}
+			start_a == 1 => scale(tank, 3, out_a)
+			start_b == 1 => scale(tank, 5, out_b)`,
+				[2]float32{60, 100}, [2]float32{120, 200},
+			),
+		)
+
+		DescribeTable("Should reassign a variable that reads a parameter of a stage",
+			func(ctx SpecContext, source string, before, after [2]float32) {
+				gotBefore, gotAfter := reassigned(ctx, source)
+				Expect(gotBefore).To(Equal(before))
+				Expect(gotAfter).To(Equal(after))
+			},
+			Entry("a value parameter", `
+			stage scale(gain f32, out chan f32) {
+			    x := tank * gain
+			    x = tank * gain * 2
+			    x -> out
+			}
+			start_a == 1 => scale(3, out_a)
+			start_b == 1 => scale(5, out_b)`,
+				[2]float32{60, 100}, [2]float32{120, 200},
+			),
+			Entry("a channel parameter", `
+			stage scale(src chan f32, out chan f32) {
+			    x := src * 3
+			    x = src * 6
+			    x -> out
+			}
+			start_a == 1 => scale(tank, out_a)
+			start_b == 1 => scale(tank, out_b)`,
+				[2]float32{60, 60}, [2]float32{120, 120},
+			),
+			Entry("a channel parameter and a value parameter", `
+			stage scale(src chan f32, gain f32, out chan f32) {
+			    x := src * gain
+			    x = src * gain * 2
+			    x -> out
+			}
+			start_a == 1 => scale(tank, 3, out_a)
+			start_b == 1 => scale(tank, 5, out_b)`,
+				[2]float32{60, 100}, [2]float32{120, 200},
+			),
+		)
+
 		It("Should keep an inline body in its own instance", func(ctx SpecContext) {
 			h := open(ctx, `
 			sequence watch(limit f32, valve chan u8) {

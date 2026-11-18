@@ -4824,6 +4824,32 @@ std::vector<std::string> bodies(const std::string &params, const std::string &bo
     };
 }
 
+/// @brief what two calls wrote to out_a and out_b before and after the gate.
+struct Reassigned {
+    std::vector<float> before;
+    std::vector<float> after;
+};
+
+/// @brief runs two calls of a body that reassigns a variable.
+Reassigned reassigned(const std::string &source) {
+    auto h = new_h(source);
+    h.trigger("start_a");
+    h.trigger("start_b");
+    level(h, 10);
+    const auto first = h.flush();
+    Reassigned r;
+    r.before = {last<float>(first, h.key("out_a")), last<float>(first, h.key("out_b"))};
+    h.trigger("gate");
+    (void) h.flush();
+    level(h, 20);
+    const auto second = h.flush();
+    r.after = {
+        last<float>(second, h.key("out_a")),
+        last<float>(second, h.key("out_b"))
+    };
+    return r;
+}
+
 /// @brief an authority change that a spec expects, with no channel for all channels.
 struct Change {
     std::uint8_t authority;
@@ -5168,6 +5194,158 @@ TEST(ParametersTest, ReadsAChannelParameterInAnExpressionAndAVariable) {
     const auto out = h.flush();
     EXPECT_FLOAT_EQ(last<float>(out, h.key("out_a")), 7);
     EXPECT_FLOAT_EQ(last<float>(out, h.key("out_b")), 16);
+}
+
+/// @brief it should reassign a variable that reads a value parameter of a sequence.
+TEST(ParametersTest, ReassignsAVariableThatReadsAValueParameterOfASequence) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    sequence scale(gain f32, out chan f32) {
+        x := %tank% * gain
+        stage first {
+            x -> out
+            %gate% == 1 => next
+        }
+        stage second {
+            x = %tank% * gain * 2
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(3, %out_a%)
+    %start_b% == 1 => scale(5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{30, 50}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a channel parameter of a sequence.
+TEST(ParametersTest, ReassignsAVariableThatReadsAChannelParameterOfASequence) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    sequence scale(src chan f32, out chan f32) {
+        x := src * 3
+        stage first {
+            x -> out
+            %gate% == 1 => next
+        }
+        stage second {
+            x = src * 6
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(%tank%, %out_a%)
+    %start_b% == 1 => scale(%tank%, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{30, 30}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 120}));
+}
+
+/// @brief it should reassign a variable that reads a channel parameter and a value
+/// parameter of a sequence.
+TEST(ParametersTest, ReassignsAVariableThatReadsBothParametersOfASequence) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    sequence scale(src chan f32, gain f32, out chan f32) {
+        x := src * gain
+        stage first {
+            x -> out
+            %gate% == 1 => next
+        }
+        stage second {
+            x = src * gain * 2
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(%tank%, 3, %out_a%)
+    %start_b% == 1 => scale(%tank%, 5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{30, 50}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a parameter with a top-level
+/// constant as its argument.
+TEST(ParametersTest, ReassignsAVariableThatReadsATopLevelConstantArgument) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    low f32 := 3
+    high f32 := 5
+    sequence scale(gain f32, out chan f32) {
+        x := %tank% * gain
+        stage first {
+            x -> out
+            %gate% == 1 => next
+        }
+        stage second {
+            x = %tank% * gain * 2
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(low, %out_a%)
+    %start_b% == 1 => scale(high, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{30, 50}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a parameter in a variable of one
+/// stage.
+TEST(ParametersTest, ReassignsAVariableOfOneStageThatReadsAParameter) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    sequence scale(src chan f32, gain f32, out chan f32) {
+        stage first {
+            x := src * gain
+            x = src * gain * 2
+            x -> out
+        }
+    }
+    %start_a% == 1 => scale(%tank%, 3, %out_a%)
+    %start_b% == 1 => scale(%tank%, 5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{60, 100}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a value parameter of a stage.
+TEST(ParametersTest, ReassignsAVariableThatReadsAValueParameterOfAStage) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    stage scale(gain f32, out chan f32) {
+        x := %tank% * gain
+        x = %tank% * gain * 2
+        x -> out
+    }
+    %start_a% == 1 => scale(3, %out_a%)
+    %start_b% == 1 => scale(5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{60, 100}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should reassign a variable that reads a channel parameter of a stage.
+TEST(ParametersTest, ReassignsAVariableThatReadsAChannelParameterOfAStage) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    stage scale(src chan f32, out chan f32) {
+        x := src * 3
+        x = src * 6
+        x -> out
+    }
+    %start_a% == 1 => scale(%tank%, %out_a%)
+    %start_b% == 1 => scale(%tank%, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{60, 60}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 120}));
+}
+
+/// @brief it should reassign a variable that reads a channel parameter and a value
+/// parameter of a stage.
+TEST(ParametersTest, ReassignsAVariableThatReadsBothParametersOfAStage) {
+    using namespace parameters;
+    const auto r = reassigned(R"(
+    stage scale(src chan f32, gain f32, out chan f32) {
+        x := src * gain
+        x = src * gain * 2
+        x -> out
+    }
+    %start_a% == 1 => scale(%tank%, 3, %out_a%)
+    %start_b% == 1 => scale(%tank%, 5, %out_b%))");
+    EXPECT_EQ(r.before, (std::vector<float>{60, 100}));
+    EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
 }
 
 /// @brief it should keep an inline body in its own instance.

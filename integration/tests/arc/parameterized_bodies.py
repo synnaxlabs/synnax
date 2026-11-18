@@ -215,6 +215,51 @@ pb_start == 1 => lift_variable
 pb_start == 1 => lift_expression
 pb_start == 1 => lift(computed, pb_live_src, pb_live_c, pb_live_ready_c)
 
+// ──── reassigned variable ────
+sequence rescale_seq(src chan f32, gain f32, out chan f32, ready chan bool) {
+    x := src * gain
+    stage first {
+        true -> ready
+        x -> out
+        pb_rescale_go => next
+    }
+    stage second {
+        x = src * gain * 2
+        false -> ready
+        x -> out
+    }
+}
+stage rescale_stage(src chan f32, gain f32, out chan f32, ready chan bool) {
+    x := src * gain
+    x = src * gain * 2
+    true -> ready
+    x -> out
+}
+pb_start == 1 => rescale_seq(
+    pb_rescale_src,
+    3,
+    pb_rescale_seq_a,
+    pb_rescale_seq_ready_a
+)
+pb_start == 1 => rescale_seq(
+    pb_rescale_src,
+    5,
+    pb_rescale_seq_b,
+    pb_rescale_seq_ready_b
+)
+pb_start == 1 => rescale_stage(
+    pb_rescale_src,
+    3,
+    pb_rescale_stage_a,
+    pb_rescale_stage_ready_a
+)
+pb_start == 1 => rescale_stage(
+    pb_rescale_src,
+    5,
+    pb_rescale_stage_b,
+    pb_rescale_stage_ready_b
+)
+
 // ──── module ────
 pb_start == 1 => $library.relay(pb_mod_a, 1, pb_mod_ready_a)
 pb_start == 1 => $library.relay(pb_mod_b, 2, pb_mod_ready_b)
@@ -282,6 +327,8 @@ INPUTS: dict[str, sy.DataType] = {
     "pb_live_src": F32,
     "pb_mod_go": BOOL,
     "pb_auth_go": BOOL,
+    "pb_rescale_src": F32,
+    "pb_rescale_go": BOOL,
 }
 
 # The automation writes these channels, and the case reads them.
@@ -324,6 +371,14 @@ OUTPUTS: dict[str, sy.DataType] = {
     "pb_live_a": F32,
     "pb_live_b": F32,
     "pb_live_c": F32,
+    "pb_rescale_seq_ready_a": BOOL,
+    "pb_rescale_seq_ready_b": BOOL,
+    "pb_rescale_stage_ready_a": BOOL,
+    "pb_rescale_stage_ready_b": BOOL,
+    "pb_rescale_seq_a": F32,
+    "pb_rescale_seq_b": F32,
+    "pb_rescale_stage_a": F32,
+    "pb_rescale_stage_b": F32,
     "pb_mod_ready_a": BOOL,
     "pb_mod_ready_b": BOOL,
     "pb_mod_a": F32,
@@ -368,6 +423,8 @@ class ParameterizedBodies(ArcCase):
         stage has a default value.
     13. A call takes a variable that its sequence writes, an expression over that
         variable, and a top-level variable that is computed at program start.
+    14. A sequence and a stage reassign a variable that reads a channel parameter
+        and a value parameter. Each instance keeps its own arguments.
     """
 
     arc_source = AUTOMATION_SOURCE.template
@@ -399,6 +456,7 @@ class ParameterizedBodies(ArcCase):
         self._verify_call_from_an_instance()
         self._verify_inline_body()
         self._verify_variable_arguments()
+        self._verify_reassigned_variable()
         self._verify_module()
         self._verify_authority()
         self._verify_uncalled_declaration()
@@ -490,6 +548,28 @@ class ParameterizedBodies(ArcCase):
         self.wait_for_eq("pb_live_a", 11)
         self.wait_for_eq("pb_live_b", 21)
         self.wait_for_eq("pb_live_c", 6)
+
+    def _verify_reassigned_variable(self) -> None:
+        self._wait_for_ready(
+            "pb_rescale_seq_ready_a",
+            "pb_rescale_seq_ready_b",
+            "pb_rescale_stage_ready_a",
+            "pb_rescale_stage_ready_b",
+        )
+        self.log("Writing pb_rescale_src=10 for each instance to scale by its gain")
+        self.writer.write("pb_rescale_src", 10.0)
+        self.wait_for_eq("pb_rescale_seq_a", 30)
+        self.wait_for_eq("pb_rescale_seq_b", 50)
+        self.log("Each stage instance must use the value its body assigns last")
+        self.wait_for_eq("pb_rescale_stage_a", 60)
+        self.wait_for_eq("pb_rescale_stage_b", 100)
+        self.log("Writing pb_rescale_go=1 for each sequence to reassign its variable")
+        self.writer.write("pb_rescale_go", 1)
+        self.wait_for_eq("pb_rescale_seq_ready_a", 0)
+        self.wait_for_eq("pb_rescale_seq_ready_b", 0)
+        self.writer.write("pb_rescale_src", 20.0)
+        self.wait_for_eq("pb_rescale_seq_a", 120)
+        self.wait_for_eq("pb_rescale_seq_b", 200)
 
     def _verify_module(self) -> None:
         self._wait_for_ready("pb_mod_ready_a", "pb_mod_ready_b")

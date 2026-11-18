@@ -782,9 +782,26 @@ func checkDeclaration[T identifierAST](
 	}
 	// A builder and a key generator of its own keep the output out of the program.
 	scratch := newShellBuilder(shell.synthByAST)
-	scratch.varNodes = shell.varNodes
+	scratch.varNodes = detachDispatchers(shell.varNodes)
 	kg := newKeyGenerator(new(ir.Functions), "")
 	return instantiate(ctx, body, args, body.QualifiedName(), kg, scratch)
+}
+
+// detachDispatchers returns varNodes with its own copy of each dispatcher.
+func detachDispatchers(
+	varNodes map[*symbol.Symbol]varEntry,
+) map[*symbol.Symbol]varEntry {
+	detached := make(map[*symbol.Symbol]varEntry, len(varNodes))
+	for sym, e := range varNodes {
+		if e.disp != nil {
+			node := *e.disp.node
+			node.Inputs = slices.Clone(node.Inputs)
+			node.Channels = node.Channels.Copy()
+			e.disp = &dispatcher{node: &node, branches: slices.Clone(e.disp.branches)}
+		}
+		detached[sym] = e
+	}
+	return detached
 }
 
 // bodyDispatchers returns the dispatcher of each variable declared under scope.
@@ -1167,12 +1184,15 @@ func collectBranch[T antlr.ParserRuleContext](
 	if branch, err := ctx.Scope.Root().GetChildByParserRule(expr); err == nil &&
 		branch.Kind == symbol.KindFunction {
 		for _, p := range branch.Type.Inputs {
-			if _, exists := d.node.Inputs.Get(p.Name); !exists {
-				d.node.Inputs = append(
-					d.node.Inputs,
-					types.Param{Name: p.Name, Type: p.Type},
-				)
+			if _, exists := d.node.Inputs.Get(p.Name); exists {
+				continue
 			}
+			// A parameter of the instance has its argument on the input of the branch.
+			bound, _ := res.node.Inputs.Get(p.Name)
+			d.node.Inputs = append(
+				d.node.Inputs,
+				types.Param{Name: p.Name, Type: p.Type, Value: bound.Value},
+			)
 		}
 	}
 	retargetEdges(ctx, shell, res.node.Key, d.node)
