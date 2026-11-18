@@ -61,7 +61,7 @@ var _ = Describe("Config", func() {
 			).To(MatchError(ContainSubstring("task: must be non-nil")))
 		})
 
-		It("should fail when Factories is empty", func() {
+		It("should accept a config with no factories", func() {
 			cfg := driver.Config{
 				DB:      db,
 				Rack:    rackService,
@@ -69,11 +69,10 @@ var _ = Describe("Config", func() {
 				Task:    taskService,
 				Framer:  framerSvc,
 				Channel: channelSvc,
+				Status:  statusSvc,
 				HostKey: 1,
 			}
-			Expect(
-				cfg.Validate(),
-			).To(MatchError(ContainSubstring("factories: must be non-empty")))
+			Expect(cfg.Validate()).To(Succeed())
 		})
 
 		It("should fail when RackKey is zero", func() {
