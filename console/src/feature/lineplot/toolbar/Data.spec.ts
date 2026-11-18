@@ -244,17 +244,37 @@ describe("lineplot/toolbar/Data", () => {
       await expectRanges(key, [{ variant: "key", key: created.key }]);
     });
 
-    it("lists the plotted ranges first", async () => {
-      // The newest range leads the list, so the older plotted one moves past it.
-      const bravo = await createTestRange(client);
-      const alpha = await createTestRange(client);
-      await renderData([{ variant: "key", key: bravo.key }]);
+    it("lists the ranges newest first", async () => {
+      // Far in the future, so the ranges that other specs create now sort after them.
+      const start = TimeStamp.now().add(TimeSpan.days(365 * 100));
+      const create = async (offset: TimeSpan): Promise<ranger.Range> =>
+        await client.ranges.create({
+          name: uniqueName("range"),
+          timeRange: start.add(offset).spanRange(TimeSpan.hours(1)),
+        });
+      const older = await create(TimeSpan.ZERO);
+      const newer = await create(TimeSpan.hours(1));
+      await renderData([]);
       openSearch();
-      await screen.findAllByText(alpha.name);
-      await screen.findAllByText(bravo.name);
+      await screen.findByText(older.name);
+      await screen.findByText(newer.name);
       const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
       const at = (name: string) => names.findIndex((n) => n.includes(name));
-      expect(at(bravo.name)).toBeLessThan(at(alpha.name));
+      expect(at(newer.name)).toBeLessThan(at(older.name));
+    });
+
+    it("lists the plotted ranges first", async () => {
+      const plotted = await createTestRange(client);
+      // A newer range would lead the list if the plotted one did not go first.
+      await createTestRange(client);
+      await renderData([{ variant: "key", key: plotted.key }]);
+      // The tag reads the range, so the picker can put it first when it opens.
+      await screen.findByText(plotted.name);
+      openSearch();
+      await waitFor(() =>
+        expect(screen.getAllByRole("option").length).toBeGreaterThan(2),
+      );
+      expect(screen.getAllByRole("option")[0].textContent).toContain(plotted.name);
     });
 
     it("marks each key reference's tag with the stage of its range", async () => {
