@@ -10,7 +10,17 @@
 // [DIAG] Throwaway: repeats the live writer spec and dumps the cache on a miss.
 
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
-import { box, DataType, dynamicWindow, id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  box,
+  DataType,
+  dynamicWindow,
+  id,
+  sleep,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
@@ -24,7 +34,7 @@ import { lineTest } from "@/vis/line/aether/testutil";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const REPEATS = Number(process.env.DIAG_REPEATS ?? (process.env.DIAG_FORCE == null ? 40 : 1));
+const REPEATS = Number(process.env.DIAG_REPEATS ?? (process.env.DIAG_FORCE == null ? 15 : 1));
 
 const replacer = (_: string, v: unknown): unknown =>
   typeof v === "bigint" ? v.toString() : v;
@@ -175,11 +185,13 @@ describe("[DIAG] live writer", () => {
     const gl = [...stack.basePath, "gl"];
     stack.driver.update(gl, lineTest.Host.TYPE, {});
     const base = [...gl, "plot"];
-    stack.driver.update(base, LinePlot.TYPE, {
-      container: box.construct(0, 0, 1000, 500),
-      viewport: box.DECIMAL,
-      grid: {},
-    });
+    const setViewport = (viewport: box.Box): void =>
+      stack.driver.update(base, LinePlot.TYPE, {
+        container: box.construct(0, 0, 1000, 500),
+        viewport,
+        grid: {},
+      });
+    setViewport(box.DECIMAL);
     stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
     stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
     stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
@@ -188,7 +200,7 @@ describe("[DIAG] live writer", () => {
       color: "#ff0000",
     });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    return { plot: stack.driver.find<LinePlot>(base) };
+    return { plot: stack.driver.find<LinePlot>(base), setViewport };
   };
 
   const gaps = (plot: LinePlot, targets: number[]): number[] =>
@@ -200,7 +212,54 @@ describe("[DIAG] live writer", () => {
 
   const STARTS = (process.env.DIAG_STARTS ?? "").split(",").filter((v) => v !== "").map(Number);
   const cases = STARTS.length > 0 ? STARTS : Array.from({ length: REPEATS }, () => 11);
-  for (let rep = 0; rep < cases.length; rep++)
+  const RATE = 1000;
+  const DURATION = TimeSpan.minutes(10);
+  const writeData = async () => {
+    const time = await synnax.channels.create({
+      name: id.create(),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const data = await synnax.channels.create({
+      name: id.create(),
+      dataType: DataType.FLOAT32,
+      index: time.key,
+    });
+    const start = TimeStamp.seconds(2_000_000);
+    const count = Number(DURATION.seconds) * RATE;
+    const step = TimeSpan.milliseconds(1).valueOf();
+    const times = new BigInt64Array(count);
+    const values = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      times[i] = start.valueOf() + BigInt(i) * step;
+      values[i] = Math.sin(i / 100);
+    }
+    await synnax.write(start, { [time.key]: times, [data.key]: values });
+    return { data, home: new TimeRange(start, start.add(DURATION)) };
+  };
+
+  for (let rep = 0; rep < cases.length; rep++) {
+    it(`should draw full detail tiles after a zoom, ${rep}`, async () => {
+      const { data, home } = await writeData();
+      const { plot, setViewport } = mount({
+        channel: data.key,
+        window: staticWindow(home),
+      });
+      const homeSpan = Number(home.span.valueOf());
+      const lower = Number(home.start.valueOf()) + homeSpan / 2;
+      const targets = [0.1, 0.3, 0.5, 0.7, 0.9].map(
+        (f) => lower + f * Number(TimeSpan.seconds(2).valueOf()),
+      );
+      await expect
+        .poll(() => Math.max(...gaps(plot, targets)), { timeout: 10_000 })
+        .toBeLessThan(Number(TimeSpan.seconds(2).valueOf()));
+      const zoom = Number(TimeSpan.seconds(2).valueOf()) / homeSpan;
+      setViewport(box.construct(0.5, 0, zoom, 1));
+      await expect
+        .poll(() => Math.max(...gaps(plot, targets)), { timeout: 10_000 })
+        .toBeLessThan(Number(TimeSpan.milliseconds(20).valueOf()));
+    });
+
     it(`should draw samples as a live writer commits them, ${rep}`, async () => {
       const startAt = cases[rep];
       let polling: ReturnType<typeof setInterval> | null = null;
@@ -368,4 +427,5 @@ describe("[DIAG] live writer", () => {
         await writer.close();
       }
     });
+  }
 });
