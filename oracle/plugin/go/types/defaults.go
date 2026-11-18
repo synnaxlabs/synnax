@@ -753,6 +753,9 @@ func goConstraintChecks(
 		if rules.Max != nil {
 			checks = append(checks, check("le", numberLiteral(rules.Max)))
 		}
+		if rules.Finite {
+			checks = append(checks, check("finite", ""))
+		}
 	}
 	if field.Optional && len(checks) > 0 {
 		checks[0].Opens = true

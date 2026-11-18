@@ -9,6 +9,7 @@
 
 from uuid import uuid4
 
+import pydantic
 import pytest
 
 import synnax as sy
@@ -53,6 +54,12 @@ class TestEnumerationClient:
         ]
         with pytest.raises(sy.ValidationError, match="another entry has the value 1"):
             client.enumerations.create(name=str(uuid4()), entries=entries)
+
+    @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+    def test_entry_refuses_non_finite_value(self, value: float) -> None:
+        """Should refuse an entry value that is NaN or infinite."""
+        with pytest.raises(pydantic.ValidationError, match="finite number"):
+            enumeration.Entry(key="a", value=value, name="A")
 
     def test_create_entry_color(self, client: sy.Synnax) -> None:
         """Should store a fixed color on an entry."""

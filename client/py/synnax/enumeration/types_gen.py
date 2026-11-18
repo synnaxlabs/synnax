@@ -41,7 +41,7 @@ class Entry(BaseModel):
     """
 
     key: str = Field(min_length=1)
-    value: float
+    value: float = Field(allow_inf_nan=False)
     name: str
     abnormal: bool = False
     color: color_.Ref | None = None
