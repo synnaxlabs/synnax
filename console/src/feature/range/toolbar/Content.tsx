@@ -137,9 +137,13 @@ const Line = ({
       <div
         id={range.key}
         draggable
-        onDragStart={() => {
+        onDragStart={(event) => {
           setDragging(true);
-          startDrag([Ranger.createHaulItem(range.payload)]);
+          startDrag({
+            event,
+            items: [Ranger.createHaulItem(range.payload)],
+            preview: <Ranger.HaulPreview range={range.payload} />,
+          });
         }}
         onDragEnd={(e) => {
           setDragging(false);

@@ -10,7 +10,7 @@
 import "zod/compile";
 
 import { ResizeObserver } from "@juggle/resize-observer";
-import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
+import { installDragEvent, preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { shortenKeepAlive } from "@synnaxlabs/x/testutil/keepAlive";
 import { configure } from "@testing-library/react";
@@ -37,6 +37,8 @@ class MockIntersectionObserver {
 installTestWebSocket();
 
 preloadTimeLanguage();
+
+installDragEvent();
 
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);

@@ -10,7 +10,13 @@
 import "@/select/SingleTrigger.css";
 
 import { primitive, type record } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, type ReactNode, useId } from "react";
+import {
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactElement,
+  type ReactNode,
+  useId,
+} from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -51,6 +57,8 @@ export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant">
   clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
+  /** Renders the drag preview of the selected entry. Defaults to its icon and name. */
+  renderHaulPreview?: (entry: unknown) => ReactNode;
   /**
    * Renders content from the selected entry at the trailing edge, before the caret. An
    * icon-only trigger shows none.
@@ -84,6 +92,7 @@ export const SingleTrigger = <K extends record.Key>({
   hideCaret = false,
   variant: triggerVariant = "outlined",
   renderIcon,
+  renderHaulPreview,
   renderEndContent,
   collapsible = false,
   clearable = false,
@@ -120,8 +129,15 @@ export const SingleTrigger = <K extends record.Key>({
   // resolves to an entry drags, so an empty sentinel such as 0 never does.
   const draggable =
     haulType !== "" && item != null && !fixed && disabled !== true && preview !== true;
-  const handleDragStart = () => {
-    if (item != null) startDrag([{ key: item.key, type: haulType }]);
+  const handleDragStart = (event: DragEvent<HTMLElement>) => {
+    if (item == null) return;
+    startDrag({
+      event,
+      items: [{ key: item.key, type: haulType }],
+      preview: renderHaulPreview?.(item) ?? (
+        <Haul.Preview icon={resolvedIcon} name={name ?? item.key} />
+      ),
+    });
   };
   const dragging = Haul.useDraggingState();
   const baseId = useId();

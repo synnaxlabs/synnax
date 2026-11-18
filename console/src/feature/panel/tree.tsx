@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
+import { type panel, query } from "@synnaxlabs/client";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -32,6 +33,24 @@ export const GROUP_MEMBER: Group.Member = {
     Tree.createSource(client.panels, { groups: [key] }, Tree.toResource("panel")),
 };
 
-const TreeItem = Tree.createItem({ icon: ({ id }) => <ItemIcon panelKey={id.key} /> });
+const FACTS = ["Panel"];
+
+const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
+  const cached = client.panels.watch(resource.id.key).getCached();
+  const appearance = query.isLive(cached) ? cached : {};
+  return (
+    <Haul.Preview
+      icon={Appearance.renderIcon({ ...appearance, fallback: Icon.Panel })}
+      name={resource.name}
+      facts={FACTS}
+      count={count}
+    />
+  );
+};
+
+const TreeItem = Tree.createItem({
+  icon: ({ id }) => <ItemIcon panelKey={id.key} />,
+  haulPreview,
+});
 
 export const TREE_ITEMS: Tree.Items = { panel: TreeItem };

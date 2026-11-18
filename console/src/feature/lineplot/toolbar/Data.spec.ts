@@ -22,30 +22,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { createTestRange } from "@/platform/range/testutil";
-import { Session } from "@/session";
 import {
   assertDefined,
   findDialogTriggerByText,
   findTagCloseButton,
   getInputItem,
   uniqueName,
+  uniqueToken,
 } from "@/testutil";
 
 // A separate client reads what the Core saved, not the rendering client's cache.
 const reader = createTestClient();
 
-const renderData = async (
-  ranges?: lineplot.New["ranges"],
-  favorites: Session.Range.PersistedState[] = [],
-) => {
+const renderData = async (ranges?: lineplot.New["ranges"]) => {
   const handle = await renderLinePlot(Toolbar, {
     linePlot: ranges === undefined ? {} : { ranges },
-    preloadedState: () => ({
-      [Session.Range.SLICE_NAME]: {
-        ...Session.Range.ZERO_SLICE_STATE,
-        ranges: favorites,
-      },
-    }),
   });
   await screen.findByText("Ranges");
   return handle;
@@ -58,7 +49,7 @@ const rolling = (span: TimeSpan): ranger.Ref => ({
 
 const label = (span: TimeSpan): string => span.toString();
 
-const SEARCH_PLACEHOLDER = "Search favorites or type a duration";
+const SEARCH_PLACEHOLDER = "Search ranges or type a duration";
 
 const openSearch = (): HTMLElement => {
   fireEvent.click(screen.getByRole("button", { name: "Ranges" }));
@@ -68,6 +59,11 @@ const openSearch = (): HTMLElement => {
 const search = (term: string): void => {
   fireEvent.change(openSearch(), { target: { value: term } });
 };
+
+// A duration also searches the Core's ranges, so the live option is found by its
+// text.
+const liveOption = (): HTMLElement =>
+  screen.getByRole("option", { name: /Live window/ });
 
 // The rolling window's tag shows its span too, so a preset is told apart by its toggle.
 const clickPreset = (span: TimeSpan): void => {
@@ -96,7 +92,7 @@ const FORTY_FIVE_MIN = TimeSpan.minutes(45);
 
 describe("lineplot/toolbar/Data", () => {
   describe("rolling window", () => {
-    it("lists the presets as a row, apart from the favorites", async () => {
+    it("lists the presets as a row, apart from the ranges", async () => {
       await renderData([]);
       openSearch();
       expect(screen.getByRole("button", { name: label(FIVE_MIN) })).toBeDefined();
@@ -151,18 +147,15 @@ describe("lineplot/toolbar/Data", () => {
       expect(screen.queryByPlaceholderText(SEARCH_PLACEHOLDER)).toBeNull();
     });
 
-    it("keeps Enter on a typed duration from selecting a favorite", async () => {
-      const favorite = await client.ranges.create({
+    it("keeps Enter on a typed duration from selecting a range", async () => {
+      const range = await client.ranges.create({
         name: uniqueName("45m burn"),
         timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
       });
-      const { key } = await renderData(
-        [rolling(FIVE_MIN)],
-        Session.Range.fromClient(favorite.payload),
-      );
+      const { key } = await renderData([rolling(FIVE_MIN)]);
       const input = openSearch();
       fireEvent.change(input, { target: { value: "45m" } });
-      await screen.findByText(favorite.name);
+      await screen.findByText(range.name);
       act(() => {
         fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
       });
@@ -172,36 +165,36 @@ describe("lineplot/toolbar/Data", () => {
     it("lists a live option for a duration typed into the search", async () => {
       await renderData([]);
       search("45m");
-      const options = screen.getAllByRole("option");
-      expect(options).toHaveLength(1);
-      expect(within(options[0]).getByText(label(FORTY_FIVE_MIN))).toBeDefined();
-      expect(screen.queryByText("No favorite ranges found")).toBeNull();
+      const [first] = screen.getAllByRole("option");
+      expect(first).toBe(liveOption());
+      expect(within(first).getByText(label(FORTY_FIVE_MIN))).toBeDefined();
+      expect(screen.queryByText("No ranges found")).toBeNull();
     });
 
-    it("says no favorite ranges match a search that finds none", async () => {
+    it("says no ranges match a search that finds none", async () => {
       await renderData([]);
-      search("no such range");
-      await screen.findByText("No favorite ranges found");
+      search(uniqueToken());
+      await screen.findByText("No ranges found");
     });
 
     it("replaces the window with the live option picked", async () => {
       const { key } = await renderData([fixed(1, 2), rolling(FIVE_MIN)]);
       search("45m");
-      fireEvent.click(screen.getByRole("option"));
+      fireEvent.click(liveOption());
       await expectRanges(key, [fixed(1, 2), rolling(FORTY_FIVE_MIN)]);
     });
 
     it("clears the window when its live option is picked again", async () => {
       const { key } = await renderData([rolling(FIVE_MIN)]);
       search("5m");
-      fireEvent.click(screen.getByRole("option"));
+      fireEvent.click(liveOption());
       await expectRanges(key, []);
     });
 
     it("marks the live option selected while its window is live", async () => {
       await renderData([rolling(FIVE_MIN)]);
       search("5m");
-      expect(screen.getByRole("option").getAttribute("aria-selected")).toBe("true");
+      expect(liveOption().getAttribute("aria-selected")).toBe("true");
     });
 
     it("ignores Enter when the search is not a duration", async () => {
@@ -242,28 +235,46 @@ describe("lineplot/toolbar/Data", () => {
     });
   });
 
-  describe("favorites", () => {
-    it("adds a favorite the Core holds as a key reference", async () => {
+  describe("ranges", () => {
+    it("adds a range that no one starred as a key reference", async () => {
       const created = await createTestRange(client);
-      const { key } = await renderData([], Session.Range.fromClient(created.payload));
-      openSearch();
+      const { key } = await renderData([]);
+      search(created.name);
       fireEvent.click(await screen.findByText(created.name));
       await expectRanges(key, [{ variant: "key", key: created.key }]);
     });
 
-    it("lists the plotted favorites first", async () => {
-      const alpha = await createTestRange(client);
-      const bravo = await createTestRange(client);
-      await renderData(
-        [{ variant: "key", key: bravo.key }],
-        Session.Range.fromClient([alpha.payload, bravo.payload]),
-      );
+    it("lists the ranges newest first", async () => {
+      // Far in the future, so the ranges that other specs create now sort after them.
+      const start = TimeStamp.now().add(TimeSpan.days(365 * 100));
+      const create = async (offset: TimeSpan): Promise<ranger.Range> =>
+        await client.ranges.create({
+          name: uniqueName("range"),
+          timeRange: start.add(offset).spanRange(TimeSpan.hours(1)),
+        });
+      const older = await create(TimeSpan.ZERO);
+      const newer = await create(TimeSpan.hours(1));
+      await renderData([]);
       openSearch();
-      await screen.findAllByText(alpha.name);
-      await screen.findAllByText(bravo.name);
+      await screen.findByText(older.name);
+      await screen.findByText(newer.name);
       const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
       const at = (name: string) => names.findIndex((n) => n.includes(name));
-      expect(at(bravo.name)).toBeLessThan(at(alpha.name));
+      expect(at(newer.name)).toBeLessThan(at(older.name));
+    });
+
+    it("lists the plotted ranges first", async () => {
+      const plotted = await createTestRange(client);
+      // A newer range would lead the list if the plotted one did not go first.
+      await createTestRange(client);
+      await renderData([{ variant: "key", key: plotted.key }]);
+      // The tag reads the range, so the picker can put it first when it opens.
+      await screen.findByText(plotted.name);
+      openSearch();
+      await waitFor(() =>
+        expect(screen.getAllByRole("option").length).toBeGreaterThan(2),
+      );
+      expect(screen.getAllByRole("option")[0].textContent).toContain(plotted.name);
     });
 
     it("marks each key reference's tag with the stage of its range", async () => {

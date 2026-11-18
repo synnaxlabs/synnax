@@ -32,6 +32,10 @@
 namespace driver::ethercat::igh {
 /// @brief how the IgH master waits for its slaves.
 struct Config {
+    /// @brief how long a slave that was below PRE-OP at the scan gets to reach PRE-OP
+    /// before activation, enabled or not. The default is the PreopTimeout of the ESI
+    /// files.
+    x::telem::TimeSpan pre_op_timeout = x::telem::SECOND * 2;
     /// @brief how long the slaves get to reach OP after activation. Some slaves take up
     /// to 9 s.
     x::telem::TimeSpan op_timeout = x::telem::SECOND * 10;
@@ -50,7 +54,7 @@ class Master final : public master::Master {
 
     // Non-owning pointers managed by IgH kernel module via ecrt_release_master().
 
-    /// @brief IgH master handle from ecrt_request_master().
+    /// @brief IgH master handle from ecrt_open_master().
     ec_master_t *ec_master;
 
     /// @brief the process data of one enabled slave. Its own domain gives the working
@@ -130,19 +134,28 @@ public:
         return "igh:" + std::to_string(this->master_index);
     }
 
+    /// @brief does what master::Master::scan does, but leaves the master unreserved, so
+    /// IgH keeps scanning the bus and changed() sees the slaves that come and go. Waits
+    /// up to 10 s for a scan that IgH runs. Returns errors::NO_SLAVES_FOUND when no
+    /// slave answers.
     std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> scan() override;
 
+    /// @brief does what master::Master::changed does, and also reports a change while
+    /// IgH scans the bus.
     std::pair<master::Change, x::errors::Error> changed() override;
 
     [[nodiscard]] bool restarts_visible() const override { return false; }
 
     /// @brief does what master::Master::activate does, and keeps the reference clock on
-    /// the host clock. Also returns errors::SLAVE_CONFIG_ERROR when a slave whose SYNC0
-    /// events mark data has a SYNC1 shift that is not a whole number of SYNC0 cycles,
-    /// since IgH would start its SYNC0 events off the grid. The IgH master moves the
-    /// slaves to OP on its own, so a slave below OP with its AL error flag set counts
-    /// as a refusal. Once every slave below OP has the flag, the master tries them once
-    /// more with a reset, then returns the refusals without waiting for
+    /// the host clock. It reserves the master, then returns errors::ACTIVATION_ERROR
+    /// when another program reserved it, no network port is attached to it, or the
+    /// slaves changed since the scan. It refuses a used slave with no identity as the
+    /// SOEM master does. Also returns errors::SLAVE_CONFIG_ERROR when a slave whose
+    /// SYNC0 events mark data has a SYNC1 shift that is not a whole number of SYNC0
+    /// cycles, since IgH would start its SYNC0 events off the grid. The IgH master
+    /// moves the slaves to OP on its own, so a slave below OP with its AL error flag
+    /// set counts as a refusal. Once every slave below OP has the flag, the master
+    /// tries them once more with a reset, then returns the refusals without waiting for
     /// Config::op_timeout.
     master::Activation activate(
         const master::Plan &plan,
@@ -213,6 +226,13 @@ private:
     /// OP still has its AL error flag set after a reset, or when one has it at
     /// Config::op_timeout. errors::STATE_CHANGE_ERROR when none has it at the timeout.
     master::Activation wait_for_op();
+
+    /// @brief waits up to Config::pre_op_timeout for each slave that was starting at
+    /// the scan to reach PRE-OP, then reads its CoE objects.
+    void read_starting();
+
+    /// @brief reads the CoE serial number and the settings of slave.
+    void read_coe(slave::DiscoveryResult &slave);
 
     /// @brief returns true when every slave at positions has its AL error flag set.
     [[nodiscard]] bool refusing(const std::vector<uint16_t> &positions) const;

@@ -75,7 +75,7 @@ protected:
             .vendor_id = 0x1,
             .product_code = 0x2,
             .serial = serial,
-            .name = "Test Slave",
+            .name = "Test Module",
             .input_pdos = {
                 {.pdo_index = 0x1A00,
                  .index = 0x6000,
@@ -140,7 +140,7 @@ protected:
             {"vendor_id", 0x1},
             {"product_code", 0x2},
             {"revision", 1},
-            {"name", "Test Slave"},
+            {"name", "Test Module"},
             {"network", NETWORK_INTERFACE},
             {"position", 1},
             {"enabled", true},
@@ -152,7 +152,7 @@ protected:
             .location = NETWORK_INTERFACE + ".Slot 1",
             .make = "DEWESoft",
             .model = "TestModule",
-            .name = "Test Slave SN:" + std::to_string(serial),
+            .name = "Test Module SN:" + std::to_string(serial),
             .properties = props,
         };
         auto err = client->devices.create(dev);
@@ -313,7 +313,7 @@ TEST_F(EtherCATReadTest, ParseConfigReportsAChannelWithNoEntry) {
     EXPECT_EQ(errors[0]["path"], "channels.0.pdo");
     EXPECT_EQ(
         errors[0]["message"],
-        "'Missing' matches no input entry on slave Test Slave. Pick an entry."
+        "'Missing' matches no input entry on module Test Module. Pick an entry."
     );
 }
 
@@ -335,7 +335,7 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsTwoChannelsOnOneEntry) {
     EXPECT_EQ(errors[0]["path"], "channels.1.index");
     EXPECT_EQ(
         errors[0]["message"],
-        "another channel already uses entry 0x6000:01 on slave Test Slave"
+        "another channel already uses entry 0x6000:01 on module Test Module"
     );
 }
 
@@ -490,7 +490,7 @@ TEST_F(EtherCATReadTest, SlaveOnAnotherNetworkIsInvalid) {
     ASSERT_EQ(errors.size(), 2);
     EXPECT_EQ(errors[0]["path"], "channels.1.device");
     EXPECT_EQ(errors[1]["path"], "channels.2.device");
-    EXPECT_EQ(errors[1]["message"], "all slaves must be on the same network");
+    EXPECT_EQ(errors[1]["message"], "all modules must be on the same network");
 }
 
 /// @brief it should report a channel on a slave device whose saved properties are not
@@ -671,7 +671,7 @@ TEST_F(EtherCATReadTest, SourceWarnsOfSkippedStartupSettings) {
     x::telem::Frame frame;
     const common::Warning expected{
         .message = "Skipped startup settings",
-        .description = "Slave 1 (Test Slave) is set up for DewesoftX, so Synnax did "
+        .description = "Module 1 (Test Module) is set up for DewesoftX, so Synnax did "
                        "not apply its 1 startup setting. Remove it, or switch the "
                        "device to Synnax in Configure.",
     };
@@ -714,7 +714,7 @@ TEST_F(EtherCATReadTest, SourceWarnsWithAnEmptyFrameWhileItsSlaveIsLost) {
     );
     ASSERT_NIL(result.error);
     EXPECT_EQ(result.warning.message, "Dropped samples");
-    EXPECT_EQ(result.warning.description, "Lost contact with slave 1 (Test Slave).");
+    EXPECT_EQ(result.warning.description, "Lost contact with module 1 (Test Module).");
     brk.stop();
     ASSERT_NIL(source.stop());
 }
@@ -1042,7 +1042,7 @@ TEST_F(EtherCATReadTest, FactoryStartSendsTheStepsItReachedThenStarted) {
     const std::vector<std::string> latest{"Starting eth0", "Started task"};
     ASSERT_TRUE(messages == every || messages == latest) << messages.size();
     const auto &step = statuses[statuses.size() - 2];
-    EXPECT_EQ(step.description, "Bringing 1 slave to OP.");
+    EXPECT_EQ(step.description, "Bringing 1 module to OP.");
     EXPECT_EQ(step.variant, synnax::status::VARIANT_LOADING);
     EXPECT_EQ(step.name, "read");
     EXPECT_EQ(step.owner, synnax::task::resource_id(task.key));
@@ -1410,9 +1410,9 @@ TEST_F(EtherCATReadTest, StartFailsWhenASlaveOnTheNetworkIsInvalid) {
     EXPECT_EQ(status.message, "Failed to start task");
     EXPECT_EQ(
         status.description,
-        "EL3102 has invalid properties. Every slave on Ethernet 2 starts with the bus, "
-        "so fix them before you start the task.\nenabled: type must be boolean, but is "
-        "null"
+        "EL3102 has invalid properties. Every module on Ethernet 2 starts with the "
+        "bus, so fix them before you start the task.\nenabled: type must be boolean, "
+        "but is null"
     );
 }
 
@@ -1446,7 +1446,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheSlaveSettingsCannotBeRead) {
     EXPECT_EQ(status.message, "Failed to start task");
     EXPECT_EQ(
         status.description,
-        "The Driver could not read the slave settings for eth0 from the Core: invalid "
+        "The Driver could not read the module settings for eth0 from the Core: invalid "
         "credentials: auth error"
     );
 }
@@ -1562,7 +1562,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenDevicesAtAPositionDisagree) {
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to start task");
     EXPECT_EQ(
         this->ctx->statuses.back().description,
-        "EL3102 and EL3102 spare are both saved for slave 2 on eth0 with different "
+        "EL3102 and EL3102 spare are both saved for module 2 on eth0 with different "
         "settings. Give them the same settings, or delete the device that is no longer "
         "on the bus."
     );
@@ -1684,7 +1684,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
             .vendor_id = 0x99,
             .product_code = 0x2,
             .serial = SLAVE_SERIAL,
-            .name = "Test Slave",
+            .name = "Test Module",
         }
     );
     auto mismatched_engine = std::make_shared<engine::Engine>(
@@ -1695,7 +1695,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     auto source = ReadTaskSource(mismatched_engine, std::move(task_cfg));
     const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Test Slave (serial 12345) is not on the bus.");
+    EXPECT_EQ(err.data, "Test Module (serial 12345) is not on the bus.");
 }
 
 }

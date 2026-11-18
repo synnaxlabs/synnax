@@ -33,6 +33,25 @@ NEW = "new.diff"
 """The file in the working directory that holds the changes since the last review when
 they are too long to show."""
 
+
+class UsageLimit(RuntimeError):
+    """Claude Code stopped at the usage limit of its login, which resets at until, in
+    Unix seconds."""
+
+    def __init__(self, until: int) -> None:
+        super().__init__(f"usage limit until {until}")
+        self.until = until
+
+
+class LoginRejected(RuntimeError):
+    """Claude rejected the token of the login. Claude Code started at started, in Unix
+    seconds."""
+
+    def __init__(self, started: int) -> None:
+        super().__init__("Claude rejected the token of the login")
+        self.started = started
+
+
 _HUNK = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)")
 _FILE = re.compile(r"^diff --git a/.* b/(.*)$", re.M)
 _GLOB = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]"}
@@ -508,8 +527,11 @@ def _stream(
     """Runs Claude Code, and returns its structured output and what it cost. Sets
     started, if given, once the first response begins.
 
-    :raises RuntimeError: If Claude Code ends with an error.
+    :raises UsageLimit: If Claude Code stops at the usage limit of its login.
+    :raises LoginRejected: If Claude rejects the token of the login.
+    :raises RuntimeError: If Claude Code ends with another error.
     """
+    begun = int(time.time())
     messages: list[dict[str, Any]] = []
     try:
         for line in claude(command, text, workdir):
@@ -521,6 +543,7 @@ def _stream(
             elif started and m["event"]["type"] == "message_start":
                 started.set()
     except subprocess.CalledProcessError as e:
+        _refused(messages, started=begun)
         # The last message tells why Claude Code exited: a usage limit, an API error.
         last = json.dumps(messages[-1]) if messages else "no message"
         raise RuntimeError(
@@ -528,9 +551,24 @@ def _stream(
         ) from e
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
+        _refused(messages, started=begun)
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
     structured: dict[str, Any] = out["structured_output"]
     return structured, Usage.of(out, messages)
+
+
+def _refused(messages: list[dict[str, Any]], *, started: int) -> None:
+    until, rejected = None, False
+    for m in messages:
+        if m["type"] == "rate_limit_event":
+            info = m["rate_limit_info"]
+            until = info.get("resetsAt") if info["status"] == "rejected" else None
+        elif m["type"] == "assistant":
+            rejected |= m.get("error") == "authentication_failed"
+    if until is not None:
+        raise UsageLimit(until)
+    if rejected:
+        raise LoginRejected(started)
 
 
 def run(
@@ -544,7 +582,9 @@ def run(
 
     :param claude: Called from one thread for each pass when the lenses run.
     :param workdir: An empty directory that Claude Code starts in and can read.
-    :raises RuntimeError: If Claude Code ends with an error.
+    :raises UsageLimit: If Claude Code stops at the usage limit of its login.
+    :raises LoginRejected: If Claude rejects the token of the login.
+    :raises RuntimeError: If Claude Code ends with another error.
     """
     shown, rest = _cut(_numbered(pr.diff), config.diff_chars)
     if rest:

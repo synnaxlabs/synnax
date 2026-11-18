@@ -10,7 +10,6 @@
 export * from "@/platform/range/code";
 export * from "@/platform/range/FavoriteButton";
 export * from "@/platform/range/menu/ContextMenu";
-export * from "@/platform/range/resolve";
 export * from "@/platform/range/stage";
 export * from "@/platform/range/useAddToNewPlot";
 export * from "@/platform/range/useCreateModal";

@@ -167,16 +167,20 @@ run's commit: the resolve stage keeps a tag on the train that names `HEAD`, and 
 skips what already went up.
 
 The npm trusted publishers allow staging only. The npm publish job stages each tarball
-with `pnpm stage publish`, since pnpm cannot stage a batch, then pushes the tag. Nothing
-installs until a maintainer approves each package on npmjs.com with 2FA, in dependency
-order: `x`, `alamos`, `freighter`, then `client`. A staged version is hidden from the
-registry, so a run whose tag already names its commit skips the stage. While `client`
-waits for approval at the newest `ts/v*` version, overall or on the run's train, the job
-stages nothing, so approvals never move a dist-tag back. Three cases need a person. To
-reject a release, reject every staged package and delete its `ts/v*` tag. If a stage
-fails part way, reject what staged and rerun. No tag guards those packages, so a later
-approval of one can move a dist-tag back; the run summary asks for the reject. If the
-tag push fails after a stage, push the tag at the run's commit by hand and rerun.
+with `pnpm stage publish --provenance`, since pnpm cannot stage a batch, then pushes the
+tag. The stage fails if it cannot sign provenance. Nothing installs until a maintainer
+approves each package on npmjs.com with 2FA, in dependency order: `x`, `alamos`,
+`freighter`, then `client`. A staged version is hidden from the registry, so a run whose
+tag already names its commit skips the stage. While `client` waits for approval at the
+newest `ts/v*` version, overall or on the run's train, the job stages nothing, so
+approvals never move a dist-tag back. Once `client` is out at that version, the job
+stages nothing unless all four packages have a provenance attestation. Four cases need a
+person. To reject a release, reject every staged package and delete its `ts/v*` tag. If
+a stage fails part way, reject what staged and rerun. No tag guards those packages, so a
+later approval of one can move a dist-tag back; the run summary asks for the reject. If
+the tag push fails after a stage, push the tag at the run's commit by hand and rerun. If
+an approved version has no attestation, add it to `unattested` in `release.yaml` on the
+branch that dispatches the release.
 
 A merge publishes nothing. Both publish through OIDC trusted publishing with
 `id-token: write`, so no registry token lives in the repo's secrets. The registries
