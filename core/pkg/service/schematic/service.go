@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -55,6 +56,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
+	// Enumeration holds the enumerations that selects and state indicators draw.
+	//
+	// [REQUIRED]
+	Enumeration *enumeration.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -66,6 +71,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Enumeration = override.Nil(c.Enumeration, other.Enumeration)
 	return c
 }
 
@@ -75,6 +81,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("group", c.Group)
 	v.NotNil("imex", c.ImEx)
+	v.NotNil("enumeration", c.Enumeration)
 	return v.Error()
 }
 

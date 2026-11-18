@@ -10,13 +10,18 @@
 package schematic_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/defaults"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Enumeration references", func() {
@@ -119,5 +124,84 @@ var _ = Describe("Enumeration references", func() {
 		Expect(seen[0].Actions).To(HaveLen(1))
 		Expect(seen[0].Actions[0].Create).ToNot(BeNil())
 		Expect(seen[0].Actions[0].Create.Schematic).To(Equal(res))
+	})
+
+	Describe("Import", func() {
+		options := []schematic.StateMapping{{Key: "open", Name: "Open", Value: 1}}
+		exportNaming := func(ctx SpecContext, key enumeration.Key) imex.Envelope {
+			GinkgoHelper()
+			s := schematic.Schematic{
+				Name:    "exported",
+				Project: &proj.Key,
+				Nodes: []schematic.Node{
+					node("select", schematic.SelectNodeConfig{
+						Enumeration: &key,
+						Options:     options,
+					}),
+					node("indicator", schematic.StateIndicatorNodeConfig{
+						Enumeration: &key,
+						Options:     options,
+					}),
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &s)
+			})).To(Succeed())
+			env := MustSucceed(svc.Export(ctx, db, schematic.ResourceID(s.Key)))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, s.Key)
+			})).To(Succeed())
+			return WireRoundTrip(env)
+		}
+		importEnvelope := func(
+			ctx SpecContext,
+			env imex.Envelope,
+		) schematic.Schematic {
+			GinkgoHelper()
+			var res schematic.Schematic
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				id, err := imexSvc.Import(
+					ctx, tx, env, imex.ImportOptions{Parent: proj.ResourceID()},
+				)
+				if err != nil {
+					return err
+				}
+				key, err := uuid.Parse(id.Key)
+				if err != nil {
+					return err
+				}
+				return svc.NewRetrieve().
+					Where(schematic.MatchKeys(key)).
+					Entry(&res).
+					Exec(ctx, tx)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, res.Key)
+				})).To(Succeed())
+			})
+			return res
+		}
+
+		It("Should clear an enumeration that the Core lacks and keep the options", func(
+			ctx SpecContext,
+		) {
+			gone := createEnumeration(ctx, "Gone")
+			env := exportNaming(ctx, gone.Key)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return enumSvc.NewWriter(tx).Delete(ctx, gone.Key)
+			})).To(Succeed())
+			res := importEnvelope(ctx, env)
+			Expect(enumerationsOf(res)).To(Equal([]*enumeration.Key{nil, nil}))
+			sel, ok := res.Nodes[0].Config.Variant.(schematic.SelectNodeConfig)
+			Expect(ok).To(BeTrue())
+			Expect(sel.Options).To(Equal(options))
+		})
+
+		It("Should keep an enumeration that the Core has", func(ctx SpecContext) {
+			res := importEnvelope(ctx, exportNaming(ctx, other.Key))
+			want := []*enumeration.Key{&other.Key, &other.Key}
+			Expect(enumerationsOf(res)).To(Equal(want))
+		})
 	})
 })

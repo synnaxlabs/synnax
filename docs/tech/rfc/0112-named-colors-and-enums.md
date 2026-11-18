@@ -124,9 +124,8 @@ moves every user to another enumeration and then deletes. A built-in enumeration
 be deleted, so a default enumeration that only a Pluto file names always exists.
 
 A schematic export keeps the `enumeration` key of each node, as it keeps channel keys
-(RFC 0039 §6.3), and an import keeps each key as it is. A node whose key the Core lacks
-shows its enumeration as "not found" in its Options tab and draws no states until the
-user picks another.
+(RFC 0039 §6.3). An import keeps a key that the Core has and clears a key that it lacks,
+so that node draws its own options.
 
 ### 4.3 State symbols
 

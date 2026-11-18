@@ -774,6 +774,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           l.Group,
 		Signals:         l.Signals,
 		ImEx:            l.ImEx,
+		Enumeration:     l.Enumeration,
 	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
