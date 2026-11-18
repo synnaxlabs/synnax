@@ -80,6 +80,7 @@ import {
   LuChartColumn,
   LuChartNoAxesGantt,
   LuFileBadge,
+  LuGlobe,
   LuInfo,
   LuKeyRound,
   LuLock,
@@ -218,6 +219,7 @@ import {
   SiApachekafka,
   SiCplusplus,
   SiMqtt,
+  SiNodedotjs,
   SiNpm,
   SiPagerduty,
   SiPnpm,
@@ -403,6 +405,8 @@ export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
+export const NodeJS = wrapSVGIcon(SiNodedotjs, "nodejs");
+export const Browser = wrapSVGIcon(LuGlobe, "browser");
 export const CPlusPlus = wrapSVGIcon(SiCplusplus, "cplusplus");
 export const NPM = wrapSVGIcon(SiNpm, "npm");
 export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
@@ -684,6 +688,8 @@ const icons = {
   Boxes,
   Python,
   TypeScript,
+  NodeJS,
+  Browser,
   CPlusPlus,
   NPM,
   PNPM,

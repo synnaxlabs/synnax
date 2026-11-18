@@ -160,8 +160,14 @@ const TypeScriptTab = ({
       </Step>
       <Step title="Connect">
         <Select.Buttons<Runtime> value={runtime} onChange={setRuntime}>
-          <Select.Item<Runtime> itemKey="node">Node.js</Select.Item>
-          <Select.Item<Runtime> itemKey="browser">Browser</Select.Item>
+          <Select.Item<Runtime> itemKey="node">
+            <Icon.NodeJS />
+            Node.js
+          </Select.Item>
+          <Select.Item<Runtime> itemKey="browser">
+            <Icon.Browser />
+            Browser
+          </Select.Item>
         </Select.Buttons>
         {runtime === "node" ? (
           <Code.Snippet label="TypeScript Node.js code" code={NODE_CODE} />
