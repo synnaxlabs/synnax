@@ -60,7 +60,7 @@ fn enable(settings: &Settings) {
 
 /// Turns on WebGL in workers for each webview the app creates.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    Builder::new("webgl")
+    Builder::new("webkit")
         .on_webview_ready(|webview| {
             let result = webview.with_webview(|platform| {
                 if let Some(settings) = platform.inner().settings() {
