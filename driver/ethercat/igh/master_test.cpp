@@ -1486,7 +1486,7 @@ TEST_F(IGHMasterTest, WriteChangesAValueOnTheRunningBus) {
 }
 
 /// @brief it should refuse a value on the running bus that IgH does not add to the
-/// startup parameters, after the slave takes it.
+/// startup parameters, and put back the value that the slave held.
 TEST_F(IGHMasterTest, WriteRefusesAValueThatIgHCannotKeep) {
     this->api->add_slave().objects[{0x8000, 0x15}] = 0;
     ASSERT_NIL(this->scan_and_activate());
@@ -1498,8 +1498,28 @@ TEST_F(IGHMasterTest, WriteRefusesAValueThatIgHCannotKeep) {
         "the IgH master cannot change 0x8000:15 (Filter) of module 1 (TestSlave) while "
         "other tasks run the bus. Stop them, then start this task first"
     );
-    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    const std::vector<MockAPI::SDO> expected{
+        {0x8000, 0x15, {0x03, 0x00}},
+        {0x8000, 0x15, {0x00, 0x00}},
+    };
     EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_EQ(this->api->slaves[0].objects.at({0x8000, 0x15}), 0);
+}
+
+/// @brief it should refuse a change on the running bus once the slave has the most
+/// startup parameters that IgH can add, and write nothing.
+TEST_F(IGHMasterTest, WriteRefusesAChangeAtTheRunningAdditionLimit) {
+    this->api->add_slave().objects[{0x8000, 0x15}] = 0;
+    ASSERT_NIL(this->scan_and_activate());
+    auto changed = FILTER;
+    for (size_t i = 0; i < RUNNING_ADDITION_LIMIT; i++) {
+        changed.value = 3 + static_cast<int>(i % 2);
+        ASSERT_NIL(this->master.write(1, {changed}));
+    }
+    changed.value = 5;
+    ASSERT_OCCURRED_AS(this->master.write(1, {changed}), errors::SETTING_CONFLICT);
+    EXPECT_EQ(this->api->slaves[0].downloads.size(), RUNNING_ADDITION_LIMIT);
+    EXPECT_EQ(this->api->slaves[0].startup_sdos.size(), RUNNING_ADDITION_LIMIT);
 }
 
 /// @brief it should refuse a value on the running bus for a slave that the bus does not
