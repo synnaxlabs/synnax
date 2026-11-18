@@ -444,6 +444,23 @@ describe("Schematic toolbar Properties", () => {
       );
     });
 
+    it("shows the first series color as the stroke of auto-stroked gauges", async () => {
+      await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: () => PSchematic.Node.createConfig({ variant: "gauge" }),
+      });
+      await screen.findByText("Colors");
+      const swatch = roleInput("Stroke")
+        .closest(".lyra-color-input")
+        ?.querySelector<HTMLElement>(".lyra-color-swatch");
+      assertDefined(swatch);
+      await waitFor(() =>
+        expect(swatch.style.getPropertyValue("--pluto-swatch-color")).not.toBe(
+          "#00000000",
+        ),
+      );
+    });
+
     it("shows Mixed when auto-filled symbols paint different fills", async () => {
       await renderProperties({
         nodeKeys: ["n1", "n2"],

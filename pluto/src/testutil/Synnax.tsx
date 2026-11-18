@@ -16,7 +16,6 @@ import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
-import { Color } from "@/color";
 import { series } from "@/color/aether";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
@@ -125,9 +124,7 @@ export const createSynnaxWrapper = ({
           <Alamos.Provider>
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>
-                <ThemingSeed>
-                  <Color.Provider>{inner}</Color.Provider>
-                </ThemingSeed>
+                <ThemingSeed>{inner}</ThemingSeed>
               </Suspense>
             </Synnax.TestProvider>
           </Alamos.Provider>

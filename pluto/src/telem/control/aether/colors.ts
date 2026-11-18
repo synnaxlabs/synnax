@@ -39,15 +39,16 @@ export interface ColoredState extends control.State {
 /**
  * Colors assigns each control subject a color, so that a reader can tell subjects
  * apart at a glance. Assignment is sequential over the series colors, which keeps
- * colors unique for as many subjects as there are series colors.
+ * colors unique for as many subjects as there are series colors. A subject keeps its
+ * place in the series colors when they change.
  */
 export class Colors extends aether.Composite<typeof colorsStateZ, InternalState> {
   static readonly TYPE = "Colors";
   static readonly stateZ = colorsStateZ;
   schema = Colors.stateZ;
 
-  /** The color assigned to each control subject, keyed by subject key. */
-  private readonly assigned = new Map<string, color.Color>();
+  /** The series color index assigned to each control subject, keyed by subject key. */
+  private readonly assigned = new Map<string, number>();
   /** User-specified color overrides from the legend UI. */
   private readonly overrides = new Map<string, color.Color>();
   private readonly obs = new observe.Observer<void>();
@@ -74,7 +75,9 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
     const nextClient = synnax.use(ctx);
     if (i.client != null && nextClient === i.client) {
       if (recolored) {
-        this.assigned.clear();
+        this.assigned.forEach((index, key) => {
+          if (index >= palette.length) this.assigned.delete(key);
+        });
         this.assign(i.client.control.store.get());
       }
       return;
@@ -101,8 +104,13 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
 
   /** The color of the given subject, or the default color when it has none. */
   get(subject: string): color.Color {
-    const { defaultColor } = this.internal;
-    return this.overrides.get(subject) ?? this.assigned.get(subject) ?? defaultColor;
+    const { defaultColor, palette } = this.internal;
+    const index = this.assigned.get(subject);
+    return (
+      this.overrides.get(subject) ??
+      (index == null ? undefined : palette.at(index)) ??
+      defaultColor
+    );
   }
 
   setOverrides(overrides: Record<string, color.Color>): void {
@@ -130,16 +138,16 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
     this.assigned.forEach((_, key) => {
       if (!subjects.has(key)) this.assigned.delete(key);
     });
-    const taken = Array.from(this.assigned.values());
+    const taken = new Set(this.assigned.values());
     const { palette } = this.internal;
-    subjects.forEach((key) => {
-      if (this.assigned.has(key)) return;
-      const next =
-        palette.find((c) => !taken.some((t) => color.equals(t, c))) ?? palette.at(0);
-      if (next == null) return;
-      this.assigned.set(key, next);
-      taken.push(next);
-    });
+    if (palette.length > 0)
+      subjects.forEach((key) => {
+        if (this.assigned.has(key)) return;
+        const free = palette.findIndex((_, index) => !taken.has(index));
+        const next = free === -1 ? 0 : free;
+        this.assigned.set(key, next);
+        taken.add(next);
+      });
     this.obs.notify();
   }
 }

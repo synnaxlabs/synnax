@@ -204,6 +204,38 @@ describe("control/aether/Colors", SUITE, () => {
     expect(color.equals(colors.get(subject), next)).toBe(true);
   });
 
+  it("should keep each subject's place when the series colors change", async () => {
+    const [first, second, third] = await createChannels(3);
+    const { colors, setSeries } = await setup([first, second, third]);
+    const released = await hold(first);
+    await assigned(colors, released.subject);
+    const kept = await hold(second);
+    expect(color.equals(await assigned(colors, kept.subject), PALETTE[1])).toBe(true);
+    await released.release();
+    await expect
+      .poll(() => color.equals(colors.get(released.subject), DEFAULT_COLOR), POLL)
+      .toBe(true);
+    const next = await hold(third);
+    expect(color.equals(await assigned(colors, next.subject), PALETTE[0])).toBe(true);
+    const series = ["#111111", "#222222", "#333333"].map((c) => color.construct(c));
+    setSeries(series);
+    expect(color.equals(colors.get(next.subject), series[0])).toBe(true);
+    expect(color.equals(colors.get(kept.subject), series[1])).toBe(true);
+  });
+
+  it("should reassign a subject whose place the new series colors lack", async () => {
+    const [first, second] = await createChannels(2);
+    const { colors, setSeries } = await setup([first, second]);
+    const kept = await hold(first);
+    await assigned(colors, kept.subject);
+    const moved = await hold(second);
+    expect(color.equals(await assigned(colors, moved.subject), PALETTE[1])).toBe(true);
+    const next = color.construct("#123456");
+    setSeries([next]);
+    expect(color.equals(colors.get(kept.subject), next)).toBe(true);
+    expect(color.equals(colors.get(moved.subject), next)).toBe(true);
+  });
+
   it("should keep subjects apart when the same series colors arrive again", async () => {
     const [first, second] = await createChannels(2);
     const { colors, setSeries } = await setup([first, second]);
