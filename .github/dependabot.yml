@@ -7,8 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Version updates for the pinned GitHub Actions only. Security updates for every
-# ecosystem come from the repository settings and do not use this file.
+# Version updates for the pinned GitHub Actions and the uv, Go, and Cargo dependencies.
+# Security updates for every ecosystem come from the repository settings and do not use
+# this file.
 
 version: 2
 
@@ -32,6 +33,81 @@ updates:
       prefix: "[ci] "
     # A bump changes code that runs in CI, and the classifier marks a change to
     # .github/actions/ for human review, so a person merges these.
+    labels:
+      - dependencies
+      - review/human
+
+  # The root lockfile pins the Python packages and the scripts that run in CI with
+  # secrets. The runner controller runs daily on main with AWS credentials. A person
+  # merges these.
+  - package-ecosystem: uv
+    directories:
+      - /
+      - /scripts/runners
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    # Keeps the dependency ranges that the published Python packages declare.
+    versioning-strategy: lockfile-only
+    groups:
+      python:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "[ci] "
+    labels:
+      - dependencies
+      - review/human
+
+  # A bump changes the code that the Core and Driver releases build from.
+  - package-ecosystem: gomod
+    directories:
+      - /alamos/go
+      - /arc/go
+      - /cesium
+      - /core
+      - /freighter/go
+      - /freighter/integration
+      - /gorp
+      - /oracle
+      - /x/go
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    # Sibling modules come from replace directives.
+    ignore:
+      - dependency-name: github.com/synnaxlabs/*
+    groups:
+      go:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "[ci] "
+    labels:
+      - dependencies
+      - review/human
+
+  # A bump changes the code that the Console releases build from.
+  - package-ecosystem: cargo
+    directory: /console/src-tauri
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    # The Tauri crates must match the @tauri-apps packages in the pnpm catalog.
+    ignore:
+      - dependency-name: tauri*
+    groups:
+      rust:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: "[ci] "
     labels:
       - dependencies
       - review/human
