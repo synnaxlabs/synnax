@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/channels"
@@ -324,6 +326,9 @@ trig -> f"v={q}" -> log`, "v=14.7"),
 		fire := event(func(h *runtimeHarness) {
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
 		})
+		say := func(v string) event {
+			return func(h *runtimeHarness) { h.Ingest(103, telem.NewSeriesV(v)) }
+		}
 		// Runs program for five ticks of one millisecond after each event and returns
 		// each string that it writes to log.
 		run := func(ctx SpecContext, program string, events ...event) []string {
@@ -332,11 +337,13 @@ trig -> f"v={q}" -> log`, "v=14.7"),
 				"trig":   {types.U8(), 100},
 				"log":    {types.String(), 101},
 				"sensor": {types.F64(), 102},
+				"text":   {types.String(), 103},
 			})
 			h := newRuntimeHarness(ctx, program, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
 				channels.Digest{Key: 101, DataType: telem.StringT},
 				channels.Digest{Key: 102, DataType: telem.Float64T},
+				channels.Digest{Key: 103, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			logged := make([]string, 0, len(events))
@@ -567,6 +574,36 @@ trig -> show()`),
 trig -> f"{x}" -> log`),
 		)
 
+		It("Should follow a channel through an assignment in a stage", func(
+			ctx SpecContext,
+		) {
+			logged := run(ctx, `sequence main {
+    stage s1 {
+        s := "a"
+        s = f"{sensor}"
+        s -> log
+    }
+}
+trig => main`, fire, value(1.5), value(2.5), value(3.5))
+			// The assignment runs on each pass, so each value repeats.
+			Expect(slices.Compact(logged)).To(Equal(
+				[]string{"a", "0", "1.5", "2.5", "3.5"},
+			))
+		})
+
+		It("Should follow a channel through a string joined to a format string", func(
+			ctx SpecContext,
+		) {
+			logged := run(ctx, `sequence main {
+    stage s1 {
+        s2 := "const" + text + f" {text}"
+        s2 -> log
+    }
+}
+trig => main`, fire, say("x"), say("y"), say("z"))
+			Expect(logged).To(Equal([]string{"constx x", "consty y", "constz z"}))
+		})
+
 		It(
 			"Should render the entry value and then the reassigned value on a timer",
 			func(ctx SpecContext) {
@@ -592,7 +629,7 @@ true => main`, 1.5)
     f"{v}" + "!" -> log
 }
 trig => main`, 1.5)
-				Expect(logged).To(ContainElement("1.23!"))
+				Expect(logged).To(Equal([]string{"1.23!"}))
 			},
 		)
 
@@ -601,7 +638,7 @@ trig => main`, 1.5)
 			func(ctx SpecContext) {
 				logged := runSensor(ctx, `v := sensor * 2.0
 f"{v}" + "!" -> log`, 1.5, 2.5)
-				Expect(logged).To(ContainElements("3!", "5!"))
+				Expect(logged).To(Equal([]string{"3!", "5!"}))
 			},
 		)
 	})
@@ -910,9 +947,9 @@ f"{v}" + "!" -> log`, 1.5, 2.5)
 		)
 	})
 
-	Describe("Flow-form synthetic functions", func() {
+	Describe("Flow-form format strings", func() {
 		It(
-			"synthesizes a fmt$ function for a raw string with placeholders in flow form",
+			"renders a raw string with placeholders in flow form",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"sensor": {types.F32(), 100},
@@ -935,7 +972,7 @@ f"{v}" + "!" -> log`, 1.5, 2.5)
 		)
 
 		It(
-			"preserves a numeric format spec on a flow-form synthetic",
+			"preserves a numeric format spec in flow form",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"sensor": {types.F64(), 100},
@@ -958,7 +995,7 @@ f"{v}" + "!" -> log`, 1.5, 2.5)
 		)
 
 		It(
-			"synthesizes a fmt$ function for a multi-channel placeholder body in flow form",
+			"renders a multi-channel placeholder body in flow form",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"sensor": {types.F32(), 100},
@@ -984,7 +1021,7 @@ f"{v}" + "!" -> log`, 1.5, 2.5)
 		)
 
 		It(
-			"synthesizes a fmt$ function for an rf-prefixed multi-line format string preserving backslashes across newlines",
+			"renders an rf-prefixed multi-line format string preserving backslashes across newlines",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"sensor": {types.F32(), 100},
@@ -1010,7 +1047,7 @@ f"{v}" + "!" -> log`, 1.5, 2.5)
 		)
 
 		It(
-			"synthesizes a fmt$ function for an rf-prefixed format string preserving backslashes",
+			"renders an rf-prefixed format string preserving backslashes",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"sensor": {types.F32(), 100},
@@ -1033,7 +1070,7 @@ f"{v}" + "!" -> log`, 1.5, 2.5)
 		)
 
 		It(
-			"synthesizes a fmt$ function for a multi-line format string with placeholders across newlines",
+			"renders a multi-line format string with placeholders across newlines",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"sensor": {types.F32(), 100},

@@ -167,6 +167,18 @@ func fmt_react_show(s str) {
 }
 fmt_react_in -> fmt_react_show(f"r={fmt_react_in}")
 f"r={fmt_react_in}" + "!" -> fmt_react_concat_out
+// Format strings in a stage: an assignment, and a string joined to a format string.
+sequence fmt_stage_main {
+    stage fmt_stage_run {
+        fmt_stage_s := "a"
+        fmt_stage_s2 := "const" + fmt_stage_text_in + f" {fmt_stage_text_in}"
+        fmt_stage_s = f"{fmt_stage_in}"
+        fmt_stage_s -> fmt_stage_assign_out
+        fmt_stage_s2 -> fmt_stage_concat_out
+        1 -> fmt_stage_ready
+    }
+}
+start_stl_string_cmd => fmt_stage_main
 // Doubled-brace literal-brace escapes in flow position. This path is the
 // one that historically dropped the {{/}} collapse and emitted the raw
 // body verbatim; the assertions below pin the fixed behavior.
@@ -248,6 +260,11 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("fmt_react_value_out", sy.DataType.STRING),
     ("fmt_react_input_out", sy.DataType.STRING),
     ("fmt_react_concat_out", sy.DataType.STRING),
+    ("fmt_stage_in", sy.DataType.INT64),
+    ("fmt_stage_text_in", sy.DataType.STRING),
+    ("fmt_stage_ready", sy.DataType.UINT8),
+    ("fmt_stage_assign_out", sy.DataType.STRING),
+    ("fmt_stage_concat_out", sy.DataType.STRING),
     # len / concat / equal outputs. Virtual (stream-read) rather than indexed
     # (DB-read): these assert pure STL-function results that only need to flow
     # through, so reading them off the subscription avoids the database
@@ -507,6 +524,18 @@ class StlString(ArcCase):
             self.wait_for_eq("fmt_react_input_out", f"r={value}")
             self.wait_for_eq("fmt_react_concat_out", f"r={value}!")
 
+    def _test_format_stage(self) -> None:
+        """Format strings in a stage follow each new value of the channels they read."""
+        self.log("=== format strings in a stage ===")
+        self.wait_for_eq("fmt_stage_ready", 1)
+        for value, text in ((1, "x"), (2, "y")):
+            self.writer.write("fmt_stage_in", value)
+            self.writer.write("fmt_stage_text_in", text)
+            self.log(f"[fmt_stage_assign] Expecting '{value}'")
+            self.wait_for_eq("fmt_stage_assign_out", str(value))
+            self.log(f"[fmt_stage_concat] Expecting 'const{text} {text}'")
+            self.wait_for_eq("fmt_stage_concat_out", f"const{text} {text}")
+
     def verify_sequence_execution(self) -> None:
         # len, concat, equal, and misc are all gated on str_trigger, so a single
         # write computes every output in one pass; the groups below just assert
@@ -518,3 +547,4 @@ class StlString(ArcCase):
         self._test_misc()
         self._test_format()
         self._test_format_reactivity()
+        self._test_format_stage()

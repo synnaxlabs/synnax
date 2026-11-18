@@ -2132,6 +2132,7 @@ TEST(FormatStringInterpolationOfVariablesTest, InterpolatesAReassignedLiteralVar
     EXPECT_EQ(last<std::string>(out, h.key("out")), "val=updated");
 }
 
+/// @brief it should interpolate a format string that is the value of a variable.
 TEST(FormatStringInterpolationOfVariablesTest, InterpolatesAsAVariableValue) {
     Sequence h(
         R"(
@@ -2146,6 +2147,7 @@ TEST(FormatStringInterpolationOfVariablesTest, InterpolatesAsAVariableValue) {
     EXPECT_EQ(last<std::string>(out, h.key("out")), "1.23");
 }
 
+/// @brief it should follow a channel that a format string variable value reads.
 TEST(FormatStringInterpolationOfVariablesTest, FollowsAChannelAsAVariableValue) {
     Sequence h(
         R"(
@@ -2163,6 +2165,7 @@ TEST(FormatStringInterpolationOfVariablesTest, FollowsAChannelAsAVariableValue) 
     );
 }
 
+/// @brief it should interpolate a format string that is a function input.
 TEST(FormatStringInterpolationOfVariablesTest, InterpolatesAsAFunctionInput) {
     Sequence h(
         R"(
@@ -2179,6 +2182,8 @@ TEST(FormatStringInterpolationOfVariablesTest, InterpolatesAsAFunctionInput) {
     EXPECT_EQ(last<std::string>(out, h.key("out")), "1.23");
 }
 
+/// @brief it should read a reassigned variable in a format string inside a larger
+/// expression.
 TEST(FormatStringInterpolationOfVariablesTest, InterpolatesInsideALargerExpression) {
     Sequence h(
         R"(
@@ -2193,7 +2198,10 @@ TEST(FormatStringInterpolationOfVariablesTest, InterpolatesInsideALargerExpressi
 
     h.trigger("start_cmd");
     const auto out = h.flush();
-    EXPECT_EQ(last<std::string>(out, h.key("out")), "1.23!");
+    EXPECT_EQ(
+        collect<std::string>(out, h.key("out")),
+        (std::vector<std::string>{"1.23!"})
+    );
 }
 
 TEST(
