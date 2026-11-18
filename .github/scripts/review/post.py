@@ -426,10 +426,15 @@ def rebutted(t: Target, th: Thread, can: Authority) -> bool:
     if th.resolved or any(command(r["body"]) is not None for r in replies):
         return False
     return any(
-        (can(r) or (r["author"] or {}).get("login") in AGENTS)
-        and not _FIXED.match(_unquoted(r["body"]).strip())
+        trusted(r, can) and not _FIXED.match(_unquoted(r["body"]).strip())
         for r in replies
     )
+
+
+def trusted(comment: dict[str, Any], can: Authority) -> bool:
+    """Reports whether someone with write access or an agent wrote a comment, so the
+    bot judges it as a rebuttal."""
+    return can(comment) or (comment["author"] or {}).get("login") in AGENTS
 
 
 def blob(t: Target, gh: GH, commit: str, path: str) -> str | None:

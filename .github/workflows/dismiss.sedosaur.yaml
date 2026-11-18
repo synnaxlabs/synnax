@@ -34,14 +34,14 @@ on:
 
 permissions: {}
 
-# A run that waits is canceled when another one queues. The next run answers its work.
-concurrency:
-  group: dismiss-sedosaur-${{ inputs.pr }}
-  cancel-in-progress: false
-
+# Each job has its own group, so a dismissal does not wait behind a judgment. A job that
+# waits is canceled when another one queues. The next one answers its work.
 jobs:
   dismiss:
     name: Answer the reply
+    concurrency:
+      group: dismiss-sedosaur-${{ inputs.pr }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
@@ -104,6 +104,9 @@ jobs:
     needs: dismiss
     if: needs.dismiss.outputs.judge == 'true'
     name: Judge the rebuttals
+    concurrency:
+      group: judge-sedosaur-${{ inputs.pr }}
+      cancel-in-progress: false
     runs-on: [self-hosted, review]
     timeout-minutes: 30
     permissions:
@@ -154,6 +157,7 @@ jobs:
           echo "CLAUDE_CODE_OAUTH_TOKEN=$token" >> "$GITHUB_ENV"
 
       - name: Judge the rebuttals
+        id: judge
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ github.token }}
@@ -162,8 +166,11 @@ jobs:
           HEAD_DIR: ${{ runner.temp }}/head
         run: python3 -m review judge "$RUNNER_TEMP/judgments.json"
 
+      # A rebuttal that could not be judged fails the job, but the judgments of the
+      # others still post.
       - name: Mint the GitHub App token
         id: app
+        if: ${{ !cancelled() && steps.judge.outcome != 'skipped' }}
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
           app-id: ${{ secrets.SEDOSAUR_APP_ID }}
@@ -174,8 +181,12 @@ jobs:
           permission-pull-requests: write
 
       - name: Post the judgments
+        if: ${{ !cancelled() && steps.judge.outcome != 'skipped' }}
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           BOT: ${{ steps.app.outputs.app-slug }}
-        run: python3 -m review rule "$RUNNER_TEMP/judgments.json"
+        run: |
+          if [ -f "$RUNNER_TEMP/judgments.json" ]; then
+            python3 -m review rule "$RUNNER_TEMP/judgments.json"
+          fi

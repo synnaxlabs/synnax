@@ -12,6 +12,7 @@ replies against the code at the head, and the bot then withdraws the finding or
 replies why it holds."""
 
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,16 +20,19 @@ from typing import Any
 from review.dismiss import PASSED
 from review.post import (
     GH,
+    Authority,
     Target,
     Thread,
     answer,
     authority,
     blob,
+    by_bot,
     rebutted,
     reply,
     rescore,
     resolve,
     threads,
+    trusted,
     write,
 )
 from review.render import fence
@@ -97,32 +101,46 @@ def judge(
     diff: str,
     claude: Claude,
     workdir: Path,
-) -> list[Judgment]:
+) -> tuple[list[Judgment], list[Exception]]:
     """Judges each open thread of a finding of the bot whose last replies rebut it, with
-    one run of Claude Code for each thread.
+    one run of Claude Code for each thread, all at once. Returns the judgments, and the
+    error of each thread whose judgment failed: a `RuntimeError` when Claude Code ends
+    with an error, or a `ValueError` when it writes a malformed judgment.
 
     :param head: A checkout of the head of the pull request.
     :param diff: The diff from the merge base to the head.
+    :param claude: Called from one thread for each rebutted thread.
     :param workdir: An empty directory that Claude Code starts in and can read.
-    :raises RuntimeError: If Claude Code ends with an error.
-    :raises ValueError: If Claude Code writes a malformed judgment.
     """
     can = authority(t, gh)
     todo = [th for th in threads(t, gh) if rebutted(t, th, can)]
     if not todo:
-        return []
+        return [], []
     shown, rest = _cut(_numbered(diff), config.diff_chars)
     if rest:
         (workdir / REST).write_text(rest)
-    out: list[Judgment] = []
     with tempfile.TemporaryDirectory() as tmp:
         system = Path(tmp) / "judge.md"
         system.write_text(_shared(config, t, head, shown, rest))
         command = _command(config, head=head, system=system, schema=SCHEMA)
-        for th in todo:
-            data, _ = _stream(command, _case(th), claude=claude, workdir=workdir)
-            out.append(parse(data, thread=th.id, reply=th.replies[-1]["databaseId"]))
-    return out
+
+        def one(th: Thread) -> Judgment | Exception:
+            heard = [r for r in th.replies if trusted(r, can)]
+            try:
+                data, _ = _stream(
+                    command, _case(t, th, can), claude=claude, workdir=workdir
+                )
+                return parse(data, thread=th.id, reply=heard[-1]["databaseId"])
+            except (RuntimeError, ValueError) as e:
+                e.add_note(f"thread {th.id} on `{th.path}`: {th.title}")
+                return e
+
+        with ThreadPoolExecutor(len(todo)) as pool:
+            results = list(pool.map(one, todo))
+    return (
+        [r for r in results if isinstance(r, Judgment)],
+        [r for r in results if isinstance(r, Exception)],
+    )
 
 
 def _shared(config: Config, t: Target, head: Path, shown: str, rest: str) -> str:
@@ -142,10 +160,13 @@ def _shared(config: Config, t: Target, head: Path, shown: str, rest: str) -> str
     return "\n\n".join(parts)
 
 
-def _case(th: Thread) -> str:
+def _case(t: Target, th: Thread, can: Authority) -> str:
+    """Builds the prompt of one thread. Only the bot's replies and the replies it can
+    judge reach it, so no one else can plant claims there."""
     replies = [
         f"**{(r['author'] or {}).get('login', 'ghost')}**:\n\n{fence(r['body'])}"
         for r in th.replies
+        if by_bot(t, r) or trusted(r, can)
     ]
     return "\n\n".join(
         [
@@ -159,24 +180,26 @@ def _case(th: Thread) -> str:
 
 
 def rule(t: Target, gh: GH, judgments: list[Judgment], *, key: str) -> None:
-    """Posts each judgment on its thread while the thread is open and the reply that it
-    answers is still the last. A hold replies with the reason. A withdrawal replies with
-    the reason and a record of the finding's file at the head, and resolves the thread.
-    When a withdrawal leaves no finding of the newest review of the head, a new check
-    run scores the head 5/5.
+    """Posts each judgment on its thread while the thread is open and neither the bot
+    nor a reply that it judges follows the reply that the judgment answers. A hold
+    replies with the reason. A withdrawal replies with the reason and a record of the
+    finding's file at the head, and resolves the thread. When a withdrawal leaves no
+    finding of the newest review of the head, a new check run scores the head 5/5.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """
     found = {th.id: th for th in threads(t, gh)}
+    can = authority(t, gh)
     withdrew = False
     for j in judgments:
         th = found.get(j.thread)
-        if (
-            th is None
-            or th.resolved
-            or not th.replies
-            or th.replies[-1]["databaseId"] != j.reply
-        ):
+        if th is None or th.resolved:
+            continue
+        ids = [r["databaseId"] for r in th.replies]
+        if j.reply not in ids:
+            continue
+        later = th.replies[ids.index(j.reply) + 1 :]
+        if any(by_bot(t, r) or trusted(r, can) for r in later):
             continue
         if j.verdict == "hold":
             reply(gh, th, HELD.format(reason=j.reason))
@@ -189,6 +212,6 @@ def rule(t: Target, gh: GH, judgments: list[Judgment], *, key: str) -> None:
         reply(gh, th, answer(record, WITHDRAWN.format(reason=j.reason, path=th.path)))
         resolve(gh, th)
         withdrew = True
-    if withdrew and rescore(t, gh, threads(t, gh), key, authority(t, gh)):
+    if withdrew and rescore(t, gh, threads(t, gh), key, can):
         path = f"repos/{t.repo}/issues/{t.pr}/comments"
         write(gh, "POST", path, {"body": PASSED.strip()})

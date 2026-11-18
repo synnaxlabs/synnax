@@ -34,11 +34,12 @@ a finding outside the diff: an `@sedosaur dismiss` from someone with write acces
 dismisses the finding, and scores the head 5/5 when no finding of its review is left.
 It also takes KEY, and prints `true` when a rebuttal on a thread waits for `judge`.
 `judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
-each rebuttal with Claude Code, and writes the judgments. `rule` posts them, and takes
-KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
-runs in a clone with full history, and prints a Markdown comparison of the records of
-the last days with Greptile's reviews of the same commits. It keeps each record it
-downloads in the records directory, and reads it from there on the next run.
+each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
+when one rebuttal could not be judged. `rule` posts them, and takes KEY. `compare`
+takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, and
+prints a Markdown comparison of the records of the last days with Greptile's reviews
+of the same commits. It keeps each record it downloads in the records directory, and
+reads it from there on the next run.
 """
 
 import contextlib
@@ -193,7 +194,7 @@ def judgments(target: Target, path: Path) -> None:
     head = Path(os.environ["HEAD_DIR"]).resolve()
     diff = _diff(head, target.base, target.head, _excluded(config.excluded))
     with tempfile.TemporaryDirectory() as workdir:
-        found = judge(
+        found, failed = judge(
             config,
             target,
             gh,
@@ -203,6 +204,8 @@ def judgments(target: Target, path: Path) -> None:
             workdir=Path(workdir),
         )
     path.write_text(json.dumps([dataclasses.asdict(j) for j in found]))
+    if failed:
+        raise ExceptionGroup("some rebuttals could not be judged", failed)
 
 
 def _excluded(globs: list[str]) -> list[str]:
