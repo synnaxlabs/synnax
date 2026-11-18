@@ -66,6 +66,8 @@ const Create = ({
   const { update, variant } = Certificate.useCreate({
     afterSuccess: ({ data }) => close(data.key),
   });
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   // A given name moves focus to the certificate.
   const named = initialName.length > 0;
   const handleSave = () => {
@@ -123,6 +125,7 @@ const Create = ({
           <Button.Button
             variant="outlined"
             onClick={() => close()}
+            disabled={busy}
             triggerIndicator={PTriggers.ESCAPE}
           >
             Cancel
