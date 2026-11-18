@@ -78,6 +78,8 @@ export const boundMessage = <S extends ReadSource>(
  * source in place.
  *
  * @param prefix - The prefix of the names of the channels it creates.
+ * @param written - The channels that other bindings write, which no field takes from
+ * stored. Gains the channels that the message binds.
  * @returns the channels that the message binds.
  */
 export const configureMessage = async (
@@ -85,6 +87,7 @@ export const configureMessage = async (
   { source, read: r, fields }: BoundMessage<ReadSource>,
   prefix: string,
   stored?: Task.StoredChannels,
+  written: Set<channel.Key> = new Set(),
 ): Promise<channel.Key[]> => {
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
@@ -95,6 +98,10 @@ export const configureMessage = async (
       channel: 0,
       dataType: "",
     };
+  // The Core refuses a channel that two bindings write.
+  for (const f of fields)
+    if (bindingOf(f).channel === 0 && written.has(held[f.pointer]))
+      delete held[f.pointer];
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
   const live = new Map(
     (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
@@ -136,5 +143,7 @@ export const configureMessage = async (
     index,
     bindings: channels.map(({ channel, binding }) => ({ ...binding, channel })),
   };
-  return channels.map(({ channel }) => channel);
+  const keys = channels.map(({ channel }) => channel);
+  keys.forEach((key) => written.add(key));
+  return keys;
 };

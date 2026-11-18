@@ -19,7 +19,7 @@ import {
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { DataType, type payload, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
+import { array, DataType, type payload, sleep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -258,6 +258,14 @@ const addMessage = async (
 };
 
 const KIND_MATCH: icd.JSONMatch = { type: "string", pointer: "/kind", value: "status" };
+
+/** @returns the channels that the device stores for the first message of rec. */
+const retrieveStored = async (
+  key: string,
+  { recordKey, messages }: Kafka.Task.ReadRecord,
+) =>
+  (await client.devices.retrieve({ key, schemas: Kafka.Device.SCHEMAS })).properties
+    .read[`${TOPIC}#${recordKey}#${messages[0].message}`];
 
 const createTimeChannel = async () =>
   await client.channels.create({
@@ -820,6 +828,51 @@ describe("Kafka read form", () => {
   });
 
   describe("deploying against a live Core", () => {
+    it("should reuse the channels of a deploy that failed partway", async () => {
+      const rec = await createRecord({ fields: [createField("temperature", "float")] });
+      await addMessage(rec, "status", [createField("pressure", "float")], KIND_MATCH);
+      const { container, dev, draft, statuses } = await renderRead({ records: [rec] });
+      const create = client.channels.create.bind(client.channels);
+      const dropped = vi
+        .spyOn(client.channels, "create")
+        .mockImplementation(async (channels, options) => {
+          if (array.toArray(channels).some(({ name }) => name.includes("_status_")))
+            throw new Error("Connection lost");
+          return await create(channels, options);
+        });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({ description: "Connection lost" }),
+        ),
+      );
+      dropped.mockRestore();
+      const made = await retrieveStored(dev.key, rec);
+      expect(made.channels["/temperature"]).toBeGreaterThan(0);
+      await deploy(container, draft.key);
+      const [first] = (await retrieveRecords(draft.key))[0].messages;
+      expect(first.bindings[0].channel).toBe(made.channels["/temperature"]);
+      expect((await retrieveStored(dev.key, rec)).index).toBe(made.index);
+    });
+
+    it("should keep the channel of a field that stops and starts reading", async () => {
+      const temperature = createField("temperature", "float");
+      const { container, draft } = await renderRead({ fields: [temperature] });
+      await deploy(container, draft.key);
+      const [{ channel }] = await retrieveBindings(draft.key);
+      const box = await screen.findByRole("checkbox", { name: "Read temperature" });
+      fireEvent.click(box);
+      await waitFor(async () => expect(await retrieveBindings(draft.key)).toEqual([]));
+      fireEvent.click(box);
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toMatchObject([
+          { field: temperature.key },
+        ]),
+      );
+      await deploy(container, draft.key);
+      expect((await retrieveBindings(draft.key))[0].channel).toBe(channel);
+    });
+
     it("should create an index and a data channel for a record stamped by Kafka", async () => {
       const temperature = createField("temperature", "float");
       const { container, dev, draft } = await renderRead({ fields: [temperature] });

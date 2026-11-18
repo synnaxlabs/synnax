@@ -10,6 +10,8 @@
 import { type device, kafka } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { Task } from "@/platform/task";
+
 export const MAKE = "kafka";
 export const INTEGRATION_KEY = "kafka";
 const makeZ = z.literal(MAKE);
@@ -21,6 +23,7 @@ const propertiesZ = kafka.propertiesZ.extend({
     .min(1, "Broker address is required")
     .array()
     .min(1, "At least one broker is required"),
+  read: Task.readPropertiesZ,
 });
 
 export interface Properties extends z.infer<typeof propertiesZ> {}
@@ -32,6 +35,7 @@ export const ZERO_PROPERTIES: Properties = {
   tls: false,
   caCertificate: "",
   sasl: { mechanism: "none" },
+  read: {},
 };
 
 export interface Device extends device.Device<

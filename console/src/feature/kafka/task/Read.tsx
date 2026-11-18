@@ -129,6 +129,21 @@ const messagePrefix = (
   return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
 };
 
+/** @returns the key of the device properties that store the channels of a message. */
+const storedKey = (topic: string, recordKey: string, message: icd.MessageKey): string =>
+  `${topic}#${recordKey}#${message}`;
+
+/** @returns the channels that the bindings of records write. */
+const writtenChannels = (records: ReadRecord[]): Set<channel.Key> => {
+  const written = new Set(
+    records.flatMap(({ messages }) =>
+      messages.flatMap(({ bindings }) => bindings.map((b) => b.channel)),
+    ),
+  );
+  written.delete(0);
+  return written;
+};
+
 const createMessage = (name: string, match?: icd.JSONMatch): icd.Message => ({
   key: uuid.create(),
   name,
@@ -578,16 +593,30 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       ICD.boundMessage(messages, rec, read, `record ${recordLabel(rec)}`),
     ),
   );
-  for (const b of bound) {
-    const { recordKey } = b.source;
-    const prefix = messagePrefix(
-      dev.name,
-      config.topic,
-      recordKey,
-      b.read,
-      b.message.name,
-    );
-    await ICD.configureMessage(client, b, prefix);
+  // A deploy that fails partway keeps the channels it made for the next one.
+  const before = deep.copy(dev.properties);
+  const written = writtenChannels(config.records);
+  try {
+    for (const b of bound) {
+      const { recordKey, messages } = b.source;
+      const prefix = messagePrefix(
+        dev.name,
+        config.topic,
+        recordKey,
+        b.read,
+        b.message.name,
+      );
+      const key = storedKey(config.topic, recordKey, messages[b.read].message);
+      await ICD.configureMessage(
+        client,
+        b,
+        prefix,
+        { read: dev.properties.read, key },
+        written,
+      );
+    }
+  } finally {
+    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };
