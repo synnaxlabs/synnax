@@ -12,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -93,17 +94,17 @@ std::optional<Number> enum_number(const telem::SampleValue &v) {
 constexpr std::size_t ARRAY = static_cast<std::size_t>(-1);
 
 /// @brief appends raw, one valid JSON object or array, to dst without whitespace. open
-/// and names are scratch space: open holds ARRAY for each open array and the start of
-/// its member names in names for each open object.
+/// and names are scratch space: open holds ARRAY for each open array, and for each open
+/// object the index of its set of member names in names.
 /// @returns VALIDATION when an object repeats a member name.
 errors::Error compact(
     const std::string_view raw,
     std::string &dst,
     std::vector<std::size_t> &open,
-    std::vector<std::string> &names
+    std::vector<std::unordered_set<std::string>> &names
 ) {
     open.clear();
-    names.clear();
+    std::size_t objects = 0;
     std::string name;
     char last = '\0';
     for (std::size_t i = 0; i < raw.size();) {
@@ -113,9 +114,13 @@ errors::Error compact(
             continue;
         }
         if (c != '"') {
-            if (c == '{') open.push_back(names.size());
+            if (c == '{') {
+                if (objects == names.size()) names.emplace_back();
+                names[objects].clear();
+                open.push_back(objects++);
+            }
             if (c == '[') open.push_back(ARRAY);
-            if (c == '}') names.resize(open.back());
+            if (c == '}') objects--;
             if (c == '}' || c == ']') open.pop_back();
             dst += c;
             last = c;
@@ -126,12 +131,8 @@ errors::Error compact(
                             (last == '{' || last == ',');
         name.clear();
         const auto scan = scan_literal(raw.substr(i), member ? &name : nullptr);
-        if (member) {
-            for (std::size_t n = open.back(); n < names.size(); n++)
-                if (names[n] == name)
-                    return invalid("duplicate object member name " + quote(name));
-            names.push_back(name);
-        }
+        if (member && !names[open.back()].insert(name).second)
+            return invalid("duplicate object member name " + quote(name));
         dst += raw.substr(i, scan.end);
         last = c;
         i += scan.end;
@@ -244,7 +245,8 @@ errors::Error Decoder::append_numeric(const std::string_view raw, telem::Series 
             if (const auto err = unquote(raw, this->text)) return err;
             const auto *l = this->find_label(this->text);
             if (l == nullptr) return invalid("unknown enum label " + quote(this->text));
-            return this->append_number(l->number, dst);
+            this->write_number(l->number, dst);
+            return errors::NIL;
         }
         case 't':
             return this->append_number(Number(std::int64_t{1}), dst);
@@ -285,8 +287,13 @@ Decoder::append_timestamp(const std::string_view raw, telem::Series &dst) {
 errors::Error Decoder::append_number(const Number &n, telem::Series &dst) const {
     if (this->field.range != telem::UNKNOWN_T)
         if (const auto err = n.check_fits(this->field.range)) return err;
+    if (const auto err = n.check_fits(this->field.data_type)) return err;
+    this->write_number(n, dst);
+    return errors::NIL;
+}
+
+void Decoder::write_number(const Number &n, telem::Series &dst) const {
     const auto &dt = this->field.data_type;
-    if (const auto err = n.check_fits(dt)) return err;
     if (dt == telem::FLOAT64_T)
         dst.write(n.to_float64());
     else if (dt == telem::FLOAT32_T)
@@ -309,7 +316,6 @@ errors::Error Decoder::append_number(const Number &n, telem::Series &dst) const 
         dst.write(static_cast<std::uint16_t>(n.to_uint64().value()));
     else
         dst.write(static_cast<std::uint8_t>(n.to_uint64().value()));
-    return errors::NIL;
 }
 
 const Decoder::Label *Decoder::find_label(const std::string_view text) const {

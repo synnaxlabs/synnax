@@ -238,6 +238,39 @@ TEST(Decoder, ConvertsBooleanEnumToNumber) {
     );
 }
 
+/// @brief it should convert an enum label whose number is outside the range.
+TEST(Decoder, ConvertsEnumOutsideRange) {
+    const auto s = decode(
+        {.data_type = telem::FLOAT64_T,
+         .enums = {{"OFF", -1.0}, {"FAULT", NaN}},
+         .range = telem::UINT64_T},
+        R"("OFF")"
+    );
+    ASSERT_EQ(s.at<double>(0), -1.0);
+}
+
+/// @brief it should convert a NaN enum label in an integer range.
+TEST(Decoder, ConvertsNaNEnumInRange) {
+    const auto s = decode(
+        {.data_type = telem::FLOAT64_T,
+         .enums = {{"FAULT", NaN}},
+         .range = telem::INT64_T},
+        R"("FAULT")"
+    );
+    ASSERT_TRUE(std::isnan(s.at<double>(0)));
+}
+
+/// @brief it should reject a repeated name in a large JSON object.
+TEST(Decoder, RejectsRepeatedNameInLargeJSONObject) {
+    std::string raw = "{";
+    for (int i = 0; i < 50000; i++)
+        raw += "\"" + std::to_string(i) + "\":0,";
+    raw += R"("7":0})";
+    const auto err = decode_error({.data_type = telem::JSON_T}, raw);
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, R"(duplicate object member name "7")");
+}
+
 /// @brief it should convert an integer in range into a float.
 TEST(Decoder, ConvertsIntegerInRangeToFloat) {
     ASSERT_EQ(
