@@ -525,7 +525,7 @@ describe("queries", () => {
       const { result } = await renderForm(t.key);
       act(() => result.current.form.set(path.config.routingKey, OTHER_ROUTING_KEY));
       await act(async () => {
-        expect(await result.current.flush()).toBe(true);
+        expect(await result.current.flush()).toEqual({ failed: false, held: false });
         await client.tasks.settled(t.key);
       });
       const stored = await createTestClient().tasks.retrieve(t.key);
@@ -599,7 +599,9 @@ describe("queries", () => {
         OTHER_ROUTING_KEY,
       );
       release();
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       const stored = await createTestClient().tasks.retrieve(t.key);
       expect(stored.name).toEqual("renamed");
       expect(stored.config).toMatchObject({ routingKey: OTHER_ROUTING_KEY });

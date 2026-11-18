@@ -45,6 +45,8 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
 /** Sends the edits that a form holds. */
 type Flush = () => Promise<Flux.Flushed>;
 
+const saved = ({ failed, held }: Flux.Flushed): boolean => !failed && !held;
+
 const FlushesContext = createContext<Set<Flush> | null>(null);
 FlushesContext.displayName = "Task.FlushesContext";
 
@@ -200,7 +202,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       if (client == null) throw new DisconnectedError();
       if (canEdit) {
         const flushed = await Promise.all([flush(), ...[...nested].map((f) => f())]);
-        if (flushed.some(({ failed, held }) => failed || held)) return;
+        if (!flushed.every(saved)) return;
         if (!deployChecked.current) {
           form.addCheck(formPath.config, deployConfigZ);
           deployChecked.current = true;
@@ -231,7 +233,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           if (primitive.isNonZero(newRack))
             PForm.setChanged(form, formPath.rack, rack, newRack);
         });
-        if (!(await flush())) return;
+        if (!saved(await flush())) return;
         await client.tasks.settled(taskKey);
       }
       if (startCancelled.current) return;

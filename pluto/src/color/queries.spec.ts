@@ -255,7 +255,9 @@ describe("queries", () => {
       act(() =>
         result.current.form.set(Color.formPath.dark, xcolor.construct("#0000FF")),
       );
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       const stored = await createTestClient().colors.retrieve(named.key);
       expect(stored.dark).toEqual(xcolor.construct("#0000FF"));
     });

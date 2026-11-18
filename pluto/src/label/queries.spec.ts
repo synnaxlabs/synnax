@@ -333,7 +333,9 @@ describe("useForm", () => {
     const { result } = await renderForm(lbl.key);
     const send = spyOnSend(formClient);
     act(() => result.current.form.set(path.name, "Anomaly"));
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () =>
+      expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+    );
     expect(send.mock.calls.map(([target]) => target)).toContain("/label/dispatch");
     expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe("Anomaly");
   });
@@ -342,7 +344,9 @@ describe("useForm", () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
     act(() => result.current.form.set(path.color, color.construct("#FF0000")));
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () =>
+      expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+    );
     const stored = await createTestClient().labels.retrieve(lbl.key);
     expect(stored.color).toEqual(color.construct("#FF0000"));
   });
@@ -351,7 +355,9 @@ describe("useForm", () => {
     const lbl = await createLabel();
     const { result } = await renderForm(lbl.key);
     act(() => result.current.form.set(path.name, ""));
-    await act(async () => expect(await result.current.flush()).toBe(false));
+    await act(async () =>
+      expect(await result.current.flush()).toEqual({ failed: false, held: true }),
+    );
     expect((await createTestClient().labels.retrieve(lbl.key)).name).toBe("Nominal");
   });
 

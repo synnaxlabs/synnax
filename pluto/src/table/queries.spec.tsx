@@ -921,7 +921,9 @@ describe("table queries", () => {
       const { result } = await renderForm(created.key);
       const send = spyOnSend(client);
       act(() => result.current.form.set(path.value, "Pressure"));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       const [, req] =
         send.mock.calls.find(([target]) => target === "/table/dispatch") ?? [];
       expect(req).toMatchObject({
@@ -964,7 +966,9 @@ describe("table queries", () => {
       rerender({ cellKey: "b" });
       expect(result.current.form.get(path.value).value).toBe("B");
       act(() => result.current.form.set(path.value, "Temperature"));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       expect(await fetchStoredCell(created.key, "b")).toMatchObject({
         value: "Temperature",
       });

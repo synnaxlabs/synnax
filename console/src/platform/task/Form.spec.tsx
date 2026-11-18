@@ -755,6 +755,39 @@ describe("wrapForm", () => {
       }
     });
 
+    it("should not start when the Core refuses the configured task", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
+      const Renderer = createRenderer({
+        onConfigure: async (_client, config) => [{ ...config, device: "missing" }, 0],
+      });
+      const statuses: Status.NotificationSpec[] = [];
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+          onStatuses: (next) => {
+            statuses.length = 0;
+            statuses.push(...next);
+          },
+        });
+        await reportTaskRunning(client, draft, "stale");
+        const redeploy = await screen.findByRole("button", { name: "Redeploy" });
+        await act(async () => fireEvent.click(redeploy));
+        await waitFor(() =>
+          expect(statuses).toContainEqual(
+            expect.objectContaining({ message: "Failed to save task" }),
+          ),
+        );
+        // A start sent after the refused write would come before this stop.
+        fireEvent.click(await findIconButton(container, "stop"));
+        expect((await awaitCommand(streamer, draft.key)).type).toBe("stop");
+      } finally {
+        streamer.close();
+      }
+    });
+
     it("should keep a field another client edits while onConfigure runs", async () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });

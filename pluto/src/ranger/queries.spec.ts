@@ -769,7 +769,9 @@ describe("useForm", () => {
     const send = spyOnSend(formClient);
     act(() => result.current.form.set(path.name, "Cold flow"));
     expect(result.current.form.get(path.name).value).toBe("Cold flow");
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () =>
+      expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+    );
     expect(send.mock.calls.map(([target]) => target)).toContain("/range/dispatch");
     expect((await createTestClient().ranges.retrieve(rng.key)).name).toBe("Cold flow");
   });
@@ -779,7 +781,9 @@ describe("useForm", () => {
     const { result } = await renderForm(rng.key);
     const next = rng.timeRange.start.spanRange(TimeSpan.minutes(10));
     act(() => result.current.form.set(path.timeRange, next.numeric));
-    await act(async () => expect(await result.current.flush()).toBe(true));
+    await act(async () =>
+      expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+    );
     const stored = await createTestClient().ranges.retrieve(rng.key);
     expect(stored.timeRange.numeric).toEqual(next.numeric);
   });
@@ -789,7 +793,9 @@ describe("useForm", () => {
     const { result } = await renderForm(rng.key);
     const { start, end } = rng.timeRange.numeric;
     act(() => result.current.form.set(path.timeRange, { start: end, end: start }));
-    await act(async () => expect(await result.current.flush()).toBe(false));
+    await act(async () =>
+      expect(await result.current.flush()).toEqual({ failed: false, held: true }),
+    );
     const stored = await createTestClient().ranges.retrieve(rng.key);
     expect(stored.timeRange.numeric).toEqual(rng.timeRange.numeric);
   });

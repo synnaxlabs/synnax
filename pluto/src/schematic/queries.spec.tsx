@@ -1023,11 +1023,15 @@ describe("schematic queries", () => {
       const strokeColor = color.construct("#ff0000");
       const add = { ...result.current.form.value(), strokeColor };
       act(() => result.current.form.set(element, add));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       expect(await fetchStoredConfig(schem.key, "n1")).toHaveProperty("strokeColor");
       const remove = { ...result.current.form.value(), strokeColor: undefined };
       act(() => result.current.form.set(element, remove));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       expect(await fetchStoredConfig(schem.key, "n1")).not.toHaveProperty(
         "strokeColor",
       );
@@ -1038,7 +1042,9 @@ describe("schematic queries", () => {
       const { result } = await renderForm(schem.key);
       const next = schematic.elementConfigZ.parse({ variant: "value" });
       act(() => result.current.form.set(element, next));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
         variant: "value",
       });
@@ -1074,7 +1080,9 @@ describe("schematic queries", () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderForm(schem.key, "e1");
       act(() => result.current.form.set(element.variant, "electric"));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       expect(await fetchStoredConfig(schem.key, "e1")).toMatchObject({
         variant: "electric",
       });
@@ -1085,7 +1093,9 @@ describe("schematic queries", () => {
       const { result } = await renderForm(schem.key);
       const send = spyOnSend(client);
       act(() => result.current.form.set(path.scaleVisible, true));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       const [, req] =
         send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
       expect(req).toMatchObject({
@@ -1110,7 +1120,9 @@ describe("schematic queries", () => {
       const { result } = await renderForm(schem.key, "e1");
       const send = spyOnSend(client);
       act(() => result.current.form.set(pipePath.strokeColor, red));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       const [, req] =
         send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
       expect(req).toMatchObject({
@@ -1158,7 +1170,9 @@ describe("schematic queries", () => {
       });
       const { result } = await renderForm(schem.key);
       act(() => result.current.form.set(display.tooltip[0], "line"));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
         tooltip: ["line"],
       });
@@ -1198,7 +1212,9 @@ describe("schematic queries", () => {
       const { result, rerender } = await renderForm(schem.key);
       rerender({ elKey: "n2" });
       act(() => result.current.form.set(path.scaleVisible, true));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       expect(await fetchStoredConfig(schem.key, "n2")).toMatchObject({
         scaleVisible: true,
       });

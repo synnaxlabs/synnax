@@ -155,7 +155,9 @@ describe("ICD queries", () => {
       const { result } = await renderForm(ic.key);
       const send = spyOnSend(client);
       act(() => result.current.form.set(ICD.formPath.messages[state.key].name, "Mode"));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       expect(send.mock.calls.map(([target]) => target)).toContain("/icd/dispatch");
       const stored = await createTestClient().icds.retrieve({ key: ic.key });
       expect(stored.messages[0]).toEqual({ ...state, name: "Mode" });
@@ -172,7 +174,9 @@ describe("ICD queries", () => {
       act(() =>
         result.current.form.insert(ICD.formPath.messages, status, ic.messages[0].key),
       );
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       const stored = await createTestClient().icds.retrieve({ key: ic.key });
       expect(stored.messages.map(({ name }) => name)).toEqual(["State", "Status"]);
     });
@@ -187,7 +191,9 @@ describe("ICD queries", () => {
           ic.messages[0].key,
         ),
       );
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       const stored = await createTestClient().icds.retrieve({ key: ic.key });
       expect(stored.messages.map(({ name }) => name)).toEqual(["State", "State"]);
     });
@@ -196,7 +202,9 @@ describe("ICD queries", () => {
       const ic = await createICD();
       const { result } = await renderForm(ic.key);
       act(() => result.current.form.set(ICD.formPath.name, ""));
-      await act(async () => expect(await result.current.flush()).toBe(false));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: true }),
+      );
       expect((await createTestClient().icds.retrieve({ key: ic.key })).name).toEqual(
         ic.name,
       );

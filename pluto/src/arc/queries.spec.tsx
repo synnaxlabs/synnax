@@ -507,7 +507,9 @@ describe("Arc queries", () => {
       const { result } = await renderForm(a.key);
       const send = spyOnSend(client);
       act(() => result.current.form.set(inputs.key_or_name, "pressure"));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       const [, req] =
         send.mock.calls.find(([target]) => target === "/arc/dispatch") ?? [];
       expect(req).toMatchObject({
@@ -545,7 +547,9 @@ describe("Arc queries", () => {
       rerender({ nodeKey: "n2" });
       expect(result.current.form.get(inputs.key_or_name).value).toBe("fault");
       act(() => result.current.form.set(inputs.message, "tripped"));
-      await act(async () => expect(await result.current.flush()).toBe(true));
+      await act(async () =>
+        expect(await result.current.flush()).toEqual({ failed: false, held: false }),
+      );
       expect(await fetchStoredInputs(a.key, "n2")).toMatchObject({
         message: "tripped",
       });
