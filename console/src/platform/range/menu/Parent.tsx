@@ -86,7 +86,8 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
   const shared = ranges.every((r) => (r.parent ?? null) === first);
   const current = shared ? first : null;
   // The ranges cannot hold themselves, and the current parent leads the list.
-  const hidden = new Set([...ranges.map((r) => r.key), ...(current ?? [])]);
+  const hidden = new Set(ranges.map((r) => r.key));
+  if (current != null) hidden.add(current);
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.ranges,
     {

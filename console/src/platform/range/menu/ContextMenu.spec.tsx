@@ -10,7 +10,7 @@
 import { type label, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -59,6 +59,13 @@ const parentOf = async (rng: ranger.Range): Promise<ranger.Key | undefined> =>
   (await client.ranges.retrieve(rng.key)).parent;
 
 describe("Range.ContextMenu", () => {
+  it("should offer nothing but Reload Console with no ranges", async () => {
+    const { wrapper } = await createConsoleWrapper({ client });
+    await renderSuspended(<Range.ContextMenu keys={[]} />, { wrapper });
+    await screen.findByRole("menuitem", { name: "Reload Console" });
+    expect(screen.queryByRole("menuitem", { name: "Copy" })).toBeNull();
+  });
+
   describe("labels", () => {
     it("should add a label that some ranges hold to all of them, then remove it from all", async () => {
       const lbl = await client.labels.create({
@@ -122,6 +129,18 @@ describe("Range.ContextMenu", () => {
       await waitFor(async () => expect(await parentOf(child)).toBeUndefined());
     });
 
+    it("should list the shared parent once, pinned at the top", async () => {
+      const token = uniqueName("shared");
+      const top = await createRange(`${token} top`);
+      const other = await createRange(`${token} other`);
+      const child = await createRange(`${token} child`, { parent: top.key });
+      await renderMenu([child]);
+      const parent = await openSubmenu("Parent");
+      searchIn(parent, "Search ranges...", token);
+      await within(parent).findByText(other.name);
+      expect(within(parent).getAllByText(top.name)).toHaveLength(1);
+    });
+
     it("should leave the ranges themselves out of the list", async () => {
       const token = uniqueName("self");
       const sibling = await createRange(`${token} sibling`);
@@ -131,6 +150,30 @@ describe("Range.ContextMenu", () => {
       searchIn(parent, "Search ranges...", token);
       await within(parent).findByText(sibling.name);
       expect(within(parent).queryByText(self.name)).toBeNull();
+    });
+  });
+
+  describe("color", () => {
+    it("should set the color of every range when the submenu closes", async () => {
+      const ranges = [
+        await createRange(uniqueRangeName("colored")),
+        await createRange(uniqueRangeName("colored")),
+      ];
+      await renderMenu(ranges);
+      const dialog = await openSubmenu("Color");
+      const swatch = within(dialog).getAllByLabelText(/^#/)[0];
+      const hex = swatch.getAttribute("aria-label");
+      fireEvent.click(swatch);
+      fireEvent.keyDown(swatch, { key: "ArrowLeft" });
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Color" })).toBeNull(),
+      );
+      await waitFor(async () => {
+        for (const r of ranges) {
+          const { color: stored } = await client.ranges.retrieve(r.key);
+          expect(stored == null ? null : color.hex(stored)).toBe(hex);
+        }
+      });
     });
   });
 
