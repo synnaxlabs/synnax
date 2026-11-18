@@ -12,6 +12,7 @@
 import json
 import re
 from collections import Counter
+from typing import Any
 from urllib.parse import quote
 
 from review.findings import SEVERITIES, Finding, Review
@@ -24,6 +25,14 @@ LISTING_START = "<!-- sedosaur_findings "
 LISTING_END = " -->"
 RULES = "<!-- sedosaur_rules:2 -->"
 """Marks a check run whose review counts every finding against the score."""
+RECORD_START = "<!-- sedosaur_record -->"
+RECORD_END = "<!-- /sedosaur_record -->"
+TEXT_CHARS = 65_535
+"""The most characters that the text of a check run holds."""
+# JSON keeps a record on one line, and its backtick runs are shorter than the fence.
+_RECORD = re.compile(
+    rf"{re.escape(RECORD_START)}\n(`{{3,}})json\n(.*)\n\1\n{re.escape(RECORD_END)}"
+)
 # Comments on pull requests reviewed before every finding blocked mark some titles
 # " (follow-up)".
 _OUTSIDE_ITEM = re.compile(
@@ -178,16 +187,47 @@ def splice(body: str, block: str) -> str:
     return body[:start] + block + body[end + len(SUMMARY_END) :]
 
 
-def check(review: Review) -> dict[str, str]:
-    """Renders the output of the review's check run. Its text carries RULES and lists
-    the findings, so a dismissal can tell when none is left."""
+def check(review: Review, rec: dict[str, Any]) -> dict[str, str]:
+    """Renders the output of the review's check run. Its text carries RULES, lists the
+    findings so a dismissal can tell when none is left, and holds the record of the run.
+
+    :raises ValueError: If the text is longer than a check run holds.
+    """
     counts = Counter(f.severity for f in review.findings)
     found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
+    text = f"{RULES}\n{listing(review.findings)}\n\n{record(rec)}"
+    if len(text) > TEXT_CHARS:
+        raise ValueError(f"check run text of {len(text)} chars is over {TEXT_CHARS}")
     return {
         "title": scored(review.score),
         "summary": f"{review.verdict}\n\nFindings: {', '.join(found) or 'none'}.",
-        "text": f"{RULES}\n{listing(review.findings)}",
+        "text": text,
     }
+
+
+def record(rec: dict[str, Any]) -> str:
+    """Renders the record of a review run as a collapsed block of JSON."""
+    return "\n".join(
+        [
+            "<details><summary>Record</summary>",
+            "",
+            RECORD_START,
+            fence(json.dumps(rec, separators=(",", ":")), "json"),
+            RECORD_END,
+            "",
+            "</details>",
+        ]
+    )
+
+
+def recorded(text: str) -> dict[str, Any] | None:
+    """Reads the record that `record` rendered in a text, or returns None when the text
+    holds no record."""
+    m = _RECORD.search(text)
+    if m is None:
+        return None
+    rec: dict[str, Any] = json.loads(m[2])
+    return rec
 
 
 def scored(score: int) -> str:
