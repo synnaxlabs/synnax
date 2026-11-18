@@ -30,6 +30,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestClientWithGrants,
+  HaulProvider,
   openContextMenu,
   uniqueName,
 } from "@/testutil";
@@ -57,7 +58,7 @@ const renderColors = async (as: Synnax = client): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client: as });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      {children}
+      <HaulProvider>{children}</HaulProvider>
       <Modals.Stack />
     </Console>
   );
@@ -78,20 +79,11 @@ const deleted = async (retrieve: () => Promise<unknown>): Promise<boolean> => {
 const findColor = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("option", { name });
 
-/** Drags one color onto another. jsdom has no DataTransfer, so a map stands in. */
 const dragOnto = (from: HTMLElement, to: HTMLElement): void => {
-  const data = new Map<string, string>();
-  const dataTransfer = {
-    effectAllowed: "none",
-    get types() {
-      return [...data.keys()];
-    },
-    setData: (type: string, value: string) => data.set(type, value),
-    getData: (type: string) => data.get(type) ?? "",
-  };
-  fireEvent.dragStart(from, { dataTransfer });
-  fireEvent.dragOver(to, { dataTransfer });
-  fireEvent.drop(to, { dataTransfer });
+  fireEvent.dragStart(from);
+  fireEvent.dragOver(to);
+  fireEvent.drop(to);
+  fireEvent.dragEnd(from);
 };
 
 /** Names the colors in the palette by position, with any that have none last. */
@@ -213,6 +205,16 @@ describe("Color.Settings", () => {
       await screen.findByRole("button", { name: "Create a color in Series" }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Create palette" })).toBeNull();
+  });
+
+  it("should picture a dragged color filled with its light value", async () => {
+    const shade = await createColor(await createPalette());
+    await renderColors();
+    fireEvent.dragStart(await findColor(shade.name));
+    const layer = document.querySelector(".lyra-haul__layer");
+    const tile = layer?.querySelector<HTMLElement>(".lyra-haul-preview__tile");
+    expect(tile?.style.background).toBe("rgb(0, 255, 0)");
+    expect(layer?.textContent).toBe(`${shade.name}Color`);
   });
 
   it("should move a dragged color before the one it drops on", async () => {
