@@ -17,7 +17,7 @@ import { json } from "@synnaxlabs/x";
  * "value". A taken name gets a number, such as "value_2".
  */
 export const fieldNames = (pointers: string[], taken: string[] = []): string[] => {
-  const names = new Set(taken.map(channel.escapeInvalidName));
+  const names = new Set(taken.map((name) => channel.escapeInvalidName(name)));
   return pointers.map((pointer) => {
     const base = json.parsePointer(pointer).join("_") || "value";
     let name = base;
