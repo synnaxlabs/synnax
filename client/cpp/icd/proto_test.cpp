@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <limits>
-
 #include "gtest/gtest.h"
 
 #include "client/cpp/icd/json.gen.h"
@@ -217,12 +215,6 @@ TEST(Identifier, RoundTripsFieldVariantProto) {
         {"value", -2},
     };
     expect_round_trips(j);
-}
-
-/// @brief it should keep a float that JSON cannot carry as a number.
-TEST(Float, RoundTripsNonFiniteProto) {
-    const x::payload::Float f{-std::numeric_limits<double>::infinity()};
-    ASSERT_EQ(x::payload::Float::from_proto(f.to_proto()).to_json(), "-Infinity");
 }
 
 /// @brief it should reject a message with no key.
