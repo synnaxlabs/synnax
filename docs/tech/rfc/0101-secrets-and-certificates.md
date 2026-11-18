@@ -145,8 +145,9 @@ that makes its own key refuses to start.
 ### 3.3 Who reads a secret
 
 Only a rack (RFC 0073 §4.8) can call `secret/resolve`. Every other subject, Owner
-included, gets a permission error. The Core's integrations read their secrets in process
-with no check, because they run in the Core. A rack reads a secret when:
+included, gets a permission error. The Core's integrations read their secrets in
+process, because they run in the Core, but follow the same rules as the Driver. A rack
+reads a secret when:
 
 1. A device or task on the rack uses it, directly or through a certificate.
 2. The request carries a grant for that rack and the task of the command, and the grant
@@ -167,18 +168,20 @@ Console sends the secret in its `private_key`. The Core stores the grant with an
 one minute away and returns its key. The Console then sends that task a command that
 carries only the key.
 
-The Driver resolves the key with the task of the command. The Core refuses a grant for a
-different task, deletes the grant, and returns the stored command with the values of its
-secrets. The Driver runs the stored command, never the arguments on the stream. A grant
-that no resolve uses ends at its expiry. The key travels on `sy_task_cmd`, where an
-Operator can read and write any command
-(`core/pkg/service/access/rbac/builtin/builtin.go:197-205`). A copied key runs only the
-Console's own command, against the Console's server, even when the Driver drops or never
-sees the Console's command. At worst, a copied key spends the grant first and the
-Console's test fails. Without grants, an Operator could send a saved password to a
+The Driver resolves the key with the task of the command, and a Core integration does
+the same in process (`core/pkg/service/secret/grant.go:51`). The Core refuses a grant
+for a different task, deletes the grant, and returns the stored command with the values
+of its secrets. The integration runs the stored command, never the arguments on the
+stream. A Kafka or MQTT test on the Core's rack follows the same rule
+(`core/pkg/service/kafka/scan_task.go:73`). A grant that no resolve uses ends at its
+expiry. The key travels on `sy_task_cmd`, where an Operator can read and write any
+command (`core/pkg/service/access/rbac/builtin/builtin.go:197-205`). A copied key runs
+only the Console's own command, against the Console's server, even when the Driver drops
+or never sees the Console's command. At worst, a copied key spends the grant first and
+the Console's test fails. Without grants, an Operator could send a saved password to a
 server of their choice. Phase 4 stores a grant with only its subject and secrets
-(`schemas/synnax/grant.oracle`). Phase 14 adds the task and the command, before any
-Driver integration reads a secret.
+(`schemas/synnax/grant.oracle`). Phase 11 adds the task and the command, before any
+integration test reads a secret.
 
 A user who can edit a device can still point it at their own server, as in Grafana and
 Ignition. Write-only keeps secrets from people who can only view, and out of statuses,
@@ -334,11 +337,11 @@ the device.
 
 Phases 2 and 3 are the stores with no users, and Phase 4 their Console and first user.
 Phase 4 landed as eight PRs, #4434 to #4505. Phases 5 to 10 add file items, the two file
-browsers, and the certificate field. Phase 14 binds each grant to its task and command,
-and phase 15 lets the Driver read items, before the first Driver integration moves. OPC
-UA and HTTP move their secrets first and their certificates second, and each migration
-ships with the change that reads the new field. Phase 20 needs only the certificate
-service, so it can start at any time.
+browsers, and the certificate field. Phase 11 binds each grant to its task and command
+before Kafka, the first integration, moves. Phase 15 lets the Driver read items before
+the first Driver integration moves. OPC UA and HTTP move their secrets first and their
+certificates second, and each migration ships with the change that reads the new field.
+Phase 20 needs only the certificate service, so it can start at any time.
 
 | Phase | Scope                                                  | Touches                                                                                                                                                                                                                                                                 | Depends on |
 | ----- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -352,11 +355,11 @@ service, so it can start at any time.
 | 8     | Add the Core file browser                              | `core/pkg/service/file`, `core/pkg/service/certificate`, `core/pkg/service/layer.go`                                                                                                                                                                                    | 5          |
 | 9     | Add a certificate field to the Console                 | `console/src/platform/certificate`, `pluto/src/certificate`                                                                                                                                                                                                             | 4          |
 | 10    | Pick rack files in the secret and certificate fields   | `console/src/platform/secret`, `console/src/platform/certificate`, `console/src/feature/file`                                                                                                                                                                           | 7, 8, 9    |
-| 11    | Move the Kafka password and CA certificate to items    | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/certificate`, `core/pkg/service/layer.go`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                          | 5, 9       |
-| 12    | Add a client certificate to Kafka                      | `schemas/synnax`, `core/pkg/service/kafka`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                                                                                       | 11         |
-| 13    | Move MQTT to secrets and certificates                  | `schemas/synnax`, `core/pkg/service/mqtt`, `core/pkg/service/layer.go`, `console/src/feature/mqtt`, `client/ts`, `client/py`                                                                                                                                            | 11         |
-| 14    | Bind each grant to a task and its command              | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/api/secret`, `client/ts`, `client/py`                                                                                                                                                                            | 4          |
-| 15    | Read secrets and certificates in the Driver            | `client/cpp`, `driver/secret`, `driver/rack`, `core/pkg/service/secret`, `core/pkg/api/secret`, `core/pkg/api/certificate`                                                                                                                                              | 5, 7, 14   |
+| 11    | Bind each grant to a task and its command              | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/api/secret`, `client/ts`, `client/py`                                                                                                                                                                            | 4          |
+| 12    | Move the Kafka password and CA certificate to items    | `schemas/synnax`, `core/pkg/service/kafka`, `core/pkg/service/certificate`, `core/pkg/service/layer.go`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                          | 5, 9, 11   |
+| 13    | Add a client certificate to Kafka                      | `schemas/synnax`, `core/pkg/service/kafka`, `console/src/feature/kafka`, `client/ts`, `client/py`                                                                                                                                                                       | 12         |
+| 14    | Move MQTT to secrets and certificates                  | `schemas/synnax`, `core/pkg/service/mqtt`, `core/pkg/service/layer.go`, `console/src/feature/mqtt`, `client/ts`, `client/py`                                                                                                                                            | 12         |
+| 15    | Read secrets and certificates in the Driver            | `client/cpp`, `driver/secret`, `driver/rack`, `core/pkg/service/secret`, `core/pkg/api/secret`, `core/pkg/api/certificate`                                                                                                                                              | 5, 7, 11   |
 | 16    | Move the OPC UA password to a secret                   | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 15         |
 | 17    | Move OPC UA certificates to the certificate service    | `schemas/synnax`, `core/pkg/service/opcua`, `core/pkg/service/layer.go`, `driver/opcua`, `console/src/feature/opcua`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                       | 9, 16      |
 | 18    | Move HTTP auth values to secrets                       | `schemas/synnax`, `core/pkg/service/http`, `core/pkg/service/layer.go`, `driver/http`, `console/src/feature/http`, `client/ts`, `client/py`, `client/cpp`, `integration/tests`                                                                                          | 15         |
