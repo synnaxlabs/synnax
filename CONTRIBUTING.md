@@ -82,8 +82,9 @@ someone with write access replies `@sedosaur dismiss` and a reason on its thread
 finding outside the diff has no thread: they comment `@sedosaur dismiss`, its title, and
 a reason on the PR, with `path:<file>` when two findings share the title. Sedosaur
 resolves the thread, later reviews of the PR leave the finding out, and the head scores
-5/5 once every finding is dismissed. The review reads no other replies. The gate does
-not wait for a human approval on either tier. A pull request Dependabot opened and wrote
+5/5 once every finding is dismissed. Sedosaur answers the first other reply on its
+thread with how to dismiss, and its reviews read no other replies. The gate does not
+wait for a human approval on either tier. A pull request Dependabot opened and wrote
 every commit of passes the gate without a review. `OK` is the CI workflow's last job: it
 fails when any check the PR's paths select failed. A merge into `main` goes through a
 merge queue, which reruns CI with the integration suite added before the branch moves. A
