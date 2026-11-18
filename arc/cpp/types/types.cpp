@@ -317,6 +317,9 @@ to_sample_value(const x::json::json &value, const Type &type) {
 }
 
 namespace {
+/// @brief the period of 1 hz in ns, the units of scale 1.
+constexpr double NANOSECONDS_PER_SECOND = 1e9;
+
 /// @brief returns what to multiply a value in from by to get its value in to. A factor
 /// that floating point puts next to a whole number is that whole number.
 double unit_factor(const Unit &from, const Unit &to) {
@@ -336,6 +339,18 @@ std::pair<double, double> input_scale(const Type &type) {
     const auto &from = *type.elem->unit;
     const auto &to = *type.unit;
     return {unit_factor(from, to), unit_factor(to, from)};
+}
+
+double input_period(const Type &type) {
+    if (type.kind != Kind::VarRef || !type.unit.has_value() || !type.elem.has_value() ||
+        !type.elem->unit.has_value())
+        return 0;
+    const auto &from = *type.elem->unit;
+    const auto &to = *type.unit;
+    if (from.dimensions != Dimensions{.time = -1} ||
+        to.dimensions != Dimensions{.time = 1})
+        return 0;
+    return NANOSECONDS_PER_SECOND / (from.scale * to.scale);
 }
 
 }

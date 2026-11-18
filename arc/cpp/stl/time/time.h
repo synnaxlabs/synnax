@@ -391,7 +391,6 @@ private:
     void
     fold_reassigned_spans(const runtime::node::Config &cfg, const types::Param &p) {
         if (p.type.kind != types::Kind::VarRef) return;
-        const auto [up, down] = types::input_scale(p.type);
         for (const auto &e: cfg.prog.edges) {
             if (e.target.node != p.type.name) continue;
             const auto *src = ir::find_node(cfg.prog, e.source.node);
@@ -401,10 +400,9 @@ private:
                 if (const auto sv = types::to_sample_value(v.value, v.type))
                     this->update_shortest_span(
                         x::telem::TimeSpan(
-                            runtime::state::scale_input(
+                            runtime::state::convert_input(
                                 x::telem::cast<int64_t>(*sv),
-                                up,
-                                down
+                                p.type
                             )
                         )
                     );

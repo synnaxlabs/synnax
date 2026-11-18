@@ -26,4 +26,7 @@ to_sample_value(const x::json::json &value, const Type &type);
 /// reads it, and what to divide it by. A variable in s read by an input in ns gives 1e9
 /// and 1e-9.
 std::pair<double, double> input_scale(const Type &type);
+
+/// @brief returns what an input divides by the rate that it reads, or 0 if none.
+double input_period(const Type &type);
 }

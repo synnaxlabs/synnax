@@ -10,6 +10,8 @@
 package node
 
 import (
+	"math"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
@@ -443,8 +445,12 @@ func (s *State) NumericInput[T telem.NumericSample](name string) T {
 	}
 	p := s.params[i]
 	if ref := s.RefInput(i); ref.Len() > 0 {
+		v := ref.ValueAt[T](-1)
+		if factor := types.InputPeriod(p.Type); factor != 0 {
+			return periodInput(v, factor)
+		}
 		up, down := types.InputScale(p.Type)
-		return scaleInput(ref.ValueAt[T](-1), up, down)
+		return scaleInput(v, up, down)
 	}
 	if p.Value != nil {
 		return telem.CastNumeric[T](types.DecodeValue(p.Value, p.Type))
@@ -462,6 +468,19 @@ func scaleInput[T telem.NumericSample](v T, up, down float64) T {
 		return v / whole
 	}
 	return T(float64(v) * up)
+}
+
+// periodInput returns the period of the rate v, which an integer rounds, or 0 for 0.
+func periodInput[T telem.NumericSample](v T, factor float64) T {
+	if v == 0 {
+		return 0
+	}
+	period := factor / float64(v)
+	switch any(v).(type) {
+	case float32, float64:
+		return T(period)
+	}
+	return T(math.RoundToEven(period))
 }
 
 // AbsorbInputs marks every data input consumed at its current source timestamp,
