@@ -223,9 +223,13 @@ describe("range/Toolbar", () => {
         },
       );
       expect(within(finished).getByText(run.name)).toBeTruthy();
-      fireEvent.click(
-        await within(await findLine("Running", run.name)).findByRole("button", {
-          name: "Stop",
+      // Running lists only its newest ranges, which other specs can fill, so the run
+      // ends through the client.
+      await client.ranges.dispatch(
+        run.key,
+        ranger.set({
+          path: ["timeRange"],
+          value: new TimeRange(run.timeRange.start, TimeStamp.now()).numeric,
         }),
       );
       const ended = await findLine("Recent", run.name);
