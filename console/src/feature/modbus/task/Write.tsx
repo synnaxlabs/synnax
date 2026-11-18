@@ -31,7 +31,7 @@ import {
 } from "@/feature/modbus/task/RegisterMap";
 import {
   deployWriteConfigZ,
-  nextChannel,
+  nextOpenChannel,
   UNSUPPORTED_DATA_TYPES,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
@@ -39,6 +39,7 @@ import {
   type WriteChannel,
   type WriteChannelType,
   type WriteSchemas,
+  writesOverlap,
 } from "@/feature/modbus/task/types";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
@@ -160,14 +161,15 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   );
 };
 
-const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
-  if (channels.length === 0)
+const getOpenChannel = (channels: WriteChannel[], copy?: string): WriteChannel => {
+  const next = nextOpenChannel(channels, writesOverlap, copy);
+  if (next == null)
     return {
       ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
   return {
-    ...nextChannel(channels[channels.length - 1]),
+    ...next,
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
   };
