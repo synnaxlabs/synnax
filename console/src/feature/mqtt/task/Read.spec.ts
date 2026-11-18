@@ -642,6 +642,31 @@ describe("MQTT read form", () => {
       });
     });
 
+    it("should add a present match with no pointer beside another present match", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "fault", [createField("code", "string")], {
+        type: "present",
+        pointer: "/fault",
+      });
+      await renderRead({ entries: [entry] });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
+      );
+      fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
+      await screen.findByDisplayValue(`${TOPIC} 3`);
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages).toHaveLength(3);
+        expect(messages[2].payload).toEqual({
+          format: "json",
+          match: { type: "present", pointer: "" },
+          fields: [],
+        });
+      });
+    });
+
     it("should add a message from the context menu of a topic", async () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],

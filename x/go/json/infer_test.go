@@ -13,6 +13,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"strconv"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -195,7 +196,30 @@ var _ = Describe("Infer", func() {
 		Expect(shapes[2].Count).To(Equal(1))
 	})
 
-	DescribeTable("Should split a source into kinds only up to 16 sets of fields",
+	It("Should give documents with no fields to no kind of two", func() {
+		shapes := xjson.Infer(documents("line", 4, func(i int) string {
+			return [...]string{
+				`{"t":1,"pressure":1}`,
+				`{"t":2,"state":"run"}`,
+				`{}`,
+				`{"faults":[],"flow":null}`,
+			}[i]
+		}))
+		Expect(shapes).To(HaveLen(2))
+		Expect(shapes[0].Count).To(Equal(1))
+		Expect(shapes[1].Count).To(Equal(1))
+	})
+
+	It("Should give documents with no fields to the one kind of their source", func() {
+		shapes := xjson.Infer(documents("tank", 2, func(i int) string {
+			return [...]string{`{"pressure":1}`, `{}`}[i]
+		}))
+		Expect(shapes).To(HaveLen(1))
+		Expect(shapes[0].Count).To(Equal(2))
+		Expect(fieldAt(shapes[0], "/pressure").Count).To(Equal(1))
+	})
+
+	DescribeTable("Should split a source into kinds only up to 16 kinds",
 		func(sets, shapes, fields int) {
 			inferred := xjson.Infer(documents("devices", sets, func(i int) string {
 				return fmt.Sprintf(`{"device-%d":1}`, i)
@@ -204,8 +228,28 @@ var _ = Describe("Infer", func() {
 			Expect(inferred[0].Fields).To(HaveLen(fields))
 			Expect(inferred[0].Count).To(Equal(fields))
 		},
-		Entry("16 sets", 16, 16, 1),
-		Entry("17 sets", 17, 1, 17),
+		Entry("16 kinds", 16, 16, 1),
+		Entry("17 kinds", 17, 1, 17),
+	)
+
+	DescribeTable("Should count kinds after joining up to 256 sets of fields",
+		func(sets, shapes int) {
+			docs := documents("line", sets-1, func(i int) string {
+				fields := []string{`"t":1`, `"pressure":1`}
+				for f := range 8 {
+					if i&(1<<f) == 0 {
+						fields = append(fields, fmt.Sprintf(`"v%d":1`, f))
+					}
+				}
+				return "{" + strings.Join(fields, ",") + "}"
+			})
+			docs = append(docs, documents("line", 1, func(int) string {
+				return `{"t":1,"state":"run"}`
+			})...)
+			Expect(xjson.Infer(docs)).To(HaveLen(shapes))
+		},
+		Entry("256 sets", 256, 2),
+		Entry("257 sets", 257, 1),
 	)
 
 	It("Should keep every digit of a nanosecond index and read a boolean", func() {

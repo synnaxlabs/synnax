@@ -28,9 +28,10 @@ const (
 	maxEnumLabels = 16
 	// maxInferredFields is the most fields that one shape holds.
 	maxInferredFields = 1024
-	// maxKinds is the most sets of fields of the documents of one source that split
-	// into kinds.
+	// maxKinds is the most kinds of document that one source splits into.
 	maxKinds = 16
+	// maxFieldSets is the most sets of fields of one source that split compares.
+	maxFieldSets = 256
 )
 
 // Document is one sampled JSON document.
@@ -80,7 +81,9 @@ type Shape struct {
 // Infer returns the shapes of docs, which are in the order that each source wrote them.
 //   - The documents of a source that hold the same fields are one kind. A kind whose
 //     fields are all in one widest kind joins it, so a field that some documents lack
-//     does not split a kind. A source with more than 16 sets of fields is one kind.
+//     does not split a kind. A source with more than 16 kinds or 256 sets of fields
+//     is one kind.
+//   - A document with no fields joins the one widest kind of its source, or no kind.
 //   - The kinds of every source that hold the same fields share a shape.
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
 //   - Types widen across documents: int64, then uint64, then float64. A boolean field
@@ -209,12 +212,8 @@ func (src *inferSource) add(doc parsedDocument) {
 // split returns the kinds of the documents of src, in the order of their first
 // documents. Each kind keeps the order of its documents.
 func (src *inferSource) split() []kind {
-	if len(src.sets) > maxKinds {
-		union := make(set.Set[string])
-		for _, fs := range src.sets {
-			union.Add(fs.fields.Slice()...)
-		}
-		return []kind{{key: newFieldSet(union).key, docs: src.docs}}
+	if len(src.sets) > maxFieldSets {
+		return src.union()
 	}
 	into := src.joins()
 	var (
@@ -223,6 +222,9 @@ func (src *inferSource) split() []kind {
 	)
 	for i, doc := range src.docs {
 		target := into[src.setOf[i]]
+		if target < 0 {
+			continue
+		}
 		k, ok := at[target]
 		if !ok {
 			k = len(kinds)
@@ -231,12 +233,25 @@ func (src *inferSource) split() []kind {
 		}
 		kinds[k].docs = append(kinds[k].docs, doc)
 	}
+	if len(kinds) > maxKinds {
+		return src.union()
+	}
 	return kinds
+}
+
+// union returns one kind that holds every document of src.
+func (src *inferSource) union() []kind {
+	fields := make(set.Set[string])
+	for _, fs := range src.sets {
+		fields.Add(fs.fields.Slice()...)
+	}
+	return []kind{{key: newFieldSet(fields).key, docs: src.docs}}
 }
 
 // joins returns, for each set of fields of src, the set whose kind its documents join:
 // the one widest set that holds all of its fields, or else itself. A set is widest when
-// no other set holds all of its fields.
+// no other set holds all of its fields. An empty set that two widest sets hold joins no
+// kind: -1.
 func (src *inferSource) joins() []int {
 	holds := func(a, b int) bool {
 		return len(src.sets[a].fields) > len(src.sets[b].fields) &&
@@ -268,6 +283,9 @@ func (src *inferSource) joins() []int {
 		}
 		if holders > 1 {
 			into[i] = i
+			if len(src.sets[i].fields) == 0 {
+				into[i] = -1
+			}
 		}
 	}
 	return into

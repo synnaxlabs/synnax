@@ -289,6 +289,31 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should match the JSON documents that hold a value at a pointer", async () => {
+    const ic = await createICD([
+      {
+        ...createJSONMessage([]),
+        payload: {
+          format: "json",
+          fields: [],
+          match: { type: "string", pointer: "/fault", value: "open" },
+        },
+      },
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: /^Match/ }));
+    fireEvent.click(await screen.findByText("Present"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload).toEqual({
+        format: "json",
+        fields: [],
+        match: { type: "present", pointer: "/fault" },
+      }),
+    );
+    expect(screen.getByDisplayValue("/fault")).toBeTruthy();
+    expect(screen.queryByLabelText(/^Value/)).toBeNull();
+  });
+
   it("should remove the match of a message that takes any document", async () => {
     const ic = await createICD([
       {

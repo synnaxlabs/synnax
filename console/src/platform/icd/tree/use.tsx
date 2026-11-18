@@ -210,8 +210,9 @@ export interface UseReturn {
   /** Adds a field to a message of a source and to its ICD, reads it, and selects it. */
   addField: (source: string, read: number) => void;
   /**
-   * Adds a message with no fields to a source and to its ICD. The match tests the
-   * pointer of the source's other matches, so the messages tell payloads apart.
+   * Adds a message with no fields to a source and to its ICD. Its match has the type of
+   * the source's other matches. A value match tests their pointer, so the messages tell
+   * payloads apart. A present match has no pointer, since two cannot share one.
    */
   addMessage: (source: string) => void;
 }
@@ -259,12 +260,13 @@ export const use = <S extends Source>({
       .map(({ message }) => held.find(({ key }) => key === message)?.payload)
       .find((p) => p?.format === "json" && p.match != null);
     const match = rule?.format === "json" ? rule.match : undefined;
+    const pointer = match?.type === "present" ? "" : (match?.pointer ?? "");
     const message: icd.Message = {
       key: uuid.create(),
       name: messageName(sourceKey, held),
       payload: {
         format: "json",
-        match: createMatch(match?.type ?? "string", match?.pointer ?? ""),
+        match: createMatch(match?.type ?? "string", pointer),
         fields: [],
       },
     };
