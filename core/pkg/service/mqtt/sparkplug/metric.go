@@ -187,6 +187,10 @@ func decodeValue(m *pb.Payload_Metric, dt DataType) Value {
 			return IntValue(int32(bits))
 		}
 	case Int64:
+		// An int_value holds 32 bits, so its sign bit is bit 31.
+		if v, ok := m.GetValue().(*pb.Payload_Metric_IntValue); ok {
+			return IntValue(int32(v.IntValue))
+		}
 		if integer {
 			return IntValue(bits)
 		}

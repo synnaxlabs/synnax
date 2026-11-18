@@ -38,10 +38,10 @@ export interface Params {
 }
 
 export const parseLocationOptions = (initial?: Location): Partial<location.XY> => {
-  if (initial == null) return { x: undefined, y: undefined };
+  if (initial == null) return {};
   if (typeof initial !== "string") return initial;
-  if (direction.isX(initial)) return { x: initial, y: undefined };
-  return { x: undefined, y: initial };
+  if (direction.isX(initial)) return { x: initial };
+  return { y: initial };
 };
 
 export interface Return {
@@ -122,8 +122,8 @@ const isDisabled = (opt: Option, disabled: Preference[]): boolean =>
   disabled.some((d) => {
     const targetLoc = parseLocationOptions(d.targetCorner);
     const dialogLoc = parseLocationOptions(d.dialogCorner);
-    // If dialogCorner is CENTER (from normalization), only match on target corner
-    if (location.xyEquals(d.dialogCorner as location.XY, location.CENTER))
+    // A CENTER dialog corner matches on the target corner alone.
+    if (location.xyEquals(dialogLoc as location.XY, location.CENTER))
       return location.xyMatches(opt.targetCorner, targetLoc);
 
     return (

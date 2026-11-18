@@ -330,6 +330,14 @@ describe("MQTT read form", () => {
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
   });
 
+  it("should focus the topic of a topic added by name", async () => {
+    await renderRead();
+    const dialog = await openAddData();
+    fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+    const topic = await screen.findByPlaceholderText("plant/line1/telemetry");
+    await waitFor(() => expect(document.activeElement).toBe(topic));
+  });
+
   it("should add a topic by name", async () => {
     const { draft } = await renderRead();
     const dialog = await openAddData();
@@ -989,6 +997,15 @@ describe("MQTT read form", () => {
           name: /SpB.*plant\/line1\/Node Control\/Rebirth/,
         }),
       ).toBeTruthy();
+    });
+
+    it("should focus the group of a tag added by name", async () => {
+      await renderRead();
+      const dialog = await openAddData();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
+      const group = await screen.findByPlaceholderText("plant");
+      await waitFor(() => expect(document.activeElement).toBe(group));
     });
 
     it("should add a tag by name and show its fields", async () => {

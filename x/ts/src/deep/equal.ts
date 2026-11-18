@@ -77,6 +77,7 @@ export const equal = <
   const bKeys = Object.keys(b);
   if (aKeys.length !== bKeys.length) return false;
   for (const key of aKeys) {
+    if (!Object.hasOwn(b, key)) return false;
     // @ts-expect-error - indexing nested value.
     const aVal = a[key];
     // @ts-expect-error - indexing nested value.

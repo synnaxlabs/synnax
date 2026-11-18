@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink, wrapWithSink } from "@/platform/analytics/testutil";
@@ -196,6 +196,62 @@ describe("Range.ContextMenu", () => {
       await renderMenu([child]);
       fireEvent.click(within(await openSubmenu("Parent")).getByText("No parent"));
       await waitFor(async () => expect(await parentOf(child)).toBeUndefined());
+    });
+
+    it("should leave the ranges nested in the ranges out of the list", async () => {
+      const token = uniqueName("nested");
+      const sibling = await createTestRange(client, { name: `${token} sibling` });
+      const self = await createTestRange(client, { name: `${token} self` });
+      const child = await createTestRange(client, {
+        name: `${token} child`,
+        parent: self.key,
+      });
+      const grandchild = await createTestRange(client, {
+        name: `${token} grandchild`,
+        parent: child.key,
+      });
+      await renderMenu([self]);
+      const parent = await openSubmenu("Parent");
+      searchIn(parent, "Search ranges...", token);
+      await within(parent).findByText(sibling.name);
+      expect(within(parent).queryByText(child.name)).toBeNull();
+      expect(within(parent).queryByText(grandchild.name)).toBeNull();
+    });
+
+    it("should list the other ranges when the nested ranges fill a page", async () => {
+      // The ranges start after every other range, so they lead the newest-first list,
+      // and the spec deletes them.
+      const start = TimeStamp.now().add(TimeSpan.days(36500));
+      const at = (offset: number) => {
+        const from = start.add(TimeSpan.microseconds(offset));
+        return { timeRange: new TimeRange(from, from.add(TimeSpan.microseconds(1))) };
+      };
+      const other = await createTestRange(client, {
+        name: uniqueRangeName("other"),
+        ...at(-1),
+      });
+      const self = await createTestRange(client, {
+        name: uniqueRangeName("self"),
+        ...at(0),
+      });
+      const nested = await client.ranges.create(
+        Array.from({ length: 60 }, (_, i) => ({
+          name: uniqueRangeName("nested"),
+          parent: self.key,
+          ...at(i + 1),
+        })),
+      );
+      onTestFinished(
+        async () =>
+          await client.ranges.delete([
+            other.key,
+            self.key,
+            ...nested.map((r) => r.key),
+          ]),
+      );
+      await renderMenu([self]);
+      const parent = await openSubmenu("Parent");
+      expect(await within(parent).findByText(other.name)).toBeDefined();
     });
 
     it("should list the shared parent once, pinned at the top", async () => {
