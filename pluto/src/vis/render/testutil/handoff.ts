@@ -16,11 +16,13 @@ export class FakePort {
   closed = false;
 
   postMessage(data: unknown): void {
-    this.peer?.onmessage?.({ data });
+    if (!this.closed) this.peer?.onmessage?.({ data });
   }
 
+  /** Closes both ends, as closing either end of a real channel does. */
   close(): void {
     this.closed = true;
+    if (this.peer != null) this.peer.closed = true;
   }
 }
 

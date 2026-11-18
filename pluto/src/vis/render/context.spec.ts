@@ -87,7 +87,7 @@ const mount = (os: runtime.OS = "macOS") => {
 const mountBitmap = () => {
   const { gl, calls } = canvasTest.createGL();
   const recorder = canvasTest.record();
-  canvasTest.stubHandoff([gl, recorder.lower2d, recorder.upper2d]);
+  const ports = canvasTest.stubHandoff([gl, recorder.lower2d, recorder.upper2d]);
   const { port1, port2 } = new MessageChannel();
   const frames: render.Frame[] = [];
   let acking = true;
@@ -118,7 +118,8 @@ const mountBitmap = () => {
   const glCanvas = renderCtx.glCanvas;
   const lose = () => glCanvas.dispatchEvent(new Event("webglcontextlost"));
   const restore = () => glCanvas.dispatchEvent(new Event("webglcontextrestored"));
-  return { renderCtx, calls, frames, posted, lose, restore, stall, ack };
+  const remove = () => stack.driver.delete(path);
+  return { renderCtx, calls, ports, posted, lose, restore, stall, ack, remove, frames };
 };
 
 const ALL = ["gl", "lower2d", "upper2d"];
@@ -207,6 +208,13 @@ describe("render.Context", () => {
       ack();
       posted();
       expect(posted()).toEqual([ALL, ["lower2d", "upper2d"]]);
+    });
+
+    it("should close the frame port when the canvas is deleted", () => {
+      const { ports, posted, remove } = mountBitmap();
+      posted();
+      remove();
+      expect(ports.map((p) => p.closed)).toEqual([true]);
     });
 
     it("should post the canvases that an erase cleared", () => {

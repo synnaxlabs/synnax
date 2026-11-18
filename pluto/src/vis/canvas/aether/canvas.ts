@@ -62,6 +62,8 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
         framePort,
       );
       if (this.renderCtx != null) line.Context.create(ctx, this.renderCtx);
+      // Without a render context, no frame will ever use the port.
+      else framePort?.close();
       this.setState((p) => ({
         ...p,
         bootstrap: false,
@@ -74,6 +76,10 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
       }));
     } else this.renderCtx.update(ctx);
     this.renderCtx?.resize(this.state.region, this.state.dpr);
+  }
+
+  afterDelete(): void {
+    this.renderCtx?.close();
   }
 }
 

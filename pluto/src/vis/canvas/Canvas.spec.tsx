@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, renderHook, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { render } from "@/testutil";
@@ -145,12 +146,36 @@ describe("Canvas", () => {
       expect(renderer.transferFromImageBitmap).not.toHaveBeenCalled();
     });
 
-    it("should close the frame port on unmount", async () => {
+    it("should keep showing frames after a StrictMode remount", async () => {
+      const recorder = canvasTest.record();
+      canvasTest.stubHandoff([
+        canvasTest.createGL().gl,
+        recorder.lower2d,
+        recorder.upper2d,
+      ]);
+      const rect = vi
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockReturnValue(new DOMRect(0, 0, 200, 100));
+      render(
+        <StrictMode>
+          <Canvas.Canvas resizeDebounce={0} handoff="bitmap" />
+        </StrictMode>,
+        { registry: canvas.REGISTRY },
+      );
+      await waitFor(() =>
+        expect(renderer.transferFromImageBitmap).toHaveBeenCalledTimes(3),
+      );
+      rect.mockReturnValue(new DOMRect(0, 0, 300, 100));
+      await act(async () => resizes.forEach((resize) => resize()));
+      await waitFor(() =>
+        expect(renderer.transferFromImageBitmap).toHaveBeenCalledTimes(6),
+      );
+    });
+
+    it("should close the frame port when the worker has no WebGL", async () => {
       const ports = canvasTest.stubHandoff([null]);
-      const { unmount } = renderCanvas("bitmap");
+      renderCanvas("bitmap");
       await screen.findByText("missing");
-      expect(ports.map((p) => p.closed)).toEqual([false]);
-      unmount();
       expect(ports.map((p) => p.closed)).toEqual([true]);
     });
   });

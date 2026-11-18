@@ -47,7 +47,6 @@ interface Canvases {
   lower2d: HTMLCanvasElement | null;
   upper2d: HTMLCanvasElement | null;
   bootstrapped: boolean;
-  framePort: MessagePort | null;
 }
 
 const ZERO_CANVASES: Canvases = {
@@ -55,7 +54,6 @@ const ZERO_CANVASES: Canvases = {
   lower2d: null,
   upper2d: null,
   bootstrapped: false,
-  framePort: null,
 };
 
 /**
@@ -181,11 +179,6 @@ export const Canvas = ({
     };
   }, [setState]);
 
-  useEffect(() => {
-    const current = canvases.current;
-    return () => current.framePort?.close();
-  }, []);
-
   const refCallback = (el: HTMLCanvasElement | null) => {
     if (el == null) return;
 
@@ -207,7 +200,6 @@ export const Canvas = ({
     if (handoff === "bitmap") {
       const { port1, port2 } = new MessageChannel();
       receiveFrames({ gl, lower2d, upper2d }, port1);
-      canvases.current.framePort = port1;
       setState({ ...base, framePort: port2 }, [port2]);
       return;
     }

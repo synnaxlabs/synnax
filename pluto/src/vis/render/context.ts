@@ -115,7 +115,7 @@ export class Context {
   private readonly restoreHandlers = new Set<() => void>();
   private readonly restore2DHandlers = new Set<() => void>();
   private readonly atlases = new text.AtlasRegistry();
-  private readonly frames?: Frames;
+  private frames?: Frames;
 
   /**
    * Creates a render context and sets it on ctx.
@@ -205,10 +205,9 @@ export class Context {
       handleError(() => this.restore(), "Failed to restore WebGL context"),
     );
 
-    const { frames } = this;
     this.loop = new Loop({
       afterRender: () => this.gl.flush(),
-      present: frames == null ? undefined : (drawn) => this.present(frames, drawn),
+      present: framePort == null ? undefined : (drawn) => this.present(drawn),
       instrumentation: this.instrumentation,
       handleError,
     });
@@ -371,8 +370,9 @@ export class Context {
   }
 
   /** Posts a bitmap of each changed canvas. The page keeps showing the others. */
-  private present(frames: Frames, drawn: Set<CanvasVariant>): void {
-    const { gl, glCanvas } = this;
+  private present(drawn: Set<CanvasVariant>): void {
+    const { gl, glCanvas, frames } = this;
+    if (frames == null) return;
     const { dirty, copy, backBuffer } = frames;
     drawn.forEach((c) => dirty.add(c));
     const { width, height } = glCanvas;
@@ -412,6 +412,12 @@ export class Context {
     if (bitmaps.length === 0) return;
     frames.inFlight = true;
     frames.port.postMessage(frame, bitmaps);
+  }
+
+  /** Closes the frame port, after which the context posts no more frames. */
+  close(): void {
+    this.frames?.port.close();
+    this.frames = undefined;
   }
 
   private resizeCanvas(canvas: OffscreenCanvas): void {
