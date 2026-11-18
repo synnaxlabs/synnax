@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, payload } from "@synnaxlabs/x";
+import { deep, type payload } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { FormattedField, parseInteger } from "@/feature/icd/editor/FormattedField";

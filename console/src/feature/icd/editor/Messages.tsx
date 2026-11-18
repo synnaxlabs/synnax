@@ -17,7 +17,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD } from "@synnaxlabs/pluto";
-import { payload, uuid } from "@synnaxlabs/x";
+import { type payload, uuid } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactElement } from "react";
 
