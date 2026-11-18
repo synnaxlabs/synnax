@@ -92,11 +92,7 @@ const Trigger = <K extends record.Key, E extends Entry<K>>({
   clearable,
 }: TriggerProps<E>): ReactElement => {
   const itemStatus = Input.useItemStatus({});
-  const clear = Base.useTriggerClear<K>({
-    clearable,
-    preview,
-    name: result.variant === "success" ? result.data.name : undefined,
-  });
+  const clear = Base.useTriggerClear<K>({ clearable, preview });
   let content: ReactElement;
   const icon = <ItemIcon className={CSS.BE("picker", "icon")} />;
   if (result.variant !== "success")
@@ -137,7 +133,15 @@ const Trigger = <K extends record.Key, E extends Entry<K>>({
       onKeyDown={clear.handleKeyDown}
       {...itemStatus}
     >
-      {clear.canClear ? clear.wrap(icon) : icon}
+      {clear.canClear ? (
+        <Base.TriggerClear
+          name={result.variant === "success" ? result.data.name : undefined}
+        >
+          {icon}
+        </Base.TriggerClear>
+      ) : (
+        icon
+      )}
       {content}
     </Dialog.Trigger>
   );

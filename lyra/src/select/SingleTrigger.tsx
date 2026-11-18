@@ -23,7 +23,7 @@ import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { staticCanDrop } from "@/select/MultipleTrigger";
 import { useIsFixed, useText } from "@/select/registry";
-import { useTriggerClear } from "@/select/TriggerClear";
+import { TriggerClear, useTriggerClear } from "@/select/TriggerClear";
 import { preventEnterWhileOpen } from "@/select/use";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
@@ -131,12 +131,7 @@ export const SingleTrigger = <K extends record.Key>({
   // aria-label followed by the selection.
   const shown = fixed ? fixedText : (name ?? (preview === true ? "None" : placeholder));
   const { visible, variant } = Dialog.useContext();
-  const clear = useTriggerClear<K>({
-    clearable,
-    disabled,
-    preview,
-    name: name ?? fixedText,
-  });
+  const clear = useTriggerClear<K>({ clearable, disabled, preview });
   const clearOnIcon = clear.canClear && resolvedIcon != null;
   const clearOnCaret =
     clear.canClear &&
@@ -193,7 +188,11 @@ export const SingleTrigger = <K extends record.Key>({
       preview={preview}
       hideCaret={hideCaret || iconOnly || clearOnCaret}
     >
-      {clearOnIcon ? clear.wrap(resolvedIcon) : resolvedIcon}
+      {clearOnIcon ? (
+        <TriggerClear name={name ?? fixedText}>{resolvedIcon}</TriggerClear>
+      ) : (
+        resolvedIcon
+      )}
       {!iconOnly && (
         <Label itemKey={selected} id={labelId}>
           {shown}
@@ -202,10 +201,11 @@ export const SingleTrigger = <K extends record.Key>({
       {endContent != null && (
         <span className={CSS.BE("select-single-trigger", "end")}>{endContent}</span>
       )}
-      {clearOnCaret &&
-        clear.wrap(
-          <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />,
-        )}
+      {clearOnCaret && (
+        <TriggerClear name={name ?? fixedText}>
+          <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />
+        </TriggerClear>
+      )}
     </Dialog.Trigger>
   );
 };

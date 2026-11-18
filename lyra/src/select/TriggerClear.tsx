@@ -22,20 +22,16 @@ export interface UseTriggerClearProps {
   clearable: boolean;
   disabled?: boolean;
   preview?: boolean;
-  /** Names the selection in the label of the clear button. */
-  name?: string;
 }
 
 /** The clear action that {@link useTriggerClear} returns. */
 export interface UseTriggerClearReturn {
   /** Whether the selection can be cleared now. A zero key means none. */
   canClear: boolean;
-  /** The class of a trigger that shows the clear button. */
+  /** The class of a trigger that shows a {@link TriggerClear}. */
   className: string;
   /** Clears the selection on Delete or Backspace. */
   handleKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
-  /** Covers glyph with a clear button that shows while the trigger is hovered. */
-  wrap: (glyph: ReactElement) => ReactElement;
 }
 
 /**
@@ -46,7 +42,6 @@ export const useTriggerClear = <K extends record.Key>({
   clearable,
   disabled,
   preview,
-  name,
 }: UseTriggerClearProps): UseTriggerClearReturn => {
   const [selected] = useSelected<K>();
   const clear = useClear();
@@ -58,9 +53,30 @@ export const useTriggerClear = <K extends record.Key>({
     e.preventDefault();
     clear();
   };
-  const wrap = (glyph: ReactElement): ReactElement => (
+  return {
+    canClear,
+    className: CSS.cls(CSS.M("reveals"), CSS.B("select-clearable")),
+    handleKeyDown,
+  };
+};
+
+/** Props for {@link TriggerClear}. */
+export interface TriggerClearProps {
+  /** Names the selection in the label of the clear button. */
+  name?: string;
+  /** The glyph that the clear button covers. */
+  children: ReactElement;
+}
+
+/**
+ * Covers a glyph of a trigger with a button that clears the selection. The button shows
+ * while a trigger with the class from {@link useTriggerClear} is hovered.
+ */
+export const TriggerClear = ({ name, children }: TriggerClearProps): ReactElement => {
+  const clear = useClear();
+  return (
     <span className={CSS.B("select-clear")}>
-      {glyph}
+      {children}
       <Button.Close
         el="div"
         role="button"
@@ -70,10 +86,4 @@ export const useTriggerClear = <K extends record.Key>({
       />
     </span>
   );
-  return {
-    canClear,
-    className: CSS.cls(CSS.M("reveals"), CSS.B("select-clearable")),
-    handleKeyDown,
-    wrap,
-  };
 };
