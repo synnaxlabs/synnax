@@ -9,8 +9,11 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdint>
+#include <iterator>
 #include <limits>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,6 +31,7 @@
 
 #include "x/cpp/date/date.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/x509/x509.h"
 
 namespace x::x509 {
@@ -91,27 +95,29 @@ public:
     mbedtls_ctr_drbg_context drbg{};
 };
 
-template<size_t N>
-std::string
-hex(const std::array<unsigned char, N> &bytes, const std::string_view digits) {
+constexpr std::string_view LOWER_HEX = "0123456789abcdef";
+constexpr std::string_view UPPER_HEX = "0123456789ABCDEF";
+
+/// @returns the bytes as hex in the given digits.
+template<typename Bytes>
+std::string hex(const Bytes &bytes, const std::string_view digits = LOWER_HEX) {
     std::string out;
-    out.reserve(N * 2);
-    for (const auto b: bytes) {
+    out.reserve(std::size(bytes) * 2);
+    for (const unsigned char b: bytes) {
         out.push_back(digits[b >> 4]);
         out.push_back(digits[b & 0x0F]);
     }
     return out;
 }
 
-constexpr std::string_view LOWER_HEX = "0123456789abcdef";
-constexpr std::string_view UPPER_HEX = "0123456789ABCDEF";
-
 /// @brief one attribute of a distinguished name.
 struct Attribute {
     /// @brief the attribute type as a dotted OID, such as "2.5.4.3".
     std::string oid;
-    /// @brief the value as UTF-8.
+    /// @brief the value as UTF-8 when text is true, or else "#" and the hex of its DER.
     std::string value;
+    /// @brief true when the value is one of the string types that Go reads as text.
+    bool text = true;
 };
 
 void append_utf8(std::string &out, const uint32_t code_point) {
@@ -127,53 +133,103 @@ void append_utf8(std::string &out, const uint32_t code_point) {
     }
 }
 
-/// @returns the value as UTF-8, read as Go's crypto/x509 reads it: a T61String as
-/// Latin-1, a BMPString as UCS-2 without its null terminator, and any other string as
-/// its bytes.
-std::string decode_value(const int tag, const unsigned char *p, size_t len) {
-    std::string out;
-    if (tag == MBEDTLS_ASN1_T61_STRING) {
-        for (size_t i = 0; i < len; i++)
-            append_utf8(out, p[i]);
-        return out;
-    }
-    if (tag == MBEDTLS_ASN1_BMP_STRING) {
-        if (len >= 2 && p[len - 1] == 0 && p[len - 2] == 0) len -= 2;
-        for (size_t i = 0; i + 1 < len; i += 2)
-            append_utf8(out, static_cast<uint32_t>(p[i]) << 8 | p[i + 1]);
-        return out;
-    }
-    return {reinterpret_cast<const char *>(p), len};
+bool printable(const unsigned char c) {
+    return std::isalnum(c) != 0 || (c >= '\'' && c <= ')') || (c >= '+' && c <= '/') ||
+           c == ' ' || c == ':' || c == '=' || c == '?' || c == '*' || c == '&';
 }
 
-/// @returns the attributes of a DER encoded name, in the order of the encoding.
-std::vector<Attribute> read_attributes(const mbedtls_x509_buf &raw) {
+/// @returns the value of a string type as UTF-8, read as Go's crypto/x509 reads it, or
+/// nothing when Go refuses it.
+std::optional<std::string> decode_text(const int tag, std::string_view value) {
+    switch (tag) {
+        case MBEDTLS_ASN1_T61_STRING: {
+            std::string out;
+            for (const unsigned char c: value)
+                append_utf8(out, c);
+            return out;
+        }
+        case MBEDTLS_ASN1_PRINTABLE_STRING:
+            if (!std::ranges::all_of(value, printable)) return std::nullopt;
+            return std::string(value);
+        case MBEDTLS_ASN1_UTF8_STRING:
+            if (!strings::valid_utf8(value)) return std::nullopt;
+            return std::string(value);
+        case MBEDTLS_ASN1_IA5_STRING:
+            if (!std::ranges::all_of(value, [](const unsigned char c) {
+                    return c < 0x80;
+                }))
+                return std::nullopt;
+            return std::string(value);
+        case MBEDTLS_ASN1_BMP_STRING: {
+            if (value.size() % 2 != 0) return std::nullopt;
+            if (value.ends_with(std::string_view("\0\0", 2))) value.remove_suffix(2);
+            std::string out;
+            for (size_t i = 0; i < value.size(); i += 2) {
+                const uint32_t unit = static_cast<unsigned char>(value[i]) << 8 |
+                                      static_cast<unsigned char>(value[i + 1]);
+                if (unit == 0xFFFE || unit == 0xFFFF ||
+                    (unit >= 0xFDD0 && unit <= 0xFDEF) ||
+                    (unit >= 0xD800 && unit <= 0xDFFF))
+                    return std::nullopt;
+                append_utf8(out, unit);
+            }
+            return out;
+        }
+        default:
+            return std::nullopt;
+    }
+}
+
+bool text_tag(const int tag) {
+    return tag == MBEDTLS_ASN1_T61_STRING || tag == MBEDTLS_ASN1_PRINTABLE_STRING ||
+           tag == MBEDTLS_ASN1_UTF8_STRING || tag == MBEDTLS_ASN1_IA5_STRING ||
+           tag == MBEDTLS_ASN1_BMP_STRING;
+}
+
+/// @returns the attributes of a DER encoded name in the order of the encoding, or
+/// nothing when Go refuses the name.
+std::optional<std::vector<Attribute>> read_attributes(const mbedtls_x509_buf &raw) {
     std::vector<Attribute> attrs;
     unsigned char *p = raw.p;
     const unsigned char *end = raw.p + raw.len;
     size_t len = 0;
     constexpr int SEQUENCE = MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE;
     constexpr int SET = MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SET;
-    if (mbedtls_asn1_get_tag(&p, end, &len, SEQUENCE) != 0) return attrs;
+    if (mbedtls_asn1_get_tag(&p, end, &len, SEQUENCE) != 0) return std::nullopt;
     while (p < end) {
-        if (mbedtls_asn1_get_tag(&p, end, &len, SET) != 0) return attrs;
+        if (mbedtls_asn1_get_tag(&p, end, &len, SET) != 0) return std::nullopt;
         const unsigned char *set_end = p + len;
         while (p < set_end) {
-            if (mbedtls_asn1_get_tag(&p, set_end, &len, SEQUENCE) != 0) return attrs;
+            if (mbedtls_asn1_get_tag(&p, set_end, &len, SEQUENCE) != 0)
+                return std::nullopt;
             unsigned char *const attr_end = p + len;
             mbedtls_asn1_buf oid{};
             if (mbedtls_asn1_get_tag(&p, attr_end, &oid.len, MBEDTLS_ASN1_OID) != 0)
-                return attrs;
+                return std::nullopt;
             oid.tag = MBEDTLS_ASN1_OID;
             oid.p = p;
             p += oid.len;
-            if (p >= attr_end) return attrs;
+            const unsigned char *const value_start = p;
+            if (p >= attr_end) return std::nullopt;
             const int tag = *p++;
-            if (mbedtls_asn1_get_len(&p, attr_end, &len) != 0) return attrs;
+            if (mbedtls_asn1_get_len(&p, attr_end, &len) != 0) return std::nullopt;
             std::array<char, 128> dotted{};
             if (mbedtls_oid_get_numeric_string(dotted.data(), dotted.size(), &oid) < 0)
-                return attrs;
-            attrs.push_back({.oid = dotted.data(), .value = decode_value(tag, p, len)});
+                return std::nullopt;
+            Attribute attr{.oid = dotted.data()};
+            const std::string_view value(reinterpret_cast<const char *>(p), len);
+            if (text_tag(tag)) {
+                auto decoded = decode_text(tag, value);
+                if (!decoded) return std::nullopt;
+                attr.value = std::move(*decoded);
+            } else {
+                attr.text = false;
+                attr.value = "#" + hex(std::string_view(
+                                       reinterpret_cast<const char *>(value_start),
+                                       static_cast<size_t>(attr_end - value_start)
+                                   ));
+            }
+            attrs.push_back(std::move(attr));
             p = attr_end;
         }
     }
@@ -214,20 +270,23 @@ std::string escape(const std::string &value) {
     return out;
 }
 
-/// @returns the name in the form of Go's pkix.Name.String(), which the Core stores.
-std::string format_name(const mbedtls_x509_buf &raw) {
+/// @returns the name in the form of Go's pkix.Name.String(), which the Core stores,
+/// or nothing when Go refuses the name.
+std::optional<std::string> format_name(const mbedtls_x509_buf &raw) {
     const auto attrs = read_attributes(raw);
+    if (!attrs) return std::nullopt;
     using RDN = std::vector<std::pair<std::string, std::string>>;
     std::vector<RDN> rdns;
-    for (const auto &attr: attrs)
+    for (const auto &attr: *attrs)
         if (std::ranges::none_of(NAMED_TYPES, [&](const auto &t) {
                 return t.first == attr.oid;
             }))
-            rdns.push_back({{attr.oid, attr.value}});
+            rdns.push_back({{attr.oid, attr.text ? escape(attr.value) : attr.value}});
     for (const auto &[oid, name]: NAMED_TYPES) {
         RDN rdn;
-        for (const auto &attr: attrs)
-            if (attr.oid == oid) rdn.emplace_back(name, attr.value);
+        for (const auto &attr: *attrs)
+            if (attr.oid == oid && attr.text)
+                rdn.emplace_back(name, escape(attr.value));
         if (rdn.empty()) continue;
         if (single_valued(name)) {
             if (rdn.back().second.empty()) continue;
@@ -240,7 +299,7 @@ std::string format_name(const mbedtls_x509_buf &raw) {
         if (rdn != rdns.rbegin()) out.push_back(',');
         for (size_t i = 0; i < rdn->size(); i++) {
             if (i > 0) out.push_back('+');
-            out += (*rdn)[i].first + "=" + escape((*rdn)[i].second);
+            out += (*rdn)[i].first + "=" + (*rdn)[i].second;
         }
     }
     return out;
@@ -256,6 +315,7 @@ bool Certificate::is_pem(const std::string_view data) {
 std::pair<Certificate, errors::Error> Certificate::parse(const std::string_view data) {
     mbedtls_x509_crt crt;
     mbedtls_x509_crt_init(&crt);
+    const defer::defer free_crt([&] { mbedtls_x509_crt_free(&crt); });
     // mbedTLS reads PEM only with its terminating null byte in the length.
     const std::string buf(data);
     const auto len = is_pem(data) ? buf.size() + 1 : buf.size();
@@ -264,8 +324,7 @@ std::pair<Certificate, errors::Error> Certificate::parse(const std::string_view 
             reinterpret_cast<const unsigned char *>(buf.c_str()),
             len
         );
-        ret != 0) {
-        mbedtls_x509_crt_free(&crt);
+        ret != 0)
         return {
             Certificate(),
             errors::Error(
@@ -273,11 +332,20 @@ std::pair<Certificate, errors::Error> Certificate::parse(const std::string_view 
                 "Failed to parse certificate: " + mbedtls_message(ret)
             )
         };
-    }
+    auto subject = format_name(crt.subject_raw);
+    auto issuer = format_name(crt.issuer_raw);
+    if (!subject || !issuer)
+        return {
+            Certificate(),
+            errors::Error(
+                INVALID,
+                "Failed to parse certificate: a name holds text that is not valid."
+            )
+        };
     Certificate cert;
     cert.der_bytes.assign(reinterpret_cast<const char *>(crt.raw.p), crt.raw.len);
-    cert.subject_name = format_name(crt.subject_raw);
-    cert.issuer_name = format_name(crt.issuer_raw);
+    cert.subject_name = std::move(*subject);
+    cert.issuer_name = std::move(*issuer);
     for (const auto *san = &crt.subject_alt_names; san != nullptr; san = san->next)
         if (san->buf.tag == SAN_URI_TAG) {
             cert.san_uri.assign(
@@ -288,7 +356,6 @@ std::pair<Certificate, errors::Error> Certificate::parse(const std::string_view 
         }
     cert.valid_from = to_timestamp(crt.valid_from);
     cert.valid_to = to_timestamp(crt.valid_to);
-    mbedtls_x509_crt_free(&crt);
     return {std::move(cert), errors::NIL};
 }
 

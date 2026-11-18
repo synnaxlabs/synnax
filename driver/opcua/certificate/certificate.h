@@ -26,7 +26,7 @@ struct Info {
     std::string pem;
     /// @brief the SHA-1 hash of the DER bytes as 40 uppercase hex characters.
     std::string thumbprint;
-    /// @brief the distinguished name of the subject, such as "CN=Server, O=Org".
+    /// @brief the distinguished name of the subject, such as "CN=Server,O=Org".
     std::string subject;
     /// @brief the end of the validity period.
     x::telem::TimeStamp not_after;
