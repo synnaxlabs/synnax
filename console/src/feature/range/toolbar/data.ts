@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
-import { compare, TimeStamp, unique } from "@synnaxlabs/x";
+import { compare, TimeSpan, TimeStamp, unique } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 
 import { Session } from "@/session";
@@ -19,6 +19,7 @@ import { Session } from "@/session";
 const NEWEST: ranger.Order = { field: "time_range_start", descending: true };
 // Recent shows how long ago each range ended, so it sorts by the end.
 const LATEST_END: ranger.Order = { field: "time_range_end", descending: true };
+const PAGE_RETRY = TimeSpan.seconds(5);
 const STAGES: ranger.Where = { stages: ["in_progress", "completed"] };
 
 const latestEndFirst = (a: ranger.Range, b: ranger.Range): number =>
@@ -62,10 +63,14 @@ export const useGroups = (): Groups => {
     eager: true,
   });
   // Few ranges run at once, so Running reads every page. A long run would otherwise
-  // hide behind newer ones.
+  // hide behind newer ones. A failed read tries again after a pause.
   const { complete: runningComplete, variant: runningVariant, more } = runningList;
   useEffect(() => {
-    if (!runningComplete && runningVariant === "success") more();
+    if (runningComplete) return;
+    if (runningVariant === "success") return more();
+    if (runningVariant !== "error") return;
+    const retry = setTimeout(more, PAGE_RETRY.milliseconds);
+    return () => clearTimeout(retry);
   }, [runningComplete, runningVariant]);
   const recentList = Flux.useList((c) => c.ranges, {
     name: "ranges",
