@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Mapping
 from typing import Any, Literal, overload
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel
+from pydantic_core import to_jsonable_python
 
 from freighter import Empty, UnaryClient
 from synnax.exceptions import ValidationError
@@ -27,6 +29,7 @@ from synnax.secret.types_gen import (
     Where,
     WhereInput,
 )
+from synnax.task import Command, Key as TaskKey
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -53,6 +56,7 @@ class _DeleteRequest(BaseModel):
 class _GrantCreateRequest(BaseModel):
     subject: ID
     secrets: list[Key]
+    command: Command
 
 
 class _GrantCreateResponse(BaseModel):
@@ -140,18 +144,42 @@ class Client:
         req = _DispatchRequest(key=key, actions=[action])
         self._client.send("/secret/dispatch", req, Empty)
 
-    def grant(self, subject: CrudeID, secrets: Key | list[Key]) -> UUID:
-        """Lets a subject read secrets once, within a minute, such as for a rack to
-        test a connection before the device that uses them is saved.
+    def grant(
+        self,
+        subject: CrudeID,
+        secrets: Key | list[Key],
+        *,
+        task: TaskKey,
+        type_: str,
+        args: Mapping[str, object] | None = None,
+    ) -> UUID:
+        """Lets a subject run a command once with secrets, within a minute, such as
+        for a rack to test a connection before the device that uses them is saved.
+        The rack runs this command, not the arguments of the command that carries the
+        grant.
 
         :param subject: The resource ID of the subject. Only racks can be subjects.
-        :param secrets: The keys of the secrets that the subject may read.
-        :returns: The key of the grant to send to the subject with the command.
-        :raises NotFoundError: If no secret has one of the keys.
+        :param secrets: The keys of the secrets that the subject reads.
+        :param task: The key of the task that runs the command. It must be on the
+            subject rack.
+        :param type_: The type of the command.
+        :param args: The arguments of the command.
+        :returns: The key of the grant to send to the task with the command.
+        :raises NotFoundError: If no secret has one of the keys, or the task does not
+            exist.
+        :raises ValidationError: If the task is not on the subject rack.
         :raises AccessDenied: If the caller cannot create devices or cannot retrieve
             one of the secrets.
         """
-        req = _GrantCreateRequest(subject=ID(subject), secrets=normalize(secrets))
+        command = Command(
+            task=task,
+            type=type_,
+            key=str(uuid4()),
+            args=to_jsonable_python(args) if args is not None else {},
+        )
+        req = _GrantCreateRequest(
+            subject=ID(subject), secrets=normalize(secrets), command=command
+        )
         return self._client.send(
             "/secret/grant/create", req, _GrantCreateResponse
         ).grant

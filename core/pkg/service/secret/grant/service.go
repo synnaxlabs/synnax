@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -106,13 +107,15 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer { return Writer{svc: s, tx: tx} }
 // Redeem returns the grant with the given key and deletes it, so no later call can use
 // it. Redeem runs in a transaction of its own, so two calls cannot both use one grant,
 // and the caller must not hold a transaction or snapshot of the DB. It returns an error
-// wrapping access.ErrDenied when no grant has the key, the grant has expired, or the
-// grant is for a subject other than subject. A grant for another subject stays in
-// place, and an expired grant is deleted.
+// wrapping access.ErrDenied when no grant has the key, the grant has expired, the grant
+// is for a subject other than subject, or its command is for a task other than
+// taskKey. A grant for another subject stays in place. An expired grant and a grant for
+// another task are deleted.
 func (s *Service) Redeem(
 	ctx context.Context,
 	key Key,
 	subject resource.ID,
+	taskKey task.Key,
 ) (Grant, error) {
 	var (
 		g       Grant
@@ -140,6 +143,13 @@ func (s *Service) Redeem(
 	}
 	if expired {
 		return Grant{}, errEnded(key)
+	}
+	if g.Command.Task != taskKey {
+		return Grant{}, errors.Wrapf(
+			access.ErrDenied,
+			"grant is not for task %s",
+			taskKey,
+		)
 	}
 	return g, nil
 }
