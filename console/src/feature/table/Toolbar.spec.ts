@@ -279,7 +279,7 @@ describe("table/Toolbar", () => {
         { type: "named", key: named.key },
       ]);
     });
-    await waitFor(() => expect(getHexInput("Fill").placeholder).toBe(named.name));
+    await waitFor(() => expect(getHexInput("Fill").value).toBe(named.name));
   });
 
   it("shows Mixed when the selected fills differ", async () => {
