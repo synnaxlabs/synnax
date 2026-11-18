@@ -21,6 +21,7 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
+#include "x/cpp/x509/testutil/testutil.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/opcua/certificate/store.h"
@@ -28,6 +29,7 @@
 #include "driver/opcua/scan_task.h"
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
+#include "driver/secret/testutil/testutil.h"
 
 namespace driver::opcua {
 class TestScanTask : public ::testing::Test {
@@ -70,7 +72,6 @@ protected:
         this->cancel.start();
         client = std::make_shared<synnax::Synnax>(new_test_client());
         ctx = std::make_shared<task::MockContext>(client);
-        reader = std::make_shared<secret::Reader>(client, secret::Config{});
         dir = std::filesystem::temp_directory_path() /
               ("opcua-scan-" + x::uuid::create().to_string());
         std::filesystem::copy(store_dir, dir, std::filesystem::copy_options::recursive);
@@ -80,6 +81,10 @@ protected:
         conn_pool = std::make_shared<connection::Pool>(store);
 
         rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
+        reader = std::make_shared<secret::Reader>(
+            std::make_shared<synnax::Synnax>(rack_client_config(*client, rack.key)),
+            secret::Config{.rack = rack.key}
+        );
 
         task = synnax::task::Task{
             .rack = rack.key,
@@ -101,12 +106,14 @@ protected:
 
     void start_secured_server(
         const certificate::Identity &id,
-        std::vector<x::x509::Certificate> trusted_clients = {}
+        std::vector<x::x509::Certificate> trusted_clients = {},
+        std::vector<std::pair<std::string, std::string>> users = {}
     ) {
         auto cfg = testutil::ServerConfig::create_default();
         cfg.port = 4871;
         cfg.identity = id;
         cfg.trusted_clients = std::move(trusted_clients);
+        cfg.users = std::move(users);
         secured_server = std::make_unique<testutil::Server>(cfg);
         secured_server->start();
         ASSERT_TRUE(secured_server->wait_until_ready());
@@ -142,6 +149,29 @@ protected:
             {"connection", testutil::connection_json(cfg)},
             {"channels", x::json::json::array()}
         };
+        return dev;
+    }
+
+    /// @returns the secured connection that logs in as "user" with the password in the
+    /// secret with key.
+    [[nodiscard]] static connection::Config
+    password_config(const synnax::secret::Key &key) {
+        auto cfg = secured_config();
+        cfg.username = "user";
+        cfg.password_secret = key;
+        return cfg;
+    }
+
+    /// @returns a secured device on the rack that logs in with the password in a new
+    /// secret, saved in the Core so that the rack may read the secret.
+    [[nodiscard]] synnax::device::Device create_password_device() const {
+        auto dev = secured_device(
+            password_config(secret::testutil::create_secret(*this->client))
+        );
+        dev.key = "password-device-" + x::uuid::create().to_string();
+        dev.location = "opc.tcp://localhost:4871";
+        dev.model = "OPC UA";
+        EXPECT_NIL(this->client->devices.create(dev));
         return dev;
     }
 
@@ -727,6 +757,102 @@ TEST_F(TestScanTask, testHealthCheckTrustsFirstCertificate) {
     ASSERT_EQ(scanned.size(), 1);
     EXPECT_EQ(scanned[0].status.value().message, "Server connected");
     EXPECT_EQ(conn_pool->size(), 1);
+}
+
+/// @brief it should log in to a device's server with the password in its secret.
+TEST_F(TestScanTask, testHealthCheckReadsPassword) {
+    start_secured_server(server_id, {}, {{"user", x::x509::testutil::KEY}});
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto scanned = scan(scanner, create_password_device());
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned[0].status.value().message, "Server connected")
+        << scanned[0].status.value().description;
+}
+
+/// @brief it should report a device whose password secret it cannot read.
+TEST_F(TestScanTask, testHealthCheckMissingPassword) {
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto missing = x::uuid::create();
+    const auto scanned = scan(scanner, secured_device(password_config(missing)));
+    ASSERT_EQ(scanned.size(), 1);
+    const auto &status = scanned[0].status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Failed to read password");
+    EXPECT_EQ(
+        status.description,
+        "Found no secret with key " + missing.to_string() + "."
+    );
+    EXPECT_FALSE(status.details.connected);
+}
+
+/// @brief it should browse a saved device's server with the password in its secret.
+TEST_F(TestScanTask, testBrowseDeviceReadsPassword) {
+    start_secured_server(server_id, {}, {{"user", x::x509::testutil::KEY}});
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto dev = create_password_device();
+    synnax::task::Command cmd{
+        .type = BROWSE_CMD_TYPE,
+        .key = "browse_cmd",
+        .args = {{"device", dev.key}, {"node_id", "i=85"}},
+    };
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+}
+
+/// @brief it should refuse a command that sends a connection with a password and no
+/// grant, so that a command cannot send a saved password to any server.
+TEST_F(TestScanTask, testSentPasswordNeedsGrant) {
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto cfg = password_config(secret::testutil::create_secret(*client));
+    for (const auto &type: {TEST_CONNECTION_CMD_TYPE, BROWSE_CMD_TYPE}) {
+        ctx->statuses.clear();
+        synnax::task::Command cmd{
+            .type = type,
+            .key = type + "_cmd",
+            .args = {{"connection", testutil::connection_json(cfg)}},
+        };
+        ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+        ASSERT_EQ(ctx->statuses.size(), 1);
+        const auto &state = ctx->statuses[0];
+        EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
+        EXPECT_EQ(state.message, "Failed to connect to server");
+        EXPECT_EQ(
+            state.description,
+            "The command sends a connection with a password, so it must carry a grant."
+        );
+    }
+}
+
+/// @brief it should refuse a command whose grant argument is not the key of a grant,
+/// and report the Core's error for a grant that does not exist.
+TEST_F(TestScanTask, testExecRejectsBadGrant) {
+    ASSERT_NIL(rack.tasks.create(task));
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    const auto missing = x::uuid::create();
+    const std::vector<std::pair<x::json::json, std::string>> cases{
+        {"not a key", "The grant argument must be the key of a grant."},
+        {42, "The grant argument must be the key of a grant."},
+        {missing.to_string(),
+         "grant " + missing.to_string() +
+             " has ended or does not exist: access denied: auth error"},
+    };
+    for (const auto &[grant, description]: cases) {
+        ctx->statuses.clear();
+        synnax::task::Command cmd{
+            .task = task.key,
+            .type = TEST_CONNECTION_CMD_TYPE,
+            .key = "grant_cmd",
+            .args = {{"grant", grant}},
+        };
+        ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+        ASSERT_EQ(ctx->statuses.size(), 1);
+        const auto &state = ctx->statuses[0];
+        EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
+        EXPECT_EQ(state.message, "Failed to spend grant");
+        EXPECT_EQ(state.description, description);
+    }
 }
 
 /// @brief it should report a secured device whose server presents another
