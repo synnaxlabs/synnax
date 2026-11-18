@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type icd, type Synnax, ValidationError } from "@synnaxlabs/client";
-import { DataType } from "@synnaxlabs/x";
+import { DataType, primitive } from "@synnaxlabs/x";
 
 import { bindingDataType, converts, DEFAULT_DATA_TYPES } from "@/platform/icd/dataType";
 import {
@@ -90,7 +90,7 @@ export interface MessagePlan {
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
  * @param written - The channels that other bindings write, which no field takes from
- * props.
+ * props. When another message writes one, the message also leaves its stored index.
  */
 export const planMessage = async (
   client: Synnax,
@@ -109,10 +109,30 @@ export const planMessage = async (
       channel: 0,
       dataType: "",
     };
-  // The Core refuses a channel that two bindings write.
-  for (const f of fields)
-    if (bindingOf(f).channel === 0 && written.has(held[f.pointer]))
-      delete held[f.pointer];
+  // The Core refuses a channel that two bindings write, and an index that two messages
+  // write. A channel that another message writes takes its index along, with every
+  // stored channel on it.
+  const skipped = fields
+    .filter((f) => bindingOf(f).channel === 0 && written.has(held[f.pointer]))
+    .map(({ pointer }) => pointer);
+  const own = new Set(read.bindings.map(({ channel }) => channel));
+  const elsewhere = skipped.map((p) => held[p]).filter((key) => !own.has(key));
+  const elsewhereIndexes =
+    elsewhere.length === 0
+      ? []
+      : (await client.channels.retrieve(elsewhere)).map(({ index }) => index);
+  skipped.forEach((p) => delete held[p]);
+  let storedIndex = props?.index ?? 0;
+  if (primitive.isNonZero(storedIndex) && elsewhereIndexes.includes(storedIndex)) {
+    const onIndex = new Set(
+      (await client.channels.retrieve(Object.values(held)))
+        .filter(({ key, index }) => key === storedIndex || index === storedIndex)
+        .map(({ key }) => key),
+    );
+    for (const [pointer, key] of Object.entries(held))
+      if (onIndex.has(key)) delete held[pointer];
+    storedIndex = 0;
+  }
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
   const live = new Map(
     (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
@@ -157,7 +177,7 @@ export const planMessage = async (
   const channels = await Task.planReadChannels({
     client,
     namer,
-    props: props == null ? undefined : { ...props, channels: held },
+    props: props == null ? undefined : { index: storedIndex, channels: held },
     fields: planned,
     namePrefix: prefix,
     indexKey: index ?? "",
