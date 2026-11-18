@@ -53,6 +53,6 @@ class ConnectOPCUA(OPCUACase):
         dev = self.client.devices.retrieve(name=name)
         self.track_test_devices([dev])
         expected = ssl.PEM_cert_to_DER_cert(read_server_certificate())
-        assert pinned_certificate(dev) == expected, (
+        assert pinned_certificate(self.client, dev) == expected, (
             f"'{name}' should trust the simulator's certificate"
         )
