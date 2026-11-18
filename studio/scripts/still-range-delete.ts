@@ -28,8 +28,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   });
   await capture.login(session);
   await capture.openToolbar(session, "range");
-  await page.getByText("Open range explorer", { exact: true }).first().click();
-  const item = page.getByRole("listitem", { name: RANGE, exact: true }).first();
+  await page.getByRole("button", { name: "Open range explorer", exact: true }).click();
+  // The range runs, so the toolbar lists it too.
+  const item = page
+    .locator(".console-range-tree__list")
+    .getByRole("listitem", { name: RANGE, exact: true })
+    .first();
   await session.waitFor(item);
   await capture.closeToolbar(session);
   await capture.contextMenu(session, item, "Delete");

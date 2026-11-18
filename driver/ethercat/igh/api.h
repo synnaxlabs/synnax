@@ -43,6 +43,7 @@ class API {
         decltype(&ecrt_release_master) release_master;
         decltype(&ecrt_master_activate) master_activate;
         decltype(&ecrt_master_deactivate) master_deactivate;
+        decltype(&ecrt_master_reset) master_reset;
         decltype(&ecrt_master_create_domain) master_create_domain;
         decltype(&ecrt_domain_size) domain_size;
         decltype(&ecrt_domain_data) domain_data;
@@ -101,6 +102,7 @@ public:
         resolve(f.release_master, "ecrt_release_master");
         resolve(f.master_activate, "ecrt_master_activate");
         resolve(f.master_deactivate, "ecrt_master_deactivate");
+        resolve(f.master_reset, "ecrt_master_reset");
         resolve(f.master_create_domain, "ecrt_master_create_domain");
         resolve(f.domain_size, "ecrt_domain_size");
         resolve(f.domain_data, "ecrt_domain_data");
@@ -184,6 +186,13 @@ public:
     /// @brief deactivates the master.
     [[nodiscard]] virtual int master_deactivate(ec_master_t *master) const {
         return this->func_ptrs.master_deactivate(master);
+    }
+
+    /// @brief requests OP for each configured slave and clears its AL error flag, so
+    /// the master configures a slave that refused a state again. The master does this
+    /// in the background after the call returns.
+    [[nodiscard]] virtual int master_reset(ec_master_t *master) const {
+        return this->func_ptrs.master_reset(master);
     }
 
     /// @brief creates a new process data domain.

@@ -1628,10 +1628,10 @@ describe("update against a local server", () => {
   // Calls onAckRequest for each update that asks for an ack.
   const open = async (onAckRequest: (ws: WebSocket) => void) => {
     const { port } = server.address() as AddressInfo;
-    const ws = new WebSocketClient(
-      new url.URL({ host: "127.0.0.1", port }),
-      new binary.JSONCodec(),
-    );
+    const ws = new WebSocketClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: new binary.JSONCodec(),
+    });
     const codec = new binary.JSONCodec();
     void connected.then((sock) =>
       sock.on("message", (data: Buffer) => {

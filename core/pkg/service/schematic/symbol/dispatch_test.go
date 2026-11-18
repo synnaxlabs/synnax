@@ -50,6 +50,7 @@ var _ = Describe("Dispatch", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 			DB:    db,

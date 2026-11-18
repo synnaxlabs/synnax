@@ -90,11 +90,36 @@ describe("layouts.List", () => {
       { values: { config: { channels: [] } } },
     );
     fireEvent.click(getIconButton(container, "add"));
-    expect(createChannel).toHaveBeenCalledWith([]);
+    expect(createChannel).toHaveBeenCalledWith([], undefined);
     await waitFor(() =>
       expect(form.current?.get(path.config.channels).value).toHaveLength(1),
     );
     await waitFor(() => expect(screen.getByText("item-new")).toBeTruthy());
+  });
+
+  it("should copy the selected channel when the add button is pressed", async () => {
+    const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
+    const channels = [
+      { key: "a", disabled: false },
+      { key: "b", disabled: false },
+    ];
+    const { container } = await renderInTaskForm(
+      <Task.Views.List<Channel>
+        path={path.config.channels}
+        createChannel={createChannel}
+        listItem={selectItem}
+        resolve={resolve}
+      />,
+      { values: { config: { channels } } },
+    );
+    fireEvent.click(await screen.findByText("item-b"));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("option", { name: "item-b" }).getAttribute("aria-selected"),
+      ).toBe("true"),
+    );
+    fireEvent.click(getIconButton(container, "add"));
+    expect(createChannel).toHaveBeenCalledWith(channels, "b");
   });
 
   it("should create a channel from the footer action", async () => {

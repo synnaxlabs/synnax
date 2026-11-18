@@ -12,12 +12,14 @@ import { array, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { actions } from "@/actions";
+import { type batch } from "@/batch";
 import { createOf, encode, reduceAll } from "@/color/actions";
 import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
   scopedActionZ,
+  set,
 } from "@/color/actions.gen";
 import {
   type Key,
@@ -47,7 +49,8 @@ export const DELETE_CHANNEL_NAME = "sy_color_delete";
 const createReqZ = z.object({ colors: namedZ.array(), dispatchKey: z.string() });
 const createResZ = z.object({ colors: namedZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const emptyResZ = z.object({});
+const retrieveBuiltinsResZ = z.object({ colors: namedZ.array() });
+const emptyZ = z.object({});
 
 const retrieveMultiParamsZ = filter.requestInputZ(
   retrieveRequestZ,
@@ -170,14 +173,52 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Na
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.unary.send(
-          "/color/delete",
-          { keys: keysArr },
-          deleteReqZ,
-          emptyResZ,
-        ),
+        await this.unary.send("/color/delete", { keys: keysArr }, deleteReqZ, emptyZ),
     });
     drop();
+  }
+
+  /** Builds a batch entry that deletes the named colors. */
+  deleteRequest(keys: Key | Key[]): batch.Request<z.infer<typeof deleteReqZ>> {
+    const payload = { keys: array.toArray(keys) };
+    return {
+      endpoint: "/color/delete",
+      payload,
+      apply: () => this.store.delete(payload.keys),
+    };
+  }
+
+  /**
+   * Builds a batch entry that sets the position of the named color in its palette. The
+   * entry's cache write moves the cached named color.
+   */
+  setPositionRequest(
+    key: Key,
+    position: string,
+  ): batch.Request<actions.DispatchPayload<Key, Action>> {
+    return {
+      endpoint: "/color/dispatch",
+      payload: { key, actions: [set({ path: ["position"], value: position })] },
+      apply: () => {
+        const prev = this.store.get(key)?.position;
+        query.partialUpdate(this.store, key, { position });
+        return () => query.partialUpdate(this.store, key, { position: prev });
+      },
+    };
+  }
+
+  /**
+   * Returns the named colors that the Core ships, with their shipped values. A stored
+   * built-in can differ from its shipped values, because users can edit it.
+   */
+  async retrieveBuiltins(): Promise<Named[]> {
+    const res = await this.unary.send(
+      "/color/retrieve-builtins",
+      {},
+      emptyZ,
+      retrieveBuiltinsResZ,
+    );
+    return res.colors;
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Named[]> {

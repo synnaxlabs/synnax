@@ -121,7 +121,7 @@ def main() -> None:
         epilog="""
 Examples:
   %(prog)s schematic.json mapping.json
-  %(prog)s ~/Desktop/fh_debug/CTS_Operator_CP.json ~/Desktop/fh_debug/channel_mapping.json
+  %(prog)s ~/schematics/operator.json ~/schematics/mapping.json
   %(prog)s schematic.json mapping.json --output transformed.json
 
 This script reads a schematic JSON file and replaces all config channel keys
@@ -133,7 +133,7 @@ The script will:
   3. Replace config keys with Synnax keys
   4. Replace unknown keys (>1000000) with 0
   5. Save the transformed schematic with '_transformed' suffix
-        """,  # noqa: E501
+        """,
     )
     parser.add_argument(
         "schematic", type=str, help="Path to schematic JSON file to transform"

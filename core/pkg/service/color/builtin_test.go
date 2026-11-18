@@ -33,6 +33,7 @@ var _ = Describe("Built-in named colors", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groups = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 	})
 	open := func(ctx SpecContext) *color.Service {
@@ -69,6 +70,19 @@ var _ = Describe("Built-in named colors", func() {
 	hex := func(c xcolor.Color) string {
 		return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
 	}
+
+	It("Should list the values that a new Core stores", func(ctx SpecContext) {
+		Expect(color.Builtins()).To(ConsistOf(series(ctx, open(ctx))))
+	})
+
+	It("Should not let a change to one list reach the next", func() {
+		first := color.Builtins()
+		first[0].Name = "Changed"
+		*first[0].Dark = xcolor.Color{}
+		next := color.Builtins()
+		Expect(next[0].Name).To(Equal("Series 1"))
+		Expect(*next[0].Dark).ToNot(Equal(xcolor.Color{}))
+	})
 
 	It("Should create 16 series colors in the Series palette", func(ctx SpecContext) {
 		named := series(ctx, open(ctx))

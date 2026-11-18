@@ -302,10 +302,7 @@ describe("Channel", () => {
       await expect(
         client.channels.retrieve({ where: { name: { eq: name } } }),
       ).rejects.toThrow(
-        new PathError(
-          ["where", "name"],
-          new ValidationError("no operator set: validation error"),
-        ),
+        new PathError(["where", "name"], new ValidationError("no operator set")),
       );
     });
     test("retrieve by name", async () => {
@@ -471,8 +468,7 @@ describe("Channel", () => {
       });
       await expect(client.channels.delete(channel.key)).rejects.toThrow(
         new ValidationError(
-          `cannot delete channel ${channel.name} because task ${task.name} uses it: ` +
-            "validation error",
+          `cannot delete channel ${channel.name} because task ${task.name} uses it`,
         ),
       );
       await client.tasks.delete(task.key);
@@ -494,7 +490,7 @@ describe("Channel", () => {
       await expect(client.channels.delete(index.key)).rejects.toThrow(
         new ValidationError(
           `cannot delete channel ${index.name} because channel ${data.name} uses ` +
-            "it as its index: validation error",
+            "it as its index",
         ),
       );
       await client.channels.delete(data.key);

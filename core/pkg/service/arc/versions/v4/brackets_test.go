@@ -242,13 +242,14 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
     return a
 }
 (median3(pt_1, pt_2, pt_3)) -> tank_pt`))
-			channels := []symbol.Symbol{{
+			names := []string{"pt_1", "pt_2", "pt_3"}
+			channels := append(make([]symbol.Symbol, 0, 1+len(names)), symbol.Symbol{
 				Name: "tank_pt",
 				Kind: symbol.KindChannel,
 				Type: types.WriteChan(types.F64()),
 				ID:   4,
-			}}
-			for i, name := range []string{"pt_1", "pt_2", "pt_3"} {
+			})
+			for i, name := range names {
 				channels = append(channels, symbol.Symbol{
 					Name: name,
 					Kind: symbol.KindChannel,

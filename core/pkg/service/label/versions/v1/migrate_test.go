@@ -27,6 +27,7 @@ var _ = Describe("Migration", func() {
 	DescribeTable("Should store the color alpha as a byte",
 		func(ctx SpecContext, a float64, expected uint8) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Label]{DB: db}))
 			old := v0.Label{
 				Key: uuid.New(), Name: "l", Color: color.Color{R: 1, G: 2, B: 3, A: a},

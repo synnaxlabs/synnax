@@ -27,10 +27,10 @@ policy commit, the usage, the review, and each pass before the join. `post` post
 review in a record. `carry` gives the head the newest review of the pull request when
 the diff did not change, completes CHECK_RUN with it, and prints `true` if it did. It
 also takes KEY, the external ID of the check run, `<pr>:<base ref>`. `dismiss` answers
-COMMENT, a reply that mentions the bot on the thread of one of its findings, or a
-comment that dismisses a finding outside the diff: an `@sedosaur dismiss` from someone
-with write access dismisses the finding, and scores the head 5/5 when no finding of its
-review is left. It also takes KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
+COMMENT, a reply on the thread of one of the bot's findings, or a comment that dismisses
+a finding outside the diff: an `@sedosaur dismiss` from someone with write access
+dismisses the finding, and scores the head 5/5 when no finding of its review is left.
+It also takes KEY. `compare` takes only GH_TOKEN and GITHUB_REPOSITORY,
 runs in a clone with full history, and prints a Markdown comparison of the records of
 the last days with Greptile's reviews of the same commits. It keeps each record it
 downloads in the records directory, and reads it from there on the next run.

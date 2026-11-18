@@ -46,6 +46,8 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 - **OPC UA** (`/driver/opcua/`) — vendored open62541 on BCR mbedtls.
   `util::ConnectionPool` shared clients; ReadTask modes for array vs scalar reads;
   NodeId-based writes; security policy support. Windows/Linux/macOS.
+- **EtherCAT** (`/driver/ethercat/`): SOEM and IgH masters. Read `ethercat/DEWESOFT.md`
+  before work on Dewesoft modules: it holds hardware facts the code does not show.
 
 ## Plugin pattern
 

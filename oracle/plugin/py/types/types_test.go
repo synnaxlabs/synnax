@@ -139,7 +139,7 @@ var _ = Describe("Python Types Plugin", func() {
 					"type StringInput = str | list[str] | StringDict | String",
 					"class BoolDict(TypedDict, total=False):\n    eq: bool",
 					"type BoolInput = bool | BoolDict | Bool",
-					"{\"eq\": T, \"in\": list[T]},  # type: ignore[valid-type]",
+					"{\"eq\": \"T\", \"in\": \"list[T]\"},\n    total=False,",
 					"type SetInput[T] = T | list[T] | SetDict[T] | Set[T]",
 					"class ContainsDict(TypedDict, Generic[T], total=False):\n"+
 						"    any: list[T]",
@@ -397,6 +397,49 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`parent: UUID | None = None`))
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
+
+		It(
+			"Should refuse the zero value of a required string or unsigned field",
+			func() {
+				source := `
+				@py output "out"
+
+				Serial = uint32
+				Make = string
+				Name = string {
+					@validate required
+				}
+
+				Device struct {
+					key    uint32 {
+						@key
+						@validate required
+					}
+					name   string @validate required
+					make   Make @validate required
+					owner  uuid @validate required
+					serial Serial @validate required
+					count  uint16 @validate required
+					alias  Name?
+					label  string @validate {
+						required
+						min_length 3
+					}
+				}
+			`
+				resp := MustGenerate(source, "device", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain(
+					`key: int = Field(ge=0, le=4294967295)`,
+					`name: str = Field(min_length=1)`,
+					`make: Make = Field(min_length=1)`,
+					"owner: UUID\n",
+					`serial: Serial = Field(gt=0, le=4294967295)`,
+					`count: int = Field(gt=0, le=65535)`,
+					"alias: Name | None = None\n",
+					`label: str = Field(min_length=3)`,
+				)
+			},
+		)
 
 		It(
 			"Should apply validation rules with Field constraints",
@@ -1884,7 +1927,9 @@ var _ = Describe("Python Types Plugin", func() {
 				`
 					resp := MustGenerate(source, "channel", loader, typesPlugin)
 					content := string(resp.Files[0].Content)
-					newClass := content[strings.Index(content, "class New"):]
+					start := strings.Index(content, "class New")
+					Expect(start).To(BeNumerically(">=", 0))
+					newClass := content[start:]
 					Expect(newClass).To(ContainSubstring(`key: Key | None`))
 					Expect(
 						newClass,
@@ -1990,13 +2035,13 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing_extensions import TypeVar`,
+							`from typing import Generic, TypeVar`,
 							`from pydantic import BaseModel, JsonValue`,
 							`Details = TypeVar("Details", default=JsonValue)`,
 							`class Status(BaseModel, Generic[Details]):`,
 							`details: Details | None = None`,
 						).
-						ToNotContain(`from typing import Generic, TypeVar`)
+						ToNotContain(`typing_extensions`)
 				},
 			)
 
@@ -2013,7 +2058,7 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(source, "api", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`from typing_extensions import TypeVar`,
+							`from typing import Generic, TypeVar`,
 							`T = TypeVar("T", bound=str, default=str)`,
 						).
 						ToNotContain(`JsonValue`)

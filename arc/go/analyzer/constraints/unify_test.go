@@ -12,8 +12,10 @@ package constraints_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -73,7 +75,10 @@ var _ = Describe("Type Unification", func() {
 			Expect(system.AddEquality(
 				types.Variable("a", nil), types.Variable("b", nil), nil, "test",
 			)).To(Succeed())
-			Expect(system.Unify()).To(MatchError(constraints.ErrUnresolvedVariable))
+			err := system.Unify()
+			Expect(err).To(MatchError(constraints.ErrUnresolvedVariable))
+			Expect(diagnostics.Error(err, nil).Code).
+				To(Equal(codes.UnresolvedType.Code))
 		})
 	})
 
@@ -360,14 +365,11 @@ var _ = Describe("Type Unification", func() {
 					system.AddEquality(tv, cyclicType, nil, "T = cyclic T"),
 				).To(MatchError(ContainSubstring("is not compatible with")))
 			},
-			Entry("chan T", func(tv types.Type) types.Type { return types.Chan(tv) }),
-			Entry(
-				"series T",
-				func(tv types.Type) types.Type { return types.Series(tv) },
-			),
+			Entry("chan T", types.Chan),
+			Entry("series T", types.Series),
 		)
 
-		It("should report unresolved type variables with no constraints", func() {
+		It("should report unresolved type: type variables with no constraints", func() {
 			var (
 				system = constraints.New()
 				tv     = types.Variable("T", nil)
@@ -375,7 +377,7 @@ var _ = Describe("Type Unification", func() {
 			Expect(system.AddEquality(tv, tv, nil, "T = T")).To(Succeed())
 			Expect(
 				system.Unify(),
-			).To(MatchError(ContainSubstring("unresolved type variable")))
+			).To(MatchError(ContainSubstring("unresolved type: type variable")))
 		})
 
 		It("should use default for constrained but unresolved variables", func() {
@@ -779,7 +781,7 @@ var _ = Describe("Type Unification", func() {
 				Constraint: &constraint,
 				Left:       types.I32(),
 				Right:      types.F64(),
-				Message:    "type mismatch in assignment: i32 is not compatible with f64",
+				Message:    "type mismatch: i32 is not compatible with f64 in assignment",
 			}
 			Expect(err.Constraint).ToNot(BeNil())
 			Expect(err.Constraint.Reason).To(Equal("assignment"))

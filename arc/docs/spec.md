@@ -140,7 +140,7 @@ TypeCast ::= Type '(' Expression ')'
 - Signed ↔ Unsigned keeps the bits, so `u8(i8(-1))` is `255`
 - Float → Integer truncates toward zero, saturates on overflow
 - Integer overflow uses two's-complement wrapping. An expression made only of integer
-  literals that overflows its type is a compile error (`ARC6001`).
+  literals that overflows its type is a compile error (`E2007`).
 - Numeric → `bool` is `x != 0`; `bool` → numeric is `1` or `0`
 - Numeric or `bool` → `str` renders text (`"3.14"`, `"true"`); no casts from `str`
 
@@ -322,7 +322,7 @@ literal is read as a float. The constants act like a float literal: they fit `f3
 `f64`, default to `f64`, and do not fit an integer type, so `i32(math.nan)` is a compile
 error. In a flow, a constant sends its value: `x -> math.nan -> y`. `x != math.nan` is
 always `true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is always `false`, so
-each fails with error ARC2004: test with `math.is_nan(x)` or `not math.is_nan(x)`.
+each fails with error E2010: test with `math.is_nan(x)` or `not math.is_nan(x)`.
 
 ```arc
 import math
@@ -718,9 +718,9 @@ A nested sequence is one step of its parent: when it completes, the parent advan
 exits in turn. A sequence declared inside a stage does not advance anything when it
 completes. The stage leaves only through its own transition.
 
-A flow step completes when its final node emits a truthy output, or when that node runs
-without error if it has no outputs. Stages do not complete; they leave only through an
-explicit `=>` or `->` transition.
+A flow step completes when it writes any value to a channel or variable, when its final
+node emits a truthy output, or when that node runs without error and has no outputs.
+Stages do not complete; they leave only through an explicit `=>` or `->` transition.
 
 ### Reactive vs one-shot semantics
 
@@ -817,8 +817,8 @@ These simplify implementation while maintaining expressiveness:
   dimensioned base
 - **Operands**: Non-`bool` logical operands
 - **Constants**: An expression made only of integer literals that overflows its type
-  (`ARC6001`), such as `x i8 := 100 + 100`, or that divides or takes a modulo by zero
-  (`ARC6002`), such as `x := 1 / 0`. A negated literal is one signed value, so
+  (`E2007`), such as `x i8 := 100 + 100`, or that divides or takes a modulo by zero
+  (`E2000`), such as `x := 1 / 0`. A negated literal is one signed value, so
   `x i8 := -128` fits. A cast passes a constant through only when the target type holds
   it. Float arithmetic follows IEEE 754 and is never a constant error.
 

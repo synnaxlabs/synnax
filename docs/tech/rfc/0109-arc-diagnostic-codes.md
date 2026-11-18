@@ -56,6 +56,7 @@ A kind is broad. All type mismatches share one code, as in the Rust compiler (`E
 
 - Each diagnostic that the compiler reports has a code, except the diagnostics of
   `arc/go/graph` (§3).
+- A check that fails only when the compiler has a defect panics. It has no code.
 - Each code has a report site. Four declared codes have none today. The review looks for
   a report site for each one, and removes a code that has none.
 - A diagnostic made from a Go error takes the code and the severity of its kind, also
@@ -65,16 +66,14 @@ A kind is broad. All type mismatches share one code, as in the Rust compiler (`E
 
 The errors page is generated from the kinds. `errors.mdx` has no item for each code.
 
-- **One JSON file declares each code**: `go generate` writes `codes.gen.json` from
-  `codes.go`. It holds the code, severity, message, problem text, and examples of each
-  kind. The docs site and any other tool read only this file.
-- **One Markdown file for each code**: It lives beside `codes.go`, as the Rust compiler
-  does (`E0308.md`). It has three parts: the problem, an example that fails, and the
-  corrected example. The generator copies them into `codes.gen.json`.
-- **Real messages**: `go generate` compiles the failing example, checks that it reports
-  the code, and writes the message to `codes.gen.json`. The page shows that message, so
-  no person names the `%s` values.
-- **Layout**: One heading for each band.
+- **One declaration for each code**: `codes.go` is the one source. The declaration of a
+  kind holds its code, severity, message, problem text, and an example that fails.
+- **One JSON file for each reader**: `go generate` writes `codes.gen.json` from
+  `codes.go`. The docs site and any other tool read only this file.
+- **One headline for each code**: Each message is the fixed headline of its kind, such
+  as `type mismatch`, or the headline and a detail. The page shows the headline, and
+  `go generate` checks that the example of each kind reports its code.
+- **Layout**: One list in band order, warnings first in each band.
 - **Anchors**: The anchor of a code is the code in lowercase, such as `#e2001`.
 
 ### 2.4 Prior art
@@ -87,7 +86,7 @@ The errors page is generated from the kinds. `errors.mdx` has no item for each c
 | ShellCheck  | `SC2086`       | 1xxx parser, 2xxx analysis              |
 
 Arc takes the letter for severity from pycodestyle, the bands from TypeScript and
-ShellCheck, and broad kinds and one Markdown file for each code from Rust.
+ShellCheck, and broad kinds with a compiled example for each code from Rust.
 
 ## 3 What this RFC does not cover
 
@@ -106,7 +105,7 @@ and gives it a number. The commits are in this order:
 
 1. Change the code format and renumber the existing kinds.
 2. Add the kinds of each band, one commit for each band.
-3. Generate the errors page, with one Markdown file for each code.
+3. Generate the errors page from the declaration of each code.
 4. Change each place that names an old code or its anchor.
 
 | Phase | Scope                           | Touches                                            | Depends on |
@@ -124,7 +123,7 @@ and gives it a number. The commits are in this order:
 3. **The source is Go, and the JSON is generated**: A check reports through a Go value,
    such as `codes.TypeMismatch`, so the kinds must be Go. A JSON source needs a
    generator that writes Go, which is a second step for the same result. The prose of a
-   code stays in Markdown, because Arc examples in JSON strings are hard to review.
+   code is in the same Go declaration, so each fact about a code is written one time.
 
 ## 6 Open questions
 

@@ -10,13 +10,17 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { ReadSelectable } from "@/feature/opcua/task/Read";
-import { PREFIX } from "@/feature/opcua/task/types";
+import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/opcua/task/types";
 import { WriteSelectable } from "@/feature/opcua/task/Write";
-import { type Task } from "@/platform/task";
+import { Task } from "@/platform/task";
+
+const readPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(READ_SCHEMAS.config.parse(config).channels);
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,
   name: "OPC UA",
   icon: <Icon.Logo.OPCUA />,
   selectables: [ReadSelectable, WriteSelectable],
+  plotChannels: { [READ_TYPE]: readPlotChannels },
 };

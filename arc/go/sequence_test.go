@@ -89,11 +89,12 @@ var _ = Describe("Sequence", func() {
 
 	// drainStrings collects every string value flushed to a channel in order.
 	drainStrings := func(fr telem.Frame[uint32], key uint32) []string {
-		var out []string
-		for _, ser := range fr.Get(key).Series {
-			out = append(out, ser.Unmarshal[string]()...)
+		series := fr.Get(key).Series
+		samples := make([][]string, len(series))
+		for i, ser := range series {
+			samples[i] = ser.Unmarshal[string]()
 		}
-		return out
+		return slices.Concat(samples...)
 	}
 
 	// trigger ingests a u8=1 onto the given channel and ticks the scheduler
@@ -170,7 +171,7 @@ var _ = Describe("Sequence", func() {
 			out, _ := h.Flush()
 			Expect(drainStrings(out, 101)).To(Equal([]string{"after"}))
 		}
-		args := []any{advancesPast}
+		args := append(make([]any, 0, 1+len(names)), advancesPast)
 		for _, name := range names {
 			args = append(args, Entry(name, steps[name]))
 		}
@@ -1215,6 +1216,138 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)))
 		})
 
+		DescribeTable("Completes a step that writes 0",
+			func(ctx SpecContext, steps string, written uint32) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out_a":     {types.U8(), 201},
+					"out_b":     {types.U8(), 202},
+					"finished":  {types.U8(), 203},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    `+steps+`
+				    1 -> finished
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 201, DataType: telem.Uint8T},
+					channels.Digest{Key: 202, DataType: telem.Uint8T},
+					channels.Digest{Key: 203, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastU8(out, written)).To(Equal(uint8(0)))
+				Expect(lastU8(out, 203)).To(Equal(uint8(1)))
+			},
+			Entry("to a channel", "0 -> out_a", uint32(201)),
+			Entry("to a fixed alias", "sink := out_a\n0 -> sink", uint32(201)),
+			Entry(
+				"to a rebound alias",
+				"sink := out_a\nsink = out_b\n0 -> sink",
+				uint32(202),
+			),
+			Entry(
+				"to a literal variable by flow",
+				"d u8 := 1\n0 -> d\nd -> out_a",
+				uint32(201),
+			),
+			Entry(
+				"to a literal variable by assignment",
+				"d u8 := 1\nd = 0\nd -> out_a",
+				uint32(201),
+			),
+			Entry(
+				"to a literal variable from a variable",
+				"src u8 := 1\nd u8 := 1\nsrc = 0\nsrc -> d\nd -> out_a",
+				uint32(201),
+			),
+		)
+
+		It(
+			"Holds a step with a conditional write to a variable until it writes",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"level":     {types.U8(), 101},
+					"out":       {types.U8(), 201},
+					"finished":  {types.U8(), 202},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    latched u8 := 1
+				    level => latched
+				    latched -> out
+				    1 -> finished
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 201, DataType: telem.Uint8T},
+					channels.Digest{Key: 202, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				h.Ingest(101, telem.NewSeriesV[uint8](0))
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(201).Series).To(BeEmpty())
+				Expect(out.Get(202).Series).To(BeEmpty())
+
+				h.Ingest(101, telem.NewSeriesV[uint8](7))
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, 201)).To(Equal(uint8(7)))
+				Expect(lastU8(out, 202)).To(Equal(uint8(1)))
+			},
+		)
+
+		It(
+			"Holds a step with a conditional copy between variables until it writes",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"level":     {types.U8(), 101},
+					"out":       {types.U8(), 201},
+					"finished":  {types.U8(), 202},
+				})
+				h := newRuntimeHarness(ctx, `
+				stage outer {
+				    src u8 := 0
+				    level -> src
+				    1 -> sequence {
+				        latched u8 := 1
+				        src => latched
+				        latched -> out
+				        1 -> finished
+				    }
+				}
+				start_cmd => outer`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 201, DataType: telem.Uint8T},
+					channels.Digest{Key: 202, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(out.Get(201).Series).To(BeEmpty())
+				Expect(out.Get(202).Series).To(BeEmpty())
+
+				h.Ingest(101, telem.NewSeriesV[uint8](7))
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, 201)).To(Equal(uint8(7)))
+				Expect(lastU8(out, 202)).To(Equal(uint8(1)))
+			},
+		)
+
 		It(
 			"Advances past steps whose terminal node outputs a string",
 			func(ctx SpecContext) {
@@ -1670,7 +1803,11 @@ var _ = Describe("Sequence", func() {
 			phase     func() phase
 		}
 		open := func(ctx SpecContext, source string) program {
-			digests := []channels.Digest{{Key: log, DataType: telem.StringT}}
+			digests := make([]channels.Digest, 0, 1+len(inputs)+len(aliveNames))
+			digests = append(
+				digests,
+				channels.Digest{Key: log, DataType: telem.StringT},
+			)
 			for _, k := range inputs {
 				digests = append(
 					digests,
@@ -5099,8 +5236,9 @@ var _ = Describe("Sequence", func() {
 	Describe("Computed stateful initializers", func() {
 		// drainI64 collects every i64 value flushed to a channel in order.
 		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(key).Series {
+			series := fr.Get(key)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5534,8 +5672,9 @@ var _ = Describe("Sequence", func() {
 	Describe("Reactive locals through late declarations", func() {
 		// drainOut collects every i64 value flushed to the out channel in order.
 		drainOut := func(fr telem.Frame[uint32]) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(102).Series {
+			series := fr.Get(102)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5599,8 +5738,9 @@ var _ = Describe("Sequence", func() {
 	Describe("Computed STL inputs", func() {
 		// drainI64 collects every i64 value flushed to a channel in order.
 		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(key).Series {
+			series := fr.Get(key)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5618,7 +5758,7 @@ var _ = Describe("Sequence", func() {
 		// ingestEach feeds raw one value per cycle and returns everything out emits.
 		ingestEach := func(ctx SpecContext, h *runtimeHarness, values ...int64) []int64 {
 			GinkgoHelper()
-			var got []int64
+			got := make([]int64, 0, len(values))
 			for _, v := range values {
 				h.Ingest(100, telem.NewSeriesV[int64](v))
 				advance(h, ctx, telem.Millisecond)
@@ -5704,8 +5844,9 @@ var _ = Describe("Sequence", func() {
 	Describe("Computed initializers", func() {
 		// drainI64 collects every i64 value flushed to a channel in order.
 		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(key).Series {
+			series := fr.Get(key)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -5936,8 +6077,9 @@ var _ = Describe("Sequence", func() {
 	Describe("Computed call inputs", func() {
 		// drainOut collects every i64 value flushed to the out channel in order.
 		drainOut := func(fr telem.Frame[uint32]) []int64 {
-			var out []int64
-			for _, ser := range fr.Get(102).Series {
+			series := fr.Get(102)
+			out := make([]int64, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[int64]()...)
 			}
 			return out
@@ -6546,8 +6688,9 @@ var _ = Describe("Sequence", func() {
 				step(300 * telem.Millisecond)
 
 				out, _ := h.Flush()
-				var logged []string
-				for _, ser := range out.Get(101).Series {
+				series := out.Get(101)
+				logged := make([]string, 0, series.Len())
+				for _, ser := range series.Series {
 					logged = append(logged, ser.Unmarshal[string]()...)
 				}
 				Expect(logged).To(Equal([]string{"0", "1", "2", "3", "4"}))
@@ -7652,8 +7795,9 @@ var _ = Describe("Sequence", func() {
 		// drainStrings collects every string value flushed to a channel in
 		// order across the loop's re-entries.
 		drainStrings := func(fr telem.Frame[uint32], key uint32) []string {
-			var out []string
-			for _, ser := range fr.Get(key).Series {
+			series := fr.Get(key)
+			out := make([]string, 0, series.Len())
+			for _, ser := range series.Series {
 				out = append(out, ser.Unmarshal[string]()...)
 			}
 			return out
@@ -9322,8 +9466,9 @@ var _ = Describe("Sequence", func() {
 		}
 		seen := func(h *runtimeHarness) []float32 {
 			out, _ := h.Flush()
-			var got []float32
-			for _, s := range out.Get(ptSeen).Series {
+			series := out.Get(ptSeen)
+			got := make([]float32, 0, series.Len())
+			for _, s := range series.Series {
 				got = append(got, s.Unmarshal[float32]()...)
 			}
 			return got

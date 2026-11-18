@@ -126,7 +126,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(page.getByText("Review", { exact: true }).first());
     await session.waitFor(page.locator(".pluto-line-plot:visible").first());
     await session.settle(1500);
-    // Favorites join the toolbar in order, and the last one becomes the active range.
+    // Favorites join the toolbar in the order they are starred.
     for (const name of [CAMPAIGN, LEAK_CHECK, ...RUNS.map(([name]) => name)]) {
       const item = page.getByRole("listitem", { name, exact: true }).first();
       await session.waitFor(item);
