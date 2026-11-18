@@ -14,7 +14,13 @@ from freighter.alamos import (
     instrumentation_middleware,
 )
 from freighter.context import Context, Role
-from freighter.exceptions import EOF, EXCEPTION_PROVIDER, StreamClosed, Unreachable
+from freighter.exceptions import (
+    EOF,
+    EXCEPTION_PROVIDER,
+    StreamClosed,
+    Timeout,
+    Unreachable,
+)
 from freighter.file import FileTransport
 from freighter.http import HTTPClient
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
@@ -63,6 +69,7 @@ __all__ = [
     "Stream",
     "StreamClient",
     "StreamClosed",
+    "Timeout",
     "Transport",
     "UnaryClient",
     "Unreachable",

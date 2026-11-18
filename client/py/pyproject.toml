@@ -186,6 +186,7 @@ markers = [
 
 [tool.coverage.run]
 omit = ["*/actions_gen.py", "*/types_gen.py"]
+patch = ["subprocess"]
 
 [build-system]
 requires = ["hatchling"]

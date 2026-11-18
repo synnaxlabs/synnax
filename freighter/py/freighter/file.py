@@ -49,6 +49,7 @@ class FileTransport(Transport, Protocol):
             transport handles how they travel on the wire.
         :returns: the response returned by the server.
         :raises Unreachable: when the target cannot be reached.
+        :raises Timeout: when the target sends no response within the timeout.
         :raises Exception: any error returned by the server.
         """
         ...
@@ -63,6 +64,7 @@ class FileTransport(Transport, Protocol):
         :param req: the typed request payload.
         :param dest: file path to stream the response body into.
         :raises Unreachable: when the target cannot be reached.
+        :raises Timeout: when the target sends no response within the timeout.
         :raises Exception: any error returned by the server.
         """
         ...
@@ -80,6 +82,7 @@ class FileTransport(Transport, Protocol):
         :returns: a context manager over the response body, in arbitrarily sized
             chunks.
         :raises Unreachable: when the target cannot be reached.
+        :raises Timeout: when the target sends no response within the timeout.
         :raises Exception: any error returned by the server.
         """
         ...
