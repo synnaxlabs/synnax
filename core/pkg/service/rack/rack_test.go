@@ -1011,6 +1011,11 @@ var _ = Describe("Rack", Ordered, func() {
 				}).Should(Succeed())
 				Expect(before.Close()).To(Succeed())
 				cfg.EmbeddedDriverDisabled = true
+				// The clock moves only after the handler registers, so no health check
+				// writes an outage before it.
+				var now atomic.Int64
+				now.Store(int64(telem.Now()))
+				cfg.Now = func() telem.TimeStamp { return telem.TimeStamp(now.Load()) }
 				after := DeferClose(openStack(ctx, restartDB, cfg))
 				Expect(after.rack.EmbeddedKey).To(Equal(key))
 				Expect(MustSucceed(after.rack.NewRetrieve().
@@ -1030,6 +1035,7 @@ var _ = Describe("Rack", Ordered, func() {
 					return after.rack.NewWriter(tx).Create(ctx, &other)
 				})).To(Succeed())
 				Eventually(func(g Gomega) {
+					now.Add(int64(telem.Second))
 					s := MustSucceed(
 						retrieveStatusTx(ctx, after.status, restartDB, other.Key),
 					)
