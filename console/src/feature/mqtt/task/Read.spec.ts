@@ -1180,6 +1180,51 @@ describe("MQTT read form", () => {
       expect(stored.index).toBe(index);
     });
 
+    it("should keep storing a message that comes to read only strings", async () => {
+      const temperature = createField("temperature", "float");
+      const label = createField("label", "string");
+      const { container, dev, draft } = await renderRead({
+        fields: [createField("mode", "string"), temperature, label],
+        bound: { [temperature.key]: 0 },
+      });
+      fireEvent.click(await screen.findByRole("checkbox", { name: "Read mode" }));
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toHaveLength(2),
+      );
+      await deploy(container, draft.key);
+      const { index } = await retrieveStored(dev.key, firstMessage(draft));
+      fireEvent.click(
+        await screen.findByRole("checkbox", { name: "Read temperature" }),
+      );
+      fireEvent.click(await screen.findByRole("checkbox", { name: "Read label" }));
+      await waitFor(async () =>
+        expect((await retrieveBindings(draft.key)).map(({ field }) => field)).toEqual([
+          expect.any(String),
+          label.key,
+        ]),
+      );
+      await deploy(container, draft.key);
+      const { channels } = await retrieveStored(dev.key, firstMessage(draft));
+      const stored = await client.channels.retrieve(channels["/label"]);
+      expect(stored.virtual).toBe(false);
+      expect(stored.index).toBe(index);
+    });
+
+    it("should keep a number field bound to a virtual channel", async () => {
+      const temperature = createField("temperature", "float");
+      const streamed = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const { container, draft } = await renderRead({
+        fields: [temperature],
+        bound: { [temperature.key]: streamed.key },
+      });
+      await deploy(container, draft.key);
+      expect((await retrieveBindings(draft.key))[0].channel).toBe(streamed.key);
+    });
+
     it("should refuse a topic whose message is gone", async () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],

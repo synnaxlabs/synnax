@@ -83,11 +83,6 @@ export const configureMessage = async (
 ): Promise<channel.Key[]> => {
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
-  // A message with a fixed-density field, its index included, stores every field on
-  // its index. A message of only variable-length fields streams them.
-  const indexed = fields.some(
-    ({ type }) => !new DataType(DEFAULT_DATA_TYPES[type]).isVariable,
-  );
   const held = stored?.read[stored.key]?.channels ?? {};
   const bindingOf = (f: icd.JSONField): ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ?? {
@@ -99,6 +94,15 @@ export const configureMessage = async (
   const live = new Map(
     (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
   );
+  // A message stores every field on one index when it has an index field, a stored
+  // channel, or a fixed-density field that needs a new channel. Else it streams them.
+  const indexed =
+    index != null ||
+    fields.some((f, i) => {
+      const ch = live.get(reused[i]);
+      if (ch != null) return !ch.virtual;
+      return !new DataType(DEFAULT_DATA_TYPES[f.type]).isVariable;
+    });
   const channels = fields.map((f, i) => {
     const binding = bindingOf(f);
     const isIndex = f.key === index;
