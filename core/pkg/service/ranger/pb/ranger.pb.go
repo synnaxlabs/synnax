@@ -485,15 +485,17 @@ type Where struct {
 	Labels *LabelKeyList `protobuf:"bytes,7,opt,name=labels,proto3" json:"labels,omitempty"`
 	// parents matches the ranges nested in any of the given ranges.
 	Parents *KeyList `protobuf:"bytes,8,opt,name=parents,proto3" json:"parents,omitempty"`
+	// ancestors matches the ranges nested at any depth in any of the given ranges.
+	Ancestors *KeyList `protobuf:"bytes,9,opt,name=ancestors,proto3" json:"ancestors,omitempty"`
 	// nested matches the ranges nested in a range, or top-level ranges when false.
-	Nested *bool `protobuf:"varint,9,opt,name=nested,proto3,oneof" json:"nested,omitempty"`
+	Nested *bool `protobuf:"varint,10,opt,name=nested,proto3,oneof" json:"nested,omitempty"`
 	// labeled matches ranges that have a label, or ranges with none when false.
-	Labeled *bool `protobuf:"varint,10,opt,name=labeled,proto3,oneof" json:"labeled,omitempty"`
+	Labeled *bool `protobuf:"varint,11,opt,name=labeled,proto3,oneof" json:"labeled,omitempty"`
 	// stages matches ranges in any of the given stages at the Core's clock.
-	Stages *StageList `protobuf:"bytes,11,opt,name=stages,proto3" json:"stages,omitempty"`
+	Stages *StageList `protobuf:"bytes,12,opt,name=stages,proto3" json:"stages,omitempty"`
 	// recent matches ranges that overlap the span ending now, or starting now if
 	// negative.
-	Recent        *int64 `protobuf:"varint,12,opt,name=recent,proto3,oneof" json:"recent,omitempty"`
+	Recent        *int64 `protobuf:"varint,13,opt,name=recent,proto3,oneof" json:"recent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -584,6 +586,13 @@ func (x *Where) GetParents() *KeyList {
 	return nil
 }
 
+func (x *Where) GetAncestors() *KeyList {
+	if x != nil {
+		return x.Ancestors
+	}
+	return nil
+}
+
 func (x *Where) GetNested() bool {
 	if x != nil && x.Nested != nil {
 		return *x.Nested
@@ -641,7 +650,7 @@ const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\aKeyList\x12\x16\n" +
 	"\x06values\x18\x01 \x03(\tR\x06values\"=\n" +
 	"\tStageList\x120\n" +
-	"\x06values\x18\x01 \x03(\x0e2\x18.service.ranger.pb.StageR\x06values\"\xf5\x04\n" +
+	"\x06values\x18\x01 \x03(\x0e2\x18.service.ranger.pb.StageR\x06values\"\xaf\x05\n" +
 	"\x05Where\x12.\n" +
 	"\x03and\x18\x01 \x01(\v2\x1c.service.ranger.pb.WhereListR\x03and\x12,\n" +
 	"\x02or\x18\x02 \x01(\v2\x1c.service.ranger.pb.WhereListR\x02or\x12/\n" +
@@ -650,12 +659,13 @@ const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x126\n" +
 	"\boverlaps\x18\x06 \x01(\v2\x15.x.telem.pb.TimeRangeH\x03R\boverlaps\x88\x01\x01\x127\n" +
 	"\x06labels\x18\a \x01(\v2\x1f.service.ranger.pb.LabelKeyListR\x06labels\x124\n" +
-	"\aparents\x18\b \x01(\v2\x1a.service.ranger.pb.KeyListR\aparents\x12\x1b\n" +
-	"\x06nested\x18\t \x01(\bH\x04R\x06nested\x88\x01\x01\x12\x1d\n" +
-	"\alabeled\x18\n" +
-	" \x01(\bH\x05R\alabeled\x88\x01\x01\x124\n" +
-	"\x06stages\x18\v \x01(\v2\x1c.service.ranger.pb.StageListR\x06stages\x12\x1b\n" +
-	"\x06recent\x18\f \x01(\x03H\x06R\x06recent\x88\x01\x01B\x06\n" +
+	"\aparents\x18\b \x01(\v2\x1a.service.ranger.pb.KeyListR\aparents\x128\n" +
+	"\tancestors\x18\t \x01(\v2\x1a.service.ranger.pb.KeyListR\tancestors\x12\x1b\n" +
+	"\x06nested\x18\n" +
+	" \x01(\bH\x04R\x06nested\x88\x01\x01\x12\x1d\n" +
+	"\alabeled\x18\v \x01(\bH\x05R\alabeled\x88\x01\x01\x124\n" +
+	"\x06stages\x18\f \x01(\v2\x1c.service.ranger.pb.StageListR\x06stages\x12\x1b\n" +
+	"\x06recent\x18\r \x01(\x03H\x06R\x06recent\x88\x01\x01B\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\v\n" +
@@ -712,12 +722,13 @@ var file_core_pkg_service_ranger_pb_ranger_proto_depIdxs = []int32{
 	9,  // 10: service.ranger.pb.Where.overlaps:type_name -> x.telem.pb.TimeRange
 	5,  // 11: service.ranger.pb.Where.labels:type_name -> service.ranger.pb.LabelKeyList
 	6,  // 12: service.ranger.pb.Where.parents:type_name -> service.ranger.pb.KeyList
-	7,  // 13: service.ranger.pb.Where.stages:type_name -> service.ranger.pb.StageList
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	6,  // 13: service.ranger.pb.Where.ancestors:type_name -> service.ranger.pb.KeyList
+	7,  // 14: service.ranger.pb.Where.stages:type_name -> service.ranger.pb.StageList
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_ranger_pb_ranger_proto_init() }

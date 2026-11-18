@@ -85,13 +85,15 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
   const first = ranges[0]?.parent ?? null;
   const shared = ranges.every((r) => (r.parent ?? null) === first);
   const current = shared ? first : null;
-  // The ranges cannot hold themselves, and the current parent leads the list.
-  const hidden = new Set([...ranges.map((r) => r.key), ...(current ?? [])]);
+  const keys = ranges.map((r) => r.key);
+  // A range cannot hold itself or a range nested in it, and the current parent leads
+  // the list.
+  const hidden = new Set([...keys, ...(current ?? [])]);
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.ranges,
     {
       name: "ranges",
-      query: { order: NEWEST },
+      query: { order: NEWEST, where: { not: { ancestors: keys } } },
       filter: (r) => !hidden.has(r.key),
     },
   );

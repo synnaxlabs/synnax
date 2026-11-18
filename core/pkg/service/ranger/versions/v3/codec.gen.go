@@ -183,6 +183,15 @@ func (wv Where) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if wv.Ancestors != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.Ancestors)))
+		for j := range wv.Ancestors {
+			w.Write(wv.Ancestors[j][:])
+		}
+	} else {
+		w.Bool(false)
+	}
 	if wv.Nested != nil {
 		w.Bool(true)
 		w.Bool(*wv.Nested)
@@ -338,6 +347,24 @@ func (wv *Where) DecodeOrc(r *orc.Reader) error {
 			wv.Parents = make([]uuid.UUID, n)
 			for j := range wv.Parents {
 				if _, err := r.Read(wv.Parents[j][:]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.Ancestors = make([]uuid.UUID, n)
+			for j := range wv.Ancestors {
+				if _, err := r.Read(wv.Ancestors[j][:]); err != nil {
 					return err
 				}
 			}

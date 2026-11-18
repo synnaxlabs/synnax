@@ -96,6 +96,9 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.Parents; l != nil {
 		fs = append(fs, MatchParents(l...))
 	}
+	if l := w.Ancestors; l != nil {
+		fs = append(fs, MatchAncestors(l...))
+	}
 	if l := w.Nested; l != nil {
 		fs = append(fs, MatchHasParent(*l))
 	}

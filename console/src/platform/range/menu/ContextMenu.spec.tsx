@@ -122,6 +122,22 @@ describe("Range.ContextMenu", () => {
       await waitFor(async () => expect(await parentOf(child)).toBeUndefined());
     });
 
+    it("should leave the ranges nested in the ranges out of the list", async () => {
+      const token = uniqueName("nested");
+      const sibling = await createRange(`${token} sibling`);
+      const self = await createRange(`${token} self`);
+      const child = await createRange(`${token} child`, { parent: self.key });
+      const grandchild = await createRange(`${token} grandchild`, {
+        parent: child.key,
+      });
+      await renderMenu([self]);
+      const parent = await openSubmenu("Parent");
+      searchIn(parent, "Search ranges...", token);
+      await within(parent).findByText(sibling.name);
+      expect(within(parent).queryByText(child.name)).toBeNull();
+      expect(within(parent).queryByText(grandchild.name)).toBeNull();
+    });
+
     it("should leave the ranges themselves out of the list", async () => {
       const token = uniqueName("self");
       const sibling = await createRange(`${token} sibling`);

@@ -619,6 +619,7 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        ancestors: Key | list[Key] = ...,
         nested: bool = ...,
         labeled: bool = ...,
         stages: Stage | list[Stage] = ...,
@@ -640,6 +641,7 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        ancestors: Key | list[Key] = ...,
         nested: bool = ...,
         labeled: bool = ...,
         stages: Stage | list[Stage] = ...,
@@ -661,6 +663,7 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        ancestors: Key | list[Key] = ...,
         nested: bool = ...,
         labeled: bool = ...,
         stages: Stage | list[Stage] = ...,
@@ -686,6 +689,7 @@ class Client:
         overlaps: TimeRange = ...,
         labels: label.Key | list[label.Key] = ...,
         parents: Key | list[Key] = ...,
+        ancestors: Key | list[Key] = ...,
         nested: bool = ...,
         labeled: bool = ...,
         stages: Stage | list[Stage] = ...,
@@ -732,6 +736,8 @@ class Client:
         :param labels: Keeps ranges that have this label, or any label in the list.
         :param parents: Keeps the ranges nested in this range, or in any range in the
             list.
+        :param ancestors: Keeps the ranges nested at any depth in this range, or in any
+            range in the list.
         :param nested: Keeps the ranges nested in a range, or top-level ranges when
             false.
         :param labeled: Keeps ranges that have a label, or ranges with none when false.

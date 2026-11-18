@@ -47,6 +47,20 @@ var _ = Describe("Where", func() {
 		}
 	})
 
+	retrieve := func(ctx SpecContext, f ranger.Filter) []string {
+		GinkgoHelper()
+		var res []ranger.Range
+		Expect(svc.NewRetrieve().Where(f).Entries(&res).Exec(ctx, tx)).To(Succeed())
+		return lo.FilterMap(res, func(r ranger.Range, _ int) (string, bool) {
+			return r.Name, keys[r.Key] == ""
+		})
+	}
+
+	match := func(ctx SpecContext, w ranger.Where) []string {
+		GinkgoHelper()
+		return retrieve(ctx, MustSucceed(ranger.MatchWhere(w)))
+	}
+
 	DescribeTable(
 		"Should match the case",
 		func(ctx SpecContext, w ranger.Where, expected []string) {
@@ -86,18 +100,6 @@ var _ = Describe("Where", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			}
 		})
-
-		match := func(ctx SpecContext, w ranger.Where) []string {
-			GinkgoHelper()
-			var res []ranger.Range
-			Expect(svc.NewRetrieve().
-				Where(MustSucceed(ranger.MatchWhere(w))).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			return lo.FilterMap(res, func(r ranger.Range, _ int) (string, bool) {
-				return r.Name, keys[r.Key] == ""
-			})
-		}
 
 		DescribeTable(
 			"Should match the ranges in the stages when the query opens",
@@ -183,6 +185,67 @@ var _ = Describe("Where", func() {
 		It("Should panic on an invalid stage from Go", func() {
 			Expect(func() { ranger.MatchStages("paused")(svc.NewRetrieve()) }).
 				To(PanicWith(`ranger: invalid stage "paused"`))
+		})
+	})
+
+	Describe("MatchAncestors", func() {
+		var named map[string]ranger.Key
+		BeforeEach(func(ctx SpecContext) {
+			named = map[string]ranger.Key{}
+			create := func(name, parent string) {
+				r := ranger.Range{
+					Name:      name,
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				if parent != "" {
+					r.Parent = new(named[parent])
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+				named[name] = r.Key
+			}
+			create("Root", "")
+			create("Other", "")
+			create("Child", "Root")
+			create("Grandchild", "Child")
+		})
+
+		keysOf := func(names []string) []ranger.Key {
+			return lo.Map(names, func(n string, _ int) ranger.Key { return named[n] })
+		}
+
+		DescribeTable(
+			"Should match the ranges nested at any depth in the given ranges",
+			func(ctx SpecContext, given, expected []string) {
+				Expect(retrieve(ctx, ranger.MatchAncestors(keysOf(given)...))).
+					To(ConsistOf(expected))
+			},
+			Entry(
+				"a top-level range",
+				[]string{"Root"},
+				[]string{"Child", "Grandchild"},
+			),
+			Entry("a nested range", []string{"Child"}, []string{"Grandchild"}),
+			Entry(
+				"a range nested in another given range",
+				[]string{"Root", "Child"},
+				[]string{"Child", "Grandchild"},
+			),
+			Entry("a range with no children", []string{"Other"}, []string{}),
+			Entry("no ranges", []string{}, []string{}),
+		)
+
+		It("Should leave out the nested ranges under not", func(ctx SpecContext) {
+			Expect(match(ctx, ranger.Where{
+				Not: &ranger.Where{Ancestors: keysOf([]string{"Root"})},
+			})).To(ConsistOf("Root", "Other"))
+		})
+
+		It("Should see a range moved in the same transaction", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Apply(ctx, named["Other"], ranger.NewSetAction(
+				ranger.SetPayload{Path: []string{"parent"}, Value: named["Grandchild"]},
+			))).To(Succeed())
+			Expect(retrieve(ctx, ranger.MatchAncestors(named["Root"]))).
+				To(ConsistOf("Child", "Grandchild", "Other"))
 		})
 	})
 

@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -39,6 +40,35 @@ func MatchOverlaps(tr telem.TimeRange) Filter {
 			}),
 		)
 	}
+}
+
+// MatchAncestors returns a filter for the ranges nested at any depth in any of the
+// given ranges.
+func MatchAncestors(keys ...Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Range] {
+		return gorp.MatchKeysFunc[Key, Range](func(ctx gorp.Context) ([]Key, error) {
+			return r.descendants(ctx, keys)
+		})
+	}
+}
+
+func (r Retrieve) descendants(ctx gorp.Context, keys []Key) ([]Key, error) {
+	// A given range can be nested in another, so the walk can reach it twice.
+	found := make(set.Set[Key])
+	for frontier := keys; len(frontier) > 0; {
+		children, err := r.indexes.parent.Get(ctx, ctx.Snapshot, frontier...)
+		if err != nil {
+			return nil, err
+		}
+		frontier = nil
+		for _, c := range children {
+			if !found.Contains(c) {
+				found.Add(c)
+				frontier = append(frontier, c)
+			}
+		}
+	}
+	return found.Slice(), nil
 }
 
 // MatchStages returns a filter for ranges in any of the given stages when the query
