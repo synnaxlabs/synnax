@@ -555,8 +555,8 @@ TEST_F(IGHMasterTest, ActivateWaitsForASlaveBelowOPWithNoErrorFlag) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: slave 1 (EL4002) is in PRE-OP with an AL "
-        "error; slave 2 (EL1008) is in SAFE-OP"
+        "failed to reach OP within 10s: module 1 (EL4002) is in PRE-OP with an AL "
+        "error; module 2 (EL1008) is in SAFE-OP"
     );
     const std::map<uint16_t, slave::Refusal> refusals{
         {1, {.reason = "refused SAFE-OP"}},
@@ -577,7 +577,7 @@ TEST_F(IGHMasterTest, ActivateReturnsTheRefusalsWhenTheResetFails) {
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP: slave 1 (TestSlave) is in PRE-OP with an AL error"
+        "failed to reach OP: module 1 (TestSlave) is in PRE-OP with an AL error"
     );
 }
 
