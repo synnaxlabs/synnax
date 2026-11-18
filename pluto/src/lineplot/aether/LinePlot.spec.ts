@@ -344,7 +344,13 @@ describe("LinePlot against a Core", () => {
       color: "#ff0000",
     });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
-    return { plot: stack.driver.find<LinePlot>(base), setViewport };
+    const { recorder } = stack;
+    if (recorder == null) throw new Error("the stack has no render recorder");
+    return {
+      plot: stack.driver.find<LinePlot>(base),
+      setViewport,
+      render: () => renderPlot(recorder),
+    };
   };
 
   // The distance from each target to the first drawn sample at or after it.
@@ -391,10 +397,19 @@ describe("LinePlot against a Core", () => {
       dataType: DataType.FLOAT32,
       index: time.key,
     });
-    const { plot } = mount({
+    const { plot, render } = mount({
       channel: data.key,
       window: dynamicWindow(TimeSpan.seconds(10)),
     });
+    // The render loop draws a plot at mount, which subscribes its lines to their
+    // channels. A write before the subscription streams reaches the plot only through
+    // a history read, which reduces the samples to the point budget.
+    await expect
+      .poll(() => {
+        render();
+        return plot.state.loading;
+      })
+      .toBe(false);
     const writer = await synnax.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],
@@ -414,8 +429,13 @@ describe("LinePlot against a Core", () => {
         last = new TimeStamp(times[99]);
         await sleep.sleep(TimeSpan.milliseconds(100));
       }
-      const target = Number(last.valueOf());
-      await expect.poll(() => gaps(plot, [target])[0], { timeout: 10_000 }).toBe(0);
+      // The plot reduces samples to its point budget, so its line can end a sample or
+      // so before the newest one.
+      const tolerance = Number(TimeSpan.milliseconds(10).valueOf());
+      const edge = Number(last.valueOf()) - tolerance;
+      await expect
+        .poll(() => gaps(plot, [edge])[0], { timeout: 10_000 })
+        .toBeLessThan(tolerance);
     } finally {
       await writer.close();
     }
