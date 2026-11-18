@@ -56,6 +56,7 @@ var resourceTabTypes = set.New(
 	resource.TypeTask,
 	resource.TypeRange,
 	resource.TypeICD,
+	resource.TypeView,
 )
 
 // validateTree checks the structural invariants every persisted panel tree must uphold:
@@ -391,9 +392,9 @@ func directionAndSideForLocation(
 		return spatial.DirectionY, spatial.OrderFirst, nil
 	case spatial.LocationBottom:
 		return spatial.DirectionY, spatial.OrderLast, nil
-	default:
-		return "", "", errors.New("invalid split location")
+	case spatial.LocationCenter:
 	}
+	return "", "", errors.New("invalid split location")
 }
 
 // splitLeafAt replaces the leaf at leafPath with a split node containing the

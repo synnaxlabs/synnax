@@ -509,7 +509,7 @@ class Overview(Surface):
         item = self.get_child_range(name)
         item.wait_for(state="visible", timeout=5000)
         self._ctx_action_any(item, UNFAVORITE_ACTIONS)
-        self.toolbar.wait_for_removed(name)
+        self.toolbar.wait_for_removed(name, group="Favorites")
 
     def child_range_exists(self, name: str) -> bool:
         """Check if a child range exists in the Child Ranges section."""
@@ -533,7 +533,7 @@ class Overview(Surface):
         """
         item = self.get_child_range(name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, "Copy link")
+        self.ctx_menu.sub_action(item, "Copy", "Link")
 
     def delete_child_range(self, name: str) -> None:
         """Delete a child range via context menu with confirmation."""
@@ -585,4 +585,4 @@ class Overview(Surface):
         self._ctx_action_any(last_item, UNFAVORITE_ACTIONS)
         self._deselect_all_child_ranges()
         for name in names:
-            self.toolbar.wait_for_removed(name)
+            self.toolbar.wait_for_removed(name, group="Favorites")

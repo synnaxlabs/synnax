@@ -31,7 +31,7 @@ var _ = Describe("Translator", func() {
 				Owner:   new(rack.NewKey(1, 2).ResourceID()),
 				Variant: status.VariantSuccess,
 				Message: "Driver running",
-				Labels:  []label.Key{label.Key(uuid.New())},
+				Labels:  []label.Key{uuid.New()},
 				Details: rack.StatusDetails{Running: true},
 			},
 		}

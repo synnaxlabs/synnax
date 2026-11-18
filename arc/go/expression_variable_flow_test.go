@@ -77,8 +77,9 @@ var _ = Describe("Expression variables in flows", func() {
 				h.channelState.ClearReads()
 			}
 			out, _ := h.Flush()
-			var values []float64
-			for _, s := range out.Get(200).Series {
+			series := out.Get(200)
+			values := make([]float64, 0, series.Len())
+			for _, s := range series.Series {
 				values = append(values, s.Unmarshal[float64]()...)
 			}
 			Expect(values).To(Equal(expected))

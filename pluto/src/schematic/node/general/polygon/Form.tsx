@@ -31,18 +31,21 @@ const ROTATION_INPUT_PROPS: Partial<Input.NumericProps> = {
 const NUM_SIDES_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.02, y: 0.1 },
   bounds: { lower: 3, upper: 21 },
+  integer: true,
 };
 
 const SIDE_LENGTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.5, y: 2.5 },
   bounds: { lower: 10, upper: 500 },
   endContent: "px",
+  integer: true,
 };
 
-const CORNER_ROUNDING_INPUT_PROPS: Partial<Input.NumericProps> = {
+const BORDER_RADIUS_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.2, y: 1 },
   bounds: { lower: 0, upper: 181 },
   endContent: "px",
+  integer: true,
 };
 
 export const PolygonForm = (): ReactElement => (
@@ -67,19 +70,15 @@ export const PolygonForm = (): ReactElement => (
         inputProps={ROTATION_INPUT_PROPS}
       />
       <Base.NumericField
-        path={path.cornerRounding}
-        label="Corner rounding"
-        inputProps={CORNER_ROUNDING_INPUT_PROPS}
+        path={path.borderRadius}
+        label="Border radius"
+        inputProps={BORDER_RADIUS_INPUT_PROPS}
       />
     </Base.Section>
     <Base.Section title="Appearance">
       <Form.ColorField path={path.strokeColor} label="Stroke" />
       <Form.FillField fallback={colorFallbacks.fillColor} />
-      <Base.NumericField
-        path={path.strokeWidth}
-        label="Border width"
-        inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-      />
+      <Form.StrokeWidthField />
     </Base.Section>
   </Base.Sections>
 );

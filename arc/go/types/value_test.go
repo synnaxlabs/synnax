@@ -50,7 +50,7 @@ var _ = Describe("Value", func() {
 	}
 
 	DescribeTable("Should round trip a float through msgpack",
-		func(ctx SpecContext, value float64, t types.Type) {
+		func(value float64, t types.Type) {
 			param := types.Param{Name: "a", Type: t, Value: types.EncodeFloat(value)}
 			var decoded types.Param
 			Expect(msgpack.Codec.Decode(

@@ -249,6 +249,8 @@ class TestClientShutdown:
         host, port, username, password = login_info
         client = sy.Synnax(host=host, port=port, username=username, password=password)
         thread = client.connectivity._thread
+        # Sub-clients refer back to the client, so building one must not pin it.
+        assert client.channels is not None
         ref = weakref.ref(client)
         del client
         gc.collect()

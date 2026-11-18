@@ -21,11 +21,14 @@ The folder holds your channels, recorded data, ranges, and projects. To open it,
 runs. Synnax Desktop 1.0 kept metadata backups in a `backups` folder next to `core`.
 Synnax Desktop deletes that folder when you erase all data.
 
-Synnax Desktop also writes `~/.synnax/desktop.json`
-(`%USERPROFILE%\.synnax\desktop.json` on Windows). The file holds the address of Synnax
-and an API key, so that
+So that
 [scripts on the same computer](/reference/client/connect#connect-to-synnax-desktop) can
-connect.
+connect, Synnax Desktop writes the address of Synnax to `~/.synnax/desktop.json`
+(`%USERPROFILE%\.synnax\desktop.json` on Windows). It keeps the API key for those
+scripts in the keychain of your operating system, under the service
+`com.synnaxlabs.desktop`. The key is never written to a file. Synnax Desktop 1.1 kept
+the key in `desktop.json`. A newer version revokes that key, removes it from the file,
+and saves a new key in the keychain.
 
 <Divider.Divider x />
 
@@ -54,8 +57,8 @@ You cannot restore a copy by hand.
    dialog.
 2. Hold the **Erase all data** button for one second to confirm.
 
-Synnax Desktop deletes the data and `~/.synnax/desktop.json`, logs out, then closes and
-opens again with no data. On the next launch, log in again. The new `desktop.json` holds
-a new API key, so code that holds the old key needs the new one. The logs and your app
-settings stay. If the erase fails, Synnax stays stopped: click **Restart** in the
-diagnostics dialog.
+Synnax Desktop deletes the data, `~/.synnax/desktop.json`, and the API key, logs out,
+then closes and opens again with no data. On the next launch, log in again. Synnax
+Desktop then saves a new API key, so code that holds the old key needs the new one. The
+logs and your app settings stay. If the erase fails, Synnax stays stopped: click
+**Restart** in the diagnostics dialog.

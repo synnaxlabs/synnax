@@ -9,24 +9,35 @@
 
 import { TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Sift } from "@/feature/sift";
+import { createSiftDevice } from "@/feature/sift/testutil";
 import { renderMenuItem } from "@/platform/device/testutil";
 
 const client = createTestClient();
 
+// The items show only once the Core has a Sift connection.
+beforeAll(async () => {
+  await createSiftDevice(client);
+});
+
 describe("Sift.Range.UploadMenuItem", () => {
+  it("should render nothing without a Sift connection", async () => {
+    await renderMenuItem(
+      <Sift.Range.UploadMenuItem rangeKey={uuid.create()} rangeName="Hotfire 3" />,
+    );
+    expect(screen.queryByText("Upload to Sift")).toBeNull();
+  });
+
   it("should open the upload dialog for the range", async () => {
     await renderMenuItem(
-      <Sift.Range.UploadMenuItem
-        rangeKey={crypto.randomUUID()}
-        rangeName="Hotfire 3"
-      />,
+      <Sift.Range.UploadMenuItem rangeKey={uuid.create()} rangeName="Hotfire 3" />,
       { client },
     );
-    fireEvent.click(screen.getByText("Upload to Sift"));
+    fireEvent.click(await screen.findByText("Upload to Sift"));
     expect(await screen.findByText("Upload Hotfire 3 to Sift")).toBeTruthy();
   });
 });
@@ -41,7 +52,7 @@ describe("Sift.Range.UploadRegionMenuItem", () => {
       />,
       { client },
     );
-    fireEvent.click(screen.getByText("Upload region to Sift"));
+    fireEvent.click(await screen.findByText("Upload region to Sift"));
     expect(await screen.findByText("Upload Hotfire plot to Sift")).toBeTruthy();
     const start = tr.start.toString("dateTime", "local");
     expect(screen.getByText(start, { exact: false })).toBeTruthy();

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeStamp } from "@synnaxlabs/client";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -70,7 +71,7 @@ export const arduino = async ({
   const record = (async () => {
     let i = 0;
     while (running) {
-      await new Promise((resolve) => setTimeout(resolve, periodMs));
+      await sleep.sleep(TimeSpan.milliseconds(periodMs));
       i++;
       const reading = 512 + 260 * Math.sin(i / 30) + 18 * Math.sin(i / 2.3);
       await writer.write({

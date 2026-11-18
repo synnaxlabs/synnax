@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { destructor, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -55,8 +55,6 @@ export interface Presence<K extends record.Key = record.Key> {
   usePresent: () => K | undefined;
 }
 
-const NOOP = () => {};
-
 /**
  * createPresence mints a typed presence context: a Provider that publishes at most one
  * present key and hooks that read it. Presence is a single-valued membership: the
@@ -66,7 +64,7 @@ const NOOP = () => {};
  */
 export const createPresence = (name: string): Presence => {
   const [BaseContext, useCtx] = context.create<ContextValue>({
-    defaultValue: { getPresent: () => undefined, subscribe: () => NOOP },
+    defaultValue: { getPresent: () => undefined, subscribe: () => destructor.NOOP },
     displayName: `${name}.Context`,
   });
 

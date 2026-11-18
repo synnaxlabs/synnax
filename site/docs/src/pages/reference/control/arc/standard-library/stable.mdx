@@ -32,7 +32,7 @@ How long the value must stay the same, such as `500ms`.
 change of the trigger value.
 
 - Trigger -> a numeric or `bool` value. A `str` value gives the error
-  `stable.for input must be a numeric or bool type, got str`.
+  `type mismatch: stable.for input must be a numeric or bool type, got str`.
 - Output -> the steady value, of the same type as the trigger. It has the timestamp of
   the sample that confirmed the hold.
 - Runs -> on each new trigger value. A change of value starts the hold time again, from

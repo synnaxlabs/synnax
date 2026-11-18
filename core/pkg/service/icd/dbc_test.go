@@ -13,13 +13,14 @@ import (
 	"bytes"
 	"encoding/json/v2"
 	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -44,8 +45,7 @@ type expectedField struct {
 	StartBit        uint16        `json:"start_bit"`
 	BitLength       uint8         `json:"bit_length"`
 	ByteOrder       icd.ByteOrder `json:"byte_order"`
-	Signed          bool          `json:"signed"`
-	Float           bool          `json:"float"`
+	Kind            payload.Kind  `json:"kind"`
 	Scale           float64       `json:"scale"`
 	Offset          float64       `json:"offset"`
 	Units           string        `json:"units"`
@@ -67,7 +67,10 @@ func messageNamed(messages []icd.Message, name string) icd.Message {
 }
 
 func canIdentifier(m icd.Message) icd.CanIdentifier {
-	return binaryPayloadOf(m).Identifier.Variant.(icd.CanIdentifier)
+	GinkgoHelper()
+	id, ok := binaryPayloadOf(m).Identifier.Variant.(icd.CanIdentifier)
+	Expect(ok).To(BeTrue())
+	return id
 }
 
 func binaryFields(m icd.Message) []icd.BinaryField {
@@ -88,10 +91,10 @@ func fieldNamed(m icd.Message, name string) icd.BinaryField {
 // toExpected converts parsed messages to the shape of the cantools decoding.
 func toExpected(messages []icd.Message) []expectedMessage {
 	GinkgoHelper()
-	var out []expectedMessage
+	out := make([]expectedMessage, 0, len(messages))
 	for _, m := range messages {
 		p := binaryPayloadOf(m)
-		id := p.Identifier.Variant.(icd.CanIdentifier)
+		id := canIdentifier(m)
 		em := expectedMessage{
 			Name:     m.Name,
 			ID:       id.ID,
@@ -110,8 +113,7 @@ func toExpected(messages []icd.Message) []expectedMessage {
 				StartBit:        f.StartBit,
 				BitLength:       f.BitLength,
 				ByteOrder:       f.ByteOrder,
-				Signed:          f.Signed,
-				Float:           f.Float,
+				Kind:            f.Kind,
 				Scale:           f.Scale,
 				Offset:          f.Offset,
 				Units:           f.Units,
@@ -131,8 +133,9 @@ func toExpected(messages []icd.Message) []expectedMessage {
 
 func readFixture(name string) ([]byte, expectedFile) {
 	GinkgoHelper()
-	data := MustSucceed(os.ReadFile(filepath.Join("testdata", name+".dbc")))
-	raw := MustSucceed(os.ReadFile(filepath.Join("testdata", name+".expected.json")))
+	testdata := os.DirFS("testdata")
+	data := MustSucceed(fs.ReadFile(testdata, name+".dbc"))
+	raw := MustSucceed(fs.ReadFile(testdata, name+".expected.json"))
 	var want expectedFile
 	Expect(json.Unmarshal(raw, &want)).To(Succeed())
 	return data, want
@@ -141,12 +144,13 @@ func readFixture(name string) ([]byte, expectedFile) {
 // FuzzImportDBC checks that any input either imports with resolved references or fails
 // with a validation error, and never panics.
 func FuzzImportDBC(f *testing.F) {
-	paths, err := filepath.Glob(filepath.Join("testdata", "*.dbc"))
+	testdata := os.DirFS("testdata")
+	paths, err := fs.Glob(testdata, "*.dbc")
 	if err != nil {
 		f.Fatal(err)
 	}
 	for _, path := range paths {
-		data, err := os.ReadFile(path)
+		data, err := fs.ReadFile(testdata, path)
 		if err != nil {
 			f.Fatal(err)
 		}
@@ -419,7 +423,7 @@ SIG_VALTYPE_ 256 A : 1;
 				MustSucceed(importFile(ctx, icd.FormatDBC, data)),
 				"Engine",
 			)
-			Expect(binaryFields(m)[0].Float).To(BeTrue())
+			Expect(binaryFields(m)[0].Kind).To(Equal(payload.KindFloat))
 		},
 	)
 

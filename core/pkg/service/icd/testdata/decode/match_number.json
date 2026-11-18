@@ -1,0 +1,169 @@
+{
+  "description": "Integer and unsigned match rules match a JSON number that equals them exactly, and a float rule matches a JSON number by its float value.",
+  "messages": [
+    {
+      "name": "small",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "integer",
+          "pointer": "/id",
+          "value": "-3"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "large",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "unsigned",
+          "pointer": "/id",
+          "value": "18446744073709551615"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "exact",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "integer",
+          "pointer": "/id",
+          "value": "9007199254740993"
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "half",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ],
+        "match": {
+          "type": "float",
+          "pointer": "/id",
+          "value": 2.5
+        }
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000004",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": { "id": -3, "v": 1 },
+      "message": "small",
+      "samples": [1]
+    },
+    {
+      "document": { "id": -3.0, "v": 2 },
+      "message": "small",
+      "samples": [2]
+    },
+    {
+      "document": { "id": -30e-1, "v": 3 },
+      "message": "small",
+      "samples": [3]
+    },
+    {
+      "document": { "id": 18446744073709551615, "v": 4 },
+      "message": "large",
+      "samples": [4]
+    },
+    {
+      "document": { "id": 9007199254740993, "v": 5 },
+      "message": "exact",
+      "samples": [5]
+    },
+    {
+      "document": { "id": 2.5, "v": 6 },
+      "message": "half",
+      "samples": [6]
+    },
+    {
+      "document": { "id": 9007199254740992, "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "id": -3.5, "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "id": "-3", "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "id": true, "v": 1 },
+      "unmatched": true
+    },
+    {
+      "document": { "id": 1e999, "v": 1 },
+      "error": "match: invalid number \"1e999\": validation error"
+    }
+  ]
+}

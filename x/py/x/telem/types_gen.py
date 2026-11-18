@@ -69,7 +69,7 @@ class StaticWindow(BaseModel):
     time_range: TimeRange
 
 
-# Is a window of time: a rolling span that ends now, or a fixed range.
+# Is a window of time: a rolling span or a fixed range.
 Window = Annotated[
     DynamicWindow | StaticWindow,
     Field(discriminator="variant"),

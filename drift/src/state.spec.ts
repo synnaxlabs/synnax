@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PayloadAction } from "@reduxjs/toolkit";
+import {
+  createNextState,
+  current,
+  isDraft,
+  type PayloadAction,
+} from "@reduxjs/toolkit";
+import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -125,6 +131,53 @@ describe("createWindow", () => {
     expect(next.nextOrdinal).toEqual(3);
   });
 
+  describe("pre-rendering", () => {
+    const sized = withMain({
+      enablePrerender: true,
+      defaultWindowProps: {
+        size: { width: 400, height: 200 },
+        minSize: { width: 100, height: 50 },
+      },
+    });
+
+    it("should create a pre-render window from nested default window props", () => {
+      const next = reducer(
+        sized,
+        createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+      );
+      expect(next.windows.la.reserved).toBe(true);
+      expect(next.windows.pa).toEqual({
+        ...INITIAL_PRERENDER_WINDOW_STATE,
+        size: { width: 400, height: 200 },
+        minSize: { width: 100, height: 50 },
+      });
+    });
+
+    it("should leave the default window props unchanged", () => {
+      const next = reducer(
+        sized,
+        createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+      );
+      expect(next.config.defaultWindowProps).toEqual(sized.config.defaultWindowProps);
+      expect(sized.config.defaultWindowProps.size).toEqual({ width: 400, height: 200 });
+    });
+
+    it("should create a new pre-render window after one is claimed", () => {
+      let s = reducer(
+        sized,
+        createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+      );
+      s = reducer(s, createWindow({ key: "b", label: "lb", prerenderLabel: "pb" }));
+      expect(s.windows.pa.key).toEqual("b");
+      expect(s.windows.pa.size).toEqual({ width: 400, height: 200 });
+      expect(s.windows.pb).toEqual({
+        ...INITIAL_PRERENDER_WINDOW_STATE,
+        size: { width: 400, height: 200 },
+        minSize: { width: 100, height: 50 },
+      });
+    });
+  });
+
   it("should not consume an ordinal when focusing an existing window", () => {
     let s = noPrerender;
     s = reducer(s, createWindow({ key: "a", label: "la", prerenderLabel: "pa" }));
@@ -132,6 +185,35 @@ describe("createWindow", () => {
     s = reducer(s, createWindow({ key: "a", label: "lx", prerenderLabel: "px" }));
     expect(s.nextOrdinal).toEqual(before);
     expect(s.windows.la.ordinal).toEqual(2);
+  });
+});
+
+// A reducer edits an Immer draft, which is a proxy that deep.copy refuses.
+describe("deep.copy inside a reducer", () => {
+  const initial = { a: { b: 1 } };
+  // jsdom swaps the global DOMException, so match the error by name.
+  const cloneError = expect.objectContaining({ name: "DataCloneError" });
+
+  it("should throw on a draft", () => {
+    createNextState(initial, (draft) => {
+      expect(() => deep.copy(draft)).toThrow(cloneError);
+    });
+  });
+
+  it("should throw on a plain object that holds a child draft", () => {
+    createNextState(initial, (draft) => {
+      expect(() => deep.copy({ ...draft })).toThrow(cloneError);
+    });
+  });
+
+  it("should copy a draft through current", () => {
+    createNextState(initial, (draft) => {
+      draft.a.b = 2;
+      const copied = deep.copy(current(draft));
+      expect(copied).toEqual({ a: { b: 2 } });
+      expect(isDraft(copied)).toBe(false);
+      expect(isDraft(copied.a)).toBe(false);
+    });
   });
 });
 

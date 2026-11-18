@@ -148,7 +148,7 @@ var _ = Describe("Free key counter", func() {
 		store := DeferClose(storagetestutil.OpenLayer(ctx))
 		create := func() channel.LocalKey {
 			GinkgoHelper()
-			n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store})
+			n := testutil.OpenNode(ctx, distribution.LayerConfig{Storage: store.Layer})
 			defer func() { Expect(n.Close()).To(Succeed()) }()
 			out := MustSucceed(n.Channel.Allocate(ctx, []channel.Channel{{
 				Name:        "free",

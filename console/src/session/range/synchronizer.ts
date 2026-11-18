@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, NotFoundError } from "@synnaxlabs/client";
+import { lineplot, NotFoundError, type ranger } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
+import { staticWindow, TimeRange } from "@synnaxlabs/x";
 
-import { toRef } from "@/session/range/ref";
 import {
   type Action,
-  markStaticKeysRewritten,
+  clearStaticWindows,
   remove,
   type StoreState,
 } from "@/session/range/slice";
@@ -21,11 +21,7 @@ import { type Synchronizer } from "@/session/synchronizer";
 
 const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
   reconcile: async ({ client, store }) => {
-    // Only the Core's own ranges can vanish; the rest are the session's.
-    const keys = store
-      .getState()
-      .range.ranges.filter(({ variant }) => variant === "persisted")
-      .map(({ key }) => key);
+    const keys = store.getState().range.ranges.map(({ key }) => key);
     if (keys.length === 0) return;
     const found = await client.ranges.retrieve({ key: keys });
     const foundKeys = new Set(found.map(({ key }) => key));
@@ -40,25 +36,22 @@ const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
 
 const REWRITE_FAILED = { name: "Line plot", message: "Failed to update static ranges" };
 
-// Desktop 1.0 stored a static range's key on a line plot. The Core cannot resolve the
-// key, so the plot shows the range's window instead. A plot deleted meanwhile counts as
-// done. A plot the user cannot update, or a failed send, leaves the rewrite to a later
-// pass, as only this session holds its static ranges.
+// Desktop 1.0 stored the key of a range kept only in the Console on a line plot. The
+// Core cannot resolve the key, so the plot shows the range's window instead. A plot
+// deleted meanwhile counts as done. A plot the user cannot update, or a failed send,
+// leaves the rewrite to a later pass, as only this session holds the windows.
 const useRewriteStaticKeys = (): Synchronizer.Callbacks<StoreState, Action> => {
   const handleError = Status.useErrorHandler();
   return {
     reconcile: async ({ client, store, ended }) => {
-      const { ranges, staticKeysRewritten } = store.getState().range;
-      if (staticKeysRewritten) return;
-      const windows = new Map(
-        ranges
-          .filter(({ variant }) => variant === "static")
-          .map((s) => [s.key, toRef(s)]),
+      const { staticWindows } = store.getState().range;
+      const windows = new Map<string, ranger.Ref>(
+        Object.entries(staticWindows).map(([key, tr]) => [
+          key,
+          { variant: "window", window: staticWindow(new TimeRange(tr)) },
+        ]),
       );
-      if (windows.size === 0) {
-        if (!ended()) store.dispatch(markStaticKeysRewritten());
-        return;
-      }
+      if (windows.size === 0) return;
       const grantee = await client.users.current.retrieve();
       const plots = await client.lineplots.retrieve({});
       let skipped = false;
@@ -91,7 +84,7 @@ const useRewriteStaticKeys = (): Synchronizer.Callbacks<StoreState, Action> => {
       );
       if (ended()) return;
       if (errors.length > 0) handleError(errors[0], REWRITE_FAILED);
-      else if (!skipped) store.dispatch(markStaticKeysRewritten());
+      else if (!skipped) store.dispatch(clearStaticWindows());
     },
   };
 };

@@ -26,6 +26,7 @@ var _ = Describe("Migration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Panel]{DB: db}))
 		old := v1.Panel{
 			Key:  uuid.New(),

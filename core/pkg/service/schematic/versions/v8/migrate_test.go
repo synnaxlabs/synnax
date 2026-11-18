@@ -95,6 +95,7 @@ var _ = Describe("MigrateSchematic", func() {
 var _ = Describe("Migration", func() {
 	It("Should rewrite v7-encoded entries through the v8 codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		seed := v7.Schematic{
 			Key:  uuid.New(),
 			Name: "Stored",
@@ -228,6 +229,7 @@ var _ = Describe("ScaleMigration", func() {
 	DescribeTable("Should restate every scale a v0.57 Core stored",
 		func(ctx SpecContext, orientation string) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			stored := v8.Schematic{
 				Key: uuid.New(),
 				Configs: map[string]msgpack.EncodedJSON{"s1": {

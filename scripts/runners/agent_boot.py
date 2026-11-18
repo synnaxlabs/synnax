@@ -7,11 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = ["boto3"]
-# ///
-
 """Brings the agent to the deployed commit, then runs agent.py with the same arguments.
 
 Runs on each runner, started at boot by the runner-agent systemd unit (Ubuntu) or the
@@ -20,9 +15,10 @@ commit in the Parameter Store parameter /runner-agents/commit, so a runner that 
 stopped during a deploy updates when it starts. When the update fails, the installed
 agent runs.
 
-    uv run agent_boot.py --host <address> --secure
+    uv run --project . --frozen --no-dev agent_boot.py --host <address> --secure
 """
 
+import os
 import subprocess
 import sys
 from collections.abc import Callable, Mapping
@@ -33,7 +29,8 @@ from urllib.request import urlopen
 import boto3
 from botocore.config import Config
 
-FILES = ("agent.py", "agent_log.py", "gh_runner.py")
+# pyproject.toml and uv.lock pin the dependencies that agent.py runs with.
+FILES = ("agent.py", "agent_log.py", "gh_runner.py", "pyproject.toml", "uv.lock")
 COMMIT_PARAMETER = "/runner-agents/commit"
 SOURCE = "https://raw.githubusercontent.com/synnaxlabs/synnax/{}/scripts/runners/{}"
 # The file that holds the commit of the installed agent.
@@ -66,8 +63,12 @@ def update(
         return None
     # Every download ends before the first write, so a failure keeps the old agent.
     contents = {name: fetch(SOURCE.format(commit, name)) for name in FILES}
+    # Atomic renames, run back to back, keep pyproject.toml and uv.lock from drifting
+    # apart when an update stops partway.
     for name, content in contents.items():
-        (directory / name).write_bytes(content)
+        (directory / f"{name}.tmp").write_bytes(content)
+    for name in contents:
+        os.replace(directory / f"{name}.tmp", directory / name)
     installed.write_text(commit)
     return commit
 
@@ -81,7 +82,10 @@ def main() -> int:
     except Exception as e:
         print(f"update failed: {type(e).__name__}: {e}", flush=True)
     uv = directory / ("uv.exe" if sys.platform == "win32" else "uv")
-    command = [str(uv), "run", str(directory / "agent.py"), *sys.argv[1:]]
+    agent = directory / "agent.py"
+    command = [str(uv), "run", "--project", str(directory), "--locked", "--no-dev"]
+    command.append(str(agent))
+    command.extend(sys.argv[1:])
     return subprocess.run(command, check=False).returncode
 
 

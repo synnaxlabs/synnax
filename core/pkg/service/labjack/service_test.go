@@ -61,9 +61,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose one store per LabJack task type", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf(
 				"labjack_read",
@@ -197,9 +198,14 @@ var _ = Describe("Service", func() {
 		}
 		scaleOf := func(data msgpack.EncodedJSON) map[string]any {
 			GinkgoHelper()
-			channels := data["channels"].([]any)
+			channels, ok := data["channels"].([]any)
+			Expect(ok).To(BeTrue())
 			Expect(channels).To(HaveLen(1))
-			return channels[0].(map[string]any)["scale"].(map[string]any)
+			channel, ok := channels[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			scale, ok := channel["scale"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			return scale
 		}
 		edit := func(ctx SpecContext, key uuid.UUID, a patch.Action) {
 			GinkgoHelper()

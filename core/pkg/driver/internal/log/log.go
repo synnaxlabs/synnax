@@ -94,7 +94,8 @@ func ParseLine(line, prevCaller string) ParsedLine {
 // encountered, startedOnce is used to safely close the started channel exactly
 // once, even when multiple goroutines call PipeToLogger concurrently.
 //
-// PipeToLogger calls onRunning, if it is not nil, on the first formatted line.
+// PipeToLogger calls onLoaded, if it is not nil, on the first formatted line or crash
+// banner, with crashed set for a crash banner.
 //
 // PipeToLogger returns the last error the stream carried, or "" if there was none: an
 // error or fatal line, the banner of a crash dump, or a line written before the first
@@ -104,95 +105,117 @@ func PipeToLogger(
 	logger *alamos.Logger,
 	started chan<- struct{},
 	startedOnce *sync.Once,
-	onRunning func(),
+	onLoaded func(crashed bool),
 ) string {
-	var (
-		caller    string
-		callerBuf []byte
-		lastErr   string
-		formatted bool
-		// crashLines buffers a crash dump once its banner is seen. A crash is terminal
-		// and its trace is raw text rather than glog-formatted, so the whole dump is
-		// accumulated and emitted as a single Error entry when the stream closes (see
-		// flushCrash below) instead of one entry per frame. Nil until the banner
-		// appears.
-		crashLines []string
-	)
-	// driverLogger carries every line forwarded from the driver. The production logger
-	// attaches a Go stacktrace to all Error entries, but the driver is a subprocess:
-	// that trace only ever points at this reader goroutine, never at the driver code
-	// that produced the line, so it is pure noise on forwarded content. Raising the
-	// threshold to Fatal suppresses it. Reader-side errors below keep using logger,
-	// where a Go stacktrace is genuinely useful.
-	driverLogger := logger.WithOptions(zap.AddStacktrace(zapcore.FatalLevel))
-	loggers := make(map[string]*alamos.Logger)
+	f := forwarder{
+		logger:       logger,
+		driverLogger: logger.WithOptions(zap.AddStacktrace(zapcore.FatalLevel)),
+		loggers:      make(map[string]*alamos.Logger),
+		started:      started,
+		startedOnce:  startedOnce,
+		onLoaded:     onLoaded,
+	}
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
-		b := scanner.Bytes()
-		if len(b) == 0 {
-			if crashLines == nil {
-				logger.Warn("received empty log line from driver")
-			}
-			continue
-		}
-		line := unsafe.String(unsafe.SliceData(b), len(b))
-		if crashLines == nil && isCrashBanner(line) {
-			crashLines = make([]string, 0, 32)
-			lastErr = strings.Clone(strings.TrimSpace(line))
-		}
-		if crashLines != nil {
-			// strings.Clone is required: the scanner reuses its buffer across
-			// iterations, so line must be copied to survive until the flush.
-			crashLines = append(crashLines, strings.Clone(line))
-			continue
-		}
-		p := ParseLine(line, caller)
-		if isFormatted(line) {
-			if !formatted && onRunning != nil {
-				onRunning()
-			}
-			formatted = true
-		} else if !formatted {
-			lastErr = strings.Clone(strings.TrimSpace(line))
-		}
-
-		if p.Caller != caller {
-			callerBuf = append(callerBuf[:0], p.Caller...)
-			caller = unsafe.String(unsafe.SliceData(callerBuf), len(callerBuf))
-		}
-
-		namedLogger := driverLogger
-		if p.Name != "" {
-			if cached, ok := loggers[p.Name]; ok {
-				namedLogger = cached
-			} else {
-				name := strings.Clone(p.Name)
-				namedLogger = driverLogger.Named(name)
-				loggers[name] = namedLogger
-			}
-		}
-
-		if startedOnce != nil && p.Message == StartedMessage {
-			startedOnce.Do(func() { close(started) })
-		}
-		callerField := zap.String("caller", caller)
-		switch p.Level {
-		case 'D':
-			namedLogger.Debug(p.Message, callerField)
-		case 'E', 'F':
-			namedLogger.Error(p.Message, callerField)
-			lastErr = strings.Clone(p.Message)
-		case 'W':
-			namedLogger.Warn(p.Message, callerField)
-		default:
-			namedLogger.Info(p.Message, callerField)
-		}
+		f.forward(scanner.Bytes())
 	}
-	if len(crashLines) > 0 {
-		driverLogger.Error(strings.Join(crashLines, "\n"))
+	if len(f.crashLines) > 0 {
+		f.driverLogger.Error(strings.Join(f.crashLines, "\n"))
 	}
 	if err := scanner.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
 		logger.Error("Error reading from std pipe", zap.Error(err))
 	}
-	return lastErr
+	return f.lastErr
+}
+
+// forwarder holds the state of one PipeToLogger stream.
+type forwarder struct {
+	// logger logs errors of the reader, where a Go stacktrace is useful.
+	logger *alamos.Logger
+	// driverLogger logs the lines of the driver with no Go stacktrace: on a line of a
+	// subprocess, it only points at the reader goroutine.
+	driverLogger *alamos.Logger
+	loggers      map[string]*alamos.Logger
+	started      chan<- struct{}
+	startedOnce  *sync.Once
+	onLoaded     func(crashed bool)
+	caller       string
+	callerBuf    []byte
+	lastErr      string
+	formatted    bool
+	// crashLines buffers a crash dump from its banner on, to log as one Error entry
+	// when the stream closes. It is nil until the banner appears.
+	crashLines []string
+}
+
+// forward handles one line of the stream. b is valid only until the next scan.
+func (f *forwarder) forward(b []byte) {
+	if len(b) == 0 {
+		if f.crashLines == nil {
+			f.logger.Warn("received empty log line from driver")
+		}
+		return
+	}
+	line := unsafe.String(unsafe.SliceData(b), len(b))
+	if f.crashLines == nil && isCrashBanner(line) {
+		if !f.formatted && f.onLoaded != nil {
+			f.onLoaded(true)
+		}
+		f.crashLines = make([]string, 0, 32)
+		f.lastErr = strings.Clone(strings.TrimSpace(line))
+	}
+	if f.crashLines != nil {
+		// strings.Clone is required: the scanner reuses its buffer across
+		// iterations, so line must be copied to survive until the flush.
+		f.crashLines = append(f.crashLines, strings.Clone(line))
+		return
+	}
+	p := ParseLine(line, f.caller)
+	if isFormatted(line) {
+		if !f.formatted && f.onLoaded != nil {
+			f.onLoaded(false)
+		}
+		f.formatted = true
+	} else if !f.formatted {
+		f.lastErr = strings.Clone(strings.TrimSpace(line))
+	}
+	if p.Caller != f.caller {
+		f.callerBuf = append(f.callerBuf[:0], p.Caller...)
+		f.caller = unsafe.String(unsafe.SliceData(f.callerBuf), len(f.callerBuf))
+	}
+	if f.startedOnce != nil && p.Message == StartedMessage {
+		f.startedOnce.Do(func() { close(f.started) })
+	}
+	f.log(p)
+}
+
+// log writes p to the logger of its name.
+func (f *forwarder) log(p ParsedLine) {
+	namedLogger := f.named(p.Name)
+	callerField := zap.String("caller", f.caller)
+	switch p.Level {
+	case 'D':
+		namedLogger.Debug(p.Message, callerField)
+	case 'E', 'F':
+		namedLogger.Error(p.Message, callerField)
+		f.lastErr = strings.Clone(p.Message)
+	case 'W':
+		namedLogger.Warn(p.Message, callerField)
+	default:
+		namedLogger.Info(p.Message, callerField)
+	}
+}
+
+// named returns the driver logger for name, and caches it.
+func (f *forwarder) named(name string) *alamos.Logger {
+	if name == "" {
+		return f.driverLogger
+	}
+	if cached, ok := f.loggers[name]; ok {
+		return cached
+	}
+	name = strings.Clone(name)
+	l := f.driverLogger.Named(name)
+	f.loggers[name] = l
+	return l
 }

@@ -61,8 +61,8 @@ var _ = Describe("Node", func() {
 
 	It("Should use the storage layer an override passes", func(ctx SpecContext) {
 		store := DeferClose(storagetestutil.OpenLayer(ctx))
-		n := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
-		Expect(n.Storage).To(BeIdenticalTo(store))
+		n := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store.Layer})
+		Expect(n.Storage).To(BeIdenticalTo(store.Layer))
 	})
 
 	It("Should close the distribution and storage layers", func(ctx SpecContext) {

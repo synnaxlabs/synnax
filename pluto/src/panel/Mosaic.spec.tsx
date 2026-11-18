@@ -858,10 +858,8 @@ describe("Panel.Mosaic", () => {
   });
 
   describe("cross-panel drag", () => {
-    // jsdom has no DragEvent, and testing-library's fallback drops the coordinate
-    // init the leaf's location resolution reads. A MouseEvent carries it.
     const drop = (el: Element): boolean =>
-      fireEvent(el, new MouseEvent("drop", { bubbles: true, clientX: 0, clientY: 0 }));
+      fireEvent.drop(el, { clientX: 0, clientY: 0 });
 
     // Two mosaics under one Haul.Provider stand in for two windows: drift mirrors
     // the dragging state across real windows, so both see the same haul.

@@ -30,6 +30,7 @@ var _ = Describe("Resources", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))

@@ -41,7 +41,7 @@ func setParent(
 		d.Parent != nil {
 		return false, nil
 	}
-	parent := Key(rel.From.Key)
+	parent := rel.From.Key
 	exists, err := gorp.NewRetrieve[Key, Device]().
 		Where(gorp.MatchKeys[Key, Device](parent)).
 		Exists(ctx, tx)

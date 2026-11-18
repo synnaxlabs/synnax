@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
+import { TimeStamp } from "@synnaxlabs/x";
 import { test, vi } from "vitest";
 import { z } from "zod";
 
@@ -35,7 +36,7 @@ const complexSchema = z.object({
 class BenchRoot extends aether.Composite<typeof complexSchema, {}, BenchL1> {
   schema = complexSchema;
   afterUpdate(ctx: aether.Context): void {
-    ctx.set("rootTime", Date.now());
+    ctx.set("rootTime", TimeStamp.now().milliseconds);
     ctx.set("rootValue", this.state.value);
   }
 }
@@ -110,7 +111,7 @@ function createBenchmarkTree() {
       id: "root-1",
       value: 100,
       metadata: {
-        timestamp: Date.now(),
+        timestamp: TimeStamp.now().milliseconds,
         tags: ["benchmark"],
         config: { setting1: "test", setting2: 42 },
       },
@@ -129,7 +130,7 @@ function createBenchmarkTree() {
         id: l1Key,
         value: i * 10,
         metadata: {
-          timestamp: Date.now(),
+          timestamp: TimeStamp.now().milliseconds,
           tags: ["l1", `group-${i}`],
           config: { index: i },
         },
@@ -154,7 +155,7 @@ function createBenchmarkTree() {
           id: l2Key,
           value: j * 5,
           metadata: {
-            timestamp: Date.now(),
+            timestamp: TimeStamp.now().milliseconds,
             tags: ["l2", `group-${i}-${j}`],
             config: { parentIndex: i, index: j },
           },
@@ -179,7 +180,7 @@ function createBenchmarkTree() {
             id: l3Key,
             value: k,
             metadata: {
-              timestamp: Date.now(),
+              timestamp: TimeStamp.now().milliseconds,
               tags: ["l3"],
               config: { parentL1: i, parentL2: j, index: k },
             },
@@ -203,7 +204,7 @@ function createBenchmarkTree() {
 const sparseState = (id: string, value: number) => ({
   id,
   value,
-  metadata: { timestamp: Date.now(), tags: [id], config: { value } },
+  metadata: { timestamp: TimeStamp.now().milliseconds, tags: [id], config: { value } },
   status: "active" as const,
 });
 
@@ -292,7 +293,7 @@ test("deep tree updates (full subscription)", async ({ bench }) => {
           id: "root-1",
           value: 200,
           metadata: {
-            timestamp: Date.now(),
+            timestamp: TimeStamp.now().milliseconds,
             tags: ["benchmark", "updated"],
             config: { setting1: "test", setting2: 84 },
           },

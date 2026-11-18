@@ -11,6 +11,7 @@ package json
 
 import (
 	"bytes"
+	"fmt"
 	"math"
 	"strconv"
 
@@ -35,6 +36,8 @@ type number struct {
 	f    float64
 	// fraction is true when the text of a float had a fraction that f may round away.
 	fraction bool
+	// text is the JSON text a float was parsed from, so errors show what f rounds.
+	text []byte
 }
 
 // parseNumber converts the text of a JSON number into an int64 or uint64 when it is an
@@ -67,8 +70,48 @@ func parseNumber(text []byte) (number, error) {
 	if err != nil {
 		return number{}, invalidNumber(text)
 	}
-	return number{kind: floatNumber, f: f, fraction: d.fraction}, nil
+	return number{kind: floatNumber, f: f, fraction: d.fraction, text: text}, nil
 }
+
+// ParsedNumber is a JSON number held without losing precision.
+type ParsedNumber struct{ n number }
+
+// ParseNumber parses the text of a JSON number. It returns an error wrapping
+// validate.ErrValidation when text is not a number, or is past the range of a float64.
+func ParseNumber(text []byte) (ParsedNumber, error) {
+	n, err := parseNumber(text)
+	if err != nil {
+		return ParsedNumber{}, err
+	}
+	return ParsedNumber{n: n}, nil
+}
+
+// Int64 returns n when it is an integer that an int64 holds. ok is false otherwise.
+func (n ParsedNumber) Int64() (v int64, ok bool) {
+	switch {
+	case n.n.kind == intNumber:
+		return n.n.i, true
+	case n.n.kind == uintNumber:
+		if n.n.u > math.MaxInt64 {
+			return 0, false
+		}
+		return int64(n.n.u), true
+	case !n.n.integral() || !n.n.within(math.MinInt64, math.MaxInt64):
+		return 0, false
+	}
+	return int64(n.n.f), true
+}
+
+// Uint64 returns n when it is an integer that a uint64 holds. ok is false otherwise.
+func (n ParsedNumber) Uint64() (v uint64, ok bool) {
+	if !n.n.integral() || !n.n.within(0, math.MaxUint64) {
+		return 0, false
+	}
+	return n.n.bits(), true
+}
+
+// Float64 returns the float64 nearest to n.
+func (n ParsedNumber) Float64() float64 { return n.n.float() }
 
 func invalidNumber(text []byte) error {
 	return errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
@@ -174,9 +217,10 @@ func (n number) float() float64 {
 		return float64(n.i)
 	case uintNumber:
 		return float64(n.u)
-	default:
+	case floatNumber:
 		return n.f
 	}
+	panic(fmt.Sprintf("json: invalid number kind %d", n.kind))
 }
 
 // appendText appends n as text: NaN, Infinity, or -Infinity when it is not finite.
@@ -195,7 +239,12 @@ func (n number) appendText(dst []byte) []byte {
 	}
 }
 
-func (n number) String() string { return string(n.appendText(nil)) }
+func (n number) String() string {
+	if n.text != nil {
+		return string(n.text)
+	}
+	return string(n.appendText(nil))
+}
 
 // bits returns n as a two's complement integer. Its low bytes are the encoding of n in
 // any integer type n fits in, so check fits first.
@@ -205,12 +254,13 @@ func (n number) bits() uint64 {
 		return uint64(n.i)
 	case uintNumber:
 		return n.u
-	default:
+	case floatNumber:
 		if n.f < 0 {
 			return uint64(int64(n.f))
 		}
 		return uint64(n.f)
 	}
+	panic(fmt.Sprintf("json: invalid number kind %d", n.kind))
 }
 
 // integerBounds returns the range of the integer data type dt. ok is false when dt is
@@ -233,6 +283,9 @@ func integerBounds(dt telem.DataType) (lo int64, hi uint64, ok bool) {
 		return 0, math.MaxUint32, true
 	case telem.Uint64T:
 		return 0, math.MaxUint64, true
+	case telem.UnknownT, telem.Float32T, telem.Float64T, telem.TimestampT,
+		telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT, telem.BooleanT:
+		fallthrough
 	default:
 		return 0, 0, false
 	}
@@ -249,23 +302,31 @@ func checkFits(n number, dt telem.DataType) error {
 	if !ok {
 		return nil
 	}
-	var fits bool
-	switch n.kind {
-	case intNumber:
-		fits = n.i >= lo && (n.i < 0 || uint64(n.i) <= hi)
-	case uintNumber:
-		fits = n.u <= hi
-	default:
-		if n.fraction || n.f != math.Trunc(n.f) {
-			return errors.Wrapf(validate.ErrValidation, "%s is not an integer", n)
-		}
-		// float64(hi)+1 rounds to the first value past hi for every integer type.
-		fits = n.f >= float64(lo) && n.f < float64(hi)+1
+	if !n.integral() {
+		return errors.Wrapf(validate.ErrValidation, "%s is not an integer", n)
 	}
-	if !fits {
+	if !n.within(lo, hi) {
 		return errors.Wrapf(validate.ErrValidation, "%s is out of range for %s", n, dt)
 	}
 	return nil
+}
+
+func (n number) integral() bool {
+	return n.kind != floatNumber || (!n.fraction && n.f == math.Trunc(n.f))
+}
+
+// within reports whether n, an integer, lies in [lo, hi].
+func (n number) within(lo int64, hi uint64) bool {
+	switch n.kind {
+	case intNumber:
+		return n.i >= lo && (n.i < 0 || uint64(n.i) <= hi)
+	case uintNumber:
+		return n.u <= hi
+	case floatNumber:
+		// float64(hi)+1 rounds to the first value past hi for every integer type.
+		return n.f >= float64(lo) && n.f < float64(hi)+1
+	}
+	panic(fmt.Sprintf("json: invalid number kind %d", n.kind))
 }
 
 // appendNumber appends n as a sample of dt, which must be numeric or boolean. Check
@@ -282,10 +343,14 @@ func appendNumber(dst []byte, dt telem.DataType, n number) []byte {
 			return append(dst, 1)
 		}
 		return append(dst, 0)
-	default:
+	case telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
 		end := len(dst) + int(dt.Density())
 		return order.AppendUint64(dst, n.bits())[:end]
+	case telem.UnknownT, telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
+		telem.JSONT:
 	}
+	panic(fmt.Sprintf("json: %q does not hold numbers", dt))
 }
 
 // sampleNumber reads sample, a sample of the numeric or boolean data type dt.
@@ -313,13 +378,16 @@ func sampleNumber(dt telem.DataType, sample []byte) number {
 		return number{kind: uintNumber, u: uint64(order.Uint16(sample))}
 	case telem.Uint8T:
 		return number{kind: uintNumber, u: uint64(sample[0])}
-	default:
+	case telem.BooleanT:
 		n := number{kind: intNumber}
 		if sample[0] != 0 {
 			n.i = 1
 		}
 		return n
+	case telem.UnknownT, telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
+		telem.JSONT:
 	}
+	panic(fmt.Sprintf("json: %q does not hold numbers", dt))
 }
 
 // appendJSONNumber appends n as a JSON number. A float takes the shortest form that
@@ -352,6 +420,9 @@ func numeric(dt telem.DataType) bool {
 		telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
 		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
 		return true
+	case telem.UnknownT, telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
+		telem.JSONT:
+		fallthrough
 	default:
 		return false
 	}

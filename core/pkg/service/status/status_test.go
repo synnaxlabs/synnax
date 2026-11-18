@@ -47,6 +47,7 @@ var _ = Describe("Status", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		store = memkv.New()
 		db = DeferClose(gorp.Wrap(store))
+		StartRun(db.Run)
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))

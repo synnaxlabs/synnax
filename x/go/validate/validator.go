@@ -151,6 +151,11 @@ func (v *Validator) LessThanEq[T types.Numeric](
 	)
 }
 
+// Finite returns true and attaches an error to v if the value is NaN or infinite.
+func (v *Validator) Finite[T types.Numeric](field string, value T) bool {
+	return v.Ternary(field, nonFinite(value), "must be finite")
+}
+
 func nonFinite[T types.Numeric](value T) bool {
 	f := float64(value)
 	return math.IsNaN(f) || math.IsInf(f, 0)
@@ -178,24 +183,24 @@ func (v *Validator) NotEmptyString[T ~string](field string, value T) bool {
 	return v.Ternary(field, value == "", "required")
 }
 
-// MinLength returns true and attaches an error to v if the string has fewer than min
+// MinLength returns true and attaches an error to v if the string has fewer than minLen
 // Unicode code points.
-func (v *Validator) MinLength[T ~string](field string, value T, min int) bool {
+func (v *Validator) MinLength[T ~string](field string, value T, minLen int) bool {
 	return v.Ternaryf(
 		field,
-		utf8.RuneCountInString(string(value)) < min,
+		utf8.RuneCountInString(string(value)) < minLen,
 		"must be at least %d characters long",
-		min,
+		minLen,
 	)
 }
 
-// MaxLength returns true and attaches an error to v if the string has more than max
+// MaxLength returns true and attaches an error to v if the string has more than maxLen
 // Unicode code points.
-func (v *Validator) MaxLength[T ~string](field string, value T, max int) bool {
+func (v *Validator) MaxLength[T ~string](field string, value T, maxLen int) bool {
 	return v.Ternaryf(
 		field,
-		utf8.RuneCountInString(string(value)) > max,
+		utf8.RuneCountInString(string(value)) > maxLen,
 		"must be at most %d characters long",
-		max,
+		maxLen,
 	)
 }

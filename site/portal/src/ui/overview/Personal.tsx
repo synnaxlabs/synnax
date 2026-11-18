@@ -15,9 +15,10 @@ import { type ReactElement } from "react";
 
 import { type Invited } from "@/server/invitation";
 import { type Machine } from "@/server/license/desktop";
+import { statusOf } from "@/server/license/status";
 import { Devices } from "@/ui/devices";
 import { Enterprise } from "@/ui/Enterprise";
-import { machineName, statusOf } from "@/ui/format";
+import { machineName } from "@/ui/format";
 import { Invitations } from "@/ui/invitations";
 import { Licenses } from "@/ui/licenses";
 import { DOWNLOAD_URL } from "@/ui/links";

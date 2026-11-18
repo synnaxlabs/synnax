@@ -129,4 +129,65 @@ describe("map", () => {
       expect(testMap.get("array")).toBe(defaultArray);
     });
   });
+
+  describe("equal", () => {
+    it("should be true for the same reference", () => {
+      const m = new Map([["a", 1]]);
+      expect(map.equal(m, m)).toBe(true);
+    });
+
+    it("should be true for two empty maps", () => {
+      expect(map.equal(new Map(), new Map())).toBe(true);
+    });
+
+    it("should be true for the same entries in any insertion order", () => {
+      const a = new Map([
+        ["a", 1],
+        ["b", 2],
+      ]);
+      const b = new Map([
+        ["b", 2],
+        ["a", 1],
+      ]);
+      expect(map.equal(a, b)).toBe(true);
+    });
+
+    it("should be false when the sizes differ", () => {
+      const b = new Map([
+        ["a", 1],
+        ["b", 2],
+      ]);
+      expect(map.equal(new Map([["a", 1]]), b)).toBe(false);
+    });
+
+    it("should be false when a key is missing", () => {
+      const a = new Map([
+        ["a", 1],
+        ["b", 2],
+      ]);
+      const b = new Map([
+        ["a", 1],
+        ["c", 2],
+      ]);
+      expect(map.equal(a, b)).toBe(false);
+    });
+
+    it("should be false when a value differs", () => {
+      expect(map.equal(new Map([["a", 1]]), new Map([["a", 2]]))).toBe(false);
+    });
+
+    it("should compare values by reference", () => {
+      const shared = { v: 1 };
+      expect(map.equal(new Map([["a", shared]]), new Map([["a", shared]]))).toBe(true);
+      expect(map.equal(new Map([["a", { v: 1 }]]), new Map([["a", { v: 1 }]]))).toBe(
+        false,
+      );
+    });
+
+    it("should tell a key with an undefined value from a missing key", () => {
+      const a = new Map<string, number | undefined>([["a", undefined]]);
+      const b = new Map<string, number | undefined>([["b", undefined]]);
+      expect(map.equal(a, b)).toBe(false);
+    });
+  });
 });

@@ -46,9 +46,9 @@ var _ = Describe("Extract", func() {
 		`)
 	})
 
-	extract := func(ctx SpecContext, records string) (*group.Data, error) {
+	extract := func(records string) (*group.Data, error) {
 		GinkgoHelper()
-		table, diag := Analyze(ctx, `
+		table, diag := Analyze(`
 			import "schemas/group"
 		`+records, "records", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String)
@@ -70,15 +70,15 @@ var _ = Describe("Extract", func() {
 		`
 	}
 
-	It("Should return nil when no field carries @group", func(ctx SpecContext) {
-		Expect(extract(ctx, rack(""))).To(BeNil())
+	It("Should return nil when no field carries @group", func() {
+		Expect(extract(rack(""))).To(BeNil())
 	})
 
-	It("Should return the members ordered by resource type", func(ctx SpecContext) {
-		data := MustSucceed(extract(ctx, rack(`
+	It("Should return the members ordered by resource type", func() {
+		data := MustSucceed(extract(rack(`
 			@group scope device
 			@group pinned
-		`)+`
+		`) + `
 			Channel struct {
 				key   uint32 {
 					@key
@@ -102,8 +102,8 @@ var _ = Describe("Extract", func() {
 
 	DescribeTable(
 		"Should reject a malformed @group",
-		func(ctx SpecContext, domains, message string) {
-			Expect(extract(ctx, rack(domains))).Error().
+		func(domains, message string) {
+			Expect(extract(rack(domains))).Error().
 				To(MatchError("records.Rack.group: " + message))
 		},
 		Entry("with no scope", "@group pinned", "@group needs a scope"),
@@ -129,15 +129,15 @@ var _ = Describe("Extract", func() {
 		),
 	)
 
-	It("Should skip a type that inherits a marked field", func(ctx SpecContext) {
-		data := MustSucceed(extract(ctx, rack("@group scope device")+`
+	It("Should skip a type that inherits a marked field", func() {
+		data := MustSucceed(extract(rack("@group scope device") + `
 			New struct extends Rack {}
 		`))
 		Expect(data.Members).To(HaveLen(1))
 	})
 
-	It("Should reject a type with no resource type", func(ctx SpecContext) {
-		Expect(extract(ctx, `
+	It("Should reject a type with no resource type", func() {
+		Expect(extract(`
 			Shelf struct {
 				key   uint32 {
 					@key
@@ -151,8 +151,8 @@ var _ = Describe("Extract", func() {
 		))
 	})
 
-	It("Should reject a resource type the enum does not hold", func(ctx SpecContext) {
-		Expect(extract(ctx, `
+	It("Should reject a resource type the enum does not hold", func() {
+		Expect(extract(`
 			Shelf struct {
 				key   uint32 {
 					@key
@@ -169,8 +169,8 @@ var _ = Describe("Extract", func() {
 		))
 	})
 
-	It("Should reject a resource type marked twice", func(ctx SpecContext) {
-		Expect(extract(ctx, rack("@group scope device")+`
+	It("Should reject a resource type marked twice", func() {
+		Expect(extract(rack("@group scope device") + `
 			Payload struct {
 				key   uint32 {
 					@key
@@ -186,8 +186,8 @@ var _ = Describe("Extract", func() {
 		))
 	})
 
-	It("Should reject a field that holds no record's key", func(ctx SpecContext) {
-		Expect(extract(ctx, `
+	It("Should reject a field that holds no record's key", func() {
+		Expect(extract(`
 			Rack struct {
 				key   uint32 {
 					@key
@@ -204,7 +204,7 @@ var _ = Describe("Extract", func() {
 		))
 	})
 
-	It("Should reject a group record with no scope enum", func(ctx SpecContext) {
+	It("Should reject a group record with no scope enum", func() {
 		loader.Add("schemas/group", `
 			Key = uuid
 
@@ -216,12 +216,12 @@ var _ = Describe("Extract", func() {
 				@resource type "group"
 			}
 		`)
-		Expect(extract(ctx, rack("@group scope device"))).Error().To(MatchError(
+		Expect(extract(rack("@group scope device"))).Error().To(MatchError(
 			"records.Rack.group: @group needs group.Group to have a scope field",
 		))
 	})
 
-	It("Should reject a group scope that is not an enum", func(ctx SpecContext) {
+	It("Should reject a group scope that is not an enum", func() {
 		loader.Add("schemas/group", `
 			Key = uuid
 
@@ -234,13 +234,13 @@ var _ = Describe("Extract", func() {
 				@resource type "group"
 			}
 		`)
-		Expect(extract(ctx, rack("@group scope device"))).Error().To(MatchError(
+		Expect(extract(rack("@group scope device"))).Error().To(MatchError(
 			"records.Rack.group: @group needs the scope of group.Group to be an enum",
 		))
 	})
 
-	It("Should reject a field holding another record's key", func(ctx SpecContext) {
-		Expect(extract(ctx, rack("@group scope device")+`
+	It("Should reject a field holding another record's key", func() {
+		Expect(extract(rack("@group scope device") + `
 			ShelfKey = uuid
 
 			Shelf struct {
@@ -267,8 +267,8 @@ var _ = Describe("Extract", func() {
 		))
 	})
 
-	It("Should skip a type in a version file", func(ctx SpecContext) {
-		table, diag := Analyze(ctx, `
+	It("Should skip a type in a version file", func() {
+		table, diag := Analyze(`
 			import "schemas/group"
 		`+rack("@group scope device"), "schemas/records/versions/rack/v1", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String)

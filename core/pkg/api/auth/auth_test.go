@@ -265,7 +265,9 @@ var _ = Describe("SetPassword", func() {
 			Cookie:          true,
 		}))
 		Expect(res.Token).To(BeEmpty())
-		cookie := MustBeOk(fctx.Get(apiauth.SessionCookieParam)).(apiauth.SessionCookie)
+		v := MustBeOk(fctx.Get(apiauth.SessionCookieParam))
+		cookie, ok := v.(apiauth.SessionCookie)
+		Expect(ok).To(BeTrue())
 		Expect(authSvc.Authenticate(ctx, cookie.Token)).To(Equal(*res.Session))
 	})
 	It("Should open no session for a caller logged in with an API key", func(
@@ -536,7 +538,9 @@ var _ = Describe("Session cookie", func() {
 				Cookie: true,
 			}))
 			Expect(res.Token).To(BeEmpty())
-			cookie := MustBeOk(fctx.Get(apiauth.SessionCookieParam)).(apiauth.SessionCookie)
+			v := MustBeOk(fctx.Get(apiauth.SessionCookieParam))
+			cookie, ok := v.(apiauth.SessionCookie)
+			Expect(ok).To(BeTrue())
 			Expect(cookie.Token).To(HavePrefix("sys_"))
 			Expect(cookie.Lifetime).To(Equal(authSvc.IdleTimeout()))
 			Expect(MustSucceed(apiSvc.RenewSession(

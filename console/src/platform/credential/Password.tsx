@@ -17,6 +17,7 @@ import { Credential, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 
 export interface PasswordProps {
   /** The user whose password to set. */
@@ -41,6 +42,7 @@ export const Password = ({ subject, onChanged }: PasswordProps): ReactElement =>
       onChanged(true);
     },
   });
+  Modals.useBusy(set.variant === "loading");
   const handleCurrentPassword = (value: string) => {
     setCurrentPassword(value);
     onChanged(false);

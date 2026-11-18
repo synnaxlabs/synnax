@@ -9,32 +9,34 @@
 
 import { type ReactElement } from "react";
 
-import { Handle } from "@/schematic/node/common/handle";
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/common/primitive";
+import svg from "@/schematic/node/valves/IsoCheck.svg?raw";
+
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
-const DIMENSIONS = { width: 84, height: 42 };
+const SPEC = Custom.createBuiltIn({
+  svg,
+  handles: [
+    { key: "1", position: { x: 0.083333, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 0.964286, y: 0.5 }, orientation: "right" },
+  ],
+});
 
 export const IsoCheck = ({
   className,
   orientation = "left",
-  strokeColor: colorVal,
+  strokeColor,
   scale,
   ...rest
 }: Props): ReactElement => (
   <Primitive.Div {...rest} orientation={orientation}>
-    <Handle.Linear orientation={orientation} left={8.3333} right={96.4286} />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
-      strokeColor={colorVal}
+    <Custom.Drawing
+      spec={SPEC}
+      builtIn
+      strokeColor={strokeColor}
       orientation={orientation}
       scale={scale}
-    >
-      <Primitive.Circle cx="7" cy="7" r="4" fill="var(--pluto-symbol-display)" />
-      <Primitive.Path
-        d="M7 39.5V11.5941C7 9.42886 9.22384 7.97669 11.2063 8.84738L76.7937 37.6526C78.7762 38.5233 81 37.0711 81 34.9059V6"
-        strokeLinecap="round"
-      />
-    </Primitive.SVG>
+    />
   </Primitive.Div>
 );

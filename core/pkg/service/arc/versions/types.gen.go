@@ -76,3 +76,6 @@ const (
 	TypeAutomation Type = v4.TypeAutomation
 	TypeModule     Type = v4.TypeModule
 )
+
+// Calculation is a calculated channel that an automation reads, compiled to a module.
+type Calculation = v4.Calculation

@@ -30,6 +30,7 @@ var _ = Describe("Migration", func() {
 	migrate := func(ctx SpecContext, old v4.Panel) v5.Panel {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Panel]{DB: db}))
 		Expect(gorp.NewCreate[v4.Key, v4.Panel]().Entry(&old).Exec(ctx, db)).
 			To(Succeed())

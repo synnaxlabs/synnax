@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { type record, scheduler, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -19,8 +19,6 @@ import {
 } from "@/index";
 import { query } from "@/query";
 import { Space, type SpaceHooks } from "@/query/query";
-
-const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const expectDeleted = <D extends query.Data>(
   value: query.Cached<D> | undefined,
@@ -376,7 +374,7 @@ describe("Answers", () => {
         },
       );
       expect(await answers.retrieve(qA)).toEqual(1);
-      await wait(5);
+      await sleep.sleep(TimeSpan.milliseconds(5));
       expect(onError).not.toHaveBeenCalled();
     });
 
@@ -402,7 +400,7 @@ describe("Answers", () => {
           },
         );
         expect(await answers.retrieve(qA)).toEqual(1);
-        await wait(5);
+        await sleep.sleep(TimeSpan.milliseconds(5));
         expect(onError).not.toHaveBeenCalled();
       },
     );
@@ -713,7 +711,7 @@ describe("Answers", () => {
       off();
       answers.onChange({ min: 3 }, vi.fn());
       // Past the refetch debounce: a scheduled reconfirm would have landed.
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
     });
@@ -745,7 +743,7 @@ describe("Answers", () => {
       await answers.retrieve({ min: 3 });
       off();
       // The sweep runs at half-grace cadence; well past the window by now.
-      await wait(120);
+      await sleep.sleep(TimeSpan.milliseconds(120));
       table.set("b", rec("b", 1));
       answers.onChange({ min: 3 }, vi.fn());
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
@@ -769,7 +767,7 @@ describe("Answers", () => {
       off();
       table.set("a", rec("a", 1));
       // Past the refetch debounce: a scheduled refetch would have landed.
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
       answers.onChange({ searchTerm: "x" }, vi.fn());
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
@@ -792,7 +790,7 @@ describe("Answers", () => {
       await answers.retrieve({ searchTerm: "x" });
       off();
       table.set("a", rec("a", 1));
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       await answers.retrieve({ searchTerm: "x" });
       expect(fetch).toHaveBeenCalledTimes(2);
     });
@@ -825,7 +823,7 @@ describe("Answers", () => {
       await answers.retrieve({ searchTerm: "y" });
       answers.refetchMatching((q) => q.searchTerm === "x");
       await expect.poll(() => fetch.mock.calls.length).toBe(3);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch.mock.calls.map(([q]) => q.searchTerm)).toEqual(["x", "y", "x"]);
     });
 
@@ -837,7 +835,7 @@ describe("Answers", () => {
       await answers.retrieve({ searchTerm: "x" });
       off();
       answers.refetchMatching(() => true);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
       await answers.retrieve({ searchTerm: "x" });
       expect(fetch).toHaveBeenCalledTimes(2);
@@ -849,7 +847,7 @@ describe("Answers", () => {
       const answers = searchSpace(table, fetch);
       await answers.retrieve({ searchTerm: "x" });
       answers.refetchMatching(() => true);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
   });
@@ -945,7 +943,7 @@ describe("Answers", () => {
       const space = coveringSpace(table, fetch);
       const stop = space.onChange(qA, () => {});
       await space.retrieve(qA);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
       stop();
     });
@@ -961,7 +959,7 @@ describe("Answers", () => {
       });
       const space = coveringSpace(table, fetch);
       const stop = space.onChange(qA, () => {});
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       const reading = space.retrieve(qA);
       release();
       await reading;
@@ -1035,14 +1033,14 @@ describe("Answers", () => {
     it("leaves an entry written during a fetch to that fetch", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
-        await wait(0);
+        await scheduler.flushTaskQueue();
         table.set(rec("a", 0));
         return ["a"];
       });
       const space = coveringSpace(table, fetch);
       const stop = space.onChange(qA, () => {});
       await space.retrieve(qA);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
       stop();
     });
@@ -1101,7 +1099,7 @@ describe("Answers", () => {
         stop();
         const stopAgain = space.onChange(qA, () => {});
         // Past the refetch debounce: a scheduled reconfirm would have landed.
-        await wait(150);
+        await sleep.sleep(TimeSpan.milliseconds(150));
         expect(fetch).toHaveBeenCalledTimes(1);
         stopAgain();
       });
@@ -1125,7 +1123,7 @@ describe("Answers", () => {
         space.onChange(qA, () => {})();
         const stop = space.onChange(qA, () => {});
         // Past the refetch debounce: a scheduled reconfirm would have landed.
-        await wait(150);
+        await sleep.sleep(TimeSpan.milliseconds(150));
         expect(fetch).not.toHaveBeenCalled();
         expect(space.getCached(qA)).toEqual(1);
         stop();
@@ -1448,7 +1446,7 @@ describe("Answers", () => {
         .fn<() => Promise<string[]>>()
         .mockResolvedValueOnce([])
         .mockImplementationOnce(async () => {
-          await wait(250);
+          await sleep.sleep(TimeSpan.milliseconds(250));
           table.ingest([rec("a", 5)]);
           return ["a"];
         })
@@ -1477,7 +1475,7 @@ describe("Answers", () => {
       await answers.retrieve({ min: 3 });
       answers.onChange({ min: 3 }, vi.fn());
       // Past the refetch debounce: a scheduled reconfirm would have landed.
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -1585,7 +1583,7 @@ describe("Answers", () => {
         .fn<() => Promise<string[]>>()
         .mockImplementationOnce(async () => [])
         .mockImplementationOnce(async () => {
-          await wait(250);
+          await sleep.sleep(TimeSpan.milliseconds(250));
           return ["a"];
         })
         .mockImplementation(async () => ["a"]);
@@ -1605,7 +1603,7 @@ describe("Answers", () => {
       let members: Rec[] = [];
       const fetch = vi.fn(async () => {
         const read = members;
-        await wait(50);
+        await sleep.sleep(TimeSpan.milliseconds(50));
         table.ingest(read);
         return read.map(({ key }) => key);
       });
@@ -1620,7 +1618,7 @@ describe("Answers", () => {
       answers.onChange({ min: 3 }, vi.fn());
       expect(await answer).toEqual([rec("a", 5)]);
       // Past the refetch debounce: a queued refetch would have run.
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
@@ -2002,7 +2000,7 @@ describe("Answers", () => {
       await answers.retrieve({ min: 3, limit: 2 });
       table.set("b", rec("b", 4));
       expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 4)]);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -2028,7 +2026,7 @@ describe("Answers", () => {
       await answers.retrieve({ min: 3, limit: 2 });
       handler.mockClear();
       table.set("c", rec("c", 6));
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(handler).not.toHaveBeenCalled();
       expect(fetch).toHaveBeenCalledTimes(1);
     });
@@ -2042,7 +2040,7 @@ describe("Answers", () => {
       await answers.retrieve({ min: 3, limit: 3 });
       table.set("a", rec("a", 1));
       expect(handler).toHaveBeenLastCalledWith([rec("b", 4)]);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -2075,7 +2073,7 @@ describe("Answers", () => {
         rec("b", 4),
         rec("c", 6),
       ]);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -2136,7 +2134,7 @@ describe("Answers", () => {
       answers.onChange({ min: 3, limit: 2 }, vi.fn());
       await answers.retrieve({ min: 3, limit: 2 });
       table.set("z", rec("z", 1));
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -2229,7 +2227,7 @@ describe("Answers", () => {
       table.set("z", rec("z", 10));
       await expect.poll(() => fetch.mock.calls.length).toBe(3);
       older.resolve(["b"]);
-      await wait(0);
+      await scheduler.flushTaskQueue();
       expect(answers.getCached({ searchTerm: "x" })).toEqual([rec("a", 1)]);
       newer.resolve(["c"]);
       await expect
@@ -2262,7 +2260,7 @@ describe("Answers", () => {
       answers.onChange({ searchTerm: "" }, vi.fn());
       await answers.retrieve({ searchTerm: "" });
       table.set("z", rec("z", 9));
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
@@ -2342,7 +2340,7 @@ describe("Answers", () => {
       const pending = answers.retrieve({ searchTerm: "x" });
       members = ["a"];
       table.set("z", rec("z", 9));
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
       release();
       await pending;
@@ -2358,7 +2356,7 @@ describe("Answers", () => {
       await answers.retrieve({ searchTerm: "x" });
       expect(fetch).toHaveBeenCalledTimes(1);
       answers.onChange({ searchTerm: "x" }, vi.fn());
-      await wait(30);
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -2388,7 +2386,7 @@ describe("Answers", () => {
       const answers = searchSpace(table, fetch);
       answers.onChange({ searchTerm: "x" }, vi.fn());
       await answers.retrieve({ searchTerm: "x" });
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -2400,7 +2398,7 @@ describe("Answers", () => {
       answers.onChange({ searchTerm: "x" }, vi.fn());
       await answers.retrieve({ searchTerm: "x" });
       table.ingest([rec("b", 2), rec("c", 3)]);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -2414,7 +2412,7 @@ describe("Answers", () => {
       table.ingest(rec("b", 2));
       table.mirrorSet("b", rec("b", 2));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
@@ -2431,7 +2429,7 @@ describe("Answers", () => {
       table.set("z2", rec("z2", 2));
       table.set("z3", rec("z3", 3));
       await expect.poll(() => fetch.mock.calls.length).toBe(2);
-      await wait(30);
+      await sleep.sleep(TimeSpan.milliseconds(30));
       expect(fetch).toHaveBeenCalledTimes(2);
     });
   });
@@ -2461,7 +2459,7 @@ describe("Answers", () => {
       handler.mockClear();
       foreign.set("a", { key: "a" });
       expect(handler).toHaveBeenCalled();
-      await wait(150);
+      await sleep.sleep(TimeSpan.milliseconds(150));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -2613,7 +2611,7 @@ describe("Answers", () => {
       });
       await answers.retrieve(qA);
       bump(2);
-      await wait(10);
+      await sleep.sleep(TimeSpan.milliseconds(10));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -2633,7 +2631,7 @@ describe("Answers", () => {
       answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);
       bump(0);
-      await wait(10);
+      await sleep.sleep(TimeSpan.milliseconds(10));
       expect(fetch).toHaveBeenCalledTimes(1);
     });
   });

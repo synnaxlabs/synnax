@@ -17,7 +17,7 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// Static completion items for Oracle schema language
+// Static completion items for Oracle schema language.
 var (
 	keywordCompletions = []protocol.CompletionItem{
 		{
@@ -283,6 +283,11 @@ var (
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Regex pattern constraint"),
 		},
+		{
+			Label:  "finite",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Refuse NaN and infinite floats"),
+		},
 	}
 
 	outputExpressionCompletions = []protocol.CompletionItem{
@@ -411,10 +416,7 @@ func getCompletionsForContext(linePrefix string) []protocol.CompletionItem {
 	if strings.TrimSpace(trimmed) == "" {
 		return keywordCompletions
 	}
-	all := make([]protocol.CompletionItem, 0)
-	all = append(all, keywordCompletions...)
-	all = append(all, primitiveTypeCompletions...)
-	return all
+	return slices.Concat(keywordCompletions, primitiveTypeCompletions)
 }
 
 func extractPrefix(linePrefix string) string {

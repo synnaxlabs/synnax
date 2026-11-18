@@ -75,12 +75,8 @@ class ViewLifecycle(ConsoleCase):
         )
         self.console.labels.create(name=self.label_a_name)
         self.console.labels.create(name=self.label_b_name)
-        self.console.ranges.create(
-            self.range_a_name, persisted=True, labels=[self.label_a_name]
-        )
-        self.console.ranges.create(
-            self.range_b_name, persisted=True, labels=[self.label_b_name]
-        )
+        self.console.ranges.create(self.range_a_name, labels=[self.label_a_name])
+        self.console.ranges.create(self.range_b_name, labels=[self.label_b_name])
         self.console.statuses.create(self.status_a_name, labels=[self.label_a_name])
         self.console.statuses.create(self.status_b_name, labels=[self.label_b_name])
 
@@ -147,7 +143,7 @@ class ViewLifecycle(ConsoleCase):
                 unlabeled=self.range_n_name,
             )
         )
-        self.console.layout.close_tab("Range explorer")
+        ranges.views.close_tab()
 
         # Statuses have no label-edit path: the Console has no UI for it and the
         # Python client has no label client. Relabel is skipped for them.
@@ -177,6 +173,7 @@ class ViewLifecycle(ConsoleCase):
         explorer.open()
         self.test_create_views(explorer, view_a=view_a, view_b=view_b)
         self.test_switch_between_views(explorer, view_a=view_a, view_b=view_b)
+        self.test_open_in_new_tab(explorer, view_name=view_a)
         self.test_relabel_moves_item(explorer, view_a=view_a, view_b=view_b)
         self.test_delete_item_leaves_view(explorer, view_a=view_a, view_b=view_b)
         self.test_rename_view(explorer, view_name=view_a, renamed=renamed)
@@ -238,20 +235,36 @@ class ViewLifecycle(ConsoleCase):
         self.log(f"Testing: Switch between views in {explorer.name} Explorer")
         views = explorer.views
         views.select(view_a)
+        views.get_tab(view_a).wait_for(state="visible", timeout=5000)
         self._assert_only(
             explorer,
             shown=[explorer.labeled_a],
             hidden=[explorer.labeled_b, explorer.unlabeled],
         )
         views.select(view_b)
+        views.get_tab(view_b).wait_for(state="visible", timeout=5000)
         self._assert_only(
             explorer, shown=[explorer.labeled_b], hidden=[explorer.labeled_a]
         )
         views.select(views.static_view_name)
+        views.get_tab(views.static_view_name).wait_for(state="visible", timeout=5000)
         self._assert_only(
             explorer,
             shown=[explorer.labeled_a, explorer.labeled_b, explorer.unlabeled],
             hidden=[],
+        )
+
+    def test_open_in_new_tab(self, explorer: _Explorer, *, view_name: str) -> None:
+        """Test opening a view in a new tab leaves the view of the current tab."""
+        self.log(f"Testing: Open view in new tab in {explorer.name} Explorer")
+        views = explorer.views
+        static = views.static_view_name
+        views.select(static)
+        views.open_in_new_tab(view_name)
+        views.close_tab(view_name)
+        views.get_tab(static).wait_for(state="visible", timeout=5000)
+        assert views.is_selected(static), (
+            f"'{static}' should stay selected in the tab the view opened from"
         )
 
     def test_relabel_moves_item(
@@ -306,15 +319,25 @@ class ViewLifecycle(ConsoleCase):
     def test_delete_view(
         self, explorer: _Explorer, *, view_name: str, other: str
     ) -> None:
-        """Test deleting the selected view snaps back to the static view and leaves
-        other views intact."""
+        """Test deleting the open view leaves its tab open on a tombstone that restores
+        it, and deleting another view leaves the open one intact."""
         self.log(f"Testing: Delete view in {explorer.name} Explorer")
         views = explorer.views
+        layout = self.console.layout
         views.select(view_name)
         views.delete(view_name)
+        tombstone = layout.get_tombstone(view_name)
+        tombstone.wait_for(state="visible", timeout=5000)
+        layout.restore_tombstone(view_name)
+        tombstone.wait_for(state="hidden", timeout=5000)
+        assert views.is_selected(view_name), (
+            f"'{view_name}' should be open again after its restore"
+        )
         static = views.static_view_name
+        views.select(static)
+        views.delete(view_name)
         assert views.is_selected(static), (
-            f"'{static}' should be selected after deleting '{view_name}'"
+            f"'{static}' should stay open after deleting '{view_name}'"
         )
         assert views.exists(other), f"'{other}' should survive deleting '{view_name}'"
         remaining = [

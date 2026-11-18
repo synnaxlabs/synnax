@@ -9,15 +9,16 @@
 
 """Pure-demand pool scaling, driven by controller.py's poll cycle. Queued self-hosted
 jobs beyond a pool's idle runners start its offline instances; once a pool's queue is
-empty, runners idle past the cooldown are drained, then stopped. A drain writes false
-to <runner>_gh_cmd for agent.py to act on, and a start or a stop writes
-<runner>_ec2_cmd for dispatch.py to act on."""
+empty, runners idle past the cooldown are drained, unregistered from GitHub, then
+stopped. A drain writes false to <runner>_gh_cmd for agent.py to act on, and a start or
+a stop writes <runner>_ec2_cmd for dispatch.py to act on."""
 
 import synnax as sy
 
 from commander import Commander
-from common import IDLE, OFFLINE, instance_for
+from common import IDLE, OFFLINE, Writes, instance_for
 from gate import Gate
+from github import GitHub
 from log import Log
 from pools import POOLS, Pool, pool_of
 
@@ -35,24 +36,30 @@ class Scaler:
     still booting, and runners just commanded to start, count toward a pool's demand. An
     instance stops only after its runner is drained and offline: the agent holds a drain
     while a job runs, so a runner that takes a job after the decision keeps its
-    instance. A drain is sent again each RECOMMAND_DELAY while the runner stays online.
-    Once the instance is stopped, the runner is enabled again for its next start, unless
-    the gate is closed. While disabled, the writer is closed and no drain, start, or
-    stop is written, but idle time keeps accruing and each decision is logged once,
-    marked [DISABLED], so enabling clears whatever backlog built up. A runner this
-    scaler drained is enabled again while disabled, so no drain outlives the switch.
+    instance. The runner's GitHub registration is deleted before the stop, so GitHub
+    cannot assign a job to a runner that is going down; a runner GitHub still has a job
+    for keeps its instance and is enabled again to take the job. The caller reports a
+    runner GitHub does not list as offline, and its start registers it again. A drain is
+    sent again each RECOMMAND_DELAY while the runner stays online. Once the instance is
+    stopped, the runner is enabled again for its next start, unless the gate is closed.
+    While disabled, the writer is closed and no drain, start, stop, or delete is sent,
+    but idle time keeps accruing and each decision is logged once, marked [DISABLED], so
+    enabling clears whatever backlog built up. A runner this scaler drained is enabled
+    again while disabled, so no drain outlives the switch.
 
     :param gate: Sends the runner commands, and holds the last one of each runner.
+    :param github: Deletes runner registrations.
     """
 
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Writes,
         cooldown: sy.TimeSpan,
         boot_grace: sy.TimeSpan,
         log: Log,
         gate: Gate,
+        github: GitHub,
         enabled: bool = True,
     ) -> None:
         self.commander = Commander(
@@ -64,6 +71,7 @@ class Scaler:
         )
         self.log = log
         self.gate = gate
+        self.github = github
         self.cooldown = cooldown
         self.boot_grace = boot_grace
         self.enabled = enabled
@@ -174,6 +182,16 @@ class Scaler:
                     not self.drained(r) or r in runners_ready
                 ):
                     drains[r] = False
+        # Runners GitHub refused to delete because it bound a job to them.
+        bound: set[str] = set()
+        if self.enabled:
+            for r in [r for r, start in commands.items() if not start]:
+                if not self.github.delete(r):
+                    del commands[r]
+                    bound.add(r)
+                    # A fresh cooldown gives the runner time to take the job.
+                    self.idle_since.pop(r, None)
+                    self.log(f"{r} has a job, starting its runner to take it")
         self.drains = {r for r in self.drains if self.drained(r)}
         enables: dict[str, bool] = {}
         for r in known if self.gate.enabled else ():
@@ -189,7 +207,7 @@ class Scaler:
                 enabling = r in self.drains and (
                     state == "stopped" or (state == "running" and r in ready)
                 )
-            if enabling:
+            if enabling or r in bound:
                 enables[r] = True
         if enables:
             self.gate.commander.command(enables, now=now)

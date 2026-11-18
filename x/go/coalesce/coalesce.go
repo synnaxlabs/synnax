@@ -14,13 +14,11 @@ package coalesce
 
 import (
 	"context"
-	"io"
+	"runtime/pprof"
 	"sync"
 
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -28,11 +26,10 @@ import (
 type Config[K comparable, V any] struct {
 	// Handle does the work for the latest value of each key added since its previous
 	// call. It runs on the goroutine of the Worker, one call at a time. Its context
-	// ends when Close runs.
+	// ends when Close runs or the context passed to Open ends.
 	//
 	// [REQUIRED]
 	Handle func(ctx context.Context, latest map[K]V)
-	alamos.Instrumentation
 }
 
 var _ config.Config[Config[int, int]] = Config[int, int]{}
@@ -40,7 +37,6 @@ var _ config.Config[Config[int, int]] = Config[int, int]{}
 // Override implements config.Config.
 func (c Config[K, V]) Override(other Config[K, V]) Config[K, V] {
 	c.Handle = override.Nil(c.Handle, other.Handle)
-	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -61,21 +57,29 @@ type Worker[K comparable, V any] struct {
 		latest map[K]V
 	}
 	// wake holds a signal when mu.latest holds a value.
-	wake     chan struct{}
-	shutdown io.Closer
+	wake   chan struct{}
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
-// Open starts a Worker. Close it to stop the goroutine.
-func Open[K comparable, V any](cfgs ...Config[K, V]) (*Worker[K, V], error) {
+// Open starts a Worker whose goroutine runs until ctx ends or Close runs. Close it to
+// wait for the goroutine.
+func Open[K comparable, V any](
+	ctx context.Context,
+	cfgs ...Config[K, V],
+) (*Worker[K, V], error) {
 	cfg, err := config.New(Config[K, V]{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	w := &Worker[K, V]{cfg: cfg, wake: make(chan struct{}, 1)}
 	w.mu.latest = make(map[K]V)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	sCtx.Go(w.run, signal.WithKey("coalesce"))
-	w.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	ctx, cancel := context.WithCancel(ctx)
+	w.cancel = cancel
+	w.wg.Go(func() {
+		defer cancel()
+		pprof.Do(ctx, pprof.Labels("routine", "coalesce"), w.run)
+	})
 	return w, nil
 }
 
@@ -90,14 +94,19 @@ func (w *Worker[K, V]) Add(key K, value V) {
 	}
 }
 
-// Close stops the Worker. Values that no call of Handle started on are not handled.
-func (w *Worker[K, V]) Close() error { return w.shutdown.Close() }
+// Close stops the Worker and waits for its goroutine to exit. Values that no call of
+// Handle started on are not handled.
+func (w *Worker[K, V]) Close() error {
+	w.cancel()
+	w.wg.Wait()
+	return nil
+}
 
-func (w *Worker[K, V]) run(ctx context.Context) error {
+func (w *Worker[K, V]) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		case <-w.wake:
 		}
 		w.mu.Lock()

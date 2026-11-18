@@ -1367,8 +1367,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				) {
 					GinkgoHelper()
 					start := telem.SecondTS * stamps[0]
-					keys := []channel.Key{index.Key()}
-					series := []telem.Series{telem.NewSeriesSecondsTSV(stamps...)}
+					keys := append(make([]channel.Key, 0, 1+len(channels)), index.Key())
+					series := append(
+						make([]telem.Series, 0, 1+len(channels)),
+						telem.NewSeriesSecondsTSV(stamps...),
+					)
 					for i, ch := range channels {
 						keys = append(keys, ch.Key())
 						series = append(series, telem.NewSeriesV[float32](values[i]...))
@@ -2826,8 +2829,10 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
+				kv := DeferClose(memkv.New())
 				store := &storage.Layer{
-					KV: DeferClose(memkv.New()),
+					KV:   kv,
+					Gorp: gorp.Wrap(kv),
 					TS: DeferClose(MustSucceed(cesium.Open(
 						ctx,
 						"",
@@ -2835,13 +2840,14 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						cesium.WithChunkSize(14),
 					))),
 				}
+				StartRun(store.Run)
 				node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 				iteratorSvc, channelSvc = openServices(ctx, node)
 				createSensor(ctx, node, channelSvc)
 			})
 			// values returns the samples of every series in m, in order.
 			values := func(m telem.MultiSeries) []float32 {
-				var out []float32
+				out := make([]float32, 0, m.Len())
 				for _, s := range m.Series {
 					out = append(out, s.Unmarshal[float32]()...)
 				}
@@ -3098,10 +3104,13 @@ var _ = Describe("Read failure", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		faulty = WrapFaultyFS(xfs.NewMem())
+		kv := DeferClose(memkv.New())
 		store := &storage.Layer{
-			KV: DeferClose(memkv.New()),
-			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
+			KV:   kv,
+			Gorp: gorp.Wrap(kv),
+			TS:   DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faulty}))),
 		}
+		StartRun(store.Run)
 		node = testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
 		iteratorSvc, channelSvc = openServices(ctx, node)
 	})

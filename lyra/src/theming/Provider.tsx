@@ -66,18 +66,17 @@ const parseThemes = (
   themes: Record<string, baseTheme.ThemeSpec>,
 ): Record<string, baseTheme.Theme> => {
   if (theme != null) {
-    // The override applies to both variants and each keeps its own key, since
-    // consumers tell light from dark by key. The caller's key pins a variant when it
-    // names one and is otherwise ignored.
-    const { key: _, ...override } = theme;
+    // The override applies to both variants, and each keeps its own key and mode. The
+    // caller's key pins a variant when it names one and is otherwise ignored.
+    const { key: _, dark: __, ...override } = theme;
     const synnaxLight = zod.parse(
       baseTheme.themeZ,
-      deep.override(deep.copy(baseTheme.SYNNAX_LIGHT), override),
+      deep.override(baseTheme.SYNNAX_LIGHT, override),
       { label: "theme" },
     );
     const synnaxDark = zod.parse(
       baseTheme.themeZ,
-      deep.override(deep.copy(baseTheme.SYNNAX_DARK), override),
+      deep.override(baseTheme.SYNNAX_DARK, override),
       { label: "theme" },
     );
     return { synnaxLight, synnaxDark };

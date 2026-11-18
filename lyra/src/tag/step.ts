@@ -10,11 +10,13 @@
 import { CSS } from "@/css";
 
 const TAG = CSS.B("tag");
+const DOT_ICON = CSS.BM("icon", "dot");
 const MORE = CSS.BE("tags", "more");
 // React owns class names and rewrites them on render, so the step marks its state with
 // data attributes instead.
 const LAST = "data-last";
 const DOT = "data-dot";
+const FIRST_DOT = "data-first-dot";
 const EMPTY = "data-empty";
 const ENTERING = "data-entering";
 const MEASURING = "data-measuring";
@@ -471,13 +473,18 @@ const write = (
   const overlap = shown > 0 && full(f, shown, count) > room;
   el.toggleAttribute(STACKED, overlap);
   el.toggleAttribute(EMPTY, shown === 0 && f.frame + count > room);
+  // Only a tag that shows a color dot stands as one in the count.
+  const dots = tags
+    .slice(shown)
+    .filter((t) => t.querySelector(`:scope > .${DOT_ICON}`) != null)
+    .slice(0, DOTS);
   set(el, "--lyra-tags-gap", `${f.gap}px`);
-  set(el, "--lyra-tags-dots", String(Math.min(DOTS, tags.length - shown)));
+  set(el, "--lyra-tags-dots", String(dots.length));
   tags.forEach((t, i) => {
-    const dot = i >= shown && i < shown + DOTS;
     t.toggleAttribute(HIDDEN, i >= shown);
     t.toggleAttribute(LAST, overlap && i === shown - 1);
-    t.toggleAttribute(DOT, dot);
+    t.toggleAttribute(DOT, dots.includes(t));
+    t.toggleAttribute(FIRST_DOT, t === dots[0]);
   });
   const more = moreOf(el);
   if (more == null) return;

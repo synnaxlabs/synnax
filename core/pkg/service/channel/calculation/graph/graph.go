@@ -137,10 +137,11 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	}); err != nil {
 		return nil, err
 	}
-	if g.changed, err = coalesce.Open(coalesce.Config[channel.Key, channelChange]{
-		Instrumentation: cfg.Instrumentation,
-		Handle:          g.handleChanges,
-	}); err != nil {
+	// ctx can end before the Graph closes.
+	if g.changed, err = coalesce.Open(
+		context.WithoutCancel(ctx),
+		coalesce.Config[channel.Key, channelChange]{Handle: g.handleChanges},
+	); err != nil {
 		return nil, err
 	}
 	g.disconnect = cfg.Channel.Observe().OnChange(func(_ context.Context, r Changes) {

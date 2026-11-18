@@ -27,6 +27,7 @@ from examples.opcua import OPCUASim
 
 import synnax as sy
 from framework import resources
+from framework.utils import hold
 from synnax import modbus, opcua
 from tests.driver.modbus_read import ModbusReadCoil, ModbusReadInputRegister
 from tests.driver.modbus_write import ModbusWriteCoil
@@ -227,7 +228,7 @@ class GrandFinale(SimulatorCase):
         self.log("Test 5 - Verify read sample counts")
 
         start_time = sy.TimeStamp.now()
-        sy.sleep(self.TASK_DURATION.seconds * 1.25)  # noqa: TID251 fixed sample window
+        hold(self.TASK_DURATION.seconds * 1.25, reason="fixed sample window")
         stack.close()
         end_time = sy.TimeStamp.now()
 

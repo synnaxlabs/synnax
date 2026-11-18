@@ -44,7 +44,7 @@ type Host struct {
 	stateI64    map[string]map[uint32]int64
 	stateF32    map[string]map[uint32]float32
 	stateF64    map[string]map[uint32]float64
-	stateBool   map[string]map[uint32]bool //nolint:set
+	stateBool   map[string]map[uint32]uint8
 	stateString map[string]map[uint32]string
 	stateSeries map[string]map[uint32]telem.Series
 }
@@ -95,7 +95,7 @@ func NewHost(
 		stateI64:    make(map[string]map[uint32]int64),
 		stateF32:    make(map[string]map[uint32]float32),
 		stateF64:    make(map[string]map[uint32]float64),
-		stateBool:   make(map[string]map[uint32]bool), //nolint:set
+		stateBool:   make(map[string]map[uint32]uint8),
 		stateString: make(map[string]map[uint32]string),
 		stateSeries: make(map[string]map[uint32]telem.Series),
 	}
@@ -258,16 +258,13 @@ func bindScalarBool(builder wazero.HostModuleBuilder, h *Host) {
 			key := h.currentNodeKey
 			inner, ok := h.stateBool[key]
 			if !ok {
-				inner = make(map[uint32]bool) //nolint:set
+				inner = make(map[uint32]uint8)
 				h.stateBool[key] = inner
 			}
 			if value, ok := inner[varID]; ok {
-				if value {
-					return 1
-				}
-				return 0
+				return uint32(value)
 			}
-			inner[varID] = initValue != 0
+			inner[varID] = toBool(initValue)
 			return initValue
 		}).Export("load_bool")
 	builder.NewFunctionBuilder().
@@ -275,11 +272,18 @@ func bindScalarBool(builder wazero.HostModuleBuilder, h *Host) {
 			key := h.currentNodeKey
 			inner, ok := h.stateBool[key]
 			if !ok {
-				inner = make(map[uint32]bool) //nolint:set
+				inner = make(map[uint32]uint8)
 				h.stateBool[key] = inner
 			}
-			inner[varID] = value != 0
+			inner[varID] = toBool(value)
 		}).Export("store_bool")
+}
+
+func toBool(v uint32) uint8 {
+	if v != 0 {
+		return 1
+	}
+	return 0
 }
 
 func bindScalarF32(builder wazero.HostModuleBuilder, h *Host) {

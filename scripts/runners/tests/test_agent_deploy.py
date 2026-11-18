@@ -10,11 +10,12 @@
 import base64
 import sys
 from pathlib import Path
-from typing import cast
 from urllib.request import Request
 
 import pytest
 import synnax as sy
+from mypy_boto3_ssm.literals import CommandInvocationStatusType
+from mypy_boto3_ssm.type_defs import CommandPluginTypeDef
 
 import agent_deploy
 import conftest
@@ -22,13 +23,12 @@ from agent_deploy import (
     POLL,
     STOP_LINUX,
     STOP_WINDOWS,
+    Invocations,
     install_commands,
     public_address,
     run,
     scaler_paused,
 )
-from aws import AWS
-from conftest import core
 from scaler import SCALER_CMD
 
 COMMIT = "a" * 40
@@ -62,7 +62,7 @@ class Fleet:
     def __init__(self, **instances: dict) -> None:
         self.found = {i.replace("_", "-"): info for i, info in instances.items()}
         self.sent: dict[str, list[str]] = {}
-        self.statuses: dict[str, list[str | None]] = {}
+        self.statuses: dict[str, list[CommandInvocationStatusType | None]] = {}
         self.outputs: dict[str, str] = {}
         self.rejections: dict[str, int] = {}
         self.started: list[str] = []
@@ -92,21 +92,22 @@ class Fleet:
 
     def list_command_invocations(
         self, *, CommandId: str, InstanceId: str, Details: bool
-    ) -> dict:
+    ) -> Invocations:
         assert CommandId == f"command-{InstanceId}"
         queue = self.statuses.get(InstanceId, ["Success"])
         status = queue.pop(0) if len(queue) > 1 else queue[0]
         if status is None:
             return {"CommandInvocations": []}
-        plugin = {"Output": self.outputs.get(InstanceId, "")}
-        return {"CommandInvocations": [{"Status": status, "CommandPlugins": [plugin]}]}
+        plugins: list[CommandPluginTypeDef] = [
+            {"Output": self.outputs.get(InstanceId, "")}
+        ]
+        return {"CommandInvocations": [{"Status": status, "CommandPlugins": plugins}]}
 
 
 def send(fleet: Fleet, *, start_stopped: bool = False) -> bool:
     return run(
-        cast(AWS, fleet),
-        linux=LINUX_COMMANDS,
-        windows=WINDOWS_COMMANDS,
+        fleet,
+        commands=lambda _: (LINUX_COMMANDS, WINDOWS_COMMANDS),
         start_stopped=start_stopped,
     )
 
@@ -122,8 +123,8 @@ def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[sy.TimeSpan]:
 @pytest.fixture
 def fleet() -> Fleet:
     return Fleet(
-        i_0aaa=instance("ubuntu-build-bot"),
-        i_0bbb=instance("windows-build-bot", windows=True),
+        i_0aaa=instance("ubuntu-build-new"),
+        i_0bbb=instance("windows-build-new", windows=True),
     )
 
 
@@ -139,7 +140,7 @@ class TestRun:
         assert send(fleet)
         assert fleet.sent == {UBUNTU: LINUX_COMMANDS, WINDOWS: WINDOWS_COMMANDS}
         assert capsys.readouterr().out == (
-            "i-0aaa ubuntu-build-bot: Success\ni-0bbb windows-build-bot: Success\n"
+            "i-0aaa ubuntu-build-new: Success\ni-0bbb windows-build-new: Success\n"
         )
 
     def test_should_skip_an_instance_that_is_not_a_runner(self) -> None:
@@ -153,11 +154,11 @@ class TestRun:
         sleeps: list[sy.TimeSpan],
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        fleet.found[WINDOWS] = instance("windows-build-bot", state="stopped")
+        fleet.found[WINDOWS] = instance("windows-build-new", state="stopped")
         assert send(fleet)
         assert list(fleet.sent) == [UBUNTU]
         assert fleet.started == []
-        assert "i-0bbb windows-build-bot: stopped\n" in capsys.readouterr().out
+        assert "i-0bbb windows-build-new: stopped\n" in capsys.readouterr().out
 
     def test_should_wait_until_each_command_ends(
         self, fleet: Fleet, sleeps: list[sy.TimeSpan]
@@ -176,7 +177,7 @@ class TestRun:
         fleet.outputs[WINDOWS] = "RunnerAgent did not stay up\n"
         assert not send(fleet)
         assert capsys.readouterr().out.endswith(
-            "i-0bbb windows-build-bot: Failed\nRunnerAgent did not stay up\n"
+            "i-0bbb windows-build-new: Failed\nRunnerAgent did not stay up\n"
         )
 
     def test_should_send_again_until_ssm_takes_the_runner(
@@ -197,8 +198,8 @@ class TestRun:
         fleet.statuses[WINDOWS] = ["InProgress"]
         assert not send(fleet)
         out = capsys.readouterr().out
-        assert "i-0aaa ubuntu-build-bot: not sent, ValueError\n" in out
-        assert "i-0bbb windows-build-bot: InProgress\n" in out
+        assert "i-0aaa ubuntu-build-new: not sent, ValueError\n" in out
+        assert "i-0bbb windows-build-new: InProgress\n" in out
 
 
 class TestStart:
@@ -211,7 +212,7 @@ class TestStart:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         fleet.found[WINDOWS] = instance(
-            "windows-build-bot", windows=True, state="stopped"
+            "windows-build-new", windows=True, state="stopped"
         )
         assert send(fleet, start_stopped=True)
         assert fleet.started == [WINDOWS]
@@ -223,7 +224,7 @@ class TestStart:
     def test_should_start_a_runner_once_it_is_stopped(
         self, fleet: Fleet, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        fleet.found[UBUNTU] = instance("ubuntu-build-bot", state="stopping")
+        fleet.found[UBUNTU] = instance("ubuntu-build-new", state="stopping")
 
         def sleep(span: sy.TimeSpan) -> None:
             if fleet.found[UBUNTU]["state"] == "stopping":
@@ -236,7 +237,7 @@ class TestStart:
     def test_should_skip_a_terminated_runner(
         self, fleet: Fleet, sleeps: list[sy.TimeSpan]
     ) -> None:
-        fleet.found[UBUNTU] = instance("ubuntu-build-bot", state="terminated")
+        fleet.found[UBUNTU] = instance("ubuntu-build-new", state="terminated")
         assert send(fleet, start_stopped=True)
         assert fleet.started == []
         assert list(fleet.sent) == [WINDOWS]
@@ -247,10 +248,10 @@ class TestStart:
         sleeps: list[sy.TimeSpan],
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        fleet.found[UBUNTU] = instance("ubuntu-build-bot", state="stopped")
+        fleet.found[UBUNTU] = instance("ubuntu-build-new", state="stopped")
         fleet.full = True
         assert not send(fleet, start_stopped=True)
-        assert "i-0aaa ubuntu-build-bot: not started, RuntimeError\n" in (
+        assert "i-0aaa ubuntu-build-new: not started, RuntimeError\n" in (
             capsys.readouterr().out
         )
 
@@ -261,24 +262,54 @@ class TestStart:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         monkeypatch.setattr(agent_deploy, "TIMEOUT", sy.TimeSpan(0))
-        fleet.found[UBUNTU] = instance("ubuntu-build-bot", state="stopping")
+        fleet.found[UBUNTU] = instance("ubuntu-build-new", state="stopping")
         assert not send(fleet, start_stopped=True)
-        assert "i-0aaa ubuntu-build-bot: stopping\n" in capsys.readouterr().out
+        assert "i-0aaa ubuntu-build-new: stopping\n" in capsys.readouterr().out
 
 
 class TestInstallCommands:
     """Tests for the commands that install the agent on a runner."""
 
     def test_should_run_the_install_script_of_the_commit_on_each_system(self) -> None:
-        linux, windows = install_commands(commit=COMMIT, host="203.0.113.7", ca="Y2E=")
+        linux, windows = install_commands(
+            commit=COMMIT,
+            host="203.0.113.7",
+            ca="Y2E=",
+            info=instance("ubuntu-build-new"),
+        )
         source = f"https://raw.githubusercontent.com/synnaxlabs/synnax/{COMMIT}"
         assert linux == [
             f"curl -fsSL -o /tmp/agent_install.sh {source}/scripts/runners/"
-            f"agent_install.sh && bash /tmp/agent_install.sh {COMMIT} 203.0.113.7 Y2E="
+            f"agent_install.sh && bash /tmp/agent_install.sh {COMMIT} 203.0.113.7 Y2E= "
+            "ubuntu-build-bot self-hosted,linux,x64,ubuntu-build-bot"
         ]
         assert f"'{source}/scripts/runners/agent_install.ps1'" in windows[-1]
         assert f"-Commit '{COMMIT}' -CoreHost '203.0.113.7' -Ca 'Y2E='" in windows[-1]
         assert windows[-1].endswith("catch { Write-Output $_; exit 1 }")
+
+    def test_should_install_the_start_of_the_runner_pool(self) -> None:
+        _, windows = install_commands(
+            commit=COMMIT,
+            host="203.0.113.7",
+            ca="Y2E=",
+            info=instance("windows-tester-new", windows=True),
+        )
+        assert (
+            "-Prefix 'windows-tester' "
+            "-Labels 'self-hosted,Windows,X64,windows-latest,windows-test-bot'"
+        ) in windows[-1]
+
+    def test_should_search_every_known_runner_folder(self) -> None:
+        _, windows = install_commands(
+            commit=COMMIT,
+            host="203.0.113.7",
+            ca="Y2E=",
+            info=instance("windows-tester-new", windows=True),
+        )
+        assert (
+            "-Runners 'C:\\actions-runner', "
+            "'C:\\Users\\Administrator\\Desktop\\actions-runner' }"
+        ) in windows[-1]
 
 
 class TestPublicAddress:
@@ -300,11 +331,14 @@ class TestPublicAddress:
 
 
 class Switch(conftest.Writer):
+    def __init__(self, *, controller: "Controller", start: sy.TimeStamp) -> None:
+        super().__init__(client=controller, start=start)
+        self.controller = controller
+
     def write(self, frame: dict) -> None:
         super().write(frame)
-        controller = cast(Controller, self.client)
-        if not controller.deaf:
-            controller.state = frame[SCALER_CMD]
+        if not self.controller.deaf:
+            self.controller.state = frame[SCALER_CMD]
 
 
 class Controller(conftest.Client):
@@ -321,7 +355,7 @@ class Controller(conftest.Client):
     def open_writer(
         self, start: sy.TimeStamp, *args: object, **kwargs: object
     ) -> Switch:
-        return Switch(client=self, start=start)
+        return Switch(controller=self, start=start)
 
     def read(self, time_range: sy.TimeRange, name: str) -> list[bool]:
         return [] if self.state is None else [self.state]
@@ -335,7 +369,7 @@ class TestScalerPaused:
 
     def test_should_turn_the_scaler_off_for_the_block_and_on_after(self) -> None:
         client = Controller()
-        with scaler_paused(core(client)):
+        with scaler_paused(client):
             assert client.state is False
         assert client.written(SCALER_CMD) == [False, True]
 
@@ -344,13 +378,13 @@ class TestScalerPaused:
         self, state: bool | None
     ) -> None:
         client = Controller(state)
-        with scaler_paused(core(client)):
+        with scaler_paused(client):
             pass
         assert client.written(SCALER_CMD) == []
 
     def test_should_turn_the_scaler_on_again_when_the_block_fails(self) -> None:
         client = Controller()
-        with pytest.raises(RuntimeError, match="lost"), scaler_paused(core(client)):
+        with pytest.raises(RuntimeError, match="lost"), scaler_paused(client):
             raise RuntimeError("lost")
         assert client.written(SCALER_CMD) == [False, True]
 
@@ -360,7 +394,7 @@ class TestScalerPaused:
         monkeypatch.setattr(agent_deploy, "SWITCH_TIMEOUT", sy.TimeSpan(0))
         client = Controller()
         client.deaf = True
-        with pytest.raises(TimeoutError), scaler_paused(core(client)):
+        with pytest.raises(TimeoutError), scaler_paused(client):
             pass
         assert client.written(SCALER_CMD) == [False, True]
 
@@ -387,19 +421,30 @@ class TestMain:
         assert fleet.sent == {UBUNTU: STOP_LINUX, WINDOWS: STOP_WINDOWS}
         assert controller.written(SCALER_CMD) == []
 
+    @pytest.mark.parametrize("action", ["stop", "install"])
+    def test_should_change_no_runner_when_one_has_no_pool(
+        self, fleet: Fleet, monkeypatch: pytest.MonkeyPatch, action: str
+    ) -> None:
+        fleet.found["i-0ccc"] = instance("other", state="stopped")
+        argv = (action,) if action == "stop" else (action, "--commit", COMMIT)
+        with pytest.raises(LookupError, match="i-0ccc"):
+            start(monkeypatch, fleet, Controller(), *argv)
+        assert fleet.sent == {}
+        assert fleet.started == []
+
     def test_should_install_the_agent_with_the_scaler_off(
         self, fleet: Fleet, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         cert = tmp_path / "ca.crt"
         cert.write_bytes(b"certificate")
         fleet.found[WINDOWS] = instance(
-            "windows-build-bot", windows=True, state="stopped"
+            "windows-build-new", windows=True, state="stopped"
         )
         controller = Controller()
         argv = ("install", "--commit", COMMIT, "--secure", "--ca-cert", str(cert))
         assert start(monkeypatch, fleet, controller, *argv) == 0
         ca = base64.b64encode(b"certificate").decode()
-        assert fleet.sent[UBUNTU][0].endswith(f"{COMMIT} 203.0.113.7 {ca}")
+        assert f"{COMMIT} 203.0.113.7 {ca} ubuntu-build-bot " in fleet.sent[UBUNTU][0]
         assert fleet.started == [WINDOWS]
         assert controller.written(SCALER_CMD) == [False, True]
         assert controller.closed

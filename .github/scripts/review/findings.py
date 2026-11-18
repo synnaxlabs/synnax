@@ -68,12 +68,16 @@ class Finding:
 
 @dataclass(frozen=True, kw_only=True)
 class Dismissal:
-    """A finding that a member told the bot to stop reporting on a pull request."""
+    """A finding that someone with write access told the bot to stop reporting on a
+    pull request, or that the bot withdrew after a rebuttal."""
 
     path: str
     title: str
     reason: str
-    """What the member wrote beside the command. It can be empty."""
+    """What the member wrote beside the command, or the bot's reason to withdraw. It
+    can be empty."""
+    withdrawn: bool = False
+    """The bot withdrew the finding, and no member dismissed it."""
 
 
 @dataclass(frozen=True, kw_only=True)

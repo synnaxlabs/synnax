@@ -241,4 +241,63 @@ describe("remove", () => {
       { key: "item.two", value: 2 },
     ]);
   });
+
+  it("should remove a key that holds undefined", () => {
+    const obj: { a?: number; b: number } = { a: undefined, b: 1 };
+    deep.remove(obj, "a");
+    expect(Object.keys(obj)).toEqual(["b"]);
+  });
+
+  it("should remove a key that holds null", () => {
+    const obj: { a: null; b?: number } = { a: null, b: 1 };
+    deep.remove(obj, "a");
+    expect(obj).toEqual({ b: 1 });
+  });
+
+  it("should do nothing for a missing entry of a keyed list", () => {
+    const obj = { items: [{ key: "a" }, { key: "b" }] };
+    deep.remove(obj, "items.c");
+    expect(obj.items).toEqual([{ key: "a" }, { key: "b" }]);
+  });
+
+  it("should do nothing for a field of a missing entry", () => {
+    const obj = { items: [{ key: "a", value: 1 }] };
+    deep.remove(obj, "items.c.value");
+    expect(obj.items).toEqual([{ key: "a", value: 1 }]);
+  });
+
+  it("should do nothing for a path through null", () => {
+    const obj = { a: null };
+    deep.remove(obj, "a.b");
+    expect(obj).toEqual({ a: null });
+  });
+
+  it("should remove the longest key when a shorter key also matches", () => {
+    const obj = { a: { b: 1 }, "a.b": 2 };
+    deep.remove(obj, "a.b");
+    expect(obj).toEqual({ a: { b: 1 } });
+  });
+
+  it("should remove by index before key", () => {
+    const obj = {
+      items: [
+        { key: "1", value: "first" },
+        { key: "0", value: "second" },
+      ],
+    };
+    deep.remove(obj, "items.1");
+    expect(obj.items).toEqual([{ key: "1", value: "first" }]);
+  });
+
+  it("should remove the entry with a dot in its key", () => {
+    const obj = { items: [{ key: "ns=1;s=a.b" }, { key: "ns=1;s=a" }] };
+    deep.remove(obj, "items.ns=1;s=a.b");
+    expect(obj.items).toEqual([{ key: "ns=1;s=a" }]);
+  });
+
+  it("should not remove array properties such as length", () => {
+    const obj = { items: [1, 2] };
+    deep.remove(obj, "items.length");
+    expect(obj.items).toEqual([1, 2]);
+  });
 });

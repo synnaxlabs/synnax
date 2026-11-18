@@ -147,11 +147,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	s := &Service{cfg: cfg}
-	if s.retries, err = debounce.NewKeyed(debounce.KeyedConfig[channel.Key]{
-		Delay:    cfg.RetryDelay.Duration(),
-		MaxDelay: cfg.RetryDelay.Duration() * 4,
-		Callback: s.retry,
-	}); err != nil {
+	// ctx can end before the service closes.
+	if s.retries, err = debounce.NewKeyed(
+		context.WithoutCancel(ctx),
+		debounce.KeyedConfig[channel.Key]{
+			Delay:    cfg.RetryDelay.Duration(),
+			MaxDelay: cfg.RetryDelay.Duration() * 4,
+			Callback: s.retry,
+		},
+	); err != nil {
 		return nil, err
 	}
 	s.mu.graph = g

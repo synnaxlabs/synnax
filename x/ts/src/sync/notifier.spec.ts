@@ -9,13 +9,14 @@
 
 import { describe, expect, it } from "vitest";
 
+import { sleep } from "@/sleep";
 import { Notifier } from "@/sync/notifier";
 import { TimeSpan } from "@/telem";
 
 const settled = async <V>(promise: Promise<V>): Promise<boolean> => {
   let done = false;
   void promise.then(() => (done = true));
-  await new Promise((resolve) => setTimeout(resolve, 5));
+  await sleep.sleep(TimeSpan.milliseconds(5));
   return done;
 };
 

@@ -17,7 +17,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 synnax::Config test_client_config() {
-    x::env::Parser env("SYNNAX");
+    x::env::Parser env("SYNNAX_TEST");
     synnax::Config cfg;
     cfg.host = env.field("host", cfg.host);
     cfg.port = env.field("port", cfg.port);

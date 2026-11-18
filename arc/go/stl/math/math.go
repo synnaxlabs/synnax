@@ -266,15 +266,15 @@ const name = "math"
 // them (e.g. apply type substitutions) without corrupting other analyses.
 func NewSymbols() []*symbol.Symbol {
 	avg := createBaseSymbol(avgSymbolName, avgDoc)
-	min := createBaseSymbol(minSymbolName, minDoc)
-	max := createBaseSymbol(maxSymbolName, maxDoc)
+	minSym := createBaseSymbol(minSymbolName, minDoc)
+	maxSym := createBaseSymbol(maxSymbolName, maxDoc)
 	derivative := newDerivativeSymbol()
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
 	mod.AddChild(
 		newPowSymbol(),
 		avg,
-		min,
-		max,
+		minSym,
+		maxSym,
 		derivative,
 		newFloatCheckSymbol(isNaNSymbolName, isNaNDoc),
 		newFloatCheckSymbol(isInfiniteSymbolName, isInfiniteDoc),
@@ -284,10 +284,10 @@ func NewSymbols() []*symbol.Symbol {
 	)
 	avgBare := *avg
 	avgBare.Deprecated = avg
-	minBare := *min
-	minBare.Deprecated = min
-	maxBare := *max
-	maxBare.Deprecated = max
+	minBare := *minSym
+	minBare.Deprecated = minSym
+	maxBare := *maxSym
+	maxBare.Deprecated = maxSym
 	derivativeBare := *derivative
 	derivativeBare.Deprecated = derivative
 	return []*symbol.Symbol{mod, &avgBare, &minBare, &maxBare, &derivativeBare}
@@ -426,7 +426,7 @@ func (r *avgNode) Next(ctx node.Context) {
 	if r.resetIdx >= 0 {
 		resetData := r.Input(r.resetIdx)
 		resetTime := r.InputTime(r.resetIdx)
-		for i := int64(0); i < resetData.Len(); i++ {
+		for i := range resetData.Len() {
 			ts := resetTime.ValueAt[telem.TimeStamp](int(i))
 			if ts > r.lastResetTime && resetData.ValueAt[bool](int(i)) {
 				shouldReset = true
@@ -454,7 +454,8 @@ func (r *avgNode) Next(ctx node.Context) {
 
 	if shouldReset {
 		r.sampleCount = 0
-		r.Output(0).Resize(0)
+		out := r.Output(0)
+		*out = out.Resized(0)
 	}
 	inputData := r.Input(r.inputIdx)
 	if inputData.Len() == 0 {

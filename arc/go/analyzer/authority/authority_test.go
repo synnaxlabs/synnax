@@ -141,7 +141,7 @@ var _ = Describe("Authority Analyzer", func() {
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(
 					ctx.Diagnostics.String(),
-				).To(ContainSubstring("multiple default"))
+				).To(ContainSubstring("[E5001]: multiple default"))
 			},
 		)
 
