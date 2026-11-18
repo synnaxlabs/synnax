@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, status, type Synnax, type task } from "@synnaxlabs/client";
-import { Device, Flux } from "@synnaxlabs/pluto";
+import { device, type rack, status, type Synnax, type task } from "@synnaxlabs/client";
+import { Device, Flux, Task } from "@synnaxlabs/pluto";
 import { array, deep, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 
 import { canReplace } from "@/feature/ethercat/device/replace";
@@ -151,33 +151,41 @@ const startTasks = async (tasks: task.Task[]): Promise<void> => {
   );
 };
 
+const isRunning = (t: task.Task): boolean =>
+  (t.type === READ_TYPE || t.type === WRITE_TYPE) && t.status?.details.running === true;
+
+/** @returns the tasks with a channel on a slave of the network. */
+const onNetwork = (
+  tasks: task.Task[],
+  slaves: SlaveDevice[],
+  network: string,
+): task.Task[] => {
+  const keys = new Set(
+    slaves.filter((s) => s.properties.network === network).map((s) => s.key),
+  );
+  return tasks.filter((t) => devicesOf(t.config).some((k) => keys.has(k)));
+};
+
 /**
- * Stops each EtherCAT read and write task that runs on the network of the slave. When
- * a stop fails, starts the tasks again.
+ * Stops each EtherCAT read and write task that runs on the network of the rack. When a
+ * stop fails, starts the tasks again.
  * @returns the stopped tasks.
  * @throws {Error} if a task fails to stop.
  */
 const stopTasksOnNetwork = async (
   client: Synnax,
-  { rack, properties }: SlaveDevice,
+  rack: rack.Key,
+  network: string,
 ): Promise<task.Task[]> => {
   const running = (await client.tasks.retrieve({ rack, includeStatus: true })).filter(
-    (t) =>
-      (t.type === READ_TYPE || t.type === WRITE_TYPE) &&
-      t.status?.details.running === true,
+    isRunning,
   );
   const keys = unique.unique(running.flatMap((t) => devicesOf(t.config)));
-  const onNetwork = new Set(
-    (keys.length === 0
+  const slaves =
+    keys.length === 0
       ? []
-      : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS })
-    )
-      .filter((s) => s.properties.network === properties.network)
-      .map((s) => s.key),
-  );
-  const tasks = running.filter((t) =>
-    devicesOf(t.config).some((k) => onNetwork.has(k)),
-  );
+      : await client.devices.retrieve({ key: keys, schemas: SLAVE_SCHEMAS });
+  const tasks = onNetwork(running, slaves, network);
   let stopped = false;
   try {
     await Promise.all(
@@ -192,6 +200,47 @@ const stopTasksOnNetwork = async (
   }
   return tasks;
 };
+
+/** The EtherCAT read and write tasks that run on the network of the rack, kept live. */
+export const useRunningOnNetwork = (
+  rackKey: rack.Key,
+  network: string,
+): task.Task[] => {
+  const tasks =
+    Task.useResultMultiple({
+      where: { rack: { eq: rackKey }, type: { in: [READ_TYPE, WRITE_TYPE] } },
+    }).data ?? [];
+  const running = tasks.filter(isRunning);
+  const slaves =
+    useSlavesByKeys(unique.unique(running.flatMap((t) => devicesOf(t.config)))) ?? [];
+  return onNetwork(running, slaves, network);
+};
+
+const RESTART: verbs.Verbs = {
+  present: "restart",
+  past: "restarted",
+  participle: "restarting",
+};
+
+export interface RestartTasksParams {
+  rack: rack.Key;
+  network: string;
+}
+
+/**
+ * Stops each EtherCAT read and write task that runs on the network of the rack, then
+ * starts the tasks again, so that the network starts with the saved settings of its
+ * slaves. A task that fails to start shows its own error.
+ * @throws {Error} if a task fails to stop, after the tasks start again.
+ */
+export const { useUpdate: useRestartTasks } = Flux.createUpdate<RestartTasksParams>({
+  name: "tasks",
+  verbs: RESTART,
+  update: async ({ client, data }) => {
+    await startTasks(await stopTasksOnNetwork(client, data.rack, data.network));
+    return data;
+  },
+});
 
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
@@ -208,7 +257,7 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<
   update: async ({ client, data }) => {
     const { rack, key } = data.slave;
     const scanTask = await client.tasks.retrieve({ type: SCAN_TYPE, rack, one: true });
-    const tasks = await stopTasksOnNetwork(client, data.slave);
+    const tasks = await stopTasksOnNetwork(client, rack, data.slave.properties.network);
     const res = await scanTask
       .executeCommandSync({
         type: SET_STANDALONE_COMMAND,
@@ -286,7 +335,7 @@ export const { useUpdate: useReplace } = Flux.createUpdate<
     );
     if (!canReplace(toSlaveOnRack(old), toSlaveOnRack(slave)))
       throw new Error(`${slave.name} can no longer take the place of ${old.name}.`);
-    const stopped = await stopTasksOnNetwork(client, old);
+    const stopped = await stopTasksOnNetwork(client, old.rack, old.properties.network);
     // A scan between the two writes would make the new slave again if the delete went
     // first.
     let moved = false;

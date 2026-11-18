@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <format>
 #include <optional>
 #include <string_view>
@@ -18,6 +19,8 @@
 #include "absl/log/log.h"
 #include <dirent.h>
 #include <sys/stat.h>
+
+#include "x/cpp/breaker/breaker.h"
 
 #include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/esi/known_devices.h"
@@ -74,6 +77,17 @@ std::string reason(const int ret) {
 
 /// @brief the time between reads of the slave states while the slaves move to OP.
 const auto OP_POLL_INTERVAL = x::telem::MILLISECOND * 10;
+/// @brief how long a reset can take to clear the AL error flags, since IgH resets in
+/// the background.
+const auto RESET_GRACE = x::telem::MILLISECOND * 500;
+/// @brief the waits between the resets that recover() asks for while a slave stays
+/// faulted.
+const x::breaker::Config RESET_RETRY{
+    .name = "igh_reset",
+    .base_interval = x::telem::SECOND,
+    .scale = 2,
+    .max_interval = x::telem::SECOND * 30,
+};
 
 /// @brief returns the state that a slave in state moves to next on its way to OP.
 std::string next_state(const slave::State state) {
@@ -446,6 +460,7 @@ master::Activation Master::activate(
 
 master::Activation Master::wait_for_op() {
     const auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
+    std::optional<std::chrono::steady_clock::time_point> reset_at;
     while (true) {
         std::vector<uint16_t> pending;
         for (const auto &[pos, sc]: this->slave_configs) {
@@ -455,12 +470,39 @@ master::Activation Master::wait_for_op() {
                 pending.push_back(pos);
         }
         if (pending.empty()) return {};
-        if (this->cfg.clock.steady() >= deadline) return this->op_error(pending);
+        const auto now = this->cfg.clock.steady();
+        if (now >= deadline) return this->op_error(pending, true);
+        if (this->refusing(pending)) {
+            if (!reset_at) {
+                // The reset also clears a flag set before activation.
+                if (const int ret = this->api->master_reset(this->ec_master);
+                    ret != 0) {
+                    LOG(WARNING) << "[ethercat.igh] master " << this->master_index
+                                 << " failed to reset: " << reason(ret);
+                    return this->op_error(pending, false);
+                }
+                reset_at = now;
+            } else if (now - *reset_at >= RESET_GRACE.chrono())
+                return this->op_error(pending, false);
+        }
         this->cfg.clock.sleep(OP_POLL_INTERVAL);
     }
 }
 
-master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
+bool Master::refusing(const std::vector<uint16_t> &positions) const {
+    return std::ranges::all_of(positions, [this](const uint16_t pos) {
+        ec_slave_info_t info{};
+        return this->api->master_get_slave(
+                   this->ec_master,
+                   ring_position(pos),
+                   &info
+               ) == 0 &&
+               info.error_flag != 0;
+    });
+}
+
+master::Activation
+Master::op_error(const std::vector<uint16_t> &pending, const bool timed_out) {
     master::Activation activation;
     std::string msg;
     for (const auto pos: pending) {
@@ -499,7 +541,9 @@ master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
     activation.err = x::errors::Error(
         activation.refusals.empty() ? errors::STATE_CHANGE_ERROR
                                     : errors::STATE_CHANGE_REFUSED,
-        "failed to reach OP within " + this->cfg.op_timeout.to_string() + ": " + msg
+        "failed to reach OP" +
+            (timed_out ? " within " + this->cfg.op_timeout.to_string() : "") + ": " +
+            msg
     );
     return activation;
 }
@@ -528,6 +572,9 @@ void Master::deactivate() {
     this->output_sz = 0;
     this->full_working_counter.reset();
     this->latest_shortfall.reset();
+    this->faulted = false;
+    this->resets = 0;
+    this->next_reset = {};
 }
 
 const x::errors::Error &Master::receive() {
@@ -604,6 +651,8 @@ x::errors::Error Master::send() {
 std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
     std::vector<slave::Health> health;
     health.reserve(this->slave_configs.size());
+    this->faulted = false;
+    bool operational = true;
     for (const auto &[pos, sc]: this->slave_configs) {
         ec_slave_config_state_t state{};
         ec_slave_info_t info{};
@@ -614,14 +663,33 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
                               ring_position(pos),
                               &info
                           ) == 0;
+        const bool faulted = read && info.error_flag != 0;
+        this->faulted = this->faulted || faulted;
+        operational = operational && read && !faulted && state.operational != 0;
         health.push_back({
             .position = pos,
             .state = slave::from_al_state(state.al_state),
-            .faulted = read && info.error_flag != 0,
+            .faulted = faulted,
             .lost = !read || state.online == 0,
         });
     }
+    // A reset clears the AL error flags while IgH configures the slaves again, so only
+    // a bus back in OP ends the backoff.
+    if (operational) {
+        this->resets = 0;
+        this->next_reset = {};
+    }
     return health;
+}
+
+void Master::recover(const x::breaker::Breaker &breaker) {
+    const auto now = this->cfg.clock.steady();
+    if (!this->faulted || !breaker.running() || now < this->next_reset) return;
+    if (const int ret = this->api->master_reset(this->ec_master); ret != 0)
+        LOG(WARNING) << "[ethercat.igh] master " << this->master_index
+                     << " failed to reset: " << reason(ret);
+    this->resets++;
+    this->next_reset = now + RESET_RETRY.interval(this->resets).chrono();
 }
 
 x::errors::Error
