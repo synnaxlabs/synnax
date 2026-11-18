@@ -185,8 +185,7 @@ func take(c *framework.Collector, outputPath string) []resolution.Type {
 
 // fileEnums returns the enums of the file at outputPath: those that types reference,
 // those that enums holds for the file, and those of the file's namespace. It removes
-// the
-// file's entries from enums.
+// the file's entries from enums.
 func fileEnums(
 	types []resolution.Type,
 	outputPath string,
