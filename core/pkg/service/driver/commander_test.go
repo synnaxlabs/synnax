@@ -106,11 +106,11 @@ var _ = Describe("Commander", func() {
 			},
 		)
 
-		It("Should answer a failure with its message and description",
+		It("Should answer a failure with its message, description, and data",
 			func(ctx SpecContext) {
 				c := open(
 					func(context.Context, task.Command) (msgpack.EncodedJSON, error) {
-						return nil, driver.Failure{
+						return msgpack.EncodedJSON{"path": "/x"}, driver.Failure{
 							Message:     "Failed to list files",
 							Description: "/x does not exist.",
 						}
@@ -120,6 +120,7 @@ var _ = Describe("Commander", func() {
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to list files"))
 				Expect(stat.Description).To(Equal("/x does not exist."))
+				Expect(stat.Details.Data).To(Equal(msgpack.EncodedJSON{"path": "/x"}))
 			})
 
 		It("Should answer a command that exec does not support with an error",
