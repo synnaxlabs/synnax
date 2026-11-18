@@ -14,7 +14,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Flux, Label, Synnax } from "@synnaxlabs/pluto";
+import { Access, Color as PColor, Flux, Label, Synnax } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
@@ -27,10 +27,11 @@ interface ItemProps extends List.ItemRenderProps<label.Key> {
 
 const Item = ({ itemKey, partial, ...rest }: ItemProps): ReactElement | null => {
   const item = List.useItem<label.Key, label.Label>(itemKey);
+  const resolve = PColor.useResolve();
   if (item == null) return null;
   return (
     <Select.Item itemKey={itemKey} {...rest}>
-      <Icon.Circle color={item.color} size="2.5em" />
+      <Icon.Circle color={resolve(item.color)} size="2.5em" />
       {item.name}
       {partial.has(itemKey) && (
         <Icon.Subtract className={CSS.BE("range-menu", "partial")} aria-label="Some" />
@@ -56,6 +57,7 @@ export const Labels = ({ ranges }: LabelsProps): ReactElement => {
   const { update } = Label.useEditFor();
   const canCreate = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
   const { colors } = Theming.use();
+  const resolve = PColor.useResolve();
   const [term, setTerm] = useState("");
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.labels,
@@ -86,13 +88,16 @@ export const Labels = ({ ranges }: LabelsProps): ReactElement => {
         // A new label takes the first palette color that no label uses yet.
         const used = new Set(
           data.flatMap((key) => {
-            const c = getItem(key)?.color;
+            const c = resolve(getItem(key)?.color);
             return c == null ? [] : [color.hex(c)];
           }),
         );
         const palette = colors.visualization.palettes.default;
         const next = palette.find((c) => !used.has(color.hex(c))) ?? palette[0];
-        const created = await client.labels.create({ name, color: next });
+        const created = await client.labels.create({
+          name,
+          color: { type: "fixed", value: next },
+        });
         add(created.key);
       },
       { message: "Failed to create label", name },

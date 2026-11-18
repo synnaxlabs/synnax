@@ -62,7 +62,7 @@ describe("Range.ContextMenu", () => {
     it("should add a label that some ranges hold to all of them, then remove it from all", async () => {
       const lbl = await client.labels.create({
         name: uniqueName("label"),
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const held = await createTestRange(client, {
         name: uniqueRangeName("held"),
@@ -164,6 +164,7 @@ describe("Range.ContextMenu", () => {
       const dialog = await openSubmenu("Color");
       const swatch = within(dialog).getAllByLabelText(/^#/)[0];
       const hex = swatch.getAttribute("aria-label");
+      if (hex == null) throw new Error("the swatch has no hex label");
       fireEvent.click(swatch);
       fireEvent.keyDown(swatch, { key: "ArrowLeft" });
       await waitFor(() =>
@@ -172,7 +173,7 @@ describe("Range.ContextMenu", () => {
       await waitFor(async () => {
         for (const r of ranges) {
           const { color: stored } = await client.ranges.retrieve(r.key);
-          expect(stored == null ? null : color.hex(stored)).toBe(hex);
+          expect(stored).toEqual({ type: "fixed", value: color.construct(hex) });
         }
       });
     });

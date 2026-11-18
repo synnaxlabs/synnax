@@ -13,7 +13,7 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Ranger } from "@synnaxlabs/pluto";
+import { Color as PColor, Ranger } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
@@ -52,9 +52,11 @@ export interface ColorProps {
 export const Color = ({ ranges }: ColorProps): ReactElement => {
   const { update } = Ranger.useSetColor();
   const { colors } = Theming.use();
-  const first = ranges[0]?.color;
-  const shared = ranges.every((r) =>
-    r.color == null || first == null ? r.color === first : color.equals(r.color, first),
+  const resolve = PColor.useResolve();
+  const values = ranges.map((r) => resolve(r.color));
+  const first = values[0];
+  const shared = values.every((v) =>
+    v == null || first == null ? v === first : color.equals(v, first),
   );
   return (
     <Menu.Sub itemKey="color" textValue="Color">
@@ -67,7 +69,12 @@ export const Color = ({ ranges }: ColorProps): ReactElement => {
           value={shared ? first : undefined}
           fallback={colors.gray.l8}
           onCommit={(next) =>
-            ranges.forEach((r) => update({ key: r.key, color: next }))
+            ranges.forEach((r) =>
+              update({
+                key: r.key,
+                color: next == null ? undefined : { type: "fixed", value: next },
+              }),
+            )
           }
         />
       </Menu.Dialog>

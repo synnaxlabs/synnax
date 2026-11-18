@@ -692,7 +692,7 @@ describe("range/explorer/Explorer", () => {
     it("should add a label that the menu search finds", async () => {
       const lbl = await client.labels.create({
         name: uniqueName("found"),
-        color: "#000000",
+        color: { type: "fixed", value: "#000000" },
       });
       const rng = await createRange(uniqueRangeName("found"));
       await renderExplorer();
