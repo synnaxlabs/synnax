@@ -186,12 +186,13 @@ TEST_F(ReaderTest, SpendsGrant) {
     const auto g = testutil::create_grant(this->rack.key, granted, {key});
     const auto spent = ASSERT_NIL_P(this->reader(this->rack).spend(carrier(t, g)));
     ASSERT_TRUE(spent.has_value());
-    ASSERT_EQ(spent->command.task, t.key);
-    ASSERT_EQ(spent->command.type, "test_connection");
-    ASSERT_EQ(spent->command.key, "carrier");
-    ASSERT_EQ(spent->command.args, granted.args);
-    ASSERT_EQ(spent->secrets, std::vector{key});
-    ASSERT_EQ(spent->values.at(key), x::x509::testutil::KEY);
+    const auto &out = spent.value();
+    ASSERT_EQ(out.command.task, t.key);
+    ASSERT_EQ(out.command.type, "test_connection");
+    ASSERT_EQ(out.command.key, "carrier");
+    ASSERT_EQ(out.command.args, granted.args);
+    ASSERT_EQ(out.secrets, std::vector{key});
+    ASSERT_EQ(out.values.at(key), x::x509::testutil::KEY);
 }
 
 /// @brief it should refuse a grant that a command already spent.
