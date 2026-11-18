@@ -176,6 +176,27 @@ describe("Form", () => {
         );
       });
 
+      it("should keep the width of a number field in the control of another", async () => {
+        await renderThemed(
+          <Form.Sections>
+            <Form.Section>
+              {textField("Units")}
+              <Input.Item label="Scale">
+                <Flex.Box x align="center">
+                  <Input.Numeric value={1} onChange={() => {}} />
+                  {field("Offset")}
+                </Flex.Box>
+              </Input.Item>
+              {field("Retries")}
+            </Form.Section>
+          </Form.Sections>,
+        );
+        const offset = rect("Offset");
+        expect(offset.control.width).toBe(rect("Retries").control.width);
+        expect(offset.control.width).toBeLessThan(rect("Units").control.width);
+        expect(offset.control.left).toBeGreaterThan(offset.label.right);
+      });
+
       it("should keep the first control when the later fields do not fit", async () => {
         await renderThemed(
           <div style={{ width: "60rem" }}>
