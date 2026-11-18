@@ -94,6 +94,22 @@ const isKeyedList = (schema: z.ZodType, formPath: string, values: unknown): bool
   return def.type === "array" && hasKey(def.element as z.core.$ZodType);
 };
 
+interface Step {
+  value: unknown;
+  /** The index of the first part after the step. */
+  end: number;
+}
+
+// The child of the node that the parts from the start reach in one step of
+// `deep.resolve`, which takes the longest run of parts that names a child.
+const stepFrom = (node: unknown, parts: string[], start: number): Step | null => {
+  for (let end = parts.length; end > start; end--) {
+    const found = deep.resolve(node, parts.slice(start, end).join(deep.SEPARATOR));
+    if (found != null && found.parent === node) return { value: found.value, end };
+  }
+  return null;
+};
+
 /**
  * Finds where a form path lands in the values.
  *
@@ -110,27 +126,22 @@ const locate = (
   let node = values;
   let i = 0;
   while (i < parts.length) {
+    const step = stepFrom(node, parts, i);
     if (Array.isArray(node)) {
-      const list = node as unknown as record.Unknown;
-      const best = deep.findBestKey(list, parts.slice(i));
-      const entry = best == null ? null : deep.defaultGetter(list, best[0]);
-      if (best != null && isEntry(entry)) {
-        path.push(entry.key);
-        node = entry;
-        i += best[1];
+      if (step != null && isEntry(step.value)) {
+        path.push(step.value.key);
+        node = step.value;
+        i = step.end;
         continue;
       }
       if (isKeyedList(schema, parts.slice(0, i).join(deep.SEPARATOR), values))
         return null;
       return { path, node, rest: parts.slice(i).join(deep.SEPARATOR) };
     }
-    if (node == null || typeof node !== "object") break;
-    const best = deep.findBestKey(node as record.Unknown, parts.slice(i));
-    if (best == null) break;
-    const [key, consumed] = best;
-    path.push(key);
-    node = (node as record.Unknown)[key];
-    i += consumed;
+    if (step == null) break;
+    path.push(parts.slice(i, step.end).join(deep.SEPARATOR));
+    node = step.value;
+    i = step.end;
   }
   if (i < parts.length) {
     path.push(...parts.slice(i));
@@ -406,8 +417,7 @@ class DocumentStore<
     const values = this.get();
     for (const edit of [...this.edits]) {
       const shown = [...edit.writes].some(
-        ([at, { value, valid }]) =>
-          !valid && deep.equal(deep.get(values, at, { optional: true }), value),
+        ([at, { value, valid }]) => !valid && deep.equal(deep.get(values, at), value),
       );
       if (shown && !this.removed) continue;
       clearTimeout(edit.timer);

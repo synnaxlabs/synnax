@@ -26,7 +26,7 @@ import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
 import { createMatch } from "@/platform/icd/Match";
-import { fieldsPath, isReadable, type ReadSource } from "@/platform/icd/read";
+import { fieldsPath, isReadable, type ReadSource, reindex } from "@/platform/icd/read";
 import {
   fieldKey,
   type FieldNode,
@@ -307,12 +307,25 @@ export const use = <S extends Source>({
     onSelect([fieldKey(sourceKey, message, field.key)]);
   };
 
-  /** Removes each chosen field from its message in the ICD. */
+  /**
+   * Removes each chosen field from its message in the ICD and from each read of it. A
+   * read whose index is the field gets no index.
+   */
   const removeFields = (chosen: FieldNode[]) => {
-    for (const { source, read: r, field } of chosen) {
-      const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
-      formatOf(formats, icdKey).remove(fieldsPath(messages[r].message)[field.key]);
-    }
+    ctx.batch(() => {
+      for (const { source, read: r, field } of chosen) {
+        const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
+        const { message } = messages[r];
+        formatOf(formats, icdKey).remove(fieldsPath(message)[field.key]);
+        for (const s of ctx.get(sources).value)
+          sourceOf(s)?.messages.forEach((m, i) => {
+            if (m.message !== message) return;
+            if (m.index === field.key)
+              ctx.set(pathOf(s.key).messages[i], reindex(m, undefined, 0));
+            else read(s.key, i, field, false);
+          });
+      }
+    });
     onSelect([]);
   };
 

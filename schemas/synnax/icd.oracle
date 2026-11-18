@@ -29,6 +29,31 @@ FieldKey = uuid {
     @doc value "is a unique identifier for a field within a message."
 }
 
+ImportFormat enum {
+    dbc  = "dbc" {
+        @doc value "is a Vector CAN database file."
+    }
+    csv  = "csv" {
+        @doc value """
+            is a field table in comma-separated values. The first row is a header that
+            names each column, in any case: message, id, extended, length, field,
+            start_bit, bit_length, byte_order, kind, scale, offset, units, min, and max.
+            The message, field, start_bit, and bit_length columns are required. A kind
+            is float, integer, or unsigned, and defaults to unsigned. Each other row is
+            one binary field, and the rows of one message form one message, with a CAN
+            identifier when an id is present.
+        """
+    }
+    xlsx = "xlsx" {
+        @doc value """
+            is a field table, laid out as for csv, in the first sheet of an Excel
+            workbook. A numeric cell is read as its value, whatever its number format.
+        """
+    }
+
+    @doc value "is the file format of an ICD that an import reads."
+}
+
 ByteOrder enum {
     little_endian = "little_endian"
     big_endian    = "big_endian"
@@ -303,7 +328,7 @@ JSONMatch union on type extends JSONBaseMatch {
     @go marshal
 }
 
-Payload union on format {
+Payload union on format payload.Format {
     binary {
         length     uint16?       {
             @doc value """

@@ -36,6 +36,9 @@ type number struct {
 	f    float64
 	// fraction is true when the text of a float had a fraction that f may round away.
 	fraction bool
+	// outOfRange is true when the text of a float is an integer that fits neither an
+	// int64 nor a uint64, even if f rounds into one of them.
+	outOfRange bool
 	// text is the JSON text a float was parsed from, so errors show what f rounds.
 	text []byte
 }
@@ -70,7 +73,13 @@ func parseNumber(text []byte) (number, error) {
 	if err != nil {
 		return number{}, invalidNumber(text)
 	}
-	return number{kind: floatNumber, f: f, fraction: d.fraction, text: text}, nil
+	return number{
+		kind:       floatNumber,
+		f:          f,
+		fraction:   d.fraction,
+		outOfRange: !d.fraction && d.magnitude != 0,
+		text:       text,
+	}, nil
 }
 
 // ParsedNumber is a JSON number held without losing precision.
@@ -324,7 +333,7 @@ func (n number) within(lo int64, hi uint64) bool {
 		return n.u <= hi
 	case floatNumber:
 		// float64(hi)+1 rounds to the first value past hi for every integer type.
-		return n.f >= float64(lo) && n.f < float64(hi)+1
+		return !n.outOfRange && n.f >= float64(lo) && n.f < float64(hi)+1
 	}
 	panic(fmt.Sprintf("json: invalid number kind %d", n.kind))
 }

@@ -89,6 +89,12 @@ describe("Select.Multiple", () => {
     expect(c.getByText("Test Items")).toBeTruthy();
   });
 
+  it("should select the first entry when autoSelectOnNone is set", () => {
+    const { SelectMultiple, onChange } = createSelectMultiple();
+    render(<SelectMultiple autoSelectOnNone virtual={false} />);
+    expect(onChange).toHaveBeenCalledWith(["1"]);
+  });
+
   it("should open the selection dialog when the trigger is clicked", () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);

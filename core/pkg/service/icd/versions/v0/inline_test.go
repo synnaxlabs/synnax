@@ -251,6 +251,19 @@ var _ = Describe("LiftMessage", func() {
 		))
 	})
 
+	It("Should give ISO 8601 to a field whose time format is not valid", func() {
+		old := inlineField(telem.Float64T)
+		old.TimeFormat = new(payload.TimeFormat("unix"))
+		f, _ := lift(old, false)
+		stamp := as[v0.TimestampJSONField](f.Variant)
+		Expect(stamp.TimeFormat).To(Equal(payload.TimeFormatISO8601))
+		Expect(stamp.Validate()).To(Succeed())
+		Expect(changes).To(ConsistOf(
+			"data type float64 became the timestamp kind of an index or time format",
+			`time format "unix" is not valid and became iso8601`,
+		))
+	})
+
 	It("Should keep the kind and entries of a typed field with a time format", func() {
 		old := inlineField(telem.Uint8T, payload.EnumEntry{Label: "ON", Value: 1})
 		old.TimeFormat = new(payload.TimeFormatUnixSec)
