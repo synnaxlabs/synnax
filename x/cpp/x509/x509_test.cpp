@@ -147,10 +147,7 @@ TEST(CertificateTest, CheckKeyEncrypted) {
     const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_A));
     const auto err = cert.check_key(KEY_A_ENCRYPTED);
     ASSERT_MATCHES(err, KEY_INVALID);
-    ASSERT_EQ(
-        err.data,
-        "The private key needs a password, which the Driver does not support."
-    );
+    ASSERT_EQ(err.data, "The private key needs a password, which is not supported.");
 }
 
 /// @brief it should reject data that holds no private key.

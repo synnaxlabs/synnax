@@ -209,7 +209,7 @@ errors::Error Certificate::check_key(const std::string &key) const {
     if (key_ret == MBEDTLS_ERR_PK_PASSWORD_REQUIRED)
         return errors::Error(
             KEY_INVALID,
-            "The private key needs a password, which the Driver does not support."
+            "The private key needs a password, which is not supported."
         );
     if (key_ret != 0)
         return errors::Error(
