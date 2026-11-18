@@ -10,7 +10,6 @@
 import { get } from "@/deep/get";
 import { SEPARATOR } from "@/deep/path";
 import { getIndex, resolve } from "@/deep/resolve";
-import { type record } from "@/record";
 
 // Whether a part that names nothing can be added to the parent: any key of an object,
 // and only an index on an array.
