@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -153,6 +154,31 @@ var _ = Describe("Apply of a move", func() {
 		Expect(res.Group).To(BeNil())
 		Expect(res.Project).To(Equal(&proj.Key))
 	})
+
+	It(
+		"Should send no create for a grouped schematic of a deleted project",
+		func(ctx SpecContext) {
+			dest := createProject(ctx)
+			inDest := group.Group{
+				Name:   "in destination",
+				Parent: new(project.ResourceID(dest.Key)),
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &inDest)
+			})).To(Succeed())
+			Expect(apply(ctx, target.Key, setGroup(inDest.Key))).
+				To(Equal([]schematic.Action{setProject(dest.Key)}))
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return projectSvc.NewWriter(tx).Delete(ctx, dest.Key)
+			})).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(target.Key)).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+			Expect(rec.Snapshot()).To(BeEmpty())
+		},
+	)
 
 	It("Should reject a group under no project", func(ctx SpecContext) {
 		top := group.Group{Name: "top", Scope: resource.TypeProject}

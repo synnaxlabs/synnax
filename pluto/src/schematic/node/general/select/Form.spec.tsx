@@ -9,6 +9,7 @@
 
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { mockGeometry } from "@synnaxlabs/lyra/testutil";
 import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -23,6 +24,8 @@ const path = deep.path<schematic.SelectNodeConfig>();
 const client = createTestClient();
 
 describe("SelectForm", () => {
+  // Without a box, the dropdown's virtual list shows no items.
+  beforeAll(() => mockGeometry(100, 100));
   let wrapper: FC<PropsWithChildren>;
   let ch: channel.Channel;
   beforeAll(async () => {
@@ -32,6 +35,33 @@ describe("SelectForm", () => {
       dataType: DataType.UINT8,
       virtual: true,
     });
+  });
+
+  it("should edit the options only while no enumeration is picked", async () => {
+    const created = await client.enumerations.create({
+      name: `select-${id.create()}`,
+      entries: [],
+    });
+    const { findByRole, findByLabelText, getByPlaceholderText, queryByRole, value } =
+      renderForm(
+        <SelectForm tab="options" onTabChange={vi.fn()} />,
+        createConfig({ variant: "select" }),
+        schematic.selectNodeConfigZ,
+        wrapper,
+      );
+    const add = { name: "Add option" };
+    expect(await findByRole("button", add)).toBeTruthy();
+    fireEvent.click(await findByRole("button", { name: "Enumeration" }));
+    fireEvent.change(getByPlaceholderText("Search enumerations..."), {
+      target: { value: created.name },
+    });
+    fireEvent.click(await findByRole("option", { name: created.name }));
+    await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
+    const clear = await findByLabelText(`Clear ${created.name}`);
+    expect(queryByRole("button", add)).toBeNull();
+    fireEvent.click(clear);
+    await waitFor(() => expect(value(path.enumeration)).toBeUndefined());
+    expect(await findByRole("button", add)).toBeTruthy();
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {

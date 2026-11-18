@@ -99,6 +99,15 @@ type walkedRef struct {
 	sites []refSite
 }
 
+// tree returns the tree that the steps of the sites of r form.
+func (r *walkedRef) tree() []*stepNode {
+	steps := make([][]refStep, len(r.sites))
+	for i, s := range r.sites {
+		steps[i] = s.steps
+	}
+	return buildTree(steps)
+}
+
 // refWalker finds every @ref field that a type holds through its fields, arrays,
 // optional structs, and unions.
 type refWalker struct {
@@ -329,8 +338,8 @@ func leafModeOf(f resolution.Field, isSlice bool) leafMode {
 	}
 }
 
-// nestedRef is a reference that the walk found, with the Go code of its Targets and
-// Detach functions.
+// nestedRef is a reference that the walk found, with the Go code of its Targets,
+// Detach, and Retarget functions.
 type nestedRef struct {
 	refInfo
 	// KeyType and EntryType are the Go types of the key and of the holding entry.
@@ -478,12 +487,8 @@ func (rd *renderer) walk(
 func (rd *renderer) targetsBody(ref *walkedRef) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "var targets []%s\n", rd.info.TargetType())
-	steps := make([][]refStep, len(ref.sites))
-	for i, s := range ref.sites {
-		steps[i] = s.steps
-	}
 	mode := ref.sites[0].mode
-	rd.walk(&b, buildTree(steps), "e", false, func(b *strings.Builder, expr string) {
+	rd.walk(&b, ref.tree(), "e", false, func(b *strings.Builder, expr string) {
 		switch mode {
 		case leafRequired:
 			fmt.Fprintf(b, "targets = append(targets, %s)\n", rd.target(expr))
@@ -523,11 +528,7 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 	var b strings.Builder
 	mode := ref.sites[0].mode
 	if mode != leafRequired {
-		steps := make([][]refStep, len(ref.sites))
-		for i, s := range ref.sites {
-			steps[i] = s.steps
-		}
-		rd.walk(&b, buildTree(steps), "e", true, func(b *strings.Builder, expr string) {
+		rd.walk(&b, ref.tree(), "e", true, func(b *strings.Builder, expr string) {
 			switch mode {
 			case leafZero:
 				fmt.Fprintf(
@@ -626,6 +627,86 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 		},
 	)
 	return b.String(), nil
+}
+
+// retargetBody returns the code that moves e from the target from to the target to
+// through every leaf under nodes. A @ref array that holds to drops from instead.
+func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
+	var b strings.Builder
+	rd.walk(&b, nodes, "e", true, func(b *strings.Builder, expr string) {
+		switch mode {
+		case leafRequired, leafZero:
+			fmt.Fprintf(
+				b,
+				"if %s == from {\n%s\n}\n",
+				rd.operand(expr),
+				rd.assign(expr),
+			)
+		case leafOptional:
+			assign := "*" + expr + " = to"
+			if rd.info.IsID {
+				assign = rd.assign(expr)
+			}
+			fmt.Fprintf(
+				b,
+				"if %s != nil && %s == from {\n%s\n}\n",
+				expr,
+				rd.operand("*"+expr),
+				assign,
+			)
+		case leafSlice:
+			rd.usesSlices = true
+			k, i := rd.nextVar("k"), rd.nextVar("i")
+			elem := fmt.Sprintf("%s[%s]", expr, i)
+			fmt.Fprintf(
+				b,
+				"if slices.ContainsFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
+					"return %[4]s == to\n}) {\n"+
+					"%[1]s = slices.DeleteFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
+					"return %[4]s == from\n})\n"+
+					"} else {\nfor %[5]s := range %[1]s {\n"+
+					"if %[6]s == from {\n%[7]s\n}\n}\n}\n",
+				expr,
+				k,
+				rd.info.ElemGoType,
+				rd.operand(k),
+				i,
+				rd.operand(elem),
+				rd.assign(elem),
+			)
+		}
+	})
+	return b.String()
+}
+
+// operand returns the target of expr in a form that can sit in an if condition, where a
+// bare composite literal does not parse.
+func (rd *renderer) operand(expr string) string {
+	if rd.info.IsID {
+		return "(" + rd.target(expr) + ")"
+	}
+	return rd.target(expr)
+}
+
+// assign returns the statement that points the field at expr to the target to. A
+// resource ID changes only its key, as from and to share a table.
+func (rd *renderer) assign(expr string) string {
+	if rd.info.IsID {
+		return expr + ".Key = to.Key"
+	}
+	return expr + " = to"
+}
+
+// renderRetarget sets the RetargetBody of info, a reference on a top-level field.
+func renderRetarget(
+	info *refInfo,
+	field resolution.Field,
+	r *resolver.Resolver,
+	ctx *resolver.Context,
+) {
+	rd := &renderer{r: r, ctx: ctx, info: *info}
+	leaf := []*stepNode{{step: refStep{kind: stepLeaf, field: info.GoName}}}
+	info.RetargetBody = rd.retargetBody(leaf, leafModeOf(field, info.IsSlice))
 }
 
 // variantLeaf names a union variant and its field that holds an inlined key.
@@ -823,6 +904,7 @@ func renderNestedRefs(
 		if err != nil {
 			return nil, errors.Wrap(err, typ.QualifiedName)
 		}
+		nr.RetargetBody = rd.retargetBody(ref.tree(), mode)
 		nr.usesSlices = rd.usesSlices
 		out = append(out, nr)
 	}

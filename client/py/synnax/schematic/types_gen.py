@@ -16,7 +16,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_, group as group_, project as project_
+from synnax import (
+    channel as channel_,
+    enumeration as enumeration_,
+    group as group_,
+    project as project_,
+)
 from synnax.resource import ID
 from synnax.schematic import symbol
 from x import (
@@ -713,6 +718,7 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
     fill_color: color_.Color | None = None
     inline_size: int = Field(default=100, ge=1, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
+    enumeration: enumeration_.Key | None = None
     disabled: bool = False
     on_click_delay: telem.TimeSpan = Field(
         default=telem.TimeSpan(0), ge=0, le=2147483647000000
@@ -759,6 +765,7 @@ class StateIndicatorNodeConfig(LabeledConfig, StalenessConfig):
     stroke_color: color_.Color | None = None
     inline_size: int = Field(default=100, ge=1, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
+    enumeration: enumeration_.Key | None = None
     size: ComponentSize = "medium"
 
 

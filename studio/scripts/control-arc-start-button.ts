@@ -133,10 +133,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.bindChannel(session, "State", "press_stage");
     await fill("Timeout", "60");
     await openTab("Options");
-    await session.click(properties.getByText("Add an option", { exact: true }), {
-      zoom: false,
-    });
-    for (let i = 1; i < STAGES.length; i++)
+    for (let i = 0; i < STAGES.length; i++)
       await session.click(
         properties.getByRole("button", { name: "Add option" }).first(),
         { zoom: false },
