@@ -14,24 +14,33 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/hex"
 	"encoding/pem"
 	"math/big"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	xaddress "github.com/synnaxlabs/x/address"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -49,7 +58,11 @@ type env struct {
 	now     atomic.Int64
 }
 
-func newEnv(ctx SpecContext, interval telem.TimeSpan) *env {
+func newEnv(
+	ctx SpecContext,
+	interval telem.TimeSpan,
+	cfgs ...certificate.ServiceConfig,
+) *env {
 	GinkgoHelper()
 	e := &env{}
 	e.now.Store(int64(telem.NewTimeStamp(start)))
@@ -64,17 +77,57 @@ func newEnv(ctx SpecContext, interval telem.TimeSpan) *env {
 		Now:           clock,
 		EncryptionKey: secret.NewEncryptionKey(),
 	}))
-	e.svc = MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
+	e.svc = MustOpen(certificate.OpenService(ctx, append([]certificate.ServiceConfig{{
 		DB:                  e.db,
 		Secret:              e.secrets,
 		Status:              e.status,
 		Now:                 clock,
+		HostKey:             1,
 		ExpiryCheckInterval: interval,
-	}))
+	}}, cfgs...)...))
 	return e
 }
 
 func (e *env) advance(span telem.TimeSpan) { e.now.Add(int64(span)) }
+
+// own returns the statuses of the certificates that node 1 presents, by key.
+func (e *env) own(ctx SpecContext) map[status.Key]status.Status[any] {
+	GinkgoHelper()
+	var found []status.Status[any]
+	Expect(e.status.NewRetrieve[any]().
+		WherePrefix("node:1:certificate:").
+		Entries(&found).
+		Exec(ctx, e.db)).To(Succeed())
+	return lo.SliceToMap(
+		found,
+		func(s status.Status[any]) (status.Key, status.Status[any]) {
+			return s.Key, s
+		},
+	)
+}
+
+// writeListener writes a certificate that expires after lifetime, and its key, to
+// node.crt and node.key in dir. A file source reloads them when modified changes.
+func writeListener(dir string, lifetime time.Duration, modified time.Time) {
+	GinkgoHelper()
+	key := newKey()
+	for name, data := range map[string][]byte{
+		"node.crt": []byte(newCertificate(key, "localhost", lifetime)),
+		"node.key": encodeKey(key),
+	} {
+		path := filepath.Join(dir, name)
+		Expect(os.WriteFile(path, data, 0o600)).To(Succeed())
+		Expect(os.Chtimes(path, modified, modified)).To(Succeed())
+	}
+}
+
+// fingerprint returns the SHA-256 fingerprint of the PEM certificate, in hex.
+func fingerprint(pemText string) string {
+	GinkgoHelper()
+	block, _ := pem.Decode([]byte(pemText))
+	sum := sha256.Sum256(block.Bytes)
+	return hex.EncodeToString(sum[:])
+}
 
 func newKey() *ecdsa.PrivateKey {
 	GinkgoHelper()
@@ -196,13 +249,15 @@ func (e *env) keyName(ctx SpecContext, c certificate.Certificate) string {
 }
 
 var _ = Describe("Service", func() {
-	It("Should require the secret and status services", func(ctx SpecContext) {
-		Expect(certificate.OpenService(ctx, certificate.ServiceConfig{})).Error().
-			To(SatisfyAll(
-				MatchError(ContainSubstring("secret: must be non-nil")),
-				MatchError(ContainSubstring("status: must be non-nil")),
-			))
-	})
+	It("Should require the secret and status services and the host key",
+		func(ctx SpecContext) {
+			Expect(certificate.OpenService(ctx, certificate.ServiceConfig{})).Error().
+				To(SatisfyAll(
+					MatchError(ContainSubstring("secret: must be non-nil")),
+					MatchError(ContainSubstring("status: must be non-nil")),
+					MatchError(ContainSubstring("host_key: must be non-zero")),
+				))
+		})
 
 	Describe("NewRetrieve", func() {
 		It("Should search certificates by name", func(ctx SpecContext) {
@@ -446,5 +501,155 @@ var _ = Describe("Service", func() {
 				).To(Equal(status.VariantError))
 			},
 		)
+	})
+
+	Describe("Expiry of the Core's certificates", func() {
+		var dir string
+		BeforeEach(func() { dir = GinkgoT().TempDir() })
+
+		// listen returns a listener at address that presents a certificate that
+		// expires after lifetime, from files that writeListener replaces.
+		listen := func(address string, lifetime time.Duration) certificate.Listener {
+			GinkgoHelper()
+			writeListener(dir, lifetime, time.Now())
+			src := MustSucceed(file.NewSource(
+				xfs.Default,
+				filepath.Join(dir, "node.crt"),
+				filepath.Join(dir, "node.key"),
+			))
+			return certificate.Listener{Address: xaddress.Address(address), Source: src}
+		}
+
+		It("Should report the expiry of each CA in the CA file", func(ctx SpecContext) {
+			valid := newCertificate(newKey(), "CA 1", 365*24*time.Hour)
+			expiring := newCertificate(newKey(), "CA 2", 10*24*time.Hour)
+			Expect(os.WriteFile(
+				filepath.Join(dir, "ca.crt"),
+				[]byte(valid+expiring),
+				0o600,
+			)).To(Succeed())
+			e := newEnv(ctx, telem.Hour, certificate.ServiceConfig{
+				CA: MustSucceed(cert.NewLoader(cert.LoaderConfig{CertsDir: dir})),
+			})
+			Eventually(func(g Gomega) {
+				own := e.own(ctx)
+				g.Expect(own).To(HaveLen(2))
+				v := own["node:1:certificate:ca:"+fingerprint(valid)]
+				g.Expect(v.Name).To(Equal("CA certificate"))
+				g.Expect(v.Owner).To(BeNil())
+				g.Expect(v.Variant).To(Equal(status.VariantSuccess))
+				g.Expect(v.Message).To(Equal("Certificate valid"))
+				x := own["node:1:certificate:ca:"+fingerprint(expiring)]
+				g.Expect(x.Name).To(Equal("CA certificate"))
+				g.Expect(x.Variant).To(Equal(status.VariantWarning))
+				g.Expect(x.Message).To(Equal("Certificate expires soon"))
+				g.Expect(x.Description).To(Equal(
+					"The certificate expires on November 13, 2026. Replace it before then.",
+				))
+			}).Should(Succeed())
+		})
+
+		It("Should report the certificate of each listener", func(ctx SpecContext) {
+			e := newEnv(ctx, telem.Hour, certificate.ServiceConfig{
+				Listeners: []certificate.Listener{
+					listen("localhost:9090", -24*time.Hour),
+				},
+			})
+			Eventually(func(g Gomega) {
+				s := e.own(ctx)["node:1:certificate:localhost:9090"]
+				g.Expect(s.Name).To(Equal("Certificate of localhost:9090"))
+				g.Expect(s.Variant).To(Equal(status.VariantError))
+				g.Expect(s.Message).To(Equal("Certificate expired"))
+				g.Expect(s.Description).To(Equal(
+					"The certificate expired on November 2, 2026. " +
+						"Replace it with a new certificate.",
+				))
+			}).Should(Succeed())
+		})
+
+		It("Should write no CA status when the Core has no CA file",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, telem.Hour, certificate.ServiceConfig{
+					CA: MustSucceed(
+						cert.NewLoader(cert.LoaderConfig{CertsDir: dir}),
+					),
+					Listeners: []certificate.Listener{
+						listen("localhost:9090", time.Hour),
+					},
+				})
+				Eventually(func() []status.Key { return lo.Keys(e.own(ctx)) }).
+					Should(ConsistOf("node:1:certificate:localhost:9090"))
+			})
+
+		It("Should report a renewed listener certificate at the next check",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, 5*telem.Millisecond, certificate.ServiceConfig{
+					Listeners: []certificate.Listener{
+						listen("localhost:9090", time.Hour),
+					},
+				})
+				message := func() string {
+					return e.own(ctx)["node:1:certificate:localhost:9090"].Message
+				}
+				Eventually(message).Should(Equal("Certificate expires soon"))
+				writeListener(dir, 365*24*time.Hour, time.Now().Add(time.Minute))
+				Eventually(message).Should(Equal("Certificate valid"))
+			})
+
+		It("Should keep each status when a certificate cannot be read",
+			func(ctx SpecContext) {
+				src := MustSucceed(file.NewSource(
+					xfs.Default,
+					filepath.Join(dir, "missing.crt"),
+					filepath.Join(dir, "missing.key"),
+				))
+				e := newEnv(ctx, 5*telem.Millisecond, certificate.ServiceConfig{
+					Listeners: []certificate.Listener{
+						{Address: "localhost:9090", Source: src},
+					},
+				})
+				key := "node:1:certificate:localhost:9090"
+				Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+					return e.status.NewWriter(tx).Set(ctx, &status.Status[any]{
+						Key:     key,
+						Name:    "Certificate of localhost:9090",
+						Time:    telem.Now(),
+						Variant: status.VariantSuccess,
+						Message: "Certificate valid",
+					})
+				})).To(Succeed())
+				Consistently(func() string { return e.own(ctx)[key].Message }).
+					WithTimeout(50 * time.Millisecond).
+					Should(Equal("Certificate valid"))
+			})
+
+		It("Should delete the status of a certificate that the Core no longer presents",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, 5*telem.Millisecond, certificate.ServiceConfig{
+					Listeners: []certificate.Listener{
+						listen("localhost:9090", time.Hour),
+					},
+				})
+				for _, key := range []string{
+					"node:1:certificate:localhost:9091",
+					"node:2:certificate:localhost:9091",
+				} {
+					Expect(e.db.WithTx(ctx, func(tx gorp.Tx) error {
+						return e.status.NewWriter(tx).Set(ctx, &status.Status[any]{
+							Key:     key,
+							Name:    "Certificate of localhost:9091",
+							Time:    telem.Now(),
+							Variant: status.VariantSuccess,
+						})
+					})).To(Succeed())
+				}
+				Eventually(func() []status.Key { return lo.Keys(e.own(ctx)) }).
+					Should(ConsistOf("node:1:certificate:localhost:9090"))
+				var other status.Status[any]
+				Expect(e.status.NewRetrieve[any]().
+					Where(status.MatchKeys[any]("node:2:certificate:localhost:9091")).
+					Entry(&other).
+					Exec(ctx, e.db)).To(Succeed())
+			})
 	})
 })
