@@ -293,7 +293,7 @@ NodeConfig union on variant extends v10.NodeConfig {
             @validate min 0
         }
         options
-        enumeration     enumeration.Key? {
+        enumeration     enumeration.Key?   {
             @doc value """
                 is the enumeration whose entries the select offers in place of its
                 options.
