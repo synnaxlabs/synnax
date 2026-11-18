@@ -28,6 +28,12 @@ constexpr uint16_t END = 0xFFFF;
 constexpr uint16_t STRINGS = 10;
 /// @brief the type of the DC category.
 constexpr uint16_t DC = 60;
+/// @brief the type of the general category.
+constexpr uint16_t GENERAL = 30;
+/// @brief the SII word that holds the mailbox protocols of the slave.
+constexpr uint16_t MAILBOX_PROTOCOLS = 0x1C;
+/// @brief the CoE bit of the mailbox protocols.
+constexpr uint16_t COE = 0x04;
 
 /// @brief returns the SII string at index, or an empty string when index is 0.
 using Strings = std::function<std::string(uint8_t index)>;
@@ -50,4 +56,8 @@ std::vector<pdo::PDO> parse_pdos(
 /// data holds the category after its length word.
 std::vector<dc::OpMode>
 parse_op_modes(std::span<const uint8_t> data, const Strings &strings);
+
+/// @brief parses the general category. data holds the category after its length word.
+/// @returns whether the slave gives its CoE dictionary through SDO information.
+bool parse_sdo_info(std::span<const uint8_t> data);
 }
