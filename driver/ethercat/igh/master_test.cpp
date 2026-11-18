@@ -1151,6 +1151,16 @@ TEST_F(IGHMasterTest, ScanReadsTheModesOfEachSlaveFromItsSII) {
     EXPECT_TRUE(slaves[1].properties.op_modes.empty());
 }
 
+/// @brief it should read no word past the end marker of an SII, as IgH logs a kernel
+/// error for each such read.
+TEST_F(IGHMasterTest, ScanReadsNoWordPastTheEndOfTheSII) {
+    create_dc(this->api->add_slave(), {FREE_RUN, DC_SYNC});
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    ASSERT_EQ(slaves.size(), 1);
+    EXPECT_EQ(slaves[0].properties.op_modes, (std::vector{FREE_RUN, DC_SYNC}));
+    EXPECT_EQ(this->api->slaves[0].sii_overreads, 0);
+}
+
 /// @brief it should fail the scan when it cannot read the SII of a slave.
 TEST_F(IGHMasterTest, ScanFailsWhenTheSIICannotBeRead) {
     this->api->add_slave();

@@ -283,10 +283,13 @@ read_sii(const API &api, const unsigned int master_index, const uint16_t positio
         return api.sii_read(master_index, position, offset, words);
     };
     for (uint32_t offset = sii::CATEGORIES;;) {
-        std::array<uint16_t, 2> header{};
-        int ret = read(offset, header);
-        const auto [type, size] = header;
+        // The SII that IgH holds ends at the type word of the end marker, and IgH logs
+        // a kernel error for each read past its end.
+        uint16_t type = 0;
+        uint16_t size = 0;
+        int ret = read(offset, std::span(&type, 1));
         if (ret == 0 && type == sii::END) break;
+        if (ret == 0) ret = read(offset + 1, std::span(&size, 1));
         std::vector<uint16_t> words;
         if (ret == 0 &&
             (type == sii::STRINGS || type == sii::DC || type == sii::GENERAL)) {
