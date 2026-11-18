@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, color, type patch, record, zod } from "@synnaxlabs/x";
+import {
+  caseconv,
+  color,
+  type patch,
+  record,
+  TimeSpan,
+  TimeStamp,
+  zod,
+} from "@synnaxlabs/x";
 import { type Draft, freeze, produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -179,6 +187,115 @@ describe("applyPath", () => {
         );
       }),
     ).toThrow(zod.ParseError);
+  });
+
+  describe("decoding", () => {
+    const fieldZ = z.discriminatedUnion("type", [
+      z.object({
+        key: z.string(),
+        name: z.string().min(1),
+        type: z.literal("number"),
+        default: z.number(),
+      }),
+      z.object({
+        key: z.string(),
+        name: z.string().min(1),
+        type: z.literal("timestamp"),
+        default: TimeStamp.z,
+      }),
+    ]);
+    const decodedZ = z.object({
+      name: z.string().min(1),
+      fields: fieldZ.array(),
+      timing: z.object({ timeout: TimeSpan.z }),
+    });
+    type Decoded = z.infer<typeof decodedZ>;
+    const DOC: Decoded = {
+      name: "icd",
+      fields: [
+        { key: "f1", name: "start", type: "timestamp", default: TimeStamp.seconds(1) },
+      ],
+      timing: { timeout: TimeSpan.seconds(1) },
+    };
+    const applyTo = (doc: Decoded, action: patch.Action) => {
+      let inverse: patch.Action[] = [];
+      const next = produce(doc, (draft) => {
+        inverse = actions.applyPath(draft, action, decodedZ).inverse;
+      });
+      return { next, inverse };
+    };
+    const setAt = (path: string[], value: unknown): patch.Action => ({
+      type: "set",
+      set: { path, value, guards: [] },
+    });
+
+    it("should decode a nested timestamp that a set places", () => {
+      const { next } = applyTo(
+        DOC,
+        setAt(["fields", "f1", "default"], TimeStamp.seconds(5).valueOf()),
+      );
+      expect(next.fields[0].default).toBeInstanceOf(TimeStamp);
+      expect(next.fields[0].default).toEqual(TimeStamp.seconds(5));
+    });
+
+    it("should decode a timestamp inside an entry that an insert places", () => {
+      const { next } = applyTo(DOC, {
+        type: "insert",
+        insert: {
+          path: ["fields"],
+          value: { key: "f2", name: "end", type: "timestamp", default: "2000000000" },
+          after: "f1",
+          guards: [],
+        },
+      });
+      expect(next.fields[1].default).toBeInstanceOf(TimeStamp);
+      expect(next.fields[1].default).toEqual(TimeStamp.seconds(2));
+    });
+
+    it("should decode a nested time span that a set places", () => {
+      const { next } = applyTo(
+        DOC,
+        setAt(["timing", "timeout"], TimeSpan.seconds(3).valueOf()),
+      );
+      expect(next.timing.timeout).toBeInstanceOf(TimeSpan);
+      expect(next.timing.timeout).toEqual(TimeSpan.seconds(3));
+    });
+
+    it("should restore the decoded timestamp when the inverse applies", () => {
+      const { next, inverse } = applyTo(
+        DOC,
+        setAt(["fields", "f1", "default"], TimeStamp.seconds(5).valueOf()),
+      );
+      expect(inverse).toEqual([
+        setAt(["fields", "f1", "default"], TimeStamp.seconds(1).valueOf()),
+      ]);
+      const restored = applyTo(next, inverse[0]).next;
+      expect(restored.fields[0].default).toBeInstanceOf(TimeStamp);
+      expect(restored).toEqual(DOC);
+    });
+
+    it("should decode the fields that pass next to a field that fails", () => {
+      const { next } = applyTo(
+        DOC,
+        setAt(
+          ["fields"],
+          [
+            { key: "f1", name: "", type: "timestamp", default: "5000000000" },
+            { key: "f2", name: "end", type: "timestamp", default: "6000000000" },
+          ],
+        ),
+      );
+      expect(next.fields[0].name).toBe("");
+      expect(next.fields[0].default).toBeInstanceOf(TimeStamp);
+      expect(next.fields[0].default).toEqual(TimeStamp.seconds(5));
+      expect(next.fields[1].default).toBeInstanceOf(TimeStamp);
+      expect(next.fields[1].default).toEqual(TimeStamp.seconds(6));
+    });
+
+    it("should place a value that fails its schema as it is", () => {
+      const { next } = applyTo(DOC, setAt(["name"], ""));
+      expect(next.name).toBe("");
+    });
   });
 
   it("should keep the case of a key the schema preserves", () => {
