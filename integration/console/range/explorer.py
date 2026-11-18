@@ -229,7 +229,7 @@ class Explorer(Surface):
         """
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(item, "Copy link")
+        self.ctx_menu.sub_action(item, "Copy", "Link")
 
     def create_child_range(self, parent_name: str, child_name: str) -> None:
         """Create a child range via context menu in the explorer.

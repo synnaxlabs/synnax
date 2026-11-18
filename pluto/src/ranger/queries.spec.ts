@@ -293,6 +293,34 @@ describe("queries", () => {
     });
   });
 
+  describe("useSetParent", () => {
+    it("should move a range under another, then to the top level", async () => {
+      const [top, rng] = await client.ranges.create([
+        {
+          name: "set_parent_top",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+        {
+          name: "set_parent_hook",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        },
+      ]);
+      const { result } = renderHook(() => Ranger.useSetParent(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({ key: rng.key, parent: top.key }),
+        ).toBe(true);
+      });
+      expect((await client.ranges.retrieve(rng.key)).parent).toEqual(top.key);
+      await act(async () => {
+        expect(await result.current.updateAsync({ key: rng.key, parent: null })).toBe(
+          true,
+        );
+      });
+      expect((await client.ranges.retrieve(rng.key)).parent).toBeUndefined();
+    });
+  });
+
   describe("useUpdateKV", () => {
     it("should set a pair on the range", async () => {
       const rng = await client.ranges.create({

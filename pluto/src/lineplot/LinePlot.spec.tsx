@@ -212,6 +212,25 @@ describe("LinePlot", () => {
       expect(held()).toBe(false);
     });
 
+    it("should report the key of the zoom that the view shows", () => {
+      const { result } = renderFrame();
+      expect(result.current.zoomedKey).toBeNull();
+      act(() => result.current.toggleZoom("outer", OUTER));
+      act(() => result.current.toggleZoom("inner", INNER));
+      expect(result.current.zoomedKey).toBe("inner");
+      act(() => result.current.toggleZoom("inner", INNER));
+      expect(result.current.zoomedKey).toBe("outer");
+      act(() =>
+        result.current.setViewport({
+          box: box.DECIMAL,
+          mode: "pan",
+          stage: "end",
+          cursor: xy.ZERO,
+        }),
+      );
+      expect(result.current.zoomedKey).toBeNull();
+    });
+
     it("should zoom in again when the view changes between calls", () => {
       const { result, view } = renderFrame();
       const panned = box.construct({ x: 0.25, y: 0 }, { x: 0.65, y: 1 });
