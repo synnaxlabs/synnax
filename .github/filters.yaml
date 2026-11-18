@@ -409,6 +409,7 @@ ci_scripts:
   - .github/scripts/**
   - .github/workflows/**
   - deploy/preview/**
+  - scripts/agent/**
   - scripts/common/**
 
 scripts:

@@ -68,6 +68,28 @@ jobs:
       - name: Check the oldest supported TypeScript
         run: scripts/check_declarations_ts.sh --window
 
+  # Outside CI, so a new Deno or Bun release fails neither PRs nor a Release that reuses
+  # this run.
+  latest-runtimes:
+    name: Smoke-test the client on the latest Deno and Bun
+    needs: ci
+    if: ${{ !cancelled() && needs.ci.outputs.core_image != '' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      core_image: ${{ needs.ci.outputs.core_image }}
+      directory: client/ts
+      latest_runtimes: true
+      lint: false
+      package: client
+      runtimes: true
+      test: false
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
   # Only this run saves the Go caches of most modules, and a failed run saves some.
   prune:
     name: Prune older caches

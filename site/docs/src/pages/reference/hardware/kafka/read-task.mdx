@@ -283,8 +283,9 @@ the last one, with its partition and offset:
 - **Record value: jsontext** -> the record value is not JSON.
 - **Record value matches no message** -> the value meets the match rule of no message of
   its record key.
-- **Record value: message ...: field ...** -> the value has nothing at the pointer of a
-  field with no default, or its value does not fit the kind of the field or the channel.
+- **Record value: field ...** -> the value has nothing at the pointer of a field with no
+  default, or its value does not fit the kind of the field or the channel. When the
+  record key has more than one message, the name of the message comes first.
 - **Record stamped ... is not after the last written** -> a record value timestamp is
   older than the last one in the index channel.
 
