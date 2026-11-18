@@ -689,6 +689,26 @@ describe("range/explorer/Explorer", () => {
       });
     });
 
+    it("should add a label that the menu search finds", async () => {
+      const lbl = await client.labels.create({
+        name: uniqueName("found"),
+        color: "#000000",
+      });
+      const rng = await createRange(uniqueRangeName("found"));
+      await renderExplorer();
+      await openMenuOf(rng);
+      fireEvent.keyDown(screen.getByRole("menu"), { key: lbl.name[0] });
+      fireEvent.change(await screen.findByPlaceholderText("Search..."), {
+        target: { value: lbl.name },
+      });
+      fireEvent.click(
+        await screen.findByRole("menuitem", { name: new RegExp(lbl.name) }),
+      );
+      await waitFor(async () =>
+        expect((await client.ranges.retrieve(rng.key)).labels).toEqual([lbl.key]),
+      );
+    });
+
     it("should favorite the range, then offer Unfavorite", async () => {
       const rng = await createRange(uniqueRangeName("favorite"));
       const store = await renderExplorer();

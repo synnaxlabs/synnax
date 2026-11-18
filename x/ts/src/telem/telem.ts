@@ -113,11 +113,8 @@ export class TimeStamp
   }
 
   private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): bigint {
-    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-    // We truncate here to only get the date component regardless of the time zone.
-    return new TimeStamp(BigInt(date.getTime()) * TimeStamp.MILLISECOND.valueOf())
-      .truncate(TimeStamp.DAY)
-      .valueOf();
+    const ms = Date.UTC(year, month - 1, day);
+    return BigInt(ms) * TimeStamp.MILLISECOND.valueOf();
   }
 
   /** @returns the timestamp as nanoseconds since the Unix epoch. */
@@ -608,12 +605,15 @@ export class TimeStamp
     const d = local
       ? new Date(year, month - 1, day, hour, minute, second)
       : new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-    // Date rolls a day that does not exist into the next month.
+    // Date rolls a day that does not exist into the next month, and a local time in a
+    // daylight saving gap past the gap.
     const resolved = local
-      ? [d.getFullYear(), d.getMonth() + 1, d.getDate()]
-      : [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
-    if (resolved[0] !== year || resolved[1] !== month || resolved[2] !== day)
-      return null;
+      ? [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes()]
+      : [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), hour, minute];
+    const parsed = [year, month, day, hour, minute];
+    // A date with no time is the start of its day, even when the zone skips midnight.
+    const checked = timeParts.length > 0 ? parsed.length : 3;
+    if (resolved.slice(0, checked).some((v, i) => v !== parsed[i])) return null;
     return new TimeStamp(d).add(new TimeSpan(fraction));
   }
 
@@ -834,9 +834,7 @@ export class TimeSpan
 
   /** @returns a copy truncated down to a multiple of span. */
   truncate(span: TimeSpan): TimeSpan {
-    return new TimeSpan(
-      BigInt(Math.trunc(Number(this.valueOf() / span.valueOf()))) * span.valueOf(),
-    );
+    return new TimeSpan((this.valueOf() / span.valueOf()) * span.valueOf());
   }
 
   /**

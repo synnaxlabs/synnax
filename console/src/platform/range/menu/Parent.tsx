@@ -85,15 +85,23 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
   const first = ranges[0]?.parent ?? null;
   const shared = ranges.every((r) => (r.parent ?? null) === first);
   const current = shared ? first : null;
-  // The ranges cannot hold themselves, and the current parent leads the list.
-  const hidden = new Set(ranges.map((r) => r.key));
-  if (current != null) hidden.add(current);
+  const keys = ranges.map((r) => r.key);
+  const nested = Ranger.useResultList({ where: { ancestors: keys } });
+  // A range cannot hold itself or a range nested in it, and the current parent leads
+  // the list.
+  const hidden = [...keys, ...(nested.data ?? []).map((r) => r.key)];
+  if (current != null) hidden.push(current);
+  // The Core returns nested ranges in no fixed order, and a new order is a new query.
+  hidden.sort();
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.ranges,
     {
       name: "ranges",
-      query: { order: NEWEST },
-      filter: (r) => !hidden.has(r.key),
+      // The list waits for the nested ranges, so it never shows one of them.
+      query:
+        nested.data == null
+          ? null
+          : { order: NEWEST, where: { not: { key: { in: hidden } } } },
     },
   );
   const handleChange = (next: ranger.Key | null) =>
@@ -123,7 +131,7 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
           <Select.Body<ranger.Key>
             resourceName="range"
             onSearch={search}
-            status={status}
+            status={nested.variant === "success" ? status : nested.status}
             fixedItems={current != null && <Current parent={current} />}
             footer={
               <>
