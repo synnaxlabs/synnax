@@ -404,8 +404,8 @@ describe("remote", () => {
       await settle(y);
       const [, series] = y.value().data;
       expect(series.series.every((s) => s.alignmentMultiple > 1n)).toBe(true);
-      // A tile's point limit rounds up to a power of two, so the line draws 1 to 2 times
-      // its 1000 points.
+      // A tile's point limit rounds up to a power of two, so the line draws 1 to 2
+      // times its 1000 points.
       expect(series.length).toBeGreaterThan(1000);
       expect(series.length).toBeLessThan(2000);
       expect(series.series[0].timeRange.start).toEqual(START);
