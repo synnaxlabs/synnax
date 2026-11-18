@@ -40,15 +40,20 @@ its file, line, rule, and message.
 
 ## 4. Fix a merge queue removal
 
-When the merge queue removed the pull request after its last commit, CI failed on the
-pull request merged with its base branch. The gate gives that `merge_group` CI run. The
-removal cancels the run, so it can show as cancelled.
+When the merge queue removed the pull request after its last commit, a check failed on
+the pull request merged with its base branch. The gate gives the failed `merge_group`
+run when it found one. The removal cancels the run, so it can show as cancelled.
 
-1. Read the failed jobs: `gh run view <run> --log-failed`.
-2. Merge the base branch as in step 1. Fix what the merged tree breaks, in one place.
+1. Without a run, find it yourself:
+   `gh run list --event merge_group --limit 500 --json databaseId,headBranch,conclusion`,
+   and pick a run on `gh-readonly-queue/<base>/pr-<number>-`.
+2. Read the failed jobs: `gh run view <run> --log-failed`.
+3. Merge the base branch as in step 1. Fix what the merged tree breaks, in one place.
    Run the failed check locally when you can.
-3. When the failure does not come from this pull request, change nothing and name the
-   failure in your last message.
+4. When the failure does not come from this pull request (a flake, a break on the base
+   branch), change no code. When the pull request has the `review/bot` label, put it
+   back in the queue: `gh pr merge <number> --auto --squash`. Otherwise name the failure
+   in your last message for a person.
 
 ## 5. Address every review finding
 

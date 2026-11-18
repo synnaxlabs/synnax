@@ -12,10 +12,10 @@
 # Prints the work a pull request needs before it is done, one item per line, and
 # nothing when it is done. Usage: shepherd_work.sh <pr>. The items are "conflict", "ci
 # <run id>" for a failed CI run on the head, "codeql <path>:<line> <rule> <message>"
-# for each open CodeQL alert the pull request adds, "queue <run id>" for a merge queue
-# removal after the head commit with the CI run of its merge group, "threads <count>"
-# for review threads that need action, and "outside-diff" for open Sedosaur findings
-# outside the diff.
+# for each open CodeQL alert the pull request adds, "queue [<run id>]" for a merge
+# queue removal after the head commit, with the failed merge group run when found,
+# "threads <count>" for review threads that need action, and "outside-diff" for open
+# Sedosaur findings outside the diff.
 
 set -euo pipefail
 
@@ -55,15 +55,18 @@ gh api "repos/${REPO}/${ALERTS}" --paginate --jq '.[]
     | "codeql \($at.location.path):\($at.location.start_line) \(.rule.id)"
         + " \($at.message.text | gsub("\\s+"; " "))"'
 
-# The span from the head commit to a later merge queue removal for failed checks. The
-# removal cancels the CI run of its merge group, so a failed run can end cancelled.
+# The span from the head commit to a later merge queue removal for failed checks that
+# no new enqueue followed.
 # shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
 SPAN=$(gh api graphql -F p="$PR" -f o="${REPO%/*}" -f r="${REPO#*/}" -f query='
 query($o: String!, $r: String!, $p: Int!) {
   repository(owner: $o, name: $r) {
     pullRequest(number: $p) {
       commits(last: 1) { nodes { commit { committedDate } } }
-      timelineItems(last: 1, itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+      timelineItems(
+        last: 1
+        itemTypes: [ADDED_TO_MERGE_QUEUE_EVENT, REMOVED_FROM_MERGE_QUEUE_EVENT]
+      ) {
         nodes { ... on RemovedFromMergeQueueEvent { createdAt reason } }
       }
     }
@@ -73,11 +76,15 @@ query($o: String!, $r: String!, $p: Int!) {
     | .timelineItems.nodes[0] as $removal
     | select($removal.reason == "failed_checks" and $removal.createdAt > $head)
     | "\($head)..\($removal.createdAt)"')
+# The removal cancels the runs of its merge group, so a failed run can end cancelled.
 if [ -n "$SPAN" ]; then
-    GROUP=$(gh api "${RUNS}?event=merge_group&created=${SPAN}&per_page=100" --jq \
-        "[.workflow_runs[] | select(.head_branch
-            | test(\"^gh-readonly-queue/.+/pr-${PR}-\"))][0].id")
-    echo "queue $GROUP"
+    GROUP_RUNS=$(gh api "repos/${REPO}/actions/runs?event=merge_group&created=${SPAN}" \
+        --paginate --jq ".workflow_runs[]
+            | select(.head_branch | test(\"^gh-readonly-queue/.+/pr-${PR}-\"))
+            | \"\(.conclusion) \(.id)\"")
+    GROUP=$(grep -m1 '^failure ' <<< "$GROUP_RUNS" \
+        || grep -m1 '^cancelled ' <<< "$GROUP_RUNS" || true)
+    echo "queue${GROUP:+ ${GROUP#* }}"
 fi
 
 THREADS=$("$HERE/review_threads.sh" "$PR" | wc -l | tr -d ' ')
