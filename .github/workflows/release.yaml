@@ -510,7 +510,9 @@ jobs:
       # only after a stage succeeds, and a run whose tag already names this commit has
       # nothing to stage. While the newest version overall or on this train waits for
       # approval, nothing new stages, so approvals never move a dist-tag back. `client`
-      # is approved last. The check only reads, and the publish job runs it again.
+      # is approved last. A version is on the registry only after approval, so its
+      # provenance is checked here, before the next stage. The check only reads, and
+      # the publish job runs it again.
       - &claim-ts
         name: Check the version claim
         id: claim
@@ -524,6 +526,12 @@ jobs:
             curl -s -o /dev/null -w '%{http_code}' \
               "https://registry.npmjs.org/@synnaxlabs/$1/$2"
           }
+          attested() {
+            curl -sf "https://registry.npmjs.org/@synnaxlabs/$1/$2" \
+              | jq -e '.dist.attestations.provenance' > /dev/null
+          }
+          # A maintainer staged these by hand, with no OIDC token to sign provenance.
+          unattested=" 0.61.1 "
           claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
           if [ "$claimed" = "$GITHUB_SHA" ]; then
             echo "staged=true" >> "$GITHUB_OUTPUT"
@@ -551,7 +559,16 @@ jobs:
             [ -n "$pending" ] || continue
             code=$(status client "$pending")
             case "$code" in
-              200) ;;
+              200)
+                [[ "$unattested" == *" $pending "* ]] && continue
+                for name in x alamos freighter client; do
+                  if ! attested "$name" "$pending"; then
+                    echo "$name $pending has no provenance attestation. After" >&2
+                    echo "review, add $pending to unattested." >&2
+                    exit 1
+                  fi
+                done
+                ;;
               404)
                 echo "client $pending is not out. Approve it, or reject it" >&2
                 echo "and delete the ts/v$pending tag." >&2
@@ -631,7 +648,7 @@ jobs:
       # A hotfix on an older train must not move `latest` back. The trusted publisher
       # may only stage, so nothing installs until a maintainer approves it with 2FA.
       # pnpm cannot stage a batch, so each package stages on its own, in dependency
-      # order.
+      # order. Without `--provenance`, pnpm only warns and stages when it cannot sign.
       - name: Stage
         id: stage
         if: steps.claim.outputs.staged != 'true'
@@ -644,7 +661,7 @@ jobs:
         run: |
           for name in x alamos freighter client; do
             pnpm stage publish "npm-packages/synnaxlabs-$name-$VERSION.tgz" \
-              --tag "$TAG" --no-git-checks
+              --tag "$TAG" --no-git-checks --provenance
           done
 
       # No tag guards the packages that a failed stage left on the registry.
