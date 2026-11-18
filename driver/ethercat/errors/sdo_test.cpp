@@ -40,7 +40,7 @@ TEST(SDOFailureTest, GivesTheReasonOfEachKind) {
     );
     EXPECT_EQ(
         SDOFailure{.kind = Kind::UNEXPECTED_REPLY}.reason(),
-        "the slave sent an unexpected reply"
+        "the module sent an unexpected reply"
     );
     EXPECT_EQ(
         SDOFailure{.kind = Kind::REPLY_TOO_LARGE}.reason(),
@@ -48,7 +48,7 @@ TEST(SDOFailureTest, GivesTheReasonOfEachKind) {
     );
     EXPECT_EQ(
         SDOFailure{.kind = Kind::MAILBOX_ERROR}.reason(),
-        "the slave refused the mailbox request"
+        "the module refused the mailbox request"
     );
 }
 

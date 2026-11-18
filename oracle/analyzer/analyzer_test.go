@@ -1175,6 +1175,50 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject a finite rule on a type that is not a float",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("an integer field", `
+				Entry struct {
+					value int32 { @validate finite }
+				}
+			`, "test.Entry.value has a finite rule, but its type is not a float"),
+			Entry("a string field", `
+				Entry struct {
+					value string { @validate finite }
+				}
+			`, "test.Entry.value has a finite rule, but its type is not a float"),
+			Entry("a distinct integer", `
+				Count int32 { @validate finite }
+			`, "test.Count has a finite rule, but its type is not a float"),
+		)
+
+		DescribeTable(
+			"Should accept a finite rule on a float",
+			func(source string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+			Entry("a float32 field", `
+				Entry struct {
+					value float32 { @validate finite }
+				}
+			`),
+			Entry("a field of a distinct float", `
+				Rate float64
+				Entry struct {
+					value Rate { @validate finite }
+				}
+			`),
+			Entry("an alias of a float", `
+				Decimal = float64 { @validate finite }
+			`),
+		)
+
+		DescribeTable(
 			"Should accept rules that a value can satisfy",
 			func(source string) {
 				_, diag := Analyze(source, "test", loader)
@@ -5479,6 +5523,33 @@ var _ = Describe("Analyze", func() {
 		table, diag := analyzer.Analyze([]string{"label", "label.oracle"}, loader)
 		Expect(diag.Ok()).To(BeTrue())
 		Expect(table.MustGet("label.Label").Name).To(Equal("Label"))
+	})
+
+	It("Should derive filter types once across two schemas of one namespace", func() {
+		AddFilterSchema(loader)
+		loader.Add("schemas/x/color", `
+			Color struct {
+				r uint8
+			}
+		`).Add("schemas/synnax/color", `
+			import "schemas/x/color"
+			import "schemas/x/filter"
+
+			Key = uuid
+
+			Named struct {
+				key   Key { @key }
+				light color.Color
+			}
+
+			Where filter Named {
+				key
+			}
+		`)
+		table, diag := analyzer.Analyze([]string{"schemas/synnax/color"}, loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		Expect(table.MustGet("color.RetrieveRequest").FilePath).
+			To(Equal("schemas/synnax/color.oracle"))
 	})
 
 	It("Should report a load failure under the requested file", func() {

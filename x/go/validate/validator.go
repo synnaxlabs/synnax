@@ -151,6 +151,11 @@ func (v *Validator) LessThanEq[T types.Numeric](
 	)
 }
 
+// Finite returns true and attaches an error to v if the value is NaN or infinite.
+func (v *Validator) Finite[T types.Numeric](field string, value T) bool {
+	return v.Ternary(field, nonFinite(value), "must be finite")
+}
+
 func nonFinite[T types.Numeric](value T) bool {
 	f := float64(value)
 	return math.IsNaN(f) || math.IsInf(f, 0)

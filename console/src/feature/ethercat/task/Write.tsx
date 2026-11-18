@@ -20,6 +20,7 @@ import {
   useSlavesByKeys,
   useSlavesOnRack,
 } from "@/feature/ethercat/device/queries";
+import { needsSetup } from "@/feature/ethercat/device/SetupNote";
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
@@ -96,6 +97,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       stateChannel={ch.stateChannel}
       stateDefaultName={names?.state}
       skipped={ch.disabled}
+      warned={!ch.disabled && slave != null && needsSetup(slave)}
       nameDirection="y"
       portMaxChars={20}
     />

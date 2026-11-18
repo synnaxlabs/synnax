@@ -49,13 +49,14 @@ const FlushesContext = createContext<Set<Flush> | null>(null);
 FlushesContext.displayName = "Task.FlushesContext";
 
 /**
- * Sends the edits of a form nested in a task form before the task deploys, so the
- * deploy reads what the form shows. An edit that stays unsent stops the deploy.
+ * Sends the edits of a form nested in a task form before each save and deploy of the
+ * task, so the Core holds what the task names. An edit that stays unsent stops the
+ * deploy.
  */
-export const useFlushBeforeDeploy = (flush: Flush): void => {
+export const useFlushFirst = (flush: Flush): void => {
   const flushes = useContext(FlushesContext);
   if (flushes == null)
-    throw new Error("useFlushBeforeDeploy must be called inside a task form");
+    throw new Error("useFlushFirst must be called inside a task form");
   useEffect(() => {
     flushes.add(flush);
     return () => {
@@ -165,8 +166,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
     const { capture } = Analytics.use();
-    const { form, flush } = useForm({ query: { key: taskKey } });
     const [nested] = useState(() => new Set<Flush>());
+    const { form, flush } = useForm({
+      query: { key: taskKey },
+      beforeSend: async () => await Promise.all([...nested].map((f) => f())),
+    });
 
     // The form saves on every edit, so a subject who cannot write the task gets it
     // read-only rather than fields that revert once the save is refused.
