@@ -65,7 +65,7 @@ var _ = Describe("Service", func() {
 			Rack:       rackKey,
 			Name:       "T7-0001",
 			Serial:     nextSerial(),
-			Connection: device.ConnectionUsb,
+			Connection: device.ConnectionUSB,
 		}}}
 		Expect(gorp.NewCreate[device.Key, device.Device]().Entry(&d).Exec(ctx, tx)).
 			To(Succeed())

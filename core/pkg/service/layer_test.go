@@ -373,7 +373,7 @@ var _ = Describe("Layer", func() {
 						Rack:       layer.Rack.EmbeddedKey,
 						Name:       "T7-0001",
 						Serial:     470010001,
-						Connection: labjackdevice.ConnectionUsb,
+						Connection: labjackdevice.ConnectionUSB,
 					},
 				}}
 				Expect(gorp.NewCreate[labjackdevice.Key, labjackdevice.Device]().

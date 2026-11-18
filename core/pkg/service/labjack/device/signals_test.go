@@ -121,7 +121,7 @@ var _ = Describe("Signals", Ordered, func() {
 			Rack:       rackSvc.EmbeddedKey,
 			Name:       "T7-0001",
 			Serial:     470010001,
-			Connection: device.ConnectionUsb,
+			Connection: device.ConnectionUSB,
 		}}}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return gorp.NewCreate[device.Key, device.Device]().Entry(&d).Exec(ctx, tx)
