@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -404,7 +405,7 @@ describe("issue", () => {
     it("should throw a 404 for an unknown license", async () => {
       await expect(
         amend(store, {
-          licenseKey: crypto.randomUUID(),
+          licenseKey: uuid.create(),
           term: "subscription",
           nodes: 2,
           channels: 0,
@@ -456,7 +457,7 @@ describe("issue", () => {
     it("should throw a 404 for an unknown license", async () => {
       await expect(
         revoke(store, {
-          licenseKey: crypto.randomUUID(),
+          licenseKey: uuid.create(),
           actor: "user_staff",
           now: NOW,
         }),
@@ -538,7 +539,7 @@ describe("issue", () => {
     it("should throw a 404 for an unknown license", async () => {
       await expect(
         restore(store, {
-          licenseKey: crypto.randomUUID(),
+          licenseKey: uuid.create(),
           actor: "user_staff",
           now: NOW,
         }),
@@ -660,7 +661,7 @@ describe("issue", () => {
     it("should throw a 404 for an unknown license", async () => {
       await expect(
         floating(store, signer, {
-          licenseKey: crypto.randomUUID(),
+          licenseKey: uuid.create(),
           actor: "user_staff",
           now: NOW,
         }),

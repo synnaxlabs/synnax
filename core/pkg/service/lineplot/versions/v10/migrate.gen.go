@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v9"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 )
 
 func autoMigrateLinePlot(ctx context.Context, old v9.LinePlot) (LinePlot, error) {
@@ -47,41 +46,23 @@ func autoMigrateLinePlot(ctx context.Context, old v9.LinePlot) (LinePlot, error)
 	}, nil
 }
 
-func autoMigrateLine(ctx context.Context, old v9.Line) (Line, error) {
-	var colorVal *color.Color
-	if old.Color != nil {
-		v, err := color.MigrateColor(ctx, *old.Color)
-		if err != nil {
-			return Line{}, err
-		}
-		colorVal = &v
-	}
+func autoMigrateLine(_ context.Context, old v9.Line) (Line, error) {
 	return Line{
 		Key:         old.Key,
 		YAxis:       old.YAxis,
 		YChannel:    old.YChannel,
 		XChannel:    old.XChannel,
 		Label:       old.Label,
-		Color:       colorVal,
 		StrokeWidth: old.StrokeWidth,
 		Aggregation: old.Aggregation,
 		Detail:      old.Detail,
 	}, nil
 }
 
-func autoMigrateRule(ctx context.Context, old v9.Rule) (Rule, error) {
-	var colorVal *color.Color
-	if old.Color != nil {
-		v, err := color.MigrateColor(ctx, *old.Color)
-		if err != nil {
-			return Rule{}, err
-		}
-		colorVal = &v
-	}
+func autoMigrateRule(_ context.Context, old v9.Rule) (Rule, error) {
 	return Rule{
 		Key:       old.Key,
 		Label:     old.Label,
-		Color:     colorVal,
 		Axis:      old.Axis,
 		LineWidth: old.LineWidth,
 		LineDash:  old.LineDash,

@@ -3644,53 +3644,24 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Unit Literals", func() {
-		It("Should compile unit literal with scale conversion", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getMs() f64 {
-				return 300ms
-			}
-			`))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getMs := mod.ExportedFunction("getMs")
-			Expect(getMs).ToNot(BeNil())
-
-			results := MustSucceed(getMs.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			result := math.Float64frombits(results[0])
-			Expect(
-				result,
-			).To(BeNumerically("~", 300000000.0, 1))
-			// 300ms = 300 million ns
-		})
-
-		It("Should compile kilometer literal", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getKm() f64 {
-				return 5km
-			}
-			`))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getKm := mod.ExportedFunction("getKm")
-			results := MustSucceed(getKm.Call(ctx))
-			result := math.Float64frombits(results[0])
-			Expect(result).To(Equal(5000.0))
-		})
-
-		It("Should compile psi literal", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getPsi() f64 {
-				return 100psi
-			}
-			`))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getPsi := mod.ExportedFunction("getPsi")
-			results := MustSucceed(getPsi.Call(ctx))
-			result := math.Float64frombits(results[0])
-			Expect(result).To(BeNumerically("~", 689476.0, 1.0))
-		})
+		DescribeTable(
+			"Should compile a unit literal as the number in the unit of its target",
+			func(ctx SpecContext, result, literal string, expected float64) {
+				output := MustSucceed(compile(ctx, `
+				func get() `+result+` {
+					return `+literal+`
+				}
+				`))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				results := MustSucceed(mod.ExportedFunction("get").Call(ctx))
+				Expect(results).To(HaveLen(1))
+				Expect(math.Float64frombits(results[0])).To(Equal(expected))
+			},
+			Entry("in the same unit", "f64 ms", "300ms", 300.0),
+			Entry("in a smaller unit", "f64 ns", "300ms", 300e6),
+			Entry("in a larger unit", "f64 km", "5000m", 5.0),
+			Entry("a pressure", "f64 psi", "100psi", 100.0),
+		)
 	})
 
 	Describe("String Operations", func() {
@@ -4596,6 +4567,125 @@ var _ = Describe("Compiler", func() {
 				Expect(results[0]).To(Equal(uint64(0))) // false
 			},
 		)
+	})
+
+	Describe("Unit Conversion Synthetic Functions", func() {
+		BeforeEach(func(ctx SpecContext) { bindDefaultModules(ctx, r) })
+
+		// analyzeScale returns a program in which a flow writes other to d and d to
+		// each of sinks, and the index of its unit conversion function.
+		analyzeScale := func(
+			ctx SpecContext,
+			declarations string,
+			sinks ...symbol.Symbol,
+		) (ir.IR, int) {
+			GinkgoHelper()
+			var writes strings.Builder
+			writes.WriteString("other -> d\n")
+			for _, sink := range sinks {
+				writes.WriteString("d -> " + sink.Name + "\n")
+			}
+			prog := MustSucceed(text.Parse(text.Text{Raw: "sequence main {\n" +
+				declarations + "\nstage s1 {\n" + writes.String() + "}\n}"}))
+			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, sinks...))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			for i, f := range inter.Functions {
+				if strings.HasPrefix(f.Key, compiler.ScaleSyntheticPrefix) {
+					return inter, i
+				}
+			}
+			Fail("expected a unit conversion function")
+			return inter, 0
+		}
+		// expectScaled compiles inter and expects its unit conversion function i to
+		// return expected for input.
+		expectScaled := func(
+			ctx SpecContext,
+			inter ir.IR,
+			i int,
+			input, expected any,
+		) {
+			GinkgoHelper()
+			output := MustSucceed(compiler.Compile(ctx, inter))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			fn := mod.ExportedFunction(inter.Functions[i].Key)
+			Expect(fn).ToNot(BeNil())
+			arg := uint64(0)
+			switch v := input.(type) {
+			case int64:
+				arg = uint64(v)
+			case float64:
+				arg = math.Float64bits(v)
+			}
+			results := MustSucceed(fn.Call(ctx, arg))
+			Expect(results).To(HaveLen(1))
+			assertResult(results[0], expected)
+		}
+
+		DescribeTable("Should convert its input to the unit of its output",
+			func(ctx SpecContext, declarations string, input, expected any) {
+				inter, i := analyzeScale(ctx, declarations)
+				expectScaled(ctx, inter, i, input, expected)
+			},
+			Entry("to a larger unit",
+				"d := 1min\nother := 120s", int64(120), int64(2)),
+			Entry("to a larger unit with a remainder",
+				"d := 1min\nother := 120s", int64(90), int64(1)),
+			Entry("to a smaller unit",
+				"d i64 ms := 1s\nother i64 min := 2min", int64(2), int64(120000)),
+			Entry("a float",
+				"d := 1.0bar\nother := 250.0kPa", float64(250), float64(2.5)),
+		)
+
+		DescribeTable("Should convert its input to the kind of its output",
+			func(
+				ctx SpecContext,
+				declarations string,
+				sink types.Type,
+				input, expected any,
+			) {
+				inter, i := analyzeScale(ctx, declarations, symbol.Symbol{
+					Name: "sink",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(sink),
+					ID:   100,
+				})
+				fn := inter.Functions[i]
+				Expect(fn.Inputs[0].Type.Unwrap().Kind).ToNot(Equal(sink.Kind))
+				Expect(fn.Outputs[0].Type.Kind).To(Equal(sink.Kind))
+				expectScaled(ctx, inter, i, input, expected)
+			},
+			Entry("a 64-bit float to a 32-bit float",
+				"d := 1.0bar\nother := 250.0kPa",
+				types.F32(), float64(250), float32(2.5)),
+			Entry("a 64-bit integer to a 32-bit integer",
+				"d := 1min\nother := 120s", types.I32(), int64(120), int32(2)),
+			Entry("a 64-bit integer to a 32-bit integer with a remainder",
+				"d := 1min\nother := 90s", types.I32(), int64(90), int32(1)),
+		)
+
+		It("Should reject a conversion with more than one input", func(
+			ctx SpecContext,
+		) {
+			inter, i := analyzeScale(ctx, "d := 1min\nother := 120s")
+			fn := &inter.Functions[i]
+			fn.Inputs = append(fn.Inputs, fn.Inputs[0])
+			Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+				ContainSubstring("takes one input and one output"),
+			))
+		})
+
+		It("Should reject a conversion between two dimensions", func(
+			ctx SpecContext,
+		) {
+			inter, i := analyzeScale(ctx, "d := 1min\nother := 120s")
+			inter.Functions[i].Outputs[0].Type.Unit = &types.Unit{
+				Dimensions: types.DimPressure, Scale: 1, Name: "Pa",
+			}
+			Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+				ContainSubstring("cannot convert i64 s to i64 Pa"),
+			))
+		})
 	})
 
 	Describe("Format String Synthetic Functions", func() {
@@ -5711,7 +5801,7 @@ var _ = Describe("Compiler", func() {
 		It("Should execute time.now() via qualified name", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			import time
-			func compute() i64 {
+			func compute() i64 ns {
 				return time.now()
 			}
 			`, nil))
@@ -5786,7 +5876,7 @@ var _ = Describe("Compiler", func() {
 		// Prefer time.now(). See "Should execute time.now() via qualified name" above.
 		It("Should execute bare now() (deprecated)", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func compute() i64 {
+			func compute() i64 ns {
 				return now()
 			}
 			`, nil))

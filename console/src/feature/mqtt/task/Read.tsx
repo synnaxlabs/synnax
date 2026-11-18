@@ -16,7 +16,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { DataType, deep, primitive } from "@synnaxlabs/x";
+import { array, DataType, deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
@@ -78,10 +78,7 @@ const TimestampFields: FC<{ path: deep.Path<PlainReadEntry> }> = ({ path }) => {
       set(path.fields, [...fields, indexField]);
       set(path.index, indexField.key);
     } else if (mode === "arrival" && index !== "") {
-      set(
-        path.fields,
-        fields.filter((f) => f.key !== index),
-      );
+      set(path.fields, array.removeKeyed(fields, index));
       set(path.index, "");
     }
   };

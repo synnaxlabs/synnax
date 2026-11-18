@@ -10,6 +10,7 @@
 import { type Action } from "@reduxjs/toolkit";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Synnax } from "@synnaxlabs/pluto";
+import { destructor } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 import { useStore } from "react-redux";
 
@@ -98,7 +99,7 @@ export const use = <S, A extends Action>(
     return () => {
       released = true;
       generation += 1;
-      destructors.forEach((destroy) => destroy());
+      destructor.unwind(...destructors);
     };
   }, [client, store]);
   return verified;

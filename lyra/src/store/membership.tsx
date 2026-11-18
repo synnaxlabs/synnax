@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type record } from "@synnaxlabs/x";
+import { array, destructor, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -161,7 +161,7 @@ export const createMembership = (name: string): Membership => {
     return useSyncExternalStore(
       (onStoreChange) => {
         const destructors = keys.map((key) => subscribe(onStoreChange, key));
-        return () => destructors.forEach((d) => d());
+        return () => destructor.unwind(...destructors);
       },
       memberAmong,
       memberAmong,

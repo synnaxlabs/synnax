@@ -11,9 +11,9 @@
 
 #include "gtest/gtest.h"
 
-#include "driver/ethercat/soem/sii.h"
+#include "driver/ethercat/sii/sii.h"
 
-namespace driver::ethercat::soem::sii {
+namespace driver::ethercat::sii {
 namespace {
 /// @brief returns the strings of a slave whose SII holds strings.
 Strings lookup(const std::map<uint8_t, std::string> &strings) {
@@ -182,5 +182,17 @@ TEST(ParseOpModesTest, ReadsSignedShiftsAndUnnamedModes) {
 /// @brief it should leave out a mode that the category holds only part of.
 TEST(ParseOpModesTest, LeavesOutAPartialMode) {
     EXPECT_TRUE(parse_op_modes(std::vector<uint8_t>(23, 0), lookup({})).empty());
+}
+
+/// @brief it should give each string by its index from 1, and an empty string for index
+/// 0, an index past the last string, or a string that runs past the category.
+TEST(ParseStringsTest, GivesEachStringByIndex) {
+    const std::vector<uint8_t> data = {3, 2, 'D', 'C', 3, 'S', 'M', 'X', 9, 'Y'};
+    const auto strings = parse_strings(data);
+    EXPECT_EQ(strings(1), "DC");
+    EXPECT_EQ(strings(2), "SMX");
+    EXPECT_EQ(strings(0), "");
+    EXPECT_EQ(strings(3), "");
+    EXPECT_EQ(strings(4), "");
 }
 }

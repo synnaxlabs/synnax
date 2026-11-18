@@ -61,6 +61,10 @@ You deliver the work yourself, as your GitHub App.
    reply with the commit that fixed it and leave it open.
 3. Reply to every other thread that needs action with `addPullRequestReviewThreadReply`.
    Open each reply with `*Agent reply.*` Keep it to a few sentences, with no em dashes.
+   When a Sedosaur finding is wrong, reply with the evidence: the file and line, the
+   declaration, or the test that settles it. Sedosaur checks it against the head, then
+   withdraws the finding or replies why it holds. After a hold, reply again only with
+   new evidence, else leave the finding to a person. Only a person can dismiss.
 4. When you pushed, or when the `Review gate` waits for the Sedosaur review of the head
    or says it ended `failure` or `cancelled`, comment `@sedosaur review` on the pull
    request. After a push, wait until `gh pr view --json headRefOid` shows your commit

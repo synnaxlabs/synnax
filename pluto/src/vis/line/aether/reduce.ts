@@ -80,7 +80,7 @@ const cut = (op: DrawOperation, lo: number, hi: number): DrawOperation =>
 
 // Returns the op index of the first sample whose x is at least value.
 const indexOf = ({ x, xOffset, count }: DrawOperation, value: number): number =>
-  Math.min(Math.max(x.binarySearch(value) - xOffset, 0), count);
+  bounds.clamp({ lower: 0, upper: count }, x.binarySearch(value) - xOffset);
 
 const xAt = ({ x, xOffset }: DrawOperation, i: number): number =>
   Number(x.at(xOffset + i, true));
