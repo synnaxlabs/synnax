@@ -33,13 +33,11 @@ use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
 
 fn main() {
-    // WebKitGTK's DMABUF renderer draws a black window when the WebKitGTK bundled in an
-    // AppImage runs on the host's graphics stack.
+    // SAFETY: no other thread runs yet.
     #[cfg(target_os = "linux")]
-    if std::env::var_os("APPIMAGE").is_some() {
-        // SAFETY: no other thread runs yet.
-        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
-    }
+    unsafe {
+        desktop::webkit::set_env()
+    };
     let prevent = tauri_plugin_prevent_default::Builder::new()
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();

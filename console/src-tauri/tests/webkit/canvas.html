@@ -1,0 +1,45 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+
+<!doctype html>
+<meta charset="utf-8" />
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+    }
+    canvas {
+        position: absolute;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+    }
+</style>
+<body></body>
+<script>
+    const targets = ["lower2d", "gl", "upper2d"].map((variant) => {
+        const canvas = document.createElement("canvas");
+        document.body.append(canvas);
+        return { variant, ctx: canvas.getContext("bitmaprenderer") };
+    });
+    const { port1, port2 } = new MessageChannel();
+    port1.onmessage = ({ data }) => {
+        targets.forEach(({ variant, ctx }) => {
+            if (data[variant] != null) ctx.transferFromImageBitmap(data[variant]);
+        });
+        port1.postMessage(null);
+    };
+    const worker = new Worker("worker.js");
+    worker.onmessage = (e) => (document.title = e.data);
+    worker.onerror = (e) => (document.title = `error ${e.message}`);
+    // Small canvases let a CI runner draw frames fast enough to hit a crash.
+    worker.postMessage({ width: 640, height: 400, port: port2 }, [port2]);
+</script>

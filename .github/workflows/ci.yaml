@@ -550,6 +550,44 @@ jobs:
           flags: desktop-shell
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  desktop-shell-linux:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.console == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'desktop-shell-linux')
+    # WebKitGTK crashes in the Console's worker canvases show only on Linux.
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            librsvg2-dev xvfb
+
+      - name: Create a render node
+        # The Console turns on worker WebGL only with a render node. vgem gives one
+        # with no GPU, and Mesa then draws in software.
+        run: |
+          sudo modprobe vgem
+          sudo chmod 666 /dev/dri/renderD*
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
+        with:
+          cache-workspaces: console/src-tauri -> target
+          cache-shared-key: ${{ runner.os }}-desktop-test
+
+      - name: Create an empty frontend
+        # The Tauri context embeds the frontend directory, so it must exist.
+        run: mkdir -p console/dist && touch console/dist/index.html
+
+      - name: Test
+        working-directory: console/src-tauri
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" cargo test --features desktop
+
   docs:
     needs: changes
     if:
@@ -1413,6 +1451,7 @@ jobs:
       - core-image
       - dependency-review
       - desktop-shell
+      - desktop-shell-linux
       - docs
       - docs-site
       - drift

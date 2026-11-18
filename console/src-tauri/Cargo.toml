@@ -22,6 +22,11 @@ name = "synnax-desktop-key"
 path = "src/key.rs"
 required-features = ["desktop"]
 
+# Opens a WebKitGTK window, which GTK allows only on the main thread.
+[[test]]
+name = "webkit"
+harness = false
+
 # See more keys and their definitions at
 # https://doc.rust-lang.org/cargo/reference/manifest.html
 
