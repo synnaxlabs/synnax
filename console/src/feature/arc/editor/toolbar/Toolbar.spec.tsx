@@ -13,7 +13,7 @@ import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Toolbar } from "@/feature/arc/editor/toolbar/Toolbar";
 import { createResourceTab } from "@/platform/panel/testutil";
@@ -22,6 +22,7 @@ import {
   CaptureStatuses,
   createConsoleWrapper,
   getIconButton,
+  HaulProvider,
   type TestStore,
   uniqueName,
 } from "@/testutil";
@@ -48,9 +49,11 @@ const renderToolbar = async (arcKey: string): Promise<ToolbarHandle> => {
     render(
       <PlutoPanel.Scope.Provider value={panelKey}>
         <PlutoPanel.TabScope.Provider value={tabKey}>
-          <Suspense fallback={null}>
-            <Toolbar />
-          </Suspense>
+          <HaulProvider>
+            <Suspense fallback={null}>
+              <Toolbar />
+            </Suspense>
+          </HaulProvider>
           <CaptureStatuses onStatuses={(s) => (statuses = s)} />
         </PlutoPanel.TabScope.Provider>
       </PlutoPanel.Scope.Provider>,
@@ -80,6 +83,20 @@ describe("arc editor toolbar", () => {
     );
     fireEvent.click(screen.getByText("Telemetry"));
     await waitFor(() => expect(screen.queryAllByText("Constant")).toHaveLength(0));
+  });
+
+  it("pictures a dragged stage as its drawing with its corner on the pointer", async () => {
+    const arc = await createGraphArc();
+    await renderToolbar(arc.key);
+    const stages = await screen.findByRole("listbox", { name: "Stages" });
+    const stage = stages.querySelector('[aria-label="Constant"]');
+    if (stage == null) throw new Error("expected a Constant stage");
+    const setDragImage = vi.fn();
+    fireEvent.dragStart(stage, { dataTransfer: { setDragImage } });
+    const layer = document.querySelector(".lyra-haul__layer");
+    expect(layer?.children).toHaveLength(1);
+    expect(layer?.firstElementChild?.classList).toContain("pluto-arc__stage");
+    expect(setDragImage).toHaveBeenCalledWith(layer, 18, 18);
   });
 
   it("prompts for a selection on the properties tab", async () => {

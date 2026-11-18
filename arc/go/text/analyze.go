@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	"github.com/synnaxlabs/arc/analyzer/codes"
@@ -1385,54 +1384,6 @@ func analyzeFunctionNode(
 	return res, true
 }
 
-// tryAnalyzeFmtStrLiteral handles the format-string-with-placeholders case by
-// emitting a synthetic function. handled=true means the literal was a format
-// string with placeholders and the result is authoritative; handled=false
-// means callers should fall through to other literal handling.
-func tryAnalyzeFmtStrLiteral(
-	ctx acontext.Context[parser.IExpressionContext],
-	sym *symbol.Symbol,
-	kg *keyGenerator,
-	shell *shellBuilder,
-	triggered bool,
-) (nodeResult, bool, bool) {
-	literalCtx := parser.GetLiteral(ctx.AST)
-	if literalCtx == nil {
-		return nodeResult{}, false, false
-	}
-	strTerm := parser.StringTerminal(literalCtx)
-	if strTerm == nil {
-		return nodeResult{}, false, false
-	}
-	if !lo.SomeBy(
-		ctx.FmtStrings[strTerm],
-		func(seg parser.FmtSegment) bool { return seg.Expr != nil },
-	) {
-		return nodeResult{}, false, false
-	}
-	outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
-	body, _, _ := literal.StripQuotes(strTerm.GetText())
-	key := kg.generate("fmt", "")
-	synthKey := compiler.FmtStrSyntheticPrefix + key
-	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
-		Key:      synthKey,
-		Body:     ir.Body{Raw: body, AST: literalCtx},
-		Inputs:   sym.Type.Inputs,
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-		Channels: sym.Channels.Copy(),
-		Symbol:   sym,
-	})
-	n := ir.Node{
-		Key:      key,
-		Type:     synthKey,
-		Channels: sym.Channels.Copy(),
-		Inputs:   sym.Type.Inputs,
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-	}
-	wireVarEdges(ctx, shell, kg, &n, triggered)
-	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true, true
-}
-
 // analyzeExpression lowers an expression into a node. triggered means the node
 // sits behind a flow trigger, so lifted value-variable params bind as VarRefs
 // sampled per fire rather than edges that wake the node on writes.
@@ -1446,18 +1397,6 @@ func analyzeExpression(
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
-	}
-
-	if sym.Kind == symbol.KindFunction && parser.IsLiteral(ctx.AST) {
-		if n, handled, ok := tryAnalyzeFmtStrLiteral(
-			ctx,
-			sym,
-			kg,
-			shell,
-			triggered,
-		); handled {
-			return n, ok
-		}
 	}
 
 	if sym.Kind == symbol.KindConstant {
@@ -1670,10 +1609,6 @@ func collectFunctions(scope *symbol.Symbol) []ir.Function {
 	var fns []ir.Function
 	for _, c := range scope.Children() {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
-			continue
-		}
-		// Format-string fns compile as fmt$ synthetics from the stored placeholders.
-		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
 			continue
 		}
 		bodyAst := c.AST
@@ -2022,7 +1957,7 @@ func headVarReads[T antlr.ParserRuleContext](
 	}
 	var nodes []*ir.Node
 	for _, arg := range symbol.FunctionArguments(fn) {
-		for _, pe := range parser.CollectNamedPrimaries(arg.Expr) {
+		for _, pe := range parser.CollectNamedPrimaries(arg.Expr, ctx.FmtStrings) {
 			head, tail := parser.PrimaryNameParts(pe)
 			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 			if err != nil || !isExprReadVar(sym) {
@@ -2391,7 +2326,7 @@ func (p *inputParser) parse(
 	}
 	// Any other expression becomes a node that fires with the call and is
 	// sampled through a var ref, so its value is the one at fire time.
-	if !parser.IsLiteral(expr) {
+	if !literal.IsConstant(expr) {
 		res, ok := analyzeExpression(p.ctx.Child(expr), p.kg, p.shell, true)
 		if !ok {
 			return nil, paramType, false

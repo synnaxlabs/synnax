@@ -157,6 +157,7 @@ export const createTreeItems = (
 
   const TreeItem = Tree.createItem({
     icon: <Icon.Group />,
+    typeName: "Group",
     children,
     folder: true,
     canDrop: (props) => {

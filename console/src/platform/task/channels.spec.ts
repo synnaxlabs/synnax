@@ -37,8 +37,7 @@ describe("channels", () => {
       ];
       await Task.configureReadChannels({
         client,
-        read,
-        propertiesKey: "src",
+        stored: { read, key: "src" },
         fields,
         namePrefix: prefix,
         indexKey: "ts",
@@ -62,8 +61,7 @@ describe("channels", () => {
       const fields = [createField("f1", "/time")];
       await Task.configureReadChannels({
         client,
-        read,
-        propertiesKey: "src",
+        stored: { read, key: "src" },
         fields,
         namePrefix: prefix,
         indexKey: "",
@@ -84,8 +82,7 @@ describe("channels", () => {
       const fields = [createField("f1", "/temperature")];
       await Task.configureReadChannels({
         client,
-        read,
-        propertiesKey: "src",
+        stored: { read, key: "src" },
         fields,
         namePrefix: prefix,
         indexKey: "",
@@ -98,13 +95,30 @@ describe("channels", () => {
       );
     });
 
+    it("should create the index and the channels of a source that the device does not store", async () => {
+      const prefix = uniqueName("src");
+      const fields = [
+        createField("f1", "/temperature"),
+        createField("ts", "/ts", "timestamp"),
+      ];
+      await Task.configureReadChannels({
+        client,
+        fields,
+        namePrefix: prefix,
+        indexKey: "ts",
+      });
+      const index = await client.channels.retrieve(fields[1].channel);
+      expect(index).toMatchObject({ name: `${prefix}_time`, isIndex: true });
+      const data = await client.channels.retrieve(fields[0].channel);
+      expect(data).toMatchObject({ name: `${prefix}_temperature`, index: index.key });
+    });
+
     it("should create no channel or index for a disabled field", async () => {
       const read: Record<string, Task.ReadChannelProps> = {};
       const fields = [{ ...createField("f1", "/temperature"), disabled: true }];
       await Task.configureReadChannels({
         client,
-        read,
-        propertiesKey: "src",
+        stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
         indexKey: "",
@@ -134,8 +148,7 @@ describe("channels", () => {
       ];
       await Task.configureReadChannels({
         client,
-        read,
-        propertiesKey: "src",
+        stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
         indexKey: "",
@@ -160,8 +173,7 @@ describe("channels", () => {
       const fields = [createField("f1", "/new")];
       await Task.configureReadChannels({
         client,
-        read,
-        propertiesKey: "src",
+        stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
         indexKey: "",
@@ -186,8 +198,7 @@ describe("channels", () => {
       ];
       await Task.configureReadChannels({
         client,
-        read,
-        propertiesKey: "src",
+        stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
         indexKey: "",
@@ -209,8 +220,7 @@ describe("channels", () => {
       const fields = [{ ...createField("f1", "/own"), channel: own.key }];
       await Task.configureReadChannels({
         client,
-        read,
-        propertiesKey: "src",
+        stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
         indexKey: "",
@@ -229,8 +239,7 @@ describe("channels", () => {
       const fields = [{ ...createField("f1", "/ts", "timestamp"), channel: own.key }];
       await Task.configureReadChannels({
         client,
-        read,
-        propertiesKey: "src",
+        stored: { read, key: "src" },
         fields,
         namePrefix: uniqueName("src"),
         indexKey: "",

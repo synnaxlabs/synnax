@@ -24,7 +24,7 @@ import (
 // not just the cases checkDefaultInvariant can settle.
 func checkOptionalDefaultInvariant(c *analysisCtx) {
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
@@ -59,7 +59,7 @@ func checkOptionalDefaultInvariant(c *analysisCtx) {
 // `@default group`; see checkDefaultGroups.
 func checkDefaultInvariant(c *analysisCtx) {
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
@@ -162,10 +162,10 @@ func checkUnionDefaultConstructible(c *analysisCtx) {
 }
 
 // forEachDefaultedField calls fn for every field carrying a default on every struct
-// declared in the namespace under analysis.
+// declared in the file under analysis.
 func forEachDefaultedField(c *analysisCtx, fn func(resolution.Type, resolution.Field)) {
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
@@ -253,7 +253,7 @@ func defaultGroup(f resolution.Field) (string, bool) {
 // one member survives.
 func checkDefaultGroups(c *analysisCtx) {
 	for _, typ := range c.table.Types {
-		if typ.Namespace != c.namespace {
+		if !c.owns(typ) {
 			continue
 		}
 		form, ok := typ.Form.(resolution.StructForm)
