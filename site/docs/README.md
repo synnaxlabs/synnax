@@ -26,8 +26,10 @@ Download links and the version in the header read the per-product GitHub release
 `src/util/releases.ts`, so a release shows on the site after the next deploy. The
 release workflows redeploy the docs after each stable release. The updater routes under
 `/releases/` read the releases per request, and a warm function caches the listing for
-five minutes. `DOCS_GITHUB_TOKEN` in the Vercel project raises the GitHub API rate
-limit; the site works without it.
+five minutes. `DOCS_GITHUB_TOKEN` raises the GitHub API rate limit. The deploy workflow
+passes its job token to the build, so a build that does not run from the workflow, such
+as a redeploy from the Vercel dashboard, fails on the expired token. The updater routes
+read the token in the Vercel project; they work without it.
 
 The release notes in `src/releases` take their date from the same listing: the day, in
 Mountain Time, that the stable `core/vX.Y.0` release was published. Notes with no stable
