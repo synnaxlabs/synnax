@@ -22,24 +22,24 @@
 #include "driver/secret/secret.h"
 
 namespace driver::secret {
+namespace {
+/// @returns VALIDATION when item is a file of rack, and the Driver runs another rack.
+x::errors::Error
+check_rack(const std::string &item, const synnax::rack::Key rack, const Config &cfg) {
+    if (rack == cfg.rack) return x::errors::NIL;
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "Cannot read " + item + ": it is a file of rack " + std::to_string(rack) +
+            ", and this Driver runs rack " + std::to_string(cfg.rack) + "."
+    );
+}
+}
+
 Reader::Reader(std::shared_ptr<synnax::Synnax> client, Config cfg):
     client(std::move(client)), cfg(std::move(cfg)) {}
 
-std::pair<std::string, x::errors::Error> Reader::read_file(
-    const std::string &item,
-    const std::string &name,
-    const synnax::rack::Key rack
-) const {
-    if (rack != this->cfg.rack)
-        return {
-            "",
-            x::errors::Error(
-                x::errors::VALIDATION,
-                "Cannot read " + item + ": it is a file of rack " +
-                    std::to_string(rack) + ", and this Driver runs rack " +
-                    std::to_string(this->cfg.rack) + "."
-            )
-        };
+std::pair<std::string, x::errors::Error>
+Reader::read_file(const std::string &item, const std::string &name) const {
     if (this->cfg.secrets_dir.empty())
         return {
             "",
@@ -77,11 +77,10 @@ std::pair<synnax::secret::Values, x::errors::Error> Reader::read(
     std::vector<synnax::secret::Key> stored;
     for (const auto &s: secrets) {
         if (const auto *file = std::get_if<synnax::secret::FileSecret>(&s)) {
-            auto [value, file_err] = this->read_file(
-                "secret \"" + file->name + "\"",
-                file->file_name,
-                file->rack
-            );
+            const std::string item = "secret \"" + file->name + "\"";
+            if (const auto rack_err = check_rack(item, file->rack, this->cfg))
+                return {{}, rack_err};
+            auto [value, file_err] = this->read_file(item, file->file_name);
             if (file_err) return {{}, file_err};
             values[file->key] = x::strings::trim_trailing_line_breaks(std::move(value));
             continue;
@@ -126,13 +125,17 @@ std::pair<Certificate, x::errors::Error> Reader::read_certificate(
         return {std::move(out), x::errors::NIL};
     }
     const auto &file = std::get<synnax::certificate::FileCertificate>(record);
-    const std::string item = "the private key of certificate \"" + file.name + "\"";
+    if (const auto rack_err = check_rack(
+            "certificate \"" + file.name + "\"",
+            file.rack,
+            this->cfg
+        ))
+        return {Certificate{}, rack_err};
     Certificate out;
     if (file.private_key_file.has_value()) {
         auto [private_key, key_err] = this->read_file(
-            item,
-            *file.private_key_file,
-            file.rack
+            "the private key of certificate \"" + file.name + "\"",
+            *file.private_key_file
         );
         if (key_err) return {Certificate{}, key_err};
         out.private_key = std::move(private_key);

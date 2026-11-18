@@ -103,16 +103,22 @@ protected:
     }
 
     /// @returns a file certificate of r whose certificate file holds pem, and whose
-    /// key file in the secrets folder holds x::x509::testutil::KEY.
-    [[nodiscard]] synnax::certificate::Key
-    create_file_certificate(const synnax::rack::Rack &r, const std::string &pem) const {
+    /// key file in the secrets folder holds x::x509::testutil::KEY. It has no key file
+    /// when key_file is false.
+    [[nodiscard]] synnax::certificate::Key create_file_certificate(
+        const synnax::rack::Rack &r,
+        const std::string &pem,
+        const bool key_file = true
+    ) const {
         write(this->dir / "server.pem", pem);
-        write(this->secrets / "server-key.pem", x::x509::testutil::KEY);
         synnax::certificate::Certificate c = synnax::certificate::FileCertificate{};
         auto &file = std::get<synnax::certificate::FileCertificate>(c);
         file.name = "server";
         file.certificate_path = (this->dir / "server.pem").string();
-        file.private_key_file = "server-key.pem";
+        if (key_file) {
+            write(this->secrets / "server-key.pem", x::x509::testutil::KEY);
+            file.private_key_file = "server-key.pem";
+        }
         file.rack = r.key;
         EXPECT_NIL(this->client->certificates.set(c));
         return std::get<synnax::certificate::FileCertificate>(c).key;
@@ -246,20 +252,24 @@ TEST_F(ReaderTest, FailsWithNoSecretsFolder) {
     ASSERT_EQ(this->sha256(key), "");
 }
 
-/// @brief it should refuse to read a key file of another rack.
+/// @brief it should refuse a file certificate of another rack, with or without a key
+/// file, before it reads a file.
 TEST_F(ReaderTest, RefusesFileOfAnotherRack) {
-    const auto key = this->create_file_certificate(
-        this->rack,
-        x::x509::testutil::CERTIFICATE
-    );
     const auto other = this->create_rack();
-    const auto [c, err] = this->reader(other).read_certificate(key);
-    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(
-        err.data,
-        "Cannot read the private key of certificate \"server\": it is a file of rack " +
-            std::to_string(this->rack.key) + ", and this Driver runs rack " +
-            std::to_string(other.key) + "."
-    );
+    for (const bool key_file: {true, false}) {
+        const auto key = this->create_file_certificate(
+            this->rack,
+            x::x509::testutil::CERTIFICATE,
+            key_file
+        );
+        const auto [c, err] = this->reader(other).read_certificate(key);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        ASSERT_EQ(
+            err.data,
+            "Cannot read certificate \"server\": it is a file of rack " +
+                std::to_string(this->rack.key) + ", and this Driver runs rack " +
+                std::to_string(other.key) + "."
+        );
+    }
 }
 }}

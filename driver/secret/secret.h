@@ -71,11 +71,8 @@ private:
     Config cfg;
 
     /// @returns the bytes of the file with name in the secrets folder, for the item
-    /// that rack reads.
-    [[nodiscard]] std::pair<std::string, x::errors::Error> read_file(
-        const std::string &item,
-        const std::string &name,
-        synnax::rack::Key rack
-    ) const;
+    /// that the error names.
+    [[nodiscard]] std::pair<std::string, x::errors::Error>
+    read_file(const std::string &item, const std::string &name) const;
 };
 }
