@@ -329,6 +329,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if err != nil {
 		return nil, err
 	}
+	var secretsFolder fs.FS
+	if cfg.SecretsDir != "" {
+		if secretsFolder, err = openSecretsFolder(cfg.SecretsDir); err != nil {
+			return nil, err
+		}
+	}
 	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
 	defer func() { err = cleanup(err) }()
@@ -806,7 +812,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Grant:           l.Grant,
 		EncryptionKey:   cfg.SecretsKey,
 		Rack:            coreRack.Key,
-		Folder:          secretsFolder(cfg.SecretsDir),
+		Folder:          secretsFolder,
 	}); !ok(err, l.Secret) {
 		return nil, err
 	}
@@ -1152,10 +1158,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	return l, nil
 }
 
-// secretsFolder returns the folder at dir, or nil when dir is empty.
-func secretsFolder(dir string) fs.FS {
-	if dir == "" {
-		return nil
+// openSecretsFolder returns the folder at dir. It returns an error when dir is not a
+// folder.
+func openSecretsFolder(dir string) (fs.FS, error) {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "secrets folder")
 	}
-	return os.DirFS(dir)
+	if !info.IsDir() {
+		return nil, errors.Newf("secrets folder %s is not a folder", dir)
+	}
+	return os.DirFS(dir), nil
 }

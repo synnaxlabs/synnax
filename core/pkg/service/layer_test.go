@@ -13,6 +13,8 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"time"
 	"uuid"
@@ -51,10 +53,12 @@ import (
 	panelv0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -850,6 +854,48 @@ var _ = Describe("Group moves", Ordered, func() {
 })
 
 var _ = Describe("LayerConfig", func() {
+	It("Should read a file secret of the Core's rack from its secrets folder", func(
+		ctx SpecContext,
+	) {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "token"), []byte("t"), 0o600)).
+			To(Succeed())
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(
+			ctx,
+			node,
+			service.LayerConfig{SecretsDir: dir},
+		))
+		// The Core's rack runs the integrations of the Core, such as Sift.
+		var coreRack rack.Rack
+		Expect(layer.Rack.NewRetrieve().
+			Where(rack.MatchIntegration(sift.Make)).
+			Entry(&coreRack).
+			Exec(ctx, node.DB)).To(Succeed())
+		s := secret.Secret{Variant: secret.FileSecret{
+			Base:     secret.Base{Name: "Token"},
+			FileName: "token",
+			Rack:     coreRack.Key,
+		}}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Secret.NewWriter(tx).Set(ctx, &s, nil)
+		})).To(Succeed())
+		key := s.Base().Key
+		Expect(layer.Secret.Reveal(ctx, node.DB, key)).
+			To(Equal(map[secret.Key][]byte{key: []byte("t")}))
+	})
+
+	It("Should refuse a secrets folder that does not exist", func(ctx SpecContext) {
+		dir := filepath.Join(GinkgoT().TempDir(), "missing")
+		Expect(svctestutil.OpenLayer(
+			ctx,
+			testutil.NewNode(ctx),
+			service.LayerConfig{SecretsDir: dir},
+		)).Error().To(MatchError(
+			"secrets folder: stat " + dir + ": no such file or directory",
+		))
+	})
+
 	It("Should require a secrets key", func() {
 		cfg := service.LayerConfig{
 			Distribution: &distribution.Layer{},
