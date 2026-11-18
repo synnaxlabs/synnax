@@ -70,7 +70,7 @@ persist in registry.json so a removed runner keeps reporting.
 Scaler (scaler.py): starts stopped runners when jobs queue in their pool, drains
 runners idle past --idle-cooldown (1 min), and once a drained runner is offline,
 deletes its GitHub registration and stops its instance. An offline runner counts as
-idle when it is drained or its instance is up longer than --boot-grace (2 min).
+idle when it is drained or its instance is up longer than --boot-grace (4 min).
 --scale sets the start state (enabled); runner_scaler_cmd switches it at runtime,
 runner_scaler_enabled beats the state, runner_scaler_log carries its log.
 
@@ -452,7 +452,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--boot-grace",
         type=seconds,
-        default=2 * sy.TimeSpan.MINUTE,
+        default=4 * sy.TimeSpan.MINUTE,
         help="seconds after launch before an offline runner counts as idle",
     )
     p.add_argument(
