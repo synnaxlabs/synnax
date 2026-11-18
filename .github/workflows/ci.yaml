@@ -23,6 +23,13 @@ on:
         required: false
         type: boolean
         default: false
+      latest_runtimes:
+        description:
+          Whether the client smoke test uses the latest stable Deno and Bun instead of
+          the pinned versions
+        required: false
+        type: boolean
+        default: false
     secrets:
       APPLE_CERTIFICATE:
         required: false
@@ -413,6 +420,7 @@ jobs:
       coverage_flag: client-ts
       directory: client/ts
       examples_package: "@synnaxlabs/client-examples"
+      latest_runtimes: ${{ inputs.latest_runtimes == true }}
       macos: *full
       node_lts: true
       package: client

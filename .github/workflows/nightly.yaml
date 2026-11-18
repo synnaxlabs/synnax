@@ -30,8 +30,10 @@ jobs:
       packages: write
       pull-requests: read
     uses: ./.github/workflows/ci.yaml
+    # PR CI pins Deno and Bun, so a new release fails only this run.
     with:
       full: true
+      latest_runtimes: true
     secrets:
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
