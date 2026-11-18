@@ -2667,7 +2667,7 @@ func hasCircularInheritance(
 		if !ok {
 			continue
 		}
-		if hasCircularInheritance(parent, table, visited) {
+		if hasCircularInheritance(parent, table, visited.Copy()) {
 			return true
 		}
 	}
