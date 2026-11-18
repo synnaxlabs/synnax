@@ -62,8 +62,8 @@ class ModbusUnits(SimulatorCase):
         unit_1 = self.client.devices.retrieve(name=self.units_sim.device_name)
         unit_2, unit_3 = self.create_test_devices(
             [
-                self.units_sim.create_device(rack.key, unit_id=2),
-                self.units_sim.create_device(rack.key, unit_id=3),
+                self.units_sim.create_device(self.client, rack.key, unit_id=2),
+                self.units_sim.create_device(self.client, rack.key, unit_id=3),
             ]
         )
         self.units = {1: unit_1, 2: unit_2, 3: unit_3}

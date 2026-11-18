@@ -15,6 +15,7 @@ import socket
 import ssl
 from pathlib import Path
 from typing import override
+from uuid import UUID
 
 from asyncua import ua
 from asyncua.client.client import Client
@@ -30,7 +31,7 @@ from cryptography.x509.oid import ExtendedKeyUsageOID
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
-from synnax import opcua
+from synnax import opcua, secret
 
 ARRAY_COUNT = 5
 DEFAULT_ARRAY_SIZE = 5
@@ -419,7 +420,7 @@ class OPCUASim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> opcua.Device:
         return opcua.Device(
             endpoint=OPCUASim.endpoint,
             name=OPCUASim.device_name,
@@ -455,7 +456,7 @@ class OPCUATLSSim(OPCUASim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> opcua.Device:
         return opcua.Device(
             endpoint=OPCUATLSSim.endpoint,
             name=OPCUATLSSim.device_name,
@@ -483,7 +484,7 @@ class OPCUATLSDriverCertificateSim(OPCUATLSSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> opcua.Device:
         return opcua.Device(
             endpoint=OPCUATLSDriverCertificateSim.endpoint,
             name=OPCUATLSDriverCertificateSim.device_name,
@@ -496,6 +497,8 @@ class OPCUATLSDriverCertificateSim(OPCUATLSSim):
 
 TLS_AUTH_USERNAME = "testuser"
 TLS_AUTH_PASSWORD = "testpass"
+# A fixed key, so that each device creation replaces one secret instead of adding one.
+TLS_AUTH_PASSWORD_KEY = UUID("6f1d0a52-3c1e-4c55-9a43-1b2a7e5d9c20")
 
 
 class OPCUATLSAuthSim(OPCUASim):
@@ -526,7 +529,14 @@ class OPCUATLSAuthSim(OPCUASim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> opcua.Device:
+        client.secrets.set(
+            secret.NewStored(
+                key=TLS_AUTH_PASSWORD_KEY,
+                name=f"{OPCUATLSAuthSim.device_name} password",
+                value=TLS_AUTH_PASSWORD,
+            )
+        )
         return opcua.Device(
             endpoint=OPCUATLSAuthSim.endpoint,
             name=OPCUATLSAuthSim.device_name,
@@ -538,5 +548,5 @@ class OPCUATLSAuthSim(OPCUASim):
             client_cert=str(CERT_DIR / "client-certificate.der"),
             client_private_key=str(CERT_DIR / "client-private-key.pem"),
             username=TLS_AUTH_USERNAME,
-            password=TLS_AUTH_PASSWORD,
+            password=TLS_AUTH_PASSWORD_KEY,
         )

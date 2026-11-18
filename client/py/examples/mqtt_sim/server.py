@@ -39,6 +39,7 @@ import math
 import time
 from typing import override
 
+import synnax as sy
 from examples.mqtt_sim import sparkplug, sparkplug_b_pb2 as pb
 from examples.mqtt_sim.broker import Broker
 from examples.simulators.device_sim import DeviceSim
@@ -127,7 +128,7 @@ class MQTTSim(DeviceSim):
 
     @override
     @staticmethod
-    def create_device(rack_key: int) -> mqtt.Device:
+    def create_device(client: sy.Synnax, rack_key: int) -> mqtt.Device:
         return mqtt.Device(
             host=MQTTSim.host,
             port=MQTTSim.port,
