@@ -83,6 +83,7 @@ var _ = Describe("Migration", func() {
 	DescribeTable("Should store every element color alpha as a byte",
 		func(ctx SpecContext, a float64, expected uint8) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{
 				DB: db,
 			}))
@@ -727,6 +728,7 @@ var _ = Describe("MigrateNodeConfig stroke widths", func() {
 
 	It("Should keep a stroke width of 0 through storage", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
 		old := withElements(v12.Schematic{
 			Key: uuid.New(),
@@ -801,6 +803,7 @@ var _ = Describe("MigrateNodeConfig text", func() {
 
 	It("Should migrate a saved label through storage", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
 		old := withElements(v12.Schematic{
 			Key: uuid.New(),
@@ -1268,6 +1271,7 @@ var _ = Describe("MigrateNodeConfig whole numbers and renames", func() {
 
 	It("Should keep a renamed field through storage", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v12.Key, v12.Schematic]{DB: db}))
 		old := withElements(v12.Schematic{
 			Key: uuid.New(),

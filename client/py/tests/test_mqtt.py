@@ -259,7 +259,8 @@ class TestMQTTWriteTask:
 
     def test_payload_type(self) -> None:
         """Should create a task of the MQTT write type."""
-        assert sy.mqtt.WriteTask(device="broker-1").to_payload().type == "mqtt_write"
+        task = sy.mqtt.WriteTask(name="Write", device="broker-1")
+        assert task.to_payload().type == "mqtt_write"
 
     def test_create_and_retrieve_write_task(
         self, client: sy.Synnax, task_targets: TaskTargets
@@ -303,7 +304,9 @@ class TestMQTTEdgeTask:
 
     def test_payload_type(self) -> None:
         """Should create a task of the Sparkplug B edge node type."""
-        task = sy.mqtt.EdgeTask(device="broker-1", group="Plant", edge_node="Line1")
+        task = sy.mqtt.EdgeTask(
+            name="Test Task", device="broker-1", group="Plant", edge_node="Line1"
+        )
         assert task.to_payload().type == "mqtt_sparkplug_edge"
         assert task.config.group == "Plant"
         assert task.config.authority == 0
@@ -350,7 +353,7 @@ class TestMQTTDevice:
 
     def test_device_defaults(self) -> None:
         """Should leave the port and keep alive out so the Core uses its defaults."""
-        dev = sy.mqtt.Device(host="broker.local", name="Broker")
+        dev = sy.mqtt.Device(rack=1, host="broker.local", name="Broker")
         assert dev.make == "mqtt"
         assert dev.model == "MQTT broker"
         assert dev.location == "broker.local"
@@ -371,6 +374,7 @@ class TestMQTTDevice:
     def test_device_custom_config(self) -> None:
         """Should carry the TLS and credential settings in its properties."""
         dev = sy.mqtt.Device(
+            name="Test Device",
             host="broker.local",
             port=8884,
             secure=True,
@@ -392,7 +396,11 @@ class TestMQTTDevice:
     def test_device_sparkplug_config(self) -> None:
         """Should carry the Sparkplug B host ID and groups in its properties."""
         dev = sy.mqtt.Device(
-            host="broker.local", host_id="synnax-primary", groups=["Plant", "Lab"]
+            name="Test Device",
+            rack=1,
+            host="broker.local",
+            host_id="synnax-primary",
+            groups=["Plant", "Lab"],
         )
         assert dev.properties["sparkplug"] == {
             "host_id": "synnax-primary",
@@ -402,7 +410,7 @@ class TestMQTTDevice:
     @pytest.mark.parametrize("port", [1, 65535])
     def test_device_accepts_port_at_bounds(self, port: int) -> None:
         """Should keep a port at either end of the TCP range."""
-        dev = sy.mqtt.Device(host="broker.local", port=port)
+        dev = sy.mqtt.Device(name="Test Device", rack=1, host="broker.local", port=port)
         assert dev.properties["port"] == port
 
     @pytest.mark.parametrize("port", [-1, 0, 65536])
@@ -414,7 +422,9 @@ class TestMQTTDevice:
     @pytest.mark.parametrize("keep_alive", [1, 65535])
     def test_device_accepts_keep_alive_at_bounds(self, keep_alive: int) -> None:
         """Should keep a keep alive at either end of the MQTT range."""
-        dev = sy.mqtt.Device(host="broker.local", keep_alive=keep_alive)
+        dev = sy.mqtt.Device(
+            name="Test Device", rack=1, host="broker.local", keep_alive=keep_alive
+        )
         assert dev.properties["keep_alive"] == keep_alive
 
     @pytest.mark.parametrize("keep_alive", [-1, 0, 65536])
@@ -424,8 +434,8 @@ class TestMQTTDevice:
             sy.mqtt.Device(host="broker.local", keep_alive=keep_alive)
 
     def test_device_auto_key_generation(self) -> None:
-        a = sy.mqtt.Device(host="broker.local")
-        b = sy.mqtt.Device(host="broker.local")
+        a = sy.mqtt.Device(name="Test Device", rack=1, host="broker.local")
+        b = sy.mqtt.Device(name="Test Device", rack=1, host="broker.local")
         assert a.key != b.key
 
 

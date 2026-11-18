@@ -51,6 +51,7 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 func seedV1(ctx SpecContext, seed *v0.Table) *gorp.DB {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v0.Table]{DB: db}))
 	Expect(gorp.NewCreate[uuid.UUID, v0.Table]().Entry(seed).Exec(ctx, db)).
 		To(Succeed())

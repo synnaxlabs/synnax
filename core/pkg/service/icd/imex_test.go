@@ -40,6 +40,7 @@ var _ = Describe("ImEx", func() {
 		// Export reads only committed ICDs, and the suite's open transaction holds the
 		// write lock of its DB, so the spec commits to a DB of its own.
 		exportDB := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(exportDB.Run)
 		registry := imex.NewService()
 		exportSvc := MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
 			DB:   exportDB,

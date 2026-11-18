@@ -74,7 +74,8 @@ same cycle, the first one in the code wins. See
 | `=> other` | Stops this sequence, then starts the top-level sequence or stage `other`. |
 
 A stage of a different sequence is not a valid target: `undefined symbol: name`. A
-`=> next` in the last step fails with `'next' in last stage 'abort' has no next stage`.
+`=> next` in the last step fails with
+`invalid transition target: 'next' in last stage 'abort' has no next stage`.
 
 A transition to a top-level target stops the whole top-level sequence or stage that
 holds it, including all nested items. Nothing in that scope resumes. A running target
@@ -98,4 +99,5 @@ stage {
 }
 ```
 
-A top-level stage cannot use `next`: `'next' used outside of a sequence`.
+A top-level stage cannot use `next`:
+`invalid transition target: 'next' used outside of a sequence`.

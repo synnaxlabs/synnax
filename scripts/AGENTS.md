@@ -47,6 +47,10 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
   module or test code use. It runs Knip in production mode, then traces each finding. An
   export that only other modules' tests use is allowed only in a test utility directory
   (`testutil`, `test`, or `mock`).
+- `pack_ts.sh <package> <dir>` — builds and packs `@synnaxlabs/<package>` and its Synnax
+  dependencies, then installs it in a new project in `<dir>`.
+  `check_declarations_ts.sh <package> <dir>` then runs `tsc` on that project with
+  `skipLibCheck` off, with `bundler` and `nodenext` resolution.
 
 ## Copyright headers
 

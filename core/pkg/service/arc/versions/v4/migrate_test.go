@@ -191,6 +191,7 @@ func textOf(b v4.Base) text.Text {
 func migrateFromV3(ctx SpecContext, seed v3.Arc, cfgs ...parser.Config) v4.Arc {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v3.Key, v3.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -208,6 +209,7 @@ func migrateFromV3(ctx SpecContext, seed v3.Arc, cfgs ...parser.Config) v4.Arc {
 var _ = Describe("NewRootMigration", func() {
 	It("Should put every Arc in no directory into the root", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		root, sub := uuid.New(), uuid.New()
 		table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Arc]{
 			DB: db,

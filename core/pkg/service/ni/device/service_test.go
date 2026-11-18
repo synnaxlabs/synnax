@@ -526,6 +526,7 @@ var _ = Describe("Service", func() {
 		It("Should require an identity update before a migrated physical device is "+
 			"configured", func(ctx SpecContext) {
 			mDB := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(mDB.Run)
 			mStat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: mDB}))
 			MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: mDB}))
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: mDB}))

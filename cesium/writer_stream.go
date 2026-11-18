@@ -110,7 +110,9 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay           confluence.Inlet[relayResponse]
+	relay confluence.Inlet[relayResponse]
+	// relayStopped closes when the relay stops. Writes then skip the relay.
+	relayStopped    <-chan struct{}
 	validateCommand func(WriterCommand) error
 	accumulatedErr  error
 	errSent         bool
@@ -118,7 +120,7 @@ type streamWriter struct {
 	// commit that reported it.
 	writeRefused       bool
 	virtual            *virtualWriter
-	updateDBControl    func(ctx context.Context, u ControlUpdate)
+	updateDBControl    func(u ControlUpdate)
 	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
 	internal           []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
@@ -132,13 +134,7 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
 	sCtx.Go(func(ctx context.Context) (err error) {
-		defer func() {
-			// Call close in a deferral to make sure writer resources get released even
-			// if the context is canceled or the function panics. We need to pass in a
-			// new context here because the original context may have been canceled.
-			// Using context.TODO() is not ideal, but it is the best we can do here.
-			err = errors.Combine(err, w.close(context.TODO()))
-		}()
+		defer func() { err = errors.Combine(err, w.close()) }()
 		for {
 			select {
 			case <-ctx.Done():
@@ -178,7 +174,7 @@ func (w *streamWriter) process(
 	case WriterCommandCommit:
 		return w.commit(ctx)
 	case writerCommandSetAuthority:
-		w.setAuthority(ctx, req.Config)
+		w.setAuthority(req.Config)
 	case writerCommandEndDomain:
 		err = w.endDomain(ctx, req.Config.Channels)
 	case WriterCommandWrite:
@@ -190,7 +186,7 @@ func (w *streamWriter) process(
 	return 0, true, nil
 }
 
-func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
+func (w *streamWriter) setAuthority(cfg WriterConfig) {
 	if len(cfg.Authorities) == 0 {
 		return
 	}
@@ -231,7 +227,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 	}
 
 	if len(u.Transfers) > 0 {
-		w.updateDBControl(ctx, u)
+		w.updateDBControl(u)
 	}
 }
 
@@ -305,9 +301,12 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	if w.Mode.Stream() {
-		w.relay.Inlet() <- relayResponse{
+		select {
+		case w.relay.Inlet() <- relayResponse{
 			frame: req.Frame.ExcludeKeys(excludeUnauthorized),
 			group: w.ControlSubject.Group,
+		}:
+		case <-w.relayStopped:
 		}
 	}
 	return accumulatedErr
@@ -459,7 +458,7 @@ func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) erro
 	return unauthorized
 }
 
-func (w *streamWriter) close(ctx context.Context) error {
+func (w *streamWriter) close() error {
 	var err error
 	parentUpdate := ControlUpdate{
 		Transfers: make([]control.Transfer, 0, len(w.internal)),
@@ -482,7 +481,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(parentUpdate.Transfers) > 0 {
-		w.updateDBControl(ctx, parentUpdate)
+		w.updateDBControl(parentUpdate)
 	}
 	return err
 }

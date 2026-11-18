@@ -46,6 +46,7 @@ var _ = Describe("ArcExplorerTabsMigration", func() {
 	var db *gorp.DB
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Panel]{DB: db}))
 	})
 

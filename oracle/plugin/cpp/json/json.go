@@ -387,7 +387,19 @@ func objectMap(
 	}
 	key := ref.TypeArgs[0]
 	return ref, isStruct, isStruct || key.IsTypeParam() ||
-		resolution.PrimitiveBase(key, table) != "string"
+		mapKeyBase(key, table) != "string"
+}
+
+// mapKeyBase returns the primitive that a map key is written as. C++ holds a string
+// enum as a std::string, so a string enum key is a string.
+func mapKeyBase(key resolution.TypeRef, table *resolution.Table) string {
+	if target, _, ok := resolution.Dealias(key, table); ok {
+		form, isEnum := target.Form.(resolution.EnumForm)
+		if isEnum && !form.IsIntEnum {
+			return "string"
+		}
+	}
+	return resolution.PrimitiveBase(key, table)
 }
 
 // checkMapKey rejects a map that to_json builds by hand when its key has no exact JSON
@@ -402,7 +414,7 @@ func checkMapKey(
 	if !ok || ref.TypeArgs[0].IsTypeParam() {
 		return nil
 	}
-	base := resolution.PrimitiveBase(ref.TypeArgs[0], table)
+	base := mapKeyBase(ref.TypeArgs[0], table)
 	if base == "string" || base == "uuid" || strings.HasPrefix(base, "int") ||
 		strings.HasPrefix(base, "uint") {
 		return nil
@@ -620,6 +632,33 @@ func (f fieldParser) plain(cppType string) string {
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, f.jsonName)
 }
 
+// required parses a field with no fallback. A required string or number field also
+// refuses its zero value, as Go and TypeScript do.
+func (f fieldParser) required() string {
+	return fmt.Sprintf(
+		`parser.%s<%s>("%s")`,
+		fieldFunc(f.field, f.data.table),
+		f.cppType,
+		f.jsonName,
+	)
+}
+
+// fieldFunc returns the parser method that reads field.
+func fieldFunc(field resolution.Field, table *resolution.Table) string {
+	// The Core mints a key, so a client sends its zero value on create.
+	_, isKey := field.Domains["key"]
+	if isKey || field.Optional ||
+		!validation.FieldRules(field, table).Required {
+		return "field"
+	}
+	base := resolution.PrimitiveBase(field.Type, table)
+	if resolution.IsPrimitive(base) &&
+		(resolution.IsStringPrimitive(base) || resolution.IsNumberPrimitive(base)) {
+		return "required_field"
+	}
+	return "field"
+}
+
 func (f fieldParser) withFallback(cppType, fallback string) string {
 	return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, f.jsonName, fallback)
 }
@@ -818,7 +857,7 @@ func (f fieldParser) primitive() string {
 			return f.withFallback(f.cppType, defaultVal)
 		}
 	}
-	return f.plain(f.cppType)
+	return f.required()
 }
 
 func (f fieldParser) other() string {
@@ -829,7 +868,7 @@ func (f fieldParser) other() string {
 		return f.plain(fmt.Sprintf("std::optional<%s>", f.cppType))
 	}
 	if !f.hasDefault {
-		return f.plain(f.cppType)
+		return f.required()
 	}
 	if defaultVal := jsonDefaultLiteral(f.field, f.data.table); defaultVal != "" {
 		// Hand-written distinct types such as x::telem::Rate and x::telem::DataType
@@ -844,7 +883,7 @@ func (f fieldParser) other() string {
 	if fallback := f.compositeFallback(f.field, f.cppType, f.data); fallback != "" {
 		return f.withFallback(f.cppType, fallback)
 	}
-	return f.plain(f.cppType)
+	return f.required()
 }
 
 // compositeFallback renders a struct or array default as a value of cppType. It returns
@@ -942,7 +981,7 @@ func (p *Plugin) toJSONExprForField(
 		// JSON object keys are strings, and obj[key] with an integer key indexes an
 		// array.
 		key := "key"
-		switch base := resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table); {
+		switch base := mapKeyBase(mapRef.TypeArgs[0], data.table); {
 		case mapRef.TypeArgs[0].IsTypeParam():
 			key = "x::json::map_key(key)"
 		case base == "string":

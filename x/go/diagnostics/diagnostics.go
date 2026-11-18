@@ -106,8 +106,8 @@ func rangeOf(ctx antlr.ParserRuleContext) protocol.Range {
 	return r
 }
 
-// Error creates an error diagnostic from an existing error. If the error implements
-// HintProvider, the hint is automatically extracted and added as a note.
+// Error creates an error diagnostic from an existing error. It takes the kind that
+// marks the error and the hint of a HintProvider, if the error has them.
 func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 	d := Diagnostic{
 		Severity: protocol.DiagnosticSeverityError,
@@ -115,7 +115,18 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 		Range:    rangeOf(ctx),
 		cause:    err,
 	}
-	if hp, ok := err.(HintProvider); ok {
+	var marked *kindError
+	if errors.As(err, &marked) {
+		d.Code, d.Severity = marked.kind.Code, marked.kind.Severity
+		// The text of an error that wraps the marked error moves to the end.
+		own := marked.Error()
+		d.Message = marked.kind.describe(own)
+		if outer, ok := strings.CutSuffix(err.Error(), own); ok && outer != "" {
+			d.Message += " (" + strings.TrimSuffix(outer, ": ") + ")"
+		}
+	}
+	var hp HintProvider
+	if errors.As(err, &hp) {
 		if hint := hp.GetHint(); hint != "" {
 			d.Notes = append(
 				d.Notes,
