@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { errors, unique } from "@synnaxlabs/x";
 import { type APIContext } from "astro";
 
 import { type Portal } from "@/portal";
@@ -33,7 +34,7 @@ export const load = async (context: APIContext): Promise<Loaded | Response> => {
     return { portal, session: await portal.session() };
   } catch (err) {
     if (!(err instanceof HTTPError) || err.status !== 401)
-      throw err instanceof Error ? err : new Error(String(err));
+      throw errors.fromUnknown(err);
     const back = context.url.pathname + context.url.search;
     return context.redirect(`/login?redirect_url=${encodeURIComponent(back)}`, 303);
   }
@@ -136,7 +137,7 @@ export const readActivity = async (
   const people = page.entries
     .filter(({ event: e }) => e.actor !== e.activation)
     .map(({ event: e }) => e.actor);
-  const actors = await directory.names([...new Set(people)]);
+  const actors = await directory.names(unique.unique(people));
   let olderHref: string | null = null;
   if (page.next != null) {
     const older = new URL(url);

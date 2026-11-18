@@ -16,7 +16,7 @@ import {
 import { useMemoArray, useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import {
   type CrudeTimeSpan,
-  type destructor,
+  destructor,
   primitive,
   type record,
   TimeSpan,
@@ -123,7 +123,6 @@ interface Answer<E extends record.Keyed<record.Key>> {
 
 const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_SEARCH_DEBOUNCE = TimeSpan.milliseconds(100);
-const noop = () => {};
 const keyItem = <I>(key: record.Key): I => key as I;
 
 /**
@@ -175,7 +174,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const list =
     retriever == null || listQuery == null ? null : retriever.watch(listQuery);
   const current = useSyncExternalStore(
-    (callback) => (list == null ? noop : list.onChange(callback)),
+    (callback) => (list == null ? destructor.NOOP : list.onChange(callback)),
     () => list?.getCached(),
   );
   // A new query, such as a new search term, shows the last answer until its own lands.
@@ -279,7 +278,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   }) as GetItem<K, E>;
 
   const subscribe = (callback: () => void, key: K): destructor.Destructor => {
-    if (retriever == null || primitive.isZero(key)) return noop;
+    if (retriever == null || primitive.isZero(key)) return destructor.NOOP;
     const read = () => callback();
     readers.current.add(read);
     const live = retriever.watch(itemQuery(key));
