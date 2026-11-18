@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -121,7 +122,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 	Describe("Receive after the stream ends", func() {
 		It("Should return the same error on every call", func(ctx SpecContext) {
-			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				Errors:              errorCodec(),
 				StreamWriteDeadline: testutil.WriteDeadline,
 			}))
 			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
@@ -136,8 +138,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			ownApp, ownAddr := serveRouter(router)
 			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
 			stream := MustSucceed(client.Stream(ctx, ownAddr))
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			Expect(stream.Receive()).Error().To(MatchError(io.EOF))
+			Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 		})
 	})
 
