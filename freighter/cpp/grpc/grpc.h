@@ -228,6 +228,8 @@ class Stream final
     x::errors::Error close_err = x::errors::NIL;
     /// @brief set to true when writes_done is called.
     bool writes_done_called = false;
+    /// @brief set to true once Read returns false.
+    bool read_done = false;
 
 public:
     Stream(
@@ -256,11 +258,17 @@ public:
     /// @brief implements Stream::receive.
     std::pair<RS, x::errors::Error> receive() override {
         RS res;
-        if (this->stream->Read(&res)) return {res, x::errors::NIL};
+        if (this->read(res)) return {res, x::errors::NIL};
         const auto ctx = Context(priv::PROTOCOL, x::url::URL(), STREAM);
         auto v = nullptr;
         const auto err = this->mw.exec(ctx, this, v).second;
         return {res, err};
+    }
+
+    /// @brief implements Stream::read.
+    bool read(RS &res) override {
+        if (!this->read_done) this->read_done = !this->stream->Read(&res);
+        return !this->read_done;
     }
 
     /// @brief implements Stream::close_send.

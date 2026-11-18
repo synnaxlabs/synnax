@@ -253,6 +253,12 @@ public:
     /// @returns a pair containing the response and an error.
     virtual std::pair<RS, x::errors::Error> receive() = 0;
 
+    /// @brief reads a response like receive, but leaves an ended stream unfinished, so
+    /// the next receive finishes it and returns its error. It may run on a second
+    /// thread while send and close_send run, but never with receive.
+    /// @returns false once the stream has ended.
+    virtual bool read(RS &res) = 0;
+
     /// @brief Sends a request to the stream. It is not safe to call send
     /// concurrently with itself or close_send.
     /// @param request - the request to send.

@@ -97,7 +97,7 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
     ASSERT_OCCURRED_AS(writer.close(), x::errors::VALIDATION);
 }
 
-/// @brief it should end a wait with no error once close ends the stream.
+/// @brief it should end a wait once close ends the stream.
 TEST(WriterTests, testWaitEndsOnClose) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);
@@ -109,10 +109,40 @@ TEST(WriterTests, testWaitEndsOnClose) {
             x::control::Subject{"test_writer"},
         }
     ));
-    auto waited = std::async(std::launch::async, [&writer] { return writer.wait(); });
+    auto waited = std::async(std::launch::async, [&writer] { writer.wait(); });
     ASSERT_NIL(writer.set_authority({}, {100}, false));
     ASSERT_NIL(writer.close());
-    ASSERT_NIL(waited.get());
+    waited.get();
+}
+
+/// @brief it should end a wait when the Core sends an error for a write, and close
+/// should return that error.
+TEST(WriterTests, testWaitEndsOnACoreError) {
+    auto client = new_test_client();
+    auto [time, _] = create_indexed_pair(client);
+    const auto now = x::telem::TimeStamp::now();
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            std::vector{time.key},
+            now,
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"},
+        }
+    ));
+    auto waited = std::async(std::launch::async, [&writer] { writer.wait(); });
+    auto frame = x::telem::Frame(1);
+    frame.emplace(
+        time.key,
+        x::telem::Series(
+            std::vector<x::telem::TimeStamp>{
+                now + x::telem::SECOND * 2,
+                now + x::telem::SECOND,
+            }
+        )
+    );
+    ASSERT_NIL(writer.write(frame));
+    waited.get();
+    ASSERT_OCCURRED_AS(writer.close(), x::errors::VALIDATION);
 }
 
 /// @brief it should generate server-side timestamps for an auto-index writer opened

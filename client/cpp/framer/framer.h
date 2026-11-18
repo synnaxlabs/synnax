@@ -447,21 +447,18 @@ public:
     /// Calling any method on a closed writer will throw a runtime_error.
     [[nodiscard]] x::errors::Error close();
 
-    /// @brief blocks until the stream ends or the Core sends an error. It may run on a
+    /// @brief blocks until the stream ends or the Core sends an error. It only reads,
+    /// so close still finishes the stream and returns why it ended. It may run on a
     /// second thread while write, set_authority without ack, and close run. Do not call
     /// commit or set_authority with ack while it runs.
-    /// @returns the error, or NIL when close ended the stream.
-    [[nodiscard]] x::errors::Error wait();
+    void wait();
 
 private:
     [[nodiscard]] x::errors::Error close(const x::errors::Error &err);
 
-    /// @brief reads responses until the stream ends or one carries an error.
-    x::errors::Error drain();
-
-    /// @brief guards the reads of drain and end_err.
+    /// @brief guards the reads of the stream and end_err.
     std::unique_ptr<std::mutex> recv_mu = std::make_unique<std::mutex>();
-    /// @brief the error that ended the stream, once drain has read it.
+    /// @brief the error that ended the stream, once read.
     x::errors::Error end_err = x::errors::NIL;
 
     /// @brief the error accumulated if the writer has closed with an error.
