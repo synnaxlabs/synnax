@@ -519,6 +519,29 @@ describe("caseconv", () => {
         expect(convert("1:2")).toEqual([1, 2]);
       });
 
+      it("Should select an option by a discriminator ahead of the data", () => {
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: docZ,
+          data: { config: { variant: "plain" } },
+          discriminators: [{ path: ["config", "variant"], value: "ref" }],
+        });
+        expect(convert(ref)).toEqual(ref);
+      });
+
+      it("Should select an option by a boolean discriminator", () => {
+        const flagZ = z.object({
+          config: z.discriminatedUnion("plain", [
+            refZ.omit({ variant: true }).extend({ plain: z.literal(false) }),
+            plainZ.omit({ variant: true }).extend({ plain: z.literal(true) }),
+          ]),
+        });
+        const { convert } = caseconv.snakeToCamelPath(["config", "fill_color"], {
+          schema: flagZ,
+          data: { config: { plain: true } },
+        });
+        expect(convert("1:2")).toEqual([1, 2]);
+      });
+
       it("Should encode only the marked fields of the option an object selects", () => {
         expect(
           caseconv.camelToSnake(
