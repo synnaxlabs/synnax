@@ -20,7 +20,9 @@ from tests.task_targets import TaskTargets
 @pytest.mark.opcua
 class TestOPCDevice:
     def test_certificate_properties(self) -> None:
-        """Test that Device writes the certificate settings that the Driver reads."""
+        """Should write the keys of the certificates that the Driver reads."""
+        client_key = uuid4()
+        server_key = uuid4()
         dev = sy.opcua.Device(
             name="Test Device",
             location="Test Location",
@@ -28,7 +30,8 @@ class TestOPCDevice:
             endpoint="opc.tcp://localhost:4840",
             security_mode="SignAndEncrypt",
             security_policy="Basic256Sha256",
-            server_cert="-----BEGIN CERTIFICATE-----",
+            client_certificate=client_key,
+            server_certificate=server_key,
             certificate_validation_disabled=True,
         )
         assert dev.properties["version"] == "2.0.0"
@@ -40,7 +43,8 @@ class TestOPCDevice:
             "client_timeout_ms": 5_000,
             "secure_channel_lifetime_ms": 600_000,
             "session_timeout_ms": 1_200_000,
-            "server_certificate": "-----BEGIN CERTIFICATE-----",
+            "client_certificate": str(client_key),
+            "server_certificate": str(server_key),
         }
 
     def test_timeout_properties(self) -> None:
@@ -95,6 +99,20 @@ class TestOPCDevice:
                 rack=1,
                 endpoint="opc.tcp://localhost:4840",
                 password=plain,
+            )
+
+    def test_certificate_path(self) -> None:
+        """Should refuse a certificate that is not the key of a certificate."""
+        path: Any = "/pki/own/certs/client.der"
+        with pytest.raises(
+            TypeError, match="client_certificate must be the key of a certificate"
+        ):
+            sy.opcua.Device(
+                name="Test Device",
+                location="Test Location",
+                rack=1,
+                endpoint="opc.tcp://localhost:4840",
+                client_certificate=path,
             )
 
 
