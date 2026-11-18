@@ -2618,8 +2618,8 @@ func validateVariantOmissions(
 }
 
 // reportCircularInheritance reports each struct of the file whose extends chain reaches
-// a cycle. It returns whether any struct in the table does, imported ones
-// included, since passes that read inherited fields would recurse without bound.
+// a cycle. It returns whether any struct in the table does, imported ones included,
+// since passes that read inherited fields would recurse without bound.
 func reportCircularInheritance(c *analysisCtx) bool {
 	var found bool
 	for _, typ := range c.table.Types {
