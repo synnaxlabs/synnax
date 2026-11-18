@@ -22,7 +22,7 @@ const persistedStateZ = z.object({
 
 export interface PersistedState extends z.infer<typeof persistedStateZ> {}
 
-/** A window of the given span ending now. The Core has no notion of one. */
+/** A rolling window of the given span. The Core has no notion of one. */
 export interface DynamicState {
   variant: "dynamic";
   key: string;

@@ -29,6 +29,7 @@ var _ = Describe("Migration", func() {
 	migrate := func(ctx SpecContext, old v2.Range) v3.Range {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Range]{DB: db}))
 		Expect(gorp.NewCreate[v2.Key, v2.Range]().Entry(&old).Exec(ctx, db)).
 			To(Succeed())

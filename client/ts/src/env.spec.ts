@@ -120,6 +120,15 @@ describe("resolveParams", () => {
     );
   });
 
+  it.each<[Given, Env, boolean]>([
+    [{ caCert: "pem" }, {}, true],
+    [{ caCert: "pem" }, { SYNNAX_SECURE: "false" }, true],
+    [{ caCert: "pem", secure: false }, { SYNNAX_SECURE: "true" }, false],
+    [{ secure: false }, { SYNNAX_SECURE: "true" }, false],
+  ])("should take secure and the CA from %j over %j", (params, env, secure) => {
+    expect(resolveParams({ host: "rig", ...params }, env).secure).toEqual(secure);
+  });
+
   it("should read no variable for a field the params give", () => {
     const params = { host: "rig", port: 80, apiKey: "k", secure: false };
     expect(resolveParams(params, throwing(new Error("read")))).toEqual(params);

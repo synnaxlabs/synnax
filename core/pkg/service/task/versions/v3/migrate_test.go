@@ -63,6 +63,7 @@ var _ = Describe("NewMigration", func() {
 	BeforeEach(func(ctx SpecContext) {
 		memDB = memkv.New()
 		db = DeferClose(gorp.Wrap(memDB))
+		StartRun(db.Run)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))

@@ -46,7 +46,7 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
 - The top-level `synnax/__init__.py` flattens the public SDK surface; name collisions
   resolve with import aliases (`from synnax.task import Status as TaskStatus`), never by
   renaming the source class.
-- Never use `TYPE_CHECKING`; `scripts/check_suppressions_py.py` fails CI on a new one.
+- Never use `TYPE_CHECKING`; `scripts/check_suppressions_py.py` fails CI on any use.
   Break an import cycle by moving the shared type into a module both sides import, or by
   importing the module instead of names from it.
 

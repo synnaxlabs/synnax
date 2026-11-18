@@ -41,6 +41,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Status[any]{Key: "rack-1", Name: "Rack 1"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,

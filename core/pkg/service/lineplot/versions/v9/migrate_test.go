@@ -26,6 +26,7 @@ var _ = Describe("Migration", func() {
 		"Should delete each range-owned LinePlot and lift the rest",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v8.Key, v8.LinePlot]{DB: db}))
 			proj := uuid.New()
 			owned := v8.LinePlot{Key: uuid.New(), Name: "Owned", Project: &proj}

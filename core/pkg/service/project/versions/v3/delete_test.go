@@ -35,6 +35,7 @@ var _ = Describe("NewDeleteMigration", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		StartRun(db.Run)
 		Expect(gorp.NewCreate[uuid.UUID, vis]().
 			Entries(&[]vis{kept, deleted}).
 			Exec(ctx, db)).To(Succeed())

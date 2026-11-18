@@ -158,7 +158,12 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 // open builds the Arc runtime and returns the function that flows it, which the caller
 // must call before it releases the runtime. It writes no statuses: start owns them.
 func (t *impl) open(ctx context.Context) (flow func(), err error) {
-	drt := dataRuntime{clock: telem.MonoClock{Source: t.factoryCfg.Now}}
+	drt := dataRuntime{
+		clock: telem.MonoClock{Source: t.factoryCfg.Now},
+		errorLogs: &errorLogs{
+			nodes: make(map[string]*errorLog, len(t.prog.Program.Nodes)),
+		},
+	}
 	var deps runtime.Dependencies
 	if err = t.factoryCfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
 		deps, err = runtime.NewDependencies(
@@ -308,6 +313,7 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 			return nil, nodeErr
 		}
 		nodes[irNode.Key] = n
+		drt.errorLogs.nodes[irNode.Key] = &errorLog{}
 	}
 
 	sched, err := scheduler.New(t.prog.Program.IR, nodes)
@@ -320,12 +326,18 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 	drt.scheduler.SetErrorHandler(
 		scheduler.ErrorHandlerFunc(
 			func(ctx context.Context, nodeKey string, err error) {
-				t.factoryCfg.L.Warn("runtime error in arc node",
-					zap.String("node", nodeKey),
-					zap.Stringer("task", t.task.Key),
-					zap.Error(err),
-				)
-				t.setRuntimeError(ctx, nodeKey, err)
+				text := err.Error()
+				logs := drt.errorLogs
+				skipped, ok := logs.nodes[nodeKey].take(text, logs.now)
+				if ok {
+					t.factoryCfg.L.Warn("runtime error in arc node",
+						zap.String("node", nodeKey),
+						zap.Stringer("task", t.task.Key),
+						zap.Int("skipped", skipped),
+						zap.Error(err),
+					)
+				}
+				t.setRuntimeError(ctx, nodeKey, text)
 			},
 		),
 	)
@@ -549,14 +561,14 @@ func (t *impl) setStatus(
 	}
 }
 
-func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
+func (t *impl) setRuntimeError(ctx context.Context, nodeKey, text string) {
 	nodeType := nodeKey
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
 	if setErr := t.status.Warn(ctx, driver.Warning{
 		Message:     "Node failed",
-		Description: fmt.Sprintf("The %s node failed: %v", nodeType, err),
+		Description: fmt.Sprintf("The %s node failed: %s", nodeType, text),
 	}); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
@@ -586,6 +598,8 @@ type dataRuntime struct {
 	state     state
 	// budget limits the loop iterations and function calls of each cycle.
 	budget runtime.Budget
+	// errorLogs limits the log lines of each node.
+	errorLogs *errorLogs
 }
 
 func (d *dataRuntime) next(
@@ -600,6 +614,7 @@ func (d *dataRuntime) next(
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
+	d.errorLogs.now = cycle.Now
 	d.budget.Reset()
 	d.clock.Advance(d.scheduler.Next(ctx, cycle))
 	if err := d.budget.Err(); err != nil {

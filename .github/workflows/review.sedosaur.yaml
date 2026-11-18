@@ -16,7 +16,9 @@
 # another ref, so a new policy can be tried on old commits before it merges.
 
 name: Review - Sedosaur
-run-name: ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}
+run-name:
+  ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}${{ inputs.repeat && ' repeat'
+  || '' }}
 
 on:
   workflow_dispatch:
@@ -49,6 +51,10 @@ on:
         description: "Review the head again, even when its last review succeeded"
         type: boolean
         default: false
+      reply:
+        description: "Reply to the comment when the review skips"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -56,8 +62,8 @@ env:
   RUN_URL:
     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-# One review of a pull request at a time. A newer request replaces a queued one. Replays
-# post nothing, so each runs apart.
+# One review of a pull request at a time. A newer request replaces a queued one, so the
+# relay asks for a repeat while one waits. Replays post nothing, so each runs apart.
 concurrency:
   group:
     review-sedosaur-${{ inputs.pr }}-${{ inputs.replay && github.run_id || 'live' }}
@@ -74,6 +80,7 @@ jobs:
       head: ${{ steps.pr.outputs.head }}
       base: ${{ steps.pr.outputs.base }}
       skip: ${{ steps.skip.outputs.skip }}
+      fork: ${{ steps.pr.outputs.fork }}
       carried: ${{ steps.carry.outputs.carried }}
       check: ${{ steps.check.outputs.id }}
     steps:
@@ -192,6 +199,36 @@ jobs:
         run: |
           gh api -X POST "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT/reactions" \
             -f content=rocket --silent
+
+  decline:
+    needs: start
+    if: needs.start.outputs.skip == 'true' && inputs.reply && !inputs.replay
+    name: Reply to the request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      - name: Reply with the reason
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR: ${{ inputs.pr }}
+          HEAD_SHA: ${{ needs.start.outputs.head }}
+          FORK: ${{ needs.start.outputs.fork }}
+        run: |
+          if [ "$FORK" = true ]; then
+            body="Sedosaur does not review a pull request from a fork."
+          else
+            body="Sedosaur already reviewed $HEAD_SHA under the current rules."
+            body+=" To review it again, comment \`@sedosaur review repeat=true\`."
+          fi
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            -f body="$body" --silent
 
   review:
     needs: start

@@ -106,10 +106,10 @@ class Identity(BaseModel):
         chassis: Is the chassis that holds the device. Absent for a standalone device.
     """
 
-    rack: rack_.Key = Field(ge=0, le=4294967295)
+    rack: rack_.Key = Field(gt=0, le=4294967295)
     serial: str = ""
-    resource_name: str
-    model: str
+    resource_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
     chassis: chassis_.Key | None = None
 
 
@@ -233,7 +233,7 @@ class Configuration(BaseModel):
         digital_output: Maps a digital port number to its output channels.
     """
 
-    name: str
+    name: str = Field(min_length=1)
     identifier: str = ""
     analog_input: AnalogInputPorts = Field(default_factory=lambda: AnalogInputPorts())
     analog_output: dict[Annotated[int, Field(ge=0, le=65535)], AnalogOutputChannels] = (
@@ -274,10 +274,10 @@ class Device(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
-    name: str
+    name: str = Field(min_length=1)
     serial: str = ""
-    resource_name: str
-    model: str
+    resource_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
     chassis: chassis_.Key | None = None
     identifier: str = ""
     analog_input: AnalogInputPorts = Field(default_factory=lambda: AnalogInputPorts())
