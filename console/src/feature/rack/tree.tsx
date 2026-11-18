@@ -184,6 +184,7 @@ const DROPPABLE_TYPES = new Set<resource.Type>(["group", "device"]);
 
 const TreeItem = Tree.createItem({
   icon: <Icon.Rack />,
+  typeName: "Driver",
   children: ({ client, id }) => [
     Tree.createSource(client.groups, { parents: [id] }, Tree.toResource("group")),
     Tree.createSource(

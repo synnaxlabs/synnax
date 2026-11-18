@@ -60,6 +60,7 @@ const Create = ({
       close({ key });
     },
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame className={CSS.B("arc-create-modal")}>
