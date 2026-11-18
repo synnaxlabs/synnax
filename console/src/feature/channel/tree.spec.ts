@@ -122,7 +122,12 @@ describe("channel/tree", () => {
     // The preview renders above every provider, so the spec renders it with none.
     const factsOf = (ch: { key: channelClient.Key; name: string }): string | null => {
       const resource = createResource(channelClient.resourceID(ch.key), ch.name);
-      const preview = Item.haulPreview({ resource, client, count: 1 });
+      const preview = Item.haulPreview({
+        resource,
+        client,
+        count: 1,
+        resolveColor: () => undefined,
+      });
       const { container } = render(preview);
       return container.querySelector(".lyra-haul-preview__facts")?.textContent ?? null;
     };
