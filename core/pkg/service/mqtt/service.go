@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -122,16 +123,29 @@ func (s *Service) Stores() []config.Store {
 
 // readServiceConfig returns the config of the read task config service.
 func readServiceConfig(cfg ServiceConfig) config.ServiceConfig[ReadConfig] {
+	channels := readChannels(cfg.Channel)
 	return config.ServiceConfig[ReadConfig]{
 		DB:              cfg.DB,
 		References:      readConfigReferences(),
 		Instrumentation: cfg.Instrumentation,
 		Type:            ReadTaskType,
 		Ladder:          versions.ReadConfigLadder,
+		Migrations:      []gorp.Migration{v2.NewReadMigration(channels)},
 		SetEntryKey:     (*ReadConfig).SetKey,
 		PatchEntry:      (*ReadConfig).Patch,
 		HashEntry:       (*ReadConfig).HashContent,
-		ValidateEntry:   (*ReadConfig).Validate,
+		ResolveEntry: func(
+			ctx context.Context,
+			snap gorp.Snapshot,
+			_ string,
+			c *ReadConfig,
+		) (func(context.Context, gorp.Tx) error, error) {
+			return nil, resolveReadConfig(ctx, snap, channels, c)
+		},
+		ReconcileEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
+			return v2.ReconcileReadConfig(ctx, tx, channels, cfg.Instrumentation, c)
+		},
+		ValidateEntry: validateReadConfig,
 	}
 }
 

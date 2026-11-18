@@ -1,0 +1,175 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/payload/v0"
+import "schemas/x/versions/telem/v0"
+
+QoS = v1.QoS
+
+SparkplugDataType = v1.SparkplugDataType
+
+BaseReadField struct {
+    key      string = create {
+        @doc value "uniquely identifies the field within the entry."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable field name."
+    }
+    disabled bool = false {
+        @doc value "is true when the field is excluded from the task."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel the extracted value is written to."
+    }
+    pointer  string = "" {
+        @doc value """
+            is the JSON Pointer to the value within the payload. An empty pointer takes
+            the whole payload.
+        """
+    }
+
+    @doc value  "carries the fields every read field shares."
+    @go marshal
+}
+
+ReadField union on type payload.Kind extends BaseReadField {
+    float extends payload.FloatRead {
+        @doc value "reads a float."
+    }
+    integer extends payload.IntegerRead {
+        @doc value "reads a signed integer."
+    }
+    unsigned extends payload.UnsignedRead {
+        @doc value "reads an unsigned integer."
+    }
+    string extends payload.StringRead {
+        @doc value "reads a string."
+    }
+    boolean extends payload.BooleanRead {
+        @doc value "reads a boolean."
+    }
+    timestamp extends payload.TimestampRead {
+        @doc value "reads a timestamp."
+    }
+    json {
+        @doc value "reads any JSON value."
+    }
+    uuid {
+        @doc value "reads a UUID string."
+    }
+    bytes {
+        @doc value "reads base64 text."
+    }
+
+    @doc value  """
+        is a single value extracted from the JSON payload of a topic. The type field is
+        the kind of the value, which matches the data type of the channel.
+    """
+    @go marshal
+}
+
+BaseReadEntry = v1.BaseReadEntry
+
+ReadEntry union on type extends BaseReadEntry {
+    plain {
+        topic            string = "" {
+            @doc value "is the topic to subscribe to. It holds no wildcards."
+        }
+        qos              QoS = at_most_once {
+            @doc value "is the quality of service of the subscription."
+        }
+        retained_ignored bool = false {
+            @doc value """
+                is true when the task drops the retained message that the broker sends
+                on subscribe.
+            """
+        }
+        fields           ReadField[] {
+            @doc value "contains the values to extract from each payload."
+        }
+        index            string = "" {
+            @doc value """
+                is the key of the field whose channel indexes the others. Empty when the
+                task stamps samples on arrival.
+            """
+        }
+
+        @doc value "reads JSON payloads from one topic."
+    }
+    sparkplug {
+        group     string = "" {
+            @doc value "is the Sparkplug group ID of the edge node."
+        }
+        edge_node string = "" {
+            @doc value "is the Sparkplug edge node ID."
+        }
+        device    string = "" {
+            @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
+        }
+        tag       string = "" {
+            @doc value "is the name of the tag."
+        }
+        channel   channel.Key = 0 {
+            @doc value "is the Synnax channel the tag value is written to."
+        }
+        name      string = "" {
+            @doc value "is the human-readable name of the channel."
+        }
+        data_type telem.DataType = "float64" {
+            @doc value "is the data type of the channel."
+        }
+
+        @doc value "reads one Sparkplug B tag."
+    }
+
+    @doc value  """
+        is a single source of an MQTT read task. The type field selects a plain topic
+        with a JSON payload or a Sparkplug B tag.
+    """
+    @go marshal
+}
+
+ReadConfig struct extends task.PersistConfig {
+    device  device.Key = "" {
+        @doc value "is the key of the broker device to read from."
+    }
+    entries ReadEntry[] {
+        @doc value "contains the topics and tags to read."
+    }
+
+    @doc value  """
+        configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
+        a broker device and writes their values to Synnax channels.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+ChannelField = v1.ChannelField
+
+BaseWriteField = v1.BaseWriteField
+
+WriteField = v1.WriteField
+
+BaseWriteTarget = v1.BaseWriteTarget
+
+WriteTarget = v1.WriteTarget
+
+WriteConfig = v1.WriteConfig
+
+ScanConfig = v1.ScanConfig
+
+EdgeTag = v1.EdgeTag
+
+EdgeConfig = v1.EdgeConfig

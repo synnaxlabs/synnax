@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
@@ -74,6 +75,9 @@ type readField struct {
 	channel channel.Key
 	// dataType is the data type of the channel, which the Core is the authority on.
 	dataType telem.DataType
+	// fill is the sample written when the payload has no value. Nil when the field
+	// requires one.
+	fill []byte
 }
 
 // readTopic is one plain read entry, ready to convert payloads into frames.
@@ -117,7 +121,7 @@ func newReadTopic(
 		return nil, err
 	}
 	for _, f := range entry.Fields {
-		if f.Disabled {
+		if f.Base().Disabled {
 			continue
 		}
 		if err := t.addField(entry, f, channels); err != nil {
@@ -157,11 +161,12 @@ func (t *readTopic) addField(
 	f ReadField,
 	channels map[channel.Key]channel.Channel,
 ) error {
-	path := "field " + f.Name + " of topic " + entry.Topic
-	ch, ok := channels[f.Channel]
+	base := f.Base()
+	path := "field " + base.Name + " of topic " + entry.Topic
+	ch, ok := channels[base.Channel]
 	if !ok {
 		return errors.Wrapf(
-			validate.ErrValidation, "%s: channel %d does not exist", path, f.Channel,
+			validate.ErrValidation, "%s: channel %d does not exist", path, base.Channel,
 		)
 	}
 	field, err := newReadField(path, f, ch)
@@ -176,7 +181,7 @@ func (t *readTopic) addField(
 			"%s: every channel of a topic must share one index channel", path,
 		)
 	}
-	if f.Key == entry.Index {
+	if base.Key == entry.Index {
 		if !ch.IsIndex {
 			return errors.Wrapf(
 				validate.ErrValidation,
@@ -196,7 +201,8 @@ func (t *readTopic) addField(
 
 // newReadField validates f against ch, the channel that it writes to. path names f in
 // errors.
-func newReadField(path string, f ReadField, ch channel.Channel) (readField, error) {
+func newReadField(path string, rf ReadField, ch channel.Channel) (readField, error) {
+	f := rf.Base()
 	pointer, err := xjson.ParsePointer(f.Pointer)
 	if err != nil {
 		return readField{}, errors.Wrap(err, path)
@@ -213,44 +219,30 @@ func newReadField(path string, f ReadField, ch channel.Channel) (readField, erro
 		channel:  f.Channel,
 		dataType: ch.DataType,
 	}
-	xf := xjson.Field{DataType: ch.DataType, Enums: enums(f.EnumValues)}
-	if ch.DataType == telem.TimestampT {
-		if f.TimeFormat == nil {
-			return readField{}, errors.Wrapf(
-				validate.ErrValidation,
-				"%s: a timestamp channel requires a time format", path,
-			)
-		}
-		if xf.TimeFormat, err = xjson.ParseTimeFormat(
-			string(*f.TimeFormat),
-		); err != nil {
-			return readField{}, errors.Wrap(err, path)
-		}
+	r := v2.ReadOf(rf)
+	if err = r.Check(ch.DataType, ch.IsIndex); err != nil {
+		return readField{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
 	}
+	xf, err := r.Field(ch.DataType)
+	if err != nil {
+		return readField{}, errors.Wrap(err, path)
+	}
+	field.fill, _ = r.Fill(ch.DataType)
 	if field.decoder, err = xjson.NewDecoder(xf); err != nil {
 		return readField{}, errors.Wrapf(err, "%s: channel %s", path, ch.Name)
 	}
 	return field, nil
 }
 
-// enums returns entries in the form xjson takes.
-func enums(entries []payload.EnumEntry) []xjson.Enum {
-	out := make([]xjson.Enum, len(entries))
-	for i, e := range entries {
-		out[i] = xjson.NewEnum(e.Label, e.Value)
-	}
-	return out
-}
-
-// extract finds the value of each field in payload. A payload that is not JSON is taken
-// as a bare string, such as ON.
-func (t *readTopic) extract(payload []byte) error {
-	err := t.extractor.Extract(payload, t.values)
+// extract finds the value of each field in msg, a payload. A payload that is not JSON
+// is taken as a bare string, such as ON.
+func (t *readTopic) extract(msg []byte) error {
+	err := t.extractor.Extract(msg, t.values)
 	if err == nil ||
-		jsontext.Value(payload).IsValid(jsontext.AllowDuplicateNames(true)) {
+		jsontext.Value(msg).IsValid(jsontext.AllowDuplicateNames(true)) {
 		return err
 	}
-	if t.text, err = jsontext.AppendQuote(t.text[:0], payload); err != nil {
+	if t.text, err = jsontext.AppendQuote(t.text[:0], msg); err != nil {
 		return err
 	}
 	return t.extractor.Extract(t.text, t.values)
@@ -271,12 +263,21 @@ func (t *readTopic) convert(msg message) ([]telem.Series, telem.TimeStamp, error
 		series = append(series, telem.Series{DataType: telem.TimestampT})
 	}
 	for i, f := range t.fields {
-		if t.values[i] == nil {
-			return nil, 0, errors.Newf("field %s: no value at %s", f.name, f.pointer)
-		}
-		data, err := f.decoder.Append(nil, t.values[i])
-		if err != nil {
-			return nil, 0, errors.Wrapf(err, "field %s", f.name)
+		var data []byte
+		if payload.Absent(t.values[i], f.dataType) {
+			if f.fill == nil {
+				return nil, 0, errors.Newf(
+					"field %s: no value at %s",
+					f.name,
+					f.pointer,
+				)
+			}
+			data = f.fill
+		} else {
+			var err error
+			if data, err = f.decoder.Append(nil, t.values[i]); err != nil {
+				return nil, 0, errors.Wrapf(err, "field %s", f.name)
+			}
 		}
 		if i == t.indexField {
 			stamp = telem.TimeStamp(telem.ByteOrder.Uint64(data))
