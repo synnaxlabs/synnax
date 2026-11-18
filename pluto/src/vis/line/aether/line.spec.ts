@@ -294,6 +294,16 @@ describe("line", () => {
         expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
       });
 
+      it("should report loading for the first load of a spec a source takes in place", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        const y = sourceSpec(m.ySource);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.update({ y: { ...y, props: { ...y.props, window: 1 } } });
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
+      });
+
       it("should report neither once its sources leave loading", () => {
         const m = mount([X1], []);
         m.ySource.status = status.create({ variant: "error", message: "failed" });

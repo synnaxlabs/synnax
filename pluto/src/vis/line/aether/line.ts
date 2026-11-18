@@ -15,6 +15,7 @@ import {
   box,
   color,
   DataType,
+  deep,
   type destructor,
   type direction,
   type MultiSeries,
@@ -325,7 +326,8 @@ interface InternalState {
   // aggregation and loadingState come from the data the line last drew.
   aggregation?: Aggregation;
   loadingState?: LoadingState;
-  // loaded is true once both sources leave loading, until either source changes.
+  // loaded is true once both sources leave loading, until either source or spec
+  // changes.
   loaded?: boolean;
   // drawn holds the ops of the last render.
   drawn: DrawOperation[];
@@ -343,7 +345,15 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { xTelem, yTelem } = i;
     i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
     i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
-    if (i.xTelem !== xTelem || i.yTelem !== yTelem) i.loaded = false;
+    const { x, y } = this.state;
+    const prev = this.prevState;
+    if (
+      i.xTelem !== xTelem ||
+      i.yTelem !== yTelem ||
+      !deep.equal(x, prev.x) ||
+      !deep.equal(y, prev.y)
+    )
+      i.loaded = false;
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
