@@ -219,6 +219,11 @@ private:
     /// @brief opens the master and reads each slave on the bus.
     x::errors::Error initialize();
 
+    /// @brief names the entries of each slave from the CoE dictionary that IgH read
+    /// from it. IgH reads the dictionaries in the background after its scan, so a later
+    /// call can name more entries. Makes no bus traffic.
+    void read_dictionaries();
+
     /// @brief returns the application time now.
     [[nodiscard]] uint64_t app_time() const;
 
