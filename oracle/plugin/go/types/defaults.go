@@ -774,8 +774,9 @@ func numberLiteral(n *validation.Number) string {
 // present.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
 	ref, mapKey := field.Type, false
-	if ref.Name == "Map" && len(ref.TypeArgs) == 2 {
-		ref, mapKey = ref.TypeArgs[0], true
+	m := unaliasContainer(field.Type, data)
+	if m.Name == "Map" && len(m.TypeArgs) == 2 {
+		ref, mapKey = m.TypeArgs[0], true
 	}
 	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {

@@ -178,8 +178,11 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 				ain0 = "AIN0"
 			}
 
+			Ports = map<Port, uint32>
+
 			Cfg struct {
 				channels map<Port, uint32>
+				aliased  Ports
 			}
 
 			Shape union on type {
@@ -191,6 +194,8 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 				"func (c Cfg) Validate() error {",
 				"for key := range c.Channels {",
 				`v.Ternaryf("channels", !key.IsValid(), "invalid channels key: %v", key)`,
+				"for key := range c.Aliased {",
+				`v.Ternaryf("aliased", !key.IsValid(), "invalid aliased key: %v", key)`,
 				"func (f FirstShape) Validate() error {",
 				"for key := range f.Ports {",
 				`v.Ternaryf("ports", !key.IsValid(), "invalid ports key: %v", key)`,
