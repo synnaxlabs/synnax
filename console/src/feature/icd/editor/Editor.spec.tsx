@@ -41,6 +41,9 @@ const renderEditor = async (ic: icd.ICD, as: Synnax = client): Promise<void> => 
     </PlutoPanel.Scope.Provider>,
     { wrapper },
   );
+  // The editor is a preview until the grant check resolves, and only an editor shows
+  // Import.
+  if (as === client) await screen.findByRole("button", { name: "Import" });
 };
 
 const cell = (column: string, row: number): HTMLInputElement =>
@@ -454,6 +457,22 @@ describe("ICD editor", () => {
       }),
     );
     expect(await screen.findByText("1 mapping")).toBeTruthy();
+  });
+
+  it("should mark an enum label that is empty", async () => {
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("State", "/state"),
+          type: "unsigned",
+          enumValues: [{ label: "", value: "1" }],
+        },
+      ]),
+    ]);
+    await renderEditor(ic);
+    await openOptions(1);
+    const label = await screen.findByLabelText("Label 1");
+    await waitFor(() => expect(label.getAttribute("aria-invalid")).toBe("true"));
   });
 
   it("should set and remove the default of an optional JSON field", async () => {
