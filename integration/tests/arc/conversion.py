@@ -18,11 +18,10 @@ from tests.arc.arc import ArcCase
 # / wrap opcode families at a nominal value; the i8 / i16 / i64 / u8 / u16 / u64
 # nominal cases would only re-confirm "value 42 stays 42". The i64 source is kept
 # strictly to exercise narrowing wrap at 2^31 (the only behavior that differs from
-# i32). For float sources, {i8, i16, i32} share the same i32.trunc_* opcode and
-# differ only in mask/sign-extend epilogue, so i8 stands in for the group; i64 is
-# kept because it uses the distinct i64.trunc_* opcode. Same shape for unsigned.
-# Negative-value variants are scoped to signed targets to avoid float→unsigned
-# trunc traps.
+# i32). For float sources, {i8, i16, i32} share the i32.trunc_sat_* opcode, and i8
+# and i16 clamp to their bounds first, so i8 stands in for the group; i64 is kept
+# because it uses the distinct i64.trunc_sat_* opcode. Same shape for unsigned.
+# Negative-value variants cover signed targets only.
 ARC_CONVERSION_SOURCE = """
 func cast_i32() {x i32} {
     out_i32_to_i8  = i8(x)
@@ -71,7 +70,7 @@ func cast_f32() {x f32} {
 }
 in_f32 -> cast_f32()
 
-// in_f32_neg avoids float→unsigned trunc traps by skipping unsigned int targets.
+// in_f32_neg covers signed int targets only.
 func cast_f32_neg() {x f32} {
     out_f32_neg_to_i8  = i8(x)
     out_f32_neg_to_i64 = i64(x)
@@ -1145,8 +1144,7 @@ class Conversion(ArcCase):
     smoke tests for the signed and unsigned int opcode families at a nominal
     value; i64 covers narrowing wrap at 2^31. For float sources, only one
     representative target per trunc-opcode group is asserted ({i8, i64} signed;
-    {u8, u64} unsigned), with negative-value variants scoped to signed targets
-    only to avoid float→unsigned trunc traps.
+    {u8, u64} unsigned), with negative-value variants scoped to signed targets.
 
     - Flow-context casts: cast applied as an inline expression in flow position
     rather than inside a function body. String form covers const cast and
