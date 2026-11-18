@@ -2772,7 +2772,8 @@ func (p *inputParser) parseName(
 		return nil, paramType, false, false
 	}
 	if arg, bound := p.shell.args[sym]; bound && sym.Type.Kind != types.KindChan {
-		return arg.value, paramType, true, true
+		value, ok = p.convertArgument(expr, sym, arg.value, paramType)
+		return value, paramType, ok, true
 	}
 	// A node holds a variable that can change, and a parameter bound to one.
 	rn := p.shell.varNodes[sym].readNode(sym)
@@ -2836,6 +2837,30 @@ func (p *inputParser) parseVariable(
 	}
 	ref.Unit = paramType.Unit
 	return value, ref, true
+}
+
+// convertArgument returns the value bound to the parameter sym in the unit of
+// paramType.
+func (p *inputParser) convertArgument(
+	expr parser.IExpressionContext,
+	sym *symbol.Symbol,
+	value any,
+	paramType types.Type,
+) (any, bool) {
+	// A value that is not finite is text, the same in each unit.
+	_, nonFinite := value.(string)
+	if value == nil || nonFinite ||
+		!types.UnitsConvertible(sym.Type.Unit, paramType.Unit) {
+		return value, true
+	}
+	parsed, err := literal.Convert(
+		telem.CastNumeric[float64](value), sym.Type.Unit, paramType,
+	)
+	if err != nil {
+		p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+		return nil, false
+	}
+	return parsed.Value, true
 }
 
 func (p *inputParser) parseChannel(

@@ -10,7 +10,7 @@
 from string import Template
 
 import synnax as sy
-from framework.utils import create_virtual_channels
+from framework.utils import create_virtual_channels, hold
 from tests.arc.arc import ArcCase
 
 # The exported sequence calls one that the module keeps private.
@@ -65,6 +65,7 @@ export stage hold(valve chan bool = false) {
 AUTOMATION_SOURCE = Template("""
 import $library
 import control
+import time
 
 authority 200
 
@@ -86,14 +87,14 @@ sequence fill(
         false -> valve
     }
 }
-pb_start == 1 => fill(
+pb_start => fill(
     limit=10,
     level=pb_fill_level_a,
     valve=pb_fill_valve_a,
     echo=pb_fill_echo_a,
     ready=pb_fill_ready_a
 )
-pb_start == 1 => fill(
+pb_start => fill(
     limit=20,
     level=pb_fill_level_b,
     valve=pb_fill_valve_b,
@@ -107,20 +108,20 @@ sequence set(out chan f32, value f32 = 7.5) {
         value -> out
     }
 }
-pb_start == 1 => set(out=pb_set_default)
-pb_start == 1 => set(value=-2.5, out=pb_set_named)
+pb_start => set(out=pb_set_default)
+pb_start => set(value=-2.5, out=pb_set_named)
 
 // ──── top-level constant and alias ────
 threshold f32 := 5
 sink := pb_set_const
-pb_start == 1 => set(sink, threshold)
+pb_start => set(sink, threshold)
 
 // ──── top-level stage ────
 stage mark(out chan bool) {
     true -> out
 }
-pb_start == 1 => mark(pb_mark_a)
-pb_start == 1 => mark(pb_mark_b)
+pb_start => mark(pb_mark_a)
+pb_start => mark(pb_mark_b)
 
 // ──── variables and expressions ────
 sequence scale(
@@ -138,8 +139,8 @@ sequence scale(
         f"id {id}" -> text
     }
 }
-pb_start == 1 => scale(pb_scale_src, 1, 1, pb_scale_a, pb_text_a, pb_scale_ready_a)
-pb_start == 1 => scale(pb_scale_src, 10, 2, pb_scale_b, pb_text_b, pb_scale_ready_b)
+pb_start => scale(pb_scale_src, 1, 1, pb_scale_a, pb_text_a, pb_scale_ready_a)
+pb_start => scale(pb_scale_src, 10, 2, pb_scale_b, pb_text_b, pb_scale_ready_b)
 
 // ──── function input ────
 func add(offset f32) {value f32} f32 {
@@ -151,8 +152,8 @@ sequence shift(offset f32, src chan f32, out chan f32, ready chan bool) {
         src -> add(offset=offset) -> out
     }
 }
-pb_start == 1 => shift(1, pb_shift_src, pb_shift_a, pb_shift_ready_a)
-pb_start == 1 => shift(100, pb_shift_src, pb_shift_b, pb_shift_ready_b)
+pb_start => shift(1, pb_shift_src, pb_shift_a, pb_shift_ready_a)
+pb_start => shift(100, pb_shift_src, pb_shift_b, pb_shift_ready_b)
 
 // ──── call from an instance ────
 sequence pulse(valve chan bool) {
@@ -172,8 +173,8 @@ sequence safe {
         true -> pb_safe
     }
 }
-pb_start == 1 => arm(pb_pulse_a, pb_arm_ready_a)
-pb_start == 1 => arm(pb_pulse_b, pb_arm_ready_b)
+pb_start => arm(pb_pulse_a, pb_arm_ready_a)
+pb_start => arm(pb_pulse_b, pb_arm_ready_b)
 
 // ──── inline body ────
 sequence watch(level chan f32, out chan bool, ready chan bool) {
@@ -184,8 +185,8 @@ sequence watch(level chan f32, out chan bool, ready chan bool) {
         }
     }
 }
-pb_start == 1 => watch(pb_watch_level_a, pb_watch_a, pb_watch_ready_a)
-pb_start == 1 => watch(pb_watch_level_b, pb_watch_b, pb_watch_ready_b)
+pb_start => watch(pb_watch_level_a, pb_watch_a, pb_watch_ready_a)
+pb_start => watch(pb_watch_level_b, pb_watch_b, pb_watch_ready_b)
 
 // ──── variable and expression arguments ────
 sequence lift(base f32, src chan f32, out chan f32, ready chan bool) {
@@ -211,9 +212,9 @@ sequence lift_expression {
     }
 }
 computed f32 := 2.5 * 2.0
-pb_start == 1 => lift_variable
-pb_start == 1 => lift_expression
-pb_start == 1 => lift(computed, pb_live_src, pb_live_c, pb_live_ready_c)
+pb_start => lift_variable
+pb_start => lift_expression
+pb_start => lift(computed, pb_live_src, pb_live_c, pb_live_ready_c)
 
 // ──── reassigned variable ────
 sequence rescale_seq(src chan f32, gain f32, out chan f32, ready chan bool) {
@@ -235,36 +236,73 @@ stage rescale_stage(src chan f32, gain f32, out chan f32, ready chan bool) {
     true -> ready
     x -> out
 }
-pb_start == 1 => rescale_seq(
+pb_start => rescale_seq(
     pb_rescale_src,
     3,
     pb_rescale_seq_a,
     pb_rescale_seq_ready_a
 )
-pb_start == 1 => rescale_seq(
+pb_start => rescale_seq(
     pb_rescale_src,
     5,
     pb_rescale_seq_b,
     pb_rescale_seq_ready_b
 )
-pb_start == 1 => rescale_stage(
+pb_start => rescale_stage(
     pb_rescale_src,
     3,
     pb_rescale_stage_a,
     pb_rescale_stage_ready_a
 )
-pb_start == 1 => rescale_stage(
+pb_start => rescale_stage(
     pb_rescale_src,
     5,
     pb_rescale_stage_b,
     pb_rescale_stage_ready_b
 )
 
+// ──── parameter with a unit ────
+func long(x i64 ns) {tick bool} bool {
+    return x > 1s
+}
+sequence unit_seq(d i64 ms, out chan bool, ready chan bool) {
+    stage run {
+        true -> ready
+        pb_unit_go -> long(x=d) -> out
+    }
+}
+stage unit_stage(d i64 ms, out chan bool, ready chan bool) {
+    true -> ready
+    pb_unit_go -> long(x=d) -> out
+}
+pb_start => unit_seq(2s, pb_unit_seq, pb_unit_seq_ready)
+pb_start => unit_stage(2s, pb_unit_stage, pb_unit_stage_ready)
+
+// ──── wait for a parameter ────
+sequence wait_seq(d i64 ms, out chan bool, ready chan bool) {
+    stage hold {
+        true -> ready
+        time.wait(duration=d) => next
+    }
+    stage open {
+        true -> out
+    }
+}
+stage wait_open(out chan bool) {
+    true -> out
+}
+stage wait_stage(d i64 ms, out chan bool, ready chan bool) {
+    true -> ready
+    time.wait(duration=d) => wait_open(out)
+}
+pb_start => wait_seq(1s, pb_wait_seq, pb_wait_seq_ready)
+pb_start => wait_stage(1s, pb_wait_stage, pb_wait_stage_ready)
+
 // ──── module ────
-pb_start == 1 => $library.relay(pb_mod_a, 1, pb_mod_ready_a)
-pb_start == 1 => $library.relay(pb_mod_b, 2, pb_mod_ready_b)
-pb_start == 1 => $library.hold(pb_mod_hold_a, 3)
-pb_start == 1 => $library.hold(pb_mod_hold_b, 4)
+pb_start => $library.relay(pb_mod_a, 1, pb_mod_ready_a)
+pb_start => $library.relay(pb_mod_b, 2, pb_mod_ready_b)
+pb_start => $library.hold(pb_mod_hold_a, 3)
+pb_start => $library.hold(pb_mod_hold_b, 4)
 
 // ──── authority ────
 stage take_stage(level u8, low chan bool, high chan bool, other chan bool) {
@@ -315,6 +353,7 @@ STR = sy.DataType.STRING
 
 # The case writes these channels, and the automation reads them.
 INPUTS: dict[str, sy.DataType] = {
+    "pb_start": BOOL,
     "pb_fill_level_a": F32,
     "pb_fill_level_b": F32,
     "pb_scale_src": F32,
@@ -327,6 +366,7 @@ INPUTS: dict[str, sy.DataType] = {
     "pb_live_src": F32,
     "pb_mod_go": BOOL,
     "pb_auth_go": BOOL,
+    "pb_unit_go": BOOL,
     "pb_rescale_src": F32,
     "pb_rescale_go": BOOL,
 }
@@ -379,6 +419,14 @@ OUTPUTS: dict[str, sy.DataType] = {
     "pb_rescale_seq_b": F32,
     "pb_rescale_stage_a": F32,
     "pb_rescale_stage_b": F32,
+    "pb_wait_seq_ready": BOOL,
+    "pb_wait_stage_ready": BOOL,
+    "pb_wait_seq": BOOL,
+    "pb_wait_stage": BOOL,
+    "pb_unit_seq_ready": BOOL,
+    "pb_unit_stage_ready": BOOL,
+    "pb_unit_seq": BOOL,
+    "pb_unit_stage": BOOL,
     "pb_mod_ready_a": BOOL,
     "pb_mod_ready_b": BOOL,
     "pb_mod_a": F32,
@@ -425,6 +473,11 @@ class ParameterizedBodies(ArcCase):
         variable, and a top-level variable that is computed at program start.
     14. A sequence and a stage reassign a variable that reads a channel parameter
         and a value parameter. Each instance keeps its own arguments.
+    15. A sequence and a stage pass a parameter in milliseconds to a function input
+        in nanoseconds. The function gets the argument of 2 s as more than 1 s.
+    16. A sequence and a stage wait for a parameter in milliseconds that gets an
+        argument of 1 s. Each one waits for more than 500 ms. The wait starts with
+        pb_start, so the case checks the first 500 ms first and the write last.
     """
 
     arc_source = AUTOMATION_SOURCE.template
@@ -448,6 +501,14 @@ class ParameterizedBodies(ArcCase):
         self.verify_sequence_execution()
 
     def verify_sequence_execution(self) -> None:
+        # The modules compile, and the instances wait, while the other checks run.
+        self.log("Creating the modules that must not compile")
+        uncalled = self.load_module(UNCALLED_SOURCE, name_prefix="pb_uncalled")
+        defaults = {
+            body: self.load_module(source, name_prefix=f"pb_default_{body}")
+            for body, source in CHANNEL_DEFAULT_SOURCES.items()
+        }
+        self._verify_parameter_wait_holds()
         self._verify_two_instances()
         self._verify_defaults_and_names()
         self._verify_top_level_stage()
@@ -457,10 +518,12 @@ class ParameterizedBodies(ArcCase):
         self._verify_inline_body()
         self._verify_variable_arguments()
         self._verify_reassigned_variable()
+        self._verify_parameter_unit()
         self._verify_module()
         self._verify_authority()
-        self._verify_uncalled_declaration()
-        self._verify_channel_default()
+        self._verify_uncalled_declaration(uncalled)
+        self._verify_channel_default(defaults)
+        self._verify_parameter_wait_ends()
 
     def _wait_for_ready(self, *channels: str) -> None:
         for channel in channels:
@@ -571,6 +634,28 @@ class ParameterizedBodies(ArcCase):
         self.wait_for_eq("pb_rescale_seq_a", 120)
         self.wait_for_eq("pb_rescale_seq_b", 200)
 
+    def _verify_parameter_unit(self) -> None:
+        self._wait_for_ready("pb_unit_seq_ready", "pb_unit_stage_ready")
+        self.log("Writing pb_unit_go=1 for each instance to compare its 2 s to 1 s")
+        self.writer.write("pb_unit_go", 1)
+        self.wait_for_eq("pb_unit_seq", 1)
+        self.wait_for_eq("pb_unit_stage", 1)
+
+    def _verify_parameter_wait_holds(self) -> None:
+        self._wait_for_ready("pb_wait_seq_ready", "pb_wait_stage_ready")
+        hold(
+            500 * sy.TimeSpan.MILLISECOND,
+            reason="Each instance must still be in its wait of 1 s",
+        )
+        for channel in ("pb_wait_seq", "pb_wait_stage"):
+            if self.read_tlm(channel) is not None:
+                self.fail(f"{channel} was written before 500 ms of its wait of 1 s")
+
+    def _verify_parameter_wait_ends(self) -> None:
+        self.log("Each instance must write after its wait of 1 s")
+        self.wait_for_eq("pb_wait_seq", 1)
+        self.wait_for_eq("pb_wait_stage", 1)
+
     def _verify_module(self) -> None:
         self._wait_for_ready("pb_mod_ready_a", "pb_mod_ready_b")
         self.log("Writing pb_mod_go=1 for each relay instance to send its value plus 5")
@@ -604,16 +689,14 @@ class ParameterizedBodies(ArcCase):
                     if self.read_tlm(f"pb_auth_{body}_{channel}") != 0:
                         self.fail(f"The {body} wrote pb_auth_{body}_{channel}")
 
-    def _verify_uncalled_declaration(self) -> None:
-        self.log("Creating a module with an error in a sequence that no flow calls")
-        path = self.load_module(UNCALLED_SOURCE, name_prefix="pb_uncalled")
+    def _verify_uncalled_declaration(self, path: str) -> None:
+        self.log("The module with an error in a sequence that no flow calls")
         status = self.wait_for_module_status(path, "error", 10 * sy.TimeSpan.SECOND)
         assert "'next' in last stage 'open'" in status.description, status
 
-    def _verify_channel_default(self) -> None:
-        for body, source in CHANNEL_DEFAULT_SOURCES.items():
-            self.log(f"Creating a module with a channel default in a {body}")
-            path = self.load_module(source, name_prefix=f"pb_default_{body}")
+    def _verify_channel_default(self, paths: dict[str, str]) -> None:
+        for body, path in paths.items():
+            self.log(f"The module with a channel default in a {body}")
             status = self.wait_for_module_status(path, "error", 10 * sy.TimeSpan.SECOND)
             assert (
                 "channel parameter 'valve' cannot have a default" in status.description

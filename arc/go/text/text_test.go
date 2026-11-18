@@ -11301,6 +11301,98 @@ var _ = Describe("Sequences and stages with parameters", func() {
 		),
 	)
 
+	// waits returns the duration, in nanoseconds, of each time.wait in the instance.
+	waits := func(inter ir.IR, key string) []float64 {
+		var durations []float64
+		for _, n := range nodesOf(inter, findTopLevelScope(inter, key)) {
+			if p, ok := n.Inputs.Get("duration"); ok {
+				durations = append(durations, telem.CastNumeric[float64](p.Value))
+			}
+		}
+		return durations
+	}
+
+	DescribeTable("Should convert a parameter to the unit of a function input",
+		func(ctx SpecContext, params, wait, calls string, first, second float64) {
+			for _, take := range bodies(params, wait+" => done") {
+				inter := analyze(ctx, "import time\nstage done {\n}\n"+take+calls)
+				Expect(waits(inter, "$take_0")).To(Equal([]float64{first}), take)
+				Expect(waits(inter, "$take_1")).To(Equal([]float64{second}), take)
+			}
+		},
+		Entry("from milliseconds", "d i64 ms", "time.wait(duration=d)", `
+			start => take(2s)
+			start => take(500ms)
+		`, 2e9, 5e8),
+		Entry("from seconds", "d i64 s", "time.wait(duration=d)", `
+			start => take(3s)
+			start => take(2min)
+		`, 3e9, 1.2e11),
+		Entry("from nanoseconds", "d i64 ns", "time.wait(duration=d)", `
+			start => take(2s)
+			start => take(500ms)
+		`, 2e9, 5e8),
+		Entry("by position", "d i64 ms", "time.wait(d)", `
+			start => take(2s)
+			start => take(500ms)
+		`, 2e9, 5e8),
+		Entry("from a default", "d i64 ms = 250ms", "time.wait(duration=d)", `
+			start => take()
+			start => take(d=2s)
+		`, 2.5e8, 2e9),
+		Entry("from a top-level constant", "d i64 ms", "time.wait(duration=d)", `
+			hold_time i64 s := 2s
+			start => take(hold_time)
+			start => take(500ms)
+		`, 2e9, 5e8),
+	)
+
+	It("Should warn one time when an argument loses precision in its parameter", func(
+		ctx SpecContext,
+	) {
+		for _, take := range bodies("d i64 s", "time.wait(duration=d) => done") {
+			parsed := MustSucceed(text.Parse(text.Text{
+				Raw: "import time\nstage done {\n}\n" + take + "start == 1 => take(2500ms)",
+			}))
+			inter, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			warnings := testutil.Warnings(diagnostics)
+			Expect(warnings).To(HaveLen(1), take+diagnostics.String())
+			Expect(warnings[0].Message).To(Equal(
+				"unit precision loss: unit conversion from ms to s truncates an integer " +
+					"toward zero",
+			))
+			Expect(waits(inter, "$take_0")).To(Equal([]float64{2e9}), take)
+		}
+	})
+
+	It("Should warn when a parameter loses precision in a function input", func(
+		ctx SpecContext,
+	) {
+		for _, take := range bodies("d i64 ms, out chan f64", "start -> pass(x=d) -> out") {
+			parsed := MustSucceed(text.Parse(text.Text{Raw: `
+				func pass(x i64 s) {t u8} f64 {
+					return 1.0
+				}
+			` + take + "start == 1 => take(2500ms, valve)"}))
+			inter, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			warnings := testutil.Warnings(diagnostics)
+			Expect(warnings).To(HaveLen(1), take+diagnostics.String())
+			Expect(warnings[0].Message).To(Equal(
+				"unit precision loss: unit conversion from ms to s truncates an integer " +
+					"toward zero",
+			))
+			var seconds []float64
+			for _, n := range nodesOf(inter, findTopLevelScope(inter, "$take_0")) {
+				if p, ok := n.Inputs.Get("x"); ok {
+					seconds = append(seconds, telem.CastNumeric[float64](p.Value))
+				}
+			}
+			Expect(seconds).To(Equal([]float64{2}), take)
+		}
+	})
+
 	It("Should jump from a sequence to the instance", func(ctx SpecContext) {
 		inter := analyze(ctx, declaration+`
 			sequence outer {

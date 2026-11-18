@@ -4850,6 +4850,17 @@ Reassigned reassigned(const std::string &source) {
     return r;
 }
 
+/// @brief checks that a call holds valve_a for a wait of two seconds, then opens it.
+void expect_two_second_wait(const std::string &source) {
+    auto h = new_h("import time\n" + source);
+    h.trigger("start_a");
+    h.advance(x::telem::SECOND);
+    EXPECT_FALSE(written(h, h.flush(), "valve_a"));
+    h.advance(2500 * x::telem::MILLISECOND);
+    h.advance(2600 * x::telem::MILLISECOND);
+    EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_a")), 1);
+}
+
 /// @brief an authority change that a spec expects, with no channel for all channels.
 struct Change {
     std::uint8_t authority;
@@ -4872,8 +4883,8 @@ void expect_changes(
         if (c.channel.has_value()) key = h.key(*c.channel);
         want.emplace_back(c.authority, key);
     }
-    std::sort(got.begin(), got.end());
-    std::sort(want.begin(), want.end());
+    std::ranges::sort(got);
+    std::ranges::sort(want);
     EXPECT_EQ(got, want) << "after " << trigger;
 }
 }
@@ -5346,6 +5357,62 @@ TEST(ParametersTest, ReassignsAVariableThatReadsBothParametersOfAStage) {
     %start_b% == 1 => scale(%tank%, 5, %out_b%))");
     EXPECT_EQ(r.before, (std::vector<float>{60, 100}));
     EXPECT_EQ(r.after, (std::vector<float>{120, 200}));
+}
+
+/// @brief it should wait for the time of a parameter in milliseconds, in a sequence.
+TEST(ParametersTest, WaitsForAParameterInMillisecondsInASequence) {
+    using namespace parameters;
+    expect_two_second_wait(R"(
+    sequence hold(d i64 ms, valve chan u8) {
+        stage wait {
+            time.wait(duration=d) => next
+        }
+        stage open {
+            1 -> valve
+        }
+    }
+    %start_a% == 1 => hold(2s, %valve_a%))");
+}
+
+/// @brief it should wait for the time of a parameter in seconds, in a sequence.
+TEST(ParametersTest, WaitsForAParameterInSecondsInASequence) {
+    using namespace parameters;
+    expect_two_second_wait(R"(
+    sequence hold(d i64 s, valve chan u8) {
+        stage wait {
+            time.wait(duration=d) => next
+        }
+        stage open {
+            1 -> valve
+        }
+    }
+    %start_a% == 1 => hold(2s, %valve_a%))");
+}
+
+/// @brief it should wait for the time of a parameter in milliseconds, in a stage.
+TEST(ParametersTest, WaitsForAParameterInMillisecondsInAStage) {
+    using namespace parameters;
+    expect_two_second_wait(R"(
+    stage open(valve chan u8) {
+        1 -> valve
+    }
+    stage hold(d i64 ms, valve chan u8) {
+        time.wait(duration=d) => open(valve)
+    }
+    %start_a% == 1 => hold(2s, %valve_a%))");
+}
+
+/// @brief it should wait for the time of a parameter in seconds, in a stage.
+TEST(ParametersTest, WaitsForAParameterInSecondsInAStage) {
+    using namespace parameters;
+    expect_two_second_wait(R"(
+    stage open(valve chan u8) {
+        1 -> valve
+    }
+    stage hold(d i64 s, valve chan u8) {
+        time.wait(duration=d) => open(valve)
+    }
+    %start_a% == 1 => hold(2s, %valve_a%))");
 }
 
 /// @brief it should keep an inline body in its own instance.

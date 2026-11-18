@@ -10834,6 +10834,56 @@ var _ = Describe("Sequence", func() {
 			),
 		)
 
+		DescribeTable("Should wait for the time of a parameter that has a unit",
+			func(ctx SpecContext, source string) {
+				h := open(ctx, "import time\n"+source)
+				trigger(h, ctx, startA)
+				advance(h, ctx, telem.Second)
+				out, _ := h.Flush()
+				Expect(written(out, valveA)).To(BeFalse())
+				advance(h, ctx, 2500*telem.Millisecond)
+				advance(h, ctx, 2600*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			},
+			Entry("in milliseconds, in a sequence", `
+			sequence hold(d i64 ms, valve chan u8) {
+			    stage wait {
+			        time.wait(duration=d) => next
+			    }
+			    stage open {
+			        1 -> valve
+			    }
+			}
+			start_a == 1 => hold(2s, valve_a)`),
+			Entry("in seconds, in a sequence", `
+			sequence hold(d i64 s, valve chan u8) {
+			    stage wait {
+			        time.wait(duration=d) => next
+			    }
+			    stage open {
+			        1 -> valve
+			    }
+			}
+			start_a == 1 => hold(2s, valve_a)`),
+			Entry("in milliseconds, in a stage", `
+			stage open(valve chan u8) {
+			    1 -> valve
+			}
+			stage hold(d i64 ms, valve chan u8) {
+			    time.wait(duration=d) => open(valve)
+			}
+			start_a == 1 => hold(2s, valve_a)`),
+			Entry("in seconds, in a stage", `
+			stage open(valve chan u8) {
+			    1 -> valve
+			}
+			stage hold(d i64 s, valve chan u8) {
+			    time.wait(duration=d) => open(valve)
+			}
+			start_a == 1 => hold(2s, valve_a)`),
+		)
+
 		It("Should keep an inline body in its own instance", func(ctx SpecContext) {
 			h := open(ctx, `
 			sequence watch(limit f32, valve chan u8) {
