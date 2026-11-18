@@ -9,7 +9,7 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, http } from "@synnaxlabs/client";
+import { channel, http, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -22,7 +22,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/http/device/types";
+import { MAKE, type Properties, SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployReadConfigZ,
@@ -74,6 +74,29 @@ const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
 });
 
 /**
+ * Plans the channels of each endpoint in order with one namer, as deploying creates
+ * them. Reads from the Core alone.
+ */
+const planEndpoints = async (
+  client: Synnax,
+  dev: { name: string; properties: Properties },
+  endpoints: ReadEndpoint[],
+): Promise<Task.ReadChannelPlan[]> => {
+  const namer = Task.createNamer(client);
+  const plans: Task.ReadChannelPlan[] = [];
+  for (const ep of endpoints)
+    plans.push(
+      await Task.planReadChannels({
+        client,
+        namer,
+        props: dev.properties.read[ep.path],
+        ...endpointChannels(dev.name, ep),
+      }),
+    );
+  return plans;
+};
+
+/**
  * @returns the name that a new channel of a field falls back to, and the name that
  * deploying gives it once the plan is done.
  */
@@ -86,6 +109,7 @@ const useChannelNames = (endpoint: deep.Path<ReadEndpoint>, field: ReadField) =>
       ? undefined
       : await Task.planReadChannels({
           client,
+          namer: Task.createNamer(client),
           props,
           ...endpointChannels(dev.name, ep),
         }),
@@ -408,11 +432,11 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   });
   const before = deep.copy(dev.properties);
   try {
-    for (const ep of config.endpoints)
-      await Task.configureReadChannels({
-        client,
-        stored: { read: dev.properties.read, key: ep.path },
-        ...endpointChannels(dev.name, ep),
+    const plans = await planEndpoints(client, dev, config.endpoints);
+    for (const [i, ep] of config.endpoints.entries())
+      await Task.applyReadChannels(client, plans[i], ep.fields, {
+        read: dev.properties.read,
+        key: ep.path,
       });
   } finally {
     await Device.setProperties(client, dev, before, SCHEMAS);

@@ -1326,6 +1326,39 @@ describe("MQTT read form", () => {
       ]);
     });
 
+    it("should give a channel that two messages store to the first message alone", async () => {
+      const time = await createTimeChannel();
+      const level = await client.channels.create({
+        name: uniqueName("level"),
+        dataType: DataType.FLOAT64,
+        index: time.key,
+      });
+      const entry = await createEntry({ fields: [createField("level", "float")] });
+      const status = await addMessage(
+        entry,
+        "status",
+        [createField("level", "float")],
+        KIND_MATCH,
+      );
+      const stored = { index: time.key, channels: { "/level": level.key } };
+      const { container, draft } = await renderRead({
+        entries: [entry],
+        properties: {
+          read: {
+            [`${TOPIC}#${entry.messages[0].message}`]: stored,
+            [`${TOPIC}#${status.key}`]: stored,
+          },
+        },
+      });
+      const created = await deploy(container, draft.key);
+      const [first, second] = plainOf(created.config.entries[0]).messages.map(
+        ({ bindings }) => bindings[0].channel,
+      );
+      expect(first).toBe(level.key);
+      expect(second).not.toBe(level.key);
+      expect(second).toBeGreaterThan(0);
+    });
+
     it("should create channels for the fields the task reads only", async () => {
       const temperature = createField("temperature", "float");
       const { container, dev, draft } = await renderRead({
@@ -1772,6 +1805,20 @@ describe("MQTT read form", () => {
       );
       expect(flowCh.name).toBe(`${dev.name}_plant_line1_flow`);
       expect(flowCh.dataType.toString()).toBe("float32");
+    });
+
+    it("should number a typed name that an earlier tag takes", async () => {
+      const name = uniqueName("temperature");
+      const { container, draft } = await renderRead({
+        entries: [createTagEntry("flow", { name }), createTagEntry("level", { name })],
+      });
+      const created = await deploy(container, draft.key);
+      const names = await Promise.all(
+        created.config.entries.map(
+          async (e) => (await client.channels.retrieve(sparkplugOf(e).channel)).name,
+        ),
+      );
+      expect(names).toEqual([name, `${name}_2`]);
     });
 
     it("should reuse the channel of a tag that the device stores", async () => {

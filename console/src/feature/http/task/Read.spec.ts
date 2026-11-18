@@ -609,6 +609,34 @@ describe("Read", () => {
     expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
   });
 
+  it("should number a typed name that an earlier endpoint takes", async () => {
+    const dev = await createHTTPDevice(client);
+    const name = uniqueName("temperature");
+    const endpoint = (key: string, path: string): HTTP.Task.ReadEndpoint => ({
+      ...http.readEndpointZ.parse({}),
+      key,
+      path,
+      fields: [createReadField(`${key}_f`, "/temperature", { name })],
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [endpoint("ep1", "/a"), endpoint("ep2", "/b")]),
+    );
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.READ_SCHEMAS,
+    );
+    const names = await Promise.all(
+      created.config.endpoints.map(
+        async ({ fields }) => (await client.channels.retrieve(fields[0].channel)).name,
+      ),
+    );
+    expect(names).toEqual([name, `${name}_2`]);
+  });
+
   it("should save the channels it created when a later channel fails", async () => {
     const dev = await createHTTPDevice(client);
     const config = createReadConfig(dev.key, [

@@ -638,6 +638,7 @@ const TagDetails: FC<TagDetailsProps> = ({ path, device }) => {
     async (client) =>
       await Task.planReadChannels({
         client,
+        namer: Task.createNamer(client),
         props,
         fields: [field],
         namePrefix: field.name,
@@ -959,49 +960,91 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: DEFAULT_NAME, type: READ_TYPE, config: cfg };
 };
 
-/** Gives a tag a channel: the one it has, the one the device stores, or a new one. */
-const configureTag = async (
+/** The channels that deploying gives the messages and tags that a task reads. */
+interface ReadPlan {
+  /** The plan of each message, in the order that planRead takes them. */
+  messages: ICD.MessagePlan[];
+  /** The plan of each tag, in the order that planRead takes them. */
+  tags: Task.ReadChannelPlan[];
+}
+
+/**
+ * Plans the channels of each message and then each tag, in deploy order with one
+ * namer. A message plans with the channels that earlier ones keep added to written, so
+ * it leaves a stored channel that another binding writes. Reads from the Core alone.
+ */
+const planRead = async (
+  client: Synnax,
+  dev: Pick<Device, "name" | "properties">,
+  bound: ICD.BoundMessage<PlainReadEntry>[],
+  tags: SparkplugReadEntry[],
+  written: Set<channel.Key>,
+): Promise<ReadPlan> => {
+  const namer = Task.createNamer(client);
+  const messages: ICD.MessagePlan[] = [];
+  for (const b of bound) {
+    const { source: entry, read: r, message } = b;
+    const plan = await ICD.planMessage(
+      client,
+      namer,
+      b,
+      messagePrefix(dev.name, entry.topic, r, message.name),
+      storedProps(dev.properties.read, entry.topic, b, written),
+    );
+    ICD.keptChannels(plan).forEach((ch) => written.add(ch));
+    messages.push(plan);
+  }
+  const plans: Task.ReadChannelPlan[] = [];
+  for (const entry of tags) {
+    const field = tagField(dev.name, entry);
+    plans.push(
+      await Task.planReadChannels({
+        client,
+        namer,
+        props: dev.properties.read[sparkplugPropertiesKey(entry)],
+        fields: [field],
+        namePrefix: field.name,
+        indexKey: "",
+      }),
+    );
+  }
+  return { messages, tags: plans };
+};
+
+/** Gives a tag its channel, as plan plans it. */
+const applyTag = async (
   client: Synnax,
   dev: Device,
   entry: SparkplugReadEntry,
+  plan: Task.ReadChannelPlan,
 ): Promise<void> => {
   const field = tagField(dev.name, entry);
-  await Task.configureReadChannels({
-    client,
-    stored: { read: dev.properties.read, key: sparkplugPropertiesKey(entry) },
-    fields: [field],
-    namePrefix: field.name,
-    indexKey: "",
+  await Task.applyReadChannels(client, plan, [field], {
+    read: dev.properties.read,
+    key: sparkplugPropertiesKey(entry),
   });
   entry.channel = field.channel;
 };
 
 /**
- * Gives each field that a message reads a channel: the one it has, the one the device
- * stores for its pointer unless written holds it, or a new one of the binding's data
- * type. Adds the channels it binds to written.
+ * Gives each field that a message reads its channel, as plan plans it, and stores the
+ * channels under the message in place of the bare topic, where an older Console stored
+ * them.
  */
-const configureMessage = async (
+const applyMessage = async (
   client: Synnax,
   dev: Device,
   bound: ICD.BoundMessage<PlainReadEntry>,
-  written: Set<channel.Key>,
+  plan: ICD.MessagePlan,
 ): Promise<void> => {
-  const { source: entry, read: r, message } = bound;
+  const { source: entry, read: r } = bound;
   const propertiesKey = storedKey(entry.topic, entry.messages[r].message);
-  const props = storedProps(dev.properties.read, entry.topic, bound, written);
-  if (props != null) {
-    if (dev.properties.read[propertiesKey] == null)
-      delete dev.properties.read[entry.topic];
-    dev.properties.read[propertiesKey] = props;
-  }
-  const channels = await ICD.configureMessage(
-    client,
-    bound,
-    messagePrefix(dev.name, entry.topic, r, message.name),
-    { read: dev.properties.read, key: propertiesKey },
-  );
-  channels.forEach((ch) => written.add(ch));
+  if (plan.channels.props != null && dev.properties.read[propertiesKey] == null)
+    delete dev.properties.read[entry.topic];
+  await ICD.applyMessage(client, bound, plan, {
+    read: dev.properties.read,
+    key: propertiesKey,
+  });
 };
 
 /** Gives each field and tag that an enabled entry reads a channel, and binds it. */
@@ -1021,10 +1064,18 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   );
   const before = deep.copy(dev.properties);
   try {
-    const written = writtenChannels(config.entries);
-    for (const message of bound) await configureMessage(client, dev, message, written);
-    for (const entry of enabled)
-      if (entry.type === "sparkplug") await configureTag(client, dev, entry);
+    const tags = enabled.filter((e) => e.type === "sparkplug");
+    const plan = await planRead(
+      client,
+      dev,
+      bound,
+      tags,
+      writtenChannels(config.entries),
+    );
+    for (const [i, message] of bound.entries())
+      await applyMessage(client, dev, message, plan.messages[i]);
+    for (const [i, entry] of tags.entries())
+      await applyTag(client, dev, entry, plan.tags[i]);
   } finally {
     await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }

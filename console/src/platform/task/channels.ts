@@ -76,6 +76,8 @@ export interface StoredChannels {
 
 export interface PlanReadChannelsArgs<F extends ReadChannelField> {
   client: Client;
+  /** Names the new channels of every source that the task plans. */
+  namer: Namer;
   /** What the device stores for the source. Absent when it stores nothing. */
   props?: ReadChannelProps;
   /** The fields of the source. */
@@ -121,17 +123,21 @@ const NEW_HOLDER = 0;
 
 /**
  * Names channels as the Core will hold them after deploying. A taken name gets the
- * first free number, such as `_2`. Names need not be unique, so it tracks each holder.
- *
- * @param names - The names to look up in one batch.
+ * first free number, such as `_2`. Plan every source of a task with one namer, in
+ * deploy order, so that a source sees the names that earlier sources claim.
  */
-const createNamer = async (client: Client, names: string[]) => {
-  const holders = new Map<string, Set<channel.Key>>(
-    names.map((name) => [name, new Set()]),
-  );
-  if (names.length > 0)
-    for (const { name, key } of await client.channels.retrieve(names))
-      holders.get(name)?.add(key);
+export interface Namer {
+  /** Looks up names in one batch, so that claim and move need no read for them. */
+  load: (names: string[]) => Promise<void>;
+  /** @returns the name that a new channel takes for name. */
+  claim: (name: string) => Promise<string>;
+  /** @returns the numbered name that ch moves to, which frees its own. */
+  move: (ch: channel.Channel) => Promise<string>;
+}
+
+/** @returns a namer with no claims. Names need not be unique, so it tracks holders. */
+export const createNamer = (client: Client): Namer => {
+  const holders = new Map<string, Set<channel.Key>>();
   const holdersOf = async (name: string): Promise<Set<channel.Key>> => {
     let keys = holders.get(name);
     if (keys == null) {
@@ -148,14 +154,19 @@ const createNamer = async (client: Client, names: string[]) => {
     return candidate;
   };
   return {
-    /** @returns the name that a new channel takes for name. */
-    claim: async (name: string): Promise<string> => {
+    load: async (names) => {
+      const unknown = names.filter((name) => !holders.has(name));
+      if (unknown.length === 0) return;
+      for (const name of unknown) holders.set(name, new Set());
+      for (const { name, key } of await client.channels.retrieve(unknown))
+        holders.get(name)?.add(key);
+    },
+    claim: async (name) => {
       const claimed = await free(name);
       (await holdersOf(claimed)).add(NEW_HOLDER);
       return claimed;
     },
-    /** @returns the numbered name that ch moves to, which frees its own. */
-    move: async (ch: channel.Channel): Promise<string> => {
+    move: async (ch) => {
       const moved = await free(ch.name);
       (await holdersOf(ch.name)).delete(ch.key);
       (await holdersOf(moved)).add(ch.key);
@@ -171,10 +182,12 @@ const createNamer = async (client: Client, names: string[]) => {
  * of the source, or a new one. A new channel whose name is taken gets a number, such as
  * `_2`, and fields claim their names before a new index. A replaced channel that holds
  * the name of its replacement moves to a numbered name first, so the replacement keeps
- * the plain one. Reads from the Core, and changes neither the fields nor props.
+ * the plain one. Reads from the Core, and changes neither the fields nor props. Records
+ * the names it claims in namer.
  */
 export const planReadChannels = async <F extends ReadChannelField>({
   client,
+  namer,
   props: stored,
   fields,
   namePrefix,
@@ -218,10 +231,7 @@ export const planReadChannels = async <F extends ReadChannelField>({
       : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`,
   );
   const indexName = `${namePrefix}_time`;
-  const namer = await createNamer(client, [
-    ...planned,
-    ...(createsIndex ? [indexName] : []),
-  ]);
+  await namer.load([...planned, ...(createsIndex ? [indexName] : [])]);
   const renames: ReadChannelPlan["renames"] = [];
   for (const [i, field] of unbound.entries()) {
     const old = await retrieveChannel(client, field.replaces ?? 0);
@@ -307,26 +317,6 @@ export const newChannelName = (
   key === plan.indexField
     ? plan.newIndex
     : plan.creates.find((create) => create.key === key)?.name;
-
-export interface ConfigureReadChannelsArgs<F extends ReadChannelField> extends Omit<
-  PlanReadChannelsArgs<F>,
-  "props"
-> {
-  /** Where the device stores the channels of the source. Absent when it stores none. */
-  stored?: StoredChannels;
-}
-
-/**
- * Plans the channels of a read source, as planReadChannels does, then applies the plan.
- * Each enabled field gets its channel in place, and stored gets the new channels.
- */
-export const configureReadChannels = async <F extends ReadChannelField>({
-  stored,
-  ...args
-}: ConfigureReadChannelsArgs<F>): Promise<void> => {
-  const plan = await planReadChannels({ ...args, props: stored?.read[stored.key] });
-  await applyReadChannels(args.client, plan, args.fields, stored);
-};
 
 /**
  * @returns the first index among those of the live channels, then those of the stored
