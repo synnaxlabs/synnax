@@ -33,19 +33,22 @@ export const CreateFooter = ({ onCreate }: CreateFooterProps): ReactElement => {
   const palette = Theming.use().colors.visualization.palettes.default;
   const openCreate = useCreateModal();
   const handleCreate = (name: string) =>
-    handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      const used = new Set(
-        (await client.labels.retrieve({})).map((l) => color.hex(l.color)),
-      );
-      const next = palette.find((c) => !used.has(color.hex(c))) ?? palette[0];
-      if (name !== "") {
-        const created = await client.labels.create({ name, color: next });
-        return onCreate(created.key);
-      }
-      const key = await openCreate({ color: next });
-      if (key != null) onCreate(key);
-    }, "Failed to create label");
+    handleError(
+      async () => {
+        if (client == null) throw new DisconnectedError();
+        const used = new Set(
+          (await client.labels.retrieve({})).map((l) => color.hex(l.color)),
+        );
+        const next = palette.find((c) => !used.has(color.hex(c))) ?? palette[0];
+        if (name !== "") {
+          const created = await client.labels.create({ name, color: next });
+          return onCreate(created.key);
+        }
+        const key = await openCreate({ color: next });
+        if (key != null) onCreate(key);
+      },
+      { message: "Failed to create label", name },
+    );
   return (
     <>
       <Menu.Divider />
