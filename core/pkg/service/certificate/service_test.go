@@ -584,6 +584,14 @@ var _ = Describe("Service", func() {
 			}).Should(Succeed())
 		})
 
+		It("Should write no status of its own without a CA or a listener",
+			func(ctx SpecContext) {
+				e := newEnv(ctx, 5*telem.Millisecond)
+				Consistently(func() map[status.Key]status.Status[any] {
+					return e.own(ctx)
+				}).WithTimeout(50 * time.Millisecond).Should(BeEmpty())
+			})
+
 		It("Should write no CA status when the Core has no CA file",
 			func(ctx SpecContext) {
 				e := newEnv(ctx, telem.Hour, certificate.ServiceConfig{

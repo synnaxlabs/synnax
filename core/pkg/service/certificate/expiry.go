@@ -141,7 +141,7 @@ func (s *Service) ownPrefix() string {
 // caPrefix is the start of the key of the status of each CA that the node presents.
 func (s *Service) caPrefix() string { return s.ownPrefix() + "ca:" }
 
-// ownCheck is what one check read of the certificates that the node presents.
+// ownCheck is the result of one read of the certificates that the node presents.
 type ownCheck struct {
 	// next is the expiry status of each certificate that the check read, by key.
 	next map[status.Key]status.Status[any]
