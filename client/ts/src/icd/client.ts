@@ -180,9 +180,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
    * Checks an ICD for problems, such as two fields that use the same bits. The Core
    * stores an ICD that has problems.
    * @returns Every problem in the ICD as an error at the path of the bad value, or an
-   * empty array when it has none. Each path is camel case, such as
-   * ["messages", "0", "payload", "fields", "1", "bitLength"]. An ICD that breaks a rule
-   * of its schema returns only those problems, as the Core cannot read it.
+   * empty array when it has none. Each path is camel case, such as ["messages", "0",
+   * "payload", "fields", "1", "bitLength"]. An ICD that breaks a rule of its schema
+   * returns only those problems, as the Core cannot read it.
    */
   async check(icd: New): Promise<PathError[]> {
     const parsed = icdZ.safeParse(icd);
