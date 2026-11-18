@@ -316,13 +316,17 @@ trig -> f"v={q}" -> log`, "v=14.7"),
 	})
 
 	Describe("Placeholder strings outside a lone flow node", func() {
-		// Runs program for five ticks after each sensor value and returns each string
-		// that it writes to log.
-		runSensor := func(
-			ctx SpecContext,
-			program string,
-			values ...float64,
-		) []string {
+		// An event changes the inputs of a program before a run of ticks.
+		type event func(h *runtimeHarness)
+		value := func(v float64) event {
+			return func(h *runtimeHarness) { h.Ingest(102, telem.NewSeriesV(v)) }
+		}
+		fire := event(func(h *runtimeHarness) {
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+		})
+		// Runs program for five ticks of one millisecond after each event and returns
+		// each string that it writes to log.
+		run := func(ctx SpecContext, program string, events ...event) []string {
 			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"trig":   {types.U8(), 100},
@@ -335,12 +339,13 @@ trig -> f"v={q}" -> log`, "v=14.7"),
 				channels.Digest{Key: 102, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
-			logged := make([]string, 0, len(values))
-			for _, v := range values {
-				h.Ingest(102, telem.NewSeriesV(v))
-				h.Ingest(100, telem.NewSeriesV[uint8](1))
+			logged := make([]string, 0, len(events))
+			elapsed := telem.TimeSpan(0)
+			for _, e := range events {
+				e(h)
 				for range 5 {
-					h.Tick(ctx, telem.Millisecond)
+					h.Tick(ctx, elapsed)
+					elapsed += telem.Millisecond
 					h.channelState.ClearReads()
 					out, _ := h.Flush()
 					for _, s := range out.Get(101).Series {
@@ -350,8 +355,25 @@ trig -> f"v={q}" -> log`, "v=14.7"),
 			}
 			return logged
 		}
+		// Runs program with each sensor value and a trigger at the same time.
+		runSensor := func(
+			ctx SpecContext,
+			program string,
+			values ...float64,
+		) []string {
+			GinkgoHelper()
+			events := make([]event, len(values))
+			for i, v := range values {
+				events[i] = func(h *runtimeHarness) {
+					value(v)(h)
+					fire(h)
+				}
+			}
+			return run(ctx, program, events...)
+		}
 
-		DescribeTable("renders the placeholder",
+		DescribeTable(
+			"renders the placeholder",
 			func(ctx SpecContext, program, expected string) {
 				logged := runSensor(ctx, program, 1.5)
 				Expect(logged).ToNot(BeEmpty())
@@ -395,7 +417,54 @@ trig -> show(f"{sensor}")`, "1.5"),
 f"{v}" + "!" -> log`, "1.23!"),
 			Entry("computed variable inside a larger expression", `v := 1.0 + 0.23
 f"{v}" + "!" -> log`, "1.23!"),
+			Entry(
+				"function input with a call that takes a string",
+				"func show(s str) {\n"+
+					"    log = s\n}\ntrig -> show(f`n={len(\"abc\")}`)",
+				"n=3",
+			),
+			Entry("function input with escaped quotes in a call", `func show(s str) {
+    log = s
+}
+trig -> show(f"n={len(\"abc\")}")`, "n=3"),
+			Entry("local variable value in a function", `func show() {
+    a := 7
+    msg := f"{a}"
+    log = msg
+}
+trig -> show()`, "7"),
+			Entry("assignment in a function", `func show() {
+    x := 1.23
+    s := "a"
+    s = f"{x}"
+    log = s
+}
+trig -> show()`, "1.23"),
+			Entry("assignment in a sequence", `sequence main {
+    x := 1.23
+    s := "a"
+    s = f"{x}"
+    s -> log
+}
+trig => main`, "1.23"),
+			Entry("named function input", `func show(s str) {
+    log = s
+}
+x := 1.23
+trig -> show(s=f"{x}")`, "1.23"),
 		)
+
+		It("Should take a transition on a placeholder string", func(ctx SpecContext) {
+			Expect(runSensor(ctx, `sequence main {
+    stage s1 {
+        f"{sensor}" => next
+    }
+    stage s2 {
+        "moved" -> log
+    }
+}
+trig => main`, 1.5, 2.5)).To(Equal([]string{"moved"}))
+		})
 
 		DescribeTable("follows a channel",
 			func(ctx SpecContext, program string, expected []string) {
@@ -410,6 +479,108 @@ msg -> log`, []string{"1.5", "2.5"}),
 sensor -> show(f"{sensor}")`, []string{"1.5", "2.5"}),
 			Entry("inside a larger expression", `f"{sensor}" + "!" -> log`,
 				[]string{"1.5!", "2.5!"}),
+			Entry("named function input", `func show(s str) {
+    log = s
+}
+trig -> show(s=f"{sensor}")`, []string{"1.5", "2.5"}),
+			Entry("two function inputs", `func show(a str, b str) {
+    log = a + b
+}
+trig -> show(f"{sensor}", f"!{sensor}")`, []string{"1.5!1.5", "2.5!2.5"}),
+			Entry("function input beside a trigger", `func tag(prefix str) {x f64} str {
+    return prefix + "|"
+}
+sensor -> tag(f"p{sensor}") -> log`, []string{"p1.5|", "p2.5|"}),
+			Entry("function trigger", `func show() {s str} {
+    log = s
+}
+f"{sensor}" -> show()`, []string{"1.5", "2.5"}),
+			Entry("reassigned variable value", `sequence main {
+    msg := "a"
+    msg = f"{sensor}"
+    msg -> log
+}
+trig => main`, []string{"1.5", "2.5"}),
+			Entry("format string in a placeholder", "f\"a{f`{sensor}`}\" -> log",
+				[]string{"a1.5", "a2.5"}),
+			Entry("assignment in a function", `func show() {
+    s := "a"
+    s = f"{sensor}"
+    log = s
+}
+trig -> show()`, []string{"1.5", "2.5"}),
+		)
+
+		DescribeTable("follows a channel that changes with no trigger",
+			func(ctx SpecContext, program string, expected []string) {
+				Expect(run(
+					ctx, program, fire, value(1.5), value(2.5), value(3.5),
+				)).To(Equal(expected))
+			},
+			Entry("lone flow node", `f"{sensor}" -> log`,
+				[]string{"1.5", "2.5", "3.5"}),
+			Entry("variable value", `msg := f"{sensor}"
+msg -> log`, []string{"1.5", "2.5", "3.5"}),
+			Entry("channel read/write variable", `x := sensor
+f"{x}" -> log`, []string{"1.5", "2.5", "3.5"}),
+			Entry("channel-read variable in a variable value", `x := sensor * 2.0
+msg := f"{x}"
+msg -> log`, []string{"3", "5", "7"}),
+			Entry("flow write to a variable in a stage", `sequence main {
+    stage s1 {
+        s := "a"
+        f"{sensor}" -> s
+        s -> log
+    }
+}
+trig => main`, []string{"a", "1.5", "2.5", "3.5"}),
+			Entry("inside a larger expression", `f"{sensor}" + "!" -> log`,
+				[]string{"1.5!", "2.5!", "3.5!"}),
+			Entry("function input", `func show(s str) {
+    log = s
+}
+sensor -> show(f"{sensor}")`, []string{"1.5", "2.5", "3.5"}),
+		)
+
+		DescribeTable("takes the latest value of a channel when a trigger fires",
+			func(ctx SpecContext, program string) {
+				Expect(run(
+					ctx, program, value(1.5), value(2.5), fire, value(3.5), fire,
+				)).To(Equal([]string{"2.5", "3.5"}))
+			},
+			Entry("flow node", `trig -> f"{sensor}" -> log`),
+			Entry("function input", `func show(s str) {
+    log = s
+}
+trig -> show(f"{sensor}")`),
+			Entry("named function input", `func show(s str) {
+    log = s
+}
+trig -> show(s=f"{sensor}")`),
+			Entry("assignment in a function", `func show() {
+    s := "a"
+    s = f"{sensor}"
+    log = s
+}
+trig -> show()`),
+			Entry("channel read/write variable", `x := sensor
+trig -> f"{x}" -> log`),
+		)
+
+		It(
+			"Should render the entry value and then the reassigned value on a timer",
+			func(ctx SpecContext) {
+				logged := runSensor(ctx, `import time
+sequence main {
+    stage s1 {
+        v := 0.5
+        v = 1.23
+        time.interval(2ms) -> f"{v}" -> log
+    }
+}
+true => main`, 1.5)
+				Expect(logged).To(Equal([]string{"0.5", "1.23", "1.23"}))
+			},
 		)
 
 		It(
