@@ -964,11 +964,12 @@ export class Series<T extends TelemValue = TelemValue>
    * @param value - the value to search for.
    */
   binarySearch(value: math.Numeric): number {
-    // A NaN sample orders after every value.
-    return array.partitionPoint(
-      this.length,
-      (i) => !((this.at(i, true) as math.Numeric) < value),
-    );
+    // A NaN sample orders after every value. Babel prints `(x as T) < y` without its
+    // parentheses, and the Console build then reads `T < y` as type arguments.
+    return array.partitionPoint(this.length, (i) => {
+      const sample = this.at(i, true) as math.Numeric;
+      return !(sample < value);
+    });
   }
 
   /**
