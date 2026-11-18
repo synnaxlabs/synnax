@@ -10,6 +10,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
@@ -106,60 +107,33 @@ func runCheck(cmd *cobra.Command, _ []string) (err error) {
 		return errors.Wrap(err, "check must be run within a Git repository")
 	}
 
-	if outputFormat == string(check.FormatText) {
+	text := outputFormat == string(check.FormatText)
+	if text {
 		printBanner()
 	}
-
-	schemas, err := pipeline.DiscoverSchemas(repoRoot)
+	schemas, err := discoverSchemas(repoRoot)
 	if err != nil {
 		return err
 	}
-	if len(schemas) == 0 {
-		return errors.New("no schema files found")
-	}
-
-	if outputFormat == string(check.FormatText) {
+	if text {
 		printSchemaCount(len(schemas))
 	}
-
-	registry, err := buildPluginRegistry()
+	result, err := runPipeline(ctx, repoRoot, schemas)
 	if err != nil {
 		return err
 	}
-	result, err := pipeline.Run(ctx, pipeline.Options{
-		RepoRoot: repoRoot,
-		Schemas:  schemas,
-		Plugins:  registry,
-	})
-	if err != nil {
-		return errors.Wrap(err, "pipeline")
-	}
 
-	// Resource initialization is lazy because each gate has different dependencies and
-	// a failure to build (e.g. missing license template in a minimal test repo) should
-	// not poison gates that do not need the resource. Whether a gate is in the enabled
-	// set determines whether we even try.
 	wantedGates := wantedSet(gates)
-	var formatters *format.Registry
-	if wantedGates.has("generated") {
-		formatters, err = buildCheckFormatters(repoRoot)
-		if err != nil {
-			return errors.Wrap(err, "build formatter registry")
-		}
+	formatters, cache, err := loadGateResources(repoRoot, wantedGates)
+	if err != nil {
+		return err
 	}
-	var cache *format.Cache
-	if wantedGates.has("cache") {
-		cache = loadCheckCache(repoRoot)
+	shipped, err := loadShipped(ctx, repoRoot, wantedGates)
+	if err != nil {
+		return err
 	}
-
-	var shipped *check.Release
-	if wantedGates.has("versions") {
-		var release check.Release
-		if release, err = extractRelease(ctx, repoRoot); err != nil {
-			return err
-		}
-		defer func() { err = errors.Combine(err, os.RemoveAll(release.Root)) }()
-		shipped = &release
+	if shipped != nil {
+		defer func() { err = errors.Combine(err, os.RemoveAll(shipped.Root)) }()
 	}
 
 	checkers := buildCheckers(formatters, cache, warningsAsErrors)
@@ -168,16 +142,87 @@ func runCheck(cmd *cobra.Command, _ []string) (err error) {
 		IncludeDiffs: includeDiffs,
 		Shipped:      shipped,
 	}, checkers, gates)
+	return renderReport(report, check.Format(outputFormat), verbose)
+}
 
-	if err := check.Render(
-		os.Stdout,
-		report,
-		check.Format(outputFormat),
-		verbose,
-	); err != nil {
+// discoverSchemas returns the repo-relative paths of all schema files, and fails when
+// there are none.
+func discoverSchemas(repoRoot string) ([]string, error) {
+	schemas, err := pipeline.DiscoverSchemas(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	if len(schemas) == 0 {
+		return nil, errors.New("no schema files found")
+	}
+	return schemas, nil
+}
+
+// runPipeline runs the full pipeline over schemas with every registered plugin.
+func runPipeline(
+	ctx context.Context,
+	repoRoot string,
+	schemas []string,
+) (*pipeline.Result, error) {
+	registry, err := buildPluginRegistry()
+	if err != nil {
+		return nil, err
+	}
+	result, err := pipeline.Run(ctx, pipeline.Options{
+		RepoRoot: repoRoot,
+		Schemas:  schemas,
+		Plugins:  registry,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "pipeline")
+	}
+	return result, nil
+}
+
+// loadGateResources builds the formatter registry and loads the cache, each only when
+// a wanted gate needs it. A resource that fails to build (e.g. a missing license
+// template in a minimal test repo) must not fail gates that do not need it.
+func loadGateResources(
+	repoRoot string,
+	wantedGates gateSet,
+) (*format.Registry, *format.Cache, error) {
+	var formatters *format.Registry
+	if wantedGates.has("generated") {
+		var err error
+		if formatters, err = buildCheckFormatters(repoRoot); err != nil {
+			return nil, nil, errors.Wrap(err, "build formatter registry")
+		}
+	}
+	var cache *format.Cache
+	if wantedGates.has("cache") {
+		cache = loadCheckCache(repoRoot)
+	}
+	return formatters, cache, nil
+}
+
+// loadShipped extracts the last stable release when the versions gate runs. It returns
+// nil otherwise. The caller removes the release root.
+func loadShipped(
+	ctx context.Context,
+	repoRoot string,
+	wantedGates gateSet,
+) (*check.Release, error) {
+	if !wantedGates.has("versions") {
+		return nil, nil
+	}
+	release, err := extractRelease(ctx, repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	return &release, nil
+}
+
+// renderReport prints the report to stdout and returns an exitCodeError when a gate
+// failed.
+func renderReport(report *check.Report, outputFormat check.Format, verbose bool) error {
+	if err := check.Render(os.Stdout, report, outputFormat, verbose); err != nil {
 		return errors.Wrap(err, "render report")
 	}
-
 	if code := report.FirstExitCode(); code != 0 {
 		return &exitCodeError{
 			code: code,

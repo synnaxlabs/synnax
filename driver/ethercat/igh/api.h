@@ -57,7 +57,8 @@ const auto SII_READ = _IOWR(0xa4, 0x10, SII);
 class API {
     /// @brief function pointers to the IgH EtherCAT library functions.
     struct FunctionPointers {
-        decltype(&ecrt_request_master) request_master;
+        decltype(&ecrt_open_master) open_master;
+        decltype(&ecrt_master_reserve) master_reserve;
         decltype(&ecrt_release_master) release_master;
         decltype(&ecrt_master_activate) master_activate;
         decltype(&ecrt_master_deactivate) master_deactivate;
@@ -121,7 +122,8 @@ public:
             fn = reinterpret_cast<F>(const_cast<void *>(lib->get_func_ptr(name)));
             if (fn == nullptr && missing.empty()) missing = name;
         };
-        resolve(f.request_master, "ecrt_request_master");
+        resolve(f.open_master, "ecrt_open_master");
+        resolve(f.master_reserve, "ecrt_master_reserve");
         resolve(f.release_master, "ecrt_release_master");
         resolve(f.master_activate, "ecrt_master_activate");
         resolve(f.master_deactivate, "ecrt_master_deactivate");
@@ -199,12 +201,21 @@ public:
         );
     }
 
-    /// @brief requests an EtherCAT master for realtime operation.
-    [[nodiscard]] virtual ec_master_t *request_master(unsigned int master_index) const {
-        return this->func_ptrs.request_master(master_index);
+    /// @brief opens an EtherCAT master without reserving it, so IgH keeps scanning the
+    /// bus. Returns nullptr when the master cannot be opened.
+    [[nodiscard]] virtual ec_master_t *open_master(unsigned int master_index) const {
+        return this->func_ptrs.open_master(master_index);
     }
 
-    /// @brief releases a requested EtherCAT master.
+    /// @brief reserves an open master for realtime operation. It waits for a scan that
+    /// IgH runs, and IgH scans the bus again only after activation.
+    /// @returns -EBUSY when another program reserved the master, or -ENODEV when no
+    /// network port is attached to it.
+    [[nodiscard]] virtual int master_reserve(ec_master_t *master) const {
+        return this->func_ptrs.master_reserve(master);
+    }
+
+    /// @brief closes a master and ends its reservation.
     virtual void release_master(ec_master_t *master) const {
         this->func_ptrs.release_master(master);
     }

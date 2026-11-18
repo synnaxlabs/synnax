@@ -5481,6 +5481,33 @@ var _ = Describe("Analyze", func() {
 		Expect(table.MustGet("label.Label").Name).To(Equal("Label"))
 	})
 
+	It("Should derive filter types once across two schemas of one namespace", func() {
+		AddFilterSchema(loader)
+		loader.Add("schemas/x/color", `
+			Color struct {
+				r uint8
+			}
+		`).Add("schemas/synnax/color", `
+			import "schemas/x/color"
+			import "schemas/x/filter"
+
+			Key = uuid
+
+			Named struct {
+				key   Key { @key }
+				light color.Color
+			}
+
+			Where filter Named {
+				key
+			}
+		`)
+		table, diag := analyzer.Analyze([]string{"schemas/synnax/color"}, loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		Expect(table.MustGet("color.RetrieveRequest").FilePath).
+			To(Equal("schemas/synnax/color.oracle"))
+	})
+
 	It("Should report a load failure under the requested file", func() {
 		Expect(analyzer.Analyze([]string{"missing"}, loader)).Error().
 			To(MatchError(ContainSubstring("failed to load file")))
