@@ -253,12 +253,12 @@ stores each old color as `fixed`, and its hand-written client code writes the un
 
 ### 4.7 Creating and editing in place
 
-The field that uses a named color or an enumeration is the main place to create and edit
-one. The color picker creates a named color and edits the one it shows. The Options tab
-of a select or a state indicator does the same for enumerations. Each type has one
-editor, and the field and Settings open the same editor. A user never needs Settings to
-create or edit one. Settings finds and deletes items, and for enumerations it also lists
-their users and replaces them.
+The field that uses a named color or an enumeration can create and edit one. The color
+picker creates a named color and edits the one it shows. The Options tab of a select or
+a state indicator does the same for enumerations. Each type has one editor, and the
+field and Settings open the same editor. A user never needs to leave the field to create
+or edit one. Settings also creates, edits, finds, and deletes both types, and for
+enumerations it lists their users and replaces them.
 
 ## 5 What this RFC does not cover
 

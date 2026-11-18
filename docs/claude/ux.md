@@ -325,9 +325,9 @@ bound, a log precision, or the line plot X channel.
 
 - A shared item is a record that many places use: a named color, an enumeration, a
   label, or an ICD message.
-- The field that uses a shared item is the main place to create and edit it. A user
-  never needs Settings to create or edit one. Settings is for cleanup: find an item and
-  delete it, and, where the type supports it, see what uses it and Replace with.
+- A user never needs to leave the field to create or edit a shared item. Settings is
+  still a full editor for every type: create, edit, find, and delete, and, where the
+  type supports them, see what uses an item and Replace with.
 - Each type has one editor. The field and Settings open the same editor.
 - A field that takes a shared item can create one, and edit the one it holds, without
   leaving the field.
