@@ -287,11 +287,34 @@ describe("Kafka read form", () => {
       );
     });
 
-    it("should show a note for a record whose message is gone", async () => {
-      const rec = await createRecord({ fields: [createField("temperature", "float")] });
-      await renderRead({ records: [rec], beforeRender: () => removeMessage(rec) });
-      await screen.findByText("Message not found");
-    });
+    it.each([
+      { name: "gone", note: "Message not found", change: removeMessage },
+      {
+        name: "not JSON",
+        note: "The format of this message is not JSON. Open it to change its format.",
+        change: async ({ icd: key, messages }: Kafka.Task.ReadRecord) =>
+          await client.icds.dispatch(
+            key,
+            icd.set({
+              path: ["messages", messages[0].message, "payload"],
+              value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+            }),
+          ),
+      },
+    ])(
+      "should not offer Add field for a record whose message is $name",
+      async ({ note, change }) => {
+        const rec = await createRecord({
+          fields: [createField("temperature", "float")],
+        });
+        await renderRead({ records: [rec], beforeRender: () => change(rec) });
+        await screen.findByText(note);
+        expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
+        fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /Any key/ }));
+        await screen.findByRole("menuitem", { name: "Add message" });
+        expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
+      },
+    );
   });
 
   describe("fields", () => {
