@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, uuid } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -31,20 +31,19 @@ describe("MultiEdit", () => {
     });
   });
 
-  describe("colorRefs", () => {
-    it("should reference each color stored at the fields", () => {
-      const fault = uuid.create();
-      const refs = MultiEdit.colorRefs(
+  describe("fixedColorRefs", () => {
+    it("should reference each color stored at the fields as a fixed color", () => {
+      const refs = MultiEdit.fixedColorRefs(
         "a",
-        {
-          strokeColor: { type: "named", key: fault },
-          fillColor: undefined,
-          textColor: { type: "fixed", value: "#00ff00" },
-        },
+        { strokeColor: "#ff0000", fillColor: undefined, textColor: "#00ff00" },
         ["strokeColor", "fillColor", "textColor"],
       );
       expect(refs).toEqual([
-        { key: "a", path: "strokeColor", value: { type: "named", key: fault } },
+        {
+          key: "a",
+          path: "strokeColor",
+          value: { type: "fixed", value: color.construct("#ff0000") },
+        },
         {
           key: "a",
           path: "textColor",
@@ -53,9 +52,9 @@ describe("MultiEdit", () => {
       ]);
     });
 
-    it("should throw when a field holds a plain color", () => {
+    it("should throw when a field holds a value that is not a color", () => {
       expect(() =>
-        MultiEdit.colorRefs("a", { fillColor: "#ff0000" }, ["fillColor"]),
+        MultiEdit.fixedColorRefs("a", { fillColor: { type: "named" } }, ["fillColor"]),
       ).toThrow(z.ZodError);
     });
   });

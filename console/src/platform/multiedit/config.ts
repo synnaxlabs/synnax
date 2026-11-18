@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
+import { type color } from "@synnaxlabs/client";
 import { z } from "zod";
 
 /**
@@ -34,18 +33,3 @@ export interface ColorRef {
   path: string;
   value: color.Ref;
 }
-
-/**
- * @returns the color references stored at the given top-level fields of the config.
- * @throws if a field holds a value that is not a color reference.
- */
-export const colorRefs = (
-  key: string,
-  config: record.Unknown,
-  fields: readonly string[],
-): ColorRef[] =>
-  fields.flatMap((path) => {
-    const value = config[path];
-    if (value == null) return [];
-    return [{ key, path, value: color.refZ.parse(value) }];
-  });
