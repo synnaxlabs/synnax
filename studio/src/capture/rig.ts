@@ -337,7 +337,7 @@ export class CaptureSession {
       ignoreHTTPSErrors: opts.insecure,
     });
     const page = await context.newPage();
-    const origin = TimeStamp.now().milliseconds;
+    const origin = Date.now();
     await page.clock.install({ time: origin });
     const workers = new Set<Promise<Worker>>();
     page.on("worker", (worker) => {
