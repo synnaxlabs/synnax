@@ -1162,13 +1162,13 @@ func (p *printer) needsSpaceBefore(tok antlr.Token) bool {
 		}
 	}
 
-	if p.isBinaryOperator(tokType) || p.isBinaryOperator(prevType) {
-		return true
-	}
-
 	if prevType == parser.ArcLexerLPAREN || prevType == parser.ArcLexerLBRACKET ||
 		prevType == parser.ArcLexerLBRACE {
 		return false
+	}
+
+	if p.isBinaryOperator(tokType) || p.isBinaryOperator(prevType) {
+		return true
 	}
 
 	if tokType == parser.ArcLexerRPAREN || tokType == parser.ArcLexerRBRACKET {

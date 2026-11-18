@@ -618,6 +618,8 @@ var _ = Describe("Formatter", func() {
 		Entry("double not", "x := not not y", "x := not not y\n"),
 		Entry("not with and", "x := not a and b", "x := not a and b\n"),
 		Entry("and with not", "x := a and not b", "x := a and not b\n"),
+		Entry("negation in call argument", "x := f(-1)", "x := f(-1)\n"),
+		Entry("negation in index", "x := a[-1]", "x := a[-1]\n"),
 	)
 
 	DescribeTable("Type Casts",
