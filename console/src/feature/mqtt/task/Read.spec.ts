@@ -881,6 +881,53 @@ describe("MQTT read form", () => {
       });
     });
 
+    /**
+     * Renders a topic whose float temperature field the device stores in a channel,
+     * then switches it to a shared message whose temperature field has the kind.
+     */
+    const switchTemperature = async (kind: payload.Kind) => {
+      const ch = await client.channels.create({
+        name: uniqueName("temperature"),
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const temperature = createField("temperature", "float");
+      const entry = await createEntry({
+        fields: [temperature],
+        bound: { [temperature.key]: ch.key },
+      });
+      const next = createField("temperature", kind);
+      const { message } = await createShared([next]);
+      const stored = `${TOPIC}#${entry.messages[0].message}`;
+      const { draft } = await renderRead({
+        entries: [entry],
+        properties: {
+          read: { [stored]: { index: 0, channels: { "/temperature": ch.key } } },
+        },
+      });
+      await openTopic();
+      await pickFormat(TOPIC, message.name);
+      return { ch, next, draft };
+    };
+
+    it("should keep the channel of a pointer whose new field fits its data type", async () => {
+      const { ch, next, draft } = await switchTemperature("integer");
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: next.key, channel: ch.key, dataType: "" },
+        ]),
+      );
+    });
+
+    it("should give a new channel to a pointer whose new field does not fit its data type", async () => {
+      const { next, draft } = await switchTemperature("string");
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toEqual([
+          { field: next.key, channel: 0, dataType: "" },
+        ]),
+      );
+    });
+
     it("should add a new topic to the ICD that most topics read", async () => {
       const lone = await createEntry({ fields: [createField("temperature", "float")] });
       const pump = await createEntry({

@@ -9,7 +9,14 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, DisconnectedError, icd, mqtt, type Synnax } from "@synnaxlabs/client";
+import {
+  channel,
+  DisconnectedError,
+  icd,
+  mqtt,
+  query,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -17,7 +24,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import {
   DataType,
   deep,
@@ -221,18 +228,22 @@ const messagePrefix = (
 
 /**
  * @returns the bindings of fields, each to the channel stored for its pointer. A field
- * whose stored channel is in written gets no channel, as the Core refuses a channel
- * that two bindings write. Adds the channels it binds to written.
+ * gets no channel when its stored channel is in written, as the Core refuses a channel
+ * that two bindings write, or when its kind does not convert to the data type of the
+ * channel in dataTypes. Adds the channels it binds to written.
  */
 const bindingsOf = (
   stored: Record<string, channel.Key>,
-  fields: Pick<icd.JSONField, "key" | "pointer">[],
+  fields: Pick<icd.JSONField, "key" | "pointer" | "type">[],
   written: Set<channel.Key>,
+  dataTypes: ReadonlyMap<channel.Key, string>,
 ): ReadBinding[] =>
-  fields.map(({ key: field, pointer }) => {
+  fields.map(({ key: field, pointer, type }) => {
     const ch = stored[pointer] ?? 0;
-    if (written.has(ch)) return mqtt.readBindingZ.parse({ field });
-    if (ch !== 0) written.add(ch);
+    const dataType = dataTypes.get(ch);
+    if (written.has(ch) || dataType == null || !ICD.converts(type, dataType))
+      return mqtt.readBindingZ.parse({ field });
+    written.add(ch);
     return mqtt.readBindingZ.parse({ field, channel: ch });
   });
 
@@ -636,6 +647,15 @@ const Entries: FC<EntriesProps> = ({
   const { push } = PForm.useFieldList(root.config.entries);
   const entries = PForm.useFieldValue(root.config.entries);
   const stored = device.properties.read;
+  const storedKeys = unique
+    .unique(Object.values(stored).flatMap(({ channels }) => Object.values(channels)))
+    .filter((key) => key !== 0);
+  const { data: storedChannels } = Channel.useResultMultiple(
+    storedKeys.length === 0 ? null : query.keysRequest(storedKeys),
+  );
+  const dataTypes = new Map(
+    storedChannels?.map(({ key, dataType }) => [key, dataType.toString()]),
+  );
   const {
     tree,
     handleSelect,
@@ -651,15 +671,16 @@ const Entries: FC<EntriesProps> = ({
     pathOf: plainPath,
     SourceItem: EntryItem,
     // Starting reuses the channel that the device stores for the field's pointer,
-    // unless another field reads it.
-    bindingOf: (entry, read, field) => {
-      const channels = storedOf(
-        stored,
-        ctx.get(plainPath(entry)).value,
-        read,
-      )?.channels;
+    // unless another field reads it. A topic that reads one message also reuses the
+    // channels of its earlier messages, so a new message format keeps its channels.
+    bindingOf: (key, read, field) => {
+      const entry = ctx.get(plainPath(key)).value;
+      const channels =
+        entry.messages.length === 1
+          ? topicChannels(stored, entry.topic, entry.messages[0].message)
+          : (storedOf(stored, entry, read)?.channels ?? {});
       const written = writtenChannels(ctx.get(root.config.entries).value);
-      return bindingsOf(channels ?? {}, [field], written)[0];
+      return bindingsOf(channels, [field], written, dataTypes)[0];
     },
     messageName: (entry, held) =>
       nextMessageName(ctx.get(plainPath(entry)).value, held),
@@ -695,6 +716,7 @@ const Entries: FC<EntriesProps> = ({
         topicChannels(stored, topic, message),
         fields.filter(({ key }) => bound.includes(key)),
         written,
+        dataTypes,
       );
     const { added, held: grown } =
       drafts.length === 0
