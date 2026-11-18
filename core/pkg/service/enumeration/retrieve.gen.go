@@ -67,6 +67,19 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Retarget: func(e *Enumeration, from, to color.Key) {
+				for i5 := range e.Entries {
+					if e.Entries[i5].Color != nil {
+						switch v6 := e.Entries[i5].Color.Variant.(type) {
+						case color.NamedRef:
+							if v6.Key == from {
+								v6.Key = to
+							}
+							e.Entries[i5].Color.Variant = v6
+						}
+					}
+				}
+			},
 			Inline: func(
 				ctx context.Context,
 				tx gorp.Tx,

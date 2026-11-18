@@ -145,10 +145,10 @@ func (t *Table[K, E]) detach(
 	}
 	w := t.writer(tx, false)
 	w.derived = true
-	if err = w.Set(ctx, e); err != nil || t.onDetach == nil {
+	if err = w.Set(ctx, e); err != nil || t.onRewrite == nil {
 		return err
 	}
-	return t.onDetach(ctx, tx, e)
+	return t.onRewrite(ctx, tx, e)
 }
 
 // delete deletes the entries with keys and applies the OnDelete of every reference

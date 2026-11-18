@@ -104,9 +104,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			channelsReference(),
 		),
 		Migrations: newMigrations(),
-		// A channel delete detaches the channel from the line plot, which no line plot
+		// A delete or retarget of a target rewrites the line plot, which no line plot
 		// write does, so the service sends the line plot as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, p LinePlot) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, p LinePlot) error {
 			s.state.Dispatcher().
 				Attach(tx, p.Key, NewCreateAction(CreatePayload{LinePlot: p}))
 			return nil

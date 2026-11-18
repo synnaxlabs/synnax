@@ -79,7 +79,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		References: s.indexes.references(),
 		// A named color delete inlines the color into each entry that names it, which
 		// no enumeration write does, so the service sends the enumeration as a create.
-		OnDetach: func(_ context.Context, tx gorp.Tx, e Enumeration) error {
+		OnRewrite: func(_ context.Context, tx gorp.Tx, e Enumeration) error {
 			s.state.Dispatcher().
 				Attach(tx, e.Key, NewCreateAction(CreatePayload{Enumeration: e}))
 			return nil

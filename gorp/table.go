@@ -39,10 +39,11 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// References are the fields of E that hold the keys of other entries. See
 	// NewKeyReference and NewTargetReference.
 	References []Reference[K, E]
-	// OnDetach runs in the transaction of each delete that detaches or inlines a target
-	// in an entry of the table, after Gorp writes the entry. It gets the entry as
-	// written. An error fails the delete.
-	OnDetach func(ctx context.Context, tx Tx, e E) error
+	// OnRewrite runs in the transaction of each delete that detaches or inlines a
+	// target in an entry of the table, and of each Retarget that moves an entry to a
+	// new target, after Gorp writes the entry. It gets the entry as written. An error
+	// fails the delete or the Retarget.
+	OnRewrite func(ctx context.Context, tx Tx, e E) error
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -67,8 +68,8 @@ type Table[K Key, E Entry[K]] struct {
 	closing chan struct{}
 	// populated closes when the populate of the indexes returns.
 	populated chan struct{}
-	// onDetach is TableConfig.OnDetach.
-	onDetach func(ctx context.Context, tx Tx, e E) error
+	// onRewrite is TableConfig.OnRewrite.
+	onRewrite func(ctx context.Context, tx Tx, e E) error
 }
 
 // Close stops the populate of the indexes of the table, waits for it to return, and
@@ -110,7 +111,7 @@ func OpenTable[K Key, E Entry[K]](
 		indexes:    slices.Clone(cfg.Indexes),
 		name:       cfg.Name,
 		references: cfg.References,
-		onDetach:   cfg.OnDetach,
+		onRewrite:  cfg.OnRewrite,
 	}
 	if t.name == "" {
 		t.name = types.Name[E]()
