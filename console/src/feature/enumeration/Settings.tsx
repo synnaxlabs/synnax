@@ -16,6 +16,7 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -87,7 +88,7 @@ const Context = createContext<ContextValue>({
 });
 Context.displayName = "Enumeration.Settings";
 
-const DRAG_TYPE = "application/x-synnax-enumeration-entry";
+const HAUL_TYPE = "enumeration_entry";
 
 interface HeadingProps {
   enumeration: enumeration.Enumeration;
@@ -177,11 +178,26 @@ interface EntryColorProps {
   onChange?: (value?: color.Ref) => void;
 }
 
-const EntryColor = ({ value, onChange }: EntryColorProps): ReactElement => {
+interface ShownColor {
+  /** The named color that the entry names, if any. */
+  named?: color.Named;
+  /** The color the entry shows, or undefined when it shows Auto. */
+  shown?: xcolor.Color;
+}
+
+const useShownColor = (value?: color.Ref): ShownColor => {
   const { named } = use(Context);
   const t = Theming.use();
   const n = value?.type === "named" ? named.get(value.key) : undefined;
-  const shown = value?.type === "fixed" ? value.value : n && theme.resolve(n, t);
+  return {
+    named: n,
+    shown: value?.type === "fixed" ? value.value : n && theme.resolve(n, t),
+  };
+};
+
+const EntryColor = ({ value, onChange }: EntryColorProps): ReactElement => {
+  const t = Theming.use();
+  const { named: n, shown } = useShownColor(value);
   return (
     <Flex.Box x align="center" gap="small">
       <Color.Swatch
@@ -263,29 +279,43 @@ const Entry = (props: List.ItemProps<string>): ReactElement | null => {
   const valueTaken = useValueTaken();
   const [over, setOver] = useState(false);
   const entry = entries.find((e) => e.key === entryKey);
+  const { shown } = useShownColor(entry?.color);
+  const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
+    type: HAUL_TYPE,
+    key: itemKey,
+    canDrop: ({ items }) =>
+      items.some(
+        (item) =>
+          item.type === HAUL_TYPE && parseEntryItemKey(String(item.key))[0] === key,
+      ),
+    onDragOver: () => setOver(true),
+    onDrop: ({ items }) => {
+      setOver(false);
+      const dragged = items.find(({ type }) => type === HAUL_TYPE);
+      if (dragged == null || dragged.key === itemKey) return items;
+      const draggedEntry = parseEntryItemKey(String(dragged.key))[1];
+      const others = entries.filter((en) => en.key !== draggedEntry);
+      const i = others.findIndex((en) => en.key === entryKey);
+      form.move(path.entries, draggedEntry, i > 0 ? others[i - 1].key : undefined);
+      return items;
+    },
+  });
   if (entry == null) return null;
   const at = path.entries[entryKey];
   const warnings = check(entry, entries, resolve);
-  const handleDragStart = (e: DragEvent): void => {
-    e.dataTransfer.setData(DRAG_TYPE, itemKey);
-    e.dataTransfer.effectAllowed = "move";
-  };
-  const handleDragOver = (e: DragEvent): void => {
-    if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
-    e.preventDefault();
-    setOver(true);
-  };
-  const handleDrop = (e: DragEvent): void => {
-    setOver(false);
-    const dragged = e.dataTransfer.getData(DRAG_TYPE);
-    if (dragged === "" || dragged === itemKey) return;
-    const [draggedKey, draggedEntry] = parseEntryItemKey(dragged);
-    if (draggedKey !== key) return;
-    e.preventDefault();
-    const others = entries.filter((en) => en.key !== draggedEntry);
-    const i = others.findIndex((en) => en.key === entryKey);
-    form.move(path.entries, draggedEntry, i > 0 ? others[i - 1].key : undefined);
-  };
+  const handleDragStart = (event: DragEvent): void =>
+    startDrag({
+      event,
+      items: [{ type: HAUL_TYPE, key: itemKey }],
+      preview: (
+        <Haul.Preview
+          icon={<Icon.Enumeration />}
+          swatch={shown == null ? undefined : xcolor.cssString(shown)}
+          name={entry.name}
+          facts={[`Value ${entry.value}`]}
+        />
+      ),
+    });
   return (
     <Select.Item<string>
       {...props}
@@ -294,9 +324,10 @@ const Entry = (props: List.ItemProps<string>): ReactElement | null => {
       aria-label={entry.name}
       draggable={canUpdate}
       onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
       onDragLeave={() => setOver(false)}
-      onDrop={handleDrop}
+      onDrop={onDrop}
       className={CSS.cls(
         CSS.BE("enumeration-settings", "item"),
         over && CSS.BEM("enumeration-settings", "item", "over"),

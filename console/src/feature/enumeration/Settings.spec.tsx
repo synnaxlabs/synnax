@@ -31,6 +31,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   dragOnto,
+  HaulProvider,
   openContextMenu,
   uniqueName,
 } from "@/testutil";
@@ -59,7 +60,7 @@ const renderEnumerations = async (onStatuses = vi.fn()): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      {children}
+      <HaulProvider>{children}</HaulProvider>
       <Modals.Stack />
       <CaptureStatuses onStatuses={onStatuses} />
     </Console>
@@ -268,6 +269,39 @@ describe("Enumeration.Settings", () => {
     await expect
       .poll(async () => await storedNames(e.key))
       .toEqual([c.name, a.name, b.name]);
+  });
+
+  it("should picture a dragged entry filled with its color", async () => {
+    const e = await createEnumeration([
+      {
+        key: "on",
+        value: 1,
+        name: uniqueName("on"),
+        abnormal: false,
+        color: { type: "fixed", value: xcolor.construct("#00FF00") },
+      },
+    ]);
+    await renderEnumerations();
+    fireEvent.dragStart(await findEntry(e.entries[0].name));
+    const layer = document.querySelector(".lyra-haul__layer");
+    const tile = layer?.querySelector<HTMLElement>(".lyra-haul-preview__tile");
+    expect(tile?.style.background).toBe("rgb(0, 255, 0)");
+    expect(layer?.textContent).toBe(`${e.entries[0].name}Value 1`);
+  });
+
+  it("should take a dragged entry only over entries of its own enumeration", async () => {
+    const [e, other] = await Promise.all([createEnumeration(), createEnumeration()]);
+    await renderEnumerations();
+    const dragged = await findEntry(e.entries[0].name);
+    const sibling = await findEntry(e.entries[1].name);
+    const stranger = await findEntry(other.entries[1].name);
+    const over = "console-enumeration-settings__item--over";
+    fireEvent.dragStart(dragged);
+    fireEvent.dragOver(stranger, { screenX: 1, screenY: 1 });
+    fireEvent.dragOver(sibling, { screenX: 2, screenY: 2 });
+    expect(sibling.className).toContain(over);
+    expect(stranger.className).not.toContain(over);
+    fireEvent.dragEnd(dragged);
   });
 
   it("should warn about each entry that is hard to tell apart", async () => {
