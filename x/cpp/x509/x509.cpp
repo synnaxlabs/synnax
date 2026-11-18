@@ -38,6 +38,8 @@ namespace x::x509 {
 namespace {
 constexpr std::string_view PEM_HEADER = "-----BEGIN CERTIFICATE-----";
 constexpr std::string_view PEM_FOOTER = "-----END CERTIFICATE-----";
+// A URI in the subject alternative name uses tag [6].
+constexpr int SAN_URI_TAG = MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6;
 
 /// @returns true if data starts as a DER certificate: a SEQUENCE tag, then a long-form
 /// length. Text cannot start this way, since 0x81 to 0x84 never follow an ASCII byte in
@@ -47,8 +49,6 @@ bool is_der(const std::string_view data) {
     const auto length = static_cast<unsigned char>(data[1]);
     return length >= 0x81 && length <= 0x84;
 }
-// A URI in the subject alternative name uses tag [6].
-constexpr int SAN_URI_TAG = MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6;
 
 std::string mbedtls_message(const int code) {
     std::array<char, 128> buf{};
