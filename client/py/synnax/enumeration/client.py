@@ -260,8 +260,11 @@ class Client:
 
         :param from_: The key of the enumeration to delete.
         :param to: The key of the enumeration that each user moves to.
-        :raises ValidationError: If from_ is built in or equals to, or if the caller
-            cannot change a record that uses it. The Core then changes nothing.
+        :raises ValidationError: If from_ is built in or equals to, or if a record
+            that uses it cannot move. The Core then changes nothing.
+        :raises NotFoundError: If from_ or to does not exist.
+        :raises AccessDenied: If the caller cannot delete from_, retrieve to, or
+            update a record that uses from_.
         """
         req = _ReplaceRequest(from_=from_, to=to)
         self._client.send("/enumeration/replace", req, Empty)
