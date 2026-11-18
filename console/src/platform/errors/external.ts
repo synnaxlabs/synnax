@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Diagnostics, type DiagnosticsProps } from "@/platform/errors/Diagnostics";
+export { Diagnostics } from "@/platform/errors/Diagnostics";
 export * from "@/platform/errors/Overlay";
 export * from "@/platform/errors/SuspenseBoundary";
