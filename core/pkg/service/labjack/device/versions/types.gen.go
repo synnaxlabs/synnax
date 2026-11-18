@@ -32,8 +32,8 @@ const (
 type Connection = v0.Connection
 
 const (
-	// ConnectionUsb is a USB connection.
-	ConnectionUsb Connection = v0.ConnectionUsb
+	// ConnectionUSB is a USB connection.
+	ConnectionUSB Connection = v0.ConnectionUSB
 	// ConnectionTCP is a TCP connection over Ethernet or Wi-Fi.
 	ConnectionTCP Connection = v0.ConnectionTCP
 )

@@ -27,7 +27,7 @@ var _ = Describe("Device", func() {
 			Rack:       1,
 			Name:       "T7-0001",
 			Serial:     470010001,
-			Connection: v0.ConnectionUsb,
+			Connection: v0.ConnectionUSB,
 		}
 	}
 

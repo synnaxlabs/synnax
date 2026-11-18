@@ -41,8 +41,8 @@ inline Base Base::parse(x::json::Parser parser) {
     return Base{
         .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack"),
-        .name = parser.field<std::string>("name"),
-        .serial = parser.field<std::uint32_t>("serial"),
+        .name = parser.required_field<std::string>("name"),
+        .serial = parser.required_field<std::uint32_t>("serial"),
         .connection = parser.field<std::string>("connection"),
         .identifier = parser.field<std::string>("identifier", ""),
         .read_index = parser.field<::synnax::channel::Key>(

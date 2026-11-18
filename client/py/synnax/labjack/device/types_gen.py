@@ -72,8 +72,8 @@ class Base(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
-    name: str
-    serial: int = Field(ge=0, le=4294967295)
+    name: str = Field(min_length=1)
+    serial: int = Field(gt=0, le=4294967295)
     connection: Connection
     identifier: str = ""
     read_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
