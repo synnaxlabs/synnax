@@ -183,8 +183,8 @@ public:
     /// in send order. Once the oldest frame is MAX_FRAME_AGE old and
     /// MIN_FRAMES_IN_FLIGHT frames are in flight, or once MAX_FRAMES_IN_FLIGHT frames
     /// are in flight, the master drops it and returns an error in place of
-    /// FRAME_IN_FLIGHT.
-    [[nodiscard]] virtual x::errors::Error receive() = 0;
+    /// FRAME_IN_FLIGHT. The error stays valid until the next receive() or deactivate().
+    [[nodiscard]] virtual const x::errors::Error &receive() = 0;
 
     /// @brief queues output data and sends to the EtherCAT network.
     [[nodiscard]] virtual x::errors::Error send() = 0;
@@ -197,9 +197,10 @@ public:
 
     /// @brief returns the positions, in ascending order, of the enabled slaves whose
     /// inputs in the latest receive() hold no data: a slave that the frames of the
-    /// cycle found below SAFE-OP, or whose AL status did not come back. Empty when the
-    /// master reads no state in each cycle, or no frame came back. Valid until the next
-    /// receive(), and only on the thread that calls it.
+    /// cycle found below SAFE-OP, or whose AL status or process data did not come back.
+    /// It can also hold a slave with no inputs whose process data did not come back.
+    /// Empty when the master reads no state in each cycle, or no frame came back. Valid
+    /// until the next receive(), and only on the thread that calls it.
     [[nodiscard]] virtual std::span<const uint16_t> inputless() const = 0;
 
     /// @brief returns the distributed clock system time, as a Unix timestamp, at which

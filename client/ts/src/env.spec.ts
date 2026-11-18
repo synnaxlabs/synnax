@@ -7,9 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-import { type Env, type Given, resolveParams } from "@/env";
+import { Unreachable } from "@synnaxlabs/freighter";
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  type Env,
+  type Given,
+  nodeSystem,
+  resolveParams,
+  type Run,
+  type System,
+} from "@/env";
 import { ValidationError } from "@/errors";
 
 const ENV = {
@@ -152,5 +164,217 @@ describe("resolveParams", () => {
 
   it("should let errors other than NotCapable propagate", () => {
     expect(() => resolveParams({}, throwing(new Error("read")))).toThrow("read");
+  });
+});
+
+const DESKTOP_FILE = {
+  host: "localhost",
+  port: 9095,
+  secure: true,
+  api_key_helper: "/app/synnax-desktop-key",
+};
+
+const desktop = (
+  file: object | null = DESKTOP_FILE,
+  run: Run | null = { status: 0, stdout: "syk_desktop\n", stderr: "" },
+): System => ({
+  readFile: () => (file == null ? null : JSON.stringify(file)),
+  run: vi.fn(() => run),
+});
+
+describe("resolveParams with Synnax Desktop", () => {
+  it("should fill every missing field from Synnax Desktop", () => {
+    const system = desktop();
+    expect(resolveParams({}, {}, system)).toEqual({
+      host: "localhost",
+      port: 9095,
+      apiKey: "syk_desktop",
+      secure: true,
+    });
+    expect(system.run).toHaveBeenCalledWith("/app/synnax-desktop-key");
+  });
+
+  it("should let the params and variables win over Synnax Desktop", () => {
+    const system = desktop();
+    const env = { SYNNAX_SECURE: "false", SYNNAX_API_KEY: "syk_env" };
+    expect(resolveParams({ port: 80 }, env, system)).toEqual({
+      host: "localhost",
+      port: 80,
+      apiKey: "syk_env",
+      secure: false,
+    });
+    expect(system.run).not.toHaveBeenCalled();
+  });
+
+  it("should take secure from caCert over Synnax Desktop", () => {
+    const system = desktop({ ...DESKTOP_FILE, secure: false });
+    expect(resolveParams({ caCert: "pem" }, {}, system)).toMatchObject({
+      host: "localhost",
+      port: 9095,
+      caCert: "pem",
+      secure: true,
+    });
+  });
+
+  it("should not run the key helper when the params give credentials", () => {
+    const system = desktop();
+    const params = { username: "u", password: "p" };
+    expect(resolveParams(params, {}, system).apiKey).toBeUndefined();
+    expect(system.run).not.toHaveBeenCalled();
+  });
+
+  it("should not read Synnax Desktop when the params give a host", () => {
+    const system: System = {
+      readFile: () => {
+        throw new Error("read");
+      },
+      run: () => {
+        throw new Error("run");
+      },
+    };
+    expect(resolveParams({ host: "rig" }, {}, system).host).toEqual("rig");
+  });
+
+  const thrown = (system: System): unknown => {
+    try {
+      resolveParams({}, {}, system);
+    } catch (e) {
+      return e;
+    }
+    throw new Error("resolveParams did not throw");
+  };
+
+  const reading = (error: Error): System => ({
+    readFile: () => {
+      throw error;
+    },
+    run: () => null,
+  });
+
+  it("should not name Synnax Desktop when there is no file", () => {
+    const error = thrown(desktop(null));
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(error).toHaveProperty("message", "give a host, or set SYNNAX_HOST");
+  });
+
+  it("should not name Synnax Desktop when Deno cannot read the file", () => {
+    const cause = notCapable();
+    const error = thrown(reading(cause));
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(error).toHaveProperty("message", "give a host, or set SYNNAX_HOST");
+    expect(error).toHaveProperty("cause", cause);
+  });
+
+  it("should name the file when it cannot be read", () => {
+    const cause = new Error("EACCES: permission denied");
+    const error = thrown(reading(cause));
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(error).toHaveProperty(
+      "message",
+      "Cannot read ~/.synnax/desktop.json: EACCES: permission denied",
+    );
+    expect(error).toHaveProperty("cause", cause);
+  });
+
+  it("should name Synnax Desktop when Deno cannot run the key helper", () => {
+    const cause = notCapable();
+    const system: System = {
+      readFile: () => JSON.stringify(DESKTOP_FILE),
+      run: () => {
+        throw cause;
+      },
+    };
+    const error = thrown(system);
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(error).toHaveProperty(
+      "message",
+      "Cannot run the key helper of Synnax Desktop: Requires env access",
+    );
+    expect(error).toHaveProperty("cause", cause);
+  });
+
+  it("should throw Unreachable when Synnax Desktop is not running", () => {
+    const error = thrown(desktop(DESKTOP_FILE, null));
+    if (!(error instanceof Unreachable)) throw new Error("expected Unreachable");
+    expect(error.message).toEqual(
+      "Synnax Desktop is not running. Open it and try again. To connect to another " +
+        "Core, give a host and a port.",
+    );
+    expect(error.url.host).toEqual("localhost");
+    expect(error.url.port).toEqual(9095);
+  });
+
+  it.each<[string, System, string]>([
+    [
+      "an older Synnax Desktop saved the key in the file",
+      desktop({ ...DESKTOP_FILE, api_key: "syk_old" }),
+      "Synnax Desktop saved its API key in an older format",
+    ],
+    [
+      "the file has no key helper",
+      desktop({ host: "localhost", port: 9095, secure: false }),
+      "Cannot read ~/.synnax/desktop.json. Update Synnax Desktop and open it.",
+    ],
+    [
+      "the file is not valid JSON",
+      { readFile: () => "{", run: () => null },
+      "Cannot read ~/.synnax/desktop.json",
+    ],
+    [
+      "the key helper fails",
+      desktop(DESKTOP_FILE, {
+        status: 1,
+        stdout: "",
+        stderr: "failed to read the Synnax Desktop API key: no keychain\n",
+      }),
+      "failed to read the Synnax Desktop API key: no keychain",
+    ],
+  ])("should reject when %s", (_, system, message) => {
+    expect(() => resolveParams({}, {}, system)).toThrow(ValidationError);
+    expect(() => resolveParams({}, {}, system)).toThrow(message);
+  });
+
+  describe.skipIf(process.platform === "win32")("with a real key helper", () => {
+    const withDir = (f: (dir: string, system: System) => void): void => {
+      const dir = mkdtempSync(join(tmpdir(), "synnax-desktop-"));
+      try {
+        const system = nodeSystem();
+        if (system == null) throw new Error("no system");
+        f(dir, system);
+      } finally {
+        rmSync(dir, { recursive: true });
+      }
+    };
+
+    const writeHelper = (dir: string, mode: number): string => {
+      const helper = join(dir, "synnax-desktop-key");
+      writeFileSync(helper, "#!/bin/sh\necho syk_real\n");
+      chmodSync(helper, mode);
+      return helper;
+    };
+
+    it("should read the key from the helper", () =>
+      withDir((dir, real) => {
+        const helper = writeHelper(dir, 0o755);
+        const system: System = {
+          readFile: () => JSON.stringify({ ...DESKTOP_FILE, api_key_helper: helper }),
+          run: real.run,
+        };
+        expect(resolveParams({}, {}, system).apiKey).toEqual("syk_real");
+      }));
+
+    it("should return null for a helper that is not there", () =>
+      withDir((dir, real) => {
+        expect(real.run(join(dir, "missing"))).toBeNull();
+      }));
+
+    it("should name a helper that exists but cannot start", () =>
+      withDir((dir, real) => {
+        const helper = writeHelper(dir, 0o644);
+        expect(() => real.run(helper)).toThrow(ValidationError);
+        expect(() => real.run(helper)).toThrow(
+          `Cannot run the key helper of Synnax Desktop at ${helper}`,
+        );
+      }));
   });
 });

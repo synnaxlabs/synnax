@@ -357,36 +357,54 @@ func annotateOutputs(
 		if !ok {
 			continue
 		}
-		goRoot, dependency := origPath, lp != ownLive
-		if dependency {
+		goRoot := origPath
+		if lp != ownLive {
 			var err error
-			if goRoot, ok, err = versionedGoRoot(req, lp); err != nil {
+			if goRoot, err = dependencyGoRoot(req, t, lp, v, ownLive); err != nil {
 				return err
-			} else if !ok {
-				return errors.Newf(
-					"%s pins %s, which has no versioned Go output in the live schemas",
-					ownLive, lp,
-				)
-			}
-			current, err := isCurrentVersion(req, lp, v)
-			if err != nil {
-				return err
-			}
-			// Only the current package renders from the live file, so only a pin of
-			// it takes the live @go output and name. A frozen package declares every
-			// member at the chain root under its version file's name.
-			if lt, has := liveType(req, lp, t.Name); current && has {
-				if p := output.GetPath(lt, "go"); p != "" {
-					goRoot = p
-				}
-				if n := domain.GetStringFromType(lt, "go", "name"); n != "" {
-					withGoName(t, n)
-				}
 			}
 		}
 		withGoOutput(t, versioning.VersionedPath(goRoot, v))
 	}
 	return nil
+}
+
+// dependencyGoRoot returns the Go root of the type t that a frozen table pins from
+// version v of the dependency livePath, and gives t the live @go name when v is
+// current.
+func dependencyGoRoot(
+	req *plugin.Request,
+	t *resolution.Type,
+	livePath string,
+	v int,
+	ownLive string,
+) (string, error) {
+	goRoot, ok, err := versionedGoRoot(req, livePath)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", errors.Newf(
+			"%s pins %s, which has no versioned Go output in the live schemas",
+			ownLive, livePath,
+		)
+	}
+	current, err := isCurrentVersion(req, livePath, v)
+	if err != nil {
+		return "", err
+	}
+	// Only the current package renders from the live file, so only a pin of it takes
+	// the live @go output and name. A frozen package declares every member at the
+	// chain root under its version file's name.
+	if lt, has := liveType(req, livePath, t.Name); current && has {
+		if p := output.GetPath(lt, "go"); p != "" {
+			goRoot = p
+		}
+		if n := domain.GetStringFromType(lt, "go", "name"); n != "" {
+			withGoName(t, n)
+		}
+	}
+	return goRoot, nil
 }
 
 // isCurrentVersion reports whether v is the current version of livePath's chain.

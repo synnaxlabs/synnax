@@ -73,15 +73,18 @@ Sedosaur confidence score below 5/5 fails it: push a fix, then comment
 `@sedosaur review`. Every finding lowers the score by its severity. A review starts when
 a PR opens or leaves draft, and when a member or an agent mentions `@sedosaur` in a
 comment. A push, a new base, or a reply alone starts none. Sedosaur reacts with a rocket
-when it takes the request. A head never gets a second review on one base once one
-succeeds, and a request after a push that leaves the diff the same, as a merge of the
-base does, gets the last review at once. To make Sedosaur stop reporting a finding,
+when it takes the request. A head gets no second review on one base once one succeeds,
+and a request after a push that leaves the diff the same, as a merge of the base does,
+gets the last review at once. To review that head again, comment
+`@sedosaur review repeat=true`. Sedosaur replies when it skips a person's comment that
+starts a line with `@sedosaur review`. To make Sedosaur stop reporting a finding,
 someone with write access replies `@sedosaur dismiss` and a reason on its thread. A
 finding outside the diff has no thread: they comment `@sedosaur dismiss`, its title, and
 a reason on the PR, with `path:<file>` when two findings share the title. Sedosaur
 resolves the thread, later reviews of the PR leave the finding out, and the head scores
-5/5 once every finding is dismissed. The review reads no other replies. The gate does
-not wait for a human approval on either tier. A pull request Dependabot opened and wrote
+5/5 once every finding is dismissed. Sedosaur answers the first other reply on its
+thread with how to dismiss, and its reviews read no other replies. The gate does not
+wait for a human approval on either tier. A pull request Dependabot opened and wrote
 every commit of passes the gate without a review. `OK` is the CI workflow's last job: it
 fails when any check the PR's paths select failed. A merge into `main` goes through a
 merge queue, which reruns CI with the integration suite added before the branch moves. A

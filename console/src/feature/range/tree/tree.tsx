@@ -12,6 +12,7 @@ import { context } from "@synnaxlabs/lyra/context";
 import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Ranger } from "@synnaxlabs/pluto";
+import { array } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -95,7 +96,7 @@ export const useExpanded = (
     setExpanded((prev) => {
       const open = next ?? !prev.includes(key);
       if (open) return prev.includes(key) ? prev : [...prev, key];
-      return prev.filter((k) => k !== key);
+      return array.remove(prev, key);
     });
   return [expanded, toggle];
 };

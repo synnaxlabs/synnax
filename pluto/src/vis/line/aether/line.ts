@@ -578,7 +578,10 @@ const nearest = (
   let distance = Infinity;
   for (const op of ops) {
     const { x, xOffset, count } = op;
-    const after = Math.min(Math.max(x.binarySearch(target) - xOffset, 0), count);
+    const after = bounds.clamp(
+      { lower: 0, upper: count },
+      x.binarySearch(target) - xOffset,
+    );
     for (const i of [after - 1, after]) {
       if (i < 0 || i >= count) continue;
       const d = Math.abs(Number(x.at(xOffset + i, true)) - target);

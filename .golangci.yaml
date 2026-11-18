@@ -39,6 +39,9 @@ linters:
     - errname # The namespace names the type: diagnostics.Diagnostics.
     - exhaustruct_v5 # Zero values are meaningful defaults.
     - funcorder # Methods follow reading order, not export status.
+    # The code holds no mutable globals. AGENTS.md allows package vars that are never
+    # mutated, and gochecknoglobals cannot tell them from mutable ones.
+    - gochecknoglobals
     - gomoddirectives # Sibling replace directives link the modules.
     - goconst # Repeated literals in specs and codegen read better inline.
     - gosmopolitan # Specs check Unicode text on purpose.
@@ -62,8 +65,6 @@ linters:
     - containedctx # SY-6109
     - contextcheck # SY-6109
     - fatcontext # SY-6109
-    - gochecknoglobals # SY-6107
-    - gochecknoinits # SY-6108
     - noctx # SY-6109
   settings:
     depguard:
@@ -181,6 +182,12 @@ linters:
           Forbids Close calls in AfterEach, JustAfterEach, AfterAll, AfterSuite, and
           SynchronizedAfterSuite. MustOpen or DeferClose registers the cleanup next to
           the open.
+  exclusions:
+    rules:
+      # golangci-lint loads a module plugin only through register.Plugin in init().
+      - path: analyzers/[^/]+/plugin\.go$
+        linters:
+          - gochecknoinits
 formatters:
   enable:
     - gci

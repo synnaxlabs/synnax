@@ -101,7 +101,6 @@ export default manifest.define([
   { id: "client/ranges/create-child", script: "scripts/ranges-create-child.ts" },
   { id: "client/ranges/set-metadata", script: "scripts/ranges-set-metadata.ts" },
   { id: "client/ranges/labels", script: "scripts/ranges-labels.ts" },
-  { id: "console/ranges/active", script: "scripts/ranges-active.ts" },
   { id: "console/workspaces/create", script: "scripts/projects-create.ts" },
   { id: "console/workspaces/load", script: "scripts/projects-load.ts" },
   { id: "console/users/register", script: "scripts/users-register.ts" },

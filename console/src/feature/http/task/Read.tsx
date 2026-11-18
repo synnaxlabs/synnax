@@ -359,6 +359,7 @@ const Form: FC = () => {
         groupLabel={endpointLabel}
         groupDetails={endpointDetails}
         fieldDetails={fieldDetails}
+        tareable
       />
       {endpoints.map(({ key }) => (
         <Task.BindReadChannels

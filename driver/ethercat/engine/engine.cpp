@@ -421,6 +421,22 @@ void Engine::run() {
         return this->starting.load(std::memory_order_acquire) &&
                err.matches(errors::WORKING_COUNTER_ERROR);
     };
+    // How much further than the outage the slaves that a cycle found with no inputs can
+    // keep the working counter from a full cycle.
+    const auto inputless_shortfall =
+        [this, &outage](const std::span<const uint16_t> inputless) {
+            uint32_t extra = 0;
+            for (const auto pos: inputless) {
+                const auto share = this->image.working_counter_shares.find(pos);
+                if (share == this->image.working_counter_shares.end() ||
+                    std::ranges::binary_search(outage.inputless, pos))
+                    continue;
+                extra += share->second.inputs;
+                if (!std::ranges::binary_search(outage.positions, pos))
+                    extra += share->second.outputs;
+            }
+            return extra;
+        };
 
     const auto send = [&] {
         in_flight.push_back(this->config.host_clock.now());
@@ -497,7 +513,7 @@ void Engine::run() {
             if (!this->bus.running()) break;
         }
         // Takes each frame that came back, oldest first, as the data of its own cycle.
-        const auto err = this->master->receive();
+        const auto &err = this->master->receive();
         if (err.matches(errors::FRAME_IN_FLIGHT)) {
             taking = false;
             this->write_outputs(false);
@@ -513,8 +529,8 @@ void Engine::run() {
         // A full cycle drops the inputs of the slaves that give none, since a slave
         // below SAFE-OP can keep its share of the working counter. A cycle short by
         // what the slaves out of OP can miss drops the inputs of each of them. The
-        // state read of the cycle adds the slaves that give none before the supervisor
-        // sees them.
+        // cycle adds the slaves that it found with no inputs, and what they can miss,
+        // before the supervisor sees them.
         const std::vector<uint16_t> *dropped = nullptr;
         if (!starting) {
             if (this->outage_version.load(std::memory_order_acquire) !=
@@ -523,19 +539,20 @@ void Engine::run() {
                 outage = this->outage;
                 outage_version = this->outage_version.load(std::memory_order_relaxed);
             }
+            const auto inputless = this->master->inputless();
             if (!err) {
                 if (!outage.inputless.empty()) dropped = &outage.inputless;
             } else if (
                 const auto missed = this->master->shortfall();
                 err.matches(errors::WORKING_COUNTER_ERROR) && missed &&
-                *missed >= outage.least_shortfall && *missed <= outage.shortfall
+                *missed >= outage.least_shortfall &&
+                *missed <= outage.shortfall + inputless_shortfall(inputless)
             ) {
                 dropped = &outage.positions;
                 latched_at = frame_sent_at + lead;
                 host_timed = true;
             }
-            if (const auto inputless = this->master->inputless();
-                !inputless.empty() && (!err || dropped != nullptr)) {
+            if (!inputless.empty() && (!err || dropped != nullptr)) {
                 cycle_dropped.clear();
                 std::ranges::set_union(
                     dropped == nullptr ? std::span<const uint16_t>() : *dropped,
