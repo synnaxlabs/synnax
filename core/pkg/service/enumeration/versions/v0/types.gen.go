@@ -42,6 +42,7 @@ type Entry struct {
 func (e Entry) Validate() error {
 	v := validate.New("Entry")
 	v.NotEmptyString("key", e.Key)
+	v.Finite("value", e.Value)
 	if e.Color != nil {
 		v.Exec(func() error { return validate.PathedError(e.Color.Validate(), "color") })
 	}

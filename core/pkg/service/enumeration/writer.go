@@ -11,7 +11,6 @@ package enumeration
 
 import (
 	"context"
-	"math"
 	"strconv"
 	"uuid"
 
@@ -64,13 +63,6 @@ func check(e Enumeration) error {
 				"another entry has the key %q",
 				entry.Key,
 			), append(path, "key")...)
-		}
-		if math.IsNaN(entry.Value) || math.IsInf(entry.Value, 0) {
-			return validate.PathedError(errors.Wrapf(
-				validate.ErrValidation,
-				"%v is not a finite number",
-				entry.Value,
-			), append(path, "value")...)
 		}
 		if values.Contains(entry.Value) {
 			return validate.PathedError(errors.Wrapf(

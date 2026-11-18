@@ -1204,7 +1204,7 @@ func collectValidation(
 			}
 		}
 		isFloat := primitive == "float32" || primitive == "float64"
-		if isFloat && len(constraints) > 0 {
+		if isFloat && (len(constraints) > 0 || rules.Finite) {
 			constraints = append(constraints, "allow_inf_nan=False")
 		}
 	}

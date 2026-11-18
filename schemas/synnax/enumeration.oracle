@@ -25,10 +25,11 @@ Entry struct {
         @validate min_length 1
     }
     value    float64    {
-        @doc value """
+        @doc value       """
             is the value that selects the entry, unique in its enumeration. Selects and
             buttons write it.
         """
+        @validate finite
     }
     name     string     {
         @doc value "is the name of the entry."
