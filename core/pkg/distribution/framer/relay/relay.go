@@ -15,6 +15,7 @@ package relay
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -117,6 +118,7 @@ type Relay struct {
 	delta   *delta
 	// stopped closes when Run returns.
 	stopped chan struct{}
+	ran     atomic.Bool
 	cfg     Config
 }
 
@@ -147,8 +149,11 @@ func Open(configs ...Config) (*Relay, error) {
 
 // Run moves frames to streamers until ctx ends. It then stops the taps into storage
 // and free writes, drops every streamer, and returns. A streamer that runs after Run
-// returns fails. Call Run once.
+// returns fails. A second Run returns an error.
 func (r *Relay) Run(ctx context.Context) error {
+	if !r.ran.CompareAndSwap(false, true) {
+		return errors.New("run called twice")
+	}
 	defer close(r.stopped)
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(r.ins))
 	defer cancel()
