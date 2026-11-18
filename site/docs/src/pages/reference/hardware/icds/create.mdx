@@ -1,0 +1,162 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Create ICDs"
+description: "Create an ICD and its messages in the Console, Python, or TypeScript."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Create an [ICD](/reference/hardware/icds) to describe the messages that a device sends.
+Then a read task can use it to turn each message into samples on channels.
+
+<Divider.Divider x />
+
+## When to create an ICD
+
+| When                                             | Do this                                                                                      |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| You add data to an MQTT read task in the Console | Nothing. The Console creates an ICD with the name of the task, and a message for each topic. |
+| You have a DBC file, or a spreadsheet of fields  | Import it into an ICD.                                                                       |
+| A script configures the task                     | Create the ICD in the script, before it configures the task.                                 |
+
+<Divider.Divider x />
+
+## Create an ICD
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+1. Open the ICD:
+   - Click <Icon.Add /> in the **ICDs** toolbar.
+   - Run the "Create ICD" command from the
+     [command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+   The Console creates an ICD named "ICD", with no messages, and opens it in a tab.
+
+2. Click the name at the top of the tab, and enter a new name.
+3. Click **Add message**. The new message is named "Message 1", in the binary format.
+4. In the message details, enter a **Name** and select the **Format**: **Binary**,
+   **Text**, or **JSON**.
+5. Click **Add field** for each value in the message, and fill in its properties.
+
+Each edit saves at once. There is no save button.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+telemetry = sy.icd.Message(
+    name="Telemetry",
+    payload=sy.icd.JSONPayload(
+        fields=[
+            sy.icd.TimestampJSONField(
+                name="time", pointer="/ts", time_format="unix_ms"
+            ),
+            sy.icd.FloatJSONField(
+                name="temperature", pointer="/temperature", units="degC"
+            ),
+            sy.icd.FloatJSONField(name="pressure", pointer="/pressure", units="kPa"),
+        ],
+    ),
+)
+oven = client.icds.create(name="Oven", messages=[telemetry])
+```
+
+`create` also takes an `ICD`, or a list of them to create many at once.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const oven = await client.icds.create({
+  name: "Oven",
+  messages: [
+    {
+      name: "Telemetry",
+      payload: {
+        format: "json",
+        fields: [
+          { name: "time", pointer: "/ts", type: "timestamp", timeFormat: "unix_ms" },
+          {
+            name: "temperature",
+            pointer: "/temperature",
+            type: "float",
+            units: "degC",
+          },
+          { name: "pressure", pointer: "/pressure", type: "float", units: "kPa" },
+        ],
+      },
+    },
+  ],
+});
+```
+
+`create` also takes an array of ICDs to create many at once.
+
+  </Fragment>
+
+</Client.Tabs>
+
+Each message and field gets a key when you create it. Tasks refer to messages and fields
+by key, so you can rename them later. The
+[ICD reference](/reference/hardware/icds/reference) gives the properties of each format.
+
+<Divider.Divider x />
+
+## Check an ICD
+
+A check finds the problems in an ICD, such as two messages with one name. A problem
+never stops a save.
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+The editor checks the ICD shortly after each edit, and marks each problem on its
+property.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+for problem in client.icds.check(oven):
+    print(problem.path, problem.message)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+for (const { path, message } of await client.icds.check(oven))
+  console.log(path, message);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+`path` is the place of the problem, such as `messages.0.name`. It is empty for a problem
+with the whole ICD. The [problems](/reference/hardware/icds/reference#problems) in the
+reference say how to fix each one.
+
+<Divider.Divider x />
+
+## Use the ICD in a task
+
+A task selects the messages that it reads and binds their fields to channels. To bind
+fields, see the [MQTT read task](/reference/hardware/mqtt/read-task).
