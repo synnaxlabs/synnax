@@ -121,6 +121,11 @@ func (c CoreConfig) Validate() error {
 	v.NonZero("task_poll_interval", c.taskPollInterval)
 	v.NonZero("task_shutdown_timeout", c.taskShutdownTimeout)
 	v.NonZero("task_worker_count", c.taskWorkerCount)
+	v.Ternary(
+		"enable_integrations",
+		len(c.enabledIntegrations) > 0 && len(c.disabledIntegrations) > 0,
+		"cannot be used with disable_integrations",
+	)
 	v.NotNil("validate_channel_names", c.validateChannelNames)
 	v.Exec(c.certFactoryConfig.Validate)
 	return v.Error()
