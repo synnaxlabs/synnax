@@ -162,7 +162,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
         target: box.construct(prev.cursor, 0, 0),
         prefer: PREFERENCES,
       });
-      // A menu that fits neither below nor above the cursor slides up into the window.
+      // A menu that fits nowhere around the cursor slides into the window.
       const nextPos = xy.construct(
         Math.max(
           0,

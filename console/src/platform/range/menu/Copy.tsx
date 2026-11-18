@@ -14,16 +14,14 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Core } from "@/platform/core";
+import { pythonCode, typescriptCode } from "@/platform/range/code";
+import { scheduled } from "@/platform/range/stage";
 import { Session } from "@/session";
 
 const iso = ({ timeRange: { start, end } }: ranger.Range): string =>
   end.equals(TimeStamp.MAX)
     ? start.toString("ISO")
     : `${start.toString("ISO")} - ${end.toString("ISO")}`;
-
-// A range planned with no times holds TimeStamp.MAX as its start.
-const isScheduled = ({ timeRange }: ranger.Range): boolean =>
-  !timeRange.makeValid().start.equals(TimeStamp.MAX);
 
 export interface CopyProps {
   ranges: ranger.Range[];
@@ -61,18 +59,21 @@ export const Copy = ({ ranges }: CopyProps): ReactElement => {
             itemKey="name"
             text={names}
             successMessage={{
-              message: single == null ? "Copied names" : "Copied name",
+              message:
+                single == null
+                  ? "Copied names to clipboard"
+                  : "Copied name to clipboard",
               name,
             }}
           >
             <Icon.Rename />
             {single == null ? "Names" : "Name"}
           </Menu.CopyItem>
-          {single != null && isScheduled(single) && (
+          {single != null && scheduled(single.timeRange) && (
             <Menu.CopyItem
               itemKey="time"
               text={iso(single)}
-              successMessage={{ message: "Copied time range", name }}
+              successMessage={{ message: "Copied time range to clipboard", name }}
             >
               <Icon.Range />
               Time range
@@ -82,16 +83,19 @@ export const Copy = ({ ranges }: CopyProps): ReactElement => {
             <>
               <Menu.CopyItem
                 itemKey="python"
-                text={`rng = client.ranges.retrieve(key="${single.key}")`}
-                successMessage={{ message: "Copied Python code", name }}
+                text={pythonCode(single.key)}
+                successMessage={{ message: "Copied Python code to clipboard", name }}
               >
                 <Icon.Python />
                 Python code
               </Menu.CopyItem>
               <Menu.CopyItem
                 itemKey="typescript"
-                text={`const rng = await client.ranges.retrieve("${single.key}");`}
-                successMessage={{ message: "Copied TypeScript code", name }}
+                text={typescriptCode(single.key)}
+                successMessage={{
+                  message: "Copied TypeScript code to clipboard",
+                  name,
+                }}
               >
                 <Icon.TypeScript />
                 TypeScript code
