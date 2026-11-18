@@ -331,6 +331,18 @@ describe("Certificate.Field", () => {
     expect(c.privateKey).toBeUndefined();
   });
 
+  it("reads a dropped PEM file as it is", async () => {
+    await renderField();
+    await openCreate();
+    startFileDrag();
+    fireFileDrop(getPEMInput("Certificate"), [
+      fakeFileEntry(createFile("server.crt", CERTIFICATE.pem)),
+    ]);
+    await waitFor(() =>
+      expect(getPEMInput("Certificate")).toHaveProperty("value", CERTIFICATE.pem),
+    );
+  });
+
   it("reads the key from a selected file", async () => {
     const picker = interceptFilePicker();
     const { onChange } = await renderField();

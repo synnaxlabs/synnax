@@ -23,26 +23,23 @@ import { Runtime } from "@/platform/runtime";
 
 const READ_FAILED = "Failed to read file";
 
-export interface PEMInputProps extends Input.Control<string> {
+export interface PEMInputProps
+  extends Input.Control<string>, Pick<Input.TextProps, "placeholder" | "autoFocus"> {
   /** Titles the file dialog. */
   title: string;
   /** The extensions the file dialog offers, without leading dots. */
   extensions: string[];
   /** Reads a dropped or selected file as PEM. */
   read: (bytes: Uint8Array, name: string) => string;
-  placeholder: string;
-  autoFocus?: boolean;
 }
 
 /** A text area for pasted PEM that also takes a dropped or selected file. */
 export const PEMInput = ({
-  value,
   onChange,
   title,
   extensions,
   read,
-  placeholder,
-  autoFocus,
+  ...rest
 }: PEMInputProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const handleDrop = (entries: FileSystemEntry[]): void =>
@@ -70,13 +67,11 @@ export const PEMInput = ({
       <Input.Text
         area
         variant="text"
-        value={value}
         onChange={onChange}
-        placeholder={placeholder}
-        autoFocus={autoFocus}
         spellCheck={false}
         autoComplete="off"
         className={CSS.BE("pem-input", "text")}
+        {...rest}
       />
       <Flex.Box
         x
