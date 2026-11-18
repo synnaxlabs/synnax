@@ -127,12 +127,14 @@ const messagePrefix = (
 const storedKey = (topic: string, recordKey: string, message: icd.MessageKey): string =>
   `${topic}#${recordKey}#${message}`;
 
-/** @returns the channels that the bindings of records write. */
+/** @returns the channels that enabled records bind. The Core skips disabled ones. */
 const writtenChannels = (records: ReadRecord[]): Set<channel.Key> => {
   const written = new Set(
-    records.flatMap(({ messages }) =>
-      messages.flatMap(({ bindings }) => bindings.map((b) => b.channel)),
-    ),
+    records
+      .filter(({ disabled }) => !disabled)
+      .flatMap(({ messages }) =>
+        messages.flatMap(({ bindings }) => bindings.map((b) => b.channel)),
+      ),
   );
   written.delete(0);
   return written;
@@ -364,7 +366,7 @@ const Records: FC<RecordsProps> = ({
       pathOf: recordPath,
       SourceItem: RecordItem,
       // Starting reuses the channel that the device stores for the field's pointer,
-      // unless another field reads it.
+      // unless an enabled record reads it.
       bindingOf: (key, read, { key: field, pointer }) => {
         const { recordKey, messages } = ctx.get(recordPath(key)).value;
         const topic = ctx.get(root.config.topic).value;
