@@ -9,8 +9,9 @@
 
 Scripts on the same computer connect to the Core of Synnax Desktop. Desktop saves the
 address in `~/.synnax/desktop.json` and an API key of the root user in the OS keychain.
-With no arguments, `sy.Synnax()` reads both. A "Connect from code" dialog gives the
-install command and code for each client, and a button that replaces the key.
+With no arguments, `sy.Synnax()` reads the address and runs the key helper that the file
+names. A "Connect from code" dialog gives the install command and code for each client,
+and a button that replaces the key.
 
 ## 1 Motivation
 

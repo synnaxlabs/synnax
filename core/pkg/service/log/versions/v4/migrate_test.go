@@ -24,6 +24,7 @@ import (
 var _ = Describe("Migration", func() {
 	It("Should delete each range-owned Log and lift the rest", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v3.Key, v3.Log]{DB: db}))
 		proj := uuid.New()
 		owned := v3.Log{Key: uuid.New(), Name: "Owned", Project: &proj}

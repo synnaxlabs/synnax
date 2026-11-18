@@ -90,7 +90,7 @@ describe("Editor", () => {
   describe("hover severity", () => {
     it(
       "should color the hover of a warning that has a code as a warning",
-      async () => expectColors(await hoverWarning("ARC2005"), "warning"),
+      async () => expectColors(await hoverWarning("W2000"), "warning"),
       MONACO_TIMEOUT,
     );
 

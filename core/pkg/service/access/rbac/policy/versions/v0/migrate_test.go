@@ -172,6 +172,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Policy{Key: uuid.New()}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,

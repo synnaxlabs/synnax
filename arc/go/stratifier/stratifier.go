@@ -15,6 +15,7 @@
 package stratifier
 
 import (
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
@@ -169,7 +170,7 @@ func stratifyParallel(
 		}
 		if pass == maxPasses {
 			cycle := findCycle(members, edges, ownership)
-			diag.Add(diagnostics.Errorf(
+			diag.Add(codes.DataflowCycle.Atf(
 				nil,
 				"cycle detected in dataflow graph within scope '%s': %v",
 				s.Key, cycle,
