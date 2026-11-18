@@ -166,7 +166,7 @@ public:
     std::map<uint16_t, uint16_t> al_statuses;
     /// @brief the process data sends in flight, oldest first, with the DC time that
     /// each carries when host_dc_offset is set.
-    std::deque<std::optional<int64_t>> processdata_in_flight;
+    std::vector<std::optional<int64_t>> processdata_in_flight;
     /// @brief the number of drop_processdata calls.
     int drop_count = 0;
     /// @brief guards the slave states that readstate writes and that a cycle thread
@@ -381,12 +381,14 @@ public:
         this->receive_count++;
         this->processdata_groups.push_back(group);
         std::lock_guard lock(this->state_mu);
-        this->al_statuses.clear();
+        // Keeps the entries, so a cycle allocates nothing.
+        for (auto &[_, status]: this->al_statuses)
+            status = 0;
         if (this->processdata_in_flight.empty()) return EC_NOFRAME;
         if (this->receive_return < 0) return this->receive_return;
         if (const auto dc = this->processdata_in_flight.front())
             this->context.DCtime = *dc;
-        this->processdata_in_flight.pop_front();
+        this->processdata_in_flight.erase(this->processdata_in_flight.begin());
         for (size_t i = 0; i < this->slave_infos.size(); ++i) {
             const auto pos = static_cast<uint16_t>(i + 1);
             this->al_statuses[pos] = this->silent_slaves.contains(pos)
@@ -399,7 +401,7 @@ public:
     void drop_processdata() override {
         this->drop_count++;
         if (!this->processdata_in_flight.empty())
-            this->processdata_in_flight.pop_front();
+            this->processdata_in_flight.erase(this->processdata_in_flight.begin());
     }
 
     [[nodiscard]] uint16_t al_status(const uint16_t slave) const override {

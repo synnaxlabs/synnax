@@ -32,6 +32,7 @@ var _ = Describe("Provision", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB: db,
 		}))

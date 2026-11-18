@@ -34,7 +34,7 @@ type notExportedError struct {
 
 // Error implements the error interface.
 func (e *notExportedError) Error() string {
-	return fmt.Sprintf("'%s' is not exported by module %q", e.Name, e.Module)
+	return fmt.Sprintf("not exported: '%s' in module %q", e.Name, e.Module)
 }
 
 // UndefinedSymbolError is returned when a symbol cannot be resolved. It lazily

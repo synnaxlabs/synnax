@@ -40,6 +40,7 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB))
+			StartRun(db.Run)
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB: db,
 			}))

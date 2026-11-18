@@ -78,6 +78,8 @@ class Master final : public master::Master {
     std::optional<uint32_t> full_working_counter;
     /// @brief what shortfall() returns.
     std::optional<uint32_t> latest_shortfall;
+    /// @brief what the latest receive() returns.
+    x::errors::Error received;
 
 public:
     /// @brief constructs an IgH master with the given API and master index.
@@ -116,7 +118,7 @@ public:
 
     void deactivate() override;
 
-    x::errors::Error receive() override;
+    const x::errors::Error &receive() override;
 
     x::errors::Error send() override;
 

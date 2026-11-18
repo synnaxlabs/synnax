@@ -83,7 +83,7 @@ var _ = Describe("Analyzer Integration", func() {
 				diagnostic := (*ctx.Diagnostics)[0]
 				Expect(
 					diagnostic.Message,
-				).To(Equal("name dog conflicts with existing function at line 2, col 4"))
+				).To(Equal("name conflict: name dog conflicts with existing function at line 2, col 4"))
 			},
 		)
 
@@ -1723,6 +1723,20 @@ var _ = Describe("Channel reads through later declarations", func() {
 		},
 	)
 
+	It(
+		"Should let a func read a local that a later callee makes reactive",
+		func(bCtx SpecContext) {
+			analyzeAndExpectWithResolver(bCtx, `
+			x := rd() + 1.0
+			func f() f64 {
+			    return x
+			}
+			func rd() f64 {
+			    return raw * 2.0
+			}`, rawResolver)
+		},
+	)
+
 	It("Should classify a copy of a promoted local reactive", func(bCtx SpecContext) {
 		ctx := analyzeAndExpectWithResolver(bCtx, `
 			x := rd() + 1.0
@@ -1744,3 +1758,25 @@ var _ = Describe("Channel reads through later declarations", func() {
 		)
 	})
 })
+
+var _ = DescribeTable("Reads of a top-level variable that is not a constant",
+	func(bCtx SpecContext, source, message string) {
+		ctx := analyzeAndExpectErrorWithResolver(bCtx, source, nil)
+		Expect(*ctx.Diagnostics).To(HaveLen(1), ctx.Diagnostics.String())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+	},
+	Entry(
+		"a computed initializer",
+		"k := 1 + 2\nfunc f() i64 {\n    return k\n}",
+		"3:11 error [E2006]: not a constant: cannot read 'k': its initializer is not a compile-time "+
+			"constant",
+	),
+	Entry("an initializer with an undefined name",
+		"k := undefined_name\nfunc f() i64 {\n    return k\n}",
+		"1:5 error [E4004]: undefined symbol: undefined_name",
+	),
+	Entry("an initializer that overflows its type",
+		"k i8 := 300\nfunc f() i64 {\n    return i64(k)\n}",
+		"1:8 error [E2007]: constant overflow: 300 overflows i8",
+	),
+)

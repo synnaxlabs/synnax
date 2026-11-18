@@ -66,7 +66,8 @@ on:
         required: true
         type: string
       packed:
-        description: Whether to check the types of the packed package with attw
+        description:
+          Whether to check the types of the packed package with attw and a strict tsc
         required: false
         type: boolean
         default: false
@@ -92,7 +93,7 @@ on:
         default: 20
       runtimes:
         description:
-          Whether to smoke-test the packed package in Deno, Bun, Chromium, and WebKit
+          Whether to smoke-test the packed package in Deno, Bun, and three browsers
         required: false
         type: boolean
         default: false
@@ -227,11 +228,10 @@ jobs:
         shell: bash
         env:
           PACKAGE: ${{ inputs.package }}
-          DIRECTORY: ${{ inputs.directory }}
         run: |
-          pnpm build:"$PACKAGE"
-          pnpm -C "$DIRECTORY" pack --pack-destination "$RUNNER_TEMP/packed"
-          pnpm exec attw --profile esm-only "$RUNNER_TEMP"/packed/*.tgz
+          scripts/pack_ts.sh "$PACKAGE" "$RUNNER_TEMP/packed"
+          pnpm exec attw --profile esm-only "$RUNNER_TEMP/packed/$PACKAGE.tgz"
+          scripts/check_declarations_ts.sh "$PACKAGE" "$RUNNER_TEMP/packed"
 
       # Without a limit, a stuck mirror holds the merge queue for up to 6 hours.
       - name: Install browsers

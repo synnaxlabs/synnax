@@ -9,10 +9,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Packs the client and its Synnax dependencies, installs the tarballs in a new project
-# outside the workspace, and runs smoke.mjs in Node.js (current and 22.12.0), Deno, Bun,
-# Chromium, and WebKit. The test only reads from the Core at SYNNAX_TEST_HOST and
-# SYNNAX_TEST_PORT (default localhost:9090).
+# Packs and installs the client with pack_ts.sh, then runs smoke.mjs in Node.js (current
+# and 22.12.0), Deno, Bun, Chromium, Firefox, and WebKit. The test only reads from the
+# Core at SYNNAX_TEST_HOST and SYNNAX_TEST_PORT (default localhost:9090).
 
 set -euo pipefail
 
@@ -21,29 +20,9 @@ repo=$(cd "$smoke/../../.." && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-pnpm --dir "$repo" build:client
-for dir in x alamos freighter client; do
-    pnpm --dir "$repo/$dir/ts" pack --out "$work/$dir.tgz" > /dev/null
-done
-
-# The overrides keep pnpm from fetching the Synnax dependencies from the registry. A
-# hoisted node_modules is the layout that npm makes.
+"$repo/scripts/pack_ts.sh" client "$work"
 cd "$work"
 cp "$smoke/smoke.mjs" "$smoke/index.html" "$smoke/importmap.html" .
-cat > package.json << EOF
-{ "type": "module", "dependencies": { "@synnaxlabs/client": "file:client.tgz" } }
-EOF
-cat > pnpm-workspace.yaml << EOF
-nodeLinker: hoisted
-trustPolicy: no-downgrade
-fetchRetries: 5
-overrides:
-  "@synnaxlabs/x": file:$work/x.tgz
-  "@synnaxlabs/alamos": file:$work/alamos.tgz
-  "@synnaxlabs/freighter": file:$work/freighter.tgz
-EOF
-pnpm install --reporter=silent
-
 echo "Node.js $(node --version)"
 node smoke.mjs
 # The workspace tooling needs a newer Node.js, so only this test covers the floor.

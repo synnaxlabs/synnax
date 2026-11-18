@@ -38,6 +38,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.LinePlot{Key: uuid.New(), Name: "Pressures"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,

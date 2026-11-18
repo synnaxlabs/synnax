@@ -497,7 +497,7 @@ void Engine::run() {
             if (!this->bus.running()) break;
         }
         // Takes each frame that came back, oldest first, as the data of its own cycle.
-        const auto err = this->master->receive();
+        const auto &err = this->master->receive();
         if (err.matches(errors::FRAME_IN_FLIGHT)) {
             taking = false;
             this->write_outputs(false);
