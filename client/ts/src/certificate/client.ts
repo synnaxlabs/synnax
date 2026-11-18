@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, filter } from "@synnaxlabs/x";
+import { array, filter, narrow } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -150,7 +150,7 @@ export class Client extends query.Retriever<
         serverComputed: (req) => serverComputed(LINES, req.where),
       },
       compose: (certificate, q) =>
-        (q as { includeUses?: boolean }).includeUses === true
+        narrow.isObject(q) && q.includeUses === true
           ? { ...certificate, uses: uses.get(certificate.key) }
           : certificate,
     });
