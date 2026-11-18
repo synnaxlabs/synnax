@@ -115,8 +115,8 @@ const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode 
     case "boolean": {
       const cell = { ...props, value: props.value === true };
       if (column.children != null) return column.children(cell);
-      // The cell draws the frame, so the switch takes no variant of its own.
-      return <Switch {...cell} variant="text" />;
+      // The grid draws the cell's frame, so the switch draws none of its own.
+      return <Switch {...cell} variant="text" justify="center" />;
     }
     case "custom":
       return column.children(props);
