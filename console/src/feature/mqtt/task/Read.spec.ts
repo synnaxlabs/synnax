@@ -411,19 +411,30 @@ describe("MQTT read form", () => {
     );
   });
 
-  it("should remove a field from the ICD through the context menu", async () => {
+  it("should remove a field from the ICD and from each topic that reads it", async () => {
     const temperature = createField("temperature", "float");
     const pressure = createField("pressure", "float");
-    const { draft } = await renderRead({ fields: [temperature, pressure] });
-    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^pressure/ }));
+    const first = await createEntry({ fields: [temperature, pressure] });
+    const second = mqtt.plainReadEntryZ.parse({
+      ...first,
+      key: uuid.create(),
+      topic: `${TOPIC}/2`,
+    });
+    const { draft } = await renderRead({ entries: [first, second] });
+    const [item] = await screen.findAllByRole("treeitem", { name: /^pressure/ });
+    fireEvent.contextMenu(item);
     fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
-    const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
     await waitFor(async () =>
       expect(
-        jsonFieldsOf(await client.icds.retrieve(icdKey)).map(({ key }) => key),
+        jsonFieldsOf(await client.icds.retrieve(first.icd)).map(({ key }) => key),
       ).toEqual([temperature.key]),
     );
     expect(screen.queryByRole("treeitem", { name: /^pressure/ })).toBeNull();
+    await waitFor(async () => {
+      const entries = (await retrieveEntries(draft.key)).map(plainOf);
+      const reads = entries.map(({ messages: [m] }) => m.bindings.map((b) => b.field));
+      expect(reads).toEqual([[temperature.key], [temperature.key]]);
+    });
   });
 
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
