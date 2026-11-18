@@ -81,6 +81,24 @@ describe("queries", () => {
     });
   });
 
+  describe("useResultList", () => {
+    it("should list the matched enumerations and show a rename from another client", async () => {
+      const [a, b] = await Promise.all([createEnumeration(), createEnumeration()]);
+      const { result } = renderHook(
+        () => Enumeration.useResultList({ where: { key: { in: [a.key, b.key] } } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      expect(result.current.data?.map((e) => e.key).sort()).toEqual(
+        [a.key, b.key].sort(),
+      );
+      await act(async () => await renameRemotely(a.key, "Breaker"));
+      await waitFor(() =>
+        expect(result.current.data?.find((e) => e.key === a.key)?.name).toBe("Breaker"),
+      );
+    });
+  });
+
   describe("list", () => {
     it("should show a rename from another client", async () => {
       const created = await createEnumeration();
