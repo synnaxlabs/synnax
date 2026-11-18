@@ -175,9 +175,9 @@ export const configureReadChannels = async <F extends ReadChannelField>({
 };
 
 /**
- * @returns own, the channel of the index field, when it exists. Else the first index
- * among those of the live channels, then those of the stored channels that still exist,
- * or 0.
+ * @returns own, the channel of the index field, when it is an index. Else the first
+ * index among those of the live channels, then those of the stored channels that still
+ * exist, or 0.
  */
 const recoverIndex = async (
   client: Client,
@@ -185,7 +185,7 @@ const recoverIndex = async (
   live: channel.Channel[],
   props: ReadChannelProps,
 ): Promise<channel.Key> => {
-  if (await channelExists(client, own)) return own;
+  if ((await retrieveChannel(client, own))?.isIndex === true) return own;
   for (const ch of live) if (primitive.isNonZero(ch.index)) return ch.index;
   for (const stored of Object.values(props.channels)) {
     const ch = await retrieveChannel(client, stored);
