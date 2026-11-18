@@ -653,7 +653,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheSIICannotBeRead) {
     this->api->add_slave().sii_result = -EIO;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "failed to read the SII of slave 2: Input/output error");
+    EXPECT_EQ(err.data, "failed to read the SII of module 2: Input/output error");
 }
 
 /// @brief it should fail activation on a chosen mode that the slave does not list,
@@ -790,7 +790,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnSYNC0CyclesWithNoCommonStart) {
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
         err.data,
-        "the SYNC0 cycles of the slaves have no common multiple that the IgH master "
+        "the SYNC0 cycles of the modules have no common multiple that the IgH master "
         "can start them on"
     );
     EXPECT_FALSE(this->api->slaves[0].configured);
@@ -804,7 +804,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheDCSyncCannotBeSetUp) {
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
         err.data,
-        "failed to set up the DC sync of slave 1 (TestSlave): Cannot allocate memory"
+        "failed to set up the DC sync of module 1 (TestSlave): Cannot allocate memory"
     );
 }
 

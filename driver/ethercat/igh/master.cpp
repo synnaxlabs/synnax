@@ -192,7 +192,7 @@ first_app_time(const uint64_t now, const std::vector<dc::Registers> &dc_sync) {
                 0,
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
-                    "the SYNC0 cycles of the slaves have no common multiple that the "
+                    "the SYNC0 cycles of the modules have no common multiple that the "
                     "IgH master can start them on"
                 )
             };
@@ -295,7 +295,7 @@ x::errors::Error Master::initialize() {
         if (ret != 0)
             return fail(
                 std::format(
-                    "failed to read the SII of slave {}: {}",
+                    "failed to read the SII of module {}: {}",
                     i + 1,
                     reason(ret)
                 )
@@ -541,7 +541,7 @@ master::Activation Master::activate(
                 .err = x::errors::Error(
                     errors::ACTIVATION_ERROR,
                     std::format(
-                        "failed to set up the DC sync of slave {} ({}): {}",
+                        "failed to set up the DC sync of module {} ({}): {}",
                         pos,
                         slave.properties.name,
                         reason(ret)
