@@ -74,4 +74,29 @@ describe("Icon", () => {
       expect(dot.getAttribute("color")).toEqual(circle.getAttribute("color"));
     });
   });
+
+  describe("resolve", () => {
+    it("should render the icon at a path in the registry", () => {
+      const { container } = render(Icon.resolve("Arrow.Up"));
+      expect(container.querySelector("svg")?.getAttribute("class")).toContain(
+        CSS.BM("icon", "arrow-up"),
+      );
+    });
+
+    it("should throw for a path the registry does not hold", () => {
+      expect(() => Icon.resolve("Arrow.Sideways")).toThrow(
+        "Unable to find icon with path Arrow.Sideways in registry",
+      );
+    });
+
+    it("should throw for a path under a group the registry does not hold", () => {
+      expect(() => Icon.resolve("Missing.Up")).toThrow(
+        "Unable to find icon with path Missing.Up in registry",
+      );
+    });
+
+    it("should return undefined for no icon", () => {
+      expect(Icon.resolve()).toBeUndefined();
+    });
+  });
 });

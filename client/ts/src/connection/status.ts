@@ -415,6 +415,7 @@ const reduceCheckFailure = (
   // an unlicensed or incompatible Core that stops answering is unreachable
   if (
     prev.variant === "success" ||
+    prev.variant === "warning" ||
     (prev.variant === "error" &&
       (prev.details.reason === "unlicensed" || prev.details.reason === "incompatible"))
   )

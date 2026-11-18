@@ -688,6 +688,13 @@ describe("Series", () => {
       expect(b.capacity).toEqual(1);
     });
 
+    it("should slice a UUID series by sample index", () => {
+      const s = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      const b = s.slice(1, 2);
+      expect(b.length).toEqual(1);
+      expect(b.at(0)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
+    });
+
     it("should slice a string series by sample index", () => {
       const s = new Series({
         data: ["apple", "banana", "carrot", "durian"],
@@ -835,6 +842,21 @@ describe("Series", () => {
       const writeTwo = new Series({ data: new Float32Array([2, 3]) });
       expect(series.write(writeTwo)).toEqual(2);
       expect(series.length).toEqual(3);
+    });
+
+    it("should read back a UUID series written in two parts", () => {
+      const series = Series.alloc({ capacity: 3, dataType: DataType.UUID });
+      expect(series.capacity).toEqual(3);
+      const s = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      expect(series.write(s.sub(0, 1))).toEqual(1);
+      expect(series.at(0)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+      expect(series.write(s.sub(1, 2))).toEqual(1);
+      expect(series.length).toEqual(2);
+      expect(series.at(1)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
+      expect([...series]).toEqual([
+        "123e4567-e89b-40d3-8056-426614174000",
+        "7f3e4567-e89b-40d3-8056-426614174000",
+      ]);
     });
 
     it("should recompute cached max and min correctly", () => {
@@ -1275,6 +1297,43 @@ describe("Series", () => {
         dataType: DataType.TIMESTAMP,
       });
       expect(series.binarySearch(20n)).toEqual(1);
+    });
+
+    it("should match a timestamp to a number value that rounds above it", () => {
+      const stamp = 2n ** 60n - 1n;
+      const series = new Series({
+        data: new BigInt64Array([stamp]),
+        dataType: DataType.TIMESTAMP,
+      });
+      expect(series.binarySearch(Number(stamp))).toEqual(0);
+    });
+
+    it("should search a float series with a bigint value", () => {
+      const series = new Series({ data: new Float64Array([0.5, 1.5, NaN]) });
+      expect(series.binarySearch(1n)).toEqual(1);
+      expect(series.binarySearch(2n)).toEqual(2);
+    });
+
+    it("should return the first of samples equal to the value", () => {
+      const series = new Series({ data: new Float64Array([1, 2, 2, 2, 2, 3]) });
+      expect(series.binarySearch(2)).toEqual(1);
+    });
+
+    it("should return the index of the first sample above a missing value", () => {
+      const series = new Series({ data: new Float64Array([1, 3, 5]) });
+      expect(series.binarySearch(0)).toEqual(0);
+      expect(series.binarySearch(4)).toEqual(2);
+    });
+
+    it("should order a NaN sample after every value", () => {
+      const series = new Series({ data: new Float64Array([0, 1, NaN]) });
+      expect(series.binarySearch(1.9)).toEqual(2);
+      expect(series.binarySearch(0.5)).toEqual(1);
+    });
+
+    it("should return 0 for an empty series", () => {
+      const series = new Series({ data: new Float64Array([]) });
+      expect(series.binarySearch(1)).toEqual(0);
     });
   });
 
@@ -2046,6 +2105,14 @@ describe("Series", () => {
   });
 
   describe("sub", () => {
+    it("should take a sub-series of a UUID series by sample index", () => {
+      const s = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      const b = s.sub(1, 2);
+      expect(b.length).toEqual(1);
+      expect(b.at(0)).toEqual("7f3e4567-e89b-40d3-8056-426614174000");
+      expect([...b]).toEqual(["7f3e4567-e89b-40d3-8056-426614174000"]);
+    });
+
     it("should return a sub-series backed by the same buffer", () => {
       const arr = new Float32Array([1, 2, 3, 4, 5]);
       const v2 = arr.subarray(1, 4);
@@ -2864,6 +2931,15 @@ describe("MultiSeries", () => {
       const multi = new MultiSeries([a, b]);
       const data = multi.data;
       expect(data).toEqual(new Float32Array([1, 2, 3, 4, 5, 6]));
+    });
+
+    it("should combine the bytes of variable length series", () => {
+      const a = new Series(["ab"]);
+      const b = new Series(["cd"]);
+      const multi = new MultiSeries([a, b]);
+      expect(
+        new Series({ data: multi.data, dataType: DataType.STRING }).toStrings(),
+      ).toEqual(["ab", "cd"]);
     });
   });
 

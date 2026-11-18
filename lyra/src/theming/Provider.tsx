@@ -71,12 +71,12 @@ const parseThemes = (
     const { key: _, dark: __, ...override } = theme;
     const synnaxLight = zod.parse(
       baseTheme.themeZ,
-      deep.override(deep.copy(baseTheme.SYNNAX_LIGHT), override),
+      deep.override(baseTheme.SYNNAX_LIGHT, override),
       { label: "theme" },
     );
     const synnaxDark = zod.parse(
       baseTheme.themeZ,
-      deep.override(deep.copy(baseTheme.SYNNAX_DARK), override),
+      deep.override(baseTheme.SYNNAX_DARK, override),
       { label: "theme" },
     );
     return { synnaxLight, synnaxDark };
@@ -125,8 +125,9 @@ export const useProvider = ({
   useEffect(() => {
     if (theme != null) return;
     const listener = (): void => setSelected(isDarkMode() ? darkTheme : lightTheme);
-    prefersDark()?.addEventListener("change", listener);
-    return () => prefersDark()?.removeEventListener("change", listener);
+    const query = prefersDark();
+    query?.addEventListener("change", listener);
+    return () => query?.removeEventListener("change", listener);
   }, [theme]);
 
   return {

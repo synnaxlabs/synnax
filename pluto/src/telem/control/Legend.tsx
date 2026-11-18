@@ -14,7 +14,7 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type color, type state, unique } from "@synnaxlabs/x";
+import { type color, compare, type state, unique } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
@@ -88,7 +88,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
 
   data.sort((a, b) => {
     if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1;
-    return a.name.localeCompare(b.name);
+    return compare.text(a.name, b.name);
   });
 
   const [pickerVisible, setPickerVisible] = useState(false);

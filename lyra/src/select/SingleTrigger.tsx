@@ -40,7 +40,8 @@ export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNa
 export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant"> {
   /**
    * The trigger's chassis. A shadow trigger reads as its value: no box at rest, a
-   * border on hover, and a box while open. It has no caret.
+   * border on hover, and a box while open. Its caret shows on hover, on focus, and
+   * while open.
    */
   variant?: Input.Variant;
   /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
@@ -153,12 +154,7 @@ export const SingleTrigger = <K extends record.Key>({
     clearable && primitive.isNonZero(selected) && disabled !== true && preview !== true;
   const clearOnIcon = canClear && resolvedIcon != null;
   const clearOnCaret =
-    canClear &&
-    !clearOnIcon &&
-    variant !== "modal" &&
-    triggerVariant !== "shadow" &&
-    !hideCaret &&
-    !iconOnly;
+    canClear && !clearOnIcon && variant !== "modal" && !hideCaret && !iconOnly;
   const clearShown = clearOnIcon || clearOnCaret;
   // The clear button is not a tab stop, so the focused trigger takes the key instead.
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
