@@ -435,6 +435,20 @@ describe("Certificate.Field", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("holds Cancel while the certificate saves", async () => {
+    const { onChange } = await renderField();
+    await openCreate();
+    typeInto("Certificate", CERTIFICATE.pem);
+    fireEvent.click(findButton("Create"));
+    fireEvent.click(findButton("Cancel"));
+    const key = await waitFor(() => {
+      const [last] = onChange.mock.lastCall ?? [];
+      if (last == null) throw new Error("the field did not change");
+      return last;
+    });
+    created.push(key);
+  });
+
   it("leaves the value unchanged when the create dialog is canceled", async () => {
     const c = await createStored();
     const { onChange } = await renderField(c.key);
