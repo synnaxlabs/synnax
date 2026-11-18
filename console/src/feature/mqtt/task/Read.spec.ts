@@ -1200,6 +1200,65 @@ describe("MQTT read form", () => {
     await screen.findByText(`Saves as ${typed}_2`);
   });
 
+  it("should leave a disabled tag out of the numbering of typed names", async () => {
+    const typed = uniqueName("flow");
+    const { dev } = await renderRead({
+      entries: [
+        createTagEntry("flow", { name: typed, disabled: true }),
+        createTagEntry("level", { name: typed }),
+        createTagEntry("pressure"),
+      ],
+    });
+    fireEvent.click(
+      await screen.findByRole("treeitem", { name: /SpB.*plant\/line1\/pressure/ }),
+    );
+    const input = await screen.findByPlaceholderText(
+      `${dev.name}_plant_line1_pressure`,
+    );
+    fireEvent.change(input, { target: { value: typed } });
+    await screen.findByText(`Saves as ${typed}_2`);
+  });
+
+  it("should number the planned name of a field renamed in its ICD", async () => {
+    const temperature = createField("temperature", "float");
+    const later = await createEntry({ fields: [temperature], topic: "plant_oven" });
+    const { dev } = await renderRead({
+      entries: [
+        await createEntry({ fields: [createField("pressure", "float")] }),
+        later,
+      ],
+    });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^temperature/ }));
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature`);
+    const { message } = later.messages[0];
+    await client.icds.dispatch(
+      later.icd,
+      icd.set({
+        path: ["messages", message, "payload", "fields", temperature.key, "name"],
+        value: "pressure",
+      }),
+    );
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_pressure_2`);
+  });
+
+  it("should preview its own name for each of two entries that read one message", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    const { dev } = await renderRead({
+      entries: [entry, { ...entry, key: uuid.create() }],
+      beforeRender: async (dev) =>
+        await client.channels.create({
+          name: `${dev.name}_plant_oven_temperature`,
+          dataType: DataType.FLOAT64,
+          virtual: true,
+        }),
+    });
+    const items = await screen.findAllByRole("treeitem", { name: /^temperature/ });
+    fireEvent.click(items[1]);
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_3`);
+    fireEvent.click(items[0]);
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
+  });
+
   it("should preview a numbered name for a field whose name an earlier topic takes", async () => {
     const fields = () => [createField("temperature", "float")];
     const { dev } = await renderRead({
@@ -1874,6 +1933,50 @@ describe("MQTT read form", () => {
       expect(await retrieveRead(dev.key)).toEqual({
         [`${TOPIC}#${entry.messages[0].message}`]: stored,
       });
+    });
+
+    it("should keep the channels stored under a topic when an earlier message fails", async () => {
+      const time = await createTimeChannel();
+      const createFloat = async (name: string) =>
+        await client.channels.create({
+          name: uniqueName(name),
+          dataType: DataType.FLOAT64,
+          index: time.key,
+        });
+      const value = await createFloat("value");
+      const notIndex = await createFloat("not_index");
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const match = (value: string): icd.JSONMatch => ({ ...KIND_MATCH, value });
+      const failing = await addMessage(
+        entry,
+        "failing",
+        [createField("pressure", "float")],
+        match("failing"),
+      );
+      const valueField = createField("value", "float");
+      await addMessage(entry, "owner", [valueField], match("owner"));
+      entry.messages[2].bindings = [
+        { field: valueField.key, channel: value.key, dataType: "" },
+      ];
+      const legacy = { index: time.key, channels: { "/value": value.key } };
+      const { container, dev, statuses } = await renderRead({
+        entries: [entry],
+        properties: {
+          read: {
+            [TOPIC]: legacy,
+            [`${TOPIC}#${failing.key}`]: { index: notIndex.key, channels: {} },
+          },
+        },
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({ message: "Failed to start task" }),
+        ),
+      );
+      expect((await retrieveRead(dev.key))[TOPIC]).toEqual(legacy);
     });
 
     it("should create an index and a data channel for each tag", async () => {

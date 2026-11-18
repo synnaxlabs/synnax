@@ -81,16 +81,18 @@ const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
 
 /**
  * Plans the channels of each endpoint in order with one namer, as deploying creates
- * them. Reads from the Core alone.
+ * them. Reads from the Core alone. Throws between endpoints once signal aborts.
  */
 const planEndpoints = async (
   client: Synnax,
   dev: { name: string; properties: Properties },
   endpoints: ReadEndpoint[],
+  signal?: AbortSignal,
 ): Promise<Task.ReadChannelPlan[]> => {
   const namer = Task.createNamer(client);
   const plans: Task.ReadChannelPlan[] = [];
-  for (const ep of endpoints)
+  for (const ep of endpoints) {
+    signal?.throwIfAborted();
     plans.push(
       await Task.planReadChannels({
         client,
@@ -99,6 +101,7 @@ const planEndpoints = async (
         ...endpointChannels(dev.name, ep),
       }),
     );
+  }
   return plans;
 };
 
@@ -117,8 +120,8 @@ const Plans = ({ children }: PropsWithChildren): ReactElement => {
     name: dev?.name,
     props: dev?.properties.read[ep.path],
   }));
-  const plans = Task.useChannelPlans(sources, async (client) =>
-    dev == null ? [] : await planEndpoints(client, dev, endpoints),
+  const plans = Task.useChannelPlans(sources, async (client, signal) =>
+    dev == null ? [] : await planEndpoints(client, dev, endpoints, signal),
   );
   const byEndpoint = new Map(endpoints.map(({ key }, i) => [key, plans[i]]));
   return <PlansContext value={byEndpoint}>{children}</PlansContext>;
