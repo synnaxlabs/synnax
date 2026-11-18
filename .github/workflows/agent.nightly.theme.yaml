@@ -76,4 +76,5 @@ jobs:
         with:
           name: nightly-${{ inputs.theme }}
           path: ${{ runner.temp }}/report.md
+          overwrite: true
           retention-days: 1
