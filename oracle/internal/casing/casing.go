@@ -68,17 +68,31 @@ func CamelAcronym(s string) string {
 	}
 	// Lower-case only the leading word or acronym; the remainder is preserved verbatim
 	// so embedded acronyms survive (the AO in "BaseAOChannel", the RMS in
-	// "AIVoltageRMSChannel"). A known acronym is matched first so adjacent acronyms
-	// split naturally ("AIRTDChannel" -> "aiRTDChannel"); otherwise the whole leading
-	// uppercase run is lowered so unknown leading acronyms still read naturally
-	// ("CJCSource" -> "cjcSource", "URLValue" -> "urlValue").
-	if acr := leadingKnownAcronym(p); acr != "" {
+	// "AIVoltageRMSChannel"). When known acronyms tile the leading uppercase run, only
+	// the first is lowered ("AIRTDChannel" -> "aiRTDChannel"); otherwise the whole run
+	// is lowered ("CJCSource" -> "cjcSource", "DICOMFile" -> "dicomFile").
+	run := leadingAcronym(p)
+	if acr := leadingKnownAcronym(p); acr != "" && tilesKnownAcronyms(p, len(run)) {
 		return strings.ToLower(acr) + p[len(acr):]
 	}
-	if run := leadingAcronym(p); run != "" {
+	if run != "" {
 		return strings.ToLower(run) + p[len(run):]
 	}
 	return strings.ToLower(p[:1]) + p[1:]
+}
+
+// tilesKnownAcronyms reports whether a sequence of known acronyms at the start of s
+// covers at least its first n characters.
+func tilesKnownAcronyms(s string, n int) bool {
+	i := 0
+	for i < n {
+		acr := leadingKnownAcronym(s[i:])
+		if acr == "" {
+			return false
+		}
+		i += len(acr)
+	}
+	return i > 0
 }
 
 // leadingKnownAcronym returns the longest known acronym that prefixes s as a whole

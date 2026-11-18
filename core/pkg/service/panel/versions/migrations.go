@@ -40,6 +40,7 @@ var Migrations = []gorp.Migration{
 	v4.RangeMigration,
 	v4.Migration,
 	v5.Migration,
+	v5.NameMigration,
 }
 
 // CompositionMigrations returns the migrations the service layer runs after every
