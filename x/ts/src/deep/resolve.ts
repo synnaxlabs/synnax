@@ -26,7 +26,7 @@ const isContainer = (value: unknown): value is record.Unknown =>
  *
  * @returns the property that holds the child and the child, or null.
  */
-export const child = (
+const child = (
   value: unknown,
   name: string,
 ): [key: string | number, child: unknown] | null => {
