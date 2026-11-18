@@ -177,20 +177,26 @@ func parseIntegerMagnitude(
 			errors.Wrapf(err, "invalid integer literal: %s", text),
 		)
 	}
-	var intValue int64
-	switch {
-	case magnitude <= math.MaxInt64:
-		intValue = int64(magnitude)
+	if magnitude <= math.MaxInt64 {
+		intValue := int64(magnitude)
 		if negate {
 			intValue = -intValue
 		}
+		return parseIntegerValue(numLit, intValue, targetType)
+	}
+	switch {
 	case negate && magnitude == -math.MinInt64:
-		intValue = math.MinInt64
+		return parseIntegerValue(numLit, math.MinInt64, targetType)
 	case !negate && targetType.Kind == types.KindU64 &&
 		numLit.IDENTIFIER() == nil:
 		return ParsedValue{Value: magnitude, Type: types.U64()}, nil
 	case targetType.IsFloat():
-		floatValue := float64(magnitude)
+		floatValue, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			return ParsedValue{}, codes.InvalidLiteral.Mark(
+				errors.Wrapf(err, "invalid integer literal: %s", text),
+			)
+		}
 		if negate {
 			floatValue = -floatValue
 		}
@@ -217,6 +223,13 @@ func parseIntegerMagnitude(
 			rangeType,
 		)
 	}
+}
+
+func parseIntegerValue(
+	numLit parser.INumericLiteralContext,
+	intValue int64,
+	targetType types.Type,
+) (ParsedValue, error) {
 	if unitID := numLit.IDENTIFIER(); unitID != nil {
 		return parseNumericWithUnit(
 			float64(intValue),
