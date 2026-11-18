@@ -127,7 +127,8 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
  * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
- * SYNNAX_API_KEY, and SYNNAX_SECURE environment variables fill the fields left out.
+ * SYNNAX_API_KEY, SYNNAX_SECURE, and SYNNAX_CA_CERT environment variables fill the
+ * fields left out.
  * With no host from either, Synnax Desktop on this computer fills them.
  */
 export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
@@ -273,14 +274,18 @@ export default class Synnax extends framer.Client {
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
    * be configured to support TLS. Defaults to true with props.caCert, else to
-   * SYNNAX_SECURE, then the value of Synnax Desktop when it gives the host, then false.
+   * SYNNAX_SECURE (true with SYNNAX_CA_CERT), then the value of Synnax Desktop when it
+   * gives the host, then false.
    * A Synnax client must be closed when it is no longer needed. This stops the
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
-   * certificate. Turns on props.secure when it is not given.
+   * certificate. Turns on props.secure when it is not given. When props.secure and
+   * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT.
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
-   * SYNNAX_PORT or SYNNAX_SECURE is not valid, if ~/.synnax/desktop.json cannot be
-   * read, if Synnax Desktop is too old, or if its key helper fails.
+   * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
+   * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, or cannot be
+   * read, if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too old, or if
+   * its key helper fails.
    * @throws {Unreachable} If the key helper of Synnax Desktop is gone, as for a closed
    * AppImage.
    * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
