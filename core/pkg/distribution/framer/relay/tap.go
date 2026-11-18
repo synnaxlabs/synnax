@@ -258,8 +258,17 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if req.Frame.Empty() {
 					continue
 				}
-				if err := signal.SendUnderContext(ctx, f.Out.Inlet(), req); err != nil {
-					return err
+				// A non-blocking send first keeps the select off the hot path.
+				select {
+				case f.Out.Inlet() <- req:
+				default:
+					if err := signal.SendUnderContext(
+						ctx,
+						f.Out.Inlet(),
+						req,
+					); err != nil {
+						return err
+					}
 				}
 			}
 		}
