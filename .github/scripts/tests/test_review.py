@@ -18,6 +18,7 @@ import pytest
 
 from review import (
     Finding,
+    Fix,
     Review,
     Target,
     gh as call_gh,
@@ -44,8 +45,6 @@ PATCH = (
 )
 OUTSIDE = "<!-- sedosaur_outside_diff -->"
 GREPTILE = "<!-- greptile_comment -->\nGreptile's summary\n<!-- /greptile_comment -->"
-SINCE = "a" * 40
-"""The commit of the review before the head."""
 MESSAGE = "[ci] Bound MQTT samples and give each discovery request a deadline"
 
 
@@ -58,21 +57,24 @@ def finding(path: str = "a.go", line: int = 2, **kw: Any) -> Finding:
     return Finding(**(fields | kw), path=path, line=line)
 
 
-def review(*findings: Finding, score: int = 4) -> Review:
+def review(*findings: Finding, score: int = 4, fixed: tuple[Fix, ...] = ()) -> Review:
     return Review(
         score=score,
         verdict="One finding should be fixed before merge.",
         summary=["Bounds the samples."],
         findings=list(findings),
+        fixed=list(fixed),
     )
 
 
-def record(*findings: Finding, score: int = 4) -> dict[str, Any]:
+def record(
+    *findings: Finding, score: int = 4, fixed: tuple[Fix, ...] = ()
+) -> dict[str, Any]:
     """The record of a run whose review has findings."""
     return {
         "at": "2026-11-08T05:00:00+00:00",
         "pr": 7,
-        "review": dataclasses.asdict(review(*findings, score=score)),
+        "review": dataclasses.asdict(review(*findings, score=score, fixed=fixed)),
     }
 
 
@@ -99,8 +101,6 @@ class FakeGH:
         self.writes: list[tuple[str, str, dict[str, Any]]] = []
         self.head = "head"
         """The head of the pull request now."""
-        self.blobs: dict[str, str] = {f"{SINCE}:a.go": "1", "head:a.go": "2"}
-        """The blob ID of each `<commit>:<path>` that exists."""
         self.mutations: list[tuple[str, ...]] = []
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
@@ -118,11 +118,6 @@ class FakeGH:
             if query.startswith("query=mutation"):
                 self.mutations.append(args)
                 return ""
-            if "object(expression" in query:
-                a, b = (
-                    next(x[2:] for x in args if x.startswith(k)) for k in ("a=", "b=")
-                )
-                return json.dumps([self.blobs.get(a), self.blobs.get(b)]) + "\n"
             threads = self.threads
             if self.later is not None:
                 self.threads = self.later
@@ -171,11 +166,13 @@ class TestParse:
                     "rule": "AGENTS.md",
                 }
             ],
+            "fixed": [{"path": "y.go", "title": "Race", "reason": "z.go locks it."}],
         }
         got = parse(data)
         assert got.score == 3
         assert got.findings[0].lines == range(7, 10)
         assert got.findings[0].rule == "AGENTS.md"
+        assert got.fixed == [Fix(path="y.go", title="Race", reason="z.go locks it.")]
 
     @pytest.mark.parametrize(
         ("change", "error"),
@@ -192,13 +189,20 @@ class TestParse:
     ) -> None:
         f = {"severity": "P1", "title": "T", "body": "B", "path": "x.go", "line": 9}
         top = {"score": change.pop("score", 4)}
-        data = top | {"verdict": "V", "summary": [], "findings": [f | change]}
+        rest = {"verdict": "V", "summary": [], "findings": [f | change], "fixed": []}
+        data = top | rest
         with pytest.raises(ValueError, match=error):
             parse(data)
 
     def test_should_reject_an_unknown_field(self) -> None:
         f = {"severity": "P1", "title": "T", "body": "B", "path": "x.go", "line": 9}
-        data = {"score": 4, "verdict": "V", "summary": [], "findings": [f | {"x": 1}]}
+        data = {
+            "score": 4,
+            "verdict": "V",
+            "summary": [],
+            "findings": [f | {"x": 1}],
+            "fixed": [],
+        }
         with pytest.raises(TypeError, match="unexpected keyword argument 'x'"):
             parse(data)
 
@@ -272,49 +276,37 @@ class TestInlineFindings:
 
 
 class TestSettledThreads:
-    """Tests resolving the threads whose findings a review no longer reports."""
+    """Tests resolving the threads whose findings a review marks fixed."""
+
+    FIXED = Fix(path="a.go", title="Samples return old data", reason="b.go sorts them.")
 
     @pytest.fixture(autouse=True)
     def earlier(self, gh: FakeGH) -> None:
-        gh.edits = [summary_edit(SINCE)]
         gh.threads = [thread("sedosaur")]
 
-    def test_should_resolve_one_whose_file_changed(self, gh: FakeGH) -> None:
-        post(record(finding(title="Other")), target=TARGET, gh=gh)
+    def test_should_resolve_one_marked_fixed_with_the_reason(self, gh: FakeGH) -> None:
+        post(record(finding(title="Other"), fixed=(self.FIXED,)), target=TARGET, gh=gh)
         resolve, reply = gh.mutations
         assert "resolveReviewThread" in resolve[3]
         assert "t=T" in reply
-        assert "b=The review of head no longer reports this finding." in reply
+        assert "b=The review of head finds this fixed: b.go sorts them." in reply
 
-    def test_should_resolve_one_whose_file_the_head_deleted(self, gh: FakeGH) -> None:
-        del gh.blobs["head:a.go"]
-        post(record(), target=TARGET, gh=gh)
-        assert len(gh.mutations) == 2
-
-    def test_should_keep_one_whose_file_is_the_same(self, gh: FakeGH) -> None:
-        gh.blobs["head:a.go"] = "1"
+    def test_should_keep_one_the_review_omits(self, gh: FakeGH) -> None:
         post(record(), target=TARGET, gh=gh)
         assert gh.mutations == []
 
-    def test_should_keep_one_when_the_last_review_commit_is_gone(
-        self, gh: FakeGH
-    ) -> None:
-        del gh.blobs[f"{SINCE}:a.go"]
-        post(record(), target=TARGET, gh=gh)
-        assert gh.mutations == []
-
-    def test_should_keep_one_without_an_earlier_review(self, gh: FakeGH) -> None:
-        gh.edits = [summary_edit("b" * 40, login="pat")]
-        post(record(), target=TARGET, gh=gh)
+    def test_should_keep_one_fixed_in_another_file(self, gh: FakeGH) -> None:
+        other = dataclasses.replace(self.FIXED, path="b.go")
+        post(record(fixed=(other,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_when_the_pull_request_moved_on(self, gh: FakeGH) -> None:
         gh.head = "newer"
-        post(record(), target=TARGET, gh=gh)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_the_review_still_reports(self, gh: FakeGH) -> None:
-        post(record(finding()), target=TARGET, gh=gh)
+        post(record(finding(), fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_whose_title_holds_asterisks(self, gh: FakeGH) -> None:
@@ -324,22 +316,22 @@ class TestSettledThreads:
         assert gh.mutations == []
 
     def test_should_keep_one_still_reported_outside_the_diff(self, gh: FakeGH) -> None:
-        post(record(finding(line=10)), target=TARGET, gh=gh)
+        post(record(finding(line=10), fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_keep_one_a_member_dismissed(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", "@sedosaur dismiss")]
-        post(record(), target=TARGET, gh=gh)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_skip_a_resolved_thread(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", resolved=True)]
-        post(record(), target=TARGET, gh=gh)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_skip_a_thread_of_another_author(self, gh: FakeGH) -> None:
         gh.threads = [thread("greptile-apps")]
-        post(record(), target=TARGET, gh=gh)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=gh)
         assert gh.mutations == []
 
     def test_should_complete_the_review_when_a_resolve_fails(
@@ -350,7 +342,7 @@ class TestSettledThreads:
                 raise subprocess.CalledProcessError(1, "gh")
             return gh(*args, stdin=stdin)
 
-        post(record(), target=TARGET, gh=fail)
+        post(record(fixed=(self.FIXED,)), target=TARGET, gh=fail)
         assert gh.written("PATCH", "check-runs/55")[-1]["conclusion"] == "success"
         assert "::warning::Could not resolve settled threads" in capsys.readouterr().err
 

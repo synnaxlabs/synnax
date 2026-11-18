@@ -126,6 +126,7 @@ class FakeClaude:
                 "verdict": "Safe to merge.",
                 "summary": ["Fixes A."],
                 "findings": findings or [],
+                "fixed": [],
             },
         }
         self.limits: list[dict[str, Any]] = [
@@ -714,6 +715,14 @@ class TestLenses:
         _, (got, _) = self.lenses(races, edges)
         assert [(f.severity, f.line) for f in got.findings] == [("P1", 50), ("P2", 10)]
 
+    def test_should_keep_each_fix_that_any_pass_marks(self) -> None:
+        fix = {"path": "a.go", "title": "T", "reason": "b.go locks it."}
+        races, edges = FakeClaude(5), FakeClaude(4)
+        races.out["structured_output"]["fixed"] = [fix]
+        edges.out["structured_output"]["fixed"] = [fix, fix | {"title": "U"}]
+        _, (got, _) = self.lenses(races, edges)
+        assert [f.title for f in got.fixed] == ["T", "U"]
+
     def test_should_take_the_summary_of_the_pass_with_the_lowest_score(self) -> None:
         races = FakeClaude(5)
         races.out["structured_output"]["verdict"] = "From races."
@@ -903,7 +912,8 @@ class TestMain:
             " 'usage': {'input_tokens': 3,"
             " 'output_tokens': 4, 'cache_read_input_tokens': 5,"
             " 'cache_creation_input_tokens': 6}, 'structured_output': {"
-            "'score': 5, 'verdict': 'Safe.', 'summary': ['S'], 'findings': []}}))\n",
+            "'score': 5, 'verdict': 'Safe.', 'summary': ['S'], 'findings': [],"
+            " 'fixed': []}}))\n",
         )
         env = {
             "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}",
