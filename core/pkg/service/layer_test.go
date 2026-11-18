@@ -33,6 +33,7 @@ import (
 	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/file"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
@@ -883,6 +884,26 @@ var _ = Describe("LayerConfig", func() {
 		key := s.Base().Key
 		Expect(layer.Secret.Reveal(ctx, node.DB, key)).
 			To(Equal(map[secret.Key][]byte{key: []byte("t")}))
+	})
+
+	It("Should give the Core's rack a file browser task", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+		var coreRack rack.Rack
+		Expect(layer.Rack.NewRetrieve().
+			Where(rack.MatchIntegration("file")).
+			Entry(&coreRack).
+			Exec(ctx, node.DB)).To(Succeed())
+		var browser task.Task
+		Expect(layer.Task.NewRetrieve().
+			Where(task.And(
+				task.MatchRacks(coreRack.Key),
+				task.MatchTypes(file.BrowserTaskType),
+			)).
+			Entry(&browser).
+			Exec(ctx, node.DB)).To(Succeed())
+		Expect(browser.Name).To(Equal("File Browser"))
+		Expect(browser.Internal).To(BeTrue())
 	})
 
 	It("Should refuse a secrets folder that does not exist", func(ctx SpecContext) {
