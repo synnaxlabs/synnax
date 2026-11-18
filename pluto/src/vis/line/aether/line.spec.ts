@@ -456,8 +456,8 @@ describe("line", () => {
       it("should draw a dense window at the group size of its pixel density", () => {
         const m = mount([ramp(N)], [waves(N)]);
         m.line.render(showing(0, N - 1));
-        // 10 samples per pixel at 2 pixels per group rounds up to groups of 32.
-        expect(m.strips()).toEqual([[0, 2 * (N / 32)]]);
+        // 10 samples per pixel at 2 pixels per group rounds down to groups of 16.
+        expect(m.strips()).toEqual([[0, 2 * (N / 16)]]);
         expect(uploads(m).every((u) => u.length < N)).toBe(true);
       });
 
@@ -469,7 +469,7 @@ describe("line", () => {
         expect(deletes(m)).toBe(2);
       });
 
-      it("should draw ops of reduced series unchanged", () => {
+      it("should draw ops of reduced series unchanged, and reduce the rest at their group size", () => {
         const reduced = (data: number[]) =>
           new Series({
             data: new Float32Array(data),
@@ -493,7 +493,7 @@ describe("line", () => {
         m.line.render(showing(-N, N - 1));
         expect(m.strips()).toEqual([
           [0, N / 2],
-          [0, 2 * (N / 64)],
+          [0, 2 * (N / 4)],
         ]);
       });
 
@@ -514,7 +514,7 @@ describe("line", () => {
         write(y, indexes(0, N / 2).map(wave));
         const m = mount([x], [y]);
         m.line.render(showing(0, N - 1));
-        expect(m.strips()).toEqual([[0, N / 32]]);
+        expect(m.strips()).toEqual([[0, N / 16]]);
         const before = uploads(m).length;
         // A complete group reduced again would upload the change.
         (y.data as Float32Array)[0] = 1000;
@@ -523,7 +523,7 @@ describe("line", () => {
         write(y, [...tail, -5]);
         m.line.render(showing(0, N - 1));
         expect(m.strips().slice(-2)).toEqual([
-          [0, N / 32],
+          [0, N / 16],
           [0, 3],
         ]);
         const top = N / 2 + tail.indexOf(Math.max(...tail));
@@ -531,8 +531,8 @@ describe("line", () => {
         // The tail starts at the last complete point.
         expect(xs).toEqual([Math.max(...uploads(m)[before - 2]), top, N / 2 + 9]);
         expect(ys.slice(1)).toEqual([Math.fround(Math.max(...tail)), -5]);
-        write(x, indexes(N / 2 + 10, N / 2 + 32));
-        write(y, indexes(N / 2 + 10, N / 2 + 32).map(wave));
+        write(x, indexes(N / 2 + 10, N / 2 + 16));
+        write(y, indexes(N / 2 + 10, N / 2 + 16).map(wave));
         const grown = uploads(m).length;
         m.line.render(showing(0, N - 1));
         expect(
@@ -554,10 +554,10 @@ describe("line", () => {
         const decimated = mount([ramp(N)], [waves(N)]);
         decimated.ySource.aggregation = "decimate";
         decimated.line.render(showing(0, N - 1));
-        expect(decimated.strips()).toEqual([[0, N / 32]]);
+        expect(decimated.strips()).toEqual([[0, N / 16]]);
         const fine = mount([ramp(N)], [waves(N)], { groupsPerColumn: 1 });
         fine.line.render(showing(0, N - 1));
-        expect(fine.strips()).toEqual([[0, 2 * (N / 16)]]);
+        expect(fine.strips()).toEqual([[0, 2 * (N / 8)]]);
       });
 
       it("should round down the averages of integer series", () => {
@@ -575,7 +575,7 @@ describe("line", () => {
         m.ySource.aggregation = "average";
         m.line.render(showing(0, N - 1));
         const [xs, ys] = uploads(m).slice(-2);
-        expect(xs.slice(0, 2)).toEqual([15, 47]);
+        expect(xs.slice(0, 2)).toEqual([7, 23]);
         expect(new Set(ys)).toEqual(new Set([0]));
       });
     });

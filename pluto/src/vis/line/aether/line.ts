@@ -520,7 +520,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     // Full-resolution data reduces with the aggregation of the source's reduced reads.
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
-    const size = groupSize(full, v, groupsPerColumn);
+    const size = groupSize(full, v, groupsPerColumn, i.aggregation);
     const cut =
       x.sorted === true && bounds.isFinite(v.bounds)
         ? inView(full, v.bounds, size)

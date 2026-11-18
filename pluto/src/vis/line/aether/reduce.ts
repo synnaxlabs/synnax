@@ -12,6 +12,7 @@ import {
   bounds,
   math,
   type NumberArray,
+  POINTS_PER_GROUP,
   Series,
   TimeRange,
 } from "@synnaxlabs/x";
@@ -43,29 +44,37 @@ export interface View {
 }
 
 /**
- * @returns the samples per group that draws the full-resolution ops at groupsPerColumn
- * groups per pixel column of the view: their samples per x unit times the x units per
- * pixel, rounded up to a power of two. Returns 1, meaning no reduction, when that is
- * below 2 or a span is zero or not finite.
+ * @returns the samples per group that reduces the full-resolution ops. When ops hold
+ * reduced series, it is the group size of the one that ends last, so the line draws at
+ * one density. Otherwise, it is the samples of the ops per pixel column of the view
+ * over groupsPerColumn, rounded down to a power of two. Returns 1, meaning no
+ * reduction, when that is below 2 or a span is zero or not finite.
  */
 export const groupSize = (
   ops: DrawOperation[],
   view: View,
   groupsPerColumn: number,
+  aggregation: Aggregation,
 ): number => {
   let count = 0;
   let lower = Infinity;
   let upper = -Infinity;
+  let reduced: DrawOperation | null = null;
   for (const op of ops) {
-    if (!isFullResolution(op)) continue;
+    if (!isFullResolution(op)) {
+      if (reduced == null || op.span.end.after(reduced.span.end)) reduced = op;
+      continue;
+    }
     count += op.count;
     const b = op.x.boundsFor(op.xOffset, op.xOffset + op.count);
     lower = Math.min(lower, b.lower);
     upper = Math.max(upper, b.upper);
   }
+  if (reduced != null)
+    return Number(reduced.x.alignmentMultiple) * POINTS_PER_GROUP[aggregation];
   const samplesPerPixel =
     (count / (upper - lower)) * (bounds.span(view.bounds) / view.width);
-  const size = 2 ** Math.ceil(Math.log2(samplesPerPixel / groupsPerColumn));
+  const size = 2 ** Math.floor(Math.log2(samplesPerPixel / groupsPerColumn));
   return Number.isFinite(size) && size >= 2 ? size : 1;
 };
 

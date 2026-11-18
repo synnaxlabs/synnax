@@ -73,16 +73,18 @@ describe("groupSize", () => {
   const N = 8000;
   const VIEW = { bounds: { lower: 0, upper: N - 1 }, width: 800 };
   const dense = op(ramp(N), ramp(N));
+  const size = (ops: DrawOperation[], view = VIEW, groupsPerColumn = 1 / 2): number =>
+    groupSize(ops, view, groupsPerColumn, "min_max");
 
-  it("should hold a pixel of samples per group, rounded up to a power of two", () => {
-    expect(groupSize([dense], VIEW, 1 / 2)).toBe(32);
-    expect(groupSize([dense], VIEW, 1)).toBe(16);
-    expect(groupSize([dense], VIEW, 1 / 4)).toBe(64);
+  it("should hold a pixel of samples per group, rounded down to a power of two", () => {
+    expect(size([dense])).toBe(16);
+    expect(size([dense], VIEW, 1)).toBe(8);
+    expect(size([dense], VIEW, 1 / 4)).toBe(32);
   });
 
   it("should keep the group size across a small zoom", () => {
     const view = { ...VIEW, bounds: { lower: 0, upper: 7000 } };
-    expect(groupSize([dense], view, 1 / 2)).toBe(32);
+    expect(size([dense], view)).toBe(16);
   });
 
   it("should measure the x span across every op", () => {
@@ -94,27 +96,34 @@ describe("groupSize", () => {
       op(ramp(N / 2), ramp(N / 2)),
       op(later, ramp(N / 2, BigInt(N / 2))),
     ];
-    expect(groupSize(halves, VIEW, 1 / 2)).toBe(32);
+    expect(size(halves)).toBe(16);
   });
 
-  it("should leave out ops of reduced series", () => {
-    const reduced = new Series({
-      data: new Float32Array(N),
-      alignmentMultiple: 2n,
+  describe("with ops of reduced series", () => {
+    const reduced = (multiple: bigint, start: number): DrawOperation => {
+      const s = new Series({ data: new Float32Array(N), alignmentMultiple: multiple });
+      return spanned(op(s, s), start, start + 1);
+    };
+
+    it("should take the group size of the reduced op that ends last", () => {
+      expect(size([reduced(300n, 1), dense, reduced(100n, 0)])).toBe(600);
     });
-    expect(groupSize([dense, op(reduced, reduced)], VIEW, 1 / 2)).toBe(32);
+
+    it("should take one point per group for an aggregation other than min_max", () => {
+      expect(groupSize([reduced(300n, 0), dense], VIEW, 1 / 2, "average")).toBe(300);
+    });
   });
 
   it("should return 1 when a group would hold under two samples", () => {
     const view = { ...VIEW, bounds: { lower: 0, upper: 100 } };
-    expect(groupSize([dense], view, 1 / 2)).toBe(1);
+    expect(size([dense], view)).toBe(1);
   });
 
   it("should return 1 when a span is zero", () => {
     const flat = new Series(new Float32Array([5, 5, 5, 5]));
-    expect(groupSize([op(flat, flat)], VIEW, 1 / 2)).toBe(1);
-    expect(groupSize([dense], { ...VIEW, width: 0 }, 1 / 2)).toBe(1);
-    expect(groupSize([], VIEW, 1 / 2)).toBe(1);
+    expect(size([op(flat, flat)])).toBe(1);
+    expect(size([dense], { ...VIEW, width: 0 })).toBe(1);
+    expect(size([])).toBe(1);
   });
 });
 
