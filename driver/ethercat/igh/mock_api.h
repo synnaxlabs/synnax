@@ -155,9 +155,6 @@ public:
     /// IgH refuses to configure or activate a master with none.
     int reserve_result = 0;
     mutable bool reserved = false;
-    /// @brief the result and the latest value of master_set_send_interval.
-    int send_interval_result = 0;
-    mutable size_t send_interval_us = 0;
     int master_info_result = 0;
     /// @brief whether the network port of the master has a link.
     bool link_up = true;
@@ -213,12 +210,6 @@ public:
         if (this->reserve_result < 0) return this->reserve_result;
         this->reserved = true;
         return 0;
-    }
-
-    int master_set_send_interval(ec_master_t *, size_t us) const override {
-        if (!this->reserved) return -EPERM;
-        this->send_interval_us = us;
-        return this->send_interval_result;
     }
 
     void release_master(ec_master_t *) const override {

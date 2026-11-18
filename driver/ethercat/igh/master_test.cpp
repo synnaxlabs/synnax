@@ -454,20 +454,16 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheMasterCannotBeReserved) {
     }
 }
 
-/// @brief it should give IgH the period as its send interval.
-TEST_F(IGHMasterTest, ActivateSetsTheSendIntervalToThePeriod) {
-    this->api->add_slave();
-    ASSERT_NIL(this->scan_and_activate());
-    EXPECT_EQ(this->api->send_interval_us, 1000);
-}
-
-/// @brief it should fail activation when IgH rejects the send interval.
-TEST_F(IGHMasterTest, ActivateFailsWhenTheSendIntervalFails) {
-    this->api->add_slave();
-    this->api->send_interval_result = -EINVAL;
-    const auto err = this->scan_and_activate();
+/// @brief it should fail activation, before it configures a slave, when the slaves
+/// changed between the scan and the reservation, so that the caller scans again.
+TEST_F(IGHMasterTest, ActivateFailsWhenTheSlavesChangedSinceTheScan) {
+    this->api->add_slave("EL3102", 0x2, 0x0C1E3052);
+    ASSERT_NIL_P(this->master.scan());
+    this->api->slaves[0].info.product_code = 0x03F03052;
+    const auto err = this->activate().err;
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "failed to set the send interval: Invalid argument");
+    EXPECT_EQ(err.data, "the slaves on igh:0 changed since the last scan");
+    EXPECT_FALSE(this->api->slaves[0].configured);
 }
 
 /// @brief it should refuse a used slave with no identity once the image shows the other
@@ -657,8 +653,10 @@ TEST_F(IGHMasterTest, ActivateStartsWhenAnUnreadableSlaveIsInOP) {
 TEST_F(IGHMasterTest, ActivateReportsASlaveWhoseStateItCannotRead) {
     this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
     ASSERT_NIL_P(this->master.scan());
-    this->api->slaves[0].unreadable = true;
-    const auto activation = this->activate();
+    const auto activation = this->master.activate(
+        {.period = PERIOD},
+        [this](const master::Image &) { this->api->slaves[0].unreadable = true; }
+    );
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,

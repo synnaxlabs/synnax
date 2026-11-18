@@ -120,16 +120,15 @@ public:
     [[nodiscard]] bool restarts_visible() const override { return false; }
 
     /// @brief does what master::Master::activate does, but runs no DC sync, so a slave
-    /// that needs DC sync refuses SAFE-OP. It reserves the master and gives IgH the
-    /// period as its send interval. Returns errors::ACTIVATION_ERROR when another
-    /// program reserved the master or no network port is attached to it, and refuses a
-    /// used slave with no identity as the SOEM master does. Returns
-    /// errors::SLAVE_CONFIG_ERROR, before it configures any slave, when the chosen mode
-    /// of a slave is one that the IgH master cannot run. The IgH master moves the
-    /// slaves to OP on its own, so a slave below OP with its AL error flag set counts
-    /// as a refusal. Once every slave below OP has the flag, the master tries them once
-    /// more with a reset, then returns the refusals without waiting for
-    /// Config::op_timeout.
+    /// that needs DC sync refuses SAFE-OP. It reserves the master, then returns
+    /// errors::ACTIVATION_ERROR when another program reserved it, no network port is
+    /// attached to it, or the slaves changed since the scan. It refuses a used slave
+    /// with no identity as the SOEM master does. Returns errors::SLAVE_CONFIG_ERROR,
+    /// before it configures any slave, when the chosen mode of a slave is one that the
+    /// IgH master cannot run. The IgH master moves the slaves to OP on its own, so a
+    /// slave below OP with its AL error flag set counts as a refusal. Once every slave
+    /// below OP has the flag, the master tries them once more with a reset, then
+    /// returns the refusals without waiting for Config::op_timeout.
     master::Activation activate(
         const master::Plan &plan,
         const std::function<void(const master::Image &)> &start_cycle

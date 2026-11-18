@@ -488,15 +488,15 @@ master::Activation Master::activate(
 
     if (const int ret = this->api->master_reserve(this->ec_master); ret != 0)
         return {.err = reserve_error(this->name(), this->master_index, ret)};
-    if (const int ret = this->api->master_set_send_interval(
-            this->ec_master,
-            static_cast<size_t>(plan.period.microseconds())
-        );
-        ret != 0)
+    // The slaves can change between the scan and the reservation, which fixes the
+    // slave list of IgH until activation.
+    const auto [change, change_err] = this->changed();
+    if (change_err) return {.err = change_err};
+    if (change.stale)
         return {
             .err = x::errors::Error(
                 errors::ACTIVATION_ERROR,
-                "failed to set the send interval: " + reason(ret)
+                "the slaves on " + this->name() + " changed since the last scan"
             )
         };
     this->output_domain = this->api->master_create_domain(this->ec_master);

@@ -45,7 +45,6 @@ class API {
         decltype(&ecrt_master_activate) master_activate;
         decltype(&ecrt_master_deactivate) master_deactivate;
         decltype(&ecrt_master_reset) master_reset;
-        decltype(&ecrt_master_set_send_interval) master_set_send_interval;
         decltype(&ecrt_master_create_domain) master_create_domain;
         decltype(&ecrt_domain_size) domain_size;
         decltype(&ecrt_domain_data) domain_data;
@@ -106,7 +105,6 @@ public:
         resolve(f.master_activate, "ecrt_master_activate");
         resolve(f.master_deactivate, "ecrt_master_deactivate");
         resolve(f.master_reset, "ecrt_master_reset");
-        resolve(f.master_set_send_interval, "ecrt_master_set_send_interval");
         resolve(f.master_create_domain, "ecrt_master_create_domain");
         resolve(f.domain_size, "ecrt_domain_size");
         resolve(f.domain_data, "ecrt_domain_data");
@@ -206,13 +204,6 @@ public:
     /// in the background after the call returns.
     [[nodiscard]] virtual int master_reset(ec_master_t *master) const {
         return this->func_ptrs.master_reset(master);
-    }
-
-    /// @brief sets the time between master_send calls, which bounds the mailbox and
-    /// scan traffic that IgH adds to a frame. Valid after master_reserve.
-    [[nodiscard]] virtual int
-    master_set_send_interval(ec_master_t *master, size_t send_interval_us) const {
-        return this->func_ptrs.master_set_send_interval(master, send_interval_us);
     }
 
     /// @brief creates a new process data domain.
