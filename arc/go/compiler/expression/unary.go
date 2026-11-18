@@ -21,6 +21,17 @@ func compileUnary(
 	ctx context.Context[parser.IUnaryExpressionContext],
 ) (types.Type, error) {
 	if ctx.AST.MINUS() != nil {
+		if inner := ctx.AST.UnaryExpression(); inner.MINUS() == nil {
+			if lit := parser.GetLiteralNode(inner); lit != nil {
+				if num := lit.NumericLiteral(); num != nil {
+					// An unsigned target keeps the wrapping negation below.
+					numCtx := ctx.Child(num)
+					if !numericLiteralType(numCtx).IsUnsignedInteger() {
+						return compileNumericLiteral(numCtx, true)
+					}
+				}
+			}
+		}
 		return compileNegate(ctx)
 	}
 	if ctx.AST.NOT() != nil {
