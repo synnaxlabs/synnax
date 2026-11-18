@@ -28,7 +28,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, type record, unique, uuid } from "@synnaxlabs/x";
+import { DataType, deep, errors, type record, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -246,8 +246,8 @@ const fieldNodeKey = (rec: string, message: icd.MessageKey, field: string): stri
 type Structure = [string, [icd.MessageKey, icd.JSONField[]][]][];
 
 /**
- * The records of the task as tree nodes. A record holds the fields of its message, or
- * a node for each message when it reads several. The index field stays hidden, as the
+ * The records of the task as tree nodes. A record holds the fields of its message, or a
+ * node for each message when it reads several. The index field stays hidden, as the
  * timestamp section edits it.
  */
 const useIndex = (formats: ICD.Formats): Index => {
@@ -440,8 +440,8 @@ interface RecordDetailsProps {
 }
 
 /**
- * The record key of a record. A record that reads one message also shows its
- * timestamp, which each message of a record that reads several shows on its own.
+ * The record key of a record. A record that reads one message also shows its timestamp,
+ * which each message of a record that reads several shows on its own.
  */
 const RecordDetails: FC<RecordDetailsProps> = ({
   path,
@@ -535,14 +535,14 @@ const Records: FC<RecordsProps> = ({
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const first = records.at(0);
-    const format = first == null ? undefined : formats.get(first.icd);
     let rec: ReadRecord;
-    if (first == null || format == null) {
+    if (first == null) {
       const message = createMessage(ANY_KEY);
       const name = icdName(ctx.get(root.name).value);
       const { key } = await client.icds.create({ name, messages: [message] });
       rec = recordOf(key, message.key);
     } else {
+      const format = ICD.formatOf(formats, first.icd);
       const held = format.value().messages;
       const message = createMessage(uniqueName(ANY_KEY, held));
       format.insert(PICD.formPath.messages, message, held.at(-1)?.key);
@@ -558,9 +558,13 @@ const Records: FC<RecordsProps> = ({
     handleError(async () => {
       if (adding.current) return;
       adding.current = true;
-      await add().finally(() => {
+      try {
+        await add();
+      } catch (e) {
         adding.current = false;
-      });
+        throw errors.fromUnknown(e);
+      }
+      adding.current = false;
     }, "Failed to add record");
 
   /**

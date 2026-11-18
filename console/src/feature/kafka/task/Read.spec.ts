@@ -235,6 +235,17 @@ describe("Kafka read form", () => {
       expect(records[1].messages[0].message).toBe(messages[1].key);
     });
 
+    it("should add one record for a double click on Add record", async () => {
+      const { draft } = await renderRead();
+      const button = await screen.findByRole("button", { name: "Add record" });
+      fireEvent.click(button);
+      fireEvent.click(button);
+      await waitFor(async () =>
+        expect(await retrieveRecords(draft.key)).toHaveLength(1),
+      );
+      expect(screen.getAllByRole("treeitem")).toHaveLength(1);
+    });
+
     it("should name a record by its record key", async () => {
       const { draft } = await renderRead({
         fields: [createField("temperature", "float")],
