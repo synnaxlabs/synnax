@@ -154,18 +154,20 @@ do_stop() {
     return $RETVAL
 }
 
+# Read-only, so any user can run it: it never writes the log, and it checks /proc
+# because kill -0 fails for a user that does not own the root process.
 do_status() {
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE")
-        if kill -0 "$PID" 2>/dev/null; then
-            log_message "$PRETTY_NAME is running (PID: $PID)" "$GREEN"
+        if [ -n "$PID" ] && [ -d "/proc/$PID" ]; then
+            echo -e "${GREEN}$PRETTY_NAME is running (PID: $PID)${NC}"
             return 0
         else
-            log_message "$PRETTY_NAME is not running (stale PID file)" "$RED"
+            echo -e "${RED}$PRETTY_NAME is not running (stale PID file)${NC}"
             return 1
         fi
     else
-        log_message "$PRETTY_NAME is not running" "$RED"
+        echo -e "${RED}$PRETTY_NAME is not running${NC}"
         return 3
     fi
 }
