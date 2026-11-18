@@ -996,7 +996,10 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     conn_cfg.endpoint = "opc.tcp://localhost:4861";
     conn_cfg.security_mode = "SignAndEncrypt";
     conn_cfg.security_policy = "Basic256Sha256";
-    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *ctx->client,
+        server_id.certificate.pem()
+    );
     ASSERT_NIL(ctx->client->devices.dispatch(
         task_cfg_json["device"].get<std::string>(),
         {synnax::device::set(
@@ -1035,7 +1038,10 @@ TEST_F(TestReadTask, testReadLogsInWithPasswordSecret) {
     conn_cfg.endpoint = "opc.tcp://localhost:4862";
     conn_cfg.security_mode = "SignAndEncrypt";
     conn_cfg.security_policy = "Basic256Sha256";
-    conn_cfg.server_certificate = server_id.certificate;
+    conn_cfg.server_certificate_item = secret::testutil::create_certificate(
+        *ctx->client,
+        server_id.certificate.pem()
+    );
     conn_cfg.username = "user";
     conn_cfg.password_secret = secret::testutil::create_secret(*ctx->client);
     ASSERT_NIL(ctx->client->devices.dispatch(

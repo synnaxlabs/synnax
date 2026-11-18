@@ -46,6 +46,8 @@ struct Grant {
     synnax::task::Command command;
     /// @brief the keys of the secrets that the grant names, file secrets included.
     std::vector<Key> secrets;
+    /// @brief the keys of the file certificates that the grant names.
+    std::vector<x::uuid::UUID> certificates;
     /// @brief the values of the secrets that the grant names, except a file secret of
     /// a rack that is not the Core's, which the rack reads from its own secrets folder.
     Values values;

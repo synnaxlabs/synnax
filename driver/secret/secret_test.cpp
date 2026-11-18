@@ -220,6 +220,33 @@ TEST_F(ReaderTest, ReadsStoredCertificateFromGrant) {
     ASSERT_EQ(c.private_key, x::x509::testutil::KEY);
 }
 
+/// @brief it should read a file certificate that a grant names.
+TEST_F(ReaderTest, ReadsFileCertificateGrantNames) {
+    const auto key = this->create_file_certificate(
+        this->rack,
+        x::x509::testutil::CERTIFICATE
+    );
+    const auto c = ASSERT_NIL_P(
+        this->reader(this->rack)
+            .read_certificate(key, synnax::secret::Grant{.certificates = {key}})
+    );
+    ASSERT_EQ(c.private_key, x::x509::testutil::KEY);
+}
+
+/// @brief it should refuse a file certificate that a grant does not name before it
+/// reads a file, so a grant cannot read a key file that it leaves out.
+TEST_F(ReaderTest, RefusesFileCertificateGrantDoesNotName) {
+    const auto key = this->create_file_certificate(
+        this->rack,
+        x::x509::testutil::CERTIFICATE
+    );
+    const auto [c, err] = this->reader(this->rack)
+                              .read_certificate(key, synnax::secret::Grant{});
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data, "The grant does not name certificate " + key.to_string() + ".");
+    ASSERT_EQ(this->sha256(key), "");
+}
+
 /// @brief it should fail to read a file certificate whose certificate file is missing.
 TEST_F(ReaderTest, FailsWithMissingCertificateFile) {
     const auto key = this->create_file_certificate(

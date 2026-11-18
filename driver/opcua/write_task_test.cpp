@@ -20,6 +20,7 @@
 #include "driver/opcua/testutil/testutil.h"
 #include "driver/opcua/write_task.h"
 #include "driver/pipeline/testutil/pipeline.h"
+#include "driver/secret/testutil/testutil.h"
 
 namespace driver::opcua {
 class TestWriteTask : public ::testing::Test {
@@ -316,7 +317,10 @@ protected:
         secured_cfg.endpoint = "opc.tcp://localhost:" + std::to_string(SECURED_PORT);
         secured_cfg.security_mode = "SignAndEncrypt";
         secured_cfg.security_policy = "Basic256Sha256";
-        secured_cfg.server_certificate = server_cert;
+        secured_cfg.server_certificate_item = secret::testutil::create_certificate(
+            *ctx->client,
+            server_cert.pem()
+        );
         this->secured_dev = synnax::device::Device{
             .key = make_unique_channel_name("secured_write_device"),
             .rack = rack.key,

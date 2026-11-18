@@ -30,6 +30,17 @@ create_stored_certificate(synnax::Synnax &client) {
     return std::get<synnax::certificate::StoredCertificate>(c);
 }
 
+/// @returns the key of a new stored certificate of pem, with no private key.
+[[nodiscard]] inline synnax::certificate::Key
+create_certificate(synnax::Synnax &client, const std::string &pem) {
+    synnax::certificate::Certificate c = synnax::certificate::StoredCertificate{};
+    auto &stored = std::get<synnax::certificate::StoredCertificate>(c);
+    stored.name = "certificate " + x::uuid::create().to_string();
+    stored.pem = pem;
+    EXPECT_NIL(client.certificates.set(c));
+    return stored.key;
+}
+
 /// @returns the key of a stored secret that holds x::x509::testutil::KEY. The C++
 /// client writes secrets only as the private keys of stored certificates.
 [[nodiscard]] inline synnax::secret::Key create_secret(synnax::Synnax &client) {

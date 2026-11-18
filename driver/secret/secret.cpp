@@ -153,6 +153,14 @@ std::pair<Certificate, x::errors::Error> Reader::read_certificate(
         return {std::move(out), x::errors::NIL};
     }
     const auto &file = std::get<synnax::certificate::FileCertificate>(record);
+    if (grant.has_value() && !std::ranges::contains(grant->certificates, key))
+        return {
+            Certificate{},
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "The grant does not name certificate " + key.to_string() + "."
+            )
+        };
     if (const auto rack_err = check_rack(
             "certificate \"" + file.name + "\"",
             file.rack,

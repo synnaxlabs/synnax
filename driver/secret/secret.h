@@ -61,8 +61,9 @@ public:
     /// file certificate, it reads the certificate file, and the key file from the
     /// secrets folder. After it reads both, it saves new details in the Core when the
     /// SHA-256 fingerprint of the certificate differs from the saved one.
-    /// @param grant a spent grant, as for read.
-    /// @returns VALIDATION for a file certificate of another rack, before any read.
+    /// @param grant a spent grant, as for read. A grant must name a file certificate.
+    /// @returns VALIDATION for a file certificate of another rack, or one that the
+    /// grant does not name, before any read.
     [[nodiscard]] std::pair<Certificate, x::errors::Error> read_certificate(
         const synnax::certificate::Key &key,
         const std::optional<synnax::secret::Grant> &grant = std::nullopt
