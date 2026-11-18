@@ -64,9 +64,25 @@
             overflow-y: auto;
         }
 
+        /* The tabs stay mounted under a view, so Back finds them as they were. */
+        &.lyra-color-picker--viewing
+            > :not(.lyra-color-picker__view-header, .lyra-color-picker__view) {
+            display: none;
+        }
+
         & > .lyra-color-picker__palettes,
-        & > .lyra-color-picker__custom {
+        & > .lyra-color-picker__custom,
+        & > .lyra-color-picker__view {
             padding: var(--pluto-color-picker-inset);
+        }
+
+        /* Actions after the name must not change the height of the title. */
+        & .lyra-color-picker__title {
+            min-height: var(--pluto-height-tiny);
+
+            & > .lyra-color-picker__name {
+                min-width: 0;
+            }
         }
 
         & .lyra-color-picker__grid {
@@ -77,7 +93,7 @@
             );
             gap: var(--pluto-color-picker-gap);
 
-            & .lyra-color-swatch.lyra-btn {
+            & > .lyra-color-swatch.lyra-btn {
                 width: 100%;
                 min-width: 0;
                 height: auto;

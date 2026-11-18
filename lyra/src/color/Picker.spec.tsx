@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x";
-import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  type RenderResult,
+  within,
+} from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -480,11 +486,134 @@ describe("Picker", () => {
         expect(c.queryByText("Ocean")).toBeNull();
       });
 
-      it("should return to the linked color when the pointer leaves", () => {
+      it("should keep the hovered color while the pointer stays in the palette", () => {
         const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
         fireEvent.pointerEnter(c.getByLabelText("Moss"));
-        fireEvent.pointerLeave(c.getByLabelText("Moss"));
+        fireEvent.pointerLeave(c.getByLabelText("Moss"), {
+          relatedTarget: c.getByRole("group", { name: "Series" }),
+        });
+        expect(c.getByText("Moss")).toBeTruthy();
+      });
+
+      it("should return to the linked color when the pointer leaves the palette", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.pointerEnter(c.getByLabelText("Moss"));
+        fireEvent.pointerLeave(c.getByRole("group", { name: "Series" }));
         expect(c.getByText("Ocean")).toBeTruthy();
+      });
+
+      it("should name a color that takes the keyboard focus", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.focus(c.getByLabelText("Moss"));
+        expect(c.getByText("Moss")).toBeTruthy();
+      });
+    });
+
+    describe("slots", () => {
+      const PaletteEnd = (): ReactElement => {
+        const { palette } = Color.usePalette();
+        return <span>{`end of ${palette.name}`}</span>;
+      };
+
+      const ShownActions = (): ReactElement | null => {
+        const { shown } = Color.usePalette();
+        return shown == null ? null : <span>{`edit ${shown.name}`}</span>;
+      };
+
+      const ViewOpener = (): ReactElement => {
+        const { value, openView } = Color.usePicker();
+        return (
+          <button onClick={() => openView("Edit color", <span>view body</span>)}>
+            {`open from ${color.hex(value)}`}
+          </button>
+        );
+      };
+
+      const renderSlots = (
+        library: Partial<Color.Library>,
+        props: Partial<Color.PickerProps> = {},
+      ): RenderResult =>
+        render(
+          <Color.Picker
+            value={undefined}
+            onChange={vi.fn()}
+            library={{ palettes: PALETTES, onNamedChange: vi.fn(), ...library }}
+            {...props}
+          />,
+          { wrapper: Wrapper },
+        );
+
+      it("should end each palette with paletteEnd, given that palette", () => {
+        const c = renderSlots({ paletteEnd: <PaletteEnd /> });
+        const series = c.getByRole("group", { name: "Series" });
+        const status = c.getByRole("group", { name: "Status" });
+        expect(within(series).getByText("end of Series")).toBeTruthy();
+        expect(within(status).getByText("end of Status")).toBeTruthy();
+      });
+
+      it("should show a palette with no colors only while it has a paletteEnd", () => {
+        const palettes = [...PALETTES, { key: "empty", name: "Empty", colors: [] }];
+        const without = renderSlots({ palettes });
+        expect(without.queryByRole("group", { name: "Empty" })).toBeNull();
+        without.unmount();
+        const c = renderSlots({ palettes, paletteEnd: <PaletteEnd /> });
+        expect(c.getByText("end of Empty")).toBeTruthy();
+        search(c, "ocean");
+        expect(c.queryByRole("group", { name: "Empty" })).toBeNull();
+      });
+
+      it("should give swatchActions the hovered color, else the linked one", () => {
+        const c = renderSlots(
+          { named: "ocean", swatchActions: <ShownActions /> },
+          { value: "#3e8bff" },
+        );
+        expect(c.getByText("edit Ocean")).toBeTruthy();
+        expect(c.queryByText("edit Alarm")).toBeNull();
+        fireEvent.pointerEnter(c.getByLabelText("Alarm"));
+        expect(c.getByText("edit Alarm")).toBeTruthy();
+        fireEvent.pointerLeave(c.getByRole("group", { name: "Status" }));
+        expect(c.queryByText("edit Alarm")).toBeNull();
+      });
+
+      it("should end the palettes with the footer", () => {
+        const c = renderSlots({ footer: <span>Create palette</span> });
+        expect(c.getByText("Create palette")).toBeTruthy();
+      });
+
+      it("should give slots the fallback while the value is absent", () => {
+        const c = renderSlots({ footer: <ViewOpener /> }, { fallback: "#123456" });
+        expect(c.getByText("open from #123456")).toBeTruthy();
+      });
+
+      it("should keep the search under a view", () => {
+        const c = renderSlots(
+          { named: "ocean", footer: <ViewOpener /> },
+          { value: "#3e8bff" },
+        );
+        search(c, "o");
+        fireEvent.click(c.getByText("open from #3e8bff"));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(
+          (c.getByPlaceholderText("Search colors") as HTMLInputElement).value,
+        ).toBe("o");
+      });
+
+      it("should show a view in place of the tabs until Back", () => {
+        const c = renderSlots(
+          { named: "ocean", footer: <ViewOpener /> },
+          { value: "#3e8bff" },
+        );
+        const viewing = CSS.BM("color-picker", "viewing");
+        const picker = c
+          .getByRole("group", { name: "Series" })
+          .closest(`.${CSS.BM("color-picker", "tabbed")}`);
+        fireEvent.click(c.getByText("open from #3e8bff"));
+        expect(c.getByText("Edit color")).toBeTruthy();
+        expect(c.getByText("view body")).toBeTruthy();
+        expect(picker?.classList.contains(viewing)).toBe(true);
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(c.queryByText("view body")).toBeNull();
+        expect(picker?.classList.contains(viewing)).toBe(false);
       });
     });
 
