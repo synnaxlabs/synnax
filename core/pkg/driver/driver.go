@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -546,9 +547,10 @@ func (d *Driver) runOnce(
 	})
 }
 
-// removeFiles removes the temp files of a run, and logs the files it fails to remove.
+// removeFiles removes the temp files of a run, last first, and logs the files it fails
+// to remove.
 func (d *Driver) removeFiles(files []string) {
-	for _, f := range files {
+	for _, f := range slices.Backward(files) {
 		if err := os.Remove(f); err != nil {
 			d.cfg.L.Error(
 				"failed to remove driver file",
