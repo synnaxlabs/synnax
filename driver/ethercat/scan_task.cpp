@@ -382,6 +382,11 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 blocked.emplace_back(key, err.data);
                 continue;
             }
+            // The master tells how to fix a port with no link.
+            if (err.matches(errors::NO_LINK)) {
+                failures.insert(err.data);
+                continue;
+            }
             const auto [engine, acquire_err] = this->pool->acquire(key);
             failures.insert(
                 acquire_err ? acquire_err.data
