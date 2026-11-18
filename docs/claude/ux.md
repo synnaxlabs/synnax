@@ -569,6 +569,10 @@ bound, a log precision, or the line plot X channel.
   none, it shows "Star a range to add it here". Recent sorts by end, newest first. A
   finished child of a running range shows in Recent with its muted parent, and nests
   under the parent when the parent ends.
+- Only the star and the Favorite menu item add a favorite. Plot, create, search, and
+  links never add one. The plot's Ranges picker searches every range, newest first, so
+  no range needs a star to be plotted. A range that has not started shows in the toolbar
+  only as a favorite.
 - The header holds the explorer, then + (the create form set to the last hour), then
   Start. + and Start are outlined `Toolbar.CreateAction` buttons. The toolbar has no
   active range, and new plots open on Rolling 30s.
