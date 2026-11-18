@@ -317,73 +317,73 @@ func logDisabled(l changeLog, old, next bool) {
 }
 
 // aiBases returns the shared fields of a v2 analog input variant and of its migration.
-// It panics for a variant without shared fields.
+// It panics for a variant without shared fields, or for a migration of another kind.
 func aiBases(
 	old v2.AIChannelVariant,
 	n AIChannelVariant,
 ) (v2.BaseAIChannel, BaseAIChannel) {
-	switch o := old.(type) {
-	case v2.AIVoltageChannel:
-		return o.BaseAIChannel, as[AIVoltageChannel](n).BaseAIChannel
-	case v2.AIAccelChannel:
-		return o.BaseAIChannel, as[AIAccelChannel](n).BaseAIChannel
-	case v2.AIBridgeChannel:
-		return o.BaseAIChannel, as[AIBridgeChannel](n).BaseAIChannel
-	case v2.AICurrentChannel:
-		return o.BaseAIChannel, as[AICurrentChannel](n).BaseAIChannel
-	case v2.AIForceBridgeTableChannel:
-		return o.BaseAIChannel, as[AIForceBridgeTableChannel](n).BaseAIChannel
-	case v2.AIForceBridgeTwoPointLinChannel:
-		return o.BaseAIChannel, as[AIForceBridgeTwoPointLinChannel](n).BaseAIChannel
-	case v2.AIForceIEPEChannel:
-		return o.BaseAIChannel, as[AIForceIEPEChannel](n).BaseAIChannel
-	case v2.AIMicrophoneChannel:
-		return o.BaseAIChannel, as[AIMicrophoneChannel](n).BaseAIChannel
-	case v2.AIPressureBridgeTableChannel:
-		return o.BaseAIChannel, as[AIPressureBridgeTableChannel](n).BaseAIChannel
-	case v2.AIPressureBridgeTwoPointLinChannel:
-		return o.BaseAIChannel, as[AIPressureBridgeTwoPointLinChannel](n).BaseAIChannel
-	case v2.AIResistanceChannel:
-		return o.BaseAIChannel, as[AIResistanceChannel](n).BaseAIChannel
-	case v2.AIRTDChannel:
-		return o.BaseAIChannel, as[AIRTDChannel](n).BaseAIChannel
-	case v2.AIStrainGaugeChannel:
-		return o.BaseAIChannel, as[AIStrainGaugeChannel](n).BaseAIChannel
-	case v2.AIThermocoupleChannel:
-		return o.BaseAIChannel, as[AIThermocoupleChannel](n).BaseAIChannel
-	case v2.AITorqueBridgeTableChannel:
-		return o.BaseAIChannel, as[AITorqueBridgeTableChannel](n).BaseAIChannel
-	case v2.AITorqueBridgeTwoPointLinChannel:
-		return o.BaseAIChannel, as[AITorqueBridgeTwoPointLinChannel](n).BaseAIChannel
-	case v2.AIVelocityIEPEChannel:
-		return o.BaseAIChannel, as[AIVelocityIEPEChannel](n).BaseAIChannel
-	case v2.AIAccel4WireDCVoltageChannel:
-		return o.BaseAIChannel, as[AIAccel4WireDCVoltageChannel](n).BaseAIChannel
-	case v2.AIAccelChargeChannel:
-		return o.BaseAIChannel, as[AIAccelChargeChannel](n).BaseAIChannel
-	case v2.AIChargeChannel:
-		return o.BaseAIChannel, as[AIChargeChannel](n).BaseAIChannel
-	case v2.AICurrentRMSChannel:
-		return o.BaseAIChannel, as[AICurrentRMSChannel](n).BaseAIChannel
-	case v2.AIForceBridgePolynomialChannel:
-		return o.BaseAIChannel, as[AIForceBridgePolynomialChannel](n).BaseAIChannel
-	case v2.AIFreqVoltageChannel:
-		return o.BaseAIChannel, as[AIFreqVoltageChannel](n).BaseAIChannel
-	case v2.AIPressureBridgePolynomialChannel:
-		return o.BaseAIChannel, as[AIPressureBridgePolynomialChannel](n).BaseAIChannel
-	case v2.AIThermistorIexChannel:
-		return o.BaseAIChannel, as[AIThermistorIexChannel](n).BaseAIChannel
-	case v2.AIThermistorVexChannel:
-		return o.BaseAIChannel, as[AIThermistorVexChannel](n).BaseAIChannel
-	case v2.AITorqueBridgePolynomialChannel:
-		return o.BaseAIChannel, as[AITorqueBridgePolynomialChannel](n).BaseAIChannel
-	case v2.AIVoltageRMSChannel:
-		return o.BaseAIChannel, as[AIVoltageRMSChannel](n).BaseAIChannel
-	case v2.AIVoltageWithExcitChannel:
-		return o.BaseAIChannel, as[AIVoltageWithExcitChannel](n).BaseAIChannel
-	default:
-		panic(fmt.Sprintf("analog input variant %T has no base", old))
+	for _, pair := range aiPairs {
+		if o, b, ok := pair(old, n); ok {
+			return o, b
+		}
 	}
+	panic(fmt.Sprintf("analog input variant %T has no base", old))
+}
+
+// aiPair returns the shared fields of old and n when old is an O. It panics when old
+// is an O and n is not an N.
+func aiPair[
+	O interface {
+		v2.AIChannelVariant
+		AIBase() v2.BaseAIChannel
+	},
+	N interface {
+		AIChannelVariant
+		aiBase() BaseAIChannel
+	},
+](old v2.AIChannelVariant, n AIChannelVariant) (v2.BaseAIChannel, BaseAIChannel, bool) {
+	o, ok := old.(O)
+	if !ok {
+		return v2.BaseAIChannel{}, BaseAIChannel{}, false
+	}
+	return o.AIBase(), as[N](n).aiBase(), true
+}
+
+// aiPairs pairs each v2 analog input variant that has shared fields with the variant
+// it migrates to.
+var aiPairs = [...]func(
+	v2.AIChannelVariant,
+	AIChannelVariant,
+) (v2.BaseAIChannel, BaseAIChannel, bool){
+	aiPair[v2.AIVoltageChannel, AIVoltageChannel],
+	aiPair[v2.AIAccelChannel, AIAccelChannel],
+	aiPair[v2.AIBridgeChannel, AIBridgeChannel],
+	aiPair[v2.AICurrentChannel, AICurrentChannel],
+	aiPair[v2.AIForceBridgeTableChannel, AIForceBridgeTableChannel],
+	aiPair[v2.AIForceBridgeTwoPointLinChannel, AIForceBridgeTwoPointLinChannel],
+	aiPair[v2.AIForceIEPEChannel, AIForceIEPEChannel],
+	aiPair[v2.AIMicrophoneChannel, AIMicrophoneChannel],
+	aiPair[v2.AIPressureBridgeTableChannel, AIPressureBridgeTableChannel],
+	aiPair[v2.AIPressureBridgeTwoPointLinChannel, AIPressureBridgeTwoPointLinChannel],
+	aiPair[v2.AIResistanceChannel, AIResistanceChannel],
+	aiPair[v2.AIRTDChannel, AIRTDChannel],
+	aiPair[v2.AIStrainGaugeChannel, AIStrainGaugeChannel],
+	aiPair[v2.AIThermocoupleChannel, AIThermocoupleChannel],
+	aiPair[v2.AITorqueBridgeTableChannel, AITorqueBridgeTableChannel],
+	aiPair[v2.AITorqueBridgeTwoPointLinChannel, AITorqueBridgeTwoPointLinChannel],
+	aiPair[v2.AIVelocityIEPEChannel, AIVelocityIEPEChannel],
+	aiPair[v2.AIAccel4WireDCVoltageChannel, AIAccel4WireDCVoltageChannel],
+	aiPair[v2.AIAccelChargeChannel, AIAccelChargeChannel],
+	aiPair[v2.AIChargeChannel, AIChargeChannel],
+	aiPair[v2.AICurrentRMSChannel, AICurrentRMSChannel],
+	aiPair[v2.AIForceBridgePolynomialChannel, AIForceBridgePolynomialChannel],
+	aiPair[v2.AIFreqVoltageChannel, AIFreqVoltageChannel],
+	aiPair[v2.AIPressureBridgePolynomialChannel, AIPressureBridgePolynomialChannel],
+	aiPair[v2.AIThermistorIexChannel, AIThermistorIexChannel],
+	aiPair[v2.AIThermistorVexChannel, AIThermistorVexChannel],
+	aiPair[v2.AITorqueBridgePolynomialChannel, AITorqueBridgePolynomialChannel],
+	aiPair[v2.AIVoltageRMSChannel, AIVoltageRMSChannel],
+	aiPair[v2.AIVoltageWithExcitChannel, AIVoltageWithExcitChannel],
 }
 
 func logAIChannel(l changeLog, old v2.AIChannel, migrated AIChannel) {

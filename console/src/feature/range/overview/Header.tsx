@@ -213,8 +213,8 @@ export const Header = ({ range }: HeaderProps): ReactElement => {
   const name = Form.useFieldValue(path.name, { ctx: form });
   const plot = Range.useAddToNewPlot();
   const openCSV = Framer.useDownloadCSVModal();
-  const python = `rng = client.ranges.retrieve(key="${rangeKey}")`;
-  const typescript = `const rng = await client.ranges.retrieve("${rangeKey}");`;
+  const python = Range.pythonCode(rangeKey);
+  const typescript = Range.typescriptCode(rangeKey);
   const handleCSV = (): void =>
     openCSV({
       timeRange: form.get(path.timeRange).value,

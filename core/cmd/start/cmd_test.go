@@ -96,6 +96,27 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		},
 	)
 
+	Describe("Integrations", func() {
+		It("Should reject both integration flags", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagEnableIntegrations, []string{"http"})
+			viper.Set(start.FlagDisableIntegrations, []string{"ni"})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).To(MatchError(
+				ContainSubstring("cannot be used with disable_integrations"),
+			))
+		})
+
+		It("Should accept one integration flag", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagEnableIntegrations, []string{"http"})
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).ToNot(MatchError(
+				ContainSubstring("cannot be used with disable_integrations"),
+			))
+		})
+	})
+
 	Describe("Session idle timeout", func() {
 		It("Should fill the default when the flag is unset", func() {
 			viper.Set(start.FlagInsecure, true)

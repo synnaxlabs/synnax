@@ -66,7 +66,7 @@ describe("range/search", () => {
       await waitFor(() => expect(container.textContent).toContain("Today"));
     });
 
-    it("adds the range to the session and opens it when selected", async () => {
+    it("opens the range without adding it to the favorites", async () => {
       const rng = await createTestRange(client);
       const item = createResource(ranger.resourceID(rng.key), rng.name);
       const Harness = createHarness(item);
@@ -78,10 +78,7 @@ describe("range/search", () => {
       const tab = await resolveFocusedTab(store, client);
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource).toEqual(ranger.resourceID(rng.key));
-      expect(selectRange(store.getState(), rng.key)).toEqual({
-        variant: "persisted",
-        key: rng.key,
-      });
+      expect(selectRange(store.getState(), rng.key)).toBeUndefined();
     });
 
     it("opens the range when selected before it loads", async () => {

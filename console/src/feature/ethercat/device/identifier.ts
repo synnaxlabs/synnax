@@ -34,11 +34,11 @@ export const findClash = <D extends Holder>(
   return devices.find((d) => d.key !== slave.key && Device.channelPrefix(d) === prefix);
 };
 
-/** @returns "slave <name> in slot <position>" for a slave, else "device <name>". */
+/** @returns "module <name> in slot <position>" for a slave, else "device <name>". */
 const nameOf = (d: Holder): string => {
   const position = d.properties?.position;
   if (d.make === MAKE && d.model === SLAVE_MODEL && typeof position === "number")
-    return `slave ${d.name} in slot ${position}`;
+    return `module ${d.name} in slot ${position}`;
   return `device ${d.name}`;
 };
 

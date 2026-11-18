@@ -642,4 +642,48 @@ TEST_F(SharedIndexWriteTest, testRestartIgnoresReleasedWriter) {
     for (const auto &status: second.ctx->snapshot())
         EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
 }
+
+/// @brief it should not keep a command that DAQmx rejects as out of bounds in the write
+/// buffer, where it would fail every later command to the other channels.
+TEST(WriteTaskSinkTest, testOutOfBoundsCommandIsNotWrittenAgain) {
+    x::json::Parser p(
+        x::json::json{{"device", "dev1"}, {"channels", x::json::json::array()}}
+    );
+    WriteTaskConfig cfg(nullptr, p, "ni_analog_write");
+    for (const synnax::channel::Key key: {1, 2}) {
+        auto out = std::make_unique<channel::Output>();
+        out->cmd_ch_key = key;
+        out->state_ch = {.key = key + 10, .data_type = x::telem::FLOAT64_T};
+        cfg.buf_indexes[key] = cfg.channels.size();
+        cfg.channels[key] = std::move(out);
+    }
+    auto written = std::make_shared<std::vector<std::vector<double>>>();
+    auto hw = std::make_shared<hardware::mock::Writer<double>>(
+        written,
+        std::vector{x::errors::NIL},
+        std::vector{x::errors::NIL},
+        std::vector{daqmx::ANALOG_WRITE_OUT_OF_BOUNDS, x::errors::NIL}
+    );
+    WriteTaskSink<double> sink(
+        std::move(cfg),
+        [hw](const WriteTaskConfig &)
+            -> std::pair<std::unique_ptr<hardware::Writer<double>>, x::errors::Error> {
+            return {
+                std::make_unique<hardware::mock::SharedWriter<double>>(hw),
+                x::errors::NIL
+            };
+        }
+    );
+    common::Sink &s = sink;
+    x::breaker::Breaker cancel;
+    ASSERT_NIL(s.start("", cancel));
+    x::telem::Frame rejected(1, x::telem::Series(5.0));
+    ASSERT_NIL(s.write(rejected));
+    x::telem::Frame accepted(2, x::telem::Series(1.0));
+    ASSERT_NIL(s.write(accepted));
+    ASSERT_NIL(s.stop());
+    ASSERT_EQ(written->size(), 2);
+    EXPECT_EQ(written->at(0), (std::vector<double>{5, 0}));
+    EXPECT_EQ(written->at(1), (std::vector<double>{0, 1}));
+}
 }
