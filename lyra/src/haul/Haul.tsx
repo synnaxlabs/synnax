@@ -20,10 +20,13 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
 } from "react";
+import { createPortal, flushSync } from "react-dom";
 import { z } from "zod";
 
 import { context } from "@/context";
+import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks/ref";
 import { state } from "@/state";
 
@@ -127,9 +130,27 @@ export interface ContextValue {
   // events bubble, so the innermost accepting target claims first and nested
   // targets do not multi-fire.
   claimDragEvent: (event: Event) => boolean;
+  /** Shows `preview` at the pointer for the drag that `event` starts. */
+  setPreview: (event: DragEvent, preview: ReactNode, anchor?: PreviewAnchor) => void;
   /** A live ref to the current dragging state, readable at event time. */
   stateRef: RefObject<DraggingState>;
 }
+
+/**
+ * Where a preview sits on the pointer. A `pointer` preview sits below and to the right
+ * of the pointer. A `grab` preview keeps the point that the drag pressed on the source.
+ * A `corner` preview puts its top-left corner on the pointer, where a canvas places a
+ * dropped object.
+ */
+export type PreviewAnchor = "pointer" | "grab" | "corner";
+
+// The preview layer's padding in px, which holds the preview's shadow. Keep it equal to
+// the padding in Haul.css.
+const PREVIEW_PAD = 18;
+// Where a pointer-anchored preview starts, from the pointer.
+const POINTER_OFFSET = { x: 14, y: 10 };
+// Marks a source while it drags. Haul.css dims it.
+const SOURCE_ATTRIBUTE = "data-haul-source";
 
 const [Context, useContext] = context.create<ContextValue | null>({
   defaultValue: null,
@@ -177,6 +198,28 @@ export const Provider = memo(
     const interceptors = useRef<Set<DragEndInterceptor>>(new Set());
     const watchers = useRef<Set<OnResolve>>(new Set());
     const handledEvents = useRef<WeakSet<Event>>(new WeakSet());
+    const [preview, setPreviewContent] = useState<ReactNode>(null);
+    const layerRef = useRef<HTMLDivElement>(null);
+
+    // The browser takes one picture of the layer when dragstart returns, so the
+    // preview renders at once and leaves before the next frame paints.
+    const setPreview: ContextValue["setPreview"] = (event, content, anchor) => {
+      flushSync(() => setPreviewContent(content));
+      const layer = layerRef.current;
+      if (layer == null) return;
+      let x = PREVIEW_PAD - POINTER_OFFSET.x;
+      let y = PREVIEW_PAD - POINTER_OFFSET.y;
+      if (anchor === "corner") {
+        x = PREVIEW_PAD;
+        y = PREVIEW_PAD;
+      } else if (anchor === "grab") {
+        const rect = event.currentTarget.getBoundingClientRect();
+        x = PREVIEW_PAD + event.clientX - rect.left;
+        y = PREVIEW_PAD + event.clientY - rect.top;
+      }
+      event.dataTransfer.setDragImage(layer, x, y);
+      requestAnimationFrame(() => flushSync(() => setPreviewContent(null)));
+    };
 
     const claimDragEvent: ContextValue["claimDragEvent"] = (event) => {
       if (handledEvents.current.has(event)) return false;
@@ -232,6 +275,7 @@ export const Provider = memo(
       bind,
       watch,
       claimDragEvent,
+      setPreview,
       stateRef: ref,
     };
     // A nested Provider reuses the outer one's contexts, which are already in scope,
@@ -240,6 +284,12 @@ export const Provider = memo(
     return (
       <Context value={controls}>
         <StateContext value={dragging}>{children}</StateContext>
+        {createPortal(
+          <div ref={layerRef} className={CSS.BE("haul", "layer")} aria-hidden>
+            {preview}
+          </div>,
+          document.body,
+        )}
       </Context>
     );
   },
@@ -278,13 +328,40 @@ export interface OnSuccessfulDropProps {
 /** Props for {@link useDrag}; `key` defaults to a generated ID. */
 export interface UseDragProps extends optional.Optional<Item, "key"> {}
 
+/** Arguments to {@link UseDragReturn.startDrag}. */
+export interface StartDragProps {
+  /** The source's `dragstart` event. */
+  event: DragEvent;
+  items: Item[];
+  /**
+   * The picture that follows the pointer. It renders outside the source's contexts, so
+   * it takes plain values.
+   */
+  preview: ReactNode;
+  anchor?: PreviewAnchor;
+  onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void;
+}
+
+// The source dims until the drag ends. A selected tree item drags its whole selection,
+// so every selected item dims.
+const dimSources = (pressed: Element): void => {
+  const tree = pressed.closest('[role="tree"]');
+  const sources =
+    tree != null && pressed.getAttribute("aria-selected") === "true"
+      ? [...tree.querySelectorAll('[role="treeitem"][aria-selected="true"]')]
+      : [pressed];
+  sources.forEach((el) => el.setAttribute(SOURCE_ATTRIBUTE, ""));
+  pressed.addEventListener(
+    "dragend",
+    () => sources.forEach((el) => el.removeAttribute(SOURCE_ATTRIBUTE)),
+    { once: true },
+  );
+};
+
 /** Return value of {@link useDrag}. */
 export interface UseDragReturn {
-  /** Begins hauling `items`, invoking `onSuccessfulDrop` if they're dropped. */
-  startDrag: (
-    items: Item[],
-    onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void,
-  ) => void;
+  /** Begins hauling items and shows their preview at the pointer. */
+  startDrag: (props: StartDragProps) => void;
   /** Native `dragend`/`mouseup` handler that resolves the drag. */
   onDragEnd: (e: DragEvent | MouseEvent) => void;
 }
@@ -294,10 +371,18 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
   const generatedKey = useId();
   const source: Item = { key: key ?? generatedKey, type };
   const ctx = useContext();
-  const startDrag: UseDragReturn["startDrag"] = (items, f) => {
+  const startDrag: UseDragReturn["startDrag"] = ({
+    event,
+    items,
+    preview,
+    anchor,
+    onSuccessfulDrop,
+  }) => {
     if (ctx == null) return;
-    const { start, end, stateRef } = ctx;
-    start(source, items, f);
+    const { start, end, stateRef, setPreview } = ctx;
+    start(source, items, onSuccessfulDrop);
+    setPreview(event, preview, anchor);
+    dimSources(event.currentTarget);
     // A source that unmounts mid-drag fires `dragend` on a detached node, which never
     // reaches here. Mouse events resume only once a drag is over, so the first one ends
     // a drag its own source cannot.

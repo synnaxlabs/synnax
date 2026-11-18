@@ -11,7 +11,7 @@ import synnax as sy
 from console.task.mqtt import MQTTEdge
 from synnax import mqtt
 from tests.console.task.mqtt_case import MQTTCase
-from tests.driver.mqtt_task import run_reader, write_until
+from tests.driver.mqtt_task import create_plain_entry, run_reader, write_until
 from tests.driver.task import create_channel, create_index, delete_channels
 
 # An edge node of its own, so it does not collide with the one the simulator runs.
@@ -110,14 +110,11 @@ class MQTTEdgeTask(MQTTCase):
             name=f"{page.page_name} Mirror",
             channel=f"{CHANNEL}_mirror",
             data_type=sy.DataType.FLOAT64,
-            entry=lambda mirror: mqtt.PlainReadEntry(
+            entry=lambda mirror: create_plain_entry(
+                self.client,
                 topic=MIRROR_TOPIC,
-                fields=[
-                    mqtt.ReadField(
-                        pointer="/value",
-                        channel=mirror.key,
-                        data_type=sy.DataType.FLOAT64,
-                    )
+                bindings=[
+                    (sy.icd.FloatJSONField(name="value", pointer="/value"), mirror.key)
                 ],
             ),
         ) as mirror:

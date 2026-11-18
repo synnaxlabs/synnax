@@ -176,6 +176,17 @@ func f(x f64) u8 {
     return x == math.nan
 }`,
 	}
+	// UnitMissing is a value with a unit that goes to a name with no unit.
+	UnitMissing = diagnostics.Kind{
+		Code:     "E2011",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "missing unit",
+		Problem: "A value with a unit goes to a variable, a parameter, or a " +
+			"function result that has no unit.",
+		Example: `func f(t i64 s) i64 {
+    return t
+}`,
+	}
 	// TruthyCondition is a number or a string used as a condition.
 	TruthyCondition = diagnostics.Kind{
 		Code:     "W2000",
@@ -207,6 +218,18 @@ func f(x f64) u8 {
 			"overflow.",
 		Example: `func f() {
     x := 1K + 1pK
+}`,
+	}
+	// UnitDropped is a cast with no unit of a value that goes to another unit.
+	UnitDropped = diagnostics.Kind{
+		Code:     "W2003",
+		Severity: protocol.DiagnosticSeverityWarning,
+		Message:  "unit dropped",
+		Problem: "A cast with no unit removes the unit of a value before the value " +
+			"goes to a different unit. `i64(5s)` written to a name in `ms` gives " +
+			"`5`, not `5000`.",
+		Example: `func f() {
+    d i64 ms := i64(5s)
 }`,
 	}
 
@@ -691,9 +714,11 @@ var All = []diagnostics.Kind{
 	DimensionMismatch,
 	InvalidLiteral,
 	NaNComparison,
+	UnitMissing,
 	TruthyCondition,
 	BoolCast,
 	UnitPrecisionLoss,
+	UnitDropped,
 	NotCallable,
 	FuncArgMissing,
 	FuncArgExtra,

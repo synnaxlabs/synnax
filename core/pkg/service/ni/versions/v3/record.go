@@ -32,3 +32,7 @@ func (DigitalWriteConfig) CustomTypeName() string { return "ni_digital_write_con
 // CustomTypeName gives ScanConfig records a table prefix that cannot collide with
 // the identically named config types of other integrations.
 func (ScanConfig) CustomTypeName() string { return "ni_scanner_config" }
+
+// aiBase returns the fields that every analog input variant shares. Each variant with
+// shared fields embeds BaseAIChannel, so each one has aiBase.
+func (b BaseAIChannel) aiBase() BaseAIChannel { return b }

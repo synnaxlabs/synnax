@@ -199,7 +199,6 @@ const Labels = ({ range, preview }: RangeProps): ReactElement | null => {
       )}
     >
       <Label.SelectMultiple
-        zIndex={100}
         location={RIGHT_EDGE}
         value={range.labels}
         onChange={handleChange}

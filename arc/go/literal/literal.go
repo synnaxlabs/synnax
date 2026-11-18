@@ -28,13 +28,16 @@ type ParsedValue struct {
 	Value any
 	// Type is the Arc type of the value
 	Type types.Type
+	// Truncated is set when the unit conversion dropped a part of an integer.
+	Truncated bool
 }
 
 // Parse parses a literal AST node and returns its value and type. It supports numeric
 // literals (integer, float, with optional unit suffix) and validates type
 // compatibility. The targetType parameter specifies the expected type for conversion.
 // Float-to-int conversions that lose precision will fail (matching Go semantics for
-// constant conversions).
+// constant conversions). A unit literal converts to the unit of targetType, and keeps
+// its number as written when targetType has no unit.
 func Parse(
 	literal parser.ILiteralContext,
 	targetType types.Type,
@@ -66,10 +69,9 @@ func Parse(
 var ErrTruncated = errors.New("non-integer float in an integer type")
 
 // ParseString parses any of the eight string literal forms ("..." / `...`
-// crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. For
-// format-prefixed strings without placeholders, {{ and }} are collapsed to
-// literal braces; for format strings with placeholders the body is returned
-// with placeholders intact so callers can run FmtStrParse themselves.
+// crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. A format
+// string collapses {{ and }} to literal braces. One with a placeholder is not a
+// constant and returns a codes.NotConstant error.
 func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 	if targetType.IsValid() && targetType.Kind != types.KindString {
 		return ParsedValue{}, codes.TypeMismatch.Errorf(
@@ -101,15 +103,37 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 				errors.Wrapf(err, "invalid format string %s", text),
 			)
 		}
-		if !FmtStrHasPlaceholder(segments) {
-			var sb strings.Builder
-			for _, seg := range segments {
-				sb.WriteString(seg.Text)
-			}
-			value = sb.String()
+		if FmtStrHasPlaceholder(segments) {
+			return ParsedValue{}, codes.NotConstant.Errorf(
+				"format string %s is not a compile-time constant",
+				text,
+			)
 		}
+		var sb strings.Builder
+		for _, seg := range segments {
+			sb.WriteString(seg.Text)
+		}
+		value = sb.String()
 	}
 	return ParsedValue{Value: value, Type: types.String()}, nil
+}
+
+// IsConstant reports whether expr is a lone literal with a value known at compile
+// time. A format string that has a placeholder, or that does not split, is not.
+func IsConstant(expr parser.IExpressionContext) bool {
+	if !parser.IsLiteral(expr) {
+		return false
+	}
+	str := parser.StringTerminal(parser.GetLiteral(expr))
+	if str == nil {
+		return true
+	}
+	body, flags, ok := StripQuotes(str.GetText())
+	if !ok || !flags.Format {
+		return true
+	}
+	segments, err := FmtStrSplit(body, flags)
+	return err == nil && !FmtStrHasPlaceholder(segments)
 }
 
 // ParseNumeric parses a numeric literal (integer or float, with optional unit suffix)
@@ -186,34 +210,42 @@ func parseNumericWithUnit(
 		return ParsedValue{}, codes.UnknownUnit.Errorf("unknown unit: %s", unitName)
 	}
 
-	// If target type has a unit, convert to target unit's scale
-	// Example: 300ms with target TimeSpan() (ns) → 300 * (1e-3 / 1e-9) = 300,000,000
-	if targetType.Unit != nil {
-		factor, err := units.ScaleFactor(unit, targetType.Unit)
-		if err != nil {
-			return ParsedValue{}, err
+	targetType = types.Concrete(targetType)
+	if !targetType.IsValid() {
+		targetType.Kind = types.KindF64
+		if isIntLiteral {
+			targetType.Kind = types.KindI64
 		}
-		targetValue := numericValue * factor
-		return convertToTargetKind(targetValue, targetType, unit)
 	}
-
-	// If target type has a kind but no unit, convert to SI then to target kind
-	if targetType.IsValid() {
-		siValue := numericValue * unit.Scale
-		return convertToTargetKind(siValue, targetType, unit)
+	// A target with no unit takes the number as written.
+	if targetType.Unit == nil {
+		return convertToTargetKind(numericValue, targetType, unit)
 	}
+	return Convert(numericValue, unit, targetType)
+}
 
-	// Default (no target type): use type inference int64 if scaled result is exact
-	// integer AND original literal was integer, else f64
-	siValue := numericValue * unit.Scale
-
-	resultType := types.Type{Unit: unit}
-	if isIntLiteral && IsExactInteger(siValue) {
-		resultType.Kind = types.KindI64
-		return ParsedValue{Value: int64(math.Round(siValue)), Type: resultType}, nil
+// Convert returns value, a number in the unit from, as a value of targetType in its
+// unit. An integer does not hold a part of a unit, so it truncates toward zero.
+func Convert(
+	value float64,
+	from *types.Unit,
+	targetType types.Type,
+) (ParsedValue, error) {
+	factor, err := units.ScaleFactor(from, targetType.Unit)
+	if err != nil {
+		return ParsedValue{}, err
 	}
-	resultType.Kind = types.KindF64
-	return ParsedValue{Value: siValue, Type: resultType}, nil
+	value *= factor
+	// IsExactInteger takes a value under 1e-9 as an exact zero.
+	dropped := value != 0 && math.Round(value) == 0
+	truncated := targetType.IsInteger() && factor != math.Trunc(factor) &&
+		(dropped || !IsExactInteger(value))
+	if truncated {
+		value = math.Trunc(value)
+	}
+	parsed, err := convertToTargetKind(value, targetType, targetType.Unit)
+	parsed.Truncated = truncated
+	return parsed, err
 }
 
 // parseIntegerLiteral converts an integer value to the target type.
@@ -257,6 +289,9 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 		}
 		return ParsedValue{Value: int32(intValue), Type: types.I32()}, nil
 	case types.KindI64:
+		if isTime(targetType.Unit) {
+			return ParsedValue{Value: telem.TimeSpan(intValue), Type: types.I64()}, nil
+		}
 		return ParsedValue{Value: intValue, Type: types.I64()}, nil
 	case types.KindU8:
 		if intValue < 0 || intValue > math.MaxUint8 {
@@ -502,7 +537,7 @@ func convertToTargetKind(
 		}
 		return ParsedValue{Value: int32(intVal), Type: resultType}, nil
 	case types.KindI64:
-		if resultType.Unit.Dimensions.Equal(types.TimeSpan().Unit.Dimensions) {
+		if isTime(resultType.Unit) {
 			return ParsedValue{Value: telem.TimeSpan(value), Type: resultType}, nil
 		}
 		return ParsedValue{Value: int64(value), Type: resultType}, nil
@@ -559,6 +594,10 @@ func convertToTargetKind(
 	}
 	resultType.Kind = types.KindF64
 	return ParsedValue{Value: value, Type: resultType}, nil
+}
+
+func isTime(unit *types.Unit) bool {
+	return unit != nil && unit.Dimensions.Equal(types.TimeSpan().Unit.Dimensions)
 }
 
 // IsExactInteger checks if a float64 value is very close to an integer.

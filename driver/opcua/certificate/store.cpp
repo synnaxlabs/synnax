@@ -94,7 +94,7 @@ x::errors::Error Store::load() {
         if (entry.path().extension() != ".der") continue;
         auto [cert_data, read_err] = x::fs::read_file(entry.path().string());
         if (read_err) return failed("read", entry.path());
-        auto [cert, parse_err] = Certificate::parse(cert_data);
+        auto [cert, parse_err] = x::x509::Certificate::parse(cert_data);
         if (parse_err) return failed("parse", entry.path());
         Identity id{.certificate = std::move(cert)};
         const auto key = this->key_path(id);
@@ -149,7 +149,7 @@ x::errors::Error Store::remove(const Identity &id) const {
 
 std::string Store::application_uri() const {
     if (!this->identities.empty()) {
-        const auto &uri = this->identities.front().certificate.application_uri();
+        const auto &uri = this->identities.front().certificate.uri();
         if (!uri.empty()) return uri;
     }
     return APPLICATION_URI_PREFIX + x::uuid::create().to_string();

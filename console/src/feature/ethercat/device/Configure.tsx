@@ -60,15 +60,13 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device } from "@/platform/device";
+import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 const AUTO = -1;
 const STALE = -2;
 
 const BADGE_CLASS = CSS.BE("ethercat-sync", "badge");
-
-/** The start of the name of a network that the IgH master runs. */
-const IGH_PREFIX = "igh:";
 
 const STALE_ERROR =
   "The device no longer lists this mode, so the network fails to start. Pick a mode.";
@@ -297,7 +295,7 @@ const SLOT_FORMAT: PDevice.LocationFormat = { shape: "slot" };
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "EtherCAT slave",
+  placeholder: "EtherCAT module",
   "aria-label": "Name",
 } as const;
 
@@ -371,6 +369,8 @@ export const Configure = ({
     query: { key: deviceKey },
     beforeSave,
   });
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   // Save sets configured, so the dialog keeps the slave as it was at open.
   const [opened] = useState(form.value);
   const openedSlot = slotZ.parse(opened.properties);
@@ -394,11 +394,7 @@ export const Configure = ({
   // The network applies the settings of each slave on it, configured or not.
   const running = useRunningOnNetwork(opened.rack, network);
   const { update: restartTasks } = useRestartTasks();
-  // The IgH master runs no DC sync, so it does not run the choice of the catalog.
-  const catalog =
-    given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
-      ? given
-      : null;
+  const catalog = given != null && !isStale(modes, given) ? given : null;
   const { capture } = Analytics.use();
   const stale = choice != null && isStale(modes, choice);
   const index = choice == null ? autoIndex(modes, catalog) : choice.index;
@@ -526,7 +522,7 @@ export const Configure = ({
       <Modal.Footer>
         <Nav.Bar.Start gap="small">
           {onBack != null && (
-            <Button.Button variant="text" onClick={onBack}>
+            <Button.Button variant="text" onClick={onBack} disabled={busy}>
               <Icon.Arrow.Left />
               Back
             </Button.Button>

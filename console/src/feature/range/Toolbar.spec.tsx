@@ -55,10 +55,10 @@ const renderToolbar = async ({
     store.dispatch(Session.Range.add({ variant: "persisted", key })),
   );
   const content = (
-    <>
+    <HaulProvider>
       {Range.TOOLBAR.content}
       <Modals.Stack />
-    </>
+    </HaulProvider>
   );
   const { unmount } = render(content, { wrapper });
   const remount = () => {
@@ -533,6 +533,20 @@ describe("range/Toolbar", () => {
   });
 
   describe("drag", () => {
+    it("should picture a dragged line as its range", async () => {
+      const rng = await createRange(
+        uniqueRangeName("picture"),
+        TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+      );
+      await renderToolbar({ favorites: [rng] });
+      fireEvent.dragStart(await findLine("Favorites", rng.name));
+      const preview = document.querySelector(".lyra-haul__layer .lyra-haul-preview");
+      expect(preview?.querySelector(".lyra-haul-preview__name")?.textContent).toBe(
+        rng.name,
+      );
+      expect(preview?.querySelector(".lyra-icon--range")).toBeInstanceOf(Element);
+    });
+
     it("should add a range dropped on the range picker of a line plot", async () => {
       const rng = await createRange(
         uniqueRangeName("drag"),

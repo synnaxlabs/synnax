@@ -260,206 +260,291 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 	if err != nil {
 		return NodeConfig{}, err
 	}
-	switch o := old.Variant.(type) {
+	cfg.Variant = migrateNodeVariant(old.Variant, cfg.Variant)
+	if cfg.Variant, err = migrateNodeColors(ctx, old.Variant, cfg.Variant); err != nil {
+		return NodeConfig{}, err
+	}
+	clearThemeColors(reflect.ValueOf(&cfg).Elem())
+	resetScales(reflect.ValueOf(&cfg).Elem())
+	return cfg, nil
+}
+
+// migrateNodeVariant applies the hand-written v13 rules for old's variant to migrated,
+// the generated copy of it.
+func migrateNodeVariant(
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) NodeConfigVariant {
+	if n, ok := migrateStaticVariant(old, migrated); ok {
+		return n
+	}
+	if n, ok := migrateControlVariant(old, migrated); ok {
+		return n
+	}
+	return migrateDisplayVariant(old, migrated)
+}
+
+func migrateStaticVariant(
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) (NodeConfigVariant, bool) {
+	switch o := old.(type) {
 	case v12.BoxNodeConfig:
-		n := as[BoxNodeConfig](cfg.Variant)
+		n := as[BoxNodeConfig](migrated)
 		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
 		n.BorderRadius = migrateOptionalPixels(o.BorderRadius)
-		if err = migrateColors(ctx,
-			fixed(&n.StrokeColor, o.StrokeColor),
-			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
+		return n, true
+	case v12.CircleNodeConfig:
+		n := as[CircleNodeConfig](migrated)
+		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
+		n.Radius = migrateSize(o.Radius, 20)
+		return n, true
+	case v12.LineNodeConfig:
+		n := as[LineNodeConfig](migrated)
+		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
+		return n, true
+	case v12.PolygonNodeConfig:
+		n := as[PolygonNodeConfig](migrated)
+		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
+		n.NumSides = migrateNumSides(o.NumSides)
+		n.SideLength = migrateSize(o.SideLength, 20)
+		n.BorderRadius = migratePixels(o.CornerRounding, 0)
+		return n, true
+	case v12.TextBoxNodeConfig:
+		n := as[TextBoxNodeConfig](migrated)
+		n.InlineSize = migrateSize(o.Width, 75)
+		return n, true
+	case v12.OffPageReferenceNodeConfig:
+		n := as[OffPageReferenceNodeConfig](migrated)
+		n.DoubleClickNavigationDisabled = o.DblClickNavDisabled
+		n.Page = valueOr(o.Page, Page{Type: PageTypeSchematic})
+		return n, true
+	}
+	return migrated, false
+}
+
+func migrateControlVariant(
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) (NodeConfigVariant, bool) {
+	switch o := old.(type) {
 	case v12.ButtonNodeConfig:
-		n := as[ButtonNodeConfig](cfg.Variant)
+		n := as[ButtonNodeConfig](migrated)
 		n.CommandChannel = valueOr(o.CommandChannel, 0)
 		n.Control = migrateControl(o.Control)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		n.Label.MaxInlineSize = migrateButtonMaxInlineSize(o.Label.MaxInlineSize)
-		if err = migrateColors(ctx,
-			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
+		return n, true
 	case v12.InputNodeConfig:
-		n := as[InputNodeConfig](cfg.Variant)
+		n := as[InputNodeConfig](migrated)
 		n.CommandChannel = valueOr(o.CommandChannel, 0)
 		n.StateChannel = valueOr(o.StateChannel, 0)
 		n.Dimensions = valueOr(o.Dimensions, spatial.Dimensions{})
 		n.Control = migrateControl(o.Control)
 		n.InlineSize = migrateSize(o.InlineSize, 150)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
-		if err = migrateColors(ctx,
-			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
+		return n, true
 	case v12.SelectNodeConfig:
-		n := as[SelectNodeConfig](cfg.Variant)
+		n := as[SelectNodeConfig](migrated)
 		n.CommandChannel = valueOr(o.CommandChannel, 0)
 		n.StateChannel = valueOr(o.StateChannel, 0)
 		n.Control = migrateControl(o.Control)
 		n.InlineSize = migrateSize(o.InlineSize, 100)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
-		if err = migrateColors(ctx,
-			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
+		return n, true
 	case v12.SetpointNodeConfig:
-		n := as[SetpointNodeConfig](cfg.Variant)
+		n := as[SetpointNodeConfig](migrated)
 		n.CommandChannel = valueOr(o.CommandChannel, 0)
 		n.StateChannel = valueOr(o.StateChannel, 0)
 		n.Dimensions = valueOr(o.Dimensions, spatial.Dimensions{})
 		n.Control = migrateControl(o.Control)
 		n.InlineSize = migrateSize(o.InlineSize, 100)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
-		if err = migrateColors(ctx,
-			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
+		return n, true
+	}
+	return migrated, false
+}
+
+func migrateDisplayVariant(
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) NodeConfigVariant {
+	switch o := old.(type) {
 	case v12.StateIndicatorNodeConfig:
-		n := as[StateIndicatorNodeConfig](cfg.Variant)
+		n := as[StateIndicatorNodeConfig](migrated)
 		n.Channel = valueOr(o.Channel, 0)
 		n.InlineSize = migrateSize(o.InlineSize, 100)
-		if err = migrateColors(ctx,
-			fixed(&n.StrokeColor, o.StrokeColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
-	case v12.CircleNodeConfig:
-		n := as[CircleNodeConfig](cfg.Variant)
-		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
-		n.Radius = migrateSize(o.Radius, 20)
-		if err = migrateColors(ctx,
-			fixed(&n.StrokeColor, o.StrokeColor),
-			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
-	case v12.LineNodeConfig:
-		n := as[LineNodeConfig](cfg.Variant)
-		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
-		if err = migrateColors(ctx,
-			fixed(&n.StrokeColor, o.StrokeColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
-	case v12.PolygonNodeConfig:
-		n := as[PolygonNodeConfig](cfg.Variant)
-		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
-		n.NumSides = migrateNumSides(o.NumSides)
-		n.SideLength = migrateSize(o.SideLength, 20)
-		n.BorderRadius = migratePixels(o.CornerRounding, 0)
-		if err = migrateColors(ctx,
-			fixed(&n.StrokeColor, o.StrokeColor),
-			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
+		return n
 	case v12.TankNodeConfig:
 		// A tank declares its numeric and staleness fields inline, so the generated
 		// copy skips the fields whose types changed.
-		n := as[TankNodeConfig](cfg.Variant)
+		n := as[TankNodeConfig](migrated)
 		n.Channel = valueOr(o.Channel, 0)
 		n.Position = valueOr(o.Position, spatial.XY{})
 		n.BorderRadius = &o.BorderRadius
 		n.RollingAverage = migrateRollingAverage(o.RollingAverage)
 		n.StalenessTimeout = migrateStalenessTimeout(o.StalenessTimeout)
-		if err = migrateColors(ctx,
+		return n
+	case v12.LightNodeConfig:
+		n := as[LightNodeConfig](migrated)
+		n.Channel = valueOr(o.Channel, 0)
+		return n
+	case v12.ScaleNodeConfig:
+		n := as[ScaleNodeConfig](migrated)
+		n.Position = valueOr(o.Position, spatial.XY{})
+		return n
+	case v12.GaugeNodeConfig:
+		n := as[GaugeNodeConfig](migrated)
+		n.Position = valueOr(o.Position, spatial.XY{})
+		n.BarWidth = migrateSize(o.BarWidth, 10)
+		return n
+	case v12.StringDisplayNodeConfig:
+		n := as[StringDisplayNodeConfig](migrated)
+		n.Channel = valueOr(o.Channel, 0)
+		n.InlineSize = migrateSize(o.InlineSize, 100)
+		return n
+	case v12.ValueNodeConfig:
+		n := as[ValueNodeConfig](migrated)
+		n.Position = valueOr(o.Position, spatial.XY{})
+		n.InlineSize = migrateSize(o.InlineSize, 70)
+		return n
+	}
+	return migrated
+}
+
+// migrateNodeColors sets each color of migrated, the generated copy of old's variant,
+// to a fixed color from the matching color of old.
+func migrateNodeColors(
+	ctx context.Context,
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) (NodeConfigVariant, error) {
+	if n, ok, err := migrateStaticColors(ctx, old, migrated); ok {
+		return n, err
+	}
+	if n, ok, err := migrateControlColors(ctx, old, migrated); ok {
+		return n, err
+	}
+	return migrateDisplayColors(ctx, old, migrated)
+}
+
+func migrateStaticColors(
+	ctx context.Context,
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) (NodeConfigVariant, bool, error) {
+	switch o := old.(type) {
+	case v12.BoxNodeConfig:
+		n := as[BoxNodeConfig](migrated)
+		err := migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.FillColor, o.FillColor),
+		)
+		return n, true, err
+	case v12.CircleNodeConfig:
+		n := as[CircleNodeConfig](migrated)
+		err := migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.FillColor, o.FillColor),
+		)
+		return n, true, err
+	case v12.CylinderNodeConfig:
+		n := as[CylinderNodeConfig](migrated)
+		err := migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.FillColor, o.FillColor),
+		)
+		return n, true, err
+	case v12.LineNodeConfig:
+		n := as[LineNodeConfig](migrated)
+		err := migrateColors(ctx, fixed(&n.StrokeColor, o.StrokeColor))
+		return n, true, err
+	case v12.PolygonNodeConfig:
+		n := as[PolygonNodeConfig](migrated)
+		err := migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.FillColor, o.FillColor),
+		)
+		return n, true, err
+	case v12.TextBoxNodeConfig:
+		n := as[TextBoxNodeConfig](migrated)
+		err := migrateColors(ctx, fixed(&n.TextColor, o.TextColor))
+		return n, true, err
+	case v12.OffPageReferenceNodeConfig:
+		n := as[OffPageReferenceNodeConfig](migrated)
+		err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor))
+		return n, true, err
+	}
+	return migrated, false, nil
+}
+
+func migrateControlColors(
+	ctx context.Context,
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) (NodeConfigVariant, bool, error) {
+	switch o := old.(type) {
+	case v12.ButtonNodeConfig:
+		n := as[ButtonNodeConfig](migrated)
+		err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor))
+		return n, true, err
+	case v12.InputNodeConfig:
+		n := as[InputNodeConfig](migrated)
+		err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor))
+		return n, true, err
+	case v12.SelectNodeConfig:
+		n := as[SelectNodeConfig](migrated)
+		err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor))
+		return n, true, err
+	case v12.SetpointNodeConfig:
+		n := as[SetpointNodeConfig](migrated)
+		err := migrateColors(ctx, fixed(&n.FillColor, o.FillColor))
+		return n, true, err
+	}
+	return migrated, false, nil
+}
+
+func migrateDisplayColors(
+	ctx context.Context,
+	old v12.NodeConfigVariant,
+	migrated NodeConfigVariant,
+) (NodeConfigVariant, error) {
+	switch o := old.(type) {
+	case v12.StateIndicatorNodeConfig:
+		n := as[StateIndicatorNodeConfig](migrated)
+		err := migrateColors(ctx, fixed(&n.StrokeColor, o.StrokeColor))
+		return n, err
+	case v12.TankNodeConfig:
+		n := as[TankNodeConfig](migrated)
+		err := migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			fixed(&n.FillColor, o.FillColor),
 			themed(&n.LevelColor, o.LevelColor),
 			themed(&n.AxisColor, o.AxisColor),
 			themed(&n.TextColor, o.TextColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
-	case v12.LightNodeConfig:
-		n := as[LightNodeConfig](cfg.Variant)
-		n.Channel = valueOr(o.Channel, 0)
-		cfg.Variant = n
-	case v12.ScaleNodeConfig:
-		n := as[ScaleNodeConfig](cfg.Variant)
-		n.Position = valueOr(o.Position, spatial.XY{})
-		cfg.Variant = n
+		)
+		return n, err
 	case v12.GaugeNodeConfig:
-		n := as[GaugeNodeConfig](cfg.Variant)
-		n.Position = valueOr(o.Position, spatial.XY{})
-		n.BarWidth = migrateSize(o.BarWidth, 10)
-		if err = migrateColors(ctx,
-			themed(&n.StrokeColor, o.StrokeColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
-	case v12.OffPageReferenceNodeConfig:
-		n := as[OffPageReferenceNodeConfig](cfg.Variant)
-		n.DoubleClickNavigationDisabled = o.DblClickNavDisabled
-		n.Page = valueOr(o.Page, Page{Type: PageTypeSchematic})
-		if err = migrateColors(ctx,
-			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
+		n := as[GaugeNodeConfig](migrated)
+		err := migrateColors(ctx, themed(&n.StrokeColor, o.StrokeColor))
+		return n, err
 	case v12.StringDisplayNodeConfig:
-		n := as[StringDisplayNodeConfig](cfg.Variant)
-		n.Channel = valueOr(o.Channel, 0)
-		n.InlineSize = migrateSize(o.InlineSize, 100)
-		if err = migrateColors(ctx,
+		n := as[StringDisplayNodeConfig](migrated)
+		err := migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			fixed(&n.TextColor, o.TextColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
-	case v12.TextBoxNodeConfig:
-		n := as[TextBoxNodeConfig](cfg.Variant)
-		n.InlineSize = migrateSize(o.Width, 75)
-		if err = migrateColors(ctx,
-			fixed(&n.TextColor, o.TextColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
-	case v12.CylinderNodeConfig:
-		n := as[CylinderNodeConfig](cfg.Variant)
-		if err = migrateColors(ctx,
-			fixed(&n.StrokeColor, o.StrokeColor),
-			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
+		)
+		return n, err
 	case v12.ValueNodeConfig:
-		n := as[ValueNodeConfig](cfg.Variant)
-		n.Position = valueOr(o.Position, spatial.XY{})
-		n.InlineSize = migrateSize(o.InlineSize, 70)
-		if err = migrateColors(ctx,
+		n := as[ValueNodeConfig](migrated)
+		err := migrateColors(ctx,
 			fixed(&n.StrokeColor, o.StrokeColor),
 			themed(&n.TextColor, o.TextColor),
 			fixed(&n.FillColor, o.FillColor),
-		); err != nil {
-			return NodeConfig{}, err
-		}
-		cfg.Variant = n
+		)
+		return n, err
 	}
-	clearThemeColors(reflect.ValueOf(&cfg).Elem())
-	resetScales(reflect.ValueOf(&cfg).Elem())
-	return cfg, nil
+	return migrated, nil
 }
 
 const (
