@@ -86,5 +86,6 @@ func dispatch(
 
 // fixedColor returns a fixed color reference to the color that hex names.
 func fixedColor(hex string) *color.Ref {
+	GinkgoHelper()
 	return &color.Ref{Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse(hex))}}
 }
