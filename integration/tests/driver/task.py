@@ -26,6 +26,7 @@ from pydantic import ValidationError
 import synnax as sy
 from framework.test_case import TestCase
 from framework.utils import hold
+from freighter.websocket import ConnectionClosedError
 from x.telem import to_float
 
 _STATUS_CHANNEL = "sy_status_set"
@@ -197,7 +198,7 @@ def send_and_verify_commands(
                 finally:
                     try:
                         writer.close()
-                    except sy.Error:
+                    except (sy.Error, ConnectionClosedError):
                         pass
                 if verified and statuses is not None and task_key is not None:
                     task_errors = _buffered_task_errors(statuses, task_key)

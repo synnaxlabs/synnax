@@ -10,7 +10,7 @@
 import argparse
 import json
 import sys
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -224,6 +224,9 @@ class Broken:
         raise self.error
 
 
+@pytest.mark.parametrize(
+    "close_quietly", [close_quietly, common.close_quietly], ids=["agent", "common"]
+)
 class TestCloseQuietly:
     """Tests for closing a resource during teardown."""
 
@@ -234,13 +237,17 @@ class TestCloseQuietly:
             ConnectionClosedError(Close(1011, "keepalive ping timeout"), None),
         ],
     )
-    def test_should_ignore_a_core_or_transport_error(self, error: Exception) -> None:
+    def test_should_ignore_a_core_or_transport_error(
+        self, close_quietly: Callable[[Broken | None], None], error: Exception
+    ) -> None:
         resource = Broken(error)
         close_quietly(resource)
         close_quietly(None)
         assert resource.closes == 1
 
-    def test_should_raise_any_other_error(self) -> None:
+    def test_should_raise_any_other_error(
+        self, close_quietly: Callable[[Broken | None], None]
+    ) -> None:
         with pytest.raises(RuntimeError):
             close_quietly(Broken(RuntimeError("bug")))
 
