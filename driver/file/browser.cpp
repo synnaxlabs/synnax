@@ -233,22 +233,26 @@ Browser::list(const std::string &path) const {
             {"path", e.path_utf8},
             {"kind", e.directory ? "directory" : "file"},
         };
-        if (listed_secret || secrets.contains(e.path)) {
+        // The check and the reads use one resolved path, so a link that changes
+        // between them cannot lead the reads into the secrets folder.
+        std::error_code resolve_ec;
+        const auto target = std::filesystem::canonical(e.path, resolve_ec);
+        if (listed_secret || resolve_ec || secrets.contains(target)) {
             entries.push_back(std::move(entry));
             continue;
         }
         std::error_code stat_ec;
-        const auto modified = std::filesystem::last_write_time(e.path, stat_ec);
+        const auto modified = std::filesystem::last_write_time(target, stat_ec);
         if (stat_ec) continue;
         const std::uintmax_t size = e.directory
                                       ? 0
-                                      : std::filesystem::file_size(e.path, stat_ec);
+                                      : std::filesystem::file_size(target, stat_ec);
         if (stat_ec) continue;
         entry["size"] = size;
         entry["modified"] = std::to_string(to_timestamp(modified).nanoseconds());
         if (!e.directory && size <= MAX_CERTIFICATE_SIZE &&
             certificate_extension(e.path))
-            if (auto details = read_certificate(e.path))
+            if (auto details = read_certificate(target))
                 entry["certificate"] = std::move(*details);
         entries.push_back(std::move(entry));
     }

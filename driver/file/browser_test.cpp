@@ -219,6 +219,25 @@ TEST_F(BrowserTest, LinkIntoSecretsNamesOnly) {
     ASSERT_EQ(entry(data, "secrets").size(), 3);
 }
 
+/// @brief it should read a link outside the secrets folder from its resolved target.
+TEST_F(BrowserTest, LinkReadFromTarget) {
+    const auto certs = this->dir / "certs";
+    std::filesystem::create_directories(certs);
+    write(certs / "server.pem", x::x509::testutil::CERTIFICATE);
+    std::error_code ec;
+    std::filesystem::create_symlink(certs / "server.pem", this->dir / "link.pem", ec);
+    if (ec) GTEST_SKIP() << "cannot create a link: " << ec.message();
+    const auto data = ASSERT_NIL_P(this->browser().list(this->dir.string()));
+    const auto link = entry(data, "link.pem");
+    ASSERT_EQ(link["path"], (this->dir / "link.pem").string());
+    ASSERT_EQ(link["size"], x::x509::testutil::CERTIFICATE.size());
+    const auto modified = to_timestamp(
+        std::filesystem::last_write_time(certs / "server.pem")
+    );
+    ASSERT_EQ(link["modified"], std::to_string(modified.nanoseconds()));
+    ASSERT_EQ(link["certificate"], CERTIFICATE_DETAILS);
+}
+
 /// @brief it should leave out a link whose target is missing.
 TEST_F(BrowserTest, BrokenLinkLeftOut) {
     std::error_code ec;
