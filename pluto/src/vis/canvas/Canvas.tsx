@@ -26,10 +26,13 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { canvas } from "@/vis/canvas/aether";
+
+type State = z.infer<typeof canvas.canvasStateZ>;
 
 type HTMLDivProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLDivElement>,
@@ -53,9 +56,21 @@ const ZERO_CANVASES: Canvases = {
 };
 
 const Context = createContext(false);
+Context.displayName = "Canvas.Context";
 
 /** @returns true when the enclosing canvas has no GPU to draw visualizations with. */
 export const useGPUMissing = (): boolean => use(Context);
+
+// The worker owns the bootstrap fields, so a region change keeps them and never sends
+// the transferred canvases again.
+const withRegion = (p: State, region: box.Box): State => ({
+  bootstrap: false,
+  bootstrapped: p.bootstrapped,
+  gpuMissing: p.gpuMissing,
+  region,
+  dpr: window.devicePixelRatio,
+  os: runtime.getOS({ default: "Windows" }),
+});
 
 const DEFAULT_RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
@@ -81,13 +96,7 @@ export const Canvas = ({
 
   const handleResize = (region: box.Box) => {
     if (canvases.current.bootstrapped) {
-      setState((p) => ({
-        bootstrapped: true,
-        gpuMissing: p.gpuMissing,
-        region,
-        dpr: window.devicePixelRatio,
-        os: runtime.getOS({ default: "Windows" }),
-      }));
+      setState((p) => withRegion(p, region));
       initialResizeComplete.current = true;
     }
   };
@@ -106,14 +115,10 @@ export const Canvas = ({
         elRef.current == null
       )
         return;
-      setState((p) => ({
-        ...p,
-        // We need to explicitly construct the region here because this callback
-        // may race against the `useResize` callback and cause a stale region to
-        // be used in state.
-        region: box.construct(elRef.current ?? box.ZERO),
-        dpr: window.devicePixelRatio,
-      }));
+      // We need to explicitly construct the region here because this callback may
+      // race against the `useResize` callback and cause a stale region to be used in
+      // state.
+      setState((p) => withRegion(p, box.construct(elRef.current ?? box.ZERO)));
     };
     const query = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
     query.addEventListener("change", handleChange, { once: true });
@@ -125,16 +130,10 @@ export const Canvas = ({
   useEffect(() => {
     const handler = () => {
       if (!canvases.current.bootstrapped || elRef.current == null) return;
-      setState((p) => ({
-        ...p,
-        // We need to explicitly construct the region here because this callback
-        // may race against the `useResize` callback and cause a stale region to
-        // be used in state.
-        region: box.construct(elRef.current ?? box.ZERO),
-        glCanvas: undefined,
-        upper2dCanvas: undefined,
-        lower2dCanvas: undefined,
-      }));
+      // We need to explicitly construct the region here because this callback may
+      // race against the `useResize` callback and cause a stale region to be used in
+      // state.
+      setState((p) => withRegion(p, box.construct(elRef.current ?? box.ZERO)));
     };
     window.addEventListener("focus", handler);
     window.addEventListener("blur", handler);
