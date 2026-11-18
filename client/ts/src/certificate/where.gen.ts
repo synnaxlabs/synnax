@@ -19,37 +19,61 @@ import {
   type OrderField,
   type Where,
 } from "@/certificate/types.gen";
+import { rack } from "@/rack";
+import { secret } from "@/secret";
+
+/**
+ * Lines checks the typed lines of a Where against a record. A null entry marks a line
+ * that only the Core can check.
+ */
+export interface Lines {
+  racks: ((record: Certificate, value: NonNullable<Where["racks"]>) => boolean) | null;
+}
 
 /**
  * @returns whether the record matches where. An absent where matches every record.
+ * @throws {Error} if where is server-computed, since only the Core can check it.
  */
-export const matches = (record: Certificate, where?: Where): boolean => {
+export const matches = (lines: Lines, record: Certificate, where?: Where): boolean => {
   if (where == null) return true;
-  if (where.and != null && !where.and.every((w) => matches(record, w))) return false;
-  if (where.or != null && !where.or.some((w) => matches(record, w))) return false;
-  if (where.not != null && matches(record, where.not)) return false;
+  if (where.and != null && !where.and.every((w) => matches(lines, record, w)))
+    return false;
+  if (where.or != null && !where.or.some((w) => matches(lines, record, w)))
+    return false;
+  if (where.not != null && matches(lines, record, where.not)) return false;
   if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
   if (where.name != null && !filter.matchesString(where.name, record.name))
     return false;
+  if (where.source != null && !filter.matchesSet(where.source, record.source))
+    return false;
+  if (where.racks != null) {
+    if (lines.racks == null) throw new Error("only the Core can check racks");
+    if (!lines.racks(record, where.racks)) return false;
+  }
   return true;
 };
 
 /**
- * @returns whether only the Core can check where, because it holds a regex. An absent
- * where is not server-computed.
+ * @returns whether only the Core can check where, because it holds a regex or a line
+ * whose entry in lines is null. An absent where is not server-computed.
  */
-export const serverComputed = (where?: Where): boolean =>
+export const serverComputed = (lines: Lines, where?: Where): boolean =>
   where != null &&
-  (where.and?.some((w) => serverComputed(w)) === true ||
-    where.or?.some((w) => serverComputed(w)) === true ||
-    (where.not != null && serverComputed(where.not)) ||
-    where.name?.regex != null);
+  (where.and?.some((w) => serverComputed(lines, w)) === true ||
+    where.or?.some((w) => serverComputed(lines, w)) === true ||
+    (where.not != null && serverComputed(lines, where.not)) ||
+    where.name?.regex != null ||
+    (where.racks != null && lines.racks == null));
 
 const inputs = {
   /** key selects by key. */
   key: filter.setInputZ(keyZ).exactOptional(),
   /** name selects by name. */
   name: filter.stringInputZ.exactOptional(),
+  /** source selects by source. */
+  source: filter.setInputZ(secret.sourceZ).exactOptional(),
+  /** racks matches the file certificates on any of the given racks. */
+  racks: filter.listInputZ(rack.keyZ).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -86,10 +110,12 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       ...inputs,
       ...options,
     })
-    .transform((input) => filter.split(input, ["and", "or", "not", "key", "name"]));
+    .transform((input) =>
+      filter.split(input, ["and", "or", "not", "key", "name", "source", "racks"]),
+    );
 
 /** LIST_FIELDS are the top-level fields that a list can read, by wire name. */
-export const LIST_FIELDS: readonly string[] = ["key", "name"];
+export const LIST_FIELDS: readonly string[] = ["key", "name", "source"];
 
 /** @returns the position of record in order, or in key order when order is absent. */
 export const cursor = (record: Certificate, order?: Order): Cursor => {

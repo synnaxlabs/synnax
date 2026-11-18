@@ -11,6 +11,9 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"io/fs"
+	"os"
 	"slices"
 	"time"
 
@@ -124,6 +127,11 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	SecretsKey secret.EncryptionKey
+	// SecretsDir is the folder that holds the file secrets of the Core's rack. Empty
+	// when the Core has none.
+	//
+	// [OPTIONAL]
+	SecretsDir string
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
@@ -165,6 +173,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		other.SecretsKey,
 		other.SecretsKey != secret.EncryptionKey{},
 	)
+	c.SecretsDir = override.String(c.SecretsDir, other.SecretsDir)
 	return c
 }
 
@@ -638,6 +647,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
+	coreRack, err := l.Rack.RetrieveOrCreateEmbedded(
+		ctx,
+		fmt.Sprintf("Node %d", cfg.Distribution.Identity.HostKey),
+	)
+	if !ok(err, nil) {
+		return nil, err
+	}
 	// The Driver reads sy_rack_set as racks, so actions take their own channel.
 	if err = l.Signals.PublishActions(
 		ctx,
@@ -789,6 +805,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Signals:         l.Signals,
 		Grant:           l.Grant,
 		EncryptionKey:   cfg.SecretsKey,
+		Rack:            coreRack.Key,
+		Folder:          secretsFolder(cfg.SecretsDir),
 	}); !ok(err, l.Secret) {
 		return nil, err
 	}
@@ -799,7 +817,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Status:          l.Status,
 		Rack:            l.Rack,
 		References: []gorp.Reference[device.Key, device.Device]{
-			sift.APIKeyReference(),
+			sift.APIKeyReference(l.Secret),
 		},
 	}); !ok(err, l.Device) {
 		return nil, err
@@ -878,6 +896,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("pagerduty"),
 		DB:              cfg.Distribution.DB,
 		Secret:          l.Secret,
+		Rack:            coreRack.Key,
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
@@ -1114,6 +1133,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
 		Rack:            l.Rack,
+		RackKey:         coreRack.Key,
 		Task:            l.Task,
 		Framer:          l.Framer,
 		Channel:         l.Channel,
@@ -1130,4 +1150,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	return l, nil
+}
+
+// secretsFolder returns the folder at dir, or nil when dir is empty.
+func secretsFolder(dir string) fs.FS {
+	if dir == "" {
+		return nil
+	}
+	return os.DirFS(dir)
 }
