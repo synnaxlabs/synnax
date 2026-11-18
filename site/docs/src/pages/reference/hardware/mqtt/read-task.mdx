@@ -350,15 +350,14 @@ Two messages cannot write to the same channel, an index channel included.
 ## Edit the message format of a running task
 
 The message format belongs to the ICD, not to the task. An edit to it, in the task tab
-or in the ICD editor, saves at once. Each task that reads the ICD reads its next message
-with the new format, with no restart. This includes **Remove** on a field, which takes
-the field out of each of those tasks. Edits to the task itself, such as a field that you
-turn on, wait until you
+or in the ICD editor, saves at once. A running task keeps the format that it started
+with, and its task tab shows **Redeploy**. To read with the new format,
 [redeploy the task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
+In Python, call `client.tasks.configure(task)` again.
 
-When an edit leaves the task unable to read a field, such as a type that its channel
-cannot hold, the task stops with **Failed to configure task**. See
-[troubleshooting](#the-task-stops-after-an-edit-of-the-message-format).
+An edit can give a field a type that its channel cannot hold. On **Redeploy** in the
+task tab, the Console gives the field a new channel. A configure from Python fails with
+**Failed to configure task**. See [troubleshooting](#troubleshooting).
 
 <Divider.Divider x />
 
@@ -495,17 +494,17 @@ warning clears when the connection returns.
 </Problem.Cause>
 </Problem.Item>
 
-<Problem.Item symptom="The task stops after an edit of the message format">
+<Problem.Item symptom="The task reads with the old message format">
 <Problem.Cause>
 
-The edit left the task unable to read a field, such as a type that its channel cannot
-hold. The status is **Failed to configure task**, and its description gives the reason.
+A running task keeps the message format that it started with. An edit to the format
+saves at once, but the task uses it only after a redeploy.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Undo the edit, then start the task again. Or, without the undo, start the task again in
-the Console, which gives a field a new channel when its type no longer fits the old one.
+Click **Redeploy** in the task tab. In Python, call `client.tasks.configure(task)`
+again.
 
 </Problem.Fix>
 </Problem.Item>
@@ -520,22 +519,25 @@ or an **Offset** needs a float channel.
 <Problem.Fix>
 
 Change the **Type** of the field, or read it into a channel of a data type that fits.
-See [field types](#field-types).
+See [field types](#field-types). After an edit of the type, **Redeploy** in the Console
+gives the field a new channel.
 
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["the index field ... must be a timestamp field", "the index field ... must write to an index channel", "only the index field can write to index channel ..."]}>
+<Problem.Item message={["the index field ... must be a timestamp field", "the index field ... cannot take a default", "the index field ... must write to an index channel", "only the index field can write to index channel ..."]}>
 <Problem.Cause>
 
 The `index` of a message names a field that cannot give timestamps, or a field other
-than the index writes to an index channel.
+than the index writes to an index channel. An index field cannot have a default, because
+each sample needs the time from its own payload.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Set `index` to a timestamp field, and bind it to the index channel. Bind each other
-field to a data channel.
+Set `index` to a timestamp field with no default, and bind it to the index channel. Bind
+each other field to a data channel. To remove a default in the Console, open the field's
+**Options** in the ICD editor and turn off **Optional**.
 
 </Problem.Fix>
 </Problem.Item>
