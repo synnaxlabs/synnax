@@ -12,9 +12,9 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { ICD as PICD } from "@synnaxlabs/pluto";
+import { type Flux, ICD as PICD } from "@synnaxlabs/pluto";
 import { type deep } from "@synnaxlabs/x";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useSyncExternalStore } from "react";
 
 import { type ReadSource } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
@@ -22,10 +22,29 @@ import { Task } from "@/platform/task";
 const choiceKey = (icdKey: icd.Key, message: icd.MessageKey): string =>
   `${icdKey}/${message}`;
 
-interface Choice {
-  icd: icd.ICD;
-  message: icd.Message;
+interface ChoicesProps extends Pick<
+  Flux.UseListReturn<icd.Key, icd.ICD>,
+  "getItem" | "subscribe"
+> {
+  icdKey: icd.Key;
 }
+
+/** Lists the JSON messages of an ICD, current with its edits. */
+const Choices = ({ icdKey, getItem, subscribe }: ChoicesProps): ReactElement[] => {
+  const parent = useSyncExternalStore(
+    (callback) => subscribe(callback, icdKey),
+    () => getItem(icdKey),
+  );
+  if (parent == null) return [];
+  return parent.messages
+    .filter(({ payload }) => payload.format === "json")
+    .map((m) => (
+      <Select.Item key={m.key} itemKey={choiceKey(parent.key, m.key)}>
+        <Text.Text>{m.name}</Text.Text>
+        <Text.Text color={9}>{parent.name}</Text.Text>
+      </Select.Item>
+    ));
+};
 
 export interface MessageFormatFieldProps {
   /** The path of a source that reads one message. */
@@ -41,22 +60,16 @@ export const MessageFormatField = ({
   const isPreview = Task.useIsPreview();
   const icdKey = Form.useFieldValue(path.icd);
   const { message } = Form.useFieldValue(path.messages[0]);
-  const { data, getItem, more } = PICD.useList({ pageSize: 1000 });
+  const { data, getItem, subscribe, more } = PICD.useList({ pageSize: 1000 });
   // The trigger names the message that the source reads before the dialog opens.
   useEffect(() => {
     more();
   }, []);
-  const choices = new Map<string, Choice>(
-    getItem(data).flatMap((parent) =>
-      parent.messages
-        .filter(({ payload }) => payload.format === "json")
-        .map((m) => [choiceKey(parent.key, m.key), { icd: parent, message: m }]),
-    ),
-  );
   const handleChange = (key: string) => {
-    const choice = choices.get(key);
-    if (choice == null) throw new Error(`No message format has the key ${key}`);
-    onChange(choice.icd.key, choice.message);
+    const [parent, messageKey] = key.split("/");
+    const picked = getItem(parent)?.messages.find(({ key }) => key === messageKey);
+    if (picked == null) throw new Error(`No message format has the key ${key}`);
+    onChange(parent, picked);
   };
   return (
     <Input.Item label="Message format" padHelpText={false}>
@@ -64,15 +77,11 @@ export const MessageFormatField = ({
         resourceName="message format"
         value={choiceKey(icdKey, message)}
         onChange={handleChange}
-        variant="floating"
         allowNone={false}
         preview={isPreview}
       >
-        {[...choices].map(([key, choice]) => (
-          <Select.Item key={key} itemKey={key}>
-            <Text.Text>{choice.message.name}</Text.Text>
-            <Text.Text color={9}>{choice.icd.name}</Text.Text>
-          </Select.Item>
+        {data.map((key) => (
+          <Choices key={key} icdKey={key} getItem={getItem} subscribe={subscribe} />
         ))}
       </Select.Simple>
     </Input.Item>

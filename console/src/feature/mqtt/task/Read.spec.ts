@@ -867,7 +867,7 @@ describe("MQTT read form", () => {
       expect(messages.map(({ key }) => key)).toEqual([entry.messages[0].message]);
     });
 
-    it("should remove the empty message that a topic stops reading", async () => {
+    it("should keep an empty message that a topic stops reading in its ICD", async () => {
       const entry = await createEntry({ fields: [] });
       const { shared, message } = await createShared([
         createField("pressure", "float"),
@@ -875,10 +875,63 @@ describe("MQTT read form", () => {
       const { draft } = await renderRead({ entries: [entry] });
       await openTopic();
       await pickFormat(TOPIC, message.name);
-      await waitFor(async () => {
-        expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key);
-        expect((await client.icds.retrieve({ key: entry.icd })).messages).toEqual([]);
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0]).icd).toBe(shared.key),
+      );
+      const { messages } = await client.icds.retrieve({ key: entry.icd });
+      expect(messages.map(({ key }) => key)).toEqual([entry.messages[0].message]);
+    });
+
+    it.each([
+      { name: "one timestamp field", times: ["time"], indexed: true },
+      { name: "no timestamp field", times: [], indexed: false },
+      { name: "two timestamp fields", times: ["time", "sent"], indexed: false },
+    ])(
+      "should take the time from the payload only for a message with $name",
+      async ({ times, indexed }) => {
+        const entry = await createEntry({
+          fields: [createField("temperature", "float")],
+        });
+        const stamps = times.map((name) => ({
+          ...createTimeField(),
+          name,
+          pointer: `/${name}`,
+        }));
+        const pressure = createField("pressure", "float");
+        const { message } = await createShared([...stamps, pressure]);
+        const { draft } = await renderRead({ entries: [entry] });
+        await openTopic();
+        await pickFormat(TOPIC, message.name);
+        await waitFor(async () => {
+          const [read] = plainOf((await retrieveEntries(draft.key))[0]).messages;
+          expect(read.message).toBe(message.key);
+          expect(read.index).toBe(indexed ? stamps[0].key : undefined);
+          expect(read.bindings).toContainEqual({
+            field: pressure.key,
+            channel: 0,
+            dataType: "",
+          });
+        });
+      },
+    );
+
+    it("should list a message that is renamed while the topic is open", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
       });
+      const { shared, message } = await createShared([
+        createField("pressure", "float"),
+      ]);
+      await renderRead({ entries: [entry] });
+      await openTopic();
+      fireEvent.click(await findDialogTriggerByText(TOPIC));
+      await screen.findByText(message.name);
+      const renamed = uniqueName("alarm");
+      await client.icds.dispatch(
+        shared.key,
+        icd.set({ path: ["messages", message.key, "name"], value: renamed }),
+      );
+      await screen.findByText(renamed);
     });
 
     /**
