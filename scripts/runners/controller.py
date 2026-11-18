@@ -68,7 +68,7 @@ cycle, and the queue is rebuilt from the API every 5 minutes. Runner names and l
 persist in registry.json so a removed runner keeps reporting.
 
 Scaler (scaler.py): starts stopped runners when jobs queue in their pool, drains
-runners idle past --idle-cooldown (3 min), and once a drained runner is offline,
+runners idle past --idle-cooldown (1 min), and once a drained runner is offline,
 deletes its GitHub registration and stops its instance. An offline runner counts as
 idle when it is drained or its instance is up longer than --boot-grace (2 min).
 --scale sets the start state (enabled); runner_scaler_cmd switches it at runtime,
@@ -446,7 +446,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--idle-cooldown",
         type=seconds,
-        default=3 * sy.TimeSpan.MINUTE,
+        default=1 * sy.TimeSpan.MINUTE,
         help="idle seconds before the scaler stops a runner",
     )
     p.add_argument(
