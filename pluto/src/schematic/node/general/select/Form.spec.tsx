@@ -42,20 +42,15 @@ describe("SelectForm", () => {
       name: `select-${id.create()}`,
       entries: [],
     });
-    const {
-      findByRole,
-      findByLabelText,
-      findByText,
-      getByPlaceholderText,
-      queryByText,
-      value,
-    } = renderForm(
-      <SelectForm tab="options" onTabChange={vi.fn()} />,
-      createConfig({ variant: "select" }),
-      schematic.selectNodeConfigZ,
-      wrapper,
-    );
-    expect(await findByText("No options added")).toBeTruthy();
+    const { findByRole, findByLabelText, getByPlaceholderText, queryByRole, value } =
+      renderForm(
+        <SelectForm tab="options" onTabChange={vi.fn()} />,
+        createConfig({ variant: "select" }),
+        schematic.selectNodeConfigZ,
+        wrapper,
+      );
+    const add = { name: "Add option" };
+    expect(await findByRole("button", add)).toBeTruthy();
     fireEvent.click(await findByRole("button", { name: "Enumeration" }));
     fireEvent.change(getByPlaceholderText("Search enumerations..."), {
       target: { value: created.name },
@@ -63,10 +58,10 @@ describe("SelectForm", () => {
     fireEvent.click(await findByRole("option", { name: created.name }));
     await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
     const clear = await findByLabelText(`Clear ${created.name}`);
-    expect(queryByText("No options added")).toBeNull();
+    expect(queryByRole("button", add)).toBeNull();
     fireEvent.click(clear);
     await waitFor(() => expect(value(path.enumeration)).toBeUndefined());
-    expect(await findByText("No options added")).toBeTruthy();
+    expect(await findByRole("button", add)).toBeTruthy();
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {

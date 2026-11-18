@@ -64,8 +64,7 @@ Twelve more variants pass the symbol test and keep their variants: `tank`, `cyli
 `select`, `button`, and `off_page_reference`. Each needs only a new variant or an
 optional field in §4.1, such as a stretch rule, a text look, a `hold` action, or a
 generated drawing, so none forces a migration of stored symbols. A readout moves into
-`symbol` only after a text render benchmark passes in WebKit, as motion waits on
-phase 5.
+`symbol` only after a text render benchmark passes in WebKit.
 
 ### 4.1 Stored shape
 
@@ -468,8 +467,28 @@ draw from their `active` state, entry looks, and the Light and Switch enumeratio
 the switch drawn as the Lyra switch draws it, a form with the enumeration picker, and
 the deletion of 86 variants. It is larger than a usual PR because no smaller step leaves
 one node shape in `main`. Phase 3 adds the save confirm, and phase 4 lists the removed
-bindings and overrides in it. Phase 5 starts with the WebKit benchmark, and no built-in
-moves until it passes at 1,000 moving parts.
+bindings and overrides in it.
+
+Phase 5 draws motion in SVG. One `requestAnimationFrame` loop writes SVG attributes for
+every moving part. One table holds motion as data: it maps each `Motion` variant and
+`blink` to the attribute that it writes, a transform, a dash offset, a fill level, or an
+opacity. Motion composes with a part's own `transform` and never writes an attribute
+that a look writes. A part is in the loop only while it moves under §4.2: while the
+looks in effect give it a `blink`, or a `spin` or `flow` with a speed that is not 0, or
+while its `level`, `rotate`, or `move` transitions to a new fraction. A `spin` or `flow`
+with no `state` moves at its `rate`. With a `state`, its speed is its `rate` times the
+fraction that the `state` reads (§4.1), so the part joins and leaves the loop as that
+fraction changes. A negative `rate` is valid and moves the part the other way. A part
+that stops or is hidden, or whose drawing is rebuilt or removed, leaves the loop. The
+bar for motion is 60 fps, and at least 30 fps under heavy load, such as a live line plot
+with pan and zoom. The bar is a target, not a run time limit: the phase 5 PR shows the
+benchmark holding it at 100 moving parts in WKWebView, and nothing caps motion while the
+Console runs. On a large schematic or a slow machine, the Reduce motion setting and
+`motion_disabled` stop the animation (§4.2). The WebKit benchmark measured this loop in
+WKWebView on an Apple M3 Max. It holds 60 fps at 100 moving parts and fails 60 fps
+at 500. At 1,000 it draws 21 fps, and 15 to 26 fps during pan, wheel zoom, or a main
+thread 60% busy. Each moving part costs about 40 µs of main-thread time a frame, so the
+60 fps limit is between 100 and 400 moving parts.
 
 | Phase | Scope                                                    | Touches                                                                                                                                                                                                           | Depends on |
 | ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
@@ -477,7 +496,7 @@ moves until it passes at 1,000 moving parts.
 | 2     | Replace equipment variants with one `symbol` variant     | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/api/schematic`, `core/pkg/service/imex`, `pluto/src/schematic`, `console/src/feature`                                                                   | 1          |
 | 3     | Edit parts and looks, duplicate built-ins, confirm saves | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 2          |
 | 4     | Edit states, commands, and clicks                        | `core/pkg/service/schematic/symbol`, `console/src/feature/schematic/symbol`                                                                                                                                       | 2, 3       |
-| 5     | Benchmark motion in WebKit, then draw it                 | `pluto/src/schematic/node/common/custom`                                                                                                                                                                          | 2          |
+| 5     | Draw motion in SVG with one animation loop               | `pluto/src/schematic/node/common/custom`                                                                                                                                                                          | 2          |
 
 ## 7 Resolved decisions
 
@@ -496,8 +515,8 @@ moves until it passes at 1,000 moving parts.
    model for one kind of record. The trade is real: a wrong save reaches running stands.
 7. **Components attach at their own handles**: A pipe to any member breaks when a
    revision moves it, and a "port" would name what a handle already names.
-8. **Built-ins may move**: Beauty is a product principle. The phase 5 benchmark gates
-   it.
+8. **Built-ins may move**: Beauty is a product principle. Phase 5 measures motion
+   against a frame rate bar (§6), and Reduce motion and `motion_disabled` stop it.
 9. **Four families, not one variant for all**: A shape in `symbol` adds per-copy
    geometry that most symbols ignore, against principle 1. The trade is real: the editor
    edits four kinds of item, as Figma, tldraw, Excalidraw, and draw.io do.
@@ -533,6 +552,12 @@ moves until it passes at 1,000 moving parts.
     turn on, so the migration gives it `within` 0.9 to 1.1 and logs a warning that names
     it. The trade is real: it is the one place where the migration changes what a user
     sees.
+21. **Motion draws in SVG, not on a canvas**: In WKWebView a worker canvas holds 60 fps
+    at 2,000 moving parts, but both canvas options cost too much. A hybrid that draws
+    only the moving parts on a worker canvas costs 1,500 to 2,500 lines and leaves zoom
+    slow: wheel zoom over 1,000 still symbols drops WKWebView to 22 fps with no motion.
+    A full canvas renderer fixes zoom too, but costs 5,000 to 10,000 lines. The trade is
+    real: a schematic drops below 60 fps past 100 to 400 moving parts in WKWebView.
 
 ## 8 Open questions
 

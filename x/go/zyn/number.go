@@ -506,11 +506,7 @@ func toFloat(val reflect.Value) (float64, error) {
 func toInt(val reflect.Value) (int64, error) {
 	switch val.Kind() {
 	case reflect.Float64, reflect.Float32:
-		floatVal := val.Float()
-		if floatVal != float64(int64(floatVal)) {
-			return 0, fractionalPartError(floatVal)
-		}
-		return int64(floatVal), nil
+		return floatToInt64(val.Float())
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return val.Int(), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -527,14 +523,7 @@ func toInt(val reflect.Value) (int64, error) {
 func toUint(val reflect.Value) (uint64, error) {
 	switch val.Kind() {
 	case reflect.Float64, reflect.Float32:
-		floatVal := val.Float()
-		if floatVal != float64(int64(floatVal)) {
-			return 0, fractionalPartError(floatVal)
-		}
-		if floatVal < 0 {
-			return 0, negativeToUnsignedError(floatVal)
-		}
-		return uint64(floatVal), nil
+		return floatToUint64(val.Float())
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		intVal := val.Int()
 		if intVal < 0 {
@@ -556,6 +545,33 @@ func Int64() NumberZ { return Number().Int64() }
 
 // Uint16 is a schema that validates uint16 numbers.
 func Uint16() NumberZ { return Number().Uint16() }
+
+// floatToInt64 converts f to int64. It returns validate.ErrConversion if f has a
+// fractional part or is out of the int64 range.
+func floatToInt64(f float64) (int64, error) {
+	if f != math.Trunc(f) {
+		return 0, fractionalPartError(f)
+	}
+	if f < -(1<<63) || f >= 1<<63 {
+		return 0, valueOutOfRangeError(f, "int64")
+	}
+	return int64(f), nil
+}
+
+// floatToUint64 converts f to uint64. It returns validate.ErrConversion if f has a
+// fractional part, is negative, or is out of the uint64 range.
+func floatToUint64(f float64) (uint64, error) {
+	if f != math.Trunc(f) {
+		return 0, fractionalPartError(f)
+	}
+	if f < 0 {
+		return 0, negativeToUnsignedError(f)
+	}
+	if f >= 1<<64 {
+		return 0, valueOutOfRangeError(f, "uint64")
+	}
+	return uint64(f), nil
+}
 
 func fractionalPartError(float float64) error {
 	return errors.Wrapf(

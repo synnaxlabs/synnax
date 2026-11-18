@@ -202,8 +202,9 @@ export class Client extends query.Retriever<
   /**
    * Moves each record that uses the enumeration from to the enumeration to, then
    * deletes from.
-   * @throws {Error} if from is built in or equals to, or if the caller cannot change a
-   * record that uses it. The Core then changes nothing.
+   * @throws {Error} if from is built in or equals to, if from or to does not exist, or
+   * if the caller cannot delete from, retrieve to, or update a record that uses from.
+   * The Core then changes nothing.
    */
   async replace(from: Key, to: Key, opts: query.WriteOptions = {}): Promise<void> {
     const drop = () => [this.store.delete([from])];
