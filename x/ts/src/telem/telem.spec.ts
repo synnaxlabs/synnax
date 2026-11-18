@@ -817,6 +817,12 @@ describe("TimeStamp", () => {
         process.env.TZ = originalTZ;
       });
 
+      test("DateComponents construct midnight UTC east of UTC", () => {
+        const ts = new TimeStamp([2021, 1, 1]);
+        expect(ts.valueOf()).toEqual(BigInt(Date.UTC(2021, 0, 1)) * 1_000_000n);
+        expect(ts.toString("ISODate")).toEqual("2021-01-01");
+      });
+
       test("localYear", () => {
         // 2022-12-31T23:00:00Z -> Auckland (UTC+13): 2023-01-01T12:00:00
         const ts = new TimeStamp(Date.UTC(2022, 11, 31, 23, 0, 0, 0) * 1e6);
@@ -997,6 +1003,34 @@ describe("TimeStamp", () => {
         "2026-08-23 13:00 pm",
       ];
       for (const text of invalid) expect(TimeStamp.parse(text), text).toBeNull();
+    });
+
+    describe("in a time zone with daylight saving time", () => {
+      let originalTZ: string | undefined;
+      beforeEach(() => {
+        originalTZ = process.env.TZ;
+        process.env.TZ = "America/New_York";
+      });
+      afterEach(() => {
+        process.env.TZ = originalTZ;
+      });
+
+      it("should return null for a local time skipped by the clock change", () => {
+        expect(TimeStamp.parse("2026-03-08 02:30", "local")).toBeNull();
+      });
+
+      it("should parse a local time next to the clock change", () => {
+        const expected = new TimeStamp(new Date(Date.UTC(2026, 2, 8, 7, 30)));
+        expect(TimeStamp.parse("2026-03-08 03:30", "local")?.equals(expected)).toBe(
+          true,
+        );
+      });
+
+      it("should parse a date whose midnight is skipped by the clock change", () => {
+        process.env.TZ = "America/Santiago";
+        const expected = new TimeStamp(new Date(Date.UTC(2026, 8, 6, 4)));
+        expect(TimeStamp.parse("2026-09-06", "local")?.equals(expected)).toBe(true);
+      });
     });
   });
 
@@ -1336,6 +1370,7 @@ describe("TimeSpan", () => {
   const TRUNCATE_TESTS = [
     [TimeSpan.days(1).add(TimeSpan.nanoseconds(50)), TimeSpan.DAY, TimeSpan.days(1)],
     [TimeSpan.hours(1).add(TimeSpan.minutes(30)), TimeSpan.HOUR, TimeSpan.hours(1)],
+    [TimeSpan.days(200).add(1), TimeSpan.NANOSECOND, TimeSpan.days(200).add(1)],
   ];
 
   test("truncate", () => {
@@ -1377,6 +1412,7 @@ describe("TimeSpan", () => {
       "1ms 500μs 50ns",
     ],
     [TimeSpan.seconds(1).add(TimeSpan.microseconds(500)), "1s 500μs"],
+    [TimeSpan.days(200).add(1), "200d 1ns"],
   ];
 
   test("toString", () => {

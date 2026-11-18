@@ -61,6 +61,20 @@ TimeFormat enum {
     @doc value "is the encoding of a timestamp value within a payload."
 }
 
+Format enum {
+    json   = "json" {
+        @doc value "is one JSON value."
+    }
+    text   = "text" {
+        @doc value "is UTF-8 text."
+    }
+    binary = "binary" {
+        @doc value "is raw bytes."
+    }
+
+    @doc value "is the encoding of a whole payload."
+}
+
 Float float64 {
     @doc value """
         is a 64-bit float. It is a JSON number when finite, and the text "NaN",

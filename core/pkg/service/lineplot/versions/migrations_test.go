@@ -38,6 +38,7 @@ var _ = Describe("Migrations", func() {
 			"v62_lineplot_delete_range_owned",
 			"v62_lineplot_drop_range",
 			"v62_color_alpha_byte",
+			"v62_require_name",
 		}))
 	})
 })
