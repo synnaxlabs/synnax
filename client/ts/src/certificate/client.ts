@@ -31,6 +31,7 @@ import {
   retrieveResponseZ,
   storedCertificateZ,
 } from "@/certificate/types.gen";
+import { LINES } from "@/certificate/where";
 import {
   compareCursors,
   cursor,
@@ -40,7 +41,6 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/certificate/where.gen";
-import { LINES } from "@/certificate/where";
 import { query } from "@/query";
 
 export const ACTION_CHANNEL_NAME = "sy_certificate_action_set";

@@ -126,6 +126,28 @@ TEST(Trim, AllWhitespaceIsEmpty) {
     EXPECT_EQ(x::strings::trim(""), "");
 }
 
+/// @brief it should remove a trailing line feed.
+TEST(TrimTrailingLineBreaks, RemovesLineFeed) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\n"), "value");
+}
+
+/// @brief it should remove every trailing carriage return and line feed.
+TEST(TrimTrailingLineBreaks, RemovesCarriageReturnLineFeed) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\r\n"), "value");
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("value\r\n\n"), "value");
+}
+
+/// @brief it should keep spaces and the line breaks before the end.
+TEST(TrimTrailingLineBreaks, KeepsSpacesAndInnerLineBreaks) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks(" a\nb \n"), " a\nb ");
+}
+
+/// @brief it should return an empty string for a string of only line breaks.
+TEST(TrimTrailingLineBreaks, AllLineBreaksIsEmpty) {
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks("\r\n"), "");
+    EXPECT_EQ(x::strings::trim_trailing_line_breaks(""), "");
+}
+
 TEST(Unquote, RemovesOneLayer) {
     EXPECT_EQ(x::strings::unquote("\"hello\""), "hello");
     EXPECT_EQ(x::strings::unquote("'hello'"), "hello");
