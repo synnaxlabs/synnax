@@ -30,6 +30,7 @@ import (
 func migrateSeed(ctx SpecContext, seed v0.Arc) v1.Arc {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v0.Key, v0.Arc]().
 		Entry(&seed).Exec(ctx, db)).To(Succeed())

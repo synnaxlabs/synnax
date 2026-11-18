@@ -112,44 +112,15 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	for _, outputPath := range combinedOrder {
 		structs := structCollector.Get(outputPath)
-		enums := enum.CollectReferenced(structs, req.Resolutions)
-
-		if len(structs) > 0 {
-			namespace := structs[0].Namespace
-			enums = framework.MergeTypes(
-				enums,
-				enum.CollectNamespaceEnums(
-					namespace,
-					outputPath,
-					req.Resolutions,
-					"cpp",
-					nil,
-				),
-			)
-		} else {
-			if standaloneEnums, ok := enumOutputPaths[outputPath]; ok {
-				enums = framework.MergeTypes(enums, standaloneEnums)
-			} else {
-				aliases := aliasCollector.Get(outputPath)
-				var namespace string
-				if len(aliases) > 0 {
-					namespace = aliases[0].Namespace
-				}
-				if namespace != "" {
-					enums = framework.MergeTypes(
-						enums,
-						enum.CollectNamespaceEnums(
-							namespace,
-							outputPath,
-							req.Resolutions,
-							"cpp",
-							nil,
-						),
-					)
-				}
-			}
-		}
-
+		standalone, hasStandalone := enumOutputPaths[outputPath]
+		enums := outputEnums(
+			outputPath,
+			structs,
+			aliasCollector.Get(outputPath),
+			standalone,
+			hasStandalone,
+			req.Resolutions,
+		)
 		var typeDefs []resolution.Type
 		if typeDefCollector.Has(outputPath) {
 			typeDefs = typeDefCollector.Remove(outputPath)
@@ -208,6 +179,34 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	return resp, nil
+}
+
+// outputEnums returns the enums the file at outputPath declares: those its structs
+// reference, plus the namespace's enums or the standalone enums at the path.
+func outputEnums(
+	outputPath string,
+	structs []resolution.Type,
+	aliases []resolution.Type,
+	standalone []resolution.Type,
+	hasStandalone bool,
+	table *resolution.Table,
+) []resolution.Type {
+	enums := enum.CollectReferenced(structs, table)
+	var namespace string
+	switch {
+	case len(structs) > 0:
+		namespace = structs[0].Namespace
+	case hasStandalone:
+		return framework.MergeTypes(enums, standalone)
+	case len(aliases) > 0 && aliases[0].Namespace != "":
+		namespace = aliases[0].Namespace
+	default:
+		return enums
+	}
+	return framework.MergeTypes(
+		enums,
+		enum.CollectNamespaceEnums(namespace, outputPath, table, "cpp", nil),
+	)
 }
 
 func (p *Plugin) generateFile(
@@ -380,61 +379,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	}
 
 	if base, ok := arrays.Wrapped(form, data.table); ok {
-		tdd.IsArrayWrapper = true
-		elemTypeRef := base.TypeArgs[0]
-		tdd.ElementType = p.typeRefToCpp(elemTypeRef, data)
-		tdd.ElementIsPrimitive = resolution.IsPrimitive(elemTypeRef.Name)
-		if base.ArraySize != nil {
-			tdd.IsFixedSizeArray = true
-			tdd.ArraySize = *base.ArraySize
-			data.AddSystem("array")
-		} else {
-			data.AddSystem("vector")
-		}
-
-		if cppDomain, ok := td.Domains["cpp"]; ok {
-			if methodsExpr, found := cppDomain.Expressions.Find("methods"); found {
-				for _, v := range methodsExpr.Values {
-					if v.StringValue != "" {
-						tdd.Methods = append(tdd.Methods, v.StringValue)
-					}
-				}
-			}
-			if includesExpr, found := cppDomain.Expressions.Find("includes"); found {
-				for _, v := range includesExpr.Values {
-					if v.StringValue != "" {
-						data.AddInternal(v.StringValue)
-					}
-				}
-			}
-			if sysIncludesExpr, found := cppDomain.Expressions.Find(
-				"system_includes",
-			); found {
-				for _, v := range sysIncludesExpr.Values {
-					if v.StringValue != "" {
-						data.AddSystem(v.StringValue)
-					}
-				}
-			}
-		}
-
-		if hasPBFlag(td) && !omit.IsSkipped(td, "pb") && hasExplicitPBName(td) {
-			pbOutputPath := output.GetPBPath(td)
-			if pbOutputPath != "" {
-				pbName := cppnaming.PBName(td)
-				pbNamespace := cppnaming.PBNamespace(pbOutputPath, td.Namespace)
-				tdd.HasProto = true
-				tdd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
-				tdd.ProtoNamespace = pbNamespace
-				tdd.ProtoClass = pbName
-				data.AddSystem("utility")
-				data.AddInternal("x/cpp/errors/errors.h")
-				protoInclude := fmt.Sprintf("%s/%s.pb.h", pbOutputPath, td.Namespace)
-				data.AddInternal(protoInclude)
-			}
-		}
-
-		data.AddInternal("x/cpp/json/json.h")
+		p.addArrayWrapper(&tdd, td, base, data)
 	}
 
 	return tdd
@@ -511,6 +456,36 @@ func (p *Plugin) aliasTargetToCpp(
 		return p.resolveEnumType(resolved, form, data)
 	}
 
+	name := qualifiedAliasTarget(resolved, data)
+
+	if len(typeRef.TypeArgs) == 0 {
+		if isCppTemplateWithAllDefaults(resolved) {
+			return name + "<>"
+		}
+		return name
+	}
+
+	var args []string
+	form, isStruct := resolved.Form.(resolution.StructForm)
+	for i, arg := range typeRef.TypeArgs {
+		if isStruct && i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
+			continue
+		}
+		args = append(args, p.aliasTargetToCpp(arg, data))
+	}
+
+	if len(args) == 0 {
+		if isCppTemplateWithAllDefaults(resolved) {
+			return name + "<>"
+		}
+		return name
+	}
+	return fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
+}
+
+// qualifiedAliasTarget returns the C++ name of the alias target resolved, qualified by
+// its namespace when it lives in another file, and adds the include it needs.
+func qualifiedAliasTarget(resolved resolution.Type, data *templateData) string {
 	name := resolved.Name
 	isOmitted := omit.IsSkipped(resolved, "cpp")
 	targetOutputPath := output.GetPath(resolved, "cpp")
@@ -531,58 +506,28 @@ func (p *Plugin) aliasTargetToCpp(
 		}
 	}
 
-	if resolved.FilePath != data.filePath {
-		if isOmitted || targetOutputPath == "" {
-			if cppInclude != "" {
-				data.AddInternal(cppInclude)
-			}
-			if targetOutputPath != "" {
-				ns := cppnaming.Namespace(targetOutputPath)
-				name = fmt.Sprintf("::%s::%s", ns, name)
-			} else if resolved.Namespace != "" {
-				name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
-			}
-		} else {
-			includePath := cppInclude
-			if includePath == "" {
-				includePath = fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
-			}
-			data.AddInternal(includePath)
-			ns := cppnaming.Namespace(targetOutputPath)
-			name = fmt.Sprintf("::%s::%s", ns, name)
-		}
-	} else {
+	if resolved.FilePath == data.filePath {
 		addLocalHandInclude(resolved, data)
-	}
-
-	if len(typeRef.TypeArgs) == 0 {
-		if isCppTemplateWithAllDefaults(resolved) {
-			return name + "<>"
-		}
 		return name
 	}
-
-	var args []string
-	if form, ok := resolved.Form.(resolution.StructForm); ok {
-		for i, arg := range typeRef.TypeArgs {
-			if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
-				continue
-			}
-			args = append(args, p.aliasTargetToCpp(arg, data))
+	if !isOmitted && targetOutputPath != "" {
+		includePath := cppInclude
+		if includePath == "" {
+			includePath = fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 		}
-	} else {
-		for _, arg := range typeRef.TypeArgs {
-			args = append(args, p.aliasTargetToCpp(arg, data))
-		}
+		data.AddInternal(includePath)
+		return fmt.Sprintf("::%s::%s", cppnaming.Namespace(targetOutputPath), name)
 	}
-
-	if len(args) == 0 {
-		if isCppTemplateWithAllDefaults(resolved) {
-			return name + "<>"
-		}
-		return name
+	if cppInclude != "" {
+		data.AddInternal(cppInclude)
 	}
-	return fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
+	if targetOutputPath != "" {
+		ns := cppnaming.Namespace(targetOutputPath)
+		name = fmt.Sprintf("::%s::%s", ns, name)
+	} else if resolved.Namespace != "" {
+		name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
+	}
+	return name
 }
 
 func (p *Plugin) processStruct(entry resolution.Type, data *templateData) structData {
@@ -615,36 +560,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	}
 
 	if resolver.CanUseInheritance(form, "cpp", data.table) {
-		sd.HasExtends = true
-		for _, extendsRef := range form.Extends {
-			parent, ok := extendsRef.Resolve(data.table)
-			if !ok {
-				continue
-			}
-			qualifiedName := p.resolveExtendsType(extendsRef, parent, data)
-			sd.ExtendsTypes = append(sd.ExtendsTypes, qualifiedName)
-		}
-		// A field that only restates an inherited default keeps the base's member.
-		// C++ cannot replace a base member's initializer, so the new default moves
-		// into a generated constructor; declaring the member again would hide the
-		// base's, which every reference through a base type would still see.
-		defaultOnly := resolver.DefaultOnlyOverrides(
-			form.Extends, form.Fields, data.table,
-		)
-		for _, field := range form.Fields {
-			fd := p.processField(field, entry, data)
-			if !defaultOnly.Contains(field.Name) {
-				sd.Fields = append(sd.Fields, fd)
-				continue
-			}
-			if fd.DefaultValue == "" {
-				continue
-			}
-			sd.InheritedDefaults = append(
-				sd.InheritedDefaults,
-				inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
-			)
-		}
+		p.addInheritedFields(&sd, entry, form, data)
 	} else {
 		for _, field := range resolution.UnifiedFields(entry, data.table) {
 			sd.Fields = append(sd.Fields, p.processField(field, entry, data))
@@ -674,48 +590,137 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	}
 
 	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
-		pbOutputPath := output.GetPBPath(entry)
-		if pbOutputPath != "" {
-			pbName := cppnaming.PBName(entry)
-			pbNamespace := cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
+		if msg, ok := addProtoMessage(entry, data); ok {
 			sd.HasProto = true
-			sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
-			sd.ProtoNamespace = pbNamespace
-			sd.ProtoClass = pbName
-			data.AddSystem("utility")
-			data.AddInternal("x/cpp/errors/errors.h")
-			protoInclude := fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace)
-			data.AddInternal(protoInclude)
+			sd.ProtoType = msg.typ
+			sd.ProtoNamespace = msg.namespace
+			sd.ProtoClass = msg.class
 		}
 	}
-
-	if cppDomain, ok := entry.Domains["cpp"]; ok {
-		if methodsExpr, found := cppDomain.Expressions.Find("methods"); found {
-			for _, v := range methodsExpr.Values {
-				if v.StringValue != "" {
-					sd.Methods = append(sd.Methods, v.StringValue)
-				}
-			}
-		}
-		if includesExpr, found := cppDomain.Expressions.Find("includes"); found {
-			for _, v := range includesExpr.Values {
-				if v.StringValue != "" {
-					data.AddInternal(v.StringValue)
-				}
-			}
-		}
-		if sysIncludesExpr, found := cppDomain.Expressions.Find(
-			"system_includes",
-		); found {
-			for _, v := range sysIncludesExpr.Values {
-				if v.StringValue != "" {
-					data.AddSystem(v.StringValue)
-				}
-			}
-		}
-	}
-
+	sd.Methods = append(sd.Methods, addDomainExtras(entry, data)...)
 	return sd
+}
+
+// addArrayWrapper fills tdd for a distinct type td that wraps the array base.
+func (p *Plugin) addArrayWrapper(
+	tdd *typeDefData,
+	td resolution.Type,
+	base resolution.TypeRef,
+	data *templateData,
+) {
+	tdd.IsArrayWrapper = true
+	elemTypeRef := base.TypeArgs[0]
+	tdd.ElementType = p.typeRefToCpp(elemTypeRef, data)
+	tdd.ElementIsPrimitive = resolution.IsPrimitive(elemTypeRef.Name)
+	if base.ArraySize != nil {
+		tdd.IsFixedSizeArray = true
+		tdd.ArraySize = *base.ArraySize
+		data.AddSystem("array")
+	} else {
+		data.AddSystem("vector")
+	}
+	tdd.Methods = append(tdd.Methods, addDomainExtras(td, data)...)
+	if hasPBFlag(td) && !omit.IsSkipped(td, "pb") && hasExplicitPBName(td) {
+		if msg, ok := addProtoMessage(td, data); ok {
+			tdd.HasProto = true
+			tdd.ProtoType = msg.typ
+			tdd.ProtoNamespace = msg.namespace
+			tdd.ProtoClass = msg.class
+		}
+	}
+	data.AddInternal("x/cpp/json/json.h")
+}
+
+// protoMessage is the protobuf message that a generated C++ type converts to.
+type protoMessage struct{ typ, namespace, class string }
+
+// addProtoMessage returns the protobuf message of t and adds the includes its
+// conversion needs. It returns false when t has no pb output path.
+func addProtoMessage(t resolution.Type, data *templateData) (protoMessage, bool) {
+	pbOutputPath := output.GetPBPath(t)
+	if pbOutputPath == "" {
+		return protoMessage{}, false
+	}
+	pbName := cppnaming.PBName(t)
+	pbNamespace := cppnaming.PBNamespace(pbOutputPath, t.Namespace)
+	data.AddSystem("utility")
+	data.AddInternal("x/cpp/errors/errors.h")
+	data.AddInternal(fmt.Sprintf("%s/%s.pb.h", pbOutputPath, t.Namespace))
+	return protoMessage{
+		typ:       fmt.Sprintf("%s::%s", pbNamespace, pbName),
+		namespace: pbNamespace,
+		class:     pbName,
+	}, true
+}
+
+// addDomainExtras adds the includes that the cpp domain of t names, and returns the
+// methods it names.
+func addDomainExtras(t resolution.Type, data *templateData) []string {
+	cppDomain, ok := t.Domains["cpp"]
+	if !ok {
+		return nil
+	}
+	var methods []string
+	if methodsExpr, found := cppDomain.Expressions.Find("methods"); found {
+		for _, v := range methodsExpr.Values {
+			if v.StringValue != "" {
+				methods = append(methods, v.StringValue)
+			}
+		}
+	}
+	if includesExpr, found := cppDomain.Expressions.Find("includes"); found {
+		for _, v := range includesExpr.Values {
+			if v.StringValue != "" {
+				data.AddInternal(v.StringValue)
+			}
+		}
+	}
+	if sysIncludesExpr, found := cppDomain.Expressions.Find("system_includes"); found {
+		for _, v := range sysIncludesExpr.Values {
+			if v.StringValue != "" {
+				data.AddSystem(v.StringValue)
+			}
+		}
+	}
+	return methods
+}
+
+// addInheritedFields adds the bases and own fields of a struct that inherits from its
+// bases.
+func (p *Plugin) addInheritedFields(
+	sd *structData,
+	entry resolution.Type,
+	form resolution.StructForm,
+	data *templateData,
+) {
+	sd.HasExtends = true
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(data.table)
+		if !ok {
+			continue
+		}
+		qualifiedName := p.resolveExtendsType(extendsRef, parent, data)
+		sd.ExtendsTypes = append(sd.ExtendsTypes, qualifiedName)
+	}
+	// A field that only restates an inherited default keeps the base's member. C++
+	// cannot replace a base member's initializer, so the new default moves into a
+	// generated constructor; declaring the member again would hide the base's, which
+	// every reference through a base type would still see.
+	defaultOnly := resolver.DefaultOnlyOverrides(form.Extends, form.Fields, data.table)
+	for _, field := range form.Fields {
+		fd := p.processField(field, entry, data)
+		if !defaultOnly.Contains(field.Name) {
+			sd.Fields = append(sd.Fields, fd)
+			continue
+		}
+		if fd.DefaultValue == "" {
+			continue
+		}
+		sd.InheritedDefaults = append(
+			sd.InheritedDefaults,
+			inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
+		)
+	}
 }
 
 func (p *Plugin) processTypeParam(

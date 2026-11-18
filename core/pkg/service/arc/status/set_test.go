@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
@@ -550,6 +551,7 @@ var _ = Describe("Analyzer hooks", func() {
 		for _, e := range errs {
 			if regexp.MustCompile(regexp.QuoteMeta(badVariant) + `.*not a valid status variant`).
 				MatchString(e.Message) {
+				Expect(e.Code).To(Equal(codes.FuncArgValue.Code))
 				found = true
 				break
 			}

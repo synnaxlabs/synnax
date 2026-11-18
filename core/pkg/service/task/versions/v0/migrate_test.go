@@ -32,6 +32,7 @@ var _ = Describe("Migration", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
@@ -117,6 +118,7 @@ var _ = Describe("Status backfill", func() {
 		"Should read a status whose task key was stored as float64",
 		func(ctx SpecContext) {
 			db := DeferClose(OpenGorpMsgpackDB())
+			StartRun(db.Run)
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB: db,
 			}))

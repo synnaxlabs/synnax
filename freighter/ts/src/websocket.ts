@@ -268,6 +268,8 @@ const isAnswered = (cause: unknown): boolean => {
   );
 };
 
+const AUTHORIZATION_HEADER_KEY = "Authorization";
+
 /** Configures a {@link WebSocketClient}. */
 export interface WebSocketClientConfig {
   /** A base URL to use as a prefix for all requests. */
@@ -336,7 +338,14 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     await this.executeMiddleware(
       { target, protocol: "websocket", params: {}, role: "client" },
       async (ctx: Context): Promise<Context> => {
-        const ws = await this.connector.dial(this.buildURL(target, ctx));
+        const { [AUTHORIZATION_HEADER_KEY]: authorization, ...params } = ctx.params;
+        // A browser cannot set WebSocket headers, so the token stays in the URL.
+        const ws =
+          authorization == null || this.connector.sendsHeaders !== true
+            ? await this.connector.dial(this.buildURL(target, ctx.params), {})
+            : await this.connector.dial(this.buildURL(target, params), {
+                [AUTHORIZATION_HEADER_KEY]: authorization,
+              });
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         stream = await this.wrapSocket(ws, target, reqSchema, resSchema);
@@ -346,12 +355,9 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     return stream as Stream<RQ, RS>;
   }
 
-  private buildURL(target: string, ctx: Context): string {
+  private buildURL(target: string, params: Record<string, string>): string {
     const qs = url.buildQueryString(
-      {
-        [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-        ...ctx.params,
-      },
+      { [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType, ...params },
       FREIGHTER_METADATA_PREFIX,
     );
     return this.baseUrl.child(target).toString() + qs;

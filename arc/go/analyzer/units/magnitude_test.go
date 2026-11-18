@@ -12,6 +12,7 @@ package units_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/types"
@@ -31,38 +32,22 @@ var _ = Describe("Magnitude Safety", func() {
 	Describe("Additive Scale Safety (via ValidateBinaryOp)", func() {
 		DescribeTable(
 			"should warn for large magnitude differences",
-			func(leftUnit, rightUnit string, kind types.Kind, expectedMagnitude string) {
+			func(leftUnit, rightUnit string, kind types.Kind) {
 				ctx := testCtx()
 				left, right := makeTyped(kind, leftUnit), makeTyped(kind, rightUnit)
 				Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeTrue())
 				warnings := testutil.Warnings(ctx.Diagnostics)
 				Expect(warnings).To(HaveLen(1))
-				Expect(warnings[0].Message).To(ContainSubstring(expectedMagnitude))
-				Expect(warnings[0].Message).To(ContainSubstring("orders of magnitude"))
+				Expect(warnings[0].Code).To(Equal(codes.UnitPrecisionLoss.Code))
+				Expect(warnings[0].Message).To(Equal(
+					"unit precision loss: adding values with very different units can truncate " +
+						"the smaller value",
+				))
 			},
-			Entry("K and pK (12 orders)", "K", "pK", types.KindF64, "12"),
-			Entry(
-				"f32 m and nm (9 orders, lower threshold)",
-				"m",
-				"nm",
-				types.KindF32,
-				"orders of magnitude",
-			),
+			Entry("K and pK (12 orders)", "K", "pK", types.KindF64),
+			Entry("K and fK (15 orders)", "K", "fK", types.KindF64),
+			Entry("f32 m and nm (9 orders, lower threshold)", "m", "nm", types.KindF32),
 		)
-
-		// Special case: K and fK may report 14 or 15 due to floating point
-		It("should warn when adding K and fK (14-15 orders of magnitude)", func() {
-			ctx := testCtx()
-			left := makeTyped(types.KindF64, "K")
-			right := makeTyped(types.KindF64, "fK")
-			Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeTrue())
-			warnings := testutil.Warnings(ctx.Diagnostics)
-			Expect(warnings).To(HaveLen(1))
-			Expect(warnings[0].Message).To(SatisfyAny(
-				ContainSubstring("14"),
-				ContainSubstring("15"),
-			))
-		})
 
 		DescribeTable("should not warn for small magnitude differences",
 			func(leftUnit, rightUnit string) {

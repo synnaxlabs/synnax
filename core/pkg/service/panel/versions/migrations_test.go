@@ -45,6 +45,7 @@ var _ = Describe("Migrations", func() {
 	BeforeEach(func(sCtx SpecContext) {
 		ctx = sCtx
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 	})
 	// recordComposition marks the given migrations as run by the composition pass.
 	recordComposition := func(migrations ...gorp.Migration) {

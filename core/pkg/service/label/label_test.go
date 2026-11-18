@@ -36,6 +36,7 @@ var _ = Describe("Label", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
