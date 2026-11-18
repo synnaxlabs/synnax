@@ -385,10 +385,10 @@ start at any time.
    rack would protect nothing more. The default needs no setup, as in n8n and Grafana.
    The trade is real: a copy of the data folder with its key reads every secret.
 7. **A rack reads what its devices and tasks use**: A rack needs no grant for its own
-   saved work. The trade is real: the Driver role can save any device and retrieve any
-   secret (`core/pkg/service/access/rbac/builtin/builtin.go:136-155`), so a stolen rack
-   key can name any secret in a device on its rack and then read it. SY-5597 limits each
-   rack to its own devices and tasks.
+   saved work. A rack's write cannot add a use of a secret or of a certificate with a
+   key, or move a record that uses one onto a rack, and a certificate saved without a
+   key never gets one. So a stolen rack key cannot name a secret in a device on its rack
+   and then read it. SY-5597 limits each rack to its own devices and tasks.
 8. **One-time grants, not save then test**: Grafana saves before it tests. Synnax keeps
    the test before save (RFC 0079 §4.2). A grant works once, as an AWS KMS grant retires
    when its work is done, and holds its command, so a copied key can only rerun the
