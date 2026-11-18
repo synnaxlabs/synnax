@@ -7,21 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/icd/picker/Picker.css";
+
 import { Button } from "@synnaxlabs/lyra/button";
 import { context } from "@synnaxlabs/lyra/context";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Portal } from "@synnaxlabs/lyra/portal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Text } from "@synnaxlabs/lyra/text";
+import { type CrudeTimeSpan } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
-import { BROWSE_DURATION } from "@/feature/mqtt/device/browse";
 import { CSS } from "@/platform/css";
-
-export const LISTENING = `Listening for ${BROWSE_DURATION.seconds} seconds`;
 
 const [ActiveContext, useActiveContext] = context.create<string>({
   displayName: "Picker.ActiveContext",
@@ -36,23 +38,26 @@ const [FrameContext, useFrameContext] = context.create<string>({
 export interface RootProps extends PropsWithChildren {
   /** The key of the frame that shows. */
   value: string;
+  className?: string;
 }
 
-/** Shows one {@link Frame} at a time and puts its {@link Status} in the {@link Bar}. */
-export const Root = ({ value, children }: RootProps): ReactElement => (
+/**
+ * The frame of the dialog. Shows one {@link Frame} at a time and puts its
+ * {@link Status} in the {@link Bar}.
+ */
+export const Root = ({ value, className, children }: RootProps): ReactElement => (
   <Portal.Context>
-    <ActiveContext value={value}>{children}</ActiveContext>
+    <ActiveContext value={value}>
+      <Modal.Frame className={CSS.cls(CSS.B("icd-picker"), className)}>
+        {children}
+      </Modal.Frame>
+    </ActiveContext>
   </Portal.Context>
 );
 
 /** The bar above the frames: its children, then the status of the frame that shows. */
 export const Bar = ({ children }: PropsWithChildren): ReactElement => (
-  <Nav.Bar
-    location="top"
-    size="8rem"
-    bordered
-    className={CSS.BE("mqtt-discover", "bar")}
-  >
+  <Nav.Bar location="top" size="8rem" bordered className={CSS.BE("icd-picker", "bar")}>
     <Nav.Bar.Start>{children}</Nav.Bar.Start>
     <Nav.Bar.End align="center">
       <Portal.Out itemKey={useActiveContext("Picker.Bar")} />
@@ -79,10 +84,7 @@ export const Frame = ({ itemKey, children }: FrameProps): ReactElement | null =>
         x
         grow
         empty
-        className={CSS.cls(
-          CSS.BE("mqtt-discover", "frame"),
-          !active && CSS.M("hidden"),
-        )}
+        className={CSS.cls(CSS.BE("icd-picker", "frame"), !active && CSS.M("hidden"))}
       >
         {children}
       </Flex.Box>
@@ -93,11 +95,18 @@ export const Frame = ({ itemKey, children }: FrameProps): ReactElement | null =>
 export interface StatusProps {
   status: string;
   loading: boolean;
+  /** How long a listen takes. The progress bar fills over it. */
+  duration?: CrudeTimeSpan;
   onListen: () => void;
 }
 
 /** The state of the listen of its {@link Frame}, shown in the {@link Bar}. */
-export const Status = ({ status, loading, onListen }: StatusProps): ReactElement => (
+export const Status = ({
+  status,
+  loading,
+  duration,
+  onListen,
+}: StatusProps): ReactElement => (
   <Portal.In itemKey={useFrameContext("Picker.Status")}>
     <Flex.Box x align="center" gap="small">
       <Text.Text level="small" color={9}>
@@ -116,8 +125,8 @@ export const Status = ({ status, loading, onListen }: StatusProps): ReactElement
       {loading && (
         <Progress.Progress
           thin
-          duration={BROWSE_DURATION}
-          className={CSS.BE("mqtt-discover", "progress")}
+          duration={duration}
+          className={CSS.BE("icd-picker", "progress")}
         />
       )}
     </Flex.Box>
@@ -126,16 +135,63 @@ export const Status = ({ status, loading, onListen }: StatusProps): ReactElement
 
 /** The column that lists what the broker publishes. */
 export const Side = ({ children }: PropsWithChildren): ReactElement => (
-  <Flex.Box y empty className={CSS.BE("mqtt-discover", "side")}>
+  <Flex.Box y empty className={CSS.BE("icd-picker", "side")}>
     {children}
   </Flex.Box>
 );
 
 /** The area that shows the values of what the side selects. */
 export const Pane = ({ children }: PropsWithChildren): ReactElement => (
-  <Flex.Box y grow empty className={CSS.BE("mqtt-discover", "pane")}>
+  <Flex.Box y grow empty className={CSS.BE("icd-picker", "pane")}>
     {children}
   </Flex.Box>
+);
+
+/**
+ * @returns the label of the button that adds the picks, from the count of each noun.
+ * With no picks, it names idle.
+ */
+const addLabel = (counts: [noun: string, count: number][], idle: string): string => {
+  const totals = new Map<string, number>();
+  for (const [noun, count] of counts)
+    if (count > 0) totals.set(noun, (totals.get(noun) ?? 0) + count);
+  if (totals.size === 0) return `Add ${pluralize(idle)}`;
+  const parts = [...totals].map(([noun, count]) => pluralize(noun, count, true));
+  return `Add ${parts.join(" and ")}`;
+};
+
+export interface FooterProps extends PropsWithChildren {
+  /** The count of each noun picked, such as ["field", 2]. Counts of a noun add up. */
+  counts: [noun: string, count: number][];
+  /** Names what the add button adds while nothing is picked. */
+  idle: string;
+  onAdd: () => void;
+  onCancel: () => void;
+}
+
+/** The footer of the dialog: its children, then Cancel and the add button. */
+export const Footer = ({
+  counts,
+  idle,
+  onAdd,
+  onCancel,
+  children,
+}: FooterProps): ReactElement => (
+  <Modal.Footer>
+    <Nav.Bar.Start>{children}</Nav.Bar.Start>
+    <Nav.Bar.End x align="center" gap="small">
+      <Button.Button variant="outlined" onClick={onCancel}>
+        Cancel
+      </Button.Button>
+      <Button.Button
+        variant="filled"
+        disabled={counts.every(([, count]) => count === 0)}
+        onClick={onAdd}
+      >
+        {addLabel(counts, idle)}
+      </Button.Button>
+    </Nav.Bar.End>
+  </Modal.Footer>
 );
 
 /** A checkbox that holds the place of one still loading. */

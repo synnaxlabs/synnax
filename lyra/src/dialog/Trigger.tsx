@@ -25,7 +25,7 @@ export interface TriggerProps extends Button.ButtonProps {
 
 /**
  * The button that opens and closes the enclosing {@link Frame}, carrying a caret that
- * turns with the dialog. A shadow trigger reads as its value, so it has no caret.
+ * turns with the dialog.
  */
 export const Trigger = ({
   ref,
@@ -40,7 +40,7 @@ export const Trigger = ({
   const combinedRef = useCombinedRefs(ref, triggerRef);
   let endIcon: Icon.ReactElement | undefined;
   const opensDialog = preview !== true;
-  if (preview === true || rest.variant === "shadow") hideCaret = true;
+  if (preview === true) hideCaret = true;
   if (variant !== "modal" && !hideCaret)
     endIcon = (
       <Caret.Animated enabled={visible} enabledLoc="bottom" disabledLoc="left" />

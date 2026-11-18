@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/range/FavoriteButton";
-export * from "@/platform/range/resolve";
 export * from "@/platform/range/useAddToNewPlot";
 export * from "@/platform/range/useCreateModal";
 export * from "@/platform/range/useOpen";

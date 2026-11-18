@@ -1,0 +1,37 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Version updates for the pinned GitHub Actions only. Security updates for every
+# ecosystem come from the repository settings and do not use this file.
+
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: monthly
+    # A release must be a week old, so a bad or compromised one has time to be pulled.
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 1
+    # The trailing space stops Dependabot from adding a colon after the prefix.
+    commit-message:
+      prefix: "[ci] "
+    # A bump changes code that runs in CI, and the classifier marks a change to
+    # .github/actions/ for human review, so a person merges these.
+    labels:
+      - dependencies
+      - review/human
