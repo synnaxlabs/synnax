@@ -1107,6 +1107,25 @@ describe("MQTT read form", () => {
     });
   });
 
+  it("should say the numbered name that a typed tag channel name saves as", async () => {
+    const typed = uniqueName("flow");
+    const { dev } = await renderRead({
+      entries: [createTagEntry("flow")],
+      beforeRender: async () =>
+        await client.channels.create({
+          name: typed,
+          dataType: DataType.FLOAT64,
+          virtual: true,
+        }),
+    });
+    fireEvent.click(
+      await screen.findByRole("treeitem", { name: /SpB.*plant\/line1\/flow/ }),
+    );
+    const input = await screen.findByPlaceholderText(`${dev.name}_plant_line1_flow`);
+    fireEvent.change(input, { target: { value: typed } });
+    await screen.findByText(`Saves as ${typed}_2`);
+  });
+
   describe("Sparkplug B entries", () => {
     it("should list a tag by its full path beside a plain entry", async () => {
       await renderRead({

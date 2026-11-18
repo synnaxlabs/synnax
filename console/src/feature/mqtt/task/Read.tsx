@@ -661,6 +661,7 @@ const TagDetails: FC<TagDetailsProps> = ({ path, device }) => {
             channel={entry.channel}
             namePath={path.name}
             defaultName={planned ?? sparkplugChannelName(device.name, entry)}
+            plannedName={planned}
             skipped={entry.disabled}
           />
           <Task.Payload.DataTypeField

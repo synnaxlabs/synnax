@@ -73,8 +73,11 @@ const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
   indexed: (f: ReadField) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
 });
 
-/** @returns the name that deploying gives a new channel of a field. */
-const useDefaultChannelName = (endpoint: deep.Path<ReadEndpoint>, field: ReadField) => {
+/**
+ * @returns the name that a new channel of a field falls back to, and the name that
+ * deploying gives it once the plan is done.
+ */
+const useChannelNames = (endpoint: deep.Path<ReadEndpoint>, field: ReadField) => {
   const ep = PForm.useFieldValue(endpoint);
   const dev = useFromConfig();
   const props = dev?.properties.read[ep.path];
@@ -87,9 +90,10 @@ const useDefaultChannelName = (endpoint: deep.Path<ReadEndpoint>, field: ReadFie
           ...endpointChannels(dev.name, ep),
         }),
   );
-  const planned = plan == null ? undefined : Task.newChannelName(plan, field.key);
-  if (planned != null) return planned;
-  return dev == null ? "" : defaultChannelName(dev.name, ep.path, field.pointer);
+  const plannedName = plan == null ? undefined : Task.newChannelName(plan, field.key);
+  const fallback =
+    dev == null ? "" : defaultChannelName(dev.name, ep.path, field.pointer);
+  return { defaultName: plannedName ?? fallback, plannedName };
 };
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
@@ -283,7 +287,7 @@ interface FieldPaneProps {
 const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
   const field = PForm.useFieldValue(path);
   const { channel: fieldChannel, disabled, optional, fillValue, dataType } = field;
-  const defaultName = useDefaultChannelName(endpoint, field);
+  const names = useChannelNames(endpoint, field);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <PForm.Sections className={CSS.cls(CSS.B("endpoint-form"), CSS.B("field-form"))}>
@@ -298,7 +302,7 @@ const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
           <Task.ChannelNameField
             channel={fieldChannel}
             namePath={path.name}
-            defaultName={defaultName}
+            {...names}
             skipped={disabled}
           />
           <Flex.Box x grow wrap>
