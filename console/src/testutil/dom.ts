@@ -42,6 +42,16 @@ export const openContextMenu = async (
 };
 
 /**
+ * Clicks the menu item that opens the named submenu.
+ *
+ * @returns the content of the submenu.
+ */
+export const openSubmenu = async (name: string): Promise<HTMLElement> => {
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
+  return await screen.findByRole("dialog", { name });
+};
+
+/**
  * Clicks the element with the given text inside an awaited act. Content that suspends
  * inside a synchronous act scope is discarded, so a click that mounts a suspending
  * subtree (a modal, a tab) needs this instead of a bare fireEvent.

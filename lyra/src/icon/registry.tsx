@@ -80,6 +80,7 @@ import {
   LuChartColumn,
   LuChartNoAxesGantt,
   LuFileBadge,
+  LuGlobe,
   LuInfo,
   LuKeyRound,
   LuLock,
@@ -218,6 +219,7 @@ import {
   SiApachekafka,
   SiCplusplus,
   SiMqtt,
+  SiNodedotjs,
   SiNpm,
   SiPagerduty,
   SiPnpm,
@@ -404,6 +406,8 @@ export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
+export const NodeJS = wrapSVGIcon(SiNodedotjs, "nodejs");
+export const Browser = wrapSVGIcon(LuGlobe, "browser");
 export const CPlusPlus = wrapSVGIcon(SiCplusplus, "cplusplus");
 export const NPM = wrapSVGIcon(SiNpm, "npm");
 export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
@@ -686,6 +690,8 @@ const icons = {
   Boxes,
   Python,
   TypeScript,
+  NodeJS,
+  Browser,
   CPlusPlus,
   NPM,
   PNPM,
@@ -819,13 +825,10 @@ export const resolve = ((
   overrides?: IconProps,
 ): ReactElement | undefined => {
   if (icon == null) return;
-  if (typeof icon === "string")
-    try {
-      const C = deep.get<FC<IconProps>>(icons, icon);
-      return <C {...overrides} />;
-    } catch (cause) {
-      throw new Error(`Unable to find icon with path ${icon} in registry`, { cause });
-    }
-
+  if (typeof icon === "string") {
+    const C = deep.get<FC<IconProps>>(icons, icon);
+    if (C == null) throw new Error(`Unable to find icon with path ${icon} in registry`);
+    return <C {...overrides} />;
+  }
   return cloneElement(icon, overrides);
 }) as Resolve;

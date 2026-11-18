@@ -145,6 +145,60 @@ void read_serial(
     slave.status.serial_error = err.data;
 }
 
+/// @brief names each entry of slave with the name and data type that the CoE
+/// dictionary of the slave at ring position gives. IgH reads the dictionary of
+/// object_count objects in the background after its scan, so an entry that it has not
+/// read yet keeps its name.
+void fill_dictionary_entries(
+    const API &api,
+    const unsigned int master_index,
+    const uint16_t position,
+    const uint16_t object_count,
+    slave::Properties &slave
+) {
+    std::vector<ObjectInfo> objects;
+    for (uint16_t i = 0; i < object_count; ++i) {
+        ObjectInfo object;
+        if (api.object_info(master_index, position, i, object) != 0) break;
+        objects.push_back(std::move(object));
+    }
+    // A lookup of an entry that IgH has not read writes an error to the kernel log. IgH
+    // reads the name of an object, then its entries, then the next object. IgH gives no
+    // sign that it has read the final object, so it counts once it has a name.
+    std::map<uint16_t, uint8_t> read;
+    for (size_t i = 0; i < objects.size(); ++i) {
+        const bool next_named = i + 1 < objects.size() ? !objects[i + 1].name.empty()
+                                                       : i + 1 == object_count;
+        if (!objects[i].name.empty() && next_named)
+            read[objects[i].index] = objects[i].max_sub_index;
+    }
+    const auto fill = [&](std::vector<pdo::Properties> &pdos) {
+        for (auto &pdo: pdos) {
+            const auto object = read.find(pdo.index);
+            if (pdo.is_padding() || object == read.end() ||
+                pdo.sub_index > object->second)
+                continue;
+            EntryInfo entry;
+            if (api.entry_info(
+                    master_index,
+                    position,
+                    pdo.index,
+                    pdo.sub_index,
+                    entry
+                ) != 0 ||
+                entry.name.empty())
+                continue;
+            pdo.name = std::move(entry.name);
+            pdo.data_type = telem::map_ethercat_to_synnax(
+                static_cast<telem::DataType>(entry.data_type),
+                pdo.bit_length
+            );
+        }
+    };
+    fill(slave.input_pdos);
+    fill(slave.output_pdos);
+}
+
 /// @brief reads the PDO layout that the slave at position assigns.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const API &api, ec_master_t *master, const uint16_t position) {
@@ -367,9 +421,28 @@ Master::~Master() {
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() {
-    if (!this->initialized)
+    if (!this->initialized) {
         if (auto err = this->initialize()) return {{}, err};
+    } else
+        this->read_dictionaries();
     return {this->cached_slaves, x::errors::NIL};
+}
+
+void Master::read_dictionaries() {
+    for (auto &slave: this->cached_slaves) {
+        auto &props = slave.properties;
+        const auto pos = ring_position(props.position);
+        ec_slave_info_t info{};
+        if (this->api->master_get_slave(this->ec_master, pos, &info) != 0) continue;
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            pos,
+            info.sdo_count,
+            props
+        );
+        esi::fill_known_entries(props);
+    }
 }
 
 x::errors::Error Master::initialize() {
@@ -446,6 +519,13 @@ x::errors::Error Master::initialize() {
                                                     err.data;
                 break;
             }
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            static_cast<uint16_t>(i),
+            slave_info.sdo_count,
+            result.properties
+        );
         esi::fill(result);
         auto [modes, ret] = read_op_modes(
             *this->api,
@@ -1248,6 +1328,16 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
                 errors::PDO_MAPPING_ERROR,
                 "failed to clear the PDO mapping of " + slave_name
             );
+    if (ec_slave_info_t info{};
+        this->api->master_get_slave(this->ec_master, ring_position(position), &info) ==
+        0)
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            ring_position(position),
+            info.sdo_count,
+            props
+        );
     esi::fill_known_entries(props);
     this->cached_slaves[position - 1].properties = std::move(props);
     return x::errors::NIL;
