@@ -10750,5 +10750,190 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
 			Expect(lastU8(out, valveB)).To(Equal(uint8(0)))
 		})
+
+		It("Should take a top-level variable computed at run time", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, fill+`
+			threshold f32 := 5.0 * 2.0
+			start_a == 1 => fill(threshold, valve_a)`)
+			trigger(h, ctx, startA)
+			out, _ := h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+			level(h, ctx, 15)
+			out, _ = h.Flush()
+			Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+		})
+
+		// arm makes call on gate. A second start_a, then start_b, sets l to 20.
+		arm := func(call string) string {
+			return `
+			sequence arm {
+			    l f32 $= 10
+			    stage wait {
+			        start_b == 1 => raise
+			        gate == 1 => ` + call + `
+			    }
+			    stage raise {
+			        20 -> l
+			    }
+			}
+			start_a == 1 => arm`
+		}
+		// raise sets l to 20 while the instance that reads it runs.
+		raise := func(h *runtimeHarness, ctx SpecContext) {
+			trigger(h, ctx, startA)
+			trigger(h, ctx, startB)
+		}
+
+		DescribeTable("Should follow a variable of the caller while the instance runs",
+			func(ctx SpecContext, source string, scale float32) {
+				h := open(ctx, source)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				out, _ := h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+
+				raise(h, ctx)
+				level(h, ctx, 15*scale)
+				out, _ = h.Flush()
+				Expect(written(out, valveA)).To(BeFalse())
+
+				level(h, ctx, 25*scale)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			},
+			Entry("as the argument", fill+arm("fill(l, valve_a)"), float32(1)),
+			Entry("in an expression argument",
+				fill+arm("fill(l * 2, valve_a)"), float32(2)),
+			Entry("in the same expression in the body", `
+			sequence fill(limit f32, valve chan u8) {
+			    stage open {
+			        1 -> valve
+			        tank > limit * 2 => next
+			    }
+			    stage close {
+			        0 -> valve
+			    }
+			}`+arm("fill(l, valve_a)"), float32(2)),
+		)
+
+		DescribeTable("Should follow a variable of the caller through a nested call",
+			func(ctx SpecContext, call string, scale float32) {
+				h := open(ctx, fill+`
+				sequence relay(limit f32, valve chan u8) {
+				    stage wait {
+				        gate == 1 => `+call+`
+				    }
+				}`+arm("relay(l, valve_a)"))
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				trigger(h, ctx, gate)
+				out, _ := h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(1)))
+
+				raise(h, ctx)
+				level(h, ctx, 15*scale)
+				out, _ = h.Flush()
+				Expect(written(out, valveA)).To(BeFalse())
+
+				level(h, ctx, 25*scale)
+				out, _ = h.Flush()
+				Expect(lastU8(out, valveA)).To(Equal(uint8(0)))
+			},
+			Entry("as the argument", "fill(limit, valve)", float32(1)),
+			Entry("in an expression argument", "fill(limit * 2, valve)", float32(2)),
+		)
+
+		DescribeTable("Should take a variable that its sequence writes before the call",
+			func(ctx SpecContext, argument string, expected float32) {
+				h := open(ctx, `
+				sequence lift(base f32, src chan f32, out chan f32) {
+				    stage run {
+				        src + base -> out
+				    }
+				}
+				sequence caller {
+				    amount f32 := 1
+				    stage set {
+				        10 -> amount
+				        gate == 1 => lift(`+argument+`, tank, out_a)
+				    }
+				}
+				start_a == 1 => caller`)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				level(h, ctx, 1)
+				out, _ := h.Flush()
+				Expect(lastF32(out, outA)).To(Equal(expected))
+			},
+			Entry("as the argument", "amount", float32(11)),
+			Entry("in an expression argument", "amount * 2", float32(21)),
+		)
+
+		It("Should pass a variable argument to a function input", func(
+			ctx SpecContext,
+		) {
+			h := open(ctx, `
+			func add(offset f32) {value f32} f32 {
+			    return value + offset
+			}
+			sequence shift(offset f32, out chan f32) {
+			    stage run {
+			        tank -> add(offset=offset) -> out
+			    }
+			}
+			sequence caller {
+			    amount f32 $= 1
+			    stage set {
+			        10 -> amount
+			        gate == 1 => shift(amount, out_a)
+			    }
+			}
+			start_a == 1 => caller`)
+			trigger(h, ctx, startA)
+			trigger(h, ctx, gate)
+			level(h, ctx, 5)
+			out, _ := h.Flush()
+			Expect(lastF32(out, outA)).To(Equal(float32(15)))
+		})
+
+		// timed makes call on gate from a sequence that writes its variable t.
+		timed := func(call string) string {
+			return `
+			sequence timed {
+			    t $= 2s
+			    stage wait {
+			        start_b == 1 => later
+			        gate == 1 => ` + call + `
+			    }
+			    stage later {
+			        3s -> t
+			    }
+			}
+			start_a == 1 => timed`
+		}
+
+		DescribeTable("Should convert an argument to the unit of its parameter",
+			func(ctx SpecContext, source, expected string) {
+				h := open(ctx, `
+				sequence report(d i64 ms) {
+				    stage write {
+				        f"d {d}" -> log
+				    }
+				}`+source)
+				trigger(h, ctx, startA)
+				trigger(h, ctx, gate)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, log)).To(Equal([]string{expected}))
+			},
+			Entry("a literal", `
+			start_a == 1 => report(2s)`, "d 2000"),
+			Entry("a variable that does not change", `
+			t := 2s
+			start_a == 1 => report(t)`, "d 2000"),
+			Entry("a variable that changes", timed("report(t)"), "d 2000"),
+			Entry("an expression", timed("report(t * 2)"), "d 4000"),
+		)
 	})
 })

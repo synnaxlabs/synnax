@@ -655,9 +655,10 @@ sequence or stage with parameters is not a valid target.
 
 - Arguments are all positional or all named. Trailing parameters with defaults may be
   omitted.
-- An argument is a literal, a channel, a top-level variable that holds a literal or a
-  channel, or a parameter of the caller.
-- A `chan` parameter takes a channel. Any other parameter takes a value.
+- A `chan` parameter takes a channel, a top-level variable that holds a channel, or a
+  `chan` parameter of the caller.
+- Any other parameter takes a literal, or a variable or an expression that reads no
+  channel. The parameter follows the variables in its argument.
 - A value parameter cannot be reassigned. A `chan` parameter can be read and written,
   but a variable cannot alias it.
 - A sequence or stage with parameters cannot call itself, directly or through other

@@ -45,6 +45,22 @@ export sequence drain(valve chan bool) {
 }
 """
 
+# A channel parameter has a default value, in a sequence and in a stage.
+CHANNEL_DEFAULT_SOURCES = {
+    "sequence": """
+export sequence hold(valve chan bool = false) {
+    stage open {
+        true -> valve
+    }
+}
+""",
+    "stage": """
+export stage hold(valve chan bool = false) {
+    true -> valve
+}
+""",
+}
+
 # pb_start starts every instance, and each instance marks its readiness on entry.
 AUTOMATION_SOURCE = Template("""
 import $library
@@ -171,6 +187,34 @@ sequence watch(level chan f32, out chan bool, ready chan bool) {
 pb_start == 1 => watch(pb_watch_level_a, pb_watch_a, pb_watch_ready_a)
 pb_start == 1 => watch(pb_watch_level_b, pb_watch_b, pb_watch_ready_b)
 
+// ──── variable and expression arguments ────
+sequence lift(base f32, src chan f32, out chan f32, ready chan bool) {
+    stage run {
+        true -> ready
+        src + base -> out
+    }
+}
+sequence lift_variable {
+    amount f32 := 1
+    stage wait {
+        10 -> amount
+        true -> pb_live_armed_a
+        pb_live_go => lift(amount, pb_live_src, pb_live_a, pb_live_ready_a)
+    }
+}
+sequence lift_expression {
+    amount f32 := 1
+    stage wait {
+        10 -> amount
+        true -> pb_live_armed_b
+        pb_live_go => lift(amount * 2, pb_live_src, pb_live_b, pb_live_ready_b)
+    }
+}
+computed f32 := 2.5 * 2.0
+pb_start == 1 => lift_variable
+pb_start == 1 => lift_expression
+pb_start == 1 => lift(computed, pb_live_src, pb_live_c, pb_live_ready_c)
+
 // ──── module ────
 pb_start == 1 => $library.relay(pb_mod_a, 1, pb_mod_ready_a)
 pb_start == 1 => $library.relay(pb_mod_b, 2, pb_mod_ready_b)
@@ -234,6 +278,8 @@ INPUTS: dict[str, sy.DataType] = {
     "pb_stop": BOOL,
     "pb_watch_level_a": F32,
     "pb_watch_level_b": F32,
+    "pb_live_go": BOOL,
+    "pb_live_src": F32,
     "pb_mod_go": BOOL,
     "pb_auth_go": BOOL,
 }
@@ -270,6 +316,14 @@ OUTPUTS: dict[str, sy.DataType] = {
     "pb_watch_ready_b": BOOL,
     "pb_watch_a": BOOL,
     "pb_watch_b": BOOL,
+    "pb_live_armed_a": BOOL,
+    "pb_live_armed_b": BOOL,
+    "pb_live_ready_a": BOOL,
+    "pb_live_ready_b": BOOL,
+    "pb_live_ready_c": BOOL,
+    "pb_live_a": F32,
+    "pb_live_b": F32,
+    "pb_live_c": F32,
     "pb_mod_ready_a": BOOL,
     "pb_mod_ready_b": BOOL,
     "pb_mod_a": F32,
@@ -310,6 +364,10 @@ class ParameterizedBodies(ArcCase):
         two channel parameters each. Each call takes only the channels that its
         authority is above.
     11. A module does not compile when a sequence that no flow calls has an error.
+    12. A module does not compile when a channel parameter of a sequence or of a
+        stage has a default value.
+    13. A call takes a variable that its sequence writes, an expression over that
+        variable, and a top-level variable that is computed at program start.
     """
 
     arc_source = AUTOMATION_SOURCE.template
@@ -340,9 +398,11 @@ class ParameterizedBodies(ArcCase):
         self._verify_function_input()
         self._verify_call_from_an_instance()
         self._verify_inline_body()
+        self._verify_variable_arguments()
         self._verify_module()
         self._verify_authority()
         self._verify_uncalled_declaration()
+        self._verify_channel_default()
 
     def _wait_for_ready(self, *channels: str) -> None:
         for channel in channels:
@@ -420,6 +480,17 @@ class ParameterizedBodies(ArcCase):
         self.writer.write("pb_watch_level_b", 10.0)
         self.wait_for_eq("pb_watch_b", 1)
 
+    def _verify_variable_arguments(self) -> None:
+        self._wait_for_ready("pb_live_armed_a", "pb_live_armed_b")
+        self.log("Writing pb_live_go=1 for each sequence to call lift")
+        self.writer.write("pb_live_go", 1)
+        self._wait_for_ready("pb_live_ready_a", "pb_live_ready_b", "pb_live_ready_c")
+        self.log("Writing pb_live_src=1 for each instance to add its argument")
+        self.writer.write("pb_live_src", 1.0)
+        self.wait_for_eq("pb_live_a", 11)
+        self.wait_for_eq("pb_live_b", 21)
+        self.wait_for_eq("pb_live_c", 6)
+
     def _verify_module(self) -> None:
         self._wait_for_ready("pb_mod_ready_a", "pb_mod_ready_b")
         self.log("Writing pb_mod_go=1 for each relay instance to send its value plus 5")
@@ -458,3 +529,12 @@ class ParameterizedBodies(ArcCase):
         path = self.load_module(UNCALLED_SOURCE, name_prefix="pb_uncalled")
         status = self.wait_for_module_status(path, "error", 10 * sy.TimeSpan.SECOND)
         assert "'next' in last stage 'open'" in status.description, status
+
+    def _verify_channel_default(self) -> None:
+        for body, source in CHANNEL_DEFAULT_SOURCES.items():
+            self.log(f"Creating a module with a channel default in a {body}")
+            path = self.load_module(source, name_prefix=f"pb_default_{body}")
+            status = self.wait_for_module_status(path, "error", 10 * sy.TimeSpan.SECOND)
+            assert (
+                "channel parameter 'valve' cannot have a default" in status.description
+            ), status

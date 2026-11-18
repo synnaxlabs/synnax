@@ -5234,4 +5234,42 @@ TEST(ParametersTest, JumpsFromAnInstanceToASequenceWithNoParameters) {
     EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_a")), 0);
     EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_b")), 0);
 }
+
+/// @brief it should follow a variable of the caller while the instance runs.
+TEST(ParametersTest, FollowsAVariableOfTheCallerWhileTheInstanceRuns) {
+    using namespace parameters;
+    const std::vector<std::pair<std::string, float>> calls = {
+        {"fill(l, %valve_a%)", 1.0f},
+        {"fill(l * 2, %valve_a%)", 2.0f},
+    };
+    for (const auto &[call, scale]: calls) {
+        SCOPED_TRACE(call);
+        auto h = new_h(
+            FILL + R"(
+    sequence arm {
+        l f32 $= 10
+        stage wait {
+            %start_b% == 1 => raise
+            %gate% == 1 => )" +
+            call + R"(
+        }
+        stage raise {
+            20 -> l
+        }
+    }
+    %start_a% == 1 => arm)"
+        );
+        h.trigger("start_a");
+        h.trigger("gate");
+        EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_a")), 1);
+
+        h.trigger("start_a");
+        h.trigger("start_b");
+        level(h, 15 * scale);
+        EXPECT_FALSE(written(h, h.flush(), "valve_a"));
+
+        level(h, 25 * scale);
+        EXPECT_EQ(last<std::uint8_t>(h.flush(), h.key("valve_a")), 0);
+    }
+}
 }

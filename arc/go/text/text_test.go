@@ -10993,6 +10993,129 @@ var _ = Describe("Sequences and stages with parameters", func() {
 		}
 	})
 
+	// caller starts main with argument from a sequence that writes its variable local.
+	caller := func(argument string) string {
+		return declaration + `
+			sequence outer {
+				local := 5.0
+				stage idle {
+					7.0 -> local
+					start => main(` + argument + `, valve)
+				}
+			}
+			start => outer
+		`
+	}
+	// limitType returns the type of the limit input in the first instance of main.
+	limitType := func(inter ir.IR) types.Type {
+		GinkgoHelper()
+		for _, n := range nodesOf(inter, findTopLevelScope(inter, "$main_0")) {
+			if p, ok := n.Inputs.Get("limit"); ok {
+				return p.Type
+			}
+		}
+		Fail("expected a node of $main_0 to read limit")
+		return types.Type{}
+	}
+	feeds := func(source, target, param string) ir.Edge {
+		return ir.Edge{
+			Source: ir.Handle{Node: source, Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: target, Param: param},
+			Kind:   ir.EdgeKindContinuous,
+		}
+	}
+
+	It("Should read a variable argument from the node of the variable", func(
+		ctx SpecContext,
+	) {
+		inter := analyze(ctx, caller("local"))
+		Expect(limitType(inter)).To(Equal(types.VarRef(types.F64(), "var_local_0")))
+		_, found := inter.Nodes.Find("var_limit_0")
+		Expect(found).To(BeFalse())
+	})
+
+	It("Should lower an expression argument to a node that writes a variable", func(
+		ctx SpecContext,
+	) {
+		inter := analyze(ctx, caller("local * 2.0"))
+		Expect(findNodeByKey(inter.Nodes, "var_limit_0").Type).To(Equal("variable"))
+		Expect(limitType(inter)).To(Equal(types.VarRef(types.F64(), "var_limit_0")))
+		var writers []ir.Node
+		for _, e := range inter.Edges {
+			if e.Target.Node == "var_limit_0" {
+				writers = append(writers, findNodeByKey(inter.Nodes, e.Source.Node))
+			}
+		}
+		Expect(writers).To(HaveLen(1))
+		Expect(writers[0].Type).To(HavePrefix("expression_"))
+		Expect(inter.Edges).To(ContainElement(
+			feeds("var_local_0", writers[0].Key, "local"),
+		))
+		var root []string
+		for _, m := range slices.Concat(inter.Root.Strata...) {
+			if m.NodeKey != nil {
+				root = append(root, *m.NodeKey)
+			}
+		}
+		Expect(root).To(ContainElements("var_limit_0", writers[0].Key))
+	})
+
+	DescribeTable("Should reject a value argument that reads a channel",
+		func(ctx SpecContext, source string) {
+			parsed := MustSucceed(text.Parse(text.Text{Raw: declaration + source}))
+			_, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+			Expect(diagnostics.Errors()).To(HaveLen(1), diagnostics.String())
+			d := diagnostics.Errors()[0]
+			Expect(d.Message).To(Equal("invalid argument value: argument for " +
+				"parameter 'limit' of sequence 'main' cannot read a channel"))
+			Expect(d.Notes).To(HaveLen(1))
+			Expect(d.Notes[0].Message).To(Equal("pass the channel to a chan parameter"))
+		},
+		Entry("an expression", `start => main(pressure * 2.0, valve)`),
+		Entry("a channel-read variable", `
+			double := pressure * 2.0
+			start => main(double, valve)
+		`),
+		Entry("an expression over a channel-read variable", `
+			double := pressure * 2.0
+			start => main(double + 1.0, valve)
+		`),
+		Entry("a call of a function that reads a channel", `
+			start => main(read() * 2.0, valve)
+			func read() f64 {
+				return pressure
+			}
+		`),
+		Entry("a channel parameter of the caller", `
+			sequence outer(src chan f64) {
+				stage idle {
+					start => main(src * 2.0, valve)
+				}
+			}
+		`),
+	)
+
+	It("Should reject an expression argument for a series parameter", func(
+		ctx SpecContext,
+	) {
+		parsed := MustSucceed(text.Parse(text.Text{Raw: `
+			func build() series f64 {
+				return [1.0, 2.0]
+			}
+			sequence take(values series f64) {
+				stage run {
+					1.0 -> valve
+				}
+			}
+			start => take(build())
+		`}))
+		_, diagnostics := text.Analyze(ctx, parsed, NewRoot(nil, resolver...))
+		Expect(diagnostics.Errors()).To(HaveLen(1), diagnostics.String())
+		Expect(diagnostics.Errors()[0].Message).To(Equal(
+			"not a constant: parameter 'values' of type series f64 takes only a constant",
+		))
+	})
+
 	// bodies returns take declared as a stage and as a sequence of one stage.
 	bodies := func(params, body string) []string {
 		return []string{

@@ -102,6 +102,34 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 			}
 			start => outer(50.0, valve_a)
 		`),
+		Entry("a variable of the calling sequence", `
+			sequence outer {
+				local := 5.0
+				stage idle {
+					start => main(local, valve_a)
+				}
+			}
+		`),
+		Entry("a top-level variable computed at run time", `
+			double := 2.0 * 3.0
+			start => main(double, valve_a)
+		`),
+		Entry("an expression over a variable of the calling sequence", `
+			sequence outer {
+				local := 5.0
+				stage idle {
+					start => main(local * 2.0, valve_a)
+				}
+			}
+		`),
+		Entry("an expression over a parameter of the caller", `
+			sequence outer(top f64, out chan f64) {
+				stage idle {
+					start => main(top * 2.0, out)
+				}
+			}
+			start => outer(50.0, valve_a)
+		`),
 		Entry("a call in a routing table entry", `
 			func split() {value f64} (high f64, low f64) {
 				high = value
@@ -125,32 +153,28 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 			`start => main`,
 			"invalid transition target: main has parameters",
 		),
-		Entry(
-			"a computed argument",
-			`start => main(pressure * 2.0, valve_a)`,
-			"not a constant: argument for parameter 'limit' of sequence 'main' is not fixed at compile time",
-		),
-		Entry("a top-level variable that reads a channel", `
-			double := pressure * 2.0
-			start => main(double, valve_a)
-		`, "not a constant: argument for parameter 'limit' of sequence 'main' is not fixed at compile time"),
-		Entry("a top-level variable computed at run time", `
-			double := 2.0 * 3.0
-			start => main(double, valve_a)
-		`, "not a constant: argument for parameter 'limit' of sequence 'main' is not fixed at compile time"),
-		Entry("a variable of the calling sequence", `
+		Entry("a channel alias of the calling sequence for a channel parameter", `
 			sequence outer {
-				local := 5.0
+				out := valve_a
 				stage idle {
-					start => main(local, valve_a)
+					start => main(50.0, out)
 				}
 			}
-		`, "not a constant: argument for parameter 'limit' of sequence 'main' is not fixed at compile time"),
+		`, "not a constant: argument for parameter 'valve' of sequence 'main' is not fixed at compile time"),
+		Entry(
+			"an expression for a channel parameter",
+			`start => main(50.0, pressure * 2.0)`,
+			"channel expected: argument for parameter 'valve' of sequence 'main' must be a channel",
+		),
 		Entry(
 			"a channel for a value parameter",
 			`start => main(pressure, valve_a)`,
 			"invalid argument value: argument for parameter 'limit' of sequence 'main' cannot be a channel",
 		),
+		Entry("a channel alias for a value parameter", `
+			out := valve_b
+			start => main(out, valve_a)
+		`, "invalid argument value: argument for parameter 'limit' of sequence 'main' cannot be a channel"),
 		Entry(
 			"a value for a channel parameter",
 			`start => main(50.0, 1.0)`,
@@ -211,14 +235,21 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 			To(Equal("use main(...) to start it"))
 	})
 
-	It("Should list the argument forms that are fixed at compile time", func(
+	It("Should list the channel arguments that are fixed at compile time", func(
 		bCtx SpecContext,
 	) {
-		ctx := analyze(bCtx, `start => main(pressure * 2.0, valve_a)`)
+		ctx := analyze(bCtx, `
+			sequence outer {
+				out := valve_a
+				stage idle {
+					start => main(50.0, out)
+				}
+			}
+		`)
 		Expect(*ctx.Diagnostics).To(HaveLen(1))
 		Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
 		Expect((*ctx.Diagnostics)[0].Notes[0].Message).To(Equal(
-			"use a literal, a channel, a top-level constant or alias, or a parameter",
+			"use a channel, a top-level alias, or a channel parameter",
 		))
 	})
 

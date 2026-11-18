@@ -1043,6 +1043,39 @@ var _ = Describe("Parameters", func() {
 				}
 			}
 		`, "invalid default value for input parameter limit"),
+		Entry("a default on a channel parameter of a sequence", `
+			sequence main(valve chan f64 = 0) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
+		Entry("a default on a channel parameter of a stage", `
+			stage hold(valve chan f64 = 0) {
+				0.0 -> valve
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
+		Entry("a bool default on a channel parameter of a sequence", `
+			sequence main(valve chan bool = false) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
+		Entry("a bool default on a channel parameter of a stage", `
+			stage hold(valve chan bool = false) {
+				true -> valve
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
+		Entry("a default on a channel parameter after a value parameter", `
+			sequence main(limit f64 = 1.0, valve chan u8 = 1) {
+				stage press {
+				}
+			}
+		`, "invalid stage or sequence declaration: channel parameter 'valve' "+
+			"cannot have a default"),
 		Entry("a required parameter after an optional one", `
 			sequence main(limit f64 = 1.0, valve chan f64) {
 				stage press {

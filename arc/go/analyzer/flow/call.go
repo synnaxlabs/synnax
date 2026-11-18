@@ -27,17 +27,25 @@ func analyzeBodyCall(ctx context.Context[parser.IFunctionContext]) bool {
 		return false
 	}
 	var (
-		name  = parser.FunctionName(ctx.AST)
-		noun  = BodyNoun(body)
-		args  = inputArguments(ctx, ctx.AST)
-		fixed = true
+		name   = parser.FunctionName(ctx.AST)
+		noun   = BodyNoun(body)
+		args   = inputArguments(ctx, ctx.AST)
+		values []symbol.Argument
+		valid  = true
 	)
 	for _, arg := range args {
-		if param, ok := bodyParam(body, arg); ok {
-			fixed = checkBodyArgument(ctx, noun, name, param, arg) && fixed
+		param, ok := bodyParam(body, arg)
+		if !ok {
+			continue
+		}
+		valid = checkBodyArgument(ctx, noun, name, param, arg) && valid
+		// A negative literal is a constant, so it gets no node.
+		if param.Type.Kind != types.KindChan && !parser.IsNegatedLiteral(arg.Expr) {
+			values = append(values, arg)
 		}
 	}
-	if fixed {
+	if valid {
+		AnalyzeComputedArgs(ctx, values)
 		expression.AnalyzeCall(ctx, noun, name, body.Type, args, nil, ctx.AST, "")
 	}
 	return true
@@ -73,24 +81,23 @@ func bodyParam(body *symbol.Symbol, arg symbol.Argument) (types.Param, bool) {
 	return body.Type.Inputs[arg.Index], true
 }
 
-// checkBodyArgument reports an argument that is not fixed or is the wrong kind.
+// checkBodyArgument reports a channel that is not fixed or a wrong kind of argument.
 func checkBodyArgument(
 	ctx context.Context[parser.IFunctionContext],
 	noun, name string,
 	param types.Param,
 	arg symbol.Argument,
 ) bool {
-	channel, ok := fixedArgument(ctx, arg.Expr)
-	if !ok {
+	channel, fixed := channelArgument(ctx, arg.Expr)
+	isChan := param.Type.Kind == types.KindChan
+	if channel && isChan && !fixed {
 		ctx.Diagnostics.Add(codes.NotConstant.Atf(arg.AST,
 			"argument for parameter '%s' of %s '%s' is not fixed at compile time",
 			param.Name, noun, name,
-		).WithNote(
-			"use a literal, a channel, a top-level constant or alias, or a parameter",
-		))
+		).WithNote("use a channel, a top-level alias, or a channel parameter"))
 		return false
 	}
-	if isChan := param.Type.Kind == types.KindChan; channel != isChan {
+	if channel != isChan {
 		kind, must := codes.FuncArgValue, "cannot be"
 		if isChan {
 			kind, must = codes.ChannelExpected, "must be"
@@ -104,17 +111,11 @@ func checkBodyArgument(
 	return true
 }
 
-// fixedArgument reports whether expr is fixed at compile time and if it is a channel.
-func fixedArgument(
+// channelArgument reports whether expr names a channel and if a call can bind it.
+func channelArgument(
 	ctx context.Context[parser.IFunctionContext],
 	expr parser.IExpressionContext,
-) (channel, ok bool) {
-	if parser.IsLiteral(expr) || parser.IsNegatedLiteral(expr) {
-		return false, true
-	}
-	if _, isConstant := ctx.FloatConstant(expr); isConstant {
-		return false, true
-	}
+) (channel, fixed bool) {
 	head, tail := parser.ExpressionNameParts(expr)
 	if head == "" {
 		return false, false
@@ -123,18 +124,14 @@ func fixedArgument(
 	if err != nil {
 		return false, false
 	}
-	channel = sym.Type.Kind == types.KindChan
 	switch {
 	case sym.Kind == symbol.KindChannel:
-		return channel, true
+		return true, true
 	case sym.IsSequenceInput():
-		return channel, sym.Parent == enclosingBody(ctx.Scope)
-	case sym.Kind == symbol.KindVariable && sym.Parent == sym.Root():
-		// A top-level alias is never rebound, and a top-level literal never changes.
-		if channel {
-			return true, sym.SourceID != nil
-		}
-		return false, sym.DefaultValue != nil
+		return sym.Type.Kind == types.KindChan, sym.Parent == enclosingBody(ctx.Scope)
+	case sym.IsValueVariable() && sym.Type.Kind == types.KindChan && sym.SourceID != nil:
+		// A top-level alias is never rebound.
+		return true, sym.Parent == sym.Root()
 	default:
 		return false, false
 	}

@@ -289,6 +289,17 @@ func collectParameters[T antlr.ParserRuleContext](
 			"a %s with parameters needs a name", kind))
 		return nil
 	}
+	for _, input := range inputList.AllInput() {
+		t, lit := input.Type_(), input.Literal()
+		if lit == nil || t == nil || t.ChannelType() == nil {
+			continue
+		}
+		ctx.Diagnostics.Add(codes.BodyDeclaration.Atf(
+			lit,
+			"channel parameter '%s' cannot have a default",
+			input.IDENTIFIER().GetText(),
+		))
+	}
 	var inputs types.Params
 	function.CollectInputs(ctx, inputList, &inputs)
 	return inputs

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
+	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
@@ -113,7 +114,7 @@ type shellBuilder struct {
 	instances []ir.Scope
 	// instanceKey is the scope key of the instance being lowered, empty outside one.
 	instanceKey string
-	// args binds each parameter of the instance being lowered to its argument.
+	// args holds the constant or the channel of each parameter of the instance.
 	args map[*symbol.Symbol]argument
 	// inlineBodyBases records the stack length at the entry of each enclosing
 	// inline routing case body; `next` is rejected if no frame was pushed since.
@@ -138,10 +139,12 @@ type varEntry struct {
 	disp     *dispatcher
 }
 
-// argument is the compile-time value that a call binds to a parameter.
+// argument is what a call binds to a parameter.
 type argument struct {
 	// value is the constant of a value parameter.
 	value any
+	// variable is the node that holds a value parameter that can change.
+	variable *ir.Node
 	// channel is the key of the channel bound to a channel parameter.
 	channel uint32
 }
@@ -193,7 +196,16 @@ func (s *shellBuilder) enter(key string, args map[*symbol.Symbol]argument) func(
 	outer := *s
 	s.stack, s.jumps, s.inlineBodyBases = nil, nil, nil
 	// The body reads the variables declared outside it through the copy.
-	s.instanceKey, s.args, s.varNodes = key, args, maps.Clone(s.varNodes)
+	s.instanceKey, s.varNodes = key, maps.Clone(s.varNodes)
+	s.args = make(map[*symbol.Symbol]argument, len(args))
+	for param, arg := range args {
+		if arg.variable == nil {
+			s.args[param] = arg
+			continue
+		}
+		// The body reads a parameter that can change as it reads a variable.
+		s.varNodes[param] = varEntry{register: arg.variable}
+	}
 	return func() {
 		s.stack, s.jumps, s.inlineBodyBases = outer.stack, outer.jumps, outer.inlineBodyBases
 		s.instanceKey, s.args, s.varNodes = outer.instanceKey, outer.args, outer.varNodes
@@ -540,7 +552,7 @@ func analyzeBodyCall(
 	if err != nil || !body.IsParameterized() {
 		return transitionIntent{}, false, false
 	}
-	args, ok := bindArgs(ctx, body, shell)
+	args, ok := bindArgs(ctx, body, kg, shell)
 	if !ok {
 		return transitionIntent{}, true, false
 	}
@@ -556,6 +568,7 @@ func analyzeBodyCall(
 func bindArgs(
 	ctx acontext.Context[parser.IFunctionContext],
 	body *symbol.Symbol,
+	kg *keyGenerator,
 	shell *shellBuilder,
 ) (map[*symbol.Symbol]argument, bool) {
 	exprs := make(map[string]parser.IExpressionContext)
@@ -571,7 +584,7 @@ func bindArgs(
 		arg := argument{value: param.Value}
 		if expr, bound := exprs[param.Name]; bound {
 			var ok bool
-			if arg, ok = bindArg(ctx, expr, param, shell); !ok {
+			if arg, ok = bindArg(ctx, expr, body, param, kg, shell); !ok {
 				return nil, false
 			}
 		}
@@ -580,18 +593,38 @@ func bindArgs(
 	return args, true
 }
 
-// bindArg returns the compile-time value of expr for param.
+// bindArg returns what the call binds to the parameter param of body for expr.
 func bindArg(
 	ctx acontext.Context[parser.IFunctionContext],
 	expr parser.IExpressionContext,
+	body *symbol.Symbol,
 	param types.Param,
+	kg *keyGenerator,
 	shell *shellBuilder,
 ) (argument, bool) {
-	if arg, named := namedArg(ctx, expr, param, shell); named {
-		return arg, true
+	if param.Type.Kind != types.KindChan && readsChannel(ctx, expr) {
+		ctx.Diagnostics.Add(codes.FuncArgValue.Atf(expr,
+			"argument for parameter '%s' of %s '%s' cannot read a channel",
+			param.Name, flow.BodyNoun(body), parser.FunctionName(ctx.AST),
+		).WithNote("pass the channel to a chan parameter"))
+		return argument{}, false
+	}
+	sym := body.FindChild(param.Name)
+	if named := namedSymbol(ctx, expr); named != nil {
+		if param.Type.Kind == types.KindChan {
+			return argument{channel: shell.channelKey(named)}, true
+		}
+		return bindVariable(ctx, expr, named, sym, kg, shell)
 	}
 	if value, ok := ctx.FloatConstant(expr); ok {
 		return argument{value: types.EncodeFloat(value)}, true
+	}
+	if !parser.IsNegatedLiteral(expr) && !literal.IsConstant(expr) {
+		res, ok := analyzeExpression(ctx.Child(expr), kg, shell, false)
+		if !ok {
+			return argument{}, false
+		}
+		return follow(ctx, expr, res, sym, kg, shell)
 	}
 	parsed, err := literal.ParseConst(expr, param.Type)
 	if err != nil {
@@ -601,28 +634,113 @@ func bindArg(
 	return argument{value: parsed.Value}, true
 }
 
-// namedArg returns the argument of an expr that names a variable or a channel.
-func namedArg(
+// readsChannel reports whether expr reads a channel, by name or through a function.
+func readsChannel(
 	ctx acontext.Context[parser.IFunctionContext],
 	expr parser.IExpressionContext,
-	param types.Param,
-	shell *shellBuilder,
-) (argument, bool) {
+) bool {
+	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err == nil && len(synth.Channels.Read) > 0 {
+		return true
+	}
+	for _, primary := range parser.CollectNamedPrimaries(expr, ctx.FmtStrings) {
+		head, tail := parser.PrimaryNameParts(primary)
+		sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+		if err == nil && sym.Type.Kind == types.KindChan {
+			return true
+		}
+	}
+	return false
+}
+
+// namedSymbol returns the variable or channel that expr names, or nil.
+func namedSymbol(
+	ctx acontext.Context[parser.IFunctionContext],
+	expr parser.IExpressionContext,
+) *symbol.Symbol {
 	head, tail := parser.ExpressionNameParts(expr)
 	if head == "" {
-		return argument{}, false
+		return nil
 	}
 	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil || sym.Kind == symbol.KindConstant {
+		return nil
+	}
+	return sym
+}
+
+// bindVariable returns what the call binds to the value parameter param for sym.
+func bindVariable(
+	ctx acontext.Context[parser.IFunctionContext],
+	expr parser.IExpressionContext,
+	sym, param *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (argument, bool) {
+	var (
+		from     = sym.Type.UnwrapChan()
+		converts = types.UnitsConvertible(from.Unit, param.Type.Unit)
+		write    = expression.Write{AST: expr, Source: sym.Type, Target: param.Type}
+	)
+	outer, constant := shell.args[sym]
+	if register := shell.varNodes[sym].register; !constant && register != nil {
+		if !converts {
+			return argument{variable: register}, true
+		}
+		expression.CheckUnits(ctx, write)
+		scale := buildScaleNode(from, param.Type, kg)
+		shell.edges = append(shell.edges, ir.Edge{
+			Source: ir.Handle{Node: register.Key, Param: ir.DefaultOutputParam},
+			Target: scale.input,
+			Kind:   ir.EdgeKindContinuous,
+		})
+		return follow(ctx, expr, scale, param, kg, shell)
+	}
+	value := sym.DefaultValue
+	if constant {
+		value = outer.value
+	}
+	// A value that is not finite is text, the same in each unit.
+	if _, text := value.(string); !converts || value == nil || text {
+		return argument{value: value}, true
+	}
+	parsed, err := literal.Convert(
+		telem.CastNumeric[float64](value), from.Unit, param.Type,
+	)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 		return argument{}, false
 	}
-	if param.Type.Kind == types.KindChan {
-		return argument{channel: shell.channelKey(sym)}, true
+	if parsed.Truncated {
+		expression.CheckUnits(ctx, write)
 	}
-	if outer, passed := shell.args[sym]; passed {
-		return outer, true
+	return argument{value: parsed.Value}, true
+}
+
+// follow returns the argument that holds each value res emits for the parameter param.
+func follow(
+	ctx acontext.Context[parser.IFunctionContext],
+	expr parser.IExpressionContext,
+	res nodeResult,
+	param *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (argument, bool) {
+	zero := types.Zero(param.Type)
+	if zero == nil {
+		ctx.Diagnostics.Add(codes.NotConstant.Atf(expr,
+			"parameter '%s' of type %s takes only a constant", param.Name, param.Type))
+		return argument{}, false
 	}
-	return argument{value: sym.DefaultValue}, true
+	variable := buildVariableNode(param, kg, "f0", zero)
+	// Both nodes stay live, so the parameter follows what res reads.
+	shell.rootNodes = append(shell.rootNodes, variable, &res.node)
+	shell.edges = append(shell.edges, ir.Edge{
+		Source: res.output,
+		Target: varFeederRef(variable).input,
+		Kind:   ir.EdgeKindContinuous,
+	})
+	return argument{variable: variable}, true
 }
 
 // instantiate lowers body as a root-level scope keyed key, with args bound.
@@ -2636,12 +2754,11 @@ func (p *inputParser) parseName(
 	if arg, bound := p.shell.args[sym]; bound && sym.Type.Kind != types.KindChan {
 		return arg.value, paramType, true, true
 	}
-	if sym.IsLiteral() || isExprReadVar(sym) {
-		rn := p.shell.varNodes[sym].readNode(sym)
-		if rn != nil || (!sym.Reassigned && sym.DefaultValue != nil) {
-			value, typ, ok = p.parseVariable(expr, sym, rn, paramType)
-			return value, typ, ok, true
-		}
+	// A node holds a variable that can change, and a parameter bound to one.
+	rn := p.shell.varNodes[sym].readNode(sym)
+	if rn != nil || (sym.IsLiteral() && !sym.Reassigned && sym.DefaultValue != nil) {
+		value, typ, ok = p.parseVariable(expr, sym, rn, paramType)
+		return value, typ, ok, true
 	}
 	if sym.Type.Kind == types.KindChan {
 		// SY-5823: This error goes away when the fix lands, so it has no code.
