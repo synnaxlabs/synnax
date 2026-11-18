@@ -330,6 +330,14 @@ describe("MQTT read form", () => {
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
   });
 
+  it("should focus the topic of a topic added by name", async () => {
+    await renderRead();
+    const dialog = await openAddData();
+    fireEvent.click(dialog.getByRole("button", { name: "Add a topic by name" }));
+    const topic = await screen.findByPlaceholderText("plant/line1/telemetry");
+    await waitFor(() => expect(document.activeElement).toBe(topic));
+  });
+
   it("should add a topic by name", async () => {
     const { draft } = await renderRead();
     const dialog = await openAddData();

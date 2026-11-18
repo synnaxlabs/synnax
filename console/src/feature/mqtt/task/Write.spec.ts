@@ -126,6 +126,21 @@ describe("MQTT Write form", () => {
     expect(screen.getByText("No additional fields")).toBeTruthy();
   });
 
+  it("should focus the topic of each target added by name", async () => {
+    await renderWrite();
+    await addTarget();
+    const first = screen.getByPlaceholderText("plant/line1/valve/set");
+    await waitFor(() => expect(document.activeElement).toBe(first));
+    fireEvent.change(first, { target: { value: "plant/valve/a" } });
+    fireEvent.blur(first);
+    await addTarget();
+    await waitFor(() => {
+      const topic = screen.getByPlaceholderText("plant/line1/valve/set");
+      expect(document.activeElement).toBe(topic);
+      expect(topic).toHaveProperty("value", "");
+    });
+  });
+
   it("should show the enum mapping editor when the channel JSON type is string", async () => {
     await renderWrite();
     await addTarget();
