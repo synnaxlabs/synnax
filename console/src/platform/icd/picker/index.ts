@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/feature/mqtt/task/discover/picker/Picker";
-export * from "@/feature/mqtt/task/discover/picker/Tree";
-export * from "@/feature/mqtt/task/discover/picker/useListen";
+export * as Picker from "@/platform/icd/picker/external";

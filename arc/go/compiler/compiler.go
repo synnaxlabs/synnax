@@ -47,8 +47,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-const FmtStrSyntheticPrefix = "fmt$"
-
 // ScaleSyntheticPrefix marks a synthesized function that converts its input to the
 // unit of its output.
 const ScaleSyntheticPrefix = "scale$"
@@ -159,9 +157,6 @@ func compileSynthetic(
 	functions ir.Functions,
 ) (compiledFunction, bool, error) {
 	switch {
-	case strings.HasPrefix(fn.Key, FmtStrSyntheticPrefix):
-		cf, err := compileFmtStrSynthetic(rootCtx, fn)
-		return cf, true, err
 	case strings.HasPrefix(fn.Key, ir.DispatcherSyntheticPrefix):
 		cf, err := compileDispatcherSynthetic(rootCtx, fn, functions)
 		return cf, true, err
@@ -315,45 +310,6 @@ func functionScope(fn ir.Function) (*symbol.Symbol, error) {
 		return nil, errors.Newf("function %q has no symbol", fn.Key)
 	}
 	return fn.Symbol, nil
-}
-
-// compileFmtStrSynthetic emits a WASM body returning the formatted string
-// handle for an analyzer-synthesized Function. Lifted variable reads arrive
-// as params.
-func compileFmtStrSynthetic(
-	rootCtx ccontext.Context[antlr.ParserRuleContext],
-	fn ir.Function,
-) (compiledFunction, error) {
-	scope, err := functionScope(fn)
-	if err != nil {
-		return compiledFunction{}, err
-	}
-	ctx := rootCtx.WithScope(scope).WithNewWriter()
-	params := make([]wasm.ValueType, 0, len(fn.Inputs))
-	for _, p := range fn.Inputs {
-		params = append(params, wasm.ConvertType(p.Type))
-	}
-	funcT := wasm.FunctionType{
-		Params:  params,
-		Results: []wasm.ValueType{wasm.ConvertType(types.String())},
-	}
-	typeIdx := ctx.Module.AddType(funcT)
-	lit, ok := fn.Body.AST.(parser.ILiteralContext)
-	if !ok {
-		return compiledFunction{}, errors.Newf(
-			"format string %s has no literal",
-			fn.Key,
-		)
-	}
-	strTerm := parser.StringTerminal(lit)
-	if _, err := expression.EmitFmtSegments(ctx, strTerm); err != nil {
-		return compiledFunction{}, err
-	}
-	return compiledFunction{
-		scopeName: fn.Key,
-		typeIdx:   typeIdx,
-		writer:    ctx.Writer,
-	}, nil
 }
 
 // compileScaleSynthetic emits a WASM body that returns its one input in the type and
