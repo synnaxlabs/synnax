@@ -378,3 +378,166 @@ describe("resolveParams with Synnax Desktop", () => {
       }));
   });
 });
+
+const PEM = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n";
+
+// Reads only the files in the map, and runs no program.
+const files = (map: Record<string, string>): System => ({
+  readFile: (path) => map[path] ?? null,
+  run: () => null,
+});
+
+describe("resolveParams with SYNNAX_CA_CERT", () => {
+  const system = files({
+    "~/ca.pem": PEM,
+    "/empty.pem": " \n",
+    "/ca.der": "0\u0082\u0001",
+  });
+
+  it("should turn on TLS with the PEM text of the file", () => {
+    const env = { SYNNAX_CA_CERT: " ~/ca.pem\n" };
+    expect(resolveParams({ host: "rig" }, env, system)).toMatchObject({
+      secure: true,
+      caCert: PEM,
+    });
+  });
+
+  it("should take SYNNAX_SECURE=true with the file", () => {
+    const env = { SYNNAX_SECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" };
+    expect(resolveParams({ host: "rig" }, env, system)).toMatchObject({
+      secure: true,
+      caCert: PEM,
+    });
+  });
+
+  it("should take caCert in the params over the variable", () => {
+    const env = { SYNNAX_CA_CERT: "/missing.pem" };
+    expect(resolveParams({ host: "rig", caCert: "pem" }, env, system)).toMatchObject({
+      secure: true,
+      caCert: "pem",
+    });
+  });
+
+  it("should ignore the variable when the params give secure false", () => {
+    const env = { SYNNAX_CA_CERT: "/missing.pem" };
+    const resolved = resolveParams({ host: "rig", secure: false }, env, system);
+    expect(resolved.secure).toBe(false);
+    expect(resolved.caCert).toBeUndefined();
+  });
+
+  it("should fill the rest from Synnax Desktop", () => {
+    const system: System = {
+      readFile: (path) =>
+        path === "~/ca.pem" ? PEM : JSON.stringify({ ...DESKTOP_FILE, secure: false }),
+      run: () => ({ status: 0, stdout: "syk_desktop\n", stderr: "" }),
+    };
+    expect(resolveParams({}, { SYNNAX_CA_CERT: "~/ca.pem" }, system)).toEqual({
+      host: "localhost",
+      port: 9095,
+      apiKey: "syk_desktop",
+      secure: true,
+      caCert: PEM,
+    });
+  });
+
+  it.each<[string, Env, System | undefined, string]>([
+    [
+      "SYNNAX_SECURE is false",
+      { SYNNAX_SECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" },
+      system,
+      "SYNNAX_CA_CERT requires SYNNAX_SECURE; leave SYNNAX_SECURE out",
+    ],
+    [
+      "the file does not exist",
+      { SYNNAX_CA_CERT: "/missing.pem" },
+      system,
+      'SYNNAX_CA_CERT names "/missing.pem", which does not exist',
+    ],
+    [
+      "the file is empty",
+      { SYNNAX_CA_CERT: "/empty.pem" },
+      system,
+      'SYNNAX_CA_CERT names "/empty.pem", which is empty',
+    ],
+    [
+      "the file is not PEM text",
+      { SYNNAX_CA_CERT: "/ca.der" },
+      system,
+      'SYNNAX_CA_CERT names "/ca.der", which is not PEM text',
+    ],
+    [
+      "the runtime has no file access",
+      { SYNNAX_CA_CERT: "~/ca.pem" },
+      undefined,
+      'Cannot read SYNNAX_CA_CERT file "~/ca.pem": this runtime has no file access',
+    ],
+  ])("should reject when %s", (_, env, system, message) => {
+    expect(() => resolveParams({ host: "rig" }, env, system)).toThrow(ValidationError);
+    expect(() => resolveParams({ host: "rig" }, env, system)).toThrow(message);
+  });
+
+  it("should turn on TLS without reading the file when the CA is unsupported", () => {
+    const deno: System = {
+      readFile: vi.fn(() => PEM),
+      run: () => null,
+      caCertUnsupported: true,
+    };
+    const resolved = resolveParams(
+      { host: "rig" },
+      { SYNNAX_CA_CERT: "~/ca.pem" },
+      deno,
+    );
+    expect(resolved.secure).toBe(true);
+    expect(resolved.caCert).toBeUndefined();
+    expect(deno.readFile).not.toHaveBeenCalled();
+  });
+
+  it("should reject SYNNAX_SECURE false when the CA is unsupported", () => {
+    const deno: System = { ...system, caCertUnsupported: true };
+    const env = { SYNNAX_SECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" };
+    expect(() => resolveParams({ host: "rig" }, env, deno)).toThrow(
+      "SYNNAX_CA_CERT requires SYNNAX_SECURE",
+    );
+  });
+
+  it("should name the file when Deno cannot read it", () => {
+    const cause = notCapable();
+    const system: System = {
+      readFile: () => {
+        throw cause;
+      },
+      run: () => null,
+    };
+    let error: unknown;
+    try {
+      resolveParams({ host: "rig" }, { SYNNAX_CA_CERT: "/ca.pem" }, system);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(error).toHaveProperty(
+      "message",
+      'Cannot read SYNNAX_CA_CERT file "/ca.pem": Requires env access',
+    );
+    expect(error).toHaveProperty("cause", cause);
+  });
+
+  describe.skipIf(process.platform === "win32")("with the real file system", () => {
+    it("should read a file in the home directory", () => {
+      const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
+      vi.stubEnv("HOME", home);
+      try {
+        writeFileSync(join(home, "ca.pem"), PEM);
+        const env = { SYNNAX_CA_CERT: "~/ca.pem" };
+        expect(resolveParams({ host: "rig" }, env, nodeSystem()).caCert).toEqual(PEM);
+      } finally {
+        vi.unstubAllEnvs();
+        rmSync(home, { recursive: true });
+      }
+    });
+
+    it("should return null for a file that is not there", () => {
+      expect(nodeSystem()?.readFile(join(tmpdir(), "synnax-missing.pem"))).toBeNull();
+    });
+  });
+});

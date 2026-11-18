@@ -961,7 +961,7 @@ var _ = Describe("@ref", func() {
 		})
 
 		It(
-			"Should inline a deleted target in an optional union",
+			"Should inline a deleted target in an optional union and detach a missing one",
 			func() {
 				generate("", `
 				fill swatch.Ref?
@@ -983,8 +983,10 @@ var _ = Describe("@ref", func() {
 						"if v2, ok := e.Fill.Variant.(swatch.NamedRef); ok && v2.Key == t {",
 						"e.Fill.Variant = target.Inline()",
 						"return nil",
+						"Detach: func(e *ReadConfig, t swatch.Key) {",
+						"e.Fill = nil",
 					).
-					ToNotContain("Detach:", "FixedRef")
+					ToNotContain("FixedRef")
 			},
 		)
 

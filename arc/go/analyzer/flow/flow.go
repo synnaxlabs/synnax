@@ -455,14 +455,41 @@ func checkFlowSink(
 	name string,
 ) {
 	srcType, srcDesc := flowSourceType(ctx, prevNode)
+	chanValueType := sym.Type.Unwrap()
+	converts := false
+	if sym.IsValueVariable() {
+		write := expression.Write{
+			AST:     ctx.AST,
+			Expr:    prevNode.Expression(),
+			Value:   prevNode.Identifier(),
+			Source:  srcType,
+			Target:  chanValueType,
+			Subject: "'" + name + "'",
+		}
+		// A fix cannot change a declaration in another module.
+		if sym.Root() == ctx.Scope.Root() {
+			write.Declaration = sym.AST
+		}
+		var ok bool
+		if converts, ok = expression.CheckUnits(ctx, write); !ok {
+			return
+		}
+	}
 	if !srcType.IsValid() {
 		return
 	}
-	chanValueType := sym.Type.Unwrap()
-	if err := atypes.Check(
+	// A literal takes the type of the variable it is written to.
+	expected, actual, check := srcType, chanValueType, atypes.Check
+	if sym.IsValueVariable() {
+		expected, actual = chanValueType, srcType
+	}
+	if converts {
+		check = atypes.CheckConverted
+	}
+	if err := check(
 		ctx.Constraints,
-		srcType,
-		chanValueType,
+		expected,
+		actual,
 		ctx.AST,
 		"flow to channel sink",
 	); err != nil {

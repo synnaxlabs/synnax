@@ -48,8 +48,63 @@ func (p *Plugin) chainFrozenCodecs(req *plugin.Request) ([]plugin.File, error) {
 	return files, nil
 }
 
-// frozenCodecFiles emits the codec (and test) files for one frozen version
-// package, mirroring the current-package flow over the frozen table.
+// frozenEntries returns the struct and union types in namespace ns of a frozen table
+// that get a codec, keyed by qualified name. isAlias reports whether the version file
+// aliases a type to its predecessor, which then carries its codec.
+func frozenEntries(
+	table *resolution.Table,
+	ns string,
+	isAlias func(string) bool,
+) map[string]resolution.Type {
+	merged := make(map[string]resolution.Type)
+	for _, entry := range append(table.StructTypes(), table.UnionTypes()...) {
+		if entry.Namespace != ns ||
+			!domain.HasExprFromType(entry, "go", "marshal") ||
+			handCodec(entry) {
+			continue
+		}
+		if isAlias(entry.Name) {
+			continue
+		}
+		if entry.Synthetic {
+			continue
+		}
+		merged[entry.QualifiedName] = entry
+	}
+	return merged
+}
+
+// frozenFlexCodecs returns the flex codecs of the distinct types in namespace ns of a
+// frozen table.
+func frozenFlexCodecs(
+	table *resolution.Table,
+	ns string,
+	isAlias func(string) bool,
+) []flexCodec {
+	var flex []flexCodec
+	for _, dt := range table.DistinctTypes() {
+		if dt.Namespace != ns {
+			continue
+		}
+		if isAlias(dt.Name) {
+			continue
+		}
+		if domain.GetStringFromType(dt, "go", "marshal") != "flex" {
+			continue
+		}
+		form := resolution.MustForm[resolution.DistinctForm](dt)
+		goName := naming.GetGoName(dt)
+		flex = append(flex, flexCodec{
+			GoName:   goName,
+			Receiver: receiverName(goName),
+			BaseType: form.Base.Name,
+		})
+	}
+	return flex
+}
+
+// frozenCodecFiles emits the codec (and test) files for one frozen version package,
+// mirroring the current-package flow over the frozen table.
 func (p *Plugin) frozenCodecFiles(
 	req *plugin.Request,
 	origPath, livePath string,
@@ -64,40 +119,12 @@ func (p *Plugin) frozenCodecFiles(
 		return nil, err
 	}
 	vkPath := versioning.VersionedPath(origPath, k)
-	merged := make(map[string]resolution.Type)
-	for _, entry := range append(table.StructTypes(), table.UnionTypes()...) {
-		if entry.Namespace != ns ||
-			!domain.HasExprFromType(entry, "go", "marshal") ||
-			handCodec(entry) {
-			continue
-		}
-		if _, isAlias := f.Aliases[entry.Name]; isAlias {
-			continue
-		}
-		if entry.Synthetic {
-			continue
-		}
-		merged[entry.QualifiedName] = entry
+	isAlias := func(name string) bool {
+		_, ok := f.Aliases[name]
+		return ok
 	}
-	var flex []flexCodec
-	for _, dt := range table.DistinctTypes() {
-		if dt.Namespace != ns {
-			continue
-		}
-		if _, isAlias := f.Aliases[dt.Name]; isAlias {
-			continue
-		}
-		if domain.GetStringFromType(dt, "go", "marshal") != "flex" {
-			continue
-		}
-		form := resolution.MustForm[resolution.DistinctForm](dt)
-		goName := naming.GetGoName(dt)
-		flex = append(flex, flexCodec{
-			GoName:   goName,
-			Receiver: receiverName(goName),
-			BaseType: form.Base.Name,
-		})
-	}
+	merged := frozenEntries(table, ns, isAlias)
+	flex := frozenFlexCodecs(table, ns, isAlias)
 	entries := buildCodecEntries(merged)
 	if len(entries) == 0 && len(flex) == 0 {
 		return nil, nil

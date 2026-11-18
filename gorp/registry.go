@@ -35,6 +35,12 @@ type registeredTable interface {
 	// retarget moves the entry with the text key k from the target from to the target
 	// to through the references at refs, and writes it back with a checked write.
 	retarget(ctx context.Context, tx Tx, k string, refs []int, from, to Target) error
+	// watches reports whether the table runs a hook when an entry of the table named
+	// table that its entries hold is set.
+	watches(table string) bool
+	// targetSet runs the hook of the table for a set of an entry of the table named
+	// table, with the entry of the text key k.
+	targetSet(ctx context.Context, tx Tx, k, table string) error
 }
 
 // registeredReference is the part of a Reference that the delete walk reaches.
@@ -44,6 +50,7 @@ type registeredReference interface {
 	index() int
 	onDeletePolicy() OnDelete
 	canRetarget() bool
+	linkKind() LinkKind
 	targetTables() []string
 	// dependents returns the text keys of the entries that hold target.
 	dependents(ctx context.Context, snap Snapshot, target Target) ([]string, error)
@@ -202,6 +209,49 @@ func (r *registry) dependents(
 		}
 	}
 	return out, nil
+}
+
+// watchers returns the Use references to the table named table whose owner tables
+// watch it.
+func (r *registry) watchers(table string) []registeredReference {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []registeredReference
+	for _, ref := range r.referencing[table] {
+		if ref.linkKind() != Use {
+			continue
+		}
+		if t, ok := r.tables[ref.ownerTable()]; ok && t.watches(table) {
+			out = append(out, ref)
+		}
+	}
+	return out
+}
+
+// targetSet runs the target hook of each entry that holds target through one of refs,
+// which watchers returns for the table of target.
+func (r *registry) targetSet(
+	ctx context.Context,
+	tx Tx,
+	refs []registeredReference,
+	target Target,
+) error {
+	for _, ref := range refs {
+		owner, err := r.table(ref.ownerTable())
+		if err != nil {
+			return err
+		}
+		keys, err := ref.dependents(ctx, tx, target)
+		if err != nil {
+			return err
+		}
+		for _, k := range keys {
+			if err = owner.targetSet(ctx, tx, k, target.Table); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // deletePlan is the full effect of deleting a set of entries.

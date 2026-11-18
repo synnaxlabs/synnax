@@ -163,13 +163,22 @@ func OpenService(
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
-	// A detach or retarget changes a config, so the task stores the new hash of the
-	// config in the same transaction.
+	// A detach or retarget changes a config, and a write to a record that a config
+	// hashes can change its hash, so the task stores the new hash in the same
+	// transaction.
 	for _, t := range cfg.Configs.Types() {
 		store, _ := cfg.Configs.Store(t)
 		store.OnRewrite(func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error {
 			return s.NewWriter(tx).syncConfig(ctx, key)
 		})
+		store.OnTargetSet(func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error {
+			return s.NewWriter(tx).syncHash(ctx, key)
+		})
+	}
+	// A hash stored before its type hashed referenced records, or under an older
+	// encoding of them, catches up before the Driver configures the tasks.
+	if err = s.syncHashes(ctx); !ok(err, nil) {
+		return nil, err
 	}
 	if cfg.Signals != nil {
 		if err = s.publishSignals(ctx); !ok(err, nil) {
@@ -177,6 +186,36 @@ func OpenService(
 		}
 	}
 	return s, nil
+}
+
+// syncHashes stores the current config hash of each task whose type hashes referenced
+// records.
+func (s *Service) syncHashes(ctx context.Context) error {
+	var types []string
+	for _, t := range s.cfg.Configs.Types() {
+		if store, _ := s.cfg.Configs.Store(t); len(store.HashedTables()) > 0 {
+			types = append(types, t)
+		}
+	}
+	if len(types) == 0 {
+		return nil
+	}
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var tasks []Task
+		if err := s.NewRetrieve().
+			Where(MatchTypes(types...)).
+			Entries(&tasks).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		w := s.NewWriter(tx)
+		for _, t := range tasks {
+			if err := w.syncHash(ctx, t.Key); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // registerImEx registers s as the exporter of tasks and as the importer of every

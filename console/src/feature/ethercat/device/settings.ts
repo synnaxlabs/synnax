@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ethercat } from "@synnaxlabs/client";
-import { DataType } from "@synnaxlabs/x";
+import { bounds, DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
 const ADDRESS = { index: z.number(), subIndex: z.number() };
@@ -212,7 +212,7 @@ export interface Change {
 /** @returns the value inside the limits of the field, with a note if it moved. */
 const toLimits = (field: Field, value: number): { value: number; note?: Note } => {
   const { min = -Infinity, max = Infinity, unit } = field;
-  const moved = Math.min(Math.max(value, min), max);
+  const moved = bounds.clamp({ lower: min, upper: max }, value);
   if (moved === value) return { value };
   const suffix = unit === "" ? "" : ` ${unit}`;
   const from = `${valueText(field, value)}${suffix}`;

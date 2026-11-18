@@ -67,15 +67,24 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
-			Retarget: func(e *Enumeration, from, to color.Key) {
+			Detach: func(e *Enumeration, t color.Key) {
 				for i5 := range e.Entries {
 					if e.Entries[i5].Color != nil {
-						switch v6 := e.Entries[i5].Color.Variant.(type) {
+						if v6, ok := e.Entries[i5].Color.Variant.(color.NamedRef); ok && v6.Key == t {
+							e.Entries[i5].Color = nil
+						}
+					}
+				}
+			},
+			Retarget: func(e *Enumeration, from, to color.Key) {
+				for i7 := range e.Entries {
+					if e.Entries[i7].Color != nil {
+						switch v8 := e.Entries[i7].Color.Variant.(type) {
 						case color.NamedRef:
-							if v6.Key == from {
-								v6.Key = to
+							if v8.Key == from {
+								v8.Key = to
 							}
-							e.Entries[i5].Color.Variant = v6
+							e.Entries[i7].Color.Variant = v8
 						}
 					}
 				}

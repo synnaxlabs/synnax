@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -133,7 +134,7 @@ describe("page", () => {
       signInWithTeam();
       const context = createAPIContext(harness.portal, {
         method: "GET",
-        path: `/?org=${crypto.randomUUID()}`,
+        path: `/?org=${uuid.create()}`,
       });
       const res = await loadScoped(context);
       if (!(res instanceof Response)) throw new Error("expected a redirect");
@@ -334,9 +335,9 @@ describe("page", () => {
     });
 
     it("should refuse an expiring page without an expiry", async () => {
-      await expect(
-        read(`?status=expiring&after=${crypto.randomUUID()}`),
-      ).rejects.toThrow(new HTTPError(400, "Invalid page"));
+      await expect(read(`?status=expiring&after=${uuid.create()}`)).rejects.toThrow(
+        new HTTPError(400, "Invalid page"),
+      );
     });
 
     it("should refuse a status it does not know", async () => {
