@@ -11020,6 +11020,92 @@ var _ = Describe("Sequences and stages with parameters", func() {
 		}
 	})
 
+	// bodies returns take declared as a stage and as a sequence of one stage.
+	bodies := func(params, body string) []string {
+		return []string{
+			"stage take(" + params + ") {\n" + body + "\n}\n",
+			"sequence take(" + params + ") {\nstage run {\n" + body + "\n}\n}\n",
+		}
+	}
+
+	DescribeTable("Should pass a channel parameter to control.set_authority",
+		func(ctx SpecContext, call string, named bool) {
+			for _, take := range bodies("out chan f64", call+"\n1.0 -> out") {
+				inter := analyze(ctx, "import control\n"+take+`
+					start => take(valve)
+					start => take(valve_b)
+				`)
+				target := func(key string) (channels []any, written []map[uint32]string) {
+					for _, n := range nodesOf(inter, findTopLevelScope(inter, key)) {
+						if !strings.HasSuffix(n.Type, "set_authority") {
+							continue
+						}
+						channels = append(
+							channels,
+							MustBeOk(n.Inputs.Get("channel")).Value,
+						)
+						written = append(written, n.Channels.Write)
+					}
+					return channels, written
+				}
+				channels, written := target("$take_0")
+				Expect(channels).To(Equal([]any{uint32(103)}), take)
+				first := written
+				channels, written = target("$take_1")
+				Expect(channels).To(Equal([]any{uint32(104)}), take)
+				if named {
+					Expect(first).To(Equal([]map[uint32]string{{103: "out"}}), take)
+					Expect(written).To(Equal([]map[uint32]string{{104: "out"}}), take)
+				}
+			}
+		},
+		Entry("as a step", "control.set_authority(value=220, channel=out)", true),
+		Entry(
+			"after a trigger",
+			"start -> control.set_authority(value=220, channel=out)",
+			true,
+		),
+		Entry("by position", "start -> control.set_authority(220, out)", false),
+	)
+
+	It("Should bind each authority and each channel of control.set_authority", func(
+		ctx SpecContext,
+	) {
+		for _, take := range bodies("high u8, low u8, first chan f64, second chan f64", `
+			control.set_authority(value=high, channel=first)
+			control.set_authority(value=low, channel=second)
+			control.set_authority(value=low)
+			1.0 -> first
+			1.0 -> second
+		`) {
+			inter := analyze(ctx, "import control\n"+take+`
+				start => take(220, 90, valve, valve_b)
+				start => take(240, 80, valve_b, valve)
+			`)
+			// bound returns the authority and the channel of each call in the instance.
+			bound := func(key string) (calls [][2]float64) {
+				for _, n := range nodesOf(inter, findTopLevelScope(inter, key)) {
+					if !strings.HasSuffix(n.Type, "set_authority") {
+						continue
+					}
+					channel := MustBeOk(n.Inputs.Get("channel"))
+					value := MustBeOk(n.Inputs.Get("value"))
+					calls = append(calls, [2]float64{
+						telem.CastNumeric[float64](value.Value),
+						telem.CastNumeric[float64](channel.Value),
+					})
+				}
+				return calls
+			}
+			Expect(bound("$take_0")).To(ConsistOf(
+				[2]float64{220, 103}, [2]float64{90, 104}, [2]float64{90, 0},
+			), take)
+			Expect(bound("$take_1")).To(ConsistOf(
+				[2]float64{240, 104}, [2]float64{80, 103}, [2]float64{80, 0},
+			), take)
+		}
+	})
+
 	It("Should jump from a sequence to the instance", func(ctx SpecContext) {
 		inter := analyze(ctx, declaration+`
 			sequence outer {

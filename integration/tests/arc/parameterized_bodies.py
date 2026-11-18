@@ -48,6 +48,7 @@ export sequence drain(valve chan bool) {
 # pb_start starts every instance, and each instance marks its readiness on entry.
 AUTOMATION_SOURCE = Template("""
 import $library
+import control
 
 authority 200
 
@@ -175,6 +176,48 @@ pb_start == 1 => $library.relay(pb_mod_a, 1, pb_mod_ready_a)
 pb_start == 1 => $library.relay(pb_mod_b, 2, pb_mod_ready_b)
 pb_start == 1 => $library.hold(pb_mod_hold_a, 3)
 pb_start == 1 => $library.hold(pb_mod_hold_b, 4)
+
+// ──── authority ────
+stage take_stage(level u8, low chan bool, high chan bool, other chan bool) {
+    control.set_authority(value=level, channel=low)
+    control.set_authority(value=level, channel=high)
+    true -> low
+    true -> high
+    true -> other
+}
+sequence take_seq(level u8, low chan bool, high chan bool, other chan bool) {
+    stage run {
+        control.set_authority(value=level, channel=low)
+        control.set_authority(value=level, channel=high)
+        true -> low
+        true -> high
+        true -> other
+    }
+}
+pb_auth_go => take_stage(
+    230,
+    pb_auth_stage_low_a,
+    pb_auth_stage_high_a,
+    pb_auth_stage_other_a
+)
+pb_auth_go => take_stage(
+    250,
+    pb_auth_stage_low_b,
+    pb_auth_stage_high_b,
+    pb_auth_stage_other_b
+)
+pb_auth_go => take_seq(
+    230,
+    pb_auth_seq_low_a,
+    pb_auth_seq_high_a,
+    pb_auth_seq_other_a
+)
+pb_auth_go => take_seq(
+    250,
+    pb_auth_seq_low_b,
+    pb_auth_seq_high_b,
+    pb_auth_seq_other_b
+)
 """)
 
 BOOL = sy.DataType.BOOLEAN
@@ -192,6 +235,7 @@ INPUTS: dict[str, sy.DataType] = {
     "pb_watch_level_a": F32,
     "pb_watch_level_b": F32,
     "pb_mod_go": BOOL,
+    "pb_auth_go": BOOL,
 }
 
 # The automation writes these channels, and the case reads them.
@@ -234,6 +278,16 @@ OUTPUTS: dict[str, sy.DataType] = {
     "pb_mod_hold_b": F32,
 }
 
+# The case holds the low and other channels at 220 and the high channels at 240, above
+# the automation at 200. Each name is pb_auth_<stage or seq>_<channel>_<instance>.
+HELD: dict[str, int] = {
+    f"pb_auth_{body}_{channel}_{instance}": 240 if channel == "high" else 220
+    for body in ("stage", "seq")
+    for channel in ("low", "high", "other")
+    for instance in ("a", "b")
+}
+OUTPUTS |= dict.fromkeys(HELD, BOOL)
+
 
 class ParameterizedBodies(ArcCase):
     """Each call of a sequence or stage with parameters runs as its own instance.
@@ -252,7 +306,10 @@ class ParameterizedBodies(ArcCase):
     8. An inline body in the sequence belongs to one instance.
     9. The automation calls a sequence and a stage that a module exports, two times
        each. The sequence calls one that the module does not export.
-    10. A module does not compile when a sequence that no flow calls has an error.
+    10. Two calls of a stage and two calls of a sequence set their own authority on
+        two channel parameters each. Each call takes only the channels that its
+        authority is above.
+    11. A module does not compile when a sequence that no flow calls has an error.
     """
 
     arc_source = AUTOMATION_SOURCE.template
@@ -284,6 +341,7 @@ class ParameterizedBodies(ArcCase):
         self._verify_call_from_an_instance()
         self._verify_inline_body()
         self._verify_module()
+        self._verify_authority()
         self._verify_uncalled_declaration()
 
     def _wait_for_ready(self, *channels: str) -> None:
@@ -371,6 +429,29 @@ class ParameterizedBodies(ArcCase):
         self.log("Waiting for each instance of the exported stage")
         self.wait_for_eq("pb_mod_hold_a", 8)
         self.wait_for_eq("pb_mod_hold_b", 9)
+
+    def _verify_authority(self) -> None:
+        self.log("Holding the authority channels above the automation")
+        # A retrieve by name does not keep the order of the names.
+        by_name = {ch.name: ch.key for ch in self.client.channels.retrieve(list(HELD))}
+        keys = [by_name[name] for name in HELD]
+        with self.client.open_writer(
+            sy.TimeStamp.now(), keys, authorities=list(HELD.values())
+        ) as override:
+            override.write(dict.fromkeys(keys, 0))
+            for channel in HELD:
+                self.wait_for_eq(channel, 0)
+            self.log("Writing pb_auth_go=1 for each instance to set its authority")
+            self.writer.write("pb_auth_go", 1)
+            for body in ("stage", "seq"):
+                self.log(f"The {body} instance at 250 must take both of its channels")
+                self.wait_for_eq(f"pb_auth_{body}_low_b", 1)
+                self.wait_for_eq(f"pb_auth_{body}_high_b", 1)
+                self.log(f"The {body} instance at 230 must take only its low channel")
+                self.wait_for_eq(f"pb_auth_{body}_low_a", 1)
+                for channel in ("high_a", "other_a", "other_b"):
+                    if self.read_tlm(f"pb_auth_{body}_{channel}") != 0:
+                        self.fail(f"The {body} wrote pb_auth_{body}_{channel}")
 
     def _verify_uncalled_declaration(self) -> None:
         self.log("Creating a module with an error in a sequence that no flow calls")

@@ -857,6 +857,46 @@ export stage hold(out chan i64, value i64) {
 			Expect(last(out, fnOut2).Unmarshal[int64]()).To(Equal([]int64{7}))
 		})
 
+		DescribeTable("Should set authority on a channel parameter of an exported",
+			func(ctx SpecContext, module string) {
+				h := newModuleRuntimeHarness(ctx, `
+import m
+
+trig == 1 => m.take(fn_out, 220)
+trig2 == 1 => m.take(fn_out2, 90)
+`, map[string]string{"m": module}, resolver, digests...)
+				defer h.Close(ctx)
+				send(ctx, h, trig, 1)
+				changes := h.FlushAuthority()
+				Expect(changes).To(HaveLen(1))
+				Expect(changes[0].Authority).To(Equal(uint8(220)))
+				Expect(changes[0].Channel).To(HaveValue(Equal(fnOut)))
+				send(ctx, h, trig2, 1)
+				changes = h.FlushAuthority()
+				Expect(changes).To(HaveLen(1))
+				Expect(changes[0].Authority).To(Equal(uint8(90)))
+				Expect(changes[0].Channel).To(HaveValue(Equal(fnOut2)))
+			},
+			Entry("stage", `
+import control
+
+export stage take(out chan i64, level u8) {
+    control.set_authority(value=level, channel=out)
+    1 -> out
+}
+`),
+			Entry("sequence", `
+import control
+
+export sequence take(out chan i64, level u8) {
+    stage run {
+        control.set_authority(value=level, channel=out)
+        1 -> out
+    }
+}
+`),
+		)
+
 		It("Should call a sequence the module does not export from one it does", func(
 			ctx SpecContext,
 		) {

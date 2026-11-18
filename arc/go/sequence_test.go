@@ -10458,6 +10458,158 @@ var _ = Describe("Sequence", func() {
 			Expect(written(out, valveA)).To(BeFalse())
 		})
 
+		// change is an authority change that a spec expects, with 0 for all channels.
+		type change struct {
+			authority uint8
+			channel   uint32
+		}
+		// step triggers a channel and gives the authority changes that must follow.
+		type step struct {
+			key     uint32
+			changes []change
+		}
+		// expectChanges runs source and checks the authority changes of each step.
+		expectChanges := func(ctx SpecContext, source string, steps []step) {
+			GinkgoHelper()
+			h := open(ctx, "import control\n"+source)
+			for _, s := range steps {
+				trigger(h, ctx, s.key)
+				flushed := h.FlushAuthority()
+				got := make([]change, 0, len(flushed))
+				for _, c := range flushed {
+					ch := change{authority: c.Authority}
+					if c.Channel != nil {
+						ch.channel = *c.Channel
+					}
+					got = append(got, ch)
+				}
+				if len(s.changes) == 0 {
+					Expect(got).To(BeEmpty(), source)
+					continue
+				}
+				Expect(got).To(ConsistOf(s.changes), source)
+			}
+		}
+		const set220 = `
+		        control.set_authority(value=220, channel=valve)
+		        1 -> valve`
+
+		DescribeTable(
+			"Should set authority from a stage and from a sequence",
+			func(ctx SpecContext, params, body, calls string, steps ...step) {
+				expectChanges(ctx, "stage take("+params+") {"+body+"\n}\n"+calls, steps)
+				expectChanges(
+					ctx,
+					"sequence take("+params+") {\nstage run {"+body+"\n}\n}\n"+calls,
+					steps,
+				)
+			},
+			Entry("on the channel of each instance", "valve chan u8", set220, `
+			start_a == 1 => take(valve_a)
+			start_b == 1 => take(valve_b)`,
+				step{startB, []change{{220, valveB}}},
+				step{startA, []change{{220, valveA}}},
+			),
+			Entry("at the authority of each instance", "level u8, valve chan u8", `
+			    control.set_authority(value=level, channel=valve)
+			    1 -> valve`, `
+			start_a == 1 => take(220, valve_a)
+			start_b == 1 => take(90, valve_b)`,
+				step{startA, []change{{220, valveA}}},
+				step{startB, []change{{90, valveB}}},
+			),
+			Entry("on two channels at two authorities", "high chan u8, low chan u8", `
+			    control.set_authority(value=220, channel=high)
+			    control.set_authority(value=90, channel=low)
+			    1 -> high
+			    1 -> low`, `
+			start_a == 1 => take(valve_a, valve_b)
+			start_b == 1 => take(valve_b, valve_a)`,
+				step{startA, []change{{220, valveA}, {90, valveB}}},
+				step{startB, []change{{220, valveB}, {90, valveA}}},
+			),
+			Entry(
+				"on all channels with no channel argument",
+				"level u8, valve chan u8",
+				`
+			    control.set_authority(value=level)
+			    1 -> valve`,
+				`
+			start_a == 1 => take(220, valve_a)
+			start_b == 1 => take(90, valve_b)`,
+				step{startA, []change{{220, 0}}},
+				step{startB, []change{{90, 0}}},
+			),
+			Entry("on a channel parameter and a channel by name", "valve chan u8", `
+			    control.set_authority(value=220, channel=valve)
+			    control.set_authority(value=90, channel=valve_b)
+			    1 -> valve`, `
+			start_a == 1 => take(valve_a)`,
+				step{startA, []change{{220, valveA}, {90, valveB}}},
+			),
+			Entry("on a top-level alias", "valve chan u8", set220, `
+			sink := valve_a
+			start_a == 1 => take(sink)`,
+				step{startA, []change{{220, valveA}}},
+			),
+			Entry("in a callee of a sequence", "valve chan u8", set220, `
+			sequence arm(valve chan u8) {
+			    stage wait {
+			        gate == 1 => take(valve)
+			    }
+			}
+			start_a == 1 => arm(valve_a)
+			start_b == 1 => arm(valve_b)`,
+				step{startA, nil},
+				step{startB, nil},
+				step{gate, []change{{220, valveA}, {220, valveB}}},
+			),
+			Entry("in a callee of a stage", "valve chan u8", set220, `
+			stage arm(valve chan u8) {
+			    gate == 1 => take(valve)
+			}
+			start_a == 1 => arm(valve_a)
+			start_b == 1 => arm(valve_b)`,
+				step{startA, nil},
+				step{startB, nil},
+				step{gate, []change{{220, valveA}, {220, valveB}}},
+			),
+		)
+
+		DescribeTable("Should set authority from the steps of a sequence",
+			func(ctx SpecContext, source string, steps ...step) {
+				expectChanges(ctx, source, steps)
+			},
+			Entry("in each stage", `
+			sequence run(valve chan u8) {
+			    stage take {
+			        control.set_authority(value=220, channel=valve)
+			        1 -> valve
+			        gate == 1 => next
+			    }
+			    stage give {
+			        control.set_authority(value=90, channel=valve)
+			        0 -> valve
+			    }
+			}
+			start_a == 1 => run(valve_a)`,
+				step{startA, []change{{220, valveA}}},
+				step{gate, []change{{90, valveA}}},
+			),
+			Entry("as a step of its own", `
+			sequence run(level u8, valve chan u8) {
+			    control.set_authority(value=level, channel=valve)
+			    stage hold {
+			        1 -> valve
+			    }
+			}
+			start_a == 1 => run(220, valve_a)
+			start_b == 1 => run(90, valve_b)`,
+				step{startA, []change{{220, valveA}}},
+				step{startB, []change{{90, valveB}}},
+			),
+		)
+
 		It("Should take a top-level constant and a top-level alias", func(
 			ctx SpecContext,
 		) {

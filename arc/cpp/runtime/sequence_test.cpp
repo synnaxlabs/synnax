@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -119,6 +120,11 @@ public:
     }
 
     [[nodiscard]] x::telem::Frame flush() { return this->harness.flush(); }
+
+    /// @brief drains the authority changes that set_authority nodes buffered.
+    [[nodiscard]] std::vector<state::AuthorityChange> flush_authority() const {
+        return this->harness.flush_authority();
+    }
 };
 
 /// @brief returns every sample in a series as T.
@@ -4732,6 +4738,46 @@ void level(Sequence &h, const float value) {
 bool written(const Sequence &h, const x::telem::Frame &fr, const std::string &valve) {
     return !collect<std::uint8_t>(fr, h.key(valve)).empty();
 }
+
+const std::string SET_220 = R"(
+        control.set_authority(value=220, channel=valve)
+        1 -> valve)";
+
+/// @brief returns take declared as a stage and as a sequence of one stage.
+std::vector<std::string> bodies(const std::string &params, const std::string &body) {
+    return {
+        "import control\nstage take(" + params + ") {" + body + "\n}\n",
+        "import control\nsequence take(" + params + ") {\nstage run {" + body +
+            "\n}\n}\n",
+    };
+}
+
+/// @brief an authority change that a spec expects, with no channel for all channels.
+struct Change {
+    std::uint8_t authority;
+    std::optional<std::string> channel;
+};
+
+/// @brief triggers the named channel and checks the authority changes that follow.
+void expect_changes(
+    Sequence &h,
+    const std::string &trigger,
+    const std::vector<Change> &expected
+) {
+    using Pair = std::pair<int, std::optional<types::ChannelKey>>;
+    h.trigger(trigger);
+    std::vector<Pair> got, want;
+    for (const auto &c: h.flush_authority())
+        got.emplace_back(c.authority, c.channel_key);
+    for (const auto &c: expected) {
+        std::optional<types::ChannelKey> key;
+        if (c.channel.has_value()) key = h.key(*c.channel);
+        want.emplace_back(c.authority, key);
+    }
+    std::sort(got.begin(), got.end());
+    std::sort(want.begin(), want.end());
+    EXPECT_EQ(got, want) << "after " << trigger;
+}
 }
 
 /// @brief it should run each call as its own instance.
@@ -4817,6 +4863,158 @@ TEST(ParametersTest, RunsATopLevelStageWithParameters) {
     const auto out = h.flush();
     EXPECT_EQ(last<std::uint8_t>(out, h.key("valve_b")), 1);
     EXPECT_FALSE(written(h, out, "valve_a"));
+}
+
+/// @brief it should set authority on the channel of each instance.
+TEST(ParametersTest, SetsAuthorityOnTheChannelOfEachInstance) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", SET_220)) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(%valve_a%)
+        %start_b% == 1 => take(%valve_b%))");
+        expect_changes(h, "start_b", {{220, "valve_b"}});
+        expect_changes(h, "start_a", {{220, "valve_a"}});
+    }
+}
+
+/// @brief it should set authority at the authority of each instance.
+TEST(ParametersTest, SetsAuthorityAtTheAuthorityOfEachInstance) {
+    using namespace parameters;
+    for (const auto &take: bodies("level u8, valve chan u8", R"(
+        control.set_authority(value=level, channel=valve)
+        1 -> valve)")) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(220, %valve_a%)
+        %start_b% == 1 => take(90, %valve_b%))");
+        expect_changes(h, "start_a", {{220, "valve_a"}});
+        expect_changes(h, "start_b", {{90, "valve_b"}});
+    }
+}
+
+/// @brief it should set authority on two channels at two authorities.
+TEST(ParametersTest, SetsAuthorityOnTwoChannelsAtTwoAuthorities) {
+    using namespace parameters;
+    for (const auto &take: bodies("high chan u8, low chan u8", R"(
+        control.set_authority(value=220, channel=high)
+        control.set_authority(value=90, channel=low)
+        1 -> high
+        1 -> low)")) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(%valve_a%, %valve_b%)
+        %start_b% == 1 => take(%valve_b%, %valve_a%))");
+        expect_changes(h, "start_a", {{220, "valve_a"}, {90, "valve_b"}});
+        expect_changes(h, "start_b", {{220, "valve_b"}, {90, "valve_a"}});
+    }
+}
+
+/// @brief it should set authority on all channels with no channel argument.
+TEST(ParametersTest, SetsAuthorityOnAllChannelsWithNoChannelArgument) {
+    using namespace parameters;
+    for (const auto &take: bodies("level u8, valve chan u8", R"(
+        control.set_authority(value=level)
+        1 -> valve)")) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(220, %valve_a%)
+        %start_b% == 1 => take(90, %valve_b%))");
+        expect_changes(h, "start_a", {{220, std::nullopt}});
+        expect_changes(h, "start_b", {{90, std::nullopt}});
+    }
+}
+
+/// @brief it should set authority on a channel parameter and a channel by name.
+TEST(ParametersTest, SetsAuthorityOnAChannelParameterAndAChannelByName) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", R"(
+        control.set_authority(value=220, channel=valve)
+        control.set_authority(value=90, channel=%valve_b%)
+        1 -> valve)")) {
+        auto h = new_h(take + R"(
+        %start_a% == 1 => take(%valve_a%))");
+        expect_changes(h, "start_a", {{220, "valve_a"}, {90, "valve_b"}});
+    }
+}
+
+/// @brief it should set authority on a top-level alias.
+TEST(ParametersTest, SetsAuthorityOnATopLevelAlias) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", SET_220)) {
+        auto h = new_h(take + R"(
+        sink := %valve_a%
+        %start_a% == 1 => take(sink))");
+        expect_changes(h, "start_a", {{220, "valve_a"}});
+    }
+}
+
+/// @brief it should set authority in a callee of a sequence.
+TEST(ParametersTest, SetsAuthorityInACalleeOfASequence) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", SET_220)) {
+        auto h = new_h(take + R"(
+        sequence arm(valve chan u8) {
+            stage wait {
+                %gate% == 1 => take(valve)
+            }
+        }
+        %start_a% == 1 => arm(%valve_a%)
+        %start_b% == 1 => arm(%valve_b%))");
+        expect_changes(h, "start_a", {});
+        expect_changes(h, "start_b", {});
+        expect_changes(h, "gate", {{220, "valve_a"}, {220, "valve_b"}});
+    }
+}
+
+/// @brief it should set authority in a callee of a stage.
+TEST(ParametersTest, SetsAuthorityInACalleeOfAStage) {
+    using namespace parameters;
+    for (const auto &take: bodies("valve chan u8", SET_220)) {
+        auto h = new_h(take + R"(
+        stage arm(valve chan u8) {
+            %gate% == 1 => take(valve)
+        }
+        %start_a% == 1 => arm(%valve_a%)
+        %start_b% == 1 => arm(%valve_b%))");
+        expect_changes(h, "start_a", {});
+        expect_changes(h, "start_b", {});
+        expect_changes(h, "gate", {{220, "valve_a"}, {220, "valve_b"}});
+    }
+}
+
+/// @brief it should set authority in each stage of a sequence.
+TEST(ParametersTest, SetsAuthorityInEachStageOfASequence) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    import control
+    sequence run(valve chan u8) {
+        stage take {
+            control.set_authority(value=220, channel=valve)
+            1 -> valve
+            %gate% == 1 => next
+        }
+        stage give {
+            control.set_authority(value=90, channel=valve)
+            0 -> valve
+        }
+    }
+    %start_a% == 1 => run(%valve_a%))");
+    expect_changes(h, "start_a", {{220, "valve_a"}});
+    expect_changes(h, "gate", {{90, "valve_a"}});
+}
+
+/// @brief it should set authority as a step of a sequence.
+TEST(ParametersTest, SetsAuthorityAsAStepOfASequence) {
+    using namespace parameters;
+    auto h = new_h(R"(
+    import control
+    sequence run(level u8, valve chan u8) {
+        control.set_authority(value=level, channel=valve)
+        stage hold {
+            1 -> valve
+        }
+    }
+    %start_a% == 1 => run(220, %valve_a%)
+    %start_b% == 1 => run(90, %valve_b%))");
+    expect_changes(h, "start_a", {{220, "valve_a"}});
+    expect_changes(h, "start_b", {{90, "valve_b"}});
 }
 
 /// @brief it should take a top-level constant and a top-level alias.
