@@ -64,6 +64,7 @@ var _ = Describe("Driver", func() {
 		return MustOpen(driver.Open(ctx, driver.Config{
 			DB:        node.DB,
 			Rack:      rackService,
+			RackKey:   coreRack,
 			Task:      taskService,
 			Framer:    framerSvc,
 			Channel:   channelSvc,
@@ -81,6 +82,7 @@ var _ = Describe("Driver", func() {
 		return MustOpen(driver.Open(ctx, driver.Config{
 			DB:                node.DB,
 			Rack:              rackService,
+			RackKey:           coreRack,
 			Task:              taskService,
 			Framer:            framerSvc,
 			Channel:           channelSvc,
@@ -144,15 +146,18 @@ var _ = Describe("Driver", func() {
 			Expect(embeddedRackKey(ctx)).ToNot(BeZero())
 		})
 
-		It("should create rack in rack service", func(ctx SpecContext) {
-			openDriver(ctx, &mockFactory{name: "test"})
-			var racks []rack.Rack
-			Expect(rackService.NewRetrieve().
-				Where(rack.MatchKeys(embeddedRackKey(ctx))).
-				Entries(&racks).
-				Exec(ctx, db)).To(Succeed())
-			Expect(racks).To(HaveLen(1))
-			Expect(racks[0].Embedded).To(BeTrue())
+		It("should fail for a rack that does not exist", func(ctx SpecContext) {
+			Expect(driver.Open(ctx, driver.Config{
+				DB:        node.DB,
+				Rack:      rackService,
+				RackKey:   9999,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{&mockFactory{name: "test"}},
+				HostKey:   1,
+			})).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -161,6 +166,7 @@ var _ = Describe("Driver", func() {
 				MustOpen(driver.Open(ctx, driver.Config{
 					DB:      node.DB,
 					Rack:    rackService,
+					RackKey: coreRack,
 					Task:    taskService,
 					Framer:  framerSvc,
 					Channel: channelSvc,
@@ -196,6 +202,7 @@ var _ = Describe("Driver", func() {
 				d1 := DeferClose(MustSucceed(driver.Open(ctx, driver.Config{
 					DB:        node.DB,
 					Rack:      rackService,
+					RackKey:   coreRack,
 					Task:      taskService,
 					Framer:    framerSvc,
 					Channel:   channelSvc,
@@ -208,6 +215,7 @@ var _ = Describe("Driver", func() {
 				MustOpen(driver.Open(ctx, driver.Config{
 					DB:      node.DB,
 					Rack:    rackService,
+					RackKey: coreRack,
 					Task:    taskService,
 					Framer:  framerSvc,
 					Channel: channelSvc,
@@ -259,6 +267,7 @@ var _ = Describe("Driver", func() {
 				cfg := driver.Config{
 					DB:        node.DB,
 					Rack:      rackService,
+					RackKey:   coreRack,
 					Task:      taskService,
 					Framer:    framerSvc,
 					Channel:   channelSvc,
@@ -290,6 +299,7 @@ var _ = Describe("Driver", func() {
 				cfg := driver.Config{
 					DB:        node.DB,
 					Rack:      rackService,
+					RackKey:   coreRack,
 					Task:      taskService,
 					Framer:    framerSvc,
 					Channel:   channelSvc,
@@ -384,6 +394,7 @@ var _ = Describe("Driver", func() {
 			Expect(driver.Open(ctx, driver.Config{
 				DB:      node.DB,
 				Rack:    rackService,
+				RackKey: coreRack,
 				Task:    taskService,
 				Framer:  framerSvc,
 				Channel: channelSvc,
@@ -1755,6 +1766,7 @@ var _ = Describe("Driver", func() {
 			d1 := DeferClose(MustSucceed(driver.Open(ctx, driver.Config{
 				DB:        node.DB,
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Task:      taskService,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
@@ -1793,6 +1805,7 @@ var _ = Describe("Driver", func() {
 			MustOpen(driver.Open(ctx, driver.Config{
 				DB:        node.DB,
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Task:      taskService,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
@@ -1851,6 +1864,7 @@ var _ = Describe("Driver", func() {
 			d1 := MustSucceed(driver.Open(ctx, driver.Config{
 				DB:        node.DB,
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Task:      taskService,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
@@ -1868,6 +1882,7 @@ var _ = Describe("Driver", func() {
 			MustOpen(driver.Open(ctx, driver.Config{
 				DB:        node.DB,
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Task:      taskService,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
@@ -1919,6 +1934,7 @@ var _ = Describe("Driver", func() {
 			driver := DeferClose(MustSucceed(driver.Open(ctx, driver.Config{
 				DB:        node.DB,
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Task:      taskService,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
@@ -1978,6 +1994,7 @@ var _ = Describe("Driver", func() {
 			driver := DeferClose(MustSucceed(driver.Open(ctx, driver.Config{
 				DB:        node.DB,
 				Rack:      rackService,
+				RackKey:   coreRack,
 				Task:      taskService,
 				Framer:    framerSvc,
 				Channel:   channelSvc,
@@ -2136,6 +2153,7 @@ var _ = Describe("Driver", func() {
 			MustOpen(driver.Open(ctx, driver.Config{
 				DB:                node.DB,
 				Rack:              rackService,
+				RackKey:           coreRack,
 				Task:              taskService,
 				Framer:            framerSvc,
 				Channel:           channelSvc,
@@ -2162,6 +2180,7 @@ var _ = Describe("Driver", func() {
 			MustOpen(driver.Open(ctx, driver.Config{
 				DB:                node.DB,
 				Rack:              rackService,
+				RackKey:           coreRack,
 				Task:              taskService,
 				Framer:            framerSvc,
 				Channel:           channelSvc,
@@ -2198,6 +2217,7 @@ var _ = Describe("Driver", func() {
 			driver := DeferClose(MustSucceed(driver.Open(ctx, driver.Config{
 				DB:                node.DB,
 				Rack:              rackService,
+				RackKey:           coreRack,
 				Task:              taskService,
 				Framer:            framerSvc,
 				Channel:           channelSvc,
@@ -2505,6 +2525,7 @@ var _ = Describe("Driver", func() {
 				d1 := MustSucceed(driver.Open(ctx, driver.Config{
 					DB:        node.DB,
 					Rack:      rackService,
+					RackKey:   coreRack,
 					Task:      taskService,
 					Framer:    framerSvc,
 					Channel:   channelSvc,
@@ -2908,6 +2929,7 @@ var _ = Describe("Driver", func() {
 					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 					DB:              node.DB,
 					Rack:            rackService,
+					RackKey:         coreRack,
 					Task:            taskService,
 					Framer:          framerSvc,
 					Channel:         channelSvc,
@@ -3101,6 +3123,7 @@ var _ = Describe("Driver", func() {
 			MustOpen(driver.Open(ctx, driver.Config{
 				DB:          node.DB,
 				Rack:        rackService,
+				RackKey:     coreRack,
 				Task:        taskService,
 				Framer:      framerSvc,
 				Channel:     channelSvc,
@@ -3166,6 +3189,7 @@ var _ = Describe("Driver", func() {
 			MustOpen(driver.Open(ctx, driver.Config{
 				DB:          node.DB,
 				Rack:        rackService,
+				RackKey:     coreRack,
 				Task:        taskService,
 				Framer:      framerSvc,
 				Channel:     channelSvc,
@@ -3211,6 +3235,7 @@ var _ = Describe("Driver", func() {
 				d1 := DeferClose(MustSucceed(driver.Open(ctx, driver.Config{
 					DB:        node.DB,
 					Rack:      rackService,
+					RackKey:   coreRack,
 					Task:      taskService,
 					Framer:    framerSvc,
 					Channel:   channelSvc,
@@ -3271,6 +3296,7 @@ var _ = Describe("Driver", func() {
 					d := MustSucceed(driver.Open(ctx, driver.Config{
 						DB:        node.DB,
 						Rack:      rackService,
+						RackKey:   coreRack,
 						Task:      taskService,
 						Framer:    framerSvc,
 						Channel:   channelSvc,

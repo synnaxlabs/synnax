@@ -79,13 +79,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		// No Driver reports for the rack, so a check would overwrite task statuses.
 		HealthCheckInterval: telem.Hour,
 	}))
-	secretSvc = secrettestutil.OpenService(ctx, db)
+	secretSvc = secrettestutil.OpenService(
+		ctx,
+		db,
+		secret.ServiceConfig{Rack: rackSvc.EmbeddedKey},
+	)
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:     db,
 		Status: statusSvc,
 		Rack:   rackSvc,
 		References: []gorp.Reference[device.Key, device.Device]{
-			sift.APIKeyReference(),
+			sift.APIKeyReference(secretSvc),
 		},
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{

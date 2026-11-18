@@ -80,6 +80,7 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 		DB:     db,
 		Secret: secretSvc,
+		Rack:   secrettestutil.CoreRack,
 	}))
 	imexSvc := imex.NewService()
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
