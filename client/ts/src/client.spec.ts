@@ -159,11 +159,26 @@ describe("constructor with caCert", () => {
     ).toThrow("browser");
   });
 
-  it("should tell a Deno user to start Deno with --cert", () => {
+  it("should tell a Deno user to leave out caCert", () => {
     vi.stubGlobal("Deno", {});
     expect(
       () => new Synnax({ host: "localhost", port: 9090, secure: true, caCert: PEM }),
-    ).toThrow("--cert");
+    ).toThrow("Deno cannot use caCert. Leave it out and start Deno with --cert");
+  });
+
+  it("should tell a Deno user to unset SYNNAX_CA_CERT", () => {
+    const dir = mkdtempSync(join(tmpdir(), "synnax-ca-"));
+    try {
+      const file = join(dir, "ca.pem");
+      writeFileSync(file, PEM);
+      vi.stubEnv("SYNNAX_CA_CERT", file);
+      vi.stubGlobal("Deno", {});
+      expect(() => new Synnax({ host: "localhost", port: 9090 })).toThrow(
+        "Deno cannot use SYNNAX_CA_CERT. Unset it and start Deno with --cert",
+      );
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
   });
 });
 

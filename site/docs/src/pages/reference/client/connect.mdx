@@ -336,8 +336,8 @@ The client does not read `SYNNAX_API_KEY` when you give a username, a password, 
 token. With no host from the argument or `SYNNAX_HOST`, the client fills the options
 that are still missing from [Synnax Desktop](#connect-to-synnax-desktop). When no source
 gives a host, when `SYNNAX_PORT` or `SYNNAX_SECURE` has a value that is not valid, or
-when the file of `SYNNAX_CA_CERT` is missing or empty, the constructor throws
-`ValidationError`.
+when the file of `SYNNAX_CA_CERT` is missing, empty, or not PEM text, the constructor
+throws `ValidationError`.
 
 The client reads the variables in Node.js, Deno, and Bun. A browser has no environment
 variables. In Deno, run the script with `--allow-env` to read the variables. Without it,
@@ -436,10 +436,10 @@ const client = new Synnax({
 });
 ```
 
-`caCert` works in Node.js and Bun. In Deno, leave out `caCert` and start Deno with
-`--cert /path/to/ca.crt`. A browser cannot use `caCert`.
-[Install the CA certificate](/reference/enterprise/certificates) on the computer
-instead.
+`caCert` and `SYNNAX_CA_CERT` work in Node.js and Bun. In Deno, leave out `caCert`,
+unset `SYNNAX_CA_CERT`, and start Deno with `--cert /path/to/ca.crt`. A browser cannot
+use `caCert`. [Install the CA certificate](/reference/enterprise/certificates) on the
+computer instead.
 
   </Fragment>
 

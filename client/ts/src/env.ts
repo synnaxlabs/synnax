@@ -52,6 +52,8 @@ interface Resolved {
   apiKey?: string;
   secure: boolean;
   caCert?: string;
+  /** Where caCert came from. Undefined when there is no caCert. */
+  caCertSource?: "params" | "env";
 }
 
 interface Desktop {
@@ -160,6 +162,8 @@ const readCA = (system: System | undefined, path: string): string => {
     throw new ValidationError(`SYNNAX_CA_CERT names "${path}", which does not exist`);
   if (text.trim() === "")
     throw new ValidationError(`SYNNAX_CA_CERT names "${path}", which is empty`);
+  if (!text.includes("-----BEGIN CERTIFICATE-----"))
+    throw new ValidationError(`SYNNAX_CA_CERT names "${path}", which is not PEM text`);
   return text;
 };
 
@@ -168,14 +172,18 @@ const resolveTLS = (
   env: Env,
   system: System | undefined,
   desktop: Desktop | undefined,
-): Pick<Resolved, "secure" | "caCert"> => {
+): Pick<Resolved, "secure" | "caCert" | "caCertSource"> => {
   if (params.secure != null || params.caCert != null)
-    return { secure: params.secure ?? true, caCert: params.caCert };
+    return {
+      secure: params.secure ?? true,
+      caCert: params.caCert,
+      caCertSource: params.caCert == null ? undefined : "params",
+    };
   const secure = readSecure(env);
   const path = read(env, "SYNNAX_CA_CERT");
   if (path === "") return { secure: secure ?? desktop?.secure ?? false };
   if (secure === false) throw new ValidationError(CA_NEEDS_SECURE_MSG);
-  return { secure: true, caCert: readCA(system, path) };
+  return { secure: true, caCert: readCA(system, path), caCertSource: "env" };
 };
 
 const runHelper = (system: System, helper: string): Run | null => {
@@ -279,10 +287,10 @@ export const nodeSystem = (): System | undefined => {
  * a runtime that cannot.
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
  * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
- * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, or cannot be read,
- * if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too old, or if its key
- * helper fails. In Deno, a missing permission to read ~/.synnax/desktop.json is the
- * same as no file.
+ * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
+ * cannot be read, if ~/.synnax/desktop.json cannot be read, if Synnax Desktop is too
+ * old, or if its key helper fails. In Deno, a missing permission to read
+ * ~/.synnax/desktop.json is the same as no file.
  * @throws {Unreachable} If the key helper of Synnax Desktop is gone, as for a closed
  * AppImage.
  */

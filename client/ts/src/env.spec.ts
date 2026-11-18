@@ -388,13 +388,18 @@ const files = (map: Record<string, string>): System => ({
 });
 
 describe("resolveParams with SYNNAX_CA_CERT", () => {
-  const system = files({ "~/ca.pem": PEM, "/empty.pem": " \n" });
+  const system = files({
+    "~/ca.pem": PEM,
+    "/empty.pem": " \n",
+    "/ca.der": "0\u0082\u0001",
+  });
 
   it("should turn on TLS with the PEM text of the file", () => {
     const env = { SYNNAX_CA_CERT: " ~/ca.pem\n" };
     expect(resolveParams({ host: "rig" }, env, system)).toMatchObject({
       secure: true,
       caCert: PEM,
+      caCertSource: "env",
     });
   });
 
@@ -411,6 +416,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     expect(resolveParams({ host: "rig", caCert: "pem" }, env, system)).toMatchObject({
       secure: true,
       caCert: "pem",
+      caCertSource: "params",
     });
   });
 
@@ -433,6 +439,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
       apiKey: "syk_desktop",
       secure: true,
       caCert: PEM,
+      caCertSource: "env",
     });
   });
 
@@ -454,6 +461,12 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
       { SYNNAX_CA_CERT: "/empty.pem" },
       system,
       'SYNNAX_CA_CERT names "/empty.pem", which is empty',
+    ],
+    [
+      "the file is not PEM text",
+      { SYNNAX_CA_CERT: "/ca.der" },
+      system,
+      'SYNNAX_CA_CERT names "/ca.der", which is not PEM text',
     ],
     [
       "the runtime has no file access",
