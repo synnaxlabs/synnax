@@ -364,7 +364,8 @@ bound, a log precision, or the line plot X channel.
 - The filter menu, its submenus, and the pickers of a filter chip use the context menu
   surface: an l6 border, the large radius, 6 px padding, and the overlay shadow.
 - Menus and non-modal dialogs share one fill, `--pluto-gray-l1-l2`. A select keeps its
-  bordered search and its framed list.
+  bordered search and its framed list. In a submenu, the list has no frame and sits on
+  the menu surface.
 - A submenu opens 100 ms after the pointer stops on its item, and at once on a click or
   ArrowRight. ArrowLeft and Esc close one level. While the pointer moves toward an open
   submenu, the items it crosses do not light or open.
@@ -382,14 +383,34 @@ bound, a log precision, or the line plot X channel.
   "No matches". While the search has the focus, the first match is lit, and Enter picks
   the lit item. The arrow keys move into the items, and a key typed on an item goes on
   in the search. Esc closes the search, then the menu. Every menu is at least 32rem (192
-  px) wide, filtering or not. A submenu matches on its `textValue`, and the filter never
-  hides its content. Keys typed into a field, such as the search of a picker, never
-  reach the filter.
+  px) wide, filtering or not. Keys typed into a field, such as the search of a picker,
+  never reach the filter.
+- The filter also searches in submenus. Each word must be in the item or in the names of
+  its submenus, in any order, so "copy link" finds Copy › Link. A match shows its icon,
+  the submenu name with a caret, then its label. A submenu whose name matches shows
+  itself, not its items. A picker, such as Color, shows nothing. A select shows its
+  matching options only when it opts in: Labels does, and Parent does not, because range
+  names would fill the menu. A key typed in an open submenu, outside a field, closes the
+  submenu and goes to the search.
 - Every explorer filters through `View.Filter`: one menu item for each property, which
   opens its picker as a submenu. A chip opens the same picker below the chip.
 - Values have 4 px corners. A picked value tints, with no checkbox, and picked values
   next to each other join into one highlight.
-- A divider separates groups of actions, never single items.
+- A divider separates groups of actions, never single items. Delete and Reload Console
+  are the exception: each one is a group of its own, as in every Console menu.
+- A resource has one context menu on every surface that shows it. Ranges use the same
+  menu in the toolbar, the explorer, the overview, and the plot strip. A surface can add
+  items, and the action of a click on the resource comes first.
+- An item for an integration, such as "Upload to Sift", shows only while the Core has
+  that integration.
+- A submenu of targets keeps a target that already has the change, with a check, and
+  disables it. Add to plot does this for a plot that shows the range.
+- In a selection, an option that only some of the items have shows a minus mark. The
+  first click adds it to all of them, and the next click removes it from all of them.
+- A single select whose value can be empty has a "No <noun>" option with the none icon
+  (`Icon.None`), such as "No parent". It is pinned under the list, below a divider, and
+  it shows during a search. A click on the current value to clear it is not sufficient,
+  because users do not find it.
 - In a group, all items have an icon or none do.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
@@ -732,6 +753,9 @@ says why in a sentence, then gives the raw error.
 - A click on a range zooms to it and pauses the plot. A second click on that range goes
   back to the view and pause state from before. If the view changes between the two
   clicks, the second click zooms in again. Clicks nest, one level per click.
+- The menu of a range starts with "Zoom to range", which does what a click does. While
+  the plot shows that zoom, the item reads "Zoom out". The tooltip hides while the menu
+  is open.
 
 ### Plot range select
 

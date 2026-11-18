@@ -82,13 +82,15 @@ export interface MessagePlan {
 
 /**
  * Plans the channel of each field that a message reads: the one it has, the one stored
- * for its pointer, or a new one of the binding's data type. A channel that no longer
- * suits its field is replaced, and leaves the stored channels. Reads from the Core, and
- * changes neither bound nor props.
+ * for its pointer, or a new one of the binding's data type. A channel that is gone or
+ * no longer suits its field is replaced, and leaves the stored channels. Reads from the
+ * Core, and changes neither bound nor props.
  *
  * @param namer - Names the new channels of every source that the task plans.
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
+ * @param written - The channels that other bindings write, which no field takes from
+ * props.
  */
 export const planMessage = async (
   client: Synnax,
@@ -96,6 +98,7 @@ export const planMessage = async (
   { source, read: r, fields }: BoundMessage<ReadSource>,
   prefix: string,
   props?: Task.ReadChannelProps,
+  written: ReadonlySet<channel.Key> = new Set(),
 ): Promise<MessagePlan> => {
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
@@ -106,6 +109,10 @@ export const planMessage = async (
       channel: 0,
       dataType: "",
     };
+  // The Core refuses a channel that two bindings write.
+  for (const f of fields)
+    if (bindingOf(f).channel === 0 && written.has(held[f.pointer]))
+      delete held[f.pointer];
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
   const live = new Map(
     (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
@@ -126,14 +133,15 @@ export const planMessage = async (
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // An edit of the field's kind or index role since the last deploy, or a streamed
-    // field that the message now stores, needs a new channel.
+    // A deleted channel, an edit of the field's kind or index role since the last
+    // deploy, or a streamed field that the message now stores, needs a new channel.
     const stale =
-      ch != null &&
-      (!converts(f.type, ch.dataType.toString()) ||
+      reused[i] !== 0 &&
+      (ch == null ||
+        !converts(f.type, ch.dataType.toString()) ||
         ch.isIndex !== isIndex ||
         (indexed && ch.virtual));
-    if (stale && held[f.pointer] === ch.key) delete held[f.pointer];
+    if (stale && held[f.pointer] === reused[i]) delete held[f.pointer];
     return {
       key: f.key,
       pointer: f.pointer,
@@ -142,7 +150,7 @@ export const planMessage = async (
         ? DataType.TIMESTAMP.toString()
         : bindingDataType({ dataType }, f.type),
       channel: stale ? 0 : binding.channel,
-      replaces: stale ? ch.key : 0,
+      replaces: stale && ch != null ? ch.key : 0,
       binding: { ...binding, dataType },
     };
   });

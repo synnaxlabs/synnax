@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Tree } from "@synnaxlabs/lyra/tree";
-import { id, search, unique } from "@synnaxlabs/x";
+import { compare, id, search, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useState } from "react";
 
@@ -30,7 +30,6 @@ import { type Leaf } from "@/feature/mqtt/task/leaves";
 import { isSparkplugTopic } from "@/feature/mqtt/task/sparkplug";
 import { type HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
-import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 
 const prettyPayload = (payload: string): string => {
@@ -89,7 +88,7 @@ const buildFolders = (topics: ListedTopic[]): Folder[] => {
     node.topic = t;
   }
   const finish = (nodes: Folder[]) => {
-    nodes.sort((a, b) => a.name.localeCompare(b.name));
+    nodes.sort(compare.by((n) => n.name));
     for (const n of nodes) {
       finish(n.children);
       n.topics = [
@@ -231,7 +230,7 @@ const TopicValues = ({ topic, value, taken, single, onChange }: TopicValuesProps
     name: pointerLabel(l.pointer),
     sample: sampleAt(topic, l.pointer),
     dataType: l.dataType,
-    taken: taken.has(l.pointer),
+    lock: taken.has(l.pointer) ? ICD.Picker.TAKEN : undefined,
   }));
   return (
     <>
@@ -359,11 +358,10 @@ export const TopicPicker = ({
         onActivate={setSelected}
         onPick={handlePick}
         emptyContent={
-          <Empty.Action
+          <ICD.Picker.Notice
             message={
               trimmed === "" ? NOTHING_PUBLISHED : `No topic matches “${trimmed}”.`
             }
-            className={CSS.BE("mqtt-discover", "notice")}
           />
         }
       />
@@ -395,13 +393,7 @@ export const TopicPicker = ({
       />
     );
   else if (listing == null && loading) pane = <ICD.Picker.PaneSkeleton noun="Field" />;
-  else
-    pane = (
-      <Empty.Action
-        message="Select a topic to see what it sends."
-        className={CSS.BE("mqtt-discover", "notice")}
-      />
-    );
+  else pane = <ICD.Picker.Notice message="Select a topic to see what it sends." />;
 
   return (
     <>
@@ -420,9 +412,7 @@ export const TopicPicker = ({
           startContent={<Icon.Search />}
           className={CSS.BE("mqtt-discover", "search")}
         />
-        <Flex.Box y empty className={CSS.BE("mqtt-discover", "tree")}>
-          {tree}
-        </Flex.Box>
+        <ICD.Picker.SideList>{tree}</ICD.Picker.SideList>
         {(listing?.truncated === true || scope !== "") && (
           <Flex.Box y gap="small" className={CSS.BE("mqtt-discover", "scope")}>
             <Text.Text level="small" color={9}>
@@ -446,15 +436,9 @@ export const TopicPicker = ({
             </Flex.Box>
           </Flex.Box>
         )}
-        <Button.Button
-          variant="text"
-          size="small"
-          className={CSS.BE("mqtt-discover", "add")}
-          onClick={() => onAddByName(trimmed)}
-        >
-          <Icon.Add />
+        <ICD.Picker.SideAction onClick={() => onAddByName(trimmed)}>
           {trimmed === "" ? "Add a topic by name" : `Add “${trimmed}” as a topic`}
-        </Button.Button>
+        </ICD.Picker.SideAction>
       </ICD.Picker.Side>
       <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>
     </>

@@ -27,39 +27,25 @@ const topicZ = z.string().min(1, "Topic is required");
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadField extends kafka.ReadField {}
-
 export interface ReadRecord extends kafka.ReadRecord {}
 
 export type StartOffset = kafka.StartOffset;
 
-const readConfigZ = kafka.readConfigZ;
-
-const deployReadFieldZ = kafka.readFieldZ
-  .refine(({ disabled, pointer }) => disabled || pointer !== "", {
-    message: "Pointer is required",
-    path: ["pointer"],
-  })
-  .refine(
-    ({ disabled, pointer }) => disabled || json.pointerZ.safeParse(pointer).success,
-    { message: "Pointer must be a valid JSON pointer", path: ["pointer"] },
-  )
-  .refine(
-    ({ disabled, dataType, timeFormat }) =>
-      disabled ||
-      timeFormat != null ||
-      !new DataType(dataType).equals(DataType.TIMESTAMP),
-    { message: "Time format is required for timestamps", path: ["timeFormat"] },
-  );
-
-const deployReadRecordZ = kafka.readRecordZ.extend({
-  fields: deployReadFieldZ.array().check(Task.validateReadChannels),
-});
-
-/** Flags every record whose key an earlier record already claims. */
-const validateRecordKeys = (ctx: z.core.ParsePayload<ReadRecord[]>) => {
+// The Core skips disabled records, so they may share a key with an enabled one.
+const validateRecords = (
+  ctx: z.core.ParsePayload<Pick<ReadRecord, "disabled" | "recordKey">[]>,
+) => {
+  if (ctx.value.every(({ disabled }) => disabled))
+    ctx.issues.push({
+      continue: true,
+      code: "custom",
+      input: ctx.value,
+      message: "At least one record must be enabled",
+      path: [],
+    });
   const seen = new Set<string>();
-  ctx.value.forEach(({ recordKey }, i) => {
+  ctx.value.forEach(({ disabled, recordKey }, i) => {
+    if (disabled) return;
     if (!seen.has(recordKey)) {
       seen.add(recordKey);
       return;
@@ -80,20 +66,12 @@ const validateRecordKeys = (ctx: z.core.ParsePayload<ReadRecord[]>) => {
 export const deployReadConfigZ = kafka.readConfigZ.extend({
   device: Task.deviceKeyZ,
   topic: topicZ,
-  records: deployReadRecordZ
-    .array()
-    .check(validateRecordKeys)
-    .refine(
-      (records) => records.some(({ fields }) => fields.some((f) => !f.disabled)),
-      {
-        message: "At least one field must be enabled",
-      },
-    ),
+  records: kafka.readRecordZ.array().check(validateRecords),
 });
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
-  config: readConfigZ,
+  config: kafka.readConfigZ,
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 

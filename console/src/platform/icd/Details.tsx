@@ -312,12 +312,15 @@ export const MessageSections: FC<MessageSectionsProps> = ({
 export interface MessageDetailsProps extends MessageSectionsProps {
   /** Titles the section that matches the values of the message, such as "Documents". */
   matchTitle: string;
+  /** Names the match option that takes every payload, such as "Any document". */
+  anyLabel: string;
   onAddField: () => void;
 }
 
 /** The name and match of a message of a source that reads several. */
 export const MessageDetails: FC<MessageDetailsProps> = ({
   matchTitle,
+  anyLabel,
   onAddField,
   ...rest
 }) => {
@@ -355,6 +358,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
                   "format",
                   "json",
                 )}
+                anyLabel={anyLabel}
               />
             </PForm.Section>
           </PForm.Form>

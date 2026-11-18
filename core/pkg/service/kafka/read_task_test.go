@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -132,16 +133,17 @@ var _ = Describe("Read task", func() {
 		return out
 	}
 
-	// single wraps fields into one record that reads every key, indexed by the field
+	// single lifts fields into one record that reads every key, indexed by the field
 	// keyed "ts" when there is one.
-	single := func(fields []kafka.ReadField) []kafka.ReadRecord {
-		rec := kafka.ReadRecord{Key: "r", Fields: fields}
+	single := func(ctx context.Context, fields []kafka.ReadField) []kafka.ReadRecord {
+		GinkgoHelper()
+		rec := kafka.InlineRecord{Key: "r", Fields: fields}
 		for _, fld := range fields {
 			if fld.Key == "ts" {
 				rec.Index = fld.Key
 			}
 		}
-		return []kafka.ReadRecord{rec}
+		return lift(ctx, rec)
 	}
 
 	stampedFields := func(index, data channel.Channel) []kafka.ReadField {
@@ -164,7 +166,7 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(stampedFields(index, data)),
+			Records: single(ctx, stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.5})
@@ -209,7 +211,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(unstampedFields(data)),
+				Records: single(ctx, unstampedFields(data)),
 			})
 			start(ctx, dt, t)
 			produceAt(ctx, topic, 10_000, map[string]any{"v": 1.0})
@@ -228,7 +230,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(unstampedFields(data)),
+				Records: single(ctx, unstampedFields(data)),
 			})
 			start(ctx, dt, t)
 			produceAt(ctx, topic, 10_000, map[string]any{"v": 1.0})
@@ -261,7 +263,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(unstampedFields(data)),
+				Records: single(ctx, unstampedFields(data)),
 			})
 			start(ctx, dt, t)
 			produce(0, 10_000, 1)
@@ -285,7 +287,7 @@ var _ = Describe("Read task", func() {
 			cfg := kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(unstampedFields(data)),
+				Records: single(ctx, unstampedFields(data)),
 			}
 			dt, t := configure(ctx, cfg)
 			start(ctx, dt, t)
@@ -315,7 +317,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			cmdCtx, cancel := context.WithCancel(ctx)
 			start(cmdCtx, dt, t)
@@ -332,7 +334,7 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(stampedFields(index, data)),
+			Records: single(ctx, stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
@@ -343,7 +345,7 @@ var _ = Describe("Read task", func() {
 		// The two records can arrive in one poll or in two.
 		Expect(stat.Message).To(HavePrefix("Skipped 1 of "))
 		Expect(stat.Description).
-			To(Equal("Record has no value at /v (partition 0, offset 0)."))
+			To(Equal("Record value: field v: no value at /v: validation error (partition 0, offset 0)."))
 		Expect(stat.Details.Running).To(BeTrue())
 	})
 
@@ -355,7 +357,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
@@ -405,7 +407,7 @@ var _ = Describe("Read task", func() {
 				Device:  dev.Key,
 				Topic:   topic,
 				Group:   group,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			writing, release := holdWrite(faultyFS)
@@ -434,7 +436,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 20e9, "v": 1.0})
@@ -456,7 +458,7 @@ var _ = Describe("Read task", func() {
 			cfg := kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			}
 			dt, t := configure(ctx, cfg)
 			start(ctx, dt, t)
@@ -483,7 +485,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
@@ -571,7 +573,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			// Cleanup runs in reverse, so a failed spec opens the gate before the stop
 			// waits on the consumer that holds it.
@@ -617,7 +619,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			fail(ctx, topic)
@@ -651,7 +653,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			failWrite(ctx, topic)
@@ -676,7 +678,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			failFetch(ctx, topic)
@@ -700,7 +702,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(unstampedFields(data)),
+				Records: single(ctx, unstampedFields(data)),
 			})
 			start(ctx, dt, t)
 			produce := func(ms int64, v float64) {
@@ -759,7 +761,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			produce := func(doc map[string]any) {
@@ -783,7 +785,7 @@ var _ = Describe("Read task", func() {
 			stat := taskStatus(ctx, t)
 			Expect(stat.Message).To(HavePrefix("Skipped"))
 			Expect(stat.Description).
-				To(HavePrefix("Record has no value at /v (partition 0, offset "))
+				To(HavePrefix("Record value: field v: no value at /v: validation error (partition 0, offset "))
 			Expect(stat.Variant).To(Equal(status.VariantWarning))
 			Expect(stat.Details.Running).To(BeTrue())
 			// The offsets commit on stop, which needs the cluster cleanup closes.
@@ -803,14 +805,14 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(stampedFields(index, data)),
+			Records: single(ctx, stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
 		Eventually(func() string { return taskStatus(ctx, t).Message }).
 			WithTimeout(15 * time.Second).Should(Equal("Skipped 3 of 3 records"))
 		stat := taskStatus(ctx, t)
 		Expect(stat.Description).
-			To(Equal("Record has no value at /v (partition 0, offset 2)."))
+			To(Equal("Record value: field v: no value at /v: validation error (partition 0, offset 2)."))
 		Expect(stat.Details.Data).To(HaveKeyWithValue("stats", SatisfyAll(
 			HaveKeyWithValue("read", BeNumerically("==", 3)),
 			HaveKeyWithValue("skipped", BeNumerically("==", 3)),
@@ -825,20 +827,21 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
 			Topic:  topic,
-			Records: []kafka.ReadRecord{
-				{
+			Records: lift(
+				ctx,
+				kafka.InlineRecord{
 					Key:       "a",
 					RecordKey: "a",
 					Index:     "ts",
 					Fields:    stampedFields(indexA, dataA),
 				},
-				{
+				kafka.InlineRecord{
 					Key:       "b",
 					RecordKey: "b",
 					Index:     "ts",
 					Fields:    stampedFields(indexB, dataB),
 				},
-			},
+			),
 		})
 		start(ctx, dt, t)
 		produceJSON(ctx, producer, topic, "a", map[string]any{"ts": 10e9, "v": 1.0})
@@ -857,7 +860,7 @@ var _ = Describe("Read task", func() {
 				Device:      dev.Key,
 				Topic:       newTopic(),
 				StartOffset: kafka.StartOffsetNone,
-				Records:     single(stampedFields(index, data)),
+				Records:     single(ctx, stampedFields(index, data)),
 			})
 			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
@@ -879,7 +882,7 @@ var _ = Describe("Read task", func() {
 				Device:      dev.Key,
 				Topic:       newTopic(),
 				StartOffset: kafka.StartOffsetEarliest,
-				Records:     single(stampedFields(index, data)),
+				Records:     single(ctx, stampedFields(index, data)),
 			})
 			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
@@ -903,7 +906,7 @@ var _ = Describe("Read task", func() {
 				Device:      dev.Key,
 				Topic:       newTopic(),
 				StartOffset: kafka.StartOffsetNone,
-				Records:     single(stampedFields(index, data)),
+				Records:     single(ctx, stampedFields(index, data)),
 			})
 			cmdCtx, cancel := context.WithCancel(ctx)
 			cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
@@ -932,7 +935,7 @@ var _ = Describe("Read task", func() {
 				Device:  dev.Key,
 				Topic:   topic,
 				Group:   "group-" + topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			}
 			dt, t := configure(ctx, cfg)
 			start(ctx, dt, t)
@@ -955,14 +958,15 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(stampedFields(index, data)),
+			Records: single(ctx, stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
 		rec := &kgo.Record{Topic: topic, Value: []byte("{")}
 		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
 		Eventually(func() string { return taskStatus(ctx, t).Description }).
 			WithTimeout(15 * time.Second).
-			Should(ContainSubstring("Record is not JSON"))
+			Should(Equal("Record value: jsontext: unexpected EOF after offset 1: " +
+				"validation error (partition 0, offset 0)."))
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
 	})
@@ -974,7 +978,7 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(stampedFields(index, data)),
+			Records: single(ctx, stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
 		rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"v":1,"v":2}`)}
@@ -1039,7 +1043,7 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(stampedFields(index, data)),
+			Records: single(ctx, stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
 		Expect(floats(expectStored(ctx, data.Key(), 4))).
@@ -1060,7 +1064,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			rec := &kgo.Record{
@@ -1083,7 +1087,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(fields),
+				Records: single(ctx, fields),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{
@@ -1105,7 +1109,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(fields),
+				Records: single(ctx, fields),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{
@@ -1114,7 +1118,8 @@ var _ = Describe("Read task", func() {
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
 				Should(Equal(
-					"Record has no value at /vals/01 (partition 0, offset 0).",
+					"Record value: field vals/01: no value at " +
+						"/vals/01: validation error (partition 0, offset 0).",
 				))
 		},
 	)
@@ -1128,7 +1133,7 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(fields),
+			Records: single(ctx, fields),
 		})
 		start(ctx, dt, t)
 		doc := map[string]any{"mode": "auto", "limits": []any{1, 2.5}}
@@ -1173,7 +1178,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(fields),
+				Records: single(ctx, fields),
 			})
 			start(ctx, dt, t)
 			return data, text
@@ -1225,7 +1230,7 @@ var _ = Describe("Read task", func() {
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   topic,
-				Records: single(stampedFields(index, data)),
+				Records: single(ctx, stampedFields(index, data)),
 			})
 			start(ctx, dt, t)
 			rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"\u0076":2.5}`)}
@@ -1257,7 +1262,7 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(fields),
+			Records: single(ctx, fields),
 		})
 		start(ctx, dt, t)
 		rec := &kgo.Record{
@@ -1288,7 +1293,7 @@ var _ = Describe("Read task", func() {
 		dtask, t = configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(fields),
+			Records: single(ctx, fields),
 		})
 		start(ctx, dtask, t)
 		rec := &kgo.Record{Topic: topic, Value: []byte(body)}
@@ -1312,10 +1317,7 @@ var _ = Describe("Read task", func() {
 			_, t := startSingle(ctx, telem.Float64T, `{"ts":10e9,"v":1e999}`)
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
-				Should(ContainSubstring("Value at /v: "))
-			Expect(
-				taskStatus(ctx, t).Description,
-			).To(ContainSubstring("invalid number"))
+				Should(ContainSubstring(`field v: invalid number "1e999"`))
 		},
 	)
 
@@ -1363,7 +1365,7 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(fields),
+			Records: single(ctx, fields),
 		})
 		start(ctx, dt, t)
 		rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"v":{"a":1,"a":2}}`)}
@@ -1380,14 +1382,14 @@ var _ = Describe("Read task", func() {
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device:  dev.Key,
 			Topic:   topic,
-			Records: single(stampedFields(index, data)),
+			Records: single(ctx, stampedFields(index, data)),
 		})
 		start(ctx, dt, t)
 		rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"v":1} {}`)}
 		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
 		Eventually(func() string { return taskStatus(ctx, t).Description }).
 			WithTimeout(15 * time.Second).
-			Should(ContainSubstring("Record is not JSON"))
+			Should(ContainSubstring("unexpected data after the top-level value"))
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.0})
 		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2}))
 	})
@@ -1433,9 +1435,12 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device:  dev.Key,
-				Topic:   topic,
-				Records: single(valueFields(index, data, dataType, &format, enums)),
+				Device: dev.Key,
+				Topic:  topic,
+				Records: single(
+					ctx,
+					valueFields(index, data, dataType, &format, enums),
+				),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", doc)
@@ -1499,9 +1504,12 @@ var _ = Describe("Read task", func() {
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
-			Device:  dev.Key,
-			Topic:   topic,
-			Records: single(valueFields(index, data, telem.Float64T, &unixNs, nil)),
+			Device: dev.Key,
+			Topic:  topic,
+			Records: single(
+				ctx,
+				valueFields(index, data, telem.Float64T, &unixNs, nil),
+			),
 		})
 		start(ctx, dt, t)
 		stamp := int64(1_700_000_000_000_000_001)
@@ -1524,9 +1532,12 @@ var _ = Describe("Read task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
-				Device:  dev.Key,
-				Topic:   topic,
-				Records: single(valueFields(index, data, dataType, &format, enums)),
+				Device: dev.Key,
+				Topic:  topic,
+				Records: single(
+					ctx,
+					valueFields(index, data, dataType, &format, enums),
+				),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", doc)
@@ -1558,7 +1569,7 @@ var _ = Describe("Read task", func() {
 			"expected a number or boolean"),
 		Entry("a null where a number is expected",
 			telem.Float64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": nil}, "expected a number or boolean"),
+			map[string]any{"ts": 10e9, "v": nil}, "field v: no value at /v"),
 		Entry("a number where a string is expected",
 			telem.StringT, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1}, "expected a string"),
@@ -1576,7 +1587,7 @@ var _ = Describe("Read task", func() {
 			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),
 		Entry("a negative integer into an unsigned channel",
 			telem.Uint32T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": -1}, "-1 is out of range for uint32"),
+			map[string]any{"ts": 10e9, "v": -1}, "-1 is out of range for uint64"),
 		Entry("a fraction into an integer channel",
 			telem.Int32T, payload.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1.5}, "1.5 is not an integer"),
@@ -1597,166 +1608,379 @@ var _ = Describe("Read task", func() {
 			"1e13 is out of range for a unix_sec timestamp"),
 	)
 
-	DescribeTable("Should reject an invalid config",
-		func(
-			ctx SpecContext,
-			build func(
-				ctx context.Context,
-				index, data channel.Channel,
-			) []kafka.ReadField,
-			msg string,
-		) {
+	Context("ICD messages", func() {
+		// stampedMessage returns a message that holds a unix_ns timestamp at /ts and a
+		// float at /v, read when a record value meets match.
+		stampedMessage := func(name string, match *icd.JSONMatch) icd.Message {
+			return jsonMessage(name, match,
+				jsonField("ts", "/ts", icd.TimestampJSONField{TimeFormat: unixNs}),
+				jsonField("v", "/v", icd.FloatJSONField{}),
+			)
+		}
+
+		// typed returns the match rule that a record value with /type equal to value
+		// meets.
+		typed := func(value string) *icd.JSONMatch {
+			return &icd.JSONMatch{Variant: icd.StringJSONMatch{
+				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/type"},
+				Value:         value,
+			}}
+		}
+
+		// read returns the read of m that writes its timestamp to index and its value
+		// to data.
+		read := func(m icd.Message, index, data channel.Channel) kafka.ReadMessage {
+			ts := fieldKey(m, 0)
+			return kafka.ReadMessage{
+				Message:  m.Key,
+				Index:    &ts,
+				Bindings: []kafka.ReadBinding{bind(m, 0, index), bind(m, 1, data)},
+			}
+		}
+
+		// record returns a record with recordKey that reads messages of ic.
+		record := func(
+			recordKey string,
+			ic icd.ICD,
+			messages ...kafka.ReadMessage,
+		) kafka.ReadRecord {
+			return kafka.ReadRecord{
+				Key:       "r-" + recordKey,
+				RecordKey: recordKey,
+				ICD:       ic.Key,
+				Messages:  messages,
+			}
+		}
+
+		It("Should read each record value as the message whose match rule it meets",
+			func(ctx SpecContext) {
+				temp := stampedMessage("Temperature", typed("temp"))
+				pressure := stampedMessage("Pressure", typed("pressure"))
+				ic := createICD(ctx, temp, pressure)
+				tempIndex, tempData := createIndexed(ctx, telem.Float64T)
+				pressureIndex, pressureData := createIndexed(ctx, telem.Float64T)
+				dev := createDevice(ctx, clusterProperties())
+				topic := newTopic()
+				dt, t := configure(ctx, kafka.ReadConfig{
+					Device: dev.Key,
+					Topic:  topic,
+					Records: []kafka.ReadRecord{record("", ic,
+						read(temp, tempIndex, tempData),
+						read(pressure, pressureIndex, pressureData),
+					)},
+				})
+				start(ctx, dt, t)
+				produceJSON(ctx, producer, topic, "",
+					map[string]any{"type": "temp", "ts": 10e9, "v": 21.5})
+				produceJSON(ctx, producer, topic, "",
+					map[string]any{"type": "pressure", "ts": 10e9, "v": 101.3})
+				produceJSON(ctx, producer, topic, "",
+					map[string]any{"type": "temp", "ts": 11e9, "v": 22.0})
+				Expect(floats(expectStored(ctx, tempData.Key(), 2))).
+					To(Equal([]float64{21.5, 22}))
+				Expect(floats(expectStored(ctx, pressureData.Key(), 1))).
+					To(Equal([]float64{101.3}))
+				Expect(timestamps(expectStored(ctx, pressureIndex.Key(), 1))).
+					To(Equal([]telem.TimeStamp{10 * telem.SecondTS}))
+			},
+		)
+
+		It("Should skip a record value that matches no message", func(ctx SpecContext) {
+			temp := stampedMessage("Temperature", typed("temp"))
+			ic := createICD(ctx, temp)
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: []kafka.ReadRecord{record("", ic, read(temp, index, data))},
+			})
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, topic, "",
+				map[string]any{"type": "humidity", "ts": 10e9, "v": 40.0})
+			produceJSON(ctx, producer, topic, "",
+				map[string]any{"type": "temp", "ts": 11e9, "v": 21.5})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{21.5}))
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
+				Should(ContainSubstring("Record value matches no message"))
+		})
+
+		It("Should read the records of a disabled record key as unclaimed",
+			func(ctx SpecContext) {
+				m := stampedMessage("Reading", nil)
+				ic := createICD(ctx, m)
+				keyedIndex, keyedData := createIndexed(ctx, telem.Float64T)
+				index, data := createIndexed(ctx, telem.Float64T)
+				keyed := record("a", ic, read(m, keyedIndex, keyedData))
+				keyed.Disabled = true
+				dev := createDevice(ctx, clusterProperties())
+				topic := newTopic()
+				dt, t := configure(ctx, kafka.ReadConfig{
+					Device: dev.Key,
+					Topic:  topic,
+					Records: []kafka.ReadRecord{
+						keyed,
+						record("", ic, read(m, index, data)),
+					},
+				})
+				start(ctx, dt, t)
+				produceJSON(
+					ctx,
+					producer,
+					topic,
+					"a",
+					map[string]any{"ts": 10e9, "v": 1.0},
+				)
+				Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
+				Expect(stored(ctx, keyedData.Key()).Len()).To(BeZero())
+			},
+		)
+
+		DescribeTable("Should reject an invalid config",
+			func(
+				ctx SpecContext,
+				build func(
+					ctx context.Context,
+					index, data channel.Channel,
+				) []kafka.ReadRecord,
+				msg string,
+			) {
+				index, data := createIndexed(ctx, telem.Float64T)
+				dev := createDevice(ctx, clusterProperties())
+				cfg := kafka.ReadConfig{
+					Device:  dev.Key,
+					Topic:   "t",
+					Records: build(ctx, index, data),
+				}
+				Expect(
+					f.ConfigureTask(
+						ctx,
+						newTask(ctx, kafka.ReadTaskType, cfg),
+						"cmd-1",
+					),
+				).
+					Error().
+					To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(msg)),
+					))
+			},
+			Entry(
+				"no enabled record",
+				func(ctx context.Context, index, data channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					r := record("", createICD(ctx, m), read(m, index, data))
+					r.Disabled = true
+					return []kafka.ReadRecord{r}
+				},
+				"records: at least one record must be enabled",
+			),
+			Entry(
+				"a message that is not in its ICD",
+				func(ctx context.Context, index, data channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					ic := createICD(ctx, stampedMessage("Other", nil))
+					return []kafka.ReadRecord{record("", ic, read(m, index, data))}
+				},
+				"does not exist in ICD Plant",
+			),
+			Entry("a binding with no channel",
+				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					rm := read(m, index, index)
+					rm.Bindings[1] = kafka.ReadBinding{
+						Field: fieldKey(m, 1), DataType: telem.Float64T,
+					}
+					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
+				}, "message Reading: binding 1 has no channel"),
+			Entry("a channel that does not exist",
+				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					rm := read(m, index, index)
+					rm.Bindings[1].Channel = 999999
+					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
+				}, "message Reading: channel 999999 does not exist"),
+			Entry("a message that binds no fields",
+				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					return []kafka.ReadRecord{record(
+						"", createICD(ctx, m), kafka.ReadMessage{Message: m.Key},
+					)}
+				}, "message Reading binds no fields"),
+			Entry("a field whose kind does not convert to its channel",
+				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
+					m := jsonMessage("Reading", nil,
+						jsonField("s", "/s", icd.StringJSONField{}),
+					)
+					return []kafka.ReadRecord{record("", createICD(ctx, m),
+						kafka.ReadMessage{
+							Message:  m.Key,
+							Bindings: []kafka.ReadBinding{bind(m, 0, data)},
+						},
+					)}
+				}, "cannot write string values to float64 channels"),
+			Entry("channels on different indexes",
+				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
+					_, other := createIndexed(ctx, telem.Float64T)
+					m := jsonMessage("Reading", nil,
+						jsonField("v", "/v", icd.FloatJSONField{}),
+						jsonField("w", "/w", icd.FloatJSONField{}),
+					)
+					return []kafka.ReadRecord{record("", createICD(ctx, m),
+						kafka.ReadMessage{
+							Message: m.Key,
+							Bindings: []kafka.ReadBinding{
+								bind(m, 0, data), bind(m, 1, other),
+							},
+						},
+					)}
+				}, "every channel must share one index channel"),
+			Entry("an index field with no binding",
+				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					ts := fieldKey(m, 0)
+					return []kafka.ReadRecord{record("", createICD(ctx, m),
+						kafka.ReadMessage{
+							Message:  m.Key,
+							Index:    &ts,
+							Bindings: []kafka.ReadBinding{bind(m, 1, data)},
+						},
+					)}
+				}, "the index field has no binding"),
+			Entry("an index field on a data channel",
+				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
+					m := jsonMessage("Reading", nil,
+						jsonField("v", "/v", icd.FloatJSONField{}),
+					)
+					v := fieldKey(m, 0)
+					return []kafka.ReadRecord{record("", createICD(ctx, m),
+						kafka.ReadMessage{
+							Message:  m.Key,
+							Index:    &v,
+							Bindings: []kafka.ReadBinding{bind(m, 0, data)},
+						},
+					)}
+				}, "the index field must write to an index channel"),
+			Entry("a data field on an index channel",
+				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					return []kafka.ReadRecord{record("", createICD(ctx, m),
+						kafka.ReadMessage{
+							Message:  m.Key,
+							Bindings: []kafka.ReadBinding{bind(m, 0, index)},
+						},
+					)}
+				}, "only the index field can write to an index channel"),
+			Entry(
+				"two messages with no match rule",
+				func(ctx context.Context, index, data channel.Channel) []kafka.ReadRecord {
+					first := stampedMessage("First", nil)
+					second := stampedMessage("Second", nil)
+					otherIndex, otherData := createIndexed(ctx, telem.Float64T)
+					return []kafka.ReadRecord{record("", createICD(ctx, first, second),
+						read(first, index, data),
+						read(second, otherIndex, otherData),
+					)}
+				},
+				"no match rule",
+			),
+		)
+
+		It("Should reject two records whose channels share one index",
+			func(ctx SpecContext) {
+				index, data := createIndexed(ctx, telem.Float64T)
+				other := channel.Channel{
+					Name:       "other_" + data.Name,
+					DataType:   telem.Float64T,
+					LocalIndex: index.LocalKey,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				m := stampedMessage("Reading", nil)
+				ic := createICD(ctx, m)
+				dev := createDevice(ctx, clusterProperties())
+				cfg := kafka.ReadConfig{
+					Device: dev.Key,
+					Topic:  "t",
+					Records: []kafka.ReadRecord{
+						record("a", ic, read(m, index, data)),
+						record("b", ic, read(m, index, other)),
+					},
+				}
+				Expect(
+					f.ConfigureTask(
+						ctx,
+						newTask(ctx, kafka.ReadTaskType, cfg),
+						"cmd-1",
+					),
+				).
+					Error().
+					To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(
+							`message Reading of key "a" and message Reading of key "b" `+
+								"write to the same index channel "+index.Name,
+						)),
+					))
+			},
+		)
+
+		It("Should name the index channel that two Kafka-stamped records share",
+			func(ctx SpecContext) {
+				index, data := createIndexed(ctx, telem.Float64T)
+				other := channel.Channel{
+					Name:       "other_" + data.Name,
+					DataType:   telem.Float64T,
+					LocalIndex: index.LocalKey,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				m := stampedMessage("Reading", nil)
+				ic := createICD(ctx, m)
+				value := func(ch channel.Channel) kafka.ReadMessage {
+					return kafka.ReadMessage{
+						Message:  m.Key,
+						Bindings: []kafka.ReadBinding{bind(m, 1, ch)},
+					}
+				}
+				dev := createDevice(ctx, clusterProperties())
+				cfg := kafka.ReadConfig{
+					Device: dev.Key,
+					Topic:  "t",
+					Records: []kafka.ReadRecord{
+						record("a", ic, value(data)),
+						record("b", ic, value(other)),
+					},
+				}
+				Expect(
+					f.ConfigureTask(
+						ctx,
+						newTask(ctx, kafka.ReadTaskType, cfg),
+						"cmd-1",
+					),
+				).Error().To(MatchError(ContainSubstring(
+					`message Reading of key "a" and message Reading of key "b" ` +
+						"write to the same index channel " + index.Name,
+				)))
+			},
+		)
+
+		It("Should reject two records claiming one record key", func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			otherIndex, otherData := createIndexed(ctx, telem.Float64T)
+			m := stampedMessage("Reading", nil)
+			ic := createICD(ctx, m)
+			dev := createDevice(ctx, clusterProperties())
+			first := record("a", ic, read(m, index, data))
+			second := record("a", ic, read(m, otherIndex, otherData))
+			first.Key, second.Key = "r1", "r2"
 			cfg := kafka.ReadConfig{
 				Device:  dev.Key,
 				Topic:   "t",
-				Records: single(build(ctx, index, data)),
-			}
-			Expect(
-				f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1"),
-			).
-				Error().
-				To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(msg)),
-				))
-		},
-		Entry("no enabled field",
-			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{
-					{Key: "v", Channel: data.Key(), Disabled: true},
-				}
-			}, "at least one"),
-		Entry("empty pointer",
-			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{Key: "v", Channel: data.Key()}}
-			}, "pointer"),
-		Entry("an enum value beyond the channel's range",
-			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
-				_, data := createIndexed(ctx, telem.Int8T)
-				return []kafka.ReadField{{
-					Key:        "v",
-					Channel:    data.Key(),
-					Pointer:    "/v",
-					DataType:   telem.Int8T,
-					EnumValues: []payload.EnumEntry{{Label: "BIG", Value: 200}},
-				}}
-			}, `enum label "BIG": 200 is out of range for int8`),
-		Entry("an enum value on a string channel",
-			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
-				_, data := createIndexed(ctx, telem.StringT)
-				return []kafka.ReadField{{
-					Key:        "v",
-					Channel:    data.Key(),
-					Pointer:    "/v",
-					DataType:   telem.StringT,
-					EnumValues: []payload.EnumEntry{{Label: "ON", Value: 1}},
-				}}
-			}, `enum label "ON": a float64 value does not convert to string`),
-		Entry("a pointer without a leading slash",
-			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "v",
-					DataType: telem.Float64T,
-				}}
-			}, `field "v": json pointer "v" must be empty or start with "/"`),
-		Entry("data type mismatch",
-			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "/v",
-					DataType: telem.Int32T,
-				}}
-			}, "does not match"),
-		Entry("timestamp without time format",
-			func(_ context.Context, index, _ channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key: "ts", Channel: index.Key(), Pointer: "/ts",
-					DataType: telem.TimestampT,
-				}}
-			}, "time_format"),
-		Entry("channels on different indexes",
-			func(ctx context.Context, _, data channel.Channel) []kafka.ReadField {
-				_, other := createIndexed(ctx, telem.Float64T)
-				return []kafka.ReadField{
-					{
-						Key:      "v",
-						Channel:  data.Key(),
-						Pointer:  "/v",
-						DataType: telem.Float64T,
-					},
-					{
-						Key:      "w",
-						Channel:  other.Key(),
-						Pointer:  "/w",
-						DataType: telem.Float64T,
-					},
-				}
-			}, "share one index"),
-		Entry("an index field that is disabled",
-			func(_ context.Context, index, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{
-					{
-						Key:        "ts",
-						Channel:    index.Key(),
-						Pointer:    "/ts",
-						DataType:   telem.TimestampT,
-						TimeFormat: &unixNs,
-						Disabled:   true,
-					},
-					{
-						Key:      "v",
-						Channel:  data.Key(),
-						Pointer:  "/v",
-						DataType: telem.Float64T,
-					},
-				}
-			}, "not an enabled field"),
-		Entry("an index field on a data channel",
-			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key: "ts", Channel: data.Key(), Pointer: "/v",
-					DataType: telem.Float64T,
-				}}
-			}, "only the record's index field"),
-		Entry("a data field on an index channel",
-			func(_ context.Context, index, _ channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key: "t", Channel: index.Key(), Pointer: "/t",
-					DataType: telem.TimestampT, TimeFormat: &unixNs,
-				}}
-			}, "only the record's index field"),
-	)
-
-	It("Should reject two records whose channels share one index",
-		func(ctx SpecContext) {
-			index, data := createIndexed(ctx, telem.Float64T)
-			other := channel.Channel{
-				Name:       "other_" + data.Name,
-				DataType:   telem.Float64T,
-				LocalIndex: index.LocalKey,
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, &other)
-			})).To(Succeed())
-			dev := createDevice(ctx, clusterProperties())
-			field := func(key string, ch channel.Channel) []kafka.ReadField {
-				return []kafka.ReadField{{
-					Key: key, Channel: ch.Key(), Pointer: "/" + key,
-					DataType: telem.Float64T,
-				}}
-			}
-			cfg := kafka.ReadConfig{
-				Device: dev.Key,
-				Topic:  "t",
-				Records: []kafka.ReadRecord{
-					{Key: "r1", RecordKey: "a", Fields: field("v", data)},
-					{Key: "r2", RecordKey: "b", Fields: field("w", other)},
-				},
+				Records: []kafka.ReadRecord{first, second},
 			}
 			Expect(
 				f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1"),
@@ -1765,31 +1989,9 @@ var _ = Describe("Read task", func() {
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(
-						ContainSubstring("channels on one index belong in one record"),
+						ContainSubstring(`record key "a": claimed by more than one`),
 					),
 				))
-		},
-	)
-
-	It("Should reject two records claiming one record key", func(ctx SpecContext) {
-		index, data := createIndexed(ctx, telem.Float64T)
-		dev := createDevice(ctx, clusterProperties())
-		rec := kafka.ReadRecord{
-			RecordKey: "a",
-			Index:     "ts",
-			Fields:    stampedFields(index, data),
-		}
-		first, second := rec, rec
-		first.Key, second.Key = "r1", "r2"
-		cfg := kafka.ReadConfig{
-			Device:  dev.Key,
-			Topic:   "t",
-			Records: []kafka.ReadRecord{first, second},
-		}
-		Expect(f.ConfigureTask(ctx, newTask(ctx, kafka.ReadTaskType, cfg), "cmd-1")).
-			Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`record key "a": claimed by more than one`)),
-		))
+		})
 	})
 })

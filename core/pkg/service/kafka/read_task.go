@@ -12,29 +12,28 @@ package kafka
 import (
 	"cmp"
 	"context"
-	"encoding/json/jsontext"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"slices"
 	"sync/atomic"
 	"time"
 
-	"github.com/synnaxlabs/gorp"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	xjson "github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/payload"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -44,33 +43,39 @@ import (
 	"go.uber.org/zap"
 )
 
-// readGroup is the set of fields sharing one record key, one index, and one writer.
+// readGroup holds the samples of one ICD message in the records of one key. It has one
+// index and one set of channels in the writer.
 type readGroup struct {
-	// key is the record key the group claims; empty claims every unclaimed record.
-	key    string
-	fields []ReadField
-	// channels[i] is the channel fields[i] writes to.
-	channels []channel.Channel
-	// extractor resolves the fields' pointers in a record.
-	extractor *xjson.Extractor
-	// values[i] is scratch space for the JSON value of fields[i] in a record.
-	values []jsontext.Value
-	// columns[i] holds the current poll's samples of fields[i].
+	// name names the message and its record key in errors.
+	name string
+	// data[i] holds the current poll's samples of binding i. The decoder of the record
+	// appends to it.
+	data [][]byte
+	// columns[i] places the samples of binding i in data[i].
 	columns []column
 	// rows are the current poll's records, which columns hold in arrival order.
 	rows []row
-	// stamp is the position in fields of the field targeting the index channel, or
-	// -1 when records are stamped with their Kafka timestamp.
+	// stamp is the position in columns of the binding of the index field, or -1 when
+	// records are stamped with their Kafka timestamp.
 	stamp int
 	// index is the group's index channel, zero when its channels are virtual.
 	index channel.Key
-	// keys are the group's channels in the writer: the index first when it is not a
-	// field.
+	// keys are the group's channels in the writer: the index first when no binding
+	// writes it.
 	keys channel.Keys
 	// last is the last timestamp written, seeded with the last stored one at start.
 	last telem.TimeStamp
 	// replaying is true until the first record past last arrives.
 	replaying bool
+}
+
+// readRecord reads the records of one Kafka key as the messages of an ICD.
+type readRecord struct {
+	decoder *codec.JSON
+	// groups[i] holds the samples of message i of decoder.
+	groups []*readGroup
+	// samples[i] is the data of groups[i], which decoder appends to.
+	samples [][][]byte
 }
 
 // row is one record converted into a group's samples.
@@ -83,14 +88,17 @@ type row struct {
 	offset    int64
 }
 
-// readTask consumes a topic and writes record fields into channels.
+// readTask consumes a topic and writes the fields of ICD messages into channels.
 type readTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        ReadConfig
 	// status is the authority on this instance's current status.
 	status *driver.StatusHandler
-	groups map[string]*readGroup
+	// records holds the record of each record key.
+	records map[string]*readRecord
+	// groups holds the groups of every record.
+	groups []*readGroup
 	// writer writes every group's channels, nil once the consumer exits.
 	writer *framer.Writer
 	// client is the consumer, nil while stopped.
@@ -134,7 +142,7 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	); err != nil {
 		return nil, err
 	}
-	groups, err := buildReadGroups(ctx, f.cfg.DB, f.cfg.Channel, cfg)
+	records, groups, err := f.buildReadRecords(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -143,217 +151,267 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		task:       t,
 		cfg:        cfg,
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
+		records:    records,
 		groups:     groups,
 		marks:      map[string]map[int32]kgo.EpochOffset{cfg.Topic: {}},
 	}, nil
 }
 
-// buildReadGroups resolves the enabled fields of each record in cfg into a group and
-// validates that each group writes one even frame per record.
-func buildReadGroups(
+// buildReadRecords resolves the enabled records of cfg against their ICDs and channels.
+// It returns the records by record key and the groups of every record, and validates
+// that each group writes one even frame per record.
+func (f *factory) buildReadRecords(
 	ctx context.Context,
-	db *gorp.DB,
-	svc *channel.Service,
 	cfg ReadConfig,
-) (map[string]*readGroup, error) {
-	keys, err := enabledFieldKeys(cfg.Records)
-	if err != nil {
-		return nil, err
+) (map[string]*readRecord, []*readGroup, error) {
+	enabled := lo.Filter(cfg.Records, func(r ReadRecord, _ int) bool {
+		return !r.Disabled
+	})
+	if len(enabled) == 0 {
+		return nil, nil, errors.Wrap(
+			validate.ErrValidation, "records: at least one record must be enabled",
+		)
 	}
-	channels, err := retrieveChannels(ctx, db, svc, keys)
+	icds, err := retrieveICDs(ctx, f.cfg.DB, f.cfg.ICD, lo.Uniq(lo.Map(
+		enabled, func(r ReadRecord, _ int) icd.Key { return r.ICD },
+	)))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	claimed := make(set.Set[string])
-	groups := make(map[string]*readGroup)
-	for _, rec := range cfg.Records {
-		if claimed.Contains(rec.RecordKey) {
-			return nil, errors.Wrapf(
+	var keys channel.Keys
+	for _, rec := range enabled {
+		for _, m := range rec.Messages {
+			for _, b := range m.Bindings {
+				keys = append(keys, b.Channel)
+			}
+		}
+	}
+	channels, err := f.readChannels(ctx, lo.Uniq(keys))
+	if err != nil {
+		return nil, nil, err
+	}
+	var (
+		records = make(map[string]*readRecord, len(enabled))
+		groups  []*readGroup
+		w       = writers{channels: channels, names: make(map[channel.Key]string)}
+	)
+	for _, rec := range enabled {
+		if _, ok := records[rec.RecordKey]; ok {
+			return nil, nil, errors.Wrapf(
 				validate.ErrValidation,
 				"record key %q: claimed by more than one record",
 				rec.RecordKey,
 			)
 		}
-		claimed.Add(rec.RecordKey)
-		g, err := newReadGroup(rec, channels)
+		rd, err := newReadRecord(rec, icds[rec.ICD], channels)
 		if err != nil {
-			return nil, err
+			return nil, nil, errors.Wrapf(err, "record key %q", rec.RecordKey)
 		}
-		if g != nil {
-			groups[rec.RecordKey] = g
+		for _, g := range rd.groups {
+			if err = w.claim(g); err != nil {
+				return nil, nil, err
+			}
 		}
+		records[rec.RecordKey] = rd
+		groups = append(groups, rd.groups...)
 	}
-	if err = assignGroupIndexes(groups); err != nil {
+	return records, groups, nil
+}
+
+// readChannels returns the channels of keys and the index channel of each, so that an
+// error can name an index channel that no binding names.
+func (f *factory) readChannels(
+	ctx context.Context,
+	keys channel.Keys,
+) (map[channel.Key]channel.Channel, error) {
+	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys)
+	if err != nil {
 		return nil, err
 	}
-	return groups, nil
-}
-
-// enabledFieldKeys returns the channels of the enabled fields of records.
-func enabledFieldKeys(records []ReadRecord) (channel.Keys, error) {
-	var keys channel.Keys
-	for _, rec := range records {
-		for _, fld := range rec.Fields {
-			if fld.Disabled {
-				continue
-			}
-			if fld.Pointer == "" {
-				return nil, errors.Wrapf(
-					validate.ErrValidation,
-					"field %q: pointer must not be empty",
-					fld.Key,
-				)
-			}
-			if fld.Channel == 0 {
-				return nil, errors.Wrapf(
-					validate.ErrValidation, "field %q: channel must be set", fld.Key,
-				)
-			}
-			keys = append(keys, fld.Channel)
+	var indexes channel.Keys
+	for _, ch := range channels {
+		if _, ok := channels[ch.Index()]; !ok && !ch.IsIndex && ch.Index() != 0 {
+			indexes = append(indexes, ch.Index())
 		}
 	}
-	if len(keys) == 0 {
-		return nil, errors.Wrap(
-			validate.ErrValidation, "records: at least one field must be enabled",
-		)
+	if len(indexes) == 0 {
+		return channels, nil
 	}
-	return keys, nil
+	found, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, lo.Uniq(indexes))
+	if err != nil {
+		return nil, err
+	}
+	maps.Copy(channels, found)
+	return channels, nil
 }
 
-// newReadGroup returns the group of rec, or nil when rec has no enabled fields.
-// channels holds the channel of each enabled field.
-func newReadGroup(
-	rec ReadRecord,
-	channels map[channel.Key]channel.Channel,
-) (*readGroup, error) {
-	g := &readGroup{key: rec.RecordKey, stamp: -1, replaying: true}
-	var pointers []xjson.Pointer
-	for _, fld := range rec.Fields {
-		if fld.Disabled {
+// writers holds the channels that the groups of a read task write to.
+type writers struct {
+	channels map[channel.Key]channel.Channel
+	// names names the group that writes to each channel.
+	names map[channel.Key]string
+}
+
+// claim takes the channels of g. Two groups on one index would write frames that lack
+// the channels of the other.
+func (w writers) claim(g *readGroup) error {
+	for _, key := range g.keys {
+		other, ok := w.names[key]
+		if !ok {
+			w.names[key] = g.name
 			continue
 		}
-		ch := channels[fld.Channel]
-		if err := validateReadField(rec, fld, ch); err != nil {
+		what := "channel"
+		if key == g.index {
+			what = "index channel"
+		}
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"records: %s and %s write to the same %s %s",
+			other, g.name, what, w.channels[key].Name,
+		)
+	}
+	return nil
+}
+
+// newReadRecord validates rec against ic, the ICD it names, and channels, which holds
+// every channel that a binding of rec names.
+func newReadRecord(
+	rec ReadRecord,
+	ic icd.ICD,
+	channels map[channel.Key]channel.Channel,
+) (*readRecord, error) {
+	if len(rec.Messages) == 0 {
+		return nil, errors.Wrap(validate.ErrValidation, "reads no messages")
+	}
+	var (
+		decoded = make([]codec.JSONMessage, len(rec.Messages))
+		rd      = &readRecord{
+			groups:  make([]*readGroup, len(rec.Messages)),
+			samples: make([][][]byte, len(rec.Messages)),
+		}
+		err error
+	)
+	for i, rm := range rec.Messages {
+		if rd.groups[i], err = newReadGroup(
+			rec.RecordKey, rm, ic, channels, &decoded[i],
+		); err != nil {
 			return nil, err
 		}
-		pointer, err := xjson.ParsePointer(fld.Pointer)
-		if err != nil {
-			return nil, errors.Wrapf(err, "field %q", fld.Key)
-		}
-		dec, err := newDecoder(fld, ch)
-		if err != nil {
-			return nil, errors.Wrapf(err, "field %q", fld.Key)
-		}
-		if fld.Key == rec.Index {
-			g.stamp = len(g.fields)
-		}
-		g.fields = append(g.fields, fld)
-		g.channels = append(g.channels, ch)
-		pointers = append(pointers, pointer)
-		g.columns = append(g.columns, newColumn(dec, ch.DataType))
+		rd.samples[i] = rd.groups[i].data
 	}
-	if len(g.fields) == 0 {
-		return nil, nil
+	if rd.decoder, err = codec.NewJSON(decoded); err != nil {
+		return nil, err
 	}
-	g.extractor = xjson.NewExtractor(pointers)
-	g.values = make([]jsontext.Value, len(g.fields))
-	if rec.Index != "" && g.stamp == -1 {
+	return rd, nil
+}
+
+// newReadGroup validates rm, a message of the record with recordKey, and fills decoded
+// with what the decoder needs to read it.
+func newReadGroup(
+	recordKey string,
+	rm ReadMessage,
+	ic icd.ICD,
+	channels map[channel.Key]channel.Channel,
+	decoded *codec.JSONMessage,
+) (*readGroup, error) {
+	i := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
+		return m.Key == rm.Message
+	})
+	if i < 0 {
 		return nil, errors.Wrapf(
 			validate.ErrValidation,
-			"record key %q: index field %q is not an enabled field",
-			rec.RecordKey, rec.Index,
+			"message %s does not exist in ICD %s", rm.Message, ic.Name,
 		)
+	}
+	msg := ic.Messages[i]
+	payload, ok := msg.Payload.Variant.(icd.JSONPayload)
+	if !ok {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "message %s is not a JSON message", msg.Name,
+		)
+	}
+	if len(rm.Bindings) == 0 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "message %s binds no fields", msg.Name,
+		)
+	}
+	g := &readGroup{
+		name:      fmt.Sprintf("message %s of key %q", msg.Name, recordKey),
+		data:      make([][]byte, len(rm.Bindings)),
+		columns:   make([]column, len(rm.Bindings)),
+		stamp:     -1,
+		replaying: true,
+	}
+	bindings, err := g.bind(rm, channels)
+	if err != nil {
+		return nil, errors.Wrapf(err, "message %s", msg.Name)
+	}
+	*decoded = codec.JSONMessage{Name: msg.Name, Payload: payload, Bindings: bindings}
+	if g.index != 0 && g.stamp == -1 {
+		g.keys = append(g.keys, g.index)
+	}
+	for _, b := range rm.Bindings {
+		g.keys = append(g.keys, b.Channel)
 	}
 	return g, nil
 }
 
-// validateReadField checks that fld, a field of rec, fits ch, the channel it writes to.
-func validateReadField(rec ReadRecord, fld ReadField, ch channel.Channel) error {
-	if ch.DataType != fld.DataType {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"field %q: data type %s does not match channel %s (%s)",
-			fld.Key, fld.DataType, ch.Name, ch.DataType,
-		)
-	}
-	if ch.DataType == telem.TimestampT && fld.TimeFormat == nil {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"field %q: time_format is required for timestamp channel %s",
-			fld.Key, ch.Name,
-		)
-	}
-	if isIndex := fld.Key == rec.Index; isIndex != ch.IsIndex {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"field %q: only the record's index field targets an index channel",
-			fld.Key,
-		)
-	}
-	return nil
-}
-
-// assignGroupIndexes sets the index and the streamed keys of each group, and
-// validates that no two groups write to one index.
-func assignGroupIndexes(groups map[string]*readGroup) error {
-	indexes := make(map[channel.Key]string, len(groups))
-	for _, g := range groups {
-		for i, ch := range g.channels {
-			index := ch.Index()
-			if ch.IsIndex {
-				index = ch.Key()
-			}
-			if i == 0 {
-				g.index = index
-			} else if index != g.index {
-				return errors.Wrapf(
-					validate.ErrValidation,
-					"record key %q: channels must share one index",
-					g.key,
-				)
-			}
-		}
-		// The writer wants every data channel on an index in each frame, so one
-		// index cannot be split across records that arrive independently.
-		if other, ok := indexes[g.index]; ok && g.index != 0 {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"record keys %q and %q: channels on one index belong in one record",
-				other, g.key,
+// bind sets the columns, the index channel, and the stamp of g from the bindings of rm
+// and their channels. It returns the codec binding of each.
+func (g *readGroup) bind(
+	rm ReadMessage,
+	channels map[channel.Key]channel.Channel,
+) ([]codec.Binding, error) {
+	bindings := make([]codec.Binding, len(rm.Bindings))
+	for i, b := range rm.Bindings {
+		ch, ok := channels[b.Channel]
+		switch {
+		case b.Channel == 0:
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "binding %d has no channel", i,
+			)
+		case !ok:
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "channel %d does not exist", b.Channel,
 			)
 		}
-		indexes[g.index] = g.key
-		if g.index != 0 && g.stamp == -1 {
-			g.keys = append(g.keys, g.index)
+		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
+		g.columns[i] = newColumn(ch.DataType)
+		index := ch.Index()
+		if ch.IsIndex {
+			index = ch.Key()
 		}
-		for _, ch := range g.channels {
-			g.keys = append(g.keys, ch.Key())
+		if i == 0 {
+			g.index = index
+		} else if index != g.index {
+			return nil, errors.Wrap(
+				validate.ErrValidation, "every channel must share one index channel",
+			)
+		}
+		isIndexField := rm.Index != nil && *rm.Index == b.Field
+		switch {
+		case isIndexField && !ch.IsIndex:
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"the index field must write to an index channel",
+			)
+		case !isIndexField && ch.IsIndex:
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"only the index field can write to an index channel",
+			)
+		case isIndexField:
+			g.stamp = i
 		}
 	}
-	return nil
-}
-
-// newDecoder returns the decoder of fld, which writes to ch.
-func newDecoder(fld ReadField, ch channel.Channel) (*xjson.Decoder, error) {
-	f := xjson.Field{DataType: ch.DataType, Enums: enums(fld.EnumValues)}
-	if fld.TimeFormat != nil {
-		var err error
-		if f.TimeFormat, err = xjson.ParseTimeFormat(
-			string(*fld.TimeFormat),
-		); err != nil {
-			return nil, err
-		}
+	if rm.Index != nil && g.stamp == -1 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"the index field has no binding",
+		)
 	}
-	return xjson.NewDecoder(f)
-}
-
-// enums returns the labels of entries in the form xjson takes.
-func enums(entries []payload.EnumEntry) []xjson.Enum {
-	out := make([]xjson.Enum, len(entries))
-	for i, e := range entries {
-		out[i] = xjson.NewEnum(e.Label, e.Value)
-	}
-	return out
+	return bindings, nil
 }
 
 // Exec implements driver.Task. Start and stop answer the command with a status,
@@ -852,41 +910,37 @@ func (t *readTask) frame(keyCount, size int) frame.Frame {
 	return frame.NewMulti(keys, series)
 }
 
-// convert parses rec into its group's samples. A record that is not addressed to this
-// task leaves nothing, and neither does one that is skipped.
+// convert decodes rec into the samples of the group of its message. A record that is
+// not addressed to this task leaves nothing, and neither does one that is skipped.
 func (t *readTask) convert(rec *kgo.Record) {
-	g, ok := t.groups[string(rec.Key)]
+	rd, ok := t.records[string(rec.Key)]
 	if !ok {
-		if g, ok = t.groups[""]; !ok {
+		if rd, ok = t.records[""]; !ok {
 			return
 		}
 	}
 	t.skips.Read()
 	r := row{
 		ts:        telem.NewTimeStamp(rec.Timestamp),
-		pos:       len(g.rows),
 		partition: rec.Partition,
 		offset:    rec.Offset,
 	}
-	if err := g.extractor.Extract(rec.Value, g.values); err != nil {
-		t.skip(r, "Record is not JSON: "+err.Error())
+	m, ok, err := rd.decoder.Decode(rec.Value, rd.samples)
+	if err != nil {
+		t.skip(r, "Record value: "+err.Error())
 		return
 	}
-	for i, fld := range g.fields {
-		if g.values[i] == nil {
-			t.skip(r, "Record has no value at "+fld.Pointer)
-			g.truncate(r.pos)
-			return
-		}
-		col := &g.columns[i]
-		if err := col.append(g.values[i]); err != nil {
-			t.skip(r, fmt.Sprintf("Value at %s: %s", fld.Pointer, err))
-			g.truncate(r.pos)
-			return
-		}
-		if i == g.stamp {
-			r.ts = telem.TimeStamp(telem.ByteOrder.Uint64(col.sample(r.pos)))
-		}
+	if !ok {
+		t.skip(r, "Record value matches no message")
+		return
+	}
+	g := rd.groups[m]
+	r.pos = len(g.rows)
+	for i := range g.columns {
+		g.columns[i].appended(g.data[i])
+	}
+	if g.stamp >= 0 {
+		r.ts = telem.TimeStamp(telem.ByteOrder.Uint64(g.sample(g.stamp, r.pos)))
 	}
 	g.rows = append(g.rows, r)
 }
@@ -906,8 +960,8 @@ func (t *readTask) keep(g *readGroup) {
 				r.ts/telem.MillisecondTS == g.last/telem.MillisecondTS
 			if g.index != 0 && !tie {
 				t.skip(r, fmt.Sprintf(
-					"Record stamped %s is not after the last written %s for key %q",
-					r.ts, g.last, g.key,
+					"Record stamped %s is not after the last written %s for %s",
+					r.ts, g.last, g.name,
 				))
 				continue
 			}
@@ -922,13 +976,15 @@ func (t *readTask) keep(g *readGroup) {
 
 func (g *readGroup) reset() {
 	g.rows = g.rows[:0]
-	g.truncate(0)
+	for i := range g.columns {
+		g.data[i] = g.data[i][:0]
+		g.columns[i].ends = g.columns[i].ends[:0]
+	}
 }
 
-func (g *readGroup) truncate(n int) {
-	for i := range g.columns {
-		g.columns[i].truncate(n)
-	}
+// sample returns the sample of binding i at pos.
+func (g *readGroup) sample(i, pos int) []byte {
+	return g.columns[i].sample(g.data[i], pos)
 }
 
 // stamped returns true when the group's index samples come from Kafka timestamps.
@@ -940,7 +996,7 @@ func (g *readGroup) size() int {
 		n = len(g.rows) * int(telem.TimestampT.Density())
 	}
 	for i := range g.columns {
-		n += g.columns[i].size(g.rows)
+		n += g.columns[i].size(g.data[i], g.rows)
 	}
 	return n
 }
@@ -962,13 +1018,12 @@ func (g *readGroup) appendSeries(
 		})
 	}
 	for i := range g.columns {
-		c := &g.columns[i]
 		start := len(data)
 		for _, r := range g.rows {
-			data = append(data, c.sample(r.pos)...)
+			data = append(data, g.sample(i, r.pos)...)
 		}
 		series = append(series, telem.Series{
-			DataType: c.dataType,
+			DataType: g.columns[i].dataType,
 			Data:     data[start:len(data):len(data)],
 		})
 	}

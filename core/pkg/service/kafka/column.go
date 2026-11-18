@@ -9,78 +9,52 @@
 
 package kafka
 
-import (
-	"encoding/json/jsontext"
+import "github.com/synnaxlabs/x/telem"
 
-	xjson "github.com/synnaxlabs/x/json"
-	"github.com/synnaxlabs/x/telem"
-)
-
-// column accumulates one field's samples as series data, in arrival order. Its buffers
-// survive across polls.
+// column places the samples of one binding in the data its decoder appends to, in
+// arrival order. Its buffers survive across polls.
 type column struct {
 	dataType telem.DataType
-	decoder  *xjson.Decoder
 	// density is the size of a sample, zero when samples vary in size.
 	density int
-	data    []byte
-	// ends[i] is the end of sample i in data. It is only set when density is zero.
+	// ends[i] is the end of sample i in the data. It is only set when density is zero.
 	ends []int
 }
 
-func newColumn(dec *xjson.Decoder, dt telem.DataType) column {
-	c := column{dataType: dt, decoder: dec}
+func newColumn(dt telem.DataType) column {
+	c := column{dataType: dt}
 	if !dt.IsVariable() {
 		c.density = int(dt.Density())
 	}
 	return c
 }
 
-func (c *column) sample(i int) []byte {
+// sample returns sample i of data.
+func (c *column) sample(data []byte, i int) []byte {
 	if c.density != 0 {
-		return c.data[i*c.density : (i+1)*c.density]
+		return data[i*c.density : (i+1)*c.density]
 	}
 	start := 0
 	if i > 0 {
 		start = c.ends[i-1]
 	}
-	return c.data[start:c.ends[i]]
+	return data[start:c.ends[i]]
 }
 
-func (c *column) truncate(n int) {
-	if c.density != 0 {
-		c.data = c.data[:n*c.density]
-		return
+// appended records that a new sample ends data.
+func (c *column) appended(data []byte) {
+	if c.density == 0 {
+		c.ends = append(c.ends, len(data))
 	}
-	c.ends = c.ends[:n]
-	end := 0
-	if n > 0 {
-		end = c.ends[n-1]
-	}
-	c.data = c.data[:end]
 }
 
-func (c *column) size(rows []row) int {
+func (c *column) size(data []byte, rows []row) int {
 	if c.density != 0 {
 		return len(rows) * c.density
 	}
 	n := 0
 	for _, r := range rows {
-		n += len(c.sample(r.pos))
+		n += len(c.sample(data, r.pos))
 	}
 	return n
-}
-
-// append converts raw into a sample and appends it. It returns an error wrapping
-// validate.ErrValidation when raw does not convert, and then appends nothing.
-func (c *column) append(raw jsontext.Value) error {
-	data, err := c.decoder.Append(c.data, raw)
-	if err != nil {
-		return err
-	}
-	c.data = data
-	if c.density == 0 {
-		c.ends = append(c.ends, len(c.data))
-	}
-	return nil
 }

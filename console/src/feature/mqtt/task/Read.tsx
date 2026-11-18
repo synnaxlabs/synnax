@@ -120,22 +120,17 @@ type Addition = Draft | SparkplugReadEntry;
 
 const isDraft = (addition: Addition): addition is Draft => addition.type === "plain";
 
-/** Names a field by its pointer: "/motor/speed" is "motor_speed". */
-const fieldName = (pointer: string): string =>
-  pointer === "" ? "value" : pointer.slice(1).replaceAll("/", "_");
-
-const toJSONField = (leaf: Leaf): icd.JSONField =>
-  icd.jsonFieldZ.parse({
-    name: fieldName(leaf.pointer),
-    pointer: leaf.pointer,
-    type: SAMPLE_KINDS[leaf.type],
-  });
-
-const createDraft = (topic: string, leaves: Leaf[] = []): Draft => ({
-  type: "plain",
-  topic,
-  fields: leaves.map(toJSONField),
-});
+const createDraft = (topic: string, leaves: Leaf[] = []): Draft => {
+  const names = ICD.fieldNames(leaves.map(({ pointer }) => pointer));
+  const fields = leaves.map((leaf, i) =>
+    icd.jsonFieldZ.parse({
+      name: names[i],
+      pointer: leaf.pointer,
+      type: SAMPLE_KINDS[leaf.type],
+    }),
+  );
+  return { type: "plain", topic, fields };
+};
 
 const DISCOVER_KIND: Kind<Addition> = {
   title: "Add data",
@@ -257,7 +252,12 @@ const appendFields = (
 ): icd.JSONField[] => {
   const held = ICD.jsonFields(message);
   const pointers = new Set(held.map(({ pointer }) => pointer));
-  const appended = fields.filter(({ pointer }) => !pointers.has(pointer));
+  const added = fields.filter(({ pointer }) => !pointers.has(pointer));
+  const names = ICD.fieldNames(
+    added.map(({ pointer }) => pointer),
+    held.map(({ name }) => name),
+  );
+  const appended = added.map((field, i) => ({ ...field, name: names[i] }));
   let after = held.at(-1)?.key;
   for (const field of appended) {
     to.insert(ICD.fieldsPath(message.key), field, after);
@@ -392,28 +392,6 @@ const addTopics = async ({
   return result;
 };
 
-/**
- * @returns what the device stores for a message read, without the stored channel of a
- * field with no channel when written holds it, as another binding writes it. Changes
- * neither stored nor bound.
- */
-const storedProps = (
-  stored: Stored,
-  topic: string,
-  { source: { messages }, read: r, fields }: ICD.BoundMessage<ICD.ReadSource>,
-  written: ReadonlySet<channel.Key>,
-): Task.ReadChannelProps | undefined => {
-  const props = storedOf(stored, { topic, messages }, r);
-  if (props == null) return undefined;
-  const { bindings } = messages[r];
-  const channels = { ...props.channels };
-  for (const f of fields) {
-    const ch = bindings.find(({ field }) => field === f.key)?.channel ?? 0;
-    if (ch === 0 && written.has(channels[f.pointer])) delete channels[f.pointer];
-  }
-  return { ...props, channels };
-};
-
 /** @returns the prefix of the channel names of a message, current with its name. */
 const usePrefix = (
   deviceName: string,
@@ -505,6 +483,7 @@ const MessageDetails = ({
       {...props}
       format={format}
       matchTitle="Documents"
+      anyLabel="Any document"
       onAddField={onAddField}
     />
   );
@@ -892,14 +871,13 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
     }),
   );
   const tags = enabled.filter((e) => e.type === "sparkplug");
-  const written = writtenChannels(entries);
   const sources = [
     ...bound.map((b) => ({
       topic: b.source.topic,
       read: b.source.messages[b.read],
       message: b.message,
       prefix: messagePrefix(device.name, b.source.topic, b.read, b.message.name),
-      props: storedProps(device.properties.read, b.source.topic, b, written),
+      props: storedOf(device.properties.read, b.source, b.read),
     })),
     ...tags.map((entry) => ({
       entry,
@@ -1025,7 +1003,8 @@ const planRead = async (
       namer,
       b,
       messagePrefix(dev.name, entry.topic, r, message.name),
-      storedProps(dev.properties.read, entry.topic, b, written),
+      storedOf(dev.properties.read, entry, r),
+      written,
     );
     ICD.keptChannels(plan).forEach((ch) => written.add(ch));
     messages.push(plan);

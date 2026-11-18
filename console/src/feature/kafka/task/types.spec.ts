@@ -12,35 +12,16 @@ import { describe, expect, it } from "vitest";
 import { Kafka } from "@/feature/kafka";
 
 describe("Kafka Task Types", () => {
-  const field = {
-    key: "f1",
-    pointer: "/value",
-    channel: 1,
-    dataType: "float64",
-  };
-
-  describe("READ_SCHEMAS", () => {
-    it("should validate the type literal", () => {
-      expect(Kafka.Task.READ_SCHEMAS.type.parse(Kafka.Task.READ_TYPE)).toBe(
-        Kafka.Task.READ_TYPE,
-      );
-    });
-
-    it("should default the start offset and the record key", () => {
-      const config = Kafka.Task.READ_SCHEMAS.config.parse({
-        device: "dev",
-        topic: "t",
-        records: [{ key: "r", fields: [field] }],
-      });
-      expect(config.startOffset).toBe("latest");
-      expect(config.records[0].recordKey).toBe("");
-      expect(config.records[0].index).toBe("");
-    });
-  });
-
   describe("deployReadConfigZ", () => {
-    const record = { key: "r", fields: [field] };
-    const valid = { device: "dev", topic: "t", records: [record] };
+    const ICD = "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+    const createRecord = (recordKey: string, disabled = false) => ({
+      key: recordKey === "" ? "any" : recordKey,
+      recordKey,
+      disabled,
+      icd: ICD,
+      messages: [],
+    });
+    const valid = { device: "dev", topic: "t", records: [createRecord("")] };
 
     it("should accept a complete config", () => {
       expect(Kafka.Task.deployReadConfigZ.safeParse(valid).success).toBe(true);
@@ -48,95 +29,38 @@ describe("Kafka Task Types", () => {
 
     it("should reject an empty topic", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({ ...valid, topic: "" });
-      expect(result.success).toBe(false);
       expect(result.error?.issues[0].message).toBe("Topic is required");
     });
 
-    it("should reject a field without a pointer", () => {
+    it("should reject a config with every record disabled", () => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
-        records: [{ ...record, fields: [{ ...field, pointer: "" }] }],
+        records: [createRecord("", true)],
       });
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe("Pointer is required");
-    });
-
-    it("should reject a field whose pointer is not a JSON pointer", () => {
-      const result = Kafka.Task.deployReadConfigZ.safeParse({
-        ...valid,
-        records: [{ ...record, fields: [{ ...field, pointer: "temperature" }] }],
-      });
-      expect(result.success).toBe(false);
       expect(result.error?.issues[0].message).toBe(
-        "Pointer must be a valid JSON pointer",
-      );
-    });
-
-    it("should reject a timestamp field without a time format", () => {
-      const result = Kafka.Task.deployReadConfigZ.safeParse({
-        ...valid,
-        records: [{ ...record, fields: [{ ...field, dataType: "timestamp" }] }],
-      });
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe(
-        "Time format is required for timestamps",
-      );
-    });
-
-    it("should accept a timestamp field with a time format", () => {
-      const result = Kafka.Task.deployReadConfigZ.safeParse({
-        ...valid,
-        records: [
-          {
-            ...record,
-            fields: [{ ...field, dataType: "timestamp", timeFormat: "unix_ms" }],
-          },
-        ],
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("should accept a disabled field without a pointer", () => {
-      const result = Kafka.Task.deployReadConfigZ.safeParse({
-        ...valid,
-        records: [
-          {
-            ...record,
-            fields: [
-              field,
-              { ...field, key: "f2", channel: 0, pointer: "", disabled: true },
-            ],
-          },
-        ],
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("should reject a config with every field disabled", () => {
-      const result = Kafka.Task.deployReadConfigZ.safeParse({
-        ...valid,
-        records: [{ ...record, fields: [{ ...field, disabled: true }] }],
-      });
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe(
-        "At least one field must be enabled",
+        "At least one record must be enabled",
       );
     });
 
     it.each([
       ["", "Only one record can read any key"],
       ["pump", 'Record key "pump" is used by another record'],
-    ])("should reject two records with the key %j", (recordKey, message) => {
+    ])("should reject two enabled records with the key %j", (recordKey, message) => {
       const result = Kafka.Task.deployReadConfigZ.safeParse({
         ...valid,
-        records: [
-          { ...record, recordKey },
-          { ...record, key: "r2", recordKey },
-        ],
+        records: [createRecord(recordKey), { ...createRecord(recordKey), key: "b" }],
       });
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe(message);
-      expect(result.error?.issues[0].path).toEqual(["records", 1, "recordKey"]);
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({ message, path: ["records", 1, "recordKey"] }),
+      ]);
+    });
+
+    it("should accept a disabled record that shares a key with an enabled one", () => {
+      const result = Kafka.Task.deployReadConfigZ.safeParse({
+        ...valid,
+        records: [createRecord("pump"), { ...createRecord("pump", true), key: "b" }],
+      });
+      expect(result.success).toBe(true);
     });
   });
 

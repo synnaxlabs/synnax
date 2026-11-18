@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
-import { DataType, deep, errors, primitive } from "@synnaxlabs/x";
+import { caseconv, DataType, deep, errors, primitive } from "@synnaxlabs/x";
+import { z } from "zod";
 
 /** @returns the channel with the given key, or null when it does not exist or is 0. */
 const retrieveChannel = async (
@@ -47,11 +48,25 @@ const createChannelWithIndex = async (
   return await client.channels.create({ name, dataType, index: index.key });
 };
 
+// Anything that is not a channel key reads as no index.
+const storedIndexZ = z.preprocess(
+  (v) => (channel.keyZ.safeParse(v).success ? v : 0),
+  channel.keyZ,
+);
+
+// Pointers and source keys are values, not property names, so they keep their case.
+const readChannelPropsZ = z.object({
+  index: storedIndexZ,
+  channels: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
+});
+
 /** The channels of one read source, as the properties of a device store them. */
-export interface ReadChannelProps {
-  index: channel.Key;
-  channels: Record<string, channel.Key>;
-}
+export interface ReadChannelProps extends z.infer<typeof readChannelPropsZ> {}
+
+/** The channels that the read sources of a device made, by source key. */
+export const readPropertiesZ = caseconv.preserveKeys(
+  z.record(z.string(), readChannelPropsZ).default({}),
+);
 
 /** A field of a read source that gets a channel. */
 export interface ReadChannelField {
@@ -178,12 +193,12 @@ export const createNamer = (client: Client): Namer => {
 /**
  * Plans the channel of every enabled field of a read source: the one it has, the one
  * the device stores for its pointer, or a new one. The index field or a new indexed
- * channel gets the stored index. When that is gone, it gets the index of a live channel
- * of the source, or a new one. A new channel whose name is taken gets a number, such as
- * `_2`, and fields claim their names before a new index. A replaced channel that holds
- * the name of its replacement moves to a numbered name first, so the replacement keeps
- * the plain one. Reads from the Core, and changes neither the fields nor props. Records
- * the names it claims in namer.
+ * channel gets the stored index. When that is gone, it gets the channel of the index
+ * field, the index of a live channel of the source, or a new one. A new channel whose
+ * name is taken gets a number, such as `_2`, and fields claim their names before a new
+ * index. A replaced channel that holds the name of its replacement moves to a numbered
+ * name first, so the replacement keeps the plain one. Reads from the Core, and changes
+ * neither the fields nor props. Records the names it claims in namer.
  */
 export const planReadChannels = async <F extends ReadChannelField>({
   client,
@@ -218,7 +233,7 @@ export const planReadChannels = async <F extends ReadChannelField>({
     enabled.some(indexed) && (indexField != null || unbound.some(indexed));
   let createsIndex = false;
   if (needsIndex && !(await channelExists(client, props.index))) {
-    props.index = await recoverIndex(client, live, props);
+    props.index = await recoverIndex(client, indexField?.channel ?? 0, live, props);
     createsIndex = !primitive.isNonZero(props.index);
     saves = true;
   }
@@ -319,14 +334,17 @@ export const newChannelName = (
     : plan.creates.find((create) => create.key === key)?.name;
 
 /**
- * @returns the first index among those of the live channels, then those of the stored
- * channels that still exist, or 0.
+ * @returns own, the channel of the index field, when it exists. Else the first index
+ * among those of the live channels, then those of the stored channels that still exist,
+ * or 0.
  */
 const recoverIndex = async (
   client: Client,
+  own: channel.Key,
   live: channel.Channel[],
   props: ReadChannelProps,
 ): Promise<channel.Key> => {
+  if (await channelExists(client, own)) return own;
   for (const ch of live) if (primitive.isNonZero(ch.index)) return ch.index;
   for (const stored of Object.values(props.channels)) {
     const ch = await retrieveChannel(client, stored);
