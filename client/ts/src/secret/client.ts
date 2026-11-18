@@ -344,11 +344,11 @@ export class Client extends query.Retriever<
    * subjects.
    * @returns the key of the grant to send to the task of the command.
    * @throws {AccessDeniedError} if the caller cannot create devices or cannot retrieve
-   * one of the secrets.
+   * one of the secrets or certificates.
    * @throws {NotFoundError} if a secret, a certificate, or the task of the command does
    * not exist.
-   * @throws {PathError} if the task of the command is not on the subject rack, or a
-   * certificate is not a file of the subject rack.
+   * @throws {PathError} if the task of the command is not on the subject rack.
+   * @throws {ValidationError} if a certificate is not a file of the subject rack.
    */
   async grant({ command, certificates = [], ...rest }: GrantParams): Promise<GrantKey> {
     // A task reads args in snake case, as the command writer sends them.

@@ -24,6 +24,7 @@ import (
 
 var _ = Describe("Vouched", func() {
 	vouched := func(ctx SpecContext, target resource.ID) (bool, error) {
+		GinkgoHelper()
 		var (
 			ok  bool
 			err error

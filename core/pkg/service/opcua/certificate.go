@@ -181,5 +181,8 @@ func migrateClientCertificate(
 			"secrets folder now. Copy " + keyPath + " into the secrets folder of the " +
 			"Driver as " + *file.PrivateKeyFile + ".",
 	}
-	return key.String(), statuses.Set(ctx, &renamed)
+	if err := statuses.Set(ctx, &renamed); err != nil {
+		return "", err
+	}
+	return key.String(), nil
 }
