@@ -10,17 +10,17 @@
 import { type z } from "zod";
 
 import { type Contains, type Ordered, type Set, type String } from "@/filter/types.gen";
-import { primitive } from "@/primitive";
+import { ValueExtension } from "@/telem";
 
 type Ordinal = number | bigint;
 
-type Orderable = Ordinal | primitive.ValueExtension<Ordinal>;
+type Orderable = Ordinal | ValueExtension<Ordinal>;
 
 const unwrap = (value: unknown): unknown =>
-  value instanceof primitive.ValueExtension ? value.valueOf() : value;
+  value instanceof ValueExtension ? value.valueOf() : value;
 
 const ordinal = (value: Orderable): Ordinal =>
-  value instanceof primitive.ValueExtension ? value.valueOf() : value;
+  value instanceof ValueExtension ? value.valueOf() : value;
 
 const equal = (a: unknown, b: unknown): boolean => unwrap(a) === unwrap(b);
 

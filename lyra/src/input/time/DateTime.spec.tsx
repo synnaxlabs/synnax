@@ -114,7 +114,7 @@ describe("Input.DateTime", () => {
   });
 
   it("should walk the readings of a phrase with the arrow keys", () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
     try {
       vi.setSystemTime(new Date(2026, 7, 23, 14, 5));
       const onChange = vi.fn();
@@ -209,7 +209,7 @@ describe("Input.DateTime", () => {
   });
 
   it("should highlight a reading the pointer enters", () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
     try {
       vi.setSystemTime(new Date(2026, 7, 23, 14, 5));
       const onChange = vi.fn();
@@ -248,7 +248,7 @@ describe("Input.DateTime", () => {
   });
 
   it("should measure a reading's offset from the moment the editor opens", () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.useFakeTimers({ toFake: ["Date", "Temporal"] });
     try {
       vi.setSystemTime(new Date(2026, 7, 23, 14, 5));
       const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);

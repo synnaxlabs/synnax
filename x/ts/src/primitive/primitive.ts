@@ -10,44 +10,6 @@
 /** Union of types that are primitive values or can be converted to primitive values */
 export type Value = string | number | bigint | boolean | Stringer | null | undefined;
 
-export type CrudeValueExtension<V extends NonNullable<Value>> = {
-  value: V;
-};
-
-export const isCrudeValueExtension = <V extends NonNullable<Value>>(
-  value: unknown,
-): value is CrudeValueExtension<V> =>
-  value != null && typeof value === "object" && "value" in value;
-
-/**
- * ValueExtension is a utility class that can be extended in order to implement objects
- * that pseudo-extend a primitive value with additional functionality.
- */
-export class ValueExtension<V extends NonNullable<Value>> {
-  /** The underlying primitive value */
-  protected readonly value: V;
-
-  constructor(value: V) {
-    this.value = value;
-  }
-
-  /** Overrides the JS default valueOf() function to return the primitive value. */
-  valueOf(): V {
-    return this.value;
-  }
-
-  /** toJSON ensures that only the primitive value gets encoded during JSON
-   * stringification. */
-  toJSON(): V {
-    return this.value;
-  }
-
-  /** @returns a string representation of the item. */
-  toString(): string {
-    return this.value.toString();
-  }
-}
-
 /**
  * Stringer is a type that implements a toString() method in order to return a string
  * representation of itself.

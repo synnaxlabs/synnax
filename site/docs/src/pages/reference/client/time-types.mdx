@@ -243,9 +243,8 @@ const fromObject = new TimeRange({ start, end });
 const fromSpan = start.spanRange(TimeSpan.HOUR);
 ```
 
-`contains` also takes a `TimeRange`. It returns true only when the other time range
-starts at or after this time range and ends before this time range ends, so
-`tr.contains(tr)` is false.
+`contains` also takes a `TimeRange`, and returns true when the whole time range is
+inside, ends included.
 
   </Fragment>
 
@@ -282,9 +281,9 @@ console.log(rate.toString()); // 100 Hz
 console.log(rate.period.toString()); // 10ms
 ```
 
-`Rate.khz(1)` is 1000 Hz. `new TimeSpan(rate)` gives the period of the rate, the same as
-`rate.period`. Hardware task configurations take a number of hertz for `sampleRate` and
-`streamRate`, not a `Rate`.
+`new TimeSpan(rate)` gives the period of the rate, the same as `rate.period`. Hardware
+task configurations take a number of hertz for `sampleRate` and `streamRate`, not a
+`Rate`.
 
   </Fragment>
 

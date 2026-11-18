@@ -75,7 +75,7 @@ describe("Client", () => {
         dataType: "float64",
         index: time.key,
       });
-      await client.write(TimeStamp.SECOND, {
+      await client.write(TimeStamp.seconds(1), {
         [time.key]: secondsLinspace(1, 8),
         [data.key]: new Float64Array([4, 1, 3, 8, 5, 2, 6, 7]),
       });
