@@ -868,15 +868,16 @@ describe("lineplot queries", () => {
           ],
         });
       });
-      await waitFor(() =>
+      // The line paints its series color before the Core's stored color returns.
+      await waitFor(() => {
         expect(result.current.lines.map((l) => l.color)).toEqual([
           first.light,
           second.light,
-        ]),
-      );
-      expect(result.current.lines[1].pickedColor).toEqual({
-        type: "named",
-        key: second.key,
+        ]);
+        expect(result.current.lines[1].pickedColor).toEqual({
+          type: "named",
+          key: second.key,
+        });
       });
     });
 
