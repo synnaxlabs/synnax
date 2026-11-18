@@ -38,6 +38,10 @@ import { type FC, memo, type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
+import {
+  COLOR_FIELDS,
+  VALUE_COLOR_FIELDS,
+} from "@/feature/schematic/toolbar/colorFields";
 import { CSS } from "@/platform/css";
 import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
@@ -140,20 +144,6 @@ const CustomVariantForm = ({
 };
 
 const FIELDS = MultiEdit.fieldsByVariant(schematic.ELEMENT_CONFIG_SCHEMAS);
-const VALUE_COLOR_FIELDS = MultiEdit.valueColorFieldsByVariant(
-  schematic.ELEMENT_CONFIG_SCHEMAS,
-);
-
-// Every stored color field, role or not, that Selection lists.
-const COLOR_FIELDS = [
-  "strokeColor",
-  "fillColor",
-  "textColor",
-  "levelColor",
-  "axisColor",
-  "onColor",
-  "stalenessColor",
-] as const;
 
 const selectionColorRefs = (
   key: string,
@@ -163,7 +153,7 @@ const selectionColorRefs = (
     key,
     cfg,
     COLOR_FIELDS,
-    VALUE_COLOR_FIELDS.get(cfg.variant),
+    VALUE_COLOR_FIELDS[cfg.variant],
   );
   if (cfg.variant === "state_indicator")
     cfg.options.forEach((o, i) => {

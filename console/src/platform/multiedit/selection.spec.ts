@@ -27,7 +27,7 @@ const SCHEMAS = {
 type Config = z.infer<(typeof SCHEMAS)[keyof typeof SCHEMAS]>;
 
 const FIELDS = MultiEdit.fieldsByVariant(SCHEMAS);
-const VALUE_COLOR_FIELDS = MultiEdit.valueColorFieldsByVariant(SCHEMAS);
+const VALUE_COLOR_FIELDS = { gauge: ["strokeColor"] };
 
 const RED = xcolor.construct("#ff0000");
 const BLUE = xcolor.construct("#0000ff");
