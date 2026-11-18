@@ -232,10 +232,35 @@ TEST(CertificateTest, ParsePemAfterOtherContent) {
     }
 }
 
-/// @brief it should keep only the first certificate of a chain.
+/// @brief it should find each certificate block in order, and skip other blocks, text,
+/// and a block with no footer.
+TEST(CertificateTest, PemBlocks) {
+    const auto data = "text\n" + KEY_A + testutil::CERTIFICATE + CERT_B +
+                      "-----BEGIN CERTIFICATE-----\nAAAA\n";
+    const auto blocks = Certificate::pem_blocks(data);
+    ASSERT_EQ(blocks.size(), 2);
+    ASSERT_EQ(std::string(blocks[0]) + "\n", testutil::CERTIFICATE);
+    ASSERT_EQ(std::string(blocks[1]) + "\n", CERT_B);
+    ASSERT_TRUE(Certificate::pem_blocks(KEY_A).empty());
+}
+
+/// @brief it should keep only the first certificate of a chain, and skip a later block
+/// that is not valid.
 TEST(CertificateTest, ParseChainKeepsFirst) {
-    const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE + CERT_B));
-    ASSERT_EQ(cert, ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE)));
+    const auto expected = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
+    ASSERT_EQ(
+        ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE + CERT_B)),
+        expected
+    );
+    ASSERT_EQ(
+        ASSERT_NIL_P(
+            Certificate::parse(
+                testutil::CERTIFICATE +
+                "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
+            )
+        ),
+        expected
+    );
 }
 
 /// @brief it should reject data that holds no certificate.
