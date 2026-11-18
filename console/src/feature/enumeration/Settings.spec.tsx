@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, enumeration, NotFoundError } from "@synnaxlabs/client";
+import { type color, enumeration } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color as xcolor } from "@synnaxlabs/x";
 import {
@@ -87,6 +87,12 @@ const clickWhenEnabled = async (name: string): Promise<void> => {
     fireEvent.click(button);
   });
 };
+
+/** Waits for the delete dialog to close, which it does once the Core commits. */
+const waitForDialogToClose = async (): Promise<void> =>
+  await waitFor(() =>
+    expect(screen.queryByText(/Are you sure you want to delete/)).toBeNull(),
+  );
 
 const OWN_VALUE = "Each entry needs its own value.";
 
@@ -397,16 +403,10 @@ describe("Enumeration.Settings", () => {
     });
     fireEvent.click(await screen.findByRole("option", { name: new RegExp(to.name) }));
     await clickWhenEnabled("Replace");
-    await expect
-      .poll(async () => {
-        try {
-          await client.enumerations.retrieve(from.key);
-          return false;
-        } catch (err) {
-          return NotFoundError.matches(err);
-        }
-      })
-      .toBe(true);
+    await waitForDialogToClose();
+    await expect(client.enumerations.retrieve(from.key)).rejects.toThrow(
+      "enumeration was deleted",
+    );
     expect((await client.enumerations.retrieve(to.key)).name).toBe(to.name);
   });
 
@@ -423,15 +423,9 @@ describe("Enumeration.Settings", () => {
     expect(screen.queryByText(/Nothing uses it/)).toBeNull();
     expect(await screen.findByText(/Nothing uses it/)).toBeTruthy();
     await clickWhenEnabled("Delete");
-    await expect
-      .poll(async () => {
-        try {
-          await client.enumerations.retrieve(e.key);
-          return false;
-        } catch (err) {
-          return NotFoundError.matches(err);
-        }
-      })
-      .toBe(true);
+    await waitForDialogToClose();
+    await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
+      "enumeration was deleted",
+    );
   });
 });
