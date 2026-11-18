@@ -112,6 +112,7 @@ void create_dictionary_layout(MockAPI::Slave &slave) {
 /// @brief returns a dictionary of count objects, each with one entry.
 std::vector<MockAPI::DictionaryObject> create_objects(const uint16_t count) {
     std::vector<MockAPI::DictionaryObject> objects;
+    objects.reserve(count);
     for (uint16_t i = 0; i < count; ++i)
         objects.push_back(
             {.info = {.index = static_cast<uint16_t>(0x2000 + i), .name = "Object"},
@@ -523,6 +524,36 @@ TEST_F(IGHMasterTest, ScanStopsWaitingOnceIgHStopsReadingTheDictionary) {
     EXPECT_GE(waited, std::chrono::seconds(5));
     EXPECT_LT(waited, std::chrono::seconds(6));
     EXPECT_EQ(slaves[0].properties.serial, 7);
+}
+
+/// @brief it should count an object whose description holds no name as described
+/// once it has sub-indices or IgH describes a later object.
+TEST_F(IGHMasterTest, ScanWaitsPastObjectsWithNoName) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(3);
+    slave.dictionary[1].info.name.clear();
+    slave.dictionary[2] = {
+        .info = {.index = 0x2002, .max_sub_index = 1},
+        .entries = {{1, {.name = "Value", .data_type = 0x0007}}},
+    };
+    slave.dictionary_read = 1;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    const auto started = this->clock.steady();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_LT(this->clock.steady() - started, std::chrono::seconds(1));
+    EXPECT_EQ(slaves[0].properties.serial, 7);
+}
+
+/// @brief it should look up a final entry that IgH does not have less and less often,
+/// as IgH logs each miss.
+TEST_F(IGHMasterTest, ScanBacksOffLookupsOfAMissingFinalEntry) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(1);
+    slave.dictionary[0].info.max_sub_index = 2;
+    ASSERT_NIL_P(this->master.scan());
+    EXPECT_LE(slave.entry_reads, 7);
 }
 
 /// @brief it should not wait for a dictionary that IgH does not read: that of a slave

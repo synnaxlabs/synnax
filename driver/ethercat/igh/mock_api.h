@@ -708,7 +708,8 @@ public:
             [index](const DictionaryObject &o) { return o.info.index == index; }
         );
         if (object == slave.dictionary.end() ||
-            object - slave.dictionary.begin() >= read_parts(slave).described)
+            static_cast<size_t>(object - slave.dictionary.begin()) >=
+                read_parts(slave).described)
             return -EINVAL;
         const auto entry = object->entries.find(sub_index);
         if (entry == object->entries.end()) return -EINVAL;
@@ -720,20 +721,20 @@ private:
     /// @brief how many objects of a dictionary IgH has listed, named, and read the
     /// entries of.
     struct Parts {
-        ptrdiff_t listed;
-        ptrdiff_t named;
-        ptrdiff_t described;
+        size_t listed;
+        size_t named;
+        size_t described;
     };
 
     /// @brief returns how much of the dictionary of slave IgH has read.
     static Parts read_parts(const Slave &slave) {
-        const auto n = static_cast<ptrdiff_t>(slave.dictionary.size());
+        const size_t n = slave.dictionary.size();
         if (!slave.dictionary_read) return {n, n, n};
-        const auto read = static_cast<ptrdiff_t>(*slave.dictionary_read);
+        const size_t read = *slave.dictionary_read;
         return {
             .listed = read >= 1 ? n : 0,
-            .named = std::clamp<ptrdiff_t>(read - 1, 0, n),
-            .described = std::clamp<ptrdiff_t>(read - 2, 0, n),
+            .named = read >= 1 ? std::min(read - 1, n) : 0,
+            .described = read >= 2 ? std::min(read - 2, n) : 0,
         };
     }
 

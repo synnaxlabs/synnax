@@ -578,7 +578,9 @@ void Master::await_dictionaries(const std::vector<slave::DiscoveryResult *> &sla
     struct Progress {
         uint16_t position;
         uint16_t listed = 0;
-        uint16_t named = 0;
+        uint16_t described = 0;
+        std::chrono::steady_clock::time_point next_lookup{};
+        x::telem::TimeSpan lookup_gap = DICTIONARY_POLL_INTERVAL;
     };
     std::vector<Progress> pending;
     for (const auto *slave: slaves)
@@ -586,10 +588,11 @@ void Master::await_dictionaries(const std::vector<slave::DiscoveryResult *> &sla
             pending.push_back({.position = ring_position(slave->properties.position)});
     auto deadline = this->cfg.clock.steady() + DICTIONARY_TIMEOUT.chrono();
     while (!pending.empty()) {
+        const auto now = this->cfg.clock.steady();
         bool progressed = false;
-        // IgH lists the objects, then reads the name and then the entries of each. It
-        // gives no sign that it has read the final entry, so the master looks it up,
-        // and IgH logs each miss.
+        // IgH lists the objects, then reads the description and then the entries of
+        // each. A description can hold no name, so an object counts as described once
+        // it or a later object has a name or sub-indices.
         std::erase_if(pending, [&](Progress &read) {
             ec_slave_info_t info{};
             if (this->api->master_get_slave(this->ec_master, read.position, &info) != 0)
@@ -599,37 +602,44 @@ void Master::await_dictionaries(const std::vector<slave::DiscoveryResult *> &sla
                 progressed = true;
             }
             ObjectInfo object;
-            while (read.named < read.listed &&
-                   this->api->object_info(
-                       this->master_index,
-                       read.position,
-                       read.named,
-                       object
-                   ) == 0 &&
-                   !object.name.empty()) {
-                read.named++;
-                progressed = true;
-            }
-            if (read.listed == 0 || read.named < read.listed) return false;
+            for (uint16_t i = read.described; i < read.listed; ++i)
+                if (this->api->object_info(
+                        this->master_index,
+                        read.position,
+                        i,
+                        object
+                    ) == 0 &&
+                    (!object.name.empty() || object.max_sub_index != 0)) {
+                    read.described = i + 1;
+                    progressed = true;
+                }
+            if (read.listed == 0 || read.described < read.listed ||
+                now < read.next_lookup)
+                return false;
+            // IgH gives no sign that it has read the final entry, and it logs each
+            // lookup of an entry it has not read, so the lookups back off.
             EntryInfo entry;
-            const bool done = this->api->object_info(
-                                  this->master_index,
-                                  read.position,
-                                  read.listed - 1,
-                                  object
-                              ) == 0 &&
-                              this->api->entry_info(
-                                  this->master_index,
-                                  read.position,
-                                  object.index,
-                                  object.max_sub_index,
-                                  entry
-                              ) == 0;
-            progressed |= done;
-            return done;
+            if (this->api->object_info(
+                    this->master_index,
+                    read.position,
+                    read.listed - 1,
+                    object
+                ) == 0 &&
+                this->api->entry_info(
+                    this->master_index,
+                    read.position,
+                    object.index,
+                    object.max_sub_index,
+                    entry
+                ) == 0) {
+                progressed = true;
+                return true;
+            }
+            read.next_lookup = now + read.lookup_gap.chrono();
+            read.lookup_gap = read.lookup_gap * 2;
+            return false;
         });
         if (pending.empty()) return;
-        const auto now = this->cfg.clock.steady();
         if (progressed) deadline = now + DICTIONARY_TIMEOUT.chrono();
         if (now >= deadline) {
             for (const auto &read: pending)
