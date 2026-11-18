@@ -34,7 +34,7 @@ import {
   deployReadConfigZ,
   isStringReadChannel,
   isVariableDensityReadChannel,
-  nextChannel,
+  nextOpenChannel,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
@@ -43,6 +43,7 @@ import {
   readDataType,
   readMapKey,
   type ReadSchemas,
+  readsOverlap,
   UNSUPPORTED_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { Device } from "@/platform/device";
@@ -120,14 +121,15 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   );
 };
 
-const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
-  if (channels.length === 0)
+const getOpenChannel = (channels: ReadChannel[], copy?: string): ReadChannel => {
+  const next = nextOpenChannel(channels, readsOverlap, copy);
+  if (next == null)
     return {
       ...READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
   return {
-    ...nextChannel(channels[channels.length - 1]),
+    ...next,
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
   };
@@ -160,6 +162,7 @@ const Form: FC = () => {
         path={path.config.channels}
         createChannel={getOpenChannel}
         contextMenuItems={Task.readChannelContextMenuItem}
+        tareable
         listItem={listItem}
         resolve={resolve}
         map={map}
