@@ -22,6 +22,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
@@ -227,6 +228,27 @@ const Warnings = ({ warnings }: WarningsProps): ReactElement => (
   </Tooltip.Dialog>
 );
 
+/** Returns a check for a value that another entry holds, which warns when one does. */
+const useValueTaken = (): ((
+  entries: enumeration.Entry[],
+  name: string,
+  value: number,
+  except?: string,
+) => boolean) => {
+  const addStatus = Status.useAdder();
+  return (entries, name, value, except) => {
+    const holder = entries.find((e) => e.key !== except && e.value === value);
+    if (holder == null) return false;
+    addStatus({
+      variant: "warning",
+      name,
+      message: "Value in use",
+      description: `${holder.name} has the value ${value}. Each entry needs its own value.`,
+    });
+    return true;
+  };
+};
+
 const Entry = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const [key, entryKey] = parseEntryItemKey(itemKey);
@@ -235,6 +257,7 @@ const Entry = (props: List.ItemProps<string>): ReactElement | null => {
   const entries = Form.useFieldValue<enumeration.Entry[]>(path.entries, { ctx: form });
   const canUpdate = Access.useUpdateGranted(enumeration.resourceID(key));
   const itemClass = PlatformSettings.useItemClass(itemKey);
+  const valueTaken = useValueTaken();
   const [over, setOver] = useState(false);
   const entry = entries.find((e) => e.key === entryKey);
   if (entry == null) return null;
@@ -281,7 +304,9 @@ const Entry = (props: List.ItemProps<string>): ReactElement | null => {
         <List.Cell>
           <Input.Numeric
             value={entry.value}
-            onChange={(v) => form.set(at.value, v)}
+            onChange={(v) => {
+              if (!valueTaken(entries, entry.name, v, entryKey)) form.set(at.value, v);
+            }}
             disabled={!canUpdate}
             showDragHandle={false}
             variant="text"
@@ -336,11 +361,12 @@ interface NewEntryProps {
 const NewEntry = ({ enumeration: key, onClose }: NewEntryProps): ReactElement => {
   const { form } = Enumeration.useForm({ query: { key } });
   const entries = Form.useFieldValue<enumeration.Entry[]>(path.entries, { ctx: form });
+  const valueTaken = useValueTaken();
   const [name, setName] = useState("");
   const [value, setValue] = useState(() => nextValue(entries));
   const handleSave = (): void => {
     const trimmed = name.trim();
-    if (trimmed === "") return;
+    if (trimmed === "" || valueTaken(entries, trimmed, value)) return;
     form.insert(
       path.entries,
       { key: id.create(), value, name: trimmed, abnormal: false },
@@ -368,8 +394,7 @@ const NewEntry = ({ enumeration: key, onClose }: NewEntryProps): ReactElement =>
             onChange={setValue}
             showDragHandle={false}
             size="small"
-            aria-label="Value"
-            onKeyDown={handleKeyDown}
+            aria-label="Entry value"
           />
         </List.Cell>
         <List.Cell>
@@ -500,21 +525,21 @@ interface EntriesMenuProps {
 
 const EntriesMenu = ({ keys }: EntriesMenuProps): ReactElement => {
   const [first] = keys;
-  const [key] = parseEntryItemKey(first);
+  const parsed = keys.map(parseEntryItemKey);
+  const [key] = parsed[0];
   const { form } = Enumeration.useForm({ query: { key } });
   const canUpdate = Access.useUpdateGranted(enumeration.resourceID(key));
-  const entries = keys
-    .map(parseEntryItemKey)
-    .filter(([k]) => k === key)
-    .map(([, entry]) => entry);
+  // A selection across enumerations gets no edits, so none applies to only part of it.
+  const editable = canUpdate && parsed.every(([k]) => k === key);
+  const entries = parsed.map(([, entry]) => entry);
   return (
     <ContextMenu.Menu>
-      {entries.length === 1 && canUpdate && (
+      {entries.length === 1 && editable && (
         <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(first))} />
       )}
       <Menu.Divider />
-      {canUpdate && (
-        <ContextMenu.DeleteItem
+      {editable && (
+        <ContextMenu.RemoveItem
           onClick={() =>
             form.batch(() =>
               entries.forEach((entry) => form.remove(path.entries[entry])),
