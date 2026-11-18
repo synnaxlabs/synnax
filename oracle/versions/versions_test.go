@@ -360,6 +360,160 @@ Channel struct {
 				To(Equal("x/telem@v0"))
 		})
 
+		It("Should resolve each name of two pins that share a namespace", func() {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/status/v0.oracle":      "Code = int64\n",
+				"schemas/synnax/versions/status/v0.oracle": "Level = int32\n",
+				"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/synnax/versions/status/v0"
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+	level status.Level
+}
+`,
+				"schemas/synnax/versions/channel/v1.oracle": `
+import "schemas/synnax/versions/status/v0"
+import "schemas/x/versions/status/v0"
+
+Channel struct extends v0.Channel {
+	name string
+}
+`,
+			})
+			f := MustSucceed(r.File("schemas/synnax/channel", 1))
+			form, ok := MustBeOk(f.Table.Get("v0.Channel")).Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.Fields[1].Type.Name).To(Equal("x/status@v0.Code"))
+			Expect(form.Fields[2].Type.Name).To(Equal("synnax/status@v0.Level"))
+		})
+
+		It("Should resolve two pins of one namespace through a transitive pin", func() {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/status/v0.oracle":      "Code = int64\n",
+				"schemas/synnax/versions/status/v0.oracle": "Level = int32\n",
+				"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/synnax/versions/status/v0"
+import "schemas/x/versions/status/v0"
+
+Payload union on kind {
+	coded {
+		code status.Code
+	}
+	leveled {
+		level status.Level
+	}
+}
+
+Channel struct {
+	key uuid @key
+	code status.Code
+	payload Payload
+}
+`,
+				"schemas/synnax/versions/ranger/v0.oracle": `
+import "schemas/synnax/versions/channel/v0"
+
+Range struct {
+	key uuid @key
+	channel channel.Channel
+}
+`,
+			})
+			f := MustSucceed(r.File("schemas/synnax/ranger", 0))
+			ch, ok := MustBeOk(f.Table.Get("synnax/channel@v0.Channel")).
+				Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			Expect(ch.Fields[1].Type.Name).To(Equal("x/status@v0.Code"))
+			payload, ok := MustBeOk(f.Table.Get("synnax/channel@v0.Payload")).
+				Form.(resolution.UnionForm)
+			Expect(ok).To(BeTrue())
+			fields := make([]string, 0, len(payload.Variants))
+			for _, v := range payload.Variants {
+				p, ok := MustBeOk(f.Table.Get(v.Type.Name)).Form.(resolution.StructForm)
+				Expect(ok).To(BeTrue())
+				fields = append(fields, p.Fields[0].Type.Name)
+			}
+			Expect(fields).To(ConsistOf("x/status@v0.Code", "synnax/status@v0.Level"))
+		})
+
+		It("Should keep a live name that shares its namespace with a pin", func() {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/status/v0.oracle": "Code = int64\n",
+				"schemas/synnax/status.oracle":        "Level = int32\n",
+				"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/synnax/status"
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+	level status.Level
+}
+`,
+				"schemas/synnax/versions/channel/v1.oracle": `
+import "schemas/synnax/status"
+import "schemas/x/versions/status/v0"
+
+Channel struct extends v0.Channel {
+	name string
+}
+`,
+			})
+			f := MustSucceed(r.File("schemas/synnax/channel", 1))
+			form, ok := MustBeOk(f.Table.Get("v0.Channel")).Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.Fields[1].Type.Name).To(Equal("x/status@v0.Code"))
+			Expect(form.Fields[2].Type.Name).To(Equal("status.Level"))
+		})
+
+		It("Should keep a pin's namespace free of a dependency's live names", func() {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/status/v0.oracle": "Code = int64\n",
+				"schemas/synnax/status.oracle":        "Level = int32\n",
+				"schemas/synnax/versions/rack/v0.oracle": `
+import "schemas/synnax/status"
+
+Rack struct {
+	key uuid @key
+	level status.Level
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/x/versions/status/v0"
+import "schemas/synnax/versions/rack/v0"
+
+Channel struct {
+	key uuid @key
+	rack rack.Rack
+	level status.Level
+}
+`,
+			})
+			Expect(r.File("schemas/synnax/channel", 0)).Error().
+				To(MatchError(ContainSubstring("unresolved type: status.Level")))
+		})
+
+		It("Should reject two pins of one namespace that declare one name", func() {
+			r := resolverFor(map[string]string{
+				"schemas/x/versions/status/v0.oracle":      "Code = int64\n",
+				"schemas/synnax/versions/status/v0.oracle": "Code = int32\n",
+				"schemas/synnax/versions/channel/v0.oracle": `
+import "schemas/synnax/versions/status/v0"
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+}
+`,
+			})
+			Expect(r.File("schemas/synnax/channel", 0)).Error().
+				To(MatchError(ContainSubstring("duplicate type: status.Code")))
+		})
+
 		It("Should reject a pinned name that the version file does not import", func() {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/notation/v0.oracle": `

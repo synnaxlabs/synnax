@@ -114,8 +114,6 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}
       suffix={named ? readNameSuffix(slave, ch, dataTypes) : undefined}
       skipped={ch.disabled}
-      hasTareButton={false}
-      canTare={false}
       portMaxChars={20}
     />
   );
@@ -170,6 +168,7 @@ const Form: FC = () => {
         createChannel={createReadChannel}
         contextMenuItems={contextMenuItems}
         resolve={resolve}
+        tareable
       />
       <ChannelUsage
         indexOptions={READ_INDEX_OPTIONS}
@@ -183,17 +182,17 @@ const Form: FC = () => {
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = async ({
   client,
-  deviceKey,
+  deviceKeys,
   config,
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (config == null)
     cfg.channels =
-      deviceKey == null
+      deviceKeys.length === 0
         ? [createReadChannel([])]
         : await createSlaveChannels(
             client,
-            deviceKey,
+            deviceKeys,
             "inputs",
             createSlaveReadChannel,
             createReadChannel([]),

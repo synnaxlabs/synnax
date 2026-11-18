@@ -101,6 +101,14 @@ public:
         /// @brief how many state reads after activation the slave takes to reach its
         /// state.
         int reads_to_reach = 0;
+        /// @brief whether a master reset makes the slave reach OP.
+        bool recovers_on_reset = false;
+        /// @brief how many state reads after a master reset the slave takes to reach
+        /// its state again, as IgH configures it again.
+        int reads_to_reconfigure = 0;
+        /// @brief how many state reads remain before a master reset takes effect, or -1
+        /// with no reset pending.
+        int reads_to_reset = -1;
         bool configured = false;
         bool settled = false;
         /// @brief the SDO downloads, in call order.
@@ -161,6 +169,12 @@ public:
     int domain_state_result = 0;
     /// @brief the domain queues, in call order.
     mutable std::vector<size_t> queued;
+    /// @brief the result of master_reset, and how many state reads of a slave pass
+    /// before a reset takes effect, as IgH resets in the background.
+    int reset_result = 0;
+    int reset_lag = 0;
+    /// @brief how many times the master asked for a reset, failed or not.
+    mutable int resets = 0;
     mutable bool released = false;
     mutable bool deactivated = false;
 
@@ -215,6 +229,14 @@ public:
 
     int master_deactivate(ec_master_t *) const override {
         this->deactivated = true;
+        return 0;
+    }
+
+    int master_reset(ec_master_t *) const override {
+        this->resets++;
+        if (this->reset_result < 0) return this->reset_result;
+        for (auto &slave: this->slaves)
+            if (slave.configured) slave.reads_to_reset = this->reset_lag;
         return 0;
     }
 
@@ -293,6 +315,20 @@ public:
         if (this->scanning) {
             *state = {};
             return 0;
+        }
+        if (slave.reads_to_reset > 0)
+            slave.reads_to_reset--;
+        else if (slave.reads_to_reset == 0) {
+            slave.reads_to_reset = -1;
+            // IgH configures a faulted slave again from INIT.
+            if (slave.info.error_flag != 0) slave.info.al_state = EC_AL_STATE_INIT;
+            slave.info.error_flag = 0;
+            slave.settled = false;
+            slave.reads_to_reach = slave.reads_to_reconfigure;
+            if (slave.recovers_on_reset) {
+                slave.reaches = EC_AL_STATE_OP;
+                slave.refuses = false;
+            }
         }
         if (this->activated && !slave.settled) {
             if (slave.reads_to_reach > 0)

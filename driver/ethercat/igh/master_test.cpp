@@ -102,7 +102,8 @@ pdo::Entry assigned_entry() {
 class IGHMasterTest : public ::testing::Test {
 protected:
     std::shared_ptr<MockAPI> api = std::make_shared<MockAPI>();
-    Master master{this->api, 0, {.clock = x::loop::fake_clock()}};
+    x::loop::HostClock clock = x::loop::fake_clock();
+    Master master{this->api, 0, {.clock = this->clock}};
     x::breaker::Breaker brk;
     /// @brief the settings of each slave that activate() starts the master with.
     std::map<uint16_t, slave::Config> configs;
@@ -453,7 +454,7 @@ TEST_F(IGHMasterTest, ActivateWaitsForEverySlaveToReachOP) {
 }
 
 /// @brief it should return each slave that has its AL error flag set below OP as a
-/// refusal of its next state.
+/// refusal of its next state, after one reset and before the OP timeout.
 TEST_F(IGHMasterTest, ActivateReturnsTheRefusalOfEachSlave) {
     this->api->add_slave("EL3102");
     auto &pre_op = this->api->add_slave("EL4002");
@@ -463,12 +464,15 @@ TEST_F(IGHMasterTest, ActivateReturnsTheRefusalOfEachSlave) {
     safe_op.reaches = EC_AL_STATE_SAFEOP;
     safe_op.refuses = true;
     ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
     const auto activation = this->activate();
+    EXPECT_LT(this->clock.steady() - started, std::chrono::seconds(1));
+    EXPECT_EQ(this->api->resets, 1);
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
         activation.err.data,
-        "failed to reach OP within 10s: slave 2 (EL4002) is in PRE-OP with an AL "
-        "error; slave 3 (EL1008) is in SAFE-OP with an AL error"
+        "failed to reach OP: slave 2 (EL4002) is in PRE-OP with an AL error; slave 3 "
+        "(EL1008) is in SAFE-OP with an AL error"
     );
     const std::map<uint16_t, slave::Refusal> refusals{
         {2, {.reason = "refused SAFE-OP"}},
@@ -514,6 +518,70 @@ TEST_F(IGHMasterTest, ActivateReportsASlaveWhoseStateItCannotRead) {
         activation.err.data,
         "failed to reach OP within 10s: slave 1 (TestSlave): failed to read its "
         "state: Input/output error"
+    );
+}
+
+/// @brief it should reset the master once when every slave below OP refuses, and start
+/// when the reset brings each one to OP.
+TEST_F(IGHMasterTest, ActivateTriesARefusingSlaveAgainAfterAReset) {
+    auto &slave = this->api->add_slave();
+    slave.reaches = EC_AL_STATE_SAFEOP;
+    slave.refuses = true;
+    slave.recovers_on_reset = true;
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(this->api->resets, 1);
+}
+
+/// @brief it should not take an error flag that a reset has yet to clear as a second
+/// refusal.
+TEST_F(IGHMasterTest, ActivateWaitsForAResetToClearTheErrorFlags) {
+    auto &slave = this->api->add_slave();
+    slave.reaches = EC_AL_STATE_SAFEOP;
+    slave.refuses = true;
+    slave.recovers_on_reset = true;
+    this->api->reset_lag = 20;
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(this->api->resets, 1);
+}
+
+/// @brief it should wait for a slave below OP with no error flag even when another
+/// slave refuses.
+TEST_F(IGHMasterTest, ActivateWaitsForASlaveBelowOPWithNoErrorFlag) {
+    auto &refusing = this->api->add_slave("EL4002");
+    refusing.reaches = EC_AL_STATE_PREOP;
+    refusing.refuses = true;
+    this->api->add_slave("EL1008").reaches = EC_AL_STATE_SAFEOP;
+    ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
+    const auto activation = this->activate();
+    EXPECT_GE(this->clock.steady() - started, std::chrono::seconds(10));
+    EXPECT_EQ(this->api->resets, 0);
+    ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        activation.err.data,
+        "failed to reach OP within 10s: slave 1 (EL4002) is in PRE-OP with an AL "
+        "error; slave 2 (EL1008) is in SAFE-OP"
+    );
+    const std::map<uint16_t, slave::Refusal> refusals{
+        {1, {.reason = "refused SAFE-OP"}},
+    };
+    EXPECT_EQ(activation.refusals, refusals);
+}
+
+/// @brief it should return the refusals at once when the reset fails.
+TEST_F(IGHMasterTest, ActivateReturnsTheRefusalsWhenTheResetFails) {
+    auto &slave = this->api->add_slave();
+    slave.reaches = EC_AL_STATE_PREOP;
+    slave.refuses = true;
+    slave.recovers_on_reset = true;
+    this->api->reset_result = -EIO;
+    ASSERT_NIL_P(this->master.scan());
+    const auto activation = this->activate();
+    EXPECT_EQ(this->api->resets, 1);
+    ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
+    EXPECT_EQ(
+        activation.err.data,
+        "failed to reach OP: slave 1 (TestSlave) is in PRE-OP with an AL error"
     );
 }
 
@@ -1072,6 +1140,149 @@ TEST_F(IGHMasterTest, CheckKeepsTheHealthOfAnAnsweringSlaveDuringAScan) {
     EXPECT_EQ(health[0].state, slave::State::OP);
     EXPECT_TRUE(health[1].lost);
     EXPECT_EQ(health[2], before[2]);
+}
+
+/// @brief it should reset the master when the latest check found a faulted slave, so
+/// IgH configures the slave again.
+TEST_F(IGHMasterTest, RecoverResetsTheMasterForAFaultedSlave) {
+    auto &slave = this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    slave.info.al_state = EC_AL_STATE_SAFEOP;
+    slave.info.error_flag = 1;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
+}
+
+/// @brief it should not reset the master when no slave is faulted.
+TEST_F(IGHMasterTest, RecoverDoesNothingWithoutAFaultedSlave) {
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_FALSE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 0);
+}
+
+/// @brief it should wait longer before each next reset while a slave stays faulted.
+TEST_F(IGHMasterTest, RecoverBacksOffWhileASlaveStaysFaulted) {
+    auto &slave = this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    slave.reaches = EC_AL_STATE_SAFEOP;
+    slave.refuses = true;
+    slave.info.error_flag = 1;
+    const auto check_and_recover = [this] {
+        ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+        this->master.recover(this->brk);
+    };
+    check_and_recover();
+    check_and_recover();
+    EXPECT_EQ(this->api->resets, 1);
+    this->clock.sleep(x::telem::SECOND);
+    check_and_recover();
+    EXPECT_EQ(this->api->resets, 2);
+    this->clock.sleep(x::telem::SECOND);
+    check_and_recover();
+    EXPECT_EQ(this->api->resets, 2);
+    this->clock.sleep(x::telem::SECOND);
+    check_and_recover();
+    EXPECT_EQ(this->api->resets, 3);
+}
+
+/// @brief it should keep backing off while a faulted slave is configured again after a
+/// reset, which clears its AL error flag until it refuses again.
+TEST_F(IGHMasterTest, RecoverBacksOffWhileAFaultedSlaveIsConfiguredAgain) {
+    auto &slave = this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    slave.reaches = EC_AL_STATE_SAFEOP;
+    slave.refuses = true;
+    slave.info.error_flag = 1;
+    slave.reads_to_reconfigure = 1;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
+    ASSERT_FALSE(this->master.check(this->brk)[0].faulted);
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
+}
+
+/// @brief it should start the backoff over once a check finds every slave in OP.
+TEST_F(IGHMasterTest, RecoverStartsTheBackoffOverOnceEverySlaveIsInOP) {
+    auto &slave = this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    slave.reaches = EC_AL_STATE_SAFEOP;
+    slave.refuses = true;
+    slave.info.error_flag = 1;
+    for (int i = 0; i < 2; i++) {
+        ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+        this->master.recover(this->brk);
+        this->clock.sleep(x::telem::SECOND);
+    }
+    EXPECT_EQ(this->api->resets, 2);
+    slave.recovers_on_reset = true;
+    ASSERT_FALSE(this->master.check(this->brk)[0].faulted);
+    slave.info.error_flag = 1;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 3);
+}
+
+/// @brief it should back off after a failed reset as after one that worked.
+TEST_F(IGHMasterTest, RecoverBacksOffAfterAFailedReset) {
+    auto &slave = this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    slave.info.error_flag = 1;
+    this->api->reset_result = -EIO;
+    for (int i = 0; i < 2; i++) {
+        ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+        this->master.recover(this->brk);
+    }
+    EXPECT_EQ(this->api->resets, 1);
+}
+
+/// @brief it should not reset the master once the breaker stops.
+TEST_F(IGHMasterTest, RecoverDoesNothingOnceTheBreakerStops) {
+    auto &slave = this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    slave.info.error_flag = 1;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->brk.stop();
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 0);
+}
+
+/// @brief it should keep the reset backoff while IgH scans the bus and a faulted slave
+/// keeps its health.
+TEST_F(IGHMasterTest, CheckKeepsTheResetBackoffThroughAScan) {
+    auto &slave = this->api->add_slave();
+    create_io(slave);
+    ASSERT_NIL(this->scan_and_activate());
+    slave.reaches = EC_AL_STATE_SAFEOP;
+    slave.refuses = true;
+    slave.info.error_flag = 1;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
+    this->api->scanning = true;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->api->scanning = false;
+    ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+    this->master.recover(this->brk);
+    EXPECT_EQ(this->api->resets, 1);
+}
+
+/// @brief it should start the reset backoff over after a deactivate.
+TEST_F(IGHMasterTest, DeactivateStartsTheResetBackoffOver) {
+    auto &slave = this->api->add_slave();
+    for (int i = 1; i <= 2; i++) {
+        ASSERT_NIL(this->scan_and_activate());
+        slave.info.al_state = EC_AL_STATE_SAFEOP;
+        slave.info.error_flag = 1;
+        ASSERT_TRUE(this->master.check(this->brk)[0].faulted);
+        this->master.recover(this->brk);
+        EXPECT_EQ(this->api->resets, i);
+        this->master.deactivate();
+    }
 }
 
 /// @brief it should deactivate and release the master.

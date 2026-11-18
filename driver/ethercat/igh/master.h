@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -88,6 +89,13 @@ class Master final : public master::Master {
     std::vector<slave::Health> latest_health;
     /// @brief what the latest receive() returns.
     x::errors::Error received;
+    /// @brief whether the latest check() found a slave with its AL error flag set.
+    bool faulted = false;
+    /// @brief the resets that recover() asked for since check() last found every slave
+    /// in OP.
+    size_t resets = 0;
+    /// @brief when recover() can ask for the next reset.
+    std::chrono::steady_clock::time_point next_reset;
 
 public:
     /// @brief constructs an IgH master with the given API and master index.
@@ -117,8 +125,10 @@ public:
     /// no DC sync, so a slave that needs DC sync refuses SAFE-OP. Returns
     /// errors::SLAVE_CONFIG_ERROR, before it configures any slave, when the chosen mode
     /// of a slave is one that the IgH master cannot run. The IgH master moves the
-    /// slaves to OP on its own, so a slave that has its AL error flag set at
-    /// Config::op_timeout counts as a refusal.
+    /// slaves to OP on its own, so a slave below OP with its AL error flag set counts
+    /// as a refusal. Once every slave below OP has the flag, the master tries them
+    /// once more with a reset, then returns the refusals without waiting for
+    /// Config::op_timeout.
     master::Activation activate(
         const master::Plan &plan,
         const std::function<void(const master::Image &)> &start_cycle
@@ -130,15 +140,17 @@ public:
 
     x::errors::Error send() override;
 
-    /// @brief reports each configured slave. The IgH master returns slaves that leave
-    /// OP to it on its own, so this takes no recovery step. While IgH scans the bus
-    /// again, which it does when a slave loses power, it reads no slave state. A slave
-    /// whose domain still answers then keeps the health of the previous check(), and so
-    /// does a slave with no domain, which gives no other sign.
+    /// @brief reports each configured slave. While IgH scans the bus again, which it
+    /// does when a slave loses power, it reads no slave state. A slave whose domain
+    /// still answers then keeps the health of the previous check(), and so does a slave
+    /// with no domain, which gives no other sign.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
-    /// @brief does nothing: the IgH master brings slaves back to OP by itself.
-    void recover(const x::breaker::Breaker &) override {}
+    /// @brief resets the master when the latest check() found a slave with its AL
+    /// error flag set, since IgH configures such a slave again only after a reset. It
+    /// brings the other slaves back to OP by itself. The resets back off until a
+    /// check() finds every slave in OP.
+    void recover(const x::breaker::Breaker &breaker) override;
 
     /// @brief does what master::Master::write does, but on a running bus writes
     /// nothing, since IgH takes startup parameters only before activation. It does not
@@ -176,14 +188,18 @@ private:
     x::errors::Error initialize();
 
     /// @brief waits until every enabled slave reaches OP.
-    /// @returns errors::STATE_CHANGE_REFUSED with the refusals when a slave still has
-    /// its AL error flag set at Config::op_timeout, or errors::STATE_CHANGE_ERROR when
-    /// none has.
+    /// @returns errors::STATE_CHANGE_REFUSED with the refusals when every slave below
+    /// OP still has its AL error flag set after a reset, or when one has it at
+    /// Config::op_timeout. errors::STATE_CHANGE_ERROR when none has it at the timeout.
     master::Activation wait_for_op();
 
+    /// @brief returns true when every slave at positions has its AL error flag set.
+    [[nodiscard]] bool refusing(const std::vector<uint16_t> &positions) const;
+
     /// @brief builds the activation for the slaves at pending that are still below OP,
-    /// or returns no error when all of them reached OP since the last poll.
-    master::Activation op_error(const std::vector<uint16_t> &pending);
+    /// or returns no error when all of them reached OP since the last poll. timed_out
+    /// tells whether the wait reached Config::op_timeout.
+    master::Activation op_error(const std::vector<uint16_t> &pending, bool timed_out);
 
     /// @brief reads the PDO layout a slave holds after its startup parameters, since a
     /// parameter can change it, and makes that layout the slave's config and cached
