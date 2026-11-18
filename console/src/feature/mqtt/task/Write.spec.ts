@@ -339,6 +339,15 @@ describe("MQTT Write form", () => {
       await screen.findByText(ch.name);
     });
 
+    it("should focus the group of a tag added by name", async () => {
+      await renderWrite();
+      const dialog = await openAddTargets();
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await dialog.findByRole("button", { name: "Add a tag by name" }));
+      const group = await screen.findByPlaceholderText("plant");
+      await waitFor(() => expect(document.activeElement).toBe(group));
+    });
+
     it("should add a tag by name and select its Sparkplug B type", async () => {
       const { draft } = await renderWrite();
       await screen.findByText("No targets");
