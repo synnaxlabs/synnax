@@ -437,6 +437,29 @@ describe("MQTT read form", () => {
     });
   });
 
+  it("should clear the index of a topic whose index field is removed", async () => {
+    const time = createTimeField();
+    const temperature = createField("temperature", "float");
+    const first = await createEntry({ fields: [time, temperature] });
+    const second = mqtt.plainReadEntryZ.parse({
+      ...first,
+      key: uuid.create(),
+      topic: `${TOPIC}/2`,
+      messages: [{ ...first.messages[0], index: time.key }],
+    });
+    const { draft } = await renderRead({ entries: [first, second] });
+    const [item] = await screen.findAllByRole("treeitem", { name: /^time/ });
+    fireEvent.contextMenu(item);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    await waitFor(async () => {
+      const [, indexed] = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(indexed.messages[0].index).toBeUndefined();
+      expect(indexed.messages[0].bindings.map(({ field }) => field)).toEqual([
+        temperature.key,
+      ]);
+    });
+  });
+
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
     const kiln = await createEntry({
       topic: "plant/kiln",
