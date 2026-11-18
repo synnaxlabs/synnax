@@ -395,10 +395,9 @@ var errResolveSubject = errors.Wrap(access.ErrDenied, "only a rack can resolve s
 
 // Resolve returns the plain text values of secrets. Only a rack may call it. With a
 // grant, it spends the grant and also returns its command: the grant must be to the
-// rack
-// for the task of the request. Without one, it returns the values of the secrets of the
-// request, and an error that wraps access.ErrDenied when no device or task on the rack
-// uses one. A wrong mix of grant, task, and secrets is a validation error.
+// rack for the task of the request. Without one, it returns the values of the secrets
+// of the request, and an error that wraps access.ErrDenied when no device or task on
+// the rack uses one. A wrong mix of grant, task, and secrets is a validation error.
 func (s *Service) Resolve(
 	ctx context.Context,
 	req ResolveRequest,
