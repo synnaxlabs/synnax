@@ -9,9 +9,9 @@
 
 import { z } from "zod";
 
+import { array } from "@/array";
 import { binary } from "@/binary";
 import { caseconv } from "@/caseconv";
-import { compare } from "@/compare";
 import { id } from "@/id";
 import { instance } from "@/instance";
 import { math } from "@/math";
@@ -957,17 +957,12 @@ export class Series<T extends TelemValue = TelemValue>
    * @param value - the value to search for.
    */
   binarySearch(value: numeric.Value): number {
-    let left = 0;
-    let right = this.length - 1;
-    const cf = compare.newF(value);
-    while (left <= right) {
-      const mid = Math.floor((left + right) / 2);
-      const cmp = cf(this.at(mid, true) as numeric.Value, value);
-      if (cmp === 0) return mid;
-      if (cmp < 0) left = mid + 1;
-      else right = mid - 1;
-    }
-    return left;
+    // A NaN sample orders after every value. Babel prints `(x as T) < y` without its
+    // parentheses, and the Console build then reads `T < y` as type arguments.
+    return array.partitionPoint(this.length, (i) => {
+      const sample = this.at(i, true) as numeric.Value;
+      return !(sample < value);
+    });
   }
 
   /**

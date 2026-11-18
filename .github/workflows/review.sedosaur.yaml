@@ -138,7 +138,7 @@ jobs:
         if: steps.skip.outputs.skip == 'false'
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-contents: read
@@ -188,7 +188,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
@@ -210,7 +210,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
@@ -249,7 +249,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-contents: read
@@ -348,6 +348,7 @@ jobs:
           echo "CLAUDE_CODE_OAUTH_TOKEN=$token" >> "$GITHUB_ENV"
 
       - name: Review
+        id: review
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ github.token }}
@@ -357,6 +358,23 @@ jobs:
           REPLAY: ${{ inputs.replay }}
           HEAD_DIR: ${{ runner.temp }}/head
         run: python3 -m review run "$RUNNER_TEMP/review.json"
+
+      # A usage limit or a rejected token stops every job of the seat. The seat leaves
+      # the pool, and Agent - Requeue runs this job again on a seat with a usable login.
+      - name: Leave the pool until the usage limit resets
+        if: failure() && steps.review.outputs.limited-until != ''
+        env:
+          UNTIL: ${{ steps.review.outputs.limited-until }}
+        run: scripts/agent/leave.sh limited-until "$UNTIL"
+
+      - name: Leave the pool until a person renews the login
+        if: failure() && steps.review.outputs.login-broken != ''
+        env:
+          AT: ${{ steps.review.outputs.login-broken }}
+        run: |
+          scripts/agent/leave.sh login-broken "$AT"
+          echo "::error::Claude rejected the token of the seat's login. Store a new" \
+            "one with infra/agent-runner/seat.sh token <login>."
 
       # The trial report compares these records with Greptile's reviews.
       - name: Keep the record
@@ -374,7 +392,7 @@ jobs:
         id: post
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-contents: write
@@ -402,7 +420,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
@@ -433,7 +451,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
 

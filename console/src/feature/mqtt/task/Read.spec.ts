@@ -411,19 +411,53 @@ describe("MQTT read form", () => {
     );
   });
 
-  it("should remove a field from the ICD through the context menu", async () => {
+  it("should remove a field from the ICD and from each topic that reads it", async () => {
     const temperature = createField("temperature", "float");
     const pressure = createField("pressure", "float");
-    const { draft } = await renderRead({ fields: [temperature, pressure] });
-    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^pressure/ }));
+    const first = await createEntry({ fields: [temperature, pressure] });
+    const second = mqtt.plainReadEntryZ.parse({
+      ...first,
+      key: uuid.create(),
+      topic: `${TOPIC}/2`,
+    });
+    const { draft } = await renderRead({ entries: [first, second] });
+    const [item] = await screen.findAllByRole("treeitem", { name: /^pressure/ });
+    fireEvent.contextMenu(item);
     fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
-    const { icd: icdKey } = plainOf((await retrieveEntries(draft.key))[0]);
     await waitFor(async () =>
       expect(
-        jsonFieldsOf(await client.icds.retrieve(icdKey)).map(({ key }) => key),
+        jsonFieldsOf(await client.icds.retrieve(first.icd)).map(({ key }) => key),
       ).toEqual([temperature.key]),
     );
     expect(screen.queryByRole("treeitem", { name: /^pressure/ })).toBeNull();
+    await waitFor(async () => {
+      const entries = (await retrieveEntries(draft.key)).map(plainOf);
+      const reads = entries.map(({ messages: [m] }) => m.bindings.map((b) => b.field));
+      expect(reads).toEqual([[temperature.key], [temperature.key]]);
+    });
+  });
+
+  it("should clear the index of a topic whose index field is removed", async () => {
+    const time = createTimeField();
+    const temperature = createField("temperature", "float");
+    const first = await createEntry({ fields: [time, temperature] });
+    const second = mqtt.plainReadEntryZ.parse({
+      ...first,
+      key: uuid.create(),
+      topic: `${TOPIC}/2`,
+      messages: [{ ...first.messages[0], index: time.key }],
+    });
+    const { draft } = await renderRead({ entries: [first, second] });
+    const [item] = await screen.findAllByRole("treeitem", { name: /^time/ });
+    fireEvent.contextMenu(item);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    await waitFor(async () => {
+      const [, indexed] = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(indexed.messages[0].index).toBeUndefined();
+      expect(indexed.messages[0].bindings.map(({ field }) => field)).toEqual([
+        temperature.key,
+      ]);
+    });
   });
 
   it("should add fields to a topic in the ICD of its entry and read them", async () => {
@@ -452,6 +486,60 @@ describe("MQTT read form", () => {
         kiln.messages[0].bindings[0],
         { field: expect.any(String), channel: 0, dataType: "" },
       ]),
+    );
+  });
+
+  it("should number a picked field whose name a field of its message holds", async () => {
+    const rate = icd.jsonFieldZ.parse({
+      name: "flow",
+      pointer: "/rate",
+      type: "float",
+    });
+    const kiln = await createEntry({ topic: "plant/kiln", fields: [rate] });
+    const { dev } = await renderRead({
+      fields: [createField("temperature", "float")],
+      entries: [kiln],
+    });
+    await screen.findByRole("treeitem", { name: /^temperature/ });
+    await addField(dev.rack, "plant/kiln", "flow");
+    await waitFor(async () =>
+      expect((await client.icds.retrieve(kiln.icd)).messages).toMatchObject([
+        {
+          payload: {
+            fields: [
+              { name: "flow", pointer: "/rate" },
+              { name: "flow_2", pointer: "/flow" },
+            ],
+          },
+        },
+      ]),
+    );
+  });
+
+  it("should reuse a channel stored under another message of a topic it adds", async () => {
+    const time = await createTimeChannel();
+    const flow = await client.channels.create({
+      name: uniqueName("flow"),
+      dataType: DataType.FLOAT64,
+      index: time.key,
+    });
+    const { dev, draft } = await renderRead({
+      fields: [createField("temperature", "float")],
+      properties: {
+        read: {
+          [`plant/kiln#${uuid.create()}`]: {
+            index: time.key,
+            channels: { "/flow": flow.key },
+          },
+        },
+      },
+    });
+    await screen.findByRole("treeitem", { name: /^temperature/ });
+    await addField(dev.rack, "plant/kiln", "flow");
+    await waitFor(async () =>
+      expect(
+        plainOf((await retrieveEntries(draft.key))[1]).messages[0].bindings,
+      ).toEqual([{ field: expect.any(String), channel: flow.key, dataType: "" }]),
     );
   });
 

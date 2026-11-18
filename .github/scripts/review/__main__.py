@@ -40,6 +40,11 @@ takes only GH_TOKEN and GITHUB_REPOSITORY, runs in a clone with full history, an
 prints a Markdown comparison of the records of the last days with Greptile's reviews
 of the same commits. It keeps each record it downloads in the records directory, and
 reads it from there on the next run.
+
+When Claude Code stops at the usage limit of its login, `run` and `judge` write the
+reset time, in Unix seconds, as the `limited-until` step output. When Claude rejects the
+token of the login, they write the time Claude Code started as `login-broken`. Both then
+fail.
 """
 
 import contextlib
@@ -50,14 +55,16 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from review import (
     Judgment,
+    LoginRejected,
     PullRequest,
     Target,
+    UsageLimit,
     authority,
     carry,
     compare,
@@ -272,6 +279,33 @@ def _before(head: Path, commit: str, tip: str) -> bool:
     return subprocess.run(check, capture_output=True).returncode == 0
 
 
+def _leaves[E: BaseException](g: BaseExceptionGroup[E]) -> Sequence[E]:
+    return [
+        leaf
+        for e in g.exceptions
+        for leaf in (_leaves(e) if isinstance(e, BaseExceptionGroup) else [e])
+    ]
+
+
+def _output(name: str, value: int) -> None:
+    with Path(os.environ["GITHUB_OUTPUT"]).open("a") as f:
+        f.write(f"{name}={value}\n")
+
+
+def _claude(target: Target, command: str, path: Path) -> None:
+    try:
+        if command == "judge":
+            judgments(target, path)
+        else:
+            review(target, path, replay=os.environ.get("REPLAY") == "true")
+    except* UsageLimit as g:
+        _output("limited-until", max(e.until for e in _leaves(g)))
+        raise
+    except* LoginRejected as g:
+        _output("login-broken", min(e.started for e in _leaves(g)))
+        raise
+
+
 def main(argv: list[str]) -> None:
     args = {
         "run": 2,
@@ -309,13 +343,11 @@ def main(argv: list[str]) -> None:
         print(str(waits).lower())
         return
     path = Path(argv[1])
-    if argv[0] == "judge":
-        judgments(target, path)
+    if argv[0] in ("judge", "run"):
+        _claude(target, argv[0], path)
     elif argv[0] == "rule":
         found = [Judgment(**j) for j in json.loads(path.read_text())]
         rule(target, gh, found, key=env["KEY"])
-    elif argv[0] == "run":
-        review(target, path, replay=env.get("REPLAY") == "true")
     else:
         post(parse(json.loads(path.read_text())["review"]), target=target, gh=gh)
 

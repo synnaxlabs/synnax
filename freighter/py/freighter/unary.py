@@ -28,6 +28,7 @@ class UnaryClient(Transport, Protocol):
             use this to validate the response.
         :returns: the response returned by the server.
         :raises Unreachable: when the provided target cannot be reached
+        :raises Timeout: when the target sends no response within the timeout.
         :raises Exception: any error returned by the server.
         """
         ...
@@ -49,6 +50,7 @@ class AsyncUnaryClient(AsyncTransport, Protocol):
             validate the response.
         :returns: the response returned by the server.
         :raises Unreachable: when the provided target cannot be reached
+        :raises Timeout: when the target sends no response within the timeout.
         :raises Exception: any error returned by the server.
         """
         ...

@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 
+import { Device } from "@/feature/sift/device";
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
 
 export interface UploadMenuItemProps {
@@ -19,9 +20,14 @@ export interface UploadMenuItemProps {
   rangeName: string;
 }
 
-/** Opens a modal that uploads the data of a range to Sift. */
+/**
+ * Opens a modal that uploads the data of a range to Sift. It renders nothing while the
+ * Core has no Sift connection.
+ */
 export const UploadMenuItem = ({ rangeKey, rangeName }: UploadMenuItemProps) => {
   const open = useUploadModal();
+  const connected = Device.useConnected();
+  if (!connected) return null;
   return (
     <Menu.Item
       itemKey="siftUpload"
@@ -40,18 +46,23 @@ export interface UploadRegionMenuItemProps {
   getTimeRange: () => Promise<TimeRange>;
 }
 
-/** Opens a modal that uploads a plain time span to Sift. */
+/**
+ * Opens a modal that uploads a plain time span to Sift. It renders nothing while the
+ * Core has no Sift connection.
+ */
 export const UploadRegionMenuItem = ({
   name,
   getTimeRange,
 }: UploadRegionMenuItemProps) => {
   const open = useUploadModal();
   const handleError = Status.useErrorHandler();
+  const connected = Device.useConnected();
   const handleClick = () =>
     handleError(async () => {
       const tr = await getTimeRange();
       open({ name, source: tr.numeric });
     }, "Failed to upload region to Sift");
+  if (!connected) return null;
   return (
     <Menu.Item itemKey="siftUpload" onClick={handleClick}>
       <Icon.Logo.Sift />

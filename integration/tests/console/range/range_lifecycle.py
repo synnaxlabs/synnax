@@ -84,7 +84,7 @@ class RangeLifecycle(ConsoleCase):
         # Range Explorer
         self.test_open_range_explorer()
         self.test_range_exists_in_explorer()
-        self.test_unfavorite_favorite_range()
+        self.test_favorite_range()
 
         # Range Toolbar - Plot Operations
         self.test_add_to_new_plot()
@@ -193,11 +193,12 @@ class RangeLifecycle(ConsoleCase):
             f"Range '{self.range_name}' should exist in explorer"
         )
 
-    def test_unfavorite_favorite_range(self) -> None:
-        """Test unfavoriting and favoriting a range from the explorer."""
+    def test_favorite_range(self) -> None:
+        """Test that a new range is not a favorite until the user stars it."""
         assert self.range_name is not None
-        self.log("Testing: Unfavorite range")
-        self.console.ranges.explorer.unfavorite(self.range_name)
+        assert not self.console.ranges.toolbar.exists(
+            self.range_name, group="Favorites"
+        ), f"Range '{self.range_name}' should not be a favorite after creation"
 
         self.log("Testing: Favorite range")
         self.console.ranges.explorer.favorite(self.range_name)
