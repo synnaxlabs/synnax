@@ -340,9 +340,16 @@ describe("Certificate", () => {
         privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
+      const t = await client.tasks.create({
+        name: "Grant scanner",
+        type: "sift_scan",
+        rack: r.key,
+        config: { rate: 1 },
+      });
       const grant = await client.secrets.grant({
         subject: rack.resourceID(r.key),
         secrets: [c.privateKey],
+        command: { task: t.key, type: "test_connection" },
       });
       expect(grant).toHaveLength(36);
     });

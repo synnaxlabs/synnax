@@ -697,6 +697,19 @@ describe("Secret", () => {
   });
 
   describe("grant", () => {
+    const createScanTask = async (
+      client: ReturnType<typeof createTestClient>,
+      rackKey: rack.Key,
+    ): Promise<task.Key> =>
+      (
+        await client.tasks.create({
+          name: "Grant scanner",
+          type: "sift_scan",
+          rack: rackKey,
+          config: { rate: 1 },
+        })
+      ).key;
+
     it("should return the key of a new grant", async () => {
       const client = createTestClient();
       const r = await client.racks.create({ name: "Grant rack" });
@@ -705,7 +718,15 @@ describe("Secret", () => {
         source: "stored",
         value: "abc",
       });
-      const params = { subject: rack.resourceID(r.key), secrets: [s.key] };
+      const params: secret.GrantParams = {
+        subject: rack.resourceID(r.key),
+        secrets: [s.key],
+        command: {
+          task: await createScanTask(client, r.key),
+          type: "test_connection",
+          args: { connection: { uri: "sift.example.com" } },
+        },
+      };
       const first = await client.secrets.grant(params);
       const second = await client.secrets.grant(params);
       expect(first).toHaveLength(36);
@@ -719,9 +740,31 @@ describe("Secret", () => {
       const grant = client.secrets.grant({
         subject: rack.resourceID(r.key),
         secrets: [key],
+        command: { task: await createScanTask(client, r.key), type: "test_connection" },
       });
       await expect(grant).rejects.toThrow(NotFoundError);
       await expect(grant).rejects.toThrow(`Secrets with keys [${key}] not found`);
+    });
+
+    it("should throw a PathError for a task on another rack", async () => {
+      const client = createTestClient();
+      const r = await client.racks.create({ name: "Grant rack" });
+      const other = await client.racks.create({ name: "Other rack" });
+      const s = await client.secrets.set({
+        name: "Grant",
+        source: "stored",
+        value: "abc",
+      });
+      const grant = client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [s.key],
+        command: {
+          task: await createScanTask(client, other.key),
+          type: "test_connection",
+        },
+      });
+      await expect(grant).rejects.toThrow(PathError);
+      await expect(grant).rejects.toThrow(`is not on rack:${r.key}`);
     });
   });
 
