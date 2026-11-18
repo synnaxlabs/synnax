@@ -46,6 +46,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	xtypes "github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // copyRequest is a request that copies its sources.
@@ -1192,6 +1193,73 @@ var _ = Describe("Vouched records", func() {
 				return svc.Device.NewWriter(tx).Rename(ctx, dev.Key, "renamed")
 			}),
 		).To(Succeed())
+	})
+
+	Describe("Moves", func() {
+		var other rack.Rack
+		BeforeEach(func(ctx SpecContext) {
+			other = rack.Rack{Name: "rack-" + uuid.New().String()}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+		})
+		create := func(ctx SpecContext, dev *device.Device) {
+			GinkgoHelper()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return createDevice(dev)(ctx, tx)
+			})).To(Succeed())
+		}
+		setRack := func(key device.Key) apply {
+			return func(ctx context.Context, tx gorp.Tx) error {
+				return svc.Device.NewWriter(tx).Apply(
+					ctx,
+					key,
+					device.NewSetRackAction(device.SetRackPayload{Rack: other.Key}),
+				)
+			}
+		}
+		deniedMove := func() OmegaMatcher {
+			return SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot move a record that uses %s onto a rack",
+					other.ResourceID(),
+					secret.ResourceID(key),
+				)),
+			)
+		}
+
+		It("Should deny a rack that moves a record that uses a secret onto itself",
+			func(ctx SpecContext) {
+				dev := siftDevice()
+				create(ctx, &dev)
+				Expect(writeAs(ctx, other.ResourceID(), setRack(dev.Key))).
+					To(deniedMove())
+			},
+		)
+
+		It("Should refuse a rack that creates over a record that uses a secret", func(
+			ctx SpecContext,
+		) {
+			dev := siftDevice()
+			create(ctx, &dev)
+			moved := dev
+			moved.Rack = other.Key
+			Expect(writeAs(ctx, other.ResourceID(), createDevice(&moved))).
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("device %s already exists", dev.Key)),
+				))
+		})
+
+		It("Should let a rack move a record that uses no secret onto itself", func(
+			ctx SpecContext,
+		) {
+			dev := siftDevice()
+			dev.Properties = msgpack.EncodedJSON{}
+			create(ctx, &dev)
+			Expect(writeAs(ctx, other.ResourceID(), setRack(dev.Key))).To(Succeed())
+		})
 	})
 })
 
