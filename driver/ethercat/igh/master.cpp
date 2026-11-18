@@ -488,8 +488,8 @@ master::Activation Master::activate(
 
     if (const int ret = this->api->master_reserve(this->ec_master); ret != 0)
         return {.err = reserve_error(this->name(), this->master_index, ret)};
-    // The slaves can change between the scan and the reservation, which fixes the
-    // slave list of IgH until activation.
+    // The slaves can change until the reservation, and IgH keeps its slave list from
+    // then until activation.
     const auto [change, change_err] = this->changed();
     if (change_err) return {.err = change_err};
     if (change.stale)
