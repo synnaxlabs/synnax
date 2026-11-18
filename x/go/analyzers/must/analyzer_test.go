@@ -258,6 +258,10 @@ var _ = Describe("Analyzer", func() {
 		Expect(texts).To(ContainElement("r = MustSucceed(returnsValErr())"))
 	})
 
+	It("Should not treat Expect on a Gomega value as the global Expect", func() {
+		analysistest.Run(GinkgoT(), analysistest.TestData(), must.Analyzer, "gomega")
+	})
+
 	It("Should report without a fix when deleting the binding breaks the code", func() {
 		results := analysistest.Run(
 			GinkgoT(), analysistest.TestData(), must.Analyzer, "kept",

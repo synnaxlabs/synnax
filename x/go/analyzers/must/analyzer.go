@@ -187,7 +187,7 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt, qualifier string) bool 
 		if !ok {
 			continue
 		}
-		if errName, ok := matchExpectErrSucceeds(expectStmt.X); ok {
+		if errName, ok := matchExpectErrSucceeds(pass, expectStmt.X); ok {
 			assignStmt, assignIdx, rhsCall := findBinding(stmts, i, errName)
 			if assignStmt == nil {
 				continue
@@ -207,7 +207,7 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt, qualifier string) bool 
 			}
 			continue
 		}
-		m, ok := matchExpectErrMatches(expectStmt.X)
+		m, ok := matchExpectErrMatches(pass, expectStmt.X)
 		if !ok {
 			continue
 		}
@@ -345,7 +345,7 @@ func findBinding(
 //	Expect(<name>).Should(Succeed())
 //
 // Returns the name used in Expect() and true if matched.
-func matchExpectErrSucceeds(expr ast.Expr) (string, bool) {
+func matchExpectErrSucceeds(pass *analysis.Pass, expr ast.Expr) (string, bool) {
 	outerCall, ok := expr.(*ast.CallExpr)
 	if !ok {
 		return "", false
@@ -377,7 +377,7 @@ func matchExpectErrSucceeds(expr ast.Expr) (string, bool) {
 	default:
 		return "", false
 	}
-	return expectedIdent(sel.X)
+	return expectedIdent(pass, sel.X)
 }
 
 // errorMatchers are the matchers on a captured error that the check moves inline.
@@ -399,7 +399,7 @@ type errMatch struct {
 
 // matchExpectErrMatches checks if an expression matches Expect(<name>).To(<m>) or
 // Expect(<name>).Should(<m>), where <m> is one of errorMatchers.
-func matchExpectErrMatches(expr ast.Expr) (errMatch, bool) {
+func matchExpectErrMatches(pass *analysis.Pass, expr ast.Expr) (errMatch, bool) {
 	outerCall, ok := expr.(*ast.CallExpr)
 	if !ok || len(outerCall.Args) != 1 {
 		return errMatch{}, false
@@ -413,7 +413,7 @@ func matchExpectErrMatches(expr ast.Expr) (errMatch, bool) {
 		return errMatch{}, false
 	}
 	expectCall, ok := sel.X.(*ast.CallExpr)
-	if !ok || !isNamedFunc(expectCall, "Expect") || len(expectCall.Args) != 1 {
+	if !ok || !isFuncCall(pass, expectCall, "Expect") || len(expectCall.Args) != 1 {
 		return errMatch{}, false
 	}
 	ident, ok := expectCall.Args[0].(*ast.Ident)
@@ -544,13 +544,13 @@ func assertionString(fset *token.FileSet, expr ast.Expr) string {
 
 // expectedIdent returns the name of the identifier that an Expect or ExpectWithOffset
 // call asserts on.
-func expectedIdent(expr ast.Expr) (string, bool) {
+func expectedIdent(pass *analysis.Pass, expr ast.Expr) (string, bool) {
 	expectCall, ok := expr.(*ast.CallExpr)
 	if !ok {
 		return "", false
 	}
-	if !isNamedFunc(expectCall, "Expect") &&
-		!isNamedFunc(expectCall, "ExpectWithOffset") {
+	if !isFuncCall(pass, expectCall, "Expect") &&
+		!isFuncCall(pass, expectCall, "ExpectWithOffset") {
 		return "", false
 	}
 	var errArg ast.Expr
@@ -588,6 +588,20 @@ func isNamedFunc(call *ast.CallExpr, name string) bool {
 		return fn.Sel.Name == name
 	}
 	return false
+}
+
+// isFuncCall reports whether call is to a function with the given name and not to a
+// method, so g.Expect on a Gomega value does not count as the global Expect.
+func isFuncCall(pass *analysis.Pass, call *ast.CallExpr, name string) bool {
+	if !isNamedFunc(call, name) {
+		return false
+	}
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return true
+	}
+	_, method := pass.TypesInfo.Selections[sel]
+	return !method
 }
 
 func isBlank(expr ast.Expr) bool {
