@@ -542,6 +542,24 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It("Should reject infinity and NaN on a float with a finite rule", func() {
+			source := `
+				@py output "out"
+
+				Entry struct {
+					value float64 @validate finite
+				}
+			`
+			table, diag := Analyze(source, "entry", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			resp := MustSucceed(typesPlugin.Generate(
+				&plugin.Request{Resolutions: table},
+			))
+			Expect(string(resp.Files[0].Content)).To(ContainSubstring(
+				`value: float = Field(allow_inf_nan=False)`,
+			))
+		})
+
 		It(
 			"Should merge a field's rules with the rules of its type chain",
 			func() {

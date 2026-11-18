@@ -204,6 +204,48 @@ describe("convert", () => {
   });
 
   describe("guards", () => {
+    it("should convert a path by the option its guards select", () => {
+      const pairZ = caseconv.encodeWith(
+        z
+          .union([z.tuple([z.number(), z.number()]), z.string()])
+          .transform((v) => (typeof v === "string" ? v.split(":").map(Number) : v)),
+        ([a, b]) => `${a}:${b}`,
+      );
+      const nodesZ = z.object({
+        nodes: z.array(
+          z.discriminatedUnion("variant", [
+            z.object({
+              key: z.string(),
+              variant: z.literal("box"),
+              fillColor: z.object({ type: z.string(), value: z.string() }),
+            }),
+            z.object({
+              key: z.string(),
+              variant: z.literal("valve"),
+              fillColor: pairZ,
+            }),
+          ]),
+        ),
+      });
+      const local = { nodes: [{ key: "n1", variant: "valve", fillColor: [1, 2] }] };
+      const ref = { type: "fixed", value: "#ff0000" };
+      const guards = [{ path: ["nodes", "n1", "variant"], value: "box" }];
+      const action = patch.snakeToCamel(
+        {
+          type: "set",
+          set: { path: ["nodes", "n1", "fill_color"], value: ref, guards },
+        },
+        { schema: nodesZ, data: local },
+      );
+      expect(action).toEqual({
+        type: "set",
+        set: { path: ["nodes", "n1", "fillColor"], value: ref, guards },
+      });
+      const next = structuredClone(local);
+      patch.apply(next, action);
+      expect(next).toEqual(local);
+    });
+
     it("should build a guard for each union the path goes into", () => {
       expect(patch.guards(schema, ["channels", "ch_a", "maxVal"], doc)).toEqual([
         { path: ["channels", "ch_a", "type"], value: "ai_voltage" },

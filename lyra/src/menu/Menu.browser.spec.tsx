@@ -70,6 +70,36 @@ const LoadingMenu = ({ items }: { items: Promise<void> }): ReactElement => {
   );
 };
 
+// Fills the window, so a click at any point of the window opens the menu there.
+const AreaMenu = ({ count }: { count: number }): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu
+      menu={() => (
+        <Menu.Menu>
+          {Array.from({ length: count }, (_, i) => (
+            <Menu.Item key={i} itemKey={`item-${i}`}>
+              {`Item ${i}`}
+            </Menu.Item>
+          ))}
+        </Menu.Menu>
+      )}
+      {...ctx}
+    >
+      <div
+        style={{ position: "fixed", inset: 0 }}
+        onContextMenu={ctx.open}
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        Area
+      </div>
+    </Menu.ContextMenu>
+  );
+};
+
+const menuBox = (): DOMRect | undefined =>
+  document.querySelector('[role="menu"]')?.getBoundingClientRect();
+
 describe("Menu", () => {
   it("should fill a selected item with the list selection tier", async () => {
     const { getByRole } = await renderThemed(ITEMS);
@@ -159,6 +189,38 @@ describe("Menu", () => {
       load();
       await expect.poll(() => page.getByRole("menu").query()).not.toBeNull();
       expect(document.activeElement).toBe(field);
+    });
+
+    it("should keep the top of a menu taller than the window in the window", async () => {
+      const count = Math.ceil((window.innerHeight * 1.3) / 28);
+      const { getByText } = await renderThemed(<AreaMenu count={count} />);
+      const y = window.innerHeight / 2;
+      await userEvent.click(getByText("Area"), {
+        button: "right",
+        position: { x: 20, y },
+      });
+      await expect
+        .poll(() => menuBox()?.height ?? 0)
+        .toBeGreaterThan(window.innerHeight);
+      expect(menuBox()?.top).toBe(0);
+    });
+
+    it("should fit the window again when it opens a second time at one spot", async () => {
+      // About 60% of the window high, so it fits only above a cursor near the bottom.
+      const count = Math.ceil((window.innerHeight * 0.6) / 28);
+      const { getByText } = await renderThemed(<AreaMenu count={count} />);
+      const area = getByText("Area");
+      const spot = { x: 20, y: window.innerHeight * 0.8 };
+      const outside = { x: window.innerWidth - 10, y: 10 };
+      for (let i = 0; i < 2; i++) {
+        await userEvent.click(area, { button: "right", position: spot });
+        await expect.poll(() => menuBox()?.height ?? 0).toBeGreaterThan(0);
+        await expect
+          .poll(() => menuBox()?.bottom)
+          .toBeLessThanOrEqual(window.innerHeight);
+        await userEvent.click(area, { position: outside });
+        await expect.poll(() => menuBox()).toBeUndefined();
+      }
     });
 
     it("should leave the focus to a click outside", async () => {
