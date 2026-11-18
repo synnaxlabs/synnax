@@ -217,6 +217,21 @@ TEST(CertificateTest, IsPemAfterWhitespace) {
     ASSERT_FALSE(Certificate::is_pem("not a certificate"));
 }
 
+/// @brief it should parse a PEM certificate block after other text or blocks, such as
+/// the Bag Attributes that openssl pkcs12 writes, a UTF-8 byte order mark, or a key.
+TEST(CertificateTest, ParsePemAfterOtherContent) {
+    const auto expected = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
+    for (const auto &data: {
+             "Bag Attributes\n    localKeyID: 01 00 00 00 \nsubject=/CN=Test Client\n" +
+                 testutil::CERTIFICATE,
+             "\xEF\xBB\xBF" + testutil::CERTIFICATE,
+             KEY_A + testutil::CERTIFICATE,
+         }) {
+        ASSERT_TRUE(Certificate::is_pem(data));
+        ASSERT_EQ(ASSERT_NIL_P(Certificate::parse(data)), expected);
+    }
+}
+
 /// @brief it should keep only the first certificate of a chain.
 TEST(CertificateTest, ParseChainKeepsFirst) {
     const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE + CERT_B));
