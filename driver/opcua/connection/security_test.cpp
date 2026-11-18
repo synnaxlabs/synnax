@@ -227,6 +227,27 @@ TEST_F(SecurityTest, ValidationDisabled) {
     ASSERT_EQ(server_certificate(client.get()), server_id.certificate);
 }
 
+/// @brief it should accept a server certificate with a name that Go refuses when
+/// validation is disabled.
+TEST_F(SecurityTest, ValidationDisabledNameGoRefuses) {
+    // The DER of a PrintableString CN=PLC_01, which Go refuses for its underscore.
+    const auto id = ASSERT_NIL_P(
+        certificate::create(
+            testutil::SERVER_APPLICATION_URI,
+            "#1306504C435F3031",
+            "localhost",
+            x::telem::DAY
+        )
+    );
+    ASSERT_EQ(id.certificate.subject(), "CN=PLC_01");
+    this->start_server(id);
+    auto cfg = config();
+    cfg.certificate_validation_disabled = true;
+    const auto client = ASSERT_NIL_P(connect(cfg, security(), "test"));
+    ASSERT_TRUE(activated(client.get()));
+    ASSERT_EQ(server_certificate(client.get()), id.certificate);
+}
+
 /// @brief it should reject a trusted server certificate that is not valid at the
 /// Driver's time.
 TEST_F(SecurityTest, ExpiredCertificate) {
