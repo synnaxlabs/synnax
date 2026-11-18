@@ -10,7 +10,7 @@
 
 import synnax as sy
 from console.notifications import click_past
-from console.schematic.symbol import Symbol, option_text
+from console.schematic.symbol import Symbol
 
 
 class StateIndicator(Symbol):
@@ -59,17 +59,7 @@ class StateIndicator(Symbol):
             self.set_channel(section="State", channel_name=channel_name)
 
         if options is not None and len(options) > 0:
-            self.click()
-            self.open_properties_tab()
-            self.page.get_by_text("Options", exact=True).click()
-            for option in options:
-                self.page.get_by_text("Add option", exact=True).click()
-                items = self.page.locator(".lyra-list__item").all()
-                last_item = items[-1]
-                name_input = last_item.locator("input").first
-                name_input.fill(option.name)
-                value_input = last_item.locator("input").nth(1)
-                value_input.fill(option_text(option.value))
+            self.add_options(options)
 
     def get_label(self) -> str:
         """Read the currently displayed state label text.

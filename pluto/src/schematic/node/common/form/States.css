@@ -9,9 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The picker spans the custom options under it, and is never narrower than a select. */
+/* The picker spans the box of the entries grid, between its handles and its remove
+   buttons. */
 .pluto-states__enumeration {
     --pluto-control-width: 100%;
 
-    min-width: 48rem;
+    margin-inline: var(--pluto-input-table-gutter-width)
+        var(--pluto-input-table-action-width);
+}
+
+/* A drawer section is as wide as its content, and the entries grid has none. */
+.pluto-states .pluto-entries {
+    width: 110rem;
 }

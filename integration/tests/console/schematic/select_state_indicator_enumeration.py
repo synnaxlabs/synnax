@@ -19,7 +19,9 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
 
     Both symbols name one enumeration. The test sends an entry through the Select and
     reads it on the State Indicator, then renames an entry in the Core and checks that
-    both symbols draw the new name with no edit to the schematic.
+    both symbols draw the new name with no edit to the schematic. It then renames an
+    entry from the symbol's own Options tab, and moves the options of a third symbol
+    into a new enumeration from its picker.
     """
 
     def run(self) -> None:
@@ -92,5 +94,34 @@ class SelectStateIndicatorEnumeration(ConsoleCase):
         select.send("Shut")
         self.wait_for_eq(CHANNEL_NAME, 2)
         indicator.wait_for_label("Shut")
+
+        self.log("Renaming 'Shut' to 'Sealed' from the State Indicator")
+        indicator.rename_entry(2, "Sealed")
+        indicator.wait_for_label("Sealed")
+        names = [e.name for e in client.enumerations.retrieve(key=valve.key).entries]
+        assert names == ["Open", "Sealed"], f"Core holds entries {names}"
+
+        self.log("Moving the options of a new State Indicator into an enumeration")
+        PUMP_NAME = f"pump_state_{random_name()}"
+        pump = StateIndicator(
+            label="Pump Display",
+            channel_name=CHANNEL_NAME,
+            options=[
+                sy.schematic.StateMapping(key="off", name="Off", value=0),
+                sy.schematic.StateMapping(key="on", name="On", value=1),
+            ],
+        )
+        schematic.create_symbol(pump)
+        pump.move(delta_x=0, delta_y=150)
+        pump.create_enumeration(PUMP_NAME)
+
+        def created() -> list[tuple[str, float]] | None:
+            found = client.enumerations.retrieve(names=[PUMP_NAME])
+            if len(found) == 0:
+                return None
+            return [(e.name, e.value) for e in found[0].entries]
+
+        entries = sy.poll(created, timeout=5, interval=0.25)
+        assert entries == [("Off", 0), ("On", 1)], f"Core holds entries {entries}"
 
         schematic.screenshot()

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -286,15 +287,58 @@ class Symbol(ABC):
         self.notifications.close_all()
         click_past(self.page.get_by_text("Properties"))
 
+    def open_options_tab(self) -> None:
+        """Open the Options tab of a symbol that draws states."""
+        self._enable_edit_mode()
+        self.click()
+        self.open_properties_tab()
+        click_past(self.page.get_by_text("Options", exact=True))
+
     def set_enumeration(self, name: str) -> None:
         """Make a symbol that draws states draw the entries of an enumeration.
 
         :param name: The name of the enumeration to pick.
         """
-        self.click()
-        self.open_properties_tab()
-        click_past(self.page.get_by_text("Options", exact=True))
+        self.open_options_tab()
         click_past(self.page.get_by_role("button", name="Enumeration", exact=True))
         self.layout.select_from_dropdown(
             name, placeholder="Search enumerations", exact=True
         )
+
+    def add_options(self, options: list[sy.schematic.StateMapping]) -> None:
+        """Add options to a symbol that draws its own states, one entry each.
+
+        :param options: The options to add, in order.
+        """
+        self.open_options_tab()
+        names = self.page.get_by_label(re.compile(r"^Name \d+$"))
+        for option in options:
+            row = names.count() + 1
+            click_past(self.page.get_by_role("button", name="Add entry", exact=True))
+            self._commit(f"Name {row}", option.name)
+            self._commit(f"Value {row}", option_text(option.value))
+
+    def rename_entry(self, row: int, name: str) -> None:
+        """Rename an entry of the states that the symbol draws.
+
+        :param row: The row of the entry, from 1.
+        :param name: The new name.
+        """
+        self.open_options_tab()
+        self._commit(f"Name {row}", name)
+
+    def create_enumeration(self, name: str) -> None:
+        """Move the options of the symbol into a new enumeration that it then draws.
+
+        :param name: The name of the new enumeration.
+        """
+        self.open_options_tab()
+        click_past(self.page.get_by_role("button", name="Enumeration", exact=True))
+        self.layout.dialog.get_by_placeholder("Search enumerations").fill(name)
+        click_past(self.layout.dialog.get_by_role("button", name="Create enumeration"))
+
+    def _commit(self, label: str, text: str) -> None:
+        """Type into a cell of the entries grid, then blur it to commit the text."""
+        cell = self.page.get_by_label(label, exact=True)
+        cell.fill(text)
+        cell.blur()

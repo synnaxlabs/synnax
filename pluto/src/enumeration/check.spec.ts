@@ -79,6 +79,13 @@ describe("check", () => {
     );
   });
 
+  it("should not warn about an alarm color when no entry can be abnormal", () => {
+    const entry = createEntry("Locked out", 0, ALARM);
+    expect(check(entry, [entry], resolve, { abnormalDisabled: true })).not.toContain(
+      "It has an alarm color, but it is not abnormal.",
+    );
+  });
+
   it("should not check the color of an entry whose symbol picks it", () => {
     const entry = createEntry("Off", 0);
     expect(check(entry, [entry], resolve)).toEqual([]);

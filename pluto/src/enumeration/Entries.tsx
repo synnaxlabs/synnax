@@ -118,6 +118,21 @@ const ColorCell = ({
   />
 );
 
+interface EmptyCellProps {
+  variant?: Input.Variant;
+  "aria-label": string;
+}
+
+const EmptyCell = ({ variant, "aria-label": label }: EmptyCellProps): ReactElement => (
+  <Input.Text
+    value=""
+    variant={variant}
+    aria-label={label}
+    disabled
+    onChange={() => {}}
+  />
+);
+
 export interface TableProps {
   value: enumeration.Entry[];
   /** Called with the index of an entry the user edits, and the entry. */
@@ -128,6 +143,10 @@ export interface TableProps {
   onMove: (from: number, to: number) => void;
   /** Shows the entries read-only. */
   preview?: boolean;
+  /** Shows each Abnormal cell empty, for entries that cannot be abnormal. */
+  abnormalDisabled?: boolean;
+  /** Shows each Color cell empty, for entries whose color draws nowhere. */
+  colorDisabled?: boolean;
 }
 
 /**
@@ -142,6 +161,8 @@ export const Table = ({
   onRemove,
   onMove,
   preview,
+  abnormalDisabled = false,
+  colorDisabled = false,
 }: TableProps): ReactElement => {
   const [held, setHeld] = useState<ReadonlyMap<string, number>>(() => new Map());
   const resolve = Color.useResolve();
@@ -206,8 +227,8 @@ export const Table = ({
 
   const warningsAt = (row: number): string[] => {
     const entry = value[row];
-    if (entry == null) return [];
-    return check(entry, value, resolvePair);
+    if (entry == null || colorDisabled) return [];
+    return check(entry, value, resolvePair, { abnormalDisabled });
   };
 
   const renderHaulPreview = (row: number): ReactElement => {
@@ -244,25 +265,33 @@ export const Table = ({
           empty={undefined}
           width={24}
         >
-          {(props) => (
-            <ColorCell
-              {...props}
-              text={colorText(props.value)}
-              warnings={warningsAt(props.row)}
-            />
-          )}
+          {(props) =>
+            colorDisabled ? (
+              <EmptyCell {...props} />
+            ) : (
+              <ColorCell
+                {...props}
+                text={colorText(props.value)}
+                warnings={warningsAt(props.row)}
+              />
+            )
+          }
         </Input.TableColumn>
         <Input.TableColumn name="Abnormal" type="boolean" width={14}>
-          {(props) => (
-            // Each edit saves at once, so the cell is a switch.
-            <Input.Switch
-              value={props.value}
-              onChange={props.onChange}
-              variant="text"
-              disabled={props.preview}
-              aria-label={props["aria-label"]}
-            />
-          )}
+          {(props) =>
+            abnormalDisabled ? (
+              <EmptyCell {...props} />
+            ) : (
+              // Each edit saves at once, so the cell is a switch.
+              <Input.Switch
+                value={props.value}
+                onChange={props.onChange}
+                variant="text"
+                disabled={props.preview}
+                aria-label={props["aria-label"]}
+              />
+            )
+          }
         </Input.TableColumn>
       </Input.Table>
     </div>

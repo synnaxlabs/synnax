@@ -9,6 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A control beside a table can line up with its box through these. */
+:root {
+    --pluto-input-table-gutter-width: 5rem;
+    --pluto-input-table-action-width: 5rem;
+}
+
 /* A table wider than its container scrolls. */
 .lyra-input__table-scroll {
     width: 100%;
@@ -27,8 +33,6 @@
     border-collapse: separate;
     border-spacing: 0;
 
-    --pluto-input-table-gutter-width: 5rem;
-    --pluto-input-table-action-width: 5rem;
     --pluto-input-table-width: calc(
         var(--pluto-input-table-columns-width) + var(--pluto-input-table-action-width)
     );

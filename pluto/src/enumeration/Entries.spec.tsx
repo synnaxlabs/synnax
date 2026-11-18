@@ -48,6 +48,8 @@ describe("Enumeration.Table", () => {
   interface HarnessProps {
     initial: enumeration.Entry[];
     onSet?: (index: number, entry: enumeration.Entry) => void;
+    abnormalDisabled?: boolean;
+    colorDisabled?: boolean;
     preview?: boolean;
   }
 
@@ -169,6 +171,22 @@ describe("Enumeration.Table", () => {
       renderTable({ initial: [createEntry("Locked out", 0, { color: fixed })] });
       expect(screen.getByLabelText(/alarm color/)).toBeTruthy();
     });
+
+    it("should not warn about an alarm color when no entry can be abnormal", () => {
+      const fixed = { type: "fixed" as const, value: ALARM };
+      renderTable({
+        initial: [createEntry("Locked out", 0, { color: fixed })],
+        abnormalDisabled: true,
+      });
+      expect(screen.queryByLabelText(/alarm color/)).toBeNull();
+    });
+
+    it("should show empty color cells and no warnings when color is disabled", () => {
+      renderTable({ initial: [createEntry("", 0)], colorDisabled: true });
+      expect(input("Color 1").disabled).toBe(true);
+      expect(input("Color 1").value).toBe("");
+      expect(screen.queryByLabelText(/It has no name/)).toBeNull();
+    });
   });
 
   describe("abnormal", () => {
@@ -182,6 +200,12 @@ describe("Enumeration.Table", () => {
         0,
         expect.objectContaining({ abnormal: true }),
       );
+    });
+
+    it("should show empty abnormal cells when no entry can be abnormal", () => {
+      renderTable({ initial: [createEntry("Open", 0)], abnormalDisabled: true });
+      expect(input("Abnormal 1").disabled).toBe(true);
+      expect(input("Abnormal 1").value).toBe("");
     });
 
     it("should show a read-only switch in preview", () => {

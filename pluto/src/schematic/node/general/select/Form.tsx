@@ -87,7 +87,13 @@ export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       <SelectTelemForm />
     </Tabs.Content>
     <Tabs.Content itemKey="options">
-      <Form.States enumeration={path.enumeration} options={path.options} />
+      <Form.States
+        enumeration={path.enumeration}
+        options={path.options}
+        label={path.label.label}
+        symbolName="Select"
+        colorDisabled
+      />
     </Tabs.Content>
   </Properties.Tabs>
 );

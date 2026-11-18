@@ -74,7 +74,12 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
       <StateIndicatorTelemForm />
     </Tabs.Content>
     <Tabs.Content itemKey="options">
-      <Form.States enumeration={path.enumeration} options={path.options} showColor />
+      <Form.States
+        enumeration={path.enumeration}
+        options={path.options}
+        label={path.label.label}
+        symbolName="State indicator"
+      />
     </Tabs.Content>
   </Properties.Tabs>
 );
