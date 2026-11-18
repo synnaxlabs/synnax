@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <map>
@@ -121,6 +122,14 @@ public:
         bool layout_unreadable = false;
         /// @brief the CoE dictionary that IgH read from the slave, in list order.
         std::vector<DictionaryObject> dictionary;
+        /// @brief how many parts of dictionary IgH has read while it reads it, or
+        /// nullopt once it has read all of it. Part 1 lists the objects, part 1 + k
+        /// names object k and holds the entries of object k - 1, and the part after the
+        /// final name holds the final entries. Each read of the slave reads one more
+        /// part, and an SDO transfer fails while IgH reads.
+        std::optional<size_t> dictionary_read;
+        /// @brief whether IgH stopped reading the dictionary at dictionary_read.
+        bool dictionary_stalled = false;
         /// @brief how many entries entry_info looked up.
         mutable size_t entry_reads = 0;
         /// @brief the SII from word 0.
@@ -364,7 +373,10 @@ public:
         if (slave.reads_to_pre_op >= 0) slave.reads_to_pre_op--;
         *info = slave.info;
         info->sync_count = static_cast<uint8_t>(slave.syncs.size());
-        info->sdo_count = static_cast<uint16_t>(slave.dictionary.size());
+        info->sdo_count = static_cast<uint16_t>(read_parts(slave).listed);
+        if (slave.dictionary_read && !slave.dictionary_stalled &&
+            ++*slave.dictionary_read == slave.dictionary.size() + 2)
+            slave.dictionary_read.reset();
         return 0;
     }
 
@@ -512,6 +524,7 @@ public:
         uint32_t *abort_code
     ) const override {
         auto &slave = this->slaves.at(position);
+        if (reading(slave)) return -EIO;
         slave.downloads.push_back({index, sub_index, std::vector(data, data + size)});
         if (const auto it = slave.download_aborts.find({index, sub_index});
             it != slave.download_aborts.end()) {
@@ -536,6 +549,7 @@ public:
         uint32_t *abort_code
     ) const override {
         const auto &slave = this->slaves.at(position);
+        if (reading(slave)) return -EIO;
         const std::pair key{index, sub_index};
         if (const auto err = slave.upload_errors.find(key);
             err != slave.upload_errors.end())
@@ -672,9 +686,11 @@ public:
         const uint16_t list_position,
         ObjectInfo &info
     ) const override {
-        const auto &dictionary = this->slaves.at(position).dictionary;
-        if (list_position >= dictionary.size()) return -EINVAL;
-        info = dictionary[list_position].info;
+        const auto &slave = this->slaves.at(position);
+        const auto parts = read_parts(slave);
+        if (list_position >= parts.listed) return -EINVAL;
+        info = slave.dictionary[list_position].info;
+        if (list_position >= parts.named) info = {.index = info.index};
         return 0;
     }
 
@@ -691,7 +707,9 @@ public:
             slave.dictionary,
             [index](const DictionaryObject &o) { return o.info.index == index; }
         );
-        if (object == slave.dictionary.end()) return -EINVAL;
+        if (object == slave.dictionary.end() ||
+            object - slave.dictionary.begin() >= read_parts(slave).described)
+            return -EINVAL;
         const auto entry = object->entries.find(sub_index);
         if (entry == object->entries.end()) return -EINVAL;
         info = entry->second;
@@ -699,6 +717,32 @@ public:
     }
 
 private:
+    /// @brief how many objects of a dictionary IgH has listed, named, and read the
+    /// entries of.
+    struct Parts {
+        ptrdiff_t listed;
+        ptrdiff_t named;
+        ptrdiff_t described;
+    };
+
+    /// @brief returns how much of the dictionary of slave IgH has read.
+    static Parts read_parts(const Slave &slave) {
+        const auto n = static_cast<ptrdiff_t>(slave.dictionary.size());
+        if (!slave.dictionary_read) return {n, n, n};
+        const auto read = static_cast<ptrdiff_t>(*slave.dictionary_read);
+        return {
+            .listed = read >= 1 ? n : 0,
+            .named = std::clamp<ptrdiff_t>(read - 1, 0, n),
+            .described = std::clamp<ptrdiff_t>(read - 2, 0, n),
+        };
+    }
+
+    /// @brief returns whether IgH reads the dictionary of slave, which makes an SDO
+    /// transfer get a reply meant for IgH.
+    static bool reading(const Slave &slave) {
+        return slave.dictionary_read && !slave.dictionary_stalled;
+    }
+
     static size_t index(const ec_domain_t *domain) {
         return reinterpret_cast<uintptr_t>(domain) - DOMAIN_BASE;
     }

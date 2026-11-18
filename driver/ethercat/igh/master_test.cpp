@@ -109,6 +109,31 @@ void create_dictionary_layout(MockAPI::Slave &slave) {
     };
 }
 
+/// @brief returns a dictionary of count objects, each with one entry.
+std::vector<MockAPI::DictionaryObject> create_objects(const uint16_t count) {
+    std::vector<MockAPI::DictionaryObject> objects;
+    for (uint16_t i = 0; i < count; ++i)
+        objects.push_back(
+            {.info = {.index = static_cast<uint16_t>(0x2000 + i), .name = "Object"},
+             .entries = {{0, {.name = "Value", .data_type = 0x0007}}}}
+        );
+    return objects;
+}
+
+/// @brief returns an SII that lists CoE in the mailbox protocols, with a general
+/// category that says whether the slave gives SDO information.
+std::vector<uint16_t> create_coe_sii(const bool sdo_info) {
+    std::vector<uint16_t> words(0x40, 0);
+    words[0x1C] = 0x0004;
+    std::vector<uint16_t> general(16, 0);
+    if (sdo_info) general[2] = 0x0200;
+    words.push_back(30);
+    words.push_back(static_cast<uint16_t>(general.size()));
+    words.insert(words.end(), general.begin(), general.end());
+    words.push_back(0xFFFF);
+    return words;
+}
+
 /// @brief a mode that runs on the sync manager events.
 const dc::OpMode FREE_RUN{.name = "FreeRun"};
 
@@ -450,6 +475,66 @@ TEST_F(IGHMasterTest, ScanNamesAnEntryOnceIgHHasReadIt) {
     EXPECT_EQ(second[0].properties.input_pdos[0].name, "BufCounter");
 }
 
+/// @brief it should read the CoE objects of a slave once IgH has read its dictionary,
+/// the final entries included, as IgH mixes up the replies otherwise.
+TEST_F(IGHMasterTest, ScanWaitsForIgHToReadTheDictionaryOfASlave) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    create_dictionary_layout(slave);
+    slave.dictionary = create_dictionary();
+    slave.dictionary[1].entries[6] = {.name = "u6", .data_type = 0x0008};
+    slave.dictionary_read = 1;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    const auto started = this->clock.steady();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_LT(this->clock.steady() - started, std::chrono::seconds(1));
+    EXPECT_EQ(slaves[0].properties.serial, 7);
+    EXPECT_EQ(slaves[0].status.serial_error, "");
+    EXPECT_EQ(slaves[0].properties.input_pdos[1].name, "u1");
+}
+
+/// @brief it should keep waiting while IgH reads more of the dictionary, however long
+/// the whole read takes.
+TEST_F(IGHMasterTest, ScanWaitsWhileIgHKeepsReadingTheDictionary) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(100);
+    slave.dictionary_read = 1;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    const auto started = this->clock.steady();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_GT(this->clock.steady() - started, std::chrono::seconds(5));
+    EXPECT_EQ(slaves[0].properties.serial, 7);
+    EXPECT_EQ(slaves[0].status.serial_error, "");
+}
+
+/// @brief it should read the CoE objects of a slave once IgH has read no more of its
+/// dictionary for 5 s.
+TEST_F(IGHMasterTest, ScanStopsWaitingOnceIgHStopsReadingTheDictionary) {
+    auto &slave = this->api->add_slave();
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(3);
+    slave.dictionary_read = 2;
+    slave.dictionary_stalled = true;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    const auto started = this->clock.steady();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto waited = this->clock.steady() - started;
+    EXPECT_GE(waited, std::chrono::seconds(5));
+    EXPECT_LT(waited, std::chrono::seconds(6));
+    EXPECT_EQ(slaves[0].properties.serial, 7);
+}
+
+/// @brief it should not wait for a dictionary that IgH does not read: that of a slave
+/// with no CoE, or with no SDO information.
+TEST_F(IGHMasterTest, ScanDoesNotWaitForADictionaryThatIgHDoesNotRead) {
+    this->api->add_slave();
+    this->api->add_slave().sii = create_coe_sii(false);
+    const auto started = this->clock.steady();
+    ASSERT_NIL_P(this->master.scan());
+    EXPECT_LT(this->clock.steady() - started, std::chrono::seconds(1));
+}
+
 /// @brief it should keep the name and data type that the registry gives a known
 /// slave at each scan, as SOEM does.
 TEST_F(IGHMasterTest, ScanPrefersTheRegistryToTheDictionary) {
@@ -631,6 +716,22 @@ TEST_F(IGHMasterTest, ActivateReadsAStartingSlaveOnceItReachesPreOP) {
     EXPECT_FALSE(slaves[1].properties.settings.has_value());
     EXPECT_FALSE(slaves[2].status.starting);
     EXPECT_EQ(slaves[2].properties.serial, 10);
+}
+
+/// @brief it should wait for IgH to read the dictionary of a slave that reaches PRE-OP
+/// after the scan before it reads the CoE objects of the slave.
+TEST_F(IGHMasterTest, ActivateWaitsForTheDictionaryOfASlaveThatReachesPreOP) {
+    auto &slave = this->api->add_slave();
+    slave.info.al_state = EC_AL_STATE_INIT;
+    slave.reads_to_pre_op = 1;
+    slave.sii = create_coe_sii(true);
+    slave.dictionary = create_objects(20);
+    slave.dictionary_read = 1;
+    slave.wide_objects[{0x1018, 4}] = 7;
+    this->configs = {{1, {}}};
+    ASSERT_NIL(this->scan_and_activate());
+    EXPECT_EQ(this->image.slaves[0].properties.serial, 7);
+    EXPECT_EQ(this->image.slaves[0].status.serial_error, "");
 }
 
 /// @brief it should give the reason for each way an SDO read fails.
