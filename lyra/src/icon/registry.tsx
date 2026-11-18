@@ -79,7 +79,9 @@ import {
   LuBadgeCheck,
   LuChartColumn,
   LuChartNoAxesGantt,
+  LuFile,
   LuFileBadge,
+  LuFolder,
   LuInfo,
   LuKeyRound,
   LuLock,
@@ -398,6 +400,8 @@ export const Secret = wrapSVGIcon(LuSquareAsterisk, "secret");
 export const APIKey = wrapSVGIcon(LuKeyRound, "api-key");
 export const About = wrapSVGIcon(LuInfo, "about");
 export const Certificate = wrapSVGIcon(LuFileBadge, "certificate");
+export const File = wrapSVGIcon(LuFile, "file");
+export const Folder = wrapSVGIcon(LuFolder, "folder");
 export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Boxes = wrapSVGIcon(VscChromeRestore, "boxes");
