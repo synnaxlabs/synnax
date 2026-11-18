@@ -225,13 +225,15 @@ describe("range/Toolbar", () => {
       expect(within(finished).getByText(run.name)).toBeTruthy();
       // Running lists only its newest ranges, which other specs can fill, so the run
       // ends through the client.
-      await client.ranges.dispatch(
-        run.key,
-        ranger.set({
-          path: ["timeRange"],
-          value: new TimeRange(run.timeRange.start, TimeStamp.now()).numeric,
-        }),
-      );
+      expect(
+        await client.ranges.dispatch(
+          run.key,
+          ranger.set({
+            path: ["timeRange"],
+            value: new TimeRange(run.timeRange.start, TimeStamp.now()).numeric,
+          }),
+        ),
+      ).toBe(true);
       const ended = await findLine("Recent", run.name);
       await waitFor(() => expect(queryLine("Recent", phase.name)).toBeNull());
       fireEvent.click(within(ended).getByRole("button", { name: "Expand" }));
