@@ -36,9 +36,7 @@ jobs:
       id-token: write
     uses: ./.github/workflows/agent.yaml
     secrets: &agent_secrets
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
     with:
       prompt: Follow `.github/agents/security-review.md`. Your area is `authn`.

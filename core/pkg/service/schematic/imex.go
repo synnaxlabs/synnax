@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -98,15 +99,12 @@ func (s *Service) clearMissingEnumerations(
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	stored := make(map[enumeration.Key]struct{}, len(found))
+	stored := make(set.Set[enumeration.Key], len(found))
 	for _, e := range found {
-		stored[e.Key] = struct{}{}
+		stored.Add(e.Key)
 	}
 	keep := func(k *enumeration.Key) *enumeration.Key {
-		if k == nil {
-			return nil
-		}
-		if _, ok := stored[*k]; !ok {
+		if k == nil || !stored.Contains(*k) {
 			return nil
 		}
 		return k

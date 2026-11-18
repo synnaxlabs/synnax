@@ -11,6 +11,8 @@
 Diagnostic script to test Modbus connection and task status.
 """
 
+import sys
+
 import synnax as sy
 
 # Connect to Synnax
@@ -26,7 +28,7 @@ dev = client.devices.retrieve(name="Modbus Server", ignore_not_found=True)
 if dev is None:
     print("✗ Device 'Modbus Server' not found")
     print("  Run connect_modbus_server.py first")
-    exit(1)
+    sys.exit(1)
 
 print(f"✓ Device found: {dev.name}")
 print(f"  - Key: {dev.key}")

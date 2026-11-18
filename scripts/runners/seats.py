@@ -21,7 +21,7 @@ at a usage limit tags its own instance `limited-until`, and the controller moves
 limit to the login. A seat whose token Claude rejected tags its own instance
 `login-broken`, and the controller marks the login broken."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Protocol
 
 import synnax as sy
@@ -35,6 +35,9 @@ PROJECT = "synnax-agents"
 # Labels every seat runner carries, which name no seat.
 GENERIC = {"self-hosted", "linux", "x64"}
 UP = ("pending", "running", "stopping")
+# A seat with a free runner takes a queued job in seconds, and a started seat boots in
+# less. A job that waits longer than this beside an up seat finds every runner busy.
+FULL_AFTER = 5 * sy.TimeSpan.MINUTE
 # The longest usage limit of a Claude subscription is a week.
 MAX_RESET = 8 * 24 * 3600
 # Agents whose seats run on a shared login. A seat of any other agent holds its own
@@ -95,7 +98,8 @@ class Fleet(Protocol):
 class Seats:
     """A queued job starts one stopped seat that carries its labels, on a usable
     shared login for a Claude seat, unless a seat that carries them is already up with
-    usage left. A seat that holds its own login starts once its limit resets.
+    usage left. A stuck job also starts one when every such seat launched FULL_AFTER
+    ago or earlier. A seat that holds its own login starts once its limit resets.
     A seat that is stopping starts once it has stopped. While disabled, each decision
     is logged once, marked [DISABLED], and nothing is written."""
 
@@ -108,9 +112,17 @@ class Seats:
         self.unserved: set[str] = set()
 
     def step(
-        self, *, queued: list[set[str]], found: dict[str, dict], enabled: bool = True
+        self,
+        *,
+        queued: list[set[str]],
+        found: dict[str, dict],
+        enabled: bool = True,
+        stuck: Sequence[set[str]] = (),
+        connected: bool = True,
     ) -> None:
-        """Starts the seats that the queued jobs, given by their labels, wait for."""
+        """Starts the seats that the queued jobs, given by their labels, wait for.
+        stuck gives the labels of the queued jobs that have waited FULL_AFTER. While
+        not connected, the runners cannot reach GitHub, so no job counts as stuck."""
         now = sy.TimeStamp.now()
         seconds = int(now) // int(sy.TimeSpan.SECOND)
         try:
@@ -135,8 +147,15 @@ class Seats:
                 if now.span(last) < RECOMMAND_DELAY
             }
             self.settle(seats, logins=logins, found=found, recent=recent, now=seconds)
+        booting = {
+            iid
+            for iid, info in found.items()
+            if info["state"] == "pending" or now.span(info["launched"]) < FULL_AFTER
+        }
         starting: set[str] = set()
-        for job in queued:
+        waited = list(stuck) if connected else []
+        jobs = [(job, False) for job in queued] + [(job, True) for job in waited]
+        for job, full in jobs:
             wanted = {label.lower() for label in job} - GENERIC
             matching = [iid for iid, labels in seats.items() if wanted <= labels]
             if not wanted or any(
@@ -144,6 +163,7 @@ class Seats:
                 or (
                     found[iid]["state"] in ("pending", "running")
                     and self.served(found[iid], logins=logins, now=seconds)
+                    and (not full or iid in booting)
                 )
                 for iid in matching
             ):
