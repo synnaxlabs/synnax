@@ -170,8 +170,8 @@ jobs:
           fetch-depth: 2
 
       # A merge group diffs against its target branch, not the entry ahead of it. Its
-      # run then covers every pull request ahead of it in the queue. The first parent of
-      # a pull request's merge checkout is its current base.
+      # run then covers every pull request ahead of it in the queue. Any other checkout
+      # diffs against its first parent, which for a pull request is its current base.
       - name: Find the base
         id: base
         env:
@@ -179,12 +179,11 @@ jobs:
           GROUP_HEAD: ${{ github.event.merge_group.head_sha }}
           GROUP_TARGET: ${{ github.event.merge_group.base_ref }}
         run: |
-          base=
           if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
             compare="${GROUP_TARGET#refs/heads/}...$GROUP_HEAD"
             base=$(.github/scripts/gh_api.sh \
               "repos/$GITHUB_REPOSITORY/compare/$compare" --jq .merge_base_commit.sha)
-          elif [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+          else
             base=$(git rev-parse HEAD^1)
           fi
           echo "sha=$base" >> "$GITHUB_OUTPUT"
