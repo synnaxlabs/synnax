@@ -29,6 +29,10 @@ import {
   slotZ,
   suggestIdentifiers,
 } from "@/feature/ethercat/device/location";
+import {
+  useRestartTasks,
+  useRunningOnNetwork,
+} from "@/feature/ethercat/device/queries";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
@@ -342,6 +346,13 @@ const General = (): ReactElement => {
   );
 };
 
+interface SaveOptions {
+  /** Opens a task for the slave after the save. */
+  createTask?: (deviceKey: string) => void;
+  /** Restarts the tasks that run on the network after the save. */
+  restart?: boolean;
+}
+
 /**
  * The form that sets the name, identifier, sync mode, settings, and startup parameters
  * of one EtherCAT slave.
@@ -375,7 +386,11 @@ export const Configure = ({
   const given = settings?.mode?.opMode ?? null;
   // The Driver writes no startup parameters to a slave that other software sets up.
   const shared = settings?.mode?.shared === true;
+  const network = Form.useFieldValue(path.properties.network, { ctx: form });
   const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
+  // The network applies the settings of each slave on it, configured or not.
+  const running = useRunningOnNetwork(opened.rack, network);
+  const { update: restartTasks } = useRestartTasks();
   const catalog = given != null && !isStale(modes, given) ? given : null;
   const { capture } = Analytics.use();
   const stale = choice != null && isStale(modes, choice);
@@ -391,7 +406,7 @@ export const Configure = ({
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
-  const save = async (createTask?: (deviceKey: string) => void) => {
+  const save = async ({ createTask, restart = false }: SaveOptions = {}) => {
     // A new slave has no identifier, so its check applies from the first Save on.
     if (!checked.current) {
       form.addCheck(path.properties.identifier, Device.identifierZ);
@@ -404,6 +419,7 @@ export const Configure = ({
     if (!opened.configured) capture("device_configured", { make: MAKE });
     createTask?.(deviceKey);
     close();
+    if (restart) restartTasks({ rack: opened.rack, network });
   };
   // In auto, the Mode select says what runs. Cycles show only to fix a failed start.
   let help: HelpProps | null = null;
@@ -480,6 +496,7 @@ export const Configure = ({
             {shared ? (
               <Form.Sections>
                 <General />
+                <SlaveSettings />
                 {syncMode}
               </Form.Sections>
             ) : (
@@ -515,7 +532,7 @@ export const Configure = ({
           {onCreateReadTask != null && !opened.configured && pdos.inputs.length > 0 && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
-              onClick={() => void save(onCreateReadTask)}
+              onClick={() => void save({ createTask: onCreateReadTask })}
             >
               Save and create read task
             </Button.Button>
@@ -525,11 +542,19 @@ export const Configure = ({
             pdos.outputs.length > 0 && (
               <Button.Button
                 status={status.keepVariants(variant, "loading")}
-                onClick={() => void save(onCreateWriteTask)}
+                onClick={() => void save({ createTask: onCreateWriteTask })}
               >
                 Save and create write task
               </Button.Button>
             )}
+          {running.length > 0 && (
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => void save({ restart: true })}
+            >
+              Save and restart tasks
+            </Button.Button>
+          )}
           <Button.Button
             status={status.keepVariants(variant, "loading")}
             onClick={() => void save()}

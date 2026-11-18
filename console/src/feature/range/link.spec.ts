@@ -12,13 +12,12 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
-import { Session } from "@/session";
 import { renderLinkHook, selectRange, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Range.useLink", () => {
-  it("should add and activate the retrieved range", async () => {
+  it("should add the retrieved range to the favorites", async () => {
     const range = await client.ranges.create({
       name: "Burn Test",
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
@@ -27,7 +26,6 @@ describe("Range.useLink", () => {
     await selectTestProject(store, client);
     await handler({ client, key: range.key });
     const state = store.getState();
-    expect(state[Session.Range.SLICE_NAME].selected).toBe(range.key);
     expect(selectRange(state, range.key)?.variant).toBe("persisted");
   });
 });

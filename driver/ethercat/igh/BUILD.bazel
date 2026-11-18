@@ -59,6 +59,7 @@ cc_library(
         "//driver/ethercat/sii",
         "//driver/ethercat/slave",
         "//driver/ethercat/telem",
+        "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/lib",
         "//x/cpp/loop",

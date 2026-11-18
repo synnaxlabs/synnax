@@ -11,6 +11,7 @@
 #include <array>
 #include <charconv>
 #include <chrono>
+#include <cstring>
 #include <format>
 #include <map>
 #include <numeric>
@@ -21,6 +22,8 @@
 #include "absl/log/log.h"
 #include <dirent.h>
 #include <sys/stat.h>
+
+#include "x/cpp/breaker/breaker.h"
 
 #include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/esi/known_devices.h"
@@ -79,6 +82,17 @@ std::string reason(const int ret) {
 
 /// @brief the time between reads of the slave states while the slaves move to OP.
 const auto OP_POLL_INTERVAL = x::telem::MILLISECOND * 10;
+/// @brief how long a reset can take to clear the AL error flags, since IgH resets in
+/// the background.
+const auto RESET_GRACE = x::telem::MILLISECOND * 500;
+/// @brief the waits between the resets that recover() asks for while a slave stays
+/// faulted.
+const x::breaker::Config RESET_RETRY{
+    .name = "igh_reset",
+    .base_interval = x::telem::SECOND,
+    .scale = 2,
+    .max_interval = x::telem::SECOND * 30,
+};
 
 /// @brief returns the state that a slave in state moves to next on its way to OP.
 std::string next_state(const slave::State state) {
@@ -207,16 +221,8 @@ Master::Master(std::shared_ptr<API> api, const unsigned int master_index, Config
     master_index(master_index),
     cfg(std::move(cfg)),
     ec_master(nullptr),
-    input_domain(nullptr),
-    output_domain(nullptr),
-    input_domain_data(nullptr),
-    output_domain_data(nullptr),
-    input_sz(0),
-    output_sz(0),
     initialized(false),
-    activated(false),
-    input_domain_state{},
-    output_domain_state{} {}
+    activated(false) {}
 
 Master::~Master() {
     this->deactivate();
@@ -304,11 +310,6 @@ x::errors::Error Master::initialize() {
         result.properties.settings = std::move(settings);
         this->cached_slaves.push_back(std::move(result));
     }
-
-    this->output_domain = this->api->master_create_domain(this->ec_master);
-    if (!this->output_domain) return fail("failed to create output domain");
-    this->input_domain = this->api->master_create_domain(this->ec_master);
-    if (!this->input_domain) return fail("failed to create input domain");
 
     this->initialized = true;
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " initialized with "
@@ -516,7 +517,8 @@ master::Activation Master::activate(
             return {.err = err};
         if (!params.empty())
             if (auto err = this->configure_assigned_pdos(pos, sc)) return {.err = err};
-        this->register_pdo_entries(slave.properties, sc, image);
+        if (auto err = this->register_pdo_entries(slave.properties, sc, image))
+            return {.err = err};
         const auto setup = std::ranges::find(
             dc_setups,
             pos,
@@ -560,12 +562,10 @@ master::Activation Master::activate(
         image.reference_clock = this->reference_clock;
     }
 
-    this->output_sz = this->api->domain_size(this->output_domain);
-    this->input_sz = this->api->domain_size(this->input_domain);
+    const size_t size = this->domains.empty() ? 0 : this->domains.back().end();
     VLOG(1) << "[ethercat.igh] activating master " << this->master_index << " with "
-            << this->slave_configs.size()
-            << " configured slaves, input_sz=" << this->input_sz
-            << ", output_sz=" << this->output_sz;
+            << this->slave_configs.size() << " configured slaves and "
+            << this->domains.size() << " domains of " << size << " bytes";
 
     if (this->api->master_activate(this->ec_master) < 0)
         return {
@@ -575,19 +575,18 @@ master::Activation Master::activate(
             )
         };
 
-    this->output_domain_data = this->api->domain_data(this->output_domain);
-    this->input_domain_data = this->api->domain_data(this->input_domain);
+    for (auto &domain: this->domains)
+        domain.data = this->api->domain_data(domain.handle);
+    this->inputs.assign(size, 0);
+    this->outputs.assign(size, 0);
+    this->latest_inputless.reserve(this->domains.size());
 
     this->activated = true;
     LOG(INFO) << "[ethercat.igh] master " << this->master_index
               << " activated successfully";
-    VLOG(1) << "[ethercat.igh] output_domain_data="
-            << static_cast<void *>(this->output_domain_data)
-            << ", input_domain_data=" << static_cast<void *>(this->input_domain_data)
-            << ", output_sz=" << this->output_sz << ", input_sz=" << this->input_sz;
 
-    image.inputs = {this->input_domain_data, this->input_sz};
-    image.outputs = {this->output_domain_data, this->output_sz};
+    image.inputs = this->inputs;
+    image.outputs = this->outputs;
     image.slaves = this->cached_slaves;
     // The IgH master moves the slaves to OP on its own while the caller cycles.
     start_cycle(image);
@@ -596,6 +595,7 @@ master::Activation Master::activate(
 
 master::Activation Master::wait_for_op() {
     const auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
+    std::optional<std::chrono::steady_clock::time_point> reset_at;
     while (true) {
         std::vector<uint16_t> pending;
         for (const auto &[pos, sc]: this->slave_configs) {
@@ -605,12 +605,39 @@ master::Activation Master::wait_for_op() {
                 pending.push_back(pos);
         }
         if (pending.empty()) return {};
-        if (this->cfg.clock.steady() >= deadline) return this->op_error(pending);
+        const auto now = this->cfg.clock.steady();
+        if (now >= deadline) return this->op_error(pending, true);
+        if (this->refusing(pending)) {
+            if (!reset_at) {
+                // The reset also clears a flag set before activation.
+                if (const int ret = this->api->master_reset(this->ec_master);
+                    ret != 0) {
+                    LOG(WARNING) << "[ethercat.igh] master " << this->master_index
+                                 << " failed to reset: " << reason(ret);
+                    return this->op_error(pending, false);
+                }
+                reset_at = now;
+            } else if (now - *reset_at >= RESET_GRACE.chrono())
+                return this->op_error(pending, false);
+        }
         this->cfg.clock.sleep(OP_POLL_INTERVAL);
     }
 }
 
-master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
+bool Master::refusing(const std::vector<uint16_t> &positions) const {
+    return std::ranges::all_of(positions, [this](const uint16_t pos) {
+        ec_slave_info_t info{};
+        return this->api->master_get_slave(
+                   this->ec_master,
+                   ring_position(pos),
+                   &info
+               ) == 0 &&
+               info.error_flag != 0;
+    });
+}
+
+master::Activation
+Master::op_error(const std::vector<uint16_t> &pending, const bool timed_out) {
     master::Activation activation;
     std::string msg;
     for (const auto pos: pending) {
@@ -649,7 +676,9 @@ master::Activation Master::op_error(const std::vector<uint16_t> &pending) {
     activation.err = x::errors::Error(
         activation.refusals.empty() ? errors::STATE_CHANGE_ERROR
                                     : errors::STATE_CHANGE_REFUSED,
-        "failed to reach OP within " + this->cfg.op_timeout.to_string() + ": " + msg
+        "failed to reach OP" +
+            (timed_out ? " within " + this->cfg.op_timeout.to_string() : "") + ": " +
+            msg
     );
     return activation;
 }
@@ -666,18 +695,19 @@ void Master::deactivate() {
         this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
     }
-    this->input_domain = nullptr;
-    this->output_domain = nullptr;
-    this->input_domain_data = nullptr;
-    this->output_domain_data = nullptr;
     this->activated = false;
     this->initialized = false;
     this->slave_configs.clear();
     this->cached_slaves.clear();
-    this->input_sz = 0;
-    this->output_sz = 0;
-    this->full_working_counter.reset();
+    this->domains.clear();
+    this->inputs.clear();
+    this->outputs.clear();
+    this->latest_health.clear();
     this->latest_shortfall.reset();
+    this->latest_inputless.clear();
+    this->faulted = false;
+    this->resets = 0;
+    this->next_reset = {};
     this->reference_clock.reset();
     this->dc_setups.clear();
     this->clocks_aligned = false;
@@ -686,6 +716,7 @@ void Master::deactivate() {
 
 const x::errors::Error &Master::receive() {
     this->latest_shortfall.reset();
+    this->latest_inputless.clear();
     if (!this->activated)
         return this->received = x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
@@ -694,33 +725,38 @@ const x::errors::Error &Master::receive() {
                    errors::CYCLIC_ERROR,
                    "failed to receive frames: " + reason(ret)
                );
-    for (const auto &[domain, state]:
-         {std::pair{this->output_domain, &this->output_domain_state},
-          std::pair{this->input_domain, &this->input_domain_state}}) {
-        if (const int ret = this->api->domain_process(domain); ret != 0)
+    uint32_t working_counter = 0;
+    uint32_t expected = 0;
+    size_t silent = 0;
+    for (const auto &domain: this->domains) {
+        if (const int ret = this->api->domain_process(domain.handle); ret != 0)
             return this->received = x::errors::Error(
                        errors::CYCLIC_ERROR,
                        "failed to process a domain: " + reason(ret)
                    );
-        if (const int ret = this->api->domain_state(domain, state); ret != 0)
+        ec_domain_state_t state{};
+        if (const int ret = this->api->domain_state(domain.handle, &state); ret != 0)
             return this->received = x::errors::Error(
                        errors::CYCLIC_ERROR,
                        "failed to read a domain state: " + reason(ret)
                    );
+        std::memcpy(this->inputs.data() + domain.offset, domain.data, domain.size);
+        const uint32_t full = domain.share.inputs + domain.share.outputs;
+        expected += full;
+        // IgH splits a domain too large for one datagram, which can change the count it
+        // expects, so its own state decides whether the slave took full part.
+        if (state.wc_state == EC_WC_COMPLETE) {
+            working_counter += full;
+            continue;
+        }
+        working_counter += std::min<uint32_t>(state.working_counter, full);
+        if (state.wc_state != EC_WC_ZERO) continue;
+        silent++;
+        this->latest_inputless.push_back(domain.position);
     }
-
-    // IgH reports a zero working counter for an empty domain, which exchanges no data.
-    const bool zero = (this->output_sz > 0 &&
-                       this->output_domain_state.wc_state == EC_WC_ZERO) ||
-                      (this->input_sz > 0 &&
-                       this->input_domain_state.wc_state == EC_WC_ZERO);
-    const bool incomplete = this->output_domain_state.wc_state == EC_WC_INCOMPLETE ||
-                            this->input_domain_state.wc_state == EC_WC_INCOMPLETE;
-    const uint32_t wkc = this->output_domain_state.working_counter +
-                         this->input_domain_state.working_counter;
     // IgH aligns the slave clocks to the application time before any slave reaches
     // SAFE-OP and gives a working counter.
-    if (wkc > 0) this->clocks_aligned = true;
+    if (working_counter > 0) this->clocks_aligned = true;
     if (!this->dc_setups.empty() && this->clocks_aligned) {
         uint32_t dc = 0;
         const int ret = this->api->master_reference_clock_time(this->ec_master, &dc);
@@ -742,22 +778,22 @@ const x::errors::Error &Master::receive() {
                        "failed to read the reference clock: " + reason(ret)
                    );
     }
-    if (!zero && !incomplete) {
-        this->full_working_counter = wkc;
-        return x::errors::NIL;
-    }
-    if (this->full_working_counter && wkc < *this->full_working_counter)
-        this->latest_shortfall = *this->full_working_counter - wkc;
-    if (zero)
+    if (working_counter == expected) return x::errors::NIL;
+    this->latest_shortfall = expected - working_counter;
+    if (silent == this->domains.size()) {
+        this->latest_inputless.clear();
         return this->received = x::errors::Error(
                    errors::WORKING_COUNTER_ERROR,
                    "no slaves responded"
                );
+    }
     return this->received = x::errors::Error(
                errors::WORKING_COUNTER_ERROR,
-               "incomplete working counter: output " +
-                   std::to_string(this->output_domain_state.working_counter) +
-                   ", input " + std::to_string(this->input_domain_state.working_counter)
+               std::format(
+                   "incomplete working counter: {} of {}",
+                   working_counter,
+                   expected
+               )
            );
 }
 
@@ -786,12 +822,14 @@ x::errors::Error Master::send() {
                 );
     }
 
-    for (auto *domain: {this->output_domain, this->input_domain})
-        if (const int ret = this->api->domain_queue(domain); ret != 0)
+    for (const auto &domain: this->domains) {
+        std::memcpy(domain.data, this->outputs.data() + domain.offset, domain.size);
+        if (const int ret = this->api->domain_queue(domain.handle); ret != 0)
             return x::errors::Error(
                 errors::CYCLIC_ERROR,
                 "failed to queue a domain: " + reason(ret)
             );
+    }
     if (const int ret = this->api->master_send(this->ec_master); ret != 0)
         return x::errors::Error(
             errors::CYCLIC_ERROR,
@@ -801,26 +839,67 @@ x::errors::Error Master::send() {
 }
 
 std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
+    ec_master_info_t info{};
+    const bool scanning = this->api->master(this->ec_master, &info) == 0 &&
+                          info.scan_busy != 0;
     std::vector<slave::Health> health;
     health.reserve(this->slave_configs.size());
     for (const auto &[pos, sc]: this->slave_configs) {
+        if (scanning && !this->silent(pos))
+            if (const auto prev = std::ranges::find(
+                    this->latest_health,
+                    pos,
+                    &slave::Health::position
+                );
+                prev != this->latest_health.end()) {
+                health.push_back(*prev);
+                continue;
+            }
         ec_slave_config_state_t state{};
-        ec_slave_info_t info{};
+        ec_slave_info_t slave_info{};
         // A slave the master cannot read is not responding.
         const bool read = this->api->slave_config_state(sc, &state) == 0 &&
                           this->api->master_get_slave(
                               this->ec_master,
                               ring_position(pos),
-                              &info
+                              &slave_info
                           ) == 0;
         health.push_back({
             .position = pos,
             .state = slave::from_al_state(state.al_state),
-            .faulted = read && info.error_flag != 0,
+            .faulted = read && slave_info.error_flag != 0,
             .lost = !read || state.online == 0,
         });
     }
+    this->latest_health = health;
+    this->faulted = std::ranges::any_of(health, &slave::Health::faulted);
+    // A reset clears the AL error flags while IgH configures the slaves again, so only
+    // a bus back in OP ends the backoff.
+    if (std::ranges::all_of(health, [](const slave::Health &h) {
+            return h.state == slave::State::OP && !h.faulted && !h.lost;
+        })) {
+        this->resets = 0;
+        this->next_reset = {};
+    }
     return health;
+}
+
+bool Master::silent(const uint16_t position) const {
+    const auto domain = std::ranges::find(this->domains, position, &Domain::position);
+    if (domain == this->domains.end()) return false;
+    ec_domain_state_t state{};
+    return this->api->domain_state(domain->handle, &state) != 0 ||
+           state.wc_state == EC_WC_ZERO;
+}
+
+void Master::recover(const x::breaker::Breaker &breaker) {
+    const auto now = this->cfg.clock.steady();
+    if (!this->faulted || !breaker.running() || now < this->next_reset) return;
+    if (const int ret = this->api->master_reset(this->ec_master); ret != 0)
+        LOG(WARNING) << "[ethercat.igh] master " << this->master_index
+                     << " failed to reset: " << reason(ret);
+    this->resets++;
+    this->next_reset = now + RESET_RETRY.interval(this->resets).chrono();
 }
 
 x::errors::Error
@@ -923,14 +1002,31 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
     return x::errors::NIL;
 }
 
-void Master::register_pdo_entries(
+x::errors::Error Master::register_pdo_entries(
     const slave::Properties &slave,
     ec_slave_config_t *sc,
     master::Image &image
 ) {
-    // A slave adds 1 to the datagram of each domain that holds one of its entries.
-    master::WorkingCounterShare share;
-    const auto add = [&](const pdo::Properties &pdo, ec_domain_t *domain) {
+    const auto mapped = [](const auto &pdos) {
+        return std::ranges::any_of(pdos, [](const pdo::Properties &pdo) {
+            return !pdo.is_padding();
+        });
+    };
+    if (!mapped(slave.output_pdos) && !mapped(slave.input_pdos)) return x::errors::NIL;
+    auto *handle = this->api->master_create_domain(this->ec_master);
+    if (handle == nullptr)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            std::format(
+                "failed to create the domain of slave {} ({})",
+                slave.position,
+                slave.name
+            )
+        );
+    const size_t base = this->domains.empty() ? 0 : this->domains.back().end();
+    bool has_outputs = false;
+    bool has_inputs = false;
+    const auto add = [&](const pdo::Properties &pdo) {
         if (pdo.is_padding()) return;
         const pdo::Key key{slave.position, pdo.index, pdo.sub_index, pdo.is_input};
         unsigned int bit = 0;
@@ -938,7 +1034,7 @@ void Master::register_pdo_entries(
             sc,
             pdo.index,
             pdo.sub_index,
-            domain,
+            handle,
             &bit
         );
         if (offset < 0) {
@@ -957,22 +1053,32 @@ void Master::register_pdo_entries(
             );
             return;
         }
+        (pdo.is_input ? has_inputs : has_outputs) = true;
         image.offsets[key] = {
-            static_cast<size_t>(offset),
+            base + static_cast<size_t>(offset),
             static_cast<uint8_t>(bit),
             pdo.bit_length
         };
-        if (domain == this->output_domain)
-            share.outputs = 1;
-        else
-            share.inputs = 1;
     };
     for (const auto &pdo: slave.output_pdos)
-        add(pdo, this->output_domain);
+        add(pdo);
     for (const auto &pdo: slave.input_pdos)
-        add(pdo, this->input_domain);
-    if (share != master::WorkingCounterShare{})
-        image.working_counter_shares[slave.position] = share;
+        add(pdo);
+    if (!has_outputs && !has_inputs) return x::errors::NIL;
+    // IgH reads and writes a domain with both directions in one LRW datagram, which a
+    // slave adds 2 to when it takes its outputs. A domain with only outputs is an LWR
+    // datagram, which the slave adds 1 to.
+    master::WorkingCounterShare share{.inputs = has_inputs ? 1U : 0U};
+    if (has_outputs) share.outputs = has_inputs ? 2U : 1U;
+    this->domains.push_back({
+        .position = slave.position,
+        .handle = handle,
+        .offset = base,
+        .size = this->api->domain_size(handle),
+        .share = share,
+    });
+    image.working_counter_shares[slave.position] = share;
+    return x::errors::NIL;
 }
 
 x::errors::Error

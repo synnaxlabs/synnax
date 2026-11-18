@@ -439,7 +439,7 @@ protected:
 TEST_F(DeadlineTest, UnaryFailsAtPoolTimeout) {
     this->service.delay = std::chrono::seconds(10);
     const auto pool = std::make_shared<Pool>(
-        false,
+        ::grpc::InsecureChannelCredentials(),
         Keepalive{},
         std::chrono::milliseconds(300)
     );
@@ -462,7 +462,7 @@ TEST_F(DeadlineTest, RetryGetsFullPoolTimeout) {
     this->service.delay = std::chrono::seconds(1);
     this->service.failures = 1;
     const auto pool = std::make_shared<Pool>(
-        false,
+        ::grpc::InsecureChannelCredentials(),
         Keepalive{},
         std::chrono::seconds(5)
     );

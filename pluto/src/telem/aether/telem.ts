@@ -12,7 +12,7 @@ import {
   type Aggregation,
   type bounds,
   type color,
-  type destructor,
+  destructor,
   type MultiSeries,
   observe,
   TimeStamp,
@@ -289,7 +289,7 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
         if (this.shouldNotify()) handler();
       }),
     );
-    return () => destructors.forEach((d) => d());
+    return () => destructor.unwind(...destructors);
   }
 
   setSources(sources: Record<string, Source<I>>): void {

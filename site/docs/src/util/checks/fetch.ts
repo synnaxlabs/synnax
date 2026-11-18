@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sleep, TimeSpan } from "@synnaxlabs/x";
+
 import { CDN } from "@/components/media/cdn";
 import { type Context } from "@/util/checks/check";
 
@@ -21,7 +23,7 @@ const ATTEMPTS = 3;
 const TIMEOUT_MS = 15000;
 
 const backoff = (attempt: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+  sleep.sleep(TimeSpan.seconds(attempt));
 
 // Undici reports every network error as "fetch failed" and puts the code, such as
 // ENOTFOUND, on the cause.
