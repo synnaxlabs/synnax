@@ -481,8 +481,10 @@ Phase 5 draws motion in SVG. One `requestAnimationFrame` loop writes SVG attribu
 every moving part. One table holds motion as data: it maps each `Motion` variant and
 `blink` to the attribute that it writes, a transform, a dash offset, a fill level, or an
 opacity. Motion composes with a part's own `transform` and never writes an attribute
-that a look writes. A part joins the loop when Pluto builds its drawing, and leaves it
-when the drawing is rebuilt or removed. The bar for motion is 60 fps, and at least 30
+that a look writes. A part is in the loop only while it moves: while the looks in effect
+give it a `spin`, `flow`, or `blink` that runs under §4.2, or while its `level`,
+`rotate`, or `move` transitions to a new fraction. A part that stops, or whose drawing
+is rebuilt or removed, leaves the loop. The bar for motion is 60 fps, and at least 30
 fps under heavy load, such as a live line plot with pan and zoom. The bar is a target,
 not a run time limit: the phase 5 PR shows the benchmark holding it at 100 moving parts
 in WKWebView, and nothing caps motion while the Console runs. On a large schematic or a
