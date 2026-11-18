@@ -322,9 +322,10 @@ def main(argv: list[str]) -> None:
     if argv[0] == "compare":
         since = datetime.now(UTC) - timedelta(days=int(argv[1]))
         repo = env["GITHUB_REPOSITORY"]
-        cache = Path(argv[2])
-        ps = compare.pairs(gh, compare.git, repo, since, cache)
-        print(compare.report(ps, compare.limits(gh, repo, since, cache), since=since))
+        records = compare.Records(gh, repo, Path(argv[2]))
+        ps = compare.pairs(gh, compare.git, repo, since, records)
+        newest = compare.limits(gh, repo, since, records)
+        print(compare.report(ps, newest, since=since, skipped=records.skipped))
         return
     target = Target(
         repo=env["GITHUB_REPOSITORY"],

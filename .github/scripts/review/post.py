@@ -97,9 +97,12 @@ _SUMMARY = re.compile(
 
 
 def gh(*args: str, stdin: str | None = None) -> str:
-    return subprocess.run(
-        ["gh", *args], input=stdin, stdout=subprocess.PIPE, text=True, check=True
-    ).stdout
+    """Runs `gh` and returns its stdout. It prints the stderr of `gh`, and a
+    CalledProcessError carries it."""
+    proc = subprocess.run(["gh", *args], input=stdin, capture_output=True, text=True)
+    sys.stderr.write(proc.stderr)
+    proc.check_returncode()
+    return proc.stdout
 
 
 @dataclass(frozen=True, kw_only=True)

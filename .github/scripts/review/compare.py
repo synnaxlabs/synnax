@@ -22,6 +22,8 @@ import json
 import re
 import subprocess
 import tempfile
+import threading
+import time
 from collections import defaultdict
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -44,6 +46,9 @@ NEAR = 20
 """Findings on one file match when their lines are at most this far apart."""
 WORKERS = 8
 """How many pull requests the comparison reads from GitHub at once."""
+BACKOFF = (2, 4, 8)
+"""The seconds to wait before each new try of a download that failed with an HTTP
+5xx error."""
 
 REAL, NOISE, OPEN = "real", "noise", "open"
 
@@ -84,6 +89,7 @@ THREADS = """query($o: String!, $r: String!, $p: Int!, $endCursor: String) {
   }
 }"""
 
+_SERVER_ERROR = re.compile(r"\bHTTP 5\d\d\b")
 _FIXED = re.compile(r"^fixed\b", re.I | re.M)
 """A reply line that says a finding is fixed, such as "Fixed in 1a2b3c"."""
 _BLOCK = re.compile(r"<!-- greptile_comment -->(.*?)<!-- /greptile_comment -->", re.S)
@@ -314,31 +320,80 @@ def sedosaur_reviews(
     return dict(reversed(out.items()))
 
 
-def record(gh: GH, repo: str, run: int, cache: Path) -> dict[str, Any] | None:
-    """Returns the record of a Sedosaur review run, or None when the run kept none, as
-    a run that carried an earlier review does not. A record never changes, so it
-    downloads only when the cache does not hold it."""
-    path = cache / f"{run}.json"
-    if not path.exists():
-        kept = gh(
-            "api",
-            f"repos/{repo}/actions/runs/{run}/artifacts?name={ARTIFACT}",
-            "--jq",
-            ".artifacts[] | select(.expired | not) | .id",
-        )
-        if not kept.strip():
-            return None
-        with tempfile.TemporaryDirectory() as tmp:
-            gh(
-                *("run", "download", str(run), "--repo", repo),
-                *("--name", ARTIFACT, "--dir", tmp),
+class Records:
+    """Downloads the records of Sedosaur review runs into a cache. A record never
+    changes, so each downloads only when the cache does not hold it. Safe for
+    concurrent use."""
+
+    def __init__(
+        self,
+        gh: GH,
+        repo: str,
+        cache: Path,
+        *,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        self._gh = gh
+        self._repo = repo
+        self._cache = cache
+        self._sleep = sleep
+        self._lock = threading.Lock()
+        self._skipped: dict[int, str] = {}
+
+    @property
+    def skipped(self) -> list[tuple[int, str]]:
+        """Each run whose record failed to download, and why, in run order."""
+        with self._lock:
+            return sorted(self._skipped.items())
+
+    def get(self, run: int) -> dict[str, Any] | None:
+        """Returns the record of a run, or None when the run kept none, as a run that
+        carried an earlier review does not, or when the download failed. It tries a
+        download that fails with an HTTP 5xx error again after each delay in BACKOFF,
+        and never tries a skipped run again.
+        """
+        with self._lock:
+            if run in self._skipped:
+                return None
+        path = self._cache / f"{run}.json"
+        if not path.exists():
+            kept = self._gh(
+                "api",
+                f"repos/{self._repo}/actions/runs/{run}/artifacts?name={ARTIFACT}",
+                "--jq",
+                ".artifacts[] | select(.expired | not) | .id",
             )
-            (Path(tmp) / "review.json").replace(path)
-    rec: dict[str, Any] = json.loads(path.read_text())
-    return rec
+            if not kept.strip() or not self._download(run, path):
+                return None
+        rec: dict[str, Any] = json.loads(path.read_text())
+        return rec
+
+    def _download(self, run: int, path: Path) -> bool:
+        delays = iter(BACKOFF)
+        while True:
+            try:
+                with tempfile.TemporaryDirectory() as tmp:
+                    self._gh(
+                        *("run", "download", str(run), "--repo", self._repo),
+                        *("--name", ARTIFACT, "--dir", tmp),
+                    )
+                    (Path(tmp) / "review.json").replace(path)
+                return True
+            except subprocess.CalledProcessError as e:
+                stderr = e.stderr or ""
+                delay = next(delays, None)
+                if delay is None or not _SERVER_ERROR.search(stderr):
+                    lines = stderr.strip().splitlines()
+                    why = lines[-1] if lines else f"exit status {e.returncode}"
+                    with self._lock:
+                        self._skipped[run] = why
+                    return False
+                self._sleep(delay)
 
 
-def limits(gh: GH, repo: str, since: datetime, cache: Path) -> dict[str, Any] | None:
+def limits(
+    gh: GH, repo: str, since: datetime, records: Records
+) -> dict[str, Any] | None:
     """Returns the newest record since a time that holds the usage limits, from the
     newest page of records, or None when none does. Only a run on `main` of the
     repository itself counts, so a fork cannot add a record."""
@@ -360,7 +415,7 @@ def limits(gh: GH, repo: str, since: datetime, cache: Path) -> dict[str, Any] | 
         reverse=True,
     )
     for _, run in runs:
-        rec = record(gh, repo, run, cache)
+        rec = records.get(run)
         # Records from before reviews kept their limits, and reviews that Claude Code
         # reported no limits for, have none.
         if rec is not None and rec["usage"].get("limits"):
@@ -387,14 +442,16 @@ class _Read:
     threads: list[Thread]
 
 
-def _read(gh: GH, repo: str, pr: int, since: datetime, cache: Path) -> _Read | None:
+def _read(
+    gh: GH, repo: str, pr: int, since: datetime, records: Records
+) -> _Read | None:
     edits = _nodes(gh, repo, pr, EDITS, "userContentEdits")
     runs = sedosaur_reviews(edits, repo, since)
     reviews = greptile_reviews(edits)
     recs: dict[str, dict[str, Any]] = {}
     for head, run in runs.items():
         if head in reviews:
-            rec = record(gh, repo, run, cache)
+            rec = records.get(run)
             if rec is not None and datetime.fromisoformat(rec["at"]) >= since:
                 recs[head] = rec
     if not recs:
@@ -403,20 +460,19 @@ def _read(gh: GH, repo: str, pr: int, since: datetime, cache: Path) -> _Read | N
     return _Read(pr=pr, heads=list(runs), reviews=reviews, recs=recs, threads=ts)
 
 
-def pairs(gh: GH, git: Git, repo: str, since: datetime, cache: Path) -> list[Pair]:
+def pairs(gh: GH, git: Git, repo: str, since: datetime, records: Records) -> list[Pair]:
     """Pairs each Sedosaur review since a time with Greptile's review of the same
     commit. It reads WORKERS pull requests from GitHub at a time.
 
     :param git: Runs in a clone with full history. The pairing fetches the head of each
         paired pull request into it as `refs/review/<number>`.
-    :param cache: The directory that holds the records already downloaded.
     :returns: A pair for each commit that both reviewers reviewed.
     """
     with ThreadPoolExecutor(WORKERS) as pool:
         read = [
             r
             for r in pool.map(
-                lambda pr: _read(gh, repo, pr, since, cache), prs(gh, repo, since)
+                lambda pr: _read(gh, repo, pr, since, records), prs(gh, repo, since)
             )
             if r is not None
         ]
@@ -654,15 +710,37 @@ def _limits(newest: dict[str, Any] | None) -> list[str]:
     ]
 
 
-def report(ps: list[Pair], newest: dict[str, Any] | None, *, since: datetime) -> str:
+def _skipped(skipped: list[tuple[int, str]]) -> list[str]:
+    if not skipped:
+        return []
+    return [
+        "### Skipped records",
+        "",
+        f"The report leaves out {_count(len(skipped), 'record')} that failed to "
+        "download:",
+        "",
+        *(f"- Run {run}: {why}" for run, why in skipped),
+        "",
+    ]
+
+
+def report(
+    ps: list[Pair],
+    newest: dict[str, Any] | None,
+    *,
+    since: datetime,
+    skipped: list[tuple[int, str]],
+) -> str:
     """Renders the usage limits of the Claude subscription and the comparison of the
     paired reviews as Markdown.
 
     :param newest: The newest record that holds the usage limits, if any.
+    :param skipped: Each run whose record failed to download, and why.
     """
     lines = [
         f"## Sedosaur trial since {since:%Y-%m-%d %H:%M} UTC",
         "",
+        *_skipped(skipped),
         "### Usage limits",
         "",
         *_limits(newest),
