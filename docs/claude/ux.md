@@ -373,10 +373,12 @@ bound, a log precision, or the line plot X channel.
   swatches, next to a swatch of the color it saves. Enter creates, and Escape or a blank
   name cancels.
 - The color that a palette title names, hovered or linked, has an edit action after its
-  name. Its tooltip sits to the right, outside the palette, so it never covers a swatch.
-  The action opens the named color editor of Settings (name, light, dark) inside the
-  picker, under a back arrow and the l9 note "Changes every use of this color." Each
-  edit saves at once. Back returns to Library with the same search, scroll, and focus.
+  name. The hover stays until the pointer or the focus leaves the palette, so the
+  pointer can move from a swatch up to its action. The tooltip sits to the right,
+  outside the palette, so it never covers a swatch. The action opens the named color
+  editor of Settings (name, light, dark) inside the picker, under a back arrow and the
+  l9 note "Changes every use of this color." Each edit saves at once. Back returns to
+  Library with the same search, scroll, and focus.
 - "Create palette" ends the Library list, in the look of a create item, and asks for the
   name in the same line as the "+".
 - A user without create access sees no "+" swatch and no "Create palette". A user
