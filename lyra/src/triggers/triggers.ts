@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, record, type xy } from "@synnaxlabs/x";
+import { array, record, type xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { useMemoCompare } from "@/memo";
@@ -309,8 +309,8 @@ export const filter = (
   actual: Trigger[],
   opts?: MatchOptions,
 ): Trigger[] => {
-  const f = compareF(opts);
-  return expected.filter((o) => actual.some((t) => f(o, t) === compare.EQUAL));
+  const matches = matcher(opts);
+  return expected.filter((o) => actual.some((t) => matches(o, t)));
 };
 
 /**
@@ -318,10 +318,7 @@ export const filter = (
  * @returns the source triggers with all triggers in toPurge removed.
  */
 export const purge = (source: Trigger[], toPurge: Trigger[]): Trigger[] =>
-  source.filter(
-    (t) =>
-      !toPurge.some((t2) => compare.unorderedPrimitiveArrays(t, t2) === compare.EQUAL),
-  );
+  source.filter((t) => !toPurge.some((t2) => array.equalUnordered(t, t2)));
 
 /**
  * Finds the difference between two sets of triggers.
@@ -329,9 +326,9 @@ export const purge = (source: Trigger[], toPurge: Trigger[]): Trigger[] =>
  * the second element is the triggers in b that are not in a.
  */
 export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
-  const f = compareF();
-  const added = a.filter((ta) => !b.some((tb) => f(ta, tb) === compare.EQUAL));
-  const removed = b.filter((tb) => !a.some((ta) => f(tb, ta) === compare.EQUAL));
+  const matches = matcher();
+  const added = a.filter((ta) => !b.some((tb) => matches(ta, tb)));
+  const removed = b.filter((tb) => !a.some((ta) => matches(tb, ta)));
   return [added, removed];
 };
 
@@ -339,17 +336,15 @@ export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
  * Determines if two triggers are semantically equal.
  * @param loose - If true, if the second trigger is a superset of the first, then
  * the triggers will be considered equal.
- * @returns a comparison function that determines if two triggers are semantically
- * equal.
+ * @returns a function that returns true if two triggers are semantically equal.
  */
-const compareF = (opts?: MatchOptions): compare.Comparator<Trigger> => {
-  if (opts?.loose === true) return _looseCompare;
-  if (opts?.double === true) return compare.uniqueUnorderedPrimitiveArrays;
-  return compare.unorderedPrimitiveArrays;
+const matcher = (opts?: MatchOptions): ((a: Trigger, b: Trigger) => boolean) => {
+  if (opts?.loose === true) return looseMatch;
+  if (opts?.double === true) return array.equalAsSets;
+  return array.equalUnordered;
 };
 
-const _looseCompare: compare.Comparator<Trigger> = (a, b) =>
-  a.every((k) => b.includes(k)) ? compare.EQUAL : compare.LESS_THAN;
+const looseMatch = (a: Trigger, b: Trigger): boolean => a.every((k) => b.includes(k));
 
 /** ModeConfig is a mapping of modes to triggers along with a default mode. */
 export interface ModeConfig<M extends string | number | symbol> {
@@ -395,9 +390,7 @@ export const compareModeConfigs = <K extends string | number | symbol>(
   if (a.defaultMode !== b.defaultMode) return false;
   const aKeys = record.keys(a.modes);
   if (aKeys.length !== record.keys(b.modes).length) return false;
-  return aKeys.every(
-    (k) => compare.unorderedPrimitiveArrays(a.modes[k], b.modes[k]) === 0,
-  );
+  return aKeys.every((k) => array.equalUnordered(a.modes[k], b.modes[k]));
 };
 
 /**

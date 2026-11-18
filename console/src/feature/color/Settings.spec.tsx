@@ -9,7 +9,7 @@
 
 import { color, group, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color as xcolor } from "@synnaxlabs/x";
+import { color as xcolor, compare } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -84,7 +84,7 @@ const findColor = async (name: string): Promise<HTMLElement> =>
 const namesInOrder = async (palette: group.Group): Promise<string[]> =>
   (await client.colors.retrieve({ groups: [palette.key] }))
     .sort((a, b) => {
-      if (a.position === b.position) return a.name.localeCompare(b.name);
+      if (a.position === b.position) return compare.text(a.name, b.name);
       if (a.position == null) return 1;
       if (b.position == null) return -1;
       return a.position < b.position ? -1 : 1;

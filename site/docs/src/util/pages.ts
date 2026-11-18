@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x";
+
 import { normalizeRoute } from "@/util/route";
 
 interface Frontmatter {
@@ -47,12 +49,12 @@ export const PAGES: Page[] = Object.entries(FRONTMATTER)
     description,
     published,
   }))
-  .sort((a, b) => a.route.localeCompare(b.route));
+  .sort(compare.by((p) => p.route));
 
 /** The blog posts, newest first. */
 export const POSTS: Page[] = PAGES.filter(({ route }) =>
   route.startsWith("/blog/"),
-).sort((a, b) => (b.published ?? "").localeCompare(a.published ?? ""));
+).sort(compare.reverse(compare.by((p) => p.published ?? "")));
 
 /**
  * Every route a search engine should index. The other Astro pages redirect or rewrite

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
-import { compare, verbs } from "@synnaxlabs/x";
+import { array, map, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
@@ -76,7 +76,7 @@ export const useAllConfigs = Scope.bindHook(
 // Value equality keeps the map's reference stable across unrelated config edits,
 // so consumers memoizing on it re-run only when group membership changes.
 export const useParentOf = Scope.bindHook(
-  createSelector(({ nodes }) => Group.buildParentOf(nodes), compare.mapsEqual),
+  createSelector(({ nodes }) => Group.buildParentOf(nodes), map.equal),
 );
 
 export interface ConfigParams extends KeyParams {
@@ -140,7 +140,7 @@ export const useConfigs = Scope.bindHook(
       if (cfg != null) result.set(elKey, cfg);
     }
     return result;
-  }, compare.mapsEqual),
+  }, map.equal),
 );
 
 export interface NodesParams extends KeyParams {
@@ -154,7 +154,7 @@ export const useNodes = Scope.bindHook(
       const keySet = new Set(keys);
       return nodes.filter((n) => keySet.has(n.key));
     },
-    (a, b) => compare.arraysEqual(a, b),
+    (a, b) => array.equal(a, b),
   ),
 );
 

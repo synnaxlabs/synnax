@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, compare, unique, type xy } from "@synnaxlabs/x";
+import { array, box, unique, type xy } from "@synnaxlabs/x";
 import { type RefObject, useEffect, useRef, useState } from "react";
 
 import { useStateRef, useSyncedRef } from "@/hooks/ref";
@@ -102,7 +102,7 @@ export const use = ({
       // Load-bearing: lets call sites that hoist their triggers skip the compare.
       if (a === b) return true;
       if (a == null || b == null) return false;
-      return compare.primitiveArrays(a.flat(), b.flat()) === compare.EQUAL;
+      return array.equal(a.flat(), b.flat());
     },
     [baseTriggers],
   );

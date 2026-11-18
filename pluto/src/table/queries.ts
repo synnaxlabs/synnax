@@ -9,7 +9,7 @@
 
 import { type project, query, table } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { compare, deep, grid, id, verbs, type xy } from "@synnaxlabs/x";
+import { deep, grid, id, map, verbs, type xy } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
@@ -133,7 +133,7 @@ export const useCells = Scope.bindHook(
       if (cell != null) result.set(cellKey, cell);
     }
     return result;
-  }, compare.mapsEqual),
+  }, map.equal),
 );
 
 // useSetChanged returns a function that lists the actions writing only the fields of

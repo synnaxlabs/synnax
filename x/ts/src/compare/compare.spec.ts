@@ -7,167 +7,151 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { compare } from "@/compare";
 
-describe("compare", () => {
-  describe("newF", () => {
-    it("should order bigints and return zero for equal ones", () => {
-      const f = compare.newF(2n);
-      expect(f(1n, 2n)).toBe(-1);
-      expect(f(2n, 2n)).toBe(0);
-      expect(f(3n, 2n)).toBe(1);
-    });
+describe("numbers", () => {
+  it("should order numbers in ascending order", () => {
+    expect(compare.numbers(1, 2)).toBeLessThan(0);
+    expect(compare.numbers(2, 1)).toBeGreaterThan(0);
+    expect(compare.numbers(-3, -3)).toBe(0);
   });
 
-  describe("numericStrings", () => {
-    interface Spec {
-      name: string;
-      input: string[];
-      expected: string[];
-    }
-    const SPECS: Spec[] = [
-      {
-        name: "pure numbers",
-        input: ["5", "4", "3", "2", "1"],
-        expected: ["1", "2", "3", "4", "5"],
-      },
-      {
-        name: "suffixed numbers with equal prefixes",
-        input: ["a5", "a4", "a3", "a2", "a1"],
-        expected: ["a1", "a2", "a3", "a4", "a5"],
-      },
-      {
-        name: "suffixed numbers with different prefixes",
-        input: ["a1", "b1", "a2", "b2", "a3", "b3"],
-        expected: ["a1", "a2", "a3", "b1", "b2", "b3"],
-      },
-      {
-        name: "mixed separators",
-        input: ["a2", "a.1", "a-3", "a_4"],
-        expected: ["a.1", "a2", "a-3", "a_4"],
-      },
+  it("should sort an array with duplicates and negative numbers", () => {
+    expect([3, -1, 2, 3, 0].sort(compare.numbers)).toEqual([-1, 0, 2, 3, 3]);
+  });
+
+  it("should sort an empty array", () => {
+    expect([].sort(compare.numbers)).toEqual([]);
+  });
+
+  it("should order infinities at the ends", () => {
+    expect([1, Infinity, -Infinity].sort(compare.numbers)).toEqual([
+      -Infinity,
+      1,
+      Infinity,
+    ]);
+  });
+
+  it("should return NaN when either value is NaN", () => {
+    expect(compare.numbers(NaN, 1)).toBeNaN();
+    expect(compare.numbers(1, NaN)).toBeNaN();
+    expect(compare.numbers(NaN, NaN)).toBeNaN();
+  });
+});
+
+describe("bigints", () => {
+  it("should return -1, 0, or 1", () => {
+    expect(compare.bigints(1n, 2n)).toBe(-1);
+    expect(compare.bigints(2n, 2n)).toBe(0);
+    expect(compare.bigints(3n, 2n)).toBe(1);
+  });
+
+  it("should order values that a number cannot hold exactly", () => {
+    const big = 2n ** 64n;
+    expect(compare.bigints(big, big + 1n)).toBe(-1);
+    expect(compare.bigints(big + 1n, big)).toBe(1);
+  });
+
+  it("should sort an array with duplicates and negative values", () => {
+    expect([3n, -1n, 2n, 3n].sort(compare.bigints)).toEqual([-1n, 2n, 3n, 3n]);
+  });
+});
+
+describe("by", () => {
+  interface Item {
+    name: string;
+    count: number;
+  }
+
+  it("should order values by their key with text by default", () => {
+    const items: Item[] = [
+      { name: "b", count: 1 },
+      { name: "A", count: 2 },
+      { name: "c", count: 3 },
     ];
-    SPECS.forEach((spec) => {
-      it(spec.name, () => {
-        expect(spec.input.sort(compare.stringsWithNumbers)).toEqual(spec.expected);
-      });
-    });
+    expect(items.sort(compare.by((i) => i.name)).map((i) => i.name)).toEqual([
+      "A",
+      "b",
+      "c",
+    ]);
   });
 
-  describe("mapsEqual", () => {
-    it("returns true for the same reference", () => {
-      const m = new Map<string, number>([["a", 1]]);
-      expect(compare.mapsEqual(m, m)).toBe(true);
-    });
-
-    it("returns true for content-equal maps with identity-equal values", () => {
-      const a = new Map<string, number>([
-        ["a", 1],
-        ["b", 2],
-      ]);
-      const b = new Map<string, number>([
-        ["a", 1],
-        ["b", 2],
-      ]);
-      expect(compare.mapsEqual(a, b)).toBe(true);
-    });
-
-    it("returns true regardless of insertion order", () => {
-      const a = new Map<string, number>([
-        ["a", 1],
-        ["b", 2],
-      ]);
-      const b = new Map<string, number>([
-        ["b", 2],
-        ["a", 1],
-      ]);
-      expect(compare.mapsEqual(a, b)).toBe(true);
-    });
-
-    it("returns false when sizes differ", () => {
-      const a = new Map<string, number>([["a", 1]]);
-      const b = new Map<string, number>([
-        ["a", 1],
-        ["b", 2],
-      ]);
-      expect(compare.mapsEqual(a, b)).toBe(false);
-    });
-
-    it("returns false when a key is present in one but missing in the other", () => {
-      const a = new Map<string, number>([
-        ["a", 1],
-        ["b", 2],
-      ]);
-      const b = new Map<string, number>([
-        ["a", 1],
-        ["c", 2],
-      ]);
-      expect(compare.mapsEqual(a, b)).toBe(false);
-    });
-
-    it("returns false when a value differs by identity", () => {
-      const a = new Map<string, { v: number }>([["a", { v: 1 }]]);
-      const b = new Map<string, { v: number }>([["a", { v: 1 }]]);
-      expect(compare.mapsEqual(a, b)).toBe(false);
-    });
-
-    it("returns true when a value is the same object reference", () => {
-      const shared = { v: 1 };
-      const a = new Map<string, { v: number }>([["a", shared]]);
-      const b = new Map<string, { v: number }>([["a", shared]]);
-      expect(compare.mapsEqual(a, b)).toBe(true);
-    });
-
-    it("treats undefined values as present", () => {
-      const a = new Map<string, number | undefined>([["a", undefined]]);
-      const b = new Map<string, number | undefined>([["b", undefined]]);
-      expect(compare.mapsEqual(a, b)).toBe(false);
-    });
-
-    it("returns true for two empty maps", () => {
-      expect(compare.mapsEqual(new Map(), new Map())).toBe(true);
-    });
+  it("should order values by their key with the given comparator", () => {
+    const items: Item[] = [
+      { name: "a", count: 10 },
+      { name: "b", count: 2 },
+      { name: "c", count: 2 },
+    ];
+    expect(
+      items.sort(compare.by((i) => i.count, compare.numbers)).map((i) => i.name),
+    ).toEqual(["b", "c", "a"]);
   });
 
-  describe("arraysEqual", () => {
-    it("returns true for the same reference", () => {
-      const a = [1, 2, 3];
-      expect(compare.arraysEqual(a, a)).toBe(true);
-    });
+  it("should return 0 for values with equal keys", () => {
+    const cmp = compare.by((i: Item) => i.name);
+    expect(cmp({ name: "a", count: 1 }, { name: "a", count: 2 })).toBe(0);
+  });
+});
 
-    it("returns true for content-equal primitive arrays", () => {
-      expect(compare.arraysEqual([1, 2, 3], [1, 2, 3])).toBe(true);
-    });
+describe("reverse", () => {
+  it("should invert the order of the comparator", () => {
+    const cmp = compare.reverse(compare.numbers);
+    expect(cmp(1, 2)).toBeGreaterThan(0);
+    expect(cmp(2, 1)).toBeLessThan(0);
+    expect(cmp(1, 1)).toBe(0);
+  });
 
-    it("returns false when lengths differ", () => {
-      expect(compare.arraysEqual([1, 2], [1, 2, 3])).toBe(false);
-    });
+  it("should sort in descending order", () => {
+    expect([1, 3, 2, 3].sort(compare.reverse(compare.numbers))).toEqual([3, 3, 2, 1]);
+  });
 
-    it("returns false when an element differs by value", () => {
-      expect(compare.arraysEqual([1, 2, 3], [1, 9, 3])).toBe(false);
-    });
+  it("should restore the order when applied twice", () => {
+    const cmp = compare.reverse(compare.reverse(compare.text));
+    expect(["b", "a", "c"].sort(cmp)).toEqual(["a", "b", "c"]);
+  });
+});
 
-    it("is order-sensitive", () => {
-      expect(compare.arraysEqual([1, 2, 3], [3, 2, 1])).toBe(false);
-    });
+describe("chain", () => {
+  interface Item {
+    group: string;
+    rank: number;
+  }
+  const byGroup = compare.by((i: Item) => i.group);
+  const byRank = compare.by((i: Item) => i.rank, compare.numbers);
 
-    it("uses identity equality for object elements", () => {
-      const a = { v: 1 };
-      const b = { v: 1 };
-      expect(compare.arraysEqual([a], [a])).toBe(true);
-      expect(compare.arraysEqual([a], [b])).toBe(false);
-    });
+  it("should return the first non-zero result", () => {
+    const cmp = compare.chain(byGroup, byRank);
+    expect(cmp({ group: "a", rank: 2 }, { group: "b", rank: 1 })).toBe(-1);
+    expect(cmp({ group: "a", rank: 2 }, { group: "a", rank: 1 })).toBeGreaterThan(0);
+  });
 
-    it("returns true for two empty arrays", () => {
-      expect(compare.arraysEqual([], [])).toBe(true);
-    });
+  it("should not call a later comparator once an earlier one decides", () => {
+    const later = vi.fn<compare.Comparator<Item>>(() => 0);
+    compare.chain(byGroup, later)({ group: "a", rank: 1 }, { group: "b", rank: 1 });
+    expect(later).not.toHaveBeenCalled();
+  });
 
-    it("works with readonly arrays", () => {
-      const a: readonly number[] = [1, 2, 3];
-      const b: readonly number[] = [1, 2, 3];
-      expect(compare.arraysEqual(a, b)).toBe(true);
-    });
+  it("should return 0 when every comparator returns 0", () => {
+    const cmp = compare.chain(byGroup, byRank);
+    expect(cmp({ group: "a", rank: 1 }, { group: "a", rank: 1 })).toBe(0);
+  });
+
+  it("should return 0 when given no comparators", () => {
+    expect(compare.chain<number>()(1, 2)).toBe(0);
+  });
+
+  it("should sort by each comparator in turn", () => {
+    const items: Item[] = [
+      { group: "b", rank: 1 },
+      { group: "a", rank: 2 },
+      { group: "a", rank: 1 },
+    ];
+    expect(items.sort(compare.chain(byGroup, compare.reverse(byRank)))).toEqual([
+      { group: "a", rank: 2 },
+      { group: "a", rank: 1 },
+      { group: "b", rank: 1 },
+    ]);
   });
 });

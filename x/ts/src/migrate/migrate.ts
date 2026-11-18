@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { compare } from "@/compare";
+import { type compare } from "@/compare";
 import { errors } from "@/errors";
 import { type optional } from "@/optional";
 import { zod } from "@/zod";
@@ -42,8 +42,7 @@ export interface CompareSemVerOptions {
  * Compares two pre-release identifiers according to semver spec.
  * @param a - First pre-release identifier (without leading hyphen)
  * @param b - Second pre-release identifier (without leading hyphen)
- * @returns compare.LESS_THAN if a < b, compare.GREATER_THAN if a > b, compare.EQUAL if
- * equal
+ * @returns -1 if a < b, 1 if a > b, 0 if equal
  */
 const comparePreRelease = (a: string, b: string): number => {
   const aParts = a.split(".");
@@ -55,28 +54,28 @@ const comparePreRelease = (a: string, b: string): number => {
     const bPart = bParts[i];
 
     // A larger set of pre-release fields has higher precedence
-    if (aPart === undefined) return compare.LESS_THAN;
-    if (bPart === undefined) return compare.GREATER_THAN;
+    if (aPart === undefined) return -1;
+    if (bPart === undefined) return 1;
 
     const aIsNumeric = /^\d+$/.test(aPart);
     const bIsNumeric = /^\d+$/.test(bPart);
 
     // Numeric identifiers always have lower precedence than non-numeric
-    if (aIsNumeric && !bIsNumeric) return compare.LESS_THAN;
-    if (!aIsNumeric && bIsNumeric) return compare.GREATER_THAN;
+    if (aIsNumeric && !bIsNumeric) return -1;
+    if (!aIsNumeric && bIsNumeric) return 1;
 
     if (aIsNumeric && bIsNumeric) {
       const aNum = parseInt(aPart, 10);
       const bNum = parseInt(bPart, 10);
-      if (aNum < bNum) return compare.LESS_THAN;
-      if (aNum > bNum) return compare.GREATER_THAN;
+      if (aNum < bNum) return -1;
+      if (aNum > bNum) return 1;
     } else {
-      if (aPart < bPart) return compare.LESS_THAN;
-      if (aPart > bPart) return compare.GREATER_THAN;
+      if (aPart < bPart) return -1;
+      if (aPart > bPart) return 1;
     }
   }
 
-  return compare.EQUAL;
+  return 0;
 };
 
 /**
@@ -86,9 +85,8 @@ const comparePreRelease = (a: string, b: string): number => {
  * @param b - The second semantic version.
  * @param opts - Optional object to disable checking specific version parts
  * (major, minor, patch).
- * @returns a number, where the the number is compare.LESS_THAN (negative) if a is OLDER
- * than B, compare.EQUAL (0) if a is the same as b, and compare.GREATER_THAN (positive)
- * if a is NEWER than b.
+ * @returns a number, where the the number is -1 if a is OLDER than B, 0 if a is the
+ * same as b, and 1 if a is NEWER than b.
  */
 export const compareSemVer = ((
   a: SemVer,
@@ -108,25 +106,25 @@ export const compareSemVer = ((
   const [bMajor, bMinor, bPatch] = bMain.split(".").map(Number);
 
   if (opts.checkMajor) {
-    if (aMajor < bMajor) return compare.LESS_THAN;
-    if (aMajor > bMajor) return compare.GREATER_THAN;
+    if (aMajor < bMajor) return -1;
+    if (aMajor > bMajor) return 1;
   }
   if (opts.checkMinor) {
-    if (aMinor < bMinor) return compare.LESS_THAN;
-    if (aMinor > bMinor) return compare.GREATER_THAN;
+    if (aMinor < bMinor) return -1;
+    if (aMinor > bMinor) return 1;
   }
   if (opts.checkPatch) {
-    if (aPatch < bPatch) return compare.LESS_THAN;
-    if (aPatch > bPatch) return compare.GREATER_THAN;
+    if (aPatch < bPatch) return -1;
+    if (aPatch > bPatch) return 1;
   }
 
   // When major.minor.patch are equal, compare pre-release versions
   // Version without pre-release > version with pre-release
   // Pre-release qualifies the patch version, so skip it when patch is unchecked
-  if (!opts.checkPatch) return compare.EQUAL;
-  if (aPreRelease === undefined && bPreRelease === undefined) return compare.EQUAL;
-  if (aPreRelease === undefined) return compare.GREATER_THAN;
-  if (bPreRelease === undefined) return compare.LESS_THAN;
+  if (!opts.checkPatch) return 0;
+  if (aPreRelease === undefined && bPreRelease === undefined) return 0;
+  if (aPreRelease === undefined) return 1;
+  if (bPreRelease === undefined) return -1;
 
   return comparePreRelease(aPreRelease, bPreRelease);
 }) satisfies compare.Comparator<SemVer>;
@@ -142,7 +140,7 @@ export const versionsEqual = (
   a: SemVer,
   b: SemVer,
   opts: CompareSemVerOptions = {},
-): boolean => compare.isEqualTo(compareSemVer(a, b, opts));
+): boolean => compareSemVer(a, b, opts) === 0;
 
 /**
  * @returns true if the first semantic version is newer than the second.
@@ -155,7 +153,7 @@ export const semVerNewer = (
   a: SemVer,
   b: SemVer,
   opts: CompareSemVerOptions = {},
-): boolean => compare.isGreaterThan(compareSemVer(a, b, opts));
+): boolean => compareSemVer(a, b, opts) > 0;
 
 /**
  * @returns true if the first semantic version is older than the second.
@@ -168,7 +166,7 @@ export const semVerOlder = (
   a: SemVer,
   b: SemVer,
   opts: CompareSemVerOptions = {},
-): boolean => compare.isLessThan(compareSemVer(a, b, opts));
+): boolean => compareSemVer(a, b, opts) < 0;
 
 export type Migratable<V extends string = string> = { version: V };
 

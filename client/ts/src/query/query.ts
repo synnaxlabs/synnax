@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  compare,
+  array,
   type destructor,
   errors,
   primitive,
@@ -648,7 +648,7 @@ export class Space<
   private composedOf(query: Query<P, K, D, V>, keys: K[]): D {
     const records = this.config.table.get(keys);
     const { composed } = query;
-    if (composed != null && compare.arraysEqual(composed.records, records))
+    if (composed != null && array.equal(composed.records, records))
       return composed.value;
     const value = this.config.compose(records, query.params);
     query.composed = { records, value };
@@ -909,9 +909,7 @@ export class Space<
     if (basis == null || basis.epoch == null || this.staleFor(query, basis))
       return true;
     const now = this.basis();
-    return (
-      basis.epoch !== now.epoch || !compare.arraysEqual(basis.versions, now.versions)
-    );
+    return basis.epoch !== now.epoch || !array.equal(basis.versions, now.versions);
   }
 
   private scheduleRefetch(query: Query<P, K, D, V>): void {

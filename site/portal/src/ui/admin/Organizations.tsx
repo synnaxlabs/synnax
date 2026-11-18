@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
+import { compare } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { type Summary } from "@/server/organization";
@@ -35,7 +36,7 @@ export const Organizations = ({ teams, now }: OrganizationsProps): ReactElement 
   const query = search.trim().toLowerCase();
   const shown = teams
     .filter((t) => t.organization.name.toLowerCase().includes(query))
-    .sort((a, b) => a.organization.name.localeCompare(b.organization.name));
+    .sort(compare.by((t) => t.organization.name));
   return (
     <Page
       title="Organizations"

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { compare, uuid } from "@synnaxlabs/x";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -164,7 +164,7 @@ describe("list", () => {
       const first = await listPage(store.query, {}, NOW);
       expect(first.entries).toHaveLength(PAGE_SIZE);
       expect(first.total).toBe(PAGE_SIZE + 2);
-      const keys = older.map((l) => l.key).sort((a, b) => b.localeCompare(a));
+      const keys = older.map((l) => l.key).sort(compare.reverse(compare.text));
       expect(first.entries.map((e) => e.license.key)).toEqual([
         newer.key,
         ...keys.slice(0, PAGE_SIZE - 1),

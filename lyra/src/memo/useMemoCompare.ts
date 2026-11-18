@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, deep, type primitive } from "@synnaxlabs/x";
+import { array, deep, type primitive } from "@synnaxlabs/x";
 import { type DependencyList, useRef } from "react";
 
 /** @returns whether two lists hold the same elements, as React compares deps. */
@@ -48,7 +48,7 @@ export const useMemoCompare = <V, D extends DependencyList>(
 export const compareArrayDeps = <T extends primitive.Value>(
   [a]: readonly [T[]] | [T[]],
   [b]: readonly [T[]] | [T[]],
-): boolean => compare.primitiveArrays(a, b) === 0;
+): boolean => array.equal(a, b);
 
 /**
  * @returns the first value it was given for as long as each new value is deeply equal

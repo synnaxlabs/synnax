@@ -10,7 +10,6 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
-  compare,
   deep,
   destructor,
   errors,
@@ -66,7 +65,7 @@ const pushOnto = <A>(
       ? top.key === next.key
       : top.kind === next.kind &&
         next.ts.span(top.ts).lessThanOrEqual(window) &&
-        compare.unorderedPrimitiveArrays(top.targets, next.targets) === compare.EQUAL);
+        array.equalUnordered(top.targets, next.targets));
   const merged = mergeable
     ? {
         key: top.key,

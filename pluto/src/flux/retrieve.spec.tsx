@@ -19,7 +19,7 @@ import {
   createTestClient,
   TEST_CLIENT_PARAMS,
 } from "@synnaxlabs/client/testutil";
-import { color, compare, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { array, color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   act,
   cleanup,
@@ -576,7 +576,7 @@ describe("use", () => {
           return () => {};
         },
         getCached: () => [...source],
-        equal: compare.arraysEqual,
+        equal: array.equal,
       });
 
       const seen: number[][] = [];
@@ -651,7 +651,7 @@ describe("use", () => {
         retrieve: async () => [1, 2],
         onChange: () => () => {},
         getCached: () => tombstone,
-        equal: compare.arraysEqual,
+        equal: array.equal,
       });
 
       const Display = (): ReactElement => {
@@ -694,7 +694,7 @@ describe("use", () => {
           return () => {};
         },
         getCached: () => cached,
-        equal: compare.arraysEqual,
+        equal: array.equal,
       });
 
       const Display = (): ReactElement => {
@@ -1560,7 +1560,7 @@ describe("createSelector", () => {
 
   it("keeps the previous identity when the selected slice is equal", () => {
     const harness = createHarness({ name: "same", value: 1 });
-    const useNames = harness.createSelector((data) => [data.name], compare.arraysEqual);
+    const useNames = harness.createSelector((data) => [data.name], array.equal);
     const { result } = renderHook(() => useNames({ key: "a" }), { wrapper: Wrapper });
     const first = result.current;
     act(() => harness.set({ name: "same", value: 2 }));
@@ -1811,7 +1811,7 @@ describe("createResultSelector", () => {
     const harness = createHarness({ name: "a,b", value: 1 });
     const useParts = harness.createResultSelector(
       (data) => data.name.split(","),
-      compare.arraysEqual,
+      array.equal,
     );
     const { result } = renderHook(() => useParts({ key: "a" }), { wrapper: Wrapper });
     const first = result.current;

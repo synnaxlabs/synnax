@@ -58,10 +58,16 @@ export interface Stringer {
 }
 
 /**
- * @returns true if the value implements primitive.Stringer, otherwise returns false.
+ * @returns true if the value is an object, other than an array or a typed array, that
+ * defines its own toString in place of Object.prototype.toString.
  */
-export const isStringer = (value: unknown): boolean =>
-  value != null && typeof value === "object" && "toString" in value;
+export const isStringer = (value: unknown): value is Stringer =>
+  value != null &&
+  typeof value === "object" &&
+  !Array.isArray(value) &&
+  !ArrayBuffer.isView(value) &&
+  typeof value.toString === "function" &&
+  value.toString !== Object.prototype.toString;
 
 /**
  * Hashable is a duck-typed protocol for class instances that can produce a stable,
@@ -98,7 +104,6 @@ export type NonZeroValue = Exclude<Value, ZeroValue>;
  * false For objects value == null For undefined returns true
  */
 export const isZero = <V extends Value>(value: V): value is V & ZeroValue => {
-  if (isStringer(value)) return value?.toString().length === 0;
   switch (typeof value) {
     case "string":
       return value.length === 0;
@@ -111,6 +116,7 @@ export const isZero = <V extends Value>(value: V): value is V & ZeroValue => {
     case "undefined":
       return true;
     case "object":
+      if (isStringer(value)) return value.toString().length === 0;
       return value == null;
     default:
       return false;
