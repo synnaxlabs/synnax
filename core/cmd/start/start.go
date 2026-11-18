@@ -348,6 +348,7 @@ func BootupCore(
 		SecretsKey:             secretsKey,
 		SecretsDir:             cfg.secretsDir,
 		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
+		DisabledIntegrations:   cfg.disabledIntegrations,
 	})
 	if !ok(err, serviceLayer) {
 		return err

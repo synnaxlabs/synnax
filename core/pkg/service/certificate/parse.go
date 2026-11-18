@@ -70,18 +70,12 @@ func parseChain(text string) (string, *x509.Certificate, error) {
 }
 
 // ParseDetails returns the details of the leaf of the certificate chain in data. data
-// is DER, or PEM when it starts with a CERTIFICATE block, and PEM blocks of other types
-// are
-// skipped. It returns an error when data holds no certificate or a certificate that
+// is PEM when it holds a CERTIFICATE block, else DER. The leaf is the first CERTIFICATE
+// block, and blocks of other types are skipped. It returns an error when a certificate
 // does not parse.
 func ParseDetails(data []byte) (Details, error) {
-	if !bytes.HasPrefix(bytes.TrimLeft(data, " \t\r\n"), []byte(pemCertificateHeader)) {
-		leaf, err := x509.ParseCertificate(data)
-		if err != nil {
-			return Details{}, err
-		}
-		return newDetails(leaf), nil
-	}
+	// A UTF-8 byte order mark hides a block on the first line from pem.Decode.
+	data = bytes.TrimPrefix(data, []byte("\uFEFF"))
 	var leaf *x509.Certificate
 	for block, rest := pem.Decode(data); block != nil; block, rest = pem.Decode(rest) {
 		if block.Type != "CERTIFICATE" {
@@ -96,12 +90,13 @@ func ParseDetails(data []byte) (Details, error) {
 		}
 	}
 	if leaf == nil {
-		return Details{}, errors.New("holds no certificate")
+		var err error
+		if leaf, err = x509.ParseCertificate(data); err != nil {
+			return Details{}, err
+		}
 	}
 	return newDetails(leaf), nil
 }
-
-const pemCertificateHeader = "-----BEGIN CERTIFICATE-----"
 
 func pemError(format string, args ...any) error {
 	return validate.PathedError(

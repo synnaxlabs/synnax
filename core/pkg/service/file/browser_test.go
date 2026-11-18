@@ -11,12 +11,14 @@ package file_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -35,6 +37,13 @@ func names(l listing) []string {
 		out[i] = e.Name
 	}
 	return out
+}
+
+// root returns the root of the volume that holds path.
+func root(
+	path string,
+) string {
+	return filepath.VolumeName(path) + string(filepath.Separator)
 }
 
 func find(l listing, name string) entry {
@@ -78,10 +87,26 @@ var _ = Describe("List", func() {
 	Describe("Top level", func() {
 		It("Should list the roots and the home folder", func(ctx SpecContext) {
 			home := MustSucceed(os.UserHomeDir())
-			Expect(b.list(ctx, "")).To(Equal(listing{Entries: []entry{
-				{Name: "/", Path: "/", Kind: "directory"},
-				{Name: filepath.Base(home), Path: home, Kind: "directory"},
-			}}))
+			l := b.list(ctx, "")
+			Expect(l.Path).To(BeEmpty())
+			Expect(len(l.Entries)).To(BeNumerically(">=", 2))
+			roots, last := l.Entries[:len(l.Entries)-1], l.Entries[len(l.Entries)-1]
+			Expect(last).To(Equal(entry{
+				Name: filepath.Base(home),
+				Path: home,
+				Kind: "directory",
+			}))
+			Expect(roots).To(ContainElement(entry{
+				Name: root(dir),
+				Path: root(dir),
+				Kind: "directory",
+			}))
+			for _, r := range roots {
+				Expect(
+					r,
+				).To(Equal(entry{Name: r.Path, Path: r.Path, Kind: "directory"}))
+				Expect(filepath.Dir(r.Path)).To(Equal(r.Path))
+			}
 		})
 
 		It(
@@ -91,9 +116,16 @@ var _ = Describe("List", func() {
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				var l listing
 				Expect(stat.Details.Data.Unmarshal(&l)).To(Succeed())
-				Expect(l.Entries).To(HaveLen(2))
+				Expect(l).To(Equal(b.list(ctx, "")))
 			},
 		)
+
+		It("Should list a folder once when the secrets folder is the home folder",
+			func(ctx SpecContext) {
+				l := b.list(ctx, "")
+				b = configure(ctx, MustSucceed(os.UserHomeDir()))
+				Expect(b.list(ctx, "").Entries).To(Equal(l.Entries))
+			})
 
 		It("Should take a relative secrets folder from the working folder",
 			func(ctx SpecContext) {
@@ -111,8 +143,7 @@ var _ = Describe("List", func() {
 				b = configure(ctx, dir)
 				l := b.list(ctx, "")
 				Expect(l.SecretsDir).To(Equal(dir))
-				Expect(l.Entries).To(HaveLen(3))
-				Expect(l.Entries[2]).To(Equal(entry{
+				Expect(l.Entries[len(l.Entries)-1]).To(Equal(entry{
 					Name: filepath.Base(dir),
 					Path: dir,
 					Kind: "directory",
@@ -167,8 +198,8 @@ var _ = Describe("List", func() {
 		})
 
 		It("Should give no parent for a root", func(ctx SpecContext) {
-			l := b.list(ctx, "/")
-			Expect(l.Path).To(Equal("/"))
+			l := b.list(ctx, root(dir))
+			Expect(l.Path).To(Equal(root(dir)))
 			Expect(l.Parent).To(BeEmpty())
 		})
 
@@ -317,6 +348,17 @@ var _ = Describe("List", func() {
 				}))
 			})
 
+		It("Should mark the secrets folder as secret by a name in another case",
+			func(ctx SpecContext) {
+				upper := filepath.Join(dir, "SECRETS")
+				if _, err := os.Stat(upper); err != nil {
+					Skip("the file system is case-sensitive")
+				}
+				l := b.list(ctx, upper)
+				Expect(l.Secret).To(BeTrue())
+				Expect(find(l, "ca.pem").Certificate).To(BeNil())
+			})
+
 		It("Should mark a link to the secrets folder as secret", func(ctx SpecContext) {
 			alias := filepath.Join(dir, "alias")
 			Expect(os.Symlink(secrets, alias)).To(Succeed())
@@ -356,6 +398,9 @@ var _ = Describe("List", func() {
 		})
 
 		It("Should fail for a folder that the Core cannot read", func(ctx SpecContext) {
+			if runtime.GOOS == "windows" {
+				Skip("Windows gives a folder no read permission")
+			}
 			if os.Geteuid() == 0 {
 				Skip("root reads every folder")
 			}
@@ -368,6 +413,20 @@ var _ = Describe("List", func() {
 				"The Core cannot read "+path+".",
 			)
 		})
+
+		It(
+			"Should fail for a list that does not finish in time",
+			func(ctx SpecContext) {
+				write(filepath.Join(dir, "notes.txt"), nil)
+				expired, cancel := context.WithDeadline(ctx, time.Now())
+				defer cancel()
+				stat := b.send(ctx, expired, "list", msgpack.EncodedJSON{"path": dir})
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to list files"))
+				Expect(stat.Description).
+					To(Equal("The Core did not finish the list of " + dir + " in time."))
+			},
+		)
 
 		It("Should fail for a path that is not a string", func(ctx SpecContext) {
 			fail(ctx, msgpack.EncodedJSON{"path": 12}, "The path must be a string.")
