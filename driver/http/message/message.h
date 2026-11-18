@@ -69,8 +69,9 @@ public:
     /// @brief creates a Reader for messages.
     /// @returns CONFIGURATION_ERROR when messages is empty, a message is not JSON or
     /// binds no fields, the bound channels of a message do not share one index channel,
-    /// the index field does not write to an index channel, another field does, or the
-    /// decoder rejects the messages.
+    /// the index field does not write to an index channel, another field does, two
+    /// bindings or two messages write to one channel (an index channel included), or
+    /// the decoder rejects the messages.
     static std::pair<Reader, x::errors::Error>
     create(const std::vector<Bound> &messages);
 

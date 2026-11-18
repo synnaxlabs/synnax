@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -30,6 +31,23 @@ namespace driver::http::message {
 namespace {
 x::errors::Error invalid(const std::string &data) {
     return {driver::errors::CONFIGURATION_ERROR, data};
+}
+
+/// @brief maps each channel that a read writes to the message that writes it.
+using Writers = std::unordered_map<synnax::channel::Key, std::string>;
+
+/// @brief records that the message name writes to key, which no other binding may.
+x::errors::Error
+claim(Writers &writers, const synnax::channel::Key key, const std::string &name) {
+    const auto [other, claimed] = writers.try_emplace(key, name);
+    if (claimed) return x::errors::NIL;
+    const auto ch = std::to_string(key);
+    if (other->second == name)
+        return invalid("message " + name + " writes to channel " + ch + " twice");
+    return invalid(
+        "messages " + other->second + " and " + name + " write to the same channel " +
+        ch
+    );
 }
 }
 
@@ -61,6 +79,7 @@ std::pair<Reader, x::errors::Error> Reader::create(const std::vector<Bound> &mes
     Reader r;
     std::vector<codec::JSONMessage> decoded;
     decoded.reserve(messages.size());
+    Writers writers;
     for (const auto &b: messages) {
         const auto &name = b.message.name;
         const auto *payload = std::get_if<synnax::icd::JSONPayload>(&b.message.payload);
@@ -77,6 +96,10 @@ std::pair<Reader, x::errors::Error> Reader::create(const std::vector<Bound> &mes
             };
         for (const auto &binding: b.bindings)
             m.channels.push_back(binding.channel.key);
+        auto claim_err = m.index != 0 ? claim(writers, m.index, name) : x::errors::NIL;
+        for (std::size_t k = 0; !claim_err && k < m.channels.size(); k++)
+            if (k != m.index_field) claim_err = claim(writers, m.channels[k], name);
+        if (claim_err) return {Reader{}, claim_err};
         decoded.push_back({
             .name = name,
             .payload = *payload,

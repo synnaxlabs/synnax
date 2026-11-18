@@ -83,6 +83,16 @@ Bound indexed() {
     return b;
 }
 
+/// @brief returns a message named type that reads the documents whose type is type.
+Bound matching(const std::string &type) {
+    auto b = reading(type);
+    std::get<icd::JSONPayload>(b.message.payload).match = icd::StringJSONMatch{
+        {.pointer = "/type"},
+        type,
+    };
+    return b;
+}
+
 /// @brief returns the error that creating a Reader for b gives.
 x::errors::Error create_error(const Bound &b) {
     return Reader::create({b}).second;
@@ -121,17 +131,14 @@ TEST(Reader, WritesNoIndexForVirtualChannels) {
 
 /// @brief it should read a response as the message whose match rule it meets.
 TEST(Reader, ReadsMatchedMessage) {
-    auto status = reading("status");
-    std::get<icd::JSONPayload>(status.message.payload).match = icd::StringJSONMatch{
-        {.pointer = "/type"},
-        "status",
-    };
+    auto status = matching("status");
     auto other = reading("other");
     other.bindings[0].channel.key = 3;
+    other.bindings[0].channel.index = 4;
     auto r = ASSERT_NIL_P(Reader::create({status, other}));
     x::telem::Frame fr(4);
     ASSERT_NIL(r.read(R"({"type": "event", "v": 4})", RECEIVED, fr));
-    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 3}));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3}));
 }
 
 /// @brief it should add nothing to the frame when a value does not convert.
@@ -146,12 +153,7 @@ TEST(Reader, AddsNothingWhenValueDoesNotConvert) {
 
 /// @brief it should reject a response that meets no message.
 TEST(Reader, RejectsResponseThatMeetsNoMessage) {
-    auto b = reading();
-    std::get<icd::JSONPayload>(b.message.payload).match = icd::StringJSONMatch{
-        {.pointer = "/type"},
-        "status",
-    };
-    auto r = ASSERT_NIL_P(Reader::create({b}));
+    auto r = ASSERT_NIL_P(Reader::create({matching("status")}));
     x::telem::Frame fr(2);
     const auto err = r.read(R"({"type": "event", "v": 1})", RECEIVED, fr);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
@@ -228,6 +230,47 @@ TEST(Reader, RejectsIndexFieldWithNoChannel) {
     const auto err = create_error(b);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(err.data, "message reading: the index field has no channel");
+}
+
+/// @brief it should reject two messages that share an index channel.
+TEST(Reader, RejectsMessagesThatShareIndexChannel) {
+    auto status = matching("status");
+    auto other = reading("other");
+    other.bindings[0].channel.key = 3;
+    const auto err = Reader::create({status, other}).second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(err.data, "messages status and other write to the same channel 1");
+}
+
+/// @brief it should reject two messages that write to the same channel.
+TEST(Reader, RejectsMessagesThatShareChannel) {
+    auto status = matching("status");
+    status.bindings[0].channel.index = 0;
+    auto other = reading("other");
+    other.bindings[0].channel.index = 0;
+    const auto err = Reader::create({status, other}).second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(err.data, "messages status and other write to the same channel 2");
+}
+
+/// @brief it should reject a message that binds two fields to one channel.
+TEST(Reader, RejectsChannelBoundTwice) {
+    auto b = reading();
+    const auto w = float_field("w");
+    std::get<icd::JSONPayload>(b.message.payload).fields.emplace_back(w);
+    b.bindings.push_back({.field = w.key, .channel = channel(2, x::telem::FLOAT64_T)});
+    const auto err = create_error(b);
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(err.data, "message reading writes to channel 2 twice");
+}
+
+/// @brief it should reject a message that binds its index field twice.
+TEST(Reader, RejectsIndexFieldBoundTwice) {
+    auto b = indexed();
+    b.bindings.push_back(b.bindings.back());
+    const auto err = create_error(b);
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(err.data, "message reading writes to channel 1 twice");
 }
 
 /// @brief it should reject a binding that the decoder rejects.
