@@ -762,7 +762,8 @@ func localRefNames(ref resolution.TypeRef) []string {
 // namespace. pinAliasCurrent reports whether every referenced member of a lagging pin
 // resolves to the same defining version at both the pinned and current versions of the
 // dependency chain. When it does, the pinned and current shapes are one declaration and
-// the lag is nominal.
+// the lag is nominal. It skips a member that the pinned version does not carry, since
+// another import of the namespace declares it.
 func pinAliasCurrent(
 	resolver *versions.Resolver,
 	depLive string,
@@ -770,15 +771,12 @@ func pinAliasCurrent(
 	members []string,
 ) bool {
 	for _, member := range members {
-		curNS, _, ok := resolver.Definer(depLive, current, member)
-		if !ok {
-			return false
-		}
 		pinNS, _, ok := resolver.Definer(depLive, pinned, member)
 		if !ok {
-			return false
+			continue
 		}
-		if curNS != pinNS {
+		curNS, _, ok := resolver.Definer(depLive, current, member)
+		if !ok || curNS != pinNS {
 			return false
 		}
 	}

@@ -595,7 +595,7 @@ Channel struct {
 			To(MatchError(ContainSubstring("failed to parse")))
 	})
 
-	It("Should reject a surface that references two resources of one namespace", func(
+	It("Should import two resources of one namespace that the surface references", func(
 		ctx SpecContext,
 	) {
 		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
@@ -622,10 +622,32 @@ Channel struct {
 }
 `)
 		r, chain := resolver()
-		Expect(versions.MergeLive(ctx, r, chain, "")).Error().To(MatchError(
-			"namespace status is ambiguous between schemas/synnax/status and " +
-				"schemas/x/status",
-		))
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+		Expect(merged).To(ContainSubstring(`import "schemas/x/status"`))
+	})
+
+	It("Should import each pin of one namespace that a version file imports", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/versions/status/v0.oracle", "Code = int64\n")
+		write("schemas/synnax/versions/status/v0.oracle", "Level = int32\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/synnax/versions/status/v0"
+import "schemas/x/versions/status/v0"
+
+Channel struct {
+	key uuid @key
+	code status.Code
+	level status.Level
+
+	@go marshal
+}
+`)
+		r, chain := resolver()
+		merged := MustSucceed(versions.MergeLive(ctx, r, chain, ""))
+		Expect(merged).To(ContainSubstring(`import "schemas/synnax/status"`))
+		Expect(merged).To(ContainSubstring(`import "schemas/x/status"`))
 	})
 
 	It("Should import only the namespace the current surface references", func(
