@@ -1165,6 +1165,32 @@ var _ = Describe("Diagnostic.Range", func() {
 		Expect(d.Range.End).To(Equal(protocol.Position{Line: 1, Character: 5}))
 	})
 
+	It("Should count the stop token's characters, not its bytes", func() {
+		d := diagnostics.Errorf(ruleCtxAt(
+			&fakeToken{line: 1, column: 0, text: "x"},
+			&fakeToken{line: 1, column: 4, text: `"°C"`},
+		), "msg")
+		Expect(d.Range.End).To(Equal(protocol.Position{Line: 0, Character: 8}))
+	})
+
+	It("Should end a multi-line stop token on its last line", func() {
+		d := diagnostics.Errorf(ruleCtxAt(
+			&fakeToken{line: 1, column: 0, text: "x"},
+			&fakeToken{line: 1, column: 4, text: "`ab\ncd`"},
+		), "msg")
+		Expect(d.Range.End).To(Equal(protocol.Position{Line: 1, Character: 3}))
+	})
+
+	It("Should end a multi-line start token on its last line when stop is missing",
+		func() {
+			d := diagnostics.Errorf(
+				ruleCtxAt(&fakeToken{line: 1, column: 4, text: "`ab\ncd`"}, nil),
+				"msg",
+			)
+			Expect(d.Range.End).To(Equal(protocol.Position{Line: 1, Character: 3}))
+		},
+	)
+
 	It("Should leave the range zero for a nil context", func() {
 		d := diagnostics.Errorf(nil, "msg")
 		Expect(d.Range).To(Equal(protocol.Range{}))
