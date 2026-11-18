@@ -238,6 +238,44 @@ TEST(ForwarderTest, ClosesEachWriterItOpens) {
     ASSERT_EQ(closes.load(), 2);
 }
 
+/// @brief it should close, back off from, and reopen an idle Core writer whose stream
+/// fails, with no write to show the failure.
+TEST(ForwarderTest, ReopensAnIdleWriterWhoseStreamFails) {
+    const auto server = factory();
+    std::atomic<size_t> opens = 0;
+    std::atomic<size_t> closes = 0;
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {
+            .on_open = [&opens] { opens++; },
+            .on_close = [&closes] { closes++; },
+            .breaker = {.base_interval = x::telem::MILLISECOND},
+        }
+    );
+    ASSERT_NIL(forwarder.opened());
+    ASSERT_EQ(opens.load(), 1);
+    server->end_stream(freighter::UNREACHABLE);
+    ASSERT_EVENTUALLY_EQ(opens.load(), 2);
+    ASSERT_EQ(closes.load(), 1);
+    ASSERT_EQ(server->writer_opens.load(), 2);
+    ASSERT_EQ(server->ops->size(), 0);
+    ASSERT_NIL(forwarder.close());
+    ASSERT_EQ(closes.load(), 2);
+}
+
+/// @brief it should stop with the error that ends the stream of an idle Core writer
+/// when the Core is reachable.
+TEST(ForwarderTest, StopsWhenTheStreamFailsWithAnotherError) {
+    const auto server = factory();
+    Forwarder forwarder(server, {.channels = {1}});
+    ASSERT_NIL(forwarder.opened());
+    server->end_stream(x::errors::VALIDATION);
+    ASSERT_EVENTUALLY_TRUE(forwarder.write(frame(1)).matches(x::errors::VALIDATION));
+    ASSERT_OCCURRED_AS(forwarder.close(), x::errors::VALIDATION);
+    ASSERT_EQ(server->writer_opens.load(), 1);
+}
+
 /// @brief it should warn once when the queue passes half its cap, stop warning once it
 /// drains below a quarter, and warn again when it passes half again.
 TEST(ForwarderTest, WarnsWhileFallingBehindTheCore) {

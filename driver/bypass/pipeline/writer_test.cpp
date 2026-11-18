@@ -9,7 +9,6 @@
 
 #include <atomic>
 #include <chrono>
-#include <future>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -843,9 +842,9 @@ TEST(WriterTest, SetKeepsAWriterTheCoreStillLists) {
     ASSERT_NIL(arc_writer->close());
 }
 
-/// @brief it should reopen only the writer whose holder entry the Core lost in a
-/// restart, and keep the local rule for it until that reopen.
-TEST(WriterTest, SetReopensAWriterTheCoreForgot) {
+/// @brief it should leave a healthy writer open on reconnect when the Core does not
+/// list it as a holder, so it keeps waiting for the Core.
+TEST(WriterTest, SetKeepsAWriterTheCoreDoesNotList) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     const x::control::Subject arc{"arc", "arc-1"};
@@ -864,27 +863,62 @@ TEST(WriterTest, SetReopensAWriterTheCoreForgot) {
         .authorities = {200},
         .subject = op,
     }));
-    std::promise<void> gate;
-    op_core->open_gate = gate.get_future().share();
     states->disconnect();
     states->set({});
     ASSERT_NIL(op_writer->set_authority({.keys = {1}, .authorities = {100}}));
-    ASSERT_TRUE(states->is_authorized(1, arc));
-    ASSERT_NIL(op_writer->set_authority({.keys = {1}, .authorities = {200}}));
-    ASSERT_TRUE(states->is_authorized(1, op));
-    ASSERT_EQ(op_core->writer_opens.load(), 1);
-    gate.set_value();
     ASSERT_NIL(op_writer->write(frame(1)));
     ASSERT_EVENTUALLY_EQ(op_core->writes->size(), 1);
-    ASSERT_EQ(op_core->writer_opens.load(), 2);
-    ASSERT_NIL(arc_writer->write(frame(2)));
-    ASSERT_EVENTUALLY_EQ(arc_core->writes->size(), 1);
+    ASSERT_EQ(op_core->writer_opens.load(), 1);
     ASSERT_EQ(arc_core->writer_opens.load(), 1);
-    ASSERT_NIL(op_writer->set_authority({.keys = {1}, .authorities = {100}}));
     ASSERT_TRUE(states->is_authorized(1, op));
     ASSERT_FALSE(states->is_authorized(1, arc));
     ASSERT_NIL(op_writer->close());
     ASSERT_NIL(arc_writer->close());
+}
+
+/// @brief it should hand a channel off locally when a writer that did not hold it at a
+/// Core restart closes, because the restart ended its idle Core stream.
+TEST(WriterTest, HandsOffLocallyForAWriterTheCoreForgot) {
+    auto bus = std::make_shared<Bus>();
+    auto states = std::make_shared<control::States>();
+    const x::control::Subject arc{"arc", "arc-1"};
+    const x::control::Subject op{"operator", "op-1"};
+    const x::control::Subject remote{"console", "console-1"};
+    std::vector<x::errors::Error> open_errors(1000, freighter::UNREACHABLE);
+    open_errors[0] = x::errors::NIL;
+    auto arc_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        open_errors
+    );
+    auto op_core = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
+    WriterFactory arc_factory(
+        arc_core,
+        bus,
+        states,
+        0,
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    WriterFactory op_factory(op_core, bus, states, 0);
+    states->set({held(remote, 200)});
+    auto arc_writer = ASSERT_NIL_P(arc_factory.open_writer({
+        .channels = {1},
+        .authorities = {150},
+        .subject = arc,
+    }));
+    auto op_writer = ASSERT_NIL_P(op_factory.open_writer({
+        .channels = {1},
+        .authorities = {100},
+        .subject = op,
+    }));
+    ASSERT_TRUE(states->is_authorized(1, remote));
+    states->disconnect();
+    arc_core->end_stream(freighter::UNREACHABLE);
+    ASSERT_EVENTUALLY_GE(arc_core->writer_opens.load(), 2);
+    states->set({});
+    ASSERT_TRUE(states->is_authorized(1, arc));
+    ASSERT_NIL(arc_writer->close());
+    ASSERT_TRUE(states->is_authorized(1, op));
+    ASSERT_NIL(op_writer->close());
 }
 
 /// @brief it should keep waiting for the Core after reconnect for a writer that

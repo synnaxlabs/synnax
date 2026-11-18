@@ -65,8 +65,8 @@ struct ForwarderConfig {
     Warn warn;
     /// @brief called from the forwarder thread each time the Core writer opens.
     std::function<void()> on_open;
-    /// @brief called from the forwarder thread each time an open Core writer closes or
-    /// fails.
+    /// @brief called from the forwarder thread each time an open Core writer closes,
+    /// fails, or loses its stream.
     std::function<void()> on_close;
     /// @brief backs off from an unreachable Core, with no retry limit.
     x::breaker::Config breaker{
@@ -79,9 +79,9 @@ struct ForwarderConfig {
 
 /// @brief delivers a task's frames and authority changes to the Core in order, on its
 /// own thread, so a task never waits on the Core. It opens and reopens the Core writer
-/// while the Core is unreachable. Any other Core error stops it, drops and counts what
-/// it holds, and its next write returns that error. All methods are safe to call from
-/// one task thread.
+/// while the Core is unreachable, also when the stream of an idle writer fails. Any
+/// other Core error stops it, drops and counts what it holds, and its next write
+/// returns that error. All methods are safe to call from one task thread.
 class Forwarder {
     using Op = std::variant<x::telem::Frame, ::driver::pipeline::Authorities>;
 
@@ -106,8 +106,8 @@ class Forwarder {
     size_t queue_bytes = 0;
     size_t dropped_frames;
     bool closing = false;
-    /// @brief set by reopen until the next open of the Core writer.
-    bool cycle = false;
+    /// @brief the error that ended the stream of the open Core writer.
+    x::errors::Error lost = x::errors::NIL;
     x::errors::Error err = x::errors::NIL;
     bool settled = false;
     std::condition_variable settled_cv;
@@ -204,14 +204,14 @@ class Forwarder {
             this->show_drops(dropped);
     }
 
-    /// @brief waits for an op, or returns false on a reopen request or once closing
-    /// leaves none.
+    /// @brief waits for an op, or returns false once the Core writer's stream ends or
+    /// closing leaves none.
     bool next(Op &op) {
         std::unique_lock lock(this->mu);
         this->cv.wait(lock, [this] {
-            return this->closing || this->cycle || !this->queue.empty();
+            return this->closing || this->lost || !this->queue.empty();
         });
-        if (this->cycle || this->queue.empty()) return false;
+        if (this->lost || this->queue.empty()) return false;
         const auto &front = this->queue.front();
         if (const auto *fr = std::get_if<x::telem::Frame>(&front))
             op = fr->shallow_copy();
@@ -279,10 +279,6 @@ class Forwarder {
         });
         while (true) {
             this->report();
-            {
-                std::lock_guard lock(this->mu);
-                this->cycle = false;
-            }
             auto [writer, open_err] = this->server->open_writer(this->config);
             if (open_err) {
                 if (this->wait(open_err)) continue;
@@ -291,6 +287,15 @@ class Forwarder {
             if (this->on_open) this->on_open();
             this->settle();
             this->breaker.reset();
+            std::thread watcher([this, w = writer.get()] {
+                const auto err = w->wait();
+                if (!err) return;
+                {
+                    std::lock_guard lock(this->mu);
+                    this->lost = err;
+                }
+                this->cv.notify_one();
+            });
             Op op;
             x::errors::Error op_err;
             while (this->next(op)) {
@@ -299,13 +304,15 @@ class Forwarder {
                 this->report();
             }
             const auto close_err = writer->close();
+            watcher.join();
             if (this->on_close) this->on_close();
-            const auto err = close_err ? close_err : op_err;
-            if (!err) {
+            auto err = close_err ? close_err : op_err;
+            {
                 std::lock_guard lock(this->mu);
-                if (this->cycle) continue;
-                return;
+                if (!err) err = this->lost;
+                this->lost = x::errors::NIL;
             }
+            if (!err) return;
             if (!this->wait(err)) return;
         }
     }
@@ -341,16 +348,6 @@ public:
         std::unique_lock lock(this->mu);
         this->settled_cv.wait(lock, [this] { return this->settled; });
         return this->err;
-    }
-
-    /// @brief closes the Core writer and opens it again, with the waiting ops kept in
-    /// order. A forwarder that is already reopening goes on with it. Never blocks.
-    void reopen() {
-        {
-            std::lock_guard lock(this->mu);
-            this->cycle = true;
-        }
-        this->cv.notify_one();
     }
 
     /// @brief queues fr for the Core. Drops and counts it when the queue is full, and

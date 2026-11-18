@@ -31,6 +31,10 @@ x::errors::Error SynnaxWriter::close() {
     return this->internal.close();
 }
 
+x::errors::Error SynnaxWriter::wait() {
+    return this->internal.wait();
+}
+
 SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client):
     client(std::move(client)) {}
 

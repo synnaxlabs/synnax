@@ -146,12 +146,7 @@ public:
         };
         auto forwarder = std::make_unique<Forwarder>(this->server, cfg, forwarder_cfg);
         if (auto err = forwarder->opened()) return {nullptr, err};
-        this->states->open_gate(
-            cfg.subject,
-            cfg.channels,
-            cfg.authorities,
-            [f = forwarder.get()] { f->reopen(); }
-        );
+        this->states->open_gate(cfg.subject, cfg.channels, cfg.authorities);
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
                 << " channels, group=" << this->group;
         return {

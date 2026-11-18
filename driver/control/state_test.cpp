@@ -536,14 +536,15 @@ TEST(StatesTest, SetWaitsForTheCoreAgain) {
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
 
-/// @brief it should keep the local rule after reconnect for a writer that has not
-/// opened on the Core again, and wait for the Core once it has.
+/// @brief it should keep the local rule after reconnect for a writer whose Core writer
+/// failed and has not opened again, and wait for the Core once it has.
 TEST(StatesTest, KeepsTheLocalRuleUntilAWriterReopens) {
     States states;
     states.opened_on_core(ARC);
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {150});
     states.disconnect();
+    states.closed_on_core(ARC);
     states.set({});
     ASSERT_TRUE(states.is_authorized(1, ARC));
     states.set_authority(ARC, 1, 100);
@@ -563,6 +564,7 @@ TEST(StatesTest, HandsOffWhenAWriterClosesBeforeItReopens) {
     states.open_gate(ARC, {1}, {200});
     states.open_gate(OPERATOR, {1}, {150});
     states.disconnect();
+    states.closed_on_core(ARC);
     states.set({});
     states.close_gate(ARC);
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
@@ -590,25 +592,20 @@ TEST(StatesTest, KeepsAWriterThatReopenedBeforeTheDisconnect) {
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
 
-/// @brief it should reopen only a writer that held a channel the Core no longer gives
-/// it after reconnect, and keep the local rule for that writer.
-TEST(StatesTest, SetReopensAWriterTheCoreForgot) {
+/// @brief it should keep waiting for the Core after reconnect for a writer still open
+/// on the Core, even when the Core does not list it as a holder.
+TEST(StatesTest, SetKeepsAnUnlistedWriterWaitingForTheCore) {
     States states;
-    int arc_reopens = 0;
-    int op_reopens = 0;
     states.opened_on_core(ARC);
-    states.opened_on_core(OPERATOR);
-    states.open_gate(ARC, {1}, {200}, [&arc_reopens] { arc_reopens++; });
-    states.open_gate(OPERATOR, {1, 2}, {150}, [&op_reopens] { op_reopens++; });
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {150});
     states.disconnect();
-    states.set({x::control::State<synnax::channel::Key>{
-        .subject = OPERATOR,
-        .resource = 2,
-        .authority = 150,
-    }});
-    ASSERT_EQ(arc_reopens, 1);
-    ASSERT_EQ(op_reopens, 0);
+    states.set({});
+    ASSERT_TRUE(states.is_authorized(1, ARC));
     states.set_authority(ARC, 1, 100);
-    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.close_gate(ARC);
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
 }
