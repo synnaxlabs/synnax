@@ -22,19 +22,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// readChannels returns the v2.Channels that reads channels from svc.
-func readChannels(svc *channel.Service) v2.Channels {
+// readChannels returns the icdv0.Channels that reads channels from svc.
+func readChannels(svc *channel.Service) icdv0.Channels {
 	return func(
 		ctx context.Context,
 		snap gorp.Snapshot,
 		keys []channel.Key,
-	) (map[channel.Key]v2.Channel, error) {
+	) (map[channel.Key]icdv0.Channel, error) {
 		var found []channel.Channel
 		if err := svc.NewRetrieve().
 			Where(channel.MatchKeys(keys...)).
@@ -43,13 +44,16 @@ func readChannels(svc *channel.Service) v2.Channels {
 			Exec(ctx, snap); err != nil {
 			return nil, err
 		}
-		return lo.SliceToMap(found, func(c channel.Channel) (channel.Key, v2.Channel) {
-			return c.Key(), v2.Channel{
-				Name:     c.Name,
-				DataType: c.DataType,
-				Index:    c.IsIndex,
-			}
-		}), nil
+		return lo.SliceToMap(
+			found,
+			func(c channel.Channel) (channel.Key, icdv0.Channel) {
+				return c.Key(), icdv0.Channel{
+					Name:     c.Name,
+					DataType: c.DataType,
+					Index:    c.IsIndex,
+				}
+			},
+		), nil
 	}
 }
 
@@ -63,7 +67,7 @@ func createICD(svc *icd.Service) v2.CreateICD {
 // readResolver resolves read configs against the ICDs and channels they read.
 type readResolver struct {
 	icds     *icd.Service
-	channels v2.Channels
+	channels icdv0.Channels
 	create   v2.CreateICD
 	ins      alamos.Instrumentation
 }
@@ -210,7 +214,7 @@ func referencedKeys(
 // readChecker checks the entries of a read config against their ICDs and channels.
 type readChecker struct {
 	icds     map[icd.Key]icd.ICD
-	channels map[channel.Key]v2.Channel
+	channels map[channel.Key]icdv0.Channel
 	// written holds the path of the binding or tag that writes to each channel.
 	written map[channel.Key]string
 }
