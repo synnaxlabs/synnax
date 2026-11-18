@@ -8,12 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type color } from "@synnaxlabs/client";
-import { color as xcolor, type record } from "@synnaxlabs/x";
+import { color as xcolor } from "@synnaxlabs/x";
 
-import { type ColorRef } from "@/platform/multiedit/config";
-import { type ColorValue } from "@/platform/multiedit/selection";
-
-// A field that stores fixed colors carries fixed references through the multi-edit
+// A field that stores color values carries fixed references through the multi-edit
 // controls, which hide the palettes for it.
 
 /** @returns the fixed reference to the color. */
@@ -22,13 +19,6 @@ export const fixedRef = (value: xcolor.Crude): color.Ref => ({
   value: xcolor.construct(value),
 });
 
-/** @returns the values of a field that stores fixed colors, as fixed references. */
-export const fixedValues = (values: Array<ColorValue<xcolor.Color>>): ColorValue[] =>
-  values.map(({ value, fallback }) => ({
-    value: value == null ? undefined : fixedRef(value),
-    fallback,
-  }));
-
 /**
  * @returns the color of a fixed reference.
  * @throws if the reference is named, which a control that hides the palettes never
@@ -36,22 +26,6 @@ export const fixedValues = (values: Array<ColorValue<xcolor.Color>>): ColorValue
  */
 export const fixedValue = (ref: color.Ref): xcolor.Color => {
   if (ref.type === "named")
-    throw new Error(`[multiedit] - named color ${ref.key} in a fixed color field`);
+    throw new Error(`[multiedit] - named color ${ref.key} in a color value field`);
   return ref.value;
 };
-
-/**
- * @returns fixed references to the colors stored at the given top-level fields of the
- * config.
- * @throws if a field holds a value that is not a color.
- */
-export const fixedColorRefs = (
-  key: string,
-  config: record.Unknown,
-  fields: readonly string[],
-): ColorRef[] =>
-  fields.flatMap((path) => {
-    const value = config[path];
-    if (value == null) return [];
-    return [{ key, path, value: fixedRef(xcolor.colorZ.parse(value)) }];
-  });

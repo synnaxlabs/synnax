@@ -70,7 +70,10 @@ const useHandlePageChange = (): ((v: string | null) => void) => {
     );
     const hadPage = prev.key.length > 0;
     if (!hadPage && !cleared)
-      ctx.set(path.fillColor, color.construct(theme.colors.primary.z));
+      ctx.set(path.fillColor, {
+        type: "fixed",
+        value: color.construct(theme.colors.primary.z),
+      });
   };
 };
 

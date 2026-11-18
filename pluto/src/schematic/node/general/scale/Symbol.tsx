@@ -31,7 +31,7 @@ export const Symbol = ({
   const dir = location.direction(orientation);
   // The configured dimensions are the bar's own. The ticks live beside it, so the
   // symbol takes the gutter on top of them.
-  const vis = BaseScale.visProps(config);
+  const vis = BaseScale.useVisProps(config);
   const gutter = VisScale.gutter(vis);
   const outer: dimensions.Dimensions =
     dir === "y"

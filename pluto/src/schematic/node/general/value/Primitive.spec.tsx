@@ -24,7 +24,7 @@ describe("value symbol", () => {
     it("should paint the units in the quiet gray shade", () => {
       const { container } = render(
         <Value
-          strokeColor={color.construct("#00ff00")}
+          strokeColor={{ type: "fixed", value: color.construct("#00ff00") }}
           units="psi"
           orientation="left"
           inlineSize={80}
@@ -38,7 +38,7 @@ describe("value symbol", () => {
     it("should hide the units cell when the units are empty", () => {
       const { container } = render(
         <Value
-          strokeColor={color.construct("#00ff00")}
+          strokeColor={{ type: "fixed", value: color.construct("#00ff00") }}
           units=""
           orientation="left"
           inlineSize={80}

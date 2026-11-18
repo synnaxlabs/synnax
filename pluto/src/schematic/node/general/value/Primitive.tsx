@@ -14,6 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color, type dimensions, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type PropsWithChildren, type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -39,7 +40,8 @@ export const Value = ({
   children,
   inlineSize = 80,
 }: RenderProps): ReactElement => {
-  const symbolColor = color.rgbaString(strokeColor);
+  const resolve = Color.useResolve();
+  const symbolColor = color.rgbaString(resolve(strokeColor));
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
     height: dimensions?.height,

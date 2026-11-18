@@ -22,6 +22,7 @@ import {
   useState,
 } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -53,6 +54,7 @@ export const Setpoint = ({
   readback,
   inlineSize,
 }: RenderProps): ReactElement => {
+  const resolve = Color.useResolve();
   const draft = Primitive.useDraft(value);
   const shown = draft.value;
   // Numeric reports a value only on Enter or blur, so a keystroke marks the field
@@ -60,7 +62,7 @@ export const Setpoint = ({
   const [edited, setEdited] = useState(false);
   const dirty = edited || draft.dirty;
   const inputRef = useRef<HTMLInputElement>(null);
-  const symbolColor = color.rgbaString(fillColor);
+  const symbolColor = color.rgbaString(resolve(fillColor));
   const mergedStyle: CSSProperties = {
     ...style,
     [Primitive.SYMBOL_COLOR]: symbolColor,

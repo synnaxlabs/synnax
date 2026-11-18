@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
@@ -34,7 +33,7 @@ func tankCfg(label, hex string) schematic.NodeConfig {
 	GinkgoHelper()
 	cfg := schematic.TankNodeConfig{Label: schematic.LabelConfig{Label: label}}
 	if hex != "" {
-		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
+		cfg.StrokeColor = fixedColor(hex)
 	}
 	nc := schematic.NodeConfig{Variant: cfg}
 	nc = defaults.Fill(nc)
@@ -46,7 +45,7 @@ func pipeCfg(hex string) schematic.EdgeConfig {
 	GinkgoHelper()
 	cfg := schematic.SegmentedEdgeConfig{Segments: []schematic.Segment{}}
 	if hex != "" {
-		cfg.StrokeColor = new(MustSucceed(color.Parse(hex)))
+		cfg.StrokeColor = fixedColor(hex)
 	}
 	return defaults.Fill(schematic.EdgeConfig{
 		Variant: schematic.PipeEdgeConfig{SegmentedEdgeConfig: cfg},
@@ -910,20 +909,24 @@ var _ = Describe("Path actions", func() {
 			Expect(tank(next).ScaleVisible).To(BeTrue())
 		})
 
-		It("Should set a color from its hex form", func() {
+		It("Should set a fixed color from its hex form", func() {
 			next := MustSucceed(schematic.Reduce(
 				state,
-				set([]string{"nodes", "n1", "config", "stroke_color"}, "#ff0000"),
+				set(
+					[]string{"nodes", "n1", "config", "stroke_color"},
+					map[string]any{"type": "fixed", "value": "#ff0000"},
+				),
 			))
-			Expect(
-				tank(next).StrokeColor,
-			).To(Equal(new(MustSucceed(color.Parse("#ff0000")))))
+			Expect(tank(next).StrokeColor).To(Equal(fixedColor("#ff0000")))
 		})
 
 		It("Should set a field of an edge config", func() {
 			next := MustSucceed(schematic.Reduce(
 				state,
-				set([]string{"edges", "e1", "config", "stroke_color"}, "#00ff00"),
+				set(
+					[]string{"edges", "e1", "config", "stroke_color"},
+					map[string]any{"type": "fixed", "value": "#00ff00"},
+				),
 			))
 			Expect(next.Edges).To(Equal([]schematic.Edge{
 				pipe("e1", "n1", "out", "n2", "in", "#00ff00"),

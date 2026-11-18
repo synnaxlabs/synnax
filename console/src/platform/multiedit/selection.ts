@@ -11,6 +11,7 @@ import { type color } from "@synnaxlabs/client";
 import { type color as xcolor, deep, type record } from "@synnaxlabs/x";
 
 import { type ColorRef } from "@/platform/multiedit/config";
+import { fixedRef, fixedValue } from "@/platform/multiedit/fixed";
 
 /**
  * @returns a copy of the config with each path set to its value. An undefined value
@@ -41,8 +42,8 @@ export type ColorKey<C> = {
 }[Field<C>];
 
 /** One element's stored color, and the color it paints while the value is absent. */
-export interface ColorValue<V = color.Ref> {
-  value?: V;
+export interface ColorValue {
+  value?: color.Ref;
   fallback: xcolor.Crude;
 }
 
@@ -58,6 +59,8 @@ export interface SelectionArgs<C extends { variant: string }> {
   configs: Map<string, C>;
   /** The fields each variant declares, from fieldsByVariant. */
   fields: Map<string, Set<string>>;
+  /** The color fields each variant stores as values, from valueColorFieldsByVariant. */
+  valueColorFields?: Map<string, Set<string>>;
   /** Called with every changed config. Never called empty. */
   onChange: (updates: Array<Update<C>>) => void;
 }
@@ -68,11 +71,13 @@ export interface Selection<C> {
   has: (field: Field<C>) => boolean;
   /** @returns the value of the field on the first element that declares it. */
   first: <F extends Field<C>>(field: F) => Value<C, F> | undefined;
-  /** @returns the stored color of each element that declares the field. */
-  colors: <F extends ColorKey<C>>(
-    field: F,
-    fallback: (config: C) => xcolor.Crude,
-  ) => Array<ColorValue<NonNullable<Value<C, F>>>>;
+  /**
+   * @returns the stored color of each element that declares the field. A color value
+   * reads as a fixed reference.
+   */
+  colors: (field: ColorKey<C>, fallback: (config: C) => xcolor.Crude) => ColorValue[];
+  /** @returns true if an element that declares the field stores it as a color value. */
+  valueOnly: (field: ColorKey<C>) => boolean;
   /** Sets the field on every element that declares it. Undefined removes it. */
   set: <F extends Field<C>>(field: F, value: Value<C, F> | undefined) => void;
   /** Sets the field on every element that declares it to fn of its current value. */
@@ -81,10 +86,17 @@ export interface Selection<C> {
     fn: (value: Value<C, F> | undefined) => Value<C, F> | undefined,
   ) => void;
   /**
-   * Sets every referenced color to the value.
-   * @throws if a reference names an element outside the selection.
+   * Sets the color field on every element that declares it. An element that stores the
+   * field as a value takes the color of the reference. Undefined removes the field.
+   * @throws if the reference is named and an element stores the field as a value.
    */
-  setColors: (refs: ColorRef[], value: color.Ref | xcolor.Color) => void;
+  setColor: (field: ColorKey<C>, value?: color.Ref) => void;
+  /**
+   * Sets every referenced color to the value.
+   * @throws if a reference names an element outside the selection, or if the value is
+   * named and a reference is value only.
+   */
+  setColors: (refs: ColorRef[], value: color.Ref) => void;
 }
 
 /**
@@ -94,6 +106,7 @@ export interface Selection<C> {
 export const selection = <C extends { variant: string }>({
   configs,
   fields,
+  valueColorFields,
   onChange,
 }: SelectionArgs<C>): Selection<C> => {
   const declares = (config: C, field: string): boolean => {
@@ -106,6 +119,13 @@ export const selection = <C extends { variant: string }>({
     Array.from(configs).filter(([, config]) => declares(config, field));
   const read = <V>(config: C, field: string): V | undefined =>
     (config as record.Unknown)[field] as V | undefined;
+  const storesValue = (config: C, field: string): boolean =>
+    valueColorFields?.get(config.variant)?.has(field) ?? false;
+  const readColor = (config: C, field: string): color.Ref | undefined => {
+    if (!storesValue(config, field)) return read<color.Ref>(config, field);
+    const value = read<xcolor.Color>(config, field);
+    return value == null ? undefined : fixedRef(value);
+  };
   const apply = (updates: Array<Update<C>>): void => {
     if (updates.length > 0) onChange(updates);
   };
@@ -125,11 +145,26 @@ export const selection = <C extends { variant: string }>({
     },
     colors: (field, fallback) =>
       withField(field).map(([, config]) => ({
-        value: read(config, field),
+        value: readColor(config, field),
         fallback: fallback(config),
       })),
+    valueOnly: (field) =>
+      withField(field).some(([, config]) => storesValue(config, field)),
     set: (field, value) => update(field, () => value),
     update,
+    setColor: (field, value) =>
+      apply(
+        withField(field).map(([key, base]) => ({
+          key,
+          base,
+          next: patch(base, [
+            [
+              field,
+              value != null && storesValue(base, field) ? fixedValue(value) : value,
+            ],
+          ]),
+        })),
+      ),
     setColors: (refs, value) =>
       apply(
         Array.from(
@@ -137,7 +172,10 @@ export const selection = <C extends { variant: string }>({
           ([key, group]) => {
             const base = configs.get(key);
             if (base == null) throw new Error(`[multiedit] - no config for ${key}`);
-            const entries = group.map((r): [string, unknown] => [r.path, value]);
+            const entries = group.map((r): [string, unknown] => [
+              r.path,
+              r.valueOnly === true ? fixedValue(value) : value,
+            ]);
             return { key, base, next: patch(base, entries) };
           },
         ),

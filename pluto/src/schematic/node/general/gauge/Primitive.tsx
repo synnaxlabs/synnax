@@ -14,6 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -25,6 +26,7 @@ interface RenderProps extends Omit<
 }
 
 export const Gauge = ({ strokeColor, className }: RenderProps): ReactElement => {
+  const resolve = Color.useResolve();
   const radius = 27;
   const strokeWidth = 5;
   const centerX = 33.5;
@@ -46,7 +48,7 @@ export const Gauge = ({ strokeColor, className }: RenderProps): ReactElement => 
   `;
 
   const style: CSSProperties = {
-    [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(resolve(strokeColor)),
   };
 
   return (

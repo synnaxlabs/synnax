@@ -435,7 +435,7 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({ node: node("n1", base) }),
       ]);
-      const red = { strokeColor: "#ff0000" };
+      const red = { strokeColor: { type: "fixed", value: "#ff0000" } } as const;
       const replaced = { label: { label: "Replaced" } };
       await client.schematics.dispatch(
         schem.key,
@@ -455,7 +455,7 @@ describe("Schematic", () => {
 
     test("setChanged removes a field that next does not hold", async () => {
       const { schem } = await newProjectSchematic(client);
-      const base = tank({ strokeColor: "#ff0000" });
+      const base = tank({ strokeColor: { type: "fixed", value: "#ff0000" } });
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({ node: node("n1", base) }),
       ]);

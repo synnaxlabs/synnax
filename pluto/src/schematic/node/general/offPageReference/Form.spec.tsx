@@ -98,7 +98,7 @@ describe("OffPageReferenceForm", () => {
       targetType === "schematic"
         ? await client.schematics.create({ project: proj.key, name: targetName })
         : await client.lineplots.create({ project: proj.key, name: targetName });
-    const initialColor = "#000000";
+    const initialColor = { type: "fixed", value: "#000000" };
     let methods: Form.UseReturn<typeof CONFIG_Z> | undefined;
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
       const values = CONFIG_Z.parse({

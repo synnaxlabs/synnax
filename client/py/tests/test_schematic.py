@@ -132,6 +132,27 @@ class TestNodeConfig:
         with pytest.raises(ValidationError):
             NODE.validate_python({"variant": "custom_actuator"})
 
+    def test_color_refs(self) -> None:
+        """Should keep a named and a fixed color reference on a look color."""
+        key = uuid4()
+        config = NODE.validate_python(
+            {
+                "variant": "box",
+                "stroke_color": {"type": "named", "key": str(key)},
+                "fill_color": {"type": "fixed", "value": "#ff0000"},
+            }
+        )
+        assert isinstance(config, schematic.BoxNodeConfig)
+        assert config.stroke_color == sy.color.NamedRef(key=key)
+        assert config.fill_color == sy.color.FixedRef(value=sy.color.Color("#ff0000"))
+        assert NODE.validate_json(NODE.dump_json(config)) == config
+
+    def test_toggle_stroke_value(self) -> None:
+        """Should keep a toggle symbol's stroke as a color value."""
+        config = NODE.validate_python({"variant": "valve", "stroke_color": "#ff0000"})
+        assert isinstance(config, schematic.ValveNodeConfig)
+        assert config.stroke_color == sy.color.Color("#ff0000")
+
     def test_group_box(self) -> None:
         """Should default a group box to unlocked."""
         config = NODE.validate_python({"variant": "group_box"})

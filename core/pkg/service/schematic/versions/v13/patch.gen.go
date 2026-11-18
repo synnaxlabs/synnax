@@ -217,7 +217,15 @@ func (ec *EdgeConfig) Patch(c patch.Cursor) error {
 func (pec *PipeEdgeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "stroke_color":
-		return patch.OptionalValue(&pec.SegmentedEdgeConfig.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || pec.SegmentedEdgeConfig.StrokeColor == nil {
+			return patch.OptionalValue(&pec.SegmentedEdgeConfig.StrokeColor, c)
+		}
+		next := *pec.SegmentedEdgeConfig.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		pec.SegmentedEdgeConfig.StrokeColor = &next
+		return nil
 	case "segments":
 		return patch.Value(&pec.SegmentedEdgeConfig.Segments, c.Next())
 	case "stroke_width":
@@ -233,7 +241,15 @@ func (pec *PipeEdgeConfig) Patch(c patch.Cursor) error {
 func (eec *ElectricEdgeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "stroke_color":
-		return patch.OptionalValue(&eec.SegmentedEdgeConfig.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || eec.SegmentedEdgeConfig.StrokeColor == nil {
+			return patch.OptionalValue(&eec.SegmentedEdgeConfig.StrokeColor, c)
+		}
+		next := *eec.SegmentedEdgeConfig.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		eec.SegmentedEdgeConfig.StrokeColor = &next
+		return nil
 	case "segments":
 		return patch.Value(&eec.SegmentedEdgeConfig.Segments, c.Next())
 	case "stroke_width":
@@ -249,7 +265,15 @@ func (eec *ElectricEdgeConfig) Patch(c patch.Cursor) error {
 func (sec *SecondaryEdgeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "stroke_color":
-		return patch.OptionalValue(&sec.SegmentedEdgeConfig.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || sec.SegmentedEdgeConfig.StrokeColor == nil {
+			return patch.OptionalValue(&sec.SegmentedEdgeConfig.StrokeColor, c)
+		}
+		next := *sec.SegmentedEdgeConfig.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		sec.SegmentedEdgeConfig.StrokeColor = &next
+		return nil
 	case "segments":
 		return patch.Value(&sec.SegmentedEdgeConfig.Segments, c.Next())
 	case "stroke_width":
@@ -265,7 +289,15 @@ func (sec *SecondaryEdgeConfig) Patch(c patch.Cursor) error {
 func (jec *JacketedEdgeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "stroke_color":
-		return patch.OptionalValue(&jec.SegmentedEdgeConfig.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || jec.SegmentedEdgeConfig.StrokeColor == nil {
+			return patch.OptionalValue(&jec.SegmentedEdgeConfig.StrokeColor, c)
+		}
+		next := *jec.SegmentedEdgeConfig.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		jec.SegmentedEdgeConfig.StrokeColor = &next
+		return nil
 	case "segments":
 		return patch.Value(&jec.SegmentedEdgeConfig.Segments, c.Next())
 	case "stroke_width":
@@ -281,7 +313,15 @@ func (jec *JacketedEdgeConfig) Patch(c patch.Cursor) error {
 func (hec *HydraulicEdgeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "stroke_color":
-		return patch.OptionalValue(&hec.SegmentedEdgeConfig.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || hec.SegmentedEdgeConfig.StrokeColor == nil {
+			return patch.OptionalValue(&hec.SegmentedEdgeConfig.StrokeColor, c)
+		}
+		next := *hec.SegmentedEdgeConfig.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		hec.SegmentedEdgeConfig.StrokeColor = &next
+		return nil
 	case "segments":
 		return patch.Value(&hec.SegmentedEdgeConfig.Segments, c.Next())
 	case "stroke_width":
@@ -297,7 +337,15 @@ func (hec *HydraulicEdgeConfig) Patch(c patch.Cursor) error {
 func (pec *PneumaticEdgeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "stroke_color":
-		return patch.OptionalValue(&pec.SegmentedEdgeConfig.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || pec.SegmentedEdgeConfig.StrokeColor == nil {
+			return patch.OptionalValue(&pec.SegmentedEdgeConfig.StrokeColor, c)
+		}
+		next := *pec.SegmentedEdgeConfig.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		pec.SegmentedEdgeConfig.StrokeColor = &next
+		return nil
 	case "segments":
 		return patch.Value(&pec.SegmentedEdgeConfig.Segments, c.Next())
 	case "stroke_width":
@@ -313,7 +361,15 @@ func (pec *PneumaticEdgeConfig) Patch(c patch.Cursor) error {
 func (dec *DataEdgeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "stroke_color":
-		return patch.OptionalValue(&dec.SegmentedEdgeConfig.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || dec.SegmentedEdgeConfig.StrokeColor == nil {
+			return patch.OptionalValue(&dec.SegmentedEdgeConfig.StrokeColor, c)
+		}
+		next := *dec.SegmentedEdgeConfig.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		dec.SegmentedEdgeConfig.StrokeColor = &next
+		return nil
 	case "segments":
 		return patch.Value(&dec.SegmentedEdgeConfig.Segments, c.Next())
 	case "stroke_width":
@@ -2344,9 +2400,25 @@ func (bnc *BoxNodeConfig) Patch(c patch.Cursor) error {
 			bnc.LabeledConfig.Orientation = def.LabeledConfig.Orientation
 		})
 	case "stroke_color":
-		return patch.OptionalValue(&bnc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || bnc.StrokeColor == nil {
+			return patch.OptionalValue(&bnc.StrokeColor, c)
+		}
+		next := *bnc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		bnc.StrokeColor = &next
+		return nil
 	case "fill_color":
-		return patch.OptionalValue(&bnc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || bnc.FillColor == nil {
+			return patch.OptionalValue(&bnc.FillColor, c)
+		}
+		next := *bnc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		bnc.FillColor = &next
+		return nil
 	case "dimensions":
 		if c = c.Next(); c.Done() {
 			return patch.Defaulted(&bnc.Dimensions, c, func(def *BoxNodeConfig) {
@@ -2390,7 +2462,15 @@ func (bnc *ButtonNodeConfig) Patch(c patch.Cursor) error {
 			bnc.Mode = def.Mode
 		})
 	case "fill_color":
-		return patch.OptionalValue(&bnc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || bnc.FillColor == nil {
+			return patch.OptionalValue(&bnc.FillColor, c)
+		}
+		next := *bnc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		bnc.FillColor = &next
+		return nil
 	case "control":
 		if c = c.Next(); c.Done() {
 			return patch.Defaulted(&bnc.Control, c, func(def *ButtonNodeConfig) {
@@ -2422,9 +2502,25 @@ func (cnc *CircleNodeConfig) Patch(c patch.Cursor) error {
 			cnc.Radius = def.Radius
 		})
 	case "stroke_color":
-		return patch.OptionalValue(&cnc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || cnc.StrokeColor == nil {
+			return patch.OptionalValue(&cnc.StrokeColor, c)
+		}
+		next := *cnc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		cnc.StrokeColor = &next
+		return nil
 	case "fill_color":
-		return patch.OptionalValue(&cnc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || cnc.FillColor == nil {
+			return patch.OptionalValue(&cnc.FillColor, c)
+		}
+		next := *cnc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		cnc.FillColor = &next
+		return nil
 	case "stroke_width":
 		return patch.OptionalValue(&cnc.StrokeWidth, c.Next())
 	default:
@@ -2472,7 +2568,15 @@ func (gnc *GaugeNodeConfig) Patch(c patch.Cursor) error {
 		}
 		return gnc.Position.Patch(c)
 	case "stroke_color":
-		return patch.OptionalValue(&gnc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || gnc.StrokeColor == nil {
+			return patch.OptionalValue(&gnc.StrokeColor, c)
+		}
+		next := *gnc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		gnc.StrokeColor = &next
+		return nil
 	case "bounds":
 		return patch.Defaulted(&gnc.Bounds, c.Next(), func(def *GaugeNodeConfig) {
 			gnc.Bounds = def.Bounds
@@ -2535,7 +2639,15 @@ func (inc *InputNodeConfig) Patch(c patch.Cursor) error {
 		}
 		return inc.Dimensions.Patch(c)
 	case "fill_color":
-		return patch.OptionalValue(&inc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || inc.FillColor == nil {
+			return patch.OptionalValue(&inc.FillColor, c)
+		}
+		next := *inc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		inc.FillColor = &next
+		return nil
 	case "disabled":
 		return patch.Value(&inc.Disabled, c.Next())
 	case "inline_size":
@@ -2597,7 +2709,15 @@ func (lnc *LightNodeConfig) Patch(c patch.Cursor) error {
 func (lnc *LineNodeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "stroke_color":
-		return patch.OptionalValue(&lnc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || lnc.StrokeColor == nil {
+			return patch.OptionalValue(&lnc.StrokeColor, c)
+		}
+		next := *lnc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		lnc.StrokeColor = &next
+		return nil
 	case "start":
 		if c = c.Next(); c.Done() {
 			return patch.Defaulted(&lnc.Start, c, func(def *LineNodeConfig) {
@@ -2636,7 +2756,15 @@ func (oprnc *OffPageReferenceNodeConfig) Patch(c patch.Cursor) error {
 			oprnc.LabeledConfig.Orientation = def.LabeledConfig.Orientation
 		})
 	case "fill_color":
-		return patch.OptionalValue(&oprnc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || oprnc.FillColor == nil {
+			return patch.OptionalValue(&oprnc.FillColor, c)
+		}
+		next := *oprnc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		oprnc.FillColor = &next
+		return nil
 	case "page":
 		if c = c.Next(); c.Done() {
 			return patch.Defaulted(&oprnc.Page, c, func(def *OffPageReferenceNodeConfig) {
@@ -2678,9 +2806,25 @@ func (pnc *PolygonNodeConfig) Patch(c patch.Cursor) error {
 	case "border_radius":
 		return patch.Value(&pnc.BorderRadius, c.Next())
 	case "stroke_color":
-		return patch.OptionalValue(&pnc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || pnc.StrokeColor == nil {
+			return patch.OptionalValue(&pnc.StrokeColor, c)
+		}
+		next := *pnc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		pnc.StrokeColor = &next
+		return nil
 	case "fill_color":
-		return patch.OptionalValue(&pnc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || pnc.FillColor == nil {
+			return patch.OptionalValue(&pnc.FillColor, c)
+		}
+		next := *pnc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		pnc.FillColor = &next
+		return nil
 	case "stroke_width":
 		return patch.OptionalValue(&pnc.StrokeWidth, c.Next())
 	default:
@@ -2717,7 +2861,15 @@ func (snc *SelectNodeConfig) Patch(c patch.Cursor) error {
 	case "state_channel":
 		return patch.Value(&snc.StateChannel, c.Next())
 	case "fill_color":
-		return patch.OptionalValue(&snc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || snc.FillColor == nil {
+			return patch.OptionalValue(&snc.FillColor, c)
+		}
+		next := *snc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		snc.FillColor = &next
+		return nil
 	case "inline_size":
 		return patch.Defaulted(&snc.InlineSize, c.Next(), func(def *SelectNodeConfig) {
 			snc.InlineSize = def.InlineSize
@@ -2777,11 +2929,35 @@ func (snc *ScaleNodeConfig) Patch(c patch.Cursor) error {
 			snc.ScaleIndicatorConfig.Bounds = def.ScaleIndicatorConfig.Bounds
 		})
 	case "level_color":
-		return patch.OptionalValue(&snc.ScaleIndicatorConfig.LevelColor, c.Next())
+		if c = c.Next(); c.Done() || snc.ScaleIndicatorConfig.LevelColor == nil {
+			return patch.OptionalValue(&snc.ScaleIndicatorConfig.LevelColor, c)
+		}
+		next := *snc.ScaleIndicatorConfig.LevelColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		snc.ScaleIndicatorConfig.LevelColor = &next
+		return nil
 	case "axis_color":
-		return patch.OptionalValue(&snc.ScaleIndicatorConfig.AxisColor, c.Next())
+		if c = c.Next(); c.Done() || snc.ScaleIndicatorConfig.AxisColor == nil {
+			return patch.OptionalValue(&snc.ScaleIndicatorConfig.AxisColor, c)
+		}
+		next := *snc.ScaleIndicatorConfig.AxisColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		snc.ScaleIndicatorConfig.AxisColor = &next
+		return nil
 	case "text_color":
-		return patch.OptionalValue(&snc.ScaleIndicatorConfig.TextColor, c.Next())
+		if c = c.Next(); c.Done() || snc.ScaleIndicatorConfig.TextColor == nil {
+			return patch.OptionalValue(&snc.ScaleIndicatorConfig.TextColor, c)
+		}
+		next := *snc.ScaleIndicatorConfig.TextColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		snc.ScaleIndicatorConfig.TextColor = &next
+		return nil
 	case "units":
 		return patch.Value(&snc.ScaleIndicatorConfig.Units, c.Next())
 	case "level_hidden":
@@ -2857,7 +3033,15 @@ func (snc *SetpointNodeConfig) Patch(c patch.Cursor) error {
 		}
 		return snc.Dimensions.Patch(c)
 	case "fill_color":
-		return patch.OptionalValue(&snc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || snc.FillColor == nil {
+			return patch.OptionalValue(&snc.FillColor, c)
+		}
+		next := *snc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		snc.FillColor = &next
+		return nil
 	case "units":
 		return patch.Value(&snc.Units, c.Next())
 	case "disabled":
@@ -2903,7 +3087,15 @@ func (sinc *StateIndicatorNodeConfig) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.Value(&sinc.Channel, c.Next())
 	case "stroke_color":
-		return patch.OptionalValue(&sinc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || sinc.StrokeColor == nil {
+			return patch.OptionalValue(&sinc.StrokeColor, c)
+		}
+		next := *sinc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		sinc.StrokeColor = &next
+		return nil
 	case "inline_size":
 		return patch.Defaulted(&sinc.InlineSize, c.Next(), func(def *StateIndicatorNodeConfig) {
 			sinc.InlineSize = def.InlineSize
@@ -2940,9 +3132,25 @@ func (sdnc *StringDisplayNodeConfig) Patch(c patch.Cursor) error {
 	case "staleness_color":
 		return patch.OptionalValue(&sdnc.StalenessConfig.StalenessColor, c.Next())
 	case "stroke_color":
-		return patch.OptionalValue(&sdnc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || sdnc.StrokeColor == nil {
+			return patch.OptionalValue(&sdnc.StrokeColor, c)
+		}
+		next := *sdnc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		sdnc.StrokeColor = &next
+		return nil
 	case "text_color":
-		return patch.OptionalValue(&sdnc.TextColor, c.Next())
+		if c = c.Next(); c.Done() || sdnc.TextColor == nil {
+			return patch.OptionalValue(&sdnc.TextColor, c)
+		}
+		next := *sdnc.TextColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		sdnc.TextColor = &next
+		return nil
 	case "tooltip":
 		return patch.Value(&sdnc.Tooltip, c.Next())
 	case "inline_size":
@@ -3019,7 +3227,15 @@ func (tbnc *TextBoxNodeConfig) Patch(c patch.Cursor) error {
 			tbnc.LabeledConfig.Orientation = def.LabeledConfig.Orientation
 		})
 	case "text_color":
-		return patch.OptionalValue(&tbnc.TextColor, c.Next())
+		if c = c.Next(); c.Done() || tbnc.TextColor == nil {
+			return patch.OptionalValue(&tbnc.TextColor, c)
+		}
+		next := *tbnc.TextColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		tbnc.TextColor = &next
+		return nil
 	case "inline_size":
 		return patch.Defaulted(&tbnc.InlineSize, c.Next(), func(def *TextBoxNodeConfig) {
 			tbnc.InlineSize = def.InlineSize
@@ -3081,11 +3297,35 @@ func (vnc *ValueNodeConfig) Patch(c patch.Cursor) error {
 		}
 		return vnc.Position.Patch(c)
 	case "stroke_color":
-		return patch.OptionalValue(&vnc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || vnc.StrokeColor == nil {
+			return patch.OptionalValue(&vnc.StrokeColor, c)
+		}
+		next := *vnc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		vnc.StrokeColor = &next
+		return nil
 	case "text_color":
-		return patch.OptionalValue(&vnc.TextColor, c.Next())
+		if c = c.Next(); c.Done() || vnc.TextColor == nil {
+			return patch.OptionalValue(&vnc.TextColor, c)
+		}
+		next := *vnc.TextColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		vnc.TextColor = &next
+		return nil
 	case "fill_color":
-		return patch.OptionalValue(&vnc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || vnc.FillColor == nil {
+			return patch.OptionalValue(&vnc.FillColor, c)
+		}
+		next := *vnc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		vnc.FillColor = &next
+		return nil
 	case "tooltip":
 		return patch.Value(&vnc.Tooltip, c.Next())
 	case "redline":
@@ -5145,9 +5385,25 @@ func (cnc *CylinderNodeConfig) Patch(c patch.Cursor) error {
 	case "border_radius":
 		return patch.OptionalValue(&cnc.BorderRadius, c.Next())
 	case "stroke_color":
-		return patch.OptionalValue(&cnc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || cnc.StrokeColor == nil {
+			return patch.OptionalValue(&cnc.StrokeColor, c)
+		}
+		next := *cnc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		cnc.StrokeColor = &next
+		return nil
 	case "fill_color":
-		return patch.OptionalValue(&cnc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || cnc.FillColor == nil {
+			return patch.OptionalValue(&cnc.FillColor, c)
+		}
+		next := *cnc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		cnc.FillColor = &next
+		return nil
 	default:
 		return c.UnknownField()
 	}
@@ -5190,11 +5446,35 @@ func (tnc *TankNodeConfig) Patch(c patch.Cursor) error {
 			tnc.Bounds = def.Bounds
 		})
 	case "level_color":
-		return patch.OptionalValue(&tnc.LevelColor, c.Next())
+		if c = c.Next(); c.Done() || tnc.LevelColor == nil {
+			return patch.OptionalValue(&tnc.LevelColor, c)
+		}
+		next := *tnc.LevelColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		tnc.LevelColor = &next
+		return nil
 	case "axis_color":
-		return patch.OptionalValue(&tnc.AxisColor, c.Next())
+		if c = c.Next(); c.Done() || tnc.AxisColor == nil {
+			return patch.OptionalValue(&tnc.AxisColor, c)
+		}
+		next := *tnc.AxisColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		tnc.AxisColor = &next
+		return nil
 	case "text_color":
-		return patch.OptionalValue(&tnc.TextColor, c.Next())
+		if c = c.Next(); c.Done() || tnc.TextColor == nil {
+			return patch.OptionalValue(&tnc.TextColor, c)
+		}
+		next := *tnc.TextColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		tnc.TextColor = &next
+		return nil
 	case "units":
 		return patch.Value(&tnc.Units, c.Next())
 	case "level_hidden":
@@ -5215,9 +5495,25 @@ func (tnc *TankNodeConfig) Patch(c patch.Cursor) error {
 		}
 		return tnc.Position.Patch(c)
 	case "stroke_color":
-		return patch.OptionalValue(&tnc.StrokeColor, c.Next())
+		if c = c.Next(); c.Done() || tnc.StrokeColor == nil {
+			return patch.OptionalValue(&tnc.StrokeColor, c)
+		}
+		next := *tnc.StrokeColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		tnc.StrokeColor = &next
+		return nil
 	case "fill_color":
-		return patch.OptionalValue(&tnc.FillColor, c.Next())
+		if c = c.Next(); c.Done() || tnc.FillColor == nil {
+			return patch.OptionalValue(&tnc.FillColor, c)
+		}
+		next := *tnc.FillColor
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		tnc.FillColor = &next
+		return nil
 	case "dimensions":
 		if c = c.Next(); c.Done() {
 			return patch.Defaulted(&tnc.Dimensions, c, func(def *TankNodeConfig) {

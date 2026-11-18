@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -57,11 +58,13 @@ export const Scale = ({
   caretHidden,
   className,
 }: RenderProps): ReactElement => {
+  const resolve = Color.useResolve();
   const containerStyle: CSSProperties = {
     ...CONTAINER_STYLE,
-    [Primitive.SYMBOL_COLOR]: color.rgbaString(levelColor),
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(resolve(levelColor)),
   };
-  const axis = axisColor == null ? AXIS_FALLBACK : color.hex(axisColor);
+  const axisValue = resolve(axisColor);
+  const axis = axisValue == null ? AXIS_FALLBACK : color.hex(axisValue);
   return (
     <div className={CSS.cls(CSS.symbolColored, className)} style={containerStyle}>
       <svg width={WIDTH} height={HEIGHT} style={{ position: "absolute" }}>

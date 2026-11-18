@@ -16,7 +16,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import channel as channel_, group as group_, project as project_
+from synnax import (
+    channel as channel_,
+    color as color__,
+    group as group_,
+    project as project_,
+)
 from synnax.resource import ID
 from synnax.schematic import symbol
 from x import (
@@ -293,13 +298,13 @@ class SegmentedEdgeConfig(BaseModel):
     """Is the configuration shared by every segmented edge variant.
 
     Attributes:
-        stroke_color: Is the stroke color of the edge.
+        stroke_color: Is the stroke color of the edge, a named color or a fixed color.
         segments: Is the ordered list of orthogonal runs that trace the connector path
             from the source handle to the target handle.
         stroke_width: Is the stroke width of the edge in pixels.
     """
 
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
     segments: list[Segment] = Field(default_factory=list)
     stroke_width: int = Field(default=2, ge=1, le=20)
 
@@ -323,9 +328,10 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
     Attributes:
         bounds: Is the numeric range the indicator maps onto its extent.
         level_color: Is the color of the filled portion, the caret, and the value
-            readout border.
-        axis_color: Is the color of the axis and its ticks.
-        text_color: Is the color of the tick labels.
+            readout border, a named color or a fixed color.
+        axis_color: Is the color of the axis and its ticks, a named color or a fixed
+            color.
+        text_color: Is the color of the tick labels, a named color or a fixed color.
         units: Is the unit suffix displayed after each tick label.
         level_hidden: Hides the filled portion.
         caret_hidden: Hides the caret marking the current value.
@@ -338,9 +344,9 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
     bounds: spatial.Bounds = Field(
         default_factory=lambda: spatial.Bounds(lower=0, upper=100)
     )
-    level_color: color_.Color | None = None
-    axis_color: color_.Color | None = None
-    text_color: color_.Color | None = None
+    level_color: color__.Ref | None = None
+    axis_color: color__.Ref | None = None
+    text_color: color__.Ref | None = None
     units: str = ""
     level_hidden: bool = False
     caret_hidden: bool = False
@@ -591,8 +597,8 @@ class BoxNodeConfig(LabeledConfig):
     """Is the configuration for box annotation symbols."""
 
     variant: Literal["box"] = "box"
-    stroke_color: color_.Color | None = None
-    fill_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
+    fill_color: color__.Ref | None = None
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )
@@ -610,7 +616,7 @@ class ButtonNodeConfig(LabeledConfig):
     )
     command_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     mode: ButtonMode = "fire"
-    fill_color: color_.Color | None = None
+    fill_color: color__.Ref | None = None
     control: ControlStateConfig = Field(default_factory=lambda: ControlStateConfig())
 
 
@@ -619,8 +625,8 @@ class CircleNodeConfig(LabeledConfig):
 
     variant: Literal["circle"] = "circle"
     radius: int = Field(default=20, ge=1, le=65535)
-    stroke_color: color_.Color | None = None
-    fill_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
+    fill_color: color__.Ref | None = None
     stroke_width: int | None = Field(default=None, ge=0, le=20)
 
 
@@ -629,7 +635,7 @@ class GaugeNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
     variant: Literal["gauge"] = "gauge"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
     bounds: spatial.Bounds = Field(
         default_factory=lambda: spatial.Bounds(lower=0, upper=100)
     )
@@ -651,7 +657,7 @@ class InputNodeConfig(LabeledConfig, StalenessConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=0, height=0)
     )
-    fill_color: color_.Color | None = None
+    fill_color: color__.Ref | None = None
     disabled: bool = False
     inline_size: int = Field(default=150, ge=1, le=65535)
     on_click_delay: telem.TimeSpan = Field(
@@ -674,7 +680,7 @@ class LineNodeConfig(BaseModel):
     """Is the configuration for straight line symbols."""
 
     variant: Literal["line"] = "line"
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
     start: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
     end: spatial.XY = Field(default_factory=lambda: spatial.XY(x=100, y=0))
     stroke_width: int = Field(default=2, ge=1, le=20)
@@ -685,7 +691,7 @@ class OffPageReferenceNodeConfig(LabeledConfig):
 
     variant: Literal["off_page_reference"] = "off_page_reference"
     orientation: spatial.OuterLocation = "right"
-    fill_color: color_.Color | None = None
+    fill_color: color__.Ref | None = None
     page: Page = Field(default_factory=lambda: Page(type="schematic", key=""))
     double_click_navigation_disabled: bool = False
 
@@ -698,8 +704,8 @@ class PolygonNodeConfig(LabeledConfig):
     side_length: int = Field(default=20, ge=1, le=65535)
     rotation: float = 0
     border_radius: int = Field(default=0, ge=0, le=65535)
-    stroke_color: color_.Color | None = None
-    fill_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
+    fill_color: color__.Ref | None = None
     stroke_width: int | None = Field(default=None, ge=0, le=20)
 
 
@@ -710,7 +716,7 @@ class SelectNodeConfig(LabeledConfig, StalenessConfig):
     size: ComponentSize = "medium"
     command_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    fill_color: color_.Color | None = None
+    fill_color: color__.Ref | None = None
     inline_size: int = Field(default=100, ge=1, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
     disabled: bool = False
@@ -741,7 +747,7 @@ class SetpointNodeConfig(LabeledConfig, StalenessConfig):
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=0, height=0)
     )
-    fill_color: color_.Color | None = None
+    fill_color: color__.Ref | None = None
     units: str = ""
     disabled: bool = False
     inline_size: int = Field(default=100, ge=1, le=65535)
@@ -756,7 +762,7 @@ class StateIndicatorNodeConfig(LabeledConfig, StalenessConfig):
 
     variant: Literal["state_indicator"] = "state_indicator"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    stroke_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
     inline_size: int = Field(default=100, ge=1, le=65535)
     options: list[StateMapping] = Field(default_factory=list)
     size: ComponentSize = "medium"
@@ -766,8 +772,8 @@ class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):
     """Is the configuration for live string display symbols."""
 
     variant: Literal["string_display"] = "string_display"
-    stroke_color: color_.Color | None = None
-    text_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
+    text_color: color__.Ref | None = None
     tooltip: list[str] = Field(default_factory=list)
     inline_size: int = Field(default=100, ge=1, le=65535)
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -782,7 +788,7 @@ class TextBoxNodeConfig(LabeledConfig):
     """Is the configuration for text box annotation symbols."""
 
     variant: Literal["text_box"] = "text_box"
-    text_color: color_.Color | None = None
+    text_color: color__.Ref | None = None
     inline_size: int = Field(default=75, ge=1, le=65535)
     align: FlexAlignment = "center"
     auto_fit_disabled: bool = False
@@ -795,9 +801,9 @@ class ValueNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
 
     variant: Literal["value"] = "value"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    stroke_color: color_.Color | None = None
-    text_color: color_.Color | None = None
-    fill_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
+    text_color: color__.Ref | None = None
+    fill_color: color__.Ref | None = None
     tooltip: list[str] = Field(default_factory=list)
     redline: color_.Scale = Field(default_factory=lambda: color_.Scale())
     units: str = ""
@@ -1047,8 +1053,8 @@ class CylinderNodeConfig(LabeledConfig, ScaledConfig):
         default_factory=lambda: spatial.Dimensions(width=66, height=181)
     )
     border_radius: border.Radius | None = None
-    stroke_color: color_.Color | None = None
-    fill_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
+    fill_color: color__.Ref | None = None
 
 
 class TankNodeConfig(LabeledConfig):
@@ -1066,16 +1072,16 @@ class TankNodeConfig(LabeledConfig):
     bounds: spatial.Bounds = Field(
         default_factory=lambda: spatial.Bounds(lower=0, upper=100)
     )
-    level_color: color_.Color | None = None
-    axis_color: color_.Color | None = None
-    text_color: color_.Color | None = None
+    level_color: color__.Ref | None = None
+    axis_color: color__.Ref | None = None
+    text_color: color__.Ref | None = None
     units: str = ""
     level_hidden: bool = False
     caret_side: spatial.OuterLocation = "right"
     level: text.Level = "small"
     position: spatial.XY = Field(default_factory=lambda: spatial.XY(x=0, y=0))
-    stroke_color: color_.Color | None = None
-    fill_color: color_.Color | None = None
+    stroke_color: color__.Ref | None = None
+    fill_color: color__.Ref | None = None
     dimensions: spatial.Dimensions = Field(
         default_factory=lambda: spatial.Dimensions(width=125, height=200)
     )

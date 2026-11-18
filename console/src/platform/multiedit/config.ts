@@ -8,8 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
+import { color as xcolor, type record } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { fixedRef } from "@/platform/multiedit/fixed";
+
+const objectShape = (variant: string, schema: z.ZodType): z.ZodRawShape => {
+  if (!(schema instanceof z.ZodObject))
+    throw new Error(`[multiedit] - schema for ${variant} is not an object`);
+  return schema.shape;
+};
 
 /**
  * Maps each variant to the top-level fields its schema declares, so an element "has" a
@@ -21,11 +29,34 @@ export const fieldsByVariant = (
   schemas: Record<string, z.ZodType>,
 ): Map<string, Set<string>> =>
   new Map(
-    Object.entries(schemas).map(([variant, schema]) => {
-      if (!(schema instanceof z.ZodObject))
-        throw new Error(`[multiedit] - schema for ${variant} is not an object`);
-      return [variant, new Set(Object.keys(schema.shape))];
-    }),
+    Object.entries(schemas).map(([variant, schema]) => [
+      variant,
+      new Set(Object.keys(objectShape(variant, schema))),
+    ]),
+  );
+
+const storesColorValue = (field: z.core.SomeType): boolean =>
+  field === xcolor.colorZ ||
+  (field instanceof z.ZodOptional && field.unwrap() === xcolor.colorZ);
+
+/**
+ * Maps each variant to the top-level fields that store a color value instead of a
+ * color reference. A named color cannot go in one.
+ *
+ * @throws if a schema is not a Zod object.
+ */
+export const valueColorFieldsByVariant = (
+  schemas: Record<string, z.ZodType>,
+): Map<string, Set<string>> =>
+  new Map(
+    Object.entries(schemas).map(([variant, schema]) => [
+      variant,
+      new Set(
+        Object.entries(objectShape(variant, schema))
+          .filter(([, field]) => storesColorValue(field))
+          .map(([name]) => name),
+      ),
+    ]),
   );
 
 /** A color reference stored at a path in one element's config. */
@@ -33,19 +64,28 @@ export interface ColorRef {
   key: string;
   path: string;
   value: color.Ref;
+  /** True if the path stores the color as a value, so it cannot hold a named color. */
+  valueOnly?: boolean;
 }
 
 /**
  * @returns the color references stored at the given top-level fields of the config.
- * @throws if a field holds a value that is not a color reference.
+ * Each field in valueFields stores a color value, which the result holds as a fixed
+ * reference.
+ * @throws if a field holds a value of the wrong kind.
  */
 export const colorRefs = (
   key: string,
   config: record.Unknown,
   fields: readonly string[],
+  valueFields: ReadonlySet<string> = new Set(),
 ): ColorRef[] =>
-  fields.flatMap((path) => {
+  fields.flatMap((path): ColorRef[] => {
     const value = config[path];
     if (value == null) return [];
+    if (valueFields.has(path))
+      return [
+        { key, path, value: fixedRef(xcolor.colorZ.parse(value)), valueOnly: true },
+      ];
     return [{ key, path, value: color.refZ.parse(value) }];
   });

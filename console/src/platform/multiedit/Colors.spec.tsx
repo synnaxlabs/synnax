@@ -151,6 +151,23 @@ describe("SelectionColors", () => {
     await waitFor(() => expect(swatchesIn("Selection")).toHaveLength(2));
   });
 
+  it("should hide the palettes of a group that holds a color value", async () => {
+    await createInPalette();
+    render(
+      <MultiEdit.SelectionColors
+        refs={[
+          { key: "a", path: "fillColor", value: fixed(GREEN) },
+          { key: "b", path: "strokeColor", value: fixed(GREEN), valueOnly: true },
+        ]}
+        onChange={vi.fn()}
+      />,
+      { wrapper },
+    );
+    fireEvent.click(swatchesIn("Selection")[0]);
+    await screen.findByLabelText("Hex");
+    expect(screen.queryByText("Library")).toBeNull();
+  });
+
   it("should recolor every holder of a group with a named reference", async () => {
     const c = await createInPalette();
     const onChange = vi.fn();

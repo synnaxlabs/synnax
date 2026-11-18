@@ -12,6 +12,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -99,6 +100,7 @@ export const Polygon = ({
   borderRadius,
   strokeWidth = Border.DEFAULT_STROKE_WIDTH,
 }: RenderProps): ReactElement => {
+  const resolve = Color.useResolve();
   const theme = Theming.use();
   const padding = 2 * (strokeWidth + 1);
   const vertices = calculatePolygonVertices(numSides, sideLength, rotation, padding);
@@ -108,11 +110,11 @@ export const Polygon = ({
     <Primitive.Div className={CSS.cls(className, CSS.B("polygon"))}>
       <Primitive.SVG
         dimensions={{ width: size, height: size }}
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
       >
         <Primitive.Path
           d={path}
-          fill={color.cssString(fillColor ?? fillFallback(theme))}
+          fill={color.cssString(resolve(fillColor) ?? fillFallback(theme))}
           strokeWidth={strokeWidth}
         />
       </Primitive.SVG>

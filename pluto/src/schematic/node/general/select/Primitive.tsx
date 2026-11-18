@@ -17,6 +17,7 @@ import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
 import { color, TimeSpan } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -58,9 +59,10 @@ export const Select = ({
   inlineSize,
   onClickDelay,
 }: RenderProps): ReactElement => {
+  const resolve = Color.useResolve();
   const draft = Primitive.useDraft(value);
   const matched = options.find((o) => o.key === draft.value);
-  const symbolColor = color.rgbaString(fillColor);
+  const symbolColor = color.rgbaString(resolve(fillColor));
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
     [Primitive.SYMBOL_FIELD_WIDTH]: inlineSize && `${inlineSize}px`,

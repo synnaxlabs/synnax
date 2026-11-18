@@ -60,12 +60,13 @@ const Fill = ({ nodeKey, position, config }: FillProps): null => {
     dimensions: dims = Border.DEFAULT_DIMENSIONS,
   } = config;
   const telem = Scale.source({ channel, rollingAverage });
+  const vis = Scale.useVisProps({
+    ...config,
+    caretHidden: !caretVisible,
+    scaleHidden: !scaleVisible,
+  });
   VisScale.use({
-    ...Scale.visProps({
-      ...config,
-      caretHidden: !caretVisible,
-      scaleHidden: !scaleVisible,
-    }),
+    ...vis,
     telem,
     aetherKey: nodeKey,
     box: box.construct(xy.translate(position ?? xy.ZERO, OVERLAP), {

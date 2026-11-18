@@ -19,8 +19,10 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp/migrate"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v12 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v12"
 	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
+	colorv1 "github.com/synnaxlabs/x/color/versions/v1"
 	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -30,7 +32,9 @@ import (
 
 // MigrateSchematic lifts a v12 schematic to v13. Every color alpha becomes a 0-255
 // byte, and a zero color in a field that v12 read as "the theme picks the color"
-// becomes absent. Each entry of the configs map moves onto the node or edge it
+// becomes absent. Each stroke, fill, text, level, and axis color of an edge, shape, or
+// readout becomes a fixed color. Each entry of the configs map moves onto the node or
+// edge it
 // configures, and each member of a group box gets the group box as its parent. A node
 // with no node config draws nothing, so it is dropped, and so is an edge whose source
 // or target is dropped. An edge with no edge config gets the default pipe, which the
@@ -195,12 +199,7 @@ func convert[Other, C any](
 // "the theme picks the color".
 var themeColors = map[reflect.Type][]string{
 	reflect.TypeFor[StalenessConfig](): {"StalenessColor"},
-	reflect.TypeFor[TankNodeConfig](): {
-		"StalenessColor", "LevelColor", "AxisColor", "TextColor",
-	},
-	reflect.TypeFor[ScaleIndicatorConfig](): {"LevelColor", "AxisColor", "TextColor"},
-	reflect.TypeFor[ValueNodeConfig]():      {"TextColor"},
-	reflect.TypeFor[GaugeNodeConfig]():      {"StrokeColor"},
+	reflect.TypeFor[TankNodeConfig]():  {"StalenessColor"},
 }
 
 // clearThemeColors sets each color under v that themeColors names and that holds the
@@ -267,6 +266,12 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n := as[BoxNodeConfig](cfg.Variant)
 		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
 		n.BorderRadius = migrateOptionalPixels(o.BorderRadius)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.ButtonNodeConfig:
 		n := as[ButtonNodeConfig](cfg.Variant)
@@ -274,6 +279,11 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n.Control = migrateControl(o.Control)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
 		n.Label.MaxInlineSize = migrateButtonMaxInlineSize(o.Label.MaxInlineSize)
+		if err = migrateColors(ctx,
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.InputNodeConfig:
 		n := as[InputNodeConfig](cfg.Variant)
@@ -283,6 +293,11 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n.Control = migrateControl(o.Control)
 		n.InlineSize = migrateSize(o.InlineSize, 150)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
+		if err = migrateColors(ctx,
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.SelectNodeConfig:
 		n := as[SelectNodeConfig](cfg.Variant)
@@ -291,6 +306,11 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n.Control = migrateControl(o.Control)
 		n.InlineSize = migrateSize(o.InlineSize, 100)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
+		if err = migrateColors(ctx,
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.SetpointNodeConfig:
 		n := as[SetpointNodeConfig](cfg.Variant)
@@ -300,20 +320,41 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n.Control = migrateControl(o.Control)
 		n.InlineSize = migrateSize(o.InlineSize, 100)
 		n.OnClickDelay = migrateOnClickDelay(o.OnClickDelay)
+		if err = migrateColors(ctx,
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.StateIndicatorNodeConfig:
 		n := as[StateIndicatorNodeConfig](cfg.Variant)
 		n.Channel = valueOr(o.Channel, 0)
 		n.InlineSize = migrateSize(o.InlineSize, 100)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.CircleNodeConfig:
 		n := as[CircleNodeConfig](cfg.Variant)
 		n.StrokeWidth = migrateShapeStrokeWidth(o.StrokeWidth)
 		n.Radius = migrateSize(o.Radius, 20)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.LineNodeConfig:
 		n := as[LineNodeConfig](cfg.Variant)
 		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.PolygonNodeConfig:
 		n := as[PolygonNodeConfig](cfg.Variant)
@@ -321,6 +362,12 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n.NumSides = migrateNumSides(o.NumSides)
 		n.SideLength = migrateSize(o.SideLength, 20)
 		n.BorderRadius = migratePixels(o.CornerRounding, 0)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.TankNodeConfig:
 		// A tank declares its numeric and staleness fields inline, so the generated
@@ -331,6 +378,15 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n.BorderRadius = &o.BorderRadius
 		n.RollingAverage = migrateRollingAverage(o.RollingAverage)
 		n.StalenessTimeout = migrateStalenessTimeout(o.StalenessTimeout)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.FillColor, o.FillColor),
+			fixed(&n.LevelColor, o.LevelColor, true),
+			fixed(&n.AxisColor, o.AxisColor, true),
+			fixed(&n.TextColor, o.TextColor, true),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.LightNodeConfig:
 		n := as[LightNodeConfig](cfg.Variant)
@@ -344,25 +400,62 @@ func MigrateNodeConfig(ctx context.Context, old v12.NodeConfig) (NodeConfig, err
 		n := as[GaugeNodeConfig](cfg.Variant)
 		n.Position = valueOr(o.Position, spatial.XY{})
 		n.BarWidth = migrateSize(o.BarWidth, 10)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor, true),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.OffPageReferenceNodeConfig:
 		n := as[OffPageReferenceNodeConfig](cfg.Variant)
 		n.DoubleClickNavigationDisabled = o.DblClickNavDisabled
 		n.Page = valueOr(o.Page, Page{Type: PageTypeSchematic})
+		if err = migrateColors(ctx,
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.StringDisplayNodeConfig:
 		n := as[StringDisplayNodeConfig](cfg.Variant)
 		n.Channel = valueOr(o.Channel, 0)
 		n.InlineSize = migrateSize(o.InlineSize, 100)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.TextColor, o.TextColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.TextBoxNodeConfig:
 		n := as[TextBoxNodeConfig](cfg.Variant)
 		n.InlineSize = migrateSize(o.Width, 75)
+		if err = migrateColors(ctx,
+			fixed(&n.TextColor, o.TextColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
+		cfg.Variant = n
+	case v12.CylinderNodeConfig:
+		n := as[CylinderNodeConfig](cfg.Variant)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	case v12.ValueNodeConfig:
 		n := as[ValueNodeConfig](cfg.Variant)
 		n.Position = valueOr(o.Position, spatial.XY{})
 		n.InlineSize = migrateSize(o.InlineSize, 70)
+		if err = migrateColors(ctx,
+			fixed(&n.StrokeColor, o.StrokeColor),
+			fixed(&n.TextColor, o.TextColor, true),
+			fixed(&n.FillColor, o.FillColor),
+		); err != nil {
+			return NodeConfig{}, err
+		}
 		cfg.Variant = n
 	}
 	clearThemeColors(reflect.ValueOf(&cfg).Elem())
@@ -550,12 +643,24 @@ func MigrateStateMapping(
 	return autoMigrateStateMapping(ctx, old)
 }
 
-// MigrateScaleIndicatorConfig lifts a v12 scale indicator config to v13.
+// MigrateScaleIndicatorConfig lifts a v12 scale indicator config to v13. Each color
+// becomes a fixed color, and a zero color becomes absent.
 func MigrateScaleIndicatorConfig(
 	ctx context.Context,
 	old v12.ScaleIndicatorConfig,
 ) (ScaleIndicatorConfig, error) {
-	return autoMigrateScaleIndicatorConfig(ctx, old)
+	cfg, err := autoMigrateScaleIndicatorConfig(ctx, old)
+	if err != nil {
+		return ScaleIndicatorConfig{}, err
+	}
+	if err = migrateColors(ctx,
+		fixed(&cfg.LevelColor, old.LevelColor, true),
+		fixed(&cfg.AxisColor, old.AxisColor, true),
+		fixed(&cfg.TextColor, old.TextColor, true),
+	); err != nil {
+		return ScaleIndicatorConfig{}, err
+	}
+	return cfg, nil
 }
 
 // MigrateDummyToggleSymbolConfig lifts a v12 dummy toggle symbol config to v13.
@@ -640,7 +745,44 @@ func MigrateSegmentedEdgeConfig(
 		return SegmentedEdgeConfig{}, err
 	}
 	cfg.StrokeWidth = defaultStrokeWidth
+	if err = migrateColors(ctx, fixed(&cfg.StrokeColor, old.StrokeColor)); err != nil {
+		return SegmentedEdgeConfig{}, err
+	}
 	return cfg, nil
+}
+
+// colorField pairs a v13 color reference with the v12 color it migrates from.
+type colorField struct {
+	dst    **servicecolor.Ref
+	src    *colorv1.Color
+	themed bool
+}
+
+// fixed pairs dst with src. A themed field whose color migrates to the zero color,
+// which v12 read as "the theme picks the color", becomes absent.
+func fixed(dst **servicecolor.Ref, src *colorv1.Color, themed ...bool) colorField {
+	return colorField{dst: dst, src: src, themed: len(themed) > 0 && themed[0]}
+}
+
+// migrateColors sets each field to a fixed color with a 0-255 alpha byte. An absent
+// color stays absent.
+func migrateColors(ctx context.Context, fields ...colorField) error {
+	for _, f := range fields {
+		if f.src == nil {
+			*f.dst = nil
+			continue
+		}
+		c, err := color.MigrateColor(ctx, *f.src)
+		if err != nil {
+			return err
+		}
+		if f.themed && c == (color.Color{}) {
+			*f.dst = nil
+			continue
+		}
+		*f.dst = &servicecolor.Ref{Variant: servicecolor.FixedRef{Value: c}}
+	}
+	return nil
 }
 
 // as returns a migrated variant as a T. It panics when v is not a T, since a generated

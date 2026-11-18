@@ -19,6 +19,7 @@ import {
   type Ref,
 } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -46,7 +47,8 @@ export const StringDisplay = ({
   contentRef,
   children,
 }: RenderProps): ReactElement => {
-  const symbolColor = color.rgbaString(strokeColor);
+  const resolve = Color.useResolve();
+  const symbolColor = color.rgbaString(resolve(strokeColor));
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
     width: inlineSize,

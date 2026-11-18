@@ -16,6 +16,7 @@ import { Input as BaseInput } from "@synnaxlabs/lyra/input";
 import { color, TimeSpan } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -44,10 +45,11 @@ export const Input = ({
   onClickDelay,
   inlineSize,
 }: PrimitiveProps): ReactElement => {
+  const resolve = Color.useResolve();
   // The field shows a missing value as empty, so the two compare equal.
   const draft = Primitive.useDraft(value ?? "");
   const shown = draft.value ?? "";
-  const symbolColor = color.rgbaString(fillColor);
+  const symbolColor = color.rgbaString(resolve(fillColor));
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
     [Primitive.SYMBOL_FIELD_WIDTH]: inlineSize && `${inlineSize}px`,

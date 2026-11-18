@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/color"
@@ -106,8 +107,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sch.Edges).To(HaveLen(1))
 		pipe, ok := sch.Edges[0].Config.Variant.(versions.PipeEdgeConfig)
 		Expect(ok).To(BeTrue())
-		Expect(pipe.StrokeColor).
-			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
+		Expect(pipe.StrokeColor).To(HaveValue(Equal(servicecolor.Ref{
+			Variant: servicecolor.FixedRef{Value: MustSucceed(color.Parse("#ff0000"))},
+		})))
 	})
 
 	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {

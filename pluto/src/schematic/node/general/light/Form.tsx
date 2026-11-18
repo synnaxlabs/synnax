@@ -74,8 +74,8 @@ const StyleForm = (): ReactElement => {
         <Label.Form path={path.label} />
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path={path.strokeColor} label="Stroke" />
-        <Form.ColorField
+        <Form.ColorValueField path={path.strokeColor} label="Stroke" />
+        <Form.ColorValueField
           path={path.onColor}
           label="On"
           fallback={(theme) => strokeColor ?? Form.defaultFallback(theme)}
