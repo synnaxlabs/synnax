@@ -1252,8 +1252,6 @@ Size.MB_UNITS = "mb"
 Size.GB = Size(1024) * Size.MB
 Size.GB_UNITS = "gb"
 
-_SizeUnits = ["gb", "mb", "kb", "b"]
-
 
 class DataType(str):
     """DataType represents a data type as a string."""

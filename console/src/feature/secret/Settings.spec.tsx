@@ -280,8 +280,9 @@ describe("Secret.Secrets", () => {
     const s = await createSecret(client, createdSecrets);
     await renderSecrets();
     await openContextMenu(s.name);
+    const usedBy = await screen.findByRole("menuitem", { name: "Used by" });
     await act(async () => {
-      fireEvent.click(await screen.findByRole("menuitem", { name: "Used by" }));
+      fireEvent.click(usedBy);
     });
     const dialog = await screen.findByRole("dialog");
     await within(dialog).findByText("Nothing uses this secret.");

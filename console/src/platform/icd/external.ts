@@ -8,9 +8,13 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/icd/Bindings";
+export * from "@/platform/icd/configure";
 export * from "@/platform/icd/dataType";
 export * from "@/platform/icd/Details";
+export * from "@/platform/icd/fieldNames";
 export * from "@/platform/icd/Fields";
 export * from "@/platform/icd/Formats";
 export * from "@/platform/icd/Match";
+export * from "@/platform/icd/picker";
 export * from "@/platform/icd/read";
+export * from "@/platform/icd/tree";

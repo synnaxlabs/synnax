@@ -122,3 +122,33 @@ var _ = Describe("Migrate", func() {
 		Expect(got.Channels[1].Color).To(BeNil())
 	})
 })
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v5.Log) v5.Log {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v5.Key, v5.Log]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Log",
+			Migrations: []gorp.Migration{v5.NameMigration},
+		})).To(Succeed())
+		var out v5.Log
+		Expect(gorp.NewRetrieve[v5.Key, v5.Log]().
+			Where(gorp.MatchKeys[v5.Key, v5.Log](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless logs",
+		func(ctx SpecContext, name, expected string) {
+			Expect(migrated(ctx, v5.Log{Key: key, Name: name}).Name).
+				To(Equal(expected))
+		},
+		Entry("empty name", "", "Log 1a2b3c4d"),
+		Entry("named log", "Named", "Named"),
+	)
+})

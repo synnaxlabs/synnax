@@ -9,6 +9,7 @@
 
 import json
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -446,6 +447,31 @@ class TestMain:
         gh.threads = [thread("T1", comment(2, REBUTTAL))]
         main(["dismiss"])
         assert capsys.readouterr().out == "true\n"
+
+    def test_should_write_the_start_of_a_rejected_token_and_fail(
+        self,
+        gh: FakeGH,
+        env: dict[str, str],
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        gh.threads = [thread("T1", comment(2, REBUTTAL))]
+        stream = [
+            {"type": "assistant", "error": "authentication_failed"},
+            {"type": "result", "is_error": True, "subtype": "success"},
+        ]
+        monkeypatch.setattr(
+            "review.__main__.claude",
+            lambda args, stdin, cwd: iter(json.dumps(m) for m in stream),
+        )
+        before = int(time.time())
+        with pytest.raises(ExceptionGroup, match="could not be judged"):
+            main(["judge", str(tmp_path / "judgments.json")])
+        name, at = output.read_text().strip().split("=")
+        assert name == "login-broken"
+        assert before <= int(at) <= int(time.time())
 
     def test_should_write_the_judgments_that_succeeded_and_then_fail(
         self,

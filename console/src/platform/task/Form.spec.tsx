@@ -166,6 +166,32 @@ describe("wrapForm", () => {
     ).toBeNull();
   });
 
+  it("should save an edit once its nested forms send theirs", async () => {
+    const client = createTestClient();
+    const tsk = await createTask(client);
+    const gate = Promise.withResolvers<void>();
+    const flush = vi.fn(async () => {
+      await gate.promise;
+      return true;
+    });
+    const NestedForm: FC = () => {
+      Task.useFlushFirst(flush);
+      return null;
+    };
+    await renderTaskFormTab(createRenderer({ Form: NestedForm }), {
+      client,
+      taskKey: tsk.key,
+    });
+    const input = await waitFor(findNameInput);
+    await act(async () => commitFieldInput(input, "Renamed Test Task"));
+    await waitFor(() => expect(flush).toHaveBeenCalled());
+    // The form's client caches the edit before it sends, so another client reads.
+    const stored = async () => (await createTestClient().tasks.retrieve(tsk.key)).name;
+    expect(await stored()).toBe(tsk.name);
+    gate.resolve();
+    await waitFor(async () => expect(await stored()).toBe("Renamed Test Task"));
+  });
+
   describe("rack", () => {
     it("should load it from the retrieved task", async () => {
       const client = createTestClient();
@@ -405,7 +431,7 @@ describe("wrapForm", () => {
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const order: string[] = [];
       const NestedForm: FC = () => {
-        Task.useFlushBeforeDeploy(async () => {
+        Task.useFlushFirst(async () => {
           order.push("flush");
           return true;
         });
@@ -424,7 +450,8 @@ describe("wrapForm", () => {
         taskKey: draft.key,
       });
       await clickDeploy(container);
-      await waitFor(() => expect(order).toEqual(["flush", "configure"]));
+      // Writing the configured task flushes the nested form again.
+      await waitFor(() => expect(order.slice(0, 2)).toEqual(["flush", "configure"]));
     });
 
     it("should not deploy while a nested form holds an unsent edit", async () => {
@@ -432,7 +459,7 @@ describe("wrapForm", () => {
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
       const flush = vi.fn(async () => false);
       const NestedForm: FC = () => {
-        Task.useFlushBeforeDeploy(flush);
+        Task.useFlushFirst(flush);
         return null;
       };
       const onConfigure = vi.fn<Task.OnConfigure<(typeof schemas)["config"]>>(

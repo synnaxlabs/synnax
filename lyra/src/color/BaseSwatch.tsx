@@ -29,6 +29,8 @@ const createHaulItem = (key: string): HaulItem => ({
   key,
 });
 
+const FACTS = ["Color"];
+
 const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
   items.filter((item): item is HaulItem => item.type === HAUL_TYPE);
 
@@ -76,7 +78,15 @@ export const BaseSwatch = ({
       square
       disabled={disabled}
       draggable={draggable}
-      onDragStart={() => startDrag([createHaulItem(hex)])}
+      onDragStart={(event) =>
+        startDrag({
+          event,
+          items: [createHaulItem(hex)],
+          preview: (
+            <Haul.Preview swatch={color.cssString(value)} name={hex} facts={FACTS} />
+          ),
+        })
+      }
       style={{
         ...style,
         [COLOR_VAR]: color.cssString(value),

@@ -293,7 +293,7 @@ JSONMatch union on type extends JSONBaseMatch {
     @go marshal
 }
 
-Payload union on format {
+Payload union on format payload.Format {
     binary {
         length     uint16?       {
             @doc value """
