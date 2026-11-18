@@ -15,8 +15,11 @@
 #include <thread>
 
 #include "absl/log/log.h"
+#include <fcntl.h>
+#include <pwd.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "x/cpp/env/env.h"
 
@@ -212,18 +215,23 @@ x::errors::Error setup_pid_file() {
     if (system(chown_dir_cmd.c_str()) != 0)
         return x::errors::Error("failed to change owner of PID directory");
 
-    if (!fs::exists(pid_file)) {
-        std::ofstream pid_file_stream(pid_file);
-        if (!pid_file_stream)
-            return x::errors::Error("failed to create PID file: " + pid_file);
-        pid_file_stream.close();
-        LOG(INFO) << "PID file created";
+    // An older installer left the directory world-writable, so the entry may be a
+    // planted link. Replace anything but a regular file with one name, and never
+    // follow a link.
+    int fd = open(pid_file.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_NONBLOCK, 0644);
+    struct stat st{};
+    if (fd < 0 || fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_nlink != 1) {
+        if (fd >= 0) close(fd);
+        fs::remove(pid_file, ec);
+        if (ec) return x::errors::Error("failed to remove PID file: " + ec.message());
+        fd = open(pid_file.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0644);
+        if (fd < 0) return x::errors::Error("failed to create PID file: " + pid_file);
     }
-    if (chmod(pid_file.c_str(), 0644) != 0)
-        return x::errors::Error("failed to set PID file permissions");
-    std::string chown_file_cmd = "chown synnax:synnax " + pid_file;
-    if (system(chown_file_cmd.c_str()) != 0)
-        return x::errors::Error("failed to change owner of PID file");
+    const passwd *user = getpwnam("synnax");
+    const bool failed = user == nullptr || fchmod(fd, 0644) != 0 ||
+                        fchown(fd, user->pw_uid, user->pw_gid) != 0;
+    close(fd);
+    if (failed) return x::errors::Error("failed to set PID file permissions");
     LOG(INFO) << "PID directory and file permissions set";
 
     return x::errors::NIL;
