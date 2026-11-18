@@ -625,6 +625,30 @@ describe("Picker", () => {
         expect(picker?.classList.contains(viewing)).toBe(false);
       });
 
+      it("should return the focus to the action of a hovered color after Back", () => {
+        const EditOpener = (): ReactElement | null => {
+          const { shown } = Color.usePalette();
+          const { openView } = Color.usePicker();
+          if (shown == null) return null;
+          return (
+            <button onClick={() => openView("Edit color", <span>view body</span>)}>
+              {`edit ${shown.name}`}
+            </button>
+          );
+        };
+        const c = renderSlots(
+          { named: "ocean", swatchActions: <EditOpener /> },
+          { value: "#3e8bff" },
+        );
+        fireEvent.pointerEnter(c.getByLabelText("Alarm"));
+        const edit = c.getByText("edit Alarm");
+        edit.focus();
+        fireEvent.click(edit);
+        fireEvent.pointerLeave(c.getByRole("group", { name: "Status" }));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(document.activeElement).toBe(c.getByText("edit Alarm"));
+      });
+
       it("should focus Back in a view, then the opener after Back", () => {
         const c = renderSlots(
           { named: "ocean", footer: <ViewOpener /> },

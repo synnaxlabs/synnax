@@ -160,10 +160,12 @@ const Tabbed = ({
 }: TabbedProps): ReactElement => {
   const handleChange = useChangeHandler(onChange);
   const [view, setView] = useState<View | null>(null);
+  const root = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (view != null) return;
-    opener.current?.focus();
+    if (view != null || opener.current == null) return;
+    if (opener.current.isConnected) opener.current.focus();
+    else root.current?.focus();
     opener.current = null;
   }, [view]);
   const frequent = useFrequent();
@@ -193,6 +195,8 @@ const Tabbed = ({
           className,
         )}
         background={1}
+        ref={root}
+        tabIndex={-1}
         {...rest}
       >
         {view != null && (
@@ -278,6 +282,7 @@ const Tabbed = ({
             <Palettes
               palettes={palettes}
               search={search}
+              viewing={view != null}
               linked={linked?.key}
               onPick={onNamedChange}
               paletteEnd={paletteEnd}
@@ -365,12 +370,14 @@ interface PaletteSectionProps extends Pick<Library, "paletteEnd" | "swatchAction
   colors: Named[];
   linked?: string;
   onPick: (key: string) => void;
+  /** If true, a view hides the palette, and the hovered color stays. */
+  viewing: boolean;
 }
 
 /**
  * A palette under its title, which names the hovered color, else the linked one. The
- * hovered color stays until the pointer leaves the palette, so the pointer can reach
- * the actions after its name.
+ * hovered color stays until the pointer or the focus leaves the palette, so the actions
+ * after its name stay in reach. It also stays under a view, so Back finds its actions.
  */
 const PaletteSection = ({
   palette,
@@ -379,9 +386,13 @@ const PaletteSection = ({
   onPick,
   paletteEnd,
   swatchActions,
+  viewing,
 }: PaletteSectionProps): ReactElement => {
   const t = Theming.use();
   const [hovered, setHovered] = useState<string>();
+  const leave = (): void => {
+    if (!viewing) setHovered(undefined);
+  };
   const shown =
     colors.find((c) => c.key === hovered) ?? colors.find((c) => c.key === linked);
   return (
@@ -392,9 +403,9 @@ const PaletteSection = ({
         actions={shown == null ? undefined : swatchActions}
         role="group"
         aria-label={palette.name}
-        onPointerLeave={() => setHovered(undefined)}
+        onPointerLeave={leave}
         onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) setHovered(undefined);
+          if (!e.currentTarget.contains(e.relatedTarget)) leave();
         }}
       >
         {colors.map((c) => (
@@ -425,6 +436,7 @@ interface PalettesProps extends Pick<
   /** The key of the named color that the value follows. */
   linked?: string;
   onPick: (key: string) => void;
+  viewing: boolean;
 }
 
 /** The palettes, filtered by color name, palette name, or the hex a swatch shows. */
@@ -436,6 +448,7 @@ const Palettes = ({
   paletteEnd,
   swatchActions,
   footer,
+  viewing,
 }: PalettesProps): ReactElement => {
   const t = Theming.use();
   const term = search.trim().toLowerCase();
@@ -468,6 +481,7 @@ const Palettes = ({
           colors={colors}
           linked={linked}
           onPick={onPick}
+          viewing={viewing}
           paletteEnd={paletteEnd}
           swatchActions={swatchActions}
         />
