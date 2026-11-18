@@ -209,16 +209,15 @@ def check_run(
     *,
     slug: str = "sedosaur",
     started: str = NOON,
-    status: str = "completed",
 ) -> dict[str, Any]:
-    """A check run of a Sedosaur review run, with its record if it kept one."""
+    """A check run of a Sedosaur review run, with its record if it kept one, and the
+    slug of the App whose check suite holds it."""
     text = render.RULES if rec is None else f"{render.RULES}\n\n{render.record(rec)}"
     return {
-        "app": {"slug": slug},
-        "details_url": f"https://github.com/{REPO}/actions/runs/{run}",
-        "started_at": started,
-        "status": status,
-        "output": {"text": text},
+        "slug": slug,
+        "detailsUrl": f"https://github.com/{REPO}/actions/runs/{run}",
+        "startedAt": started,
+        "text": text,
     }
 
 
@@ -254,8 +253,8 @@ class FakeGH:
         """The revisions of the body of each pull request but 7, whose are edits."""
         self.checks: dict[str, list[dict[str, Any]]] = {}
         """The check runs of each commit."""
-        self.reads: list[str] = []
-        """The commits whose check runs the comparison read."""
+        self.reads: list[list[str]] = []
+        """The commits whose check runs each query for records read."""
 
     def review(
         self, run: int, rec: dict[str, Any], *, pr: int = 7, kept: bool = True
@@ -276,6 +275,13 @@ class FakeGH:
             pr = int(next(a[2:] for a in args if a.startswith("p=")))
             nodes = self.body(pr) if "userContentEdits" in query else self.threads
             return "".join(f"{json.dumps(n)}\n" for n in nodes)
+        if args[:2] == ("api", "graphql") and "checkSuites" in args[3]:
+            assert f"app={compare.SEDOSAUR_APP}" in args
+            objects = re.findall(r'(c\d+): object\(oid: "(\w+)"\)', args[3])
+            self.reads.append([c for _, c in objects])
+            return json.dumps(
+                {"data": {"repository": {a: self.commit(c) for a, c in objects}}}
+            )
         if args[:2] == ("api", "graphql"):
             cursor = next((a[10:] for a in args if a.startswith("endCursor=")), None)
             self.cursors.append(cursor)
@@ -289,27 +295,24 @@ class FakeGH:
                 "nodes": pages[i],
             }
             return json.dumps({"data": {"repository": {"pullRequests": page}}})
-        if m := re.fullmatch(
-            rf"repos/{REPO}/commits/(\w+)/check-runs"
-            r"\?check_name=Sedosaur%20Review&filter=all&per_page=100",
-            args[1],
-        ):
-            self.reads.append(m[1])
-            return "".join(f"{json.dumps(r)}\n" for r in self.checks.get(m[1], []))
         raise AssertionError(f"unexpected gh call: {args}")
+
+    def commit(self, sha: str) -> dict[str, Any]:
+        """Serves a commit with a check suite for each App of its check runs."""
+        suites: dict[str, list[dict[str, Any]]] = {}
+        for r in self.checks.get(sha, []):
+            suites.setdefault(r["slug"], []).append(r)
+        nodes = [
+            {"app": {"slug": s}, "checkRuns": {"nodes": rs}} for s, rs in suites.items()
+        ]
+        return {"checkSuites": {"nodes": nodes}}
 
 
 def pairs(gh: FakeGH, repo: Repo, recs: list[dict[str, Any]]) -> list[compare.Pair]:
     """Pairs records that runs 1, 2, and so on kept, oldest first."""
     for run, rec in enumerate(recs, 1):
         gh.review(run, rec)
-    return compare.pairs(gh, repo.git, REPO, SINCE, cache(repo))
-
-
-def cache(repo: Repo) -> Path:
-    path = repo.clone.parent / "records"
-    path.mkdir(exist_ok=True)
-    return path
+    return compare.pairs(gh, repo.git, REPO, SINCE)
 
 
 def t(**kw: Any) -> compare.Thread:
@@ -498,72 +501,60 @@ class TestSedosaurReviews:
         assert compare.sedosaur_reviews(edits, REPO, SINCE) == {}
 
 
-class TestRecord:
-    """Tests reading the record of a Sedosaur review from its check run."""
+class TestRecords:
+    """Tests reading the records of Sedosaur reviews from their check runs."""
 
-    def test_should_read_the_record_of_the_run(self, tmp_path: Path) -> None:
+    def test_should_read_the_record_of_the_run(self) -> None:
         gh = FakeGH()
         gh.checks[HEAD] = [
             check_run(1, record(HEAD, score=2)),
             check_run(2, record(HEAD)),
             check_run(2, record(HEAD, score=3), slug="other"),
         ]
-        assert compare.record(gh, REPO, HEAD, 2, tmp_path) == record(HEAD)
+        assert compare.records(gh, REPO, [(HEAD, 2)]) == {(HEAD, 2): record(HEAD)}
 
-    def test_should_take_the_newest_check_run_that_holds_a_record(
-        self, tmp_path: Path
-    ) -> None:
+    def test_should_take_the_newest_check_run_that_holds_a_record(self) -> None:
         gh = FakeGH()
         gh.checks[HEAD] = [
             check_run(1, None, started="2026-11-05T14:00:00Z"),
             check_run(1, record(HEAD), started="2026-11-05T13:00:00Z"),
             check_run(1, record(HEAD, score=2)),
         ]
-        assert compare.record(gh, REPO, HEAD, 1, tmp_path) == record(HEAD)
+        assert compare.records(gh, REPO, [(HEAD, 1)]) == {(HEAD, 1): record(HEAD)}
 
-    def test_should_return_none_for_a_check_run_with_no_record(
-        self, tmp_path: Path
-    ) -> None:
+    def test_should_skip_a_check_run_with_no_record(self) -> None:
         gh = FakeGH()
         gh.checks[HEAD] = [check_run(1, None)]
-        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
+        assert compare.records(gh, REPO, [(HEAD, 1)]) == {}
 
-    def test_should_return_none_for_a_record_of_another_app(
-        self, tmp_path: Path
-    ) -> None:
+    def test_should_skip_a_record_of_another_app(self) -> None:
         gh = FakeGH()
         gh.checks[HEAD] = [check_run(1, record(HEAD), slug="other")]
-        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
+        assert compare.records(gh, REPO, [(HEAD, 1)]) == {}
 
-    def test_should_read_a_record_once(self, tmp_path: Path) -> None:
-        gh = FakeGH()
-        gh.checks[HEAD] = [check_run(1, record(HEAD))]
-        assert compare.record(gh, REPO, HEAD, 1, tmp_path) == record(HEAD)
-        assert compare.record(gh, REPO, HEAD, 1, tmp_path) == record(HEAD)
-        assert gh.reads == [HEAD]
-
-    def test_should_read_once_that_a_run_kept_no_record(self, tmp_path: Path) -> None:
-        gh = FakeGH()
-        gh.checks[HEAD] = [check_run(1, None)]
-        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
-        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
-        assert gh.reads == [HEAD]
-
-    def test_should_read_again_while_a_check_run_is_in_progress(
-        self, tmp_path: Path
+    def test_should_read_each_commit_once_in_batches(
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        monkeypatch.setattr(compare, "BATCH", 2)
         gh = FakeGH()
-        gh.checks[HEAD] = [check_run(1, None, status="in_progress")]
-        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
-        gh.checks[HEAD] = [check_run(1, record(HEAD))]
-        assert compare.record(gh, REPO, HEAD, 1, tmp_path) == record(HEAD)
-        assert gh.reads == [HEAD, HEAD]
+        a, b, c = "a" * 40, "b" * 40, "c" * 40
+        for run, sha in enumerate([a, b, c], 1):
+            gh.checks[sha] = [check_run(run, record(sha))]
+        gh.checks[a].append(check_run(4, record(a, score=2)))
+        recs = compare.records(gh, REPO, [(a, 1), (b, 2), (a, 4), (c, 3)])
+        assert recs == {
+            (a, 1): record(a),
+            (b, 2): record(b),
+            (a, 4): record(a, score=2),
+            (c, 3): record(c),
+        }
+        assert gh.reads == [[a, b], [c]]
 
 
 class TestLimits:
     """Tests finding the newest record of the usage limits."""
 
-    def test_should_take_the_newest_record_with_limits(self, tmp_path: Path) -> None:
+    def test_should_take_the_newest_record_with_limits(self) -> None:
         gh = FakeGH()
         a, b, c, d = "a" * 40, "b" * 40, "c" * 40, "d" * 40
         empty = limited(0.5, "2026-11-05T11:30:00+00:00", c)
@@ -579,35 +570,33 @@ class TestLimits:
             pull(7, NOON, []),
             pull(6, "2026-11-05T10:00:00Z", bot),
         ]
-        newest = compare.limits(gh, REPO, SINCE, tmp_path)
+        newest = compare.limits(gh, REPO, SINCE)
         assert newest is not None
         assert newest["usage"]["limits"]["seven_day"]["utilization"] == 0.81
-        assert gh.reads == [c, b, a]
+        assert gh.reads == [[c, b], [a]]
 
-    def test_should_skip_a_record_of_another_app_or_from_before_a_time(
-        self, tmp_path: Path
-    ) -> None:
+    def test_should_skip_a_record_of_another_app_or_from_before_a_time(self) -> None:
         gh = FakeGH()
         gh.review(1, limited(0.81, NOON), pr=9)
-        gh.checks[HEAD][0]["app"]["slug"] = "other"
+        gh.checks[HEAD][0]["slug"] = "other"
         gh.review(2, limited(0.81, NOON, "a" * 40), pr=8)
         gh.bodies[8][0]["editedAt"] = "2026-11-04T10:00:00Z"
         bot = [edit("", "sedosaur")]
         gh.pulls = [pull(9, NOON, bot), pull(8, NOON, bot)]
-        assert compare.limits(gh, REPO, SINCE, tmp_path) is None
+        assert compare.limits(gh, REPO, SINCE) is None
 
     def test_should_stop_after_reading_the_most_pull_requests(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(compare, "LIMIT_PRS", 1)
         gh = FakeGH()
         gh.review(1, limited(0.5, NOON, "a" * 40), pr=9)
         gh.review(2, limited(0.81, NOON), pr=8)
-        gh.checks["a" * 40][0]["output"]["text"] = render.RULES
+        gh.checks["a" * 40][0]["text"] = render.RULES
         bot = [edit("", "sedosaur")]
         gh.pulls = [pull(9, NOON, bot), pull(8, NOON, bot)]
-        assert compare.limits(gh, REPO, SINCE, tmp_path) is None
-        assert gh.reads == ["a" * 40]
+        assert compare.limits(gh, REPO, SINCE) is None
+        assert gh.reads == [["a" * 40]]
 
 
 class TestPairs:
@@ -631,7 +620,7 @@ class TestPairs:
     def test_should_read_only_the_records_of_paired_commits(self, repo: Repo) -> None:
         gh = FakeGH(repo.head)
         pairs(gh, repo, [record(repo.head), record("d" * 40)])
-        assert gh.reads == [repo.head]
+        assert gh.reads == [[repo.head]]
 
     def test_should_count_the_newest_record_of_a_commit(self, repo: Repo) -> None:
         gh = FakeGH(repo.head)
@@ -642,7 +631,7 @@ class TestPairs:
     def test_should_skip_a_commit_whose_run_kept_no_record(self, repo: Repo) -> None:
         gh = FakeGH(repo.head)
         gh.review(1, record(repo.head), kept=False)
-        assert compare.pairs(gh, repo.git, REPO, SINCE, cache(repo)) == []
+        assert compare.pairs(gh, repo.git, REPO, SINCE) == []
 
     def test_should_skip_a_record_from_before_the_window(self, repo: Repo) -> None:
         old = record(repo.head)
