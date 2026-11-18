@@ -558,11 +558,15 @@ class TestSummary:
         assert render.listed(text) == {("a.go", "Samples return old data")}
         assert "<details><summary>Record</summary>" in text
 
-    def test_should_post_nothing_when_the_record_does_not_fit(self, gh: FakeGH) -> None:
-        rec = record(finding(body="x" * render.TEXT_CHARS))
-        with pytest.raises(ValueError, match="over 65535"):
-            post(rec, target=TARGET, gh=gh)
-        assert gh.writes == []
+    def test_should_omit_a_record_that_does_not_fit(
+        self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        post(record(finding(body="x" * render.TEXT_CHARS)), target=TARGET, gh=gh)
+        [done] = gh.written("PATCH", "check-runs/55")
+        text = done["output"]["text"]
+        assert render.recorded(text) is None
+        assert render.listed(text) == {("a.go", "Samples return old data")}
+        assert "::warning::Omitted the record from" in capsys.readouterr().err
 
     def test_should_read_no_record_from_a_text_without_one(self) -> None:
         assert render.recorded(render.RULES) is None

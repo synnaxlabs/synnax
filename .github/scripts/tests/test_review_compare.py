@@ -204,7 +204,12 @@ def summary(
 
 
 def check_run(
-    run: int, rec: dict[str, Any] | None, *, slug: str = "sedosaur", started: str = NOON
+    run: int,
+    rec: dict[str, Any] | None,
+    *,
+    slug: str = "sedosaur",
+    started: str = NOON,
+    status: str = "completed",
 ) -> dict[str, Any]:
     """A check run of a Sedosaur review run, with its record if it kept one."""
     text = render.RULES if rec is None else f"{render.RULES}\n\n{render.record(rec)}"
@@ -212,6 +217,7 @@ def check_run(
         "app": {"slug": slug},
         "details_url": f"https://github.com/{REPO}/actions/runs/{run}",
         "started_at": started,
+        "status": status,
         "output": {"text": text},
     }
 
@@ -293,11 +299,17 @@ class FakeGH:
         raise AssertionError(f"unexpected gh call: {args}")
 
 
-def pairs(gh: FakeGH, repo: "Repo", recs: list[dict[str, Any]]) -> list[compare.Pair]:
+def pairs(gh: FakeGH, repo: Repo, recs: list[dict[str, Any]]) -> list[compare.Pair]:
     """Pairs records that runs 1, 2, and so on kept, oldest first."""
     for run, rec in enumerate(recs, 1):
         gh.review(run, rec)
-    return compare.pairs(gh, repo.git, REPO, SINCE)
+    return compare.pairs(gh, repo.git, REPO, SINCE, cache(repo))
+
+
+def cache(repo: Repo) -> Path:
+    path = repo.clone.parent / "records"
+    path.mkdir(exist_ok=True)
+    return path
 
 
 def t(**kw: Any) -> compare.Thread:
@@ -489,38 +501,69 @@ class TestSedosaurReviews:
 class TestRecord:
     """Tests reading the record of a Sedosaur review from its check run."""
 
-    def test_should_read_the_record_of_the_run(self) -> None:
+    def test_should_read_the_record_of_the_run(self, tmp_path: Path) -> None:
         gh = FakeGH()
         gh.checks[HEAD] = [
             check_run(1, record(HEAD, score=2)),
             check_run(2, record(HEAD)),
             check_run(2, record(HEAD, score=3), slug="other"),
         ]
-        assert compare.record(gh, REPO, HEAD, 2) == record(HEAD)
+        assert compare.record(gh, REPO, HEAD, 2, tmp_path) == record(HEAD)
 
-    def test_should_take_the_newest_check_run_of_the_run(self) -> None:
+    def test_should_take_the_newest_check_run_that_holds_a_record(
+        self, tmp_path: Path
+    ) -> None:
         gh = FakeGH()
         gh.checks[HEAD] = [
+            check_run(1, None, started="2026-11-05T14:00:00Z"),
             check_run(1, record(HEAD), started="2026-11-05T13:00:00Z"),
             check_run(1, record(HEAD, score=2)),
         ]
-        assert compare.record(gh, REPO, HEAD, 1) == record(HEAD)
+        assert compare.record(gh, REPO, HEAD, 1, tmp_path) == record(HEAD)
 
-    def test_should_return_none_for_a_check_run_with_no_record(self) -> None:
+    def test_should_return_none_for_a_check_run_with_no_record(
+        self, tmp_path: Path
+    ) -> None:
         gh = FakeGH()
         gh.checks[HEAD] = [check_run(1, None)]
-        assert compare.record(gh, REPO, HEAD, 1) is None
+        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
 
-    def test_should_return_none_for_a_record_of_another_app(self) -> None:
+    def test_should_return_none_for_a_record_of_another_app(
+        self, tmp_path: Path
+    ) -> None:
         gh = FakeGH()
         gh.checks[HEAD] = [check_run(1, record(HEAD), slug="other")]
-        assert compare.record(gh, REPO, HEAD, 1) is None
+        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
+
+    def test_should_read_a_record_once(self, tmp_path: Path) -> None:
+        gh = FakeGH()
+        gh.checks[HEAD] = [check_run(1, record(HEAD))]
+        assert compare.record(gh, REPO, HEAD, 1, tmp_path) == record(HEAD)
+        assert compare.record(gh, REPO, HEAD, 1, tmp_path) == record(HEAD)
+        assert gh.reads == [HEAD]
+
+    def test_should_read_once_that_a_run_kept_no_record(self, tmp_path: Path) -> None:
+        gh = FakeGH()
+        gh.checks[HEAD] = [check_run(1, None)]
+        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
+        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
+        assert gh.reads == [HEAD]
+
+    def test_should_read_again_while_a_check_run_is_in_progress(
+        self, tmp_path: Path
+    ) -> None:
+        gh = FakeGH()
+        gh.checks[HEAD] = [check_run(1, None, status="in_progress")]
+        assert compare.record(gh, REPO, HEAD, 1, tmp_path) is None
+        gh.checks[HEAD] = [check_run(1, record(HEAD))]
+        assert compare.record(gh, REPO, HEAD, 1, tmp_path) == record(HEAD)
+        assert gh.reads == [HEAD, HEAD]
 
 
 class TestLimits:
     """Tests finding the newest record of the usage limits."""
 
-    def test_should_take_the_newest_record_with_limits(self) -> None:
+    def test_should_take_the_newest_record_with_limits(self, tmp_path: Path) -> None:
         gh = FakeGH()
         a, b, c, d = "a" * 40, "b" * 40, "c" * 40, "d" * 40
         empty = limited(0.5, "2026-11-05T11:30:00+00:00", c)
@@ -536,12 +579,14 @@ class TestLimits:
             pull(7, NOON, []),
             pull(6, "2026-11-05T10:00:00Z", bot),
         ]
-        newest = compare.limits(gh, REPO, SINCE)
+        newest = compare.limits(gh, REPO, SINCE, tmp_path)
         assert newest is not None
         assert newest["usage"]["limits"]["seven_day"]["utilization"] == 0.81
         assert gh.reads == [c, b, a]
 
-    def test_should_skip_a_record_of_another_app_or_from_before_a_time(self) -> None:
+    def test_should_skip_a_record_of_another_app_or_from_before_a_time(
+        self, tmp_path: Path
+    ) -> None:
         gh = FakeGH()
         gh.review(1, limited(0.81, NOON), pr=9)
         gh.checks[HEAD][0]["app"]["slug"] = "other"
@@ -549,10 +594,10 @@ class TestLimits:
         gh.bodies[8][0]["editedAt"] = "2026-11-04T10:00:00Z"
         bot = [edit("", "sedosaur")]
         gh.pulls = [pull(9, NOON, bot), pull(8, NOON, bot)]
-        assert compare.limits(gh, REPO, SINCE) is None
+        assert compare.limits(gh, REPO, SINCE, tmp_path) is None
 
     def test_should_stop_after_reading_the_most_pull_requests(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         monkeypatch.setattr(compare, "LIMIT_PRS", 1)
         gh = FakeGH()
@@ -561,7 +606,7 @@ class TestLimits:
         gh.checks["a" * 40][0]["output"]["text"] = render.RULES
         bot = [edit("", "sedosaur")]
         gh.pulls = [pull(9, NOON, bot), pull(8, NOON, bot)]
-        assert compare.limits(gh, REPO, SINCE) is None
+        assert compare.limits(gh, REPO, SINCE, tmp_path) is None
         assert gh.reads == ["a" * 40]
 
 
@@ -597,7 +642,7 @@ class TestPairs:
     def test_should_skip_a_commit_whose_run_kept_no_record(self, repo: Repo) -> None:
         gh = FakeGH(repo.head)
         gh.review(1, record(repo.head), kept=False)
-        assert compare.pairs(gh, repo.git, REPO, SINCE) == []
+        assert compare.pairs(gh, repo.git, REPO, SINCE, cache(repo)) == []
 
     def test_should_skip_a_record_from_before_the_window(self, repo: Repo) -> None:
         old = record(repo.head)

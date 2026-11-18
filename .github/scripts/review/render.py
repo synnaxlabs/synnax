@@ -11,6 +11,7 @@
 
 import json
 import re
+import sys
 from collections import Counter
 from typing import Any
 from urllib.parse import quote
@@ -189,15 +190,21 @@ def splice(body: str, block: str) -> str:
 
 def check(review: Review, rec: dict[str, Any]) -> dict[str, str]:
     """Renders the output of the review's check run. Its text carries RULES, lists the
-    findings so a dismissal can tell when none is left, and holds the record of the run.
-
-    :raises ValueError: If the text is longer than a check run holds.
+    findings so a dismissal can tell when none is left, and holds the record of the run
+    when it fits. It warns when the record does not fit.
     """
     counts = Counter(f.severity for f in review.findings)
     found = [f"{counts[s]} {s}" for s in SEVERITIES if counts[s]]
-    text = f"{RULES}\n{listing(review.findings)}\n\n{record(rec)}"
-    if len(text) > TEXT_CHARS:
-        raise ValueError(f"check run text of {len(text)} chars is over {TEXT_CHARS}")
+    text = f"{RULES}\n{listing(review.findings)}"
+    full = f"{text}\n\n{record(rec)}"
+    if len(full) <= TEXT_CHARS:
+        text = full
+    else:
+        print(
+            f"::warning::Omitted the record from the check run, as its text of "
+            f"{len(full)} chars is over {TEXT_CHARS}.",
+            file=sys.stderr,
+        )
     return {
         "title": scored(review.score),
         "summary": f"{review.verdict}\n\nFindings: {', '.join(found) or 'none'}.",

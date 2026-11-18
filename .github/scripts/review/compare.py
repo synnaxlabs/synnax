@@ -27,6 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from itertools import islice
+from pathlib import Path
 from typing import Any
 
 from review import render
@@ -317,11 +318,20 @@ def sedosaur_reviews(
     return dict(reversed(out.items()))
 
 
-def record(gh: GH, repo: str, commit: str, run: int) -> dict[str, Any] | None:
-    """Returns the record of a Sedosaur review run of a commit from the run's check run,
-    or None when the check run holds none, as one from before check runs held records
-    does not. Only the Sedosaur App writes its check runs, so a fork cannot add a
-    record."""
+def record(
+    gh: GH, repo: str, commit: str, run: int, cache: Path
+) -> dict[str, Any] | None:
+    """Returns the record of a Sedosaur review run of a commit from the newest of the
+    run's check runs that holds one, or None when none does, as one from before check
+    runs held records does not. Only the Sedosaur App writes its check runs, so a fork
+    cannot add a record. A record never changes, so it reads the check runs only when
+    the cache holds neither the record nor that the completed run kept none."""
+    path, none = cache / f"{run}.json", cache / f"{run}.none.json"
+    if path.exists():
+        rec: dict[str, Any] = json.loads(path.read_text())
+        return rec
+    if none.exists():
+        return None
     out = gh(
         "api",
         f"repos/{repo}/commits/{commit}/check-runs"
@@ -330,16 +340,33 @@ def record(gh: GH, repo: str, commit: str, run: int) -> dict[str, Any] | None:
         ".check_runs[] | tojson",
     )
     url = f"https://github.com/{repo}/actions/runs/{run}"
-    ours = [
-        r
-        for r in map(json.loads, out.splitlines())
-        if r["app"]["slug"] == SEDOSAUR and r["details_url"] == url
-    ]
-    newest = max(ours, key=lambda r: r["started_at"], default=None)
-    return None if newest is None else render.recorded(newest["output"]["text"] or "")
+    ours = sorted(
+        (
+            r
+            for r in map(json.loads, out.splitlines())
+            if r["app"]["slug"] == SEDOSAUR and r["details_url"] == url
+        ),
+        key=lambda r: r["started_at"],
+        reverse=True,
+    )
+    for r in ours:
+        found = render.recorded(r["output"]["text"] or "")
+        if found is not None:
+            _write(path, found)
+            return found
+    # A run still in progress can yet record.
+    if all(r["status"] == "completed" for r in ours):
+        _write(none, {"at": datetime.now(UTC).isoformat()})
+    return None
 
 
-def limits(gh: GH, repo: str, since: datetime) -> dict[str, Any] | None:
+def _write(path: Path, data: dict[str, Any]) -> None:
+    tmp = path.with_name(f"{path.name}.tmp")
+    tmp.write_text(json.dumps(data))
+    tmp.replace(path)
+
+
+def limits(gh: GH, repo: str, since: datetime, cache: Path) -> dict[str, Any] | None:
     """Returns the newest record since a time that holds the usage limits, or None when
     none does. It reads the pull requests that Sedosaur reviewed, newest first, until
     one was updated before that record, as a review edits the body after its record, or
@@ -350,7 +377,7 @@ def limits(gh: GH, repo: str, since: datetime) -> dict[str, Any] | None:
             break
         edits = _nodes(gh, repo, pr, EDITS, "userContentEdits")
         for commit, run in reversed(sedosaur_reviews(edits, repo, since).items()):
-            rec = record(gh, repo, commit, run)
+            rec = record(gh, repo, commit, run, cache)
             # Records from before reviews kept their limits, and reviews that Claude
             # Code reported no limits for, have none.
             if rec is None or not rec["usage"].get("limits"):
@@ -381,14 +408,14 @@ class _Read:
     threads: list[Thread]
 
 
-def _read(gh: GH, repo: str, pr: int, since: datetime) -> _Read | None:
+def _read(gh: GH, repo: str, pr: int, since: datetime, cache: Path) -> _Read | None:
     edits = _nodes(gh, repo, pr, EDITS, "userContentEdits")
     runs = sedosaur_reviews(edits, repo, since)
     reviews = greptile_reviews(edits)
     recs: dict[str, dict[str, Any]] = {}
     for head, run in runs.items():
         if head in reviews:
-            rec = record(gh, repo, head, run)
+            rec = record(gh, repo, head, run, cache)
             if rec is not None and datetime.fromisoformat(rec["at"]) >= since:
                 recs[head] = rec
     if not recs:
@@ -397,19 +424,20 @@ def _read(gh: GH, repo: str, pr: int, since: datetime) -> _Read | None:
     return _Read(pr=pr, heads=list(runs), reviews=reviews, recs=recs, threads=ts)
 
 
-def pairs(gh: GH, git: Git, repo: str, since: datetime) -> list[Pair]:
+def pairs(gh: GH, git: Git, repo: str, since: datetime, cache: Path) -> list[Pair]:
     """Pairs each Sedosaur review since a time with Greptile's review of the same
     commit. It reads WORKERS pull requests from GitHub at a time.
 
     :param git: Runs in a clone with full history. The pairing fetches the head of each
         paired pull request into it as `refs/review/<number>`.
+    :param cache: The directory that holds the records already read.
     :returns: A pair for each commit that both reviewers reviewed.
     """
     both = [pr for pr, _ in prs(gh, repo, since, {GREPTILE, SEDOSAUR})]
     with ThreadPoolExecutor(WORKERS) as pool:
         read = [
             r
-            for r in pool.map(lambda pr: _read(gh, repo, pr, since), both)
+            for r in pool.map(lambda pr: _read(gh, repo, pr, since, cache), both)
             if r is not None
         ]
     if not read:

@@ -127,11 +127,10 @@ def post(rec: dict[str, Any], *, target: Target, gh: GH) -> None:
     finding's new heading when its severity changed, and keeps the rest of its comment.
     The findings outside the diff go in one comment the bot edits on each review. The
     summary in the pull request body is replaced, and the check run completes with the
-    record. Last, while the target is still the head of the pull request, each open
-    thread of the bot whose finding the review no longer reports gets a reply and is
-    resolved, when its file changed since the review before. A failure there only warns.
-
-    :raises ValueError: If the record does not fit in the check run. Nothing posts.
+    record when it fits. Last, while the target is still the head of the pull request,
+    each open thread of the bot whose finding the review no longer reports gets a reply
+    and is resolved, when its file changed since the review before. A failure there
+    only warns.
     """
     t = target
     review = parse(rec["review"])
