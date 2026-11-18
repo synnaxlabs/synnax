@@ -117,8 +117,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		References: s.indexes.references(),
 		Migrations: versions.Migrations,
 		// An enumeration retarget rewrites the schematic outside any schematic write,
-		// so
-		// the service sends it as a create.
+		// so the service sends it as a create.
 		OnRewrite: func(_ context.Context, tx gorp.Tx, sc Schematic) error {
 			s.state.Dispatcher().
 				Attach(tx, sc.Key, NewCreateAction(CreatePayload{Schematic: sc}))
