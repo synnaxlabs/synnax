@@ -102,6 +102,7 @@ const Content = ({
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failure, setFailure] = useState<status.Status | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
+  // Not a Flux query: its error holds no data, and a failed folder keeps the listing.
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
@@ -112,7 +113,6 @@ const Content = ({
         setLoaded({ target, listing });
         setPicked(null);
       } catch (e) {
-        // A failed folder keeps the last listing in view.
         if (signal.aborted) return;
         setFailure(status.fromException(e, "Failed to list files"));
       }
