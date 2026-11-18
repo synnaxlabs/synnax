@@ -282,6 +282,7 @@ class TestHTTPReadTask:
     ) -> None:
         """Test that a fill value survives serialization, zero values included."""
         task = sy.http.ReadTask(
+            name="Test Task",
             device="dev-key",
             endpoints=[
                 sy.http.ReadEndpoint(
@@ -303,6 +304,7 @@ class TestHTTPReadTask:
     def test_read_field_unset_fill_value_left_out_of_the_payload(self) -> None:
         """Test that an unset fill value is left out, not sent as null."""
         task = sy.http.ReadTask(
+            name="Test Task",
             device="dev-key",
             endpoints=[
                 sy.http.ReadEndpoint(
@@ -712,7 +714,7 @@ class TestHTTPDevice:
 
     def test_device_defaults(self) -> None:
         """Test that Device has correct defaults."""
-        dev = sy.http.Device(host="127.0.0.1:8080")
+        dev = sy.http.Device(name="Test Device", rack=1, host="127.0.0.1:8080")
         assert dev.location == "127.0.0.1:8080"
         assert dev.make == "http"
         assert dev.model == "HTTP server"
@@ -729,6 +731,7 @@ class TestHTTPDevice:
     def test_device_custom_config(self) -> None:
         """Test that Device accepts custom configuration."""
         dev = sy.http.Device(
+            rack=1,
             host="192.168.1.100:9090",
             secure=False,
             timeout_ms=5000,
@@ -761,6 +764,8 @@ class TestHTTPDevice:
     def test_device_basic_auth(self) -> None:
         """Test device with basic authentication."""
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             auth={"type": "basic", "username": "admin", "password": "secret"},
         )
@@ -772,6 +777,8 @@ class TestHTTPDevice:
     def test_device_api_key_header_auth(self) -> None:
         """Test device with API key in header."""
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             auth={
                 "type": "api_key",
@@ -789,6 +796,8 @@ class TestHTTPDevice:
     def test_device_api_key_query_param_auth(self) -> None:
         """Test device with API key in query parameter."""
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             auth={
                 "type": "api_key",
@@ -804,8 +813,8 @@ class TestHTTPDevice:
 
     def test_device_auto_key_generation(self) -> None:
         """Test that Device auto-generates a key if not provided."""
-        dev1 = sy.http.Device(host="localhost:8080")
-        dev2 = sy.http.Device(host="localhost:8080")
+        dev1 = sy.http.Device(name="Test Device", rack=1, host="localhost:8080")
+        dev2 = sy.http.Device(name="Test Device", rack=1, host="localhost:8080")
         assert dev1.key != ""
         assert dev2.key != ""
         assert dev1.key != dev2.key
@@ -856,7 +865,7 @@ class TestHTTPHealthCheck:
 
     def test_health_check_none_excluded_from_device_properties(self) -> None:
         """Test that None values are excluded from health check in device properties."""
-        dev = sy.http.Device(host="localhost:8080")
+        dev = sy.http.Device(name="Test Device", rack=1, host="localhost:8080")
         hc = obj(dev.properties, "health_check")
         assert "headers" not in hc
         assert "query_params" not in hc
@@ -866,6 +875,8 @@ class TestHTTPHealthCheck:
     def test_health_check_in_device(self) -> None:
         """Test that health check is properly stored in device properties."""
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             health_check=sy.http.HealthCheck(
                 path="/api/status",
@@ -879,9 +890,11 @@ class TestHTTPHealthCheck:
 
     def test_health_check_validate_response_flag(self) -> None:
         """Test that validate_response mirrors whether a response is configured."""
-        dev = sy.http.Device(host="localhost:8080")
+        dev = sy.http.Device(name="Test Device", rack=1, host="localhost:8080")
         assert obj(dev.properties, "health_check")["validate_response"] is False
         dev = sy.http.Device(
+            name="Test Device",
+            rack=1,
             host="localhost:8080",
             health_check=sy.http.HealthCheck(
                 response=sy.http.ExpectedResponse(

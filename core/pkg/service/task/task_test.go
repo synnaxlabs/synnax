@@ -172,6 +172,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
@@ -2179,6 +2180,7 @@ var _ = Describe("MatchArcs", func() {
 		"Should filter tasks by Arc through the configured matcher",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrettestutil.OpenService(ctx, db),
@@ -2235,6 +2237,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))

@@ -201,7 +201,7 @@ sensor -> double() -> output
 			Expect(d.Ok()).To(BeTrue())
 			Expect(*d).To(HaveLen(1))
 			Expect((*d)[0].Severity).To(Equal(protocol.DiagnosticSeverityWarning))
-			Expect(messages(d)).To(ContainSubstring(`imported module "time" is unused`))
+			Expect(messages(d)).To(ContainSubstring(`unused import: "time"`))
 		})
 
 		It("Should compile a program with an unused import", func(ctx SpecContext) {
@@ -249,7 +249,7 @@ sensor -> avg() -> output
 `, chans)
 			Expect(
 				messages(d),
-			).ToNot(ContainSubstring(`imported module "banana" is unused`))
+			).ToNot(ContainSubstring(`unused import: "banana"`))
 		})
 
 		It("Should not flag a misspelled member as an unused import", func() {
@@ -261,7 +261,7 @@ trig -> time.doesnotexist() -> now_out
 			Expect(d.Ok()).To(BeFalse())
 			Expect(
 				messages(d),
-			).ToNot(ContainSubstring(`imported module "time" is unused`))
+			).ToNot(ContainSubstring(`unused import: "time"`))
 		})
 	})
 

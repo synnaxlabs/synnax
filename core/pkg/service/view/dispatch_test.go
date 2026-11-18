@@ -40,6 +40,7 @@ var _ = Describe("Dispatch", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{DB: db}))
 		v = statusView("Before")
 		Expect(write(ctx, func(w view.Writer) error { return w.Create(ctx, &v) })).

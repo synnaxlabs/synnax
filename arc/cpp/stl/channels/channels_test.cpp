@@ -1331,6 +1331,23 @@ TEST(ChannelStateTest, WriteValue_MultipleWritesSameKeyPreservedInFlush) {
     EXPECT_EQ(out.at<float>(10, 1), 2.0f);
 }
 
+/// @brief it should give each flushed write the alignment of its first sample, also
+/// after an earlier flush.
+TEST(ChannelStateTest, WriteValue_KeepsAlignmentAfterFlush) {
+    State channel_state;
+    for (const uint64_t alignment: {3, 4}) {
+        auto data = ::x::mem::make_local_shared<::x::telem::Series>(1.0f);
+        data->alignment = ::x::telem::Alignment(alignment);
+        auto time = ::x::mem::make_local_shared<::x::telem::Series>(
+            ::x::telem::TimeStamp(static_cast<int64_t>(alignment))
+        );
+        channel_state.write_value(10, data, time);
+        x::telem::Frame out;
+        channel_state.flush_into(out, FLUSH_NOW);
+        ASSERT_EQ(out.series->at(0).alignment, ::x::telem::Alignment(alignment));
+    }
+}
+
 TEST(ChannelStateTest, ReadSeries_ReturnsDataAndTimeForIndexedChannel) {
     State channel_state(
         std::vector<Digest>{{.key = 1, .data_type = ::x::telem::FLOAT32_T, .index = 2}}
