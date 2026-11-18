@@ -327,9 +327,20 @@ func (f Frame[K]) Get(key K) MultiSeries {
 // Append adds a new key-series pair to the end of the frame, returning the updated
 // frame.
 func (f Frame[K]) Append(key K, series Series) Frame[K] {
+	f = f.reserve(1)
 	f.keys = append(f.keys, key)
 	f.series = append(f.series, series)
 	return f
+}
+
+// reserve returns a frame that can hold n more entries. When a filtered frame would
+// grow past the capacity of its mask, it returns an unfiltered copy of the kept
+// entries.
+func (f Frame[K]) reserve(n int) Frame[K] {
+	if !f.mask.enabled || len(f.keys)+n <= f.mask.Cap() {
+		return f
+	}
+	return Frame[K]{keys: f.KeysSlice(), series: f.SeriesSlice()}
 }
 
 // Grow ensures the frame has capacity for at least n additional entries beyond its
@@ -384,12 +395,13 @@ func (f Frame[K]) Extend(frames ...Frame[K]) Frame[K] {
 	if len(frames) == 0 {
 		return f
 	}
-	totalKeys := len(f.keys)
+	n := 0
 	for _, fr := range frames {
-		totalKeys += fr.Count()
+		n += fr.Count()
 	}
-	f.keys = slices.Grow(f.keys, totalKeys-len(f.keys))
-	f.series = slices.Grow(f.series, totalKeys-len(f.series))
+	f = f.reserve(n)
+	f.keys = slices.Grow(f.keys, n)
+	f.series = slices.Grow(f.series, n)
 	for _, fr := range frames {
 		if !fr.mask.enabled {
 			f.keys = append(f.keys, fr.keys...)
