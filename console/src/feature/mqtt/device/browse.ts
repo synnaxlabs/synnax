@@ -21,6 +21,8 @@ import {
 /** How long the Core listens to the broker for one browse. */
 export const BROWSE_DURATION = TimeSpan.seconds(3);
 
+export const LISTENING = `Listening for ${BROWSE_DURATION.seconds} seconds`;
+
 // The Core listens for up to 20 s before it replies.
 const BROWSE_TIMEOUT = TimeSpan.seconds(25);
 

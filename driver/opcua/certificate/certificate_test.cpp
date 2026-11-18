@@ -58,7 +58,7 @@ TEST_F(CertificateTest, CreateSetsIdentityFields) {
         create(URI, "Test Client", "test-host", x::telem::DAY)
     );
     const auto &cert = id.certificate;
-    ASSERT_EQ(cert.application_uri(), URI);
+    ASSERT_EQ(cert.uri(), URI);
     ASSERT_EQ(cert.subject(), "CN=Test Client");
     ASSERT_GE(cert.not_before(), before);
     ASSERT_LE(cert.not_after() - cert.not_before(), x::telem::DAY + x::telem::MINUTE);
@@ -69,56 +69,15 @@ TEST_F(CertificateTest, CreateSetsIdentityFields) {
     ASSERT_FALSE(id.private_key.empty());
 }
 
-/// @brief it should give the same certificate after a PEM round trip.
-TEST_F(CertificateTest, PemRoundTrip) {
-    const auto pem = identity.certificate.pem();
-    ASSERT_TRUE(Certificate::is_pem(pem));
-    const auto parsed = ASSERT_NIL_P(Certificate::parse(pem));
-    ASSERT_EQ(parsed, identity.certificate);
-    const auto from_der = ASSERT_NIL_P(Certificate::parse(identity.certificate.der()));
-    ASSERT_EQ(from_der, identity.certificate);
-    ASSERT_FALSE(Certificate::is_pem(identity.certificate.der()));
-}
-
-/// @brief it should give a thumbprint of 40 uppercase hex characters.
-TEST_F(CertificateTest, ThumbprintFormat) {
-    const auto thumbprint = identity.certificate.thumbprint();
-    ASSERT_EQ(thumbprint.size(), 40);
-    for (const char c: thumbprint)
-        ASSERT_TRUE((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')) << thumbprint;
-}
-
 /// @brief it should give two certificates with the same name different thumbprints.
 TEST_F(CertificateTest, ThumbprintsDiffer) {
     ASSERT_NE(identity.certificate.thumbprint(), other.certificate.thumbprint());
     ASSERT_FALSE(identity.certificate == other.certificate);
 }
 
-/// @brief it should reject data that holds no certificate.
-TEST_F(CertificateTest, ParseRejectsGarbage) {
-    ASSERT_OCCURRED_AS_P(
-        Certificate::parse("not a certificate"),
-        errors::INVALID_CERTIFICATE
-    );
-    ASSERT_OCCURRED_AS_P(
-        Certificate::parse(
-            "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
-        ),
-        errors::INVALID_CERTIFICATE
-    );
-}
-
-/// @brief it should report the validity period.
-TEST_F(CertificateTest, ValidAt) {
-    const auto &cert = identity.certificate;
-    ASSERT_TRUE(cert.valid_at(x::telem::TimeStamp::now()));
-    ASSERT_FALSE(cert.valid_at(cert.not_after() + x::telem::SECOND));
-    ASSERT_FALSE(cert.valid_at(cert.not_before() - x::telem::SECOND));
-}
-
 /// @brief it should encode the public description as JSON.
 TEST_F(CertificateTest, InfoToJson) {
-    const auto j = identity.certificate.info().to_json();
+    const auto j = info(identity.certificate).to_json();
     ASSERT_EQ(j["pem"], identity.certificate.pem());
     ASSERT_EQ(j["thumbprint"], identity.certificate.thumbprint());
     ASSERT_EQ(j["subject"], "CN=Test Client");

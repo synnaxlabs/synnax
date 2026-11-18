@@ -590,6 +590,10 @@ bound, a log precision, or the line plot X channel.
   none, it shows "Star a range to add it here". Recent sorts by end, newest first. A
   finished child of a running range shows in Recent with its muted parent, and nests
   under the parent when the parent ends.
+- Only the star and the Favorite menu item add a favorite. Plot, create, search, and
+  links never add one. The plot's Ranges picker searches every range, newest first, so
+  no range needs a star to be plotted. A range that has not started shows in the toolbar
+  only as a favorite.
 - The header holds the explorer, then + (the create form set to the last hour), then
   Start. + and Start are outlined `Toolbar.CreateAction` buttons. The toolbar has no
   active range, and new plots open on Rolling 30s.
@@ -814,6 +818,31 @@ says why in a sentence, then gives the raw error.
 - Plots, schematics, tables, and the log keep their own selection, and Cmd+C copies it.
 - A copy button shows a check while it stays in view. A menu item that copies shows a
   toast, because the menu closes.
+
+### Drag previews
+
+A drag shows the smallest true form of the object, with the facts that matter. It is
+never so small that it is hard to read.
+
+- **Objects** use `Haul.Preview`: a tile, the name, then one line of facts. The frame
+  stays the same, and each type fills the tile and the facts. A channel shows its data
+  type and index. A range shows its color, start, and length, or "Planned" when it has
+  no start. Other tree resources show their type name.
+- **Colors** fill the tile: a swatch, a palette color, or a range with a color.
+- **Many objects** show the grabbed object's preview with two plates behind it and a
+  count.
+- **Schematic symbols and Arc stages** drag as the drawing alone, at canvas size, with
+  the top-left corner on the pointer, where the drop places the node.
+- **Tabs and panel tabs** drag as `Haul.Copy` of the tab at rest: its icon stays, its
+  close button goes, and the copy holds the grab point.
+- **The source dims** to 40% opacity until the drag ends. A selection dims every
+  selected item.
+
+Each source passes its own preview to `startDrag`, which requires one. There is no
+preview map. Each object type has one preview component in its own module, such as
+`Channel.HaulPreview`. A generic part (a select trigger, the tree) gets its preview from
+its domain wrapper, through `renderHaulPreview` or the tree item's `haulPreview`. A
+preview renders above every provider, so it takes plain values, not hooks.
 
 ## Prior art
 

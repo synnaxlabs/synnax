@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import threading
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,9 @@ from review import (
     Doc,
     Finding,
     Lens,
+    LoginRejected,
     PullRequest,
+    UsageLimit,
     Window,
     load,
     render,
@@ -469,6 +472,24 @@ class TestScore:
             RuntimeError, match=r"claude exited with status 2 after no message"
         ):
             run(config(), pull(), claude=claude, workdir=WORK)
+
+    def test_should_raise_the_usage_limit_that_stopped_claude(self) -> None:
+        claude = FakeClaude()
+        claude.limits = [{"status": "rejected", "resetsAt": 1_795_266_000}]
+        claude.out = {"is_error": True, "subtype": "success", "result": "Limit."}
+        with pytest.raises(UsageLimit) as e:
+            run(config(), pull(), claude=claude, workdir=WORK)
+        assert e.value.until == 1_795_266_000
+
+    def test_should_raise_a_rejected_token_when_claude_exits(self) -> None:
+        def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
+            yield json.dumps({"type": "assistant", "error": "authentication_failed"})
+            raise subprocess.CalledProcessError(1, args)
+
+        before = int(time.time())
+        with pytest.raises(LoginRejected) as e:
+            run(config(), pull(), claude=claude, workdir=WORK)
+        assert before <= e.value.started <= int(time.time())
 
 
 class TestLenses:
@@ -933,6 +954,24 @@ class TestMain:
             "cache_creation_tokens": 6,
             "limits": {},
         }
+
+    def test_should_write_the_reset_of_a_usage_limit_and_fail(
+        self, tmp_path: Path, env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        limit = {"status": "rejected", "resetsAt": 1_795_266_000}
+        stream = [
+            {"type": "rate_limit_event", "rate_limit_info": limit},
+            {"type": "result", "is_error": True, "subtype": "success"},
+        ]
+        monkeypatch.setattr(
+            "review.__main__.claude",
+            lambda args, stdin, cwd: iter(json.dumps(m) for m in stream),
+        )
+        with pytest.raises(ExceptionGroup):
+            main(["run", str(tmp_path / "review.json")])
+        assert output.read_text() == "limited-until=1795266000\n"
 
     def test_should_show_the_open_and_dismissed_findings(
         self, tmp_path: Path, env: dict[str, str]

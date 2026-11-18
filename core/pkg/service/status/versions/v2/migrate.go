@@ -116,10 +116,41 @@ func migrateOwners(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) 
 	if err != nil {
 		return err
 	}
+	writer := gorp.WrapWriter[Key, stored](tx)
+	kept, dropped, taken, err := planOwners(ctx, tx, writer, old)
+	if err != nil {
+		return err
+	}
+	if err = ownParents(ctx, tx, ins, kept, rels, taken); err != nil {
+		return err
+	}
 	relWriter := gorp.WrapWriter[string, ontology.Relationship](tx)
+	moved := make(map[resource.ID]resource.ID)
+	for _, k := range kept {
+		if err = applyPlan(ctx, writer, relWriter, k); err != nil {
+			return err
+		}
+		if k.key != k.old.Key {
+			id := resource.ID{Type: resource.TypeStatus, Key: k.old.Key}
+			moved[id] = resource.ID{Type: resource.TypeStatus, Key: k.key}
+		}
+	}
+	if err = moveResources(ctx, tx, moved, dropped); err != nil {
+		return err
+	}
+	return moveRelationships(ctx, relWriter, rels, moved, dropped)
+}
+
+// planOwners returns a plan for each status in old. It deletes a status whose owner has
+// no ontology resource instead. It also returns the resource IDs of the deleted
+// statuses and the owners that the plans take.
+func planOwners(
+	ctx context.Context,
+	tx gorp.Tx,
+	writer *gorp.Writer[Key, stored],
+	old []v1.Status[json.RawMessage],
+) ([]plan, set.Set[resource.ID], set.Set[resource.ID], error) {
 	var (
-		writer  = gorp.WrapWriter[Key, stored](tx)
-		moved   = make(map[resource.ID]resource.ID)
 		dropped = make(set.Set[resource.ID])
 		kept    = make([]plan, 0, len(old))
 		taken   = make(set.Set[resource.ID])
@@ -129,12 +160,12 @@ func migrateOwners(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) 
 		if owner != nil {
 			found, err := ontology.ResourceExists(ctx, tx, *owner)
 			if err != nil {
-				return err
+				return nil, nil, nil, err
 			}
 			if !found {
 				dropped.Add(resource.ID{Type: resource.TypeStatus, Key: o.Key})
 				if err = writer.Delete(ctx, o.Key); err != nil {
-					return err
+					return nil, nil, nil, err
 				}
 				continue
 			}
@@ -142,45 +173,42 @@ func migrateOwners(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) 
 		}
 		kept = append(kept, plan{old: o, key: key, owner: owner})
 	}
-	if err = ownParents(ctx, tx, ins, kept, rels, taken); err != nil {
+	return kept, dropped, taken, nil
+}
+
+// applyPlan stores the status of p under its new key and owner, and deletes the status
+// under its old key. It deletes the parent edge that gave the status its owner.
+func applyPlan(
+	ctx context.Context,
+	writer *gorp.Writer[Key, stored],
+	relWriter *gorp.Writer[string, ontology.Relationship],
+	p plan,
+) error {
+	if p.parent != nil {
+		if err := relWriter.Delete(ctx, p.parent.GorpKey()); err != nil {
+			return err
+		}
+	}
+	next, err := autoMigrateStatus(ctx, p.old)
+	if err != nil {
 		return err
 	}
-	for _, k := range kept {
-		o, key, owner := k.old, k.key, k.owner
-		if k.parent != nil {
-			if err = relWriter.Delete(ctx, k.parent.GorpKey()); err != nil {
-				return err
-			}
+	if p.owner != nil && p.parent == nil {
+		if next.Details, err = dropField(
+			next.Details,
+			string(p.owner.Type),
+		); err != nil {
+			return errors.Wrapf(err, "details of status %s", p.old.Key)
 		}
-		next, err := autoMigrateStatus(ctx, o)
-		if err != nil {
-			return err
-		}
-		if owner != nil && k.parent == nil {
-			if next.Details, err = dropField(
-				next.Details,
-				string(owner.Type),
-			); err != nil {
-				return errors.Wrapf(err, "details of status %s", o.Key)
-			}
-		}
-		next.Key, next.Owner = key, owner
-		if err = writer.Set(ctx, next); err != nil {
-			return err
-		}
-		if key == o.Key {
-			continue
-		}
-		if err = writer.Delete(ctx, o.Key); err != nil {
-			return err
-		}
-		id := resource.ID{Type: resource.TypeStatus, Key: o.Key}
-		moved[id] = resource.ID{Type: resource.TypeStatus, Key: key}
 	}
-	if err = moveResources(ctx, tx, moved, dropped); err != nil {
+	next.Key, next.Owner = p.key, p.owner
+	if err = writer.Set(ctx, next); err != nil {
 		return err
 	}
-	return moveRelationships(ctx, relWriter, rels, moved, dropped)
+	if p.key == p.old.Key {
+		return nil
+	}
+	return writer.Delete(ctx, p.old.Key)
 }
 
 // ownParents gives each status in kept that has no owner the parent that its parent

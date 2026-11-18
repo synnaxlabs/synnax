@@ -52,7 +52,7 @@ func compileStringLiteral(
 		return types.Type{}, errors.Newf("invalid string literal: %s", text)
 	}
 	if flags.Format {
-		return EmitFmtSegments(ctx, strTerm)
+		return emitFmtSegments(ctx, strTerm)
 	}
 	value := body
 	if !flags.Raw {

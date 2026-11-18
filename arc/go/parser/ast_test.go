@@ -335,7 +335,7 @@ var _ = Describe("AST Utilities", func() {
 	Describe("CollectNamedPrimaries", func() {
 		DescribeTable("collects the names an expression reads",
 			func(code string, expected []string) {
-				primaries := parser.CollectNamedPrimaries(parseExpr(code))
+				primaries := parser.CollectNamedPrimaries(parseExpr(code), nil)
 				names := make([]string, len(primaries))
 				for i, pe := range primaries {
 					names[i] = parser.PrimaryName(pe)
@@ -350,10 +350,26 @@ var _ = Describe("AST Utilities", func() {
 			Entry("function call name and args", "foo(a, b)",
 				[]string{"foo", "a", "b"}),
 			Entry("literal only", "42", []string{}),
-			Entry("format string braces are token text, not identifiers",
+			Entry("format string that is not in the table",
 				`f"hi {x}"`, []string{}),
 			Entry("qualified names", "m.doubled + x", []string{"m.doubled", "x"}),
 		)
+
+		It("Should collect the names that format string placeholders read", func() {
+			expr := parseExpr(`f"{a} and {b}"`)
+			term := parser.StringTerminal(parser.GetLiteral(expr))
+			fmtStrings := parser.FmtStrings{term: {
+				{Text: "a", Expr: parseExpr("a + x")},
+				{Text: " and "},
+				{Text: "b", Expr: parseExpr("b * a")},
+			}}
+			primaries := parser.CollectNamedPrimaries(expr, fmtStrings)
+			names := make([]string, len(primaries))
+			for i, pe := range primaries {
+				names[i] = parser.PrimaryName(pe)
+			}
+			Expect(names).To(Equal([]string{"a", "x", "b"}))
+		})
 	})
 
 	Describe("StringTerminal", func() {

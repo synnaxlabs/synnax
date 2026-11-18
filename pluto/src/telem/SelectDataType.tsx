@@ -8,28 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/lyra/select";
-import { caseconv, DataType } from "@synnaxlabs/x";
+import { DataType } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
-
-const ALL_CAPS = new Set([DataType.UUID, DataType.JSON]);
+import { resolveDataTypeName } from "@/telem/resolveDataTypeName";
 
 const resolveIcon = (d: DataType) => {
   const Resolved = resolveDataTypeIcon(d);
   return Resolved != null ? <Resolved /> : undefined;
 };
 
-const resolveName = (d: DataType): string => {
-  if (ALL_CAPS.has(d)) return d.toString().toUpperCase();
-  if (d.isNumeric && d !== DataType.TIMESTAMP && d !== DataType.BOOLEAN)
-    return d.toString();
-  return caseconv.capitalize(d.toString());
-};
-
 const DATA = DataType.ALL.filter((d) => d !== DataType.UNKNOWN).map((d) => ({
   key: d.toString(),
-  name: resolveName(d),
+  name: resolveDataTypeName(d),
   icon: resolveIcon(d),
 }));
 
