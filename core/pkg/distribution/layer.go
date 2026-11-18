@@ -11,6 +11,7 @@ package distribution
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -70,9 +72,9 @@ func (c LayerConfig) Validate() error {
 // distribution layer wraps the storage layer to provide a monolithic data space for
 // working with core data structures across Synnax.
 //
-// The Layer must be closed when it is no longer in use. It is not safe to modify any of
-// the public fields in this struct, or to access these fields after Close has been
-// called.
+// Streamers need Run to run. The Layer must be closed after Run returns. It is not safe
+// to modify any of the public fields in this struct, or to access these fields after
+// Close has been called.
 type Layer struct {
 	// DB stores the metadata of the Core. It is the Gorp DB of the storage layer.
 	DB *gorp.DB
@@ -88,6 +90,13 @@ type Layer struct {
 	// Control is for reading and observing the control state of channels.
 	Control *control.Service
 	closer  io.MultiCloser
+	// lifecycle orders Run against Close.
+	lifecycle struct {
+		sync.Mutex
+		running bool
+		ran     bool
+		closed  bool
+	}
 }
 
 // OpenLayer opens the distribution Layer using the provided configuration(s). Later
@@ -95,9 +104,10 @@ type Layer struct {
 // configuration is invalid, or any services fail to open, OpenLayer returns a nil layer
 // and an error.
 //
-// If the returned error is nil, the Layer must be closed by calling Close after use.
-// None of the services in the Layer should be used after Close is called. It is the
-// caller's responsibility to ensure that the Layer is not accessed after it is closed.
+// OpenLayer starts no goroutines. If the returned error is nil, the Layer must be
+// closed by calling Close after use. None of the services in the Layer should be used
+// after Close is called. It is the caller's responsibility to ensure that the Layer is
+// not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cfg, err := config.New(LayerConfig{}, cfgs...)
 	if err != nil {
@@ -126,10 +136,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
+	if l.Framer, err = framer.OpenService(framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
 		TS:              cfg.Storage.TS,
-	}); !ok(err, l.Framer) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -143,7 +153,41 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	return l, nil
 }
 
-// Close closes the Layer. Close must be called when the Layer is no longer in use. It
-// is the caller's responsibility to ensure that all routines interacting with the Layer
-// have finished before calling Close.
-func (l *Layer) Close() error { return l.closer.Close() }
+// Run runs the goroutines of the Layer until ctx ends, then stops every streamer and
+// returns once the goroutines exit. Streamers wait for Run to start and fail after it
+// returns. A second Run, or a Run after Close, returns an error.
+func (l *Layer) Run(ctx context.Context) error {
+	l.lifecycle.Lock()
+	if l.lifecycle.closed {
+		l.lifecycle.Unlock()
+		return errors.New("run called after close")
+	}
+	if l.lifecycle.ran {
+		l.lifecycle.Unlock()
+		return errors.New("run called twice")
+	}
+	l.lifecycle.ran, l.lifecycle.running = true, true
+	l.lifecycle.Unlock()
+	defer func() {
+		l.lifecycle.Lock()
+		l.lifecycle.running = false
+		l.lifecycle.Unlock()
+	}()
+	return l.Framer.Run(ctx)
+}
+
+// Close closes the Layer. Call it only after Run returns: while Run runs, Close returns
+// an error and closes nothing. It is the caller's responsibility to ensure that all
+// routines interacting with the Layer have finished before calling Close.
+func (l *Layer) Close() error {
+	l.lifecycle.Lock()
+	defer l.lifecycle.Unlock()
+	if l.lifecycle.running {
+		return errors.New("close called while Run runs")
+	}
+	if l.lifecycle.closed {
+		return nil
+	}
+	l.lifecycle.closed = true
+	return l.closer.Close()
+}

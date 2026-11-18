@@ -204,7 +204,8 @@ func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
 	return secret.LoadEncryptionKey(filepath.Join(c.dataPath, secretsKeyFileName))
 }
 
-// storageStopTimeout bounds the wait for the storage layer to stop at shutdown.
+// storageStopTimeout bounds the wait for the distribution and storage layers to stop
+// at shutdown.
 const storageStopTimeout = 20 * time.Second
 
 // BootupCore contains the most important Core startup logic. It does and should not
@@ -246,8 +247,9 @@ func BootupCore(
 	DisablePermissionBits()
 
 	var (
-		closer       xio.MultiCloser
-		storageLayer *storage.Layer
+		closer            xio.MultiCloser
+		storageLayer      *storage.Layer
+		distributionLayer *distribution.Layer
 		// update is the update of the data that this start did not commit yet.
 		update    *storage.Update
 		lifetimes = lifetime.NewStack()
@@ -276,6 +278,9 @@ func BootupCore(
 		if errors.Is(stopErr, context.DeadlineExceeded) {
 			return
 		}
+		if distributionLayer != nil {
+			err = errors.Combine(err, distributionLayer.Close())
+		}
 		err = errors.Combine(err, storageLayer.Close())
 		if update != nil && (err != nil || stop.Err() != nil) {
 			err = update.Undo(stop, errors.Combine(err, stop.Err()))
@@ -301,6 +306,7 @@ func BootupCore(
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
+	var storageLife context.Context
 	if storageLayer, err = storage.OpenLayer(stop, storage.LayerConfig{
 		Instrumentation:      cfg.Child("storage"),
 		InMemory:             cfg.memBacked,
@@ -309,18 +315,20 @@ func BootupCore(
 		UpdateBackupDisabled: cfg.updateBackupDisabled,
 	}); err == nil {
 		update = storageLayer.Update
-		lifetimes.Go(root, "storage", storageLayer.Run)
+		storageLife = lifetimes.Go(root, "storage", storageLayer.Run)
 	}
 	if !ok(err, nil) {
 		return err
 	}
 
-	distributionLayer, err := distribution.OpenLayer(stop, distribution.LayerConfig{
+	if distributionLayer, err = distribution.OpenLayer(stop, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
 		Storage:          storageLayer,
-	})
-	if !ok(err, distributionLayer) {
+	}); err == nil {
+		lifetimes.Go(storageLife, "distribution", distributionLayer.Run)
+	}
+	if !ok(err, nil) {
 		return err
 	}
 

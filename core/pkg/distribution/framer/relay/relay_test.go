@@ -114,6 +114,84 @@ var _ = Describe("Relay", func() {
 			})
 		}
 	})
+	Describe("Run", func() {
+		flow := func(
+			ctx context.Context,
+			newStreamer func(relay.StreamerConfig) (relay.Streamer, error),
+			keys channel.Keys,
+		) (signal.Context, confluence.Outlet[relay.Response]) {
+			GinkgoHelper()
+			reader := MustSucceed(newStreamer(relay.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: new(true),
+			}))
+			sCtx, cancel := signal.WithCancel(ctx)
+			req, res := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			DeferCleanup(func() {
+				req.Close()
+				cancel()
+				confluence.Drain(res)
+			})
+			return sCtx, res
+		}
+
+		It("Should fail the streamers when Run returns", func(ctx SpecContext) {
+			n := testutil.OpenNode(GinkgoT().Context())
+			stored := MustSucceed(n.CreateChannels(ctx, []channel.Channel{{
+				Name:        "run_stored",
+				Virtual:     true,
+				Leaseholder: node.KeyBootstrapper,
+				DataType:    telem.Float32T,
+			}}))[0]
+			Expect(stored.Key().Free()).To(BeFalse())
+			sCtx, res := flow(ctx, n.Framer.NewStreamer, channel.Keys{stored.Key()})
+			Eventually(res.Outlet()).Should(Receive())
+			Expect(n.Close()).To(Succeed())
+			Expect(sCtx.Wait()).
+				To(MatchError(ContainSubstring("relay dropped the streamer")))
+		})
+
+		It("Should fail a streamer that starts after Run returns", func(
+			ctx SpecContext,
+		) {
+			store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+			r := MustSucceed(relay.Open(relay.Config{
+				TS:         store.TS,
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			}))
+			StartRun(r.Run)()
+			sCtx, _ := flow(
+				ctx,
+				func(cfg relay.StreamerConfig) (relay.Streamer, error) {
+					return r.NewStreamer(cfg)
+				},
+				channel.Keys{channel.NewKey(node.KeyFree, 1)},
+			)
+			Expect(sCtx.Wait()).To(MatchError(ContainSubstring("relay stopped")))
+		})
+
+		It("Should stop a streamer whose context ends before Run starts", func(
+			ctx SpecContext,
+		) {
+			store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+			r := MustSucceed(relay.Open(relay.Config{
+				TS:         store.TS,
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			}))
+			streamerCtx, cancel := context.WithCancel(ctx)
+			sCtx, _ := flow(
+				streamerCtx,
+				func(cfg relay.StreamerConfig) (relay.Streamer, error) {
+					return r.NewStreamer(cfg)
+				},
+				channel.Keys{channel.NewKey(node.KeyFree, 1)},
+			)
+			cancel()
+			Expect(sCtx.Wait()).To(MatchError(context.Canceled))
+		})
+	})
+
 	Describe("Time Range Stamping", func() {
 		It(
 			"Should deliver series stamped with the index's time range",
@@ -315,7 +393,7 @@ var _ = Describe("Relay", func() {
 					FreeWrites:         freeWrites,
 					StreamerBufferSize: 4,
 				}))
-				DeferCleanup(r.Close)
+				StartRun(r.Run)
 				key := channel.NewKey(node.KeyFree, 1)
 				openStreamer := func(buffer int) confluence.Outlet[relay.Response] {
 					GinkgoHelper()
