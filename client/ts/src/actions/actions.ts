@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, narrow, patch, type record, zod } from "@synnaxlabs/x";
+import { caseconv, deep, narrow, patch, record, zod } from "@synnaxlabs/x";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -56,10 +56,26 @@ const slotOf = (node: record.Unknown, part: string): string | number =>
     ? node.findIndex((e: unknown) => narrow.isObject(e) && e.key === part)
     : part;
 
-// Parses the value that a set or insert placed in the document through the schema at
-// its path, so a value such as a TimeStamp holds its class. The parse runs after the
-// apply, which copies the value and drops its classes. A value that fails its schema
-// stays as it is, since a form holds an invalid value in the cache until it passes.
+// Parses value through schema. On a failure, each field of an object or list parses on
+// its own, and a field that fails stays as it is: a form holds an invalid value in the
+// cache until it passes.
+const decode = (schema: z.ZodType, value: unknown): unknown => {
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  if (!narrow.isPlainObject(value) && !Array.isArray(value)) return value;
+  const decodeChild = (child: unknown, key: string | number) => {
+    const childZ = zod.getFieldSchema(schema, String(key), {
+      optional: true,
+      values: value,
+    });
+    return childZ == null ? child : decode(childZ, child);
+  };
+  return Array.isArray(value) ? value.map(decodeChild) : record.map(value, decodeChild);
+};
+
+// Decodes the value that a set or insert placed in the document through the schema at
+// its path, so a value such as a TimeStamp holds its class. The decode runs after the
+// apply, which copies the value and drops its classes.
 const decodePlaced = (doc: record.Unknown, action: patch.Action, schema: z.ZodType) => {
   if (action.type !== "set" && action.type !== "insert") return;
   const path = patch.pathOf(action);
@@ -72,8 +88,7 @@ const decodePlaced = (doc: record.Unknown, action: patch.Action, schema: z.ZodTy
     .slice(0, -1)
     .reduce((node, part) => node[slotOf(node, part)] as record.Unknown, doc);
   const slot = slotOf(parent, path[path.length - 1]);
-  const decoded = valueZ.safeParse(parent[slot]);
-  if (decoded.success) parent[slot] = decoded.data;
+  parent[slot] = decode(valueZ, parent[slot]);
 };
 
 const applyInverse = <S extends object>(

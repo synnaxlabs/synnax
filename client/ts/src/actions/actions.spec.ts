@@ -191,8 +191,18 @@ describe("applyPath", () => {
 
   describe("decoding", () => {
     const fieldZ = z.discriminatedUnion("type", [
-      z.object({ key: z.string(), type: z.literal("number"), default: z.number() }),
-      z.object({ key: z.string(), type: z.literal("timestamp"), default: TimeStamp.z }),
+      z.object({
+        key: z.string(),
+        name: z.string().min(1),
+        type: z.literal("number"),
+        default: z.number(),
+      }),
+      z.object({
+        key: z.string(),
+        name: z.string().min(1),
+        type: z.literal("timestamp"),
+        default: TimeStamp.z,
+      }),
     ]);
     const decodedZ = z.object({
       name: z.string().min(1),
@@ -202,7 +212,9 @@ describe("applyPath", () => {
     type Decoded = z.infer<typeof decodedZ>;
     const DOC: Decoded = {
       name: "icd",
-      fields: [{ key: "f1", type: "timestamp", default: TimeStamp.seconds(1) }],
+      fields: [
+        { key: "f1", name: "start", type: "timestamp", default: TimeStamp.seconds(1) },
+      ],
       timing: { timeout: TimeSpan.seconds(1) },
     };
     const applyTo = (doc: Decoded, action: patch.Action) => {
@@ -231,7 +243,7 @@ describe("applyPath", () => {
         type: "insert",
         insert: {
           path: ["fields"],
-          value: { key: "f2", type: "timestamp", default: "2000000000" },
+          value: { key: "f2", name: "end", type: "timestamp", default: "2000000000" },
           after: "f1",
           guards: [],
         },
@@ -260,6 +272,24 @@ describe("applyPath", () => {
       const restored = applyTo(next, inverse[0]).next;
       expect(restored.fields[0].default).toBeInstanceOf(TimeStamp);
       expect(restored).toEqual(DOC);
+    });
+
+    it("should decode the fields that pass next to a field that fails", () => {
+      const { next } = applyTo(
+        DOC,
+        setAt(
+          ["fields"],
+          [
+            { key: "f1", name: "", type: "timestamp", default: "5000000000" },
+            { key: "f2", name: "end", type: "timestamp", default: "6000000000" },
+          ],
+        ),
+      );
+      expect(next.fields[0].name).toBe("");
+      expect(next.fields[0].default).toBeInstanceOf(TimeStamp);
+      expect(next.fields[0].default).toEqual(TimeStamp.seconds(5));
+      expect(next.fields[1].default).toBeInstanceOf(TimeStamp);
+      expect(next.fields[1].default).toEqual(TimeStamp.seconds(6));
     });
 
     it("should place a value that fails its schema as it is", () => {
