@@ -26,6 +26,15 @@ BYTE_ORDER_BIG_ENDIAN: Literal["big_endian"] = "big_endian"
 
 ByteOrder = Literal["little_endian", "big_endian"]
 
+IMPORT_FORMAT_DBC: Literal["dbc"] = "dbc"
+
+IMPORT_FORMAT_CSV: Literal["csv"] = "csv"
+
+IMPORT_FORMAT_XLSX: Literal["xlsx"] = "xlsx"
+
+
+ImportFormat = Literal["dbc", "csv", "xlsx"]
+
 Key: TypeAlias = UUID
 
 MessageKey: TypeAlias = UUID

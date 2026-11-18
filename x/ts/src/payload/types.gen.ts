@@ -46,6 +46,10 @@ export const GENERATOR_TYPES = ["uuid", "timestamp"] as const;
 export const generatorTypeZ = z.enum(GENERATOR_TYPES);
 export type GeneratorType = z.infer<typeof generatorTypeZ>;
 
+export const FORMATS = ["json", "text", "binary"] as const;
+export const formatZ = z.enum(FORMATS);
+export type Format = z.infer<typeof formatZ>;
+
 /** FloatEntry maps a payload label to a float channel value. */
 export const floatEntryZ = z.object({
   /** label is the label in the payload. */

@@ -45,10 +45,10 @@ func isScreamingCase(s string) bool {
 // goAcronyms lists common Go acronyms that should remain fully uppercased in PascalCase
 // identifiers (e.g., "Xy" → "XY", "Id" → "ID").
 var goAcronyms = []string{
-	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
-	"Https", "Icd", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
-	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
-	"Ui", "Uid", "Uri", "Url", "Usb", "Utc", "Utf", "Uuid", "Vm", "Xml",
+	"Acl", "Api", "Ascii", "Cpu", "Css", "Csv", "Dbc", "Dns", "Eof", "Guid", "Html",
+	"Http", "Https", "Icd", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram",
+	"Rhs", "Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
+	"Ui", "Uid", "Uri", "Url", "Usb", "Utc", "Utf", "Uuid", "Vm", "Xlsx", "Xml",
 	"Xmpp", "Xss", "Xy",
 }
 

@@ -204,7 +204,11 @@ var _ = Describe("ICD", func() {
 			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
 			res := MustSucceed(importFile(
 				AuthedCtx(ctx, u),
-				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC, Data: data},
+				apiicd.ImportRequest{
+					Key:    ic.Key,
+					Format: icd.ImportFormatDBC,
+					Data:   data,
+				},
 			))
 			Expect(res.ICD.Key).To(Equal(ic.Key))
 			Expect(res.ICD.Messages).ToNot(BeEmpty())
@@ -223,7 +227,7 @@ var _ = Describe("ICD", func() {
 				AuthedCtx(ctx, u),
 				apiicd.ImportRequest{
 					Key:         ic.Key,
-					Format:      icd.FormatDBC,
+					Format:      icd.ImportFormatDBC,
 					Data:        data,
 					DispatchKey: "dk-import",
 				},
@@ -240,7 +244,7 @@ var _ = Describe("ICD", func() {
 			ic := createICD(ctx, "Locked")
 			Expect(importFile(
 				AuthedCtx(ctx, createUser(ctx)),
-				apiicd.ImportRequest{Key: ic.Key, Format: icd.FormatDBC},
+				apiicd.ImportRequest{Key: ic.Key, Format: icd.ImportFormatDBC},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})

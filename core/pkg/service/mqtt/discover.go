@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/net/proxy"
@@ -278,7 +279,7 @@ type sampledMessage struct {
 	// Time is the time that the message arrived.
 	Time telem.TimeStamp `json:"time"`
 	// Format is the format of the whole payload.
-	Format driver.Format `json:"format"`
+	Format payload.Format `json:"format"`
 	// Payload is the start of the payload, from at most 16 KiB: text when Format is
 	// json or text, and hex digits otherwise.
 	Payload string `json:"payload"`
