@@ -1,5 +1,5 @@
 {
-  "description": "A JSON document with a number, a string, a boolean, and a timestamp.",
+  "description": "A JSON document with a float, an integer, a string, a boolean, and a timestamp.",
   "icd": {
     "key": "00000000-0000-4000-8000-000000000fff",
     "name": "Fixture",
@@ -17,9 +17,18 @@
               "offset": -40,
               "units": "degC",
               "pointer": "/sensors/0/temp",
-              "type": "number",
+              "type": "float",
               "min": -40,
               "max": 125
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000f",
+              "name": "count",
+              "scale": 2,
+              "offset": 0,
+              "units": "",
+              "pointer": "/count",
+              "type": "integer"
             },
             {
               "key": "00000000-0000-4000-8000-00000000000b",
@@ -47,7 +56,7 @@
               "units": "",
               "pointer": "/ts",
               "type": "timestamp",
-              "format": "unix_ms"
+              "time_format": "unix_ms"
             },
             {
               "key": "00000000-0000-4000-8000-00000000000e",
@@ -56,7 +65,7 @@
               "offset": 0,
               "units": "",
               "pointer": "/a~1b/c~0d",
-              "type": "number"
+              "type": "float"
             }
           ]
         }

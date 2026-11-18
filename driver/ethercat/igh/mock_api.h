@@ -65,6 +65,17 @@ public:
         bool operator==(const SDO &) const = default;
     };
 
+    /// @brief the DC sync of a slave config, as ecrt_slave_config_dc takes it.
+    struct DC {
+        uint16_t assign_activate;
+        uint32_t sync0_cycle;
+        int32_t sync0_shift;
+        uint32_t sync1_cycle;
+        int32_t sync1_shift;
+
+        bool operator==(const DC &) const = default;
+    };
+
     /// @brief a process data domain.
     struct Domain {
         /// @brief the size in bytes, which grows with each registered entry.
@@ -83,15 +94,30 @@ public:
         /// @brief the object dictionary, keyed by index and sub-index. A download
         /// writes to it, and an upload of a missing object aborts.
         std::map<std::pair<uint16_t, uint8_t>, uint32_t> objects;
+        /// @brief objects of 8 bytes. An upload with less room fails with ENOBUFS, as
+        /// in IgH.
+        std::map<std::pair<uint16_t, uint8_t>, uint64_t> wide_objects;
+        /// @brief the error code that an upload of each object fails with, with no
+        /// abort code.
+        std::map<std::pair<uint16_t, uint8_t>, int> upload_errors;
         /// @brief abort codes for objects that reject downloads. A code of 0 makes the
         /// download time out.
         std::map<std::pair<uint16_t, uint8_t>, uint32_t> download_aborts;
+        /// @brief how many more reads of a slave in INIT find it in INIT before IgH
+        /// moves it to PRE-OP, or -1 to keep it in INIT.
+        int reads_to_pre_op = -1;
         /// @brief whether master_get_slave fails for the slave.
         bool unreadable = false;
         /// @brief whether slave_config_state fails for the slave.
         bool state_unreadable = false;
         /// @brief whether master_get_pdo fails for the slave.
         bool layout_unreadable = false;
+        /// @brief the SII from word 0.
+        std::vector<uint16_t> sii;
+        /// @brief what sii_read returns for the slave, when not 0.
+        int sii_result = 0;
+        /// @brief the DC sync that the config sets up, or nullopt for none.
+        std::optional<DC> dc;
         bool online = true;
         /// @brief the state the slave reaches after activation.
         uint8_t reaches = EC_AL_STATE_OP;
@@ -177,6 +203,21 @@ public:
     mutable int resets = 0;
     mutable bool released = false;
     mutable bool deactivated = false;
+    /// @brief the times that master_application_time got, in call order.
+    mutable std::vector<uint64_t> app_times;
+    /// @brief the times that master_sync_reference_clock_to got, in call order.
+    mutable std::vector<uint64_t> reference_syncs;
+    /// @brief how many times master_sync_slave_clocks ran.
+    mutable int slave_syncs = 0;
+    /// @brief what master_reference_clock_time reads, and its result.
+    uint32_t reference_clock_time = 0;
+    int reference_clock_result = 0;
+    /// @brief the result of master_sync_reference_clock_to and
+    /// master_sync_slave_clocks.
+    int clock_sync_result = 0;
+    /// @brief the results of slave_config_dc and master_application_time.
+    int dc_config_result = 0;
+    int app_time_result = 0;
 
     MockAPI(): API(MockTag{}) {}
 
@@ -215,6 +256,7 @@ public:
         for (auto &slave: this->slaves) {
             slave.configured = false;
             slave.settled = false;
+            slave.dc.reset();
             slave.domain.reset();
         }
     }
@@ -288,7 +330,9 @@ public:
     ) const override {
         if (position >= this->slaves.size() || this->slaves[position].unreadable)
             return -EIO;
-        const auto &slave = this->slaves[position];
+        auto &slave = this->slaves[position];
+        if (slave.reads_to_pre_op == 0) slave.info.al_state = EC_AL_STATE_PREOP;
+        if (slave.reads_to_pre_op >= 0) slave.reads_to_pre_op--;
         *info = slave.info;
         info->sync_count = static_cast<uint8_t>(slave.syncs.size());
         return 0;
@@ -459,9 +503,21 @@ public:
         size_t *result_size,
         uint32_t *abort_code
     ) const override {
-        const auto &objects = this->slaves.at(position).objects;
-        const auto it = objects.find({index, sub_index});
-        if (it == objects.end()) {
+        const auto &slave = this->slaves.at(position);
+        const std::pair key{index, sub_index};
+        if (const auto err = slave.upload_errors.find(key);
+            err != slave.upload_errors.end())
+            return err->second;
+        if (const auto wide = slave.wide_objects.find(key);
+            wide != slave.wide_objects.end()) {
+            if (target_size < sizeof(wide->second)) return -ENOBUFS;
+            for (size_t i = 0; i < sizeof(wide->second); i++)
+                target[i] = static_cast<uint8_t>(wide->second >> (8 * i));
+            *result_size = sizeof(wide->second);
+            return 0;
+        }
+        const auto it = slave.objects.find(key);
+        if (it == slave.objects.end()) {
             *abort_code = 0x06020000;
             return -EIO;
         }
@@ -520,6 +576,61 @@ public:
         entry->index = fake.index;
         entry->subindex = fake.sub_index;
         entry->bit_length = fake.bit_length;
+        return 0;
+    }
+
+    int slave_config_dc(
+        ec_slave_config_t *sc,
+        const uint16_t assign_activate,
+        const uint32_t sync0_cycle,
+        const int32_t sync0_shift,
+        const uint32_t sync1_cycle,
+        const int32_t sync1_shift
+    ) const override {
+        this->slave(sc).dc = DC{
+            assign_activate,
+            sync0_cycle,
+            sync0_shift,
+            sync1_cycle,
+            sync1_shift
+        };
+        return this->dc_config_result;
+    }
+
+    int master_application_time(ec_master_t *, const uint64_t app_time) const override {
+        this->app_times.push_back(app_time);
+        return this->app_time_result;
+    }
+
+    int master_sync_reference_clock_to(
+        ec_master_t *,
+        const uint64_t sync_time
+    ) const override {
+        this->reference_syncs.push_back(sync_time);
+        return this->clock_sync_result;
+    }
+
+    int master_sync_slave_clocks(ec_master_t *) const override {
+        this->slave_syncs++;
+        return this->clock_sync_result;
+    }
+
+    int
+    master_reference_clock_time(const ec_master_t *, uint32_t *time) const override {
+        *time = this->reference_clock_time;
+        return this->reference_clock_result;
+    }
+
+    int sii_read(
+        unsigned int,
+        const uint16_t position,
+        const uint16_t offset,
+        const std::span<uint16_t> words
+    ) const override {
+        const auto &slave = this->slaves.at(position);
+        if (slave.sii_result != 0) return slave.sii_result;
+        if (words.empty() || offset + words.size() > slave.sii.size()) return -EINVAL;
+        std::copy_n(slave.sii.begin() + offset, words.size(), words.begin());
         return 0;
     }
 

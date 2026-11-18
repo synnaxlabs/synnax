@@ -27,8 +27,7 @@
               "start_bit": 60,
               "bit_length": 8,
               "byte_order": "little_endian",
-              "signed": false,
-              "float": false
+              "kind": "unsigned"
             }
           ],
           "length": 8,

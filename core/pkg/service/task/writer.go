@@ -99,6 +99,11 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if err = record.Write(ctx, w.tx); err != nil {
 		return err
 	}
+	// The hash also covers the records that the config references, which the write of
+	// the record can create.
+	if _, err = w.storeHash(ctx, store, t); err != nil {
+		return err
+	}
 	t.Status = resolveStatus(t, providedStatus)
 	if err = w.status.Set(ctx, t.Status); err != nil {
 		return err
@@ -225,7 +230,9 @@ func (w Writer) editConfig(
 	if err = rec.Write(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	t.ConfigHash = rec.Hash()
+	if t.ConfigHash, err = store.Hash(ctx, w.tx, t.Key); err != nil {
+		return nil, err
+	}
 	var computed []Action
 	if changed {
 		stored, err := rec.Data()
@@ -276,6 +283,49 @@ func (w Writer) syncConfig(ctx context.Context, key Key) error {
 	return nil
 }
 
+// syncHash stores the hash of the config of the task with the given key, and attaches a
+// set of the hash, when a record that the config references changed it.
+func (w Writer) syncHash(ctx context.Context, key Key) error {
+	var t Task
+	if err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Task](key)).
+		Entry(&t).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	store, ok := w.configs.Store(t.Type)
+	if !ok {
+		return errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
+	}
+	changed, err := w.storeHash(ctx, store, &t)
+	if err != nil || !changed {
+		return err
+	}
+	w.dispatcher.Attach(
+		w.tx,
+		key,
+		NewSetAction(SetPayload{Path: []string{"config_hash"}, Value: t.ConfigHash}),
+	)
+	return nil
+}
+
+// storeHash sets the config hash of t to the hash of its stored config and writes the
+// task row when the hash changed. It reports whether it changed.
+func (w Writer) storeHash(
+	ctx context.Context,
+	store config.Store,
+	t *Task,
+) (bool, error) {
+	hash, err := store.Hash(ctx, w.tx, t.Key)
+	if err != nil || hash == t.ConfigHash {
+		return false, err
+	}
+	t.ConfigHash = hash
+	row := *t
+	row.Config, row.Status = nil, nil
+	return true, w.table.NewCreate().Entry(&row).Exec(ctx, w.tx)
+}
+
 // Delete deletes the task with the given key, its config record, and its associated
 // status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
@@ -285,8 +335,8 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 }
 
 // DeleteRacks deletes the racks with keys, their statuses, and the internal tasks they
-// hold. It returns a validation error when a rack is embedded, holds a device, or holds
-// a task that is not internal.
+// hold. It returns a validation error when a rack holds a device or a task that is not
+// internal, or when it is embedded and is not the rack of a disabled embedded Driver.
 func (w Writer) DeleteRacks(ctx context.Context, keys ...rack.Key) error {
 	return w.racks.Delete(ctx, w.guardRack, keys...)
 }

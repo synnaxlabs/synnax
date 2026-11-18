@@ -15,11 +15,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
-import { Credential, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import { Credential } from "@synnaxlabs/pluto";
+import { type ReactElement, useState } from "react";
 
 import { Code } from "@/platform/code";
 import { CSS } from "@/platform/css";
@@ -42,32 +41,17 @@ interface NameProps extends CloseProps {
 }
 
 const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
   const [name, setName] = useState("");
   const query = { subject };
   const refreshKeys = Credential.useRefreshKeys();
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
   const { update, variant } = Credential.useCreateKey({
     afterSuccess: ({ data }) => {
-      // A key whose create ends after the modal closes can never show its token.
-      if (!mounted.current) {
-        handleError(async () => {
-          await client?.auth.deleteKeys(data.key.key);
-          refreshKeys(query);
-        }, "Failed to delete an unused API key");
-        return;
-      }
       refreshKeys(query);
       onCreated(data);
     },
   });
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   const empty = name.trim() === "";
   const handleCreate = (): void => {
     if (!empty) update({ subject, name: name.trim() });
@@ -96,6 +80,7 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
           <Button.Button
             variant="outlined"
             onClick={() => close()}
+            disabled={busy}
             triggerIndicator={PTriggers.ESCAPE}
           >
             Cancel

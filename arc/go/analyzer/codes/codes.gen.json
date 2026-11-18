@@ -89,6 +89,12 @@
     "problem": "A comparison has a NaN constant as an operand. NaN is not equal to, less than, or greater than a value, so the comparison always has the same result.",
     "example": "import math\n\nfunc f(x f64) u8 {\n    return x == math.nan\n}"
   },
+  "E2011": {
+    "severity": "error",
+    "message": "missing unit",
+    "problem": "A value with a unit goes to a variable, a parameter, or a function result that has no unit.",
+    "example": "func f(t i64 s) i64 {\n    return t\n}"
+  },
   "E3000": {
     "severity": "error",
     "message": "not callable",
@@ -334,6 +340,12 @@
     "message": "unit precision loss",
     "problem": "An operation on values with units can cause truncation or overflow.",
     "example": "func f() {\n    x := 1K + 1pK\n}"
+  },
+  "W2003": {
+    "severity": "warning",
+    "message": "unit dropped",
+    "problem": "A cast with no unit removes the unit of a value before the value goes to a different unit. `i64(5s)` written to a name in `ms` gives `5`, not `5000`.",
+    "example": "func f() {\n    d i64 ms := i64(5s)\n}"
   },
   "W3000": {
     "severity": "warning",

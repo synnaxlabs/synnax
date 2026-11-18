@@ -243,7 +243,7 @@ func (c Config) Validate() error {
 	if v.Error() != nil {
 		return v.Error()
 	}
-	if !*c.Enabled {
+	if !*c.Enabled || c.FS == nil {
 		return nil
 	}
 	v.NotEmptyString("address", c.Address)
@@ -356,6 +356,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 // only launched when the configuration enables it AND a Driver binary is available via
 // the configured filesystem.
 func (d *Driver) enabled() bool { return *d.cfg.Enabled && d.cfg.FS != nil }
+
+// Bundled returns true when the Core holds a Driver binary, which needs the "driver"
+// build tag.
+func Bundled() bool { return defaultFS != nil }
 
 func (d *Driver) start(ctx context.Context) error {
 	d.cfg.L.Info("starting embedded Driver")
