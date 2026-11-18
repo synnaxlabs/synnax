@@ -54,7 +54,7 @@ jobs:
       # unauthenticated requests.
       - name: Build
         env:
-          DOCS_GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: pnpm build:docs
 
       # The Console and Desktop updaters poll these feeds, so each must redirect per
@@ -78,6 +78,6 @@ jobs:
         timeout-minutes: 15
         working-directory: site/docs
         env:
-          DOCS_GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           STRICT: ${{ inputs.strict && '--strict' || '' }}
         run: pnpm check-site:build && pnpm check-site ${STRICT:+"$STRICT"}

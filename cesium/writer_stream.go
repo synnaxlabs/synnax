@@ -174,7 +174,7 @@ func (w *streamWriter) process(
 	case WriterCommandCommit:
 		return w.commit(ctx)
 	case writerCommandSetAuthority:
-		w.setAuthority(req.Config)
+		err = w.setAuthority(req.Config)
 	case writerCommandEndDomain:
 		err = w.endDomain(ctx, req.Config.Channels)
 	case WriterCommandWrite:
@@ -186,9 +186,16 @@ func (w *streamWriter) process(
 	return 0, true, nil
 }
 
-func (w *streamWriter) setAuthority(cfg WriterConfig) {
+func (w *streamWriter) setAuthority(cfg WriterConfig) error {
 	if len(cfg.Authorities) == 0 {
-		return
+		return nil
+	}
+	if len(cfg.Authorities) != 1 &&
+		len(cfg.Authorities) != len(cfg.Channels) {
+		return errors.Wrap(
+			validate.ErrValidation,
+			"authority count must be 1 or equal to channel count",
+		)
 	}
 	cfg = w.propagateAuthority(cfg)
 	var (
@@ -229,6 +236,7 @@ func (w *streamWriter) setAuthority(cfg WriterConfig) {
 	if len(u.Transfers) > 0 {
 		w.updateDBControl(u)
 	}
+	return nil
 }
 
 func (w *streamWriter) maybeSendRes(
@@ -488,7 +496,7 @@ func (w *streamWriter) close() error {
 
 type unaryWriterState struct {
 	unary.Writer
-	timesWritten int
+	lastWriteCall int
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
@@ -969,10 +977,10 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 			}
 			lengthOfFrame = s.Len()
 		}
-		if uWriter.timesWritten == w.numWriteCalls {
+		if uWriter.lastWriteCall == w.numWriteCalls {
 			return oneSeriesPerChannelError(ch)
 		}
-		uWriter.timesWritten++
+		uWriter.lastWriteCall = w.numWriteCalls
 
 		if s.Len() != lengthOfFrame {
 			return sameLengthForAllSeriesError(ch, lengthOfFrame, s)

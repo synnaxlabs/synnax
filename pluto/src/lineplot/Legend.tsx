@@ -105,8 +105,9 @@ const Fixed = ({
     );
   return (
     <Flex.Box align="center" justify="start" x style={gridStyle} gap="huge">
-      <FocusedGroup name="Y1" data={groups[0].data} {...handlers} />
-      <FocusedGroup name="Y2" data={groups[1].data} {...handlers} />
+      {groups.map(({ key: groupKey, name, data }) => (
+        <FocusedGroup key={groupKey} name={name} data={data} {...handlers} />
+      ))}
     </Flex.Box>
   );
 };
