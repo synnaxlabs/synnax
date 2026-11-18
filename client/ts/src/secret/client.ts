@@ -44,6 +44,7 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/secret/where.gen";
+import { LINES } from "@/secret/where";
 import { task } from "@/task";
 
 export const ACTION_CHANNEL_NAME = "sy_secret_action_set";
@@ -250,8 +251,8 @@ export class Client extends query.Retriever<
         matches: (secret, req) =>
           req.includeUses === true && usesStore.get(secret.key) == null
             ? null
-            : matches(secret, req.where),
-        serverComputed: (req) => serverComputed(req.where),
+            : matches(LINES, secret, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         triggers: [usesTrigger],
       },
       compose: (record, q) =>
