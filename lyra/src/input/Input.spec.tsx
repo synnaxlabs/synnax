@@ -299,6 +299,19 @@ describe("Input", () => {
         expect(c.getByText("units")).toBeTruthy();
       });
 
+      it("should hold block content in the start and end content", () => {
+        const c = render(
+          <Input.Text
+            value=""
+            onChange={vi.fn()}
+            startContent={<div>swatch</div>}
+            endContent={<div>warning</div>}
+          />,
+        );
+        expect(c.getByText("swatch").parentElement?.tagName).toBe("DIV");
+        expect(c.getByText("warning").parentElement?.tagName).toBe("DIV");
+      });
+
       it("should focus the input when the end content is pressed", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} endContent="units" />);
         fireEvent.mouseDown(c.getByText("units"));

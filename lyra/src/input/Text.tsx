@@ -280,6 +280,7 @@ export const Text = ({
       )}
       {startContent != null && (
         <BaseText.Text
+          el="div"
           className={CSS.BE("input", "start-content")}
           level={level ?? SIZE_TEXT_LEVELS[size]}
         >
@@ -321,6 +322,7 @@ export const Text = ({
       )}
       {endContent != null && (
         <BaseText.Text
+          el="div"
           className={CSS.BE("input", "end-content")}
           level={level ?? SIZE_TEXT_LEVELS[size]}
         >

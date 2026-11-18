@@ -1166,6 +1166,22 @@ describe("Input.Table", () => {
 
     const point = (): HTMLElement => screen.getByRole("button", { name: "Point 1" });
 
+    it("should give a custom cell the index of its row", () => {
+      render(
+        <Input.Table value={[["a"], ["b"]]} onChange={vi.fn()}>
+          <Input.TableColumn<string> name="Name" type="custom" empty="">
+            {({ value, row }) => <span>{`${value} at ${row}`}</span>}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      expect(screen.getByText("b at 1")).toBeTruthy();
+    });
+
+    it("should leave the row off the default inputs", () => {
+      renderPoints();
+      expect(cell("Name", "1").hasAttribute("row")).toBe(false);
+    });
+
     it("should render the cell a custom column builds from the cell's value", () => {
       renderPoints();
       expect(point().textContent).toBe("0;0");

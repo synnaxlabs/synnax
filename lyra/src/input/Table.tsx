@@ -44,6 +44,8 @@ export type TableCell = unknown;
 
 /** The props a {@link TableColumn} cell renderer receives. */
 export interface TableCellProps<V extends TableCell = TableCell> extends Control<V> {
+  /** The index of the cell's row. */
+  row: number;
   /** Whether the cell is read-only. */
   preview?: boolean;
   /** The edit-in-place chassis every cell shares. Spread it onto the input. */
@@ -109,16 +111,21 @@ export type TableColumnProps<V = unknown> =
  */
 export const TableColumn = <V,>(_: TableColumnProps<V>): null => null;
 
-const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode => {
+// The default inputs take no row, which would land on the DOM.
+const renderCell = (
+  column: TableColumnProps,
+  props: Omit<TableCellProps, "row">,
+  row: number,
+): ReactNode => {
   switch (column.type) {
     case "string": {
       const cell = { ...props, value: String(props.value) };
-      if (column.children != null) return column.children(cell);
+      if (column.children != null) return column.children({ ...cell, row });
       return <InputText {...cell} />;
     }
     case "boolean": {
       const cell = { ...props, value: props.value === true };
-      if (column.children != null) return column.children(cell);
+      if (column.children != null) return column.children({ ...cell, row });
       // The grid draws the cell's frame, so the checkbox draws none of its own. A
       // read-only box still shows its state as a control.
       return (
@@ -126,10 +133,10 @@ const renderCell = (column: TableColumnProps, props: TableCellProps): ReactNode 
       );
     }
     case "custom":
-      return column.children(props);
+      return column.children({ ...props, row });
   }
   const cell = { ...props, value: Number(props.value) };
-  if (column.children != null) return column.children(cell);
+  if (column.children != null) return column.children({ ...cell, row });
   return <Numeric {...cell} showDragHandle={false} />;
 };
 
@@ -681,16 +688,20 @@ export const Table = ({
                     onBlur={handleCellBlur}
                   >
                     <ItemContext value={cellItem}>
-                      {renderCell(column, {
-                        value: row[j] ?? emptyCell(column),
-                        onChange: (next) => handleCellChange({ x: j, y: i }, next),
-                        preview,
-                        variant: "shadow",
-                        "aria-label":
-                          column.name == null
-                            ? rowName(i)
-                            : `${column.name} ${rowName(i)}`,
-                      })}
+                      {renderCell(
+                        column,
+                        {
+                          value: row[j] ?? emptyCell(column),
+                          onChange: (next) => handleCellChange({ x: j, y: i }, next),
+                          preview,
+                          variant: "shadow",
+                          "aria-label":
+                            column.name == null
+                              ? rowName(i)
+                              : `${column.name} ${rowName(i)}`,
+                        },
+                        i,
+                      )}
                     </ItemContext>
                   </td>
                 );
