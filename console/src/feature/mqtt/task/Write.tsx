@@ -23,9 +23,9 @@ import { use, useFromConfig } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice, useNoneSelected } from "@/feature/mqtt/device/Select";
 import { type Device, MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import { jsonTypeOf } from "@/feature/mqtt/task/createReadFields";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
 import { EntryLabel } from "@/feature/mqtt/task/EntryLabel";
+import { type Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
   fromSparkplugDataType,
@@ -38,7 +38,6 @@ import { SparkplugTypeField } from "@/feature/mqtt/task/SparkplugTypeField";
 import {
   deployWriteConfigZ,
   type PlainWriteTarget,
-  type ReadField,
   type SparkplugTag,
   type SparkplugWriteTarget,
   WRITE_SCHEMAS,
@@ -210,14 +209,11 @@ const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
 };
 
 /** Creates a target that publishes to a topic, at the pointer of a browsed field. */
-const createTarget = (topic: string, field?: ReadField): PlainWriteTarget => {
+const createTarget = (topic: string, leaf?: Leaf): PlainWriteTarget => {
   const target = mqtt.plainWriteTargetZ.parse({ type: "plain", topic });
-  if (field == null) return target;
-  const { pointer, dataType } = field;
-  return {
-    ...target,
-    channel: { ...target.channel, pointer, dataType, jsonType: jsonTypeOf(field) },
-  };
+  if (leaf == null) return target;
+  const { pointer, dataType, type: jsonType } = leaf;
+  return { ...target, channel: { ...target.channel, pointer, dataType, jsonType } };
 };
 
 const createSparkplugTarget = (tag?: SparkplugTag): SparkplugWriteTarget => {

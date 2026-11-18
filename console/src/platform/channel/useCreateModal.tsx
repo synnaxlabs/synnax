@@ -41,6 +41,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       else close();
     },
   });
+  Modals.useBusy(variant === "loading");
   const isIndex = Form.useFieldValue(path.isIndex, { ctx: form });
   const isVirtual = Form.useFieldValue(path.virtual, { ctx: form });
   const kind: Kind = isIndex ? "index" : isVirtual ? "virtual" : "data";
@@ -86,9 +87,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
               </Select.Buttons>
             </Input.Item>
             <Form.Field path={path.dataType} label="Data type" grow>
-              {(p) => (
-                <Telem.SelectDataType {...p} disabled={isIndex} zIndex={100} full="x" />
-              )}
+              {(p) => <Telem.SelectDataType {...p} disabled={isIndex} full="x" />}
             </Form.Field>
           </Flex.Box>
           <Form.Field path={path.index} label="Index" visible={kind === "data"}>
@@ -98,7 +97,6 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
                 onChange={onChange}
                 query={INDEX_QUERY}
                 allowNone={false}
-                zIndex={100}
               />
             )}
           </Form.Field>

@@ -14,6 +14,7 @@ from review import compare
 from review.carry import carry
 from review.dismiss import dismiss
 from review.findings import SEVERITIES, Dismissal, Finding, Review, parse
+from review.judge import Judgment, judge, rule
 from review.post import (
     GH,
     Target,
@@ -26,6 +27,7 @@ from review.post import (
     post,
     reviewed,
     threads,
+    withdrawn,
 )
 from review.run import (
     Claude,
@@ -48,6 +50,7 @@ __all__ = [
     "Dismissal",
     "Doc",
     "Finding",
+    "Judgment",
     "Lens",
     "Pass",
     "PullRequest",
@@ -63,11 +66,14 @@ __all__ = [
     "dismissals",
     "dismissed",
     "gh",
+    "judge",
     "load",
     "outside_findings",
     "parse",
     "post",
     "reviewed",
+    "rule",
     "run",
     "threads",
+    "withdrawn",
 ]

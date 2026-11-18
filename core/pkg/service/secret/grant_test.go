@@ -38,7 +38,13 @@ var _ = Describe("Grants", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		e = newStore(ctx)
-		e.folder = fstest.MapFS{"k.pem": {Data: []byte("client key")}}
+		e.folder = fstest.MapFS{
+			"k.pem":      {Data: []byte("client key")},
+			"lf.txt":     {Data: []byte("token\n")},
+			"crlf.txt":   {Data: []byte("token\r\n")},
+			"lines.txt":  {Data: []byte("token\n\r\n\n")},
+			"spaces.txt": {Data: []byte(" a token  \r\n")},
+		}
 		e.svc = MustOpen(openService(ctx, e, secret.NewEncryptionKey()))
 		rk = coreRack.ResourceID()
 		rk2 = otherRack.ResourceID()
@@ -182,6 +188,23 @@ var _ = Describe("Grants", func() {
 					map[secret.Key][]byte{s.Base().Key: []byte("client key")},
 				))
 			},
+		)
+		DescribeTable(
+			"Should drop the line endings at the end of a file secret",
+			func(ctx SpecContext, fileName, value string) {
+				s := e.createFile(ctx, "Token", fileName, coreRack)
+				Expect(e.svc.Reveal(ctx, e.db, s.Base().Key)).To(Equal(
+					map[secret.Key][]byte{s.Base().Key: []byte(value)},
+				))
+			},
+			Entry("a line feed", "lf.txt", "token"),
+			Entry("a carriage return and a line feed", "crlf.txt", "token"),
+			Entry("several line endings", "lines.txt", "token"),
+			Entry(
+				"spaces inside, at the start, and at the end",
+				"spaces.txt",
+				" a token  ",
+			),
 		)
 		It("Should fail for a file that the secrets folder does not hold", func(
 			ctx SpecContext,

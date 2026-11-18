@@ -108,8 +108,10 @@ describe("range/toolbar/Card", () => {
     });
     const container = await renderCard(rng);
     expect(await screen.findByText("To do")).toBeTruthy();
-    expect(container.textContent).not.toContain("2262");
-    expect(container.textContent).not.toMatch(/\d+d/);
+    // The random suffix of the name can hold digits followed by a "d".
+    const text = container.textContent.replace(rng.name, "");
+    expect(text).not.toContain("2262");
+    expect(text).not.toMatch(/\d+d/);
   });
 
   it("should list the first six children and count the rest", async () => {

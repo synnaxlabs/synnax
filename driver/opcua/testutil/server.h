@@ -31,6 +31,7 @@
 #include "open62541/server_config_default.h"
 
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/x509/x509.h"
 
 #include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/types/types.h"
@@ -327,7 +328,7 @@ struct ServerConfig {
     std::optional<certificate::Identity> identity;
     /// @brief the client certificates that the server trusts. Empty trusts every
     /// client.
-    std::vector<certificate::Certificate> trusted_clients;
+    std::vector<x::x509::Certificate> trusted_clients;
     /// @brief the namespace URIs that the server adds after its own, in order. The
     /// first gets index 2.
     std::vector<std::string> namespaces;

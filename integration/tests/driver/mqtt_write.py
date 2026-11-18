@@ -15,7 +15,12 @@ from examples.mqtt_sim.server import (
 
 import synnax as sy
 from synnax import mqtt
-from tests.driver.mqtt_task import MQTTWriteTaskCase, run_reader, write_until
+from tests.driver.mqtt_task import (
+    MQTTWriteTaskCase,
+    create_plain_entry,
+    run_reader,
+    write_until,
+)
 from tests.driver.task import create_channel, create_index
 
 
@@ -68,13 +73,12 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                 name=f"{self.task_name} Echo Reader",
                 channel="mqtt_valve_state_payload",
                 data_type=sy.DataType.JSON,
-                entry=lambda echo: mqtt.PlainReadEntry(
+                entry=lambda echo: create_plain_entry(
+                    self.client,
                     topic="plant/valve/state",
                     retained_ignored=True,
-                    fields=[
-                        mqtt.ReadField(
-                            pointer="", channel=echo.key, data_type=sy.DataType.JSON
-                        )
+                    bindings=[
+                        (sy.icd.JSONJSONField(name="payload", pointer=""), echo.key)
                     ],
                 ),
             ) as echo,

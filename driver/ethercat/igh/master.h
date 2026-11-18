@@ -24,6 +24,7 @@
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/igh/api.h"
 #include "driver/ethercat/igh/ecrt.h"
+#include "driver/ethercat/master/dc.h"
 #include "driver/ethercat/master/master.h"
 #include "driver/ethercat/pdo/pdo.h"
 #include "driver/ethercat/slave/slave.h"
@@ -31,6 +32,10 @@
 namespace driver::ethercat::igh {
 /// @brief how the IgH master waits for its slaves.
 struct Config {
+    /// @brief how long a slave that was below PRE-OP at the scan gets to reach PRE-OP
+    /// before activation, enabled or not. The default is the PreopTimeout of the ESI
+    /// files.
+    x::telem::TimeSpan pre_op_timeout = x::telem::SECOND * 2;
     /// @brief how long the slaves get to reach OP after activation. Some slaves take up
     /// to 9 s.
     x::telem::TimeSpan op_timeout = x::telem::SECOND * 10;
@@ -89,6 +94,20 @@ class Master final : public master::Master {
     std::vector<slave::Health> latest_health;
     /// @brief what the latest receive() returns.
     x::errors::Error received;
+    /// @brief the position of the first slave with a distributed clock, which IgH makes
+    /// the reference clock.
+    std::optional<uint16_t> reference_clock;
+    /// @brief the DC registers of each enabled slave in a DC mode.
+    std::vector<master::DCSetup> dc_setups;
+    /// @brief what to add to a steady time in nanoseconds to get the application time:
+    /// the host time in nanoseconds since master::DC_EPOCH.
+    int64_t app_offset = 0;
+    /// @brief the application time of the latest send().
+    uint64_t sent_at = 0;
+    /// @brief whether IgH aligned the slave clocks to the application time.
+    bool clocks_aligned = false;
+    /// @brief what dc_time() returns.
+    std::optional<x::telem::TimeStamp> latest_dc;
     /// @brief whether the latest check() found a slave with its AL error flag set.
     bool faulted = false;
     /// @brief the resets that recover() asked for since check() last found every slave
@@ -121,10 +140,10 @@ public:
 
     [[nodiscard]] bool restarts_visible() const override { return false; }
 
-    /// @brief does what master::Master::activate does, but ignores the period and runs
-    /// no DC sync, so a slave that needs DC sync refuses SAFE-OP. Returns
-    /// errors::SLAVE_CONFIG_ERROR, before it configures any slave, when the chosen mode
-    /// of a slave is one that the IgH master cannot run. The IgH master moves the
+    /// @brief does what master::Master::activate does, and keeps the reference clock on
+    /// the host clock. Also returns errors::SLAVE_CONFIG_ERROR when a slave whose SYNC0
+    /// events mark data has a SYNC1 shift that is not a whole number of SYNC0 cycles,
+    /// since IgH would start its SYNC0 events off the grid. The IgH master moves the
     /// slaves to OP on its own, so a slave below OP with its AL error flag set counts
     /// as a refusal. Once every slave below OP has the flag, the master tries them once
     /// more with a reset, then returns the refusals without waiting for
@@ -178,20 +197,33 @@ public:
         return this->latest_inputless;
     }
 
-    /// @brief returns nullopt, since this master does not read the distributed clock.
+    /// @brief does what master::Master::dc_time does, but returns nullopt when no slave
+    /// runs a DC mode, until a slave gives a working counter, since IgH aligns the
+    /// slave clocks to the host clock only after activation, and for a frame that
+    /// carried no time.
     [[nodiscard]] std::optional<x::telem::TimeStamp> dc_time() const override {
-        return std::nullopt;
+        return this->latest_dc;
     }
 
 private:
     /// @brief opens the master and reads each slave on the bus.
     x::errors::Error initialize();
 
+    /// @brief returns the application time now.
+    [[nodiscard]] uint64_t app_time() const;
+
     /// @brief waits until every enabled slave reaches OP.
     /// @returns errors::STATE_CHANGE_REFUSED with the refusals when every slave below
     /// OP still has its AL error flag set after a reset, or when one has it at
     /// Config::op_timeout. errors::STATE_CHANGE_ERROR when none has it at the timeout.
     master::Activation wait_for_op();
+
+    /// @brief waits up to Config::pre_op_timeout for each slave that was starting at
+    /// the scan to reach PRE-OP, then reads its CoE objects.
+    void read_starting();
+
+    /// @brief reads the CoE serial number and the settings of slave.
+    void read_coe(slave::DiscoveryResult &slave);
 
     /// @brief returns true when every slave at positions has its AL error flag set.
     [[nodiscard]] bool refusing(const std::vector<uint16_t> &positions) const;

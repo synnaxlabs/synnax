@@ -182,7 +182,16 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	for _, idx := range w.indexes {
 		idx.stageSet(w.tx, entry)
 	}
-	return nil
+	db := txDB(w.tx)
+	if db == nil {
+		return nil
+	}
+	refs := db.registry.watchers(w.tableName)
+	if len(refs) == 0 {
+		return nil
+	}
+	target := Target{Table: w.tableName, Key: key.Format(k)}
+	return db.registry.targetSet(ctx, w.tx, refs, target)
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, k K) error {

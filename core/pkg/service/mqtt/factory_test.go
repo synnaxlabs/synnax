@@ -22,8 +22,17 @@ var _ = Describe("Factory", func() {
 			Expect(mqtt.OpenFactory(mqtt.FactoryConfig{
 				Channel: channelSvc,
 				Framer:  framerSvc,
-				DB:      db, Status: statusSvc,
+				DB:      db, Status: statusSvc, ICD: icdSvc,
 			})).Error().To(MatchError("device: must be non-nil"))
+		})
+
+		It("Should reject a configuration with no ICD service", func() {
+			Expect(mqtt.OpenFactory(mqtt.FactoryConfig{
+				Device:  deviceSvc,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				DB:      db, Status: statusSvc,
+			})).Error().To(MatchError("icd: must be non-nil"))
 		})
 	})
 
@@ -33,7 +42,7 @@ var _ = Describe("Factory", func() {
 				Device:  deviceSvc,
 				Channel: channelSvc,
 				Framer:  framerSvc,
-				DB:      db, Status: statusSvc,
+				DB:      db, Status: statusSvc, ICD: icdSvc,
 			}))
 			Expect(f.Close()).To(Succeed())
 		})
