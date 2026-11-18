@@ -183,7 +183,14 @@ const numberOptionsOf = (
 const withJSONType = (field: icd.JSONField, type: JSONType): icd.JSONField => {
   const { key, name, pointer, units } = field;
   const base = { key, name, pointer, units, scale: 1, offset: 0 };
-  if (isTimeFormat(type)) return { ...base, type: "timestamp", timeFormat: type };
+  if (isTimeFormat(type))
+    return {
+      ...base,
+      type: "timestamp",
+      timeFormat: type,
+      // The default holds a time, not its encoding, so it outlives a format change.
+      default: field.type === "timestamp" ? field.default : undefined,
+    };
   if (isNumberKind(type)) {
     const { scale, offset, min, max } = field;
     const number = { ...base, scale, offset, min, max };

@@ -537,6 +537,30 @@ describe("ICD editor", () => {
     expect(await screen.findByText("None")).toBeTruthy();
   });
 
+  it("should keep the default of a timestamp JSON field on a time format change", async () => {
+    const at = TimeStamp.milliseconds(1_700_000_000_000);
+    const ic = await createICD([
+      createJSONMessage([
+        {
+          ...createJSONBase("Time", "/time"),
+          type: "timestamp",
+          timeFormat: "unix_ms",
+          default: at,
+        },
+      ]),
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Timestamp (ms)"));
+    fireEvent.click(await screen.findByText("Timestamp (ISO 8601)"));
+    await waitFor(async () =>
+      expect(await retrieveJSONField(ic.key)).toMatchObject({
+        type: "timestamp",
+        timeFormat: "iso8601",
+        default: at,
+      }),
+    );
+  });
+
   it("should open no options for a JSON field that holds any value", async () => {
     const ic = await createICD([
       createJSONMessage([{ ...createJSONBase("Raw", "/raw"), type: "json" }]),
