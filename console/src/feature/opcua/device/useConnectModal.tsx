@@ -103,14 +103,16 @@ interface GrantItems {
 
 /**
  * @returns the secrets and certificates that the Driver reads to connect: the password,
- * and the client certificate as a file or the secret that holds its private key.
+ * and the client certificate as a file or the secret that holds its private key. An
+ * unsecured connection presents no client certificate.
  */
 const retrieveGrantItems = async (
   client: Synnax,
-  { password, clientCertificate }: ConnectionConfig,
+  { password, clientCertificate, securityPolicy }: ConnectionConfig,
 ): Promise<GrantItems> => {
   const secrets = primitive.isZero(password) ? [] : [password];
-  if (primitive.isZero(clientCertificate)) return { secrets, certificates: [] };
+  if (primitive.isZero(clientCertificate) || securityPolicy === NO_SECURITY_POLICY)
+    return { secrets, certificates: [] };
   const c = await client.certificates.retrieve(clientCertificate);
   if (c.source === "file") return { secrets, certificates: [c.key] };
   if (c.privateKey == null)

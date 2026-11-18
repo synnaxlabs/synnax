@@ -549,6 +549,18 @@ TEST(ConnectionTest, parsesCertificateItems) {
     ASSERT_FALSE(cfg.server_certificate.has_value());
 }
 
+/// @brief it should present the client certificate that a connection names only when
+/// the connection is secured, since an unsecured connection presents none.
+TEST(ConnectionTest, usesClientCertificateOnlyWhenSecured) {
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4848";
+    cfg.client_certificate_item = x::uuid::create();
+    ASSERT_FALSE(cfg.uses_client_certificate());
+    cfg.security_mode = "Sign";
+    cfg.security_policy = "Basic256Sha256";
+    ASSERT_TRUE(cfg.uses_client_certificate());
+}
+
 /// @brief it should refuse a certificate field that is not the key of a certificate,
 /// such as a path from an earlier release.
 TEST(ConnectionTest, refusesCertificatePath) {

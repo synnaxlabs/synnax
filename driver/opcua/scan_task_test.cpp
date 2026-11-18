@@ -882,6 +882,49 @@ TEST_F(TestScanTask, testSentClientCertificateNeedsGrant) {
     );
 }
 
+/// @brief it should test an unsecured connection that names a client certificate
+/// without a grant or a read of the certificate, since the connection presents none.
+TEST_F(TestScanTask, testUnsecuredClientCertificateNeedsNoGrant) {
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4840";
+    cfg.client_certificate_item = x::uuid::create();
+    synnax::task::Command cmd{
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "unsecured_cmd",
+        .args = {{"connection", testutil::connection_json(cfg)}},
+    };
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    EXPECT_EQ(state.message, "Connected to server");
+}
+
+/// @brief it should trust a server certificate that has a private key without a grant,
+/// since it reads only the certificate and never its key.
+TEST_F(TestScanTask, testServerCertificateWithKeyNeedsNoGrant) {
+    start_secured_server(server_id);
+    Scanner scanner(ctx, task, conn_pool, store, reader);
+    auto cfg = secured_config();
+    cfg.server_certificate_item = secret::testutil::create_stored_certificate(
+                                      *client,
+                                      server_id.certificate.pem(),
+                                      server_id.private_key
+    )
+                                      .key;
+    synnax::task::Command cmd{
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "server_certificate_cmd",
+        .args = {{"connection", testutil::connection_json(cfg)}},
+    };
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    EXPECT_EQ(state.message, "Connected to server");
+}
+
 /// @brief it should present the stored client certificate of a device, reading its
 /// private key because the device uses the certificate.
 TEST_F(TestScanTask, testHealthCheckReadsClientCertificate) {

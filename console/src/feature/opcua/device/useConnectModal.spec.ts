@@ -708,6 +708,28 @@ describe("OPCUA.Device.useConnectModal", () => {
     ).toBeTruthy();
   });
 
+  it("should test an unsecured connection without its client certificate", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    const own = await createClientCertificate();
+    const dev = await createOPCDevice(client, {
+      rack: rack.key,
+      properties: {
+        connection: {
+          ...OPCUA.Device.ZERO_PROPERTIES.connection,
+          clientCertificate: own.key,
+        },
+      },
+    });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await screen.findByLabelText("Username");
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    expect((await answered).args).not.toHaveProperty("grant");
+  });
+
   it("should save certificate validation as disabled when its switch is off", async () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await createScanTask(rack);

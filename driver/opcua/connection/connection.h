@@ -112,9 +112,9 @@ struct Config {
     [[nodiscard]] bool secured() const { return this->security_policy != "None"; }
 
     /// @returns true if the connection presents its own client certificate instead
-    /// of the Driver certificate.
+    /// of the Driver certificate. An unsecured connection presents no certificate.
     [[nodiscard]] bool uses_client_certificate() const {
-        return !this->client_certificate_item.is_nil();
+        return this->secured() && !this->client_certificate_item.is_nil();
     }
 
 private:
@@ -142,7 +142,7 @@ private:
 );
 
 /// @brief reads the client and server certificates of cfg from the items that it
-/// names, when it names them.
+/// names, when it names them. It reads no private key of the server certificate.
 /// @param grant a spent grant, as for secret::Reader::read_certificate. It applies to
 /// the client certificate only, since the server certificate is public.
 /// @returns errors::CLIENT_CERTIFICATE_INVALID if the client certificate cannot be

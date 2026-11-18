@@ -69,6 +69,12 @@ public:
         const std::optional<synnax::secret::Grant> &grant = std::nullopt
     ) const;
 
+    /// @brief returns the chain of the certificate with the given key as PEM, as for
+    /// read_certificate, but reads no private key. It needs no grant.
+    /// @returns VALIDATION for a file certificate of another rack.
+    [[nodiscard]] std::pair<std::string, x::errors::Error>
+    read_chain(const synnax::certificate::Key &key) const;
+
     /// @brief spends the grant that cmd carries in its "grant" argument, for the task
     /// of cmd.
     /// @returns the command that the grant stores, under the key of cmd, and the values
@@ -85,5 +91,12 @@ private:
     /// that the error names.
     [[nodiscard]] std::pair<std::string, x::errors::Error>
     read_file(const std::string &item, const std::string &name) const;
+
+    /// @returns the chain in the certificate file of file, the certificate with key,
+    /// and saves its details as read_certificate does.
+    [[nodiscard]] std::pair<std::string, x::errors::Error> read_file_chain(
+        const synnax::certificate::Key &key,
+        const synnax::certificate::FileCertificate &file
+    ) const;
 };
 }

@@ -322,9 +322,9 @@ x::errors::Error read_certificates(
     const std::optional<synnax::secret::Grant> &grant
 ) {
     if (!cfg.server_certificate_item.is_nil()) {
-        auto [server, err] = reader.read_certificate(cfg.server_certificate_item);
+        auto [pem, err] = reader.read_chain(cfg.server_certificate_item);
         if (err) return err;
-        auto [cert, parse_err] = x::x509::Certificate::parse(server.pem);
+        auto [cert, parse_err] = x::x509::Certificate::parse(pem);
         if (parse_err) return parse_err;
         cfg.server_certificate = std::move(cert);
     }
