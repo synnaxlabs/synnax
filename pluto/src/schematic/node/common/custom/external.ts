@@ -10,5 +10,9 @@
 export * from "@/schematic/node/common/custom/builtIn";
 export * from "@/schematic/node/common/custom/Drawing";
 export * from "@/schematic/node/common/custom/Overrides";
-export { type Paint, usePaints } from "@/schematic/node/common/custom/paint";
+export {
+  type Paint,
+  usePaints,
+  useRegions,
+} from "@/schematic/node/common/custom/paint";
 export * from "@/schematic/node/common/custom/render";

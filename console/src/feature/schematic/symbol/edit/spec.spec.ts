@@ -1,0 +1,225 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type schematic } from "@synnaxlabs/client";
+import { color } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
+
+import {
+  createState,
+  listTabs,
+  removePart,
+  setColor,
+  setVariant,
+  STATE,
+  toggleSelector,
+} from "@/feature/schematic/symbol/edit/spec";
+
+const RED = color.construct("#ff0000");
+const BLUE = color.construct("#0000ff");
+
+const fixed = (c: color.Color): schematic.symbol.Paint => ({
+  type: "color",
+  value: { type: "fixed", value: c },
+});
+
+const equals = (...values: number[]): schematic.symbol.Condition => ({
+  type: "equals",
+  state: STATE,
+  values,
+});
+
+const createSpec = (
+  overrides: Partial<schematic.symbol.Spec> = {},
+): schematic.symbol.Spec => ({
+  drawing: { type: "svg", markup: "<svg/>" },
+  parts: [
+    { key: "body", name: "Body", selectors: ["#body"] },
+    { key: "seat", name: "Seat", selectors: ["#seat"] },
+  ],
+  handles: [],
+  states: [createState()],
+  commands: [],
+  looks: [],
+  interactions: [],
+  variant: "static",
+  scale: 1,
+  strokeScaled: false,
+  ...overrides,
+});
+
+describe("symbol editor spec", () => {
+  describe("setColor", () => {
+    it("should set the field on the look of the part for the value alone", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(0), fill: fixed(BLUE) },
+      ];
+      expect(setColor(looks, "body", 0, "stroke", RED)).toEqual([
+        {
+          key: "a",
+          part: "body",
+          when: equals(0),
+          fill: fixed(BLUE),
+          stroke: fixed(RED),
+        },
+      ]);
+    });
+
+    it("should add a look when the part has none for the value", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(1), stroke: fixed(BLUE) },
+      ];
+      const next = setColor(looks, "body", 0, "stroke", RED);
+      expect(next).toHaveLength(2);
+      expect(next[0]).toEqual(looks[0]);
+      expect(next[1]).toMatchObject({
+        part: "body",
+        when: equals(0),
+        stroke: fixed(RED),
+      });
+    });
+
+    it("should add a look after a later look that sets the field", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(0), fill: fixed(BLUE) },
+        {
+          key: "entry",
+          part: "body",
+          when: equals(0, 1),
+          stroke: { type: "entry", state: STATE },
+        },
+      ];
+      const next = setColor(looks, "body", 0, "stroke", RED);
+      expect(next.slice(0, 2)).toEqual(looks);
+      expect(next[2]).toMatchObject({ part: "body", stroke: fixed(RED) });
+    });
+
+    it("should clear the field and drop a look that then sets nothing", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
+        { key: "b", part: "seat", when: equals(0), stroke: fixed(RED) },
+      ];
+      expect(setColor(looks, "body", 0, "stroke")).toEqual([looks[1]]);
+    });
+
+    it("should keep the other fields of a look when it clears one", () => {
+      const looks: schematic.symbol.Look[] = [
+        {
+          key: "a",
+          part: "body",
+          when: equals(0),
+          stroke: fixed(RED),
+          fill: fixed(BLUE),
+        },
+      ];
+      expect(setColor(looks, "body", 0, "stroke")).toEqual([
+        {
+          key: "a",
+          part: "body",
+          when: equals(0),
+          stroke: undefined,
+          fill: fixed(BLUE),
+        },
+      ]);
+    });
+  });
+
+  describe("removePart", () => {
+    it("should remove the part and the looks on it", () => {
+      const spec = createSpec({
+        looks: [
+          { key: "a", part: "body", stroke: fixed(RED) },
+          { key: "b", part: "seat", stroke: fixed(RED) },
+        ],
+      });
+      const next = removePart(spec, "body");
+      expect(next.parts.map((p) => p.key)).toEqual(["seat"]);
+      expect(next.looks.map((l) => l.key)).toEqual(["b"]);
+    });
+  });
+
+  describe("toggleSelector", () => {
+    it("should move a selector to the part from the other parts", () => {
+      const next = toggleSelector(createSpec().parts, "body", "#seat");
+      expect(next).toEqual([
+        { key: "body", name: "Body", selectors: ["#body", "#seat"] },
+        { key: "seat", name: "Seat", selectors: [] },
+      ]);
+    });
+
+    it("should remove a selector that the part already has", () => {
+      const next = toggleSelector(createSpec().parts, "body", "#body");
+      expect(next[0].selectors).toEqual([]);
+    });
+  });
+
+  describe("setVariant", () => {
+    it("should give an actuator the commands, the match, and the Base looks on Active", () => {
+      const spec = createSpec({
+        looks: [{ key: "a", part: "body", when: equals(0), stroke: fixed(RED) }],
+      });
+      const next = setVariant(spec, "actuator");
+      expect(next.variant).toBe("actuator");
+      expect(next.states[0]).toMatchObject({
+        match: { type: "within", bounds: { lower: 0.9, upper: 1.1 } },
+      });
+      expect(next.commands.map((c) => [c.key, c.value])).toEqual([
+        ["deactivate", { type: "fixed", value: 0 }],
+        ["activate", { type: "fixed", value: 1 }],
+      ]);
+      expect(next.interactions).toEqual([
+        { type: "next", key: "next", commands: ["deactivate", "activate"] },
+      ]);
+      expect(next.looks).toHaveLength(2);
+      expect(next.looks[1]).toMatchObject({
+        part: "body",
+        when: equals(1),
+        stroke: fixed(RED),
+      });
+    });
+
+    it("should take the Active looks, commands, and clicks from a static symbol", () => {
+      const actuator = setVariant(
+        createSpec({
+          looks: [
+            { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
+            { key: "b", part: "body", when: equals(0, 1), fill: fixed(BLUE) },
+          ],
+        }),
+        "actuator",
+      );
+      const next = setVariant(actuator, "static");
+      expect(next.looks.map((l) => l.key)).toEqual(["a", "b"]);
+      expect(next.commands).toEqual([]);
+      expect(next.interactions).toEqual([]);
+      expect(next.states[0]).toMatchObject({ match: { type: "exact" } });
+    });
+  });
+
+  describe("listTabs", () => {
+    it("should list the entries of the enumeration", () => {
+      const tabs = listTabs(createSpec(), [
+        { key: "closed", value: 0, name: "Closed", abnormal: false },
+        { key: "open", value: 1, name: "Open", abnormal: false },
+      ]);
+      expect(tabs).toEqual([
+        { value: 0, name: "Closed" },
+        { value: 1, name: "Open" },
+      ]);
+    });
+
+    it("should list Base, and Active on an actuator, with no enumeration", () => {
+      expect(listTabs(createSpec())).toEqual([{ value: 0, name: "Base" }]);
+      expect(listTabs(createSpec({ variant: "actuator" }))).toEqual([
+        { value: 0, name: "Base" },
+        { value: 1, name: "Active" },
+      ]);
+    });
+  });
+});

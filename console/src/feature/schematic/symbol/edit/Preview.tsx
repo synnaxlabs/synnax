@@ -57,7 +57,8 @@ const VIEWPORT_PATH = deep.present(path.data.previewViewport);
 const ZOOM_PATH = VIEWPORT_PATH.zoom;
 
 interface PreviewProps {
-  selectedState: string;
+  /** selectedValue is the value of the state that the preview draws. */
+  selectedValue: number;
   selectedHandle?: string;
   onElementClick: (selector: string) => void;
   onContentsChange: (contents: string) => void;
@@ -66,7 +67,7 @@ interface PreviewProps {
 }
 
 export const Preview = ({
-  selectedState,
+  selectedValue,
   selectedHandle,
   onElementClick,
   onContentsChange,
@@ -144,7 +145,7 @@ export const Preview = ({
 
   Triggers.use({
     triggers: FLATTENED_ZOOM_TRIGGERS,
-    enabled: Boolean(spec.svg),
+    enabled: spec.drawing.markup.length > 0,
     callback: ({ triggers, stage }: Triggers.UseEvent) => {
       if (stage === "end") return stopRepeat();
       if (stage !== "start") return;
@@ -211,12 +212,9 @@ export const Preview = ({
     Array.from(drawing.children).forEach(addInteractivity);
   };
 
-  const setDrawing = Schematic.Node.Custom.useRender({
-    activeState: selectedState,
-    spec,
-    onMount,
-  });
-  const dims = Schematic.Node.Region.measure(spec.svg);
+  const paints = Schematic.Node.Custom.usePaints(spec, selectedValue);
+  const setDrawing = Schematic.Node.Custom.useRender({ spec, paints, onMount });
+  const dims = Schematic.Node.Region.measure(spec.drawing.markup);
 
   const handleContentsChange = (contents: string, filename?: string) => {
     const processedSVG = Schematic.Node.Region.normalizeSVG(contents);
@@ -229,14 +227,15 @@ export const Preview = ({
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(processedSVG, "image/svg+xml");
     const svgElement = svgDoc.documentElement as unknown as SVGElement;
-    const extractedRegions = Schematic.Node.Region.extract(svgElement);
-    const states = form.get(path.data.states).value;
-    states.forEach((state) =>
-      form.set(path.data.states[state.key].regions, extractedRegions),
+    // The drawing keeps its own colors, so its parts need no looks.
+    const parts = Schematic.Node.Region.extract(svgElement).map(
+      ({ key, name, selectors }) => ({ key, name, selectors }),
     );
+    form.set(path.data.parts, parts);
+    form.set(path.data.looks, []);
   };
 
-  const fileDropEnabled = spec.svg.length === 0;
+  const fileDropEnabled = spec.drawing.markup.length === 0;
 
   const svgWrapperStyle = {
     transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
@@ -268,7 +267,7 @@ export const Preview = ({
           background={0}
           rounded="small"
         >
-          {spec.svg.length > 0 && (
+          {spec.drawing.markup.length > 0 && (
             <Flex.Box x className={CSS.B("schematic-preview-controls")}>
               <Text.Text level="small" color={9}>
                 {Math.round(zoom.value * 100)}%

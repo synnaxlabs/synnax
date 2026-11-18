@@ -159,9 +159,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(findButton("Create"));
       await waitFor(async () => {
         const created = await client.schematics.symbols.retrieve(createKey);
-        expect(created.data?.states[0].regions[0].strokeColor).toEqual(
-          color.construct("#ff0000"),
-        );
+        const part = created.data.parts[0].key;
+        expect(created.data.looks.find((l) => l.part === part)?.stroke).toEqual({
+          type: "color",
+          value: { type: "fixed", value: color.construct("#ff0000") },
+        });
       });
     });
 

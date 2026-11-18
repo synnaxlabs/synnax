@@ -173,6 +173,20 @@ export const usePaintContext = (
   };
 };
 
+/**
+ * @returns a region for each part of spec, with the colors that its looks give it at
+ * value, or undefined while spec or the enumerations of its states load.
+ */
+export const useRegions = (
+  spec: schematic.symbol.Spec | undefined,
+  value: number,
+): schematic.symbol.Region[] | undefined => {
+  const ctx = usePaintContext(spec);
+  return useMemoDeepEqual(
+    spec == null || ctx == null ? undefined : resolveRegions(spec, { ...ctx, value }),
+  );
+};
+
 const NO_PAINTS: Paint[] = [];
 
 /**

@@ -21,13 +21,20 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Schematic } from "@synnaxlabs/pluto";
-import { array, type bounds, color, id, type xy } from "@synnaxlabs/x";
+import { Enumeration, Schematic } from "@synnaxlabs/pluto";
+import { type bounds, color, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
 import { RegionList } from "@/feature/schematic/symbol/edit/RegionList";
+import {
+  createState,
+  enumerationKey,
+  listTabs,
+  setColor,
+  toggleSelector,
+} from "@/feature/schematic/symbol/edit/spec";
 import { StateList } from "@/feature/schematic/symbol/edit/StateList";
 import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { CSS } from "@/platform/css";
@@ -53,6 +60,20 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
 const DEFAULT_REGION_KEY = "default";
 
+interface StatesProps {
+  value: number;
+  onChange: (value: number) => void;
+}
+
+// States lists the values of the state, named by the entries of its enumeration.
+const States = ({ value, onChange }: StatesProps): ReactElement | null => {
+  const spec = Form.useFieldValue(path.data);
+  const key = enumerationKey(spec);
+  const res = Enumeration.useResult(key == null ? null : { key });
+  const entries = res.variant === "success" ? res.data.entries : undefined;
+  return <StateList value={value} onChange={onChange} tabs={listTabs(spec, entries)} />;
+};
+
 const Editor = ({
   symbolKey,
   group,
@@ -68,39 +89,48 @@ const Editor = ({
       name: "",
       group,
       data: {
-        svg: "",
+        drawing: { type: "svg", markup: "" },
+        parts: [],
         previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         handles: [],
         variant: "static",
         strokeScaled: false,
-        states: [{ key: "base", name: "Base", regions: [] }],
+        states: [createState()],
+        commands: [],
+        looks: [],
+        interactions: [],
         scale: 1,
       },
     },
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
-  const [selectedState, setSelectedState, selectedStateRef] =
-    useCombinedStateAndRef<string>("base");
+  const [selectedValue, setSelectedValue, selectedValueRef] =
+    useCombinedStateAndRef<number>(0);
   const [selectedRegion, setSelectedRegion, selectedRegionRef] =
     useCombinedStateAndRef<string>(DEFAULT_REGION_KEY);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
   const addNewRegion = () => {
-    const currentState = form.get(path.data.states[selectedStateRef.current]).value;
-    const newRegion: schematic.symbol.Region = {
+    const parts = form.get(path.data.parts).value;
+    const part: schematic.symbol.Part = {
       key: `reg-${id.create()}`,
-      name: `Region ${currentState.regions.length + 1}`,
+      name: `Region ${parts.length + 1}`,
       selectors: [],
-      strokeColor: theme.colors.gray.l10,
-      fillColor: color.setOpacity(theme.colors.gray.l10, 0),
     };
-
-    form.set(path.data.states[selectedStateRef.current].regions, [
-      ...currentState.regions,
-      newRegion,
-    ]);
-    setSelectedRegion(newRegion.key);
+    const value = selectedValueRef.current;
+    let looks = form.get(path.data.looks).value;
+    looks = setColor(looks, part.key, value, "stroke", theme.colors.gray.l10);
+    looks = setColor(
+      looks,
+      part.key,
+      value,
+      "fill",
+      color.setOpacity(theme.colors.gray.l10, 0),
+    );
+    form.set(path.data.parts, [...parts, part]);
+    form.set(path.data.looks, looks);
+    setSelectedRegion(part.key);
   };
 
   const addNewHandle = () => {
@@ -125,32 +155,17 @@ const Editor = ({
     }
   };
 
-  const handleElementClick = (selector: string) => {
-    const currentState = selectedStateRef.current;
-    const currentRegion = selectedRegionRef.current;
-    const regions = path.data.states[currentState].regions;
-    const regionPath = regions[currentRegion];
-    const region = form.get(regionPath).value;
-    const hasSelector = region.selectors.includes(selector);
-    if (hasSelector) {
-      const updatedSelectors = array.remove(region.selectors, selector);
-      form.set(regionPath, { ...region, selectors: updatedSelectors });
-    } else {
-      const allRegions = form.get(regions).value;
-      allRegions.forEach((r, index) => {
-        if (!r.selectors.includes(selector)) return;
-        const updatedRegion = {
-          ...r,
-          selectors: array.remove(r.selectors, selector),
-        };
-        form.set(regions[index], updatedRegion);
-      });
-      const updatedSelectors = [...region.selectors, selector];
-      form.set(regionPath, { ...region, selectors: updatedSelectors });
-    }
-  };
+  const handleElementClick = (selector: string) =>
+    form.set(
+      path.data.parts,
+      toggleSelector(
+        form.get(path.data.parts).value,
+        selectedRegionRef.current,
+        selector,
+      ),
+    );
   const hasSVG =
-    Form.useFieldValue(path.data.svg, {
+    Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
@@ -193,8 +208,8 @@ const Editor = ({
                     </Header.Title>
                   </Header.Header>
                   <Flex.Box className={CSS.BE("schematic", "states")}>
-                    <SelectVariantField onSelectState={setSelectedState} />
-                    <StateList value={selectedState} onChange={setSelectedState} />
+                    <SelectVariantField onSelectValue={setSelectedValue} />
+                    <States value={selectedValue} onChange={setSelectedValue} />
                   </Flex.Box>
                 </Flex.Box>
                 <Divider.Divider x />
@@ -204,7 +219,7 @@ const Editor = ({
                     setSelectedRegion(value);
                     setSelectedHandle(undefined);
                   }}
-                  selectedState={selectedState}
+                  selectedValue={selectedValue}
                   onAddRegion={addNewRegion}
                 />
                 <Divider.Divider x />
@@ -244,10 +259,14 @@ const Editor = ({
                 </Flex.Box>
               </Flex.Box>
             )}
-            <Form.Field path={path.data.svg} showLabel={false} showHelpText={false}>
+            <Form.Field
+              path={path.data.drawing.markup}
+              showLabel={false}
+              showHelpText={false}
+            >
               {({ onChange }) => (
                 <Preview
-                  selectedState={selectedState}
+                  selectedValue={selectedValue}
                   selectedHandle={selectedHandle}
                   onElementClick={handleElementClick}
                   onContentsChange={onChange}

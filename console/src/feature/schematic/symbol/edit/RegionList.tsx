@@ -9,6 +9,7 @@
 
 import "@/feature/schematic/symbol/edit/Edit.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -21,30 +22,43 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Schematic } from "@synnaxlabs/pluto";
+import { type color } from "@synnaxlabs/x";
 
+import { type Field, removePart, setColor } from "@/feature/schematic/symbol/edit/spec";
 import { CSS } from "@/platform/css";
 
 const path = Schematic.Symbol.formPath;
 
 export interface RegionListProps extends Input.Control<string> {
-  selectedState: string;
+  /** selectedValue is the value of the state whose colors the list edits. */
+  selectedValue: number;
   onAddRegion: () => void;
 }
 
 export interface RegionListItemProps extends List.ItemRenderProps<string> {
-  selectedState: string;
+  selectedValue: number;
   svg: string;
+  /** region is the part with the colors that its looks give it at selectedValue. */
+  region?: schematic.symbol.Region;
 }
 
-const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) => {
+const RegionListItem = ({
+  selectedValue,
+  svg,
+  region,
+  ...props
+}: RegionListItemProps) => {
   const { itemKey } = props;
-  const regions = path.data.states[selectedState].regions;
-  const entry = regions[itemKey];
-  const region = Form.useFieldValue(entry, { optional: true });
-  const { set } = Form.useContext();
-  const paint = Schematic.Node.Region.paint(svg, region?.selectors ?? []);
-  const { remove } = Form.useFieldListUtils(regions);
-  if (region == null) return null;
+  const entry = path.data.parts[itemKey];
+  const part = Form.useFieldValue(entry, { optional: true });
+  const { get, set } = Form.useContext();
+  const paint = Schematic.Node.Region.paint(svg, part?.selectors ?? []);
+  if (part == null) return null;
+  const paintField = (field: Field, c?: color.Color) =>
+    set(
+      path.data.looks,
+      setColor(get(path.data.looks).value, itemKey, selectedValue, field, c),
+    );
   return (
     <Select.Item
       {...props}
@@ -65,22 +79,22 @@ const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) =
       </Flex.Box>
       <Flex.Box x align="center" gap={1}>
         <Text.Text level="small" color={9}>
-          {region?.selectors?.length || 0} elements
+          {part.selectors.length} elements
         </Text.Text>
         <Color.Swatch
-          value={region.strokeColor}
+          value={region?.strokeColor}
           fallback={paint.stroke}
-          onChange={(c) => set(entry.strokeColor, c)}
+          onChange={(c) => paintField("stroke", c)}
           size="small"
         />
         <Color.Swatch
-          value={region.fillColor}
+          value={region?.fillColor}
           fallback={paint.fill}
-          onChange={(c) => set(entry.fillColor, c)}
+          onChange={(c) => paintField("fill", c)}
           size="small"
         />
         <Button.Button
-          onClick={() => remove(itemKey)}
+          onClick={() => set(path.data, removePart(get(path.data).value, itemKey))}
           size="small"
           variant="text"
           reveal
@@ -95,11 +109,12 @@ const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) =
 export const RegionList = ({
   value,
   onChange,
-  selectedState,
+  selectedValue,
   onAddRegion,
 }: RegionListProps) => {
-  const { data } = Form.useFieldList(path.data.states[selectedState].regions);
-  const svg = Form.useFieldValue(path.data.svg);
+  const { data } = Form.useFieldList(path.data.parts);
+  const spec = Form.useFieldValue(path.data);
+  const regions = Schematic.Node.Custom.useRegions(spec, selectedValue);
   return (
     <Flex.Box y gap={1} className={CSS.B("schematic-region-list")}>
       <Header.Header level="p" bordered={false}>
@@ -136,8 +151,9 @@ export const RegionList = ({
           <List.Items<string>>
             {({ key, ...rest }) => (
               <RegionListItem
-                selectedState={selectedState}
-                svg={svg}
+                selectedValue={selectedValue}
+                svg={spec.drawing.markup}
+                region={regions?.find((r) => r.key === rest.itemKey)}
                 key={key}
                 {...rest}
               />

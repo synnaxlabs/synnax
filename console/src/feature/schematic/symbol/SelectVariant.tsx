@@ -12,7 +12,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Schematic } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+
+import { setVariant } from "@/feature/schematic/symbol/edit/spec";
 
 const path = Schematic.Symbol.formPath;
 
@@ -32,33 +33,19 @@ const SelectVariant = ({ value, onChange }: SelectVariantProps) => (
 );
 
 export interface SelectVariantFieldProps {
-  onSelectState: (state: string) => void;
+  /** onSelectValue selects a value of the state, such as Base when Active goes. */
+  onSelectValue: (value: number) => void;
 }
 
-export const SelectVariantField = ({ onSelectState }: SelectVariantFieldProps) => (
+export const SelectVariantField = ({ onSelectValue }: SelectVariantFieldProps) => (
   <Form.Field
     path={path.data.variant}
     showLabel={false}
     showHelpText={false}
     onChange={(next, { get, set }) => {
-      const prev = get(path.data.variant).value;
-      if (prev === next) return;
-      const prevStates = get(path.data.states).value;
-      if (next === "actuator") {
-        const baseState = prevStates.find((s) => s.key === "base");
-        const baseRegions = baseState?.regions ?? [];
-        set(path.data.states, [
-          ...prevStates,
-          {
-            key: "active",
-            name: "Active",
-            regions: [...deep.copy(baseRegions)],
-          },
-        ]);
-      } else if (next === "static") {
-        onSelectState("base");
-        set(path.data.states, [...prevStates.filter((s) => s.key !== "active")]);
-      }
+      if (get(path.data.variant).value === next) return;
+      if (next === "static") onSelectValue(0);
+      set(path.data, setVariant(get(path.data).value, next));
     }}
   >
     {({ onChange, value }) => <SelectVariant value={value} onChange={onChange} />}

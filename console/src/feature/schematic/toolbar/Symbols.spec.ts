@@ -170,7 +170,7 @@ describe("Schematic toolbar Symbols", () => {
       new TextDecoder().decode(await downloads.blobs[0].arrayBuffer()),
     );
     expect(contents).toMatchObject({ name, type: "schematic_symbol" });
-    expect(contents.data.svg).toBe(symbols[0].data.svg);
+    expect(contents.data.drawing.markup).toBe(symbols[0].data.drawing.markup);
   });
 
   it("exports a remote group as a zip through its context menu", async () => {
