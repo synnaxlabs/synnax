@@ -10,6 +10,8 @@
 package zyn_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/validate"
@@ -64,6 +66,40 @@ var _ = Describe("Enum", func() {
 			var dest int
 			Expect(zyn.Enum(1, 2, 3).Parse(int64(1), &dest)).To(Succeed())
 			Expect(dest).To(Equal(1))
+		})
+		Specify("whole float to int", func() {
+			var dest int
+			Expect(zyn.Enum(1, 2, 3).Parse(2.0, &dest)).To(Succeed())
+			Expect(dest).To(Equal(2))
+		})
+		Specify("fractional float to int", func() {
+			var dest int
+			Expect(zyn.Enum(1, 2).Parse(1.9, &dest)).
+				To(MatchError(validate.ErrValidation))
+			Expect(dest).To(BeZero())
+		})
+		Specify("negative int to same-width unsigned", func() {
+			var dest uint8
+			Expect(zyn.Enum(uint8(255)).Parse(int8(-1), &dest)).
+				To(MatchError(validate.ErrValidation))
+			Expect(dest).To(BeZero())
+		})
+		Specify("unsigned above signed max to same-width signed", func() {
+			var dest int
+			Expect(zyn.Enum(-1).Parse(uint(math.MaxUint), &dest)).
+				To(MatchError(validate.ErrValidation))
+			Expect(dest).To(BeZero())
+		})
+		Specify("int to string", func() {
+			var dest string
+			Expect(zyn.Enum("a", "b").Parse(97, &dest)).
+				To(MatchError(validate.ErrValidation))
+			Expect(dest).To(BeEmpty())
+		})
+		Specify("string enum into int destination", func() {
+			var dest int
+			Expect(zyn.Enum("a", "b").Parse(5, &dest)).
+				To(MatchError(validate.ErrValidation))
 		})
 		Specify("incompatible channel destination", func() {
 			var dest chan string

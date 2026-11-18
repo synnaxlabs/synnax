@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, enumeration } from "@synnaxlabs/client";
+import { type color, enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color as xcolor } from "@synnaxlabs/x";
 import {
@@ -23,6 +23,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Enumeration } from "@/feature/enumeration";
 import { Modals } from "@/platform/modals";
+import { Tree } from "@/platform/tree";
 import {
   awaitGranted,
   awaitTextEditingElement,
@@ -37,6 +38,8 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+// Reads what the Core holds, without the edits that the cache of client shows at once.
+const core = createTestClient();
 
 const createEnumeration = async (
   entries: enumeration.Entry[] = [
@@ -46,6 +49,23 @@ const createEnumeration = async (
   ],
 ): Promise<enumeration.Enumeration> =>
   await client.enumerations.create({ name: uniqueName("enumeration"), entries });
+
+/** Creates a schematic whose one select draws the enumeration. */
+const createSelectUser = async (e: enumeration.Key): Promise<schematic.Schematic> => {
+  const project = await client.projects.create({ name: uniqueName("project") });
+  return await client.schematics.create({
+    project: project.key,
+    name: uniqueName("schematic"),
+    nodes: [
+      {
+        key: "select",
+        position: { x: 0, y: 0 },
+        zIndex: 0,
+        config: schematic.nodeConfigZ.parse({ variant: "select", enumeration: e }),
+      },
+    ],
+  });
+};
 
 /** Returns the nth built-in from the end, which no other spec edits. */
 const builtinFromEnd = async (n: number): Promise<enumeration.Enumeration> => {
@@ -58,8 +78,10 @@ const renderEnumerations = async (onStatuses = vi.fn()): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      <HaulProvider>{children}</HaulProvider>
-      <Modals.Stack />
+      <Tree.Provider items={{}}>
+        <HaulProvider>{children}</HaulProvider>
+        <Modals.Stack />
+      </Tree.Provider>
       <CaptureStatuses onStatuses={onStatuses} />
     </Console>
   );
@@ -72,10 +94,25 @@ const findEntry = async (name: string): Promise<HTMLElement> =>
   await screen.findByRole("option", { name });
 
 const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
-  (await client.enumerations.retrieve(key)).entries;
+  (await core.enumerations.retrieve(key)).entries;
 
 const storedNames = async (key: enumeration.Key): Promise<string[]> =>
   (await stored(key)).map((e) => e.name);
+
+// The delete dialog enables its button once it knows what uses the enumeration.
+const clickWhenEnabled = async (name: string): Promise<void> => {
+  const button = await screen.findByRole("button", { name });
+  await waitFor(() => expect(button).toHaveProperty("disabled", false));
+  await act(async () => {
+    fireEvent.click(button);
+  });
+};
+
+/** Waits for the delete dialog to close, which it does once the Core commits. */
+const waitForDialogToClose = async (): Promise<void> =>
+  await waitFor(() =>
+    expect(screen.queryByText(/Are you sure you want to delete/)).toBeNull(),
+  );
 
 const OWN_VALUE = "Each entry needs its own value.";
 
@@ -399,16 +436,72 @@ describe("Enumeration.Settings", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("should delete an enumeration after confirming", async () => {
+  it("should replace an enumeration with the one picked on delete", async () => {
+    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+    await renderEnumerations();
+    await openContextMenu(from.name);
+    await clickAndSettle("Delete");
+    expect(await screen.findByText(/Nothing uses it/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /Replace with/ }));
+    fireEvent.change(await screen.findByPlaceholderText("Search enumerations..."), {
+      target: { value: to.name },
+    });
+    fireEvent.click(await screen.findByRole("option", { name: new RegExp(to.name) }));
+    await clickWhenEnabled("Replace");
+    await waitForDialogToClose();
+    await expect(client.enumerations.retrieve(from.key)).rejects.toThrow(
+      "enumeration was deleted",
+    );
+    expect((await client.enumerations.retrieve(to.key)).name).toBe(to.name);
+  });
+
+  it("should move a select to the enumeration picked on delete", async () => {
+    const [from, to] = await Promise.all([createEnumeration(), createEnumeration()]);
+    const user = await createSelectUser(from.key);
+    await renderEnumerations();
+    await openContextMenu(from.name);
+    await clickAndSettle("Delete");
+    expect(
+      await within(await screen.findByLabelText("Users")).findByText(user.name),
+    ).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /Replace with/ }));
+    fireEvent.change(await screen.findByPlaceholderText("Search enumerations..."), {
+      target: { value: to.name },
+    });
+    fireEvent.click(await screen.findByRole("option", { name: new RegExp(to.name) }));
+    await clickWhenEnabled("Replace");
+    await waitForDialogToClose();
+    const [node] = (await core.schematics.retrieve(user.key)).nodes;
+    expect(node.config).toMatchObject({ variant: "select", enumeration: to.key });
+  });
+
+  it("should open delete as a narrow confirmation with selectable text", async () => {
     const e = await createEnumeration();
     await renderEnumerations();
     await openContextMenu(e.name);
     await clickAndSettle("Delete");
-    const confirm = await screen.findByRole("button", { name: "Delete" });
-    await act(async () => {
-      fireEvent.click(confirm);
+    const message = await screen.findByText(/Are you sure you want to delete/);
+    const dialog = (await screen.findAllByRole("dialog")).find((d) =>
+      d.contains(message),
+    );
+    expect(dialog?.classList).toContain("console-confirm");
+    expect(message.parentElement?.classList).toContain("console-confirm__body");
+  });
+
+  it("should delete an enumeration after confirming", async () => {
+    const e = await createEnumeration();
+    await renderEnumerations();
+    await openContextMenu(e.name);
+    const item = await screen.findByText("Delete");
+    // A synchronous act renders the dialog before the Core can say what uses it.
+    act(() => {
+      fireEvent.click(item);
     });
-    await waitFor(() => expect(screen.queryByText(e.name)).toBeNull());
+    expect(screen.getByText(/This action cannot be undone/)).toBeTruthy();
+    expect(screen.queryByText(/Nothing uses it/)).toBeNull();
+    expect(await screen.findByText(/Nothing uses it/)).toBeTruthy();
+    await clickWhenEnabled("Delete");
+    await waitForDialogToClose();
     await expect(client.enumerations.retrieve(e.key)).rejects.toThrow(
       "enumeration was deleted",
     );

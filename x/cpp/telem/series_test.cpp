@@ -765,6 +765,20 @@ TEST(TestSeriesLinspace, EqualStartEnd) {
         ASSERT_EQ(values[i], 100);
 }
 
+/// @brief it should keep the spacing of count samples when the capacity holds fewer.
+TEST(TestSeriesLinspace, CappedKeepsSpacing) {
+    Series s(TIMESTAMP_T, 2);
+    ASSERT_EQ(s.write_linspace(TimeStamp(0), TimeStamp(100), 4), 2);
+    ASSERT_EQ(s.values<int64_t>(), (std::vector<int64_t>{0, 25}));
+}
+
+/// @brief it should write the start when an inclusive linspace has room for one.
+TEST(TestSeriesLinspace, InclusiveCappedToOne) {
+    Series s(TIMESTAMP_T, 1);
+    ASSERT_EQ(s.write_linspace(TimeStamp(10), TimeStamp(100), 3, true), 1);
+    ASSERT_EQ(s.at<int64_t>(0), 10);
+}
+
 /// @brief it should generate an empty series with zero count.
 TEST(TestSeriesLinspace, ZeroCount) {
     const auto start = TimeStamp(100);

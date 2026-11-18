@@ -143,6 +143,24 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
+export interface ReplaceParams {
+  /** The enumeration to delete. */
+  from: enumeration.Key;
+  /** The enumeration that each user of from moves to. */
+  to: enumeration.Key;
+}
+
+export const { useUpdate: useReplace } = Flux.createUpdate<ReplaceParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.REPLACE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.enumerations.replace(data.from, data.to, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
+    return data;
+  },
+});
+
 export type DeleteParams = enumeration.Key | enumeration.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({

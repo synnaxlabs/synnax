@@ -52,6 +52,11 @@ func newIndexes() indexes {
 			Targets: func(e *Session) []gorp.Target {
 				return []gorp.Target{resourceTarget(e.Subject)}
 			},
+			Retarget: func(e *Session, from, to gorp.Target) {
+				if (gorp.Target{Table: string(e.Subject.Type), Key: e.Subject.Key}) == from {
+					e.Subject.Key = to.Key
+				}
+			},
 		}),
 	}
 }

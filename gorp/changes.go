@@ -34,8 +34,8 @@ type Change struct {
 	Record Target
 	// Kind is what the transaction did to the record.
 	Kind ChangeKind
-	// Derived is true when Gorp made every write to the record by a cascade or a
-	// detach.
+	// Derived is true when Gorp made every write to the record by a cascade, a detach,
+	// or a Retarget.
 	Derived bool
 	// Value is a copy of the encoded record at the last set. It is nil for a delete.
 	Value []byte
@@ -76,7 +76,8 @@ type changeEntry struct {
 	existed bool
 	// present is true when the last write to the record was a set.
 	present bool
-	// derived is true when every write to the record was a cascade or a detach.
+	// derived is true when every write to the record was a cascade, a detach, or a
+	// retarget.
 	derived bool
 	value   []byte
 	// before holds the links of the record at the first write to it.
@@ -133,7 +134,7 @@ func (l *changeList) present(s slot) bool {
 }
 
 // set merges a set of the record of s to value, which holds links. derived is true when
-// the set is a cascade or a detach.
+// the set is a detach or a retarget.
 func (l *changeList) set(s slot, value []byte, links []Link, derived bool) {
 	e := l.entry(s, derived)
 	e.present = true

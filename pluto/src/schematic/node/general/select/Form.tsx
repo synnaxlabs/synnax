@@ -87,7 +87,7 @@ export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       <SelectTelemForm />
     </Tabs.Content>
     <Tabs.Content itemKey="options">
-      <Form.StateMappingForm path={path.options} />
+      <Form.States enumeration={path.enumeration} options={path.options} />
     </Tabs.Content>
   </Properties.Tabs>
 );

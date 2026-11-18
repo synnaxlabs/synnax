@@ -93,6 +93,12 @@
         padding-left: 1.5rem;
     }
 
+    /* A read-only cell keeps the inset of an editable one, so its text stays under its
+       heading. */
+    & tbody .lyra-input.lyra-btn--preview .lyra-input__preview-value {
+        padding: 0 1.5rem;
+    }
+
     & .lyra-input__table-gutter {
         width: var(--pluto-input-table-gutter-width);
         padding-right: 1rem;
@@ -237,5 +243,37 @@
     & tbody .lyra-input.lyra--status-warning {
         --pluto-border-color: var(--pluto-warning-z);
         --pluto-hover-border-color: var(--pluto-warning-p1);
+    }
+
+    & .lyra-input__table-gutter > .lyra-input__table-handle {
+        margin-left: auto;
+        cursor: grab;
+    }
+
+    /* A line on the grid shows where a dragged row lands. */
+    &
+        tbody
+        tr:is(.lyra-input__table-row--above, .lyra-input__table-row--below)
+        > td:not(:last-child) {
+        position: relative;
+    }
+
+    & tbody tr.lyra-input__table-row--above > td:not(:last-child)::before,
+    & tbody tr.lyra-input__table-row--below > td:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        z-index: 3;
+        left: 0;
+        right: 0;
+        height: calc(2 * var(--pluto-border-width));
+        background: var(--pluto-primary-z);
+    }
+
+    & tbody tr.lyra-input__table-row--above > td:not(:last-child)::before {
+        top: calc(-1 * var(--pluto-border-width));
+    }
+
+    & tbody tr.lyra-input__table-row--below > td:not(:last-child)::after {
+        bottom: calc(-1 * var(--pluto-border-width));
     }
 }

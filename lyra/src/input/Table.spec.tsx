@@ -9,9 +9,11 @@
 
 import { type xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { CSS } from "@/css";
+import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { type Status } from "@/status";
 
@@ -37,6 +39,7 @@ interface RenderOptions {
   resourceName?: string;
   cellStatus?: (at: xy.XY) => Status.Crude | undefined;
   onRemove?: (index: number) => void;
+  onMove?: (from: number, to: number) => void;
 }
 
 const renderTable = ({ value = [[1, 10]], ...rest }: RenderOptions = {}) => {
@@ -759,6 +762,17 @@ describe("Input.Table", () => {
       ]);
     });
 
+    it("should keep the first pasted row of a table with only text columns", () => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["on"]]} onChange={onChange}>
+          <Input.TableColumn name="Label" type="string" />
+        </Input.Table>,
+      );
+      paste(cell("Label", "1"), "Label\nON");
+      expect(onChange).toHaveBeenCalledWith([["Label"], ["ON"]]);
+    });
+
     it("should drop a heading row a text column would otherwise accept", () => {
       const onChange = renderMixed();
       paste(cell("Label", "1"), "Label\tValue\nON\t1\nOFF\t2");
@@ -777,6 +791,389 @@ describe("Input.Table", () => {
       from.focus();
       fireEvent.keyDown(from, { key: "ArrowDown" });
       expect(document.activeElement).toBe(cell("Label", "2"));
+    });
+  });
+
+  describe("move", () => {
+    const ROWS: Input.TableCell[][] = [
+      [1, 10],
+      [2, 20],
+      [3, 30],
+    ];
+
+    const handle = (row: string, table = 0): HTMLElement =>
+      screen.getAllByRole("button", { name: `Move row ${row}` })[table];
+
+    const rowOf = (row: string, table = 0): HTMLElement => {
+      const tr = handle(row, table).closest("tr");
+      if (tr == null) throw new Error(`Row ${row} has no element`);
+      return tr;
+    };
+
+    interface MovableProps {
+      initial: Input.TableCell[][];
+      /** Ignores each move, as a caller that keeps a row in place would. */
+      refused?: boolean;
+      preview?: boolean;
+      renderHaulPreview?: (index: number) => ReactNode;
+    }
+
+    // Holds the value and applies each edit and move, as a form would.
+    const Movable = ({
+      initial,
+      refused = false,
+      ...rest
+    }: MovableProps): ReactElement => {
+      const [value, setValue] = useState(initial);
+      const handleMove = (from: number, to: number) => {
+        if (refused) return;
+        setValue((prev) => {
+          const next = [...prev];
+          const [row] = next.splice(from, 1);
+          next.splice(to, 0, row);
+          return next;
+        });
+      };
+      return (
+        <Haul.Provider>
+          <Input.Table value={value} onChange={setValue} onMove={handleMove} {...rest}>
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>
+      );
+    };
+
+    const renderDraggable = (onMove: (from: number, to: number) => void) =>
+      render(
+        <Haul.Provider>
+          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove}>
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+
+    it("should move a row down and up with the arrow keys on its handle", () => {
+      const onMove = vi.fn();
+      renderTable({ value: ROWS, onMove });
+      fireEvent.keyDown(handle("2"), { key: "ArrowDown" });
+      fireEvent.keyDown(handle("2"), { key: "ArrowUp" });
+      expect(onMove.mock.calls).toEqual([
+        [1, 2],
+        [1, 0],
+      ]);
+    });
+
+    it("should not move the first row up or the last row down", () => {
+      const onMove = vi.fn();
+      renderTable({ value: ROWS, onMove });
+      fireEvent.keyDown(handle("1"), { key: "ArrowUp" });
+      fireEvent.keyDown(handle("3"), { key: "ArrowDown" });
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it("should keep focus on the handle of the row it moves", () => {
+      render(<Movable initial={ROWS} />);
+      handle("1").focus();
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      expect(cell("Raw", "2").value).toBe("1");
+      expect(document.activeElement).toBe(handle("2"));
+    });
+
+    it("should drop a dragged row in the place of the row it lands on", () => {
+      const onMove = vi.fn();
+      renderDraggable(onMove);
+      fireEvent.dragStart(handle("1"));
+      fireEvent.drop(rowOf("3"));
+      expect(onMove).toHaveBeenCalledWith(0, 2);
+    });
+
+    it("should not drag a row from one of its cells", () => {
+      const onMove = vi.fn();
+      renderDraggable(onMove);
+      fireEvent.dragStart(cell("Raw", "1"));
+      fireEvent.drop(rowOf("3"));
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it("should not take a row from another table", () => {
+      const onMove = vi.fn();
+      render(
+        <Haul.Provider>
+          <Input.Table value={ROWS} onChange={vi.fn()} onMove={vi.fn()}>
+            {COLUMNS}
+          </Input.Table>
+          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove}>
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(handle("1", 0));
+      fireEvent.drop(rowOf("3", 1));
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it("should move a mark with its row", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      expect(marked(cell("Raw", "2"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    it("should show no handles and no row numbers in preview", () => {
+      renderTable({ value: ROWS, onMove: vi.fn(), preview: true });
+      expect(screen.queryByRole("button", { name: "Move row 1" })).toBeNull();
+      expect(screen.queryByRole("rowheader", { name: "1" })).toBeNull();
+    });
+
+    it("should keep focus in the cell being edited after a refused move", () => {
+      render(<Movable initial={ROWS} refused />);
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      const input = cell("Raw", "3");
+      input.focus();
+      paste(input, "4\t40");
+      expect(cell("Scaled", "3").value).toBe("40");
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("should keep a mark on its row after a refused move", () => {
+      render(<Movable initial={ROWS} refused />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.keyDown(handle("1"), { key: "ArrowDown" });
+      commit(cell("Scaled", "3"), "31");
+      expect(marked(cell("Raw", "1"))).toBe(true);
+      expect(marked(cell("Raw", "2"))).toBe(false);
+    });
+
+    it("should move a mark with its row on a drop", () => {
+      render(<Movable initial={ROWS} />);
+      paste(cell("Raw", "1"), "x\t11");
+      fireEvent.dragStart(handle("1"));
+      fireEvent.drop(rowOf("3"));
+      expect(marked(cell("Raw", "3"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    it("should draw the drop line on the side the row lands on", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("1"));
+      fireEvent.dragOver(rowOf("3"));
+      expect(rowOf("3").classList).toContain(CSS.BEM("input", "table-row", "below"));
+      fireEvent.dragLeave(rowOf("3"));
+      expect(rowOf("3").classList).not.toContain(
+        CSS.BEM("input", "table-row", "below"),
+      );
+      fireEvent.dragEnd(handle("1"));
+      fireEvent.dragStart(handle("3"));
+      fireEvent.dragOver(rowOf("1"));
+      expect(rowOf("1").classList).toContain(CSS.BEM("input", "table-row", "above"));
+      fireEvent.drop(rowOf("1"));
+      expect(rowOf("1").classList).not.toContain(
+        CSS.BEM("input", "table-row", "above"),
+      );
+    });
+
+    it("should picture a dragged row with its name by default", () => {
+      renderDraggable(vi.fn());
+      fireEvent.dragStart(handle("2"));
+      expect(screen.getByText("Row 2")).toBeTruthy();
+    });
+
+    it("should picture a dragged row with the caller's preview", () => {
+      render(
+        <Movable initial={ROWS} renderHaulPreview={(i) => <span>Pump {i}</span>} />,
+      );
+      fireEvent.dragStart(handle("2"));
+      expect(screen.getByText("Pump 1")).toBeTruthy();
+    });
+
+    it("should take no drop in preview", () => {
+      const onMove = vi.fn();
+      const { rerender } = render(
+        <Haul.Provider>
+          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove}>
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(handle("1"));
+      const target = rowOf("3");
+      rerender(
+        <Haul.Provider>
+          <Input.Table value={ROWS} onChange={vi.fn()} onMove={onMove} preview>
+            {COLUMNS}
+          </Input.Table>
+        </Haul.Provider>,
+      );
+      fireEvent.drop(target);
+      expect(onMove).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("boolean columns", () => {
+    const renderFlags = (value: Input.TableCell[][] = [["pump", true]]) => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={value} onChange={onChange}>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn name="Enabled" type="boolean" />
+        </Input.Table>,
+      );
+      return onChange;
+    };
+
+    it("should default a boolean column to a checkbox", () => {
+      renderFlags();
+      const box = cell("Enabled", "1");
+      expect(box.checked).toBe(true);
+      expect(box.classList).toContain(CSS.BE("input", "checkbox", "input"));
+    });
+
+    it("should show a read-only boolean cell as a disabled checkbox", () => {
+      render(
+        <Input.Table value={[["pump", true]]} onChange={vi.fn()} preview>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn name="Enabled" type="boolean" />
+        </Input.Table>,
+      );
+      const box = cell("Enabled", "1");
+      expect(box.checked).toBe(true);
+      expect(box.disabled).toBe(true);
+    });
+
+    it("should commit a toggled checkbox into its column", () => {
+      const onChange = renderFlags();
+      fireEvent.click(cell("Enabled", "1"));
+      expect(onChange).toHaveBeenCalledWith([["pump", false]]);
+    });
+
+    it("should append a row whose boolean cell is false", () => {
+      const onChange = renderFlags();
+      fireEvent.click(addButton());
+      expect(onChange).toHaveBeenCalledWith([
+        ["pump", true],
+        ["", false],
+      ]);
+    });
+
+    it.each([
+      ["true", true],
+      ["FALSE", false],
+      ["1", true],
+      ["0", false],
+    ])("should read a pasted %s", (text, expected) => {
+      const onChange = renderFlags();
+      paste(cell("Name", "1"), `valve\t${text}\nvent\ttrue`);
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", expected],
+        ["vent", true],
+      ]);
+    });
+
+    it("should drop a heading row whose boolean cells do not parse", () => {
+      const onChange = renderFlags();
+      paste(cell("Name", "1"), "Name\tEnabled\nvalve\tfalse");
+      expect(onChange).toHaveBeenCalledWith([["valve", false]]);
+    });
+
+    it("should refuse pasted text that names an object property", () => {
+      const onChange = renderFlags([
+        ["pump", true],
+        ["fan", false],
+      ]);
+      paste(cell("Name", "1"), "valve\ttrue\nvent\tconstructor");
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", true],
+        ["vent", false],
+      ]);
+      expect(marked(cell("Enabled", "2"))).toBe(true);
+    });
+
+    it("should keep and mark a boolean cell whose pasted text does not parse", () => {
+      const onChange = renderFlags([
+        ["pump", true],
+        ["fan", false],
+      ]);
+      paste(cell("Name", "1"), "valve\tfalse\nvent\tmaybe");
+      expect(onChange).toHaveBeenCalledWith([
+        ["valve", false],
+        ["vent", false],
+      ]);
+      expect(marked(cell("Enabled", "2"))).toBe(true);
+    });
+  });
+
+  describe("custom columns", () => {
+    interface Point {
+      x: number;
+      y: number;
+    }
+
+    const parsePoint = (text: string): Point | null => {
+      const [x, y] = text.split(";").map(Number);
+      return isFinite(x) && isFinite(y) ? { x, y } : null;
+    };
+
+    const renderPoints = (parse?: (text: string) => Point | null) => {
+      const onChange = vi.fn();
+      render(
+        <Input.Table value={[["origin", { x: 0, y: 0 }]]} onChange={onChange}>
+          <Input.TableColumn name="Name" type="string" />
+          <Input.TableColumn<Point>
+            name="Point"
+            type="custom"
+            empty={{ x: 1, y: 1 }}
+            parse={parse}
+          >
+            {({ value, onChange, "aria-label": label }) => (
+              <button
+                aria-label={label}
+                onClick={() => onChange({ x: value.x + 1, y: value.y })}
+              >
+                {`${value.x};${value.y}`}
+              </button>
+            )}
+          </Input.TableColumn>
+        </Input.Table>,
+      );
+      return onChange;
+    };
+
+    const point = (): HTMLElement => screen.getByRole("button", { name: "Point 1" });
+
+    it("should render the cell a custom column builds from the cell's value", () => {
+      renderPoints();
+      expect(point().textContent).toBe("0;0");
+    });
+
+    it("should commit a custom cell's change into its column", () => {
+      const onChange = renderPoints();
+      fireEvent.click(point());
+      expect(onChange).toHaveBeenCalledWith([["origin", { x: 1, y: 0 }]]);
+    });
+
+    it("should append a row holding the custom column's empty value", () => {
+      const onChange = renderPoints();
+      fireEvent.click(addButton());
+      expect(onChange).toHaveBeenCalledWith([
+        ["origin", { x: 0, y: 0 }],
+        ["", { x: 1, y: 1 }],
+      ]);
+    });
+
+    it("should refuse a paste into a custom column without a parse", () => {
+      const onChange = renderPoints();
+      paste(cell("Name", "1"), "a\t2;3\nb\t4;5");
+      expect(onChange).toHaveBeenCalledWith([
+        ["a", { x: 0, y: 0 }],
+        ["b", { x: 1, y: 1 }],
+      ]);
+    });
+
+    it("should read a paste with a custom column's parse", () => {
+      const onChange = renderPoints(parsePoint);
+      paste(cell("Name", "1"), "a\t2;3");
+      expect(onChange).toHaveBeenCalledWith([["a", { x: 2, y: 3 }]]);
     });
   });
 });

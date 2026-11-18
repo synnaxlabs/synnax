@@ -230,6 +230,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	]{}
 	t.EnumerationDelete = noop.UnaryServer[enumeration.DeleteRequest, struct{}]{}
 	t.EnumerationDispatch = noop.UnaryServer[enumeration.DispatchRequest, struct{}]{}
+	t.EnumerationReplace = noop.UnaryServer[enumeration.ReplaceRequest, struct{}]{}
 	t.EnumerationRetrieveBuiltins = noop.UnaryServer[
 		struct{},
 		enumeration.RetrieveBuiltinsResponse,

@@ -165,29 +165,34 @@ const PlainChannelNameField: FC<PaneProps<PlainWriteTarget>> = ({
   );
 };
 
-const PlainTargetPane: FC<PaneProps<PlainWriteTarget>> = ({ path, deviceName }) => (
-  <PForm.Sections>
-    <PForm.Section title="Publish">
-      <PForm.TextField
-        path={path.topic}
-        label="Topic"
-        padHelpText={false}
-        inputProps={TOPIC_INPUT_PROPS}
-      />
-      <QoSField path={path.qos} />
-      <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
-    </PForm.Section>
-    <Task.Payload.ChannelSections
-      path={path.channel}
-      pointerPlaceholder="Empty sends the bare value"
-    >
-      <PlainChannelNameField path={path} deviceName={deviceName} />
-    </Task.Payload.ChannelSections>
-    <Task.Payload.AdditionalFields key={String(path)} path={path.fields} />
-  </PForm.Sections>
-);
+const PlainTargetPane: FC<PaneProps<PlainWriteTarget>> = ({ path, deviceName }) => {
+  const topic = PForm.useFieldValue(path.topic);
+  return (
+    <PForm.Sections>
+      <PForm.Section title="Publish">
+        <PForm.TextField
+          path={path.topic}
+          label="Topic"
+          padHelpText={false}
+          inputProps={topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
+        />
+        <QoSField path={path.qos} />
+        <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
+      </PForm.Section>
+      <Task.Payload.ChannelSections
+        path={path.channel}
+        pointerPlaceholder="Empty sends the bare value"
+      >
+        <PlainChannelNameField path={path} deviceName={deviceName} />
+      </Task.Payload.ChannelSections>
+      <Task.Payload.AdditionalFields key={String(path)} path={path.fields} />
+    </PForm.Sections>
+  );
+};
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
+// A target added by name has no topic yet, so its pane opens on the topic.
+const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
 
 const TargetPane: FC<PaneProps<WriteTarget>> = ({ path, deviceName }) => {
   const type = PForm.useFieldValue(path.type);
@@ -308,7 +313,11 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
       title={currentPath != null && <EntryLabel path={currentPath} />}
     >
       {currentPath != null ? (
-        <TargetPane path={currentPath} deviceName={device.name} />
+        <TargetPane
+          key={String(currentPath)}
+          path={currentPath}
+          deviceName={device.name}
+        />
       ) : (
         <Flex.Box y grow align="center" justify="center">
           <Text.Text status="disabled">Select a target to configure</Text.Text>
