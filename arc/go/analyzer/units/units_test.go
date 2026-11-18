@@ -191,4 +191,23 @@ var _ = Describe("Analysis", func() {
 			),
 		)
 	})
+
+	Describe("Diagnostic messages of dimension errors", func() {
+		It("Should put the detail of a power error after the headline", func() {
+			err := units.ValidatePowerOp(makeType("m"), makeType(""), false)
+			Expect(diagnostics.Error(err, nil).Message).To(Equal(
+				"incompatible dimensions: power operation with dimensioned base " +
+					"requires a literal integer exponent: dimensions",
+			))
+		})
+
+		It("Should put the detail of a conversion error after the headline", func() {
+			hz, ns := MustBeOk(units.Resolve("hz")), MustBeOk(units.Resolve("ns"))
+			_, err := units.ScaleFactor(hz, ns)
+			Expect(diagnostics.Error(err, nil).Message).To(Equal(
+				"incompatible dimensions: cannot convert time^-1 to time^1: " +
+					"incompatible: dimensions",
+			))
+		})
+	})
 })

@@ -19,18 +19,16 @@ from typing import Any
 
 import pytest
 
+from freighter.exceptions import Unreachable
 from synnax.config import (
-    DESKTOP_KEY_ACCOUNT,
-    DESKTOP_KEY_SERVICE,
     DESKTOP_NOT_RUNNING_MSG,
     KEYCHAIN_UNAVAILABLE_MSG,
     NO_CREDENTIALS_MSG,
-    NO_OPTIONS_MSG,
+    NO_KEY_HELPER_MSG,
     OLD_DESKTOP_MSG,
     Cluster,
     Clusters,
     File,
-    Keyring,
     load_desktop_options,
     load_env_options,
     load_options,
@@ -39,17 +37,53 @@ from synnax.exceptions import ConfigurationError, ValidationError
 from synnax.options import Options
 from tests.memory_keyring import MemoryKeyring, NoKeychain
 
+HELPER = Path("/opt/synnax/synnax-desktop-key")
 
-def write_desktop_file(
-    path: Path, keychain: Keyring, *, port: int, api_key: str = "syk_k_s"
-) -> None:
-    """Saves the address and the API key the way Synnax Desktop does."""
-    keychain.set_password(DESKTOP_KEY_SERVICE, DESKTOP_KEY_ACCOUNT, api_key)
+
+def write_desktop_file(path: Path, *, port: int, helper: Path = HELPER) -> None:
+    """Saves the address and the key helper the way Synnax Desktop does."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps({"host": "127.0.0.1", "port": port, "secure": False}),
+        json.dumps(
+            {
+                "host": "127.0.0.1",
+                "port": port,
+                "secure": False,
+                "api_key_helper": str(helper),
+            }
+        ),
         encoding="utf-8",
     )
+
+
+def write_helper(directory: Path) -> Path:
+    """Writes a key helper that prints syk_k_s, and returns its path."""
+    if sys.platform == "win32":
+        helper = directory / "synnax-desktop-key.bat"
+        helper.write_text("@echo syk_k_s\r\n", encoding="utf-8")
+    else:
+        helper = directory / "synnax-desktop-key"
+        helper.write_text("#!/bin/sh\necho syk_k_s\n", encoding="utf-8")
+        helper.chmod(0o755)
+    return helper
+
+
+class FakeHelper:
+    """Stands in for the key helper of Synnax Desktop and records where it ran."""
+
+    def __init__(
+        self, returncode: int = 0, stdout: str = "syk_k_s\n", stderr: str = ""
+    ) -> None:
+        self.result = (returncode, stdout, stderr)
+        self.paths: list[Path] = []
+
+    def __call__(self, path: Path) -> subprocess.CompletedProcess[str]:
+        self.paths.append(path)
+        return subprocess.CompletedProcess([str(path)], *self.result)
+
+
+def time_out(path: Path) -> subprocess.CompletedProcess[str]:
+    raise subprocess.TimeoutExpired(str(path), 60)
 
 
 @pytest.fixture
@@ -63,38 +97,58 @@ def desktop_file(tmp_path: Path) -> Path:
 
 
 class TestLoadDesktopOptions:
-    def test_reads_the_file_and_the_keychain(self, desktop_file: Path) -> None:
-        """Should read the address from the file and the API key from the keychain."""
-        keychain = MemoryKeyring()
-        write_desktop_file(desktop_file, keychain, port=4321)
-        assert load_desktop_options(keychain, desktop_file) == Options(
+    def test_reads_the_file_and_the_helper(self, desktop_file: Path) -> None:
+        """Should read the address from the file and the API key from the helper that
+        the file names.
+        """
+        write_desktop_file(desktop_file, port=4321)
+        helper = FakeHelper()
+        assert load_desktop_options(desktop_file, helper) == Options(
             host="127.0.0.1", port=4321, secure=False, api_key="syk_k_s"
         )
+        assert helper.paths == [HELPER]
+
+    def test_runs_a_real_helper(self, desktop_file: Path, tmp_path: Path) -> None:
+        """Should run the helper program and read the key that it prints."""
+        write_desktop_file(desktop_file, port=4321, helper=write_helper(tmp_path))
+        opts = load_desktop_options(desktop_file)
+        assert opts is not None
+        assert opts.api_key == "syk_k_s"
 
     def test_reads_utf8_text(self, desktop_file: Path) -> None:
         """Should decode the file as UTF-8 whatever the locale code page is."""
         cert = "C:\\Users\\Zoë\\ca.pem"
-        keychain = MemoryKeyring()
-        keychain.set_password(DESKTOP_KEY_SERVICE, DESKTOP_KEY_ACCOUNT, "syk_k_s")
         desktop_file.parent.mkdir(parents=True, exist_ok=True)
         desktop_file.write_bytes(
             json.dumps(
-                {"host": "127.0.0.1", "port": 4321, "secure": True, "ca_cert": cert},
+                {
+                    "host": "127.0.0.1",
+                    "port": 4321,
+                    "secure": True,
+                    "ca_cert": cert,
+                    "api_key_helper": str(HELPER),
+                },
                 ensure_ascii=False,
             ).encode("utf-8")
         )
-        opts = load_desktop_options(keychain, desktop_file)
+        opts = load_desktop_options(desktop_file, FakeHelper())
         assert opts is not None
         assert opts.ca_cert == cert
 
     def test_none_without_a_file(self, desktop_file: Path) -> None:
         """Should return None when Synnax Desktop saved nothing."""
-        assert load_desktop_options(MemoryKeyring(), desktop_file) is None
+        assert load_desktop_options(desktop_file, FakeHelper()) is None
 
-    def test_none_without_a_key(self, desktop_file: Path) -> None:
-        """Should return None when the keychain holds no key for the address."""
-        write_desktop_file(desktop_file, MemoryKeyring(), port=4321)
-        assert load_desktop_options(MemoryKeyring(), desktop_file) is None
+    def test_unreadable_file(self, desktop_file: Path) -> None:
+        """Should name the file and the reason when the file exists but cannot be
+        read.
+        """
+        # A directory at the path cannot be read as a file, on any platform or user.
+        desktop_file.mkdir()
+        with pytest.raises(ConfigurationError, match="Cannot read") as e:
+            load_desktop_options(desktop_file, FakeHelper())
+        assert str(desktop_file) in str(e.value)
+        assert isinstance(e.value.__cause__, OSError)
 
     def test_older_file_with_a_key(self, desktop_file: Path) -> None:
         """Should ask for a newer Synnax Desktop, and not read a key from the file."""
@@ -105,13 +159,58 @@ class TestLoadDesktopOptions:
             encoding="utf-8",
         )
         with pytest.raises(ConfigurationError, match=OLD_DESKTOP_MSG):
-            load_desktop_options(MemoryKeyring(), desktop_file)
+            load_desktop_options(desktop_file, FakeHelper())
 
-    def test_no_keychain(self, desktop_file: Path) -> None:
-        """Should fail with advice when no OS keychain is available."""
-        write_desktop_file(desktop_file, MemoryKeyring(), port=4321)
-        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
-            load_desktop_options(NoKeychain(), desktop_file)
+    def test_no_helper(self, desktop_file: Path) -> None:
+        """Should ask for a newer Synnax Desktop when the file names no helper."""
+        desktop_file.write_text(
+            json.dumps({"host": "127.0.0.1", "port": 1, "secure": False}),
+            encoding="utf-8",
+        )
+        with pytest.raises(ConfigurationError, match=NO_KEY_HELPER_MSG):
+            load_desktop_options(desktop_file, FakeHelper())
+
+    def test_missing_helper(self, desktop_file: Path, tmp_path: Path) -> None:
+        """Should say that Synnax Desktop is not running when its helper is gone, as
+        an AppImage helper is after Synnax Desktop closes.
+        """
+        write_desktop_file(desktop_file, port=4321, helper=tmp_path / "missing")
+        with pytest.raises(Unreachable, match=DESKTOP_NOT_RUNNING_MSG) as e:
+            load_desktop_options(desktop_file)
+        assert e.value.target == "127.0.0.1:4321"
+
+    def test_helper_cannot_start(self, desktop_file: Path) -> None:
+        """Should name the helper when it exists but cannot start."""
+        write_desktop_file(desktop_file, port=4321)
+
+        def deny(path: Path) -> subprocess.CompletedProcess[str]:
+            raise PermissionError(13, "Permission denied")
+
+        with pytest.raises(ConfigurationError, match="Cannot run the key helper") as e:
+            load_desktop_options(desktop_file, deny)
+        assert str(HELPER) in str(e.value)
+
+    def test_failed_helper(self, desktop_file: Path) -> None:
+        """Should give the error line of a helper that fails."""
+        write_desktop_file(desktop_file, port=4321)
+        helper = FakeHelper(1, "", "Synnax Desktop has saved no API key.\n")
+        with pytest.raises(
+            ConfigurationError,
+            match="key helper of Synnax Desktop failed: Synnax Desktop has saved no",
+        ):
+            load_desktop_options(desktop_file, helper)
+
+    def test_helper_with_no_key(self, desktop_file: Path) -> None:
+        """Should fail when the helper exits with success and prints no key."""
+        write_desktop_file(desktop_file, port=4321)
+        with pytest.raises(ConfigurationError, match="printed no API key"):
+            load_desktop_options(desktop_file, FakeHelper(stdout="\n"))
+
+    def test_helper_times_out(self, desktop_file: Path) -> None:
+        """Should fail with advice when the helper does not exit."""
+        write_desktop_file(desktop_file, port=4321)
+        with pytest.raises(ConfigurationError, match="did not exit"):
+            load_desktop_options(desktop_file, time_out)
 
 
 ENV = {"SYNNAX_HOST": "core.lab", "SYNNAX_API_KEY": "syk_env"}
@@ -402,7 +501,7 @@ class TestLoadOptions:
 
     def test_given_options(self, clusters: Clusters, desktop_file: Path) -> None:
         """Should use the given options, which Synnax Desktop did not save."""
-        write_desktop_file(desktop_file, clusters.keyring, port=4321)
+        write_desktop_file(desktop_file, port=4321)
         opts, embedded = load_options(
             host="h",
             port=1,
@@ -418,7 +517,7 @@ class TestLoadOptions:
         """Should know the options that Synnax Desktop saved when a caller gives them,
         as the CLI does.
         """
-        write_desktop_file(desktop_file, clusters.keyring, port=4321)
+        write_desktop_file(desktop_file, port=4321)
         _, embedded = load_options(
             host="127.0.0.1",
             port=4321,
@@ -434,7 +533,7 @@ class TestLoadOptions:
         """Should know the Synnax Desktop address from the file alone, with no keychain
         and a key that differs from the saved one.
         """
-        write_desktop_file(desktop_file, clusters.keyring, port=4321)
+        write_desktop_file(desktop_file, port=4321)
         _, embedded = load_options(
             host="127.0.0.1",
             port=4321,
@@ -474,7 +573,7 @@ class TestLoadOptions:
     ) -> None:
         """Should use the login that `sy login` saved before the Desktop file."""
         clusters.set(Cluster(options=Options(host="h", port=1, api_key="syk_saved")))
-        write_desktop_file(desktop_file, clusters.keyring, port=4321)
+        write_desktop_file(desktop_file, port=4321)
         opts, embedded = load_options(clusters=clusters, desktop_file=desktop_file)
         assert (opts.api_key, embedded) == ("syk_saved", False)
 
@@ -482,8 +581,12 @@ class TestLoadOptions:
         self, clusters: Clusters, desktop_file: Path
     ) -> None:
         """Should use the Desktop file when `sy login` saved nothing."""
-        write_desktop_file(desktop_file, clusters.keyring, port=4321)
-        opts, embedded = load_options(clusters=clusters, desktop_file=desktop_file)
+        write_desktop_file(desktop_file, port=4321)
+        opts, embedded = load_options(
+            clusters=clusters,
+            desktop_file=desktop_file,
+            run_desktop_helper=FakeHelper(),
+        )
         assert (opts.port, opts.api_key, embedded) == (4321, "syk_k_s", True)
 
     def test_env_host_before_saved_login(
@@ -491,7 +594,7 @@ class TestLoadOptions:
     ) -> None:
         """Should not use a login or Synnax Desktop when SYNNAX_HOST is set."""
         clusters.set(Cluster(options=SAVED))
-        write_desktop_file(desktop_file, clusters.keyring, port=4321)
+        write_desktop_file(desktop_file, port=4321)
         opts, embedded = load_options(
             env=ENV,
             clusters=clusters,
@@ -510,7 +613,7 @@ class TestLoadOptions:
         Clusters(config, MemoryKeyring()).set(
             Cluster(options=Options(host="h", port=1, api_key="syk_saved"))
         )
-        write_desktop_file(desktop_file, MemoryKeyring(), port=4321)
+        write_desktop_file(desktop_file, port=4321)
         with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
             load_options(
                 clusters=Clusters(config, NoKeychain()), desktop_file=desktop_file
@@ -519,15 +622,16 @@ class TestLoadOptions:
     def test_desktop_without_a_keychain(
         self, tmp_path: Path, desktop_file: Path
     ) -> None:
-        """Should fail with advice when Synnax Desktop saved a key and no OS keychain
-        is available to read it.
+        """Should get the key of Synnax Desktop from its helper when Python has no OS
+        keychain.
         """
-        write_desktop_file(desktop_file, MemoryKeyring(), port=4321)
-        with pytest.raises(ConfigurationError, match=KEYCHAIN_UNAVAILABLE_MSG):
-            load_options(
-                clusters=Clusters(File(config_dir=tmp_path), NoKeychain()),
-                desktop_file=desktop_file,
-            )
+        write_desktop_file(desktop_file, port=4321)
+        opts, _ = load_options(
+            clusters=Clusters(File(config_dir=tmp_path), NoKeychain()),
+            desktop_file=desktop_file,
+            run_desktop_helper=FakeHelper(),
+        )
+        assert opts.api_key == "syk_k_s"
 
     @pytest.mark.parametrize(
         ("args", "env"),
@@ -545,9 +649,15 @@ class TestLoadOptions:
         args: dict[str, Any],
         env: dict[str, str],
     ) -> None:
-        """Should explain how to connect when no source gives a host."""
-        with pytest.raises(ValidationError, match=NO_OPTIONS_MSG):
+        """Should explain how to connect, without naming Synnax Desktop, when no source
+        gives a host and Synnax Desktop saved no file.
+        """
+        with pytest.raises(ValidationError) as e:
             load_options(**args, env=env, clusters=clusters, desktop_file=desktop_file)
+        assert str(e.value) == (
+            "No host was given and no Core is saved. Give a host, set SYNNAX_HOST, or "
+            "log in with `sy login`."
+        )
 
 
 class TestDesktopConnection:
@@ -557,31 +667,17 @@ class TestDesktopConnection:
             s.bind(("127.0.0.1", 0))
             port = int(s.getsockname()[1])
         write_desktop_file(
-            tmp_path / ".synnax" / "desktop.json", MemoryKeyring(), port=port
+            tmp_path / ".synnax" / "desktop.json",
+            port=port,
+            helper=write_helper(tmp_path),
         )
-        # A fresh interpreter reads the home directory of the test, with a key in a
-        # keychain that is not the one of the operating system.
+        # A fresh interpreter reads the home directory of the test.
         env = {
             **{k: v for k, v in os.environ.items() if not k.startswith("SYNNAX_")},
             "HOME": str(tmp_path),
             "USERPROFILE": str(tmp_path),
         }
-        # keyring.set_keyring accepts only a KeyringBackend, which this script defines.
-        script = (
-            "import keyring\n"
-            "from keyring.backend import KeyringBackend\n"
-            "class Keychain(KeyringBackend):\n"
-            "    priority = 1\n"
-            "    def get_password(self, service, username):\n"
-            f"        if (service, username) == ({DESKTOP_KEY_SERVICE!r}, "
-            f"{DESKTOP_KEY_ACCOUNT!r}):\n"
-            "            return 'syk_k_s'\n"
-            "    def set_password(self, service, username, password): pass\n"
-            "    def delete_password(self, service, username): pass\n"
-            "keyring.set_keyring(Keychain())\n"
-            "import synnax as sy\n"
-            "sy.Synnax(max_retries=0)\n"
-        )
+        script = "import synnax as sy\nsy.Synnax(max_retries=0)\n"
         result = subprocess.run(
             [sys.executable, "-c", script],
             env=env,

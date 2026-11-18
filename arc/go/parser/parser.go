@@ -36,6 +36,7 @@ package parser
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
 )
@@ -320,17 +321,10 @@ func (e *errorListener) SyntaxError(
 	if e.position != nil {
 		line, column = e.position(line, column)
 	}
-	e.Add(diagnostics.Diagnostic{
-		Severity: protocol.DiagnosticSeverityError,
-		Range: protocol.Range{
-			Start: protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
-			End: protocol.Position{
-				Line:      uint32(line - 1),
-				Character: uint32(column + 1),
-			},
-		},
-		Message: msg,
-	})
+	e.Add(codes.Syntax.Atf(nil, "%s", msg).WithRange(
+		protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
+		protocol.Position{Line: uint32(line - 1), Character: uint32(column + 1)},
+	))
 }
 
 // TokensAdjacent returns true if two tokens are adjacent with no whitespace between

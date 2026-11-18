@@ -38,16 +38,19 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
 - `python3 scripts/check_docstrings_py.py [directory ...]` reports Google-style
   docstring sections (`Args:`, `Returns:`, `Raises:`, `Yields:`) and `:return:` fields.
   Each Python package's CI job runs it.
-- `python3 scripts/check_suppressions_py.py [--base REF]` reports the Python
-  suppressions that the working tree adds against `REF` (default `origin/main`):
-  `# type: ignore`, `# noqa`, and `# pyright: ignore` comments, file-level directives
-  such as `# ruff: noqa` and `# mypy: ignore-errors`, `typing.cast` calls under any
-  name, and any use of `TYPE_CHECKING`. Untracked files count in full. It skips
-  generated files. The `suppressions-py` CI job runs it against the first parent.
+- `uv run --project scripts scripts/check_suppressions_py.py` reports every Python
+  suppression in the tracked and untracked files: `# type: ignore`, `# noqa`, and
+  `# pyright: ignore` comments, file-level directives such as `# ruff: noqa` and
+  `# mypy: ignore-errors`, `typing.cast` calls under any name, and any use of
+  `TYPE_CHECKING`. It skips generated files. The `suppressions-py` CI job runs it.
 - `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
   module or test code use. It runs Knip in production mode, then traces each finding. An
   export that only other modules' tests use is allowed only in a test utility directory
   (`testutil`, `test`, or `mock`).
+- `pack_ts.sh <package> <dir>` — builds and packs `@synnaxlabs/<package>` and its Synnax
+  dependencies, then installs it in a new project in `<dir>`.
+  `check_declarations_ts.sh <package> <dir>` then runs `tsc` on that project with
+  `skipLibCheck` off, with `bundler` and `nodenext` resolution.
 
 ## Copyright headers
 

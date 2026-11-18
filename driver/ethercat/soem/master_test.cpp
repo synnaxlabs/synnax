@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -21,6 +22,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/bench/alloc.h"
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -2257,25 +2259,83 @@ TEST_F(SOEMMasterTest, ReceiveTakesALateFrameAtALaterReceive) {
     EXPECT_EQ(this->mock->drop_count, 0);
 }
 
-/// @brief it should drop the oldest frame and fail the receive when the frame has not
-/// come back and master::MAX_FRAMES_IN_FLIGHT frames are in flight.
-TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTooManyAreInFlight) {
+/// @brief it should keep each frame in flight while it is younger than
+/// master::MAX_FRAME_AGE, so a frame that an adapter holds back for more than three
+/// cycles of a fast bus still comes back.
+TEST_F(SOEMMasterTest, ReceiveKeepsFramesInFlightForMoreThanThreeCycles) {
     this->initialize_with_slave();
     this->activate_master();
     this->mock->receive_return = EC_NOFRAME;
-    for (size_t i = 1; i < master::MAX_FRAMES_IN_FLIGHT; ++i) {
+    constexpr size_t frames = 9;
+    for (size_t i = 0; i < frames; ++i) {
+        ASSERT_NIL(this->master->send());
+        this->skip(x::telem::MICROSECOND * 100);
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
+    this->mock->receive_return = 3;
+    for (size_t i = 0; i < frames; ++i)
+        ASSERT_NIL(this->master->receive());
+    EXPECT_EQ(this->mock->drop_count, 0);
+    EXPECT_TRUE(this->mock->processdata_in_flight.empty());
+}
+
+/// @brief it should drop a frame that has not come back once it is
+/// master::MAX_FRAME_AGE old and master::MIN_FRAMES_IN_FLIGHT frames are in flight,
+/// and fail its receive.
+TEST_F(SOEMMasterTest, ReceiveDropsAFrameOnceItIsTheMaxFrameAge) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->receive_return = EC_NOFRAME;
+    for (size_t i = 0; i < master::MIN_FRAMES_IN_FLIGHT; ++i) {
         ASSERT_NIL(this->master->send());
         ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
     }
-    ASSERT_NIL(this->master->send());
+    this->skip(master::MAX_FRAME_AGE - x::telem::MICROSECOND);
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    this->skip(x::telem::MICROSECOND);
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
     EXPECT_EQ(err.data, "process data receive failed");
     EXPECT_EQ(this->mock->drop_count, 1);
-    EXPECT_EQ(
-        this->mock->processdata_in_flight.size(),
-        master::MAX_FRAMES_IN_FLIGHT - 1
-    );
+}
+
+/// @brief it should keep a frame of any age in flight while fewer than
+/// master::MIN_FRAMES_IN_FLIGHT frames are in flight, so a slow bus gives a late frame
+/// more than one cycle.
+TEST_F(SOEMMasterTest, ReceiveKeepsAFrameOfAnyAgeWhileFewFramesAreInFlight) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->receive_return = EC_NOFRAME;
+    for (size_t i = 1; i < master::MIN_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_NIL(this->master->send());
+        this->skip(master::MAX_FRAME_AGE);
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
+    ASSERT_NIL(this->master->send());
+    this->skip(master::MAX_FRAME_AGE);
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::CYCLIC_ERROR);
+    EXPECT_EQ(this->mock->drop_count, 1);
+}
+
+/// @brief it should drop the oldest frame and fail the receive when the frame has not
+/// come back and master::MAX_FRAMES_IN_FLIGHT sends wait for their results.
+TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTooManyAreInFlight) {
+    this->initialize_with_slave();
+    this->activate_master();
+    ASSERT_NIL(this->master->send());
+    this->mock->receive_return = EC_NOFRAME;
+    ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    this->mock->send_return = 0;
+    for (size_t i = 2; i < master::MAX_FRAMES_IN_FLIGHT; ++i) {
+        ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+        ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
+    }
+    ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
+    const auto err = this->master->receive();
+    ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
+    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(this->mock->drop_count, 1);
+    EXPECT_TRUE(this->mock->processdata_in_flight.empty());
 }
 
 /// @brief it should drop the oldest frame at a send that would not find a buffer for
@@ -2304,6 +2364,59 @@ TEST_F(SOEMMasterTest, ReceiveKeepsAFrameInFlightWhenTheNextSendWouldNotFit) {
     ASSERT_NIL(this->master->send());
     ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
     EXPECT_EQ(this->mock->drop_count, 0);
+}
+
+/// @brief it should allocate nothing in a cycle that keeps a frame in flight, drops a
+/// frame, or takes one, since the cycle runs on a real-time thread.
+TEST_F(SOEMMasterTest, CyclesAllocateNothing) {
+    this->initialize_with_slave();
+    this->activate_master();
+    constexpr size_t sends = master::MAX_FRAMES_IN_FLIGHT;
+    this->mock->send_states.reserve(this->mock->send_states.size() + 8 * sends);
+    this->mock->processdata_groups.reserve(
+        this->mock->processdata_groups.size() + 32 * sends
+    );
+    this->mock->processdata_in_flight.reserve(sends + 1);
+    size_t in_flight = 0;
+    size_t dropped = 0;
+    size_t mismatched = 0;
+    size_t full = 0;
+    const auto count = [&](const x::errors::Error &err) {
+        if (err.matches(errors::FRAME_IN_FLIGHT))
+            in_flight++;
+        else if (err.matches(errors::WORKING_COUNTER_ERROR))
+            mismatched++;
+        else if (err)
+            dropped++;
+        else
+            full++;
+    };
+    // Cycles like the engine: each send, then every result up to a frame in flight.
+    size_t waiting = 0;
+    const auto run = [&] {
+        for (const int wkc: {EC_NOFRAME, 2, 3}) {
+            this->mock->receive_return = wkc;
+            for (size_t i = 0; i < sends; ++i) {
+                static_cast<void>(this->master->send());
+                waiting++;
+                while (waiting > 0) {
+                    const auto &err = this->master->receive();
+                    count(err);
+                    if (err.matches(errors::FRAME_IN_FLIGHT)) break;
+                    waiting--;
+                }
+            }
+        }
+    };
+    run();
+    in_flight = dropped = mismatched = full = 0;
+    const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
+    run();
+    EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
+    EXPECT_GT(in_flight, 0);
+    EXPECT_GT(dropped, 0);
+    EXPECT_GT(mismatched, 0);
+    EXPECT_GT(full, 0);
 }
 
 /// @brief it should give the result of a failed send after the result of the frame
@@ -2336,7 +2449,7 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     ASSERT_NIL(this->master->send());
     ASSERT_NIL(this->master->receive());
     this->mock->receive_return = EC_NOFRAME;
-    for (size_t i = 1; i < master::MAX_FRAMES_IN_FLIGHT; ++i) {
+    for (size_t i = 1; i < master::MIN_FRAMES_IN_FLIGHT; ++i) {
         ASSERT_NIL(this->master->send());
         ASSERT_OCCURRED_AS(this->master->receive(), errors::FRAME_IN_FLIGHT);
     }

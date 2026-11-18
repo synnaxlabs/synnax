@@ -34,6 +34,7 @@ var _ = Describe("Broadcasts", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		svc = MustOpen(
 			color.OpenService(ctx, color.ServiceConfig{DB: db, Group: groups}),

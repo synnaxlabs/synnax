@@ -115,8 +115,8 @@ class Master final : public master::Master {
         /// @brief the Config::clock time of the send.
         std::chrono::steady_clock::time_point sent_at;
         /// @brief what receive() returns for a send that held process data back, or
-        /// NIL.
-        x::errors::Error held_err;
+        /// null.
+        const x::errors::Error *held_err = nullptr;
         /// @brief the number of process data frames of the send that went out.
         size_t frames = 0;
     };
@@ -210,7 +210,7 @@ public:
 
     void deactivate() override;
 
-    x::errors::Error receive() override;
+    const x::errors::Error &receive() override;
 
     x::errors::Error send() override;
 

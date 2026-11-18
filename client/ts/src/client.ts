@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { trustCA } from "@synnaxlabs/freighter";
 import {
   array,
   breaker,
@@ -77,6 +78,18 @@ export const synnaxParamsZ = z.object({
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
   secure: z.boolean().default(false),
+  /**
+   * The PEM text of a CA certificate that signs the Core's certificate, trusted along
+   * with the runtime's default certificates. Turns on secure unless secure is false,
+   * which is an error. Node.js and Bun only: in Deno, leave it out and start Deno with
+   * --cert.
+   */
+  caCert: z
+    .string()
+    .refine((s) => s.includes("-----BEGIN CERTIFICATE-----"), {
+      message: "The CA certificate must be PEM text, not a file path",
+    })
+    .optional(),
   name: z.string().optional(),
   retry: breaker.breakerConfigZ.optional(),
   cache: z.boolean().default(true),
@@ -99,13 +112,15 @@ export const synnaxParamsZ = z.object({
 });
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
-const constructorParamsZ = synnaxParamsZ.refine(
-  (p) => p.apiKey == null || (p.username == null && p.password == null),
-  {
+const constructorParamsZ = synnaxParamsZ
+  .refine((p) => p.apiKey == null || (p.username == null && p.password == null), {
     message: "Give either an API key or a username and password, not both",
     path: ["apiKey"],
-  },
-);
+  })
+  .refine((p) => p.caCert == null || p.secure, {
+    message: "caCert requires secure; leave secure out or set it to true",
+    path: ["secure"],
+  });
 
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
@@ -254,11 +269,15 @@ export default class Synnax extends framer.Client {
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
-   * be configured to support TLS. Defaults to SYNNAX_SECURE, then false. A Synnax
-   * client must be closed when it is no longer needed. This stops the connection
-   * machine and closes the change stream.
+   * be configured to support TLS. Defaults to true with props.caCert, else to
+   * SYNNAX_SECURE, then false. A Synnax client must be closed when it is no longer
+   * needed. This stops the connection machine and closes the change stream.
+   * @param props.caCert - The PEM text of a CA certificate that signs the Core's
+   * certificate. Turns on props.secure when it is not given.
    * @throws {ValidationError} If neither the params nor SYNNAX_HOST give a host, or if
    * SYNNAX_PORT or SYNNAX_SECURE is not valid.
+   * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
+   * Deno.
    */
   constructor(params: ConstructorParams = {}) {
     const parsedParams = zod.parse(
@@ -268,9 +287,22 @@ export default class Synnax extends framer.Client {
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
     const address = new url.URL({ host, port: Number(port) });
-    const transport = new Transport(address, retry, secure, parsedParams.onRetry);
+    const { caCert } = parsedParams;
+    // Deno's WebSocket cannot use the CA, so the client's change stream never opens.
+    if (caCert != null && "Deno" in globalThis)
+      throw new Error(
+        "Deno cannot use caCert. Leave it out and start Deno with --cert <file>.",
+      );
+    const connector = caCert == null ? undefined : trustCA(caCert);
+    const transport = new Transport({
+      url: address,
+      retry,
+      secure,
+      onRetry: parsedParams.onRetry,
+      connector,
+    });
     transport.use(errorsMiddleware);
-    const tokenless = new Transport(address, {}, secure);
+    const tokenless = new Transport({ url: address, secure, connector });
     tokenless.use(errorsMiddleware);
     // The arrow reads this.channels only when called, after construction completes.
     const retrieveChannels: framer.ChannelRetriever = async (toRetrieve) => {

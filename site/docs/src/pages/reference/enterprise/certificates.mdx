@@ -102,8 +102,9 @@ For `synnax-driver start --standalone`, export the variable in the shell instead
 
 ## Node.js
 
-Node.js does not read the operating system store. Start the TypeScript client with the
-CA certificate in `NODE_EXTRA_CA_CERTS`:
+Node.js does not read the operating system store. Give the TypeScript client the CA
+certificate in [`caCert`](/reference/client/connect#connect-with-tls), or start it with
+the CA certificate in `NODE_EXTRA_CA_CERTS`:
 
 ```bash
 NODE_EXTRA_CA_CERTS=/path/to/synnax-ca.crt node app.js

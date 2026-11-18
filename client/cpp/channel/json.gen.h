@@ -46,7 +46,7 @@ inline x::json::json Operation::to_json() const {
 inline Channel Channel::parse(x::json::Parser parser) {
     return Channel{
         .key = parser.field<Key>("key", Key(0)),
-        .name = parser.field<Name>("name"),
+        .name = parser.required_field<Name>("name"),
         .leaseholder = parser.field<::synnax::node::Key>(
             "leaseholder",
             ::synnax::node::Key(0)
