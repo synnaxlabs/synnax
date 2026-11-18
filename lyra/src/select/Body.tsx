@@ -13,10 +13,12 @@ import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { List } from "@/list";
 import { Items, type ItemsProps } from "@/select/Items";
 import { List as SelectList } from "@/select/List";
 import { plural, searchPlaceholder } from "@/select/placeholder";
 import { useTerm } from "@/select/registry";
+import { useInline } from "@/select/scope";
 import { Search, type SearchProps } from "@/select/Search";
 import { Status } from "@/status";
 
@@ -94,6 +96,24 @@ export const BorderedList = ({ footer, children }: BorderedListProps): ReactElem
     </Flex.Box>
   );
 
+// In the menu, only the matching options show: no field, footer, or empty content.
+const InlineBody = <K extends record.Key>({
+  onSearch,
+  children,
+}: Pick<BodyProps<K>, "onSearch" | "children">): ReactElement => {
+  const { data } = List.useData();
+  return (
+    <>
+      {onSearch != null && <Search onSearch={onSearch} />}
+      {data.length > 0 && (
+        <SelectList role="group" full="x">
+          <Items<K>>{children}</Items>
+        </SelectList>
+      )}
+    </>
+  );
+};
+
 /**
  * The search field, list, and empty and error content of a data-driven selection. Use
  * it inside `Select.Dialog` when a select needs its own trigger.
@@ -108,8 +128,10 @@ export const Body = <K extends record.Key>({
   footer,
   fixedItems,
 }: BodyProps<K>): ReactElement => {
+  const inline = useInline();
   const loading = status?.variant === "loading";
   const hasSearch = onSearch != null;
+  if (inline) return <InlineBody<K> onSearch={onSearch}>{children}</InlineBody>;
   let empty: ReactNode;
   if (loading) empty = hasSearch ? null : <Status.Loading />;
   else if (status != null && status.variant !== "success")

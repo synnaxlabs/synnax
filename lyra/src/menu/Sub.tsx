@@ -25,7 +25,13 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { useCombinedRefs } from "@/hooks";
 import { Icon } from "@/icon";
-import { FilterContext, useMatches } from "@/menu/filter";
+import {
+  FilterContext,
+  isFilterKey,
+  PathContext,
+  useMatches,
+  usePath,
+} from "@/menu/filter";
 import { useContext } from "@/menu/Menu";
 import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
 import { type position } from "@/position";
@@ -63,7 +69,10 @@ export interface SubProps extends PropsWithChildren {
  * A menu item that opens a submenu beside its menu. Its children are a {@link
  * SubTrigger} and the content: a {@link Dialog}, or a selection dialog on the menu
  * surface. A menu opens one submenu at a time. ArrowLeft and Escape close one level. A
- * click inside the content keeps a context menu open unless it picks an item.
+ * click inside the content keeps a context menu open unless it picks an item. While its
+ * menu filters by text that its name does not match, the items of a {@link Dialog} show
+ * in the menu, with the name of the submenu before each label. Text typed outside a
+ * field of the submenu closes it and goes to the filter of the menu.
  *
  * @example
  * <Menu.Menu>
@@ -79,6 +88,7 @@ export const Sub = ({
   children,
 }: SubProps): ReactElement | null => {
   const { open, swap, register, enter, setOpen, frame } = useSubmenusContext();
+  const path = usePath();
   const matches = useMatches(textValue);
   const trigger = useRef<HTMLElement | null>(null);
   const content = useRef<HTMLElement | null>(null);
@@ -100,6 +110,8 @@ export const Sub = ({
       e.stopPropagation();
   };
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
+    // The text goes on to the filter of the menu, which the open submenu would cover.
+    if (visible && isFilterKey(e)) return setOpen(null);
     if (
       e.key !== "ArrowLeft" ||
       e.defaultPrevented ||
@@ -116,7 +128,8 @@ export const Sub = ({
     setOpen(null);
   };
   const ctx = { itemKey, trigger, content, swap: swap && visible };
-  if (!matches) return null;
+  if (!matches)
+    return <PathContext value={[...path, textValue]}>{children}</PathContext>;
   return (
     <SubContext value={ctx}>
       <Dialog.Frame
@@ -130,7 +143,9 @@ export const Sub = ({
         onKeyDown={handleKeyDown}
       >
         {/* The filter of the menu matches the submenu, never its content. */}
-        <FilterContext value="">{children}</FilterContext>
+        <FilterContext value="">
+          <PathContext value={[]}>{children}</PathContext>
+        </FilterContext>
       </Dialog.Frame>
     </SubContext>
   );
@@ -144,9 +159,13 @@ export interface SubTriggerProps extends Omit<
 
 /**
  * The item of a {@link Sub}. A click, Enter, Space, or ArrowRight opens the submenu at
- * once, and so does a rest of the pointer. It stays lit while the submenu is open.
+ * once, and so does a rest of the pointer. It stays lit while the submenu is open. It
+ * is absent while the items of the submenu show in its menu.
  */
-export const SubTrigger = ({
+export const SubTrigger = (props: SubTriggerProps): ReactElement | null =>
+  usePath().length > 0 ? null : <Trigger {...props} />;
+
+const Trigger = ({
   ref,
   className,
   children,

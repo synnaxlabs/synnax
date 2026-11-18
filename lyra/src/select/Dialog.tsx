@@ -22,7 +22,8 @@ import { CSS } from "@/css";
 import { Dialog as BaseDialog } from "@/dialog";
 import { Input } from "@/input";
 import { Menu } from "@/menu";
-import { ClosedContext } from "@/select/scope";
+import { usePath } from "@/menu/filter";
+import { ClosedContext, InlineContext } from "@/select/scope";
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends BaseDialog.DialogProps {
@@ -32,6 +33,12 @@ export interface DialogProps extends BaseDialog.DialogProps {
    * the user types.
    */
   surface?: "dialog" | "menu";
+  /**
+   * The options that match the filter of the menu show in the menu, after the name of
+   * the submenu, while the menu filters by text that the name does not match. Only a
+   * select in a `Menu.Sub` uses it.
+   */
+  filtered?: boolean;
 }
 
 const subscribe = (): destructor.Destructor => destructor.NOOP;
@@ -53,14 +60,17 @@ export const Dialog = ({
   className,
   children,
   surface = "dialog",
+  filtered = false,
   ...rest
 }: DialogProps): ReactNode => {
   const { visible } = BaseDialog.useContext();
+  const inline = usePath().length > 0 && filtered;
   const cls = CSS.cls(CSS.BE("select", "dialog"), className);
   const menuSurface = Menu.useSurface(ref, cls);
   // False on the server and during hydration, since the server renders no portal.
   const hydrated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const content = <Input.ItemBoundary>{children}</Input.ItemBoundary>;
+  if (inline) return <InlineContext value>{content}</InlineContext>;
   if (!visible) return hydrated && <Closed>{content}</Closed>;
   if (surface === "menu")
     return (

@@ -19,6 +19,15 @@ export const [ClosedContext, useClosed] = context.create<boolean>({
   displayName: "Select.ClosedContext",
 });
 
+/**
+ * True inside a `Select.Dialog` whose matching options show in its menu while the menu
+ * filters.
+ */
+export const [InlineContext, useInline] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "Select.InlineContext",
+});
+
 /** True inside a `Select.List`. A fixed item outside one is pinned. */
 export const [ListContext, useInList] = context.create<boolean>({
   defaultValue: false,

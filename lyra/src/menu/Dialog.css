@@ -19,8 +19,11 @@
     &:not(.lyra--modal) {
         min-width: min(32rem, var(--pluto-dialog-available-width, 100vw));
     }
+}
 
-    /* The options sit in the panel's padding, with no box of their own. */
+/* Options in a menu, in a submenu or in the results of a search, sit in the panel's
+   padding with no box of their own. */
+:is(.lyra-dialog__dialog.lyra-menu-dialog, .lyra-menu-context) {
     & .lyra-list__scroll {
         padding: 0;
         border: none;
@@ -33,7 +36,7 @@
         gap: 1rem;
         height: var(--pluto-height-medium);
         min-height: var(--pluto-height-medium);
-        padding: 0 1.5rem;
+        padding: 0 2rem;
         border-radius: var(--pluto-border-radius-tiny);
     }
 }

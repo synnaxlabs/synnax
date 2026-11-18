@@ -24,6 +24,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { usePathChildren } from "@/menu/filter";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState, useReselectNoop, useSelectedAmong } from "@/select/Context";
 import { type ItemOptions, useIsHidden, useRegistryContext } from "@/select/registry";
@@ -31,6 +32,7 @@ import {
   type ButtonsContextValue,
   useButtonsContext,
   useClosed,
+  useInline,
   useInList,
 } from "@/select/scope";
 import { hasModifier } from "@/select/use";
@@ -76,17 +78,23 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>({
 }: BlockItemProps<K, E>): ReactNode => {
   const { selected, hovered, onSelect, onHover, sole } = useItemState(item.itemKey);
   const reselectNoop = useReselectNoop();
+  // In its menu, an option is a menu item, and its click closes the menu.
+  const inline = useInline();
+  const children = usePathChildren(item.children);
   if (!checkable)
     return (
       <List.Item<K, E>
-        role="option"
+        role={inline ? "menuitem" : "option"}
+        propagateClick={inline}
         selected={selected}
         hovered={hovered}
         onHover={onHover}
         onSelect={onSelect}
         preventClick={reselectNoop && sole ? true : undefined}
         {...item}
-      />
+      >
+        {children}
+      </List.Item>
     );
   const handleSelect = (_: K, e: MouseEvent<HTMLElement>): void => {
     if (hasModifier(e)) onSelect();
