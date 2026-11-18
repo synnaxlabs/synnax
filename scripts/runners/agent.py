@@ -51,7 +51,7 @@ import psutil
 import synnax as sy
 
 from agent_log import RUNNER_DIRS, Log
-from gh_runner import Core, Runner, Sink
+from gh_runner import Core, Runner, Sink, close_quietly
 
 INTERVAL = 5 * sy.TimeSpan.SECOND
 # The runner starts anyway if Synnax stays unreachable this long after boot.
@@ -86,19 +86,6 @@ def channel_name(source: str, runner: str) -> str:
 
 def warn(what: str, e: Exception) -> None:
     print(f"{what} failed: {type(e).__name__}: {e}", flush=True)
-
-
-class Closeable(Protocol):
-    def close(self) -> object: ...
-
-
-def close_quietly(resource: Closeable | None) -> None:
-    if resource is None:
-        return
-    try:
-        resource.close()
-    except Exception:
-        pass
 
 
 class Control(Protocol):

@@ -4697,38 +4697,6 @@ var _ = Describe("Compiler", func() {
 			strMod, strState, chanState = bindDefaultModules(ctx, r)
 		})
 
-		It("Should fail to compile a format function with no literal", func(
-			ctx SpecContext,
-		) {
-			resolver := []symbol.Symbol{
-				{
-					Name: "trig",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   100,
-				},
-				{
-					Name: "log",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.String()),
-					ID:   101,
-				},
-			}
-			prog := MustSucceed(text.Parse(text.Text{Raw: `trig -> f"v={42}" -> log`}))
-			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			for i := range inter.Functions {
-				if strings.HasPrefix(
-					inter.Functions[i].Key,
-					compiler.FmtStrSyntheticPrefix,
-				) {
-					inter.Functions[i].Body.AST = nil
-				}
-			}
-			Expect(compiler.Compile(ctx, inter)).Error().
-				To(MatchError(ContainSubstring("has no literal")))
-		})
-
 		It(
 			"Compiles a flow-form raw string with a single literal placeholder",
 			func(ctx SpecContext) {
@@ -4753,7 +4721,7 @@ var _ = Describe("Compiler", func() {
 				))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				strMod.SetMemory(mod.Memory())
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_0")
 				Expect(synth).ToNot(BeNil())
 				results := MustSucceed(synth.Call(ctx))
 				Expect(results).To(HaveLen(1))
@@ -4787,7 +4755,7 @@ var _ = Describe("Compiler", func() {
 			))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			strMod.SetMemory(mod.Memory())
-			synth := mod.ExportedFunction("fmt$fmt_0")
+			synth := mod.ExportedFunction("expression_0")
 			Expect(synth).ToNot(BeNil())
 			results := MustSucceed(synth.Call(ctx))
 			handle := uint32(results[0])
@@ -4820,7 +4788,7 @@ var _ = Describe("Compiler", func() {
 				))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				strMod.SetMemory(mod.Memory())
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_0")
 				Expect(synth).ToNot(BeNil())
 				results := MustSucceed(synth.Call(ctx))
 				handle := uint32(results[0])
@@ -4854,7 +4822,7 @@ var _ = Describe("Compiler", func() {
 				))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				strMod.SetMemory(mod.Memory())
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_0")
 				Expect(synth).ToNot(BeNil())
 				results := MustSucceed(synth.Call(ctx))
 				handle := uint32(results[0])
@@ -4891,8 +4859,8 @@ var _ = Describe("Compiler", func() {
 			`, resolver))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			strMod.SetMemory(mod.Memory())
-			Expect(mod.ExportedFunction("fmt$fmt_0")).ToNot(BeNil())
-			Expect(mod.ExportedFunction("fmt$fmt_1")).ToNot(BeNil())
+			Expect(mod.ExportedFunction("expression_0")).ToNot(BeNil())
+			Expect(mod.ExportedFunction("expression_1")).ToNot(BeNil())
 		})
 
 		It(
@@ -4928,7 +4896,7 @@ var _ = Describe("Compiler", func() {
 				chanState.Ingest(
 					telem.UnaryFrame[uint32](100, telem.NewSeriesV[float32](3.5)),
 				)
-				synth := mod.ExportedFunction("fmt$fmt_0")
+				synth := mod.ExportedFunction("expression_1")
 				Expect(synth).ToNot(BeNil())
 				handle := uint32(MustSucceed(synth.Call(ctx))[0])
 				str, ok := strState.Get(handle)

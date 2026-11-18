@@ -485,7 +485,12 @@ describe("Select.Single", () => {
 
     const MixedSource = () => {
       const { startDrag } = Haul.useDrag({ type: "foreign", key: "mixed" });
-      return <button aria-label="Mixed drag" onClick={() => startDrag(MIXED)} />;
+      return (
+        <button
+          aria-label="Mixed drag"
+          onDragStart={(event) => startDrag({ event, items: MIXED, preview: null })}
+        />
+      );
     };
 
     const renderPair = (
@@ -542,14 +547,14 @@ describe("Select.Single", () => {
 
     it("should drop only the entries of its own type on a single select", () => {
       const { source, mixed, onSingleChange } = renderPair();
-      fireEvent.click(mixed);
+      fireEvent.dragStart(mixed);
       fireEvent.drop(source);
       expect(onSingleChange).toHaveBeenCalledExactlyOnceWith("3", expect.anything());
     });
 
     it("should drop only the entries of its own type on a multiple select", () => {
       const { target, mixed, onMultipleChange } = renderPair();
-      fireEvent.click(mixed);
+      fireEvent.dragStart(mixed);
       fireEvent.drop(target);
       expect(onMultipleChange).toHaveBeenCalledExactlyOnceWith(
         ["3"],
@@ -560,6 +565,24 @@ describe("Select.Single", () => {
     it("should not be draggable while disabled", () => {
       const { source } = renderPair({ disabled: true });
       expect(source.draggable).toBe(false);
+    });
+
+    it("should picture the selection by its name", () => {
+      const { source } = renderPair();
+      fireEvent.dragStart(source);
+      const layer = document.querySelector(".lyra-haul__layer");
+      expect(layer?.textContent).toBe("Second Item");
+    });
+
+    it("should picture the selection with the preview that its trigger renders", () => {
+      const { source } = renderPair({
+        triggerProps: {
+          renderHaulPreview: (entry) => `Custom ${(entry as TestEntry).name}`,
+        },
+      });
+      fireEvent.dragStart(source);
+      const layer = document.querySelector(".lyra-haul__layer");
+      expect(layer?.textContent).toBe("Custom Second Item");
     });
 
     it("should not drag a selected key with no entry", () => {

@@ -59,6 +59,7 @@ class CRIOCase(HardwareCase):
     """
 
     rack: sy.Rack
+    _driver_started = False
 
     @classmethod
     def resources(cls) -> frozenset[str]:
@@ -81,6 +82,7 @@ class CRIOCase(HardwareCase):
     def start_driver(self) -> None:
         """Starts the Driver in the background with the state from the last start."""
         conn = self.synnax_connection
+        self._driver_started = True
         # Only the Driver runs in the background, so the session ends and $! is its PID.
         self.ssh(
             f"cd {_DIR} && chmod +x synnax-driver && {{ nohup ./synnax-driver start "
@@ -140,11 +142,13 @@ class CRIOCase(HardwareCase):
 
     def teardown(self) -> None:
         try:
-            with self._try_to("stop the cRIO Driver"):
-                self.stop_driver()
-            with self._try_to("copy the cRIO Driver log"):
-                log = self.results_dir / "crio-driver.log"
-                self._scp([f"{HOST}:{_DIR}/driver.log", str(log)])
+            # Setup can fail before it starts the Driver, such as when the cRIO is down.
+            if self._driver_started:
+                with self._try_to("stop the cRIO Driver"):
+                    self.stop_driver()
+                with self._try_to("copy the cRIO Driver log"):
+                    log = self.results_dir / "crio-driver.log"
+                    self._scp([f"{HOST}:{_DIR}/driver.log", str(log)])
             # Setup can fail before the Driver enrolls its rack.
             rack = getattr(self, "rack", None)
             if rack is not None:

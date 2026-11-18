@@ -245,7 +245,7 @@ You only need this section if you work on the [Driver](../../driver).
 ### 8.0 Install Bazel
 
 We build the Driver with [Bazel](https://bazel.build/). Install Bazelisk, which reads
-the Bazel version from `.bazeliskrc` and downloads it for you.
+the Bazel version from `.bazelversion` and downloads it for you.
 
 ```powershell
 winget install Bazel.Bazelisk

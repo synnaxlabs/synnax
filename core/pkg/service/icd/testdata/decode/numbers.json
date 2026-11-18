@@ -122,7 +122,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "message reading: field temp: unknown enum label \"x\": validation error"
+      "error": "field temp: unknown enum label \"x\": validation error"
     },
     {
       "document": {
@@ -133,7 +133,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "message reading: field count: 1.5 is not an integer: validation error"
+      "error": "field count: 1.5 is not an integer: validation error"
     },
     {
       "document": {
@@ -144,7 +144,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "message reading: field total: -1 is out of range for uint64: validation error"
+      "error": "field total: -1 is out of range for uint64: validation error"
     },
     {
       "document": {
@@ -155,7 +155,7 @@
         "level": 1,
         "raw": 1
       },
-      "error": "message reading: field armed: expected a boolean, got number 1: validation error"
+      "error": "field armed: expected a boolean, got number 1: validation error"
     },
     {
       "document": {
@@ -166,7 +166,7 @@
         "level": "MID",
         "raw": 1
       },
-      "error": "message reading: field level: unknown enum label \"MID\": validation error"
+      "error": "field level: unknown enum label \"MID\": validation error"
     },
     {
       "document": {
@@ -177,7 +177,7 @@
         "level": 1,
         "raw": 2.5
       },
-      "error": "message reading: field raw: 2.5 is not an integer: validation error"
+      "error": "field raw: 2.5 is not an integer: validation error"
     },
     {
       "text": "not json",

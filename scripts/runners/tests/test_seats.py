@@ -15,16 +15,19 @@ from common import RECOMMAND_DELAY, Channels
 from conftest import Client, Secrets
 from log import Log
 from logins import MAX_HOLDERS, PREFIX, Logins
-from seats import Seats, seat_labels
+from seats import FULL_AFTER, Seats, seat_labels
 
 JOB = {"self-hosted", "agent-claude"}
 CLAUDE = "i-0aaa"
 CLAUDE_2 = "i-0bbb"
 CODEX = "i-0ccc"
+CLAUDE_3 = "i-0eee"
 REVIEW = "i-0ddd"
 
 
 ROLE = "AROAROLE"
+# Long enough ago that no seat counts as booting.
+LAUNCHED = sy.TimeStamp(0)
 YEAR = 365 * 24 * sy.TimeSpan.HOUR
 
 
@@ -40,6 +43,7 @@ def seat(
     login: str | None = None,
     until: sy.TimeStamp | None = None,
     rejected: sy.TimeStamp | None = None,
+    launched: sy.TimeStamp = LAUNCHED,
 ) -> dict:
     # Review seats run Claude Code.
     agent = "claude" if pool == "review" else name.split("-")[0]
@@ -50,7 +54,7 @@ def seat(
         tags["limited-until"] = seconds(until)
     if rejected is not None:
         tags["login-broken"] = seconds(rejected)
-    return {"state": state, "region": "us-east-1", "tags": tags}
+    return {"state": state, "region": "us-east-1", "launched": launched, "tags": tags}
 
 
 class Instances:
@@ -211,6 +215,53 @@ class TestSeats:
             found = {CLAUDE: seat(state), CLAUDE_2: seat("stopped", name="claude-2")}
             s.step(queued=[JOB], found=found)
         assert aws.started == []
+
+    def test_should_start_another_seat_for_a_job_stuck_beside_a_busy_one(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("running"), CLAUDE_2: seat("stopped", name="claude-2")}
+        seats(client, aws).step(queued=[JOB], found=found, stuck=[JOB])
+        assert aws.started == [CLAUDE_2]
+
+    def test_should_not_start_a_seat_for_a_stuck_job_while_disconnected(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("running"), CLAUDE_2: seat("stopped", name="claude-2")}
+        seats(client, aws).step(queued=[JOB], found=found, stuck=[JOB], connected=False)
+        assert aws.started == []
+
+    def test_should_not_start_another_seat_for_a_stuck_job_while_one_boots(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("pending"), CLAUDE_2: seat("stopped", name="claude-2")}
+        seats(client, aws).step(queued=[JOB], found=found, stuck=[JOB])
+        assert aws.started == []
+
+    def test_should_give_a_seat_that_just_launched_time_to_take_a_stuck_job(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        s = seats(client, aws)
+        up = seat("running", launched=sy.TimeStamp.now())
+        found = {CLAUDE: up, CLAUDE_2: seat("stopped", name="claude-2")}
+        s.step(queued=[JOB], found=found, stuck=[JOB])
+        assert aws.started == []
+        client.elapsed += FULL_AFTER
+        s.step(queued=[JOB], found=found, stuck=[JOB])
+        assert aws.started == [CLAUDE_2]
+
+    def test_should_start_one_seat_for_several_stuck_jobs(self, client: Client) -> None:
+        aws = Instances()
+        found = {
+            CLAUDE: seat("running"),
+            CLAUDE_2: seat("stopped", name="claude-2"),
+            CLAUDE_3: seat("stopped", name="claude-3"),
+        }
+        seats(client, aws).step(queued=[JOB, JOB], found=found, stuck=[JOB, JOB])
+        assert aws.started == [CLAUDE_2]
 
     def test_should_start_a_stopping_seat_once_it_has_stopped(
         self, client: Client
