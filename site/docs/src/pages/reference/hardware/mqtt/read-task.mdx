@@ -363,9 +363,9 @@ The task reads each field of the message. A string field among number fields sta
 unread, as they cannot share an index channel. A field keeps the channel that the topic
 wrote for the same pointer when the channel's data type fits the field, so plots and
 ranges keep their data. Otherwise, the field gets a new channel when you deploy. When
-the message has one timestamp field, the topic reads its time from that field. The
-message that the topic read before stays in its ICD. **Message format** shows only on a
-topic that reads one message.
+the message has one timestamp field with no default, the topic reads its time from that
+field. The message that the topic read before stays in its ICD. **Message format** shows
+only on a topic that reads one message.
 
 In code, set the `icd` of the topic and the `message` of its `ReadMessage`.
 
