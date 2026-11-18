@@ -98,8 +98,8 @@ class Fleet(Protocol):
 class Seats:
     """A queued job starts one stopped seat that carries its labels, on a usable
     shared login for a Claude seat, unless a seat that carries them is already up with
-    usage left. A stuck job also starts one when every such seat has been up for
-    FULL_AFTER. A seat that holds its own login starts once its limit resets.
+    usage left. A stuck job also starts one when every such seat launched FULL_AFTER
+    ago or earlier. A seat that holds its own login starts once its limit resets.
     A seat that is stopping starts once it has stopped. While disabled, each decision
     is logged once, marked [DISABLED], and nothing is written."""
 
@@ -148,8 +148,7 @@ class Seats:
         booting = {
             iid
             for iid, info in found.items()
-            if info["state"] == "pending"
-            or (iid in self.started and now.span(self.started[iid]) < FULL_AFTER)
+            if info["state"] == "pending" or now.span(info["launched"]) < FULL_AFTER
         }
         starting: set[str] = set()
         jobs = [(job, False) for job in queued] + [(job, True) for job in stuck]
