@@ -111,10 +111,7 @@ var _ = Describe("Writer", func() {
 				e.Entries[0].Value = value
 				Expect(createOne(ctx, w, &e)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						"entries.0.value: %v is not a finite number",
-						value,
-					)),
+					MatchError(ContainSubstring("entries.0.value: must be finite")),
 				))
 			},
 			Entry("NaN", math.NaN()),
