@@ -364,7 +364,7 @@ func (f dbcFile) cycleTime(m *dbc.MessageDef) (*telem.TimeSpan, error) {
 	if !(span >= float64(telem.Nanosecond) && span < float64(telem.TimeSpanMax)) {
 		return nil, dataErrorf(
 			"line %d: message %s has a cycle time out of range: %g ms",
-			m.Pos.Line,
+			v.line,
 			m.Name,
 			ms,
 		)
@@ -563,6 +563,8 @@ type attrValue struct {
 	str string
 	i   int64
 	f   float64
+	// line is the line of the definition that gives the value.
+	line int
 }
 
 func (v attrValue) number() float64 {
@@ -581,18 +583,20 @@ func (f dbcFile) attr(name dbc.Identifier, id dbc.MessageID) (attrValue, bool) {
 	}
 	if v, ok := f.values[attrRef{name: name, message: id}]; ok {
 		return attrValue{
-			typ: def.Type,
-			str: v.StringValue,
-			i:   v.IntValue,
-			f:   v.FloatValue,
+			typ:  def.Type,
+			str:  v.StringValue,
+			i:    v.IntValue,
+			f:    v.FloatValue,
+			line: v.Pos.Line,
 		}, true
 	}
 	if d, ok := f.defaults[name]; ok {
 		return attrValue{
-			typ: def.Type,
-			str: d.DefaultStringValue,
-			i:   d.DefaultIntValue,
-			f:   d.DefaultFloatValue,
+			typ:  def.Type,
+			str:  d.DefaultStringValue,
+			i:    d.DefaultIntValue,
+			f:    d.DefaultFloatValue,
+			line: d.Pos.Line,
 		}, true
 	}
 	return attrValue{}, false

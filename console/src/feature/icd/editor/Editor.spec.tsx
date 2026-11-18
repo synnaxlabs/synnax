@@ -53,6 +53,13 @@ const commit = async (column: string, row: number, value: string): Promise<void>
   fireEvent.blur(input);
 };
 
+const typeCycleTime = async (text: string): Promise<void> => {
+  const input = await screen.findByLabelText("Cycle time");
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: text } });
+  fireEvent.blur(input);
+};
+
 const createBinaryField = (name: string, startBit: number): icd.BinaryField => ({
   key: uuid.create(),
   name,
@@ -249,12 +256,16 @@ describe("ICD editor", () => {
     );
   });
 
-  const typeCycleTime = async (text: string): Promise<void> => {
-    const input = await screen.findByLabelText("Cycle time");
-    fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: text } });
-    fireEvent.blur(input);
-  };
+  it("should remove the query when its text is cleared", async () => {
+    const ic = await createICD([{ ...createTextMessage(), query: "READ?" }]);
+    await renderEditor(ic);
+    const query = await screen.findByLabelText("Query");
+    fireEvent.change(query, { target: { value: "" } });
+    fireEvent.blur(query);
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).query).toBeUndefined(),
+    );
+  });
 
   it("should store a cycle time typed alone in milliseconds", async () => {
     const ic = await createICD([createMessage([])]);

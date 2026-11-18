@@ -627,16 +627,21 @@ SIG_VALTYPE_ 256 A : 1;
 
 BA_DEF_ BO_ "GenMsgCycleTime" INT -100 65535;
 BA_ "GenMsgCycleTime" BO_ 256 -5;
-`, "line 9: message Engine has a cycle time out of range: -5 ms"),
+`, "line 12: message Engine has a cycle time out of range: -5 ms"),
+		Entry("a negative default cycle time", `BO_ 256 Engine: 8 Ecu
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT -100 65535;
+BA_DEF_DEF_ "GenMsgCycleTime" -5;
+`, "line 12: message Engine has a cycle time out of range: -5 ms"),
 		Entry("a cycle time past the longest time span", `BO_ 256 Engine: 8 Ecu
 
 BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1e300;
 BA_ "GenMsgCycleTime" BO_ 256 1e300;
-`, "line 9: message Engine has a cycle time out of range: 1e+300 ms"),
+`, "line 12: message Engine has a cycle time out of range: 1e+300 ms"),
 		Entry("a cycle time shorter than a nanosecond", `BO_ 256 Engine: 8 Ecu
 
 BA_DEF_ BO_ "GenMsgCycleTime" FLOAT 0 1;
 BA_ "GenMsgCycleTime" BO_ 256 1e-9;
-`, "line 9: message Engine has a cycle time out of range: 1e-09 ms"),
+`, "line 12: message Engine has a cycle time out of range: 1e-09 ms"),
 	)
 })
