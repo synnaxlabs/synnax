@@ -735,6 +735,17 @@ describe("remote", () => {
         expect(x.value().data[0].lower).toBe(ns(FROM));
       });
 
+      it("should have no bounds for a range that has not started", async () => {
+        const core = createCore();
+        const x = create(connect(core), {
+          channel: core.data[0].key,
+          useIndexOfChannel: true,
+          window: staticWindow(new TimeRange(TimeStamp.MAX, TimeStamp.MAX)),
+        });
+        await settle(x);
+        expect(x.value().data[0]).toEqual(bounds.INVALID);
+      });
+
       it("should end its bounds at the newest sample before a planned end", async () => {
         const core = createCore();
         const { key } = core.data[0];
