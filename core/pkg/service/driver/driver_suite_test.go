@@ -71,10 +71,12 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	st := DeferClose(storagetestutil.OpenLayer(ctx))
+	st := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 	hookedKV = hookkv.Wrap(st.KV)
+	hookedDB := gorp.Wrap(hookedKV)
+	StartRun(hookedDB.Run)
 	node = testutil.NewNode(ctx, distribution.LayerConfig{
-		Storage: &storage.Layer{KV: hookedKV, TS: st.TS},
+		Storage: &storage.Layer{KV: hookedKV, TS: st.TS, Gorp: hookedDB},
 	})
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{

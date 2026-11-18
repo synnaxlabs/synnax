@@ -347,9 +347,10 @@ var _ = Describe("Edge task", func() {
 					&pb.Payload_Metric_DoubleValue{DoubleValue: 21.5},
 				))
 				// The value keeps the timestamp of its index.
-				var published []uint64
-				for _, m := range host.data() {
-					published = append(published, m.payload.Metrics[0].GetTimestamp())
+				messages := host.data()
+				published := make([]uint64, len(messages))
+				for i, m := range messages {
+					published[i] = m.payload.Metrics[0].GetTimestamp()
 				}
 				Expect(temp.GetTimestamp()).To(BeElementOf(published))
 				Expect(birth.metric("count").GetIsNull()).To(BeTrue())

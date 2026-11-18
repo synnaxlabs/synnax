@@ -37,6 +37,7 @@ var _ = Describe("ResourceNormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Resource{
 				ID:   resource.ID{Type: resource.TypeLabel, Key: "critical"},
 				Name: "Critical",

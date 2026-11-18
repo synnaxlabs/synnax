@@ -1184,7 +1184,7 @@ var _ = Describe("Statement", func() {
 				Expect(warnings).To(HaveLen(len(fixes)))
 				for i, w := range warnings {
 					Expect(w.Message).To(Equal(
-						"non-boolean conditions are deprecated, use an explicit " +
+						"non-boolean condition: deprecated, use an explicit " +
 							"comparison like x != 0",
 					))
 					Expect(w.Code).To(Equal(codes.TruthyCondition.Code))
@@ -3423,6 +3423,7 @@ var _ = Describe("Statement", func() {
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("range()"))
+				Expect((*ctx.Diagnostics)[0].Code).To(Equal(codes.FuncArgMissing.Code))
 			})
 
 			It("should reject range with 4 arguments", func(bCtx SpecContext) {
@@ -3433,6 +3434,7 @@ var _ = Describe("Statement", func() {
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("range()"))
+				Expect((*ctx.Diagnostics)[0].Code).To(Equal(codes.FuncArgExtra.Code))
 			})
 
 			It("should reject an index after range", func(bCtx SpecContext) {

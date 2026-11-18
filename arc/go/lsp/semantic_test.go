@@ -758,9 +758,10 @@ func cat() {
 }
 `)
 				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-				lengths := make([]uint32, 0)
-				for _, tok := range filterByType(tokens, tokenTypeKeyword) {
-					lengths = append(lengths, tok.Length)
+				keywords := filterByType(tokens, tokenTypeKeyword)
+				lengths := make([]uint32, len(keywords))
+				for i, tok := range keywords {
+					lengths[i] = tok.Length
 				}
 				Expect(lengths).To(ConsistOf(
 					uint32(6), // import
@@ -774,9 +775,10 @@ func cat() {
 		It("routes export to the keyword token type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "export func f() {}\n")
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-			lengths := make([]uint32, 0)
-			for _, tok := range filterByType(tokens, tokenTypeKeyword) {
-				lengths = append(lengths, tok.Length)
+			keywords := filterByType(tokens, tokenTypeKeyword)
+			lengths := make([]uint32, len(keywords))
+			for i, tok := range keywords {
+				lengths[i] = tok.Length
 			}
 			Expect(lengths).To(ConsistOf(uint32(6), uint32(4)))
 		})

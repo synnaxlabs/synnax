@@ -797,9 +797,9 @@ var _ = Describe("Read task", func() {
 		index, data := createIndexed(ctx, telem.Float64T)
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
-		var recs []*kgo.Record
-		for range 3 {
-			recs = append(recs, &kgo.Record{Topic: topic, Value: []byte(`{"ts": 1}`)})
+		recs := make([]*kgo.Record, 3)
+		for i := range recs {
+			recs[i] = &kgo.Record{Topic: topic, Value: []byte(`{"ts": 1}`)}
 		}
 		Expect(producer.ProduceSync(ctx, recs...).FirstErr()).To(Succeed())
 		dt, t := configure(ctx, kafka.ReadConfig{

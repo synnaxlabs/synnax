@@ -14,6 +14,7 @@ import (
 	"encoding/hex"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,6 +117,7 @@ var _ = Describe("Storage migration", func() {
 		func(ctx SpecContext) {
 			seed := decodeReleasedV5()
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx, gorp.TableConfig[v5.Key, v5.LinePlot]{DB: db},
 			))
@@ -174,12 +176,15 @@ var _ = Describe("v6 wire format", func() {
 			),
 			'\n',
 		)
-		p := filepath.Join("testdata", "v6_initial.decoded.json")
+		const name = "v6_initial.decoded.json"
+		p := filepath.Join("testdata", name)
 		if os.Getenv("UPDATE_DECODED") == "1" {
 			Expect(os.WriteFile(p, pretty, 0o644)).To(Succeed())
 			return
 		}
-		Expect(pretty).To(MatchJSON(MustSucceed(os.ReadFile(p))))
+		Expect(
+			pretty,
+		).To(MatchJSON(MustSucceed(fs.ReadFile(os.DirFS("testdata"), name))))
 	})
 
 	It("Should reject every truncation of a stored payload", func() {

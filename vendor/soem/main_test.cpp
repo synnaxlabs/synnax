@@ -77,11 +77,23 @@ struct Bus {
     /// @brief the frames, by the order in which they were sent from 0, that do not
     /// come back.
     std::set<int> lost;
+    /// @brief the frames, by the order in which they were sent from 0, that come back
+    /// only at release().
+    std::set<int> late;
+    /// @brief the working counter of the last datagram of each late frame that has not
+    /// come back, by index.
+    std::map<uint8_t, int> held;
     /// @brief the number of frames sent with ecx_outframe_red.
     int sent = 0;
     /// @brief the working counter of the last datagram of each frame that came back,
     /// by index.
     std::map<uint8_t, int> received;
+
+    /// @brief brings back the late frames.
+    void release() {
+        this->received.merge(this->held);
+        this->held.clear();
+    }
 
     /// @brief answers the frame in buf, returning the work counter of its last
     /// datagram.
@@ -107,6 +119,8 @@ struct Bus {
                 wkc = 1;
             } else if (cmd == EC_CMD_LRW || cmd == EC_CMD_LRD) {
                 std::memset(data, INPUT, length);
+                wkc = this->process_wkc;
+            } else if (cmd == EC_CMD_LWR) {
                 wkc = this->process_wkc;
             } else if (cmd == EC_CMD_FRMW && it != this->slaves.end()) {
                 std::memcpy(data, &DC_TIME, std::min(length, sizeof(DC_TIME)));
@@ -217,7 +231,11 @@ int ecx_outframe_red(ecx_portt *port, const uint8 idx) {
     const auto length = port->txbuflength[idx] - ETH_HEADERSIZE;
     std::memcpy(port->rxbuf[idx], &port->txbuf[idx][ETH_HEADERSIZE], length);
     const int wkc = bus.answer(port->rxbuf[idx]);
-    if (!bus.lost.contains(bus.sent++)) bus.received[idx] = wkc;
+    const int order = bus.sent++;
+    if (bus.late.contains(order))
+        bus.held[idx] = wkc;
+    else if (!bus.lost.contains(order))
+        bus.received[idx] = wkc;
     return 0;
 }
 
@@ -408,6 +426,7 @@ protected:
     std::unique_ptr<ecx_contextt> context = std::make_unique<ecx_contextt>();
     std::vector<uint8_t> iomap = std::vector<uint8_t>(EC_MAXLRWDATA);
     std::array<uint16_t, EC_MAXSLAVE> alstat{};
+    ec_inflightT inflight{};
     ec_groupt &group = this->context->grouplist[1];
 
     void SetUp() override {
@@ -439,16 +458,31 @@ protected:
         return slave;
     }
 
-    /// @brief sends and receives the process data of group 1, returning the working
+    /// @brief sends the process data of group 1 and keeps its frames in flight.
+    void send() {
+        EXPECT_GT(
+            ecx_send_processdata_inflight(this->context.get(), 1, &this->inflight),
+            0
+        );
+    }
+
+    /// @brief receives the oldest send of group 1 in flight, returning the working
     /// counter.
-    int cycle() {
-        EXPECT_GT(ecx_send_processdata_group(this->context.get(), 1), 0);
-        return ecx_receive_processdata_group_alstat(
+    int receive() {
+        return ecx_receive_processdata_inflight(
             this->context.get(),
             1,
             1000,
+            &this->inflight,
             this->alstat.data()
         );
+    }
+
+    /// @brief sends and receives the process data of group 1, returning the working
+    /// counter.
+    int cycle() {
+        this->send();
+        return this->receive();
     }
 };
 
@@ -523,17 +557,112 @@ TEST_F(ProcessDataTest, PutsTheReadsThatDoNotFitInAFrameOfTheirOwn) {
     EXPECT_EQ(this->alstat[3], EC_STATE_INIT);
 }
 
-/// @brief it should give 0 to the slaves whose AL status reads are in a frame that
-/// does not come back.
-TEST_F(ProcessDataTest, GivesZeroToTheSlavesOfAFrameThatDoesNotComeBack) {
+/// @brief it should give 0 to every slave while a frame of the send has not come back,
+/// even a slave whose read is in a frame that came back.
+TEST_F(ProcessDataTest, GivesZeroToEverySlaveWhileAFrameOfTheSendIsOut) {
     this->set_inputs(1470);
     this->add_slave(EC_STATE_OPERATIONAL);
     this->add_slave(EC_STATE_OPERATIONAL);
     this->add_slave(EC_STATE_OPERATIONAL);
     this->bus.lost = {1};
-    EXPECT_EQ(this->cycle(), 3);
-    EXPECT_EQ(this->alstat[1], EC_STATE_OPERATIONAL);
+    EXPECT_EQ(this->cycle(), EC_NOFRAME);
+    EXPECT_EQ(this->alstat[1], 0);
     EXPECT_EQ(this->alstat[2], 0);
     EXPECT_EQ(this->alstat[3], 0);
+}
+
+/// @brief it should keep a frame that comes back late in flight, and take it in a
+/// later receive.
+TEST_F(ProcessDataTest, TakesAFrameThatComesBackLate) {
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->bus.late = {0};
+    EXPECT_EQ(this->cycle(), EC_NOFRAME);
+    EXPECT_EQ(this->iomap[0], 0);
+    this->bus.release();
+    EXPECT_EQ(this->receive(), 3);
+    EXPECT_EQ(this->iomap[0], INPUT);
+    EXPECT_EQ(this->alstat[1], EC_STATE_OPERATIONAL);
+}
+
+/// @brief it should keep a frame that came back before the rest of its send, since
+/// SOEM gives a frame once only.
+TEST_F(ProcessDataTest, KeepsAFrameThatCameBackBeforeTheRestOfItsSend) {
+    this->set_inputs(1470);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->add_slave(EC_STATE_SAFE_OP);
+    this->bus.late = {1};
+    EXPECT_EQ(this->cycle(), EC_NOFRAME);
+    this->bus.release();
+    EXPECT_EQ(this->receive(), 3);
+    EXPECT_EQ(this->iomap[0], INPUT);
+    EXPECT_EQ(this->alstat[1], EC_STATE_OPERATIONAL);
+    EXPECT_EQ(this->alstat[2], EC_STATE_SAFE_OP);
+}
+
+/// @brief it should count the working counter of a logical write twice, as a logical
+/// read-write counts its outputs.
+TEST_F(ProcessDataTest, CountsALogicalWriteTwice) {
+    this->add_slave(EC_STATE_OPERATIONAL, 0);
+    this->group.Ibytes = 0;
+    this->group.Obytes = 8;
+    this->group.blockLRW = 1;
+    EXPECT_EQ(this->cycle(), 6);
+}
+
+/// @brief it should return the number of frames that the send put in flight.
+TEST_F(ProcessDataTest, SendReturnsItsFrames) {
+    this->set_inputs(1470);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    EXPECT_EQ(
+        ecx_send_processdata_inflight(this->context.get(), 1, &this->inflight),
+        2
+    );
+}
+
+/// @brief it should take the sends in flight in the order sent.
+TEST_F(ProcessDataTest, TakesTheSendsInTheOrderSent) {
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->send();
+    this->bus.process_wkc = 2;
+    this->send();
+    EXPECT_EQ(this->receive(), 3);
+    EXPECT_EQ(this->receive(), 2);
+    EXPECT_EQ(this->receive(), EC_NOFRAME);
+}
+
+/// @brief it should free the frames of a send that it takes.
+TEST_F(ProcessDataTest, FreesTheFramesOfASendThatItTakes) {
+    this->set_inputs(1470);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->add_slave(EC_STATE_OPERATIONAL);
+    EXPECT_EQ(this->cycle(), 3);
+    EXPECT_EQ(this->context->idxstack.pushed, 0);
+    for (const auto bufstat: this->context->port.rxbufstat)
+        EXPECT_EQ(bufstat, EC_BUF_EMPTY);
+}
+
+/// @brief it should free the frames of the oldest send on a drop, and keep the later
+/// sends in flight.
+TEST_F(ProcessDataTest, DropFreesTheOldestSend) {
+    this->add_slave(EC_STATE_OPERATIONAL);
+    this->bus.lost = {0};
+    this->send();
+    const auto dropped = this->context->idxstack.idx[0];
+    this->bus.process_wkc = 2;
+    this->send();
+    EXPECT_EQ(this->receive(), EC_NOFRAME);
+    ecx_drop_processdata_inflight(this->context.get(), &this->inflight);
+    EXPECT_EQ(this->context->port.rxbufstat[dropped], EC_BUF_EMPTY);
+    EXPECT_EQ(this->receive(), 2);
+}
+
+/// @brief it should return no frame and do nothing on a drop when no send is in
+/// flight.
+TEST_F(ProcessDataTest, ReturnsNoFrameWhenNoSendIsInFlight) {
+    this->add_slave(EC_STATE_OPERATIONAL);
+    ecx_drop_processdata_inflight(this->context.get(), &this->inflight);
+    EXPECT_EQ(this->receive(), EC_NOFRAME);
+    EXPECT_EQ(this->alstat[1], 0);
 }
 }

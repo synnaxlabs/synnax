@@ -70,13 +70,7 @@ type Config struct {
 	Clock xtime.Clock
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	defaultConfig                       = Config{
-		FileSize:    1 * telem.Gigabyte,
-		GCThreshold: 0.2,
-	}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.GateConfig.
 func (cfg Config) Validate() error {
@@ -102,7 +96,10 @@ func (cfg Config) Override(other Config) Config {
 }
 
 func Open(ctx context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+	cfg, err := config.New(Config{
+		FileSize:    1 * telem.Gigabyte,
+		GCThreshold: 0.2,
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -12,6 +12,8 @@ package server
 import (
 	"context"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/cockroachdb/cmux"
 	"github.com/synnaxlabs/alamos"
@@ -21,10 +23,14 @@ import (
 
 // SimpleHTTPBranch is a single handler Branch that serves HTTP requests.
 type SimpleHTTPBranch struct {
-	server  *http.Server
-	handler http.Handler
+	handler func(BranchContext) (http.Handler, error)
 	policy  RoutingPolicy
 	ins     alamos.Instrumentation
+	mu      struct {
+		sync.Mutex
+		servers []*http.Server
+		stopped bool
+	}
 }
 
 func NewSimpleHTTPBranch(
@@ -33,7 +39,7 @@ func NewSimpleHTTPBranch(
 ) *SimpleHTTPBranch {
 	return &SimpleHTTPBranch{
 		policy:  policy,
-		handler: handler,
+		handler: func(BranchContext) (http.Handler, error) { return handler, nil },
 	}
 }
 
@@ -50,14 +56,23 @@ func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {
 }
 
 // Init implements Branch.
-func (h *SimpleHTTPBranch) Init(ctx BranchContext) {
-	h.ins = ctx.Instrumentation
-	h.server = &http.Server{Handler: h.handler}
-}
+func (h *SimpleHTTPBranch) Init(ctx BranchContext) { h.ins = ctx.Instrumentation }
 
 // Serve implements Branch.
 func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
-	if err := h.server.Serve(ctx.Lis); !errors.Is(err, http.ErrServerClosed) {
+	handler, err := h.handler(ctx)
+	if err != nil {
+		return err
+	}
+	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 5 * time.Second}
+	h.mu.Lock()
+	if h.mu.stopped {
+		h.mu.Unlock()
+		return nil
+	}
+	h.mu.servers = append(h.mu.servers, srv)
+	h.mu.Unlock()
+	if err := srv.Serve(ctx.Lis); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil
@@ -65,15 +80,13 @@ func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
 
 // Stop implements Branch.
 func (h *SimpleHTTPBranch) Stop() {
-	if h.server == nil {
-		return
+	h.mu.Lock()
+	h.mu.stopped = true
+	servers := h.mu.servers
+	h.mu.Unlock()
+	for _, srv := range servers {
+		if err := srv.Shutdown(context.TODO()); err != nil {
+			h.ins.L.Error("failed to shut down http redirect server", zap.Error(err))
+		}
 	}
-	if err := h.server.Shutdown(context.TODO()); err != nil {
-		h.ins.L.Error("failed to shut down http redirect server", zap.Error(err))
-	}
-}
-
-func secureHTTPRedirect(w http.ResponseWriter, r *http.Request) {
-	url := "https://" + r.Host + r.URL.String()
-	http.Redirect(w, r, url, http.StatusMovedPermanently)
 }

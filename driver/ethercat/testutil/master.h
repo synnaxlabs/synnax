@@ -13,6 +13,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -71,6 +72,16 @@ class Master final : public master::Master {
     /// @brief the host time at which the distributed clock read master::DC_EPOCH.
     std::optional<x::telem::TimeStamp> host_dc_start;
     x::telem::TimeStamp last_sent;
+    /// @brief a frame that send() sent and no receive() took.
+    struct Frame {
+        x::telem::TimeStamp sent_at;
+        /// @brief whether the frame comes back a cycle late.
+        bool late = false;
+    };
+    /// @brief the frames in flight, oldest first.
+    std::deque<Frame> frames;
+    /// @brief whether the next frame sent comes back a cycle late.
+    bool hold_next{false};
     x::telem::TimeStamp dc_now;
     pdo::Offsets pdo_offset_cache;
     /// @brief the working counter share of each slave in the latest activation.
@@ -79,6 +90,8 @@ class Master final : public master::Master {
     std::optional<uint32_t> cycle_shortfall;
     /// @brief what shortfall() returns.
     std::optional<uint32_t> latest_shortfall;
+    /// @brief what the latest receive() returns.
+    x::errors::Error received;
     /// @brief what inputless() returns.
     std::vector<uint16_t> latest_inputless;
     bool initialized{false};
@@ -394,6 +407,13 @@ public:
         this->stall_cv.wait(lock, [this] { return this->blocked; });
     }
 
+    /// @brief makes the next frame sent come back a cycle late: the first receive()
+    /// after its send keeps it in flight, and the next one takes it.
+    void hold_frame() {
+        std::lock_guard lock(this->mu);
+        this->hold_next = true;
+    }
+
     /// @brief unblocks receive() after stall().
     void resume() {
         {
@@ -688,6 +708,7 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("deactivate");
         this->activated = false;
+        this->frames.clear();
         this->initialized = false;
         this->pdo_offset_cache.clear();
         this->input_sz = 0;
@@ -699,7 +720,7 @@ public:
             slave.status.state = slave::State::INIT;
     }
 
-    x::errors::Error receive() override {
+    const x::errors::Error &receive() override {
         {
             std::unique_lock lock(this->stall_mu);
             if (std::exchange(this->stall_next, false)) this->stalled = true;
@@ -712,6 +733,16 @@ public:
         std::lock_guard lock(this->mu);
         this->calls.emplace_back("receive");
         this->latest_shortfall.reset();
+        auto sent_at = this->last_sent;
+        if (!this->frames.empty()) {
+            if (this->frames.front().late && this->frames.size() == 1)
+                return this->received = x::errors::Error(
+                           errors::FRAME_IN_FLIGHT,
+                           "frame in flight"
+                       );
+            sent_at = this->frames.front().sent_at;
+            this->frames.pop_front();
+        }
         this->latest_inputless.clear();
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
@@ -723,23 +754,27 @@ public:
         }
         std::ranges::sort(this->latest_inputless);
         if (!this->activated)
-            return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
+            return this->received = x::errors::Error(
+                       errors::CYCLIC_ERROR,
+                       "not activated"
+                   );
         const auto err = this->short_until_op ? x::errors::Error(
                                                     errors::WORKING_COUNTER_ERROR,
                                                     "expected 3, got 1"
                                                 )
                                               : this->inject_receive_err;
-        if (err && !err.matches(errors::WORKING_COUNTER_ERROR)) return err;
+        if (err && !err.matches(errors::WORKING_COUNTER_ERROR))
+            return this->received = err;
         if (this->dc_step) this->dc_now = this->dc_now + *this->dc_step;
         if (this->host_dc_rate && this->host_dc_start) {
-            const auto elapsed = this->last_sent - *this->host_dc_start;
+            const auto elapsed = sent_at - *this->host_dc_start;
             this->dc_now = master::DC_EPOCH + elapsed * *this->host_dc_rate;
         }
         if (this->frames_to_record > 0 && (this->dc_step || this->host_dc_rate)) {
             this->recorded.push_back(this->dc_now);
             if (--this->frames_to_record == 0) this->recorded_cv.notify_all();
         }
-        if (err) return err;
+        if (err) return this->received = err;
         std::memcpy(
             this->input_iomap.data(),
             this->pending_inputs.data(),
@@ -747,10 +782,10 @@ public:
         );
         if (!this->cycle_shortfall) return x::errors::NIL;
         this->latest_shortfall = this->cycle_shortfall;
-        return x::errors::Error(
-            errors::WORKING_COUNTER_ERROR,
-            "short by " + std::to_string(*this->cycle_shortfall)
-        );
+        return this->received = x::errors::Error(
+                   errors::WORKING_COUNTER_ERROR,
+                   "short by " + std::to_string(*this->cycle_shortfall)
+               );
     }
 
     std::optional<uint32_t> shortfall() const override {
@@ -807,6 +842,10 @@ public:
         this->last_sent = this->clock.now();
         if (this->host_dc_rate && !this->host_dc_start)
             this->host_dc_start = this->last_sent;
+        this->frames.push_back({
+            .sent_at = this->last_sent,
+            .late = std::exchange(this->hold_next, false),
+        });
         this->sent_outputs = this->output_iomap;
         this->send_calls++;
         this->sent_cv.notify_all();

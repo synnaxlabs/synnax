@@ -15,10 +15,11 @@ import {
 } from "@synnaxlabs/client";
 import {
   color,
+  type CrudeTimeRange,
   deep,
   destructor,
-  type NumericTimeRange,
   primitive,
+  TimeRange,
   unique,
   verbs,
 } from "@synnaxlabs/x";
@@ -317,18 +318,17 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export interface SetTimeRangeParams {
   key: ranger.Key;
-  timeRange: NumericTimeRange;
+  timeRange: CrudeTimeRange;
 }
 
 export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangeParams>({
   name: RESOURCE_NAME,
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
-    const { key, timeRange } = data;
-    await client.ranges.dispatch(
-      key,
-      ranger.set({ path: ["timeRange"], value: timeRange }),
-    );
+    const { start, end } = new TimeRange(data.timeRange);
+    // Bigints keep each stamp exact. A number rounds it by up to 128 ns.
+    const value = { start: start.valueOf(), end: end.valueOf() };
+    await client.ranges.dispatch(data.key, ranger.set({ path: ["timeRange"], value }));
     return data;
   },
 });

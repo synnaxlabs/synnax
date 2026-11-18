@@ -371,6 +371,8 @@ func (s Series) DataString() string {
 		return truncateAndFormatSlice(s.Unmarshal[bool]())
 	case TimestampT:
 		return formatTimeStampDeltas(s.Unmarshal[TimeStamp]())
+	case UnknownT, UUIDT, StringT, BytesT, JSONT:
+		fallthrough
 	default:
 		return fmt.Sprintf("%v", s.Data)
 	}

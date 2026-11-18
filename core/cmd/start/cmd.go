@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -94,8 +95,8 @@ func run(cmd *cobra.Command) error {
 		return err
 	}
 
-	sCtx.Go(func(ctx context.Context) error {
-		return BootupCore(ctx, nil, cfg)
+	sCtx.Go(func(stop context.Context) error {
+		return BootupCore(ctx, stop, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	forceCtx, forceCancel := xsignal.Isolated(xsignal.WithInstrumentation(ins))
@@ -156,7 +157,7 @@ func readLicenseKey() (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to read the --%s file", FlagLicenseFile)
 	}

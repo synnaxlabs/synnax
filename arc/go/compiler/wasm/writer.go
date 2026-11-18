@@ -156,7 +156,12 @@ func (e *Writer) WriteNarrow(t types.Type) {
 		e.writeSignExtend(24)
 	case types.KindI16:
 		e.writeSignExtend(16)
-	default:
+	case types.KindInvalid, types.KindU32, types.KindU64, types.KindI32, types.KindI64,
+		types.KindF32, types.KindF64, types.KindString, types.KindChan,
+		types.KindSeries, types.KindVariable, types.KindNumericConstant,
+		types.KindIntegerConstant, types.KindFloatConstant,
+		types.KindExactIntegerFloatConstant, types.KindFunction, types.KindSequence,
+		types.KindStage, types.KindVarRef, types.KindBool:
 	}
 }
 

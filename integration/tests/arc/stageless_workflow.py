@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_virtual_channel, hold
 from tests.arc.arc import ArcCase
 
 ARC_STAGELESS_WORKFLOW_SOURCE = """
@@ -111,7 +111,7 @@ class StagelessWorkflow(ArcCase):
             "wait{500ms} to elapse without advancing"
         )
         self.writer.write("sw_pressure", 10.0)
-        sy.sleep(1)  # noqa: TID251 hold: nothing may change
+        hold(1, reason="nothing may change")
         a_value = self.read_tlm("sw_a")
         if a_value is None:
             self.fail(

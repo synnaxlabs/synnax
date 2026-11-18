@@ -361,7 +361,7 @@ func fits(v *big.Int, t types.Type) bool {
 }
 
 func overflow(node antlr.ParserRuleContext, value string, t types.Type) result {
-	d := codes.ConstantOverflow.At(node, value, t)
+	d := codes.ConstantOverflow.Atf(node, "%s overflows %s", value, t)
 	return result{diag: &d, failed: true}
 }
 
@@ -370,6 +370,6 @@ func divisionByZero(node antlr.ParserRuleContext, op int) result {
 	if op == parser.ArcParserPERCENT {
 		name = "modulo"
 	}
-	d := codes.DivisionByZero.At(node, name)
+	d := codes.DivisionByZero.Atf(node, "integer %s by zero", name)
 	return result{diag: &d, failed: true}
 }

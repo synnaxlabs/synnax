@@ -60,6 +60,7 @@ var _ = Describe("Migrations", func() {
 		"Should migrate a legacy uint64-keyed task and its status to a UUID key",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB: db,
 			}))
@@ -488,6 +489,7 @@ var _ = Describe("NameMigration", func() {
 	migrated := func(ctx SpecContext, in v2.Task) v2.Task {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&in).Exec(ctx, db)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{

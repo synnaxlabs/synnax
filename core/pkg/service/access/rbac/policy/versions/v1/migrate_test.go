@@ -28,6 +28,7 @@ var _ = Describe("WorkspaceObjectsMigration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		p := v1.Policy{
 			Key:  uuid.New(),
 			Name: "custom",
@@ -60,6 +61,7 @@ var _ = Describe("NameMigration", func() {
 	migrated := func(ctx SpecContext, in v1.Policy) v1.Policy {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		Expect(gorp.NewCreate[v1.Key, v1.Policy]().Entry(&in).Exec(ctx, db)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{

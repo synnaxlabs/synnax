@@ -82,9 +82,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Stores", func() {
 		It("Should expose one store per Modbus task type", func() {
-			types := []string{}
-			for _, s := range svc.Stores() {
-				types = append(types, s.Type())
+			stores := svc.Stores()
+			types := make([]string, len(stores))
+			for i, s := range stores {
+				types[i] = s.Type()
 			}
 			Expect(types).To(ConsistOf(
 				"modbus_read",
@@ -341,6 +342,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			stored := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(stored.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, v1.ReadConfig]{DB: stored},
 			))

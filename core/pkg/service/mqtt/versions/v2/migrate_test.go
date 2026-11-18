@@ -429,8 +429,9 @@ var _ = Describe("ResolveReadConfig", func() {
 				named("f3", "level", "/b"),
 				named("f4", "", ""),
 			))
-			names := []string{}
-			for _, f := range fields(resolve(ctx, &cfg).Messages[0]) {
+			messageFields := fields(resolve(ctx, &cfg).Messages[0])
+			names := make([]string, 0, len(messageFields))
+			for _, f := range messageFields {
 				names = append(names, f.Base().Name)
 			}
 			Expect(names).To(Equal([]string{"out/flow", "level", "level (2)", "value"}))
@@ -461,7 +462,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			ic := resolve(ctx, &cfg)
 			Expect(ic.Name).To(Equal("Plant"))
 			Expect(ic.Messages).To(HaveLen(3))
-			names := []string{}
+			names := make([]string, 0, len(ic.Messages))
 			for _, m := range ic.Messages {
 				names = append(names, m.Name)
 			}

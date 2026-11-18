@@ -25,6 +25,8 @@ export type TimeFormat = payload.TimeFormat;
 
 const topicZ = z.string().min(1, "Topic is required");
 
+export const READ_TYPE = `${PREFIX}_read`;
+
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 export interface WriteChannel extends kafka.WriteChannel {}

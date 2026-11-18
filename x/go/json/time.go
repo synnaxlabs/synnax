@@ -11,6 +11,7 @@ package json
 
 import (
 	"bytes"
+	"fmt"
 	"math"
 	"strconv"
 	"time"
@@ -84,9 +85,11 @@ func (f TimeFormat) nanosExponent() int {
 		return 6
 	case UnixMicrosecond:
 		return 3
-	default:
+	case UnixNanosecond:
 		return 0
+	case ISO8601:
 	}
+	panic(fmt.Sprintf("json: %s is not a numeric time format", f))
 }
 
 func (f TimeFormat) nanosPerUnit() int64 {
