@@ -1210,6 +1210,21 @@ describe("Series", () => {
       expect(series.binarySearch(20n)).toEqual(1);
     });
 
+    it("should match a timestamp to a number value that rounds above it", () => {
+      const stamp = 2n ** 60n - 1n;
+      const series = new Series({
+        data: new BigInt64Array([stamp]),
+        dataType: DataType.TIMESTAMP,
+      });
+      expect(series.binarySearch(Number(stamp))).toEqual(0);
+    });
+
+    it("should search a float series with a bigint value", () => {
+      const series = new Series({ data: new Float64Array([0.5, 1.5, NaN]) });
+      expect(series.binarySearch(1n)).toEqual(1);
+      expect(series.binarySearch(2n)).toEqual(2);
+    });
+
     it("should return the first of samples equal to the value", () => {
       const series = new Series({ data: new Float64Array([1, 2, 2, 2, 2, 3]) });
       expect(series.binarySearch(2)).toEqual(1);

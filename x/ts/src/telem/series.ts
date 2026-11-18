@@ -964,10 +964,14 @@ export class Series<T extends TelemValue = TelemValue>
    * @param value - the value to search for.
    */
   binarySearch(value: math.Numeric): number {
-    // A NaN sample orders after every value. Babel prints `(x as T) < y` without its
-    // parentheses, and the Console build then reads `T < y` as type arguments.
+    // A NaN sample orders after every value. A bigint sample becomes a number when the
+    // value is one, so a timestamp past 2^53 matches the number it rounds to. Babel
+    // prints `(x as T) < y` without its parentheses, and the Console build then reads
+    // `T < y` as type arguments.
     return array.partitionPoint(this.length, (i) => {
-      const sample = this.at(i, true) as math.Numeric;
+      let sample = this.at(i, true) as math.Numeric;
+      if (typeof sample === "bigint" && typeof value === "number")
+        sample = Number(sample);
       return !(sample < value);
     });
   }
