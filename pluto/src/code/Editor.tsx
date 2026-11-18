@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { scheduler, TimeSpan, url } from "@synnaxlabs/x";
+import { id, scheduler, TimeSpan, url } from "@synnaxlabs/x";
 import {
   type ReactNode,
   type Ref,
@@ -297,12 +297,10 @@ const resolveLanguageFeatures = (): Promise<ILanguageFeaturesService | null> =>
 
 const createBlockURI = (): string => {
   const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
-  const id = Math.random().toString(36).substring(7);
-  return `arc://block/${id}#${encoded}`;
+  return `arc://block/${id.create()}#${encoded}`;
 };
 
-const createModuleURI = (): string =>
-  `arc://module/${Math.random().toString(36).substring(7)}`;
+const createModuleURI = (): string => `arc://module/${id.create()}`;
 
 const createCustomURI = (isBlock: boolean, isModule: boolean): string | undefined => {
   if (isBlock) return createBlockURI();

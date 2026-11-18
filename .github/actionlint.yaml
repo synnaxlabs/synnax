@@ -31,7 +31,7 @@ config-variables:
   - S3_CACHE_REGION
   - SECURITY_REPORT_PUBLIC_KEY
   - TURBO_TEAM
-  - WINDOWS_TEST_BOTS
+  - UBUNTU_TEST_BOTS
 
 paths:
   .github/workflows/cancel.merge-group.yaml:

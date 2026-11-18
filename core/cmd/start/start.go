@@ -344,9 +344,10 @@ func BootupCore(
 			Version:  version.Get(),
 			Loopback: new(cfg.listeners.Loopback()),
 		},
-		ValidateChannelNames: cfg.validateChannelNames,
-		SecretsKey:           secretsKey,
-		SecretsDir:           cfg.secretsDir,
+		ValidateChannelNames:   cfg.validateChannelNames,
+		SecretsKey:             secretsKey,
+		SecretsDir:             cfg.secretsDir,
+		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
 	if !ok(err, serviceLayer) {
 		return err

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { record } from "@synnaxlabs/x";
+import { record, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { query } from "@/query";
@@ -160,7 +160,7 @@ export class Client {
       fetch: async (keys) => (await this.table.retrieve(keys)).map((r) => r.key),
       compose: (records, keys) => {
         const byKey = new Map(records.map((r) => [r.key, r]));
-        return [...new Set(keys)].flatMap((k) => byKey.get(k) ?? []);
+        return unique.unique(keys).flatMap((k) => byKey.get(k) ?? []);
       },
       keysOf: (keys) => keys,
       matches: (r, keys) => keys.includes(r.key),

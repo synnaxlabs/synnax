@@ -138,6 +138,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to true (validation enabled)
 	ValidateChannelNames *bool
+	// EmbeddedDriverDisabled is true when the Core runs without its embedded Driver.
+	//
+	// [OPTIONAL] - Defaults to false.
+	EmbeddedDriverDisabled bool
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -165,6 +169,11 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		other.SessionIdleTimeout,
 	)
 	c.License = c.License.Override(other.License)
+	c.EmbeddedDriverDisabled = override.If(
+		c.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+		other.EmbeddedDriverDisabled,
+	)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
@@ -636,11 +645,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Rack, err = rack.OpenService(ctx, rack.ServiceConfig{
-		Instrumentation: cfg.Child("rack"),
-		DB:              cfg.Distribution.DB,
-		HostKey:         cfg.Distribution.Identity.HostKey,
-		Status:          l.Status,
-		DriverRole:      roles.Builtin.DriverKey,
+		Instrumentation:        cfg.Child("rack"),
+		DB:                     cfg.Distribution.DB,
+		HostKey:                cfg.Distribution.Identity.HostKey,
+		Status:                 l.Status,
+		DriverRole:             roles.Builtin.DriverKey,
+		EmbeddedDriverDisabled: cfg.EmbeddedDriverDisabled,
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
@@ -910,6 +920,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
+		ICD:             l.ICD,
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
@@ -1116,6 +1127,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
+		ICD:             l.ICD,
 	})
 	if !ok(err, mqttFactory) {
 		return nil, err

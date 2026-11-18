@@ -171,6 +171,33 @@ func (t *Table[K, E]) delete(ctx context.Context, tx Tx, keys []K) error {
 	return w.Delete(ctx, keys...)
 }
 
+// watches implements registeredTable.
+func (t *Table[K, E]) watches(table string) bool {
+	_, ok := t.onTargetSet[table]
+	return ok
+}
+
+// targetSet implements registeredTable.
+func (t *Table[K, E]) targetSet(
+	ctx context.Context,
+	tx Tx,
+	k string,
+	table string,
+) error {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return err
+	}
+	var e E
+	if err = t.NewRetrieve().
+		Where(MatchKeys[K, E](pk)).
+		Entry(&e).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	return t.onTargetSet[table](ctx, tx, e)
+}
+
 // Dependents returns the entries of every open table that hold a reference to the entry
 // with key k, as seen by snap. It waits for each reference's index to populate, or for
 // ctx to end, and returns ErrIndexInvalid if one failed to populate.
