@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/client";
+import { color, group } from "@synnaxlabs/client";
 import { type Color } from "@synnaxlabs/lyra/color";
 import { type color as xcolor } from "@synnaxlabs/x";
 
+import { Access } from "@/access";
+import { CreatePalette, CreateSwatch } from "@/color/Create";
+import { EditAction } from "@/color/Edit";
 import { usePalettes, useResolve } from "@/color/library";
 
 /** The props that bind a Lyra color control to a stored color reference. */
@@ -23,7 +26,8 @@ export interface Binding {
 /**
  * Binds a Lyra color control to a stored color reference. A pick from a palette calls
  * onChange with a named reference, a custom color with a fixed reference, and Auto with
- * undefined.
+ * undefined. The picker can also create a named color, which the value then follows,
+ * and edit a named color, for a user with the access to do so.
  */
 export const useBinding = (
   value: color.Ref | undefined,
@@ -31,6 +35,8 @@ export const useBinding = (
 ): Binding => {
   const palettes = usePalettes();
   const resolve = useResolve();
+  const canCreate = Access.useCreateGranted(color.TYPE_RESOURCE_ID);
+  const canCreatePalette = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
   return {
     value: resolve(value),
     onChange: (c) => onChange(c == null ? undefined : { type: "fixed", value: c }),
@@ -41,6 +47,11 @@ export const useBinding = (
             palettes,
             named: value?.type === "named" ? value.key : undefined,
             onNamedChange: (key) => onChange({ type: "named", key }),
+            paletteEnd: canCreate ? (
+              <CreateSwatch onCreated={(key) => onChange({ type: "named", key })} />
+            ) : undefined,
+            swatchActions: <EditAction />,
+            footer: canCreate && canCreatePalette ? <CreatePalette /> : undefined,
           },
   };
 };
