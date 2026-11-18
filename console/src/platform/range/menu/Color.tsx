@@ -7,26 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { type color, type ranger } from "@synnaxlabs/client";
 import { Color as Base } from "@synnaxlabs/lyra/color";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Color as PColor, Ranger } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { color as xcolor } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 interface PickerProps {
-  value?: color.Crude;
-  fallback: color.Crude;
-  onCommit: (value?: color.Color) => void;
+  value?: color.Ref;
+  fallback: xcolor.Crude;
+  onCommit: (value?: color.Ref) => void;
 }
 
 // The picker changes on each tick of a drag, so the pick commits once, when the
 // submenu or the menu closes and unmounts the picker.
 const Picker = ({ value, fallback, onCommit }: PickerProps): ReactElement => {
-  const [pending, setPending] = useState<{ value?: color.Color } | null>(null);
+  const [pending, setPending] = useState<{ value?: color.Ref } | null>(null);
   const pendingRef = useSyncedRef(pending);
   const onCommitRef = useSyncedRef(onCommit);
   useEffect(
@@ -35,13 +35,36 @@ const Picker = ({ value, fallback, onCommit }: PickerProps): ReactElement => {
     },
     [pendingRef, onCommitRef],
   );
+  const palettes = PColor.usePalettes();
+  const resolve = PColor.useResolve();
+  const shown = pending == null ? value : pending.value;
   return (
     <Base.Picker
-      value={pending == null ? value : pending.value}
+      value={resolve(shown)}
       fallback={fallback}
-      onChange={(next) => setPending({ value: next })}
+      onChange={(next) =>
+        setPending({ value: next == null ? undefined : { type: "fixed", value: next } })
+      }
+      library={
+        palettes.length === 0
+          ? undefined
+          : {
+              palettes,
+              named: shown?.type === "named" ? shown.key : undefined,
+              onNamedChange: (key) => setPending({ value: { type: "named", key } }),
+            }
+      }
     />
   );
+};
+
+// The key of the named color that every range links to, if they all link to one.
+const sharedNamed = (ranges: ranger.Range[]): color.Key | undefined => {
+  const keys = new Set(
+    ranges.map((r) => (r.color?.type === "named" ? r.color.key : "")),
+  );
+  const [key] = keys;
+  return keys.size === 1 && key !== "" ? key : undefined;
 };
 
 export interface ColorProps {
@@ -56,8 +79,12 @@ export const Color = ({ ranges }: ColorProps): ReactElement => {
   const values = ranges.map((r) => resolve(r.color));
   const first = values[0];
   const shared = values.every((v) =>
-    v == null || first == null ? v === first : color.equals(v, first),
+    v == null || first == null ? v === first : xcolor.equals(v, first),
   );
+  const named = sharedNamed(ranges);
+  let value: color.Ref | undefined;
+  if (named != null) value = { type: "named", key: named };
+  else if (shared && first != null) value = { type: "fixed", value: first };
   return (
     <Menu.Sub itemKey="color" textValue="Color">
       <Menu.SubTrigger>
@@ -66,15 +93,10 @@ export const Color = ({ ranges }: ColorProps): ReactElement => {
       </Menu.SubTrigger>
       <Menu.Dialog itemless aria-label="Color">
         <Picker
-          value={shared ? first : undefined}
+          value={value}
           fallback={colors.gray.l8}
           onCommit={(next) =>
-            ranges.forEach((r) =>
-              update({
-                key: r.key,
-                color: next == null ? undefined : { type: "fixed", value: next },
-              }),
-            )
+            ranges.forEach((r) => update({ key: r.key, color: next }))
           }
         />
       </Menu.Dialog>

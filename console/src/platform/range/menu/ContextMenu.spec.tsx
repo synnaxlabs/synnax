@@ -162,9 +162,39 @@ describe("Range.ContextMenu", () => {
       ];
       await renderMenu(ranges);
       const dialog = await openSubmenu("Color");
-      const swatch = within(dialog).getAllByLabelText(/^#/)[0];
-      const hex = swatch.getAttribute("aria-label");
-      if (hex == null) throw new Error("the swatch has no hex label");
+      fireEvent.click(await within(dialog).findByText("Custom"));
+      fireEvent.change(within(dialog).getByLabelText("Hex"), {
+        target: { value: "0000ff" },
+      });
+      fireEvent.keyDown(dialog, { key: "ArrowLeft" });
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Color" })).toBeNull(),
+      );
+      await waitFor(async () => {
+        for (const r of ranges) {
+          const { color: stored } = await client.ranges.retrieve(r.key);
+          expect(stored).toEqual({ type: "fixed", value: color.construct("#0000ff") });
+        }
+      });
+    });
+
+    it("should link every range to a named color picked from a palette", async () => {
+      const palette = await client.groups.create({
+        scope: "color",
+        name: uniqueName("palette"),
+      });
+      const named = await client.colors.create({
+        name: uniqueName("color"),
+        light: "#00ff00",
+        group: palette.key,
+      });
+      const ranges = [
+        await createTestRange(client, { name: uniqueRangeName("linked") }),
+        await createTestRange(client, { name: uniqueRangeName("linked") }),
+      ];
+      await renderMenu(ranges);
+      const dialog = await openSubmenu("Color");
+      const swatch = await within(dialog).findByRole("button", { name: named.name });
       fireEvent.click(swatch);
       fireEvent.keyDown(swatch, { key: "ArrowLeft" });
       await waitFor(() =>
@@ -173,7 +203,7 @@ describe("Range.ContextMenu", () => {
       await waitFor(async () => {
         for (const r of ranges) {
           const { color: stored } = await client.ranges.retrieve(r.key);
-          expect(stored).toEqual({ type: "fixed", value: color.construct(hex) });
+          expect(stored).toEqual({ type: "named", key: named.key });
         }
       });
     });
