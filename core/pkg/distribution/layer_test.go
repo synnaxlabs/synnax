@@ -14,6 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -27,5 +29,49 @@ var _ = Describe("LayerConfig", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("gorp")),
 		))
+	})
+})
+
+var _ = Describe("Layer", func() {
+	var layer *distribution.Layer
+	BeforeEach(func(ctx SpecContext) {
+		store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+		layer = DeferClose(MustSucceed(distribution.OpenLayer(
+			ctx,
+			distribution.LayerConfig{
+				Storage:          store.Layer,
+				AdvertiseAddress: "localhost:0",
+			},
+		)))
+	})
+
+	Describe("Run", func() {
+		It("Should return nil when its context ends", func() {
+			StartRun(layer.Run)()
+		})
+
+		It("Should fail while another Run runs", func(ctx SpecContext) {
+			StartRun(layer.Run)
+			Expect(layer.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+		})
+
+		It("Should fail after an earlier Run returns", func(ctx SpecContext) {
+			StartRun(layer.Run)()
+			Expect(layer.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+		})
+
+		It("Should fail after Close", func(ctx SpecContext) {
+			Expect(layer.Close()).To(Succeed())
+			Expect(layer.Run(ctx)).
+				To(MatchError(ContainSubstring("run called after close")))
+		})
+	})
+
+	Describe("Close", func() {
+		It("Should fail while Run runs", func() {
+			StartRun(layer.Run)
+			Expect(layer.Close()).
+				To(MatchError(ContainSubstring("close called while Run runs")))
+		})
 	})
 })
