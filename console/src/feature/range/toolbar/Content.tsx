@@ -209,7 +209,7 @@ const Line = ({
 };
 
 const StopButton = ({ range }: { range: ranger.Range }): ReactElement => {
-  const stop = Tree.useStop();
+  const stop = Range.useStop();
   return (
     <Button.Button
       variant="text"
@@ -275,7 +275,7 @@ const RunningActions = ({
             className={CSS.BE(B, "next")}
             onClick={next}
           >
-            <Tree.NextIcon />
+            <Range.NextIcon />
           </Button.Button>
         )}
       </span>

@@ -172,6 +172,71 @@ describe("Provider", () => {
     }
   });
 
+  it("keeps the range of an open menu hovered as the cursor leaves it", async () => {
+    const start = TimeStamp.now().add(TimeSpan.days(16425));
+    const ranges = await createRanges(start, [
+      [0, 4],
+      [6, 10],
+    ]);
+    try {
+      const provider = mount();
+      const shown = new TimeRange(start, start.add(TimeSpan.seconds(10)));
+      const props = renderProps(shown);
+      await expect
+        .poll(() => {
+          provider.render(props);
+          return provider.state.count;
+        })
+        .toEqual(2);
+      provider.setState((s) => ({ ...s, cursor: { x: 200, y: -14 } }));
+      provider.render(props);
+      expect(provider.state.hovered?.key).toEqual(ranges[0].key);
+      provider.setState((s) => ({ ...s, menuOpen: true, cursor: { x: 800, y: -14 } }));
+      // The plot slides by two seconds, as a live plot does.
+      const two = TimeSpan.seconds(2);
+      provider.render(
+        renderProps(new TimeRange(shown.start.add(two), shown.end.add(two))),
+      );
+      expect(provider.state.hovered?.key).toEqual(ranges[0].key);
+      expect(provider.state.hovered?.viewport.lower).toBeCloseTo(-200);
+      provider.setState((s) => ({ ...s, menuOpen: false }));
+      provider.render(props);
+      expect(provider.state.hovered?.key).toEqual(ranges[1].key);
+    } finally {
+      await createTestClient().ranges.delete(ranges.map((r) => r.key));
+    }
+  });
+
+  it("hides the tooltip while the menu is open", async () => {
+    const start = TimeStamp.now().add(TimeSpan.days(16790));
+    const [rng] = await createRanges(start, [[0, 10]]);
+    try {
+      const recorder = canvasTest.record();
+      const provider = mount(recorder);
+      const props = renderProps(new TimeRange(start, start.add(TimeSpan.seconds(10))));
+      await expect
+        .poll(() => {
+          provider.render(props);
+          return provider.state.count;
+        })
+        .toEqual(1);
+      const names = (): number => {
+        recorder.upper2d.calls.length = 0;
+        provider.render(props);
+        return recorder.upper2d.calls.filter(
+          (c) => c.op === "fillText" && c.args[0] === rng.name,
+        ).length;
+      };
+      provider.setState((s) => ({ ...s, cursor: { x: 500, y: -14 } }));
+      // The bar label and the tooltip.
+      expect(names()).toEqual(2);
+      provider.setState((s) => ({ ...s, menuOpen: true }));
+      expect(names()).toEqual(1);
+    } finally {
+      await createTestClient().ranges.delete(rng.key);
+    }
+  });
+
   it("keeps back to back ranges in one lane at any zoom", async () => {
     const start = TimeStamp.now().add(TimeSpan.days(11680));
     const ranges = await createRanges(start, [

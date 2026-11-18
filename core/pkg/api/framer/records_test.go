@@ -25,6 +25,7 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -124,6 +125,15 @@ var _ = Describe("Change channels", func() {
 			Name:  "change-channel",
 			Light: MustSucceed(xcolor.Parse("#ff0000")),
 		}
+	}
+	createEnumerations := func(ctx SpecContext, enumerations ...enumeration.Enumeration) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Enumeration.NewWriter(tx).CreateMany(ctx, enumerations)
+		})).To(Succeed())
+	}
+	newEnumeration := func() enumeration.Enumeration {
+		return enumeration.Enumeration{Key: uuid.New(), Name: "change-channel"}
 	}
 	newRange := func(ctx SpecContext) ranger.Range {
 		GinkgoHelper()
@@ -238,6 +248,49 @@ var _ = Describe("Change channels", func() {
 					GinkgoHelper()
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.Color.NewWriter(tx).Delete(
+							ctx,
+							readable.Key,
+							denied.Key,
+						)
+					})).To(Succeed())
+				}
+			},
+		),
+		Entry(
+			"an enumeration set",
+			"sy_enumeration_set",
+			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newEnumeration(), newEnumeration()
+				return enumeration.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					createEnumerations(ctx, readable, denied)
+				}
+			},
+		),
+		Entry(
+			"an enumeration action",
+			"sy_enumeration_action_set",
+			func(SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newEnumeration(), newEnumeration()
+				return enumeration.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					createEnumerations(ctx, readable, denied)
+				}
+			},
+		),
+		Entry(
+			"an enumeration delete",
+			"sy_enumeration_delete",
+			func(ctx SpecContext) (resource.ID, change) {
+				GinkgoHelper()
+				readable, denied := newEnumeration(), newEnumeration()
+				createEnumerations(ctx, readable, denied)
+				return enumeration.ResourceID(readable.Key), func(ctx SpecContext) {
+					GinkgoHelper()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.Enumeration.NewWriter(tx).Delete(
 							ctx,
 							readable.Key,
 							denied.Key,

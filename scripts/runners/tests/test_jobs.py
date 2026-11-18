@@ -150,6 +150,27 @@ class TestJobs:
         assert j.queued == {2: WAITING}
         assert j.counts() == {"ubuntu-test-bot": 1}
 
+    def test_should_count_as_stuck_only_long_waits_the_last_read_found(
+        self, client: Client
+    ) -> None:
+        github = Responses(
+            {
+                "/actions/runs?status=queued&per_page=100&page=1": runs(),
+                "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
+                "/actions/runs/7/jobs?per_page=100&page=1": {
+                    "jobs": [job(2, status="queued")]
+                },
+            }
+        )
+        after = 5 * sy.TimeSpan.MINUTE
+        late = jobs(github, client=client)
+        late.resync(WAITING.since + after)
+        late.apply([queued(1, labels=["self-hosted", "seat-claude-1"])])
+        assert late.stuck(after=after) == [set(LABELS)]
+        early = jobs(github, client=client)
+        early.resync(WAITING.since + sy.TimeSpan.MINUTE)
+        assert early.stuck(after=after) == []
+
     def test_should_keep_the_queue_until_the_resync_finishes(
         self, client: Client
     ) -> None:

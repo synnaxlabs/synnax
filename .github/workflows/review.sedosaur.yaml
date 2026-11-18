@@ -61,6 +61,8 @@ permissions: {}
 env:
   RUN_URL:
     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  # The review module reads the Claude Code stream with the agent wrapper's code.
+  PYTHONPATH: ${{ github.workspace }}/scripts
 
 # One review of a pull request at a time. A newer request replaces a queued one, so the
 # relay asks for a repeat while one waits. Replays post nothing, so each runs apart.
@@ -118,7 +120,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts
+          sparse-checkout: |
+            .github/scripts
+            scripts/agent
 
       - name: Decide whether to review
         id: skip
@@ -138,7 +142,7 @@ jobs:
         if: steps.skip.outputs.skip == 'false'
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-contents: read
@@ -188,7 +192,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
@@ -210,7 +214,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
@@ -249,7 +253,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-contents: read
@@ -392,7 +396,7 @@ jobs:
         id: post
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-contents: write
@@ -420,7 +424,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
@@ -451,7 +455,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
 
