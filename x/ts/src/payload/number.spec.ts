@@ -36,16 +36,16 @@ describe("payload", () => {
       expect(z.encode(payload.floatZ, input)).toBe(expected);
     });
 
-    it("should parse a decoded non-finite fill again", () => {
-      const read = payload.floatReadZ.parse({ enumValues: [], fill: "-Infinity" });
-      expect(payload.floatReadZ.parse(read).fill).toBe(-Infinity);
+    it("should parse a decoded non-finite value again", () => {
+      const entry = payload.floatEntryZ.parse({ label: "LOW", value: "-Infinity" });
+      expect(payload.floatEntryZ.parse(entry).value).toBe(-Infinity);
     });
 
-    it("should encode a non-finite fill inside a read", () => {
-      const read = payload.floatReadZ.parse({ enumValues: [], fill: "-Infinity" });
-      expect(z.encode(payload.floatReadZ, read)).toEqual({
-        enumValues: [],
-        fill: "-Infinity",
+    it("should encode a non-finite value inside an entry", () => {
+      const entry = payload.floatEntryZ.parse({ label: "LOW", value: "-Infinity" });
+      expect(z.encode(payload.floatEntryZ, entry)).toEqual({
+        label: "LOW",
+        value: "-Infinity",
       });
     });
   });
