@@ -247,9 +247,9 @@ func (s *commandSink) process(ctx context.Context, res framer.StreamerResponse) 
 }
 
 func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
-	var cmd task.Command
 	for series := range frame.Series() {
 		for s := range series.Samples() {
+			var cmd task.Command
 			if err := json.Unmarshal(s, &cmd); err != nil {
 				d.cfg.L.Error("failed to unmarshal command", zap.Error(err))
 				continue

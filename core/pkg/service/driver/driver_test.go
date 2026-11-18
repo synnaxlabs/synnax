@@ -2342,6 +2342,67 @@ var _ = Describe("Driver", func() {
 		)
 
 		It(
+			"should decode each command of a frame on its own",
+			func(ctx SpecContext) {
+				var taskKey atomic.Value
+				received := make(chan task.Command, 10)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(_ context.Context, cmd task.Command) error {
+								if t.Key == taskKey.Load() && cmd.Type == "tare" {
+									received <- cmd
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				taskKey.Store(t.Key)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return taskService.NewWriter(tx).Create(ctx, &t)
+				})).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{taskService.CommandChannelKey()},
+					Start: telem.Now(),
+				}))
+				Expect(w.Write(frame.NewUnary(
+					taskService.CommandChannelKey(),
+					MustSucceed(telem.NewJSONSeriesV(
+						map[string]any{
+							"task": t.Key,
+							"type": "tare",
+							"key":  "cmd-2",
+							"args": map[string]any{"channels": []int{1}},
+						},
+						map[string]any{"task": t.Key, "type": "tare", "key": "cmd-3"},
+					)),
+				))).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+
+				var first, second task.Command
+				Eventually(received).Should(Receive(&first))
+				Eventually(received).Should(Receive(&second))
+				Expect(first.Key).To(Equal("cmd-2"))
+				Expect(first.Args).To(HaveKey("channels"))
+				Expect(second.Key).To(Equal("cmd-3"))
+				Expect(second.Args).To(BeEmpty())
+			},
+		)
+
+		It(
 			"should execute the start command on the freshly deployed task",
 			func(ctx SpecContext) {
 				var (
