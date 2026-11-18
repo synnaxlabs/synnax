@@ -10,7 +10,7 @@
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { mockGeometry } from "@synnaxlabs/lyra/testutil";
-import { deep, id } from "@synnaxlabs/x";
+import { deep, id, uuid } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -67,6 +67,18 @@ describe("SelectForm", () => {
     fireEvent.click(clear);
     await waitFor(() => expect(value(path.enumeration)).toBeUndefined());
     expect(await findByText("No options added")).toBeTruthy();
+  });
+
+  it("should show an enumeration that the Core lacks as not found", async () => {
+    const { findByRole, queryByText } = renderForm(
+      <SelectForm tab="options" onTabChange={vi.fn()} />,
+      createConfig({ variant: "select", enumeration: uuid.create() }),
+      schematic.selectNodeConfigZ,
+      wrapper,
+    );
+    const trigger = await findByRole("button", { name: "Enumeration" });
+    await waitFor(() => expect(trigger.textContent).toBe("Enumeration not found"));
+    expect(queryByText("No options added")).toBeNull();
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {

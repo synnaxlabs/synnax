@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type enumeration, type schematic } from "@synnaxlabs/client";
+import { type enumeration, NotFoundError, type schematic } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -15,6 +15,7 @@ import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Enumeration } from "@/enumeration";
+import { Flux } from "@/flux";
 import { StateMappingForm } from "@/schematic/node/common/form/StateMapping";
 
 export interface StatesProps {
@@ -25,7 +26,19 @@ export interface StatesProps {
   showColor?: boolean;
 }
 
-/** Picks the enumeration that a node draws, or edits its options when it has none. */
+const NOT_FOUND_TRIGGER = { placeholder: "Enumeration not found" };
+
+const useMissing = (key: enumeration.Key | undefined): boolean => {
+  const result = Enumeration.useResult(key == null ? null : { key });
+  if (result.variant !== "error") return false;
+  const { error } = result.status.details;
+  return NotFoundError.matches(error.cause) || Flux.DeletedError.matches(error);
+};
+
+/**
+ * Picks the enumeration that a node draws, or edits its options when it has none. A
+ * key that the Core lacks shows as not found.
+ */
 export const States = ({
   enumeration: enumerationPath,
   options,
@@ -33,6 +46,7 @@ export const States = ({
 }: StatesProps): ReactElement => {
   const { set, remove } = Form.useContext();
   const key = Form.useFieldValue(enumerationPath, { optional: true }) ?? undefined;
+  const missing = useMissing(key);
   const handleChange = (next: enumeration.Key | undefined): void => {
     if (next == null) remove(enumerationPath);
     else set(enumerationPath, next);
@@ -40,7 +54,12 @@ export const States = ({
   return (
     <Flex.Box y gap="small" grow>
       <Input.Item label="Enumeration" padHelpText={false}>
-        <Enumeration.SelectSingle value={key} onChange={handleChange} allowNone />
+        <Enumeration.SelectSingle
+          value={key}
+          onChange={handleChange}
+          allowNone
+          triggerProps={missing ? NOT_FOUND_TRIGGER : undefined}
+        />
       </Input.Item>
       {key == null && <StateMappingForm path={options} showColor={showColor} />}
     </Flex.Box>
