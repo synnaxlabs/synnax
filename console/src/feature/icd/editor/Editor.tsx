@@ -18,13 +18,14 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD, Panel } from "@synnaxlabs/pluto";
 import { type deep } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { Message } from "@/feature/icd/editor/Message";
 import { Messages } from "@/feature/icd/editor/Messages";
 import { useImport } from "@/feature/icd/useImport";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
+import { Session } from "@/session";
 
 interface TitleProps {
   path: deep.Path<icd.Message>;
@@ -77,7 +78,10 @@ const Body = ({ selected, onSelect }: BodyProps): ReactElement => {
  */
 export const Editor = (): ReactElement => {
   const { key } = Panel.useTabResource();
-  const [selected, setSelected] = useState<string[]>([]);
+  const dispatch = Session.useDispatch();
+  const selected = Session.ICD.useSelectSelected(key);
+  const handleSelect = (selected: icd.MessageKey[]) =>
+    dispatch(Session.ICD.setSelected({ key, selected }));
   const canEdit = Access.useUpdateGranted(icd.resourceID(key));
   const { form } = ICD.useForm({
     query: { key },
@@ -119,7 +123,7 @@ export const Editor = (): ReactElement => {
           )}
         </Flex.Box>
         <Flex.Box x bordered grow empty className={CSS.BE("icd-editor", "body")}>
-          <Body selected={selected} onSelect={setSelected} />
+          <Body selected={selected} onSelect={handleSelect} />
         </Flex.Box>
       </Flex.Box>
     </Form.Form>
