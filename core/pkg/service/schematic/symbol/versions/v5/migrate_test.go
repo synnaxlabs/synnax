@@ -247,7 +247,9 @@ var _ = Describe("Migration", func() {
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v5.Key, v5.Symbol]{
 			DB: db,
 			Migrations: []gorp.Migration{v5.NewMigration(
-				func(tx gorp.Tx) v5.Create { return enumSvc.NewWriter(tx).CreateMany },
+				func(tx gorp.Tx) v5.Intern {
+					return enumSvc.NewWriter(tx).NewInterner().Intern
+				},
 				func(context.Context, gorp.Tx) (set.Set[v5.Key], error) {
 					return set.New(actuators...), nil
 				},

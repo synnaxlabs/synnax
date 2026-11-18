@@ -51,8 +51,13 @@ func MigrateSpec(ctx context.Context, old v4.Spec) (Spec, error) {
 	return m.finish(), nil
 }
 
-// Create creates enumerations in the migration's transaction and gives each one a key.
-type Create func(ctx context.Context, enumerations []enumeration.Enumeration) error
+// Intern returns the key of an enumeration with name and entries. It creates one in the
+// migration's transaction, or returns one that an earlier call made with equal entries.
+type Intern func(
+	ctx context.Context,
+	name string,
+	entries []enumeration.Entry,
+) (enumeration.Key, error)
 
 // Actuators returns the keys of the symbols that a custom_actuator node draws.
 type Actuators func(ctx context.Context, tx gorp.Tx) (set.Set[Key], error)
@@ -60,10 +65,9 @@ type Actuators func(ctx context.Context, tx gorp.Tx) (set.Set[Key], error)
 // NewMigration returns the migration that lifts stored symbols from v4 to v5 as
 // MigrateSymbol does. It gives the state of each symbol a default enumeration with an
 // entry for each old state, and turns the color looks that the entries carry into entry
-// looks. Symbols with equal entry names and colors share one enumeration. A symbol that
-// a custom_actuator node draws gets the commands of an actuator. newCreate opens the
-// Create of the migration's transaction.
-func NewMigration(newCreate func(gorp.Tx) Create, actuators Actuators) gorp.Migration {
+// looks. A symbol that a custom_actuator node draws gets the commands of an actuator.
+// newIntern opens the Intern of the migration's transaction.
+func NewMigration(newIntern func(gorp.Tx) Intern, actuators Actuators) gorp.Migration {
 	return migrate.New(
 		"v62_symbol_model",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
@@ -72,10 +76,7 @@ func NewMigration(newCreate func(gorp.Tx) Create, actuators Actuators) gorp.Migr
 				return err
 			}
 			var (
-				in = interner{
-					create: newCreate(tx),
-					made:   map[string]enumeration.Key{},
-				}
+				intern = newIntern(tx)
 				reader = gorp.WrapReader[Key, v4.Symbol](tx)
 				writer = gorp.WrapWriter[Key, Symbol](tx)
 			)
@@ -90,7 +91,7 @@ func NewMigration(newCreate func(gorp.Tx) Create, actuators Actuators) gorp.Migr
 					return err
 				}
 				var s Symbol
-				if s, err = migrateStored(ctx, *old, drawn, &in, ins); err != nil {
+				if s, err = migrateStored(ctx, *old, drawn, intern, ins); err != nil {
 					return errors.Wrapf(err, "symbol %v", old.Key)
 				}
 				if err = writer.Set(ctx, s); err != nil {
@@ -106,7 +107,7 @@ func migrateStored(
 	ctx context.Context,
 	old v4.Symbol,
 	drawn set.Set[Key],
-	in *interner,
+	intern Intern,
 	ins alamos.Instrumentation,
 ) (Symbol, error) {
 	m, err := migrateSpec(ctx, old.Data)
@@ -125,7 +126,7 @@ func migrateStored(
 	}
 	if len(old.Data.States) > 0 {
 		entries := defaultEntries(old.Data.States, m.entryLooks())
-		key, err := in.intern(ctx, old.Name, entries)
+		key, err := intern(ctx, old.Name, entries)
 		if err != nil {
 			return Symbol{}, err
 		}

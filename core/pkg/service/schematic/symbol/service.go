@@ -118,8 +118,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Indexes:    s.indexes.all(),
 		References: s.indexes.references(),
 		Migrations: versions.Migrations(
-			func(tx gorp.Tx) v5.Create {
-				return cfg.Enumeration.NewWriter(tx).CreateMany
+			func(tx gorp.Tx) v5.Intern {
+				return cfg.Enumeration.NewWriter(tx).NewInterner().Intern
 			},
 			cfg.Actuators,
 		),

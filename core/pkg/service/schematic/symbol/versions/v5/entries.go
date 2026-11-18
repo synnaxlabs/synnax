@@ -10,8 +10,6 @@
 package v5
 
 import (
-	"context"
-	"encoding/json/v2"
 	"maps"
 	"slices"
 	"strconv"
@@ -150,40 +148,4 @@ func defaultEntries(
 		}
 	}
 	return entries
-}
-
-// interner gives entry lists with equal names and colors one enumeration.
-type interner struct {
-	create Create
-	made   map[string]enumeration.Key
-}
-
-// intern returns the key of an enumeration named name with entries. Entry i has value
-// i, so equal names and colors in order make equal lists.
-func (in *interner) intern(
-	ctx context.Context,
-	name string,
-	entries []enumeration.Entry,
-) (enumeration.Key, error) {
-	type content struct {
-		Name  string
-		Color *color.Ref
-	}
-	contents := make([]content, len(entries))
-	for i, e := range entries {
-		contents[i] = content{Name: e.Name, Color: e.Color}
-	}
-	b, err := json.Marshal(contents)
-	if err != nil {
-		return enumeration.Key{}, err
-	}
-	if key, ok := in.made[string(b)]; ok {
-		return key, nil
-	}
-	created := []enumeration.Enumeration{{Name: name, Entries: entries}}
-	if err = in.create(ctx, created); err != nil {
-		return enumeration.Key{}, err
-	}
-	in.made[string(b)] = created[0].Key
-	return created[0].Key, nil
 }

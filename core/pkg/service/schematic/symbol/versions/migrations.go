@@ -18,10 +18,10 @@ import (
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 )
 
-// Migrations returns the ordered migration chain for stored symbols. newCreate and
+// Migrations returns the ordered migration chain for stored symbols. newIntern and
 // actuators are the inputs of v5.NewMigration.
 func Migrations(
-	newCreate func(gorp.Tx) v5.Create,
+	newIntern func(gorp.Tx) v5.Intern,
 	actuators v5.Actuators,
 ) []gorp.Migration {
 	return []gorp.Migration{
@@ -30,6 +30,6 @@ func Migrations(
 		v3.Migration,
 		v3.MembersMigration,
 		v4.Migration,
-		v5.NewMigration(newCreate, actuators),
+		v5.NewMigration(newIntern, actuators),
 	}
 }
