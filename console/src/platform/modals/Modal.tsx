@@ -16,17 +16,17 @@ import { type Session } from "@/session";
 
 const [BusyContext, useSetBusy] = context.create<Session.Modals.Entry["setBusy"]>({
   displayName: "Modals.BusyContext",
-  providerName: "Modals.BusyProvider",
+  defaultValue: () => {},
 });
 
 /**
  * Keeps the modal open while busy is true: Escape, the close trigger, and a click
  * outside do nothing. Call it with the modal's save state, and disable its cancel
- * button with the same value. Throws outside a modal.
+ * button with the same value. Does nothing outside a modal.
  */
 export const useBusy = (busy: boolean): void => {
-  const setBusy = useSetBusy("Modals.useBusy");
-  // A layout effect, so a key press cannot land between the render and the mark.
+  const setBusy = useSetBusy();
+  // A layout effect marks the modal busy before the browser handles another key press.
   useLayoutEffect(() => {
     if (!busy) return;
     setBusy(true);

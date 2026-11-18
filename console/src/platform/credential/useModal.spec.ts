@@ -18,7 +18,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { useModal } from "@/platform/credential/useModal";
-import { findButton, openModal } from "@/platform/modals/testutil";
+import { findButton, openModal, pressEscape } from "@/platform/modals/testutil";
 import {
   clickAndSettle,
   createTestClientWithGrants,
@@ -38,11 +38,6 @@ const createKey = async (name: string): Promise<void> => {
   fireEvent.click(await screen.findByText("Create key"));
   await type("Key name", name);
   fireEvent.click(findButton("Create"));
-};
-
-const pressEscape = (): void => {
-  fireEvent.keyDown(window, { code: "Escape" });
-  fireEvent.keyUp(window, { code: "Escape" });
 };
 
 const expectPassword = async (username: string, password: string): Promise<void> => {
@@ -155,6 +150,24 @@ describe("useModal", () => {
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
     await expectPassword(username, "changed123");
+  });
+
+  it("should stay open while a password saves", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({
+      username: uniqueName("user"),
+      password: "password123",
+      role,
+    });
+    await openModal(useModal, {
+      client,
+      params: { subject: user.resourceID(subject.key) },
+    });
+    await type("New password", "changed123");
+    fireEvent.click(findButton("Set password"));
+    pressEscape();
+    expect(await screen.findByText("Successfully changed password")).toBeTruthy();
   });
 
   it("should let an owner set another user's password", async () => {
