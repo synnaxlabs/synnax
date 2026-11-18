@@ -10,7 +10,7 @@
 import "@/feature/project/Splash.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
-import { Button as PButton } from "@synnaxlabs/lyra/button";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -35,10 +35,10 @@ const LogOutAction = (): ReactElement => {
   const logout = Core.useLogout();
   return (
     <Header.Actions>
-      <PButton.Button variant="text" textColor={9} size="medium" onClick={logout}>
+      <Button.Button variant="text" textColor={9} size="medium" onClick={logout}>
         <Icon.Logout />
         Log out
-      </PButton.Button>
+      </Button.Button>
     </Header.Actions>
   );
 };
@@ -158,9 +158,9 @@ export const Splash = (props: SplashProps): ReactElement => {
             </Flex.Box>
           )}
           {hasCreatePermission && (
-            <PButton.CreateListItem size="large" onClick={() => openCreate()}>
+            <Button.CreateListItem size="large" onClick={() => openCreate()}>
               New project
-            </PButton.CreateListItem>
+            </Button.CreateListItem>
           )}
         </Flex.Box>
       </Select.Frame>
