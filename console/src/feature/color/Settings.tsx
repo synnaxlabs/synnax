@@ -12,7 +12,6 @@ import "@/feature/color/Settings.css";
 import { color, group } from "@synnaxlabs/client";
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -24,7 +23,6 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { theme } from "@synnaxlabs/lyra/theme";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color as PColor, Flux, Group } from "@synnaxlabs/pluto";
 import { array, color as xcolor, compare, type record, uuid } from "@synnaxlabs/x";
@@ -214,39 +212,6 @@ const PaletteHeading = ({
   </div>
 );
 
-interface ValueProps {
-  value?: xcolor.Crude;
-  fallback?: xcolor.Crude;
-  onChange?: (value?: xcolor.Color) => void;
-  label: string;
-}
-
-const Value = ({ value, fallback, onChange, label }: ValueProps): ReactElement => (
-  <Flex.Box x align="center" gap="small">
-    {fallback == null ? (
-      <Color.Swatch
-        value={value ?? "#000000"}
-        onChange={onChange}
-        size="small"
-        aria-label={label}
-      />
-    ) : (
-      <Color.Swatch
-        value={value}
-        fallback={fallback}
-        onChange={onChange}
-        size="small"
-        aria-label={label}
-      />
-    )}
-    <Text.Text level="small" variant="code" color={value == null ? 8 : 10}>
-      {value == null ? "Auto" : xcolor.hex(value).toUpperCase()}
-    </Text.Text>
-  </Flex.Box>
-);
-
-const DARK = theme.themeZ.parse(theme.SYNNAX_DARK);
-
 const path = PColor.formPath;
 
 /** @returns whether a stored built-in differs from its shipped name or values. */
@@ -309,17 +274,18 @@ const placeBefore = (
   );
 };
 
-const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
+const Item = (props: List.ItemProps<color.Key>): ReactElement => (
+  <PColor.Editor itemKey={props.itemKey}>
+    <ItemContent {...props} />
+  </PColor.Editor>
+);
+
+const ItemContent = (props: List.ItemProps<color.Key>): ReactElement | null => {
   const { itemKey } = props;
   const named = List.useItem<color.Key, color.Named>(itemKey);
   const { shipped, move } = use(Context);
-  const { form } = PColor.useForm({ query: { key: itemKey } });
-  const name = Form.useField<string>(path.name, { ctx: form });
-  const light = Form.useField<xcolor.Crude, xcolor.Color>(path.light, { ctx: form });
-  const dark = Form.useField<xcolor.Crude | undefined, xcolor.Color | undefined>(
-    path.dark,
-    { ctx: form, optional: true },
-  );
+  const name = Form.useField<string>(path.name);
+  const light = Form.useFieldValue<xcolor.Crude>(path.light);
   const canUpdate = Access.useUpdateGranted(color.resourceID(itemKey));
   const itemClass = PlatformSettings.useItemClass(itemKey);
   const [over, setOver] = useState(false);
@@ -338,14 +304,13 @@ const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
   });
   if (named == null) return null;
   const builtin = shipped.get(itemKey);
-  const lightValue = light.value ?? named.light;
   const handleDragStart = (event: DragEvent): void =>
     startDrag({
       event,
       items: [{ type: HAUL_TYPE, key: itemKey }],
       preview: (
         <Haul.Preview
-          swatch={xcolor.cssString(lightValue)}
+          swatch={xcolor.cssString(light)}
           name={name.value}
           facts={FACTS}
         />
@@ -390,19 +355,10 @@ const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
           </Flex.Box>
         </List.Cell>
         <List.Cell>
-          <Value
-            value={lightValue}
-            onChange={canUpdate ? (v) => v != null && light.onChange(v) : undefined}
-            label="Light theme color"
-          />
+          <PColor.LightInput disabled={!canUpdate} />
         </List.Cell>
         <List.Cell>
-          <Value
-            value={dark?.value}
-            fallback={theme.legible(lightValue, DARK)}
-            onChange={canUpdate ? dark?.onChange : undefined}
-            label="Dark theme color"
-          />
+          <PColor.DarkInput disabled={!canUpdate} />
         </List.Cell>
       </List.Cells>
     </Select.Item>
@@ -484,15 +440,7 @@ const NewColorForm = ({
               </Form.Field>
             </List.Cell>
             <List.Cell>
-              <Form.Field path={createPath.light} showLabel={false} padHelpText={false}>
-                {({ value, onChange }) => (
-                  <Value
-                    value={value}
-                    onChange={(v) => v != null && onChange(v)}
-                    label="Light theme color"
-                  />
-                )}
-              </Form.Field>
+              <PColor.LightInput />
             </List.Cell>
             <List.Cell>
               <Flex.Box x align="center" justify="between">
