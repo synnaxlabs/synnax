@@ -467,8 +467,13 @@ jobs:
           STATUS:
             ${{ needs.start.result != 'success' && needs.start.result ||
             needs.review.result }}
+        # GitHub does not document whether an output without text keeps the old text,
+        # so the record that the review wrote is sent back.
         run: |
-          gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
+          run="repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN"
+          text=$(gh api "$run" --jq '.output.text // ""')
+          gh api -X PATCH "$run" \
             -f status=completed -f conclusion="$STATUS" \
             -f "output[title]=The review ended with $STATUS" \
-            -f "output[summary]=See the [run]($RUN_URL)." --silent
+            -f "output[summary]=See the [run]($RUN_URL)." \
+            -f "output[text]=$text" --silent

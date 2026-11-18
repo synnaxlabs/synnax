@@ -351,7 +351,7 @@ class TestSettledThreads:
             return gh(*args, stdin=stdin)
 
         post(record(), target=TARGET, gh=fail)
-        assert gh.written("PATCH", "check-runs/55")[0]["conclusion"] == "success"
+        assert gh.written("PATCH", "check-runs/55")[-1]["conclusion"] == "success"
         assert "::warning::Could not resolve settled threads" in capsys.readouterr().err
 
 
@@ -365,9 +365,9 @@ class TestDismissedFindings:
         )
         [posted] = gh.written("POST", "pulls/7/reviews")
         assert [c["body"].count("**Nit**") for c in posted["comments"]] == [1]
-        [done] = gh.written("PATCH", "check-runs/55")
-        assert done["output"]["title"] == "Confidence Score: 4/5"
-        assert render.listed(done["output"]["text"]) == {("a.go", "Nit")}
+        [recorded, _] = gh.written("PATCH", "check-runs/55")
+        assert recorded["output"]["title"] == "Confidence Score: 4/5"
+        assert render.listed(recorded["output"]["text"]) == {("a.go", "Nit")}
 
     def test_should_leave_out_a_finding_dismissed_outside_the_diff(
         self, gh: FakeGH
@@ -376,16 +376,16 @@ class TestDismissedFindings:
         body = f"<!-- sedosaur_answer {json.dumps(answer | {'reason': ''})} -->"
         gh.comments = [{"id": 4, "login": "sedosaur[bot]", "body": body}]
         post(record(finding()), target=TARGET, gh=gh)
-        [done] = gh.written("PATCH", "check-runs/55")
-        assert done["output"]["title"] == "Confidence Score: 5/5"
+        [recorded, _] = gh.written("PATCH", "check-runs/55")
+        assert recorded["output"]["title"] == "Confidence Score: 5/5"
 
     def test_should_score_5_when_every_finding_is_dismissed(self, gh: FakeGH) -> None:
         gh.threads = [thread("sedosaur", "@sedosaur dismiss", resolved=True)]
         post(record(finding()), target=TARGET, gh=gh)
         assert gh.written("POST", "pulls/7/reviews") == []
-        [done] = gh.written("PATCH", "check-runs/55")
-        assert done["output"]["title"] == "Confidence Score: 5/5"
-        assert done["output"]["summary"] == (
+        [recorded, _] = gh.written("PATCH", "check-runs/55")
+        assert recorded["output"]["title"] == "Confidence Score: 5/5"
+        assert recorded["output"]["summary"] == (
             "Every finding of the review is dismissed or withdrawn.\n\nFindings: none."
         )
 
@@ -418,16 +418,16 @@ class TestDismissedFindings:
             return gh(*args, stdin=stdin)
 
         post(record(finding()), target=TARGET, gh=fail)
-        [done] = gh.written("PATCH", "check-runs/55")
-        assert done["output"]["title"] == "Confidence Score: 4/5"
+        [recorded, _] = gh.written("PATCH", "check-runs/55")
+        assert recorded["output"]["title"] == "Confidence Score: 4/5"
         assert "::warning::Could not read dismissals" in capsys.readouterr().err
 
     def test_should_keep_a_finding_whose_dismissal_is_quoted(self, gh: FakeGH) -> None:
         reply = "> reply `@sedosaur dismiss` and a reason\n\nNo, I disagree."
         gh.threads = [thread("sedosaur", reply)]
         post(record(finding()), target=TARGET, gh=gh)
-        [done] = gh.written("PATCH", "check-runs/55")
-        assert done["output"]["title"] == "Confidence Score: 4/5"
+        [recorded, _] = gh.written("PATCH", "check-runs/55")
+        assert recorded["output"]["title"] == "Confidence Score: 4/5"
 
 
 class TestOutsideFindings:
@@ -539,21 +539,30 @@ class TestSummary:
         post(
             record(finding(), finding(severity="P2", title="Nit")), target=TARGET, gh=gh
         )
-        [done] = gh.written("PATCH", "check-runs/55")
+        [recorded, done] = gh.written("PATCH", "check-runs/55")
         assert done["status"] == "completed"
         assert done["conclusion"] == "success"
-        assert done["output"]["title"] == "Confidence Score: 4/5"
-        assert done["output"]["summary"].endswith("Findings: 1 P1, 1 P2.")
-        assert render.listed(done["output"]["text"]) == {
+        assert recorded["output"]["title"] == "Confidence Score: 4/5"
+        assert recorded["output"]["summary"].endswith("Findings: 1 P1, 1 P2.")
+        assert render.listed(recorded["output"]["text"]) == {
             ("a.go", "Samples return old data"),
             ("a.go", "Nit"),
         }
 
+    def test_should_record_before_linking_and_complete_last(self, gh: FakeGH) -> None:
+        post(record(finding()), target=TARGET, gh=gh)
+        patches = [(at, p) for m, at, p in gh.writes if m == "PATCH"]
+        run, body = f"repos/{REPO}/check-runs/55", f"repos/{REPO}/pulls/7"
+        assert [at for at, _ in patches] == [run, body, run]
+        assert list(patches[0][1]) == ["output"]
+        assert patches[2][1] == {"status": "completed", "conclusion": "success"}
+        assert gh.writes[0][:2] == ("PATCH", run)
+
     def test_should_keep_the_record_in_the_check_run(self, gh: FakeGH) -> None:
         rec = record(finding(body="Use ```` in `x`.\n<!-- /sedosaur_record -->"))
         post(rec, target=TARGET, gh=gh)
-        [done] = gh.written("PATCH", "check-runs/55")
-        text = done["output"]["text"]
+        [recorded, _] = gh.written("PATCH", "check-runs/55")
+        text = recorded["output"]["text"]
         assert render.recorded(text) == rec
         assert render.listed(text) == {("a.go", "Samples return old data")}
         assert "<details><summary>Record</summary>" in text
@@ -562,8 +571,8 @@ class TestSummary:
         self, gh: FakeGH, capsys: pytest.CaptureFixture[str]
     ) -> None:
         post(record(finding(body="x" * render.TEXT_CHARS)), target=TARGET, gh=gh)
-        [done] = gh.written("PATCH", "check-runs/55")
-        text = done["output"]["text"]
+        [recorded, _] = gh.written("PATCH", "check-runs/55")
+        text = recorded["output"]["text"]
         assert render.recorded(text) is None
         assert render.listed(text) == {("a.go", "Samples return old data")}
         assert "::warning::Omitted the record from" in capsys.readouterr().err
