@@ -67,16 +67,18 @@ An import replaces all the messages of the ICD with the messages in the file:
   them continue to work.
 - A message or field that the file does not hold is removed from the ICD.
 
-A file that Synnax cannot read stops the import, and the ICD does not change. Problems
-that a [check](/reference/hardware/icds/create#check-an-icd) finds do not stop an
-import.
+A file that Synnax cannot read stops the import, and the ICD does not change. So does a
+value that breaks a rule of the ICD's schema, such as a field with no name. Other
+problems that a [check](/reference/hardware/icds/create#check-an-icd) finds do not stop
+an import.
 
 <Divider.Divider x />
 
 ## DBC files
 
 Synnax makes one message for each `BO_` definition in the file, with its CAN ID, and one
-field for each signal of the message.
+field for each signal of the message. It skips `VECTOR__INDEPENDENT_SIG_MSG`, which
+holds the signals that no message sends.
 
 | In the DBC file                                             | In the ICD                                                        |
 | ----------------------------------------------------------- | ----------------------------------------------------------------- |
@@ -84,11 +86,17 @@ field for each signal of the message.
 | Signal name, or its long name when the file gives one       | Field name                                                        |
 | Start bit, size, and byte order (`@1` Intel, `@0` Motorola) | Start bit, bit length, and byte order (little endian, big endian) |
 | Factor and offset                                           | Scale and offset                                                  |
+| Minimum and maximum, unless both are 0                      | Min and max                                                       |
 | Unit                                                        | Units                                                             |
 | Float value type, or signed (`-`), or unsigned (`+`)        | Type: float, integer, or unsigned                                 |
 | Multiplexor signals (`M`, `m<N>`, `SG_MUL_VAL_`)            | Multiplexor and multiplex values                                  |
 | `VFrameFormat`, `BusType`, or a message longer than 8 bytes | CAN FD                                                            |
 | `CANFD_BRS` of 1                                            | Bitrate switch                                                    |
+| J1939 `VFrameFormat` or `ProtocolType`                      | A mask that matches the parameter group                           |
+
+The mask of a J1939 message leaves out the priority and the source address, and for a
+PDU1 group the destination address. When two messages share a parameter group, the mask
+keeps the source address.
 
 Synnax skips value tables and value descriptions (`VAL_TABLE_`, `VAL_`).
 
@@ -192,11 +200,32 @@ Most errors name the row or line of the file. In the Console, an error shows und
 </Problem.Item>
 
 <Problem.Item
-  message={["line <N>: signal <signal> extends past the <size>-byte message <message>"]}
+  message={[
+    "line <N>: signal <signal> extends past the <size>-byte message <message>",
+    "line <N>: signal <signal> does not fit a message",
+  ]}
 >
-  <Problem.Cause>A DBC signal ends after the last byte of its message.</Problem.Cause>
+  <Problem.Cause>
+    A DBC signal ends after the last byte of its message, or its start bit is more than
+    65535.
+  </Problem.Cause>
   <Problem.Fix>
     Correct the start bit and size of the signal, or the size of the message.
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  message={[
+    "line <N>: signal <signal> has <bits> bits, not 1 to 64",
+    "line <N>: signal <signal> is a <B>-bit float but has <bits> bits",
+  ]}
+>
+  <Problem.Cause>
+    The size of a DBC signal is 0 or more than 64 bits, or a float signal is not 32 or
+    64 bits.
+  </Problem.Cause>
+  <Problem.Fix>
+    Correct the size of the signal, or the value type of a float signal.
   </Problem.Fix>
 </Problem.Item>
 
