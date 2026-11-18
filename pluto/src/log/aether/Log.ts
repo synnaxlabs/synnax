@@ -13,6 +13,7 @@ import {
   bounds,
   box,
   color,
+  compare,
   DataType,
   type destructor,
   notation,
@@ -252,9 +253,6 @@ const formatNumber = (
   if (Number.isNaN(number)) return value;
   return notation.stringifyNumber(number, precision, valueNotation);
 };
-
-const sameEntries = (a: number[], b: number[]): boolean =>
-  a.length === b.length && a.every((entry, i) => entry === b[i]);
 
 // Moves a wrap point off the second half of a surrogate pair, so a row never splits an
 // emoji.
@@ -650,7 +648,7 @@ export class Log
       this.state.position !== position ||
       this.state.visibleStart !== sliceStart ||
       this.state.computedLineHeight !== lh ||
-      !sameEntries(this.state.rowEntries, rowEntries)
+      !compare.arraysEqual(this.state.rowEntries, rowEntries)
     )
       this.setState((s) => ({
         ...s,

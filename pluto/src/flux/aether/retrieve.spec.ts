@@ -9,7 +9,7 @@
 
 import { NotFoundError, query, Synnax } from "@synnaxlabs/client";
 import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
-import { type destructor, TimeStamp } from "@synnaxlabs/x";
+import { type destructor, scheduler, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { flux } from "@/flux/aether";
@@ -63,8 +63,6 @@ const createHarness = (): Harness => {
   return { definition, retrieve, handlers, cache, disconnects };
 };
 
-const flush = async () => await new Promise((resolve) => setTimeout(resolve, 0));
-
 describe("flux.Retrieve", () => {
   let harness: Harness;
   let onChange: ReturnType<
@@ -99,7 +97,7 @@ describe("flux.Retrieve", () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
     expect(observer.value).toBeUndefined();
-    await flush();
+    await scheduler.flushTaskQueue();
     expect(observer.value).toEqual({ key: "a", name: "name-a" });
     expect(onChange).toHaveBeenCalledWith({ key: "a", name: "name-a" });
   });
@@ -108,7 +106,7 @@ describe("flux.Retrieve", () => {
     harness.retrieve.mockRejectedValueOnce(new NotFoundError("nope"));
     const observer = create();
     observer.update(CLIENT, { key: "a" });
-    await flush();
+    await scheduler.flushTaskQueue();
     expect(observer.value).toBeUndefined();
     expect(onError).not.toHaveBeenCalled();
   });
@@ -118,7 +116,7 @@ describe("flux.Retrieve", () => {
     harness.retrieve.mockRejectedValueOnce(failure);
     const observer = create();
     observer.update(CLIENT, { key: "a" });
-    await flush();
+    await scheduler.flushTaskQueue();
     expect(onError).toHaveBeenCalledWith(failure);
     expect(observer.value).toBeUndefined();
   });
@@ -126,7 +124,7 @@ describe("flux.Retrieve", () => {
   it("pushes live subscription updates", async () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
-    await flush();
+    await scheduler.flushTaskQueue();
     const next = { key: "a", name: "renamed" };
     harness.handlers[0](next);
     expect(observer.value).toEqual(next);
@@ -136,7 +134,7 @@ describe("flux.Retrieve", () => {
   it("holds the previous answer across an invalidation push", async () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
-    await flush();
+    await scheduler.flushTaskQueue();
     const held = observer.value;
     onChange.mockClear();
     harness.handlers[0](undefined);
@@ -147,7 +145,7 @@ describe("flux.Retrieve", () => {
   it("forwards a deletion push", async () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
-    await flush();
+    await scheduler.flushTaskQueue();
     const corpse = { key: "a", name: "name-a" };
     const deleted = new query.Deleted(corpse, TimeStamp.now());
     harness.handlers[0](deleted);
@@ -159,7 +157,7 @@ describe("flux.Retrieve", () => {
   it("ignores an update with an equal query and client", async () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
-    await flush();
+    await scheduler.flushTaskQueue();
     observer.update(CLIENT, { key: "a" });
     expect(harness.retrieve).toHaveBeenCalledTimes(1);
     expect(harness.disconnects[0]).not.toHaveBeenCalled();
@@ -168,11 +166,11 @@ describe("flux.Retrieve", () => {
   it("re-subscribes when the query changes", async () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
-    await flush();
+    await scheduler.flushTaskQueue();
     observer.update(CLIENT, { key: "b" });
     expect(harness.disconnects[0]).toHaveBeenCalled();
     expect(harness.handlers).toHaveLength(1);
-    await flush();
+    await scheduler.flushTaskQueue();
     expect(observer.value).toEqual({ key: "b", name: "name-b" });
   });
 
@@ -184,9 +182,9 @@ describe("flux.Retrieve", () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
     observer.update(CLIENT, { key: "b" });
-    await flush();
+    await scheduler.flushTaskQueue();
     resolveSlow({ key: "a", name: "stale" });
-    await flush();
+    await scheduler.flushTaskQueue();
     expect(observer.value).toEqual({ key: "b", name: "name-b" });
   });
 
@@ -204,7 +202,7 @@ describe("flux.Retrieve", () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
     observer.close();
-    await flush();
+    await scheduler.flushTaskQueue();
     expect(observer.value).toBeUndefined();
     expect(harness.disconnects[0]).toHaveBeenCalled();
   });
@@ -212,16 +210,16 @@ describe("flux.Retrieve", () => {
   it("refetches the current query on demand", async () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
-    await flush();
+    await scheduler.flushTaskQueue();
     observer.refetch();
-    await flush();
+    await scheduler.flushTaskQueue();
     expect(harness.retrieve).toHaveBeenCalledTimes(2);
   });
 
   it("keeps the later refetch when two resolve out of order", async () => {
     const observer = create();
     observer.update(CLIENT, { key: "a" });
-    await flush();
+    await scheduler.flushTaskQueue();
     let resolveFirst: (data: Data) => void = () => {};
     harness.retrieve.mockImplementationOnce(
       async () => await new Promise<Data>((resolve) => (resolveFirst = resolve)),
@@ -229,9 +227,9 @@ describe("flux.Retrieve", () => {
     observer.refetch();
     harness.retrieve.mockResolvedValueOnce({ key: "a", name: "second" });
     observer.refetch();
-    await flush();
+    await scheduler.flushTaskQueue();
     resolveFirst({ key: "a", name: "first" });
-    await flush();
+    await scheduler.flushTaskQueue();
     expect(observer.value).toEqual({ key: "a", name: "second" });
   });
 });

@@ -63,16 +63,30 @@ class Streamer:
 
 
 class ChannelStore:
-    """Stands in for the Core's channels: records every channel created."""
+    """Stands in for the Core's channels: records every channel created, returns the
+    stored channel for a name that exists, and refuses a create of a stored key."""
 
     def __init__(self) -> None:
         self.created: list[sy.Channel] = []
+        self.stored: dict[str, sy.Channel] = {}
 
     def create(
         self, channels: list[sy.Channel], /, *, retrieve_if_name_exists: bool
     ) -> list[sy.Channel]:
+        keys = {c.key for c in self.stored.values()}
+        if any(c.key in keys for c in channels):
+            raise sy.ValidationError("channel already exists")
         self.created += channels
-        return channels
+        out = []
+        for c in channels:
+            if c.name not in self.stored or not retrieve_if_name_exists:
+                c.key = len(self.stored) + 1
+                self.stored[c.name] = c
+            out.append(self.stored[c.name])
+        return out
+
+    def set_expression(self, key: int, expression: str) -> None:
+        next(c for c in self.stored.values() if c.key == key).expression = expression
 
 
 class Client:

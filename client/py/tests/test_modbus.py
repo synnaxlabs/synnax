@@ -324,6 +324,7 @@ class TestModbusReadTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-modbus-read-task",
             type="modbus_read",
             config=task.config,
@@ -523,6 +524,7 @@ class TestModbusWriteTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-modbus-write-task",
             type="modbus_write",
             config=task.config,
@@ -561,6 +563,7 @@ class TestModbusWriteTask:
         # Create task in database
         task_targets.attach(original_task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="modbus_write",
             config=original_task.config,
@@ -613,7 +616,10 @@ class TestModbusWriteTask:
         )
         task_targets.attach(task.config)
         created = client.tasks.create(
-            name="test-swap-inherit", type="modbus_write", config=task.config
+            rack=task_targets.rack,
+            name="test-swap-inherit",
+            type="modbus_write",
+            config=task.config,
         )
         inherit, override = sy.modbus.WriteTask(created).config.channels
         assert isinstance(inherit, sy.modbus.HoldingRegisterWriteChannel)

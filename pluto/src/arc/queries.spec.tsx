@@ -224,7 +224,7 @@ describe("Arc queries", () => {
     it("should create a new arc", async () => {
       const { result } = renderHook(() => Arc.useCreate(), { wrapper });
 
-      const uniqueName = `created-arc-${Math.random().toString(36).substring(7)}`;
+      const uniqueName = `created-arc-${id.create()}`;
 
       await act(async () => {
         await result.current.updateAsync({
@@ -381,7 +381,7 @@ describe("Arc queries", () => {
 
       await waitFor(() => expect(result.current.variant).toBe("success"));
 
-      const uniqueName = `form-arc-${Math.random().toString(36).substring(7)}`;
+      const uniqueName = `form-arc-${id.create()}`;
 
       act(() => {
         result.current.form.set(path.name, uniqueName);
@@ -556,7 +556,7 @@ describe("Arc queries", () => {
   describe("use", () => {
     it("should retrieve a single arc", async () => {
       const testArc = await client.arcs.create({
-        name: `retrieve-arc-${Math.random().toString(36).substring(7)}`,
+        name: `retrieve-arc-${id.create()}`,
         type: "automation",
         source: { mode: "text" },
       });
@@ -604,14 +604,14 @@ describe("Arc queries", () => {
   describe("useRename", () => {
     it("should rename an arc", async () => {
       const testArc = await client.arcs.create({
-        name: `original-${Math.random().toString(36).substring(7)}`,
+        name: `original-${id.create()}`,
         type: "automation",
         source: { mode: "text" },
       });
 
       const { result } = renderHook(() => Arc.useRename(), { wrapper });
 
-      const newName = `renamed-${Math.random().toString(36).substring(7)}`;
+      const newName = `renamed-${id.create()}`;
 
       await act(async () => {
         await result.current.updateAsync({ key: testArc.key, name: newName });
