@@ -145,6 +145,27 @@ describe("Range.ContextMenu", () => {
       expect(within(parent).queryByText(grandchild.name)).toBeNull();
     });
 
+    it("should list the other ranges when the nested ranges fill a page", async () => {
+      // The ranges start after every other range, so they lead the newest-first list.
+      const start = TimeStamp.now().add(TimeSpan.days(36500));
+      const at = (offset: number) => {
+        const from = start.add(TimeSpan.microseconds(offset));
+        return { timeRange: new TimeRange(from, from.add(TimeSpan.microseconds(1))) };
+      };
+      const other = await createRange(uniqueRangeName("other"), at(-1));
+      const self = await createRange(uniqueRangeName("self"), at(0));
+      await client.ranges.create(
+        Array.from({ length: 60 }, (_, i) => ({
+          name: uniqueRangeName("nested"),
+          parent: self.key,
+          ...at(i + 1),
+        })),
+      );
+      await renderMenu([self]);
+      const parent = await openSubmenu("Parent");
+      expect(await within(parent).findByText(other.name)).toBeDefined();
+    });
+
     it("should list the shared parent once, pinned at the top", async () => {
       const token = uniqueName("shared");
       const top = await createRange(`${token} top`);
