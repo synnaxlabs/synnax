@@ -16,6 +16,7 @@ import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -26,7 +27,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Color as PColor, Flux, Group } from "@synnaxlabs/pluto";
-import { color as xcolor, type record, uuid } from "@synnaxlabs/x";
+import { array, color as xcolor, type record, uuid } from "@synnaxlabs/x";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import pluralize from "pluralize";
 import {
@@ -279,7 +280,9 @@ const Context = createContext<ContextValue>({
 });
 Context.displayName = "Color.Settings";
 
-const DRAG_TYPE = "application/x-synnax-color";
+const HAUL_TYPE = "palette_color";
+const canDropColor = Haul.canDropOfType(HAUL_TYPE);
+const FACTS = ["Color"];
 
 /**
  * Returns the moves that put the dragged color just before the target, given every
@@ -291,7 +294,7 @@ const placeBefore = (
   dragged: color.Key,
   target: color.Key,
 ): PColor.MoveParams[] => {
-  const others = palette.filter((c) => c.key !== dragged);
+  const others = array.removeKeyed(palette, dragged);
   const i = others.findIndex((c) => c.key === target);
   const next = others[i].position;
   const prev = i > 0 ? others[i - 1].position : undefined;
@@ -320,25 +323,34 @@ const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
   const canUpdate = Access.useUpdateGranted(color.resourceID(itemKey));
   const itemClass = PlatformSettings.useItemClass(itemKey);
   const [over, setOver] = useState(false);
+  const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
+    type: HAUL_TYPE,
+    key: itemKey,
+    canDrop: canDropColor,
+    onDragOver: () => setOver(true),
+    onDrop: ({ items }) => {
+      setOver(false);
+      const dragged = items.find(({ type }) => type === HAUL_TYPE);
+      if (dragged != null && dragged.key !== itemKey)
+        move(String(dragged.key), itemKey);
+      return items;
+    },
+  });
   if (named == null) return null;
   const builtin = shipped.get(itemKey);
   const lightValue = light.value ?? named.light;
-  const handleDragStart = (e: DragEvent): void => {
-    e.dataTransfer.setData(DRAG_TYPE, itemKey);
-    e.dataTransfer.effectAllowed = "move";
-  };
-  const handleDragOver = (e: DragEvent): void => {
-    if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
-    e.preventDefault();
-    setOver(true);
-  };
-  const handleDrop = (e: DragEvent): void => {
-    setOver(false);
-    const dragged = e.dataTransfer.getData(DRAG_TYPE);
-    if (dragged === "" || dragged === itemKey) return;
-    e.preventDefault();
-    move(dragged, itemKey);
-  };
+  const handleDragStart = (event: DragEvent): void =>
+    startDrag({
+      event,
+      items: [{ type: HAUL_TYPE, key: itemKey }],
+      preview: (
+        <Haul.Preview
+          swatch={xcolor.cssString(lightValue)}
+          name={name.value}
+          facts={FACTS}
+        />
+      ),
+    });
   return (
     <Select.Item<color.Key>
       {...props}
@@ -347,9 +359,10 @@ const Item = (props: List.ItemProps<color.Key>): ReactElement | null => {
       aria-label={named.name}
       draggable={canUpdate}
       onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
       onDragLeave={() => setOver(false)}
-      onDrop={handleDrop}
+      onDrop={onDrop}
       className={CSS.cls(
         CSS.BE("color-settings", "item"),
         over && CSS.BEM("color-settings", "item", "over"),

@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { LinePlot as PLinePlot, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { act, render, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import {
   type ComponentType,
   type FC,
@@ -73,6 +73,17 @@ export interface RenderLinePlotOptions {
   /** The client the component renders against; defaults to the root client. */
   as?: Client;
 }
+
+/** Opens the picker of the first color swatch in container and picks a named color. */
+export const pickNamedColor = async (
+  container: HTMLElement,
+  name: string,
+): Promise<void> => {
+  const swatch = container.querySelector<HTMLElement>(".lyra-color-swatch");
+  if (swatch == null) throw new Error("no color swatch rendered");
+  fireEvent.click(swatch);
+  fireEvent.click(await screen.findByRole("button", { name }));
+};
 
 // renderLinePlot creates a line plot on the server, mounts Component inside the panel
 // and tab scopes of a seeded resource tab (the way the mosaic renders a tab) with the

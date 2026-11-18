@@ -29,6 +29,10 @@ import {
   slotZ,
   suggestIdentifiers,
 } from "@/feature/ethercat/device/location";
+import {
+  useRestartTasks,
+  useRunningOnNetwork,
+} from "@/feature/ethercat/device/queries";
 import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
@@ -56,15 +60,13 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device } from "@/platform/device";
+import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 const AUTO = -1;
 const STALE = -2;
 
 const BADGE_CLASS = CSS.BE("ethercat-sync", "badge");
-
-/** The start of the name of a network that the IgH master runs. */
-const IGH_PREFIX = "igh:";
 
 const STALE_ERROR =
   "The device no longer lists this mode, so the network fails to start. Pick a mode.";
@@ -293,7 +295,7 @@ const SLOT_FORMAT: PDevice.LocationFormat = { shape: "slot" };
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "EtherCAT slave",
+  placeholder: "EtherCAT module",
   "aria-label": "Name",
 } as const;
 
@@ -345,6 +347,13 @@ const General = (): ReactElement => {
   );
 };
 
+interface SaveOptions {
+  /** Opens a task for the slave after the save. */
+  createTask?: (deviceKey: string) => void;
+  /** Restarts the tasks that run on the network after the save. */
+  restart?: boolean;
+}
+
 /**
  * The form that sets the name, identifier, sync mode, settings, and startup parameters
  * of one EtherCAT slave.
@@ -360,6 +369,8 @@ export const Configure = ({
     query: { key: deviceKey },
     beforeSave,
   });
+  const busy = variant === "loading";
+  Modals.useBusy(busy);
   // Save sets configured, so the dialog keeps the slave as it was at open.
   const [opened] = useState(form.value);
   const openedSlot = slotZ.parse(opened.properties);
@@ -380,11 +391,10 @@ export const Configure = ({
   const shared = settings?.mode?.shared === true;
   const network = Form.useFieldValue(path.properties.network, { ctx: form });
   const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
-  // The IgH master runs no DC sync, so it does not run the choice of the catalog.
-  const catalog =
-    given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
-      ? given
-      : null;
+  // The network applies the settings of each slave on it, configured or not.
+  const running = useRunningOnNetwork(opened.rack, network);
+  const { update: restartTasks } = useRestartTasks();
+  const catalog = given != null && !isStale(modes, given) ? given : null;
   const { capture } = Analytics.use();
   const stale = choice != null && isStale(modes, choice);
   const index = choice == null ? autoIndex(modes, catalog) : choice.index;
@@ -399,7 +409,7 @@ export const Configure = ({
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
   const cycleError = choice == null ? null : cycleProblem;
-  const save = async (createTask?: (deviceKey: string) => void) => {
+  const save = async ({ createTask, restart = false }: SaveOptions = {}) => {
     // A new slave has no identifier, so its check applies from the first Save on.
     if (!checked.current) {
       form.addCheck(path.properties.identifier, Device.identifierZ);
@@ -412,6 +422,7 @@ export const Configure = ({
     if (!opened.configured) capture("device_configured", { make: MAKE });
     createTask?.(deviceKey);
     close();
+    if (restart) restartTasks({ rack: opened.rack, network });
   };
   // In auto, the Mode select says what runs. Cycles show only to fix a failed start.
   let help: HelpProps | null = null;
@@ -488,6 +499,7 @@ export const Configure = ({
             {shared ? (
               <Form.Sections>
                 <General />
+                <SlaveSettings />
                 {syncMode}
               </Form.Sections>
             ) : (
@@ -510,7 +522,7 @@ export const Configure = ({
       <Modal.Footer>
         <Nav.Bar.Start gap="small">
           {onBack != null && (
-            <Button.Button variant="text" onClick={onBack}>
+            <Button.Button variant="text" onClick={onBack} disabled={busy}>
               <Icon.Arrow.Left />
               Back
             </Button.Button>
@@ -523,7 +535,7 @@ export const Configure = ({
           {onCreateReadTask != null && !opened.configured && pdos.inputs.length > 0 && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
-              onClick={() => void save(onCreateReadTask)}
+              onClick={() => void save({ createTask: onCreateReadTask })}
             >
               Save and create read task
             </Button.Button>
@@ -533,11 +545,19 @@ export const Configure = ({
             pdos.outputs.length > 0 && (
               <Button.Button
                 status={status.keepVariants(variant, "loading")}
-                onClick={() => void save(onCreateWriteTask)}
+                onClick={() => void save({ createTask: onCreateWriteTask })}
               >
                 Save and create write task
               </Button.Button>
             )}
+          {running.length > 0 && (
+            <Button.Button
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => void save({ restart: true })}
+            >
+              Save and restart tasks
+            </Button.Button>
+          )}
           <Button.Button
             status={status.keepVariants(variant, "loading")}
             onClick={() => void save()}

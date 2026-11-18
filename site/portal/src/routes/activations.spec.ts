@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { type APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -121,7 +122,7 @@ describe("activation routes", () => {
     it("should answer 404 for an unknown machine", async () => {
       h.signIn(MEMBER);
       await expectError(
-        await call(route, { ...args, params: { key: crypto.randomUUID() } }),
+        await call(route, { ...args, params: { key: uuid.create() } }),
         404,
         "Activation not found",
       );

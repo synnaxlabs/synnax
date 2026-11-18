@@ -34,7 +34,7 @@ func RejectReactiveAssignment(
 ) {
 	name := assign.IDENTIFIER().GetText()
 	d.Add(
-		diagnostics.Errorf(
+		codes.AssignmentTarget.Atf(
 			assign,
 			"use '<value> -> %s' to write to '%s'",
 			name,
@@ -55,7 +55,7 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		return
 	}
 	if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+		ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(assign,
 			"compound and indexed assignment to a variable are not yet supported"))
 		return
 	}
@@ -92,7 +92,7 @@ func analyzeRebind(
 		return
 	}
 	if !types.Equal(alias.Type.Unwrap(), rhs.Type.Unwrap()) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.TypeMismatch.Atf(ctx.AST,
 			"type mismatch: cannot rebind '%s' (%s) to '%s' (%s)",
 			alias.Name, alias.Type, rhs.Name, rhs.Type))
 		return
@@ -213,9 +213,7 @@ func registerInlineBody(
 	}
 	collectParameters(ctx, inputs, kind, "", false)
 	if id != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(decl,
-			"inline routing case body %s must be anonymous; remove name %q",
-			kind, id.GetText()))
+		ctx.Diagnostics.Add(codes.NamedInlineBody.At(decl))
 		return nil
 	}
 	synth, err := parentScope.Add(ctx, symbol.Symbol{

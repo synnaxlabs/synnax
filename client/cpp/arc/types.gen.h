@@ -313,7 +313,7 @@ struct AutomationArc : public Base {
     /// bytecode.
     std::optional<::arc::program::Program> program;
     /// @brief changes is what changed in the automation since its task was deployed.
-    std::optional<std::vector<Change>> changes;
+    std::vector<Change> changes;
     /// @brief calculations are the calculated channels that the program reads, nested
     /// ones included. Dependencies come before the channels that read them.
     std::vector<Calculation> calculations;

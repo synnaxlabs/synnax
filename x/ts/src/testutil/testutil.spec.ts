@@ -9,6 +9,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { sleep } from "@/sleep";
+import { TimeSpan } from "@/telem";
 import { expectAlways, toString } from "@/testutil";
 
 describe("testutil", () => {
@@ -93,7 +95,7 @@ describe("testutil", () => {
       const calls: number[] = [];
       const asyncFn = async () => {
         calls.push(Date.now() - start);
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        await sleep.sleep(TimeSpan.milliseconds(30));
       };
       const done = expectAlways(asyncFn, 100, 20);
       await vi.runAllTimersAsync();

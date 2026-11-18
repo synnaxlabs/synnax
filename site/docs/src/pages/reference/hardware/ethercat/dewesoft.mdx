@@ -69,15 +69,17 @@ The Driver writes each setting as a startup parameter. It writes the settings of
 **Configure** dialog when the network starts. It writes the settings of a read channel
 when the read task starts.
 
-If DewesoftX sets up the module, the **Configure** dialog shows a note in place of the
-settings:
+If DewesoftX sets up the module, the **Configure** dialog and the **Settings** of a read
+channel show the values that DewesoftX set, and you cannot change them in Synnax. The
+**Configure** dialog and the details of each task channel on the module show a warning,
+and the channel list marks those channels in yellow:
 
 - **DewesoftX sets up this device** -> Synnax uses the device, and DewesoftX sets its
   settings.
 - **Only DewesoftX can use this device** -> Synnax gets no data from the device.
 
-To give the module to Synnax, click **Switch to Synnax**, then restart the power of the
-device.
+To give the module to Synnax, click **Switch to Synnax** in the warning, then restart
+the power of the device.
 
 <Divider.Divider x />
 
@@ -114,7 +116,7 @@ In standalone mode, most IOLITE modules run only DC sync. The 6xSTG, 8xLA, 8xLV,
 3. Enter the **SYNC0 cycle** and **SYNC1 cycle**, in µs, from the table of the model in
    the Dewesoft manual. For example, a standalone 6xSTG in DC sync uses a SYNC0 cycle of
    1 µs and a SYNC1 cycle of 1 s.
-4. Click **Save**, then stop every task on the port and start them again.
+4. Click **Save and restart tasks**. If no task runs on the port, click **Save**.
 
 Some modules list one DC sync mode for each bus, such as **DC-bus1** and **DC-bus2** on
 the IOLITE GATE. Select the mode for the bus that the Driver connects to. A mode for the

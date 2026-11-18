@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { runtime } from "@synnaxlabs/x";
+
 /** The request fields a transport sends with. */
 export interface FetchInit {
   method: string;
@@ -44,19 +46,54 @@ export interface Socket {
   onerror: Listener<object> | null;
 }
 
-/** Opens a WebSocket to the URL. */
-export type Dial = (url: string) => Promise<Socket>;
+/** Opens a WebSocket to the URL and sends the headers with the upgrade request. */
+export type Dial = (url: string, headers: Record<string, string>) => Promise<Socket>;
 
 /** The functions a transport opens its connections with. */
 export interface Connector {
   fetch: Fetch;
   dial: Dial;
+  /**
+   * True when dial sends the Authorization header to the server. Otherwise the client
+   * puts it in the URL.
+   */
+  sendsHeaders?: boolean;
 }
 
-/** Opens connections with the runtime's global fetch and WebSocket. */
+// Node, Bun, and Deno take a headers option that the DOM types do not have.
+const openWithOptions = (url: string, options: object): Socket => {
+  const ws: unknown = Reflect.construct(WebSocket, [url, options]);
+  if (!(ws instanceof WebSocket)) throw new Error("WebSocket did not construct");
+  return ws;
+};
+
+const SUBPROTOCOL = "synnax.v1";
+const TOKEN_SUBPROTOCOL_PREFIX = "synnax.token.";
+const BEARER_PREFIX = "Bearer ";
+
+// A session token or API key holds only base64url characters, which a subprotocol
+// allows.
+const openWithSubprotocol = (url: string, authorization?: string): Socket => {
+  if (authorization == null) return new WebSocket(url);
+  if (!authorization.startsWith(BEARER_PREFIX))
+    throw new Error("WebSocket authorization must be a Bearer token");
+  const token = authorization.slice(BEARER_PREFIX.length);
+  return new WebSocket(url, [SUBPROTOCOL, `${TOKEN_SUBPROTOCOL_PREFIX}${token}`]);
+};
+
+/**
+ * Opens connections with the runtime's global fetch and WebSocket. A DOM WebSocket
+ * cannot send headers, so it sends only the Authorization header, as a subprotocol.
+ */
 export const DEFAULT_CONNECTOR: Connector = {
   fetch: async (target, init) => await fetch(target, init),
-  dial: async (url) => new WebSocket(url),
+  // An Electron renderer or jsdom page sets process.versions.node but has a DOM
+  // WebSocket.
+  dial: async (url, headers) =>
+    runtime.RUNTIME === "node" && typeof document === "undefined"
+      ? openWithOptions(url, { headers })
+      : openWithSubprotocol(url, headers.Authorization),
+  sendsHeaders: true,
 };
 
 // A CA list replaces the default list in Node and Bun, so it must keep the defaults.
@@ -97,10 +134,11 @@ const nodeConnector = (ca: string): Connector => {
         body: res.body instanceof ReadableStream ? res.body : null,
       };
     },
-    dial: async (url) => {
+    dial: async (url, headers) => {
       const { WebSocket, dispatcher } = await load();
-      return new WebSocket(url, { dispatcher });
+      return new WebSocket(url, { dispatcher, headers });
     },
+    sendsHeaders: true,
   };
 };
 
@@ -112,12 +150,8 @@ const bunConnector = (ca: string): Connector => {
       const req: RequestInit & { tls: object } = { ...init, tls: await load() };
       return await fetch(target, req);
     },
-    dial: async (url) => {
-      // The DOM types do not have Bun's options argument.
-      const ws: unknown = Reflect.construct(WebSocket, [url, { tls: await load() }]);
-      if (!(ws instanceof WebSocket)) throw new Error("Bun did not open a WebSocket");
-      return ws;
-    },
+    dial: async (url, headers) => openWithOptions(url, { headers, tls: await load() }),
+    sendsHeaders: true,
   };
 };
 

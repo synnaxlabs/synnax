@@ -103,6 +103,7 @@ func hasDriverRole(ctx context.Context, s stack, key rack.Key) bool {
 var _ = Describe("Driver role", func() {
 	It("Should give a new rack the Driver role", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 		r := &rack.Rack{Name: "new"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -112,12 +113,14 @@ var _ = Describe("Driver role", func() {
 	})
 	It("Should give the embedded rack the Driver role", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 		Expect(hasDriverRole(ctx, s, s.rack.EmbeddedKey)).
 			To(BeTrue())
 	})
 	It("Should give the Driver role to racks stored before it", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		s := openStack(ctx, db, rack.ServiceConfig{})
 		driver := s.driverRole
 		Expect(s.Close()).To(Succeed())
@@ -189,6 +192,7 @@ var _ = Describe("Rack", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Now: func() telem.TimeStamp {
@@ -907,6 +911,7 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should keep a renamed embedded rack across restarts",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(restartDB.Run)
 				before := openStack(ctx, restartDB, rack.ServiceConfig{})
 				key := before.rack.EmbeddedKey
 				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
@@ -928,6 +933,7 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should find an embedded rack stored without a key binding by its name",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(restartDB.Run)
 				before := openStack(ctx, restartDB, rack.ServiceConfig{})
 				key := before.rack.EmbeddedKey
 				Expect(before.Close()).To(Succeed())
@@ -937,6 +943,114 @@ var _ = Describe("Rack", Ordered, func() {
 				)).To(Succeed())
 				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
 				Expect(after.rack.EmbeddedKey).To(Equal(key))
+			},
+		)
+		It(
+			"Should not create the embedded rack when the embedded Driver is disabled",
+			func(ctx SpecContext) {
+				disabledDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(disabledDB.Run)
+				s := DeferClose(openStack(
+					ctx,
+					disabledDB,
+					rack.ServiceConfig{EmbeddedDriverDisabled: true},
+				))
+				Expect(s.rack.EmbeddedKey).To(BeZero())
+				Expect(MustSucceed(s.rack.NewRetrieve().
+					Where(rack.MatchEmbedded(true)).
+					Exists(ctx, disabledDB))).To(BeFalse())
+			},
+		)
+		It(
+			"Should delete the embedded rack when the embedded Driver is disabled",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(restartDB.Run)
+				before := openStack(ctx, restartDB, rack.ServiceConfig{})
+				key := before.rack.EmbeddedKey
+				Expect(before.Close()).To(Succeed())
+				disabled := openStack(
+					ctx,
+					restartDB,
+					rack.ServiceConfig{EmbeddedDriverDisabled: true},
+				)
+				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return disabled.rack.NewWriter(tx).Delete(ctx, nil, key)
+				})).To(Succeed())
+				Expect(disabled.Close()).To(Succeed())
+				after := DeferClose(openStack(ctx, restartDB, rack.ServiceConfig{}))
+				Expect(after.rack.EmbeddedKey).ToNot(BeZero())
+				Expect(after.rack.EmbeddedKey).ToNot(Equal(key))
+			},
+		)
+		It(
+			"Should give the embedded rack a disabled status when its Driver is disabled",
+			func(ctx SpecContext) {
+				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(restartDB.Run)
+				cfg := rack.ServiceConfig{
+					HealthCheckInterval: 10 * telem.Millisecond,
+				}
+				before := openStack(ctx, restartDB, cfg)
+				key := before.rack.EmbeddedKey
+				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return before.rack.NewWriter(tx).Apply(
+						ctx,
+						key,
+						rack.NewSetAction(rack.SetPayload{
+							Path:  []string{"integrations"},
+							Value: []string{"arc", "modbus"},
+						}),
+					)
+				})).To(Succeed())
+				Eventually(func(g Gomega) {
+					s := MustSucceed(
+						retrieveStatusTx(ctx, before.status, restartDB, key),
+					)
+					g.Expect(s.Message).To(Equal("Driver not running"))
+				}).Should(Succeed())
+				Expect(before.Close()).To(Succeed())
+				cfg.EmbeddedDriverDisabled = true
+				// The clock moves only after the handler registers, so no health check
+				// writes an outage before it.
+				var now atomic.Int64
+				now.Store(int64(telem.Now()))
+				cfg.Now = func() telem.TimeStamp { return telem.TimeStamp(now.Load()) }
+				after := DeferClose(openStack(ctx, restartDB, cfg))
+				Expect(after.rack.EmbeddedKey).To(Equal(key))
+				Expect(MustSucceed(after.rack.NewRetrieve().
+					Where(rack.MatchIntegration("arc")).
+					Exists(ctx, restartDB))).To(BeFalse())
+				var copied atomic.Pointer[rack.Outage]
+				DeferCleanup(after.rack.OnSuspect(
+					func(_ context.Context, o rack.Outage) error {
+						if *o.Owner == key.ResourceID() {
+							copied.Store(&o)
+						}
+						return nil
+					},
+				))
+				other := rack.Rack{Name: "other"}
+				Expect(restartDB.WithTx(ctx, func(tx gorp.Tx) error {
+					return after.rack.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				Eventually(func(g Gomega) {
+					now.Add(int64(telem.Second))
+					s := MustSucceed(
+						retrieveStatusTx(ctx, after.status, restartDB, other.Key),
+					)
+					g.Expect(s.Message).To(Equal("Driver not running"))
+				}).Should(Succeed())
+				Eventually(func(g Gomega) {
+					s := MustSucceed(
+						retrieveStatusTx(ctx, after.status, restartDB, key),
+					)
+					g.Expect(s.Variant).To(Equal(status.VariantDisabled))
+					g.Expect(s.Message).To(Equal("Driver disabled"))
+				}).Should(Succeed())
+				Eventually(copied.Load).ShouldNot(BeNil())
+				Expect(copied.Load().Variant).To(Equal(status.VariantDisabled))
+				Expect(copied.Load().Message).To(Equal("Driver disabled"))
 			},
 		)
 		It(
@@ -1624,6 +1738,7 @@ var _ = Describe("Rack", Ordered, func() {
 				"Should count a task status stored before the Core started as seen",
 				func(ctx SpecContext) {
 					restartDB := DeferClose(gorp.Wrap(memkv.New()))
+					StartRun(restartDB.Run)
 					DeferClose(MustSucceed(gorp.OpenTable(
 						ctx,
 						gorp.TableConfig[task.Key, task.Task]{
@@ -1762,6 +1877,7 @@ var _ = Describe("Rack", Ordered, func() {
 						return nil
 					},
 				}))
+				StartRun(failDB.Run)
 				failing := DeferClose(openStack(ctx, failDB, rack.ServiceConfig{
 					HealthCheckInterval: 10 * telem.Millisecond,
 					Now: func() telem.TimeStamp {
@@ -1806,6 +1922,7 @@ var _ = Describe("Rack", Ordered, func() {
 			func(ctx SpecContext, codec encoding.Codec, details any) {
 				kv := memkv.New()
 				restartDB := DeferClose(gorp.Wrap(kv))
+				StartRun(restartDB.Run)
 				before := openStack(ctx, restartDB, rack.ServiceConfig{})
 				owner := before.rack.EmbeddedKey.ResourceID()
 				var held status.Status[any]
@@ -1855,6 +1972,7 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should mark a stored healthy rack as dead when it is silent after a restart",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(restartDB.Run)
 				before := openStack(ctx, restartDB, rack.ServiceConfig{
 					HealthCheckInterval: telem.Hour,
 				})
@@ -1895,6 +2013,7 @@ var _ = Describe("Group", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 		tx = DeferClose(db.OpenTx())
 		w = s.rack.NewWriter(tx)
@@ -1971,6 +2090,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		s = DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
 	})
 	createGroup := func(ctx context.Context, g group.Group) group.Group {

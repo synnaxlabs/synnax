@@ -146,23 +146,23 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 		Entry("a value for a channel parameter", `start => main(50.0, 1.0)`,
 			"argument for parameter 'valve' of sequence 'main' must be a channel"),
 		Entry("a missing argument", `start => main(50.0)`,
-			"missing required argument for parameter 'valve' of sequence 'main'"),
+			"missing required argument: parameter 'valve' of sequence 'main'"),
 		Entry("an extra argument", `start => main(50.0, valve_a, valve_b)`,
-			"too many arguments for sequence 'main': expected at most 2"),
+			"too many arguments: sequence 'main' takes at most 2"),
 		Entry("an unknown parameter name", `start => main(gain=50.0, valve=valve_a)`,
-			"unknown parameter 'gain' for sequence 'main'"),
+			"unknown parameter: 'gain' for sequence 'main'"),
 		Entry("a parameter bound two times", `start => main(limit=1.0, limit=2.0)`,
-			"duplicate argument for parameter 'limit' of sequence 'main'"),
+			"duplicate argument: parameter 'limit' of sequence 'main'"),
 		Entry("a value of the wrong type", `start => main("high", valve_a)`,
-			"type mismatch in argument 'limit' of 'main'"),
+			"type mismatch: expected f64, got str in argument 'limit' of 'main'"),
 		Entry("a channel of the wrong type", `start => main(50.0, start)`,
-			"type mismatch in argument 'valve' of 'main'"),
+			"type mismatch: expected f64, got bool in argument 'valve' of 'main'"),
 		Entry("a missing argument of a stage", `
 			stage hold(out chan f64) {
 				0.0 -> out
 			}
 			start => hold()
-		`, "missing required argument for parameter 'out' of stage 'hold'"),
+		`, "missing required argument: parameter 'out' of stage 'hold'"),
 		Entry("parentheses on a sequence with no parameters", `
 			sequence plain {
 				stage idle {

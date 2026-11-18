@@ -278,6 +278,7 @@ class TestEtherCATReadTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-ethercat-read-task",
             type="ethercat_read",
             config=task.config.model_dump(),
@@ -431,6 +432,7 @@ class TestEtherCATWriteTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-ethercat-write-task",
             type="ethercat_write",
             config=task.config.model_dump(),
@@ -472,6 +474,7 @@ class TestEtherCATWriteTask:
         )
         task_targets.attach(original_task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="ethercat_write",
             config=original_task.config,
@@ -554,6 +557,7 @@ class TestEtherCATDevice:
     def test_device_auto_key_generation(self) -> None:
         """Test that Device auto-generates key if not provided."""
         device = sy.ethercat.Device(
+            rack=1,
             name="Test Device",
             network="eth0",
             position=1,
@@ -564,6 +568,7 @@ class TestEtherCATDevice:
     def test_device_location_format(self) -> None:
         """Test that device location is formatted as network:position."""
         device = sy.ethercat.Device(
+            rack=1,
             name="Test Device",
             network="enp3s0",
             position=5,
@@ -572,13 +577,14 @@ class TestEtherCATDevice:
 
     def test_device_default_position(self) -> None:
         """Test that Device puts the slave at the first bus position by default."""
-        device = sy.ethercat.Device(name="Test Device", network="eth0")
+        device = sy.ethercat.Device(rack=1, name="Test Device", network="eth0")
         assert device.properties["position"] == 1
         assert device.location == "eth0:1"
 
     def test_device_omits_unset_pdo_names(self) -> None:
         """Test that Device leaves out the PDO name of an entry that has none."""
         device = sy.ethercat.Device(
+            rack=1,
             name="Test Device",
             network="eth0",
             position=1,
@@ -700,6 +706,7 @@ class TestPDOEntry:
 def _create_el1008() -> sy.Device:
     """An EL1008-like slave: eight "Input" entries, one per PDO group."""
     return sy.ethercat.Device(
+        rack=1,
         name="EL1008",
         network="eth0",
         position=1,
@@ -755,14 +762,14 @@ class TestFindEntry:
         with pytest.raises(sy.MultipleFoundError) as exc:
             sy.ethercat.find_entry(_create_el1008(), "Input")
         assert str(exc.value) == (
-            f"input entry 'Input' on slave 'EL1008' matches {found}. "
+            f"input entry 'Input' on module 'EL1008' matches {found}. "
             "Pass pdo_name to pick one"
         )
 
     def test_unknown_name(self) -> None:
         """Should raise when no entry has the name."""
         with pytest.raises(
-            sy.NotFoundError, match=r"^no input entry 'Velocity' on slave 'EL1008'$"
+            sy.NotFoundError, match=r"^no input entry 'Velocity' on module 'EL1008'$"
         ):
             sy.ethercat.find_entry(_create_el1008(), "Velocity")
 
@@ -770,14 +777,14 @@ class TestFindEntry:
         """Should name the PDO when no entry in it has the name."""
         with pytest.raises(
             sy.NotFoundError,
-            match=r"^no input entry 'Input' in PDO 'Channel 9' on slave 'EL1008'$",
+            match=r"^no input entry 'Input' in PDO 'Channel 9' on module 'EL1008'$",
         ):
             sy.ethercat.find_entry(_create_el1008(), "Input", pdo_name="Channel 9")
 
     def test_wrong_direction(self) -> None:
         """Should only search entries in the given direction."""
         with pytest.raises(
-            sy.NotFoundError, match=r"^no input entry 'Output' on slave 'EL1008'$"
+            sy.NotFoundError, match=r"^no input entry 'Output' on module 'EL1008'$"
         ):
             sy.ethercat.find_entry(_create_el1008(), "Output")
 
@@ -806,6 +813,7 @@ class TestFindEntry:
     def test_repeated_address(self) -> None:
         """Should resolve once when groups repeat the same object."""
         slave = sy.ethercat.Device(
+            rack=1,
             name="EJ7342",
             input_pdos=[
                 sy.ethercat.PDOEntry(

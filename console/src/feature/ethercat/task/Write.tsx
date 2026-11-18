@@ -20,6 +20,7 @@ import {
   useSlavesByKeys,
   useSlavesOnRack,
 } from "@/feature/ethercat/device/queries";
+import { needsSetup } from "@/feature/ethercat/device/SetupNote";
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
@@ -96,8 +97,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       stateChannel={ch.stateChannel}
       stateDefaultName={names?.state}
       skipped={ch.disabled}
-      hasTareButton={false}
-      canTare={false}
+      warned={!ch.disabled && slave != null && needsSetup(slave)}
       nameDirection="y"
       portMaxChars={20}
     />
@@ -162,17 +162,17 @@ const Form: FC = () => {
 
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = async ({
   client,
-  deviceKey,
+  deviceKeys,
   config,
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (config == null)
     cfg.channels =
-      deviceKey == null
+      deviceKeys.length === 0
         ? [createWriteChannel([])]
         : await createSlaveChannels(
             client,
-            deviceKey,
+            deviceKeys,
             "outputs",
             createSlaveWriteChannel,
             createWriteChannel([]),

@@ -15,6 +15,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -25,10 +26,12 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/set"
+	"go.lsp.dev/protocol"
 )
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
@@ -54,6 +57,36 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 		substituteTypeMap(ctx)
 	}
 	constant.Check(ctx)
+	checkComputedReads(ctx)
+}
+
+// checkComputedReads rejects a func that reads a computed top-level variable. It runs
+// last, so it can skip a variable whose declaration already has an error.
+func checkComputedReads(ctx acontext.Context[parser.IProgramContext]) {
+	for _, read := range *ctx.VarReads {
+		// Lowering rejects a variable with no zero value at its declaration.
+		if !read.Var.IsComputed() || types.Zero(read.Var.Type) == nil ||
+			hasError(*ctx.Diagnostics, read.Var.AST) {
+			continue
+		}
+		ctx.Diagnostics.Add(codes.NotConstant.Atf(
+			read.Site,
+			"cannot read '%s': its initializer is not a compile-time constant",
+			parser.PrimaryName(read.Site),
+		))
+	}
+}
+
+// hasError reports whether an error diagnostic lies inside node.
+func hasError(diags diagnostics.Diagnostics, node antlr.ParserRuleContext) bool {
+	span := diagnostics.Errorf(node, "").Range
+	return slices.ContainsFunc(diags.Errors(), func(d diagnostics.Diagnostic) bool {
+		return !before(d.Range.Start, span.Start) && !before(span.End, d.Range.End)
+	})
+}
+
+func before(a, b protocol.Position) bool {
+	return a.Line < b.Line || (a.Line == b.Line && a.Character < b.Character)
 }
 
 // liftReassignedVarReads lifts reassigned-variable reads in synth expressions
@@ -216,7 +249,11 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 			cycle, closingSite := findCycleInSCC(scc, sccSet, callGraph)
 			chain := strings.Join(cycle, " -> ")
 			diag.Add(
-				diagnostics.Errorf(closingSite, "circular function call: %s", chain),
+				codes.CircularCall.Atf(
+					closingSite,
+					"circular function call: %s",
+					chain,
+				),
 			)
 		}
 	}

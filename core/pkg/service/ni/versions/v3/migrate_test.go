@@ -37,6 +37,7 @@ var _ = Describe("ScanMigration", func() {
 				IgnoredModels: []string{"^cRIO.*", "^nown.*"},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[uuid.UUID, v2.ScanConfig]{DB: db},
@@ -310,6 +311,7 @@ var _ = Describe("DigitalReadMigration", func() {
 				},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx,
 				gorp.TableConfig[uuid.UUID, v2.DigitalReadConfig]{DB: db},
@@ -360,6 +362,7 @@ var _ = Describe("CounterReadMigration", func() {
 			}}},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(
 			ctx,
 			gorp.TableConfig[uuid.UUID, v2.CounterReadConfig]{DB: db},
@@ -424,6 +427,7 @@ var _ = Describe("AnalogReadMigration", func() {
 			}}},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(
 			ctx,
 			gorp.TableConfig[uuid.UUID, v2.AnalogReadConfig]{DB: db},
@@ -465,6 +469,151 @@ var _ = Describe("AnalogReadMigration", func() {
 			Expect(fields).To(Equal([]any{"Port", "Disabled"}))
 		},
 	)
+
+	base := v2.BaseAIChannel{Key: "ch", Port: -1}
+	DescribeTable(
+		"Should log a clamped port of each analog input variant",
+		func(ctx SpecContext, variant v2.AIChannelVariant) {
+			_, fields := runStored[v2.AnalogReadConfig, v3.AnalogReadConfig](
+				ctx,
+				"ni_analog_read_config",
+				v3.AnalogReadMigration,
+				v2.AnalogReadConfig{
+					Key:      uuid.New(),
+					Channels: []v2.AIChannel{{Variant: variant}},
+				},
+			)
+			Expect(fields).To(Equal([]any{"Port", "Disabled"}))
+		},
+		Entry(
+			"AIVoltageChannel",
+			v2.AIVoltageChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIAccelChannel",
+			v2.AIAccelChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIBridgeChannel",
+			v2.AIBridgeChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AICurrentChannel",
+			v2.AICurrentChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIForceBridgeTableChannel",
+			v2.AIForceBridgeTableChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIForceBridgeTwoPointLinChannel",
+			v2.AIForceBridgeTwoPointLinChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIForceIEPEChannel",
+			v2.AIForceIEPEChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIMicrophoneChannel",
+			v2.AIMicrophoneChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIPressureBridgeTableChannel",
+			v2.AIPressureBridgeTableChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIPressureBridgeTwoPointLinChannel",
+			v2.AIPressureBridgeTwoPointLinChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIResistanceChannel",
+			v2.AIResistanceChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry("AIRTDChannel", v2.AIRTDChannel{BaseAIChannel: base}),
+		Entry(
+			"AIStrainGaugeChannel",
+			v2.AIStrainGaugeChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIThermocoupleChannel",
+			v2.AIThermocoupleChannel{
+				BaseAIChannel: base,
+				Cjc:           v2.CJC{Variant: v2.BuiltInCJC{}},
+			},
+		),
+		Entry(
+			"AITorqueBridgeTableChannel",
+			v2.AITorqueBridgeTableChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AITorqueBridgeTwoPointLinChannel",
+			v2.AITorqueBridgeTwoPointLinChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIVelocityIEPEChannel",
+			v2.AIVelocityIEPEChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIAccel4WireDCVoltageChannel",
+			v2.AIAccel4WireDCVoltageChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIAccelChargeChannel",
+			v2.AIAccelChargeChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIChargeChannel",
+			v2.AIChargeChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AICurrentRMSChannel",
+			v2.AICurrentRMSChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIForceBridgePolynomialChannel",
+			v2.AIForceBridgePolynomialChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIFreqVoltageChannel",
+			v2.AIFreqVoltageChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIPressureBridgePolynomialChannel",
+			v2.AIPressureBridgePolynomialChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry("AIThermistorIexChannel", v2.AIThermistorIexChannel{BaseAIChannel: base}),
+		Entry("AIThermistorVexChannel", v2.AIThermistorVexChannel{BaseAIChannel: base}),
+		Entry(
+			"AITorqueBridgePolynomialChannel",
+			v2.AITorqueBridgePolynomialChannel{
+				BaseAIChannel: base,
+				CustomScale:   noScale,
+			},
+		),
+		Entry(
+			"AIVoltageRMSChannel",
+			v2.AIVoltageRMSChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+		Entry(
+			"AIVoltageWithExcitChannel",
+			v2.AIVoltageWithExcitChannel{BaseAIChannel: base, CustomScale: noScale},
+		),
+	)
 })
 
 // runStored stores old under namespace, runs migration over it, and returns the
@@ -477,6 +626,7 @@ func runStored[I, O gorp.Entry[uuid.UUID]](
 ) (O, []any) {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
+	StartRun(db.Run)
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, I]{DB: db}))
 	Expect(gorp.NewCreate[uuid.UUID, I]().Entry(&old).Exec(ctx, db)).To(Succeed())
 	core, logs := observer.New(zapcore.WarnLevel)

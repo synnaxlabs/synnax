@@ -324,6 +324,7 @@ class TestModbusReadTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-modbus-read-task",
             type="modbus_read",
             config=task.config,
@@ -523,6 +524,7 @@ class TestModbusWriteTask:
         )
         task_targets.attach(task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-modbus-write-task",
             type="modbus_write",
             config=task.config,
@@ -561,6 +563,7 @@ class TestModbusWriteTask:
         # Create task in database
         task_targets.attach(original_task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="modbus_write",
             config=original_task.config,
@@ -613,7 +616,10 @@ class TestModbusWriteTask:
         )
         task_targets.attach(task.config)
         created = client.tasks.create(
-            name="test-swap-inherit", type="modbus_write", config=task.config
+            rack=task_targets.rack,
+            name="test-swap-inherit",
+            type="modbus_write",
+            config=task.config,
         )
         inherit, override = sy.modbus.WriteTask(created).config.channels
         assert isinstance(inherit, sy.modbus.HoldingRegisterWriteChannel)
@@ -796,7 +802,13 @@ class TestModbusDevicePropertyUpdates:
 
     def test_device_connection_defaults(self) -> None:
         """Should store the defaults the Driver applies to absent fields."""
-        dev = sy.modbus.Device(host="10.0.0.7", port=502)
+        dev = sy.modbus.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
+            host="10.0.0.7",
+            port=502,
+        )
         assert dev.properties["connection"] == {
             "transport": "tcp",
             "host": "10.0.0.7",
@@ -818,6 +830,9 @@ class TestModbusDevicePropertyUpdates:
     def test_device_unit_and_requests(self) -> None:
         """Should store the unit, timing, and request settings it is given."""
         dev = sy.modbus.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
             host="gateway",
             port=502,
             unit_id=7,
@@ -843,7 +858,13 @@ class TestModbusDevicePropertyUpdates:
 
     def test_device_rtu_defaults(self) -> None:
         """Should store an RTU connection at 19200 8E1 that addresses unit 1."""
-        dev = sy.modbus.Device(transport="rtu", serial_port="/dev/ttyUSB0")
+        dev = sy.modbus.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
+            transport="rtu",
+            serial_port="/dev/ttyUSB0",
+        )
         assert dev.properties["connection"] == {
             "transport": "rtu",
             "serial_port": "/dev/ttyUSB0",
@@ -860,6 +881,9 @@ class TestModbusDevicePropertyUpdates:
     def test_device_rtu_line_settings(self) -> None:
         """Should store the line settings and unit it is given."""
         dev = sy.modbus.Device(
+            name="Test Device",
+            location="Test Location",
+            rack=1,
             transport="rtu",
             serial_port="COM3",
             baud_rate=230400,

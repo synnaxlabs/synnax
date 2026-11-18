@@ -99,7 +99,7 @@ protected:
 
     void start_secured_server(
         const certificate::Identity &id,
-        std::vector<certificate::Certificate> trusted_clients = {}
+        std::vector<x::x509::Certificate> trusted_clients = {}
     ) {
         auto cfg = testutil::ServerConfig::create_default();
         cfg.port = 4871;
@@ -669,7 +669,9 @@ TEST_F(TestScanTask, testTestConnectionUntrustedCertificate) {
     ASSERT_TRUE(rejected.details.data.has_value());
     EXPECT_EQ(
         x::json::json(rejected.details.data.value()),
-        x::json::json({{"server_certificate", server_id.certificate.info().to_json()}})
+        x::json::json(
+            {{"server_certificate", certificate::info(server_id.certificate).to_json()}}
+        )
     );
 
     conn_cfg.server_certificate = server_id.certificate;
@@ -809,7 +811,7 @@ TEST_F(TestScanTask, testGetCertificate) {
     ASSERT_TRUE(status.details.data.has_value());
     EXPECT_EQ(
         x::json::json(status.details.data.value()),
-        x::json::json({{"current", current.certificate.info().to_json()}})
+        x::json::json({{"current", certificate::info(current.certificate).to_json()}})
     );
 }
 
@@ -832,7 +834,7 @@ TEST_F(TestScanTask, testRegenerateCertificate) {
     ASSERT_TRUE(status.details.data.has_value());
     EXPECT_EQ(
         x::json::json(status.details.data.value()),
-        x::json::json({{"current", current.certificate.info().to_json()}})
+        x::json::json({{"current", certificate::info(current.certificate).to_json()}})
     );
 }
 

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x";
+
 import { REDUCED_MOTION, TOUCH } from "@/components/media/video";
 
 type Media = HTMLImageElement | HTMLVideoElement;
@@ -35,7 +37,7 @@ const RATES = [1, 1.5, 2, 0.5];
 // A video has no duration to seek in until its metadata loads.
 const seek = (video: HTMLVideoElement, time: number): void => {
   if (Number.isFinite(video.duration))
-    video.currentTime = Math.min(Math.max(time, 0), video.duration);
+    video.currentTime = bounds.clamp({ lower: 0, upper: video.duration }, time);
 };
 
 const query = <E extends Element>(root: ParentNode, selector: string): E => {

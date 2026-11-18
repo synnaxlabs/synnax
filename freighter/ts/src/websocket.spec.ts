@@ -355,4 +355,53 @@ describe("local server", () => {
     }
     await expect.poll(() => received).toEqual([0, 1, 2]);
   });
+
+  describe("authorization", () => {
+    const TOKEN = "Bearer test-token";
+
+    const authorize = async (connector?: Connector) => {
+      const { port } = server.address() as AddressInfo;
+      const c = new WebSocketClient({
+        endpoint: new url.URL({ host: "127.0.0.1", port }),
+        codec: new binary.JSONCodec(),
+        connector,
+      });
+      c.use(async (ctx, next) => {
+        ctx.params.Authorization = TOKEN;
+        return await next(ctx);
+      });
+      await c.stream("stream", messageSchema, messageSchema);
+      return (await connected).req;
+    };
+
+    test("should send the token in a header and not in the URL", async () => {
+      const req = await authorize();
+      expect(req.headers.authorization).toEqual(TOKEN);
+      expect(req.url).not.toContain("test-token");
+      expect(req.url).toContain("freighterctxContent-Type=application/json");
+    });
+
+    test("should send the token in the URL when dial does not send headers", async () => {
+      const req = await authorize({
+        fetch: async () => await Promise.reject(new Error("not used")),
+        dial: async (u) => new globalThis.WebSocket(u),
+      });
+      expect(req.headers.authorization).toBeUndefined();
+      expect(req.url).toContain(`freighterctxAuthorization=${encodeURI(TOKEN)}`);
+    });
+
+    describe("DOM WebSocket", () => {
+      beforeEach(() => vi.stubGlobal("document", {}));
+      afterEach(() => vi.unstubAllGlobals());
+
+      test("should send the token in a subprotocol and not in the URL", async () => {
+        const req = await authorize();
+        expect(req.headers["sec-websocket-protocol"]).toEqual(
+          "synnax.v1, synnax.token.test-token",
+        );
+        expect(req.headers.authorization).toBeUndefined();
+        expect(req.url).not.toContain("test-token");
+      });
+    });
+  });
 });

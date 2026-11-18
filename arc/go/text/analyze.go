@@ -20,7 +20,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
@@ -32,6 +34,7 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // keyGenerator produces globally unique IR node keys. It maintains a running
@@ -745,13 +748,13 @@ func analyzeIdentifierByRole(
 		symbol.KindLoop, symbol.KindLoopVariable, symbol.KindModule,
 		symbol.KindModuleAlias, symbol.KindAmbient:
 		if isSink && sym.Root().UserDefined && sym.Root() != ctx.Scope.Root() {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			ctx.Diagnostics.Add(codes.ReadOnlyWrite.Atf(ctx.AST,
 				"cannot write to '%s': it belongs to an imported module", name))
 			return flowNodeResult{}, false
 		}
 		if rn := shell.varNodes[sym].readNode(sym); rn != nil {
 			if isSink && isExprReadVar(sym) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				ctx.Diagnostics.Add(codes.ReadOnlyWrite.Atf(ctx.AST,
 					"cannot write to channel-read variable '%s'", name))
 				return flowNodeResult{}, false
 			}
@@ -1004,7 +1007,7 @@ func lowerComputedDecl(
 	shell *shellBuilder,
 ) (varEntry, bool) {
 	if e.register == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.NotConstant.Atf(ctx.AST,
 			"variable '%s' of type %s cannot have a computed initializer",
 			sym.Name, sym.Type))
 		return varEntry{}, false
@@ -1137,6 +1140,26 @@ func varReadRef(vn *ir.Node) nodeResult {
 		node:   ir.Node{Outputs: vn.Outputs},
 		output: ir.Handle{Node: vn.Key, Param: ir.DefaultOutputParam},
 	}
+}
+
+// buildScaleNode builds the node that converts a value of type from to the unit of to.
+func buildScaleNode(from, to types.Type, kg *keyGenerator) nodeResult {
+	key := kg.generate("scale", "")
+	inputs := types.Params{{Name: "value", Type: from}}
+	outputs := types.Params{{Name: ir.DefaultOutputParam, Type: to}}
+	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
+		Key:      compiler.ScaleSyntheticPrefix + key,
+		Inputs:   inputs,
+		Outputs:  outputs,
+		Channels: types.NewChannels(),
+	})
+	return newNodeResult(ir.Node{
+		Key:      key,
+		Type:     compiler.ScaleSyntheticPrefix + key,
+		Channels: types.NewChannels(),
+		Inputs:   inputs,
+		Outputs:  outputs,
+	}, "value", ir.DefaultOutputParam)
 }
 
 // varFeederRef appends a fresh feeder param to vn and returns a reference
@@ -1374,7 +1397,7 @@ func retargetEdges[T antlr.ParserRuleContext](
 		e.Target.Node = disp.Key
 		if prior, found := ir.Edges(kept).FindByTarget(e.Target); found {
 			if prior.Source != e.Source {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				ctx.Diagnostics.Add(codes.TriggerBinding.Atf(ctx.AST,
 					"conflicting sources for dispatcher input %q", e.Target.Param))
 			}
 			continue
@@ -1455,7 +1478,7 @@ func analyzeNamedRef(
 	if isRootLevelScope(sym) {
 		if seqDecl, ok := sym.AST.(parser.ISequenceDeclarationContext); ok {
 			if len(seqDecl.AllSequenceItem()) == 0 {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.Diagnostics.Add(codes.EmptySequence.Atf(
 					ctx.AST, "sequence '%s' has no steps", sym.Name,
 				))
 				return transitionIntent{}, false
@@ -1463,7 +1486,7 @@ func analyzeNamedRef(
 		}
 		return transitionIntent{activateKey: sym.QualifiedName()}, true
 	}
-	ctx.Diagnostics.Add(diagnostics.Errorf(
+	ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
 		ctx.AST,
 		"'%s' is not reachable from here: it is neither a sibling within an "+
 			"enclosing sequence nor a top-level scope",
@@ -1537,19 +1560,19 @@ func analyzeNextToken(
 	shell *shellBuilder,
 ) (flowNodeResult, bool) {
 	if shell.inlineBoundaryBlocksNext() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		ctx.Diagnostics.Add(codes.TransitionTarget.Atf(ctx.AST,
 			"'next' is not valid inside an inline routing case body"))
 		return flowNodeResult{}, false
 	}
 	frame := shell.top()
 	if frame == nil {
 		ctx.Diagnostics.Add(
-			diagnostics.Errorf(ctx.AST, "'next' used outside of a sequence"),
+			codes.TransitionTarget.Atf(ctx.AST, "'next' used outside of a sequence"),
 		)
 		return flowNodeResult{}, false
 	}
 	if frame.nextMember() == "" {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
 			ctx.AST,
 			"'next' in last stage '%s' has no next stage",
 			frame.memberKeys[frame.activeIdx],
@@ -1586,7 +1609,7 @@ func analyzeFunctionNode(
 		return lowerSynthNode(ctx, synth, kg, shell, triggered)
 	}
 	if sym.Type.Kind != types.KindFunction {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.NotCallable.Atf(
 			ctx.AST,
 			"expected function type, got %s",
 			sym.Type,
@@ -1724,7 +1747,7 @@ func lowerSynthNode[T antlr.ParserRuleContext](
 	key := kg.generate(sym.Name, "")
 	freshType := types.Freshen(sym.Type, key)
 	if len(freshType.Outputs) == 0 || !freshType.Outputs[0].Type.IsValid() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.Diagnostics.Add(codes.FlowConnection.Atf(
 			ctx.AST,
 			"%s has no output value",
 			ctx.AST.GetText(),
@@ -2358,12 +2381,24 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	}
 	if p.prevNode != nil {
 		if len(p.prevNode.Outputs) == 0 {
-			p.ctx.Diagnostics.Add(diagnostics.Errorf(
+			p.ctx.Diagnostics.Add(codes.FlowConnection.Atf(
 				flowNode,
 				"function '%s' has no output to connect in flow chain",
 				p.prevNode.Type,
 			))
 			return false
+		}
+		// A value written to a variable of another unit converts on the way.
+		if from, to := p.prevNode.Outputs[0].Type, node.node.Outputs; isSink &&
+			len(to) > 0 && types.UnitsConvertible(from.Unit, to[0].Type.Unit) {
+			scale := buildScaleNode(from, to[0].Type, p.kg)
+			p.edges = append(p.edges, ir.Edge{
+				Source: p.prevOutput,
+				Target: scale.input,
+				Kind:   p.edgeKind(),
+			})
+			p.nodes = append(p.nodes, scale.node)
+			p.prevOutput = scale.output
 		}
 		p.edges = append(p.edges, ir.Edge{
 			Source: p.prevOutput,
@@ -2441,13 +2476,13 @@ func (p *flowChainProcessor) consumeTransition(
 	ast parser.IFlowNodeContext,
 ) bool {
 	if p.prevNode == nil {
-		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+		p.ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
 			ast, "transition target requires a source",
 		))
 		return false
 	}
 	if len(p.prevNode.Outputs) == 0 {
-		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+		p.ctx.Diagnostics.Add(codes.FlowConnection.Atf(
 			ast,
 			"function '%s' has no output to drive a transition",
 			p.prevNode.Type,
@@ -2467,7 +2502,7 @@ func (p *flowChainProcessor) consumeTransition(
 func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext) bool {
 	// SY-5483: a table with no node before it is an input table, which is unsupported.
 	if p.prevNode == nil {
-		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+		p.ctx.Diagnostics.Add(codes.RoutingTable.Atf(
 			p.ctx.AST,
 			"input routing tables are not supported",
 		))
@@ -2667,15 +2702,14 @@ func (p *inputParser) parseName(
 		return arg.value, paramType, true, true
 	}
 	if sym.IsLiteral() || isExprReadVar(sym) {
-		if rn := p.shell.varNodes[sym].readNode(sym); rn != nil {
-			t := sym.Type.UnwrapChan()
-			return varValue(sym), types.VarRef(t, rn.Key), true, true
-		}
-		if !sym.Reassigned && sym.DefaultValue != nil {
-			return sym.DefaultValue, paramType, true, true
+		rn := p.shell.varNodes[sym].readNode(sym)
+		if rn != nil || (!sym.Reassigned && sym.DefaultValue != nil) {
+			value, typ, ok = p.parseVariable(expr, sym, rn, paramType)
+			return value, typ, ok, true
 		}
 	}
 	if sym.Type.Kind == types.KindChan {
+		// SY-5823: This error goes away when the fix lands, so it has no code.
 		p.ctx.Diagnostics.Add(diagnostics.Errorf(
 			expr,
 			"input value for '%s' cannot be a channel",
@@ -2684,6 +2718,52 @@ func (p *inputParser) parseName(
 		return nil, paramType, false, true
 	}
 	return nil, paramType, false, false
+}
+
+// parseVariable parses an input that reads the variable sym, in the unit of the
+// input. rn is the node that holds the variable, or nil for a variable that inlines.
+func (p *inputParser) parseVariable(
+	expr parser.IExpressionContext,
+	sym *symbol.Symbol,
+	rn *ir.Node,
+	paramType types.Type,
+) (any, types.Type, bool) {
+	t, value := sym.Type.UnwrapChan(), varValue(sym)
+	convertible := types.UnitsConvertible(t.Unit, paramType.Unit)
+	check := convertible && rn != nil
+	// A value that is not finite is text, the same in each unit.
+	_, nonFinite := sym.DefaultValue.(string)
+	if convertible && sym.DefaultValue != nil && !nonFinite {
+		parsed, err := literal.Convert(
+			telem.CastNumeric[float64](sym.DefaultValue), t.Unit, paramType,
+		)
+		if err != nil {
+			p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+			return nil, paramType, false
+		}
+		value, check = parsed.Value, check || parsed.Truncated
+	}
+	if check {
+		expression.CheckUnits(p.ctx, expression.Write{
+			AST: expr, Source: sym.Type, Target: paramType,
+		})
+	}
+	if rn == nil {
+		return value, paramType, true
+	}
+	ref := types.VarRef(t, rn.Key)
+	if !convertible {
+		return value, ref, true
+	}
+	// A native node converts the register when it reads it. Any other node reads a
+	// scale node that fires with the call.
+	if p.fnSym.Exec != symbol.ExecFlow {
+		scale := buildScaleNode(ref, paramType, p.kg)
+		p.args = append(p.args, scale.node)
+		return value, types.VarRef(paramType, scale.node.Key), true
+	}
+	ref.Unit = paramType.Unit
+	return value, ref, true
 }
 
 func (p *inputParser) parseChannel(
@@ -2698,7 +2778,7 @@ func (p *inputParser) parseChannel(
 		return nil, paramType, false
 	}
 	if isExprReadVar(sym) {
-		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+		p.ctx.Diagnostics.Add(codes.ChannelExpected.Atf(
 			expr,
 			"input value for '%s' must be a channel",
 			paramName,
@@ -2708,7 +2788,7 @@ func (p *inputParser) parseChannel(
 	if err := paramType.ChanDirection.CheckCompatibility(
 		sym.Type.ChanDirection,
 	); err != nil {
-		p.ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+		p.ctx.Diagnostics.Add(codes.ReadOnlyWrite.Wrap(err, expr))
 		return nil, paramType, false
 	}
 	// Top-level channel aliases cannot be rebound, so they collapse into
@@ -2822,7 +2902,7 @@ func analyzeOutputRoutingTable(
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		outputName := entry.RoutingKey().GetText()
 		if !sourceNode.Outputs.Has(outputName) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.Diagnostics.Add(codes.RoutingName.Atf(
 				entry,
 				"node '%s' does not have output '%s'",
 				sourceNode.Key,
@@ -2873,7 +2953,7 @@ func analyzeOutputRoutingTable(
 			target := node.input
 			if isLast && targetParamName != "" {
 				if !node.node.Inputs.Has(targetParamName) {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.Diagnostics.Add(codes.RoutingName.Atf(
 						entry,
 						"node '%s' does not have input '%s'",
 						node.node.Key,

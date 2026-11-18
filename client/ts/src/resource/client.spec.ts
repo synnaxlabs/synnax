@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { channel } from "@/channel";
@@ -22,7 +22,7 @@ import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
-const randomToken = (): string => `res${Math.random().toString(36).slice(2)}`;
+const randomToken = (): string => `res${id.create()}`;
 
 const createGroup = async (name: string): Promise<resource.ID> =>
   group.resourceID((await client.groups.create({ scope: "channel", name })).key);

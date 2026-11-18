@@ -46,6 +46,7 @@ var _ = Describe("Migration", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		gSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB: db,
 		}))
@@ -221,6 +222,7 @@ var _ = Describe("NormalizeKeys", func() {
 		func(ctx SpecContext) {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			StartRun(db.Run)
 			e := v0.Range{Key: uuid.New(), Name: "burst"}
 			legacy := gorptestutil.SetPreV54Row(
 				ctx,
@@ -246,6 +248,7 @@ var _ = Describe("NormalizeKeys", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		// Ranges a v0.51.3 Python client created with the colors "red" and "#f00".
 		rows := map[string]string{
 			"a552616e6765c4107906433e134f4567b139a9fcfc171f3e": "84a46e616d65a772616e" +

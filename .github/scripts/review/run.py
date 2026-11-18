@@ -97,6 +97,8 @@ class Config:
     caps: dict[str, int]
     """The highest score a review can give while it has a finding of the severity."""
     prompt: str
+    judge: str
+    """The method of a judgment of a rebuttal to a finding."""
     docs: list[Doc]
     lenses: list[Lens]
     """The focus of each extra pass. One pass always reviews the pull request with the
@@ -239,7 +241,11 @@ def load(root: Path) -> Config:
         )
     lenses = [Lens(**lens) for lens in data.pop("lens", [])]
     return Config(
-        **data, prompt=(home / "prompt.md").read_text(), docs=docs, lenses=lenses
+        **data,
+        prompt=(home / "prompt.md").read_text(),
+        judge=(home / "judge.md").read_text(),
+        docs=docs,
+        lenses=lenses,
     )
 
 
@@ -295,12 +301,22 @@ def _shared(config: Config, pr: PullRequest, shown: str, rest: str) -> str:
             "# Earlier findings still open",
             "\n".join(f"- `{path}`: {title}" for path, title in sorted(pr.open)),
         ]
-    if pr.dismissed:
+    members = [d for d in pr.dismissed if not d.withdrawn]
+    withdrawn = [d for d in pr.dismissed if d.withdrawn]
+    if members:
         parts += [
             "# Dismissed findings",
             "Someone with write access dismissed each of these findings. Do not "
             "report them again in any form, and do not let them lower the score.",
-            "\n".join(_dismissal(d) for d in pr.dismissed),
+            "\n".join(_dismissal(d) for d in members),
+        ]
+    if withdrawn:
+        parts += [
+            "# Withdrawn findings",
+            "You withdrew each of these findings after a rebuttal on its thread, and "
+            "its file has not changed since. Do not report them again in any form, "
+            "and do not let them lower the score.",
+            "\n".join(_dismissal(d) for d in withdrawn),
         ]
     if pr.reviewed:
         parts.append("# Changes since your last review")
@@ -353,11 +369,12 @@ def _command(
     *,
     head: Path,
     system: Path,
+    schema: dict[str, Any] = SCHEMA,
     effort: str | None = None,
     partial: bool = False,
 ) -> list[str]:
     """Returns the `claude` command that reviews the code checked out at head, with the
-    shared prompt in the file at system.
+    shared prompt in the file at system, and answers in the JSON of the schema.
 
     Restricted mode confines the tools to the working directory and head, and ignores
     every settings file. Partial messages show when the first response begins.
@@ -381,7 +398,7 @@ def _command(
         "stream-json",
         "--verbose",
         "--json-schema",
-        json.dumps(SCHEMA),
+        json.dumps(schema),
         "--no-session-persistence",
         "--append-system-prompt-file",
         str(system),
@@ -476,6 +493,23 @@ def _pass(
     command = _command(
         config, head=pr.head, system=system, effort=effort, partial=bool(started)
     )
+    out, usage = _stream(command, text, claude=claude, workdir=workdir, started=started)
+    return parse(out), usage
+
+
+def _stream(
+    command: list[str],
+    text: str,
+    *,
+    claude: Claude,
+    workdir: Path,
+    started: threading.Event | None = None,
+) -> tuple[dict[str, Any], Usage]:
+    """Runs Claude Code, and returns its structured output and what it cost. Sets
+    started, if given, once the first response begins.
+
+    :raises RuntimeError: If Claude Code ends with an error.
+    """
     messages: list[dict[str, Any]] = []
     try:
         for line in claude(command, text, workdir):
@@ -495,7 +529,8 @@ def _pass(
     [out] = [m for m in messages if m["type"] == "result"]
     if out["is_error"]:
         raise RuntimeError(f"claude ended with {out['subtype']}: {out.get('result')}")
-    return parse(out["structured_output"]), Usage.of(out, messages)
+    structured: dict[str, Any] = out["structured_output"]
+    return structured, Usage.of(out, messages)
 
 
 def run(

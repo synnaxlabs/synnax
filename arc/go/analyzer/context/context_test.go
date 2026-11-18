@@ -58,7 +58,7 @@ var _ = Describe("Context", func() {
 				Expect(ctx.RejectTopLevel(x, "x")).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).
-					To(Equal("cannot reassign top-level variable 'x'"))
+					To(Equal("invalid assignment: cannot reassign top-level variable 'x'"))
 			},
 		)
 

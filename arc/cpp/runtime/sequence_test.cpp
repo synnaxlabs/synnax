@@ -4111,7 +4111,7 @@ TEST(ComputedCallInputsTest, PassesTheTriggerTimeStampToAFunctionInput) {
     Sequence h(
         R"(
     import time
-    func f(t i64 ns) {n u8} i64 {
+    func f(t i64 ns) {n u8} i64 ns {
         return t
     }
     %trig% -> f(time.now()) -> %out%)",
@@ -4224,7 +4224,7 @@ TEST(ComputedCallInputsTest, AdvancesPastABareCallStepWithAComputedInput) {
     Sequence h(
         R"(
     import time
-    func f(t i64 ns) {} i64 {
+    func f(t i64 ns) {} i64 ns {
         return t
     }
     sequence main {
@@ -4247,7 +4247,7 @@ TEST(ComputedCallInputsTest, PassesAComputedInputToARoutedCall) {
     Sequence h(
         R"(
     import time
-    func f(t i64 ns) {} i64 {
+    func f(t i64 ns) {} i64 ns {
         return t
     }
     %flag% -> select() -> {

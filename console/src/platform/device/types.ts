@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device, type rack } from "@synnaxlabs/client";
+import { channel, type device, type rack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { type Tree } from "@/platform/tree";
 import { type Session } from "@/session";
+
+/** Props of an action beside the status of a scan task that warns or fails. */
+export interface ScanActionProps {
+  scanner: task.Task;
+}
 
 /** Configure-modal params; the key is required since it edits an existing device. */
 export interface ConfigureParams {
@@ -73,6 +78,17 @@ export const identifierZ = z
     /^[a-zA-Z][a-zA-Z0-9_]*$/,
     "Identifier must start with a letter and contain only letters, numbers, and underscores",
   );
+
+/** @returns the prefix that the identifier of a device gives channel names, or null. */
+export const channelPrefix = ({
+  properties,
+}: {
+  properties?: { identifier?: unknown };
+}): string | null => {
+  const identifier = properties?.identifier;
+  if (typeof identifier !== "string" || identifier === "") return null;
+  return channel.escapeInvalidName(identifier);
+};
 
 export const commandStatePairZ = z.object({
   command: channel.keyZ,
