@@ -13,8 +13,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -72,6 +77,23 @@ var _ = Describe("Layer", func() {
 			StartRun(layer.Run)
 			Expect(layer.Close()).
 				To(MatchError(ContainSubstring("close called while Run runs")))
+		})
+
+		It("Should fail streamers that wait for a Run", func(ctx SpecContext) {
+			s := MustSucceed(layer.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        channel.Keys{channel.NewKey(node.KeyFree, 1)},
+				SendOpenAck: new(true),
+			}))
+			sCtx, cancel := signal.WithCancel(ctx)
+			req, res := confluence.Attach(s, 1)
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			DeferCleanup(func() {
+				req.Close()
+				cancel()
+				confluence.Drain(res)
+			})
+			Expect(layer.Close()).To(Succeed())
+			Expect(sCtx.Wait()).To(MatchError(ContainSubstring("relay stopped")))
 		})
 	})
 })

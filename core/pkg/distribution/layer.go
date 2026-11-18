@@ -104,10 +104,10 @@ type Layer struct {
 // configuration is invalid, or any services fail to open, OpenLayer returns a nil layer
 // and an error.
 //
-// OpenLayer starts no goroutines. If the returned error is nil, the Layer must be
-// closed by calling Close after use. None of the services in the Layer should be used
-// after Close is called. It is the caller's responsibility to ensure that the Layer is
-// not accessed after it is closed.
+// OpenLayer starts no goroutines, but the control service subscribes to storage. If
+// the returned error is nil, the Layer must be closed by calling Close after use. None
+// of the services in the Layer should be used after Close is called. It is the
+// caller's responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cfg, err := config.New(LayerConfig{}, cfgs...)
 	if err != nil {
@@ -139,7 +139,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Framer, err = framer.OpenService(framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
 		TS:              cfg.Storage.TS,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Framer) {
 		return nil, err
 	}
 

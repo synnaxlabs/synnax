@@ -15,7 +15,6 @@ package relay
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -116,11 +115,23 @@ type Relay struct {
 	demands confluence.Inlet[demand]
 	tapper  confluence.Segment[demand, Response]
 	delta   *delta
-	// stopped closes when Run returns.
-	stopped chan struct{}
-	ran     atomic.Bool
-	cfg     Config
+	// stopped closes when Run returns, or on a Close without a Run.
+	stopped   chan struct{}
+	lifecycle struct {
+		sync.Mutex
+		state runState
+	}
+	cfg Config
 }
+
+type runState uint8
+
+const (
+	runIdle runState = iota
+	runRunning
+	runStopped
+	runClosed
+)
 
 // Open opens a Relay. It starts no goroutines: streamers wait for Run to start.
 func Open(configs ...Config) (*Relay, error) {
@@ -149,12 +160,25 @@ func Open(configs ...Config) (*Relay, error) {
 
 // Run moves frames to streamers until ctx ends. It then stops the taps into storage
 // and free writes, drops every streamer, and returns. A streamer that runs after Run
-// returns fails. A second Run returns an error.
+// returns fails. A second Run, or a Run after Close, returns an error.
 func (r *Relay) Run(ctx context.Context) error {
-	if !r.ran.CompareAndSwap(false, true) {
+	r.lifecycle.Lock()
+	if r.lifecycle.state == runClosed {
+		r.lifecycle.Unlock()
+		return errors.New("run called after close")
+	}
+	if r.lifecycle.state != runIdle {
+		r.lifecycle.Unlock()
 		return errors.New("run called twice")
 	}
-	defer close(r.stopped)
+	r.lifecycle.state = runRunning
+	r.lifecycle.Unlock()
+	defer func() {
+		r.lifecycle.Lock()
+		r.lifecycle.state = runStopped
+		close(r.stopped)
+		r.lifecycle.Unlock()
+	}()
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(r.ins))
 	defer cancel()
 	r.delta.Flow(
@@ -173,12 +197,28 @@ func (r *Relay) Run(ctx context.Context) error {
 	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
 
+// Close fails streamers that wait for a Run that has not started, and makes a later
+// Run fail. Close while Run runs returns an error. Close after Run returns does
+// nothing.
+func (r *Relay) Close() error {
+	r.lifecycle.Lock()
+	defer r.lifecycle.Unlock()
+	if r.lifecycle.state == runRunning {
+		return errors.New("close called while Run runs")
+	}
+	if r.lifecycle.state == runIdle {
+		r.lifecycle.state = runClosed
+		close(r.stopped)
+	}
+	return nil
+}
+
 var (
 	errStopped = errors.New("relay stopped")
 	errDropped = errors.New("relay dropped the streamer")
 )
 
-// sendDemand sends d to the tapper. It fails when ctx ends or Run has returned first.
+// sendDemand sends d to the tapper. It fails when ctx ends or the relay stops first.
 func (r *Relay) sendDemand(ctx context.Context, d demand) error {
 	select {
 	case r.demands.Inlet() <- d:
@@ -191,7 +231,7 @@ func (r *Relay) sendDemand(ctx context.Context, d demand) error {
 }
 
 // removeDemand tells the tapper that the entity at addr demands no channels. It
-// returns once the tapper takes the demand, or once Run has returned.
+// returns once the tapper takes the demand, or once the relay stops.
 func (r *Relay) removeDemand(addr address.Address) {
 	select {
 	case r.demands.Inlet() <- demand{addr: addr, removed: true}:
@@ -200,8 +240,8 @@ func (r *Relay) removeDemand(addr address.Address) {
 }
 
 // connectToDelta connects a subscriber to the delta and returns its responses, which
-// close when the delta drops the subscriber. It fails when ctx ends or Run has
-// returned first. Call the returned disconnect only before the responses close.
+// close when the delta drops the subscriber. It fails when ctx ends or the relay stops
+// first. Call the returned disconnect only before the responses close.
 func (r *Relay) connectToDelta(
 	ctx context.Context,
 	accepts func(Response) bool,
