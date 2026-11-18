@@ -1435,11 +1435,21 @@ describe("MQTT read form", () => {
       expect((await client.channels.retrieve(streamed)).name).toBe(`${name}_2`);
     });
 
-    it("should show a new channel for a streamed field once its message reads a number", async () => {
+    it("should show a new channel for a streamed field while its message reads a number", async () => {
       const mode = createField("mode", "string");
       const { container, dev, draft } = await renderRead({
-        fields: [mode, createField("temperature", "float")],
+        fields: [
+          mode,
+          createField("label", "string"),
+          createField("temperature", "float"),
+        ],
         bound: { [mode.key]: 0 },
+        beforeRender: async (dev) =>
+          await client.channels.create({
+            name: `${dev.name}_plant_oven_label`,
+            dataType: DataType.STRING,
+            virtual: true,
+          }),
       });
       await deploy(container, draft.key);
       const isNew = () =>
@@ -1448,13 +1458,20 @@ describe("MQTT read form", () => {
         });
       // The form holds the deployed channel.
       await waitFor(() => expect(isNew()).toBeNull());
-      fireEvent.click(
-        await screen.findByRole("checkbox", { name: "Read temperature" }),
-      );
+      const temperature = await screen.findByRole("checkbox", {
+        name: "Read temperature",
+      });
+      fireEvent.click(temperature);
       await waitFor(() => expect(isNew()).not.toBeNull());
       await selectField("mode");
       const name = await screen.findByDisplayValue(`${dev.name}_plant_oven_mode`);
       await waitFor(() => expect((name as HTMLInputElement).disabled).toBe(true));
+      fireEvent.click(temperature);
+      fireEvent.click(await screen.findByRole("checkbox", { name: "Read label" }));
+      await selectField("label");
+      // Only a finished plan numbers the taken name.
+      await screen.findByDisplayValue(`${dev.name}_plant_oven_label_2`);
+      expect(isNew()).toBeNull();
     });
 
     it("should keep a streamed channel when its message stops reading a number before a deploy", async () => {
