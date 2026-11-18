@@ -1354,7 +1354,7 @@ jobs:
           while true; do
             # The next poll retries a failed API call.
             if ! jobs=$(gh api --paginate "$url" --jq '.jobs[]' | jq -s .); then
-              sleep 30
+              sleep 90
               continue
             fi
             failed=$(jq -r '.[] | select(.conclusion == "failure"
@@ -1369,7 +1369,7 @@ jobs:
             # OK starts only after every other job finished.
             jq -e '.[] | select(.name == "OK" and (.status == "in_progress"
               or .status == "completed"))' <<< "$jobs" > /dev/null && exit 0
-            sleep 30
+            sleep 90
           done
 
   # GitHub skips a job whose dependency failed or was skipped, so always() makes this
