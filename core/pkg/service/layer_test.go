@@ -891,8 +891,10 @@ var _ = Describe("LayerConfig", func() {
 			ctx,
 			testutil.NewNode(ctx),
 			service.LayerConfig{SecretsDir: dir},
-		)).Error().To(MatchError(
-			"secrets folder: stat " + dir + ": no such file or directory",
+		)).Error().To(SatisfyAll(
+			MatchError(os.ErrNotExist),
+			MatchError(HavePrefix("secrets folder: ")),
+			MatchError(ContainSubstring(dir)),
 		))
 	})
 

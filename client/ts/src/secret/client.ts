@@ -35,6 +35,7 @@ import {
   secretZ,
   storedSecretZ,
 } from "@/secret/types.gen";
+import { LINES } from "@/secret/where";
 import {
   compareCursors,
   cursor,
@@ -44,7 +45,6 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/secret/where.gen";
-import { LINES } from "@/secret/where";
 import { task } from "@/task";
 
 export const ACTION_CHANNEL_NAME = "sy_secret_action_set";
