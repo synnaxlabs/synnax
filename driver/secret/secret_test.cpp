@@ -15,6 +15,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/fs/fs.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/x509/testutil/testutil.h"
 #include "x/cpp/x509/x509.h"
@@ -73,15 +74,22 @@ protected:
         );
     }
 
-    /// @returns a stored secret that holds x::x509::testutil::KEY. The C++ client
-    /// writes secrets only as the private keys of stored certificates.
-    [[nodiscard]] synnax::secret::Key create_secret() const {
+    /// @returns a stored certificate of x::x509::testutil::CERTIFICATE, whose private
+    /// key secret holds x::x509::testutil::KEY.
+    [[nodiscard]] synnax::certificate::StoredCertificate
+    create_stored_certificate() const {
         synnax::certificate::Certificate c = synnax::certificate::StoredCertificate{};
         auto &stored = std::get<synnax::certificate::StoredCertificate>(c);
         stored.name = unique("reader");
         stored.pem = x::x509::testutil::CERTIFICATE;
         EXPECT_NIL(this->client->certificates.set(c, x::x509::testutil::KEY));
-        return std::get<synnax::certificate::StoredCertificate>(c).private_key.value();
+        return std::get<synnax::certificate::StoredCertificate>(c);
+    }
+
+    /// @returns a stored secret that holds x::x509::testutil::KEY. The C++ client
+    /// writes secrets only as the private keys of stored certificates.
+    [[nodiscard]] synnax::secret::Key create_secret() const {
+        return this->create_stored_certificate().private_key.value();
     }
 
     /// @brief creates a task on r that uses the secret with key.
@@ -142,8 +150,8 @@ TEST_F(ReaderTest, ReadsSecretFromGrant) {
     const auto r = this->reader(this->rack);
     const auto values = ASSERT_NIL_P(r.read({key}, synnax::secret::Values{{key, "v"}}));
     ASSERT_EQ(values.at(key), "v");
-    const auto err = std::get<1>(r.read({key}, synnax::secret::Values{}));
-    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    const auto [missing, err] = r.read({key}, synnax::secret::Values{});
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(err.data, "The grant does not hold secret " + key.to_string() + ".");
 }
 
@@ -172,6 +180,38 @@ TEST_F(ReaderTest, ReadsFileCertificate) {
     );
 }
 
+/// @brief it should read a stored certificate, and its private key from a grant.
+TEST_F(ReaderTest, ReadsStoredCertificateFromGrant) {
+    const auto stored = this->create_stored_certificate();
+    const auto private_key = stored.private_key.value();
+    const auto c = ASSERT_NIL_P(
+        this->reader(this->rack)
+            .read_certificate(
+                stored.key,
+                synnax::secret::Values{{private_key, x::x509::testutil::KEY}}
+            )
+    );
+    ASSERT_EQ(c.pem, x::x509::testutil::CERTIFICATE);
+    ASSERT_EQ(c.private_key, x::x509::testutil::KEY);
+}
+
+/// @brief it should fail to read a file certificate whose certificate file is missing.
+TEST_F(ReaderTest, FailsWithMissingCertificateFile) {
+    const auto key = this->create_file_certificate(
+        this->rack,
+        x::x509::testutil::CERTIFICATE
+    );
+    std::filesystem::remove(this->dir / "server.pem");
+    const auto [c, err] = this->reader(this->rack).read_certificate(key);
+    ASSERT_OCCURRED_AS(err, x::fs::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        "Failed to read certificate \"server\": failed to open " +
+            (this->dir / "server.pem").string()
+    );
+    ASSERT_EQ(this->sha256(key), "");
+}
+
 /// @brief it should save new details when the fingerprint of the certificate file
 /// changes.
 TEST_F(ReaderTest, RefreshesChangedCertificate) {
@@ -196,8 +236,8 @@ TEST_F(ReaderTest, FailsWithNoSecretsFolder) {
         this->rack,
         x::x509::testutil::CERTIFICATE
     );
-    const auto err = std::get<1>(this->reader(this->rack, false).read_certificate(key));
-    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    const auto [c, err] = this->reader(this->rack, false).read_certificate(key);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(
         err.data,
         "Cannot read the private key of certificate \"server\": it is a file, and the "
@@ -213,8 +253,8 @@ TEST_F(ReaderTest, RefusesFileOfAnotherRack) {
         x::x509::testutil::CERTIFICATE
     );
     const auto other = this->create_rack();
-    const auto err = std::get<1>(this->reader(other).read_certificate(key));
-    ASSERT_MATCHES(err, x::errors::VALIDATION);
+    const auto [c, err] = this->reader(other).read_certificate(key);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(
         err.data,
         "Cannot read the private key of certificate \"server\": it is a file of rack " +

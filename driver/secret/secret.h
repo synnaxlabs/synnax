@@ -48,8 +48,9 @@ public:
     /// @param granted the values of a spent grant. When set, each stored secret must be
     /// in it. When not, the Core gives a stored value only when a device or task on
     /// the rack uses the secret.
-    /// @returns VALIDATION for a file secret of another rack, or when no secrets
-    /// folder is set.
+    /// @returns NOT_FOUND when no secret has a key, an access error when no device or
+    /// task on the rack uses a stored secret, and VALIDATION for a file secret of
+    /// another rack, or when no secrets folder is set.
     [[nodiscard]] std::pair<synnax::secret::Values, x::errors::Error> read(
         const std::vector<synnax::secret::Key> &keys,
         const std::optional<synnax::secret::Values> &granted = std::nullopt
