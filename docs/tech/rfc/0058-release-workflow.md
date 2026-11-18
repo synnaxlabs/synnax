@@ -161,10 +161,12 @@ a run that selects TypeScript: approve it and rerun the failed jobs, or dispatch
 TypeScript.
 
 The Python publish job claims the version by pushing its tag at the run's commit, then
-publishes. To finish a partial publish, rerun the failed jobs, which keep the resolved
-versions and the built packages, or dispatch the packages from `release/X.Y` cut at the
-run's commit: the resolve stage keeps a tag on the train that names `HEAD`, and PyPI
-skips what already went up.
+publishes with `pypa/gh-action-pypi-publish`, which signs a PEP 740 attestation for each
+file. `uv publish` cannot sign one. The job then fails unless PyPI has an attestation
+for each file of the version. To finish a partial publish, rerun the failed jobs, which
+keep the resolved versions and the built packages, or dispatch the packages from
+`release/X.Y` cut at the run's commit: the resolve stage keeps a tag on the train that
+names `HEAD`, and PyPI skips what already went up.
 
 The npm trusted publishers allow staging only. The npm publish job stages each tarball
 with `pnpm stage publish --provenance`, since pnpm cannot stage a batch, then pushes the
@@ -361,3 +363,4 @@ flag and workflow file.
   https://github.com/grafana/shared-workflows
 - npm and PyPI trusted publishing: https://docs.npmjs.com/trusted-publishers/,
   https://docs.pypi.org/trusted-publishers/
+- PyPI attestations: https://docs.pypi.org/attestations/

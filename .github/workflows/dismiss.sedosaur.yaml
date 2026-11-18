@@ -73,7 +73,7 @@ jobs:
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
           # resolveReviewThread needs contents: write, not only pull-requests: write.
@@ -190,7 +190,7 @@ jobs:
         if: ${{ !cancelled() && steps.judge.outcome != 'skipped' }}
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
-          app-id: ${{ secrets.SEDOSAUR_APP_ID }}
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-checks: write
           # resolveReviewThread needs contents: write, not only pull-requests: write.

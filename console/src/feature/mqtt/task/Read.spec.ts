@@ -1350,7 +1350,7 @@ describe("MQTT read form", () => {
       expect(ch.name).toBe(`${dev.name}_plant_oven_status_mode`);
     });
 
-    it("should replace the stored channel of a field whose kind changed", async () => {
+    it("should replace the stored channel of a field whose kind changed and keep its name", async () => {
       const time = await createTimeChannel();
       const [temperatureCh, countCh] = await client.channels.create([
         {
@@ -1384,6 +1384,8 @@ describe("MQTT read form", () => {
           },
         },
       });
+      const name = `${dev.name}_plant_oven_count`;
+      await client.channels.rename(countCh.key, name);
       const created = await deploy(container, draft.key);
       const { channels } = await retrieveStored(dev.key, firstMessage(draft));
       expect(channels["/temperature"]).toBe(temperatureCh.key);
@@ -1391,6 +1393,8 @@ describe("MQTT read form", () => {
       const replaced = await client.channels.retrieve(channels["/count"]);
       expect(replaced.dataType.equals(DataType.FLOAT64)).toBe(true);
       expect(replaced.index).toBe(time.key);
+      expect(replaced.name).toBe(name);
+      expect((await client.channels.retrieve(countCh.key)).name).toBe(`${name}_2`);
       expect(plainOf(created.config.entries[0]).messages[0].bindings).toEqual([
         { field: timeField.key, channel: time.key, dataType: "" },
         { field: temperature.key, channel: temperatureCh.key, dataType: "" },
