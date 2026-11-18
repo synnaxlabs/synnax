@@ -97,6 +97,7 @@ class Where(BaseModel):
         overlaps: Matches ranges whose time range overlaps the given range.
         labels: Matches ranges that have any of the given labels.
         parents: Matches the ranges nested in any of the given ranges.
+        ancestors: Matches the ranges nested at any depth in any of the given ranges.
         nested: Matches the ranges nested in a range, or top-level ranges when false.
         labeled: Matches ranges that have a label, or ranges with none when false.
         stages: Matches ranges in any of the given stages at the Core's clock.
@@ -114,6 +115,7 @@ class Where(BaseModel):
     overlaps: telem.TimeRange | None = None
     labels: list[label.Key] | None = None
     parents: list[Key] | None = None
+    ancestors: list[Key] | None = None
     nested: bool | None = None
     labeled: bool | None = None
     stages: list[Stage] | None = None
@@ -121,7 +123,7 @@ class Where(BaseModel):
         default=None, ge=-9223372036854775808, le=9223372036854775807
     )
 
-    @field_validator("labels", "parents", "stages", mode="before")
+    @field_validator("labels", "parents", "ancestors", "stages", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -140,6 +142,7 @@ WhereInput = TypedDict(
         "overlaps": telem.TimeRange,
         "labels": label.Key | list[label.Key],
         "parents": Key | list[Key],
+        "ancestors": Key | list[Key],
         "nested": bool,
         "labeled": bool,
         "stages": Stage | list[Stage],
