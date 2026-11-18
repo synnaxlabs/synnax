@@ -497,7 +497,7 @@ func avgTimeStamp(input telem.Series, prevCount int64, output *telem.Series) int
 	if output.Len() == 0 {
 		prevCount = 0
 	}
-	output.Resize(1)
+	*output = output.Resized(1)
 	if prevCount == 0 {
 		output.SetValueAt(0, input.ValueAt[telem.TimeStamp](0))
 	}
