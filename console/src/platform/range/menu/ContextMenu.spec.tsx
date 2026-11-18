@@ -10,7 +10,7 @@
 import { type label, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -98,6 +98,13 @@ const findCreated = async (name: string): Promise<ranger.Range> =>
   await waitFor(async () => await client.ranges.retrieve(name));
 
 describe("Range.ContextMenu", () => {
+  it("should offer nothing but Reload Console with no ranges", async () => {
+    const { wrapper } = await createConsoleWrapper({ client });
+    await renderSuspended(<Range.ContextMenu keys={[]} />, { wrapper });
+    await screen.findByRole("menuitem", { name: "Reload Console" });
+    expect(screen.queryByRole("menuitem", { name: "Copy" })).toBeNull();
+  });
+
   describe("labels", () => {
     it("should add a label that some ranges hold to all of them, then remove it from all", async () => {
       const lbl = await client.labels.create({
@@ -159,6 +166,18 @@ describe("Range.ContextMenu", () => {
       await renderMenu([child]);
       fireEvent.click(within(await openSubmenu("Parent")).getByText("No parent"));
       await waitFor(async () => expect(await parentOf(child)).toBeUndefined());
+    });
+
+    it("should list the shared parent once, pinned at the top", async () => {
+      const token = uniqueName("shared");
+      const top = await createRange(`${token} top`);
+      const other = await createRange(`${token} other`);
+      const child = await createRange(`${token} child`, { parent: top.key });
+      await renderMenu([child]);
+      const parent = await openSubmenu("Parent");
+      searchIn(parent, "Search ranges...", token);
+      await within(parent).findByText(other.name);
+      expect(within(parent).getAllByText(top.name)).toHaveLength(1);
     });
 
     it("should leave the ranges themselves out of the list", async () => {
@@ -260,7 +279,41 @@ describe("Range.ContextMenu", () => {
     });
   });
 
+  describe("color", () => {
+    it("should set the color of every range when the submenu closes", async () => {
+      const ranges = [
+        await createRange(uniqueRangeName("colored")),
+        await createRange(uniqueRangeName("colored")),
+      ];
+      await renderMenu(ranges);
+      const dialog = await openSubmenu("Color");
+      const swatch = within(dialog).getAllByLabelText(/^#/)[0];
+      const hex = swatch.getAttribute("aria-label");
+      fireEvent.click(swatch);
+      fireEvent.keyDown(swatch, { key: "ArrowLeft" });
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Color" })).toBeNull(),
+      );
+      await waitFor(async () => {
+        for (const r of ranges) {
+          const { color: stored } = await client.ranges.retrieve(r.key);
+          expect(stored == null ? null : color.hex(stored)).toBe(hex);
+        }
+      });
+    });
+  });
+
   describe("copy", () => {
+    it("should offer no time range for a range planned with no times", async () => {
+      const planned = await createRange(uniqueRangeName("planned"), {
+        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+      });
+      await renderMenu([planned]);
+      const copy = await openSubmenu("Copy");
+      within(copy).getByRole("menuitem", { name: "Name" });
+      expect(within(copy).queryByRole("menuitem", { name: "Time range" })).toBeNull();
+    });
+
     it("should copy the names of every range, one per line", async () => {
       const writeText = stubClipboardWriteText();
       const ranges = [

@@ -100,6 +100,13 @@ export const ContextMenu = ({
       icon: <Icon.Range />,
     });
   };
+  // A click on empty space, or ranges that still load, leave nothing to act on.
+  if (ranges.length === 0)
+    return (
+      <Base.Menu>
+        <Base.ReloadConsoleItem />
+      </Base.Menu>
+    );
   return (
     <Base.Menu>
       {primaryMenuItems}

@@ -21,6 +21,10 @@ const iso = ({ timeRange: { start, end } }: ranger.Range): string =>
     ? start.toString("ISO")
     : `${start.toString("ISO")} - ${end.toString("ISO")}`;
 
+// A range planned with no times holds TimeStamp.MAX as its start.
+const isScheduled = ({ timeRange }: ranger.Range): boolean =>
+  !timeRange.makeValid().start.equals(TimeStamp.MAX);
+
 export interface CopyProps {
   ranges: ranger.Range[];
 }
@@ -30,6 +34,7 @@ export const Copy = ({ ranges }: CopyProps): ReactElement => {
   const copyLink = Core.useCopyLinkToClipboard();
   const single = ranges.length === 1 ? ranges[0] : null;
   const names = ranges.map((r) => r.name).join("\n");
+  const name = single?.name ?? "";
   return (
     <Menu.Sub itemKey="copy" textValue="Copy">
       <Menu.SubTrigger>
@@ -55,25 +60,30 @@ export const Copy = ({ ranges }: CopyProps): ReactElement => {
           <Menu.CopyItem
             itemKey="name"
             text={names}
-            successMessage={single == null ? "Copied names" : "Copied name"}
+            successMessage={{
+              message: single == null ? "Copied names" : "Copied name",
+              name,
+            }}
           >
             <Icon.Rename />
             {single == null ? "Names" : "Name"}
           </Menu.CopyItem>
+          {single != null && isScheduled(single) && (
+            <Menu.CopyItem
+              itemKey="time"
+              text={iso(single)}
+              successMessage={{ message: "Copied time range", name }}
+            >
+              <Icon.Range />
+              Time range
+            </Menu.CopyItem>
+          )}
           {single != null && (
             <>
               <Menu.CopyItem
-                itemKey="time"
-                text={iso(single)}
-                successMessage="Copied time range"
-              >
-                <Icon.Range />
-                Time range
-              </Menu.CopyItem>
-              <Menu.CopyItem
                 itemKey="python"
                 text={`rng = client.ranges.retrieve(key="${single.key}")`}
-                successMessage="Copied Python code"
+                successMessage={{ message: "Copied Python code", name }}
               >
                 <Icon.Python />
                 Python code
@@ -81,7 +91,7 @@ export const Copy = ({ ranges }: CopyProps): ReactElement => {
               <Menu.CopyItem
                 itemKey="typescript"
                 text={`const rng = await client.ranges.retrieve("${single.key}");`}
-                successMessage="Copied TypeScript code"
+                successMessage={{ message: "Copied TypeScript code", name }}
               >
                 <Icon.TypeScript />
                 TypeScript code
