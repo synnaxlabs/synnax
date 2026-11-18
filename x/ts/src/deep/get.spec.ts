@@ -102,11 +102,11 @@ describe("get", () => {
 
   it("should skip null entries after the first in a keyed array", () => {
     const obj = { a: [{ key: "x", v: 1 }, null] };
-    expect(deep.get(obj, "a.y", { optional: true })).toBeNull();
+    expect(deep.get(obj, "a.y")).toBeNull();
   });
 
   it("should return null for a key into an array whose first entry is null", () => {
-    expect(deep.get({ a: [null] }, "a.x", { optional: true })).toBeNull();
+    expect(deep.get({ a: [null] }, "a.x")).toBeNull();
   });
 
   it("should return null for a missing key", () => {

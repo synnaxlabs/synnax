@@ -27,9 +27,11 @@ describe("set", () => {
     expect(a).toEqual({ a: [{ key: "x", v: 1 }, null, { key: "y", v: 3 }] });
   });
 
-  it("should not throw on a key into an array whose first entry is null", () => {
+  it("should throw for a key into an array whose first entry is null", () => {
     const a = { a: [null] };
-    deep.set(a, "a.x", 1);
+    expect(() => deep.set(a, "a.x", 1)).toThrow(
+      "Cannot set a.x: the list holds no entry with the key x",
+    );
     expect(a).toEqual({ a: [null] });
   });
 
