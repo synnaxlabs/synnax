@@ -123,6 +123,11 @@ default: the symbol's default enumeration, or the `options` of a `select` or
 moves every user to another enumeration and then deletes. A built-in enumeration cannot
 be deleted, so a default enumeration that only a Pluto file names always exists.
 
+A schematic export keeps the `enumeration` key of each node, as it keeps channel keys
+(RFC 0039 §6.3), and an import keeps each key as it is. A node whose key the Core lacks
+shows its enumeration as "not found" in its Options tab and draws no states until the
+user picks another.
+
 ### 4.3 State symbols
 
 A symbol state shows its enumeration (RFC 0114). A look with `entry` paint takes the
@@ -234,18 +239,6 @@ The schematic cutover ships in one release:
   source symbol. The import needs retrieve access on the source symbol of each copy that
   it adds, create access for each record that it adds, and update access on the group of
   each copy. A node that gets `missing` (RFC 0114 §4.5) keeps no overrides.
-- From phase 19, a schematic export bundles every enumeration that its nodes name. RFC
-  0114 phase 1 adds the same to symbol files, and RFC 0114 phase 2 to the custom symbols
-  and state bindings of a schematic file. An import matches a bundled enumeration by its
-  key, never by its content. When the Core has the key, the import reuses that
-  enumeration and reports a warning status that names it if the entries differ. When the
-  Core lacks the key, the import adds the bundled enumeration under that key, so no key
-  is rewritten. A reuse needs retrieve access and an add needs create access, as RFC
-  0114 §4.4 says for symbols and groups. Only an enumeration made from an inline list
-  merges by content, by the rule above. An older file can name an enumeration key that
-  is neither bundled nor on the Core. When the node still has `options`, the import
-  makes the enumeration from them by the rule above, so the node keeps working.
-  Otherwise the import drops the key, and the warning status names the node.
 
 The line plot migration stores the color that each uncolored line and rule shows today
 as `fixed`. The old 14 colors are frozen in the migration's version package. Each other
@@ -291,7 +284,7 @@ with RFC 0114 phase 2. RFC 0114 phase 1 needs phases 13 to 15, phases 19 and 21 
 | 16    | Add the Console enumeration editor with its checks         | `console/src/feature/enumeration`                                                                                                      | 9, 15          |
 | 17    | Add Replace with for enumerations                          | `core/pkg/api/enumeration`, `console/src/feature/enumeration`                                                                          | 1, 16          |
 | 18    | Draw stale and unknown indicators instead of colors        | `pluto/src/schematic`, `pluto/src/vis`, `schemas/synnax`, `core/pkg/service/schematic`, `console/src/feature/schematic`, `integration` | -              |
-| 19    | Add and bundle enumeration keys on selects and indicators  | `schemas/synnax`, `core/pkg/service/schematic`, `core/pkg/service/imex`, `core/pkg/service/enumeration`                                | 14             |
+| 19    | Add enumeration keys to selects and indicators             | `schemas/synnax`, `core/pkg/service/schematic`                                                                                         | 14             |
 | 20    | Pick and draw enumerations in selects and state indicators | `pluto/src/schematic`, `console/src/feature/schematic`                                                                                 | 16, 19         |
 | 21    | Migrate inline state colors to enumerations                | `schemas/synnax`, `core/pkg/service/schematic`, `pluto/src/schematic`, `console`, `client/py`, `integration`                           | 20             |
 | 22    | Carry color references in multi-edit                       | `console/src/platform/multiedit`                                                                                                       | 8              |
@@ -306,18 +299,16 @@ Phase 3 ships `@ref on_delete inline` and `Inline()` with the record. Phase 18 m
 schematic version (RFC 0053) that drops `staleness_color`. Tables keep their own
 `staleness_color` and its color path in `pluto/src/vis`. Before RFC 0114 phase 2, only a
 `select` or `state_indicator` can match no entry. Phase 19 adds the `enumeration` field
-to `select` and `state_indicator`, and moves the schematic export off the generated
-single-record `Export` (`core/pkg/service/schematic/imex.gen.go`), on the Oracle `imex`
-option of RFC 0114 phase 1, so that it bundles enumerations. Phase 21 fills the field,
-and RFC 0114 phase 1 adds it to symbol states. Phase 20 adds the enumeration picker to
-the Pluto forms of `select` and `state_indicator`, and Pluto draws each by the order of
-§4.2. The channel redesign adds the channel `enumeration` and its step in that order.
-The picker leaves `options` as they are, so clearing the picker goes back to them until
-phase 21. RFC 0114 phase 2 adds the picker to node state bindings, and RFC 0114 phase 4
-to custom symbol states. RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks
-from the start, and RFC 0114 phase 2 in the `color` of a `symbol` node, which the
-schematic multi-edit panel edits through phase 22. Phase 23 covers the variants that
-keep their own colors (RFC 0114 §4.0). In phase 27, the Driver writes range colors
+to `select` and `state_indicator`. Phase 21 fills the field, and RFC 0114 phase 1 adds
+it to symbol states. Phase 20 adds the enumeration picker to the Pluto forms of `select`
+and `state_indicator`, and Pluto draws each by the order of §4.2. The channel redesign
+adds the channel `enumeration` and its step in that order. The picker leaves `options`
+as they are, so clearing the picker goes back to them until phase 21. RFC 0114 phase 2
+adds the picker to node state bindings, and RFC 0114 phase 4 to custom symbol states.
+RFC 0114 phase 1 stores a `color.Ref` in custom symbol looks from the start, and RFC
+0114 phase 2 in the `color` of a `symbol` node, which the schematic multi-edit panel
+edits through phase 22. Phase 23 covers the variants that keep their own colors (RFC
+0114 §4.0). In phase 27, the Driver writes range colors
 (`driver/arc/ranges/ranges.h:46-52`) as `fixed`.
 
 ## 7 Resolved decisions
