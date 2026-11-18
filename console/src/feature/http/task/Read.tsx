@@ -18,7 +18,13 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Channel } from "@synnaxlabs/pluto";
 import { DataType, deep, id } from "@synnaxlabs/x";
-import { type FC } from "react";
+import {
+  createContext,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useContext,
+} from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
@@ -96,6 +102,28 @@ const planEndpoints = async (
   return plans;
 };
 
+/** The plan of each endpoint, by endpoint key. */
+const PlansContext = createContext<
+  ReadonlyMap<string, Task.ReadChannelPlan | undefined>
+>(new Map());
+PlansContext.displayName = "HTTP.PlansContext";
+
+/** Plans the channels of every endpoint together, as deploying does, for the panes. */
+const Plans = ({ children }: PropsWithChildren): ReactElement => {
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const dev = useFromConfig();
+  const sources = endpoints.map((ep) => ({
+    ep,
+    name: dev?.name,
+    props: dev?.properties.read[ep.path],
+  }));
+  const plans = Task.useChannelPlans(sources, async (client) =>
+    dev == null ? [] : await planEndpoints(client, dev, endpoints),
+  );
+  const byEndpoint = new Map(endpoints.map(({ key }, i) => [key, plans[i]]));
+  return <PlansContext value={byEndpoint}>{children}</PlansContext>;
+};
+
 /**
  * @returns the name that a new channel of a field falls back to, and the name that
  * deploying gives it once the plan is done.
@@ -103,17 +131,7 @@ const planEndpoints = async (
 const useChannelNames = (endpoint: deep.Path<ReadEndpoint>, field: ReadField) => {
   const ep = PForm.useFieldValue(endpoint);
   const dev = useFromConfig();
-  const props = dev?.properties.read[ep.path];
-  const plan = Task.useChannelPlan({ ep, name: dev?.name, props }, async (client) =>
-    dev == null
-      ? undefined
-      : await Task.planReadChannels({
-          client,
-          namer: Task.createNamer(client),
-          props,
-          ...endpointChannels(dev.name, ep),
-        }),
-  );
+  const plan = useContext(PlansContext).get(ep.key);
   const plannedName = plan == null ? undefined : Task.newChannelName(plan, field.key);
   const fallback =
     dev == null ? "" : defaultChannelName(dev.name, ep.path, field.pointer);
@@ -390,7 +408,7 @@ const Form: FC = () => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const read = useFromConfig()?.properties.read ?? null;
   return (
-    <>
+    <Plans>
       <Task.Views.GroupTree<ReadEndpoint, ReadField>
         path={root.config.endpoints}
         listTitle="Endpoints"
@@ -412,7 +430,7 @@ const Form: FC = () => {
           read={read}
         />
       ))}
-    </>
+    </Plans>
   );
 };
 

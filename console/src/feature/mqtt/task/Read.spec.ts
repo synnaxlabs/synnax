@@ -1126,6 +1126,32 @@ describe("MQTT read form", () => {
     await screen.findByText(`Saves as ${typed}_2`);
   });
 
+  it("should say the numbered name that a name typed in an earlier tag saves as", async () => {
+    const typed = uniqueName("flow");
+    const { dev } = await renderRead({
+      entries: [createTagEntry("flow", { name: typed }), createTagEntry("level")],
+    });
+    fireEvent.click(
+      await screen.findByRole("treeitem", { name: /SpB.*plant\/line1\/level/ }),
+    );
+    const input = await screen.findByPlaceholderText(`${dev.name}_plant_line1_level`);
+    fireEvent.change(input, { target: { value: typed } });
+    await screen.findByText(`Saves as ${typed}_2`);
+  });
+
+  it("should preview a numbered name for a field whose name an earlier topic takes", async () => {
+    const fields = () => [createField("temperature", "float")];
+    const { dev } = await renderRead({
+      entries: [
+        await createEntry({ fields: fields(), topic: "plant/oven" }),
+        await createEntry({ fields: fields(), topic: "plant_oven" }),
+      ],
+    });
+    const items = await screen.findAllByRole("treeitem", { name: /^temperature/ });
+    fireEvent.click(items[1]);
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
+  });
+
   describe("Sparkplug B entries", () => {
     it("should list a tag by its full path beside a plain entry", async () => {
       await renderRead({

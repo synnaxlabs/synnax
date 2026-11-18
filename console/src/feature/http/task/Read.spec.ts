@@ -196,6 +196,32 @@ describe("Read", () => {
       await screen.findByText(`Saves as ${typed}_2`);
     });
 
+    it("should say the numbered name that a name typed in an earlier endpoint saves as", async () => {
+      const typed = uniqueName("pressure");
+      const dev = await createHTTPDevice(client);
+      const endpoint = (key: string, path: string, name = "") => ({
+        ...http.readEndpointZ.parse({}),
+        key,
+        path,
+        fields: [createReadField(`${key}_f`, "/value", { name })],
+      });
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [
+          endpoint("ep1", "/a", typed),
+          endpoint("ep2", "/b"),
+        ]),
+      );
+      await renderRead({ client, taskKey: draft.key });
+      const items = await screen.findAllByRole("treeitem", { name: /\/value/ });
+      fireEvent.click(items[1]);
+      const input = await screen.findByPlaceholderText(
+        channel.escapeInvalidName(`${dev.name}/b/value`),
+      );
+      fireEvent.change(input, { target: { value: typed } });
+      await screen.findByText(`Saves as ${typed}_2`);
+    });
+
     it("should show no help text for a free name", async () => {
       const typed = uniqueName("pressure");
       const input = await renderTyped(typed);

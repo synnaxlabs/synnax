@@ -16,25 +16,25 @@ import { createConsoleWrapper, createTestStore } from "@/testutil";
 
 const client = createTestClient();
 
-describe("useChannelPlan", () => {
-  it("should return no plan for new inputs until their plan resolves", async () => {
+describe("useChannelPlans", () => {
+  it("should keep the plan of an unchanged source until a new plan resolves", async () => {
     const store = await createTestStore();
     const { wrapper } = await createConsoleWrapper({ client, store });
-    let resolve: (plan: string) => void = () => {};
-    const planB = new Promise<string>((r) => {
+    let resolve: (plans: string[]) => void = () => {};
+    const next = new Promise<string[]>((r) => {
       resolve = r;
     });
     const { result, rerender } = renderHook(
-      ({ name }: { name: string }) =>
-        Task.useChannelPlan({ name }, async () =>
-          name === "a" ? "plan a" : await planB,
+      ({ b }: { b: string }) =>
+        Task.useChannelPlans([{ a: "a" }, { b }], async () =>
+          b === "b" ? ["plan a", "plan b"] : await next,
         ),
-      { wrapper, initialProps: { name: "a" } },
+      { wrapper, initialProps: { b: "b" } },
     );
-    await waitFor(() => expect(result.current).toBe("plan a"));
-    rerender({ name: "b" });
-    expect(result.current).toBeUndefined();
-    act(() => resolve("plan b"));
-    await waitFor(() => expect(result.current).toBe("plan b"));
+    await waitFor(() => expect(result.current).toEqual(["plan a", "plan b"]));
+    rerender({ b: "c" });
+    expect(result.current).toEqual(["plan a", undefined]);
+    act(() => resolve(["plan a2", "plan c"]));
+    await waitFor(() => expect(result.current).toEqual(["plan a2", "plan c"]));
   });
 });

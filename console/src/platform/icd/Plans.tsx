@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { ICD as PICD } from "@synnaxlabs/pluto";
-import { type deep, observe } from "@synnaxlabs/x";
+import { deep, observe } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
@@ -20,23 +18,25 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import {
-  type BoundMessage,
-  type MessagePlan,
-  planMessage,
-} from "@/platform/icd/configure";
-import { useFormats } from "@/platform/icd/Formats";
-import { jsonFields, readFields, type ReadSource } from "@/platform/icd/read";
-import { Task } from "@/platform/task";
+import { type MessagePlan } from "@/platform/icd/configure";
+import { type ReadSource } from "@/platform/icd/read";
 
-/** @returns what the device stores for a message that a source reads. */
-export type PropsOf = (
-  bound: BoundMessage<ReadSource>,
-) => Task.ReadChannelProps | undefined;
+/** The plan of a message that a source reads. */
+export interface PlannedRead {
+  path: deep.Path<ReadSource>;
+  /** The index of the message in the source's reads. */
+  read: number;
+  /** Undefined while the message has no plan. */
+  plan?: MessagePlan;
+}
+
+const readKey = (path: deep.Path<ReadSource>, read: number): string =>
+  String(path.messages[read]);
 
 interface Store {
-  get: (read: string) => MessagePlan | undefined;
-  set: (read: string, plan: MessagePlan | undefined) => void;
+  get: (key: string) => MessagePlan | undefined;
+  /** Holds plans in place of the plans it holds, and notifies of a changed one. */
+  replace: (plans: PlannedRead[]) => void;
   subscribe: (onChange: () => void) => () => void;
 }
 
@@ -44,11 +44,27 @@ const createStore = (): Store => {
   const plans = new Map<string, MessagePlan>();
   const changes = new observe.BaseObserver<void>();
   return {
-    get: (read) => plans.get(read),
-    set: (read, plan) => {
-      if (plan == null) plans.delete(read);
-      else plans.set(read, plan);
-      changes.notify();
+    get: (key) => plans.get(key),
+    replace: (next) => {
+      let changed = false;
+      const keys = new Set<string>();
+      for (const { path, read, plan } of next) {
+        const key = readKey(path, read);
+        keys.add(key);
+        const held = plans.get(key);
+        // An equal plan keeps the held one, so its readers do not render again.
+        if (held === plan || (held != null && plan != null && deep.equal(held, plan)))
+          continue;
+        if (plan == null) plans.delete(key);
+        else plans.set(key, plan);
+        changed = true;
+      }
+      for (const key of [...plans.keys()])
+        if (!keys.has(key)) {
+          plans.delete(key);
+          changed = true;
+        }
+      if (changed) changes.notify();
     },
     subscribe: (onChange) => changes.onChange(onChange),
   };
@@ -57,70 +73,25 @@ const createStore = (): Store => {
 const Context = createContext<Store | null>(null);
 Context.displayName = "ICD.PlansContext";
 
-const useStore = (): Store => {
-  const store = useContext(Context);
-  if (store == null) throw new Error("Render ICD.Planner and ICD.usePlan in ICD.Plans");
-  return store;
-};
+export interface PlansProps extends PropsWithChildren {
+  /** The plan of each message that the task reads, made together for the task. */
+  plans: PlannedRead[];
+}
 
-/** Holds the plan of each message that a source reads, for Planner and usePlan. */
-export const Plans = ({ children }: PropsWithChildren): ReactElement => {
+/** Holds the plan of each message that a source reads, for usePlan. */
+export const Plans = ({ plans, children }: PlansProps): ReactElement => {
   const [store] = useState(createStore);
+  useEffect(() => store.replace(plans), [plans]);
   return <Context value={store}>{children}</Context>;
 };
 
-const readKey = (path: deep.Path<ReadSource>, read: number): string =>
-  String(path.messages[read]);
-
-export interface PlannerProps {
-  path: deep.Path<ReadSource>;
-  /** The index of the message in the source's reads. */
-  read: number;
-  /** The prefix of the names of the channels that deploying creates. */
-  prefix: string;
-  propsOf: PropsOf;
-}
-
-/**
- * Plans the channels that deploying gives a message that a source reads, for usePlan.
- * Plans again when the source, its message, or what the device stores change.
- */
-export const Planner = ({ path, read, prefix, propsOf }: PlannerProps): null => {
-  const store = useStore();
-  const formats = useFormats();
-  const source = PForm.useFieldValue(path);
-  const readMessage = source.messages[read];
-  const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
-    optional: true,
-    ctx: formats.get(source.icd),
-  });
-  const bound =
-    message == null
-      ? undefined
-      : { source, read, message, fields: readFields(jsonFields(message), readMessage) };
-  const props = bound == null ? undefined : propsOf(bound);
-  const plan = Task.useChannelPlan({ bound, prefix, props }, async (client) =>
-    bound == null
-      ? undefined
-      : await planMessage(client, Task.createNamer(client), bound, prefix, props),
-  );
-  const key = readKey(path, read);
-  useEffect(() => {
-    store.set(key, plan);
-    return () => store.set(key, undefined);
-  }, [key, plan]);
-  return null;
-};
-
-/**
- * @returns the plan of a message that a source reads, or undefined until its Planner
- * plans it.
- */
+/** @returns the plan of a message that a source reads, or undefined with none. */
 export const usePlan = (
   path: deep.Path<ReadSource>,
   read: number,
 ): MessagePlan | undefined => {
-  const store = useStore();
+  const store = useContext(Context);
+  if (store == null) throw new Error("Render ICD.usePlan in ICD.Plans");
   const key = readKey(path, read);
   const get = () => store.get(key);
   return useSyncExternalStore(store.subscribe, get, get);
