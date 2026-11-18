@@ -206,9 +206,12 @@ describe("http", () => {
   describe("reset while reading the response body", () => {
     let server: Server;
     let c: HTTPClient;
+    let requests: number;
 
     const serve = async (status: number): Promise<void> => {
+      requests = 0;
       server = createServer((req, res) => {
+        requests++;
         res.writeHead(status, {
           "Content-Type": "application/json",
           "Content-Length": "100",
@@ -235,6 +238,19 @@ describe("http", () => {
       await expect(c.send("/reset", {}, messageZ, messageZ)).rejects.toThrow(
         Unreachable,
       );
+    });
+
+    test("the breaker does not resend a delivered request", async () => {
+      await serve(200);
+      const unary = unaryWithBreaker(c, {
+        maxRetries: 2,
+        baseInterval: TimeSpan.milliseconds(1),
+      });
+      const err = await unary
+        .send("/reset", {}, messageZ, messageZ)
+        .catch((e: unknown) => e);
+      expect(Unreachable.matches(err)).toBe(true);
+      expect(requests).toBe(1);
     });
 
     test("upload throws unreachable", async () => {

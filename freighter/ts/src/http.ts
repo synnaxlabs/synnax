@@ -367,15 +367,17 @@ export class HTTPClient
     target: string,
     request: FetchInit,
   ): Promise<FetchResponse> {
-    const cast = (e: unknown): Error => {
+    const cast = (e: unknown, delivered: boolean): Error => {
       const err = errors.fromUnknown(e);
-      return shouldCastToUnreachable(err) ? new Unreachable({ url, cause: err }) : err;
+      return shouldCastToUnreachable(err)
+        ? new Unreachable({ url, cause: err, delivered })
+        : err;
     };
     let res: FetchResponse;
     try {
       res = await this.connector.fetch(target, request);
     } catch (e) {
-      throw cast(e);
+      throw cast(e, false);
     }
     // The connection can fail after the headers arrive, while the body is read.
     return {
@@ -387,7 +389,7 @@ export class HTTPClient
         try {
           return await res.arrayBuffer();
         } catch (e) {
-          throw cast(e);
+          throw cast(e, true);
         }
       },
     };
