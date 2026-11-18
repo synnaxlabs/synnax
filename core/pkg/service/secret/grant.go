@@ -10,6 +10,7 @@
 package secret
 
 import (
+	"bytes"
 	"context"
 	"io/fs"
 	"uuid"
@@ -125,6 +126,8 @@ func (s *Service) reveal(
 	return values, nil
 }
 
+// open returns the value of sec. The value of a file secret is the file without the
+// "\r" and "\n" characters at its end, so a file that ends with a line ending works.
 func (s *Service) open(sec Secret, files bool) ([]byte, error) {
 	base := sec.Base()
 	switch variant := sec.Variant.(type) {
@@ -154,7 +157,7 @@ func (s *Service) open(sec Secret, files bool) ([]byte, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "read secret %q", base.Name)
 		}
-		return value, nil
+		return bytes.TrimRight(value, "\r\n"), nil
 	default:
 		return nil, errors.Newf("secret %q has no source", base.Name)
 	}
