@@ -25,6 +25,13 @@ beforeAll(async () => {
 });
 
 describe("Sift.Range.UploadMenuItem", () => {
+  it("should render nothing without a Sift connection", async () => {
+    await renderMenuItem(
+      <Sift.Range.UploadMenuItem rangeKey={uuid.create()} rangeName="Hotfire 3" />,
+    );
+    expect(screen.queryByText("Upload to Sift")).toBeNull();
+  });
+
   it("should open the upload dialog for the range", async () => {
     await renderMenuItem(
       <Sift.Range.UploadMenuItem rangeKey={uuid.create()} rangeName="Hotfire 3" />,
