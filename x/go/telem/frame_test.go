@@ -93,7 +93,7 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int32](2),
 					},
 				).KeepKeys(set.New[int32](1))
-				expected := []int32{1}
+				expected := append(make([]int32, 0, 201), 1)
 				for i := range int32(200) {
 					fr = fr.Append(i+10, telem.NewSeriesV(i))
 					expected = append(expected, i+10)
