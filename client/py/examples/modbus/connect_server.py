@@ -77,7 +77,7 @@ if response in ("", "y", "yes"):
 
     try:
         # Get the embedded rack (local driver rack)
-        rack = client.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack("modbus")
         print(f"Using rack: {rack.name} (key={rack.key})")
 
         device = sy.modbus.Device(

@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_, ranger
+from synnax import channel as channel_, color as color_, ranger
 from synnax.lineplot.types_gen import (
     Aggregation,
     AxisKey,
@@ -28,7 +28,7 @@ from synnax.lineplot.types_gen import (
     XAxisKey,
     YAxisKey,
 )
-from x import color as color_, patch, spatial, text
+from x import patch, spatial, text
 
 
 class CreatePayload(BaseModel):
@@ -181,12 +181,12 @@ class SetLineLabelPayload(BaseModel):
 
 
 class SetLineColorPayload(BaseModel):
-    """Sets the color of the line identified by key. Null resets it to a palette color
-    assigned at render time.
+    """Sets the color of the line identified by key to a named or a fixed color. Null
+    gives the line the series color that the fewest other lines use.
     """
 
     key: str
-    color: color_.Color | None = None
+    color: color_.Ref | None = None
 
 
 class SetLineStrokeWidthPayload(BaseModel):
@@ -236,12 +236,12 @@ class SetRuleLabelPayload(BaseModel):
 
 
 class SetRuleColorPayload(BaseModel):
-    """Sets the color of the rule identified by key. Null resets it to a default color
-    assigned at render time.
+    """Sets the color of the rule identified by key to a named or a fixed color. Null
+    gives the rule the series color that the fewest other rules use.
     """
 
     key: str
-    color: color_.Color | None = None
+    color: color_.Ref | None = None
 
 
 class SetRuleAxisPayload(BaseModel):

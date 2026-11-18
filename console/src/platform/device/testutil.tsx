@@ -11,7 +11,7 @@ import { device, rack, status, type Synnax } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Errors } from "@synnaxlabs/pluto";
-import { deep, id, TimeSpan } from "@synnaxlabs/x";
+import { deep, id, narrow, TimeSpan } from "@synnaxlabs/x";
 import {
   act,
   render,
@@ -329,10 +329,10 @@ export const testPropertiesSchema = (
         const aAny = a as Record<string, unknown>;
         for (const key of Object.keys(aAny)) {
           const val = aAny[key];
-          if (val != null && typeof val === "object" && !Array.isArray(val)) {
-            (val as Record<string, unknown>).__test = true;
+          if (narrow.isObject(val)) {
+            val.__test = true;
             expect((b as Record<string, unknown>)[key]).not.toHaveProperty("__test");
-            delete (val as Record<string, unknown>).__test;
+            delete val.__test;
             break;
           }
           if (Array.isArray(val)) {

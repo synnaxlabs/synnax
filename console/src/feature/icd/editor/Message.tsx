@@ -15,10 +15,10 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Fields } from "@/feature/icd/editor/Fields";
 import { FormattedField, parseInteger } from "@/feature/icd/editor/FormattedField";
 import { Identifier, IdentifierFields } from "@/feature/icd/editor/Identifier";
 import { CSS } from "@/platform/css";
+import { ICD } from "@/platform/icd";
 
 const createPayload = (format: icd.PayloadType): icd.Payload => {
   switch (format) {
@@ -29,18 +29,6 @@ const createPayload = (format: icd.PayloadType): icd.Payload => {
     case "json":
       return { format, fields: [] };
   }
-};
-
-interface FieldsStatusProps {
-  /** The form path of the message's fields. */
-  path: deep.Target<unknown[]>;
-}
-
-/** Shows a problem with the fields of the message as a whole. */
-const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null => {
-  const status = Form.useStatuses(path).find(({ key }) => key === String(path));
-  if (status == null) return null;
-  return <Input.HelpText variant={status.variant}>{status.message}</Input.HelpText>;
 };
 
 export interface MessageProps {
@@ -98,8 +86,8 @@ export const Message = ({ path }: MessageProps): ReactElement => {
             <IdentifierFields path={binary} />
           </Form.Section>
           <Form.Section title="Fields">
-            <Fields path={binary.fields} encoding="binary" />
-            <FieldsStatus path={binary.fields} />
+            <ICD.Fields path={binary.fields} encoding="binary" />
+            <ICD.FieldsStatus path={binary.fields} />
           </Form.Section>
         </>
       )}
@@ -112,19 +100,24 @@ export const Message = ({ path }: MessageProps): ReactElement => {
             </Flex.Box>
           </Form.Section>
           <Form.Section title="Delimited fields">
-            <Fields path={text.fields} encoding="delimited" />
+            <ICD.Fields path={text.fields} encoding="delimited" />
           </Form.Section>
           <Form.Section title="Tagged fields">
-            <Fields path={text.fields} encoding="tagged" />
-            <FieldsStatus path={text.fields} />
+            <ICD.Fields path={text.fields} encoding="tagged" />
+            <ICD.FieldsStatus path={text.fields} />
           </Form.Section>
         </>
       )}
       {format === "json" && (
-        <Form.Section title="Fields">
-          <Fields path={json.fields} encoding="json" />
-          <FieldsStatus path={json.fields} />
-        </Form.Section>
+        <>
+          <Form.Section title="Documents">
+            <ICD.Match path={json} />
+          </Form.Section>
+          <Form.Section title="Fields">
+            <ICD.Fields path={json.fields} encoding="json" />
+            <ICD.FieldsStatus path={json.fields} />
+          </Form.Section>
+        </>
       )}
     </Form.Sections>
   );

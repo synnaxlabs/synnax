@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/ethercat/soem/sii.h"
+#include "driver/ethercat/sii/sii.h"
 
-namespace driver::ethercat::soem::sii {
+namespace driver::ethercat::sii {
 namespace {
 constexpr size_t PDO_HEADER_SIZE = 8;
 constexpr size_t PDO_ENTRY_SIZE = 8;
@@ -22,6 +22,21 @@ uint32_t read(const std::span<const uint8_t> data, const size_t offset, const in
         value |= static_cast<uint32_t>(data[offset + i]) << (8 * i);
     return value;
 }
+}
+
+Strings parse_strings(const std::span<const uint8_t> data) {
+    std::vector<std::string> strings;
+    const size_t count = data.empty() ? 0 : data[0];
+    for (size_t off = 1; strings.size() < count && off < data.size();) {
+        const size_t size = data[off];
+        if (off + 1 + size > data.size()) break;
+        strings.emplace_back(data.begin() + off + 1, data.begin() + off + 1 + size);
+        off += 1 + size;
+    }
+    return [strings = std::move(strings)](const uint8_t index) {
+        if (index == 0 || index > strings.size()) return std::string();
+        return strings[index - 1];
+    };
 }
 
 std::vector<pdo::PDO> parse_pdos(

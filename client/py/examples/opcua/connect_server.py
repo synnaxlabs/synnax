@@ -125,7 +125,7 @@ if response in ("", "y", "yes"):
 
     try:
         # Get the embedded rack (local driver rack)
-        rack = client.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack("opc")
         print(f"Using rack: {rack.name} (key={rack.key})")
 
         encrypted = args.tls_auth or args.tls

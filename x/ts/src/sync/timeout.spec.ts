@@ -9,6 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { sleep } from "@/sleep";
 import { withTimeout } from "@/sync/timeout";
 import { TimeSpan } from "@/telem";
 
@@ -93,7 +94,7 @@ describe("withTimeout", () => {
       await settled;
       request.reject(new Error("fetch exploded"));
       vi.useRealTimers();
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await sleep.sleep(TimeSpan.milliseconds(10));
     } finally {
       process.off("unhandledRejection", onRejection);
     }

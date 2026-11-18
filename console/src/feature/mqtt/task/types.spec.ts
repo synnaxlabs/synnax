@@ -19,12 +19,214 @@ const issuesOf = (result: z.ZodSafeParseResult<unknown>) =>
   }));
 
 describe("MQTT Task Types", () => {
+  const read = { message: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a02" };
+  const entry = {
+    type: "plain",
+    key: "e1",
+    topic: "plant/temp",
+    icd: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a01",
+    messages: [read],
+  };
   const tagID = {
     group: "plant",
     edgeNode: "line1",
     device: "oven",
     tag: "temperature",
   };
+  const tagEntry = { type: "sparkplug", key: "s1", ...tagID };
+  const readConfig = (...entries: object[]) => ({ device: "dev-001", entries });
+
+  describe("READ_SCHEMAS", () => {
+    it("should validate the type literal", () => {
+      expect(MQTT.Task.READ_SCHEMAS.type.parse(MQTT.Task.READ_TYPE)).toBe("mqtt_read");
+    });
+
+    it("should default a plain entry to QoS 0 that keeps retained messages", () => {
+      const result = MQTT.Task.READ_SCHEMAS.config.parse(readConfig(entry));
+      expect(result.entries[0]).toMatchObject({
+        qos: "at_most_once",
+        retainedIgnored: false,
+        disabled: false,
+        messages: [{ ...read, bindings: [] }],
+      });
+    });
+
+    it("should accept a Sparkplug B entry in a stored config", () => {
+      const result = MQTT.Task.READ_SCHEMAS.config.parse(
+        readConfig({ type: "sparkplug", key: "s1", group: "g", edgeNode: "n" }),
+      );
+      expect(result.entries[0].type).toBe("sparkplug");
+    });
+  });
+
+  describe("deployReadConfigZ", () => {
+    it("should accept a plain entry that reads one message", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(readConfig(entry));
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should require a device", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse({
+        device: "",
+        entries: [entry],
+      });
+      expect(issuesOf(result)).toEqual([
+        { message: "Device is required", path: "device" },
+      ]);
+    });
+
+    it("should reject an empty topic", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...entry, topic: "" }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: "Topic is required", path: "entries.0.topic" },
+      ]);
+    });
+
+    it.each(["plant/+/temp", "plant/#"])(
+      "should reject the wildcard topic %s",
+      (topic) => {
+        const result = MQTT.Task.deployReadConfigZ.safeParse(
+          readConfig({ ...entry, topic }),
+        );
+        expect(issuesOf(result)).toEqual([
+          {
+            message: "Topic must not hold the wildcards + or #",
+            path: "entries.0.topic",
+          },
+        ]);
+      },
+    );
+
+    it("should reject a topic that two enabled entries share", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(entry, { ...entry, key: "e2" }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: 'Duplicate topic "plant/temp"', path: "entries.1.topic" },
+      ]);
+    });
+
+    it("should allow a disabled entry to share a topic with an enabled one", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(entry, { ...entry, key: "e2", disabled: true }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should accept disabled entries that are not filled in", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(
+          entry,
+          { ...entry, key: "e2", topic: "", disabled: true },
+          { type: "sparkplug", key: "s2", disabled: true },
+        ),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should reject a config with no entries", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(readConfig());
+      expect(issuesOf(result)).toEqual([
+        { message: "At least one entry must be enabled", path: "entries" },
+      ]);
+    });
+
+    it("should reject a config whose entries are all disabled", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...entry, disabled: true }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: "At least one entry must be enabled", path: "entries" },
+      ]);
+    });
+
+    it("should accept a Sparkplug B entry beside a plain entry", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(readConfig(entry, tagEntry));
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should accept a Sparkplug B entry with a timestamp data type", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...tagEntry, dataType: "timestamp" }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should require the group, the edge node, and the tag of a Sparkplug B entry", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...tagEntry, group: "", edgeNode: "", tag: "" }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: "Group is required", path: "entries.0.group" },
+        { message: "Edge node is required", path: "entries.0.edgeNode" },
+        { message: "Tag is required", path: "entries.0.tag" },
+      ]);
+    });
+
+    it.each([
+      ["group", "Group"],
+      ["edgeNode", "Edge node"],
+      ["device", "Device"],
+    ])("should reject a %s that holds a topic character", (field, label) => {
+      for (const id of ["a/b", "a+", "#"]) {
+        const result = MQTT.Task.deployReadConfigZ.safeParse(
+          readConfig({ ...tagEntry, [field]: id }),
+        );
+        expect(issuesOf(result)).toEqual([
+          { message: `${label} must not hold /, +, or #`, path: `entries.0.${field}` },
+        ]);
+      }
+    });
+
+    it("should accept a tag name that holds a slash", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...tagEntry, tag: "Node Control/Rebirth" }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should reject a tag that two enabled entries share", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(tagEntry, { ...tagEntry, key: "s2" }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: 'Duplicate tag "temperature"', path: "entries.1.tag" },
+      ]);
+    });
+
+    it("should allow a disabled entry to share a tag with an enabled one", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(tagEntry, { ...tagEntry, key: "s2", disabled: true }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should tell a tag of a device from a tag of the edge node", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(
+          { ...tagEntry, device: "", tag: "oven/temperature" },
+          { ...tagEntry, key: "s2", device: "oven", tag: "temperature" },
+        ),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should allow a plain topic that reads like the name of a tag", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...entry, topic: "temperature" }, tagEntry),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should count a Sparkplug B entry as an enabled entry", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...entry, disabled: true }, tagEntry),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+  });
 
   const target = {
     type: "plain",
@@ -556,6 +758,11 @@ describe("MQTT Scan Task", () => {
 describe("draft configs", () => {
   // Drafts persist on the Core before configuration, so the shape schema must accept
   // every default config; retrieve parses with it.
+  it("should accept the default read config", () => {
+    const config = MQTT.Task.READ_SCHEMAS.config.parse({});
+    expect(z.validate(MQTT.Task.READ_SCHEMAS.config, config)).toBe(true);
+  });
+
   it("should accept the default write config", () => {
     const config = MQTT.Task.WRITE_SCHEMAS.config.parse({});
     expect(z.validate(MQTT.Task.WRITE_SCHEMAS.config, config)).toBe(true);

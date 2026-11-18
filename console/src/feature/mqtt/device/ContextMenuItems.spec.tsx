@@ -44,12 +44,22 @@ const renderItems = async () => {
 };
 
 describe("MQTT.Device.ContextMenuItems", () => {
-  it("should create a write task draft bound to the device", async () => {
+  it("should create read and write task drafts bound to the device", async () => {
     const { store, dev } = await renderItems();
-    fireEvent.click(await screen.findByText("Create write task"));
-    const writeTab = await resolveFocusedTab(store, client);
+    fireEvent.click(await screen.findByText("Create read task"));
+    const readTab = await resolveFocusedTab(store, client);
+    if (readTab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(readTab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
+    const read = await client.tasks.retrieve({ key: readTab.resource.key });
+    expect(read.type).toBe(MQTT.Task.READ_TYPE);
+    expect(read.config).toMatchObject({ device: dev.key });
+    fireEvent.click(screen.getByText("Create write task"));
+    const writeTab = await resolveFocusedTab(
+      store,
+      client,
+      (t) => t.variant === "resource" && t.resource.key !== readTab.resource.key,
+    );
     if (writeTab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(writeTab.resource.type).toBe(task.TYPE_RESOURCE_ID.type);
     const write = await client.tasks.retrieve({ key: writeTab.resource.key });
     expect(write.type).toBe(MQTT.Task.WRITE_TYPE);
     expect(write.config).toMatchObject({ device: dev.key });

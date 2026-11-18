@@ -66,9 +66,15 @@ const validateEnabled =
         });
     });
 
+export const READ_TYPE = `${PREFIX}_read`;
+
 export interface PlainReadEntry extends mqtt.PlainReadEntry {}
 
 export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
+
+export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
+
+export interface ReadBinding extends mqtt.ReadBinding {}
 
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
   group: sparkplugIDZ("Group").min(1, "Group is required"),
@@ -76,6 +82,11 @@ const DEPLOY_SPARKPLUG_TAG_SHAPE = {
   device: sparkplugIDZ("Device"),
   tag: z.string().min(1, "Tag is required"),
 };
+
+const deployReadEntryZ = z.discriminatedUnion("type", [
+  mqtt.plainReadEntryZ.extend({ topic: deployTopicZ }),
+  mqtt.sparkplugReadEntryZ.extend(DEPLOY_SPARKPLUG_TAG_SHAPE),
+]);
 
 type Item =
   | Pick<PlainReadEntry, "type" | "disabled" | "topic">
@@ -111,6 +122,21 @@ const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
     else seen[item.type].add(key);
   });
 };
+
+export const deployReadConfigZ = mqtt.readConfigZ.extend({
+  device: Task.deviceKeyZ,
+  entries: mqtt.readEntryZ
+    .array()
+    .check(validateEnabled(deployReadEntryZ), validateItems("entry")),
+});
+
+export const READ_SCHEMAS = {
+  type: z.literal(READ_TYPE),
+  config: mqtt.readConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 

@@ -155,6 +155,7 @@ var _ = Describe("Analysis", func() {
 			},
 			Entry("km to m", "km", "meter", 1000.0, false),
 			Entry("ms to s", "ms", "s", 1e-3, false),
+			Entry("um to nm", "um", "nm", 1000.0, false),
 			Entry("psi to Pa", "psi", "Pa", 6894.76, true),
 			Entry("same unit returns 1.0", "psi", "psi", 1.0, false),
 		)

@@ -14,6 +14,11 @@ import { Device as PlatformDevice } from "@/platform/device";
 
 const TASK_CONTEXT_MENU_ITEMS = [
   PlatformDevice.createTaskContextMenuItem({
+    itemKey: "mqtt.readTask",
+    label: "Create read task",
+    useCreate: Task.useCreateRead,
+  }),
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "mqtt.writeTask",
     label: "Create write task",
     useCreate: Task.useCreateWrite,

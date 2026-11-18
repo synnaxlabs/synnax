@@ -28,7 +28,7 @@ const LINE: lineplotClient.Line = {
   yAxis: "y1",
   yChannel: 1,
   xChannel: 0,
-  color: color.construct("#00aaff"),
+  color: { type: "fixed", value: color.construct("#00aaff") },
   strokeWidth: 2,
   aggregation: "min_max",
   detail: "medium",
