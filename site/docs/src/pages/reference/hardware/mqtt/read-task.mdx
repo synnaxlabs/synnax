@@ -353,11 +353,12 @@ The message format belongs to the ICD, not to the task. An edit to it, in the ta
 or in the ICD editor, saves at once. A running task keeps the format that it started
 with, and its task tab shows **Redeploy**. To read with the new format,
 [redeploy the task](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
-In Python, call `client.tasks.configure(task)` again.
+In Python, call `task.start()` again.
 
 An edit can give a field a type that its channel cannot hold. On **Redeploy** in the
-task tab, the Console gives the field a new channel. A configure from Python fails with
-**Failed to configure task**. See [troubleshooting](#troubleshooting).
+task tab, the Console gives the field a new channel. In Python, `client.tasks.configure`
+raises a validation error, and `task.start()` fails with **Failed to configure task**.
+See [troubleshooting](#troubleshooting).
 
 <Divider.Divider x />
 
@@ -503,8 +504,7 @@ saves at once, but the task uses it only after a redeploy.
 </Problem.Cause>
 <Problem.Fix>
 
-Click **Redeploy** in the task tab. In Python, call `client.tasks.configure(task)`
-again.
+Click **Redeploy** in the task tab. In Python, call `task.start()` again.
 
 </Problem.Fix>
 </Problem.Item>
