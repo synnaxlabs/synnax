@@ -21,7 +21,7 @@ import {
   type RenderTaskFormTabOptions,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -225,8 +225,10 @@ describe("Read", () => {
   });
 });
 
-describe("readPlotChannels", () => {
+describe("plotChannels", () => {
   it("should find the enabled fields of every record", () => {
+    const plotChannels = Kafka.Task.INTEGRATION.plotChannels?.[Kafka.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
     const config = {
       records: [
         {
@@ -238,6 +240,6 @@ describe("readPlotChannels", () => {
         { fields: [{ channel: 3, disabled: false }] },
       ],
     };
-    expect(Kafka.Task.readPlotChannels(config)).toEqual([1, 3]);
+    expect(plotChannels(config)).toEqual([1, 3]);
   });
 });

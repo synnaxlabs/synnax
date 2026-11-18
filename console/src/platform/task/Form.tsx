@@ -30,7 +30,6 @@ import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Section } from "@/platform/section";
 import { Controls } from "@/platform/task/controls";
-import { type PlotChannels } from "@/platform/task/plot";
 import { Rack } from "@/platform/task/Rack";
 import { formPath } from "@/platform/task/types";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
@@ -76,15 +75,9 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   deployConfigZ: z.ZodType;
   showHeader?: boolean;
   showControls?: boolean;
-  /** Finds the channels of a read task's config, which the header can plot. */
-  plotChannels?: PlotChannels;
 }
 
-interface HeaderProps {
-  plotChannels?: PlotChannels;
-}
-
-const Header = ({ plotChannels }: HeaderProps) => (
+const Header = () => (
   <div className={CSS.BE("task-configure", "header")}>
     <PForm.Field
       path={formPath.name}
@@ -106,7 +99,7 @@ const Header = ({ plotChannels }: HeaderProps) => (
       <Rack />
     </div>
     <div className={CSS.BE("task-configure", "actions")}>
-      <UtilityButtons plotChannels={plotChannels} />
+      <UtilityButtons />
     </div>
   </div>
 );
@@ -120,7 +113,6 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   onConfigure,
   showHeader = true,
   showControls = true,
-  plotChannels,
 }: WrapFormParams<S>): FC<FormTabProps> => {
   const useForm = PTask.createForm({ schemas });
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
@@ -214,7 +206,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             {...form}
             mode={canEdit ? "normal" : "preview"}
           >
-            {showHeader && <Header plotChannels={plotChannels} />}
+            {showHeader && <Header />}
             {Properties != null && (
               <Flex.Box className={CSS.B("task-properties")} x wrap>
                 <Properties />

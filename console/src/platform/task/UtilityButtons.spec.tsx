@@ -15,7 +15,11 @@ import { beforeEach, describe, expect, it, type Mock } from "vitest";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
-import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
+import {
+  createRegistry,
+  renderInTaskForm,
+  renderInTaskFormWithClient,
+} from "@/platform/task/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import {
@@ -76,6 +80,7 @@ describe("UtilityButtons", () => {
     const configZ = z.object({
       channels: z.array(z.object({ channel: z.number(), disabled: z.boolean() })),
     });
+    const TYPE = "test_read";
     const plotChannels: Task.PlotChannels = (config) =>
       Task.enabledChannels(configZ.parse(config).channels);
 
@@ -85,10 +90,19 @@ describe("UtilityButtons", () => {
     ) => {
       const { container, store } = await renderInTaskFormWithClient(
         <>
-          <Task.UtilityButtons plotChannels={plotChannels} />
+          <Task.UtilityButtons />
           {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
         </>,
-        { client, values: { key: "task_123", name: "My Task", config: { channels } } },
+        {
+          client,
+          values: {
+            key: "task_123",
+            name: "My Task",
+            type: TYPE,
+            config: { channels },
+          },
+          registry: createRegistry({ [TYPE]: plotChannels }),
+        },
       );
       const proj = await client.projects.create({ name: uniqueName("proj") });
       store.dispatch(Session.Project.select(proj.key));

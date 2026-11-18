@@ -28,7 +28,7 @@ import { useState } from "react";
 
 import { ArcItem } from "@/feature/task/ArcItem";
 import { useOpenSelector } from "@/feature/task/Selector";
-import { ownedChannelsOf, PLOT_CHANNELS } from "@/feature/task/types";
+import { ownedChannelsOf } from "@/feature/task/types";
 import {
   type SetDataSavingParams,
   useSetDataSaving,
@@ -494,8 +494,9 @@ const ContextMenu = ({
 }: ContextMenuProps) => {
   const selectedTasks = Store.useItems({ keys, subscribe, getItem });
   const plot = PlatformTask.usePlot();
+  const { getPlotChannels } = PlatformTask.useRegistry();
   const plotTasks = selectedTasks.flatMap(({ name, type, config }) => {
-    const plotChannels = PLOT_CHANNELS[type];
+    const plotChannels = getPlotChannels(type);
     return plotChannels == null ? [] : [{ name, config, plotChannels }];
   });
   const resourceIDs = task.resourceID(keys);

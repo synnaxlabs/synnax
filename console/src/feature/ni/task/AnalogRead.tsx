@@ -273,10 +273,6 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   return [config, rackKey];
 };
 
-/** @returns the channels that a plot of the read task shows. */
-export const analogReadPlotChannels: Task.PlotChannels = (config) =>
-  Task.enabledChannels(ANALOG_READ_SCHEMAS.config.parse(config).channels);
-
 export const AnalogRead = Task.wrapForm({
   Properties,
   Form,
@@ -284,7 +280,6 @@ export const AnalogRead = Task.wrapForm({
   deployConfigZ: deployAnalogReadConfigZ,
   type: "ni_analog_read",
   onConfigure,
-  plotChannels: analogReadPlotChannels,
 });
 
 export const useCreateAnalogRead = Task.createUseCreate({

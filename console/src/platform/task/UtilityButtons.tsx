@@ -17,20 +17,18 @@ import { binary, primitive } from "@synnaxlabs/x";
 
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
-import { type PlotChannels, usePlot } from "@/platform/task/plot";
+import { usePlot } from "@/platform/task/plot";
+import { useRegistry } from "@/platform/task/registry";
 import { formPath } from "@/platform/task/types";
 import { useKey } from "@/platform/task/useKey";
 import { Session } from "@/session";
 
-export interface UtilityButtonsProps {
-  /** Finds the channels of a read task's config. Shows a button that plots them. */
-  plotChannels?: PlotChannels;
-}
-
-export const UtilityButtons = ({ plotChannels }: UtilityButtonsProps) => {
+export const UtilityButtons = () => {
   const ctx = Form.useContext();
   const plot = usePlot();
   const taskKey = useKey();
+  const type = Form.useFieldValue(formPath.type);
+  const plotChannels = useRegistry().getPlotChannels(type);
   const getName = () => ctx.get(formPath.name).value;
   const export_ = Export.useResource();
   const handleExport = () => taskKey != null && export_(task.resourceID(taskKey));

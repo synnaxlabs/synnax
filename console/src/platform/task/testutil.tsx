@@ -22,6 +22,7 @@ import {
 import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, sync, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
@@ -46,6 +47,8 @@ import { type z } from "zod";
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import { type FormTabProps } from "@/platform/task/Form";
+import { type PlotChannels } from "@/platform/task/plot";
+import { type Registry, RegistryProvider } from "@/platform/task/registry";
 import { type CreateParams, type UseCreate } from "@/platform/task/useCreate";
 import { Session } from "@/session";
 import {
@@ -97,6 +100,19 @@ export type TaskFormValues = Record<string, unknown>;
 
 export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 
+const TASK_ICON = <Icon.Task />;
+
+/** Creates a task registry that plots the channels of the given task types. */
+export const createRegistry = (
+  plotChannels: Record<string, PlotChannels> = {},
+): Registry => ({
+  getIcon: () => TASK_ICON,
+  parseType: (type) => type,
+  getPlotChannels: (type) => plotChannels[type],
+});
+
+const DEFAULT_REGISTRY = createRegistry();
+
 /**
  * Renders a real pluto Form context seeded with `values` and invokes `useValue` with
  * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning) be
@@ -120,19 +136,29 @@ interface TaskFormProviderProps extends PropsWithChildren {
   formRef?: FormRef;
   /** Field schemas the form reads through, such as an optional field. */
   schema?: z.ZodType;
+  /** The task registry; one that plots no task type by default. */
+  registry?: Registry;
 }
 
-/** Gives its children a real form with the values, exposed through formRef if given. */
+/**
+ * Gives its children a real form with the values and a task registry. The form is
+ * exposed through formRef if given.
+ */
 const TaskFormProvider = ({
   values,
   mode,
   formRef,
   schema,
+  registry = DEFAULT_REGISTRY,
   children,
 }: TaskFormProviderProps): ReactElement => {
   const ctx = PForm.use<z.ZodType>({ values, mode, schema });
   useImperativeHandle(formRef, () => ctx, [ctx]);
-  return <PForm.Form {...ctx}>{children}</PForm.Form>;
+  return (
+    <RegistryProvider registry={registry}>
+      <PForm.Form {...ctx}>{children}</PForm.Form>
+    </RegistryProvider>
+  );
 };
 TaskFormProvider.displayName = "TaskFormProvider";
 
@@ -174,6 +200,7 @@ export const createTaskStatus = (
 const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
+  type: "test",
   rack: 0,
   configHash: "",
   status: createTaskStatus({
@@ -271,7 +298,7 @@ export const createWithHook = async <S extends task.Schemas>(
 };
 
 export interface RenderInTaskFormOptions
-  extends RenderWithConsoleOptions, Pick<TaskFormProviderProps, "schema"> {
+  extends RenderWithConsoleOptions, Pick<TaskFormProviderProps, "schema" | "registry"> {
   values?: TaskFormValues;
   mode?: PForm.Mode;
 }
@@ -310,7 +337,7 @@ export const renderInTaskForm = async (
   ui: ReactElement,
   options: RenderInTaskFormOptions = {},
 ): Promise<RenderInTaskFormResult> => {
-  const { values, mode, schema, ...rest } = options;
+  const { values, mode, schema, registry, ...rest } = options;
   const formRef: FormRef = { current: null };
   const defaultConfig = DEFAULT_TASK_FORM_VALUES.config as TaskFormValues;
   const merged: TaskFormValues = {
@@ -321,7 +348,13 @@ export const renderInTaskForm = async (
   const tabKey = uuid.create();
   const result = await renderWithConsole(
     <PanelScopes panelKey={uuid.create()} tabKey={tabKey}>
-      <TaskFormProvider values={merged} mode={mode} formRef={formRef} schema={schema}>
+      <TaskFormProvider
+        values={merged}
+        mode={mode}
+        formRef={formRef}
+        schema={schema}
+        registry={registry}
+      >
         {ui}
       </TaskFormProvider>
     </PanelScopes>,
@@ -354,6 +387,7 @@ export const renderInTaskFormWithClient = async (
     values,
     mode,
     schema,
+    registry,
     preloadedState,
     store,
     ...rest
@@ -374,7 +408,13 @@ export const renderInTaskFormWithClient = async (
   const tabKey = uuid.create();
   const result = await renderSuspended(
     <PanelScopes panelKey={panelKey} tabKey={tabKey}>
-      <TaskFormProvider values={merged} mode={mode} formRef={formRef} schema={schema}>
+      <TaskFormProvider
+        values={merged}
+        mode={mode}
+        formRef={formRef}
+        schema={schema}
+        registry={registry}
+      >
         {ui}
       </TaskFormProvider>
     </PanelScopes>,
@@ -438,13 +478,15 @@ export const renderTaskFormTab = async (
   }
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
-      <HaulProvider>
-        <Modals.Stack />
-        <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-          <Form taskKey={taskKey} />
-          {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-        </PanelScopes>
-      </HaulProvider>
+      <RegistryProvider registry={DEFAULT_REGISTRY}>
+        <HaulProvider>
+          <Modals.Stack />
+          <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
+            <Form taskKey={taskKey} />
+            {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+          </PanelScopes>
+        </HaulProvider>
+      </RegistryProvider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },
   );

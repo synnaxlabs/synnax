@@ -27,7 +27,7 @@ import {
   type RenderTaskFormTabOptions,
   reportTaskRunning,
 } from "@/platform/task/testutil";
-import { findIconButton, getLabeledInput, uniqueName } from "@/testutil";
+import { assertDefined, findIconButton, getLabeledInput, uniqueName } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -977,8 +977,10 @@ describe("Read", () => {
   });
 });
 
-describe("readPlotChannels", () => {
+describe("plotChannels", () => {
   it("should find the enabled fields of every endpoint", () => {
+    const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
     const config = {
       endpoints: [
         {
@@ -990,6 +992,6 @@ describe("readPlotChannels", () => {
         { fields: [{ channel: 3, disabled: false }] },
       ],
     };
-    expect(HTTP.Task.readPlotChannels(config)).toEqual([1, 3]);
+    expect(plotChannels(config)).toEqual([1, 3]);
   });
 });

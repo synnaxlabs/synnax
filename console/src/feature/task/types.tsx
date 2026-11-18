@@ -36,10 +36,12 @@ export const INTEGRATIONS: Task.Integration[] = [
   Sift.Task.INTEGRATION,
 ];
 
-/** Finds the channels to plot, by read task type. */
-export const PLOT_CHANNELS: Record<string, Task.PlotChannels> = Object.fromEntries(
+const PLOT_CHANNELS: Record<string, Task.PlotChannels> = Object.fromEntries(
   INTEGRATIONS.flatMap(({ plotChannels }) => Object.entries(plotChannels ?? {})),
 );
+
+export const getPlotChannels = (type: string): Task.PlotChannels | undefined =>
+  PLOT_CHANNELS[type];
 
 const TASK_ICON = <Icon.Task />;
 

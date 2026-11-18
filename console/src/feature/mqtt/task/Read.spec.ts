@@ -21,7 +21,12 @@ import {
   renderTaskFormTab,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, getSwitchInput, uniqueName } from "@/testutil";
+import {
+  assertDefined,
+  findDialogTriggerByText,
+  getSwitchInput,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -1184,8 +1189,10 @@ describe("MQTT Read form", () => {
   });
 });
 
-describe("readPlotChannels", () => {
+describe("plotChannels", () => {
   it("should find the enabled fields of plain entries and enabled Sparkplug tags", () => {
+    const plotChannels = MQTT.Task.INTEGRATION.plotChannels?.[MQTT.Task.READ_TYPE];
+    assertDefined(plotChannels, "read tasks have no channels to plot");
     const config = {
       entries: [
         {
@@ -1200,6 +1207,6 @@ describe("readPlotChannels", () => {
         { type: "sparkplug", channel: 5, disabled: true },
       ],
     };
-    expect(MQTT.Task.readPlotChannels(config)).toEqual([1, 4]);
+    expect(plotChannels(config)).toEqual([1, 4]);
   });
 });

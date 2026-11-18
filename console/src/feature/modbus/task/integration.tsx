@@ -9,10 +9,13 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { readPlotChannels, ReadSelectable } from "@/feature/modbus/task/Read";
-import { PREFIX, READ_TYPE } from "@/feature/modbus/task/types";
+import { ReadSelectable } from "@/feature/modbus/task/Read";
+import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/modbus/task/types";
 import { WriteSelectable } from "@/feature/modbus/task/Write";
-import { type Task } from "@/platform/task";
+import { Task } from "@/platform/task";
+
+const readPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(READ_SCHEMAS.config.parse(config).channels);
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,

@@ -9,10 +9,15 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { readPlotChannels, ReadSelectable } from "@/feature/kafka/task/Read";
-import { PREFIX, READ_TYPE } from "@/feature/kafka/task/types";
+import { ReadSelectable } from "@/feature/kafka/task/Read";
+import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/kafka/task/types";
 import { WriteSelectable } from "@/feature/kafka/task/Write";
-import { type Task } from "@/platform/task";
+import { Task } from "@/platform/task";
+
+const readPlotChannels: Task.PlotChannels = (config) =>
+  Task.enabledChannels(
+    READ_SCHEMAS.config.parse(config).records.flatMap(({ fields }) => fields),
+  );
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,
