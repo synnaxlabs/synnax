@@ -10,7 +10,14 @@
 import "@/menu/ContextMenu.css";
 
 import { box, location, unique, xy } from "@synnaxlabs/x";
-import { type ReactNode, type RefCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type RefCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
@@ -155,13 +162,34 @@ export const useContextMenu = (): UseContextMenuReturn => {
         target: box.construct(prev.cursor, 0, 0),
         prefer: PREFERENCES,
       });
-      const nextPos = box.topLeft(adjustedDialog);
+      // A menu that fits nowhere around the cursor slides into the window.
+      const nextPos = xy.construct(
+        Math.max(
+          0,
+          Math.min(
+            box.left(adjustedDialog),
+            window.innerWidth - box.width(adjustedDialog),
+          ),
+        ),
+        Math.max(
+          0,
+          Math.min(
+            box.top(adjustedDialog),
+            window.innerHeight - box.height(adjustedDialog),
+          ),
+        ),
+      );
       if (xy.equals(prev.position, nextPos)) return prev;
       return { ...prev, position: nextPos };
     });
   };
 
   const resizeRef = useResize(calculatePosition, { enabled: state.visible });
+  // A menu that opens at a new cursor keeps its size, so no resize places it there.
+  const { cursor, visible } = state;
+  useLayoutEffect(() => {
+    if (visible) calculatePosition();
+  }, [visible, cursor]);
   const combinedRef = useCombinedRefs(menuRef, resizeRef);
 
   useWindowResize(calculatePosition, { enabled: state.visible });

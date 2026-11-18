@@ -18,10 +18,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Device, Ranger, Status as PStatus } from "@synnaxlabs/pluto";
+import { Ranger, Status as PStatus } from "@synnaxlabs/pluto";
 import { bounds, TimeRange } from "@synnaxlabs/x";
 
-import { MAKE } from "@/feature/sift/device/types";
+import { Device } from "@/feature/sift/device";
 import { useList } from "@/feature/sift/range/list";
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
 import { CSS } from "@/platform/css";
@@ -84,8 +84,6 @@ const UploadListItem = (props: List.ItemProps<status.Key>) => {
 
 const uploadListItem = Component.renderProp(UploadListItem);
 
-const SIFT_DEVICE_QUERY = { where: { make: { eq: MAKE } }, limit: 1 };
-
 export interface UploadsProps {
   rangeKey: ranger.Key;
 }
@@ -97,12 +95,12 @@ export interface UploadsProps {
  */
 export const Uploads = ({ rangeKey }: UploadsProps) => {
   const rangeName = Ranger.useResult({ key: rangeKey }).data?.name ?? "";
-  const devices = Device.useResultMultiple(SIFT_DEVICE_QUERY).data ?? [];
+  const connected = Device.useConnected();
   const open = useUploadModal();
   const uploads = useList(rangeKey);
   const data = uploads.data ?? [];
   const failed = uploads.variant === "error";
-  if (!failed && data.length === 0 && devices.length === 0) return null;
+  if (!failed && data.length === 0 && !connected) return null;
   return (
     <Flex.Box y>
       <Header.Header level="h4" bordered borderColor={6}>

@@ -39,3 +39,13 @@ class TestEncode:
         """Should encode Unreachable with its message."""
         pld = registry.encode(freighter.Unreachable(message="gone"))
         assert pld == ExceptionPayload(type=freighter.Unreachable.TYPE, data="gone")
+
+
+class TestRoundTrip:
+    def test_timeout(self, registry: Registry) -> None:
+        """Should decode an encoded Timeout into a Timeout with its message."""
+        pld = registry.encode(freighter.Timeout("no response"))
+        assert pld == ExceptionPayload(type="freighter.timeout", data="no response")
+        exc = registry.decode(pld)
+        assert isinstance(exc, freighter.Timeout)
+        assert str(exc) == "no response"

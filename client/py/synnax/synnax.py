@@ -18,9 +18,11 @@ from collections.abc import Callable
 from importlib.metadata import version as _version
 from typing import Self, overload
 
+from urllib3.exceptions import MaxRetryError
+
 from alamos import NOOP, Instrumentation
 from freighter import URL
-from freighter.exceptions import Unreachable
+from freighter.exceptions import Timeout, Unreachable
 from synnax import (
     access as access_,
     arc,
@@ -96,6 +98,17 @@ class _Lazy[T]:
                 self._built[obj._build_lock] = value
                 obj.__dict__[self._name] = value
             return value
+
+
+def _connect_failed(e: BaseException | None) -> bool:
+    """Reports whether a failure to connect caused e. Only that means Synnax Desktop is
+    not running: a read timeout or a reset comes from a Core that is running.
+    """
+    while e is not None:
+        if isinstance(e, MaxRetryError):
+            return True
+        e = e.__cause__
+    return False
 
 
 class Synnax(framer.Client):
@@ -219,7 +232,7 @@ class Synnax(framer.Client):
         try:
             self.auth.authenticate()
         except Unreachable as e:
-            if embedded:
+            if embedded and _connect_failed(e):
                 raise Unreachable(
                     target=e.target, message=DESKTOP_NOT_RUNNING_MSG
                 ) from e
@@ -401,14 +414,15 @@ class Synnax(framer.Client):
     def close(self) -> None:
         """Logs out, shuts down the client, and closes all connections. All open
         iterators or writers must be closed before calling this method. When the Core
-        cannot be reached the session is left to idle out.
+        cannot be reached or does not respond in time, the session is left to idle
+        out.
         """
         # The connectivity thread stops first: a check during the logout would log in
         # again and leave that session open.
         self._finalizer()
         try:
             self.auth.logout()
-        except Unreachable:
+        except (Unreachable, Timeout):
             pass
 
 

@@ -10,84 +10,68 @@
 import { type z } from "zod";
 
 import { type Partial } from "@/deep/partial";
-import { errors } from "@/errors";
 import { narrow } from "@/narrow";
+import { type record } from "@/record";
+
+const merge = (base: unknown, source: unknown): unknown => {
+  if (!narrow.isObject(base) || !narrow.isObject(source)) return base;
+  const out: record.Unknown = { ...base };
+  for (const key in source) {
+    const value = source[key];
+    out[key] = narrow.isObject(value)
+      ? merge(key in base ? base[key] : {}, value)
+      : value;
+  }
+  return out;
+};
 
 /**
- * Overrides the properties of the base object with the existing properties of the
- * provided object(s)
- * @param base - The base object to override
- * @param overrides - The object(s) to override the base object with
+ * Writes the fields of each override over the base, in order. Nested objects merge
+ * field by field, and a nested object over a value that is not an object is dropped.
+ *
+ * @returns the merged value. The base and its nested objects stay unchanged.
  */
-export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
-  if (overrides.length === 0) return base;
-  const source = overrides.shift();
+export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T =>
+  overrides.reduce<T>((merged, source) => merge(merged, source) as T, base);
 
-  if (narrow.isObject(base) && narrow.isObject(source))
-    for (const key in source)
-      try {
-        if (narrow.isObject(source[key])) {
-          if (!(key in base)) Object.assign(base, { [key]: {} });
-          override(base[key], source[key]);
-        } else Object.assign(base, { [key]: source[key] });
-      } catch (e) {
-        if (e instanceof TypeError)
-          throw new TypeError(`.${key}: ${e.message}`, { cause: e });
-        throw errors.fromUnknown(e);
+const mergeValidFields = (base: any, override: any, schema: any): any => {
+  if (schema.def?.type === "union")
+    return schema.def.options.reduce(
+      (merged: any, option: any) => mergeValidFields(merged, override, option),
+      base,
+    );
+  if (schema.def?.type === "intersection") {
+    const left = mergeValidFields(base, override, schema.def.left);
+    return mergeValidFields(left, override, schema.def.right);
+  }
+  const out = { ...base };
+  for (const key in override) {
+    const value = override[key];
+    let shape = schema?.shape;
+    while (shape != null) {
+      if (shape[key] != null) {
+        const result = shape[key].safeParse(value);
+        if (result.success) {
+          out[key] = result.data;
+          break;
+        }
       }
-
-  return override(base, ...overrides);
+      shape = shape.def?.shape;
+    }
+    if (narrow.isObject(value) && schema?.shape?.[key] != null)
+      out[key] = mergeValidFields(out[key] || {}, value, schema.shape[key]);
+  }
+  return out;
 };
 
-export const overrideValidItems = <A, B>(
+/**
+ * Writes each field of the override that the schema accepts over the base. Nested
+ * objects merge field by field.
+ *
+ * @returns the merged value. The base and its nested objects stay unchanged.
+ */
+export const overrideValidItems = <A>(
   base: A,
-  override: B,
+  override: unknown,
   schema: z.ZodType<A>,
-): A => {
-  const mergeValidFields = (
-    baseObj: any,
-    overrideObj: any,
-    currentSchema: any,
-  ): any => {
-    if (currentSchema.def?.type === "union")
-      return currentSchema.def.options.reduce(
-        (acc: any, option: any) => mergeValidFields(acc, overrideObj, option),
-        baseObj,
-      );
-    if (currentSchema.def?.type === "intersection") {
-      const out = mergeValidFields(baseObj, overrideObj, currentSchema.def.left);
-      const right = mergeValidFields(out, overrideObj, currentSchema.def.right);
-      return right;
-    }
-
-    for (const key in overrideObj) {
-      const overrideValue = overrideObj[key];
-      let shape = currentSchema?.shape;
-      if (shape != null)
-        while (shape != null) {
-          if (shape[key] != null) {
-            const result = shape[key].safeParse(overrideValue);
-            if (result.success) {
-              baseObj[key] = result.data;
-              break;
-            }
-          }
-          shape = shape.def?.shape;
-        }
-
-      if (
-        typeof overrideValue === "object" &&
-        !Array.isArray(overrideValue) &&
-        overrideValue !== null
-      )
-        if (currentSchema && currentSchema.shape && currentSchema.shape[key]) {
-          // If it's a nested object, recurse into it only if a valid schema exists
-          baseObj[key] ||= {};
-          mergeValidFields(baseObj[key], overrideValue, currentSchema.shape[key]);
-        }
-    }
-    return baseObj;
-  };
-
-  return mergeValidFields({ ...base }, override, schema);
-};
+): A => mergeValidFields(base, override, schema);
