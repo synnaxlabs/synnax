@@ -358,7 +358,10 @@ func (t *impl) newFactory(
 	if err != nil {
 		return nil, err
 	}
-	f := node.CompoundFactory{
+	// One more slot holds the WASM guest when the program has one.
+	f := make(node.CompoundFactory, 0, 13)
+	f = append(
+		f,
 		h.channels,
 		h.stateful,
 		h.time,
@@ -371,7 +374,7 @@ func (t *impl) newFactory(
 		rangesMod,
 		stlcontrol.NewHost(drt.state.authority),
 		h.math,
-	}
+	)
 	if len(t.prog.Program.WASM) == 0 {
 		return f, nil
 	}
