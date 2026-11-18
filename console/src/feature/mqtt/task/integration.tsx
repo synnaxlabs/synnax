@@ -21,7 +21,11 @@ const readPlotChannels: Task.PlotChannels = (config) =>
       .parse(config)
       .entries.filter(({ disabled }) => !disabled)
       .flatMap<Task.PlotEntry>((entry) =>
-        entry.type === "plain" ? entry.fields : [entry],
+        entry.type === "plain"
+          ? entry.messages.flatMap(({ bindings }) =>
+              bindings.map(({ channel }) => ({ channel, disabled: false })),
+            )
+          : [entry],
       ),
   );
 

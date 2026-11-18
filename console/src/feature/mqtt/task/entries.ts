@@ -8,17 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { channel, mqtt } from "@synnaxlabs/client";
-import { DataType } from "@synnaxlabs/x";
 
-import { createReadFields } from "@/feature/mqtt/task/createReadFields";
+import { createLeaves, createRawLeaf, type Leaf } from "@/feature/mqtt/task/leaves";
 import {
   fromSparkplugDataType,
   toSparkplugDataType,
 } from "@/feature/mqtt/task/sparkplug";
 import {
   type BrowsedTopic,
-  type PlainReadEntry,
-  type ReadField,
   type SparkplugReadEntry,
   type SparkplugTag,
 } from "@/feature/mqtt/task/types";
@@ -26,9 +23,6 @@ import {
 /** The prefix configure gives the channels of a topic's fields. */
 export const namePrefix = (devName: string, topic: string): string =>
   `${channel.escapeInvalidName(devName)}_${channel.escapeInvalidName(topic)}`;
-
-export const createEntry = (): PlainReadEntry =>
-  mqtt.plainReadEntryZ.parse({ type: "plain" });
 
 export const createSparkplugEntry = (tag?: SparkplugTag): SparkplugReadEntry => {
   const entry = mqtt.sparkplugReadEntryZ.parse({ type: "sparkplug" });
@@ -62,13 +56,11 @@ export const sampleAt = (
 };
 
 /**
- * The fields a browsed topic offers. A payload that is not JSON offers itself as one
- * string field.
+ * The values a browsed topic offers. A payload that is not JSON offers itself as one
+ * string.
  */
-export const leavesOf = ({ payload, fields: scalars }: BrowsedTopic): ReadField[] => {
-  const fields = createReadFields(scalars);
-  if (fields.length > 0 || payload === "") return fields;
-  return [
-    { ...mqtt.readFieldZ.parse({}), pointer: "", dataType: DataType.STRING.toString() },
-  ];
+export const leavesOf = ({ payload, fields }: BrowsedTopic): Leaf[] => {
+  const leaves = createLeaves(fields);
+  if (leaves.length > 0 || payload === "") return leaves;
+  return [createRawLeaf()];
 };

@@ -82,7 +82,6 @@ const Labels = ({ rangeKey, preview }: RangeKeyProps & { preview: boolean }) => 
     });
   return (
     <Label.SelectMultiple
-      zIndex={100}
       variant="floating"
       className={CSS.BE("range-overview", "labels-select")}
       value={value}

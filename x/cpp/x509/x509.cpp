@@ -116,7 +116,7 @@ struct Attribute {
     std::string oid;
     /// @brief the value as UTF-8 when text is true, or else "#" and the hex of its DER.
     std::string value;
-    /// @brief true when the value is one of the string types that Go reads as text.
+    /// @brief true when the value is a string type that decodes to UTF-8.
     bool text = true;
 };
 
@@ -187,7 +187,7 @@ bool text_tag(const int tag) {
 }
 
 /// @returns the attributes of a DER encoded name in the order of the encoding, or
-/// nothing when Go refuses the name.
+/// nothing when the encoding is not valid.
 std::optional<std::vector<Attribute>> read_attributes(const mbedtls_x509_buf &raw) {
     std::vector<Attribute> attrs;
     unsigned char *p = raw.p;
@@ -218,10 +218,13 @@ std::optional<std::vector<Attribute>> read_attributes(const mbedtls_x509_buf &ra
                 return std::nullopt;
             Attribute attr{.oid = dotted.data()};
             const std::string_view value(reinterpret_cast<const char *>(p), len);
-            if (text_tag(tag)) {
-                auto decoded = decode_text(tag, value);
-                if (!decoded) return std::nullopt;
-                attr.value = std::move(*decoded);
+            auto text = decode_text(tag, value);
+            // Go refuses the whole certificate here. The raw bytes keep a name such as
+            // CN=PLC_01 readable.
+            if (!text && text_tag(tag) && strings::valid_utf8(value))
+                text = std::string(value);
+            if (text) {
+                attr.value = std::move(*text);
             } else {
                 attr.text = false;
                 attr.value = "#" + hex(std::string_view(
@@ -271,7 +274,7 @@ std::string escape(const std::string &value) {
 }
 
 /// @returns the name in the form of Go's pkix.Name.String(), which the Core stores,
-/// or nothing when Go refuses the name.
+/// or nothing when the encoding is not valid.
 std::optional<std::string> format_name(const mbedtls_x509_buf &raw) {
     const auto attrs = read_attributes(raw);
     if (!attrs) return std::nullopt;
@@ -337,10 +340,7 @@ std::pair<Certificate, errors::Error> Certificate::parse(const std::string_view 
     if (!subject || !issuer)
         return {
             Certificate(),
-            errors::Error(
-                INVALID,
-                "Failed to parse certificate: a name holds text that is not valid."
-            )
+            errors::Error(INVALID, "Failed to parse certificate: a name is not valid.")
         };
     Certificate cert;
     cert.der_bytes.assign(reinterpret_cast<const char *>(crt.raw.p), crt.raw.len);

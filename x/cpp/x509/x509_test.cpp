@@ -121,15 +121,15 @@ W9WtvFisAUytADsOcOuK
 -----END CERTIFICATE-----
 )";
 
-/// @brief a certificate whose subject holds a PrintableString with an underscore.
-const std::string CERT_BAD_PRINTABLE = R"(-----BEGIN CERTIFICATE-----
-MIIBNjCB3aADAgECAgEHMAoGCCqGSM49BAMCMCUxFTATBgNVBAMTDGJhZHByaW50
-YWJsZTEMMAoGA1UEChMDYV9iMB4XDTI2MDEwMTAwMDAwMFoXDTI3MDEwMTAwMDAw
-MFowJTEVMBMGA1UEAxMMYmFkcHJpbnRhYmxlMQwwCgYDVQQKEwNhX2IwWTATBgcq
-hkjOPQIBBggqhkjOPQMBBwNCAAQhKBi61UWdrGLDI0QktuYTULuPoct4pRxIMKXf
-//riq7k4tSf0NsRMOLAINFNt39A66OgYxQDNvcmI9YKuFNUoMAoGCCqGSM49BAMC
-A0gAMEUCIQDvvA6jtjXx3D1SNDtq//EWADlXYveQgS6lT516HyMrMgIgfBGmos6z
-T4bhGz5Esl548HbqvdI0Vz4k4vqypdZQa/o=
+/// @brief a certificate whose subject and issuer hold CN=PLC_01 as a PrintableString,
+/// which Go refuses for its underscore.
+const std::string CERT_PLC = R"(-----BEGIN CERTIFICATE-----
+MIIBDzCBtaADAgECAgEHMAoGCCqGSM49BAMCMBExDzANBgNVBAMTBlBMQ18wMTAe
+Fw0yNjAxMDEwMDAwMDBaFw0yNzAxMDEwMDAwMDBaMBExDzANBgNVBAMTBlBMQ18w
+MTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABP6ShaQQAsVB4MXyrQhjY+i5TB2Q
+mw0Kp2bTPGU1kbxeQ+YRsgu81HVE/oFLwg2RKKFplP5nX2hEqVdJ6eUzT/AwCgYI
+KoZIzj0EAwIDSQAwRgIhAM6hUXFU3y33cK28Rggw0qUI/ESTeMYk3ruOD4Vi6f1m
+AiEA61+Cv4ctjunZDcLqhyRWv1PVyPldZ5/gAOXI3QAozQs=
 -----END CERTIFICATE-----
 )";
 
@@ -181,16 +181,14 @@ TEST(CertificateTest, NonTextValuesMatchCore) {
     );
 }
 
-/// @brief it should reject a certificate whose names Go refuses.
-TEST(CertificateTest, ParseRejectsInvalidNames) {
-    for (const auto &pem: {CERT_BAD_UTF8, CERT_BAD_BMP, CERT_BAD_PRINTABLE}) {
-        const auto [cert, err] = Certificate::parse(pem);
-        ASSERT_MATCHES(err, INVALID);
-        ASSERT_EQ(
-            err.data,
-            "Failed to parse certificate: a name holds text that is not valid."
-        );
-    }
+/// @brief it should print a name value that Go refuses as its bytes when they are
+/// UTF-8, and leave it out when they are not.
+TEST(CertificateTest, NamesGoRefuses) {
+    const auto plc = ASSERT_NIL_P(Certificate::parse(CERT_PLC));
+    ASSERT_EQ(plc.subject(), "CN=PLC_01");
+    ASSERT_EQ(plc.issuer(), "CN=PLC_01");
+    ASSERT_EQ(ASSERT_NIL_P(Certificate::parse(CERT_BAD_UTF8)).subject(), "CN=badutf8");
+    ASSERT_EQ(ASSERT_NIL_P(Certificate::parse(CERT_BAD_BMP)).subject(), "CN=badbmp");
 }
 
 /// @brief it should clamp the validity period to the range of a TimeStamp, as the

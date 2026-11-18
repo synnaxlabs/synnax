@@ -9,6 +9,7 @@
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { deep, TimeStamp } from "@synnaxlabs/x";
+import { fireEvent, screen, within } from "@testing-library/react";
 
 import {
   MAKE,
@@ -90,4 +91,10 @@ export const openScanner = async (
     },
     close: () => streamer.close(),
   };
+};
+
+/** Opens the Add data dialog of a task form, and returns queries scoped to it. */
+export const openAddData = async () => {
+  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+  return within(await screen.findByRole("dialog"));
 };
