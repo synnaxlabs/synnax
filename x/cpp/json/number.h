@@ -44,6 +44,10 @@ public:
     /// @brief creates a number equal to v, which errors print without the text of a
     /// JSON number.
     explicit Number(double v);
+    /// @brief creates a number equal to v.
+    explicit Number(std::int64_t v);
+    /// @brief creates a number equal to v.
+    explicit Number(std::uint64_t v);
 
     /// @brief parses the text of a JSON number.
     /// @returns VALIDATION when text is not a decimal number, or is past the range of a
