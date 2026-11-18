@@ -9,7 +9,6 @@
 
 import { icd, mqtt, type rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -24,6 +23,7 @@ import {
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { assertDefined, findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -162,6 +162,21 @@ const removeMessage = async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =
     key,
     icd.remove({ path: ["messages"], key: messages[0].message }),
   );
+
+const setTextFormat = async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =>
+  await client.icds.dispatch(
+    key,
+    icd.set({
+      path: ["messages", messages[0].message, "payload"],
+      value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+    }),
+  );
+
+const NOT_JSON_NOTE =
+  "The format of this message is not JSON. Open it to change its format.";
+
+const selectedIn = (store: { getState: () => Session.State }, key: icd.Key) =>
+  documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.selected;
 
 /** Gives a field of the entry's message a new kind, in the ICD. */
 const retype = async (
@@ -492,18 +507,7 @@ describe("MQTT read form", () => {
 
   it.each([
     { name: "gone", note: "Message not found", change: removeMessage },
-    {
-      name: "not JSON",
-      note: "The format of this message is not JSON. Open it to change its format.",
-      change: async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =>
-        await client.icds.dispatch(
-          key,
-          icd.set({
-            path: ["messages", messages[0].message, "payload"],
-            value: { format: "text", delimiter: ",", prefix: "", fields: [] },
-          }),
-        ),
-    },
+    { name: "not JSON", note: NOT_JSON_NOTE, change: setTextFormat },
   ])(
     "should not offer Add field for a topic whose message is $name",
     async ({ note, change }) => {
@@ -629,8 +633,37 @@ describe("MQTT read form", () => {
       const { store } = await renderRead({ entries: [entry] });
       fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
-      const { windows } = store.getState()[Session.ICD.SLICE_NAME];
-      expect(windows[MAIN_WINDOW]?.[entry.icd]?.selected).toEqual([status.key]);
+      expect(selectedIn(store, entry.icd)).toEqual([status.key]);
+    });
+
+    it("should open the editor at a message that is not JSON", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { store } = await renderRead({
+        entries: [entry],
+        beforeRender: () => setTextFormat(entry),
+      });
+      await screen.findByText(NOT_JSON_NOTE);
+      fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
+      expect(selectedIn(store, entry.icd)).toEqual([entry.messages[0].message]);
+    });
+
+    it("should open the editor at the message of the selected field", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const status = await addMessage(
+        entry,
+        "status",
+        [createField("mode", "string")],
+        KIND_MATCH,
+      );
+      const { store } = await renderRead({ entries: [entry] });
+      fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^mode/ }));
+      fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
+      expect(selectedIn(store, entry.icd)).toEqual([status.key]);
     });
 
     it("should add a message that matches at the pointer of the others", async () => {
