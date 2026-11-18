@@ -43,7 +43,7 @@ const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   const icon = Panel.useIcon({ key: props.itemKey });
   const resolve = Color.useResolve();
   const ref = Panel.useColor({ key: props.itemKey });
-  const color = ref == null ? undefined : resolve(ref);
+  const color = resolve(ref);
   return (
     <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
       {Appearance.renderIcon({ icon, color, fallback: Icon.Panel })}

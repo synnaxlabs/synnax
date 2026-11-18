@@ -181,7 +181,7 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
   const icon = Panel.useIcon({ key: tabKey });
   const resolve = Color.useResolve();
   const ref = Panel.useColor({ key: tabKey });
-  const color = ref == null ? undefined : resolve(ref);
+  const color = resolve(ref);
   const draft = Panel.useDraft({ key: tabKey });
   const canEdit = Panel.useCanEdit({ key: tabKey });
   const { update: rename } = Panel.useRename();

@@ -90,6 +90,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 // fixedColor returns a fixed color reference to the hex color.
 func fixedColor(hex string) *color.Ref {
+	GinkgoHelper()
 	return &color.Ref{Variant: color.FixedRef{Value: MustSucceed(xcolor.Parse(hex))}}
 }
 

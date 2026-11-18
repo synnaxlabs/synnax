@@ -11,7 +11,14 @@ import { type color } from "@synnaxlabs/client";
 import { type color as xcolor, deep, type record } from "@synnaxlabs/x";
 
 import { type ColorRef } from "@/platform/multiedit/config";
-import { fixedRef, fixedValue } from "@/platform/multiedit/fixed";
+import { fixedRef } from "@/platform/multiedit/fixed";
+
+// A control that hides the palettes never sends a named reference.
+const fixedColor = (ref: color.Ref): xcolor.Color => {
+  if (ref.type === "named")
+    throw new Error(`[multiedit] - named color ${ref.key} in a color value field`);
+  return ref.value;
+};
 
 /**
  * @returns a copy of the config with each path set to its value. An undefined value
@@ -160,7 +167,7 @@ export const selection = <C extends { variant: string }>({
           next: patch(base, [
             [
               field,
-              value != null && storesValue(base, field) ? fixedValue(value) : value,
+              value != null && storesValue(base, field) ? fixedColor(value) : value,
             ],
           ]),
         })),
@@ -174,7 +181,7 @@ export const selection = <C extends { variant: string }>({
             if (base == null) throw new Error(`[multiedit] - no config for ${key}`);
             const entries = group.map((r): [string, unknown] => [
               r.path,
-              r.valueOnly === true ? fixedValue(value) : value,
+              r.valueOnly === true ? fixedColor(value) : value,
             ]);
             return { key, base, next: patch(base, entries) };
           },

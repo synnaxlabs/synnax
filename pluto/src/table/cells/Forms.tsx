@@ -122,10 +122,7 @@ export const ValueForm = ({ tab, onTabChange }: FormProps) => {
         </Form.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="redline">
-        <Value.RedlineForm
-          path={path.redline}
-          background={fill == null ? undefined : resolve(fill)}
-        />
+        <Value.RedlineForm path={path.redline} background={resolve(fill)} />
       </Tabs.Content>
     </Properties.Tabs>
   );

@@ -101,7 +101,7 @@ export const use = ({
   const resolve = Color.useResolve();
   const channelColors: Record<string, xcolor.Color> = {};
   for (const e of channels) {
-    const c = e.color == null ? undefined : resolve(e.color);
+    const c = resolve(e.color);
     if (c != null) channelColors[String(e.channel)] = c;
   }
 

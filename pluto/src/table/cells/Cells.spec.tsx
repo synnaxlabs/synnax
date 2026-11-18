@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { table } from "@synnaxlabs/client";
-import { box, TimeSpan } from "@synnaxlabs/x";
+import { color, table } from "@synnaxlabs/client";
+import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { box, color as xcolor, id, TimeSpan } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -16,6 +17,7 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
 import { Cell } from "@/table/cells";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const valueState = z.object({ stalenessTimeout: z.number().optional() }).loose();
 
@@ -65,5 +67,47 @@ describe("Cells.Value", () => {
         Number(TimeSpan.seconds(2).valueOf()),
       ),
     );
+  });
+});
+
+describe("Cells.Text", () => {
+  it("should fill with its named color and repaint when the color changes", async () => {
+    const client = createTestClient();
+    const wrapper = await createAsyncSynnaxWrapper({ client });
+    await waitForStreamLive(client.connection);
+    const named = await client.colors.create({
+      name: `fill-${id.create()}`,
+      light: "#123456",
+    });
+    const { container } = render(
+      <table>
+        <tbody>
+          <tr>
+            <Cell.Text
+              {...table.textCellConfigZ.parse({
+                variant: "text",
+                value: "A",
+                fillColor: { type: "named", key: named.key },
+              })}
+              cellKey="c1"
+              box={box.construct(0, 0, 100, 20)}
+              selected={false}
+              editable={false}
+              onSelect={vi.fn()}
+              onChange={vi.fn()}
+            />
+          </tr>
+        </tbody>
+      </table>,
+      { wrapper },
+    );
+    const fill = (): string | undefined =>
+      container.querySelector<HTMLElement>("#c1")?.style.backgroundColor;
+    await waitFor(() => expect(fill()).toBe("rgb(18, 52, 86)"));
+    await client.colors.dispatch(
+      named.key,
+      color.set({ path: ["light"], value: xcolor.construct("#654321") }),
+    );
+    await waitFor(() => expect(fill()).toBe("rgb(101, 67, 33)"));
   });
 });
