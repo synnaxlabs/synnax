@@ -948,6 +948,20 @@ TEST_F(IGHMasterTest, ActivateFailsOnceNoSlaveReachesOPForTheTimeout) {
     EXPECT_LT(elapsed, std::chrono::seconds(18));
 }
 
+/// @brief it should stop waiting for OP once the cancel of the plan stops.
+TEST_F(IGHMasterTest, ActivateEndsWhenCanceled) {
+    this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
+    ASSERT_NIL_P(this->master.scan());
+    x::breaker::Breaker cancel;
+    cancel.start();
+    const auto activation = this->master.activate(
+        {.period = PERIOD, .slaves = this->configs, .cancel = &cancel},
+        [&cancel](const master::Image &) { cancel.stop(); }
+    );
+    ASSERT_OCCURRED_AS(activation.err, x::errors::CANCELLED);
+    EXPECT_EQ(activation.err.data, "the start stopped before the slaves reached OP");
+}
+
 /// @brief it should start when a slave whose configuration state it cannot read is in
 /// OP.
 TEST_F(IGHMasterTest, ActivateStartsWhenAnUnreadableSlaveIsInOP) {

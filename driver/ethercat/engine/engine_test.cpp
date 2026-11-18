@@ -144,6 +144,15 @@ Config quick_start_config() {
     return cfg;
 }
 
+/// @brief returns a config whose failed start waits a minute before it tries again.
+Config slow_retry_config() {
+    auto cfg = quick_start_config();
+    cfg.start_retry.base_interval = x::telem::MINUTE;
+    cfg.start_retry.max_interval = x::telem::MINUTE;
+    cfg.start_timeout = x::telem::HOUR;
+    return cfg;
+}
+
 /// @brief an engine configuration whose slave settings disable slave.
 Config disabling(const slave::Properties &slave) {
     Config cfg;
@@ -2785,43 +2794,78 @@ TEST_F(EngineTest, StartGetsTheRestOfTheStartTimeout) {
     EXPECT_EQ(this->master->call_count("activate"), 1);
 }
 
-/// @brief it should fail an open that still waits for the start of another task at the
-/// start timeout.
-TEST_F(EngineTest, OpenBehindAStartFailsAtTheStartTimeout) {
-    Config cfg;
-    cfg.start_timeout = x::telem::MILLISECOND * 100;
-    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
-    this->master->hold_activate();
-    std::thread opener([this] {
-        auto [reader, err] = this->engine->open_reader(
+/// @brief opens a reader on engine in a thread whose start fails, and returns once the
+/// start waits to try again. The start holds the bus, but brings no slaves to OP, until
+/// cancel stops.
+std::thread
+open_retrying(const std::shared_ptr<Engine> &engine, x::breaker::Breaker &cancel) {
+    auto retrying = std::make_shared<std::promise<void>>();
+    auto waiting = retrying->get_future();
+    auto log = std::make_shared<StepLog>();
+    log->on_step = [retrying](const Engine::Step &step) {
+        if (step.message == "Retrying the start") retrying->set_value();
+    };
+    std::thread opener([engine, &cancel, log] {
+        auto [reader, err] = engine->open_reader(
             {IN_I16},
             x::telem::Rate(100),
             1,
-            this->engine->begin_start(this->cancel)
+            engine->begin_start(cancel, log->report())
         );
     });
-    this->master->wait_until_activating();
-    const auto res = this->engine->open_reader(
-        {IN_I16},
-        x::telem::Rate(100),
-        1,
-        this->engine->begin_start(this->cancel)
+    waiting.wait();
+    return opener;
+}
+
+/// @brief it should fail an open that waits for another start at the start timeout,
+/// when that start brings no slaves to OP.
+TEST_F(EngineTest, OpenBehindAStartFailsAtTheStartTimeout) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, slow_retry_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
     );
-    this->master->release_activate();
+    x::breaker::Breaker retrying;
+    retrying.start();
+    auto opener = open_retrying(this->engine, retrying);
+    auto start = this->engine->begin_start(this->cancel);
+    start.deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+    const auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, start);
+    retrying.stop();
     opener.join();
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
     EXPECT_EQ(res.second.data, "Another task is still using eth0.");
 }
 
-/// @brief it should fail a writer that still waits for the start of another task at the
-/// start timeout.
+/// @brief it should fail a writer that waits for another start at the start timeout,
+/// when that start brings no slaves to OP.
 TEST_F(EngineTest, WriterBehindAStartFailsAtTheStartTimeout) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, slow_retry_config());
+    this->master->inject_activate_error(
+        x::errors::Error(errors::ACTIVATION_ERROR, "activate failed")
+    );
+    x::breaker::Breaker retrying;
+    retrying.start();
+    auto opener = open_retrying(this->engine, retrying);
+    auto start = this->engine->begin_start(this->cancel);
+    start.deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+    const auto res = this->engine
+                         ->open_writer({{OUT_I16, 0}}, x::telem::Rate(100), start);
+    retrying.stop();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
+}
+
+/// @brief it should keep an open waiting past the start timeout while another start
+/// brings the slaves to OP.
+TEST_F(EngineTest, OpenBehindAStartWaitsWhileTheSlavesReachOP) {
     Config cfg;
     cfg.start_timeout = x::telem::MILLISECOND * 100;
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     this->master->hold_activate();
-    std::thread opener([this] {
-        auto [reader, err] = this->engine->open_reader(
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> first;
+    std::thread opener([this, &first] {
+        first = this->engine->open_reader(
             {IN_I16},
             x::telem::Rate(100),
             1,
@@ -2829,15 +2873,20 @@ TEST_F(EngineTest, WriterBehindAStartFailsAtTheStartTimeout) {
         );
     });
     this->master->wait_until_activating();
-    const auto res = this->engine->open_writer(
-        {{OUT_I16, 0}},
+    std::thread releaser([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        this->master->release_activate();
+    });
+    const auto second = this->engine->open_reader(
+        {IN_I16},
         x::telem::Rate(100),
+        1,
         this->engine->begin_start(this->cancel)
     );
-    this->master->release_activate();
+    releaser.join();
     opener.join();
-    ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
+    ASSERT_NIL(first.second);
+    ASSERT_NIL(second.second);
 }
 
 /// @brief it should end the wait of an open for the start of another task when its
@@ -2866,9 +2915,41 @@ TEST_F(EngineTest, OpenBehindAStartEndsWhenCanceled) {
     EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
 }
 
-/// @brief it should fail an open that reads the slave settings while another open does,
-/// when that other open still starts the bus at the deadline.
-TEST_F(EngineTest, OpenBehindAStartAfterItsSettingsReadFailsAtTheDeadline) {
+/// @brief it should end a start with no retry when its cancel stops while the slaves
+/// reach OP.
+TEST_F(EngineTest, StartEndsWhenCanceledWhileTheSlavesReachOP) {
+    this->master->hold_activate();
+    x::breaker::Breaker cancel;
+    cancel.start();
+    StepLog log;
+    std::atomic<bool> finished = false;
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> res;
+    std::thread opener([this, &cancel, &log, &finished, &res] {
+        res = this->engine->open_reader(
+            {IN_I16},
+            x::telem::Rate(100),
+            1,
+            this->engine->begin_start(cancel, log.report())
+        );
+        finished = true;
+    });
+    this->master->wait_until_activating();
+    cancel.stop();
+    for (int i = 0; i < 5000 && !finished.load(); ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    EXPECT_TRUE(finished.load());
+    this->master->release_activate();
+    opener.join();
+    ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
+    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    const auto steps = log.snapshot();
+    ASSERT_EQ(steps.size(), 1);
+    EXPECT_EQ(steps[0].message, "Starting eth0");
+}
+
+/// @brief it should keep an open that reads the slave settings while another open does
+/// waiting past the start timeout while that other open brings the slaves to OP.
+TEST_F(EngineTest, OpenAfterItsSettingsReadWaitsWhileTheSlavesReachOP) {
     Config cfg;
     cfg.start_timeout = x::telem::MILLISECOND * 100;
     const auto second_reads = std::make_shared<std::promise<void>>();
@@ -2886,30 +2967,27 @@ TEST_F(EngineTest, OpenBehindAStartAfterItsSettingsReadFailsAtTheDeadline) {
     this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
     this->master->hold_activate();
     std::atomic<int> finished = 0;
-    std::array<x::errors::Error, 2> errs;
-    const auto open = [&](x::errors::Error &err) {
-        err = this->engine
-                  ->open_reader(
-                      {IN_I16},
-                      x::telem::Rate(100),
-                      1,
-                      this->engine->begin_start(this->cancel)
-                  )
-                  .second;
-        finished++;
-    };
-    std::thread first(open, std::ref(errs[0]));
-    std::thread second(open, std::ref(errs[1]));
-    for (int i = 0; i < 5000 && finished.load() == 0; ++i)
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    EXPECT_EQ(finished.load(), 1);
+    std::array<std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error>, 2> opens;
+    const auto open =
+        [&](std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> &res) {
+            res = this->engine->open_reader(
+                {IN_I16},
+                x::telem::Rate(100),
+                1,
+                this->engine->begin_start(this->cancel)
+            );
+            finished++;
+        };
+    std::thread first(open, std::ref(opens[0]));
+    std::thread second(open, std::ref(opens[1]));
+    this->master->wait_until_activating();
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    EXPECT_EQ(finished.load(), 0);
     this->master->release_activate();
     first.join();
     second.join();
-    const auto &failed = errs[0] ? errs[0] : errs[1];
-    ASSERT_OCCURRED_AS(failed, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(failed.data, "Another task is still using eth0.");
-    EXPECT_NIL(errs[0] ? errs[1] : errs[0]);
+    EXPECT_NIL(opens[0].second);
+    EXPECT_NIL(opens[1].second);
 }
 
 /// @brief it should fail a start whose deadline passed in the read of the slave
