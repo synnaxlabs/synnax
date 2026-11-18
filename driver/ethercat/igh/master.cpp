@@ -845,7 +845,8 @@ master::Activation Master::activate(
 }
 
 master::Activation Master::wait_for_op() {
-    const auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
+    auto deadline = this->cfg.clock.steady() + this->cfg.op_timeout.chrono();
+    size_t waiting = this->slave_configs.size();
     std::optional<std::chrono::steady_clock::time_point> reset_at;
     while (true) {
         std::vector<uint16_t> pending;
@@ -857,6 +858,10 @@ master::Activation Master::wait_for_op() {
         }
         if (pending.empty()) return {};
         const auto now = this->cfg.clock.steady();
+        if (pending.size() < waiting) {
+            waiting = pending.size();
+            deadline = now + this->cfg.op_timeout.chrono();
+        }
         if (now >= deadline) return this->op_error(pending, true);
         if (this->refusing(pending)) {
             if (!reset_at) {
@@ -928,8 +933,10 @@ Master::op_error(const std::vector<uint16_t> &pending, const bool timed_out) {
         activation.refusals.empty() ? errors::STATE_CHANGE_ERROR
                                     : errors::STATE_CHANGE_REFUSED,
         "failed to reach OP" +
-            (timed_out ? " within " + this->cfg.op_timeout.to_string() : "") + ": " +
-            msg
+            (timed_out ? " (no module reached OP for " +
+                             this->cfg.op_timeout.to_string() + ")"
+                       : "") +
+            ": " + msg
     );
     return activation;
 }
