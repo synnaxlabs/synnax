@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  compare,
+  array,
   type destructor,
   type record,
   type TimeSpan,
@@ -543,16 +543,11 @@ export class Lists<
     const { table, cursor, compare, name } = this.config;
     const { order } = entry.query;
     const position = cursor(record, order);
-    let low = 0;
-    let high = keys.length;
-    while (low < high) {
-      const mid = (low + high) >>> 1;
-      const other = table.get(keys[mid]);
+    return array.partitionPoint(keys.length, (i) => {
+      const other = table.get(keys[i]);
       if (other == null) throw new Error(`a ${name} list holds a key with no record`);
-      if (compare(cursor(other, order), position, order) < 0) low = mid + 1;
-      else high = mid;
-    }
-    return low;
+      return compare(cursor(other, order), position, order) >= 0;
+    });
   }
 
   private onEvents(entry: Entry<Q, K, D, V, C>, events: Array<TableEvent<K, V>>): void {
@@ -743,7 +738,7 @@ export class Lists<
     if (
       composed?.keys === keys &&
       composed.end === end &&
-      compare.arraysEqual(composed.versions, versions)
+      array.equal(composed.versions, versions)
     )
       return composed.value;
     const records = table.get(keys);
@@ -752,7 +747,7 @@ export class Lists<
       entry.teardown != null &&
       composed != null &&
       composed.end === end &&
-      compare.arraysEqual(composed.records, records)
+      array.equal(composed.records, records)
     ) {
       entry.composed = { ...composed, keys, versions };
       return composed.value;
@@ -796,7 +791,7 @@ export class Lists<
 /** Whether the tables took no change between the two snapshots. */
 const unchanged = (before: Seen | undefined, now: Seen): boolean =>
   before?.epoch != null &&
-  compare.arraysEqual(before.versions, now.versions) &&
+  array.equal(before.versions, now.versions) &&
   before.epoch === now.epoch;
 
 /** Returns the limit to send the Core: undefined for every record. */

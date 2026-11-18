@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ethercat } from "@synnaxlabs/client";
-import { DataType, unique } from "@synnaxlabs/x";
+import { compare, DataType, unique } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { clashProblem, findClash } from "@/feature/ethercat/device/identifier";
@@ -122,17 +122,18 @@ const settingProblem = (
 
 type Slave = SlaveDevice | SlaveOnRack;
 
+const order = compare.chain<Slave>(
+  compare.by((s) => s.name, compare.natural),
+  compare.by((s) => s.properties.position, compare.numbers),
+  compare.by((s) => s.key, compare.codePoints),
+);
+
 /**
  * @returns the two slaves by name, then by slot, then by key. A problem of a pair then
  * reads the same from either slave, so the task names it once.
  */
-const inOrder = (a: Slave, b: Slave): [Slave, Slave] => {
-  const order =
-    a.name.localeCompare(b.name, undefined, { numeric: true }) ||
-    a.properties.position - b.properties.position ||
-    a.key.localeCompare(b.key);
-  return order <= 0 ? [a, b] : [b, a];
-};
+const inOrder = (a: Slave, b: Slave): [Slave, Slave] =>
+  order(a, b) <= 0 ? [a, b] : [b, a];
 
 /** @returns the step that tells the user which of the two devices to delete. */
 const deleteStep = (

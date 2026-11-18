@@ -10,7 +10,7 @@
 import { color, type group } from "@synnaxlabs/client";
 import { type Color } from "@synnaxlabs/lyra/color";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color as xcolor } from "@synnaxlabs/x";
+import { color as xcolor, compare } from "@synnaxlabs/x";
 
 import { useResultList } from "@/color/queries";
 import { Group } from "@/group";
@@ -38,7 +38,7 @@ export const usePalettes = (): Color.Palette[] => {
     (c): group.Key => c.group ?? NO_PALETTE,
   );
   const palettes = [...groups.data]
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort(compare.by((g) => g.name))
     .map(({ key, name }) => ({ key, name, colors: members.get(key) ?? [] }));
   const loose = members.get(NO_PALETTE);
   if (loose != null)

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, compare, deep, narrow } from "@synnaxlabs/x";
+import { array, deep, narrow } from "@synnaxlabs/x";
 
 import { type ContextValue } from "@/form/Context";
 
@@ -23,7 +23,7 @@ const write = (
   if (array.isKeyed(prev) && array.isKeyed(next)) {
     const keys = next.map(({ key }) => key);
     if (
-      compare.arraysEqual(
+      array.equal(
         prev.map(({ key }) => key),
         keys,
       )
@@ -34,7 +34,7 @@ const write = (
   }
   if (narrow.isPlainObject(prev) && narrow.isPlainObject(next)) {
     const keys = Object.keys(next);
-    if (compare.arraysEqual(Object.keys(prev).sort(), [...keys].sort())) {
+    if (array.equal(Object.keys(prev).sort(), [...keys].sort())) {
       keys.forEach((key) => write(ctx, path[key], prev[key], next[key]));
       return;
     }

@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
-import { compare, TimeStamp, unique } from "@synnaxlabs/x";
+import { array, TimeStamp, unique } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Session } from "@/session";
@@ -77,7 +77,7 @@ export const useGroups = (): Groups => {
     ...recentList.data,
     ...(reading ? held : []),
   ]);
-  if (!reading && compare.primitiveArrays(held, keys) !== compare.EQUAL) setHeld(keys);
+  if (!reading && !array.equal(held, keys)) setHeld(keys);
   const ranges = Store.useItems({
     keys,
     subscribe: runningList.subscribe,

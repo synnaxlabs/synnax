@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, type Series, TimeStamp } from "@synnaxlabs/x";
+import { array, type bounds, type Series, TimeStamp } from "@synnaxlabs/x";
 
 const INITIAL_SIZE = 16;
 
@@ -51,13 +51,7 @@ export class Stamps {
 
   /** @returns the stamp of the sample at alignment, else null. */
   at(alignment: bigint): TimeStamp | null {
-    let lo = 0;
-    let hi = this.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (this.startAt(mid) <= alignment) lo = mid + 1;
-      else hi = mid;
-    }
+    const lo = array.partitionPoint(this.length, (i) => this.startAt(i) > alignment);
     if (lo === 0) return null;
     const i = this.slot(lo - 1);
     const offset = alignment - this.starts[i];
@@ -102,16 +96,8 @@ const firstEndingAfter = <T>(
   items: T[],
   spanOfItem: (item: T) => Span,
   alignment: bigint,
-): number => {
-  let lo = 0;
-  let hi = items.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (spanOfItem(items[mid]).upper <= alignment) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-};
+): number =>
+  array.partitionPoint(items.length, (i) => spanOfItem(items[i]).upper > alignment);
 
 // Returns the spans sorted, with the ones that touch or overlap joined.
 const merge = (spans: Span[]): Span[] => {
