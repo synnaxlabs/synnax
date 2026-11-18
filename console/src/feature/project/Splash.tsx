@@ -25,7 +25,6 @@ import { type ReactElement, useEffect, useState } from "react";
 import { ContextMenu, listItem } from "@/feature/project/Selector";
 import { useOpenSample } from "@/feature/project/useOpenSample";
 import { Shell } from "@/feature/shell";
-import { Button } from "@/platform/button";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -159,9 +158,9 @@ export const Splash = (props: SplashProps): ReactElement => {
             </Flex.Box>
           )}
           {hasCreatePermission && (
-            <Button.CreateListItem size="large" onClick={() => openCreate()}>
+            <PButton.CreateListItem size="large" onClick={() => openCreate()}>
               New project
-            </Button.CreateListItem>
+            </PButton.CreateListItem>
           )}
         </Flex.Box>
       </Select.Frame>
