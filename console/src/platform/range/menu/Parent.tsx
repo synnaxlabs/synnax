@@ -86,15 +86,18 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
   const shared = ranges.every((r) => (r.parent ?? null) === first);
   const current = shared ? first : null;
   const keys = ranges.map((r) => r.key);
+  const nested = Ranger.useResultList({ where: { ancestors: keys } });
   // A range cannot hold itself or a range nested in it, and the current parent leads
   // the list.
   const hidden = new Set(keys);
   if (current != null) hidden.add(current);
+  nested.data?.forEach((r) => hidden.add(r.key));
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.ranges,
     {
       name: "ranges",
-      query: { order: NEWEST, where: { not: { ancestors: keys } } },
+      // The list waits for the nested ranges, so it never shows one of them.
+      query: nested.data == null ? null : { order: NEWEST },
       filter: (r) => !hidden.has(r.key),
     },
   );
@@ -125,7 +128,7 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
           <Select.Body<ranger.Key>
             resourceName="range"
             onSearch={search}
-            status={status}
+            status={nested.variant === "error" ? nested.status : status}
             fixedItems={current != null && <Current parent={current} />}
             footer={
               <>

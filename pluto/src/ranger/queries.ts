@@ -27,6 +27,7 @@ import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 import { Label } from "@/label";
 import { Synnax } from "@/synnax";
 
@@ -141,6 +142,15 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   onChange: ({ client, query: { keys } }, handler) =>
     client.ranges.watch(keys).onChange(handler),
   getCached: ({ client, query: { keys } }) => client.ranges.watch(keys).getCached(),
+});
+
+/** The ranges that match the params. A change to a range updates the answer. */
+export const { useResult: useResultList } = Flux.createRetrieve<
+  ranger.RetrieveMultipleParams,
+  ranger.Range[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  ...flux.listReads(({ client, query }) => client.ranges.watch(query)),
 });
 
 const timeRangeZ = z
