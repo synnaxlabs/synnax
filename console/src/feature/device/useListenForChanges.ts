@@ -15,7 +15,7 @@ import { useRef } from "react";
 import { HARDWARE } from "@/feature/device/integrations";
 
 const modelName = ({ make, model }: device.Device): string =>
-  HARDWARE.find((h) => h.make === make)?.modelNames?.[model]?.toLowerCase() ?? model;
+  HARDWARE.find((h) => h.make === make)?.modelNames?.[model] ?? model;
 
 export const useListenForChanges = () => {
   const addStatus = Status.useAdder();
@@ -26,7 +26,7 @@ export const useListenForChanges = () => {
     addStatus<ReturnType<typeof device.deviceZ>>({
       variant: "info",
       name: dev.name,
-      message: `New ${modelName(dev)} connected`,
+      message: `${modelName(dev)} connected`,
       details: dev,
     });
   };
