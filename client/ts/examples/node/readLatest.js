@@ -58,10 +58,7 @@ const SAMPLE_COUNT = 100;
 // just before the first timestamp we write.
 const start = TimeStamp.now();
 
-// We'll end our write 100 seconds later
-const end = start.add(TimeSpan.seconds(2));
-
-// Generate linearly spaced int64 timestamps
+// Generate int64 timestamps spaced linearly over 2 seconds
 const stamps = BigInt64Array.from({ length: SAMPLE_COUNT }, (_, i) =>
   start.add(TimeSpan.milliseconds((i * 2000) / SAMPLE_COUNT)).valueOf(),
 );

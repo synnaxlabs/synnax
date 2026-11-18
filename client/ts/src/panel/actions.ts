@@ -268,7 +268,8 @@ const handlers: Handlers = {
   // created by the preceding edge split).
   moveTab: (state, payload) => {
     const srcLeaf = tabLeafPath(state.root, payload.key);
-    const srcNode = srcLeaf != null ? findNode(state.root, srcLeaf) : undefined;
+    if (srcLeaf == null) return NO_OP;
+    const srcNode = findNode(state.root, srcLeaf);
     const srcIdx =
       srcNode?.variant === "leaf"
         ? srcNode.tabs.findIndex((t) => t.key === payload.key)

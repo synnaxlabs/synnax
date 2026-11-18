@@ -63,22 +63,19 @@ export const buildInsertionPlan = <T extends numeric.Value>(
   const _ordered = ordered.map((b) => bounds.construct<T>(b));
   const _target = bounds.construct(value);
   if (_ordered.length === 0) return ZERO_PLAN;
+  if (_ordered.some((b) => bounds.contains(b, _target))) return null;
   const lower = findInsertPosition<T>(_ordered, _target.lower);
   const upper = findInsertPosition<T>(_ordered, _target.upper);
   // Target starts past every bound.
   if (lower.index === ordered.length)
     return { ...ZERO_PLAN, insertInto: ordered.length };
-  // Target ends before every bound.
-  if (upper.index === 0) return { ...ZERO_PLAN, removeAfter: upper.position };
-  if (lower.index === upper.index) {
-    if (lower.position !== 0 && upper.position !== 0) return null;
+  if (lower.index === upper.index)
     return {
       removeAfter: upper.position,
-      removeBefore: lower.position,
+      removeBefore: 0,
       insertInto: lower.index,
       deleteInBetween: 0,
     };
-  }
   let deleteInBetween = upper.index - lower.index;
   let insertInto = lower.index;
   let removeBefore = Number(bounds.span(_ordered[lower.index])) - lower.position;

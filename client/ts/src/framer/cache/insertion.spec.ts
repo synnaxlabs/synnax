@@ -33,6 +33,18 @@ describe("buildInsertionPlan", () => {
     ],
     ["insert before the first bound", [[3, 7]], [0, 2], plan(0, 0, 0, 0)],
     ["trim the end that overlaps the first bound", [[3, 7]], [1, 5], plan(0, 2, 0, 0)],
+    ["skip a value inside the first bound", [[0, 10]], [2, 5], null],
+    ["skip a value that starts at a bound's lower edge", [[0, 10]], [0, 5], null],
+    [
+      "skip a value that starts at a later bound's lower edge",
+      [
+        [0, 10],
+        [20, 30],
+      ],
+      [20, 25],
+      null,
+    ],
+    ["skip a value that ends at a bound's upper edge", [[0, 10]], [2, 10], null],
     [
       "skip a value inside one bound",
       [

@@ -276,11 +276,10 @@ export const left = (b: Crude): number => loc(b, "left");
 
 export const top = (b: Crude): number => loc(b, "top");
 
-export const center = (b: Crude): xy.XY =>
-  xy.translate(topLeft(b), {
-    x: signedWidth(b) / 2,
-    y: signedHeight(b) / 2,
-  });
+export const center = (b: Crude): xy.XY => {
+  const b_ = construct(b);
+  return xy.average(b_.one, b_.two);
+};
 
 const x = (b: Crude): number => {
   const b_ = construct(b);
