@@ -33,5 +33,9 @@ is done.
 - A release from a branch without the bridge, after step 4, cannot reach the installs of
   that branch. The older Console and Desktop trains get no bridge, so their users
   reinstall from the download page to get updates.
+- A Console offers the Console of an older Core's minor as a downgrade when it connects
+  to that Core over TLS. Every Console from before step 2 is signed for the old key, so
+  after step 2 that downgrade fails the signature check, at once and for good. Users who
+  connect to Cores of an older minor install that Console by hand.
 - A Core older than step 1 trusts only the old key. It must update to a Core from step 1
   or later before step 4, or be updated by hand.
