@@ -9,7 +9,7 @@
 
 from collections.abc import Sequence
 from typing import Literal, override
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from pydantic import JsonValue
 
@@ -198,7 +198,7 @@ class Device(device.Device):
     :param endpoint: The OPC UA server endpoint URL (e.g. "opc.tcp://localhost:4840/").
     :param username: Username for authentication.
     :param password: The key of the secret that holds the password. The Driver reads
-        it when it connects.
+        it when it connects. A password in plain text raises a TypeError.
     :param security_mode: Security mode: "None", "Sign", or "SignAndEncrypt".
     :param security_policy: Security policy name.
     :param client_cert: Path to the client certificate on the Driver's computer. Leave
@@ -259,6 +259,10 @@ class Device(device.Device):
         if username:
             connection["username"] = username
         if password is not None:
+            if not isinstance(password, UUID):
+                raise TypeError(
+                    "password must be the key of a secret, not the password itself"
+                )
             connection["password"] = str(password)
         if client_cert:
             connection["client_certificate"] = client_cert

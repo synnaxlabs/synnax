@@ -14,8 +14,10 @@ before it saves a device. The Driver reads the password of the connection only t
 a grant.
 """
 
-from collections.abc import Mapping
-from uuid import UUID
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from pathlib import Path
+from uuid import UUID, uuid4
 
 from examples.opcua import OPCUATLSAuthSim
 from examples.opcua.sim import TLS_AUTH_PASSWORD
@@ -25,6 +27,7 @@ from synnax import rack
 from tests.driver.simulator_case import SimulatorCase
 
 TEST_CONNECTION = "test_connection"
+LIST = "list"
 TIMEOUT = 15 * sy.TimeSpan.SECOND
 
 
@@ -35,6 +38,8 @@ class OPCUAGrantLogin(SimulatorCase):
         1. Granted password - the server accepts the login.
         2. Granted wrong password - the server rejects the login.
         3. Password without a grant - the Driver refuses the command.
+        4. Granted file password - the Driver reads it from its secrets folder.
+        5. File password the grant does not name - the Driver refuses the command.
     """
 
     sim_classes = [OPCUATLSAuthSim]
@@ -49,11 +54,21 @@ class OPCUAGrantLogin(SimulatorCase):
         connection = device.properties["connection"]
         assert isinstance(connection, dict)
         self.connection = connection
+        browser = self.client.tasks.retrieve(
+            type="file_browser", rack=self.rack.key, one=True
+        )
+        listing = browser.execute_command_sync(LIST, args={}, timeout=TIMEOUT)
+        assert listing.details is not None
+        data = listing.details.data
+        assert isinstance(data, dict) and data["secrets_dir"], data
+        self.secrets_dir = Path(str(data["secrets_dir"]))
 
     def run(self) -> None:
         self.test_granted_password()
         self.test_granted_wrong_password()
         self.test_password_without_grant()
+        self.test_granted_file_password()
+        self.test_file_password_grant_does_not_name()
 
     def test_granted_password(self) -> None:
         """No device uses the secret, so only the grant lets the rack read it."""
@@ -76,6 +91,50 @@ class OPCUAGrantLogin(SimulatorCase):
         )
         if status.variant != "error" or status.description != expected:
             self.fail(f"command should be refused, got {status.description!r}")
+
+    def test_granted_file_password(self) -> None:
+        self.log("Testing: Granted file password")
+        with self._file_password(TLS_AUTH_PASSWORD) as key:
+            connection = {**self.connection, "password": str(key)}
+            status = self._send(connection, [key])
+        if status.variant != "success":
+            self.fail(f"login failed: {status.message}: {status.description}")
+
+    def test_file_password_grant_does_not_name(self) -> None:
+        """The file holds the right password, so a Driver that read it would log in."""
+        self.log("Testing: File password the grant does not name")
+        other = self.client.secrets.set(
+            name=f"OPC UA login test {sy.TimeStamp.now()}", value="unused"
+        )
+        try:
+            with self._file_password(TLS_AUTH_PASSWORD) as key:
+                connection = {**self.connection, "password": str(key)}
+                status = self._send(connection, [other.key])
+                expected = f"The grant does not name secret {key}."
+        finally:
+            self.client.secrets.delete(other.key)
+        if status.variant != "error" or status.description != expected:
+            self.fail(f"command should be refused, got {status.description!r}")
+
+    @contextmanager
+    def _file_password(self, password: str) -> Iterator[UUID]:
+        """Writes password to a file in the secrets folder of the Driver, and yields
+        the key of a file secret of the rack that names it."""
+        name = f"opc_password_{uuid4().hex}.txt"
+        path = self.secrets_dir / name
+        path.write_text(password)
+        try:
+            s = self.client.secrets.set(
+                name=f"OPC UA file login test {name}",
+                file_name=name,
+                rack=self.rack.key,
+            )
+            try:
+                yield s.key
+            finally:
+                self.client.secrets.delete(s.key)
+        finally:
+            path.unlink()
 
     def _test_with_password(self, password: str, *, granted: bool) -> sy.task.Status:
         s = self.client.secrets.set(

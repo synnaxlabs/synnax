@@ -84,6 +84,17 @@ class TestOPCDevice:
         assert isinstance(connection, dict)
         assert "password" not in connection
 
+    def test_plain_text_password(self) -> None:
+        """Should refuse a password that is not the key of a secret."""
+        with pytest.raises(TypeError, match="password must be the key of a secret"):
+            sy.opcua.Device(
+                name="Test Device",
+                location="Test Location",
+                rack=1,
+                endpoint="opc.tcp://localhost:4840",
+                password="hunter2",  # type: ignore[arg-type]
+            )
+
 
 @pytest.mark.opcua
 class TestOPCReadTask:
