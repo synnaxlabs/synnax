@@ -60,6 +60,12 @@ func floatField(name string, key icd.FieldKey, scale, offset float64) icd.JSONFi
 	}}
 }
 
+func booleanField() icd.JSONField {
+	return icd.JSONField{Variant: icd.BooleanJSONField{
+		Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+	}}
+}
+
 func message(fields []icd.JSONField, bindings ...codec.Binding) codec.JSONMessage {
 	return codec.JSONMessage{
 		Name:     "command",
@@ -150,6 +156,40 @@ var _ = Describe("JSONEncoder", func() {
 			To(MatchJSON(`{"temp":40}`))
 	})
 
+	DescribeTable("Should write a number channel to a field of another number kind",
+		func(field icd.JSONField, dt telem.DataType, sample []byte, expected string) {
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{field},
+				codec.Binding{Field: field.Base().Key, DataType: dt},
+			)))
+			Expect(enc.Encode(nil, [][]byte{sample})).To(MatchJSON(expected))
+		},
+		Entry("an integer to a float field",
+			floatField("v", uuid.New(), 1, 0),
+			telem.Int64T, int64Sample(3), `{"v":3}`,
+		),
+		Entry("an unsigned integer to an integer field",
+			icd.JSONField{Variant: icd.IntegerJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+			}},
+			telem.Uint8T, telem.NewSeriesV[uint8](7).Data, `{"v":7}`,
+		),
+		Entry("a boolean to an unsigned field",
+			icd.JSONField{Variant: icd.UnsignedJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+			}},
+			telem.BooleanT, telem.NewSeriesV(true).Data, `{"v":1}`,
+		),
+		Entry("a 1 to a boolean field",
+			booleanField(),
+			telem.Uint8T, telem.NewSeriesV[uint8](1).Data, `{"v":true}`,
+		),
+		Entry("a 0 to a boolean field",
+			booleanField(),
+			telem.Float64T, float64Sample(0), `{"v":false}`,
+		),
+	)
+
 	DescribeTable("Should round the value of an integer field",
 		func(field icd.JSONField, sample float64, expected string) {
 			enc := MustSucceed(codec.NewJSONEncoder(message(
@@ -233,6 +273,11 @@ var _ = Describe("JSONEncoder", func() {
 			telem.Float64T, float64Sample(math.NaN()),
 			"message command: field v: NaN is not a JSON number: validation error",
 		),
+		Entry("a number other than 0 or 1 for a boolean field",
+			booleanField(),
+			telem.Float64T, float64Sample(2.5),
+			"message command: field v: 2.5 is not 0 or 1: validation error",
+		),
 	)
 
 	DescribeTable("Should reject a message it cannot write",
@@ -265,13 +310,35 @@ var _ = Describe("JSONEncoder", func() {
 			),
 			"message command: field temp has more than one binding: validation error",
 		),
-		Entry("a channel that does not convert to its field",
+		Entry("a channel that does not write to its field",
 			message(
 				[]icd.JSONField{floatField("temp", fixedKey, 1, 0)},
 				codec.Binding{Field: fixedKey, DataType: telem.StringT},
 			),
 			"message command: field temp: cannot write string channels to float "+
 				"fields: validation error",
+		),
+		Entry("a field pointer with an array index",
+			message(
+				[]icd.JSONField{{Variant: icd.FloatJSONField{
+					Key: fixedKey, Name: "v", Scale: 1, Pointer: "/values/0",
+				}}},
+				codec.Binding{Field: fixedKey, DataType: telem.Float64T},
+			),
+			`message command: field v: pointer "/values/0" holds an array index, `+
+				"which a document cannot place: validation error",
+		),
+		Entry("a match pointer with an array index",
+			codec.JSONMessage{
+				Name: "command",
+				Payload: icd.JSONPayload{Match: &icd.JSONMatch{
+					Variant: icd.IntegerJSONMatch{
+						JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/10"}, Value: 1,
+					},
+				}},
+			},
+			`message command: match: pointer "/10" holds an array index, which a `+
+				"document cannot place: validation error",
 		),
 		Entry("a scaled field with an integer channel",
 			message(

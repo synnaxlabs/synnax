@@ -11,7 +11,9 @@ package codec
 
 import (
 	"encoding/json/jsontext"
+	"fmt"
 	"math"
+	"slices"
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -45,19 +47,24 @@ type encodeField struct {
 	kind    payload.Kind
 	encoder *xjson.Encoder
 	// scaled is true when the field's scale or offset changes its value.
-	scaled        bool
+	scaled bool
+	// converted is true when the number that encoder writes needs a scale, a rounding,
+	// a range check, or a change to a boolean.
+	converted     bool
 	scale, offset float64
 }
 
 // NewJSONEncoder returns an encoder of the documents of m. A document holds the value
 // of m's match rule, the sample of each bound field, and the default of each other
 // field. A scaled field writes its sample before the scale and offset, and an integer
-// field rounds it to the nearest integer. NewJSONEncoder returns an error wrapping
-// validate.ErrValidation when:
+// field rounds it to the nearest integer. A number channel writes to any number or
+// boolean field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder
+// returns an error wrapping validate.ErrValidation when:
 //   - a field has no binding and no default
 //   - a binding names no field of m, or a field has two bindings
-//   - a binding's data type does not convert to its field's kind
+//   - a binding's data type does not write to its field's kind
 //   - two pointers are equal, or one holds the other
+//   - a pointer holds an array index, which a document cannot place
 func NewJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 	e, err := newJSONEncoder(m)
 	if err != nil {
@@ -124,18 +131,73 @@ func (e *JSONEncoder) templateField(
 	bound map[icd.FieldKey]int,
 ) (xjson.TemplateField, int, error) {
 	b := f.Base()
-	pointer, err := xjson.ParsePointer(b.Pointer)
+	pointer, err := memberPointer(b.Pointer)
 	if err != nil {
 		return xjson.TemplateField{}, 0, err
 	}
 	tf := xjson.TemplateField{Label: "field " + b.Name, Pointer: pointer}
 	binding, ok := bound[b.Key]
 	if !ok {
-		tf.Literal, err = defaultLiteral(f)
-		return tf, -1, err
+		if tf.Literal, err = defaultLiteral(f); err != nil {
+			return xjson.TemplateField{}, 0, err
+		}
+		return tf, -1, nil
 	}
-	e.slots.fields[binding], err = newEncodeField(f, m.Bindings[binding].DataType)
-	return tf, binding, err
+	ef, err := newEncodeField(f, m.Bindings[binding].DataType)
+	if err != nil {
+		return xjson.TemplateField{}, 0, err
+	}
+	e.slots.fields[binding] = ef
+	return tf, binding, nil
+}
+
+// memberPointer parses text as a pointer that names object members. A decoder reads a
+// token that is an array index as an element, which a template cannot write, so
+// memberPointer returns an error wrapping validate.ErrValidation for one.
+func memberPointer(text string) (xjson.Pointer, error) {
+	pointer, err := xjson.ParsePointer(text)
+	if err != nil {
+		return nil, err
+	}
+	if slices.ContainsFunc(pointer, arrayIndex) {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"pointer %q holds an array index, which a document cannot place",
+			text,
+		)
+	}
+	return pointer, nil
+}
+
+// arrayIndex reports whether token is "0" or digits that do not start with "0".
+func arrayIndex(token string) bool {
+	if token == "" || (len(token) > 1 && token[0] == '0') {
+		return false
+	}
+	for i := range len(token) {
+		if token[i] < '0' || token[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// writes reports whether samples of dt write to a field of kind k.
+func writes(k payload.Kind, dt telem.DataType) bool {
+	dk, ok := payload.KindOf(dt)
+	return ok && (dk == k || (numeric(dk) && numeric(k)))
+}
+
+// numeric reports whether k holds numbers or booleans.
+func numeric(k payload.Kind) bool {
+	switch k {
+	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned,
+		payload.KindBoolean:
+		return true
+	case payload.KindString, payload.KindTimestamp, payload.KindJSON,
+		payload.KindUUID, payload.KindBytes:
+	}
+	return false
 }
 
 func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
@@ -146,37 +208,13 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 		scale:  b.Scale,
 		offset: b.Offset,
 	}
-	sample := xjson.Field{DataType: dt, Enums: enumsOf(jf), Type: xjson.Number}
-	switch v := jf.Variant.(type) {
-	case icd.FloatJSONField:
-		f.kind = payload.KindFloat
-	case icd.IntegerJSONField:
-		f.kind = payload.KindInteger
-	case icd.UnsignedJSONField:
-		f.kind = payload.KindUnsigned
-	case icd.StringJSONField:
-		f.kind, sample.Type = payload.KindString, xjson.String
-	case icd.BooleanJSONField:
-		f.kind, sample.Type = payload.KindBoolean, xjson.Boolean
-	case icd.TimestampJSONField:
-		f.kind = payload.KindTimestamp
-		var err error
-		format := string(v.TimeFormat)
-		if sample.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
-			return encodeField{}, err
-		}
-	case icd.JSONJSONField:
-		f.kind = payload.KindJSON
-	case icd.UuidJSONField:
-		f.kind, sample.Type = payload.KindUUID, xjson.String
-	case icd.BytesJSONField:
-		f.kind, sample.Type = payload.KindBytes, xjson.String
-	default:
-		return encodeField{}, errors.Wrap(validate.ErrValidation, "type is required")
+	kind, sample, err := sampleField(jf, dt)
+	if err != nil {
+		return encodeField{}, err
 	}
-	if !Converts(f.kind, dt) {
+	if !writes(kind, dt) {
 		return encodeField{}, errors.Wrapf(
-			validate.ErrValidation, "cannot write %s channels to %s fields", dt, f.kind,
+			validate.ErrValidation, "cannot write %s channels to %s fields", dt, kind,
 		)
 	}
 	if f.scaled && dt != telem.Float32T && dt != telem.Float64T {
@@ -186,8 +224,11 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 			dt,
 		)
 	}
-	var err error
-	if f.kind != payload.KindJSON {
+	f.kind, f.converted = kind, converted(kind, dt, f.scaled)
+	if kind == payload.KindBoolean && f.converted {
+		sample.Type = xjson.Number
+	}
+	if kind != payload.KindJSON {
 		if f.encoder, err = xjson.NewEncoder(sample); err != nil {
 			return encodeField{}, err
 		}
@@ -195,9 +236,64 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 	return f, nil
 }
 
+// sampleField returns the kind of jf and the xjson field that writes a sample of dt as
+// a value of that kind.
+func sampleField(
+	jf icd.JSONField,
+	dt telem.DataType,
+) (payload.Kind, xjson.Field, error) {
+	f := xjson.Field{DataType: dt, Enums: enumsOf(jf), Type: xjson.Number}
+	switch v := jf.Variant.(type) {
+	case icd.FloatJSONField:
+		return payload.KindFloat, f, nil
+	case icd.IntegerJSONField:
+		return payload.KindInteger, f, nil
+	case icd.UnsignedJSONField:
+		return payload.KindUnsigned, f, nil
+	case icd.StringJSONField:
+		f.Type = xjson.String
+		return payload.KindString, f, nil
+	case icd.BooleanJSONField:
+		f.Type = xjson.Boolean
+		return payload.KindBoolean, f, nil
+	case icd.TimestampJSONField:
+		var err error
+		if f.TimeFormat, err = xjson.ParseTimeFormat(string(v.TimeFormat)); err != nil {
+			return "", xjson.Field{}, err
+		}
+		return payload.KindTimestamp, f, nil
+	case icd.JSONJSONField:
+		return payload.KindJSON, f, nil
+	case icd.UuidJSONField:
+		f.Type = xjson.String
+		return payload.KindUUID, f, nil
+	case icd.BytesJSONField:
+		f.Type = xjson.String
+		return payload.KindBytes, f, nil
+	}
+	return "", xjson.Field{}, errors.Wrap(validate.ErrValidation, "type is required")
+}
+
+// converted reports whether a field of kind k changes the number that an encoder writes
+// for a sample of dt.
+func converted(k payload.Kind, dt telem.DataType, scaled bool) bool {
+	dk, _ := payload.KindOf(dt)
+	switch k {
+	case payload.KindFloat:
+		return scaled
+	case payload.KindInteger, payload.KindUnsigned:
+		return scaled || dk != k
+	case payload.KindBoolean:
+		return dk != payload.KindBoolean
+	case payload.KindString, payload.KindTimestamp, payload.KindJSON,
+		payload.KindUUID, payload.KindBytes:
+	}
+	return false
+}
+
 // matchLiteral returns the template field that writes the value of m.
 func matchLiteral(m icd.JSONMatch) (xjson.TemplateField, error) {
-	pointer, err := xjson.ParsePointer(m.Base().Pointer)
+	pointer, err := memberPointer(m.Base().Pointer)
 	if err != nil {
 		return xjson.TemplateField{}, err
 	}
@@ -219,7 +315,10 @@ func matchLiteral(m icd.JSONMatch) (xjson.TemplateField, error) {
 			"type is required",
 		)
 	}
-	return f, err
+	if err != nil {
+		return xjson.TemplateField{}, err
+	}
+	return f, nil
 }
 
 // defaultLiteral returns the JSON text of the default of jf.
@@ -304,11 +403,8 @@ func (f *encodeField) append(dst, sample []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	numeric := f.kind == payload.KindFloat || f.kind == payload.KindInteger ||
-		f.kind == payload.KindUnsigned
-	// An enum label writes a channel value, which takes no scale.
-	if !numeric || dst[start] == '"' ||
-		(f.kind == payload.KindFloat && !f.scaled) {
+	// An enum label writes a channel value, which takes no conversion.
+	if !f.converted || dst[start] == '"' {
 		return dst, nil
 	}
 	n, err := xjson.ParseNumber(dst[start:])
@@ -316,10 +412,28 @@ func (f *encodeField) append(dst, sample []byte) ([]byte, error) {
 		return nil, err
 	}
 	dst = dst[:start]
-	if f.kind == payload.KindFloat {
+	switch f.kind {
+	case payload.KindFloat:
 		return xjson.AppendFloat(dst, (n.Float64()-f.offset)/f.scale)
+	case payload.KindInteger, payload.KindUnsigned:
+		return f.appendInteger(dst, n)
+	case payload.KindBoolean:
+		return appendBoolean(dst, n.Float64())
+	case payload.KindString, payload.KindTimestamp, payload.KindJSON,
+		payload.KindUUID, payload.KindBytes:
 	}
-	return f.appendInteger(dst, n)
+	panic(fmt.Sprintf("codec: %s fields are never converted", f.kind))
+}
+
+// appendBoolean appends v, which must be 0 or 1, to dst as a JSON boolean.
+func appendBoolean(dst []byte, v float64) ([]byte, error) {
+	switch v {
+	case 0:
+		return strconv.AppendBool(dst, false), nil
+	case 1:
+		return strconv.AppendBool(dst, true), nil
+	}
+	return nil, errors.Wrapf(validate.ErrValidation, "%v is not 0 or 1", v)
 }
 
 // appendInteger appends n, unscaled and rounded to the nearest integer, to dst.
