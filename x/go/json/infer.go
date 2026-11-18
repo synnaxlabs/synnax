@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -46,6 +47,8 @@ type InferredField struct {
 	Pointer Pointer `json:"pointer" msgpack:"pointer"`
 	// DataType is the data type of a channel that takes the values of the field.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// Kind is the kind of a payload field that holds the values of the field.
+	Kind payload.Kind `json:"kind" msgpack:"kind"`
 	// Type is the JSON type of most values of the field.
 	Type Type `json:"type" msgpack:"type"`
 	// TimeFormat is the format of the values of a timestamp field. Nil for any other
@@ -122,7 +125,7 @@ func Infer(docs []Document) []Shape {
 		key := strings.Join(sig, "\x00")
 		g, ok := bySignature[key]
 		if !ok {
-			g = &inferGroup{fields: make(map[string]*fieldStats)}
+			g = newInferGroup()
 			bySignature[key] = g
 			groups = append(groups, g)
 		}
@@ -134,6 +137,31 @@ func Infer(docs []Document) []Shape {
 	}
 	return shapes
 }
+
+// Inferrer infers the shape of the documents of one source as they arrive, with the
+// rules of Infer. It keeps counts, not documents, so its memory does not grow with the
+// number of documents. It is not safe for concurrent use.
+type Inferrer struct{ group *inferGroup }
+
+// NewInferrer returns an Inferrer that holds no documents.
+func NewInferrer() *Inferrer { return &Inferrer{group: newInferGroup()} }
+
+// Add adds data, written at t. Zero t selects the time of the call. Data that is not
+// one
+// JSON value adds nothing.
+func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
+	leaves, err := parseLeaves(data)
+	if err != nil {
+		return
+	}
+	if t <= 0 {
+		t = telem.Now()
+	}
+	i.group.addDocument("", parsedDocument{leaves: leaves, time: t})
+}
+
+// Shape returns the shape of the documents added, with no sources.
+func (i *Inferrer) Shape() Shape { return i.group.shape() }
 
 type inferSource struct {
 	name   string
@@ -212,22 +240,30 @@ type inferGroup struct {
 	count   int
 }
 
+func newInferGroup() *inferGroup {
+	return &inferGroup{fields: make(map[string]*fieldStats)}
+}
+
 func (g *inferGroup) add(src *inferSource) {
 	g.sources = append(g.sources, src.name)
 	for _, doc := range src.docs {
-		g.count++
-		for _, l := range doc.leaves {
-			s, ok := g.fields[l.key]
-			if !ok {
-				if len(g.order) == maxInferredFields {
-					continue
-				}
-				s = newFieldStats(l.pointer)
-				g.fields[l.key] = s
-				g.order = append(g.order, s)
+		g.addDocument(src.name, doc)
+	}
+}
+
+func (g *inferGroup) addDocument(source string, doc parsedDocument) {
+	g.count++
+	for _, l := range doc.leaves {
+		s, ok := g.fields[l.key]
+		if !ok {
+			if len(g.order) == maxInferredFields {
+				continue
 			}
-			s.add(src.name, l, doc.time)
+			s = newFieldStats(l.pointer)
+			g.fields[l.key] = s
+			g.order = append(g.order, s)
 		}
+		s.add(source, l, doc.time)
 	}
 }
 
@@ -344,14 +380,18 @@ func (s *fieldStats) field() InferredField {
 	numeric := s.numbers + s.booleans
 	switch {
 	case s.numbers > 0 && numeric >= s.strings:
-		f.Type, f.DataType, f.Mismatched = Number, s.numberType(), s.strings+s.unreadable
+		f.Type, f.Mismatched = Number, s.strings+s.unreadable
+		f.DataType, f.Kind = s.numberType()
 	case s.numbers == 0 && s.booleans > s.strings:
-		f.Type, f.DataType, f.Mismatched = Boolean, telem.Uint8T, s.strings
+		f.Type, f.DataType, f.Kind = Boolean, telem.Uint8T, payload.KindBoolean
+		f.Mismatched = s.strings
 	default:
-		f.Type, f.DataType, f.Mismatched = String, telem.StringT, numeric
+		f.Type, f.DataType, f.Kind, f.Mismatched = String, telem.StringT,
+			payload.KindString, numeric
 	}
 	if s.timestamp() {
-		f.DataType, f.TimeFormat, f.Mismatched = telem.TimestampT, new(s.time.format), 0
+		f.DataType, f.Kind = telem.TimestampT, payload.KindTimestamp
+		f.TimeFormat, f.Mismatched = new(s.time.format), 0
 		return f
 	}
 	if f.Type == String && len(s.labels) <= maxEnumLabels && len(s.labels) < s.strings {
@@ -364,14 +404,14 @@ func (s *fieldStats) field() InferredField {
 	return f
 }
 
-func (s *fieldStats) numberType() telem.DataType {
+func (s *fieldStats) numberType() (telem.DataType, payload.Kind) {
 	switch {
 	case s.floating, s.unsigned && s.negative:
-		return telem.Float64T
+		return telem.Float64T, payload.KindFloat
 	case s.unsigned:
-		return telem.Uint64T
+		return telem.Uint64T, payload.KindUnsigned
 	default:
-		return telem.Int64T
+		return telem.Int64T, payload.KindInteger
 	}
 }
 

@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -64,6 +65,11 @@ type browsedField struct {
 	Type string `json:"type"`
 	// Sample is the start of the JSON text of the scalar.
 	Sample string `json:"sample"`
+	// Kind is the kind of a payload field that holds every value heard at Pointer.
+	// Empty when the topic holds more fields than inference keeps.
+	Kind payload.Kind `json:"kind"`
+	// TimeFormat is the format of a timestamp field. Nil for any other field.
+	TimeFormat *xjson.TimeFormat `json:"time_format,omitempty"`
 }
 
 // browsedTopic is one topic that a browse heard, with its last payload.
@@ -80,8 +86,11 @@ type browsedTopic struct {
 	// Format is the format of the whole last payload.
 	Format driver.Format `json:"format"`
 	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
-	Fields   []browsedField `json:"fields"`
-	Retained bool           `json:"retained"`
+	Fields []browsedField `json:"fields"`
+	// Index is the pointer of the timestamp that indexes the messages heard. Empty when
+	// no field can.
+	Index    string `json:"index"`
+	Retained bool   `json:"retained"`
 }
 
 type browseResult struct {
@@ -190,6 +199,7 @@ func (s *scanner) browse(ctx context.Context, args browseArgs) (browseResult, er
 	topics := make([]browsedTopic, len(heard.topics))
 	for i, t := range heard.topics {
 		t.Rate = float64(t.Count-t.retained) / heard.duration.Seconds()
+		t.infer()
 		topics[i] = t.browsedTopic
 	}
 	kept, truncated, err := driver.Fit(browseResult{}, [][]browsedTopic{topics})
