@@ -42,26 +42,23 @@ const iconOf = (entry: Entry): Icon.FC => {
 
 interface EntryItemProps extends List.ItemProps<string> {
   now: TimeStamp;
-  onPick: (entry: Entry) => void;
+  onOpen: (entry: Entry) => void;
 }
 
-const EntryItem = ({ now, onPick, ...rest }: EntryItemProps): ReactElement | null => {
+const EntryItem = ({ now, onOpen, ...rest }: EntryItemProps): ReactElement | null => {
   const entry = List.useItem<string, KeyedEntry>(rest.itemKey);
   if (entry == null) return null;
   const EntryIcon = iconOf(entry);
   const { certificate } = entry;
   const validity =
     certificate == null ? null : Validity.describeDetails(certificate, now);
-  const handleDoubleClick = () => {
-    if (entry.kind === "file") onPick(entry);
-  };
   return (
     <Select.Item
       {...rest}
       align="center"
       gap="medium"
       textValue={entry.name}
-      onDoubleClick={handleDoubleClick}
+      onDoubleClick={() => onOpen(entry)}
     >
       <EntryIcon className={CSS.BE("file-browser", "icon")} />
       <Flex.Box y empty grow className={CSS.BE("file-browser", "text")}>
@@ -73,6 +70,20 @@ const EntryItem = ({ now, onPick, ...rest }: EntryItemProps): ReactElement | nul
         )}
       </Flex.Box>
     </Select.Item>
+  );
+};
+
+interface EntriesProps extends Pick<EntryItemProps, "now" | "onOpen"> {}
+
+// Enter double-clicks the selected entry.
+const Entries = ({ now, onOpen }: EntriesProps): ReactElement => {
+  const keyboard = Select.useKeyboard();
+  return (
+    <List.Scroll role="listbox" aria-label="Files" tabIndex={0} {...keyboard}>
+      <List.Items<string>>
+        {({ key, ...p }) => <EntryItem key={key} {...p} now={now} onOpen={onOpen} />}
+      </List.Items>
+    </List.Scroll>
   );
 };
 
@@ -101,7 +112,7 @@ const Content = ({
   const [target, setTarget] = useState<Target>({ path: "" });
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failure, setFailure] = useState<status.Status | null>(null);
-  const [picked, setPicked] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   // Not a Flux query: its error holds no data, and a failed folder keeps the listing.
   useAsyncEffect(
     async (signal) => {
@@ -111,7 +122,7 @@ const Content = ({
         const listing = await list(client, rack, target.path);
         if (signal.aborted) return;
         setLoaded({ target, listing });
-        setPicked(null);
+        setSelected(null);
       } catch (e) {
         if (signal.aborted) return;
         setFailure(status.fromException(e, "Failed to list files"));
@@ -123,14 +134,12 @@ const Content = ({
   const entries: KeyedEntry[] =
     listing?.entries.map((e) => ({ ...e, key: e.path })) ?? [];
   const { data, getItem } = List.useStaticData<string, KeyedEntry>({ data: entries });
-  const handleChange = (key: string | null) => {
-    if (key == null) return setPicked(null);
-    const entry = getItem(key);
-    if (entry == null) return;
+  const open = (entry: Entry) => {
     if (entry.kind === "directory") setTarget({ path: entry.path });
-    else setPicked(key);
+    else close(entry);
   };
-  const pickedEntry = picked == null ? undefined : getItem(picked);
+  const selectedEntry = selected == null ? undefined : getItem(selected);
+  const selectedFile = selectedEntry?.kind === "file" ? selectedEntry : undefined;
   const atTop = listing == null || listing.path === "";
   const loading = failure == null && loaded?.target !== target;
   const rackName = rackResult.variant === "success" ? rackResult.data.name : null;
@@ -169,16 +178,11 @@ const Content = ({
             <Select.Frame<string, KeyedEntry>
               data={data}
               getItem={getItem}
-              value={picked ?? undefined}
-              onChange={handleChange}
+              value={selected ?? undefined}
+              onChange={setSelected}
+              cursor="selection"
             >
-              <List.Scroll>
-                <List.Items<string>>
-                  {({ key, ...p }) => (
-                    <EntryItem key={key} {...p} now={now} onPick={close} />
-                  )}
-                </List.Items>
-              </List.Scroll>
+              <Entries now={now} onOpen={open} />
             </Select.Frame>
           )}
         </Flex.Box>
@@ -199,9 +203,9 @@ const Content = ({
           </Button.Button>
           <Button.Button
             variant="filled"
-            disabled={pickedEntry == null}
+            disabled={selectedFile == null}
             onClick={() => {
-              if (pickedEntry != null) close(pickedEntry);
+              if (selectedFile != null) close(selectedFile);
             }}
           >
             Select

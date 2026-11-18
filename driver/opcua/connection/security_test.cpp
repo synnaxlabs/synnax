@@ -19,6 +19,7 @@
 
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
+#include "x/cpp/x509/testutil/testutil.h"
 
 #include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/certificate/store.h"
@@ -182,6 +183,27 @@ TEST_F(SecurityTest, CertificateMismatch) {
     ASSERT_EQ(err.data, mismatch_message(server_id.certificate, other_id.certificate));
     ASSERT_FALSE(activated(client.get()));
     ASSERT_EQ(server_certificate(client.get()), server_id.certificate);
+}
+
+/// @brief it should reject a server whose certificate holds the PEM of the trusted
+/// certificate in an extension, as a forged certificate would.
+TEST_F(SecurityTest, CertificateHoldingTrustedPem) {
+    const auto der = x::x509::testutil::create_der_holding(
+        server_id.private_key,
+        testutil::SERVER_APPLICATION_URI,
+        other_id.certificate.pem()
+    );
+    const certificate::Identity forged{
+        .certificate = ASSERT_NIL_P(x::x509::Certificate::parse(der)),
+        .private_key = server_id.private_key,
+    };
+    this->start_server(forged);
+    auto cfg = config();
+    cfg.server_certificate = other_id.certificate;
+    const auto [client, err] = connect(cfg, security(), "test");
+    ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
+    ASSERT_EQ(err.data, mismatch_message(forged.certificate, other_id.certificate));
+    ASSERT_FALSE(activated(client.get()));
 }
 
 /// @brief it should reject every server certificate when it trusts none and does not

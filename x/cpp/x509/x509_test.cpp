@@ -253,6 +253,29 @@ TEST(CertificateTest, TruncatedPem) {
     ASSERT_OCCURRED_AS_P(Certificate::parse(truncated), INVALID);
 }
 
+/// @brief it should read DER that holds PEM text as DER, so that a forged certificate
+/// cannot pass for the certificate that it holds.
+TEST(CertificateTest, DerHoldingPem) {
+    const auto der = testutil::create_der_holding(KEY_A, "urn:holder", CERT_B);
+    ASSERT_TRUE(der.contains("-----BEGIN CERTIFICATE-----"));
+    ASSERT_FALSE(Certificate::is_pem(der));
+    ASSERT_TRUE(Certificate::pem_blocks(der).empty());
+    const auto cert = ASSERT_NIL_P(Certificate::parse(der));
+    ASSERT_EQ(cert.der(), der);
+    ASSERT_NE(cert, ASSERT_NIL_P(Certificate::parse(CERT_B)));
+}
+
+/// @brief it should read text that starts with "0" as PEM, though DER starts with the
+/// same byte.
+TEST(CertificateTest, PemAfterLeadingZero) {
+    const auto data = "0 comes first\n" + testutil::CERTIFICATE;
+    ASSERT_TRUE(Certificate::is_pem(data));
+    ASSERT_EQ(
+        ASSERT_NIL_P(Certificate::parse(data)),
+        ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE))
+    );
+}
+
 /// @brief it should reject data that holds no certificate.
 TEST(CertificateTest, ParseRejectsGarbage) {
     ASSERT_OCCURRED_AS_P(Certificate::parse("not a certificate"), INVALID);
