@@ -29,6 +29,9 @@ const x::errors::Error NO_SLAVES_FOUND = MASTER_INIT_ERROR.sub("no_slaves_found"
 /// @brief error returned when no slave answers because a filter on the adapter blocks
 /// the replies. The user can remove the filter.
 const x::errors::Error REPLIES_BLOCKED = NO_SLAVES_FOUND.sub("replies_blocked");
+/// @brief error returned when no slave answers because the network port of the master
+/// has no link.
+const x::errors::Error NO_LINK = NO_SLAVES_FOUND.sub("no_link");
 /// @brief error returned when the Driver cannot turn off the DewesoftX filter on an
 /// adapter.
 const x::errors::Error FILTER_ERROR = BASE_ERROR.sub("filter");

@@ -435,7 +435,12 @@ describe("Swatch", () => {
 
       const Source = ({ items }: { items: Haul.Item[] }): ReactElement => {
         const { startDrag } = Haul.useDrag({ type: "source" });
-        return <div data-testid="source" onDragStart={() => startDrag(items)} />;
+        return (
+          <div
+            data-testid="source"
+            onDragStart={(event) => startDrag({ event, items, preview: null })}
+          />
+        );
       };
 
       const renderSource = (items: Haul.Item[], onChange = vi.fn()): RenderResult => {
