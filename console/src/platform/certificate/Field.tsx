@@ -26,7 +26,7 @@ const nextMinute = (now: TimeStamp): TimeStamp => now.add(TimeSpan.MINUTE);
 
 const STORED: certificate.Where = { source: { eq: "stored" } };
 
-// A file certificate on another rack cannot be read by the device, so the list leaves it out.
+// The device cannot read a file certificate of another rack, so the list leaves it out.
 const whereOnRack = (rack: rack.Key): certificate.Where =>
   primitive.isZero(rack) ? STORED : { or: [STORED, { racks: [rack] }] };
 
