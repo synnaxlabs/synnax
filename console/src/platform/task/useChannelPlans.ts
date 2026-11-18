@@ -20,14 +20,15 @@ import { useState } from "react";
  * @param sources - Everything that plan reads from the form for each source, compared
  * by value. Each one must tell its source apart from the others. A change makes the
  * plan again.
- * @param plan - Plans every source, in the order of sources.
+ * @param plan - Plans every source, in the order of sources. It should stop between
+ * sources once signal aborts, which happens when the sources change.
  * @returns the plan of each source. While a new plan is in flight, a source whose input
  * is unchanged keeps its last plan, and any other has none. With no client, or after a
  * plan fails, no source has one.
  */
 export const useChannelPlans = <P>(
   sources: unknown[],
-  plan: (client: Synnax) => Promise<P[]>,
+  plan: (client: Synnax, signal: AbortSignal) => Promise<P[]>,
 ): (P | undefined)[] => {
   const client = PSynnax.use();
   const keys = sources.map((source) => JSON.stringify(source));
@@ -39,10 +40,11 @@ export const useChannelPlans = <P>(
         return;
       }
       try {
-        const next = await plan(client);
+        const next = await plan(client, signal);
         if (!signal.aborted) setPlans(new Map(keys.map((key, i) => [key, next[i]])));
       } catch (e) {
-        if (!signal.aborted) setPlans(new Map());
+        if (signal.aborted) return;
+        setPlans(new Map());
         throw errors.fromUnknown(e);
       }
     },

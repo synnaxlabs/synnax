@@ -37,4 +37,22 @@ describe("useChannelPlans", () => {
     act(() => resolve(["plan a2", "plan c"]));
     await waitFor(() => expect(result.current).toEqual(["plan a2", "plan c"]));
   });
+
+  it("should abort the plan in flight when the sources change", async () => {
+    const store = await createTestStore();
+    const { wrapper } = await createConsoleWrapper({ client, store });
+    const signals: AbortSignal[] = [];
+    const { rerender } = renderHook(
+      ({ b }: { b: string }) =>
+        Task.useChannelPlans([{ b }], async (_, signal) => {
+          signals.push(signal);
+          return await new Promise<string[]>(() => {});
+        }),
+      { wrapper, initialProps: { b: "b" } },
+    );
+    await waitFor(() => expect(signals).toHaveLength(1));
+    rerender({ b: "c" });
+    await waitFor(() => expect(signals).toHaveLength(2));
+    expect(signals.map(({ aborted }) => aborted)).toEqual([true, false]);
+  });
 });
