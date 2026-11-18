@@ -36,6 +36,7 @@ interface ZodDef extends z.core.$ZodTypeDef {
   element?: z.core.SomeType;
   getter?: () => z.core.SomeType;
   shape?: Record<string, z.ZodType>;
+  discriminator?: string;
 }
 
 interface ZodInternals extends z.core.$ZodTypeInternals {
@@ -176,13 +177,32 @@ const getArrayElementSchema = (
 };
 
 /**
+ * @returns the option of a discriminated union that the discriminator of data selects,
+ * or undefined when data selects no option.
+ */
+const selectOption = (def: ZodDef, data: unknown): z.core.SomeType | undefined => {
+  const key = def.discriminator;
+  if (key == null || def.options == null || !narrow.isObject(data)) return undefined;
+  const value = data[key] ?? data[camelToSnakeStr(key)];
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  )
+    return undefined;
+  return def.options.find((o) => o._zod.propValues?.[key]?.has(value));
+};
+
+/**
  * @returns the shape (field name to ZodType) of an object schema, looking through
- * wrappers, or null for non-object schemas. Union options are merged with earlier
- * options winning key conflicts, so a lookup of one field name resolves to the variant
- * that declares it.
+ * wrappers, or null for non-object schemas. A discriminated union gives the shape of
+ * the option that data selects. Other union options are merged with earlier options
+ * winning key conflicts, so a lookup of one field name resolves to the variant that
+ * declares it.
  */
 const getSchemaShape = (
   schema: z.ZodType | z.core.SomeType | undefined,
+  data?: unknown,
 ): Record<string, z.ZodType> | null => {
   if (schema == null) return null;
   const s = schema as ZodSchema;
@@ -193,9 +213,12 @@ const getSchemaShape = (
   }
   const def = s._zod?.def;
   if (def == null) return null;
-  if (def.type === "lazy" && def.getter != null) return getSchemaShape(def.getter());
-  if (def.innerType != null) return getSchemaShape(def.innerType);
+  if (def.type === "lazy" && def.getter != null)
+    return getSchemaShape(def.getter(), data);
+  if (def.innerType != null) return getSchemaShape(def.innerType, data);
   if (def.type === "union" && Array.isArray(def.options)) {
+    const selected = selectOption(def, data);
+    if (selected != null) return getSchemaShape(selected, data);
     let merged: Record<string, z.ZodType> | null = null;
     for (const option of def.options) {
       const result = getSchemaShape(option);
@@ -206,7 +229,8 @@ const getSchemaShape = (
     return merged;
   }
 
-  if (def.type === "pipe") return getSchemaShape(def.in) ?? getSchemaShape(def.out);
+  if (def.type === "pipe")
+    return getSchemaShape(def.in, data) ?? getSchemaShape(def.out, data);
   return null;
 };
 
@@ -321,7 +345,7 @@ const createConverter = (
     if ("toJSON" in anyObj && typeof anyObj.toJSON === "function")
       return converter(anyObj.toJSON(), opt);
 
-    const shape = getSchemaShape(schema);
+    const shape = getSchemaShape(schema, obj);
     // A record has no shape, so its values encode through its value schema.
     const recordEncode =
       encodes && shape == null ? encoderOf(getRecordValueSchema(schema)) : undefined;
@@ -424,13 +448,36 @@ const camelToSnakeStr = (str: string): string => {
 /** Converts a camelCase string to snake_case. */
 export const camelToSnake = createConverter(camelToSnakeStr, true);
 
+/** The value of a union's discriminator, at the path that ends at the discriminator. */
+export interface Discriminator {
+  path: string[];
+  value: unknown;
+}
+
 /** Options for {@link snakeToCamelPath} and {@link camelToSnakePath}. */
 export interface PathOptions {
   /** The schema that the document converts with. */
   schema?: z.ZodType;
   /** The document that the path goes into. A segment into a list is an entry key. */
   data?: unknown;
+  /**
+   * Values that select the option of a union ahead of data. Each path is in the case of
+   * the input path, not the converted one.
+   */
+  discriminators?: Discriminator[];
 }
+
+// selector returns an object that holds the discriminator of the union at path.
+const selector = (
+  discriminators: Discriminator[] | undefined,
+  path: string[],
+): record.Unknown | undefined => {
+  const found = discriminators?.find(
+    (d) =>
+      d.path.length === path.length + 1 && path.every((seg, i) => d.path[i] === seg),
+  );
+  return found == null ? undefined : { [found.path[path.length]]: found.value };
+};
 
 /** A path converted the way the converter of the same direction converts keys. */
 export interface ConvertedPath {
@@ -448,8 +495,12 @@ type Converter = ReturnType<typeof createConverter>;
 
 const createPathConverter =
   (f: (v: string) => string, converter: Converter, encodes: boolean = false) =>
-  (path: string[], { schema, data }: PathOptions = {}): ConvertedPath => {
+  (
+    path: string[],
+    { schema, data, discriminators }: PathOptions = {},
+  ): ConvertedPath => {
     const out: string[] = [];
+    const src: string[] = [];
     let s = schema;
     let d = data;
     let preserved = false;
@@ -465,6 +516,7 @@ const createPathConverter =
         d = Array.isArray(d)
           ? d.find((e) => narrow.isObject(e) && e.key === seg)
           : undefined;
+        src.push(seg);
         continue;
       }
       const keysKept = hasPreserveKeysMarker(s);
@@ -472,11 +524,12 @@ const createPathConverter =
       out.push(next);
       if (keysKept) s = getRecordValueSchema(s);
       else {
-        const shape = getSchemaShape(s);
+        const shape = getSchemaShape(s, selector(discriminators, src) ?? d);
         s = shape != null ? (shape[seg] ?? shape[next]) : getRecordValueSchema(s);
       }
       const obj = narrow.isObject(d) ? d : undefined;
       d = obj?.[seg] ?? obj?.[next];
+      src.push(seg);
     }
     const convert = <V>(value: V): V =>
       preserved ? value : convertChild(value, s, converter, encodes);
