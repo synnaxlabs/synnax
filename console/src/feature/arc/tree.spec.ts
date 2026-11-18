@@ -67,6 +67,27 @@ describe("arc/tree", () => {
     });
   });
 
+  describe("drag preview", () => {
+    it("should picture the Arc with the icon of its type", async () => {
+      const { root } = await createArcInDirectory();
+      const mod = await client.arcs.create({
+        name: uniqueName("mod"),
+        type: "module",
+        source: { mode: "text" },
+      });
+      await client.arcs.directories.move(root, clientArc.resourceID(mod.key));
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
+      const row = await findTreeRow(mod.name);
+      await waitFor(() =>
+        expect(row.querySelector(".lyra-icon--module")).not.toBeNull(),
+      );
+      fireEvent.dragStart(row);
+      const layer = document.querySelector(".lyra-haul__layer");
+      expect(layer?.querySelector(".lyra-icon--module")).not.toBeNull();
+      expect(layer?.textContent).toBe(`${mod.name}Arc`);
+    });
+  });
+
   describe("onSelect", () => {
     it("should open the Arc as a tab when the row is double-clicked", async () => {
       const { arc, root } = await createArcInDirectory();

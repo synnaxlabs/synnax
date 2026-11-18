@@ -79,7 +79,13 @@ const DragSource = ({ range }: { range: ranger.Range }): ReactElement => {
   const { startDrag, onDragEnd } = Haul.useDrag({ type: "test-source" });
   return (
     <button
-      onDragStart={() => startDrag([Ranger.createHaulItem(range.payload)])}
+      onDragStart={(event) =>
+        startDrag({
+          event,
+          items: [Ranger.createHaulItem(range.payload)],
+          preview: null,
+        })
+      }
       onDragEnd={onDragEnd}
     >
       {DRAG_HANDLE}
