@@ -28,6 +28,9 @@
         min-height: 0;
         padding: 0;
 
+        /* The picker takes the focus when the opener of a view is gone, with no ring. */
+        outline: none;
+
         & > * {
             flex-shrink: 0;
         }

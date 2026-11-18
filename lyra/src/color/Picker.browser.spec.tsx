@@ -9,7 +9,7 @@
 
 import { type ReactNode } from "react";
 import { assert, describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { Color } from "@/color";
@@ -77,6 +77,14 @@ describe("Picker", () => {
       const s = swatchRect(0);
       expect(add.getBoundingClientRect().width).toBeCloseTo(s.width, 0);
       expect(add.getBoundingClientRect().height).toBeCloseTo(s.height, 0);
+    });
+
+    it("should draw no focus ring around the picker", async () => {
+      const picker = await renderLibrary();
+      await userEvent.keyboard("{Tab}");
+      picker.focus();
+      expect(picker.matches(":focus-visible")).toBe(true);
+      expect(getComputedStyle(picker).outlineStyle).toBe("none");
     });
 
     it("should space the swatches equally across and down", async () => {
