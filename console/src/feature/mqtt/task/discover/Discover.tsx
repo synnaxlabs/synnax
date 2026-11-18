@@ -40,16 +40,18 @@ export interface Kind<E extends HeldEntry> {
   title: string;
   /** Says what a pick becomes. It shows while nothing is picked. */
   hint: string;
-  /** Names what one pick adds, such as "channel". */
+  /** Names what one picked value of a topic adds, such as "field". */
   noun: string;
+  /** Names what one picked tag adds. Defaults to noun. */
+  tagNoun?: string;
   /** Each topic takes one value, and a topic that the task holds takes none. */
   single?: boolean;
   /** @returns what the picks add to a task that holds the entries. */
   create: (picks: Picks, entries: E[]) => E[];
   /** @returns what a topic added by name adds. */
   createTopic: (topic: string) => E;
-  /** @returns what a tag added by name adds. */
-  createTag: () => E;
+  /** @returns what a tag added by name adds. Absent, the dialog lists no tags. */
+  createTag?: () => E;
 }
 
 interface Params<E extends HeldEntry> {
@@ -62,12 +64,26 @@ type DiscoverProps<E extends HeldEntry> = Modals.ContentProps<Params<E>, E[]> & 
   kind: Kind<E>;
 };
 
+/**
+ * @returns the label of the button that adds the picks, from the count of each noun.
+ * With no picks, it names idle.
+ */
+const addLabel = (counts: [noun: string, count: number][], idle: string): string => {
+  const totals = new Map<string, number>();
+  for (const [noun, count] of counts)
+    if (count > 0) totals.set(noun, (totals.get(noun) ?? 0) + count);
+  if (totals.size === 0) return `Add ${pluralize(idle)}`;
+  const parts = [...totals].map(([noun, count]) => pluralize(noun, count, true));
+  return `Add ${parts.join(" and ")}`;
+};
+
 const Discover = <E extends HeldEntry>({
   device,
   entries,
   close,
   kind,
 }: DiscoverProps<E>) => {
+  const { createTag, noun, tagNoun = noun } = kind;
   const [mode, setMode] = useState<Mode>("topics");
   const [topicPicks, setTopicPicks] = useState<TopicPicks>(() => new Map());
   const [tagPicks, setTagPicks] = useState<TagPicks>(() => new Map());
@@ -92,10 +108,12 @@ const Discover = <E extends HeldEntry>({
           {[kind.title, device.name]}
         </Modal.Header>
         <Picker.Bar>
-          <Select.Buttons<Mode> value={mode} onChange={setMode}>
-            <Select.Item<Mode> itemKey="topics">JSON topics</Select.Item>
-            <Select.Item<Mode> itemKey="sparkplug">Sparkplug B</Select.Item>
-          </Select.Buttons>
+          {createTag != null && (
+            <Select.Buttons<Mode> value={mode} onChange={setMode}>
+              <Select.Item<Mode> itemKey="topics">JSON topics</Select.Item>
+              <Select.Item<Mode> itemKey="sparkplug">Sparkplug B</Select.Item>
+            </Select.Buttons>
+          )}
         </Picker.Bar>
         <Picker.Frame itemKey="topics">
           <TopicPicker
@@ -107,15 +125,17 @@ const Discover = <E extends HeldEntry>({
             onAddByName={(topic) => close([...picked(), kind.createTopic(topic)])}
           />
         </Picker.Frame>
-        <Picker.Frame itemKey="sparkplug">
-          <TagPicker
-            device={device}
-            entries={entries}
-            value={tagPicks}
-            onChange={setTagPicks}
-            onAddByName={() => close([...picked(), kind.createTag()])}
-          />
-        </Picker.Frame>
+        {createTag != null && (
+          <Picker.Frame itemKey="sparkplug">
+            <TagPicker
+              device={device}
+              entries={entries}
+              value={tagPicks}
+              onChange={setTagPicks}
+              onAddByName={() => close([...picked(), createTag()])}
+            />
+          </Picker.Frame>
+        )}
         <Modal.Footer>
           <Nav.Bar.Start>
             <Text.Text level="small" color={count > 0 ? 10 : 9}>
@@ -131,9 +151,13 @@ const Discover = <E extends HeldEntry>({
               disabled={count === 0}
               onClick={() => close(picked())}
             >
-              {count === 0
-                ? `Add ${pluralize(kind.noun)}`
-                : `Add ${pluralize(kind.noun, count, true)}`}
+              {addLabel(
+                [
+                  [noun, values],
+                  [tagNoun, tagPicks.size],
+                ],
+                mode === "sparkplug" ? tagNoun : noun,
+              )}
             </Button.Button>
           </Nav.Bar.End>
         </Modal.Footer>

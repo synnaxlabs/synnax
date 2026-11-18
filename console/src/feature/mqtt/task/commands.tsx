@@ -10,8 +10,16 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { useCreateEdge } from "@/feature/mqtt/task/Edge";
+import { useCreateRead } from "@/feature/mqtt/task/Read";
 import { useCreateWrite } from "@/feature/mqtt/task/Write";
 import { Task } from "@/platform/task";
+
+const CreateReadCommand = Task.createCommand({
+  key: "mqtt_create_read_task",
+  name: "Create MQTT read task",
+  icon: <Icon.Logo.MQTT />,
+  useOnSelect: useCreateRead,
+});
 
 const CreateWriteCommand = Task.createCommand({
   key: "mqtt_create_write_task",
@@ -27,4 +35,4 @@ const CreateEdgeCommand = Task.createCommand({
   useOnSelect: useCreateEdge,
 });
 
-export const COMMANDS = [CreateWriteCommand, CreateEdgeCommand];
+export const COMMANDS = [CreateReadCommand, CreateWriteCommand, CreateEdgeCommand];

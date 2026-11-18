@@ -7,8 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { channel, mqtt } from "@synnaxlabs/client";
+
 import { createLeaves, createRawLeaf, type Leaf } from "@/feature/mqtt/task/leaves";
-import { type BrowsedTopic } from "@/feature/mqtt/task/types";
+import {
+  fromSparkplugDataType,
+  toSparkplugDataType,
+} from "@/feature/mqtt/task/sparkplug";
+import {
+  type BrowsedTopic,
+  type SparkplugReadEntry,
+  type SparkplugTag,
+} from "@/feature/mqtt/task/types";
+
+/** The prefix configure gives the channels of a topic's fields. */
+export const namePrefix = (devName: string, topic: string): string =>
+  `${channel.escapeInvalidName(devName)}_${channel.escapeInvalidName(topic)}`;
+
+export const createSparkplugEntry = (tag?: SparkplugTag): SparkplugReadEntry => {
+  const entry = mqtt.sparkplugReadEntryZ.parse({ type: "sparkplug" });
+  if (tag == null) return entry;
+  const { dataType, ...tagID } = tag;
+  return {
+    ...entry,
+    ...tagID,
+    dataType: fromSparkplugDataType(toSparkplugDataType(dataType)),
+  };
+};
 
 const unescapeToken = (token: string): string =>
   token.replaceAll("~1", "/").replaceAll("~0", "~");
