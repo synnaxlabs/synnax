@@ -84,7 +84,7 @@ type browsedTopic struct {
 	// Payload is the start of the last payload. Empty when the payload is not text.
 	Payload string `json:"payload"`
 	// Format is the format of the whole last payload.
-	Format driver.Format `json:"format"`
+	Format payload.Format `json:"format"`
 	// Fields are the scalars of the whole last payload. Empty when it is not JSON.
 	Fields []browsedField `json:"fields"`
 	// Index is the pointer of the field in Fields that indexes the messages heard. It

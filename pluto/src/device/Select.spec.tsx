@@ -131,6 +131,19 @@ describe("Device select", () => {
     expect(c.container.querySelector(`.${END_CLASS}`)).toBeNull();
   });
 
+  it("should call a device by the given resource name", async () => {
+    const c = render(
+      <Device.SelectSingle
+        value={undefined}
+        onChange={vi.fn()}
+        resourceName="connection"
+      />,
+      { wrapper },
+    );
+    fireEvent.click(await c.findByRole("button", { name: "Connection" }));
+    expect(await c.findByPlaceholderText("Search connections...")).toBeTruthy();
+  });
+
   it("should keep the status beside the caller's trigger props", async () => {
     const dev = await createDevice();
     const c = render(
