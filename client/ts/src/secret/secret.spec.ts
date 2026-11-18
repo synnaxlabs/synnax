@@ -733,6 +733,36 @@ describe("Secret", () => {
       expect(second).not.toEqual(first);
     });
 
+    it("should store command args in snake case, as a task reads them", async () => {
+      const client = createTestClient();
+      const [r] = await client.racks.retrieve({ embedded: true, integrations: "sift" });
+      const scan = await client.tasks.retrieve({
+        type: "sift_scan",
+        rack: r.key,
+        one: true,
+      });
+      const s = await client.secrets.set({
+        name: "Sift API key",
+        source: "stored",
+        value: "abc",
+      });
+      const grant = await client.secrets.grant({
+        subject: rack.resourceID(r.key),
+        secrets: [s.key],
+        command: {
+          task: scan.key,
+          type: "test_connection",
+          args: { connection: { uri: "127.0.0.1:1", apiKey: s.key } },
+        },
+      });
+      const state = await scan.executeCommandSync({
+        type: "test_connection",
+        timeout: TimeSpan.seconds(10),
+        args: { grant },
+      });
+      expect(state.message).toBe("Failed to reach Sift");
+    });
+
     it("should throw a NotFoundError for a missing secret", async () => {
       const client = createTestClient();
       const r = await client.racks.create({ name: "Grant rack" });

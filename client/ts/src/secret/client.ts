@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, filter, id, sync } from "@synnaxlabs/x";
+import { array, caseconv, filter, id, sync } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -338,9 +338,11 @@ export class Client extends query.Retriever<
    * @throws {PathError} if the task of the command is not on the subject rack.
    */
   async grant({ command, ...rest }: GrantParams): Promise<GrantKey> {
+    // A task reads args in snake case, as the command writer sends them.
+    const args = caseconv.camelToSnake(command.args ?? {});
     const res = await this.cfg.unary.send(
       "/secret/grant/create",
-      { ...rest, command: { ...command, key: id.create() } },
+      { ...rest, command: { ...command, args, key: id.create() } },
       grantCreateReqZ,
       grantCreateResZ,
     );

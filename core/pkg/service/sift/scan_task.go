@@ -15,6 +15,7 @@ import (
 
 	assetsv1 "github.com/sift-stack/sift/go/gen/sift/assets/v1"
 	pingv1 "github.com/sift-stack/sift/go/gen/sift/ping/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -164,7 +165,15 @@ func (s scanner) testConnection(ctx context.Context, cmd task.Command) error {
 	if err = args.Connection.validate(); err != nil {
 		return err
 	}
-	conn, err := dial(args.Connection.URI, string(values[args.Connection.APIKey]))
+	apiKey, ok := values[args.Connection.APIKey]
+	if !ok {
+		return errors.Wrapf(
+			access.ErrDenied,
+			"grant does not hold API key %s",
+			args.Connection.APIKey,
+		)
+	}
+	conn, err := dial(args.Connection.URI, string(apiKey))
 	if err != nil {
 		return err
 	}
