@@ -24,6 +24,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { nodeText, useMatches, usePathChildren } from "@/menu/filter";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState, useReselectNoop, useSelectedAmong } from "@/select/Context";
 import { type ItemOptions, useIsHidden, useRegistryContext } from "@/select/registry";
@@ -31,7 +32,9 @@ import {
   type ButtonsContextValue,
   useButtonsContext,
   useClosed,
+  useInline,
   useInList,
+  useShownContext,
 } from "@/select/scope";
 import { hasModifier } from "@/select/use";
 import { Text } from "@/text";
@@ -113,6 +116,44 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>({
         aria-label="Select"
       />
       {item.children}
+    </List.Item>
+  );
+};
+
+interface InlineItemProps<K extends record.Key, E extends Button.ElementType> {
+  item: List.ItemProps<K, E>;
+  text?: string;
+}
+
+// In its menu, an option is a menu item, and its click closes the menu.
+const InlineItem = <K extends record.Key, E extends Button.ElementType>({
+  item,
+  text,
+}: InlineItemProps<K, E>): ReactNode => {
+  const { selected, hovered, onSelect, onHover, sole } = useItemState(item.itemKey);
+  const reselectNoop = useReselectNoop();
+  const children = usePathChildren(item.children);
+  // The search of the list answers late, so the menu filter checks each option itself.
+  const matches = useMatches(text ?? nodeText(item.children));
+  const setShown = useShownContext();
+  useLayoutEffect(() => {
+    if (!matches || setShown == null) return;
+    setShown((count) => count + 1);
+    return () => setShown((count) => count - 1);
+  }, [matches, setShown]);
+  if (!matches) return null;
+  return (
+    <List.Item<K, E>
+      role="menuitem"
+      propagateClick
+      selected={selected}
+      hovered={hovered}
+      onHover={onHover}
+      onSelect={onSelect}
+      preventClick={reselectNoop && sole ? true : undefined}
+      {...item}
+    >
+      {children}
     </List.Item>
   );
 };
@@ -251,7 +292,9 @@ export const Item = <
 ): ReactNode => {
   const inItems = List.useInItems();
   const buttons = useButtonsContext();
+  const inline = useInline();
   const { textValue, checkable, onActivate, label, ...rest } = props;
+  if (inItems && inline) return <InlineItem item={rest} text={textValue} />;
   if (inItems)
     return <BlockItem item={rest} checkable={checkable} onActivate={onActivate} />;
   if (buttons != null) return <ButtonItem {...rest} buttons={buttons} />;

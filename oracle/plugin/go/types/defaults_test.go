@@ -802,6 +802,22 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			},
 		)
 
+		It("Should refuse a non-finite value in a field with a finite rule", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					value float64 { @validate finite }
+					limit float64? { @validate finite }
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.Finite("value", c.Value)`,
+				"if c.Limit != nil {\n\tv.Finite(\"limit\", *c.Limit)",
+			)
+		})
+
 		It(
 			"Should merge a field's rules with its type's rules",
 			func() {

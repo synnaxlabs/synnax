@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import {
-  createEvent,
   fireEvent,
   render,
   renderHook,
   type RenderResult,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import {
   type DragEvent,
@@ -22,9 +22,10 @@ import {
   type ReactNode,
   useEffect,
 } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Haul } from "@/haul";
+import { mockBoundingClientRect } from "@/testutil";
 
 const ITEMS: Haul.Item[] = [{ type: "cat", key: "whiskers" }];
 
@@ -38,7 +39,9 @@ const Source = ({ items = ITEMS, onSuccessfulDrop }: SourceProps): ReactElement 
   return (
     <button
       data-testid="source"
-      onClick={() => startDrag(items, onSuccessfulDrop)}
+      onDragStart={(event) =>
+        startDrag({ event, items, preview: null, onSuccessfulDrop })
+      }
       onDragEnd={onDragEnd}
     />
   );
@@ -52,7 +55,9 @@ const KeylessSource = ({
   return (
     <button
       data-testid="keyless-source"
-      onClick={() => startDrag(items, onSuccessfulDrop)}
+      onDragStart={(event) =>
+        startDrag({ event, items, preview: null, onSuccessfulDrop })
+      }
     />
   );
 };
@@ -66,7 +71,12 @@ const ToggleKeySource = ({ keyed }: ToggleKeySourceProps): ReactElement => {
     type: "toggle-source",
     key: keyed ? "fixed-key" : undefined,
   });
-  return <button data-testid="toggle-source" onClick={() => startDrag(ITEMS)} />;
+  return (
+    <button
+      data-testid="toggle-source"
+      onDragStart={(event) => startDrag({ event, items: ITEMS, preview: null })}
+    />
+  );
 };
 
 type DragEndInterceptor = Parameters<Haul.ContextValue["bind"]>[0];
@@ -101,7 +111,13 @@ const DnDItem = ({ itemKey, onDrop }: DnDItemProps): ReactElement => {
       data-testid={`item-${itemKey}`}
       onDragOver={dragAndDrop.onDragOver}
       onDrop={dragAndDrop.onDrop}
-      onClick={() => dragAndDrop.startDrag([{ type: "reorder-item", key: itemKey }])}
+      onDragStart={(event) =>
+        dragAndDrop.startDrag({
+          event,
+          items: [{ type: "reorder-item", key: itemKey }],
+          preview: null,
+        })
+      }
     />
   );
 };
@@ -153,16 +169,11 @@ const Target = ({
 };
 
 const beginDrag = (): void => {
-  fireEvent.click(screen.getByTestId("source"));
+  fireEvent.dragStart(screen.getByTestId("source"));
 };
 
-// jsdom has no native DragEvent constructor, so screenX/screenY passed through
-// fireEvent.dragEnd's MouseEventInit are silently dropped; assign them onto the
-// raw event before dispatch instead.
 const fireDragEnd = (element: HTMLElement, screenX: number, screenY: number): void => {
-  const event = createEvent.dragEnd(element);
-  Object.assign(event, { screenX, screenY });
-  fireEvent(element, event);
+  fireEvent.dragEnd(element, { screenX, screenY });
 };
 
 const passthroughDrop = () => vi.fn(({ items }: Haul.OnDropProps) => items);
@@ -292,12 +303,12 @@ describe("Haul", () => {
           <Target testId="target" onDrop={onDrop} />
         </Haul.Provider>,
       );
-      fireEvent.click(screen.getByTestId("keyless-source"));
+      fireEvent.dragStart(screen.getByTestId("keyless-source"));
       fireEvent.drop(screen.getByTestId("target"));
       const firstKey = onDrop.mock.calls[0][0].source.key;
       expect(firstKey).toBeTruthy();
 
-      fireEvent.click(screen.getByTestId("keyless-source"));
+      fireEvent.dragStart(screen.getByTestId("keyless-source"));
       fireEvent.drop(screen.getByTestId("target"));
       const secondKey = onDrop.mock.calls[1][0].source.key;
       expect(secondKey).toEqual(firstKey);
@@ -327,7 +338,7 @@ describe("Haul", () => {
           </Haul.Provider>,
         );
       }).not.toThrow();
-      fireEvent.click(screen.getByTestId("toggle-source"));
+      fireEvent.dragStart(screen.getByTestId("toggle-source"));
       fireEvent.drop(screen.getByTestId("target"));
       expect(onDrop).toHaveBeenCalledTimes(1);
       expect(onDrop.mock.calls[0][0].items).toEqual(ITEMS);
@@ -735,7 +746,7 @@ describe("Haul", () => {
           <DnDItem itemKey="b" onDrop={onDrop} />
         </Haul.Provider>,
       );
-      fireEvent.click(screen.getByTestId("item-a"));
+      fireEvent.dragStart(screen.getByTestId("item-a"));
       fireEvent.drop(screen.getByTestId("item-b"));
       expect(onDrop).toHaveBeenCalledTimes(1);
       expect(onDrop.mock.calls[0][0].items).toEqual([
@@ -754,7 +765,13 @@ describe("Haul", () => {
         return (
           <button
             data-testid="other-source"
-            onClick={() => startDrag([{ type: "other-item", key: "c" }])}
+            onDragStart={(event) =>
+              startDrag({
+                event,
+                items: [{ type: "other-item", key: "c" }],
+                preview: null,
+              })
+            }
           />
         );
       };
@@ -764,7 +781,7 @@ describe("Haul", () => {
           <DnDItem itemKey="a" onDrop={onDrop} />
         </Haul.Provider>,
       );
-      fireEvent.click(screen.getByTestId("other-source"));
+      fireEvent.dragStart(screen.getByTestId("other-source"));
       fireEvent.drop(screen.getByTestId("item-a"));
       expect(onDrop).not.toHaveBeenCalled();
     });
@@ -788,6 +805,149 @@ describe("Haul", () => {
     it("should not report a file drag for a disallowed drag effect", () => {
       const event = captureDragOverEvent("move");
       expect(Haul.isFileDrag(event, Haul.ZERO_DRAGGING_STATE)).toBe(false);
+    });
+  });
+  describe("preview", () => {
+    const PICTURE = "picture of a cat";
+
+    interface PreviewSourceProps {
+      anchor?: Haul.PreviewAnchor;
+    }
+
+    const PreviewSource = ({ anchor }: PreviewSourceProps): ReactElement => {
+      const { startDrag, onDragEnd } = Haul.useDrag({
+        type: "test-source",
+        key: "source",
+      });
+      return (
+        <button
+          data-testid="source"
+          onDragStart={(event) =>
+            startDrag({ event, items: ITEMS, preview: <span>{PICTURE}</span>, anchor })
+          }
+          onDragEnd={onDragEnd}
+        />
+      );
+    };
+
+    const layer = (): HTMLElement => {
+      const el = document.querySelector<HTMLElement>(".lyra-haul__layer");
+      if (el == null) throw new Error("the provider renders no preview layer");
+      return el;
+    };
+
+    const spyOnDragImage = () => vi.spyOn(DataTransfer.prototype, "setDragImage");
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it("should picture the preview at dragstart", () => {
+      const setDragImage = spyOnDragImage();
+      render(
+        <Haul.Provider>
+          <PreviewSource />
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(screen.getByTestId("source"));
+      expect(layer().textContent).toBe(PICTURE);
+      expect(setDragImage).toHaveBeenCalledWith(layer(), 4, 8);
+    });
+
+    it("should clear the preview once the browser has its picture", async () => {
+      render(
+        <Haul.Provider>
+          <PreviewSource />
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(screen.getByTestId("source"));
+      await waitFor(() => expect(layer().childElementCount).toBe(0));
+    });
+
+    it("should put the top-left corner of a corner preview on the pointer", () => {
+      const setDragImage = spyOnDragImage();
+      render(
+        <Haul.Provider>
+          <PreviewSource anchor="corner" />
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(screen.getByTestId("source"));
+      expect(setDragImage).toHaveBeenCalledWith(layer(), 18, 18);
+    });
+
+    it("should hold a grab preview at the point the drag pressed", () => {
+      const setDragImage = spyOnDragImage();
+      render(
+        <Haul.Provider>
+          <PreviewSource anchor="grab" />
+        </Haul.Provider>,
+      );
+      const source = screen.getByTestId("source");
+      source.getBoundingClientRect = mockBoundingClientRect(50, 100, 80, 24);
+      fireEvent.dragStart(source, { clientX: 130, clientY: 62 });
+      expect(setDragImage).toHaveBeenCalledWith(layer(), 48, 30);
+    });
+
+    it("should dim the source until the drag ends", () => {
+      render(
+        <Haul.Provider>
+          <PreviewSource />
+        </Haul.Provider>,
+      );
+      const source = screen.getByTestId("source");
+      fireEvent.dragStart(source);
+      expect(source.hasAttribute("data-haul-source")).toBe(true);
+      fireEvent.dragEnd(source);
+      expect(source.hasAttribute("data-haul-source")).toBe(false);
+    });
+
+    interface TreeItemProps {
+      name: string;
+      selected: boolean;
+    }
+
+    const TreeItem = ({ name, selected }: TreeItemProps): ReactElement => {
+      const { startDrag, onDragEnd } = Haul.useDrag({ type: "test-source", key: name });
+      return (
+        <div
+          role="treeitem"
+          aria-label={name}
+          aria-selected={selected}
+          onDragStart={(event) => startDrag({ event, items: ITEMS, preview: name })}
+          onDragEnd={onDragEnd}
+        />
+      );
+    };
+
+    const renderTree = (): void => {
+      render(
+        <Haul.Provider>
+          <div role="tree">
+            <TreeItem name="a" selected />
+            <TreeItem name="b" selected />
+            <TreeItem name="c" selected={false} />
+          </div>
+        </Haul.Provider>,
+      );
+    };
+
+    const dimmed = (): string[] =>
+      screen
+        .getAllByRole("treeitem")
+        .filter((item) => item.hasAttribute("data-haul-source"))
+        .map((item) => item.getAttribute("aria-label") ?? "");
+
+    it("should dim every selected item when a selected tree item drags", () => {
+      renderTree();
+      const a = screen.getByRole("treeitem", { name: "a" });
+      fireEvent.dragStart(a);
+      expect(dimmed()).toEqual(["a", "b"]);
+      fireEvent.dragEnd(a);
+      expect(dimmed()).toEqual([]);
+    });
+
+    it("should dim only the tree item that drags when it is not selected", () => {
+      renderTree();
+      fireEvent.dragStart(screen.getByRole("treeitem", { name: "c" }));
+      expect(dimmed()).toEqual(["c"]);
     });
   });
 });

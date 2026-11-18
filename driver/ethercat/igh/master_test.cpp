@@ -90,6 +90,25 @@ void create_assignable_layout(MockAPI::Slave &slave) {
     };
 }
 
+/// @brief returns a CoE dictionary that holds 0x6000:07, a counter, and 0x6030:01, a
+/// voltage, as IgH reads them from an IOLITE 6xSTG.
+std::vector<MockAPI::DictionaryObject> create_dictionary() {
+    return {
+        {.info = {.index = 0x6000, .max_sub_index = 8, .name = "DI Inputs"},
+         .entries = {{7, {.name = "BufCounter", .data_type = 0x0007}}}},
+        {.info = {.index = 0x6030, .max_sub_index = 6, .name = "UnBuf Inputs"},
+         .entries = {{1, {.name = "u1", .data_type = 0x0008}}}},
+    };
+}
+
+/// @brief makes slave map the counter and the voltage of create_dictionary() through
+/// PDO 0x1A00 on its inputs.
+void create_dictionary_layout(MockAPI::Slave &slave) {
+    slave.syncs = {
+        {EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x07, 32}, {0x6030, 0x01, 32}}}}}
+    };
+}
+
 /// @brief a mode that runs on the sync manager events.
 const dc::OpMode FREE_RUN{.name = "FreeRun"};
 
@@ -241,12 +260,69 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheDeviceCheckFails) {
     ASSERT_OCCURRED_AS_P(this->master.scan(), errors::PERMISSION_DENIED);
 }
 
-/// @brief it should fail when the kernel module gives no master.
-TEST_F(IGHMasterTest, ScanFailsWhenTheMasterIsMissing) {
-    this->api->request_master_fails = true;
+/// @brief it should fail when the master cannot be opened.
+TEST_F(IGHMasterTest, ScanFailsWhenTheMasterCannotBeOpened) {
+    this->api->open_master_fails = true;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "IgH master not available - is kernel module loaded?");
+    EXPECT_EQ(
+        err.data,
+        "failed to open igh:0. Check that libethercat comes from the EtherLab version "
+        "of the ec_master kernel module"
+    );
+}
+
+/// @brief it should scan without a reservation, so IgH keeps scanning the bus, and
+/// reserve the master at activation.
+TEST_F(IGHMasterTest, ScanLeavesTheMasterUnreservedUntilActivation) {
+    this->api->add_slave();
+    ASSERT_NIL_P(this->master.scan());
+    EXPECT_FALSE(this->api->reserved);
+    ASSERT_NIL(this->activate().err);
+    EXPECT_TRUE(this->api->reserved);
+}
+
+/// @brief it should wait for a scan that IgH runs before it reads the slaves.
+TEST_F(IGHMasterTest, ScanWaitsForTheScanOfIgH) {
+    this->api->add_slave();
+    this->api->scan_reads = 3;
+    EXPECT_EQ(ASSERT_NIL_P(this->master.scan()).size(), 1);
+    EXPECT_EQ(this->api->scan_reads, 0);
+}
+
+/// @brief it should fail, and release the master, when IgH does not finish its scan.
+TEST_F(IGHMasterTest, ScanFailsWhenIgHKeepsScanning) {
+    this->api->add_slave();
+    this->api->scan_reads = 100000;
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
+    EXPECT_EQ(err.data, "IgH did not finish its scan of the bus within 10s");
+    EXPECT_TRUE(this->api->released);
+}
+
+/// @brief it should fail, and release the master, when no slave answers.
+TEST_F(IGHMasterTest, ScanFailsWhenNoSlaveAnswers) {
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
+    EXPECT_EQ(
+        err.data,
+        "No EtherCAT modules found on igh:0. Check the cable and the power of the first "
+        "module."
+    );
+    EXPECT_TRUE(this->api->released);
+}
+
+/// @brief it should tell a network port with no link from slaves that do not answer.
+TEST_F(IGHMasterTest, ScanFailsWhenThePortHasNoLink) {
+    this->api->link_up = false;
+    const auto err = this->master.scan().second;
+    ASSERT_OCCURRED_AS(err, errors::NO_LINK);
+    EXPECT_EQ(
+        err.data,
+        "No EtherCAT modules found on igh:0. Its network port has no link. Check the "
+        "cable to the first module, and that MASTER0_DEVICE in the IgH configuration "
+        "names the port."
+    );
 }
 
 /// @brief it should release the master when it cannot read the master info.
@@ -325,6 +401,76 @@ TEST_F(IGHMasterTest, ScanFillsNamesAndDataTypesFromTheRegistry) {
     this->api->add_slave("EL3102", beckhoff, el3102).syncs = {
         {EC_DIR_INPUT, {{0x1A00, {{known->index, known->sub_index, 16}}}}},
     };
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].name, known->name);
+    EXPECT_EQ(inputs[0].data_type, known->data_type);
+}
+
+/// @brief it should name each entry and give its data type from the CoE dictionary
+/// that IgH read from the slave, the final object of the dictionary included.
+TEST_F(IGHMasterTest, ScanNamesEntriesFromTheDictionaryOfTheSlave) {
+    auto &slave = this->api->add_slave();
+    create_dictionary_layout(slave);
+    slave.dictionary = create_dictionary();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 2);
+    EXPECT_EQ(inputs[0].name, "BufCounter");
+    EXPECT_EQ(inputs[0].data_type, x::telem::UINT32_T);
+    EXPECT_EQ(inputs[1].name, "u1");
+    EXPECT_EQ(inputs[1].data_type, x::telem::FLOAT32_T);
+}
+
+/// @brief it should keep the generic name of an entry of the object that IgH still
+/// reads, with no lookup that IgH would write to the kernel log.
+TEST_F(IGHMasterTest, ScanKeepsTheNameOfAnEntryThatIgHHasNotRead) {
+    auto &slave = this->api->add_slave();
+    create_dictionary_layout(slave);
+    slave.dictionary = create_dictionary();
+    slave.dictionary[1].entries.clear();
+    slave.dictionary.push_back({.info = {.index = 0xF050, .max_sub_index = 4}});
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto &inputs = slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 2);
+    EXPECT_EQ(inputs[0].name, "BufCounter");
+    EXPECT_EQ(inputs[1].name, "Input (uint32) 0x6030:01");
+    EXPECT_EQ(slave.entry_reads, 1);
+}
+
+/// @brief it should name an entry at a later scan once IgH has read the dictionary.
+TEST_F(IGHMasterTest, ScanNamesAnEntryOnceIgHHasReadIt) {
+    auto &slave = this->api->add_slave();
+    create_dictionary_layout(slave);
+    const auto first = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(first[0].properties.input_pdos[0].name, "Input (uint32) 0x6000:07");
+    slave.dictionary = create_dictionary();
+    const auto second = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(second[0].properties.input_pdos[0].name, "BufCounter");
+}
+
+/// @brief it should keep the name and data type that the registry gives a known
+/// slave at each scan, as SOEM does.
+TEST_F(IGHMasterTest, ScanPrefersTheRegistryToTheDictionary) {
+    constexpr uint32_t beckhoff = 0x00000002;
+    constexpr uint32_t el3102 = 0x0C1E3052;
+    slave::Properties registry{};
+    ASSERT_TRUE(esi::lookup_device_pdos(beckhoff, el3102, 1, registry));
+    const auto known = std::ranges::find_if(registry.input_pdos, [](const auto &p) {
+        return !p.is_padding() && p.bit_length == 16;
+    });
+    ASSERT_NE(known, registry.input_pdos.end());
+    auto &slave = this->api->add_slave("EL3102", beckhoff, el3102);
+    slave.syncs = {
+        {EC_DIR_INPUT, {{0x1A00, {{known->index, known->sub_index, 16}}}}},
+    };
+    slave.dictionary = {
+        {.info =
+             {.index = known->index, .max_sub_index = known->sub_index, .name = "AI"},
+         .entries = {{known->sub_index, {.name = "Other", .data_type = 0x0006}}}},
+    };
+    ASSERT_NIL_P(this->master.scan());
     const auto slaves = ASSERT_NIL_P(this->master.scan());
     const auto &inputs = slaves[0].properties.input_pdos;
     ASSERT_EQ(inputs.size(), 1);
@@ -527,6 +673,15 @@ TEST_F(IGHMasterTest, ChangedOnceAnotherModelIsAtAPosition) {
     EXPECT_FALSE(this->master.restarts_visible());
 }
 
+/// @brief it should report a change while IgH scans the bus, as the slaves changed.
+TEST_F(IGHMasterTest, ChangedWhileIgHScansTheBus) {
+    this->api->add_slave();
+    ASSERT_NIL_P(this->master.scan());
+    this->api->scan_reads = 1;
+    EXPECT_TRUE(ASSERT_NIL_P(this->master.changed()).stale);
+    EXPECT_FALSE(ASSERT_NIL_P(this->master.changed()).stale);
+}
+
 /// @brief it should fail to compare the bus with the scan when IgH cannot read a slave.
 TEST_F(IGHMasterTest, ChangedFailsWhenASlaveIsUnreadable) {
     this->api->add_slave();
@@ -542,6 +697,88 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheMasterDoesNotActivate) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(err.data, "ecrt_master_activate failed");
+}
+
+/// @brief it should tell why it cannot reserve the master.
+TEST_F(IGHMasterTest, ActivateFailsWhenTheMasterCannotBeReserved) {
+    this->api->add_slave();
+    ASSERT_NIL_P(this->master.scan());
+    const std::vector<std::pair<int, std::string>> cases{
+        {-EBUSY, "another program uses igh:0. Stop it, then start the task again"},
+        {-ENODEV,
+         "no network port is attached to igh:0. Set MASTER0_DEVICE in the IgH "
+         "configuration to the MAC address of the port, then restart IgH with 'sudo "
+         "systemctl restart ethercat'"},
+        {-EINTR, "failed to reserve igh:0: Interrupted system call"},
+    };
+    for (const auto &[ret, msg]: cases) {
+        this->api->reserve_result = ret;
+        const auto err = this->activate().err;
+        ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+        EXPECT_EQ(err.data, msg);
+    }
+}
+
+/// @brief it should fail activation, before it configures a slave, when the slaves
+/// changed between the scan and the reservation, so that the caller scans again.
+TEST_F(IGHMasterTest, ActivateFailsWhenTheSlavesChangedSinceTheScan) {
+    this->api->add_slave("EL3102", 0x2, 0x0C1E3052);
+    ASSERT_NIL_P(this->master.scan());
+    this->api->slaves[0].info.product_code = 0x03F03052;
+    const auto err = this->activate().err;
+    ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(err.data, "the modules on igh:0 changed since the last scan");
+    EXPECT_FALSE(this->api->slaves[0].configured);
+}
+
+/// @brief it should refuse a used slave with no identity once the image shows the other
+/// slaves, without configuring the slave or checking its chosen mode.
+TEST_F(IGHMasterTest, ActivateRefusesAUsedSlaveWithNoIdentity) {
+    this->api->add_slave("Unknown", 0, 0);
+    create_io(this->api->add_slave());
+    ASSERT_NIL_P(this->master.scan());
+    this->configs = {
+        {1, {.op_mode = dc::Choice{.index = 2, .assign_activate = 0x0700}}}
+    };
+    const auto activation = this->activate();
+    ASSERT_OCCURRED_AS(activation.err, errors::ACTIVATION_ERROR);
+    EXPECT_EQ(
+        activation.err.data,
+        "module 1 (Unknown) gave no identity when IgH read its EEPROM"
+    );
+    const std::map<uint16_t, slave::Refusal> refusals{
+        {1, {.reason = "gave no identity when IgH read its EEPROM"}},
+    };
+    EXPECT_EQ(activation.refusals, refusals);
+    EXPECT_FALSE(this->api->slaves[0].configured);
+    EXPECT_FALSE(this->image.offsets.empty());
+}
+
+/// @brief it should refuse a used slave with no identity before it starts the cycle
+/// when no other slave has process data.
+TEST_F(IGHMasterTest, ActivateRefusesTheOnlySlaveWithIOWhenItHasNoIdentity) {
+    create_io(this->api->add_slave("Unknown", 0, 0));
+    ASSERT_NIL_P(this->master.scan());
+    bool started = false;
+    const auto activation = this->master.activate(
+        {.period = PERIOD},
+        [&started](const master::Image &) { started = true; }
+    );
+    ASSERT_OCCURRED_AS(activation.err, errors::ACTIVATION_ERROR);
+    EXPECT_TRUE(activation.refusals.contains(1));
+    EXPECT_FALSE(started);
+}
+
+/// @brief it should start a bus with a slave that has no identity when no task uses the
+/// slave.
+TEST_F(IGHMasterTest, ActivateStartsPastAnUnusedSlaveWithNoIdentity) {
+    this->api->add_slave("Unknown", 0, 0);
+    create_io(this->api->add_slave());
+    ASSERT_NIL_P(this->master.scan());
+    this->configs = {{1, {.enabled = false}}};
+    const auto activation = this->activate();
+    ASSERT_NIL(activation.err);
+    EXPECT_TRUE(activation.refusals.empty());
 }
 
 /// @brief it should configure each enabled slave and skip a disabled one.
@@ -696,8 +933,10 @@ TEST_F(IGHMasterTest, ActivateStartsWhenAnUnreadableSlaveIsInOP) {
 TEST_F(IGHMasterTest, ActivateReportsASlaveWhoseStateItCannotRead) {
     this->api->add_slave().reaches = EC_AL_STATE_SAFEOP;
     ASSERT_NIL_P(this->master.scan());
-    this->api->slaves[0].unreadable = true;
-    const auto activation = this->activate();
+    const auto activation = this->master.activate(
+        {.period = PERIOD},
+        [this](const master::Image &) { this->api->slaves[0].unreadable = true; }
+    );
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
         activation.err.data,
@@ -1271,6 +1510,23 @@ TEST_F(IGHMasterTest, ActivateRegistersTheEntriesAStartupParameterAssigns) {
     EXPECT_EQ(inputs[0].index, 0x6010);
     EXPECT_EQ(inputs[0].bit_length, 32);
     ASSERT_NIL_P(this->image.offset(assigned_entry()));
+}
+
+/// @brief it should name the entries of the PDO a startup parameter assigns from the
+/// CoE dictionary that IgH read from the slave.
+TEST_F(IGHMasterTest, ActivateNamesTheEntriesAStartupParameterAssigns) {
+    auto &slave = this->api->add_slave();
+    create_assignable_layout(slave);
+    slave.dictionary = {
+        {.info = {.index = 0x6010, .max_sub_index = 1, .name = "Strain"},
+         .entries = {{1, {.name = "Value", .data_type = 0x0008}}}},
+    };
+    this->configs = {{1, {.startup_parameters = {ASSIGN_INPUTS}}}};
+    ASSERT_NIL(this->scan_and_activate());
+    const auto &inputs = this->image.slaves[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].name, "Value");
+    EXPECT_EQ(inputs[0].data_type, x::telem::FLOAT32_T);
 }
 
 /// @brief it should read the layout of each slave from that slave's own object

@@ -64,12 +64,18 @@ export interface ReadChannelField {
   disabled?: boolean;
 }
 
-export interface ConfigureReadChannelsArgs<F extends ReadChannelField> {
-  client: Client;
+/** Where a device stores the channels of one read source. */
+export interface StoredChannels {
   /** The read properties of the device. Updated in place. */
   read: Record<string, ReadChannelProps>;
   /** The key of the source in read. */
-  propertiesKey: string;
+  key: string;
+}
+
+export interface ConfigureReadChannelsArgs<F extends ReadChannelField> {
+  client: Client;
+  /** Where the device stores the channels of the source. Absent when it stores none. */
+  stored?: StoredChannels;
   /** The fields of the source. Each enabled one gets its channel in place. */
   fields: F[];
   /** Prefix of a generated channel name. The index is named `${namePrefix}_time`. */
@@ -88,21 +94,23 @@ const isFixed = (field: ReadChannelField): boolean =>
 
 /**
  * Gives every enabled field of a read source a channel: the one it has, the one the
- * device stores for its pointer, or a new one, which read then stores. The index field
+ * device stores for its pointer, or a new one, which it adds to stored. The index field
  * or a new indexed channel gets the stored index. When that is gone, it gets the index
  * of a live channel of the source, or a new one. A source that needs no new channel
- * gets no entry in read.
+ * gets no entry in stored.
  */
 export const configureReadChannels = async <F extends ReadChannelField>({
   client,
-  read,
-  propertiesKey,
+  stored,
   fields,
   namePrefix,
   indexKey,
   indexed = isFixed,
 }: ConfigureReadChannelsArgs<F>): Promise<void> => {
-  const props = read[propertiesKey] ?? { index: 0, channels: {} };
+  const props = stored?.read[stored.key] ?? { index: 0, channels: {} };
+  const save = () => {
+    if (stored != null) stored.read[stored.key] = props;
+  };
   const enabled = fields.filter(({ disabled }) => !disabled);
   const live: channel.Channel[] = [];
   const bind = async (field: F): Promise<boolean> => {
@@ -110,9 +118,9 @@ export const configureReadChannels = async <F extends ReadChannelField>({
       if (indexed(field)) live.push(await client.channels.retrieve(field.channel));
       return true;
     }
-    const stored = props.channels[field.pointer];
-    if (!(await channelExists(client, stored))) return false;
-    field.channel = stored;
+    const ch = props.channels[field.pointer];
+    if (!(await channelExists(client, ch))) return false;
+    field.channel = ch;
     return true;
   };
   const indexField = enabled.find(({ key }) => key === indexKey);
@@ -131,7 +139,7 @@ export const configureReadChannels = async <F extends ReadChannelField>({
       });
       props.index = indexCh.key;
     }
-    read[propertiesKey] = props;
+    save();
   }
   if (indexField != null && primitive.isNonZero(props.index))
     indexField.channel = props.index;
@@ -147,7 +155,7 @@ export const configureReadChannels = async <F extends ReadChannelField>({
     });
     field.channel = ch.key;
     props.channels[field.pointer] = ch.key;
-    read[propertiesKey] = props;
+    save();
   }
 };
 
