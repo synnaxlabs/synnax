@@ -8,12 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import json
-from pathlib import Path
 from typing import Any
 
 import pytest
 
-from review import Target, Unreviewed, render, restore
+from review import Target, Unrestorable, render, restore
 from review.__main__ import main
 
 REPO = "synnaxlabs/synnax"
@@ -49,14 +48,17 @@ def lines(items: list[dict[str, Any]]) -> str:
 
 class FakeGH:
     """Serves pull request 7, whose bot reviewed OLD and then HEAD, after a person put
-    back the body of the review of OLD."""
+    back the body of the review of OLD. Reads come through the instance, and writes
+    through `writer`."""
 
     def __init__(self) -> None:
-        self.body = f"{TEXT}\n\n{block(OLD, 3)}\n"
+        self.bodies = [f"{TEXT}\n\n{block(OLD, 3)}\n"]
+        """The body at each read, the last one for every later read."""
+        self.head = HEAD
         self.edits = [
-            edit("someone", self.body),
+            edit("someone", self.bodies[0]),
             edit("sedosaur", f"{TEXT}\n\n{block(HEAD, 5)}\n"),
-            edit("sedosaur", self.body),
+            edit("sedosaur", self.bodies[0]),
         ]
         self.runs = [
             {
@@ -66,17 +68,42 @@ class FakeGH:
                 "conclusion": "success",
             }
         ]
+        self.writes: list[tuple[str, str, dict[str, Any]]] = []
+
+    @property
+    def body(self) -> str:
+        return self.bodies[-1]
+
+    @body.setter
+    def body(self, body: str) -> None:
+        self.bodies = [body]
 
     def __call__(self, *args: str, stdin: str | None = None) -> str:
-        assert args[:2] != ("api", "-X"), "restore must not write"
+        assert args[:2] != ("api", "-X"), "a read token must not write"
         path = args[2] if args[1] == "--paginate" else args[1]
         if path == "graphql":
             return lines(self.edits)
         if path.startswith(f"repos/{REPO}/commits/{HEAD}/check-runs?"):
             return lines(self.runs)
         if path == f"repos/{REPO}/pulls/7":
-            return self.body + "\n"
+            body = self.bodies.pop(0) if len(self.bodies) > 1 else self.body
+            return json.dumps({"head": self.head, "body": body}) + "\n"
         raise AssertionError(f"unexpected gh call: {args}")
+
+    def writer(self, *args: str, stdin: str | None = None) -> str:
+        assert args[:2] == ("api", "-X")
+        assert stdin is not None
+        self.writes.append((args[2], args[3], json.loads(stdin)))
+        return ""
+
+    def written(self) -> str | None:
+        """Returns the body that the restore wrote, or None when it wrote nothing."""
+        if not self.writes:
+            return None
+        [(method, path, payload)] = self.writes
+        assert (method, path) == ("PATCH", f"repos/{REPO}/pulls/7")
+        body: str = payload["body"]
+        return body
 
 
 @pytest.fixture
@@ -84,42 +111,59 @@ def gh() -> FakeGH:
     return FakeGH()
 
 
+def run(gh: FakeGH) -> bool:
+    return restore(TARGET, gh, key=KEY, writer=gh.writer)
+
+
 class TestRestore:
     """Tests putting the bot's last summary back in the pull request body."""
 
     def test_should_put_back_the_summary_the_bot_wrote_last(self, gh: FakeGH) -> None:
-        body = restore(TARGET, gh, key=KEY)
-        assert body is not None
-        assert block(HEAD, 5) in body
-        assert block(OLD, 3) not in body
+        assert run(gh)
+        assert gh.written() == f"{TEXT}\n\n{block(HEAD, 5)}\n"
 
     def test_should_leave_the_rest_of_the_body_the_same(self, gh: FakeGH) -> None:
         gh.body = f"{TEXT}\n\n{block(OLD, 3)}\n\nA later note."
-        body = restore(TARGET, gh, key=KEY)
-        assert body == f"{TEXT}\n\n{block(HEAD, 5)}\n\nA later note."
+        run(gh)
+        assert gh.written() == f"{TEXT}\n\n{block(HEAD, 5)}\n\nA later note."
 
     def test_should_append_the_summary_when_the_body_lost_it(self, gh: FakeGH) -> None:
         gh.body = TEXT
-        assert restore(TARGET, gh, key=KEY) == f"{TEXT}\n\n{block(HEAD, 5)}\n"
+        run(gh)
+        assert gh.written() == f"{TEXT}\n\n{block(HEAD, 5)}\n"
 
-    def test_should_return_none_when_the_body_holds_it(self, gh: FakeGH) -> None:
+    def test_should_write_nothing_when_the_body_holds_it(self, gh: FakeGH) -> None:
         gh.body = f"{TEXT}\n\n{block(HEAD, 5)}"
-        assert restore(TARGET, gh, key=KEY) is None
+        assert not run(gh)
+        assert gh.written() is None
 
     def test_should_fail_when_the_head_has_no_review(self, gh: FakeGH) -> None:
         gh.runs = []
-        with pytest.raises(Unreviewed, match=f"no finished review of {HEAD}"):
-            restore(TARGET, gh, key=KEY)
+        with pytest.raises(Unrestorable, match=f"no finished review of {HEAD}"):
+            run(gh)
+        assert gh.written() is None
 
     def test_should_fail_when_the_review_of_the_head_failed(self, gh: FakeGH) -> None:
         gh.runs[0]["conclusion"] = "failure"
-        with pytest.raises(Unreviewed, match="no finished review"):
-            restore(TARGET, gh, key=KEY)
+        with pytest.raises(Unrestorable, match="no finished review"):
+            run(gh)
 
     def test_should_fail_when_the_bot_wrote_no_summary(self, gh: FakeGH) -> None:
         gh.edits = [edit("someone", gh.body)]
-        with pytest.raises(Unreviewed, match="never wrote a summary"):
-            restore(TARGET, gh, key=KEY)
+        with pytest.raises(Unrestorable, match="never wrote a summary"):
+            run(gh)
+
+    def test_should_not_write_over_a_body_written_during_it(self, gh: FakeGH) -> None:
+        gh.bodies.append(f"{TEXT}\n\n{block('c' * 40, 4)}\n")
+        with pytest.raises(Unrestorable, match="changed during the restore"):
+            run(gh)
+        assert gh.written() is None
+
+    def test_should_fail_when_the_head_moved(self, gh: FakeGH) -> None:
+        gh.head = "c" * 40
+        with pytest.raises(Unrestorable, match="changed during the restore"):
+            run(gh)
+        assert gh.written() is None
 
 
 class TestMain:
@@ -135,30 +179,20 @@ class TestMain:
             "RUN_URL": TARGET.run_url,
             "BOT": "sedosaur",
             "KEY": KEY,
+            "WRITE_TOKEN": "app",
         }.items():
             monkeypatch.setenv(k, v)
         monkeypatch.delenv("CHECK_RUN", raising=False)
         monkeypatch.setattr("review.__main__.gh", gh)
+        monkeypatch.setattr("review.__main__._writer", lambda _: gh.writer)
 
     @pytest.mark.usefixtures("env")
-    def test_should_write_the_payload_of_the_update(self, tmp_path: Path) -> None:
-        out = tmp_path / "body.json"
-        main(["restore", str(out)])
-        assert block(HEAD, 5) in json.loads(out.read_text())["body"]
+    def test_should_write_the_body(self, gh: FakeGH) -> None:
+        main(["restore"])
+        assert gh.written() == f"{TEXT}\n\n{block(HEAD, 5)}\n"
 
     @pytest.mark.usefixtures("env")
-    def test_should_write_nothing_when_the_body_holds_it(
-        self, gh: FakeGH, tmp_path: Path
-    ) -> None:
-        gh.body = block(HEAD, 5)
-        out = tmp_path / "body.json"
-        main(["restore", str(out)])
-        assert not out.exists()
-
-    @pytest.mark.usefixtures("env")
-    def test_should_exit_with_an_error_without_a_review(
-        self, gh: FakeGH, tmp_path: Path
-    ) -> None:
+    def test_should_exit_with_an_error_without_a_review(self, gh: FakeGH) -> None:
         gh.runs = []
         with pytest.raises(SystemExit, match="::error::Sedosaur has no finished"):
-            main(["restore", str(tmp_path / "body.json")])
+            main(["restore"])

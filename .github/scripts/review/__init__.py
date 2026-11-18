@@ -30,7 +30,7 @@ from review.post import (
     threads,
     withdrawn,
 )
-from review.restore import Unreviewed, restore
+from review.restore import Unrestorable, restore
 from review.run import (
     Claude,
     Config,
@@ -62,7 +62,7 @@ __all__ = [
     "Review",
     "Target",
     "Thread",
-    "Unreviewed",
+    "Unrestorable",
     "Usage",
     "UsageLimit",
     "Window",

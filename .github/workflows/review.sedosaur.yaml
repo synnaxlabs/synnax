@@ -523,25 +523,15 @@ jobs:
           private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
-      - name: Find the summary
+      # One step, so the body is read again just before the write.
+      - name: Restore the summary
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ github.token }}
+          WRITE_TOKEN: ${{ steps.app.outputs.token }}
           BOT: ${{ steps.app.outputs.app-slug }}
           PR: ${{ inputs.pr }}
           HEAD_SHA: ${{ steps.pr.outputs.head }}
           BASE_SHA: ${{ steps.pr.outputs.base }}
           KEY: ${{ steps.pr.outputs.key }}
-        run: python3 -m review restore "$RUNNER_TEMP/body.json"
-
-      - name: Write the body
-        env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
-          PR: ${{ inputs.pr }}
-        run: |
-          if [ ! -f "$RUNNER_TEMP/body.json" ]; then
-            echo "The body holds the summary already."
-            exit 0
-          fi
-          gh api -X PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR" \
-            --input "$RUNNER_TEMP/body.json" --silent
+        run: python3 -m review restore
