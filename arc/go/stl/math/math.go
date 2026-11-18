@@ -487,43 +487,70 @@ func (r *avgNode) Next(ctx node.Context) {
 	r.Emit(ctx, 0)
 }
 
+// avgTimeStamp sums offsets from the running average, since a sum of raw epoch
+// timestamps overflows int64 after a few samples.
+func avgTimeStamp(input telem.Series, prevCount int64, output *telem.Series) int64 {
+	inputLen := input.Len()
+	if inputLen == 0 {
+		return prevCount
+	}
+	if output.Len() == 0 {
+		prevCount = 0
+	}
+	*output = output.Resized(1)
+	if prevCount == 0 {
+		output.SetValueAt(0, input.ValueAt[telem.TimeStamp](0))
+	}
+	base := output.ValueAt[telem.TimeStamp](0)
+	var offsetSum telem.TimeSpan
+	for i := range int(inputLen) {
+		offsetSum += telem.TimeSpan(input.ValueAt[telem.TimeStamp](i) - base)
+	}
+	totalCount := prevCount + inputLen
+	output.SetValueAt(0, base.Add(offsetSum/telem.TimeSpan(totalCount)))
+	return totalCount
+}
+
 var (
 	ops = map[string]map[telem.DataType]reductionFn{
 		avgSymbolName: {
-			telem.Float64T: op.AvgF64,
-			telem.Float32T: op.AvgF32,
-			telem.Int64T:   op.AvgI64,
-			telem.Int32T:   op.AvgI32,
-			telem.Int16T:   op.AvgI16,
-			telem.Int8T:    op.AvgI8,
-			telem.Uint64T:  op.AvgU64,
-			telem.Uint32T:  op.AvgU32,
-			telem.Uint16T:  op.AvgU16,
-			telem.Uint8T:   op.AvgU8,
+			telem.Float64T:   op.AvgF64,
+			telem.Float32T:   op.AvgF32,
+			telem.Int64T:     op.AvgI64,
+			telem.TimestampT: avgTimeStamp,
+			telem.Int32T:     op.AvgI32,
+			telem.Int16T:     op.AvgI16,
+			telem.Int8T:      op.AvgI8,
+			telem.Uint64T:    op.AvgU64,
+			telem.Uint32T:    op.AvgU32,
+			telem.Uint16T:    op.AvgU16,
+			telem.Uint8T:     op.AvgU8,
 		},
 		minSymbolName: {
-			telem.Float64T: op.MinF64,
-			telem.Float32T: op.MinF32,
-			telem.Int64T:   op.MinI64,
-			telem.Int32T:   op.MinI32,
-			telem.Int16T:   op.MinI16,
-			telem.Int8T:    op.MinI8,
-			telem.Uint64T:  op.MinU64,
-			telem.Uint32T:  op.MinU32,
-			telem.Uint16T:  op.MinU16,
-			telem.Uint8T:   op.MinU8,
+			telem.Float64T:   op.MinF64,
+			telem.Float32T:   op.MinF32,
+			telem.Int64T:     op.MinI64,
+			telem.TimestampT: op.MinI64,
+			telem.Int32T:     op.MinI32,
+			telem.Int16T:     op.MinI16,
+			telem.Int8T:      op.MinI8,
+			telem.Uint64T:    op.MinU64,
+			telem.Uint32T:    op.MinU32,
+			telem.Uint16T:    op.MinU16,
+			telem.Uint8T:     op.MinU8,
 		},
 		maxSymbolName: {
-			telem.Float64T: op.MaxF64,
-			telem.Float32T: op.MaxF32,
-			telem.Int64T:   op.MaxI64,
-			telem.Int32T:   op.MaxI32,
-			telem.Int16T:   op.MaxI16,
-			telem.Int8T:    op.MaxI8,
-			telem.Uint64T:  op.MaxU64,
-			telem.Uint32T:  op.MaxU32,
-			telem.Uint16T:  op.MaxU16,
-			telem.Uint8T:   op.MaxU8,
+			telem.Float64T:   op.MaxF64,
+			telem.Float32T:   op.MaxF32,
+			telem.Int64T:     op.MaxI64,
+			telem.TimestampT: op.MaxI64,
+			telem.Int32T:     op.MaxI32,
+			telem.Int16T:     op.MaxI16,
+			telem.Int8T:      op.MaxI8,
+			telem.Uint64T:    op.MaxU64,
+			telem.Uint32T:    op.MaxU32,
+			telem.Uint16T:    op.MaxU16,
+			telem.Uint8T:     op.MaxU8,
 		},
 	}
 	derivOps = map[telem.DataType]derivativeFn{

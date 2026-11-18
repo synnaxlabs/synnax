@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
+import { compare } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { bucket, CDN, OUT_ROOT, ROOT, run, select } from "@/cli/common";
@@ -153,7 +154,7 @@ const main = async (): Promise<void> => {
     console.log(`${id} -> ${images[id]}`);
   }
   const sorted = Object.fromEntries(
-    Object.entries(images).sort(([a], [b]) => a.localeCompare(b)),
+    Object.entries(images).sort(compare.by(([id]) => id)),
   );
   await writeFile(IMAGES, `${JSON.stringify(sorted, null, 2)}\n`);
   console.log(`wrote ${path.relative(ROOT, IMAGES)}`);

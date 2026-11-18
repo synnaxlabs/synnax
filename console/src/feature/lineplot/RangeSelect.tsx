@@ -35,10 +35,9 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 const ROLLING_PRESETS = Session.Range.BUILT_IN.map(({ span }) => span);
@@ -69,10 +68,10 @@ const windowKey = ({ window }: ranger.WindowRef): string =>
     ? `rolling/${window.timeSpan}`
     : `static/${window.timeRange.start}/${window.timeRange.end}`;
 
-const FavoriteItem = (props: List.ItemProps<string>): ReactElement | null => {
-  const range = Range.useResolve(props.itemKey);
+const RangeItem = (props: List.ItemProps<ranger.Key>): ReactElement | null => {
+  const range = List.useItem<ranger.Key, ranger.Range>(props.itemKey);
   const { data: parent } = Ranger.useResultParent({ key: props.itemKey });
-  if (range == null || range.variant === "dynamic") return null;
+  if (range == null) return null;
   return (
     <Select.Item {...props} justify="between">
       <Ranger.Breadcrumb
@@ -85,7 +84,9 @@ const FavoriteItem = (props: List.ItemProps<string>): ReactElement | null => {
   );
 };
 
-const favoriteItem = Component.renderProp(FavoriteItem);
+const rangeItem = Component.renderProp(RangeItem);
+
+const NEWEST: ranger.Order = { field: "time_range_start", descending: true };
 
 interface RollingTagProps {
   itemKey: string;
@@ -251,14 +252,14 @@ const DurationSearch = ({
       pack
       onKeyDown={(e) => {
         if (e.key !== "Enter" || typed == null) return;
-        // Keeps the list's window-level Enter trigger from clicking a favorite.
+        // Keeps the list's window-level Enter trigger from clicking a range.
         e.stopPropagation();
         onDuration(typed);
         close();
       }}
     >
       <Select.Search
-        placeholder="Search favorites or type a duration"
+        placeholder="Search ranges or type a duration"
         onSearch={onSearch}
       />
     </Flex.Box>
@@ -270,9 +271,9 @@ const ABOVE: position.LocationPreference = {
   dialogCorner: "bottom",
 };
 
-const emptyContent = (
+const NO_RANGES = (
   <Status.Summary center variant="disabled">
-    No favorite ranges found
+    No ranges found
   </Status.Summary>
 );
 
@@ -287,7 +288,7 @@ export interface RangeSelectProps extends Omit<
 > {}
 
 /**
- * Selects what the plot shows: at most one rolling window, favorite ranges, and static
+ * Selects what the plot shows: at most one rolling window, Core ranges, and static
  * windows. A duration typed into the search lists a live option, and Enter sets it. A
  * static window's tag edits the window in place. A range dropped on it joins the plot.
  */
@@ -295,8 +296,10 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const refs = LinePlot.useRanges();
   const states = Session.Range.useSelectMultiple();
   const dispatch = LinePlot.useSingleDispatch();
-  const favorites = Range.useResolveMultiple().filter((r) => r.variant !== "dynamic");
-  const { data, search } = List.useStaticData<string>({ data: favorites });
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (c) => c.ranges,
+    { name: "ranges", query: { order: NEWEST } },
+  );
   const [term, setTerm] = useState("");
   const entryOf = (ref: ranger.Ref): Entry => ({
     ref,
@@ -355,6 +358,16 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
       }),
     );
   };
+  let empty: ReactNode = NO_RANGES;
+  if (typed != null) empty = null;
+  else if (status.variant === "loading")
+    empty = term === "" ? <Status.Loading /> : null;
+  else if (status.variant === "error")
+    empty = (
+      <Status.Summary center variant="error" description={status.description}>
+        {status.message}
+      </Status.Summary>
+    );
   const renderTag = ({ itemKey }: Select.MultipleTagProps<string>) => {
     const entry = entries.find(({ key }) => key === itemKey);
     if (entry == null) return null;
@@ -367,11 +380,14 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   return (
     <Input.Item x label="Ranges" {...props} {...dropProps}>
       <Dialog.Frame variant="floating" location={ABOVE}>
-        <Select.Frame<string>
+        <Select.Frame<string, ranger.Range | undefined>
           multiple
           value={entries.map(({ key }) => key)}
           onChange={handleChange}
           data={data}
+          getItem={getItem}
+          subscribe={subscribe}
+          onFetchMore={more}
           initialHover={0}
           virtual
           selectedFirst
@@ -407,9 +423,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
                   </Text.Text>
                 </Select.Item>
               )}
-              <Select.Items<string> emptyContent={typed == null ? emptyContent : null}>
-                {favoriteItem}
-              </Select.Items>
+              <Select.Items<string> emptyContent={empty}>{rangeItem}</Select.Items>
             </Select.List>
           </Select.Dialog>
         </Select.Frame>

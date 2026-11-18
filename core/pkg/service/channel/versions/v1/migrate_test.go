@@ -118,3 +118,31 @@ var _ = Describe("IndexGroupMigration", func() {
 		},
 	)
 })
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v1.Channel) v1.Channel {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.WrapWriter[v1.Key, v1.Channel](db).Set(ctx, in)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Channel",
+			Migrations: []gorp.Migration{v1.NameMigration},
+		})).To(Succeed())
+		var out v1.Channel
+		Expect(gorp.NewRetrieve[v1.Key, v1.Channel]().
+			Where(gorp.MatchKeys[v1.Key, v1.Channel](in.Key())).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	DescribeTable(
+		"Should name only nameless channels",
+		func(ctx SpecContext, name, expected string) {
+			in := v1.Channel{Name: name, Leaseholder: 1, LocalKey: 5}
+			Expect(migrated(ctx, in).Name).To(Equal(expected))
+		},
+		Entry("empty name", "", "channel_1048581"),
+		Entry("named channel", "named", "named"),
+	)
+})

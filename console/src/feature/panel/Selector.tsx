@@ -21,7 +21,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Errors, type Flux, Mosaic, Panel, Synnax } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type DragEvent, type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import {
@@ -177,7 +177,13 @@ const TabContent = ({ tabKey, dwell, onAnchorChange }: TabProps): ReactElement =
   const { update: rename } = Panel.useRename();
   const handleChange = (name: string) => rename({ key: tabKey, name });
   const { startDrag, onDragEnd } = Haul.useDrag({ type: "PanelSelector" });
-  const handleDragStart = () => startDrag([createPillHaulItem(tabKey)]);
+  const handleDragStart = (event: DragEvent<HTMLDivElement>) =>
+    startDrag({
+      event,
+      items: [createPillHaulItem(tabKey)],
+      preview: <Haul.Copy of={event.currentTarget} />,
+      anchor: "grab",
+    });
   const moveTab = useMoveTab();
   const handleMove = (origin: TabOrigin) => moveTab(origin, tabKey);
   const handleDwell = () => dwell.enter(tabKey);

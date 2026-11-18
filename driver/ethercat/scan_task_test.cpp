@@ -32,6 +32,12 @@ const engine::SlaveConfigs NO_SLAVE_CONFIGS = [](const std::string &,
                                                  const std::string &) {
     return std::pair{std::vector<engine::SavedSlave>{}, x::errors::NIL};
 };
+
+/// @brief a filter switch that the tests do not use.
+const DisableFilter NO_FILTER = [](const std::vector<std::string> &) {
+    ADD_FAILURE() << "the test turned off the filter";
+    return x::errors::NIL;
+};
 }
 
 class EtherCATScanTest : public ::testing::Test {
@@ -79,7 +85,7 @@ protected:
                 .vendor_id = 0x1,
                 .product_code = 0x2,
                 .serial = 12345,
-                .name = "Test Slave",
+                .name = "Test Module",
                 .input_pdos = {
                     {.pdo_index = 0x1A00,
                      .index = 0x6000,
@@ -100,7 +106,8 @@ protected:
             this->ctx,
             this->scan_task(),
             ScanTaskConfig{},
-            this->pool
+            this->pool,
+            NO_FILTER
         );
     }
 
@@ -123,7 +130,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithInvalidArgs) {
         .internal = true,
     };
     ScanTaskConfig cfg;
-    Scanner scanner(ctx, task, cfg, nullptr);
+    Scanner scanner(ctx, task, cfg, nullptr, NO_FILTER);
 
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
@@ -146,7 +153,7 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
         .internal = true,
     };
     ScanTaskConfig cfg;
-    Scanner scanner(ctx, task, cfg, nullptr);
+    Scanner scanner(ctx, task, cfg, nullptr, NO_FILTER);
 
     synnax::task::Command cmd;
     cmd.type = "unknown_command";
@@ -167,7 +174,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
             .vendor_id = 0x1,
             .product_code = 0x2,
             .serial = 11111,
-            .name = "Slave 1",
+            .name = "Module 1",
         }
     );
     mock_master->add_slave(
@@ -176,7 +183,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
             .vendor_id = 0x1,
             .product_code = 0x3,
             .serial = 22222,
-            .name = "Slave 2",
+            .name = "Module 2",
         }
     );
     mock_master->add_slave(
@@ -185,7 +192,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
             .vendor_id = 0x1,
             .product_code = 0x4,
             .serial = 33333,
-            .name = "Slave 3",
+            .name = "Module 3",
         }
     );
 
@@ -200,7 +207,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
         .internal = true
     };
     ScanTaskConfig cfg;
-    Scanner scanner(this->ctx, task, cfg, pool);
+    Scanner scanner(this->ctx, task, cfg, pool, NO_FILTER);
 
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
@@ -211,7 +218,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     EXPECT_TRUE(handled);
     ASSERT_FALSE(this->ctx->statuses.empty());
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(this->ctx->statuses.back().message, "Found 3 slaves on Ethernet 2");
+    EXPECT_EQ(this->ctx->statuses.back().message, "Found 3 modules on Ethernet 2");
 }
 
 /// @brief it should return a permission error from a scan, so the error reaches the
@@ -230,7 +237,7 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
         .type = SCAN_TASK_TYPE,
         .internal = true
     };
-    Scanner scanner(this->ctx, task, ScanTaskConfig{}, pool);
+    Scanner scanner(this->ctx, task, ScanTaskConfig{}, pool, NO_FILTER);
     ASSERT_OCCURRED_AS_P(scanner.scan({}), errors::PERMISSION_DENIED);
 }
 
@@ -252,7 +259,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
         .internal = true
     };
     ScanTaskConfig cfg;
-    Scanner scanner(this->ctx, task, cfg, pool);
+    Scanner scanner(this->ctx, task, cfg, pool, NO_FILTER);
 
     synnax::task::Command cmd;
     cmd.type = TEST_INTERFACE_CMD_TYPE;
@@ -288,7 +295,8 @@ protected:
                 .internal = true,
             },
             ScanTaskConfig{},
-            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS),
+            NO_FILTER
         );
     }
 
@@ -298,7 +306,7 @@ protected:
 /// @brief it should probe an interface with no slaves only on every sixth scan.
 TEST_F(EtherCATScanProbeTest, ProbesAnInterfaceWithNoSlavesEverySixthScan) {
     this->master->inject_scan_error(
-        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT modules found on eth0")
     );
     for (int i = 0; i < 7; ++i)
         this->scan();
@@ -321,7 +329,7 @@ const std::unordered_map<std::string, synnax::device::Device> CONFIGURED_ON_ETH0
 TEST_F(EtherCATScanProbeTest, ScansAnEmptyInterfaceWithConfiguredDevicesOnEachScan) {
     this->master->set_name("Ethernet");
     this->master->inject_scan_error(
-        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT modules found on eth0")
     );
     for (std::size_t i = 0; i < 7; ++i) {
         const auto [scanned, err] = this->scanner->scan(
@@ -351,7 +359,7 @@ TEST_F(EtherCATScanProbeTest, ScansAnEmptyInterfaceWithConfiguredDevicesOnEachSc
 /// devices that a scan found.
 TEST_F(EtherCATScanProbeTest, ProbesAnEmptyInterfaceWithUnconfiguredDevices) {
     this->master->inject_scan_error(
-        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT slaves found on eth0")
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no EtherCAT modules found on eth0")
     );
     auto devices = CONFIGURED_ON_ETH0;
     devices.at("saved").configured = false;
@@ -361,12 +369,12 @@ TEST_F(EtherCATScanProbeTest, ProbesAnEmptyInterfaceWithUnconfiguredDevices) {
 }
 
 /// @brief it should scan an interface with configured devices whose replies a filter
-/// blocks on each scan, and report the filter.
+/// blocks on each scan, and report the filter and its interface.
 TEST_F(EtherCATScanProbeTest, ScansABlockedInterfaceWithConfiguredDevicesOnEachScan) {
     const auto blocked = x::errors::Error(
         errors::REPLIES_BLOCKED,
-        "No EtherCAT slaves found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" is "
-        "on this adapter."
+        "No EtherCAT modules found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" "
+        "is on this adapter."
     );
     this->master->inject_scan_error(blocked);
     for (std::size_t i = 0; i < 7; ++i) {
@@ -377,6 +385,24 @@ TEST_F(EtherCATScanProbeTest, ScansABlockedInterfaceWithConfiguredDevicesOnEachS
         EXPECT_EQ(err.data, blocked.data);
     }
     EXPECT_EQ(this->master->call_count("scan"), 7);
+    EXPECT_EQ(
+        this->scanner->status_data(),
+        (x::json::json::object_t{{"filtered", x::json::json::array({"eth0"})}})
+    );
+}
+
+/// @brief it should show the text of the master when the network port of an interface
+/// with configured devices has no link.
+TEST_F(EtherCATScanProbeTest, ShowsWhyAnInterfaceWithConfiguredDevicesHasNoLink) {
+    const auto no_link = x::errors::Error(
+        errors::NO_LINK,
+        "No EtherCAT modules found on igh:0. Its network port has no link."
+    );
+    this->master->inject_scan_error(no_link);
+    const auto err = this->scanner->scan({.count = 0, .devices = &CONFIGURED_ON_ETH0})
+                         .second;
+    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+    EXPECT_EQ(err.data, no_link.data);
 }
 
 /// @brief it should report an interface whose replies a filter blocks on each scan, and
@@ -384,7 +410,7 @@ TEST_F(EtherCATScanProbeTest, ScansABlockedInterfaceWithConfiguredDevicesOnEachS
 TEST_F(EtherCATScanProbeTest, ReportsAnInterfaceWhoseRepliesAreBlockedOnEachScan) {
     const auto blocked = x::errors::Error(
         errors::REPLIES_BLOCKED,
-        "No EtherCAT slaves found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
+        "No EtherCAT modules found on Ethernet 2. The DewesoftX \"EthercatDAQ Filter\" "
         "is on this adapter."
     );
     this->master->inject_scan_error(blocked);
@@ -410,17 +436,19 @@ class EtherCATScanFilterTest : public EtherCATScanTest {
 protected:
     const x::errors::Error blocked = x::errors::Error(
         errors::REPLIES_BLOCKED,
-        "No EtherCAT slaves found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" is "
-        "on this adapter."
+        "No EtherCAT modules found on Ethernet. The DewesoftX \"EthercatDAQ Filter\" "
+        "is on this adapter."
     );
     std::unique_ptr<Scanner> scanner;
+    /// @brief the master of the adapter with the filter.
+    std::shared_ptr<testutil::Master> filtered = std::make_shared<testutil::Master>();
+    /// @brief the master of the adapter with one device.
+    std::shared_ptr<testutil::Master> bus = std::make_shared<testutil::Master>();
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        auto filtered = std::make_shared<testutil::Master>();
-        filtered->inject_scan_error(this->blocked);
-        auto bus = std::make_shared<testutil::Master>();
-        bus->add_slave(
+        this->filtered->inject_scan_error(this->blocked);
+        this->bus->add_slave(
             slave::Properties{
                 .position = 1,
                 .vendor_id = 0x2,
@@ -429,8 +457,8 @@ protected:
             }
         );
         auto manager = std::make_unique<testutil::Manager>();
-        manager->configure("eth0", filtered);
-        manager->configure("eth1", bus);
+        manager->configure("eth0", this->filtered);
+        manager->configure("eth1", this->bus);
         this->scanner = std::make_unique<Scanner>(
             this->ctx,
             synnax::task::Task{
@@ -440,10 +468,148 @@ protected:
                 .internal = true,
             },
             ScanTaskConfig{},
-            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS),
+            [this](const std::vector<std::string> &interfaces) {
+                this->disabled.push_back(interfaces);
+                return this->disable_err;
+            }
         );
     }
+
+    /// @brief the interfaces of each call to turn off the filter.
+    std::vector<std::vector<std::string>> disabled;
+    /// @brief the error that turning off the filter returns.
+    x::errors::Error disable_err = x::errors::NIL;
+    /// @brief a device that the Core holds from the adapter with the filter.
+    const std::unordered_map<std::string, synnax::device::Device> saved{
+        {"saved",
+         synnax::device::Device{.key = "saved", .properties = {{"network", "eth0"}}}},
+    };
+
+    /// @brief runs the command that turns off the filter, and returns its status.
+    [[nodiscard]] synnax::task::Status disable_filter() const {
+        synnax::task::Command cmd;
+        cmd.type = DISABLE_DEWESOFT_FILTER_CMD_TYPE;
+        cmd.key = "1";
+        EXPECT_TRUE(this->scanner->exec(cmd, synnax::task::Task{}, this->ctx));
+        return this->ctx->statuses.back();
+    }
 };
+
+/// @brief it should send the interfaces whose replies the filter blocks as status data,
+/// and no data once it reports none.
+TEST_F(EtherCATScanFilterTest, SendsTheFilteredInterfacesAsStatusData) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    EXPECT_EQ(
+        this->scanner->status_data(),
+        (x::json::json::object_t{{"filtered", x::json::json::array({"eth0"})}})
+    );
+    ASSERT_NIL_P(this->scanner->scan({}));
+    EXPECT_EQ(this->scanner->status_data(), std::nullopt);
+}
+
+/// @brief it should report no filtered interface once a scan lacks the permission to
+/// open an adapter.
+TEST_F(EtherCATScanFilterTest, ReportsNoFilterWhenAScanLacksPermission) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    ASSERT_NE(this->scanner->status_data(), std::nullopt);
+    this->filtered->inject_scan_error(
+        x::errors::Error(errors::PERMISSION_DENIED, "permission denied opening eth0")
+    );
+    // The scanner probes an adapter with no devices again on the sixth scan.
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.count = 6, .devices = &this->saved}),
+        errors::PERMISSION_DENIED
+    );
+    EXPECT_EQ(this->scanner->status_data(), std::nullopt);
+}
+
+/// @brief it should turn off the filter on the interfaces that the last scan reported.
+TEST_F(EtherCATScanFilterTest, TurnsOffTheFilterOnTheReportedInterfaces) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    const auto status = this->disable_filter();
+    ASSERT_EQ(this->disabled.size(), 1);
+    EXPECT_EQ(this->disabled[0], std::vector<std::string>{"eth0"});
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Started to turn off the DewesoftX filter");
+    EXPECT_EQ(
+        status.description,
+        "If Windows asks for administrator access on the computer that runs the "
+        "Driver, click Yes. Synnax looks for modules on the adapter again within a few "
+        "scans."
+    );
+    EXPECT_EQ(status.details.cmd, "1");
+}
+
+/// @brief it should report no filter on the interfaces it started to turn off until
+/// their next probe, a full interval later.
+TEST_F(EtherCATScanFilterTest, ReportsNoFilterUntilTheProbeAfterATurnOff) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    ASSERT_EQ(this->disable_filter().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(this->disable_filter().variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(this->disabled.size(), 1);
+    ASSERT_NIL_P(this->scanner->scan({.count = 1, .devices = &this->saved}));
+    ASSERT_NIL_P(this->scanner->scan({.count = 6, .devices = &this->saved}));
+    EXPECT_EQ(this->scanner->status_data(), std::nullopt);
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.count = 7, .devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    EXPECT_NE(this->scanner->status_data(), std::nullopt);
+}
+
+/// @brief it should report no filter on an interface that a command started to turn off
+/// during the scan.
+TEST_F(EtherCATScanFilterTest, ReportsNoFilterTurnedOffDuringAScan) {
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    this->bus->on_scan([this] {
+        EXPECT_EQ(this->disable_filter().variant, synnax::status::VARIANT_SUCCESS);
+    });
+    ASSERT_NIL_P(this->scanner->scan({.count = 1, .devices = &this->saved}));
+    EXPECT_EQ(this->scanner->status_data(), std::nullopt);
+}
+
+/// @brief it should report why the filter is still on.
+TEST_F(EtherCATScanFilterTest, ReportsWhyTheFilterIsStillOn) {
+    this->disable_err = x::errors::Error(
+        errors::FILTER_ERROR,
+        "Windows could not start PowerShell (error 5)."
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->scanner->scan({.devices = &this->saved}),
+        common::PARTIAL_SCAN_ERROR
+    );
+    const auto status = this->disable_filter();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to turn off the DewesoftX filter");
+    EXPECT_EQ(status.description, this->disable_err.data);
+    EXPECT_EQ(status.details.data, this->scanner->status_data());
+    EXPECT_NE(status.details.data, std::nullopt);
+}
+
+/// @brief it should change nothing when the last scan reported no filter.
+TEST_F(EtherCATScanFilterTest, ChangesNothingWhenTheScanReportedNoFilter) {
+    ASSERT_NIL_P(this->scanner->scan({}));
+    const auto status = this->disable_filter();
+    EXPECT_TRUE(this->disabled.empty());
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.description, "The DewesoftX filter blocks no adapter.");
+}
 
 /// @brief it should not report the filter of an adapter with no devices while another
 /// adapter shows devices.
@@ -453,11 +619,7 @@ TEST_F(EtherCATScanFilterTest, IgnoresTheFilterOfAnAdapterWithNoDevices) {
 
 /// @brief it should report the filter of an adapter that the Core holds devices from.
 TEST_F(EtherCATScanFilterTest, ReportsTheFilterOfAnAdapterThatHadDevices) {
-    const std::unordered_map<std::string, synnax::device::Device> saved{
-        {"saved",
-         synnax::device::Device{.key = "saved", .properties = {{"network", "eth0"}}}},
-    };
-    const auto [devices, err] = this->scanner->scan({.devices = &saved});
+    const auto [devices, err] = this->scanner->scan({.devices = &this->saved});
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
     EXPECT_EQ(err.data, this->blocked.data);
     EXPECT_EQ(devices.size(), 1);
@@ -701,7 +863,7 @@ TEST_F(EtherCATScanTest, GivesADeviceToOneSlaveAcrossNetworks) {
         std::move(manager),
         NO_SLAVE_CONFIGS
     );
-    Scanner scanner(this->ctx, this->scan_task(), ScanTaskConfig{}, pool);
+    Scanner scanner(this->ctx, this->scan_task(), ScanTaskConfig{}, pool, NO_FILTER);
     Devices devices;
     store(devices, "saved", identity(1, 0x2, 777));
     const auto scanned = ASSERT_NIL_P(scanner.scan({.count = 1, .devices = &devices}));
@@ -729,7 +891,7 @@ TEST_F(EtherCATScanStatusTest, SkipsAndReportsASlaveWhoseSerialReadFails) {
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
         EXPECT_EQ(
             err.data,
-            "Slave 1 on eth0 gave no serial number (failed to read 0x1018:04: no "
+            "Module 1 on eth0 gave no serial number (failed to read 0x1018:04: no "
             "response). Restart its power."
         );
     }
@@ -962,7 +1124,7 @@ TEST_F(EtherCATScanStatusTest, SkipsASlaveWithNoIdentity) {
             continue;
         }
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-        EXPECT_EQ(err.data, "Slave 2 on eth0 gives no identity. Restart its power.");
+        EXPECT_EQ(err.data, "Module 2 on eth0 gives no identity. Restart its power.");
     }
     EXPECT_EQ(this->master->call_count("deactivate"), 3);
 }
@@ -977,7 +1139,7 @@ TEST_F(EtherCATScanStatusTest, ReportsOnlyASlaveWithNoIdentityAtTwoRediscoveries
     for (size_t i = 12; i < 18; ++i) {
         const auto [devices, err] = this->scanner->scan({.count = i});
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-        EXPECT_EQ(err.data, "Slave 2 on eth0 gives no identity. Restart its power.");
+        EXPECT_EQ(err.data, "Module 2 on eth0 gives no identity. Restart its power.");
     }
 }
 
@@ -999,7 +1161,7 @@ TEST_F(EtherCATScanStatusTest, StopsReportingASlaveOnceItHasAnIdentity) {
             .vendor_id = 0x1,
             .product_code = 0x3,
             .serial = 999,
-            .name = "Restarted Slave",
+            .name = "Restarted Module",
         }
     );
     const auto devices = ASSERT_NIL_P(this->scanner->scan({.count = 18}));
@@ -1249,8 +1411,8 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveShowsItsALStatus) {
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(status.message, "Error in SAFE-OP");
-    EXPECT_EQ(status.description, "Sync manager watchdog");
+    EXPECT_EQ(status.message, "Device reports an error");
+    EXPECT_EQ(status.description, "Sync manager watchdog. The device is in SAFE-OP.");
     EXPECT_TRUE(status.details.connected);
     this->master->clear_transition_failures();
     ASSERT_EVENTUALLY_TRUE(
@@ -1274,11 +1436,11 @@ TEST_F(EtherCATScanStatusTest, FaultedSlaveWithoutALStatusPointsToTheKernelLog) 
     ASSERT_EVENTUALLY_TRUE(!engine->health().empty() && engine->health()[0].faulted);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(status.message, "Error in SAFE-OP");
+    EXPECT_EQ(status.message, "Device reports an error");
     EXPECT_EQ(
         status.description,
-        "The device reports an error without an error code. With IgH, the kernel "
-        "log (dmesg) shows it."
+        "The device gives no error code. With IgH, the kernel log (dmesg) shows it. "
+        "The device is in SAFE-OP."
     );
 }
 
@@ -1302,11 +1464,11 @@ TEST_F(EtherCATScanStatusTest, SlaveThatRejectsAStartupParameterShowsItAsASenten
     );
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(status.message, "Error in PRE-OP");
+    EXPECT_EQ(status.message, "Device reports an error");
     EXPECT_EQ(
         status.description,
         "Rejected startup parameter 0x8000:15 (Filter): Value of parameter written too "
-        "high."
+        "high. The device is in PRE-OP."
     );
 }
 
@@ -1321,7 +1483,7 @@ TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
         engine->begin_start(this->cancel)
     ));
     this->master->set_slave_state(1, slave::State::PRE_OP);
-    this->master->fail_dc_restore(1, "no slave latched its receive time");
+    this->master->fail_dc_restore(1, "no module latched its receive time");
     ASSERT_EVENTUALLY_TRUE(
         !engine->health().empty() && !engine->health()[0].dc_restore_error.empty()
     );
@@ -1331,7 +1493,7 @@ TEST_F(EtherCATScanStatusTest, SlaveWithAFailedClockRestoreShowsWhy) {
     EXPECT_EQ(
         status.description,
         "The device lost its clock settings, and the Driver could not set them again: "
-        "no slave latched its receive time. The Driver keeps the device out of OP and "
+        "no module latched its receive time. The Driver keeps the device out of OP and "
         "tries again. If the error stays, check the power and cabling of the device."
     );
     EXPECT_TRUE(status.details.connected);
@@ -1364,7 +1526,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
             .vendor_id = 0x1,
             .product_code = 0x2,
             .serial = 54321,
-            .name = "Left Out Slave",
+            .name = "Left Out Module",
         }
     );
     this->master->refuse(2, {.reason = "refused SAFE-OP: Inconsistent settings"});
@@ -1381,7 +1543,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsFailedToStart) {
     );
     const auto dev = std::ranges::find(
         devices,
-        "Left Out Slave",
+        "Left Out Module",
         &synnax::device::Device::name
     );
     ASSERT_NE(dev, devices.end());
@@ -1405,7 +1567,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
             .vendor_id = 0x1,
             .product_code = 0x2,
             .serial = 54321,
-            .name = "Left Out Slave",
+            .name = "Left Out Module",
         }
     );
     this->master->refuse(
@@ -1426,7 +1588,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
     );
     const auto dev = std::ranges::find(
         devices,
-        "Left Out Slave",
+        "Left Out Module",
         &synnax::device::Device::name
     );
     ASSERT_NE(dev, devices.end());
@@ -1457,9 +1619,12 @@ TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
     );
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "In PRE-OP");
+    EXPECT_EQ(status.message, "Not operational");
     EXPECT_TRUE(status.details.connected);
-    EXPECT_EQ(status.description, "The Driver is returning the device to OP.");
+    EXPECT_EQ(
+        status.description,
+        "The device is in PRE-OP. The Driver is returning it to OP."
+    );
 }
 /// @brief it should show a disabled slave as not connected.
 TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotConnected) {
@@ -1518,7 +1683,8 @@ protected:
             this->ctx,
             this->scan_task(),
             ScanTaskConfig{},
-            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS)
+            std::make_shared<engine::Pool>(std::move(manager), NO_SLAVE_CONFIGS),
+            NO_FILTER
         );
     }
 
@@ -1660,7 +1826,7 @@ protected:
             .vendor_id = 0x1,
             .product_code = 0x2,
             .serial = std::uniform_int_distribution<uint32_t>(1)(this->rng),
-            .name = "Test Slave",
+            .name = "Test Module",
             .input_pdos =
                 {{.pdo_index = 0x1A00,
                   .index = 0x6000,
@@ -1710,7 +1876,8 @@ protected:
             this->ctx,
             this->scan_task(),
             ScanTaskConfig{},
-            this->pool
+            this->pool,
+            NO_FILTER
         );
     }
 
@@ -1740,7 +1907,7 @@ protected:
             .location = "eth0.Slot 1",
             .make = INTEGRATION_NAME,
             .model = SLAVE_DEVICE_MODEL,
-            .name = "Test Slave",
+            .name = "Test Module",
             .properties = this->props.to_json(),
         };
         dev.properties["switched_at"] = time;
@@ -1764,7 +1931,7 @@ protected:
             .location = "eth0.Slot 1",
             .make = INTEGRATION_NAME,
             .model = SLAVE_DEVICE_MODEL,
-            .name = "Test Slave",
+            .name = "Test Module",
             .properties = this->props.to_json(),
         };
         EXPECT_NIL(this->client->devices.create(dev));
@@ -1957,7 +2124,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
     this->start(true);
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(status.message, "Switched Test Slave to Synnax only");
+    EXPECT_EQ(status.message, "Switched Test Module to Synnax only");
     EXPECT_EQ(
         status.description,
         "Restart the power of the device in slot 1 to finish."
@@ -2128,7 +2295,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneAsksForNoRestartWhenTheEntriesChange) 
     this->master->replace_after_write(1, switched);
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(status.message, "Switched Test Slave to Synnax only");
+    EXPECT_EQ(status.message, "Switched Test Module to Synnax only");
     EXPECT_EQ(status.description, "The device in slot 1 runs Synnax only now.");
 }
 
@@ -2142,7 +2309,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsASwitchThatTheSlaveDidNotSave) 
     );
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Switched Test Slave to Synnax until a power restart");
+    EXPECT_EQ(status.message, "Switched Test Module to Synnax until a power restart");
     EXPECT_EQ(
         status.description,
         "The device in slot 1 did not save the switch, so it goes back to its saved "
@@ -2164,7 +2331,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsASaveWithNoResponseAsNotConfirm
     );
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Switched Test Slave to Synnax with no confirmed save");
+    EXPECT_EQ(status.message, "Switched Test Module to Synnax with no confirmed save");
     EXPECT_EQ(
         status.description,
         "The device in slot 1 did not confirm the save of the switch, so it can go "
@@ -2178,7 +2345,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsASaveWithNoResponseAsNotConfirm
 TEST_F(EtherCATScanModeTest, SetStandaloneAsksForARestartAfterAFailedScan) {
     this->start(true);
     this->master->fail_scan_after_write(
-        x::errors::Error(errors::NO_SLAVES_FOUND, "no slaves")
+        x::errors::Error(errors::NO_SLAVES_FOUND, "no modules")
     );
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
@@ -2332,7 +2499,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesADeviceOffTheNetwork) {
     EXPECT_EQ(status.message, "Failed to switch the device");
     EXPECT_EQ(
         status.description,
-        "Test Slave is not on Ethernet 2. Check its power and cabling."
+        "Test Module is not on Ethernet 2. Check its power and cabling."
     );
     EXPECT_TRUE(this->master->written().empty());
 }

@@ -455,6 +455,7 @@ func (g *Graph) handleChanges(
 				g.mu.rejected.Remove(chg.Key)
 				continue
 			}
+			unresolvedNames = append(unresolvedNames, ch.Name)
 			if ch.IsCalculated() {
 				nd, err := g.inspectNode(ctx, tx, ch, analyzer)
 				if err != nil {
@@ -496,7 +497,6 @@ func (g *Graph) handleChanges(
 				continue
 			}
 			g.enqueueDependents(ch.Key(), queued)
-			unresolvedNames = append(unresolvedNames, ch.Name)
 		}
 		var reconciled []channel.Channel
 		reconciled, valid = g.reconcileQueued(

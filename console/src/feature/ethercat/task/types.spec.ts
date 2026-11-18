@@ -123,7 +123,7 @@ describe("getUnresolvedMessage", () => {
 
   it("should say when no entry on the slave carries the name", () => {
     expect(EtherCAT.Task.getUnresolvedMessage("Velocity", slave, "inputs")).toBe(
-      "'Velocity' matches no input entry on slave EL1008. Pick an entry.",
+      "'Velocity' matches no input entry on module EL1008. Pick an entry.",
     );
   });
 
@@ -137,7 +137,7 @@ describe("getUnresolvedMessage", () => {
       },
     };
     expect(EtherCAT.Task.getUnresolvedMessage("Value", single, "inputs")).toBe(
-      "'Value' matches input entry 0x6000:01 (Channel 1) on slave EL1008. " +
+      "'Value' matches input entry 0x6000:01 (Channel 1) on module EL1008. " +
         "Pick an entry.",
     );
   });
@@ -149,7 +149,7 @@ describe("getUnresolvedMessage", () => {
       properties: { ...slave.properties, pdos: { inputs: [], outputs } },
     };
     expect(EtherCAT.Task.getUnresolvedMessage("Output", two, "outputs")).toBe(
-      "'Output' matches more than one output entry on slave EL1008: " +
+      "'Output' matches more than one output entry on module EL1008: " +
         "0x7000:01 (Channel 1), 0x7010:01 (Channel 2). Pick an entry.",
     );
   });
@@ -190,7 +190,7 @@ describe("getEntryChannelName", () => {
         index: 0x6000,
         subIndex: 2,
       }),
-    ).toThrow("The slave has no entry at 0x6000:02");
+    ).toThrow("The module has no entry at 0x6000:02");
   });
 });
 

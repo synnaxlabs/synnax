@@ -1082,6 +1082,34 @@ describe("Tree.Tree", () => {
     const childKeysOf = async (id: resource.ID): Promise<string[]> =>
       await retrieveChildGroupKeys(client, id);
 
+    const previewText = (): string | null | undefined =>
+      document.querySelector(".lyra-haul__layer")?.textContent;
+
+    it("should picture the dragged resource with its type name", async () => {
+      const container = await createGroup(null, "container");
+      const containerID = group.resourceID(container.key);
+      const folder = await createGroup(containerID, "folder");
+      await renderLiveTree({
+        client,
+        root: containerID,
+        items: { group: createGroupItem({ canDrop: () => true, typeName: "Group" }) },
+      });
+      fireEvent.dragStart(await findTreeRow(folder.name));
+      expect(previewText()).toBe(`${folder.name}Group`);
+    });
+
+    it("should picture the pressed item with a count when a selection drags", async () => {
+      const container = await createGroup(null, "container");
+      const containerID = group.resourceID(container.key);
+      const a = await createGroup(containerID, "a");
+      const b = await createGroup(containerID, "b");
+      await renderLiveTree({ client, root: containerID, items: DROPPABLE });
+      fireEvent.click(await findTreeRow(a.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(b.name)));
+      fireEvent.dragStart(getTreeRow(b.name));
+      expect(previewText()).toBe(`${b.name}2`);
+    });
+
     it("should move only the parent when a parent and its own child are selected", async () => {
       const container = await createGroup(null, "container");
       const containerID = group.resourceID(container.key);

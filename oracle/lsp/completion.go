@@ -283,6 +283,11 @@ var (
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Regex pattern constraint"),
 		},
+		{
+			Label:  "finite",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Refuse NaN and infinite floats"),
+		},
 	}
 
 	outputExpressionCompletions = []protocol.CompletionItem{
