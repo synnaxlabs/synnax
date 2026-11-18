@@ -470,11 +470,7 @@ describe("Schematic toolbar Properties", () => {
         createConfig: createBoxConfig,
       });
       await screen.findByText("Colors");
-      const swatch = roleInput("Fill")
-        .closest(".lyra-color-input")
-        ?.querySelector<HTMLElement>(".lyra-color-swatch");
-      assertDefined(swatch);
-      fireEvent.click(swatch);
+      fireEvent.click(getSwatches("Fill")[0]);
       fireEvent.click(await screen.findByRole("button", { name: named.name }));
       await expect
         .poll(
