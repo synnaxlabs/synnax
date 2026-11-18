@@ -719,6 +719,43 @@ export const answerNextCommand = async (
   return { answered: respond() };
 };
 
+/**
+ * Answers each command sent to the tasks as a Driver does, with the answer that answers
+ * holds for its type, else a success status. Resolves once it listens, with a promise
+ * that resolves with the commands once it answers one of the type last. Rejects after
+ * 10 seconds without one.
+ */
+export const answerCommandsUntil = async (
+  client: Client,
+  tasks: task.Task[],
+  last: string,
+  answers: Record<string, Omit<CommandAnswer, "type">> = {},
+): Promise<{ answered: Promise<task.Command[]> }> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  const respond = async (): Promise<task.Command[]> => {
+    const commands: task.Command[] = [];
+    for (;;) {
+      const frame = await streamer.read();
+      for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
+        const cmd = task.commandZ.parse(sample);
+        const tsk = tasks.find((t) => t.key === cmd.task);
+        if (tsk == null) continue;
+        commands.push(cmd);
+        await answerCommand(client, tsk, cmd, answers[cmd.type]);
+        if (cmd.type === last) return commands;
+      }
+    }
+  };
+  const answered = sync
+    .withTimeout(
+      respond(),
+      TimeSpan.seconds(10),
+      () => new Error(`no ${last} command received within 10s`),
+    )
+    .finally(() => streamer.close());
+  return { answered };
+};
+
 /** Finds the single text input rendered by a task form field. */
 export const findFieldInput = (): HTMLInputElement =>
   screen.getByRole<HTMLInputElement>("textbox");
