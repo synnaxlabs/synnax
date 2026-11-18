@@ -315,6 +315,126 @@ trig -> f"v={q}" -> log`, "v=14.7"),
 		)
 	})
 
+	Describe("Placeholder strings outside a lone flow node", func() {
+		// Runs program for five ticks after each sensor value and returns each string
+		// that it writes to log.
+		runSensor := func(
+			ctx SpecContext,
+			program string,
+			values ...float64,
+		) []string {
+			GinkgoHelper()
+			resolver := channelSymbols(map[string]channelDef{
+				"trig":   {types.U8(), 100},
+				"log":    {types.String(), 101},
+				"sensor": {types.F64(), 102},
+			})
+			h := newRuntimeHarness(ctx, program, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 102, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+			logged := make([]string, 0, len(values))
+			for _, v := range values {
+				h.Ingest(102, telem.NewSeriesV(v))
+				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+					out, _ := h.Flush()
+					for _, s := range out.Get(101).Series {
+						logged = append(logged, s.Unmarshal[string]()...)
+					}
+				}
+			}
+			return logged
+		}
+
+		DescribeTable("renders the placeholder",
+			func(ctx SpecContext, program, expected string) {
+				logged := runSensor(ctx, program, 1.5)
+				Expect(logged).ToNot(BeEmpty())
+				Expect(logged).To(HaveEach(expected))
+			},
+			Entry("variable value at the top level", `v := 1.23
+msg := f"{v}"
+msg -> log`, "1.23"),
+			Entry("variable value in a sequence", `sequence main {
+    v := 1.23
+    msg := f"{v}"
+    msg -> log
+}
+trig => main`, "1.23"),
+			Entry("variable value in a stage", `sequence main {
+    stage s1 {
+        v := 1.23
+        msg := f"{v}"
+        msg -> log
+    }
+}
+trig => main`, "1.23"),
+			Entry("stateful variable value", `sequence main {
+    v := 1.23
+    msg str $= f"{v}"
+    stage s1 {
+        msg -> log
+    }
+}
+trig => main`, "1.23"),
+			Entry("function input", `func show(s str) {
+    log = s
+}
+v := 1.23
+trig -> show(f"{v}")`, "1.23"),
+			Entry("function input that reads a channel", `func show(s str) {
+    log = s
+}
+trig -> show(f"{sensor}")`, "1.5"),
+			Entry("inside a larger expression", `v := 1.23
+f"{v}" + "!" -> log`, "1.23!"),
+			Entry("computed variable inside a larger expression", `v := 1.0 + 0.23
+f"{v}" + "!" -> log`, "1.23!"),
+		)
+
+		DescribeTable("follows a channel",
+			func(ctx SpecContext, program string, expected []string) {
+				Expect(runSensor(ctx, program, 1.5, 2.5)).To(Equal(expected))
+			},
+			Entry("lone flow node", `f"{sensor}" -> log`, []string{"1.5", "2.5"}),
+			Entry("variable value", `msg := f"{sensor}"
+msg -> log`, []string{"1.5", "2.5"}),
+			Entry("function input", `func show(s str) {
+    log = s
+}
+sensor -> show(f"{sensor}")`, []string{"1.5", "2.5"}),
+			Entry("inside a larger expression", `f"{sensor}" + "!" -> log`,
+				[]string{"1.5!", "2.5!"}),
+		)
+
+		It(
+			"Should read a reassigned variable inside a larger expression",
+			func(ctx SpecContext) {
+				logged := runSensor(ctx, `sequence main {
+    v := 0.5
+    v = 1.23
+    f"{v}" + "!" -> log
+}
+trig => main`, 1.5)
+				Expect(logged).To(ContainElement("1.23!"))
+			},
+		)
+
+		It(
+			"Should follow a channel-read variable inside a larger expression",
+			func(ctx SpecContext) {
+				logged := runSensor(ctx, `v := sensor * 2.0
+f"{v}" + "!" -> log`, 1.5, 2.5)
+				Expect(logged).To(ContainElements("3!", "5!"))
+			},
+		)
+	})
+
 	Describe("Single placeholder with valid format spec", func() {
 		DescribeTable("integer types format with valid Go fmt verbs",
 			func(ctx SpecContext, source, expected string) {
