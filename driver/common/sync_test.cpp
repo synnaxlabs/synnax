@@ -426,6 +426,18 @@ TEST(Sync, SkipsResourceDeletedDuringRetrieve) {
     ASSERT_TRUE(store->statuses.empty());
 }
 
+/// @brief it should keep tracking a resource that a set signal adds while a scan
+/// reads the rack.
+TEST(Sync, KeepsResourceSetDuringRetrieve) {
+    auto [sync, store] = new_sync();
+    auto added = found("01A");
+    added.key = "key-01A";
+    auto *s = sync.get();
+    store->during_retrieve = [s, added] { s->on_set(added); };
+    ASSERT_NIL(sync->sync({}));
+    ASSERT_EQ(sync->get("01A").value().key, "key-01A");
+}
+
 /// @brief it should end a scan whose rack retrieve fails before it changes anything.
 TEST(Sync, StopsWhenRetrieveFails) {
     auto [sync, store] = new_sync();
