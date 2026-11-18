@@ -579,7 +579,7 @@ void Master::await_dictionaries(const std::vector<slave::DiscoveryResult *> &sla
         uint16_t position;
         uint16_t listed = 0;
         uint16_t described = 0;
-        std::chrono::steady_clock::time_point next_lookup{};
+        std::chrono::steady_clock::time_point next_lookup;
         x::telem::TimeSpan lookup_gap = DICTIONARY_POLL_INTERVAL;
     };
     std::vector<Progress> pending;

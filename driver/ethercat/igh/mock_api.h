@@ -707,9 +707,10 @@ public:
             slave.dictionary,
             [index](const DictionaryObject &o) { return o.info.index == index; }
         );
-        if (object == slave.dictionary.end() ||
-            static_cast<size_t>(object - slave.dictionary.begin()) >=
-                read_parts(slave).described)
+        if (object == slave.dictionary.end() || std::cmp_greater_equal(
+                                                    object - slave.dictionary.begin(),
+                                                    read_parts(slave).described
+                                                ))
             return -EINVAL;
         const auto entry = object->entries.find(sub_index);
         if (entry == object->entries.end()) return -EINVAL;
