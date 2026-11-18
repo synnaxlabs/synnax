@@ -65,10 +65,11 @@ const ListItem = <K extends record.Key, E extends Entry<K>>({
 const placeholderOf = <E extends record.Unknown>(
   result: Flux.Result<E>,
   resourceName: string,
-  preview?: boolean,
+  preview: boolean,
+  clearable: boolean,
 ): string => {
   if (result.variant === "disabled")
-    return preview === true ? "None" : `Select a ${resourceName}`;
+    return preview || clearable ? "None" : `Select a ${resourceName}`;
   if (result.variant !== "error") return "";
   const { error } = result.status.details;
   return Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause)
@@ -98,7 +99,7 @@ const Trigger = <K extends record.Key, E extends Entry<K>>({
   if (result.variant !== "success")
     content = (
       <Text.Text el="span" color={8} className={CSS.BE("picker", "text")}>
-        {placeholderOf(result, resourceName, preview)}
+        {placeholderOf(result, resourceName, preview === true, clearable)}
       </Text.Text>
     );
   else {
