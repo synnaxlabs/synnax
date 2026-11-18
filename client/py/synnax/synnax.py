@@ -18,6 +18,8 @@ from collections.abc import Callable
 from importlib.metadata import version as _version
 from typing import Self, overload
 
+from urllib3.exceptions import MaxRetryError
+
 from alamos import NOOP, Instrumentation
 from freighter import URL
 from freighter.exceptions import Unreachable
@@ -95,6 +97,17 @@ class _Lazy[T]:
                 self._built[obj._build_lock] = value
                 obj.__dict__[self._name] = value
             return value
+
+
+def _connect_failed(e: BaseException | None) -> bool:
+    """Reports whether a failure to connect caused e. Only that means Synnax Desktop is
+    not running: a read timeout or a reset comes from a Core that is running.
+    """
+    while e is not None:
+        if isinstance(e, MaxRetryError):
+            return True
+        e = e.__cause__
+    return False
 
 
 class Synnax(framer.Client):
@@ -218,7 +231,7 @@ class Synnax(framer.Client):
         try:
             self.auth.authenticate()
         except Unreachable as e:
-            if embedded:
+            if embedded and _connect_failed(e):
                 raise Unreachable(
                     target=e.target, message=DESKTOP_NOT_RUNNING_MSG
                 ) from e
