@@ -14,8 +14,8 @@ run-name:
   }}
 
 on:
-  # Windows is the default because it is more prevalent in the wild than Ubuntu.
-  # It also frees the saturated Ubuntu build bots while the Windows ones sit idle.
+  # Windows is the default because it is more prevalent in the wild than Ubuntu. CI
+  # picks the platforms itself.
   workflow_call:
     inputs:
       ubuntu:
