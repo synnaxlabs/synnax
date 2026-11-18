@@ -920,6 +920,18 @@ var _ = Describe("LayerConfig", func() {
 			Exists(ctx, node.DB)).To(BeFalse())
 	})
 
+	It("Should open with every Core integration disabled", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		layer := MustOpen(svctestutil.OpenLayer(ctx, node, service.LayerConfig{
+			DisabledIntegrations: []string{
+				"arc", "file", "kafka", "mqtt", "pagerduty", "sift",
+			},
+		}))
+		Expect(layer.Task.NewRetrieve().
+			Where(task.MatchTypes("file_browser")).
+			Exists(ctx, node.DB)).To(BeFalse())
+	})
+
 	It("Should refuse a secrets folder that does not exist", func(ctx SpecContext) {
 		dir := filepath.Join(GinkgoT().TempDir(), "missing")
 		Expect(svctestutil.OpenLayer(
