@@ -1,0 +1,48 @@
+{
+  "description": "Two enum entries of a string JSON field share a label.",
+  "codec_rejects": false,
+  "problems": [
+    {
+      "path": "messages.0.payload.fields.0.enum_values.2.label",
+      "message": "duplicate enum label \"ON\""
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "json",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "state",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/state",
+              "type": "string",
+              "enum_values": [
+                {
+                  "label": "ON",
+                  "value": "on"
+                },
+                {
+                  "label": "OFF",
+                  "value": "off"
+                },
+                {
+                  "label": "ON",
+                  "value": "high"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
