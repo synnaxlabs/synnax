@@ -604,6 +604,41 @@ trig => main`, fire, say("x"), say("y"), say("z"))
 			Expect(logged).To(Equal([]string{"constx x", "consty y", "constz z"}))
 		})
 
+		It("Should read a module constant in a call in a function input", func(
+			ctx SpecContext,
+		) {
+			resolver := channelSymbols(map[string]channelDef{
+				"log": {types.String(), 101},
+			})
+			h := newModuleRuntimeHarness(ctx, `import (
+    time
+    codes as c
+)
+func create(name str) str {
+    log = name
+    return name
+}
+a := c.layout
+
+true => sequence {
+    key := create(f"Daily Range ({time.format(time.now(), a)})")
+    time.wait(5s)
+}`, map[string]string{"codes": `export layout := "day"`}, resolver,
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			logged := make([]string, 0, 1)
+			for i := range 5 {
+				h.Tick(ctx, telem.TimeSpan(i)*telem.Millisecond)
+				h.channelState.ClearReads()
+				out, _ := h.Flush()
+				for _, s := range out.Get(101).Series {
+					logged = append(logged, s.Unmarshal[string]()...)
+				}
+			}
+			Expect(logged).To(Equal([]string{"Daily Range (day)"}))
+		})
+
 		It(
 			"Should render the entry value and then the reassigned value on a timer",
 			func(ctx SpecContext) {

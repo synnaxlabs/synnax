@@ -1542,6 +1542,44 @@ var _ = Describe("Task", Ordered, func() {
 					Count(ctx, db)).To(Equal(1))
 			}).Should(Succeed())
 		})
+
+		It(
+			"Should name a range from a format string that reads a computed variable in a call",
+			func(ctx SpecContext) {
+				name := "fmt_call_range_" + uuid.New().String()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import (
+					    ranges
+					    time
+					)
+					a := "da" + "y"
+
+					true => sequence {
+					    key := ranges.create(f"%s ({time.format(time.now(), a)})")
+					    time.wait(5s)
+					}
+				`, name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-fmt-call-range-name",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name+" (day)")).
+						Count(ctx, db)).To(Equal(1))
+				}).Should(Succeed())
+			},
+		)
 	})
 
 	Describe("Routing entry host calls", func() {
