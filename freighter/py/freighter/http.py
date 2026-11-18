@@ -17,7 +17,7 @@ from typing import IO, Any
 from urllib.parse import urlencode
 
 from urllib3 import PoolManager, Retry
-from urllib3.exceptions import MaxRetryError
+from urllib3.exceptions import MaxRetryError, ProtocolError, ReadTimeoutError
 from urllib3.response import BaseHTTPResponse
 
 from freighter.context import Context
@@ -277,6 +277,9 @@ class HTTPClient(MiddlewareCollector):
             )
         except MaxRetryError as e:
             raise Unreachable(target=url, message=e.url or "Unreachable") from e
+        # urllib3 never retries a read error on a POST, so it raises it unwrapped.
+        except (ReadTimeoutError, ProtocolError) as e:
+            raise Unreachable(target=url, message=str(e)) from e
         out_ctx.params = http_res.headers
         if not 200 <= http_res.status < 300:
             try:
