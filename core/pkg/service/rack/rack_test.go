@@ -949,6 +949,7 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should not create the embedded rack when the embedded Driver is disabled",
 			func(ctx SpecContext) {
 				disabledDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(disabledDB.Run)
 				s := DeferClose(openStack(
 					ctx,
 					disabledDB,
@@ -964,6 +965,7 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should delete the embedded rack when the embedded Driver is disabled",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(restartDB.Run)
 				before := openStack(ctx, restartDB, rack.ServiceConfig{})
 				key := before.rack.EmbeddedKey
 				Expect(before.Close()).To(Succeed())
@@ -985,6 +987,7 @@ var _ = Describe("Rack", Ordered, func() {
 			"Should give the embedded rack a disabled status when its Driver is disabled",
 			func(ctx SpecContext) {
 				restartDB := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(restartDB.Run)
 				cfg := rack.ServiceConfig{
 					HealthCheckInterval: 10 * telem.Millisecond,
 				}
