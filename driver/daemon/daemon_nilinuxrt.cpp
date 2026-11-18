@@ -207,17 +207,15 @@ x::errors::Error setup_pid_file() {
             );
         LOG(INFO) << "PID directory created";
     }
-    // Set on every call, so an upgrade also tightens a directory an older installer
-    // made world-writable.
+    // Set on every call, as the directory may already exist with other modes.
     if (chmod(pid_dir.c_str(), 0755) != 0)
         return x::errors::Error("failed to set PID directory permissions");
     std::string chown_dir_cmd = "chown synnax:synnax " + pid_dir;
     if (system(chown_dir_cmd.c_str()) != 0)
         return x::errors::Error("failed to change owner of PID directory");
 
-    // An older installer left the directory world-writable, so the entry may be a
-    // planted link. Replace anything but a regular file with one name, and never
-    // follow a link.
+    // The entry may be a planted link. Replace anything but a regular file with one
+    // name, and never follow a link.
     int fd = open(pid_file.c_str(), O_WRONLY | O_CREAT | O_NOFOLLOW | O_NONBLOCK, 0644);
     struct stat st{};
     if (fd < 0 || fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_nlink != 1) {
