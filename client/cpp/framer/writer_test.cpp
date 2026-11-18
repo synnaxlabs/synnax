@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
+#include <future>
 
 #include "gtest/gtest.h"
 
@@ -94,6 +95,24 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
     ASSERT_OCCURRED_AS(writer.write(frame), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS_P(writer.commit(), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS(writer.close(), x::errors::VALIDATION);
+}
+
+/// @brief it should end a wait with no error once close ends the stream.
+TEST(WriterTests, testWaitEndsOnClose) {
+    auto client = new_test_client();
+    auto [time, data] = create_indexed_pair(client);
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            std::vector{time.key, data.key},
+            x::telem::TimeStamp::now(),
+            std::vector{x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"},
+        }
+    ));
+    auto waited = std::async(std::launch::async, [&writer] { return writer.wait(); });
+    ASSERT_NIL(writer.set_authority({}, {100}, false));
+    ASSERT_NIL(writer.close());
+    ASSERT_NIL(waited.get());
 }
 
 /// @brief it should generate server-side timestamps for an auto-index writer opened

@@ -124,15 +124,25 @@ x::errors::Error Writer::close(const x::errors::Error &err) {
     if (this->close_err) return this->close_err.skip(WRITER_CLOSED);
     this->close_err = err;
     stream->close_send();
-    while (true) {
-        if (this->close_err) return this->close_err.skip(WRITER_CLOSED);
+    if (!this->close_err) this->close_err = this->drain();
+    return this->close_err.skip(WRITER_CLOSED);
+}
+
+x::errors::Error Writer::wait() {
+    return this->drain().skip(WRITER_CLOSED);
+}
+
+x::errors::Error Writer::drain() {
+    std::lock_guard lock(*this->recv_mu);
+    while (!this->end_err) {
         auto [res, recv_err] = stream->receive();
         if (recv_err)
-            this->close_err = recv_err.matches(freighter::ERR_EOF) ? WRITER_CLOSED
-                                                                   : recv_err;
+            this->end_err = recv_err.matches(freighter::ERR_EOF) ? WRITER_CLOSED
+                                                                 : recv_err;
         else
-            this->close_err = x::errors::Error(res.error());
+            this->end_err = x::errors::Error(res.error());
     }
+    return this->end_err;
 }
 
 std::pair<grpc::framer::WriterResponse, x::errors::Error>
