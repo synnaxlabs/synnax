@@ -61,14 +61,14 @@ var _ = Describe("Password", func() {
 		}))
 	})
 
-	// create creates a device of make with the given connection properties.
-	create := func(ctx SpecContext, make string, conn map[string]any) device.Device {
+	// create creates a device of make mk with the given connection properties.
+	create := func(ctx SpecContext, mk string, conn map[string]any) device.Device {
 		GinkgoHelper()
 		dev := device.Device{
 			Key:        uuid.New().String(),
 			Rack:       racks.EmbeddedKey,
 			Location:   "opc.tcp://localhost:4840",
-			Make:       make,
+			Make:       mk,
 			Model:      "OPC UA",
 			Name:       "Pump PLC",
 			Properties: msgpack.EncodedJSON{"connection": conn},
