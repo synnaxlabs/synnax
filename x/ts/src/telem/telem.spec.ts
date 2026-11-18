@@ -817,6 +817,12 @@ describe("TimeStamp", () => {
         process.env.TZ = originalTZ;
       });
 
+      test("DateComponents construct midnight UTC east of UTC", () => {
+        const ts = new TimeStamp([2021, 1, 1]);
+        expect(ts.valueOf()).toEqual(BigInt(Date.UTC(2021, 0, 1)) * 1_000_000n);
+        expect(ts.toString("ISODate")).toEqual("2021-01-01");
+      });
+
       test("localYear", () => {
         // 2022-12-31T23:00:00Z -> Auckland (UTC+13): 2023-01-01T12:00:00
         const ts = new TimeStamp(Date.UTC(2022, 11, 31, 23, 0, 0, 0) * 1e6);
