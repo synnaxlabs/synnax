@@ -11,9 +11,13 @@ import { icd, kafka } from "@synnaxlabs/client";
 import { DataType, type json, uuid } from "@synnaxlabs/x";
 
 import { type ReadRecord } from "@/feature/kafka/task/types";
+import { ICD } from "@/platform/icd";
 
-/** The pointers of the fields picked from each shape of a sample, by shape position. */
-export type Picks = Map<number, Set<string>>;
+/** The pointers of the fields picked from each shape of a sample, by shape key. */
+export type Picks = Map<string, Set<string>>;
+
+/** @returns a key for a shape that stays the same across samples of a topic. */
+export const shapeKey = ({ sources }: json.Shape): string => sources.join("\n");
 
 /** A message that adding picks puts in the task's ICD, and the records that read it. */
 export interface Addition {
@@ -40,20 +44,27 @@ export const isPickable = (
     .filter((f, i) => i === shape.index || picked.has(f.pointer))
     .every((f) => isVariable(f) === isVariable(field));
 
+/**
+ * @returns the fields that a click on a shape picks: each one it can take, without
+ * mixing variable-length fields among fixed ones. Fixed fields go first.
+ */
+export const defaultPicks = (shape: json.Shape): Set<string> => {
+  const free = shape.fields.filter(
+    (f, i) => i !== shape.index && isPickable(shape, new Set(), f),
+  );
+  const fixed = free.filter((f) => !isVariable(f));
+  return new Set((fixed.length > 0 ? fixed : free).map(({ pointer }) => pointer));
+};
+
 /** @returns the Kafka keys of a shape that no record of the task reads yet. */
 export const freeKeys = (shape: json.Shape, records: ReadRecord[]): string[] =>
   shape.sources.filter((key) => !records.some(({ recordKey }) => recordKey === key));
 
-const fieldName = (pointer: string): string =>
-  pointer === "" ? "value" : pointer.slice(1).replaceAll("/", "_");
-
-const toJSONField = ({
-  pointer,
-  type,
-  dataType,
-  timeFormat,
-}: json.InferredField): icd.JSONField => {
-  const base = { key: uuid.create(), name: fieldName(pointer), pointer };
+const toJSONField = (
+  { pointer, type, dataType, timeFormat }: json.InferredField,
+  name: string,
+): icd.JSONField => {
+  const base = { key: uuid.create(), name, pointer };
   if (timeFormat != null)
     return icd.jsonFieldZ.parse({ ...base, type: "timestamp", timeFormat });
   if (type === "boolean" || type === "string")
@@ -87,14 +98,16 @@ export const createAdditions = (
   label: (recordKey: string) => string,
 ): Addition[] => {
   const taken = [...held];
-  return shapes.flatMap((shape, i): Addition[] => {
-    const pointers = picks.get(i);
+  return shapes.flatMap((shape): Addition[] => {
+    const pointers = picks.get(shapeKey(shape));
     const recordKeys = freeKeys(shape, records);
     if (pointers == null || pointers.size === 0 || recordKeys.length === 0) return [];
     const indexField = shape.index == null ? undefined : shape.fields[shape.index];
-    const fields = shape.fields
-      .filter((f) => f === indexField || pointers.has(f.pointer))
-      .map(toJSONField);
+    const picked = shape.fields.filter(
+      (f) => f === indexField || pointers.has(f.pointer),
+    );
+    const names = ICD.fieldNames(picked.map(({ pointer }) => pointer));
+    const fields = picked.map((f, i) => toJSONField(f, names[i]));
     const index =
       indexField == null
         ? undefined

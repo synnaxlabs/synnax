@@ -43,20 +43,4 @@
     .console-mqtt-discover__code {
         font-family: var(--pluto-code-font-family);
     }
-
-    .console-mqtt-discover__tree {
-        flex: 1 1 0;
-        min-height: 0;
-    }
-
-    .console-mqtt-discover__add {
-        flex-shrink: 0;
-        align-self: flex-start;
-        margin: 0.5rem 1rem 1.5rem;
-    }
-
-    .console-mqtt-discover__notice {
-        padding: 4rem;
-        text-wrap: balance;
-    }
 }

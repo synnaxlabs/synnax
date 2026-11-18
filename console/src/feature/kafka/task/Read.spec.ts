@@ -252,7 +252,7 @@ describe("Kafka read form", () => {
       await screen.findByText("Add data to read the records of the topic");
       const dialog = await openAddData(dev, { data: sampleOf() });
       await dialog.findByText(/holds no JSON records/);
-      fireEvent.click(dialog.getByRole("button", { name: "Add empty record" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add an empty record" }));
       const [rec] = await waitFor(async () => {
         const records = await retrieveRecords(draft.key);
         expect(records).toHaveLength(1);
@@ -277,7 +277,7 @@ describe("Kafka read form", () => {
       });
       await screen.findByRole("treeitem", { name: /^temperature/ });
       const dialog = await openAddData(dev, { data: sampleOf() });
-      fireEvent.click(dialog.getByRole("button", { name: "Add empty record" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add an empty record" }));
       const records = await waitFor(async () => {
         const next = await retrieveRecords(draft.key);
         expect(next).toHaveLength(2);
@@ -343,7 +343,7 @@ describe("Kafka read form", () => {
       const { draft, dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
       fireEvent.click(
-        await dialog.findByRole("checkbox", { name: "Read /temperature" }),
+        await dialog.findByRole("checkbox", { name: "Record /temperature" }),
       );
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
       const records = await waitFor(async () => {
@@ -388,7 +388,7 @@ describe("Kafka read form", () => {
     it("should keep a string field out of a message with a timestamp", async () => {
       const { dev } = await renderRead();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
-      const state = await dialog.findByRole("checkbox", { name: "Read /state" });
+      const state = await dialog.findByRole("checkbox", { name: "Record /state" });
       expect(state).toHaveProperty("disabled", true);
       dialog.getByText(/A string field cannot share a message/);
     });
@@ -406,11 +406,13 @@ describe("Kafka read form", () => {
         count: 1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE, pump) });
-      await dialog.findByText("oven-1, oven-2");
       expect(
-        dialog.getByRole("checkbox", { name: "Read /temperature" }),
+        await dialog.findByRole("checkbox", { name: "Record /temperature" }),
       ).toHaveProperty("disabled", false);
-      fireEvent.click(dialog.getByRole("checkbox", { name: "Read /pressure" }));
+      fireEvent.click(dialog.getByText("pump"));
+      fireEvent.click(
+        await dialog.findByRole("checkbox", { name: "Record /pressure" }),
+      );
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
       const records = await waitFor(async () => {
         const next = await retrieveRecords(draft.key);
@@ -424,6 +426,20 @@ describe("Kafka read form", () => {
       expect(messages[1].payload).toMatchObject({
         fields: [{ name: "pressure", pointer: "/pressure", type: "integer" }],
       });
+    });
+
+    it("should say why a sample read no records", async () => {
+      const { dev } = await renderRead();
+      const data = {
+        topics: [
+          { topic: TOPIC, records: [], shapes: [], error: "The topic does not exist." },
+        ],
+        truncated: false,
+      };
+      const dialog = await openAddData(dev, { data });
+      await dialog.findByText("Read no records");
+      dialog.getByText("The topic does not exist.");
+      expect(dialog.queryByText(/some unread/)).toBeNull();
     });
 
     it("should show why the sample failed", async () => {

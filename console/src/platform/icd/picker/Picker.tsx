@@ -21,9 +21,15 @@ import { Progress } from "@synnaxlabs/lyra/progress";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type CrudeTimeSpan } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+  useState,
+} from "react";
 
 import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
 
 const [ActiveContext, useActiveContext] = context.create<string>({
   displayName: "Picker.ActiveContext",
@@ -138,6 +144,40 @@ export const Side = ({ children }: PropsWithChildren): ReactElement => (
   <Flex.Box y empty className={CSS.BE("icd-picker", "side")}>
     {children}
   </Flex.Box>
+);
+
+/** The part of a {@link Side} that lists what to pick. It fills the room left over. */
+export const SideList = ({ children }: PropsWithChildren): ReactElement => (
+  <Flex.Box y empty className={CSS.BE("icd-picker", "side-list")}>
+    {children}
+  </Flex.Box>
+);
+
+export interface SideActionProps {
+  onClick: () => void;
+  children: ReactNode;
+}
+
+/** A button at the foot of a {@link Side} that adds what its list does not hold. */
+export const SideAction = ({ onClick, children }: SideActionProps): ReactElement => (
+  <Button.Button
+    variant="text"
+    size="small"
+    className={CSS.BE("icd-picker", "side-action")}
+    onClick={onClick}
+  >
+    <Icon.Add />
+    {children}
+  </Button.Button>
+);
+
+export interface NoticeProps {
+  message: string;
+}
+
+/** Says why a list or the pane shows nothing. */
+export const Notice = ({ message }: NoticeProps): ReactElement => (
+  <Empty.Action message={message} className={CSS.BE("icd-picker", "notice")} />
 );
 
 /** The area that shows the values of what the side selects. */

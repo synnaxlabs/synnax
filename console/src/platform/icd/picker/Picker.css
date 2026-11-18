@@ -47,6 +47,22 @@
         border-right: var(--console-divider);
     }
 
+    .console-icd-picker__side-list {
+        flex: 1 1 0;
+        min-height: 0;
+    }
+
+    .console-icd-picker__side-action {
+        flex-shrink: 0;
+        align-self: flex-start;
+        margin: 0.5rem 1rem 1.5rem;
+    }
+
+    .console-icd-picker__notice {
+        padding: 4rem;
+        text-wrap: balance;
+    }
+
     .console-icd-picker__meta {
         flex: none;
         margin-left: auto;
