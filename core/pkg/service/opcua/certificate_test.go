@@ -95,6 +95,19 @@ var _ = Describe("Certificate", func() {
 			Expect(e.certs.NewRetrieve().Count(ctx, e.db)).To(Equal(0))
 		})
 
+		It("Should clear a server certificate that does not parse", func(
+			ctx SpecContext,
+		) {
+			dev := e.create(ctx, opcMake, map[string]any{
+				"server_certificate": "-----BEGIN CERTIFICATE-----\nAAAA\n" +
+					"-----END CERTIFICATE-----\n",
+			})
+			Expect(migrate(ctx)).To(Succeed())
+			Expect(e.connection(ctx, dev.Key)).
+				To(HaveKeyWithValue("server_certificate", ""))
+			Expect(e.certs.NewRetrieve().Count(ctx, e.db)).To(Equal(0))
+		})
+
 		It("Should move a client certificate and key path into a file certificate",
 			func(ctx SpecContext) {
 				dev := e.create(ctx, opcMake, map[string]any{

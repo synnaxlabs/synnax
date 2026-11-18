@@ -14,6 +14,7 @@ import (
 	"strings"
 	"uuid"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -21,6 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // CertificateReference returns the reference from each OPC UA device to its client and
@@ -56,9 +59,11 @@ const pemHeader = "-----BEGIN CERTIFICATE-----"
 // device into the certificate service. A pinned server certificate becomes a stored
 // certificate named "<device name> server certificate". A client certificate path
 // becomes a file certificate on the device's rack named "<device name> client
-// certificate". Its private key path becomes the key file "<certificate key>.pem",
-// with the warning "Private key file renamed" on the certificate. An empty field stays
-// empty, and a server certificate that is not PEM, which had no effect, is cleared.
+// certificate". Its private key path becomes the key file "<certificate key>.pem", with
+// the warning "Private key file renamed" on the certificate. An empty field stays
+// empty. It clears a server certificate that is not PEM, which had no effect, and one
+// that does not parse, which kept the device from connecting. It logs a warning for the
+// second.
 func CertificateMigration(
 	certs *certificate.Service,
 	statuses *status.Service,
@@ -68,6 +73,7 @@ func CertificateMigration(
 		func(
 			ctx context.Context,
 			tx gorp.Tx,
+			ins alamos.Instrumentation,
 			dev device.Device,
 			conn map[string]any,
 		) (bool, error) {
@@ -78,7 +84,7 @@ func CertificateMigration(
 				return false, nil
 			}
 			w := certs.NewWriter(tx)
-			serverKey, err := migrateServerCertificate(ctx, w, dev, server)
+			serverKey, err := migrateServerCertificate(ctx, w, ins, dev, server)
 			if err != nil {
 				return false, err
 			}
@@ -102,10 +108,11 @@ func CertificateMigration(
 }
 
 // migrateServerCertificate stores pem, the pinned server certificate of dev, and
-// returns its key. It returns an empty key when pem is not PEM.
+// returns its key. It returns an empty key when pem is not PEM or does not parse.
 func migrateServerCertificate(
 	ctx context.Context,
 	w certificate.Writer,
+	ins alamos.Instrumentation,
 	dev device.Device,
 	pem string,
 ) (string, error) {
@@ -116,7 +123,18 @@ func migrateServerCertificate(
 		Base: certificate.Base{Name: dev.Name + " server certificate"},
 		Pem:  pem,
 	}}
-	if err := w.Set(ctx, &c, nil); err != nil {
+	err := w.Set(ctx, &c, nil)
+	if errors.Is(err, validate.ErrValidation) {
+		ins.L.Warn(
+			"cleared the pinned server certificate of an OPC UA device, since it does "+
+				"not parse",
+			zap.String("device", dev.Key),
+			zap.String("name", dev.Name),
+			zap.Error(err),
+		)
+		return "", nil
+	}
+	if err != nil {
 		return "", errors.Wrapf(err, "server certificate of device %s", dev.Key)
 	}
 	return c.Base().Key.String(), nil

@@ -60,13 +60,14 @@ func migrateConnections(
 	update func(
 		ctx context.Context,
 		tx gorp.Tx,
+		ins alamos.Instrumentation,
 		dev device.Device,
 		conn map[string]any,
 	) (bool, error),
 ) gorp.Migration {
 	return migrate.New(
 		name,
-		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			var devs []device.Device
 			if err := gorp.NewRetrieve[device.Key, device.Device]().
 				Entries(&devs).
@@ -90,7 +91,7 @@ func migrateConnections(
 						raw,
 					)
 				}
-				updated, err := update(ctx, tx, dev, conn)
+				updated, err := update(ctx, tx, ins, dev, conn)
 				if err != nil {
 					return err
 				}

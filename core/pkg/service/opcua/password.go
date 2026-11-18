@@ -12,6 +12,7 @@ package opcua
 import (
 	"context"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -51,6 +52,7 @@ func PasswordMigration(secrets *secret.Service) gorp.Migration {
 		func(
 			ctx context.Context,
 			tx gorp.Tx,
+			_ alamos.Instrumentation,
 			dev device.Device,
 			conn map[string]any,
 		) (bool, error) {
