@@ -21,7 +21,8 @@ export interface Store<V> {
   get: () => V;
   /**
    * Replaces the value at the path. An empty path replaces the values. A path into a
-   * list entry that another client removed changes nothing.
+   * list entry that another client removed changes nothing, unless it also reads as a
+   * path into a kept entry, as `a.b` does when the list keeps `a`.
    */
   set: (path: string, value: unknown) => void;
   /** Removes the object field or the list entry at the path. */

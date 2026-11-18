@@ -195,8 +195,8 @@ const readLive = (live: unknown, path: string): unknown => {
 
 /**
  * @returns the value to write at the path, with live values kept at pending paths. A
- * pending path whose container the value no longer holds, as a list entry another
- * client removed, is dropped.
+ * pending path into a list entry the value no longer holds is dropped, unless it also
+ * reads as a path into a kept entry, as `a.b` does when the list keeps `a`.
  */
 const keepPending = <V>(
   live: unknown,
