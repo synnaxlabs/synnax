@@ -52,42 +52,20 @@ describe("get", () => {
       },
       c: [1, 2, 3],
     };
-    expect(deep.get(a, "")).toStrictEqual(a);
+    expect(deep.get(a, "")).toBe(a);
   });
 
-  describe("custom getter function", () => {
-    const v = {
-      a: {
-        value: () => ({
-          c: 0,
-        }),
-      },
+  it("should get an array of keyed records", () => {
+    interface TestKeyedRecord {
+      values: record.KeyedNamed[];
+    }
+    const a: TestKeyedRecord = {
+      values: [
+        { key: "a", name: "a" },
+        { key: "b", name: "b" },
+      ],
     };
-    it("should use the custom getter function", () => {
-      expect(
-        deep.get(v, "a.value().c", {
-          optional: false,
-          getter: (obj, key) => {
-            if (key === "value()")
-              return (obj as { value: () => { c: number } }).value();
-            return obj[key];
-          },
-        }),
-      ).toEqual(0);
-    });
-
-    it("should get an array of keyed records", () => {
-      interface TestKeyedRecord {
-        values: record.KeyedNamed[];
-      }
-      const a: TestKeyedRecord = {
-        values: [
-          { key: "a", name: "a" },
-          { key: "b", name: "b" },
-        ],
-      };
-      expect(deep.get(a, "values.a.name")).toEqual("a");
-    });
+    expect(deep.get(a, "values.a.name")).toEqual("a");
   });
 
   describe("path includes a .", () => {
@@ -108,22 +86,53 @@ describe("get", () => {
     });
   });
 
-  it("should handle null values in get", () => {
-    const obj = { a: null };
-    expect(deep.get(obj, "a")).toBeNull();
-    expect(deep.get(obj, "a.b", { optional: true })).toBeNull();
+  it("should return null for a key that holds null", () => {
+    expect(deep.get({ a: null }, "a")).toBeNull();
   });
 
-  it("should handle undefined values in get", () => {
+  it("should return null for a path through null", () => {
+    expect(deep.get({ a: null }, "a.b")).toBeNull();
+  });
+
+  it("should return null for a key that holds undefined", () => {
     const obj = { a: undefined };
-    expect(deep.get(obj, "a", { optional: true })).toBeNull();
-    expect(deep.get(obj, "a.b", { optional: true })).toBeNull();
+    expect(deep.get(obj, "a")).toBeNull();
+    expect(deep.get(obj, "a.b")).toBeNull();
   });
 
-  it("should handle get with default value", () => {
-    const obj = { a: { b: 1 } };
-    const result = deep.get(obj, "a.c", { optional: true });
-    expect(result).toBeNull();
+  it("should return null for a missing key", () => {
+    expect(deep.get({ a: { b: 1 } }, "a.c")).toBeNull();
+  });
+
+  it("should return null for a missing middle key", () => {
+    expect(deep.get({ a: { b: 1 } }, "a.c.d")).toBeNull();
+  });
+
+  it("should return null for a missing entry of a keyed list", () => {
+    const obj = { items: [{ key: "a", value: 1 }] };
+    expect(deep.get(obj, "items.b")).toBeNull();
+    expect(deep.get(obj, "items.b.value")).toBeNull();
+  });
+
+  it("should return null for an index past the end of a list", () => {
+    expect(deep.get({ items: [1, 2] }, "items.2")).toBeNull();
+  });
+
+  it("should return falsy values that are not null", () => {
+    const obj = { zero: 0, empty: "", no: false };
+    expect(deep.get(obj, "zero")).toBe(0);
+    expect(deep.get(obj, "empty")).toBe("");
+    expect(deep.get(obj, "no")).toBe(false);
+  });
+
+  it("should return the value itself, not a copy", () => {
+    const obj = { a: { b: { c: 1 } } };
+    expect(deep.get(obj, "a.b")).toBe(obj.a.b);
+  });
+
+  it("should prefer the longest key when a shorter key also matches", () => {
+    const obj = { a: { b: { c: 1 } }, "a.b": { c: 2 } };
+    expect(deep.get(obj, "a.b.c")).toBe(2);
   });
 
   it("should handle numeric string keys", () => {
@@ -155,14 +164,8 @@ describe("get", () => {
     expect(deep.get(obj, longPath)).toEqual("deep");
   });
 
-  it("should throw error when path doesn't exist and not optional", () => {
-    const obj = { a: { b: 1 } };
-    expect(() => deep.get(obj, "a.c.d")).toThrow();
-  });
-
-  it("should return null when path doesn't exist and optional", () => {
-    const obj = { a: { b: 1 } };
-    expect(deep.get(obj, "a.c.d", { optional: true })).toBeNull();
+  it("should not throw for a path the object does not hold", () => {
+    expect(() => deep.get({ a: { b: 1 } }, "a.c.d")).not.toThrow();
   });
 });
 
@@ -192,5 +195,18 @@ describe("has", () => {
     };
     expect(deep.has(obj, "items.item1")).toBe(true);
     expect(deep.has(obj, "items.item3")).toBe(false);
+  });
+
+  it("should return false for a key that holds null", () => {
+    expect(deep.has({ a: null }, "a")).toBe(false);
+  });
+
+  it("should return true for falsy values that are not null", () => {
+    expect(deep.has({ a: 0 }, "a")).toBe(true);
+    expect(deep.has({ a: false }, "a")).toBe(true);
+  });
+
+  it("should return true for the empty path", () => {
+    expect(deep.has({}, "")).toBe(true);
   });
 });
