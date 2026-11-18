@@ -109,7 +109,7 @@ TEST_F(BrowserTest, TopLevelWithoutSecrets) {
 /// @brief it should list folders first, then files, each in byte order of name.
 TEST_F(BrowserTest, ListOrder) {
     const auto folder = this->dir / "certs";
-    std::filesystem::create_directories(folder / "b");
+    std::filesystem::create_directories(folder / "a");
     std::filesystem::create_directories(folder / "B");
     write(folder / "a.txt", "hello");
     write(folder / "Z.txt", "");
@@ -117,7 +117,7 @@ TEST_F(BrowserTest, ListOrder) {
     std::vector<std::string> names;
     for (const auto &e: data["entries"])
         names.push_back(e["name"]);
-    ASSERT_EQ(names, std::vector<std::string>({"B", "b", "Z.txt", "a.txt"}));
+    ASSERT_EQ(names, std::vector<std::string>({"B", "a", "Z.txt", "a.txt"}));
     ASSERT_EQ(data["path"], folder.string());
     ASSERT_EQ(data["parent"], this->dir.string());
     ASSERT_EQ(data["secrets_dir"], this->secrets.string());
@@ -219,6 +219,25 @@ TEST_F(BrowserTest, LinkIntoSecretsNamesOnly) {
     ASSERT_EQ(entry(data, "secrets").size(), 3);
 }
 
+/// @brief it should read a link outside the secrets folder from its resolved target.
+TEST_F(BrowserTest, LinkReadFromTarget) {
+    const auto certs = this->dir / "certs";
+    std::filesystem::create_directories(certs);
+    write(certs / "server.pem", x::x509::testutil::CERTIFICATE);
+    std::error_code ec;
+    std::filesystem::create_symlink(certs / "server.pem", this->dir / "link.pem", ec);
+    if (ec) GTEST_SKIP() << "cannot create a link: " << ec.message();
+    const auto data = ASSERT_NIL_P(this->browser().list(this->dir.string()));
+    const auto link = entry(data, "link.pem");
+    ASSERT_EQ(link["path"], (this->dir / "link.pem").string());
+    ASSERT_EQ(link["size"], x::x509::testutil::CERTIFICATE.size());
+    const auto modified = to_timestamp(
+        std::filesystem::last_write_time(certs / "server.pem")
+    );
+    ASSERT_EQ(link["modified"], std::to_string(modified.nanoseconds()));
+    ASSERT_EQ(link["certificate"], CERTIFICATE_DETAILS);
+}
+
 /// @brief it should leave out a link whose target is missing.
 TEST_F(BrowserTest, BrokenLinkLeftOut) {
     std::error_code ec;
@@ -226,6 +245,36 @@ TEST_F(BrowserTest, BrokenLinkLeftOut) {
     if (ec) GTEST_SKIP() << "cannot create a link: " << ec.message();
     const auto data = ASSERT_NIL_P(this->browser().list(this->dir.string()));
     ASSERT_TRUE(entry(data, "broken").is_null());
+}
+
+/// @brief it should resolve the links of the secrets folder at each list, so a link
+/// made after the browser starts still hides the files.
+TEST_F(BrowserTest, SecretsLinkResolvedEachList) {
+    const auto link = this->dir / "link";
+    const Browser browser(Config{.secrets_dir = link});
+    const auto real = this->dir / "real";
+    std::filesystem::create_directories(real);
+    write(real / "client.pem", x::x509::testutil::CERTIFICATE);
+    std::error_code ec;
+    std::filesystem::create_directory_symlink(real, link, ec);
+    if (ec) GTEST_SKIP() << "cannot create a link: " << ec.message();
+    const auto data = ASSERT_NIL_P(browser.list(real.string()));
+    ASSERT_EQ(data["secret"], true);
+    ASSERT_EQ(entry(data, "client.pem").size(), 3);
+}
+
+/// @brief it should leave out an entry whose name is not valid UTF-8.
+TEST_F(BrowserTest, NonUTF8NameLeftOut) {
+#ifndef __linux__
+    GTEST_SKIP() << "only Linux keeps a file name that is not valid UTF-8";
+#endif
+    const auto folder = this->dir / "names";
+    std::filesystem::create_directories(folder);
+    write(folder / "ok.txt", "");
+    write(folder / std::string("caf\xE9.txt"), "");
+    const auto data = ASSERT_NIL_P(this->browser().list(folder.string()));
+    ASSERT_EQ(data["entries"].size(), 1);
+    ASSERT_EQ(data["entries"][0]["name"], "ok.txt");
 }
 
 /// @brief it should keep the first 1000 entries of a larger folder.

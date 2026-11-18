@@ -41,6 +41,7 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/fs",
         "//x/cpp/json",
+        "//x/cpp/strings",
         "//x/cpp/telem",
         "//x/cpp/x509",
     ],
