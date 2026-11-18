@@ -1192,24 +1192,30 @@ describe("MQTT read form", () => {
       expect(mode.index).toBe(index);
     });
 
-    it("should replace a streamed string channel beside a number field", async () => {
+    it("should store a streamed string field once its message reads a number", async () => {
       const mode = createField("mode", "string");
       const temperature = createField("temperature", "float");
-      const streamed = await client.channels.create({
-        name: uniqueName("mode"),
-        dataType: DataType.STRING,
-        virtual: true,
-      });
       const { container, dev, draft } = await renderRead({
         fields: [mode, temperature],
-        bound: { [mode.key]: streamed.key, [temperature.key]: 0 },
+        bound: { [mode.key]: 0 },
       });
       await deploy(container, draft.key);
+      const [{ channel: streamed }] = await retrieveBindings(draft.key);
+      expect((await client.channels.retrieve(streamed)).virtual).toBe(true);
+      fireEvent.click(
+        await screen.findByRole("checkbox", { name: "Read temperature" }),
+      );
+      await waitFor(async () =>
+        expect(await retrieveBindings(draft.key)).toHaveLength(2),
+      );
+      await deploy(container, draft.key);
       const { index, channels } = await retrieveStored(dev.key, firstMessage(draft));
-      expect(channels["/mode"]).not.toBe(streamed.key);
       const stored = await client.channels.retrieve(channels["/mode"]);
       expect(stored.virtual).toBe(false);
       expect(stored.index).toBe(index);
+      const name = `${dev.name}_plant_oven_mode`;
+      expect(stored.name).toBe(name);
+      expect((await client.channels.retrieve(streamed)).name).toBe(`${name}_2`);
     });
 
     it("should keep storing a message that comes to read only strings", async () => {
