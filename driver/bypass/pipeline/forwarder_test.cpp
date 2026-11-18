@@ -11,6 +11,7 @@
 #include <condition_variable>
 #include <future>
 #include <mutex>
+#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -70,6 +71,80 @@ public:
 
     std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &) override {
+        return {std::make_unique<Writer>(*this), x::errors::NIL};
+    }
+};
+
+/// @brief opens one Core writer whose stream the test ends while a write blocks, and
+/// records where the forwarder closes it. Later opens find the Core unreachable.
+class RacingFactory final : public ::driver::pipeline::WriterFactory {
+    std::mutex mu;
+    std::condition_variable cv;
+    bool released = false;
+    bool ended = false;
+    bool closed = false;
+
+    class Writer final : public ::driver::pipeline::Writer {
+        RacingFactory &factory;
+
+    public:
+        explicit Writer(RacingFactory &factory): factory(factory) {}
+
+        x::errors::Error write(const x::telem::Frame &) override {
+            std::unique_lock lock(this->factory.mu);
+            this->factory.write_thread = std::this_thread::get_id();
+            this->factory.writing = true;
+            this->factory.cv.wait(lock, [this] { return this->factory.released; });
+            this->factory.writing = false;
+            return x::errors::NIL;
+        }
+
+        x::errors::Error close() override {
+            {
+                std::lock_guard lock(this->factory.mu);
+                this->factory.close_thread = std::this_thread::get_id();
+                this->factory.closed_while_writing = this->factory.writing.load();
+                this->factory.closed = true;
+            }
+            this->factory.cv.notify_all();
+            return freighter::UNREACHABLE;
+        }
+
+        bool wait() override {
+            std::unique_lock lock(this->factory.mu);
+            this->factory.cv.wait(lock, [this] {
+                return this->factory.ended || this->factory.closed;
+            });
+            return true;
+        }
+    };
+
+public:
+    std::atomic<bool> writing = false;
+    std::atomic<bool> closed_while_writing = false;
+    std::thread::id write_thread;
+    std::thread::id close_thread;
+    std::atomic<size_t> opens = 0;
+
+    void end() {
+        {
+            std::lock_guard lock(this->mu);
+            this->ended = true;
+        }
+        this->cv.notify_all();
+    }
+
+    void release() {
+        {
+            std::lock_guard lock(this->mu);
+            this->released = true;
+        }
+        this->cv.notify_all();
+    }
+
+    std::pair<std::unique_ptr<::driver::pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &) override {
+        if (this->opens++ > 0) return {nullptr, freighter::UNREACHABLE};
         return {std::make_unique<Writer>(*this), x::errors::NIL};
     }
 };
@@ -262,6 +337,25 @@ TEST(ForwarderTest, ReopensAnIdleWriterWhoseStreamFails) {
     ASSERT_EQ(server->ops->size(), 0);
     ASSERT_NIL(forwarder.close());
     ASSERT_EQ(closes.load(), 2);
+}
+
+/// @brief it should close a Core writer on its own thread, after a write in progress
+/// returns, when the writer's stream ends during that write.
+TEST(ForwarderTest, ClosesAfterAWriteInProgressWhenTheStreamEnds) {
+    const auto server = std::make_shared<RacingFactory>();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.breaker = {.base_interval = x::telem::MILLISECOND}}
+    );
+    ASSERT_NIL(forwarder.write(frame(1)));
+    ASSERT_EVENTUALLY_TRUE(server->writing.load());
+    server->end();
+    server->release();
+    ASSERT_EVENTUALLY_GE(server->opens.load(), 2);
+    ASSERT_FALSE(server->closed_while_writing.load());
+    ASSERT_EQ(server->close_thread, server->write_thread);
+    ASSERT_NIL(forwarder.close());
 }
 
 /// @brief it should stop with the error that ends the stream of an idle Core writer

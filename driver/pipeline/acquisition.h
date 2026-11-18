@@ -111,11 +111,11 @@ public:
     /// will exit.
     [[nodiscard]] virtual x::errors::Error close() = 0;
 
-    /// @brief blocks until the Core ends the writer's stream. It may run on a second
-    /// thread while write, set_authority, and close run.
-    /// @returns the error that ended the stream, or NIL when close ended it. A writer
-    /// that cannot watch its stream returns NIL at once.
-    [[nodiscard]] virtual x::errors::Error wait() { return x::errors::NIL; }
+    /// @brief blocks until the writer's stream ends. It may run on a second thread
+    /// while write, set_authority, and close run. close returns why the stream ended.
+    /// @returns true once the stream ends, or false at once for a writer that cannot
+    /// watch its stream.
+    [[nodiscard]] virtual bool wait() { return false; }
 
     virtual ~Writer() = default;
 };
@@ -159,7 +159,7 @@ public:
     [[nodiscard]] x::errors::Error close() override;
 
     /// @brief implements pipeline::Writer to wait for the end of the writer's stream.
-    [[nodiscard]] x::errors::Error wait() override;
+    [[nodiscard]] bool wait() override;
 };
 
 /// @brief an implementation of the pipeline::WriterFactory interface that is

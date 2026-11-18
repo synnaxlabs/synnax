@@ -215,21 +215,24 @@ public:
         return this->set_authority_err;
     }
 
+    /// Returns the error that ended the stream, if any, like a Core writer.
     x::errors::Error close() override {
+        x::errors::Error err;
         {
             std::lock_guard lock(this->stream->mu);
             this->stream->closed = true;
+            err = this->stream->err;
         }
         this->stream->cv.notify_all();
-        return this->close_err;
+        return err ? err : this->close_err;
     }
 
-    x::errors::Error wait() override {
+    bool wait() override {
         std::unique_lock lock(this->stream->mu);
         this->stream->cv.wait(lock, [this] {
             return this->stream->closed || this->stream->err;
         });
-        return this->stream->err;
+        return true;
     }
 };
 

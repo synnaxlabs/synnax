@@ -106,8 +106,8 @@ class Forwarder {
     size_t queue_bytes = 0;
     size_t dropped_frames;
     bool closing = false;
-    /// @brief the error that ended the stream of the open Core writer.
-    x::errors::Error lost = x::errors::NIL;
+    /// @brief set once the stream of the open Core writer ends.
+    bool lost = false;
     x::errors::Error err = x::errors::NIL;
     bool settled = false;
     std::condition_variable settled_cv;
@@ -288,11 +288,10 @@ class Forwarder {
             this->settle();
             this->breaker.reset();
             std::thread watcher([this, w = writer.get()] {
-                const auto err = w->wait();
-                if (!err) return;
+                if (!w->wait()) return;
                 {
                     std::lock_guard lock(this->mu);
-                    this->lost = err;
+                    this->lost = true;
                 }
                 this->cv.notify_one();
             });
@@ -303,15 +302,21 @@ class Forwarder {
                 this->pop();
                 this->report();
             }
+            bool lost = false;
+            {
+                std::lock_guard lock(this->mu);
+                lost = this->lost;
+            }
             const auto close_err = writer->close();
             watcher.join();
             if (this->on_close) this->on_close();
-            auto err = close_err ? close_err : op_err;
             {
                 std::lock_guard lock(this->mu);
-                if (!err) err = this->lost;
-                this->lost = x::errors::NIL;
+                this->lost = false;
             }
+            auto err = close_err ? close_err : op_err;
+            // The Core ends a writer's stream with an error unless the writer closes.
+            if (!err && lost) err = synnax::framer::WRITER_CLOSED;
             if (!err) return;
             if (!this->wait(err)) return;
         }
