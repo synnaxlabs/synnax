@@ -10,7 +10,6 @@
 import "@/platform/task/views/Tree.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -20,6 +19,7 @@ import { Channel } from "@synnaxlabs/pluto";
 import { type deep, primitive, type record } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
+import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import {
@@ -188,13 +188,9 @@ export const TreeList = ({
         </Tree.Tree>
       </Menu.ContextMenu>
       {!isPreview && (
-        <Button.CreateListItem
-          size="small"
-          onClick={onAdd}
-          className={CSS.BE("panes", "create")}
-        >
+        <PlatformButton.CreateListItem size="small" onClick={onAdd}>
           {addLabel}
-        </Button.CreateListItem>
+        </PlatformButton.CreateListItem>
       )}
     </>
   );

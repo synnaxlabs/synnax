@@ -159,7 +159,7 @@ class ProjectClient(ResourceClient):
         else:
             self.layout.close_left_toolbar()
             self._selector_trigger().click(timeout=5000)
-            self.layout.page.locator("button.lyra-create-list-item").filter(
+            self.layout.page.locator("button.console-create-list-item").filter(
                 has_text="New project"
             ).click(timeout=5000)
 
@@ -358,7 +358,7 @@ class ProjectClient(ResourceClient):
     def _create_from_splash(self, name: str) -> None:
         """Create ``name`` via the Splash New Project action."""
         self.layout.page.locator(
-            ".console-project-splash button.lyra-create-list-item"
+            ".console-project-splash button.console-create-list-item"
         ).click(timeout=5000)
         name_input = self.layout.page.locator(
             ".lyra-modal input[placeholder='Project name']"

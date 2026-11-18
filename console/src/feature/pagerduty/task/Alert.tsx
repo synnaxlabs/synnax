@@ -15,7 +15,6 @@ import {
   type status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -36,6 +35,7 @@ import {
   type AlertSchemas,
   deployAlertTaskConfigZ,
 } from "@/feature/pagerduty/task/types";
+import { Button } from "@/platform/button";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -256,11 +256,7 @@ const Form: FC = () => {
             </Select.Frame>
           </PMenu.ContextMenu>
           {!isPreview && (
-            <Button.CreateListItem
-              size="small"
-              onClick={handleAdd}
-              className={CSS.BE("panes", "create")}
-            >
+            <Button.CreateListItem size="small" onClick={handleAdd}>
               Add alert
             </Button.CreateListItem>
           )}

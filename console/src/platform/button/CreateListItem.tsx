@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/button/CreateListItem.css";
+import "@/platform/button/CreateListItem.css";
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
-import { Button, type ButtonProps } from "@/button/Button";
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
+import { CSS } from "@/platform/css";
 
-/** Props for {@link CreateListItem}. */
-export interface CreateListItemProps extends Omit<ButtonProps, "size"> {
+export interface CreateListItemProps extends Omit<Button.ButtonProps, "size"> {
   /** Item scale matching the list the button sits under. */
   size?: "small" | "medium" | "large";
 }
@@ -28,18 +27,14 @@ export const CreateListItem = ({
   children,
   ...rest
 }: CreateListItemProps): ReactElement => (
-  <Button
+  <Button.Button
     variant="text"
     textColor={9}
     justify="start"
-    className={CSS.cls(
-      CSS.B("create-list-item"),
-      CSS.BM("create-list-item", size),
-      className,
-    )}
+    className={CSS.cls(CSS.B("create-list-item"), CSS.M(size), className)}
     {...rest}
   >
     <Icon.Add />
     {children}
-  </Button>
+  </Button.Button>
 );

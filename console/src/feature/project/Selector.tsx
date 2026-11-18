@@ -11,7 +11,6 @@ import "@/feature/project/Selector.css";
 
 import { project, UnexpectedError } from "@synnaxlabs/client";
 import { Avatar } from "@synnaxlabs/lyra/avatar";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -23,6 +22,7 @@ import { Access, Flux, Project } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type MouseEvent, type ReactElement, useState } from "react";
 
+import { Button } from "@/platform/button";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
