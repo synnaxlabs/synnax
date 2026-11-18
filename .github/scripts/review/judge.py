@@ -163,19 +163,26 @@ def _shared(config: Config, t: Target, head: Path, shown: str, rest: str) -> str
 
 def _case(t: Target, th: Thread, can: Authority) -> str:
     """Builds the prompt of one thread. Only the bot's replies and the replies it can
-    judge reach it, so no one else can plant claims there."""
-    replies = [
-        f"**{(r['author'] or {}).get('login', 'ghost')}**:\n\n{fence(r['body'])}"
-        for r in th.replies
-        if by_bot(t, r) or trusted(r, can)
-    ]
+    judge reach it, so no one else can plant claims there. The replies after the bot's
+    last verdict are the rebuttal."""
+    last = max((i for i, r in enumerate(th.replies) if ruling(t, r)), default=-1)
+
+    def shown(replies: list[dict[str, Any]]) -> list[str]:
+        return [
+            f"**{(r['author'] or {}).get('login', 'ghost')}**:\n\n{fence(r['body'])}"
+            for r in replies
+            if by_bot(t, r) or trusted(r, can)
+        ]
+
+    earlier = shown(th.replies[: last + 1])
     return "\n\n".join(
         [
             f"# Finding on `{th.path}`",
             fence(th.body),
-            "# Replies, oldest first",
-            *replies,
-            "Judge the replies after your last one.",
+            *(["# Earlier replies, oldest first", *earlier] if earlier else []),
+            "# Rebuttal, oldest first",
+            *shown(th.replies[last + 1 :]),
+            "Judge the rebuttal.",
         ]
     )
 

@@ -119,9 +119,9 @@ class Target:
 
 
 def post(review: Review, *, target: Target, gh: GH) -> None:
-    """Posts a review, without the findings that someone with write access dismissed. A
-    review with no finding left scores 5, and so does the head when the rest are
-    dismissed while the review posts. Findings on lines of the diff become one review of
+    """Posts a review, without the findings that someone with write access dismissed or
+    that the bot withdrew. A review with no finding left scores 5, and so does the head
+    when the rest are dismissed or withdrawn while the review posts. Findings on lines of the diff become one review of
     inline threads, skipping any finding an unresolved thread of the bot already holds.
     Such a thread gets the finding's new heading when its severity changed, and keeps
     the rest of its comment. The findings outside the diff go in one comment the bot
@@ -628,9 +628,9 @@ def recheck(t: Target, gh: GH, can: Authority) -> None:
 
 
 def rescore(t: Target, gh: GH, found: list[Thread], key: str, can: Authority) -> bool:
-    """Scores the head 5/5 in a new check run when someone with write access dismissed
-    every finding of its newest review, in the threads or in answered comments. Returns
-    whether it did.
+    """Scores the head 5/5 in a new check run when every finding of its newest review is
+    dismissed by someone with write access, in the threads or in answered comments, or
+    withdrawn by the bot. Returns whether it did.
 
     :param key: The external ID of the review's check run, `<pr>:<base ref>`.
     """

@@ -177,6 +177,29 @@ class TestJudge:
         [j], _ = judged(gh, claude, tmp_path)
         assert j.reply == 3
 
+    def test_should_point_at_the_rebuttal_past_a_later_bot_reply(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        refused = by_bot(5, "Only someone with write access can dismiss a finding.")
+        gh.threads = [
+            thread(
+                "T1",
+                comment(2, "Old claim."),
+                by_bot(3, HELD),
+                comment(4, REBUTTAL),
+                refused,
+            )
+        ]
+        claude = FakeClaude({"verdict": "hold", "reason": "No."})
+        judged(gh, claude, tmp_path)
+        [(_, stdin, _)] = claude.calls
+        earlier, _, rebuttal = stdin.partition("# Rebuttal, oldest first")
+        assert "Old claim." in earlier
+        assert "The finding holds. No." in earlier
+        assert REBUTTAL in rebuttal
+        assert "Only someone with write access" in rebuttal
+        assert rebuttal.endswith("Judge the rebuttal.")
+
     def test_should_answer_the_last_rebuttal_before_a_reader_reply(
         self, gh: FakeGH, tmp_path: Path
     ) -> None:
