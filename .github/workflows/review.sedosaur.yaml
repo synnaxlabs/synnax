@@ -13,12 +13,13 @@
 # base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
 # The App token reaches only the steps that write to GitHub. A replay reviews any commit
 # against any base, posts nothing, and keeps only the record. It can take the policy of
-# another ref, so a new policy can be tried on old commits before it merges.
+# another ref, so a new policy can be tried on old commits before it merges. A restore
+# runs no review: it puts the last summary of Sedosaur back in the pull request body.
 
 name: Review - Sedosaur
 run-name:
   ${{ inputs.pr }}${{ inputs.replay && ' replay' || '' }}${{ inputs.repeat && ' repeat'
-  || '' }}
+  || '' }}${{ inputs.restore && ' restore' || '' }}
 
 on:
   workflow_dispatch:
@@ -55,6 +56,10 @@ on:
         description: "Reply to the comment when the review skips"
         type: boolean
         default: false
+      restore:
+        description: "Put the last summary back in the body, without a review"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -65,14 +70,17 @@ env:
   PYTHONPATH: ${{ github.workspace }}/scripts
 
 # One review of a pull request at a time. A newer request replaces a queued one, so the
-# relay asks for a repeat while one waits. Replays post nothing, so each runs apart.
+# relay asks for a repeat while one waits. Replays post nothing, and a restore cannot
+# replace a queued review, so each runs apart.
 concurrency:
   group:
-    review-sedosaur-${{ inputs.pr }}-${{ inputs.replay && github.run_id || 'live' }}
+    review-sedosaur-${{ inputs.pr }}-${{ (inputs.replay || inputs.restore) &&
+    github.run_id || 'live' }}
   cancel-in-progress: false
 
 jobs:
   start:
+    if: ${{ !inputs.restore }}
     name: Prepare the review
     runs-on: ubuntu-latest
     permissions:
@@ -477,3 +485,63 @@ jobs:
             -f "output[title]=The review ended with $STATUS" \
             -f "output[summary]=See the [run]($RUN_URL)." \
             -f "output[text]=$text" --silent
+
+  # An edit of the body with an old copy drops or changes the summary. The App token
+  # reaches only the write.
+  restore:
+    if: inputs.restore
+    name: Restore the summary
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      pull-requests: read
+    steps:
+      - name: Read the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          set -o pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r '
+            "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
+          ' >> "$GITHUB_OUTPUT"
+
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts/agent
+
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ vars.SEDOSAUR_CLIENT_ID }}
+          private-key: ${{ secrets.SEDOSAUR_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      - name: Find the summary
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          PR: ${{ inputs.pr }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          BASE_SHA: ${{ steps.pr.outputs.base }}
+          KEY: ${{ steps.pr.outputs.key }}
+        run: python3 -m review restore "$RUNNER_TEMP/body.json"
+
+      - name: Write the body
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          if [ ! -f "$RUNNER_TEMP/body.json" ]; then
+            echo "The body holds the summary already."
+            exit 0
+          fi
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR" \
+            --input "$RUNNER_TEMP/body.json" --silent

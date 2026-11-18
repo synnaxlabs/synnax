@@ -26,9 +26,11 @@ from review.post import (
     outside_findings,
     post,
     reviewed,
+    summaries,
     threads,
     withdrawn,
 )
+from review.restore import Unreviewed, restore
 from review.run import (
     Claude,
     Config,
@@ -60,6 +62,7 @@ __all__ = [
     "Review",
     "Target",
     "Thread",
+    "Unreviewed",
     "Usage",
     "UsageLimit",
     "Window",
@@ -75,9 +78,11 @@ __all__ = [
     "outside_findings",
     "parse",
     "post",
+    "restore",
     "reviewed",
     "rule",
     "run",
+    "summaries",
     "threads",
     "withdrawn",
 ]

@@ -13,6 +13,7 @@
     python3 -m review post <review.json>
     python3 -m review carry
     python3 -m review dismiss
+    python3 -m review restore <body.json>
     python3 -m review judge <judgments.json>
     python3 -m review rule <judgments.json>
     python3 -m review compare <days>
@@ -33,6 +34,10 @@ COMMENT, a reply on the thread of one of the bot's findings, or a comment that d
 a finding outside the diff: an `@sedosaur dismiss` from someone with write access
 dismisses the finding, and scores the head 5/5 when no finding of its review is left.
 It also takes KEY, and prints `true` when a rebuttal on a thread waits for `judge`.
+`restore` takes KEY, and writes the pull request body with the summary that the bot
+wrote last, as the payload of a pull request update, when an edit dropped or changed
+the summary. It asks Claude Code nothing, writes nothing to GitHub, and fails when the
+head has no successful review.
 `judge` takes POLICY_DIR, HEAD_DIR, and CLAUDE_CODE_OAUTH_TOKEN as `run` does, judges
 each rebuttal with Claude Code, and writes the judgments. It fails after it writes them
 when one rebuttal could not be judged. `rule` posts them, and takes KEY. `compare`
@@ -63,6 +68,7 @@ from review import (
     LoginRejected,
     PullRequest,
     Target,
+    Unreviewed,
     UsageLimit,
     authority,
     carry,
@@ -74,6 +80,7 @@ from review import (
     load,
     outside_findings,
     post,
+    restore,
     reviewed,
     rule,
     run,
@@ -310,6 +317,7 @@ def main(argv: list[str]) -> None:
         "post": 2,
         "carry": 1,
         "dismiss": 1,
+        "restore": 2,
         "judge": 2,
         "rule": 2,
         "compare": 2,
@@ -340,6 +348,14 @@ def main(argv: list[str]) -> None:
         print(str(waits).lower())
         return
     path = Path(argv[1])
+    if argv[0] == "restore":
+        try:
+            body = restore(target, gh, key=env["KEY"])
+        except Unreviewed as e:
+            sys.exit(f"::error::{e}")
+        if body is not None:
+            path.write_text(json.dumps({"body": body}))
+        return
     if argv[0] in ("judge", "run"):
         _claude(target, argv[0], path)
     elif argv[0] == "rule":
