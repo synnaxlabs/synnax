@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { runtime } from "@synnaxlabs/x";
+
 /** The request fields a transport sends with. */
 export interface FetchInit {
   method: string;
@@ -44,19 +46,38 @@ export interface Socket {
   onerror: Listener<object> | null;
 }
 
-/** Opens a WebSocket to the URL. */
-export type Dial = (url: string) => Promise<Socket>;
+/** Opens a WebSocket to the URL and sends the headers with the upgrade request. */
+export type Dial = (url: string, headers: Record<string, string>) => Promise<Socket>;
 
 /** The functions a transport opens its connections with. */
 export interface Connector {
   fetch: Fetch;
   dial: Dial;
+  /**
+   * True when dial sends the headers. Otherwise the client puts them in the URL, as a
+   * browser WebSocket cannot send headers.
+   */
+  sendsHeaders?: boolean;
 }
+
+// Node, Bun, and Deno take a headers option that the DOM types do not have.
+const openWithOptions = (url: string, options: object): Socket => {
+  const ws: unknown = Reflect.construct(WebSocket, [url, options]);
+  if (!(ws instanceof WebSocket)) throw new Error("WebSocket did not construct");
+  return ws;
+};
 
 /** Opens connections with the runtime's global fetch and WebSocket. */
 export const DEFAULT_CONNECTOR: Connector = {
   fetch: async (target, init) => await fetch(target, init),
-  dial: async (url) => new WebSocket(url),
+  // A browser reads a second argument as a list of subprotocols.
+  dial: async (url, headers) =>
+    Object.keys(headers).length === 0
+      ? new WebSocket(url)
+      : openWithOptions(url, { headers }),
+  // An Electron renderer or jsdom page sets process.versions.node but has a DOM
+  // WebSocket.
+  sendsHeaders: runtime.RUNTIME === "node" && typeof document === "undefined",
 };
 
 // A CA list replaces the default list in Node and Bun, so it must keep the defaults.
@@ -97,10 +118,11 @@ const nodeConnector = (ca: string): Connector => {
         body: res.body instanceof ReadableStream ? res.body : null,
       };
     },
-    dial: async (url) => {
+    dial: async (url, headers) => {
       const { WebSocket, dispatcher } = await load();
-      return new WebSocket(url, { dispatcher });
+      return new WebSocket(url, { dispatcher, headers });
     },
+    sendsHeaders: true,
   };
 };
 
@@ -112,12 +134,8 @@ const bunConnector = (ca: string): Connector => {
       const req: RequestInit & { tls: object } = { ...init, tls: await load() };
       return await fetch(target, req);
     },
-    dial: async (url) => {
-      // The DOM types do not have Bun's options argument.
-      const ws: unknown = Reflect.construct(WebSocket, [url, { tls: await load() }]);
-      if (!(ws instanceof WebSocket)) throw new Error("Bun did not open a WebSocket");
-      return ws;
-    },
+    dial: async (url, headers) => openWithOptions(url, { headers, tls: await load() }),
+    sendsHeaders: true,
   };
 };
 

@@ -79,6 +79,8 @@ class Master final : public master::Master {
     std::optional<uint32_t> full_working_counter;
     /// @brief what shortfall() returns.
     std::optional<uint32_t> latest_shortfall;
+    /// @brief what the latest receive() returns.
+    x::errors::Error received;
     /// @brief whether the latest check() found a slave with its AL error flag set.
     bool faulted = false;
     /// @brief the resets that recover() asked for since check() last found every slave
@@ -126,7 +128,7 @@ public:
 
     void deactivate() override;
 
-    x::errors::Error receive() override;
+    const x::errors::Error &receive() override;
 
     x::errors::Error send() override;
 

@@ -577,29 +577,29 @@ void Master::deactivate() {
     this->next_reset = {};
 }
 
-x::errors::Error Master::receive() {
+const x::errors::Error &Master::receive() {
     this->latest_shortfall.reset();
     if (!this->activated)
-        return x::errors::Error(errors::CYCLIC_ERROR, "not activated");
+        return this->received = x::errors::Error(errors::CYCLIC_ERROR, "not activated");
 
     if (const int ret = this->api->master_receive(this->ec_master); ret != 0)
-        return x::errors::Error(
-            errors::CYCLIC_ERROR,
-            "failed to receive frames: " + reason(ret)
-        );
+        return this->received = x::errors::Error(
+                   errors::CYCLIC_ERROR,
+                   "failed to receive frames: " + reason(ret)
+               );
     for (const auto &[domain, state]:
          {std::pair{this->output_domain, &this->output_domain_state},
           std::pair{this->input_domain, &this->input_domain_state}}) {
         if (const int ret = this->api->domain_process(domain); ret != 0)
-            return x::errors::Error(
-                errors::CYCLIC_ERROR,
-                "failed to process a domain: " + reason(ret)
-            );
+            return this->received = x::errors::Error(
+                       errors::CYCLIC_ERROR,
+                       "failed to process a domain: " + reason(ret)
+                   );
         if (const int ret = this->api->domain_state(domain, state); ret != 0)
-            return x::errors::Error(
-                errors::CYCLIC_ERROR,
-                "failed to read a domain state: " + reason(ret)
-            );
+            return this->received = x::errors::Error(
+                       errors::CYCLIC_ERROR,
+                       "failed to read a domain state: " + reason(ret)
+                   );
     }
 
     // IgH reports a zero working counter for an empty domain, which exchanges no data.
@@ -618,13 +618,16 @@ x::errors::Error Master::receive() {
     if (this->full_working_counter && wkc < *this->full_working_counter)
         this->latest_shortfall = *this->full_working_counter - wkc;
     if (zero)
-        return x::errors::Error(errors::WORKING_COUNTER_ERROR, "no slaves responded");
-    return x::errors::Error(
-        errors::WORKING_COUNTER_ERROR,
-        "incomplete working counter: output " +
-            std::to_string(this->output_domain_state.working_counter) + ", input " +
-            std::to_string(this->input_domain_state.working_counter)
-    );
+        return this->received = x::errors::Error(
+                   errors::WORKING_COUNTER_ERROR,
+                   "no slaves responded"
+               );
+    return this->received = x::errors::Error(
+               errors::WORKING_COUNTER_ERROR,
+               "incomplete working counter: output " +
+                   std::to_string(this->output_domain_state.working_counter) +
+                   ", input " + std::to_string(this->input_domain_state.working_counter)
+           );
 }
 
 x::errors::Error Master::send() {

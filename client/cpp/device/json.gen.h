@@ -42,11 +42,11 @@ inline x::json::json StatusDetails::to_json() const {
 inline Device Device::parse(x::json::Parser parser) {
     return Device{
         .key = parser.field<Key>("key"),
-        .rack = parser.field<::synnax::rack::Key>("rack"),
-        .location = parser.field<std::string>("location"),
-        .make = parser.field<std::string>("make"),
-        .model = parser.field<std::string>("model"),
-        .name = parser.field<std::string>("name"),
+        .rack = parser.required_field<::synnax::rack::Key>("rack"),
+        .location = parser.required_field<std::string>("location"),
+        .make = parser.required_field<std::string>("make"),
+        .model = parser.required_field<std::string>("model"),
+        .name = parser.required_field<std::string>("name"),
         .configured = parser.field<bool>("configured", false),
         .properties = parser.field<x::json::json::object_t>("properties"),
         .status = parser.field<std::optional<Status>>("status"),
