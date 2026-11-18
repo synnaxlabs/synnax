@@ -18,7 +18,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar as LinePlotToolbar } from "@/feature/lineplot/toolbar";
@@ -141,6 +141,21 @@ describe("range/Toolbar", () => {
       await renderToolbar();
       const line = await findLine("Running", rng.name);
       expect(line.textContent).toMatch(/1m \d\ds/);
+    });
+
+    it("should list a running range behind more than a page of newer ones", async () => {
+      const oldest = await createRunning(uniqueRangeName("oldest"), {
+        since: TimeSpan.minutes(5),
+      });
+      const newer = await client.ranges.create(
+        Array.from({ length: 120 }, () => ({
+          name: uniqueRangeName("newer"),
+          timeRange: new TimeRange(TimeStamp.now().sub(TimeSpan.SECOND), TimeStamp.MAX),
+        })),
+      );
+      onTestFinished(async () => await client.ranges.delete(newer.map((r) => r.key)));
+      await renderToolbar();
+      expect(await findLine("Running", oldest.name)).toBeTruthy();
     });
 
     it("should move ranges from Running to Recent as they end, newest end first", async () => {

@@ -12,7 +12,7 @@ import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
 import { compare, TimeStamp, unique } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Session } from "@/session";
 
@@ -61,6 +61,12 @@ export const useGroups = (): Groups => {
     initialSize: 100,
     eager: true,
   });
+  // Few ranges run at once, so Running reads every page. A long run would otherwise
+  // hide behind newer ones.
+  const { complete: runningComplete, variant: runningVariant, more } = runningList;
+  useEffect(() => {
+    if (!runningComplete && runningVariant === "success") more();
+  }, [runningComplete, runningVariant]);
   const recentList = Flux.useList((c) => c.ranges, {
     name: "ranges",
     query: { where: Ranger.stageWhere("completed", at), order: LATEST_END },
