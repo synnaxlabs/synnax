@@ -87,6 +87,6 @@ var _ = Describe("Service", func() {
 	It("Should store the configs of file browser tasks", func() {
 		stores := fileSvc.Stores()
 		Expect(stores).To(HaveLen(1))
-		Expect(stores[0].Type()).To(Equal(file.BrowserTaskType))
+		Expect(stores[0].Type()).To(Equal("file_browser"))
 	})
 })

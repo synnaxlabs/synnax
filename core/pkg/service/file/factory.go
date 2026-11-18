@@ -26,8 +26,7 @@ import (
 )
 
 const (
-	// BrowserTaskType is the type of the file browser task.
-	BrowserTaskType = "file_browser"
+	browserTaskType = "file_browser"
 	browserTaskName = "File Browser"
 	// listCommand lists a folder, or the top level when its path is empty.
 	listCommand = "list"
@@ -101,7 +100,7 @@ func (*Factory) Name() string { return "file" }
 func (*Factory) InitialTasks() []task.Task {
 	return []task.Task{{
 		Name:   browserTaskName,
-		Type:   BrowserTaskType,
+		Type:   browserTaskType,
 		Config: msgpack.EncodedJSON{},
 	}}
 }
@@ -112,7 +111,7 @@ func (f *Factory) ConfigureTask(
 	t task.Task,
 	cmdKey string,
 ) (driver.Task, error) {
-	if t.Type != BrowserTaskType {
+	if t.Type != browserTaskType {
 		return nil, driver.ErrTaskNotHandled
 	}
 	h := driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t)
