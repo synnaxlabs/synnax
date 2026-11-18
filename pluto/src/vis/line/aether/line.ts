@@ -599,7 +599,7 @@ const nearest = (
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array =>
-  replicateBuffer(newDirectionBuffer(aspect), strokeWidth).map(
+  replicateBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth)).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 
