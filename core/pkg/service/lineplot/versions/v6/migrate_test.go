@@ -10,11 +10,11 @@
 package v6_test
 
 import (
-	"context"
 	"embed"
 	"encoding/hex"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,7 +45,7 @@ func loadWire(name string) []byte {
 	))
 }
 
-func decodeReleasedV5(ctx context.Context) v5.LinePlot {
+func decodeReleasedV5() v5.LinePlot {
 	GinkgoHelper()
 	var lp v5.LinePlot
 	Expect(orc.Codec.Decode(loadWire("v5_released.hex"), &lp)).To(Succeed())
@@ -53,8 +53,8 @@ func decodeReleasedV5(ctx context.Context) v5.LinePlot {
 }
 
 var _ = Describe("Released v5 wire format", func() {
-	It("Should decode a payload written by a released build", func(ctx SpecContext) {
-		lp := decodeReleasedV5(ctx)
+	It("Should decode a payload written by a released build", func() {
+		lp := decodeReleasedV5()
 		Expect(lp.Key).To(Equal(uuid.MustParse("251ed216-d959-4684-ac64-a8475c146697")))
 		Expect(lp.Name).To(Equal("UT Disk Free"))
 		Expect(lp.Ranges.X1).To(Equal([]string{"rolling1h"}))
@@ -66,9 +66,9 @@ var _ = Describe("Released v5 wire format", func() {
 		}
 	})
 
-	It("Should re-encode the payload byte for byte", func(ctx SpecContext) {
+	It("Should re-encode the payload byte for byte", func() {
 		raw := loadWire("v5_released.hex")
-		lp := decodeReleasedV5(ctx)
+		lp := decodeReleasedV5()
 		Expect(orc.Codec.Encode(lp)).To(Equal(raw))
 	})
 })
@@ -76,7 +76,7 @@ var _ = Describe("Released v5 wire format", func() {
 var _ = Describe("MigrateLinePlot", func() {
 	It("Should lift a released v5 payload with a nil custom range",
 		func(ctx SpecContext) {
-			in := decodeReleasedV5(ctx)
+			in := decodeReleasedV5()
 			out := MustSucceed(v6.MigrateLinePlot(ctx, in))
 			Expect(out.Key).To(Equal(in.Key))
 			Expect(out.Name).To(Equal(in.Name))
@@ -93,7 +93,7 @@ var _ = Describe("MigrateLinePlot", func() {
 
 	It("Should round-trip the migrated plot through the v6 codec",
 		func(ctx SpecContext) {
-			out := MustSucceed(v6.MigrateLinePlot(ctx, decodeReleasedV5(ctx)))
+			out := MustSucceed(v6.MigrateLinePlot(ctx, decodeReleasedV5()))
 			encoded := MustSucceed(orc.Codec.Encode(out))
 			var decoded v6.LinePlot
 			Expect(orc.Codec.Decode(encoded, &decoded)).To(Succeed())
@@ -115,8 +115,9 @@ var _ = Describe("MigrateRanges", func() {
 var _ = Describe("Storage migration", func() {
 	It("Should lift a stored v5 entry to v6 through the gorp migration",
 		func(ctx SpecContext) {
-			seed := decodeReleasedV5(ctx)
+			seed := decodeReleasedV5()
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			MustSucceed(gorp.OpenTable(
 				ctx, gorp.TableConfig[v5.Key, v5.LinePlot]{DB: db},
 			))
@@ -136,7 +137,7 @@ var _ = Describe("Storage migration", func() {
 })
 
 var _ = Describe("v6 wire format", func() {
-	It("Should decode a stored v6 payload with a custom range", func(ctx SpecContext) {
+	It("Should decode a stored v6 payload with a custom range", func() {
 		var lp v6.LinePlot
 		Expect(orc.Codec.Decode(loadWire("v6_initial.hex"), &lp)).To(Succeed())
 		Expect(lp.Key).To(Equal(uuid.MustParse("f86c4bec-0bdd-4125-afac-f25d3e3a8711")))
@@ -145,19 +146,20 @@ var _ = Describe("v6 wire format", func() {
 		Expect(lp.Ranges.Custom.Variant).To(BeAssignableToTypeOf(
 			v6.DynamicCustomRange{},
 		))
-		Expect(lp.Ranges.Custom.Variant.(v6.DynamicCustomRange).Span).
-			To(BeNumerically(">", telem.TimeSpan(0)))
+		custom, ok := lp.Ranges.Custom.Variant.(v6.DynamicCustomRange)
+		Expect(ok).To(BeTrue())
+		Expect(custom.Span).To(BeNumerically(">", telem.TimeSpan(0)))
 		Expect(lp.Lines).To(HaveLen(2))
 	})
 
-	It("Should re-encode the payload byte for byte", func(ctx SpecContext) {
+	It("Should re-encode the payload byte for byte", func() {
 		raw := loadWire("v6_initial.hex")
 		var lp v6.LinePlot
 		Expect(orc.Codec.Decode(raw, &lp)).To(Succeed())
 		Expect(orc.Codec.Encode(lp)).To(Equal(raw))
 	})
 
-	It("Should reject a v6 payload under the v5 codec", func(ctx SpecContext) {
+	It("Should reject a v6 payload under the v5 codec", func() {
 		var lp v5.LinePlot
 		Expect(orc.Codec.Decode(loadWire("v6_initial.hex"), &lp)).
 			To(truncatedErr)
@@ -165,7 +167,7 @@ var _ = Describe("v6 wire format", func() {
 
 	// The .decoded.json companion is the fixture's human-readable audit form. Run with
 	// UPDATE_DECODED=1 to regenerate it after intentionally replacing the fixture.
-	It("Should match the canonical decoded form", func(ctx SpecContext) {
+	It("Should match the canonical decoded form", func() {
 		var lp v6.LinePlot
 		Expect(orc.Codec.Decode(loadWire("v6_initial.hex"), &lp)).To(Succeed())
 		pretty := append(
@@ -174,15 +176,18 @@ var _ = Describe("v6 wire format", func() {
 			),
 			'\n',
 		)
-		p := filepath.Join("testdata", "v6_initial.decoded.json")
+		const name = "v6_initial.decoded.json"
+		p := filepath.Join("testdata", name)
 		if os.Getenv("UPDATE_DECODED") == "1" {
 			Expect(os.WriteFile(p, pretty, 0o644)).To(Succeed())
 			return
 		}
-		Expect(pretty).To(MatchJSON(MustSucceed(os.ReadFile(p))))
+		Expect(
+			pretty,
+		).To(MatchJSON(MustSucceed(fs.ReadFile(os.DirFS("testdata"), name))))
 	})
 
-	It("Should reject every truncation of a stored payload", func(ctx SpecContext) {
+	It("Should reject every truncation of a stored payload", func() {
 		raw := loadWire("v6_initial.hex")
 		for n := 3; n < len(raw); n++ {
 			var lp v6.LinePlot
@@ -192,7 +197,7 @@ var _ = Describe("v6 wire format", func() {
 	})
 
 	It("Should refuse to encode a custom range with a nil variant",
-		func(ctx SpecContext) {
+		func() {
 			lp := v6.LinePlot{Ranges: v6.Ranges{Custom: &v6.CustomRange{}}}
 			Expect(orc.Codec.Encode(lp)).Error().
 				To(MatchError(ContainSubstring("nil or unknown variant")))

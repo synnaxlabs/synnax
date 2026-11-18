@@ -82,27 +82,9 @@ func ValueName(v reflect.Value) string {
 		return fmt.Sprintf("map[%s]%s", t.Key().String(), t.Elem().String())
 	case reflect.Chan:
 		if v.IsNil() {
-			var dir string
-			switch t.ChanDir() {
-			case reflect.SendDir:
-				dir = "chan<- "
-			case reflect.RecvDir:
-				dir = "<-chan "
-			default:
-				dir = "chan "
-			}
-			return dir + t.Elem().String() + " (nil)"
+			return chanPrefix(t.ChanDir()) + t.Elem().String() + " (nil)"
 		}
-		var dir string
-		switch t.ChanDir() {
-		case reflect.SendDir:
-			dir = "chan<- "
-		case reflect.RecvDir:
-			dir = "<-chan "
-		default:
-			dir = "chan "
-		}
-		return dir + t.Elem().String()
+		return chanPrefix(t.ChanDir()) + t.Elem().String()
 	case reflect.Func:
 		if v.IsNil() {
 			return "func (nil)"
@@ -128,4 +110,16 @@ func ValueName(v reflect.Value) string {
 		}
 		return t.String()
 	}
+}
+
+func chanPrefix(dir reflect.ChanDir) string {
+	switch dir {
+	case reflect.SendDir:
+		return "chan<- "
+	case reflect.RecvDir:
+		return "<-chan "
+	case reflect.BothDir:
+		return "chan "
+	}
+	panic(fmt.Sprintf("types: invalid channel direction %d", dir))
 }

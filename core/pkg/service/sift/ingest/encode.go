@@ -97,22 +97,32 @@ var empty = &ingestv1.IngestWithConfigDataChannelValue{
 	Type: &ingestv1.IngestWithConfigDataChannelValue_Empty{Empty: &emptypb.Empty{}},
 }
 
+// seek moves the column to the series that holds alignment a. It returns false when
+// no series holds a.
+func (c *column) seek(a telem.Alignment) bool {
+	if c.cur >= 0 && c.series[c.cur].AlignmentBounds().Contains(a) {
+		return true
+	}
+	c.cur = slices.IndexFunc(c.series, func(s telem.Series) bool {
+		return s.AlignmentBounds().Contains(a)
+	})
+	if c.cur < 0 {
+		return false
+	}
+	c.variable = nil
+	if s := c.series[c.cur]; s.DataType.IsVariable() {
+		for sample := range s.Samples() {
+			c.variable = append(c.variable, sample)
+		}
+	}
+	return true
+}
+
 // value returns the sample of the column at alignment a, or empty if the frame holds
 // none.
 func (c *column) value(a telem.Alignment) *ingestv1.IngestWithConfigDataChannelValue {
-	if c.cur < 0 || !c.series[c.cur].AlignmentBounds().Contains(a) {
-		c.cur = slices.IndexFunc(c.series, func(s telem.Series) bool {
-			return s.AlignmentBounds().Contains(a)
-		})
-		if c.cur < 0 {
-			return empty
-		}
-		c.variable = nil
-		if s := c.series[c.cur]; s.DataType.IsVariable() {
-			for sample := range s.Samples() {
-				c.variable = append(c.variable, sample)
-			}
-		}
+	if !c.seek(a) {
+		return empty
 	}
 	s := c.series[c.cur]
 	i := int(a.SampleIndex() - s.Alignment.SampleIndex())
@@ -167,8 +177,10 @@ func (c *column) value(a telem.Alignment) *ingestv1.IngestWithConfigDataChannelV
 				Bytes: c.variable[i],
 			},
 		}
-	default:
+	case telem.UnknownT:
 		return empty
+	default:
+		panic("unknown data type " + string(s.DataType))
 	}
 }
 

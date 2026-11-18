@@ -15,7 +15,6 @@ from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
 import synnax.ni.chassis
-import synnax.ni.device
 from x.strings import random_name
 
 

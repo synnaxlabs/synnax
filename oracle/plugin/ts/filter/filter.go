@@ -125,7 +125,6 @@ type templateData struct {
 	Orders []orderData
 	// KeyCompare is the function that orders two record keys.
 	KeyCompare string
-	sorts      []resolution.Sort
 }
 
 // listFields returns the wire names of the fields that a bare line, a filter, a
@@ -179,219 +178,66 @@ func generateFile(
 	outputPath string,
 	req *plugin.Request,
 ) ([]byte, error) {
-	table := req.Resolutions
-	fail := func(format string, args ...any) ([]byte, error) {
-		return nil, errors.Newf(
-			"filter %s: "+format,
-			append([]any{where.QualifiedName}, args...)...,
-		)
+	data, err := buildData(where, outputPath, req)
+	if err != nil {
+		return nil, errors.Wrapf(err, "filter %s", where.QualifiedName)
 	}
-	// The cache holds the records the response returns, so bare lines read those.
-	response, ok := table.Get(where.Filter.Response)
-	if !ok {
-		return fail("has no derived retrieve response")
+	var buf bytes.Buffer
+	if err := fileTemplate.Execute(&buf, data); err != nil {
+		return nil, err
 	}
-	elem := response.Form.(resolution.StructForm).Fields[0].Type.TypeArgs[0]
-	record, _, ok := resolution.Dealias(elem, table)
-	if !ok {
-		return fail("unknown response type %s", elem.Name)
-	}
-	// The matcher names the record with no type arguments, as the client cache does.
-	if tp, ok := lo.Find(
-		resolution.TypeParams(record.Form),
-		func(tp resolution.TypeParam) bool { return !tp.Optional && !tp.HasDefault() },
-	); ok {
-		return fail(
-			"the type parameter %s of %s needs a default, since the matcher names %s "+
-				"with no type arguments",
-			tp.Name,
-			record.Name,
-			record.Name,
-		)
-	}
-	fields, ok := resolution.RecordFields(record, table)
-	if !ok {
-		return fail("the response type %s must be a struct or a union", record.Name)
-	}
+	return buf.Bytes(), nil
+}
 
+func buildData(
+	where resolution.Type,
+	outputPath string,
+	req *plugin.Request,
+) (templateData, error) {
+	table := req.Resolutions
+	record, fields, err := cachedRecord(where, table)
+	if err != nil {
+		return templateData{}, err
+	}
 	data := templateData{
 		Manager: imports.NewManager(),
 		Record:  domain.GetName(record, "ts"),
 	}
-	fp := &tstypes.FieldProcessor{
-		Imports:    data.Manager,
-		Namespace:  where.Namespace,
-		FilePath:   where.FilePath,
-		OutputPath: outputPath,
-		Request:    req,
+	lb := lineBuilder{
+		where:  where,
+		table:  table,
+		record: record,
+		fields: fields,
+		fp: &tstypes.FieldProcessor{
+			Imports:    data.Manager,
+			Namespace:  where.Namespace,
+			FilePath:   where.FilePath,
+			OutputPath: outputPath,
+			Request:    req,
+		},
 	}
-	// zodOf returns the Zod schema of a plain, required value of ref.
-	zodOf := func(ref resolution.TypeRef) string {
-		fp.CollectTypeImports(&ref)
-		return fp.ProcessField(resolution.Field{Type: ref}, where).ZodType
-	}
-	form := where.Form.(resolution.StructForm)
-	var key *resolution.TypeRef
-	named := false
-	for _, line := range where.Filter.Lines {
-		field := lo.Must(form.Field(line.Name))
-		ld := lineData{Name: tstypes.FieldName(line.Name), Doc: doc.Get(field.Domains)}
-		if line.HasType() {
-			ld.Input = zodOf(field.Type)
-			if field.Type.Name == "Array" && field.Type.ArraySize == nil {
-				ld.Input = "filter.listInputZ(" + zodOf(field.Type.TypeArgs[0]) + ")"
-			}
-		} else {
-			recordField, ok := lo.Find(fields, func(f resolution.Field) bool {
-				return f.Name == line.Name
-			})
-			if !ok {
-				return fail(
-					"the bare line %s names no field of %s, which the cache holds",
-					line.Name,
-					record.Name,
-				)
-			}
-			opRef := field.Type
-			op, ok := table.Get(opRef.Name)
-			if !ok {
-				return fail(
-					"line %s has the unknown operator %s",
-					line.Name,
-					opRef.Name,
-				)
-			}
-			opForm, ok := op.Form.(resolution.StructForm)
-			if !ok {
-				return fail(
-					"line %s: the operator %s is not a struct",
-					line.Name,
-					op.Name,
-				)
-			}
-			known, isOperator := resolution.OperatorMembers(op.QualifiedName)
-			ld.Check, ok = checks[op.QualifiedName]
-			if !ok || !isOperator {
-				return fail(
-					"line %s: ts/filter has no check for the operator %s",
-					line.Name,
-					op.QualifiedName,
-				)
-			}
-			ms := lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
-				return f.Name
-			})
-			for _, m := range ms {
-				if !lo.Contains(known, m) {
-					return fail(
-						"line %s: ts/filter cannot check the member %s of %s",
-						line.Name,
-						m,
-						op.Name,
-					)
-				}
-			}
-			ld.Field = tstypes.FieldName(recordField.Name)
-			ld.Regex = lo.Contains(ms, "regex")
-			ld.Input = "filter." + inputs[op.QualifiedName]
-			if len(opRef.TypeArgs) == 1 {
-				ld.Input += "(" + zodOf(opRef.TypeArgs[0]) + ")"
-			}
-			switch {
-			case line.Name == "key" && len(opRef.TypeArgs) == 1:
-				key = &opRef.TypeArgs[0]
-			case line.Name == "name" && op.QualifiedName == resolution.OperatorString:
-				named = true
-			}
-		}
-		data.Lines = append(data.Lines, ld)
+	key, named, err := lb.addLines(&data)
+	if err != nil {
+		return templateData{}, err
 	}
 	// A name could look like a free-text key, so a name needs another key type.
 	if key != nil && named && resolution.PrimitiveBase(*key, table) != "string" {
-		data.ShortcutKey = zodOf(*key)
+		data.ShortcutKey = lb.zodOf(*key)
 	}
-
 	// The analyzer derives a Cursor for a target with a key, and its sorts from the
 	// target's marks.
 	if cursor, ok := table.Get(where.Namespace + ".Cursor"); ok {
-		target, _, _ := resolution.Dealias(where.Filter.Target, table)
-		targetFields, _ := resolution.RecordFields(target, table)
-		sorts, err := resolution.Sorts(targetFields, table)
-		if err != nil {
-			return fail("%v", err)
+		if err := addCursor(
+			&data,
+			where,
+			cursor,
+			record,
+			fields,
+			outputPath,
+			table,
+		); err != nil {
+			return templateData{}, err
 		}
-		for _, sort := range sorts {
-			if !lo.ContainsBy(fields, func(f resolution.Field) bool {
-				return f.Name == sort.Path[0].Name
-			}) {
-				return fail(
-					"%s sorts by %s, which the cache's %s does not hold",
-					target.Name,
-					sort.Path[0].Name,
-					record.Name,
-				)
-			}
-		}
-		keyField := lo.Must(cursor.Form.(resolution.StructForm).Field("key"))
-		switch keyType := resolution.PrimitiveBase(keyField.Type, table); {
-		case keyType == "string":
-			data.KeyCompare = "compare.codePoints"
-		case keyType == "uuid":
-			data.KeyCompare = "compare.uuids"
-		case resolution.IsNumberPrimitive(keyType):
-			data.KeyCompare = "compareNumbers"
-		default:
-			return fail("cannot order the %s key of %s", keyType, record.Name)
-		}
-		data.Cursor = true
-		// Only a type that changes through actions needs them: a patch names the field.
-		if len(target.Actions()) > 0 {
-			data.ListFields = listFields(targetFields, where.Filter.Lines)
-		}
-		data.AddImport(
-			tspaths.CalculateImport(outputPath, "x/ts/src/compare"),
-			"compare",
-		)
-		data.AddImport(
-			tspaths.CalculateImport(outputPath, outputPath)+"/types.gen",
-			"Cursor",
-		)
-		if len(sorts) > 0 {
-			data.AddImport(
-				tspaths.CalculateImport(outputPath, outputPath)+"/types.gen",
-				"Order",
-			)
-			data.AddImport(
-				tspaths.CalculateImport(outputPath, outputPath)+"/types.gen",
-				"OrderField",
-			)
-		}
-		data.sorts = sorts
-	}
-	for _, sort := range data.sorts {
-		od := orderData{
-			Name:   sort.Name,
-			Cursor: tstypes.FieldName(sort.Name),
-			Access: strings.Join(
-				lo.Map(sort.Path, func(f resolution.Field, _ int) string {
-					return tstypes.FieldName(f.Name)
-				}),
-				".",
-			),
-		}
-		switch {
-		case sort.Textual:
-			od.Compare = "compare.text"
-		case sort.Type.Name == "telem.TimeStamp":
-			od.Compare = "telem.TimeStamp.sort"
-			data.AddImport(
-				tspaths.CalculateImport(outputPath, "x/ts/src/telem"),
-				"telem",
-			)
-		default:
-			od.Compare = "compareNumbers"
-		}
-		data.Orders = append(data.Orders, od)
 	}
 
 	data.AddImport("zod", "z")
@@ -404,11 +250,241 @@ func generateFile(
 		tspaths.CalculateImport(outputPath, output.GetPath(record, "ts"))+"/types.gen",
 		data.Record,
 	)
-	var buf bytes.Buffer
-	if err := fileTemplate.Execute(&buf, data); err != nil {
-		return nil, err
+	return data, nil
+}
+
+// cachedRecord returns the record type that the client cache holds for where, which
+// is the record that the retrieve response returns, and the fields of that record.
+func cachedRecord(
+	where resolution.Type,
+	table *resolution.Table,
+) (resolution.Type, []resolution.Field, error) {
+	response, ok := table.Get(where.Filter.Response)
+	if !ok {
+		return resolution.Type{}, nil, errors.New("has no derived retrieve response")
 	}
-	return buf.Bytes(), nil
+	responseForm := resolution.MustForm[resolution.StructForm](response)
+	elem := responseForm.Fields[0].Type.TypeArgs[0]
+	record, _, ok := resolution.Dealias(elem, table)
+	if !ok {
+		return resolution.Type{}, nil, errors.Newf(
+			"unknown response type %s",
+			elem.Name,
+		)
+	}
+	// The matcher names the record with no type arguments, as the client cache does.
+	if tp, ok := lo.Find(
+		resolution.TypeParams(record.Form),
+		func(tp resolution.TypeParam) bool { return !tp.Optional && !tp.HasDefault() },
+	); ok {
+		return resolution.Type{}, nil, errors.Newf(
+			"the type parameter %s of %s needs a default, since the matcher names %s "+
+				"with no type arguments",
+			tp.Name,
+			record.Name,
+			record.Name,
+		)
+	}
+	fields, ok := resolution.RecordFields(record, table)
+	if !ok {
+		return resolution.Type{}, nil, errors.Newf(
+			"the response type %s must be a struct or a union",
+			record.Name,
+		)
+	}
+	return record, fields, nil
+}
+
+// lineBuilder builds the lines of a filter. Bare lines read the fields of record,
+// which the client cache holds.
+type lineBuilder struct {
+	where  resolution.Type
+	table  *resolution.Table
+	fp     *tstypes.FieldProcessor
+	record resolution.Type
+	fields []resolution.Field
+}
+
+// zodOf returns the Zod schema of a plain, required value of ref.
+func (b lineBuilder) zodOf(ref resolution.TypeRef) string {
+	b.fp.CollectTypeImports(&ref)
+	return b.fp.ProcessField(resolution.Field{Type: ref}, b.where).ZodType
+}
+
+// addLines adds the lines of the filter to data. It returns the key type of a bare
+// key line, and whether a bare name line checks a string.
+func (b lineBuilder) addLines(
+	data *templateData,
+) (key *resolution.TypeRef, named bool, err error) {
+	form := resolution.MustForm[resolution.StructForm](b.where)
+	for _, line := range b.where.Filter.Lines {
+		field := lo.Must(form.Field(line.Name))
+		ld := lineData{Name: tstypes.FieldName(line.Name), Doc: doc.Get(field.Domains)}
+		if line.HasType() {
+			ld.Input = b.zodOf(field.Type)
+			if field.Type.Name == "Array" && field.Type.ArraySize == nil {
+				ld.Input = "filter.listInputZ(" + b.zodOf(field.Type.TypeArgs[0]) + ")"
+			}
+			data.Lines = append(data.Lines, ld)
+			continue
+		}
+		op, err := b.bareLine(&ld, line, field)
+		if err != nil {
+			return nil, false, err
+		}
+		opRef := field.Type
+		switch {
+		case line.Name == "key" && len(opRef.TypeArgs) == 1:
+			key = &opRef.TypeArgs[0]
+		case line.Name == "name" && op.QualifiedName == resolution.OperatorString:
+			named = true
+		}
+		data.Lines = append(data.Lines, ld)
+	}
+	return key, named, nil
+}
+
+// bareLine fills ld for a bare line, which checks the record field of the same name
+// with the operator that field's type names. It returns the operator.
+func (b lineBuilder) bareLine(
+	ld *lineData,
+	line, field resolution.Field,
+) (resolution.Type, error) {
+	recordField, ok := lo.Find(b.fields, func(f resolution.Field) bool {
+		return f.Name == line.Name
+	})
+	if !ok {
+		return resolution.Type{}, errors.Newf(
+			"the bare line %s names no field of %s, which the cache holds",
+			line.Name,
+			b.record.Name,
+		)
+	}
+	opRef := field.Type
+	op, ok := b.table.Get(opRef.Name)
+	if !ok {
+		return resolution.Type{}, errors.Newf(
+			"line %s has the unknown operator %s",
+			line.Name,
+			opRef.Name,
+		)
+	}
+	opForm, ok := op.Form.(resolution.StructForm)
+	if !ok {
+		return resolution.Type{}, errors.Newf(
+			"line %s: the operator %s is not a struct",
+			line.Name,
+			op.Name,
+		)
+	}
+	known, isOperator := resolution.OperatorMembers(op.QualifiedName)
+	ld.Check, ok = checks[op.QualifiedName]
+	if !ok || !isOperator {
+		return resolution.Type{}, errors.Newf(
+			"line %s: ts/filter has no check for the operator %s",
+			line.Name,
+			op.QualifiedName,
+		)
+	}
+	ms := lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
+		return f.Name
+	})
+	if m, ok := lo.Find(ms, func(m string) bool { return !lo.Contains(known, m) }); ok {
+		return resolution.Type{}, errors.Newf(
+			"line %s: ts/filter cannot check the member %s of %s",
+			line.Name,
+			m,
+			op.Name,
+		)
+	}
+	ld.Field = tstypes.FieldName(recordField.Name)
+	ld.Regex = lo.Contains(ms, "regex")
+	ld.Input = "filter." + inputs[op.QualifiedName]
+	if len(opRef.TypeArgs) == 1 {
+		ld.Input += "(" + b.zodOf(opRef.TypeArgs[0]) + ")"
+	}
+	return op, nil
+}
+
+// addCursor sets up data to order records by the fields of cursor, the Cursor that the
+// analyzer derives for the target of where.
+func addCursor(
+	data *templateData,
+	where resolution.Type,
+	cursor resolution.Type,
+	record resolution.Type,
+	fields []resolution.Field,
+	outputPath string,
+	table *resolution.Table,
+) error {
+	target, _, _ := resolution.Dealias(where.Filter.Target, table)
+	targetFields, _ := resolution.RecordFields(target, table)
+	sorts, err := resolution.Sorts(targetFields, table)
+	if err != nil {
+		return err
+	}
+	for _, sort := range sorts {
+		if !lo.ContainsBy(fields, func(f resolution.Field) bool {
+			return f.Name == sort.Path[0].Name
+		}) {
+			return errors.Newf(
+				"%s sorts by %s, which the cache's %s does not hold",
+				target.Name,
+				sort.Path[0].Name,
+				record.Name,
+			)
+		}
+	}
+	keyField := lo.Must(resolution.MustForm[resolution.StructForm](cursor).Field("key"))
+	switch keyType := resolution.PrimitiveBase(keyField.Type, table); {
+	case keyType == "string":
+		data.KeyCompare = "compare.codePoints"
+	case keyType == "uuid":
+		data.KeyCompare = "compare.uuids"
+	case resolution.IsNumberPrimitive(keyType):
+		data.KeyCompare = "compareNumbers"
+	default:
+		return errors.Newf("cannot order the %s key of %s", keyType, record.Name)
+	}
+	data.Cursor = true
+	// Only a type that changes through actions needs them: a patch names the field.
+	if len(target.Actions()) > 0 {
+		data.ListFields = listFields(targetFields, where.Filter.Lines)
+	}
+	typesPath := tspaths.CalculateImport(outputPath, outputPath) + "/types.gen"
+	data.AddImport(tspaths.CalculateImport(outputPath, "x/ts/src/compare"), "compare")
+	data.AddImport(typesPath, "Cursor")
+	if len(sorts) > 0 {
+		data.AddImport(typesPath, "Order")
+		data.AddImport(typesPath, "OrderField")
+	}
+	for _, sort := range sorts {
+		data.Orders = append(data.Orders, orderOf(sort, data, outputPath))
+	}
+	return nil
+}
+
+func orderOf(sort resolution.Sort, data *templateData, outputPath string) orderData {
+	od := orderData{
+		Name:   sort.Name,
+		Cursor: tstypes.FieldName(sort.Name),
+		Access: strings.Join(
+			lo.Map(sort.Path, func(f resolution.Field, _ int) string {
+				return tstypes.FieldName(f.Name)
+			}),
+			".",
+		),
+	}
+	switch {
+	case sort.Textual:
+		od.Compare = "compare.text"
+	case sort.Type.Name == "telem.TimeStamp":
+		od.Compare = "telem.TimeStamp.sort"
+		data.AddImport(tspaths.CalculateImport(outputPath, "x/ts/src/telem"), "telem")
+	default:
+		od.Compare = "compareNumbers"
+	}
+	return od
 }
 
 var fileTemplate = template.Must(

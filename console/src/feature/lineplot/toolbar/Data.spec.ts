@@ -36,7 +36,7 @@ const reader = createTestClient();
 
 const renderData = async (
   ranges?: lineplot.New["ranges"],
-  favorites: Session.Range.State[] = [],
+  favorites: Session.Range.PersistedState[] = [],
 ) => {
   const handle = await renderLinePlot(Toolbar, {
     linePlot: ranges === undefined ? {} : { ranges },
@@ -152,16 +152,17 @@ describe("lineplot/toolbar/Data", () => {
     });
 
     it("keeps Enter on a typed duration from selecting a favorite", async () => {
-      const favorite: Session.Range.StaticState = {
-        variant: "static",
-        key: "7c1e4b2a-9d3f-4e6a-b8c0-1f2a3b4c5d6e",
-        name: "45m burn",
-        timeRange: { start: 1_000_000_000, end: 3_000_000_000 },
-      };
-      const { key } = await renderData([rolling(FIVE_MIN)], [favorite]);
+      const favorite = await client.ranges.create({
+        name: uniqueName("45m burn"),
+        timeRange: new TimeRange(1_000_000_000, 3_000_000_000),
+      });
+      const { key } = await renderData(
+        [rolling(FIVE_MIN)],
+        Session.Range.fromClient(favorite.payload),
+      );
       const input = openSearch();
       fireEvent.change(input, { target: { value: "45m" } });
-      await screen.findByText("45m burn");
+      await screen.findByText(favorite.name);
       act(() => {
         fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
       });
@@ -242,30 +243,27 @@ describe("lineplot/toolbar/Data", () => {
   });
 
   describe("favorites", () => {
-    it("adds a favorite the session owns as a static window", async () => {
-      const favorite: Session.Range.StaticState = {
-        variant: "static",
-        key: "3a7b9c1d-5e2f-4a6b-8c0d-2e4f6a8b0c1d",
-        name: "Hot fire",
-        timeRange: { start: 1_000_000_000, end: 3_000_000_000 },
-      };
-      const { key } = await renderData([], [favorite]);
-      openSearch();
-      fireEvent.click(await screen.findByText("Hot fire"));
-      await expectRanges(key, [
-        {
-          variant: "window",
-          window: staticWindow(new TimeRange(1_000_000_000, 3_000_000_000)),
-        },
-      ]);
-    });
-
     it("adds a favorite the Core holds as a key reference", async () => {
       const created = await createTestRange(client);
       const { key } = await renderData([], Session.Range.fromClient(created.payload));
       openSearch();
       fireEvent.click(await screen.findByText(created.name));
       await expectRanges(key, [{ variant: "key", key: created.key }]);
+    });
+
+    it("lists the plotted favorites first", async () => {
+      const alpha = await createTestRange(client);
+      const bravo = await createTestRange(client);
+      await renderData(
+        [{ variant: "key", key: bravo.key }],
+        Session.Range.fromClient([alpha.payload, bravo.payload]),
+      );
+      openSearch();
+      await screen.findAllByText(alpha.name);
+      await screen.findAllByText(bravo.name);
+      const names = screen.getAllByRole("option").map((o) => o.textContent ?? "");
+      const at = (name: string) => names.findIndex((n) => n.includes(name));
+      expect(at(bravo.name)).toBeLessThan(at(alpha.name));
     });
 
     it("marks each key reference's tag with the stage of its range", async () => {

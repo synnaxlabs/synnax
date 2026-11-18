@@ -43,6 +43,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
@@ -56,6 +57,9 @@ const (
 	testType = pagerduty.AlertTaskType
 	// namedType is a task type whose config hook records the task name it receives.
 	namedType = "named"
+	// watchedType is a task type whose config hash covers the message of the status
+	// that its device field names.
+	watchedType = "watched"
 )
 
 // routingKey1 and routingKey2 are secret keys for the routing keys of alert configs.
@@ -83,6 +87,73 @@ func createRoutingKeys(
 	}
 }
 
+// openWatched opens the config store of watchedType on db. Its hash covers the message
+// of the status, read through stat, that the device field of a config names.
+func openWatched(
+	ctx context.Context,
+	db *gorp.DB,
+	stat *status.Service,
+) *config.Service[kafka.WriteConfig] {
+	GinkgoHelper()
+	return MustOpen(config.OpenService(ctx, config.ServiceConfig[kafka.WriteConfig]{
+		DB:          db,
+		Type:        watchedType,
+		Ladder:      kafkaversions.WriteConfigLadder,
+		SetEntryKey: (*kafka.WriteConfig).SetKey,
+		PatchEntry:  (*kafka.WriteConfig).Patch,
+		HashEntry:   (*kafka.WriteConfig).HashContent,
+		References: []gorp.Reference[uuid.UUID, kafka.WriteConfig]{
+			gorp.NewKeyReference(
+				gorp.KeyReferenceConfig[uuid.UUID, kafka.WriteConfig, string]{
+					Name:     "device",
+					Table:    "status",
+					OnDelete: gorp.Restrict,
+					Kind:     gorp.Use,
+					Targets: func(c *kafka.WriteConfig) []string {
+						return []string{c.Device}
+					},
+				},
+			),
+		},
+		HashedTables: []string{"status"},
+		HashReferences: func(
+			ctx context.Context,
+			snap gorp.Snapshot,
+			c *kafka.WriteConfig,
+			h *content.Hash,
+		) error {
+			var st status.Status[any]
+			if err := stat.NewRetrieve[any]().
+				Where(status.MatchKeys[any](c.Device)).
+				Entry(&st).
+				Exec(ctx, snap); err != nil {
+				return err
+			}
+			h.String(st.Message)
+			return nil
+		},
+	}))
+}
+
+// setStatus stores an info status under key with the given message.
+func setStatus(
+	ctx context.Context,
+	db *gorp.DB,
+	stat *status.Service,
+	key, message string,
+) {
+	GinkgoHelper()
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
+			Key:     key,
+			Name:    key,
+			Message: message,
+			Variant: status.VariantInfo,
+			Time:    telem.Now(),
+		})
+	})).To(Succeed())
+}
+
 var _ = Describe("Task", Ordered, func() {
 	var (
 		db          *gorp.DB
@@ -101,6 +172,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
@@ -165,11 +237,12 @@ var _ = Describe("Task", Ordered, func() {
 				},
 			}),
 		)
+		watched := openWatched(ctx, db, stat)
 		configs = MustSucceed(config.NewRegistry(slices.Concat(
 			pd.Stores(),
 			at.Stores(),
 			lj.Stores(),
-			[]config.Store{named},
+			[]config.Store{named, watched},
 		)...))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      db,
@@ -186,7 +259,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
 					Key:     k,
-					Name:    string(k),
+					Name:    k,
 					Variant: status.VariantInfo,
 					Time:    telem.Now(),
 				})
@@ -209,13 +282,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("CommandChannelKey", func() {
 		It(
 			"Should return zero when no channel service is configured",
-			func(ctx SpecContext) {
+			func() {
 				Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
 			},
 		)
 	})
 	Describe("StatusDetails msgpack round-trip", func() {
-		It("Should round-trip the details", func(ctx SpecContext) {
+		It("Should round-trip the details", func() {
 			original := task.StatusDetails{
 				Rack:    testRack.Key,
 				Running: true,
@@ -947,7 +1020,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(f.Key).To(Equal(alerts.Key))
 			Expect(f.DispatchKey).To(Equal("dk-1"))
 			Expect(f.Seq).To(BeNumerically(">", 0))
-			Expect(f.Actions).To(Equal(append(acts, computed...)))
+			Expect(f.Actions).To(Equal(slices.Concat(acts, computed)))
 		})
 
 		It(
@@ -978,7 +1051,7 @@ var _ = Describe("Task", Ordered, func() {
 					set([]string{"config_hash"}, stored.ConfigHash),
 				}))
 				Expect(*frames).To(HaveLen(1))
-				Expect((*frames)[0].Actions).To(Equal(append(acts, computed...)))
+				Expect((*frames)[0].Actions).To(Equal(slices.Concat(acts, computed)))
 			},
 		)
 
@@ -1037,6 +1110,72 @@ var _ = Describe("Task", Ordered, func() {
 				set([]string{"config"}, stored.Config),
 				set([]string{"config_hash"}, stored.ConfigHash),
 			}))
+		})
+
+		Describe("A config whose hash covers a record it uses", func() {
+			var (
+				watched *task.Task
+				store   config.Store
+			)
+			stored := func(ctx context.Context) string {
+				GinkgoHelper()
+				return retrieve(ctx, watched.Key).ConfigHash
+			}
+			current := func(ctx context.Context) string {
+				GinkgoHelper()
+				return MustSucceed(store.Hash(ctx, db, watched.Key))
+			}
+			BeforeEach(func(ctx SpecContext) {
+				store = MustBeOk(configs.Store(watchedType))
+				setStatus(ctx, db, stat, "st-watch", "a")
+				watched = &task.Task{
+					Type:   watchedType,
+					Rack:   testRack.Key,
+					Name:   "Watched",
+					Config: msgpack.EncodedJSON{"device": "st-watch"},
+				}
+				createCommitted(ctx, watched)
+			})
+
+			It("Should store a hash that covers the record on create", func(
+				ctx SpecContext,
+			) {
+				Expect(stored(ctx)).To(Equal(current(ctx)))
+			})
+
+			It("Should store a hash that covers the record on a config edit", func(
+				ctx SpecContext,
+			) {
+				setStatus(ctx, db, stat, "st-other", "b")
+				Expect(dispatch(ctx, watched.Key, "dk", []task.Action{
+					set([]string{"config", "device"}, "st-other"),
+				})).Error().ToNot(HaveOccurred())
+				Expect(stored(ctx)).ToNot(Equal(watched.ConfigHash))
+				Expect(stored(ctx)).To(Equal(current(ctx)))
+			})
+
+			It("Should store and broadcast a new hash when the record changes", func(
+				ctx SpecContext,
+			) {
+				frames := collect()
+				setStatus(ctx, db, stat, "st-watch", "b")
+				Expect(stored(ctx)).ToNot(Equal(watched.ConfigHash))
+				Expect(stored(ctx)).To(Equal(current(ctx)))
+				Expect(*frames).To(HaveLen(1))
+				Expect((*frames)[0].Key).To(Equal(watched.Key))
+				Expect((*frames)[0].Actions).To(Equal([]task.Action{
+					set([]string{"config_hash"}, stored(ctx)),
+				}))
+			})
+
+			It("Should not broadcast when the record's change leaves the hash", func(
+				ctx SpecContext,
+			) {
+				frames := collect()
+				setStatus(ctx, db, stat, "st-watch", "a")
+				Expect(stored(ctx)).To(Equal(watched.ConfigHash))
+				Expect(*frames).To(BeEmpty())
+			})
 		})
 	})
 
@@ -1712,6 +1851,79 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should keep a running status reported after the outage before the copy",
+			func(ctx SpecContext) {
+				now := telem.Now().Add(2 * telem.Hour)
+				frozenNow.Store(int64(now))
+				DeferCleanup(func() { frozenNow.Store(0) })
+				r := rack.Rack{Name: "reported rack"}
+				t := &task.Task{Type: testType, Name: "Reported Task"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := rackService.NewWriter(tx).Create(ctx, &r); err != nil {
+						return err
+					}
+					t.Rack = r.Key
+					return svc.NewWriter(tx).Create(ctx, t)
+				})).To(Succeed())
+				setRunning := func(tx gorp.Tx, at telem.TimeStamp, hash string) error {
+					return stat.NewWriter(tx).Set(ctx, &task.Status{
+						Owner:   new(t.ResourceID()),
+						Name:    t.Name,
+						Time:    at,
+						Variant: status.VariantSuccess,
+						Message: "Task started",
+						Details: task.StatusDetails{
+							Running:    true,
+							Rack:       r.Key,
+							ConfigHash: hash,
+						},
+					})
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return setRunning(tx, now, "old")
+				})).To(Succeed())
+				// The report commits in a transaction that blocks the copy, so it lands
+				// after the monitor captures the outage and before the copy reads.
+				reported := make(chan struct{})
+				var once sync.Once
+				DeferCleanup(stat.Observe().OnChange(func(
+					_ context.Context,
+					changes gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					for ch := range changes {
+						if ch.Value.Owner == nil || *ch.Value.Owner != r.ResourceID() ||
+							ch.Value.Message != "Driver not running" {
+							continue
+						}
+						once.Do(func() {
+							held := make(chan struct{})
+							go func() {
+								defer GinkgoRecover()
+								defer close(reported)
+								tx := db.OpenTx()
+								close(held)
+								time.Sleep(50 * time.Millisecond)
+								Expect(setRunning(
+									tx,
+									now.Add(telem.Millisecond),
+									"new",
+								)).To(Succeed())
+								Expect(tx.Commit(ctx)).To(Succeed())
+								Expect(tx.Close()).To(Succeed())
+							}()
+							<-held
+						})
+					}
+				}))
+				frozenNow.Store(int64(now.Add(rackService.HealthCheckInterval)))
+				Eventually(reported).Should(BeClosed())
+				Consistently(func(g Gomega) {
+					g.Expect(retrieveStatus(ctx, t).Message).To(Equal("Task started"))
+				}, 100*time.Millisecond, 5*time.Millisecond).Should(Succeed())
+			},
+		)
+
+		It(
 			"Should fail a task that was starting when its rack went silent",
 			func(ctx SpecContext) {
 				// The rack and its tasks commit together, so the rack cannot go silent
@@ -1816,7 +2028,7 @@ var _ = Describe("Task", Ordered, func() {
 		Describe("String", func() {
 			It(
 				"Should return a string representation of the command",
-				func(ctx SpecContext) {
+				func() {
 					k := uuid.New()
 					c := &task.Command{
 						Key:  "cmd",
@@ -1915,11 +2127,61 @@ var _ = Describe("Task", Ordered, func() {
 	})
 })
 
+var _ = Describe("OpenService with a store that hashes used records", func() {
+	It("Should store the current config hash of each task", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
+		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:         db,
+			HostKey:    1,
+			Status:     stat,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles)),
+		}))
+		watched := openWatched(ctx, db, stat)
+		configs := MustSucceed(config.NewRegistry(watched))
+		open := func() (*task.Service, error) {
+			return task.OpenService(ctx, task.ServiceConfig{
+				DB:      db,
+				Rack:    racks,
+				Status:  stat,
+				ImEx:    imex.NewService(),
+				Configs: configs,
+			})
+		}
+		first := MustSucceed(open())
+		setStatus(ctx, db, stat, "st-watch", "a")
+		t := task.Task{
+			Type:   watchedType,
+			Name:   "Watched",
+			Config: msgpack.EncodedJSON{"device": "st-watch"},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return first.NewWriter(tx).Create(ctx, &t)
+		})).To(Succeed())
+		row := t
+		row.Config, row.Status, row.ConfigHash = nil, nil, "stale"
+		Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&row).Exec(ctx, db)).
+			To(Succeed())
+		Expect(first.Close()).To(Succeed())
+		second := MustOpen(open())
+		var res task.Task
+		Expect(second.NewRetrieve().
+			Where(task.MatchKeys(t.Key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		Expect(res.ConfigHash).To(Equal(t.ConfigHash))
+		Expect(res.ConfigHash).To(Equal(MustSucceed(watched.Hash(ctx, db, t.Key))))
+	})
+})
+
 var _ = Describe("MatchArcs", func() {
 	It(
 		"Should filter tasks by Arc through the configured matcher",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secrettestutil.OpenService(ctx, db),
@@ -1976,6 +2238,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
 		}))
@@ -2023,7 +2286,9 @@ var _ = Describe("Writer in concurrent transactions", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewRetrieve().Where(task.MatchKeys(key)).Entry(&t).Exec(ctx, tx)
 		})).To(Succeed())
-		Expect(t.ConfigHash).To(Equal(hashes[t.Config["routing_key"].(string)]))
+		rawKey, ok := t.Config["routing_key"].(string)
+		Expect(ok).To(BeTrue())
+		Expect(t.ConfigHash).To(Equal(hashes[rawKey]))
 	}
 	applyUntil := func(ctx context.Context, done *atomic.Bool, key task.Key) func() {
 		return func() {

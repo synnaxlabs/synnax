@@ -27,8 +27,7 @@
               "start_bit": 0,
               "bit_length": 8,
               "byte_order": "little_endian",
-              "signed": false,
-              "float": false,
+              "kind": "unsigned",
               "multiplexor": "00000000-0000-4000-8000-00000000000a"
             }
           ],

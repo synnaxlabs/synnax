@@ -38,156 +38,201 @@ type MigrationConfig struct {
 func newMigration(cfg MigrationConfig) gorp.Migration {
 	return migrate.New(
 		"range_groups_1",
-		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
-			if migrated, err := alreadyMigrated(ctx, tx); err != nil || migrated {
+		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+			if migrated, err := alreadyMigrated(tx); err != nil || migrated {
 				return err
 			}
 			ins.L.Debug("swapping invalid time ranges")
-			var (
-				writer = gorp.WrapWriter[Key, Range](tx)
-				reader = gorp.WrapReader[Key, Range](tx)
-			)
-			iter, err := reader.OpenIterator(gorp.IterOptions{})
+			ranges, err := swapInvalidTimeRanges(ctx, tx)
 			if err != nil {
 				return err
 			}
-			defer func() { err = errors.Combine(err, iter.Close()) }()
-			rangeMap := make(map[Key]Range)
-			for iter.First(); iter.Valid(); iter.Next() {
-				rng := iter.Value()
-				if err = iter.Error(); err != nil {
-					return errors.Wrap(err, "invalid range")
-				}
-				if !rng.TimeRange.Valid() {
-					rng.TimeRange = rng.TimeRange.MakeValid()
-					if err = writer.Set(ctx, *rng); err != nil {
-						return err
-					}
-				}
-				rangeMap[rng.Key] = *rng
-			}
-
-			var topLevelGroup group.Group
-			if err = cfg.Group.
-				NewRetrieve().
-				Entry(&topLevelGroup).
-				Where(group.MatchNames("Ranges")).
-				Exec(ctx, tx); err != nil {
-				if errors.Is(err, query.ErrNotFound) {
-					return nil
-				}
-				return err
-			}
-
-			edges, err := parentEdgesByFrom(ctx, tx)
-			if err != nil {
-				return err
-			}
-			topEdges := edges[topLevelGroup.ResourceID()]
-			var groupKeys []uuid.UUID
-			for _, e := range topEdges {
-				if e.To.Type != resource.TypeGroup {
-					continue
-				}
-				k, err := uuid.Parse(e.To.Key)
-				if err != nil {
-					return err
-				}
-				groupKeys = append(groupKeys, k)
-			}
-			// An edge can name a group that no longer exists.
-			var groups []group.Group
-			if err = cfg.Group.
-				NewRetrieve().
-				Where(group.MatchKeys(groupKeys...)).
-				Entries(&groups).
-				Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-				return err
-			}
-			cfg.L.Debug(
-				"converting groups to parent ranges",
-				zap.Int("groups", len(groups)),
-			)
-			if err = ontology.DeleteRelationships(ctx, tx, topEdges...); err != nil {
-				return err
-			}
-			if err := cfg.Group.NewWriter(tx).
-				Delete(ctx, topLevelGroup.Key); err != nil {
-				return err
-			}
-
-			for _, g := range groups {
-				childEdges := edges[g.ResourceID()]
-				var childRanges []Range
-				for _, e := range childEdges {
-					if e.To.Type != resource.TypeRange {
-						continue
-					}
-					rKey, err := uuid.Parse(e.To.Key)
-					if err != nil {
-						return err
-					}
-					if r, ok := rangeMap[rKey]; ok {
-						childRanges = append(childRanges, r)
-					}
-				}
-				cfg.L.Debug(
-					"migrating range group",
-					zap.String("group", g.Name),
-					zap.Int("children", len(childRanges)),
-				)
-				if err = ontology.DeleteRelationships(
-					ctx,
-					tx,
-					childEdges...,
-				); err != nil {
-					return err
-				}
-				if err = cfg.Group.NewWriter(tx).Delete(ctx, g.Key); err != nil {
-					return err
-				}
-				if len(childRanges) == 0 {
-					continue
-				}
-				tr := telem.TimeRange{
-					Start: telem.TimeStampMax,
-					End:   telem.TimeStampMin,
-				}
-				for _, r := range childRanges {
-					if r.TimeRange.Start.Before(tr.Start) {
-						tr.Start = r.TimeRange.Start
-					}
-					if r.TimeRange.End.After(tr.End) {
-						tr.End = r.TimeRange.End
-					}
-				}
-				newParentRange := Range{
-					Key:       uuid.New(),
-					Name:      g.Name,
-					TimeRange: tr.MakeValid(),
-				}
-				if err = writer.Set(ctx, newParentRange); err != nil {
-					return err
-				}
-				parentID := newParentRange.ResourceID()
-				if err = ontology.DefineResources(ctx, tx, parentID); err != nil {
-					return err
-				}
-				if err = gorp.WrapWriter[string, ontology.Relationship](tx).Set(
-					ctx,
-					lo.Map(childRanges, func(r Range, _ int) ontology.Relationship {
-						return ontology.Relationship{
-							From: parentID,
-							Type: ontology.RelationshipTypeParentOf,
-							To:   r.ResourceID(),
-						}
-					})...,
-				); err != nil {
-					return err
-				}
-			}
-			return nil
+			return foldGroups(ctx, tx, cfg, ranges)
 		},
+	)
+}
+
+// swapInvalidTimeRanges makes the time range of every stored range valid, and returns
+// every range keyed by its key.
+func swapInvalidTimeRanges(
+	ctx context.Context,
+	tx gorp.Tx,
+) (ranges map[Key]Range, err error) {
+	writer := gorp.WrapWriter[Key, Range](tx)
+	iter, err := gorp.WrapReader[Key, Range](tx).OpenIterator(gorp.IterOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err = errors.Combine(err, iter.Close()); err != nil {
+			ranges = nil
+		}
+	}()
+	ranges = make(map[Key]Range)
+	for iter.First(); iter.Valid(); iter.Next() {
+		rng := iter.Value()
+		if err = iter.Error(); err != nil {
+			return nil, errors.Wrap(err, "invalid range")
+		}
+		if !rng.TimeRange.Valid() {
+			rng.TimeRange = rng.TimeRange.MakeValid()
+			if err = writer.Set(ctx, *rng); err != nil {
+				return nil, err
+			}
+		}
+		ranges[rng.Key] = *rng
+	}
+	return ranges, nil
+}
+
+// foldGroups replaces each group under the "Ranges" group with a parent range of the
+// group's child ranges, then deletes the groups. It does nothing when no "Ranges" group
+// exists.
+func foldGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	cfg MigrationConfig,
+	ranges map[Key]Range,
+) error {
+	var topLevelGroup group.Group
+	if err := cfg.Group.
+		NewRetrieve().
+		Entry(&topLevelGroup).
+		Where(group.MatchNames("Ranges")).
+		Exec(ctx, tx); err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return nil
+		}
+		return err
+	}
+	edges, err := parentEdgesByFrom(ctx, tx)
+	if err != nil {
+		return err
+	}
+	topEdges := edges[topLevelGroup.ResourceID()]
+	groups, err := retrieveChildGroups(ctx, tx, cfg.Group, topEdges)
+	if err != nil {
+		return err
+	}
+	cfg.L.Debug("converting groups to parent ranges", zap.Int("groups", len(groups)))
+	if err = ontology.DeleteRelationships(ctx, tx, topEdges...); err != nil {
+		return err
+	}
+	if err = cfg.Group.NewWriter(tx).Delete(ctx, topLevelGroup.Key); err != nil {
+		return err
+	}
+	for _, g := range groups {
+		if err = foldGroup(ctx, tx, cfg, g, edges[g.ResourceID()], ranges); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// retrieveChildGroups returns the groups that edges point to. An edge can name a group
+// that no longer exists.
+func retrieveChildGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	svc *group.Service,
+	edges []ontology.Relationship,
+) ([]group.Group, error) {
+	var keys []uuid.UUID
+	for _, e := range edges {
+		if e.To.Type != resource.TypeGroup {
+			continue
+		}
+		k, err := uuid.Parse(e.To.Key)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	var groups []group.Group
+	if err := svc.
+		NewRetrieve().
+		Where(group.MatchKeys(keys...)).
+		Entries(&groups).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+// foldGroup deletes g and its child edges, and creates a parent range of the ranges
+// that childEdges point to.
+func foldGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	cfg MigrationConfig,
+	g group.Group,
+	childEdges []ontology.Relationship,
+	ranges map[Key]Range,
+) error {
+	var childRanges []Range
+	for _, e := range childEdges {
+		if e.To.Type != resource.TypeRange {
+			continue
+		}
+		rKey, err := uuid.Parse(e.To.Key)
+		if err != nil {
+			return err
+		}
+		if r, ok := ranges[rKey]; ok {
+			childRanges = append(childRanges, r)
+		}
+	}
+	cfg.L.Debug(
+		"migrating range group",
+		zap.String("group", g.Name),
+		zap.Int("children", len(childRanges)),
+	)
+	if err := ontology.DeleteRelationships(ctx, tx, childEdges...); err != nil {
+		return err
+	}
+	if err := cfg.Group.NewWriter(tx).Delete(ctx, g.Key); err != nil {
+		return err
+	}
+	if len(childRanges) == 0 {
+		return nil
+	}
+	return createParentRange(ctx, tx, g.Name, childRanges)
+}
+
+// createParentRange creates a range named name that spans children, and makes it the
+// parent of each child.
+func createParentRange(
+	ctx context.Context,
+	tx gorp.Tx,
+	name string,
+	children []Range,
+) error {
+	tr := telem.TimeRange{Start: telem.TimeStampMax, End: telem.TimeStampMin}
+	for _, r := range children {
+		if r.TimeRange.Start.Before(tr.Start) {
+			tr.Start = r.TimeRange.Start
+		}
+		if r.TimeRange.End.After(tr.End) {
+			tr.End = r.TimeRange.End
+		}
+	}
+	parent := Range{Key: uuid.New(), Name: name, TimeRange: tr.MakeValid()}
+	if err := gorp.WrapWriter[Key, Range](tx).Set(ctx, parent); err != nil {
+		return err
+	}
+	parentID := parent.ResourceID()
+	if err := ontology.DefineResources(ctx, tx, parentID); err != nil {
+		return err
+	}
+	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(
+		ctx,
+		lo.Map(children, func(r Range, _ int) ontology.Relationship {
+			return ontology.Relationship{
+				From: parentID,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   r.ResourceID(),
+			}
+		})...,
 	)
 }
 
@@ -213,7 +258,7 @@ func parentEdgesByFrom(
 
 // alreadyMigrated reports whether a Core up to v0.53 already folded the store's legacy
 // range groups. A group named "Ranges" on such a store belongs to the user.
-func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
+func alreadyMigrated(tx gorp.Tx) (bool, error) {
 	_, closer, err := tx.Get([]byte("sy_ranger_migration_performed"))
 	if err != nil {
 		return false, errors.Skip(err, query.ErrNotFound)

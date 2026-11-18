@@ -47,6 +47,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		// Status labels reference the label table, so it must be open.
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
@@ -60,6 +61,27 @@ var _ = Describe("Dispatch", Ordered, func() {
 	})
 
 	Describe("SetByKeyOrName", func() {
+		It("Should replace a status with a time later than now", func(ctx SpecContext) {
+			st := status.Status[any]{
+				Key:     uuid.New().String(),
+				Name:    "future",
+				Message: "orig",
+				Variant: status.VariantInfo,
+				Time:    telem.Now().Add(telem.Hour),
+			}
+			Expect(setStatus(ctx, &st)).To(Succeed())
+			MustSucceed2(
+				svc.SetByKeyOrName(ctx, st.Key, "on", string(status.VariantSuccess)),
+			)
+			var stored status.Status[any]
+			Expect(svc.NewRetrieve[any]().
+				Where(status.MatchKeys[any](st.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Message).To(Equal("on"))
+			Expect(stored.Time).To(BeNumerically("<", st.Time))
+		})
+
 		Describe("Input validation", func() {
 			It(
 				"Should return a validation error for an unknown variant",
@@ -282,18 +304,10 @@ var _ = Describe("Dispatch", Ordered, func() {
 							Entries(&rows).
 							Exec(ctx, db),
 					).To(Succeed())
-					Expect(rows).To(HaveLen(2))
-					warning, info := 0, 0
-					for _, r := range rows {
-						switch r.Variant {
-						case status.VariantWarning:
-							warning++
-						case status.VariantInfo:
-							info++
-						}
-					}
-					Expect(warning).To(Equal(1))
-					Expect(info).To(Equal(1))
+					Expect(rows).To(ConsistOf(
+						HaveField("Variant", status.VariantWarning),
+						HaveField("Variant", status.VariantInfo),
+					))
 				},
 			)
 
@@ -491,6 +505,7 @@ func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) 
 var _ = Describe("Failed index population", func() {
 	It("Should find a status by name with a scan", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(&failOnceDB{DB: memkv.New()}))
+		StartRun(db.Run)
 		svc := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		st := status.Status[any]{
 			Key:     "stored",
@@ -512,5 +527,80 @@ var _ = Describe("Failed index population", func() {
 			Entries(&matched).
 			Exec(ctx, db)).To(Succeed())
 		Expect(matched).To(HaveExactElements(HaveField("Message", "on")))
+	})
+})
+
+var _ = Describe("SetTarget", func() {
+	var match status.Status[any]
+	BeforeEach(func() {
+		match = status.Status[any]{
+			Key:         uuid.New().String(),
+			Name:        "pump",
+			Message:     "old",
+			Description: "why",
+			Variant:     status.VariantInfo,
+			Time:        telem.Now().Add(-10 * telem.Second),
+		}
+	})
+
+	It("Should stamp now when the time is zero", func() {
+		before := telem.Now()
+		st, newer := status.SetTarget(nil, "pump", "on", "success", 0)
+		Expect(newer).To(BeTrue())
+		Expect(st.Time).To(BeNumerically(">=", before))
+		Expect(st.Name).To(Equal("pump"))
+	})
+
+	It("Should keep a past time", func() {
+		t := match.Time.Add(telem.Second)
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match}, "pump", "on", "success", t,
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Key).To(Equal(match.Key))
+		Expect(st.Time).To(Equal(t))
+		Expect(st.Message).To(Equal("on"))
+		Expect(st.Description).To(BeEmpty())
+	})
+
+	It("Should stamp now when the time is later than now", func() {
+		before := telem.Now()
+		st, newer := status.SetTarget(
+			nil, "pump", "on", "success", before.Add(telem.Hour),
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Time).To(BeNumerically(">=", before))
+		Expect(st.Time).To(BeNumerically("<=", telem.Now()))
+	})
+
+	It("Should write over a match with a time later than now", func() {
+		match.Time = telem.Now().Add(telem.Hour)
+		t := telem.Now().Add(-telem.Second)
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match}, "pump", "on", "success", t,
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Time).To(Equal(t))
+		Expect(st.Message).To(Equal("on"))
+	})
+
+	It("Should write when the time equals the time of the match", func() {
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match}, "pump", "on", "success", match.Time,
+		)
+		Expect(newer).To(BeTrue())
+		Expect(st.Message).To(Equal("on"))
+	})
+
+	It("Should return false and the match unchanged for an older time", func() {
+		st, newer := status.SetTarget(
+			[]status.Status[any]{match},
+			"pump",
+			"on",
+			"success",
+			match.Time.Add(-telem.Second),
+		)
+		Expect(newer).To(BeFalse())
+		Expect(st).To(Equal(match))
 	})
 })

@@ -87,49 +87,22 @@ func queueUpload(
 	if err := args.validate(); err != nil {
 		return "", err
 	}
-	var dev device.Device
-	if err := cfg.Device.NewRetrieve().
-		Where(device.MatchKeys(args.Device)).
-		Entry(&dev).
-		Exec(ctx, cfg.DB); err != nil {
+	dev, err := retrieveDevice(ctx, cfg, args.Device)
+	if err != nil {
 		return "", err
 	}
-	if _, err := decodeProperties(dev); err != nil {
+	if _, err = decodeProperties(dev); err != nil {
 		return "", err
 	}
 	if dev.Rack != rk {
 		return "", validate.Errorf("device %s belongs to another rack", dev.Name)
 	}
-	if err := ingest.Validate(ctx, cfg.DB, cfg.Channel, args.Channels); err != nil {
+	if err = ingest.Validate(ctx, cfg.DB, cfg.Channel, args.Channels); err != nil {
 		return "", err
 	}
-	// An upload of a plain time span takes the name of its asset.
-	name, subject := args.Asset, "time range"
-	var tr telem.TimeRange
-	if args.TimeRange != nil {
-		tr = *args.TimeRange
-	}
-	if args.Range != nil {
-		var rng ranger.Range
-		if err := cfg.Ranger.NewRetrieve().
-			Where(ranger.MatchKeys(*args.Range)).
-			Entry(&rng).
-			Exec(ctx, cfg.DB); err != nil {
-			return "", err
-		}
-		name, subject, tr = rng.Name, "range "+rng.Name, rng.TimeRange
-	}
-	// A span that has not ended sends the data written so far.
-	now := telem.Now()
-	if tr.Start > now {
-		return "", validate.Errorf(
-			"%s starts in the future, so it has no data yet",
-			subject,
-		)
-	}
-	tr.End = min(tr.End, now)
-	if tr.Span() <= 0 {
-		return "", validate.Errorf("%s has no time span to upload", subject)
+	name, tr, err := uploadSpan(ctx, cfg, args)
+	if err != nil {
+		return "", err
 	}
 	s := UploadStatus{
 		Key:     uploadKeyPrefix + uuid.NewV7().String(),
@@ -145,12 +118,53 @@ func queueUpload(
 			Asset:     args.Asset,
 		},
 	}
-	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return cfg.Status.NewWriter(tx).Set(ctx, &s)
 	}); err != nil {
 		return "", err
 	}
 	return s.Key, nil
+}
+
+// uploadSpan returns the name of the upload of args and the span of data to send, up
+// to now.
+func uploadSpan(
+	ctx context.Context,
+	cfg FactoryConfig,
+	args uploadArgs,
+) (string, telem.TimeRange, error) {
+	// An upload of a plain time span takes the name of its asset.
+	name, subject := args.Asset, "time range"
+	var tr telem.TimeRange
+	if args.TimeRange != nil {
+		tr = *args.TimeRange
+	}
+	if args.Range != nil {
+		var rng ranger.Range
+		if err := cfg.Ranger.NewRetrieve().
+			Where(ranger.MatchKeys(*args.Range)).
+			Entry(&rng).
+			Exec(ctx, cfg.DB); err != nil {
+			return "", telem.TimeRange{}, err
+		}
+		name, subject, tr = rng.Name, "range "+rng.Name, rng.TimeRange
+	}
+	// A span that has not ended sends the data written so far.
+	now := telem.Now()
+	if tr.Start > now {
+		return "", telem.TimeRange{}, validate.Errorf(
+			"%s starts in the future, so it has no data yet",
+			subject,
+		)
+	}
+	tr.End = min(tr.End, now)
+	if tr.Span() <= 0 {
+		return "", telem.TimeRange{}, validate.Errorf(
+			"%s has no time span to upload",
+			subject,
+		)
+	}
+	return name, tr, nil
 }
 
 // uploader runs the pending uploads to the Sift devices of one rack, one at a time
@@ -353,11 +367,8 @@ func (u *uploader) finish(ctx context.Context, s *UploadStatus, err error) {
 // of a range then makes the run of the range.
 func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	d := &s.Details
-	var dev device.Device
-	if err := u.cfg.Device.NewRetrieve().
-		Where(device.MatchKeys(d.Device)).
-		Entry(&dev).
-		Exec(ctx, u.cfg.DB); err != nil {
+	dev, err := retrieveDevice(ctx, u.cfg, d.Device)
+	if err != nil {
 		return err
 	}
 	props, err := decodeProperties(dev)
@@ -415,9 +426,19 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	if d.Range == nil {
 		return nil
 	}
+	return u.setRun(ctx, e, *d.Range, d.TimeRange)
+}
+
+// setRun makes the Sift run of the range with key rk, whose data in tr was uploaded.
+func (u *uploader) setRun(
+	ctx context.Context,
+	e *ingest.Engine,
+	rk ranger.Key,
+	tr telem.TimeRange,
+) error {
 	var rng ranger.Range
-	err = u.cfg.Ranger.NewRetrieve().
-		Where(ranger.MatchKeys(*d.Range)).
+	err := u.cfg.Ranger.NewRetrieve().
+		Where(ranger.MatchKeys(rk)).
 		Entry(&rng).
 		Exec(ctx, u.cfg.DB)
 	// A range deleted during the upload has no run to make.
@@ -434,7 +455,7 @@ func (u *uploader) send(ctx context.Context, s *UploadStatus) error {
 	_, err = e.SetRun(ctx, ingest.Run{
 		Key:       rng.Key.String(),
 		Name:      rng.Name,
-		TimeRange: d.TimeRange,
+		TimeRange: tr,
 		Tags:      tags,
 	})
 	return err

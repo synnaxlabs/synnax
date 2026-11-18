@@ -45,10 +45,7 @@ This analyzer enforces two conventions from github.com/synnaxlabs/x/testutil:
 
   2. Every BeforeSuite and BeforeAll node must call ShouldNotLeakGoroutines() as its
      first statement, so the goroutine snapshot is taken before the node creates its
-     fixtures and the matching AfterSuite/AfterAll teardown is verified to release them.
-
-A node that legitimately needs to opt out (e.g. a suite that deliberately leaves a
-process-global daemon running) can be exempted with a //nolint:goroutineleak comment.`,
+     fixtures and the matching AfterSuite/AfterAll teardown is verified to release them.`,
 	Run: run,
 }
 

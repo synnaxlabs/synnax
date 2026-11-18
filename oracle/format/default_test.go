@@ -60,7 +60,9 @@ var _ = Describe("Default Registry", func() {
 	DescribeTable("Should register every supported extension",
 		func(ext string) {
 			r := MustSucceed(format.Default(repoRoot, 2026, nil))
-			Expect(r.Format(canceled(), []byte("x"), "/x/file"+ext)).Error().
+			Expect(
+				r.Format(canceled(), []byte("x"), filepath.Join(repoRoot, "file"+ext)),
+			).Error().
 				To(SatisfyAny(
 					MatchError(context.Canceled),
 					MatchError(exec.ErrNotFound),
@@ -82,7 +84,9 @@ var _ = Describe("Default Registry", func() {
 		"Should not route unknown extensions through any formatter",
 		func(ext string) {
 			r := MustSucceed(format.Default(repoRoot, 2026, nil))
-			Expect(r.Format(canceled(), []byte("x"), "/x/file"+ext)).
+			Expect(
+				r.Format(canceled(), []byte("x"), filepath.Join(repoRoot, "file"+ext)),
+			).
 				To(Equal([]byte("x")))
 		},
 		Entry("Rust", ".rs"),

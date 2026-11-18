@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	xcolor "github.com/synnaxlabs/x/color"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -33,7 +34,11 @@ var _ = Describe("Broadcasts", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		svc = MustOpen(color.OpenService(ctx, color.ServiceConfig{DB: db}))
+		StartRun(db.Run)
+		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		svc = MustOpen(
+			color.OpenService(ctx, color.ServiceConfig{DB: db, Group: groups}),
+		)
 		red = MustSucceed(xcolor.Parse("#ff0000"))
 	})
 	record := func() *Recorder[color.Key, color.Action] {

@@ -11,6 +11,7 @@ package cluster_test
 
 import (
 	"fmt"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -48,12 +49,9 @@ type (
 )
 
 func aspenRecord(hostKey int, nodeKeys ...int) []byte {
-	nodes := ""
+	nodes := make([]string, len(nodeKeys))
 	for i, k := range nodeKeys {
-		if i > 0 {
-			nodes += ","
-		}
-		nodes += fmt.Sprintf(
+		nodes[i] = fmt.Sprintf(
 			`"%d":{"Address":"localhost:%d","Heartbeat":{"Generation":3,"Version":7},"State":0,"Key":%d}`,
 			k,
 			9089+k,
@@ -63,7 +61,7 @@ func aspenRecord(hostKey int, nodeKeys ...int) []byte {
 	return fmt.Appendf(
 		nil,
 		`{"Nodes":{%s},"HostKey":%d,"ClusterKey":%q}`,
-		nodes, hostKey, clusterKey,
+		strings.Join(nodes, ","), hostKey, clusterKey,
 	)
 }
 

@@ -13,7 +13,7 @@ import pytest
 
 import synnax as sy
 from x import filter
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 from x.uuid import NIL
 
 
@@ -162,7 +162,7 @@ class TestArc:
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every Arc."""
         with pytest.raises(sy.ValidationError, match="key is None"):
-            client.arcs.retrieve(key=None)  # type: ignore[call-overload]
+            untyped(client.arcs.retrieve)(key=None)
 
     def test_retrieve_compiled(self, client: sy.Synnax) -> None:
         """Should return the compiled program when include_program is True."""
@@ -214,7 +214,7 @@ class TestArc:
         assert tsk is not None
         retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
         assert isinstance(retrieved, sy.arc.Automation)
-        assert not retrieved.changes
+        assert retrieved.changes == []
         client.statuses.set(
             sy.task.Status(
                 variant=sy.status.VARIANT_SUCCESS,
@@ -377,7 +377,9 @@ class TestArcTask:
             "hash": "abc",
             "data_saving_disabled": True,
         }
-        task = sy.arc.Task(internal=sy.task.Task(type="arc", config=stored))
+        task = sy.arc.Task(
+            internal=sy.task.Task(name="Test Task", type="arc", config=stored)
+        )
         config = task.to_payload().config
         assert config["hash"] == "abc"
         assert config["data_saving_disabled"] is True
@@ -434,7 +436,7 @@ class TestArcTask:
             client.tasks.create(
                 name=f"Test Arc Task {uuid4()}",
                 type="arc",
-                config=sy.arc.Task(name="", arc_key=a.key).to_payload().config,
+                config=sy.arc.Task(name="Arc", arc_key=a.key).to_payload().config,
             )
             for a in arcs
         ]

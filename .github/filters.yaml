@@ -416,6 +416,9 @@ scripts:
   - client/py/**
   - scripts/**
 
+suppressions_py:
+  - "**/*.py"
+
 runners:
   - *py
   - scripts/runners/**

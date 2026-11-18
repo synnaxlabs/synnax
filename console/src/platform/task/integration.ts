@@ -10,6 +10,7 @@
 import { type Icon } from "@synnaxlabs/lyra/icon";
 
 import { type Selector } from "@/platform/selector";
+import { type PlotChannels } from "@/platform/task/plot";
 
 /** The tasks of an integration, as the task feature names and lists them. */
 export interface Integration {
@@ -20,4 +21,6 @@ export interface Integration {
   icon: Icon.ReactElement;
   /** The task types a user can create. */
   selectables: Selector.Selectable[];
+  /** Finds the channels to plot, by read task type. */
+  plotChannels?: Record<string, PlotChannels>;
 }

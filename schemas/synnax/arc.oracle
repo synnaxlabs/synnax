@@ -11,6 +11,7 @@ import "schemas/arc/graph"
 import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
+import "schemas/synnax/channel"
 import "schemas/synnax/status"
 import "schemas/x/crdt"
 import "schemas/x/filter"
@@ -85,20 +86,29 @@ Base struct {
 
 Arc union on type Type extends Base {
     automation {
-        program program.Program? {
+        program      program.Program? {
             @doc value  """
                 is the compiled module output including IR and WebAssembly bytecode.
             """
             @go marshal omit
             @include
         }
-        changes Change[]?        {
+        changes      Change[]         {
             @doc value  "is what changed in the automation since its task was deployed."
             @go marshal omit
             @include
+            @pb number  4
+        }
+        calculations Calculation[]    {
+            @doc value  """
+                are the calculated channels that the program reads, nested ones
+                included. Dependencies come before the channels that read them.
+            """
+            @go marshal omit
         }
 
-        @doc value "is an Arc that runs on a rack as a task."
+        @doc value   "is an Arc that runs on a rack as a task."
+        @pb reserved 2
     }
     module {
         status Status? {
@@ -308,4 +318,15 @@ Where filter Arc {
 
     @doc value         "is a filter that selects Arcs."
     @go request_output "core/pkg/api/arc"
+}
+
+Calculation struct {
+    channel channel.Key     {
+        @doc value "is the key of the calculated channel."
+    }
+    program program.Program {
+        @doc value "is the compiled module that computes the channel."
+    }
+
+    @doc value "is a calculated channel that an automation reads, compiled to a module."
 }

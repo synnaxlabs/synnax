@@ -11,6 +11,7 @@ import {
   DataType,
   MultiSeries,
   Series,
+  sleep,
   type TimeRange,
   TimeSpan,
   TimeStamp,
@@ -351,7 +352,7 @@ describe("DynamicCache", () => {
         expect(res3.allocated).toHaveLength(0);
         expect(res3.flushed).toHaveLength(0);
         const waitSpan = TimeSpan.milliseconds(10);
-        await new Promise((resolve) => setTimeout(resolve, waitSpan.milliseconds));
+        await sleep.sleep(waitSpan);
         const { flushed, allocated } = cache.write(new MultiSeries([ser.reAlign(9n)]));
         expect(allocated).toHaveLength(3);
         expect(allocated.timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(

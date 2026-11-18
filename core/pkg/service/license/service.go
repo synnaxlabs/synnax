@@ -10,6 +10,7 @@
 package license
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -118,15 +119,16 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// DefaultServiceConfig is the default configuration for the license service.
-var DefaultServiceConfig = ServiceConfig{
-	Anchors:       anchors,
-	Now:           time.Now,
-	CheckInterval: time.Hour,
-	WarningTime:   7 * 24 * time.Hour,
-	Grace:         14 * 24 * time.Hour,
-	Rollback:      24 * time.Hour,
-	Loopback:      new(false),
+func defaultServiceConfig() ServiceConfig {
+	return ServiceConfig{
+		Anchors:       anchors,
+		Now:           time.Now,
+		CheckInterval: time.Hour,
+		WarningTime:   7 * 24 * time.Hour,
+		Grace:         14 * 24 * time.Hour,
+		Rollback:      24 * time.Hour,
+		Loopback:      new(false),
+	}
 }
 
 const (
@@ -141,6 +143,8 @@ const (
 var (
 	// prefix keys the accepted license keys. The stored value is the license key.
 	prefix = []byte("license/")
+	// legacyKey is where Cores before signed license keys stored a numeric key.
+	legacyKey = []byte("bGljZW5zZUtleQ==")
 	// markKey holds the latest clock reading the service has recorded.
 	markKey = []byte("highWater")
 )
@@ -172,8 +176,9 @@ var _ io.Closer = &Service{}
 // OpenService opens the service and activates cfg.Key when set. It returns an error
 // when the machine fingerprint cannot be read. A refused cfg.Key is logged, and the
 // service opens under the stored keys. A Core with no license opens in StateMissing.
+// OpenService deletes the stored numeric license keys, which no Core accepts.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(defaultServiceConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -183,6 +188,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s.mu.info = Info{State: StateMissing, Fingerprint: s.fingerprint}
 	if err = s.syncClock(ctx); err != nil {
+		return nil, err
+	}
+	if err = s.removeNumeric(ctx); err != nil {
 		return nil, err
 	}
 	if err = s.load(ctx); err != nil {
@@ -241,8 +249,11 @@ func (i Info) err() error {
 			return errors.Wrap(ErrExpired, i.Warning)
 		}
 		return ErrExpired
+	case StateOk:
+		return nil
+	default:
+		return errors.Newf("unknown license state %q", i.State)
 	}
-	return nil
 }
 
 // checkFit returns ErrFingerprint when lic is bound to other machines, and ErrEdition
@@ -360,6 +371,44 @@ func (s *Service) recordClock(ctx context.Context, now time.Time) error {
 	raw := make([]byte, 8)
 	binary.LittleEndian.PutUint64(raw, uint64(now.UnixNano()))
 	return s.cfg.Set(ctx, markKey, raw)
+}
+
+// removeNumeric deletes the numeric license keys that Cores before 0.60 stored.
+func (s *Service) removeNumeric(ctx context.Context) error {
+	var keys [][]byte
+	_, closer, err := s.cfg.Get(legacyKey)
+	if err == nil {
+		if err = closer.Close(); err != nil {
+			return err
+		}
+		keys = append(keys, legacyKey)
+	} else if !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	iter, err := s.cfg.OpenIterator(kv.IterPrefix(prefix))
+	if err != nil {
+		return err
+	}
+	for iter.First(); iter.Valid(); iter.Next() {
+		if numericFormat.Match(iter.Value()) {
+			keys = append(keys, bytes.Clone(iter.Key()))
+		}
+	}
+	if err = iter.Close(); err != nil {
+		return err
+	}
+	for _, key := range keys {
+		if err = s.cfg.Delete(ctx, key); err != nil {
+			return err
+		}
+	}
+	if len(keys) > 0 {
+		s.cfg.L.Info(
+			"removed stored numeric license keys, which this Core does not accept",
+			zap.Int("count", len(keys)),
+		)
+	}
+	return nil
 }
 
 // load applies the stored key that fits this machine. A key that still applies wins
@@ -501,7 +550,7 @@ func (s *Service) evaluate(lic License, version string) Info {
 // versionCovered reports whether version's major and minor are at most ceiling's. An
 // unparseable version, such as an empty one, passes every ceiling.
 func versionCovered(version, ceiling string) bool {
-	maj, min, ok := parseMinor(version)
+	maj, minor, ok := parseMinor(version)
 	if !ok {
 		return true
 	}
@@ -509,7 +558,7 @@ func versionCovered(version, ceiling string) bool {
 	if !ok {
 		return false
 	}
-	return maj < cMaj || (maj == cMaj && min <= cMin)
+	return maj < cMaj || (maj == cMaj && minor <= cMin)
 }
 
 // parseMinor reads the leading "major.minor" of a version string.
@@ -545,6 +594,7 @@ func (s *Service) logState() {
 		}
 	case StateExpired:
 		s.cfg.L.Error(info.err().Error())
+	case StateMissing:
 	}
 }
 

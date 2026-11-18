@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { access } from "@/access";
@@ -17,14 +18,14 @@ const id = (type: resource.Type, key: string): resource.ID => ({ type, key });
 const policy = (
   objects: resource.ID[],
   actions: access.Action[],
-  key = crypto.randomUUID(),
+  key = uuid.create(),
 ): access.policy.Policy => ({
   key,
   name: "test",
   objects,
   actions,
   internal: false,
-  role: crypto.randomUUID(),
+  role: uuid.create(),
 });
 
 describe("allowRequest", () => {
@@ -205,7 +206,7 @@ describe("allowRequest", () => {
           {
             subject,
             action: "retrieve",
-            objects: access.policy.resourceID(crypto.randomUUID()),
+            objects: access.policy.resourceID(uuid.create()),
           },
           policies,
         ),

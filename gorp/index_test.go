@@ -157,6 +157,7 @@ var _ = Describe("Index", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
 		idxDB = DeferClose(OpenGorpMsgpackDB())
+		StartRun(idxDB.Run)
 	})
 
 	Describe("Filter from an observer of a commit", func() {
@@ -170,6 +171,7 @@ var _ = Describe("Index", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			db = DeferClose(wrapMsgpack(memkv.New()))
+			StartRun(db.Run)
 			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
@@ -236,6 +238,7 @@ var _ = Describe("Index", func() {
 		failing := &failingCommitDB{DB: memkv.New()}
 		db := wrapMsgpack(failing)
 		DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+		StartRun(db.Run)
 		nameIdx := gorp.NewLookupIndex(
 			"name", func(e *indexedEntry) string { return e.Name },
 		)
@@ -267,6 +270,7 @@ var _ = Describe("Index", func() {
 
 	It("Should finish a write through the DB of a NaN value", func(ctx SpecContext) {
 		db := DeferClose(wrapMsgpack(memkv.New()))
+		StartRun(db.Run)
 		ratioIdx := gorp.NewSortedIndex(
 			"ratio", func(*indexedEntry) float64 { return math.NaN() },
 		)
@@ -281,6 +285,7 @@ var _ = Describe("Index", func() {
 		func(ctx SpecContext) {
 			store := &failingCommitDB{DB: memkv.New()}
 			db := DeferClose(wrapMsgpack(store))
+			StartRun(db.Run)
 			nameIdx := gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
@@ -1445,6 +1450,7 @@ var _ = Describe("Index", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			commitDB = DeferClose(wrapMsgpack(memkv.New()))
+			StartRun(commitDB.Run)
 			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
@@ -1594,6 +1600,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
 		idxDB = DeferClose(OpenGorpMsgpackDB())
+		StartRun(idxDB.Run)
 	})
 
 	Describe("Population at OpenTable", func() {
@@ -1613,7 +1620,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			defer func() { Expect(table.Close()).To(Succeed()) }()
 
 			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
-			asStrings := []string{string(keys[0]), string(keys[1])}
+			asStrings := []string{keys[0], keys[1]}
 			Expect(asStrings).To(ConsistOf("a->x", "c->x"))
 			Expect(toIdx.Get(ctx, nil, "y")).To(HaveLen(1))
 			Expect(toIdx.Get(ctx, nil, "missing")).To(BeEmpty())
@@ -1635,7 +1642,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 				Exec(ctx, idxDB)).To(Succeed())
 			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
 			Expect(keys).To(HaveLen(1))
-			Expect(string(keys[0])).To(Equal("a->x"))
+			Expect(keys[0]).To(Equal("a->x"))
 		})
 
 		It("Should remove entries from the index on delete", func(ctx SpecContext) {
@@ -1764,7 +1771,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 
 				keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
 				Expect(keys).To(HaveLen(1))
-				Expect(string(keys[0])).To(Equal("a->x"))
+				Expect(keys[0]).To(Equal("a->x"))
 			},
 		)
 
@@ -1777,11 +1784,7 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 			Expect(tx.Close()).To(Succeed())
 
 			keys := MustSucceed(toIdx.Get(ctx, nil, "x"))
-			asStrings := make([]string, len(keys))
-			for i, k := range keys {
-				asStrings[i] = string(k)
-			}
-			Expect(asStrings).To(ConsistOf("a->x", "q->x"))
+			Expect(keys).To(ConsistOf("a->x", "q->x"))
 		})
 
 		// A graph walk that writes an edge and then filters on it in the same tx, such
@@ -1818,6 +1821,7 @@ var _ = Describe("Populate failure", func() {
 			&failOnceDB{DB: mem, err: errors.New("populate boom")},
 			gorp.WithCodec(msgpack.Codec),
 		)
+		StartRun(db.Run)
 		seed := []indexedEntry{
 			{ID: 1, Name: "alpha", Score: 10},
 			{ID: 2, Name: "beta", Score: 20},

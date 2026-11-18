@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { scheduler, type Size, type TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { scheduler, type Size, type TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { isConnectionError, UnexpectedError } from "@/errors";
@@ -190,7 +190,7 @@ export class Feed {
   private async fetchLatest(entries: LatestEntry[]): Promise<void> {
     const { count, tr } = entries[0].req;
     try {
-      const keys = [...new Set(entries.flatMap(({ req }) => req.keys))];
+      const keys = unique.unique(entries.flatMap(({ req }) => req.keys));
       const frame = await this.props.readLatest(keys, count, tr);
       entries.forEach(({ resolve }) => resolve(frame));
     } catch (e) {

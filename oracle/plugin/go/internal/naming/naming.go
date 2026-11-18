@@ -48,8 +48,8 @@ var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
 	"Https", "Icd", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
 	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
-	"Ui", "Uid", "Uri", "Url", "Utc", "Utf", "Uuid", "Vm", "Xml", "Xmpp",
-	"Xss", "Xy",
+	"Ui", "Uid", "Uri", "Url", "Usb", "Utc", "Utf", "Uuid", "Vm", "Xml",
+	"Xmpp", "Xss", "Xy",
 }
 
 // pascalWord matches one word of a PascalCase identifier.
@@ -112,14 +112,15 @@ func LowerFirst(s string) string {
 	if i == 0 {
 		return s
 	}
-	if i == 1 {
+	switch {
+	case i == 1:
 		runes[0] = unicode.ToLower(runes[0])
-	} else if i == len(runes) {
+	case i == len(runes):
 		for j := range runes {
 			runes[j] = unicode.ToLower(runes[j])
 		}
-	} else {
-		for j := 0; j < i-1; j++ {
+	default:
+		for j := range i - 1 {
 			runes[j] = unicode.ToLower(runes[j])
 		}
 	}
@@ -127,7 +128,7 @@ func LowerFirst(s string) string {
 }
 
 // DerivePackageName extracts the package name from an output path. Example:
-// "core/pkg/service/user" -> "user"
+// "core/pkg/service/user" -> "user".
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
 
 // majorVersion matches a module major-version path segment ("v2", "v12").

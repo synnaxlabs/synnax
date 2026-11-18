@@ -96,37 +96,41 @@ var _ = Describe("Check", func() {
 			expectDiagnostic(analyze(bCtx, inFunc(body)), code, msg)
 		},
 		Entry("+", "x i8 := 100 + 28", codes.ConstantOverflow.Code,
-			"constant 128 overflows i8"),
+			"constant overflow: 128 overflows i8"),
 		Entry("-", "x i8 := -100 - 29", codes.ConstantOverflow.Code,
-			"constant -129 overflows i8"),
+			"constant overflow: -129 overflows i8"),
 		Entry("*", "x i8 := 16 * 8", codes.ConstantOverflow.Code,
-			"constant 128 overflows i8"),
+			"constant overflow: 128 overflows i8"),
 		Entry(
 			"/ of the minimum by -1",
 			"x i8 := -128 / -1",
 			codes.ConstantOverflow.Code,
-			"constant 128 overflows i8",
+			"constant overflow: 128 overflows i8",
 		),
 		Entry("/ by zero", "x := 5 / 0", codes.DivisionByZero.Code,
-			"integer division by zero"),
+			"division by zero: integer division by zero"),
 		Entry("% by zero", "x := 5 % 0", codes.DivisionByZero.Code,
-			"integer modulo by zero"),
+			"division by zero: integer modulo by zero"),
 		Entry("unary - of the signed minimum", "x := -i8(-128)",
-			codes.ConstantOverflow.Code, "constant 128 overflows i8"),
+			codes.ConstantOverflow.Code, "constant overflow: 128 overflows i8"),
 		Entry("unary - of an unsigned value", "x := -u8(1)",
-			codes.ConstantOverflow.Code, "constant -1 overflows u8"),
+			codes.ConstantOverflow.Code, "constant overflow: -1 overflows u8"),
 		Entry("unary - of an unsigned literal", "x u8 := -1",
-			codes.ConstantOverflow.Code, "constant -1 overflows u8"),
+			codes.ConstantOverflow.Code, "constant overflow: -1 overflows u8"),
 		Entry("^", "x i8 := 2 ^ 7", codes.ConstantOverflow.Code,
-			"constant 128 overflows i8"),
+			"constant overflow: 128 overflows i8"),
 		Entry("^ with a large exponent", "x := 2 ^ 100", codes.ConstantOverflow.Code,
-			"constant 2^100 overflows i64"),
+			"constant overflow: 2^100 overflows i64"),
 		Entry("a double-negated literal in a cast", "x := i8(--100) + i8(100)",
-			codes.ConstantOverflow.Code, "constant 200 overflows i8"),
+			codes.ConstantOverflow.Code, "constant overflow: 200 overflows i8"),
 		Entry("an intermediate result", "x i8 := 100 + 100 - 100",
-			codes.ConstantOverflow.Code, "constant 200 overflows i8"),
-		Entry("i64 minimum divided by -1", "x := (-9223372036854775807 - 1) / -1",
-			codes.ConstantOverflow.Code, "constant 9223372036854775808 overflows i64"),
+			codes.ConstantOverflow.Code, "constant overflow: 200 overflows i8"),
+		Entry(
+			"i64 minimum divided by -1",
+			"x := (-9223372036854775807 - 1) / -1",
+			codes.ConstantOverflow.Code,
+			"constant overflow: 9223372036854775808 overflows i64",
+		),
 	)
 
 	DescribeTable("upper bound",
@@ -137,7 +141,7 @@ var _ = Describe("Check", func() {
 			expectDiagnostic(
 				analyze(bCtx, inFunc(fmt.Sprintf("x %s := %s + 1", b.typ, b.max))),
 				codes.ConstantOverflow.Code,
-				fmt.Sprintf("constant %s overflows %s", b.aboveMax, b.typ),
+				fmt.Sprintf("constant overflow: %s overflows %s", b.aboveMax, b.typ),
 			)
 		},
 		boundEntries(func(b bounds) TableEntry { return Entry(b.typ, b) }),
@@ -151,7 +155,7 @@ var _ = Describe("Check", func() {
 			expectDiagnostic(
 				analyze(bCtx, inFunc(fmt.Sprintf("x %s := %s - 2", b.typ, b.minPlus1))),
 				codes.ConstantOverflow.Code,
-				fmt.Sprintf("constant %s overflows %s", b.belowMin, b.typ),
+				fmt.Sprintf("constant overflow: %s overflows %s", b.belowMin, b.typ),
 			)
 		},
 		boundEntries(func(b bounds) TableEntry { return Entry(b.typ, b) }),
@@ -165,7 +169,7 @@ var _ = Describe("Check", func() {
 			expectDiagnostic(
 				analyze(bCtx, inFunc(fmt.Sprintf("x %s := %s", b.typ, b.aboveMax))),
 				codes.ConstantOverflow.Code,
-				fmt.Sprintf("constant %s overflows %s", b.aboveMax, b.typ),
+				fmt.Sprintf("constant overflow: %s overflows %s", b.aboveMax, b.typ),
 			)
 		},
 		boundEntries(func(b bounds) TableEntry { return Entry(b.typ, b) }),
@@ -176,12 +180,12 @@ var _ = Describe("Check", func() {
 			expectDiagnostic(
 				analyze(bCtx, fmt.Sprintf(template, "100 + 100")),
 				codes.ConstantOverflow.Code,
-				"constant 200 overflows i8",
+				"constant overflow: 200 overflows i8",
 			)
 			expectDiagnostic(
 				analyze(bCtx, fmt.Sprintf(template, "1 / 0")),
 				codes.DivisionByZero.Code,
-				"integer division by zero",
+				"division by zero: integer division by zero",
 			)
 		},
 		Entry("flow variable", "x i8 := %s"),
@@ -205,12 +209,12 @@ ch -> g(a=%s)`),
 		expectDiagnostic(
 			analyze(bCtx, inFunc(`s := f"{i8(100) + i8(100)}"`)),
 			codes.ConstantOverflow.Code,
-			"constant 200 overflows i8",
+			"constant overflow: 200 overflows i8",
 		)
 		expectDiagnostic(
 			analyze(bCtx, inFunc(`s := f"{1 / 0}"`)),
 			codes.DivisionByZero.Code,
-			"integer division by zero",
+			"division by zero: integer division by zero",
 		)
 	})
 
@@ -218,10 +222,12 @@ ch -> g(a=%s)`),
 		diags := analyze(bCtx, "func g(a i64) i64 {\n    return a\n}\n"+
 			inFunc("x := (1 / 0) + g(2 % 0) + -(100 * 100000000000000000)"))
 		Expect(diags).To(HaveLen(3), diags.String())
-		Expect(diags[0].Message).To(Equal("integer division by zero"))
-		Expect(diags[1].Message).To(Equal("integer modulo by zero"))
+		Expect(diags[0].Message).To(Equal("division by zero: integer division by zero"))
+		Expect(
+			diags[1].Message,
+		).To(Equal("division by zero: integer modulo by zero"))
 		Expect(diags[2].Message).To(Equal(
-			"constant 10000000000000000000 overflows i64",
+			"constant overflow: 10000000000000000000 overflows i64",
 		))
 	})
 
@@ -230,11 +236,11 @@ ch -> g(a=%s)`),
 			expectDiagnostic(analyze(bCtx, inFunc(body)), code, msg)
 		},
 		Entry("division by zero", "x := (1 + (2 * (3 / (0))))",
-			codes.DivisionByZero.Code, "integer division by zero"),
+			codes.DivisionByZero.Code, "division by zero: integer division by zero"),
 		Entry("overflow", "x i8 := ((64) + ((32 + (32))))",
-			codes.ConstantOverflow.Code, "constant 128 overflows i8"),
+			codes.ConstantOverflow.Code, "constant overflow: 128 overflows i8"),
 		Entry("constant part of a non-constant expression", "x i32 := ich + (1 / 0)",
-			codes.DivisionByZero.Code, "integer division by zero"),
+			codes.DivisionByZero.Code, "division by zero: integer division by zero"),
 	)
 
 	DescribeTable("accepted expressions",

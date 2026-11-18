@@ -26,6 +26,7 @@ var _ = Describe("MigrateProject", func() {
 	migrateSeed := func(ctx SpecContext, seed v1.Project) v2.Project {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Project]{DB: db}))
 		Expect(gorp.NewCreate[v1.Key, v1.Project]().
 			Entry(&seed).Exec(ctx, db)).To(Succeed())

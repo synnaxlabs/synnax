@@ -13,6 +13,9 @@ linter checks, and turn the clearest ones into blocking lint rules.
 3. The lint setup:
    - Go: the root `.golangci.yaml`, the custom analyzers in `x/go/analyzers`, and the
      `.custom-gcl.yaml` of each module. `golangci-lint custom` builds `./custom-gcl`.
+     The config reports only lines changed since the merge base with `main`, so on
+     `main` a plain run reports nothing. Count violations with
+     `./custom-gcl run --new-from-merge-base=`.
    - TypeScript: `configs/eslint/eslint.config.ts` and its local rules in
      `configs/eslint/rules`, and `knip.json`.
    - Python: the Ruff settings in each `pyproject.toml`. Ruff has no plugins, so a rule

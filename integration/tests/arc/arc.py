@@ -21,6 +21,7 @@ wait for a status that reports the task running.
 """
 
 from abc import abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -31,6 +32,7 @@ from framework.test_case import Config, TestCase, param
 from framework.utils import create_virtual_channel
 from synnax.status import Variant
 from tests.driver.sim_daq_case import SimDaqCase
+from tests.driver.task import run_and_expect_rejection
 from x import random_name
 
 START_TIMEOUT_SECONDS = 30
@@ -236,8 +238,17 @@ class ArcCase(SimDaqCase, TestCase):
         Raises AssertionError when the driver rejects the deploy, and
         TimeoutError when no status arrives in time.
         """
+        self._command_arc_task(task, "start", running=True)
+
+    def stop_arc_task(self, task: sy.task.Task) -> None:
+        """Stop the task and block until the runtime reports it stopped."""
+        self._command_arc_task(task, "stop", running=False)
+
+    def _command_arc_task(
+        self, task: sy.task.Task, command: str, *, running: bool
+    ) -> None:
         with self.client.open_streamer(["sy_status_set"]) as streamer:
-            task.execute_command("start")
+            task.execute_command(command)
             timer = sy.Timer()
             while timer.elapsed() < START_TIMEOUT_SECONDS * sy.TimeSpan.SECOND:
                 frame = streamer.read(timeout=float(START_TIMEOUT_SECONDS))
@@ -254,11 +265,37 @@ class ArcCase(SimDaqCase, TestCase):
                         continue
                     if status.variant == "error":
                         raise AssertionError(
-                            f"Arc task '{task.name}' failed to start: {status.message}"
+                            f"Arc task '{task.name}' failed to {command}: "
+                            f"{status.message}"
                         )
-                    if status.details is not None and status.details.running:
+                    if status.details is not None and status.details.running == running:
                         return
-        raise TimeoutError(f"timed out waiting for Arc task '{task.name}' to start")
+        raise TimeoutError(f"timed out waiting for Arc task '{task.name}' to {command}")
+
+    def _assert_configure_error(
+        self,
+        source: str,
+        *,
+        name_prefix: str,
+        substr: str,
+        expect: Sequence[str] = (),
+    ) -> None:
+        """Start an Arc expected to be rejected on deploy and verify the error."""
+        name = self.load_arc(source, name_prefix=name_prefix, start=False)
+        handle = next(h for h in self._arcs if h.name == name)
+        message = run_and_expect_rejection(
+            self.client, handle.task, timeout=30 * sy.TimeSpan.SECOND
+        )
+        if message is None:
+            self.fail(f"[{name_prefix}] deploy unexpectedly succeeded")
+        assert substr in message, (
+            f"[{name_prefix}] expected '{substr}' in error, got: {message}"
+        )
+        for expected in expect:
+            assert expected in message, (
+                f"[{name_prefix}] expected '{expected}' in error, got: {message}"
+            )
+        self.log(f"[{name_prefix}] Got expected error: {message}")
 
     def _arc(self, name: str) -> ArcTaskHandle:
         for handle in self._arcs:

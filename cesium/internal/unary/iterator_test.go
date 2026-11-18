@@ -1774,6 +1774,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(dw.CommitWithEnd(
 									ctx,
 									12*telem.SecondTS+1,
+									nil,
 								)).To(Succeed())
 								MustSucceed(dw.Close())
 								iter := MustSucceed(
@@ -3130,8 +3131,9 @@ var _ = Describe("Chunked Iteration", func() {
 
 				// values returns the samples in the frame of iter, in order.
 				values := func(iter *unary.Iterator) []int64 {
-					var out []int64
-					for _, s := range iter.Value().Get(iter.Channel.Key).Series {
+					series := iter.Value().Get(iter.Channel.Key)
+					out := make([]int64, 0, series.Len())
+					for _, s := range series.Series {
 						out = append(out, s.Unmarshal[int64]()...)
 					}
 					return out

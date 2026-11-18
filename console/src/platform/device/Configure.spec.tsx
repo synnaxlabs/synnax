@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { id, strings } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,6 +31,8 @@ const client = createTestClient();
 
 const HINT = /A short prefix for every channel/;
 
+const suggestFirstWord = ({ name }: device.Device): string[] => [name.split(" ")[0]];
+
 const onCreateReadTask = vi.fn();
 const onBack = vi.fn();
 
@@ -46,12 +49,14 @@ const HARDWARE: Device.Hardware = {
   Configure: Device.createConfigure({
     icon: <Icon.Hardware />,
     zeroProperties: { vendor: "acme" },
+    suggestIdentifiers: suggestFirstWord,
   }),
 };
 
 const Configure = Device.createConfigure({
   icon: <Icon.Hardware />,
   zeroProperties: {},
+  suggestIdentifiers: suggestFirstWord,
 });
 
 const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
@@ -167,11 +172,16 @@ describe("device Configure", () => {
     await waitFor(() => expect(screen.queryByText(HINT)).toBeNull());
   });
 
-  it("should fill the identifier from a suggestion based on the name", async () => {
-    const { dev } = await setup();
-    const [suggestion] = strings.createShortIdentifiers(dev.name);
-    fireEvent.click(findButton(suggestion));
-    expect(identifierInput().value).toEqual(suggestion);
+  it("should show the location of the device", async () => {
+    await setup();
+    expect(screen.getByText("dev1")).toBeTruthy();
+  });
+
+  it("should fill the identifier from a suggestion for the name the user entered", async () => {
+    await setup();
+    fireEvent.change(nameInput(), { target: { value: "bench sensor" } });
+    fireEvent.click(findButton("bench"));
+    expect(identifierInput().value).toEqual("bench");
   });
 
   it("should report the make of the device it configured", async () => {
@@ -209,6 +219,15 @@ describe("device Configure", () => {
       await save("Save and create read task");
       expect(screen.getByText(HINT)).toBeTruthy();
       expect(onCreateReadTask).not.toHaveBeenCalled();
+    });
+
+    it("should hold Back while the device saves", async () => {
+      await setup(useConfigureWithActionsModal);
+      fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
+      fireEvent.click(findButton("Save"));
+      fireEvent.click(findButton("Back"));
+      expect(onBack).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByText(HINT)).toBeNull());
     });
 
     it("should go back without saving", async () => {

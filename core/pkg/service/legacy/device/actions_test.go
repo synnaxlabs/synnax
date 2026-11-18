@@ -71,6 +71,7 @@ var _ = Describe("Actions", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
@@ -302,6 +303,15 @@ var _ = Describe("Actions", func() {
 				},
 			}
 		}
+		// storedWith returns the stored properties with value at key in read.
+		storedWith := func(key string, value any) msgpack.EncodedJSON {
+			GinkgoHelper()
+			props := stored()
+			read, ok := props["read"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			read[key] = value
+			return props
+		}
 		apply := func(ctx context.Context, acts ...device.Action) error {
 			return write(ctx, func(w device.Writer) error {
 				return w.Apply(ctx, dev.Key, acts...)
@@ -320,10 +330,9 @@ var _ = Describe("Actions", func() {
 				setAt(2, "channels", "b"),
 				setAt(3, "channels", "c"),
 			)).To(Succeed())
-			expected := stored()
-			expected["read"].(map[string]any)["channels"] = map[string]any{
+			expected := storedWith("channels", map[string]any{
 				"a": 1.0, "b": 2.0, "c": 3.0,
-			}
+			})
 			Expect(retrieve(ctx).Properties).To(Equal(expected))
 		})
 
@@ -331,17 +340,15 @@ var _ = Describe("Actions", func() {
 			Expect(apply(ctx, device.NewRemoveAction(
 				device.RemovePayload{Path: at("channels"), Key: "a"},
 			))).To(Succeed())
-			expected := stored()
-			expected["read"].(map[string]any)["channels"] = map[string]any{}
+			expected := storedWith("channels", map[string]any{})
 			Expect(retrieve(ctx).Properties).To(Equal(expected))
 		})
 
 		It("Should set a value inside a list entry", func(ctx SpecContext) {
 			Expect(apply(ctx, setAt(2, "nodes", "n1", "port"))).To(Succeed())
-			expected := stored()
-			expected["read"].(map[string]any)["nodes"] = []any{
+			expected := storedWith("nodes", []any{
 				map[string]any{"key": "n1", "port": 2.0},
-			}
+			})
 			Expect(retrieve(ctx).Properties).To(Equal(expected))
 		})
 
@@ -383,9 +390,7 @@ var _ = Describe("Actions", func() {
 			}))).To(Succeed())
 			expected := stored()
 			if applied {
-				expected["read"].(map[string]any)["channels"] = map[string]any{
-					"a": 1.0, "b": 2.0,
-				}
+				expected = storedWith("channels", map[string]any{"a": 1.0, "b": 2.0})
 			}
 			Expect(retrieve(ctx).Properties).To(Equal(expected))
 		},

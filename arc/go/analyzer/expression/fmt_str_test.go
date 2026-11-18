@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/parser"
@@ -123,7 +124,8 @@ trig -> f()`
 		DescribeTable(
 			"rejects malformed format string bodies",
 			func(specCtx SpecContext, body, errSubstr string) {
-				expectError(specCtx, wrap(`    log = `+body), errSubstr)
+				d := expectError(specCtx, wrap(`    log = `+body), errSubstr)
+				Expect(d.Code).To(Equal(codes.InvalidStringLiteral.Code))
 			},
 			Entry("unmatched opening brace at end", `f"{x"`, "unmatched '{'"),
 			Entry(
@@ -150,7 +152,8 @@ trig -> f()`
 		DescribeTable(
 			"rejects unparseable placeholder bodies",
 			func(specCtx SpecContext, body, errSubstr string) {
-				expectError(specCtx, wrap(`    log = `+body), errSubstr)
+				d := expectError(specCtx, wrap(`    log = `+body), errSubstr)
+				Expect(d.Code).To(Equal(codes.InvalidStringLiteral.Code))
 			},
 			Entry(
 				"trailing operator",
@@ -559,7 +562,7 @@ trig -> f()`
 					}
 				}
 			}
-			for i := 0; i < t.GetChildCount(); i++ {
+			for i := range t.GetChildCount() {
 				if found := findStringTerminal(t.GetChild(i)); found != nil {
 					return found
 				}

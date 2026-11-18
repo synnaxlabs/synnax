@@ -66,13 +66,17 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
 
 interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
-const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
+const ContextMenuItem: React.FC<ContextMenuItemProps> = ({
+  channels,
+  keys,
+  target,
+}) => {
   const canRename = Access.useUpdateGranted(channel.TYPE_RESOURCE_ID);
   if (keys.length !== 1 || !canRename) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;
   if (cmdChannel == null) return null;
-  const handleRename = () => Text.edit(Task.getChannelNameID(key, "cmd"));
+  const handleRename = () => Text.edit(Task.getChannelNameID(key, "cmd"), target);
   return (
     <>
       <ContextMenu.RenameItem onClick={handleRename} />

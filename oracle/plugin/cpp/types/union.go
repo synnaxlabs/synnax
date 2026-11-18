@@ -21,7 +21,6 @@ import (
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
-	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -67,7 +66,7 @@ func (p *Plugin) processUnion(
 	entry resolution.Type,
 	data *templateData,
 ) ([]structData, unionData) {
-	form := entry.Form.(resolution.UnionForm)
+	form := resolution.MustForm[resolution.UnionForm](entry)
 	name := domain.GetName(entry, "cpp")
 	data.AddSystem("variant")
 	data.AddSystem("string")
@@ -80,13 +79,9 @@ func (p *Plugin) processUnion(
 		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
 	if hasPBFlag(entry) && !omit.IsSkipped(entry, "pb") {
-		if pbOutputPath := output.GetPBPath(entry); pbOutputPath != "" {
-			pbNamespace := cppnaming.PBNamespace(pbOutputPath, entry.Namespace)
+		if msg, ok := addProtoMessage(entry, data); ok {
 			ud.HasProto = true
-			ud.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, cppnaming.PBName(entry))
-			data.AddSystem("utility")
-			data.AddInternal("x/cpp/errors/errors.h")
-			data.AddInternal(fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace))
+			ud.ProtoType = msg.typ
 		}
 	}
 
@@ -102,7 +97,7 @@ func (p *Plugin) processUnion(
 	borrows = borrows && form.BorrowsEnum()
 	if borrows && enumType.FilePath != data.filePath {
 		if path := enum.FindOutputPath(enumType, data.table, "cpp"); path != "" {
-			data.AddInternal(fmt.Sprintf("%s/types.gen.h", path))
+			data.AddInternal(path + "/types.gen.h")
 		}
 	}
 	variants := make([]structData, 0, len(form.Variants))
@@ -131,55 +126,7 @@ func (p *Plugin) processUnion(
 				DefaultValue: discDefault,
 			}},
 		}
-		inherited, declared := resolver.VariantBases(form, v, "cpp", data.table)
-		for _, ext := range inherited {
-			if parent, ok := ext.Resolve(data.table); ok {
-				sd.ExtendsTypes = append(
-					sd.ExtendsTypes,
-					p.resolveExtendsType(ext, parent, data),
-				)
-			}
-		}
-		if message, _, ok := resolution.Dealias(v.Type, data.table); ok {
-			payload, _ := v.Type.Resolve(data.table)
-			// The variant translates against its payload message: a synthetic one
-			// for an inline body, the referenced struct's own message otherwise.
-			if ud.HasProto {
-				ns, header := cppnaming.VariantPBNamespace(entry, v, message)
-				data.AddInternal(header)
-				sd.HasProto = true
-				sd.ProtoNamespace = ns
-				sd.ProtoClass = cppnaming.PBName(message)
-				sd.ProtoType = fmt.Sprintf("%s::%s", ns, sd.ProtoClass)
-			}
-			if v.Inline {
-				pform := payload.Form.(resolution.StructForm)
-				// A field that only restates an inherited default keeps the base's
-				// member; the new default moves into a generated constructor.
-				defaultOnly := resolver.DefaultOnlyOverrides(
-					inherited, pform.Fields, data.table,
-				)
-				for _, f := range append(slices.Clone(declared), pform.Fields...) {
-					fd := p.processField(f, payload, data)
-					if !defaultOnly.Contains(f.Name) {
-						sd.Fields = append(sd.Fields, fd)
-						continue
-					}
-					if fd.DefaultValue == "" {
-						continue
-					}
-					sd.InheritedDefaults = append(
-						sd.InheritedDefaults,
-						inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
-					)
-				}
-			} else {
-				sd.ExtendsTypes = append(
-					sd.ExtendsTypes,
-					p.resolveExtendsType(v.Type, payload, data),
-				)
-			}
-		}
+		p.addVariantBody(&sd, entry, form, v, ud.HasProto, data)
 		sd.HasExtends = len(sd.ExtendsTypes) > 0
 		data.AddInternal("x/cpp/json/json.h")
 		variants = append(variants, sd)
@@ -191,10 +138,71 @@ func (p *Plugin) processUnion(
 	return variants, ud
 }
 
+// addVariantBody adds the bases, payload fields, and protobuf message of the variant v
+// to sd. hasProto reports whether the union translates to protobuf.
+func (p *Plugin) addVariantBody(
+	sd *structData,
+	entry resolution.Type,
+	form resolution.UnionForm,
+	v resolution.UnionVariant,
+	hasProto bool,
+	data *templateData,
+) {
+	inherited, declared := resolver.VariantBases(form, v, "cpp", data.table)
+	for _, ext := range inherited {
+		if parent, ok := ext.Resolve(data.table); ok {
+			sd.ExtendsTypes = append(
+				sd.ExtendsTypes,
+				p.resolveExtendsType(ext, parent, data),
+			)
+		}
+	}
+	message, _, ok := resolution.Dealias(v.Type, data.table)
+	if !ok {
+		return
+	}
+	payload, _ := v.Type.Resolve(data.table)
+	// The variant translates against its payload message: a synthetic one for an inline
+	// body, the referenced struct's own message otherwise.
+	if hasProto {
+		ns, header := cppnaming.VariantPBNamespace(entry, v, message)
+		data.AddInternal(header)
+		sd.HasProto = true
+		sd.ProtoNamespace = ns
+		sd.ProtoClass = cppnaming.PBName(message)
+		sd.ProtoType = fmt.Sprintf("%s::%s", ns, sd.ProtoClass)
+	}
+	if !v.Inline {
+		sd.ExtendsTypes = append(
+			sd.ExtendsTypes,
+			p.resolveExtendsType(v.Type, payload, data),
+		)
+		return
+	}
+	pform := resolution.MustForm[resolution.StructForm](payload)
+	// A field that only restates an inherited default keeps the base's member; the new
+	// default moves into a generated constructor.
+	defaultOnly := resolver.DefaultOnlyOverrides(inherited, pform.Fields, data.table)
+	for _, f := range append(slices.Clone(declared), pform.Fields...) {
+		fd := p.processField(f, payload, data)
+		if !defaultOnly.Contains(f.Name) {
+			sd.Fields = append(sd.Fields, fd)
+			continue
+		}
+		if fd.DefaultValue == "" {
+			continue
+		}
+		sd.InheritedDefaults = append(
+			sd.InheritedDefaults,
+			inheritedDefaultData{Name: fd.Name, Value: fd.DefaultValue},
+		)
+	}
+}
+
 // enumMember returns the member of enumType whose value is value. The analyzer
 // guarantees one exists for every variant of a union that borrows the enum.
 func enumMember(enumType resolution.Type, value string) (resolution.EnumValue, bool) {
-	form := enumType.Form.(resolution.EnumForm)
+	form := resolution.MustForm[resolution.EnumForm](enumType)
 	for _, m := range form.Values {
 		if m.StringValue() == value {
 			return m, true

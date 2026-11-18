@@ -57,6 +57,17 @@ from another system. Text on a 15% tint of its status (badges, notes) uses
 step nearest the status color that reads on the tint: a darker step in light mode, and a
 lighter step or the base step in dark mode.
 
+### Series colors
+
+The Core ships 16 series colors for data, in a palette of named colors named "Series"
+(`core/pkg/service/color/builtin.go`). Each has a light and a dark value with 3:1
+contrast on the canvas of its theme. The first eight keep the old hues and stay apart
+under each color vision deficiency. The last eight fill the hue gaps and only pass the
+contrast check, so lines past the eighth can look alike to a color-blind user.
+
+A palette lists its colors in the order that a user sets by drag, as Figma lists styles.
+A new line takes the first series color in that order that no other line uses.
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
@@ -230,12 +241,14 @@ lighter step or the base step in dark mode.
   the submit button. The note keeps its space while empty, so nothing moves when it
   shows. It is one plain sentence ("Incorrect username or password."), and it is empty
   before the first attempt.
-- A span of time (a timeout, a delay, a window) is a typed duration field
-  (`Form.TimeSpanField`, or `Input.TimeSpan inline`), never a number with a unit suffix.
-  The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit of the
-  stored value. The readings and a hint show under the field while it has focus, also
-  when it already has a value. A bound is a message under the field ("Timeout must be
-  1min or less"), never a silent clamp.
+- A span of time (a timeout, a delay, a window) is a typed duration field, never a
+  number with a unit suffix. Use `Form.TimeSpanField` when the stored unit is the unit
+  of a number typed alone, and `Input.TimeSpan inline` with its own `unit` when they
+  differ. The person types "500ms", "2.5s", or "1min 30s". A number alone takes the unit
+  people think in for that field, such as milliseconds for a click delay and seconds for
+  a timeout, whatever unit the value is stored in. The readings and a hint show under
+  the field while it has focus, also when it already has a value. A bound is a message
+  under the field ("Timeout must be 1min or less"), never a silent clamp.
 - A range duration on the timeline keeps the popover editor (`Input.TimeSpan`), because
   it reads as a value, not as a form field.
 
@@ -273,6 +286,14 @@ bound, a log precision, or the line plot X channel.
   so and offers to connect one ("Connect MQTT broker"), then selects the new device.
   Otherwise it says "No device selected" and offers "Select device", which opens the
   device select.
+- A task that reads fields of an ICD message, such as MQTT read, lists them in a tree
+  under their topic, like a group tree. Each field shows once, in the tree. The topic
+  details hold the subscription and the timestamp. A field's details hold its format,
+  which saves to the ICD, then its channel. A field that the task does not read is
+  struck through, and its dot starts reading it. Rejected: a list of topics with a
+  channel table, and a fields table in the topic details, which showed each field twice.
+- A topic that reads several messages holds a node for each, with its fields beneath. A
+  message's details hold its name and match, from the ICD, then its timestamp.
 - A task form is at most 1000 px wide. A task whose channel table needs more room sets
   `--console-task-form-max-width`. Modbus uses 1200 px.
 - Port banks sit side by side in columns eight ports wide, each under its title. They
@@ -318,6 +339,24 @@ bound, a log precision, or the line plot X channel.
   layout does not move. The arrow keys and the pointer move one highlight, and Enter
   picks the highlighted item.
 
+### Color picker
+
+- With named colors, two tabs split the picker's width: Library (`Icon.Library`) and
+  Custom (`Icon.Sliders`). It opens on Library while the value is linked or absent, and
+  on Custom while the value is a fixed color.
+- One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
+  Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
+- Library has the select dialog's search under the tab bar's hairline, with a hairline
+  under it. Each palette sits under its title, which ends with the name of the hovered
+  color, else the linked one. Swatches have no tooltips.
+- A swatch shows the color's value for the current theme only.
+- An edit in Custom stores a fixed color and unlinks the value. There is no unlink
+  button.
+- An optional color puts a square Auto button at the right of the tab bar, on both tabs.
+- The saturation and brightness plane has the tiny radius.
+- The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
+  icon. Hex codes use the code font, so every code takes the same width and fits.
+
 ### Menus and selects
 
 - Menus use 13 px text in 28 px items. This includes context menus, the filter menu, and
@@ -355,6 +394,11 @@ bound, a log precision, or the line plot X channel.
 - "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
   calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
+- An open `Select.Multiple` and the line plot's Ranges select list their selected values
+  first, with no divider: their joined tint marks where they end. The order is set when
+  the select opens and holds while it stays open, so an item never moves under the
+  pointer. A search lists its matches in their own order. GitHub and GitLab do the same.
+  A filter menu keeps its own order.
 - The placeholder of an empty `shadow` or `text` multiple select is a text button. A
   click on it opens the select beside it, as a click on a tag does. The placeholder and
   the add button take the select's size, medium by default, so they stand a step above
@@ -368,6 +412,9 @@ bound, a log precision, or the line plot X channel.
   count: the dots of the first hidden tags, then "+N". With no tag shown, the count
   reads "N labels", then "+N" with its dots. Only a group too narrow for that shows
   nothing.
+- Only a tag that shows a color dot shows as a dot in the count. Tags with other icons,
+  such as channels, fold into a plain "+N".
+- An outlined group, such as a select in a form, keeps its outline at every step.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
 - A value in a list item or a property panel shows no caret, at rest, on hover, or while
@@ -446,6 +493,21 @@ bound, a log precision, or the line plot X channel.
   same picker as panels. The fixed view shows the explorer's icon.
 - Create view opens a modal like the project modal: an icon button, then the name. The
   name has no default value.
+- The panel stores the view each explorer tab shows, so the view lasts through a reload
+  and a move to another window, and everyone who opens the panel sees it. Opening a view
+  changes the tab in place. A user who may not change the panel cannot open another view
+  in it.
+- A panel shows a saved view in one tab at most. Opening a view that another tab shows
+  focuses that tab.
+- The panel tab name follows the view: the explorer's name ("Range explorer") on the
+  static view, and "Ranges › <view>" on a saved view. A rename of the view changes it,
+  and a rename of the tab renames the view. When the view is deleted, the tab shows that
+  it was deleted, with Close and Restore, like the tab of any deleted resource.
+- "Open in new tab" in a view's context menu, or Cmd+click (Ctrl+click on Windows and
+  Linux) on a view, opens it in a new explorer tab beside the current one. The current
+  tab keeps its view. The saved view the current tab shows has no "Open in new tab".
+- Opening the explorer from the sidebar or the command palette focuses its first tab in
+  the panel, whichever view it shows, and opens one only when the panel has none.
 
 ### Filter chips
 
@@ -458,6 +520,19 @@ bound, a log precision, or the line plot X channel.
 - A part that opens something gets l3 on hover and l4 on press.
 - The dots of a labels value overlap a little, as one group.
 
+### Record headers
+
+- The header of a record page, such as a range overview, puts its actions on the top
+  line, beside the parents. The name takes the full width under them.
+- A parent shows its color square, as the explorer does, at 80% opacity, then its name
+  at weight 500 in gray l9. A caret the size of the text separates two parents. The
+  parents never wrap: the furthest up fades first.
+- In a narrow pane, the parents move to their own line under the actions. When the pane
+  is narrower still, the copy, download, and link buttons fold into a "⋮" menu. Plot and
+  the star stay.
+- A word of a time line ("started", "ended") wraps with its time, never alone.
+- In a narrow pane, a field of a record shows its value under its name.
+
 ### Page sections
 
 - A section of a record page, such as Child ranges or Metadata, is an outlined box like
@@ -466,6 +541,52 @@ bound, a log precision, or the line plot X channel.
 - The header holds one text button with the section's icon, title, and caret. It
   collapses the box to its bar. An action in the header opens the box again.
 - An empty section shows no box, only one muted "+ Noun" line that adds its first item.
+
+### Group headings
+
+- A list that groups its items, such as the palettes on the Colors page or the groups of
+  the Ranges toolbar, heads each group with `Header.Group`: one full-width bar that
+  opens and closes the group.
+- The bar is l2 with the item radius. Its height is the Lyra size nearest the item
+  height: `large` above a 40 px item. Hover and press fill the whole bar.
+- The title is a plain string or a span at the button label weight. The count follows in
+  tiny l9 text, then an optional badge. The caret at the end points down when open.
+- Actions, such as a "+" that creates an item in the group, sit before the caret and do
+  not open or close it. Rename edits the title in place.
+
+### Ranges toolbar
+
+- The toolbar is one list in three groups: Running, Favorites, and Recent. Never call
+  the middle group "Pinned". Each heading has an icon: the in-progress stage icon in
+  amber, a filled star in goldenrod, and the completed stage icon in blue.
+- The heading icon sits over the item carets, and the title over the color marks.
+  Collapsed headings are 3 px apart, and the first is 6 px below the header. A collapsed
+  group stays collapsed across sessions.
+- A line is the caret, the color mark, the name, the muted parent, the time, then Stop
+  or the star. The time is the elapsed time in Running, the start in Favorites, and
+  "ago" in Recent. The caret's hover box never touches the color mark.
+- Running nests each range under its running parent. Favorites keeps star order; with
+  none, it shows "Star a range to add it here". Recent sorts by end, newest first. A
+  finished child of a running range shows in Recent with its muted parent, and nests
+  under the parent when the parent ends.
+- The header holds the explorer, then + (the create form set to the last hour), then
+  Start. + and Start are outlined `Toolbar.CreateAction` buttons. The toolbar has no
+  active range, and new plots open on Rolling 30s.
+- Next shows beside Stop on a running range with a parent. It stops the range, and each
+  running range below it, at the click time, and opens a draft below the range. Enter
+  starts the new range at that same time; Escape cancels both. Start child shows on
+  hover on each running range, opens a draft as the last child, and stops nothing.
+- A draft suggests a name from the order of the children of the parent's previous
+  sibling, or else adds one to a trailing number. It suggests the color of the matched
+  range, and its swatch changes the color.
+- The hover card (0.7 s, to the right) shows the name, color, stage, path, start, end,
+  duration, a strip of the children in time, the first 6 children, and the labels. It
+  has no buttons.
+- The menu is the explorer's menu. In the toolbar, Start child and Next work in place. A
+  line drags onto a line plot's Ranges field.
+- At 46rem the parents hide, and Start child and Next move to a hover cover over the
+  time. At 38rem finished times hide. At 34rem live times and the explorer button hide.
+  A line without Next keeps its slot, so the times line up.
 
 ### Record tables
 
