@@ -48,10 +48,10 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 //
 // For a stored certificate, Set reads the details from the PEM and keeps only its
 // certificate blocks. An optional PEM privateKey must match the leaf, and replaces the
-// value of the certificate's key secret. Without one, a replacement keeps the old key
-// only when the public key is unchanged, and renames its secret after a new name. A
-// file certificate takes no privateKey. The commit carries a create action that holds
-// the certificate.
+// value of the certificate's key secret. A replace cannot add a key to a certificate
+// saved without one. Without privateKey, a replacement keeps the old key only when the
+// public key is unchanged, and renames its secret after a new name. A file certificate
+// takes no privateKey. The commit carries a create action that holds the certificate.
 func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) error {
 	if c.Variant == nil {
 		v := validate.New("certificate")
@@ -87,7 +87,18 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 	}
 	switch variant := c.Variant.(type) {
 	case StoredCertificate:
-		prevStored, _ := prev.Variant.(StoredCertificate)
+		prevStored, replaced := prev.Variant.(StoredCertificate)
+		// A rack may use a certificate that has no key, so a key added later would
+		// reach the rack through a use that no user vouched for.
+		if replaced && prevStored.PrivateKey == nil && len(privateKey) != 0 {
+			v := validate.New("certificate")
+			v.Ternary(
+				"private_key_pem",
+				true,
+				"must be empty for a certificate saved without a private key",
+			)
+			return v.Error()
+		}
 		if variant, err = w.prepareStored(
 			ctx,
 			variant,

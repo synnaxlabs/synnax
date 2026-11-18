@@ -64,8 +64,9 @@ class Client:
 
         :param certificates: The certificates to create or replace.
         :returns: The saved certificates.
-        :raises PathError: If a certificate has no name, a PEM does not parse, or a
-            private key does not match its certificate.
+        :raises PathError: If a certificate has no name, a PEM does not parse, a
+            private key does not match its certificate, or a replace adds a private key
+            to a certificate saved without one.
         :raises AccessDenied: If the caller may not create certificates, create secrets
             for private keys, or update a certificate it replaces and the secret of its
             private key.

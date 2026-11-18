@@ -89,6 +89,20 @@ class TestCertificate:
                 )
             )
 
+    def test_add_private_key(self, client: sy.Synnax) -> None:
+        """Should refuse to add a private key to a certificate saved without one."""
+        c = client.certificates.set(certificate.NewStored(name="Keyless", pem=PEM))
+        with pytest.raises(
+            sy.PathError,
+            match=r"^private_key_pem: must be empty for a certificate saved without a "
+            r"private key$",
+        ):
+            client.certificates.set(
+                certificate.NewStored(
+                    key=c.key, name="Keyless", pem=PEM, private_key_pem=PRIVATE_KEY
+                )
+            )
+
     def test_create_file(self, client: sy.Synnax) -> None:
         """Should create a file certificate on a rack."""
         r = client.racks.create(name="File certificate")

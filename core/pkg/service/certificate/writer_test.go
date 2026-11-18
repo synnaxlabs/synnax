@@ -382,6 +382,25 @@ var _ = Describe("Writer", func() {
 					))
 				},
 			)
+			It("Should refuse to add a private key to a certificate saved without one",
+				func(ctx SpecContext) {
+					key := newKey()
+					c := e.create(
+						ctx,
+						stored("Plant", newCertificate(key, "a", time.Hour)),
+						nil,
+					)
+					Expect(e.write(ctx, func(w certificate.Writer) error {
+						return w.Set(ctx, &c, encodeKey(key))
+					})).To(MatchError(ContainSubstring(
+						"private_key_pem: must be empty for a certificate saved " +
+							"without a private key",
+					)))
+					Expect(
+						storedOf(e.retrieve(ctx, c.Base().Key)).PrivateKey,
+					).To(BeNil())
+				},
+			)
 			It("Should refuse a replace of a stored certificate with a file",
 				func(ctx SpecContext) {
 					key := newKey()

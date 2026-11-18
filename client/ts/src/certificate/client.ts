@@ -131,8 +131,9 @@ export class Client extends query.Retriever<
 
   /**
    * Creates certificates, or replaces the certificates whose keys exist.
-   * @throws {PathError} if a certificate has no name, a PEM does not parse, or a
-   * private key does not match its certificate.
+   * @throws {PathError} if a certificate has no name, a PEM does not parse, a private
+   * key does not match its certificate, or a replace adds a private key to a
+   * certificate saved without one.
    * @throws {AccessDeniedError} if the caller may not create certificates, create
    * secrets for private keys, or update a certificate it replaces and the secret of its
    * private key.

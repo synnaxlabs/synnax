@@ -128,6 +128,21 @@ describe("Certificate", () => {
       );
     });
 
+    it("should refuse to add a private key to a certificate saved without one", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.set({
+        name: "Keyless",
+        source: "stored",
+        pem: PEM,
+      });
+      assert(c.source === "stored");
+      const replace = client.certificates.set({ ...c, privateKeyPem: PRIVATE_KEY });
+      await expect(replace).rejects.toThrow(PathError);
+      await expect(replace).rejects.toThrow(
+        "private_key_pem: must be empty for a certificate saved without a private key",
+      );
+    });
+
     it("should create a file certificate", async () => {
       const client = createTestClient();
       const r = await client.racks.create({ name: "File certificate" });
