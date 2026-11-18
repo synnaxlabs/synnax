@@ -193,6 +193,12 @@ type Message = versions.Message
 // how to parse each one.
 type ICD = versions.ICD
 
+// ReadBinding writes the value of one message field to a channel.
+type ReadBinding = versions.ReadBinding
+
+// ReadMessage reads the documents of one ICD message.
+type ReadMessage = versions.ReadMessage
+
 // Where is a filter that selects ICDs.
 type Where struct {
 	// And matches when every child matches.

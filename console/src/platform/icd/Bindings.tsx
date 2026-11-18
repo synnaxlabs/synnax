@@ -19,13 +19,7 @@ import { type FC, type ReactElement, useEffect } from "react";
 
 import { converts } from "@/platform/icd/dataType";
 import { useFormats } from "@/platform/icd/Formats";
-import {
-  isReadable,
-  jsonFields,
-  type ReadBinding,
-  type ReadSource,
-  suit,
-} from "@/platform/icd/read";
+import { isReadable, jsonFields, type ReadSource, suit } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
 export interface MessageLabelProps {
@@ -55,7 +49,7 @@ const UNREADABLE_TOOLTIP =
   "A bytes field needs a JSON pointer. Give it one in the message format.";
 
 export interface ReadCheckboxProps {
-  bindings: deep.Target<ReadBinding[]>;
+  bindings: deep.Target<icd.ReadBinding[]>;
   field: icd.JSONField;
   /** Starts or stops reading the field. */
   onChange: (on: boolean) => void;

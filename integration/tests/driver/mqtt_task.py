@@ -53,11 +53,11 @@ def create_plain_entry(
         retained_ignored=retained_ignored,
         icd=ic.key,
         messages=[
-            mqtt.ReadMessage(
+            sy.icd.ReadMessage(
                 message=message.key,
                 index=None if index is None else index.key,
                 bindings=[
-                    mqtt.ReadBinding(field=f.key, channel=ch) for f, ch in bindings
+                    sy.icd.ReadBinding(field=f.key, channel=ch) for f, ch in bindings
                 ],
             )
         ],

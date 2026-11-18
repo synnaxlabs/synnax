@@ -79,29 +79,6 @@ type ReadField = v1.ReadField
 // BaseReadEntry carries the fields every read entry shares.
 type BaseReadEntry = v1.BaseReadEntry
 
-// ReadBinding writes the value of one message field to a channel.
-type ReadBinding struct {
-	// Field is the key of the message field to read.
-	Field icd.FieldKey `json:"field" msgpack:"field"`
-	// Channel is the channel the value of the field is written to.
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// DataType is the data type of the channel that a client creates for the field.
-	// Empty takes the default of the field's kind. The Core ignores it once the channel
-	// exists.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-}
-
-// ReadMessage reads the documents of one ICD message.
-type ReadMessage struct {
-	// Message is the key of the ICD message to read.
-	Message icd.MessageKey `json:"message" msgpack:"message"`
-	// Index is the key of the field whose channel indexes the others. Absent when the
-	// task stamps samples on arrival.
-	Index *icd.FieldKey `json:"index,omitzero" msgpack:"index,omitempty"`
-	// Bindings are the fields the task reads. A field with no binding is not read.
-	Bindings []ReadBinding `json:"bindings" msgpack:"bindings"`
-}
-
 // InlineEntry is a plain entry from before ICDs, which held its fields inline.
 type InlineEntry struct {
 	BaseReadEntry
@@ -200,7 +177,7 @@ type PlainReadEntry struct {
 	ICD icd.Key `json:"icd" msgpack:"icd"`
 	// Messages are the messages the topic carries. Each payload is read as the message
 	// whose match rule it meets.
-	Messages []ReadMessage `json:"messages" msgpack:"messages"`
+	Messages []icd.ReadMessage `json:"messages" msgpack:"messages"`
 }
 
 func (PlainReadEntry) isReadEntryVariant() {}

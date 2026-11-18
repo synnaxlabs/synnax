@@ -15,7 +15,6 @@ import {
   isIndexable,
   type Messages,
   mixMessage,
-  type ReadBinding,
   readFields,
   type ReadSource,
   variableAmongFixed,
@@ -88,7 +87,7 @@ export const configureMessage = async (
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
   const held = stored?.read[stored.key]?.channels ?? {};
-  const bindingOf = (f: icd.JSONField): ReadBinding =>
+  const bindingOf = (f: icd.JSONField): icd.ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ?? {
       field: f.key,
       channel: 0,

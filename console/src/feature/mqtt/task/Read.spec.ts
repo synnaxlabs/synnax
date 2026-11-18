@@ -260,7 +260,7 @@ const addMessage = async (
     }),
   );
   const bindings = fields.map(({ key }) => ({ field: key, channel: 0, dataType: "" }));
-  entry.messages.push(mqtt.readMessageZ.parse({ message: message.key, bindings }));
+  entry.messages.push(icd.readMessageZ.parse({ message: message.key, bindings }));
   return message;
 };
 

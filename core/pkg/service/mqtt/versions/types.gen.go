@@ -58,12 +58,6 @@ const (
 	SparkplugDataTypeDateTime SparkplugDataType = v2.SparkplugDataTypeDateTime
 )
 
-// ReadBinding writes the value of one message field to a channel.
-type ReadBinding = v2.ReadBinding
-
-// ReadMessage reads the documents of one ICD message.
-type ReadMessage = v2.ReadMessage
-
 // BaseReadEntry carries the fields every read entry shares.
 type BaseReadEntry = v2.BaseReadEntry
 

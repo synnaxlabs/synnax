@@ -515,10 +515,10 @@ var _ = Describe("Service", func() {
 						payload.KindTimestamp, payload.KindFloat, payload.KindInteger,
 					}))
 					index := fieldKey(m, 0)
-					Expect(entry.Messages).To(Equal([]mqtt.ReadMessage{{
+					Expect(entry.Messages).To(Equal([]icd.ReadMessage{{
 						Message: m.Key,
 						Index:   &index,
-						Bindings: []mqtt.ReadBinding{
+						Bindings: []icd.ReadBinding{
 							{Field: index, Channel: idx.Key()},
 							{Field: fieldKey(m, 1), Channel: value.Key()},
 						},

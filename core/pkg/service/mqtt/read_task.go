@@ -152,7 +152,7 @@ func newReadTopic(
 // newTopicMessage validates rm and fills decoded with what the decoder needs to read
 // it.
 func newTopicMessage(
-	rm ReadMessage,
+	rm icd.ReadMessage,
 	ic icd.ICD,
 	channels map[channel.Key]channel.Channel,
 	decoded *codec.JSONMessage,
@@ -201,7 +201,7 @@ func newTopicMessage(
 // bind sets the data types, the index channel, and the index field of m from the
 // bindings of rm and their channels. It returns the codec binding of each.
 func (m *topicMessage) bind(
-	rm ReadMessage,
+	rm icd.ReadMessage,
 	channels map[channel.Key]channel.Channel,
 ) ([]codec.Binding, error) {
 	bindings := make([]codec.Binding, len(rm.Bindings))
