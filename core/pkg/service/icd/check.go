@@ -10,7 +10,6 @@
 package icd
 
 import (
-	"encoding/base64"
 	"math"
 	"slices"
 	"strconv"
@@ -178,7 +177,7 @@ func (c *checker) checkJSONFields(
 		}
 		c.checkEnumLabels(fieldPath, f)
 		if v, ok := f.Variant.(BytesJSONField); ok && v.Default != nil {
-			if _, err := base64.StdEncoding.DecodeString(*v.Default); err != nil {
+			if _, err := xjson.DecodeBase64(*v.Default); err != nil {
 				c.Addf(pathOf(fieldPath, "default"), "default must be base64")
 			}
 		}

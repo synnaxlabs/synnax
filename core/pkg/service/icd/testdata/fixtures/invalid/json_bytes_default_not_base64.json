@@ -1,9 +1,17 @@
 {
-  "description": "A JSON bytes field has a default that is not standard, padded base64.",
+  "description": "JSON bytes fields have defaults that are not standard, padded base64.",
   "codec_rejects": true,
   "problems": [
     {
       "path": "messages.0.payload.fields.0.default",
+      "message": "default must be base64"
+    },
+    {
+      "path": "messages.0.payload.fields.1.default",
+      "message": "default must be base64"
+    },
+    {
+      "path": "messages.0.payload.fields.2.default",
       "message": "default must be base64"
     }
   ],
@@ -19,13 +27,33 @@
           "fields": [
             {
               "key": "00000000-0000-4000-8000-00000000000a",
-              "name": "blob",
+              "name": "unpadded",
               "scale": 1,
               "offset": 0,
               "units": "",
-              "pointer": "/blob",
+              "pointer": "/unpadded",
               "type": "bytes",
               "default": "AQI"
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000b",
+              "name": "padding_bits",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/padding_bits",
+              "type": "bytes",
+              "default": "AQJ="
+            },
+            {
+              "key": "00000000-0000-4000-8000-00000000000c",
+              "name": "line_break",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "pointer": "/line_break",
+              "type": "bytes",
+              "default": "AQ\nI="
             }
           ]
         }
