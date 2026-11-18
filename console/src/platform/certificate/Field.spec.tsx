@@ -45,7 +45,9 @@ import {
   createTestClientWithGrants,
   fakePickedFile,
   findDialogTriggerByText,
+  getIconButton,
   interceptFilePicker,
+  queryIconButton,
   readBlob,
   uniqueName,
 } from "@/testutil";
@@ -188,8 +190,13 @@ const readDetails = (): Record<string, string> => {
   const terms = screen.getAllByRole("term");
   const values = screen.getAllByRole("definition");
   return Object.fromEntries(
-    terms.map((term, i) => [term.textContent, values[i].textContent]),
+    terms.map((term, i) => [term.textContent, values[i].textContent.trim()]),
   );
+};
+
+const openDownload = async (): Promise<void> => {
+  await screen.findByText("SHA-256");
+  fireEvent.click(getIconButton(document.body, "download"));
 };
 
 const fingerprintOf = (c: certificate.Certificate): string => {
@@ -246,7 +253,7 @@ describe("Certificate.Field", () => {
     const downloads = captureBrowserDownloads();
     const c = await createStored();
     await renderField(c.key);
-    fireEvent.click(await screen.findByText("Download"));
+    await openDownload();
     fireEvent.click(await screen.findByText("Download as PEM"));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${c.name}.pem`);
@@ -257,7 +264,7 @@ describe("Certificate.Field", () => {
     const downloads = captureBrowserDownloads();
     const c = await createStored();
     await renderField(c.key);
-    fireEvent.click(await screen.findByText("Download"));
+    await openDownload();
     fireEvent.click(await screen.findByText("Download as DER"));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${c.name}.der`);
@@ -275,7 +282,7 @@ describe("Certificate.Field", () => {
     await renderField(c.key);
     await screen.findByRole("term");
     expect(readDetails()).toEqual({ Path: "/etc/synnax/client.crt" });
-    expect(screen.queryByText("Download")).toBeNull();
+    expect(queryIconButton(document.body, "download")).toBeNull();
   });
 
   it("offers no new certificate to a user who cannot create certificates", async () => {
@@ -341,6 +348,24 @@ describe("Certificate.Field", () => {
     await waitFor(() =>
       expect(getPEMInput("Certificate")).toHaveProperty("value", CERTIFICATE.pem),
     );
+  });
+
+  it("refuses an empty certificate file", async () => {
+    const { statuses } = await renderField();
+    await openCreate();
+    startFileDrag();
+    fireFileDrop(getPEMInput("Certificate"), [
+      fakeFileEntry(createFile("empty.crt", "")),
+    ]);
+    await waitFor(() =>
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          message: "Failed to read file",
+          description: "empty.crt is empty.",
+        }),
+      ),
+    );
+    expect(getPEMInput("Certificate")).toHaveProperty("value", "");
   });
 
   it("reads the key from a selected file", async () => {

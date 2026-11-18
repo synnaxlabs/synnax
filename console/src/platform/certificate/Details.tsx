@@ -17,6 +17,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -87,14 +88,52 @@ const Download = ({ certificate: c }: DownloadProps): ReactElement => {
     );
   return (
     <Dialog.Frame>
-      <Dialog.Trigger hideCaret size="small" variant="text" textColor={9}>
+      <Dialog.Trigger
+        hideCaret
+        size="small"
+        variant="text"
+        textColor={9}
+        tooltip="Download"
+      >
         <Icon.Download />
-        Download
       </Dialog.Trigger>
       <Menu.Dialog>
         <DownloadMenu onDownload={handleDownload} />
       </Menu.Dialog>
     </Dialog.Frame>
+  );
+};
+
+interface FingerprintProps {
+  certificate: certificate.Certificate;
+  sha256: string;
+}
+
+/** The fingerprint on one line, with its copy and download buttons at the end. */
+const Fingerprint = ({ certificate: c, sha256 }: FingerprintProps): ReactElement => {
+  const text = formatFingerprint(sha256);
+  return (
+    <Description.Item>
+      <Description.Label>SHA-256</Description.Label>
+      <Description.Value align="center">
+        <Text.Text
+          el="span"
+          level="small"
+          variant="code"
+          className={CSS.BE("certificate-field", "fingerprint")}
+        >
+          {text}
+        </Text.Text>
+        <Button.Copy
+          text={text}
+          size="small"
+          variant="text"
+          textColor={9}
+          tooltip="Copy fingerprint"
+        />
+        {c.source === "stored" && <Download certificate={c} />}
+      </Description.Value>
+    </Description.Item>
   );
 };
 
@@ -114,7 +153,6 @@ export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => 
   return (
     <Flex.Box
       y
-      gap="small"
       bordered
       borderColor={6}
       rounded="small"
@@ -130,25 +168,10 @@ export const Details = ({ certificate: c, now }: DetailsProps): ReactElement => 
             <Detail label="Validity" status={validity.status}>
               {validity.text}
             </Detail>
-            <Detail label="SHA-256" variant="code">
-              {formatFingerprint(details.sha256)}
-            </Detail>
+            <Fingerprint certificate={c} sha256={details.sha256} />
           </>
         )}
       </Description.List>
-      {details != null && (
-        <Flex.Box x gap="small" align="center" justify="end">
-          <Button.Copy
-            text={formatFingerprint(details.sha256)}
-            size="small"
-            variant="text"
-            textColor={9}
-          >
-            Copy fingerprint
-          </Button.Copy>
-          {c.source === "stored" && <Download certificate={c} />}
-        </Flex.Box>
-      )}
     </Flex.Box>
   );
 };

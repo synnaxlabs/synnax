@@ -21,8 +21,12 @@ const toBase64 = (bytes: Uint8Array): string => {
   return btoa(binary);
 };
 
-/** Reads a certificate file as PEM. A DER file becomes one PEM block. */
-export const readCertificate = (bytes: Uint8Array): string => {
+/**
+ * Reads a certificate file as PEM. A DER file becomes one PEM block.
+ * @throws {Error} if the file is empty.
+ */
+export const readCertificate = (bytes: Uint8Array, name: string): string => {
+  if (bytes.length === 0) throw new Error(`${name} is empty.`);
   const text = decoder.decode(bytes);
   if (text.includes(ARMOR)) return text;
   const lines = toBase64(bytes).match(BASE64_LINE) ?? [];

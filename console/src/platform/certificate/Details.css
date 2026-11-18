@@ -9,7 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The actions sit close to the bottom right corner. */
+/* The icon buttons sit as close to the right as to the bottom. */
 .console-certificate-field__details {
     padding: 2rem 1rem 1rem 2rem;
+}
+
+/* The fingerprint takes the line and pushes its buttons to the end. */
+.console-certificate-field__fingerprint {
+    flex-grow: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
