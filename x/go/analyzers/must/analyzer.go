@@ -63,7 +63,7 @@ func run(pass *analysis.Pass) (any, error) {
 			if skipFuncLits.Contains(block) {
 				return false
 			}
-			if analyzeBlock(pass, block.List) {
+			if analyzeBlock(pass, block.List, info.qualifier) {
 				needsImport = true
 			}
 			return true
@@ -94,6 +94,9 @@ func run(pass *analysis.Pass) (any, error) {
 // importInfo holds pre-computed import information for a file.
 type importInfo struct {
 	hasTestutil bool
+	// qualifier prefixes MustSucceed in fixes: empty for a dot import, else the import
+	// name and a dot.
+	qualifier string
 	// insertPos is the position where a new import line should be inserted. This is
 	// right before the closing paren of the import block, or at the end of a single
 	// import declaration.
@@ -105,14 +108,19 @@ type importInfo struct {
 func fileImportInfo(file *ast.File) importInfo {
 	info := importInfo{}
 	for _, imp := range file.Imports {
-		if imp.Path.Value == testutilImport {
-			// Only treat as "has testutil" if it's a dot import, since
-			// the fixes emit unqualified MustSucceed calls.
-			if imp.Name != nil && imp.Name.Name == "." {
-				info.hasTestutil = true
-			}
-			return info
+		if imp.Path.Value != testutilImport {
+			continue
 		}
+		switch {
+		case imp.Name == nil:
+			info.qualifier = "testutil."
+		case imp.Name.Name == "_":
+			continue
+		case imp.Name.Name != ".":
+			info.qualifier = imp.Name.Name + "."
+		}
+		info.hasTestutil = true
+		return info
 	}
 	// Find the import block to determine insertion point.
 	for _, decl := range file.Decls {
@@ -170,8 +178,9 @@ func collectAsyncFuncLits(file *ast.File) set.Set[*ast.BlockStmt] {
 	return skip
 }
 
-// analyzeBlock returns true if any MustSucceed replacement was emitted.
-func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
+// analyzeBlock returns true if any MustSucceed replacement was emitted. qualifier
+// prefixes MustSucceed in fixes.
+func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt, qualifier string) bool {
 	var found bool
 	for i := 1; i < len(stmts); i++ {
 		expectStmt, ok := stmts[i].(*ast.ExprStmt)
@@ -192,6 +201,7 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 				errName,
 				assignIdx == i-1,
 				fixable,
+				qualifier,
 			) {
 				found = true
 			}
@@ -608,6 +618,7 @@ func reportDiagnostic(
 	errName string,
 	adjacent bool,
 	fixable bool,
+	qualifier string,
 ) bool {
 	callStr := nodeString(pass.Fset, rhsCall)
 	assertion := assertionString(pass.Fset, expectStmt.X)
@@ -617,6 +628,7 @@ func reportDiagnostic(
 		errName,
 		assertion,
 		callStr,
+		qualifier,
 	)
 	if !ok {
 		return false
@@ -639,14 +651,15 @@ func reportDiagnostic(
 }
 
 // replacement returns the diagnostic message and fix text for assign. needsImport is
-// true when the fix uses the testutil import. ok is false when errName is not the last
-// of one to three results.
+// true when the fix uses the testutil import, whose calls qualifier prefixes. ok is
+// false when errName is not the last of one to three results.
 func replacement(
 	pass *analysis.Pass,
 	assign *ast.AssignStmt,
 	errName string,
 	assertion string,
 	callStr string,
+	qualifier string,
 ) (msg, fixText string, needsImport, ok bool) {
 	numLHS := len(assign.Lhs)
 	errIdx := -1
@@ -667,21 +680,36 @@ func replacement(
 	case numLHS == 2 && errIdx == 1:
 		msg = assertion + " can be replaced with MustSucceed"
 		if isBlank(assign.Lhs[0]) {
-			return msg, fmt.Sprintf("MustSucceed(%s)", callStr), true, true
+			fixText = fmt.Sprintf("%sMustSucceed(%s)", qualifier, callStr)
+			return msg, fixText, true, true
 		}
 		resultName := nodeString(pass.Fset, assign.Lhs[0])
 		tok := resultTok(pass, assign)
-		fixText = fmt.Sprintf("%s %s MustSucceed(%s)", resultName, tok, callStr)
+		fixText = fmt.Sprintf(
+			"%s %s %sMustSucceed(%s)",
+			resultName,
+			tok,
+			qualifier,
+			callStr,
+		)
 		return msg, fixText, true, true
 	case numLHS == 3 && errIdx == 2:
 		msg = assertion + " can be replaced with MustSucceed2"
 		if isBlank(assign.Lhs[0]) && isBlank(assign.Lhs[1]) {
-			return msg, fmt.Sprintf("MustSucceed2(%s)", callStr), true, true
+			fixText = fmt.Sprintf("%sMustSucceed2(%s)", qualifier, callStr)
+			return msg, fixText, true, true
 		}
 		r1 := nodeString(pass.Fset, assign.Lhs[0])
 		r2 := nodeString(pass.Fset, assign.Lhs[1])
 		tok := resultTok(pass, assign)
-		fixText = fmt.Sprintf("%s, %s %s MustSucceed2(%s)", r1, r2, tok, callStr)
+		fixText = fmt.Sprintf(
+			"%s, %s %s %sMustSucceed2(%s)",
+			r1,
+			r2,
+			tok,
+			qualifier,
+			callStr,
+		)
 		return msg, fixText, true, true
 	default:
 		return "", "", false, false
