@@ -431,19 +431,19 @@ describe("Schematic toolbar Properties", () => {
     });
 
     it("shows the first series color as the stroke of auto-stroked gauges", async () => {
+      const [first] = (
+        await client.colors.retrieve({ groups: [clientColor.SERIES_PALETTE] })
+      ).sort(clientColor.compare);
       await renderProperties({
         nodeKeys: ["n1", "n2"],
         createConfig: () => PSchematic.Node.createConfig({ variant: "gauge" }),
       });
       await screen.findByText("Colors");
-      const swatch = roleInput("Stroke")
-        .closest(".lyra-color-input")
-        ?.querySelector<HTMLElement>(".lyra-color-swatch");
-      assertDefined(swatch);
+      const swatch = getSwatches("Stroke")[0];
+      // The swatch shows the value of the color for the theme of the test.
+      const values = [first.light, first.dark ?? first.light].map((c) => color.hex(c));
       await waitFor(() =>
-        expect(swatch.style.getPropertyValue("--pluto-swatch-color")).not.toBe(
-          "#00000000",
-        ),
+        expect(values).toContain(swatch.style.getPropertyValue("--pluto-swatch-color")),
       );
     });
 
@@ -487,11 +487,7 @@ describe("Schematic toolbar Properties", () => {
         createConfig: createBoxConfig,
       });
       await screen.findByText("Colors");
-      const swatch = roleInput("Fill")
-        .closest(".lyra-color-input")
-        ?.querySelector<HTMLElement>(".lyra-color-swatch");
-      assertDefined(swatch);
-      fireEvent.click(swatch);
+      fireEvent.click(getSwatches("Fill")[0]);
       fireEvent.click(await screen.findByRole("button", { name: named.name }));
       await expect
         .poll(

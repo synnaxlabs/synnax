@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { color } from "@synnaxlabs/client";
+import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Color as Base } from "@synnaxlabs/lyra/color";
+import { color as xcolor, id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { type FC, type PropsWithChildren } from "react";
+import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import { Color } from "@/color";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -19,13 +21,18 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 
 describe("Color.Provider", () => {
-  it("should offer the series colors as the presets of every picker", async () => {
+  let wrapper: FC<PropsWithChildren>;
+  beforeAll(async () => {
     const Synnax = await createAsyncSynnaxWrapper({ client });
-    const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    wrapper = ({ children }) => (
       <Synnax>
         <Color.Provider>{children}</Color.Provider>
       </Synnax>
     );
+    await waitForStreamLive(client.connection);
+  });
+
+  it("should offer the series colors as the presets of every picker", async () => {
     const { result } = renderHook(
       () => ({ presets: Base.usePresets(), series: Color.useSeriesValues() }),
       { wrapper },
@@ -34,5 +41,20 @@ describe("Color.Provider", () => {
       expect(result.current.series.length).toBeGreaterThan(0);
       expect(result.current.presets).toEqual(result.current.series);
     });
+  });
+
+  it("should offer a new series color in every picker", async () => {
+    const { result } = renderHook(Base.usePresets, { wrapper });
+    await waitFor(() => expect(result.current.length).toBeGreaterThan(0));
+    const added = await client.colors.create({
+      name: `series-${id.create()}`,
+      light: "#1a2b3c",
+      dark: "#1a2b3c",
+      group: color.SERIES_PALETTE,
+    });
+    onTestFinished(async () => await client.colors.delete(added.key));
+    await waitFor(() =>
+      expect(result.current).toContainEqual(xcolor.construct("#1a2b3c")),
+    );
   });
 });

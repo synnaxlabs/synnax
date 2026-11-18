@@ -29,7 +29,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
 
 /**
  * @returns the series colors in palette order. The list is empty until they load.
- * @throws if no {@link Provider} is above the component.
+ * @throws {NotFoundError} if no {@link Provider} is above the component.
  */
 export const use = (ctx: aether.Context): color.Color[] =>
   ctx.get<color.Color[]>(CONTEXT_KEY);

@@ -145,7 +145,7 @@ describe("SelectionColors", () => {
       />,
       { wrapper },
     );
-    fireEvent.click(swatchesIn("Selection")[0]);
+    fireEvent.click(getSwatches("Selection")[0]);
     await screen.findByLabelText("Hex");
     expect(screen.queryByText("Library")).toBeNull();
   });

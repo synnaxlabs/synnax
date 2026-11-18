@@ -102,11 +102,10 @@ afterEach(() => {
  * render] → <component>`, including only the providers enabled in
  * {@link ProviderOptions} (all on by default except `render`). Every level runs its
  * real `afterUpdate` lifecycle and propagates context the way production does; the test
- * never wires `parent` by hand.
- * The mount is torn down automatically after each test. To assert on draw calls, create
- * a recorder and pass it as `render`, then assert on that reference — the same fixture
- * pattern as `telemTest.sink()` / `source()`. For tests that exercise the React +
- * worker boundary, use `render` instead.
+ * never wires `parent` by hand. The mount is torn down automatically after each test.
+ * To assert on draw calls, create a recorder and pass it as `render`, then assert on
+ * that reference — the same fixture pattern as `telemTest.sink()` / `source()`. For
+ * tests that exercise the React + worker boundary, use `render` instead.
  */
 export const renderAether = <C extends ComponentClass>(
   Component: C,
