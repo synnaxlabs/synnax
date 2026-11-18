@@ -62,11 +62,8 @@ class StateIndicator(Symbol):
             self.click()
             self.open_properties_tab()
             self.page.get_by_text("Options", exact=True).click()
-            for i, option in enumerate(options):
-                if i == 0:
-                    self.page.get_by_text("Add an option").click()
-                else:
-                    self.page.get_by_text("Add option", exact=True).click()
+            for option in options:
+                self.page.get_by_text("Add option", exact=True).click()
                 items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first

@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/common/form/States.css";
+
 import { type enumeration, type schematic } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Enumeration } from "@/enumeration";
 import { StateMappingForm } from "@/schematic/node/common/form/StateMapping";
 
@@ -38,11 +40,17 @@ export const States = ({
     else set(enumerationPath, next);
   };
   return (
-    <Flex.Box y gap="small" grow>
-      <Input.Item label="Enumeration" padHelpText={false}>
-        <Enumeration.SelectSingle value={key} onChange={handleChange} allowNone />
-      </Input.Item>
-      {key == null && <StateMappingForm path={options} showColor={showColor} />}
-    </Flex.Box>
+    <Form.Sections x>
+      <Form.Section title="Options" className={CSS.B("states")}>
+        <Input.Item label="Enumeration" padHelpText={false}>
+          <Enumeration.SelectSingle value={key} onChange={handleChange} allowNone />
+        </Input.Item>
+        {key == null && (
+          <Input.Item label="Custom options" padHelpText={false}>
+            <StateMappingForm path={options} showColor={showColor} />
+          </Input.Item>
+        )}
+      </Form.Section>
+    </Form.Sections>
   );
 };

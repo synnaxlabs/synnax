@@ -61,13 +61,8 @@ class Select(Symbol):
             self.click()
             self.page.get_by_text("Properties").dispatch_event("click")
             self.page.get_by_text("Options", exact=True).dispatch_event("click")
-            for i, option in enumerate(options):
-                if i == 0:
-                    self.page.get_by_text("Add an option").dispatch_event("click")
-                else:
-                    self.page.get_by_text("Add option", exact=True).dispatch_event(
-                        "click"
-                    )
+            for option in options:
+                self.page.get_by_text("Add option", exact=True).dispatch_event("click")
                 items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
