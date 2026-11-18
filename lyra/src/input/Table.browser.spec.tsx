@@ -102,6 +102,24 @@ describe("Input.Table", () => {
     );
   });
 
+  it("should center a boolean cell's checkbox in its cell", async () => {
+    const { container } = await renderThemed(
+      <Input.Table value={[[true]]} onChange={() => {}}>
+        <Input.TableColumn name="Enabled" type="boolean" width={20} />
+      </Input.Table>,
+    );
+    const indicator = container.querySelector(
+      `.${CSS.BE("input", "checkbox", "indicator")}`,
+    );
+    const cell = indicator?.closest("td");
+    if (indicator == null || cell == null) throw new Error("The cell has no checkbox");
+    const center = (el: Element): number => {
+      const { left, width } = el.getBoundingClientRect();
+      return left + width / 2;
+    };
+    expect(center(indicator)).toBeCloseTo(center(cell), 0);
+  });
+
   it("should inset read-only text as far as editable text", async () => {
     const { container } = await renderThemed(
       <>
