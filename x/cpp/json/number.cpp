@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/decimal.h"
 #include "x/cpp/json/number.h"
 #include "x/cpp/json/text.h"
 #include "x/cpp/telem/telem.h"
@@ -36,16 +37,6 @@ constexpr std::uint64_t INT64_MIN_MAGNITUDE = INT64_MAX_VALUE + 1;
 /// @brief bounds the exponent parse_decimal reads. Any larger one overflows or
 /// truncates to zero.
 constexpr int MAX_EXPONENT = 1 << 20;
-
-/// @brief Decimal is the magnitude of a decimal number, truncated toward zero.
-struct Decimal {
-    std::uint64_t magnitude = 0;
-    bool negative = false;
-    /// @brief fraction is true when the truncation dropped a digit other than zero.
-    bool fraction = false;
-    /// @brief overflow is true when the magnitude does not fit a uint64.
-    bool overflow = false;
-};
 
 bool is_digits(const std::string_view text) {
     for (const char c: text)
@@ -68,55 +59,6 @@ std::optional<int> parse_exponent(std::string_view text) {
     for (const char c: text)
         e = std::min(e * 10 + (c - '0'), MAX_EXPONENT);
     return negative ? -e : e;
-}
-
-std::optional<Decimal> parse_decimal(std::string_view text) {
-    Decimal d;
-    if (has_sign(text)) {
-        d.negative = text[0] == '-';
-        text.remove_prefix(1);
-    }
-    int exp = 0;
-    if (const auto i = text.find_first_of("eE"); i != std::string_view::npos) {
-        const auto e = parse_exponent(text.substr(i + 1));
-        if (!e.has_value()) return std::nullopt;
-        exp = *e;
-        text = text.substr(0, i);
-    }
-    auto whole = text;
-    std::string_view frac;
-    if (const auto i = text.find('.'); i != std::string_view::npos) {
-        whole = text.substr(0, i);
-        frac = text.substr(i + 1);
-    }
-    if (whole.size() + frac.size() == 0 || !is_digits(whole) || !is_digits(frac))
-        return std::nullopt;
-    // The value is the digits of whole and frac times 10^shift.
-    const int count = static_cast<int>(whole.size() + frac.size());
-    const int shift = exp - static_cast<int>(frac.size());
-    for (int i = 0; i < count; i++) {
-        const auto w = static_cast<int>(whole.size());
-        const auto c = static_cast<std::uint64_t>(
-            (i < w ? whole[i] : frac[i - w]) - '0'
-        );
-        if (i >= count + shift) {
-            d.fraction = d.fraction || c != 0;
-            continue;
-        }
-        if (d.magnitude > (UINT64_MAX_VALUE - c) / 10) {
-            d.overflow = true;
-            return d;
-        }
-        d.magnitude = d.magnitude * 10 + c;
-    }
-    for (int i = 0; d.magnitude != 0 && i < shift; i++) {
-        if (d.magnitude > UINT64_MAX_VALUE / 10) {
-            d.overflow = true;
-            return d;
-        }
-        d.magnitude *= 10;
-    }
-    return d;
 }
 
 template<typename T>
@@ -151,10 +93,6 @@ std::optional<double> parse_double(const std::string_view text) {
     if (end != terminated + text.size()) return std::nullopt;
     if (errno == ERANGE && std::isinf(v)) return std::nullopt;
     return v;
-}
-
-errors::Error invalid_number(const std::string_view text) {
-    return errors::Error(errors::VALIDATION, "invalid number " + quote(text));
 }
 
 /// @brief formats v, which is not infinite, as the Core does: the shortest digits that
@@ -222,7 +160,64 @@ integer_bounds(const telem::DataType &dt) {
 }
 }
 
+std::optional<Decimal> parse_decimal(std::string_view text, const int scale) {
+    Decimal d;
+    if (has_sign(text)) {
+        d.negative = text[0] == '-';
+        text.remove_prefix(1);
+    }
+    int exp = 0;
+    if (const auto i = text.find_first_of("eE"); i != std::string_view::npos) {
+        const auto e = parse_exponent(text.substr(i + 1));
+        if (!e.has_value()) return std::nullopt;
+        exp = *e;
+        text = text.substr(0, i);
+    }
+    auto whole = text;
+    std::string_view frac;
+    if (const auto i = text.find('.'); i != std::string_view::npos) {
+        whole = text.substr(0, i);
+        frac = text.substr(i + 1);
+    }
+    if (whole.size() + frac.size() == 0 || !is_digits(whole) || !is_digits(frac))
+        return std::nullopt;
+    // The value is the digits of whole and frac times 10^shift.
+    const int count = static_cast<int>(whole.size() + frac.size());
+    const int shift = exp + scale - static_cast<int>(frac.size());
+    for (int i = 0; i < count; i++) {
+        const auto w = static_cast<int>(whole.size());
+        const auto c = static_cast<std::uint64_t>(
+            (i < w ? whole[i] : frac[i - w]) - '0'
+        );
+        if (i >= count + shift) {
+            d.fraction = d.fraction || c != 0;
+            continue;
+        }
+        if (d.magnitude > (UINT64_MAX_VALUE - c) / 10) {
+            d.overflow = true;
+            return d;
+        }
+        d.magnitude = d.magnitude * 10 + c;
+    }
+    for (int i = 0; d.magnitude != 0 && i < shift; i++) {
+        if (d.magnitude > UINT64_MAX_VALUE / 10) {
+            d.overflow = true;
+            return d;
+        }
+        d.magnitude *= 10;
+    }
+    return d;
+}
+
+errors::Error invalid_number(const std::string_view text) {
+    return errors::Error(errors::VALIDATION, "invalid number " + quote(text));
+}
+
 Number::Number(const double v): kind(Kind::Float), f(v) {}
+
+Number::Number(const std::int64_t v): i(v) {}
+
+Number::Number(const std::uint64_t v): kind(Kind::Uint), u(v) {}
 
 std::pair<Number, errors::Error> Number::parse(const std::string_view text) {
     Number n;
@@ -237,7 +232,7 @@ std::pair<Number, errors::Error> Number::parse(const std::string_view text) {
             return {std::move(n), errors::NIL};
         }
     }
-    const auto d = parse_decimal(text);
+    const auto d = parse_decimal(text, 0);
     if (!d.has_value()) return {Number{}, invalid_number(text)};
     // A negative zero keeps its sign as a float.
     if (!d->fraction && !d->overflow && d->magnitude != 0) {
