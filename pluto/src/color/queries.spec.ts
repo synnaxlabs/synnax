@@ -234,14 +234,14 @@ describe("queries", () => {
       expect(stored[0].position).toBe("a5");
     });
 
-    it("should first place the colors with no position, in their order", async () => {
+    it("should write no position to the colors that have none", async () => {
       const palette = await createPalette();
       await Promise.all([createInPalette(palette), createInPalette(palette)]);
       const before = (await order(palette)).map((c) => c.key);
       const key = await append(palette);
       const stored = await order(palette);
-      expect(stored.map((c) => c.key)).toEqual([...before, key]);
-      expect(stored.every((c) => c.position != null)).toBe(true);
+      expect(stored.map((c) => c.key)).toEqual([key, ...before]);
+      expect(stored.filter((c) => c.position == null)).toHaveLength(2);
     });
   });
 

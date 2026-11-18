@@ -9,7 +9,7 @@
 
 import { color, type group } from "@synnaxlabs/client";
 import { color as xcolor, deep, verbs } from "@synnaxlabs/x";
-import { generateNKeysBetween } from "fractional-indexing";
+import { generateKeyBetween } from "fractional-indexing";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -117,23 +117,22 @@ export const { useUpdate: useCreate } = Flux.createUpdate<color.New, color.Named
 export interface AppendParams extends Omit<color.New, "position"> {}
 
 /**
- * Creates a named color at the end of its palette. Colors with no position sort last,
- * so they first take positions in their current order.
+ * Creates a named color after every color of its palette that has a position. It
+ * writes no other color, so colors with no position stay after it.
  */
 export const { useUpdate: useAppend } = Flux.createUpdate<AppendParams, color.Named>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data }) => {
     const where = data.group == null ? { grouped: false } : { groups: [data.group] };
-    const members = (await client.colors.retrieve({ where })).sort(color.compare);
-    const unplaced = members.filter((c) => c.position == null);
-    const after = members.findLast((c) => c.position != null)?.position ?? null;
-    const positions = generateNKeysBetween(after, null, unplaced.length + 1);
-    if (unplaced.length > 0)
-      await client.batch.send(
-        unplaced.map((c, i) => client.colors.setPositionRequest(c.key, positions[i])),
-      );
-    return await client.colors.create({ ...data, position: positions.at(-1) });
+    const last = (await client.colors.retrieve({ where }))
+      .filter((c) => c.position != null)
+      .sort(color.compare)
+      .at(-1);
+    return await client.colors.create({
+      ...data,
+      position: generateKeyBetween(last?.position ?? null, null),
+    });
   },
 });
 

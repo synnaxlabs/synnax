@@ -275,18 +275,34 @@ describe("Color.Field", () => {
       expect(screen.queryByRole("button", { name: "Create palette" })).toBeNull();
     });
 
-    it("should offer no edit to a user who cannot update colors", async () => {
+    it("should offer no edit or palette create to a user who cannot update", async () => {
       const { palette, named } = await createInPalette();
       const limited = await createLimitedWrapper("create");
       const { result } = renderField({ type: "named", key: named.key }, limited);
       openPicker(result);
-      // The create proves the grants answered, so the missing edit is the gate.
+      // Create palette proves the grants answered, so the missing actions are the gate.
       expect(
-        await screen.findByRole("button", {
-          name: `Create a color in ${palette.name}`,
-        }),
+        await screen.findByRole("button", { name: "Create palette" }),
       ).toBeTruthy();
       expect(screen.queryByRole("button", { name: `Edit ${named.name}` })).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: `Create a color in ${palette.name}` }),
+      ).toBeNull();
+    });
+
+    it("should let a user who cannot update colors create one in no palette", async () => {
+      await client.colors.create({ name: `loose-${id.create()}`, light: "#00FF00" });
+      const limited = await createLimitedWrapper("create");
+      const { result, values } = renderField(undefined, limited);
+      openPicker(result);
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Create a color in No palette" }),
+      );
+      const name = `created-${id.create()}`;
+      enterName("Color name", name);
+      const created = await createdColor(values);
+      expect(created.name).toBe(name);
+      expect(created.group).toBeUndefined();
     });
   });
 });
