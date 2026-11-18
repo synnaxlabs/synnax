@@ -367,12 +367,30 @@ export class HTTPClient
     target: string,
     request: FetchInit,
   ): Promise<FetchResponse> {
-    try {
-      return await this.connector.fetch(target, request);
-    } catch (e) {
+    const cast = (e: unknown): Error => {
       const err = errors.fromUnknown(e);
-      throw shouldCastToUnreachable(err) ? new Unreachable({ url, cause: err }) : err;
+      return shouldCastToUnreachable(err) ? new Unreachable({ url, cause: err }) : err;
+    };
+    let res: FetchResponse;
+    try {
+      res = await this.connector.fetch(target, request);
+    } catch (e) {
+      throw cast(e);
     }
+    // The connection can fail after the headers arrive, while the body is read.
+    return {
+      ok: res.ok,
+      status: res.status,
+      statusText: res.statusText,
+      body: res.body,
+      arrayBuffer: async () => {
+        try {
+          return await res.arrayBuffer();
+        } catch (e) {
+          throw cast(e);
+        }
+      },
+    };
   }
 
   private decodeError(
