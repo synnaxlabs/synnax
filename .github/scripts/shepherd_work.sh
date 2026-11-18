@@ -47,13 +47,17 @@ if [ "$CONCLUSION" = failure ]; then
     echo "ci $RUN"
 fi
 
+# The alerts come from the last finished analysis, so they wait for the head's scan.
 # CodeQL on a pull request reports only the alerts on lines it changed.
-ALERTS="code-scanning/alerts?ref=refs/pull/${PR}/merge&state=open&per_page=100"
-# shellcheck disable=SC2016 # The jq program uses jq variables.
-gh api "repos/${REPO}/${ALERTS}" --paginate --jq '.[]
-    | .most_recent_instance as $at
-    | "codeql \($at.location.path):\($at.location.start_line) \(.rule.id)"
-        + " \($at.message.text | gsub("\\s+"; " "))"'
+SCANS="repos/${REPO}/actions/workflows/codeql.yaml/runs?${QUERY}"
+if [ "$(gh api "$SCANS" --jq '.workflow_runs[0].status')" = completed ]; then
+    ALERTS="code-scanning/alerts?ref=refs/pull/${PR}/merge&state=open&per_page=100"
+    # shellcheck disable=SC2016 # The jq program uses jq variables.
+    gh api "repos/${REPO}/${ALERTS}" --paginate --jq '.[]
+        | .most_recent_instance as $at
+        | "codeql \($at.location.path):\($at.location.start_line) \(.rule.id)"
+            + " \($at.message.text | gsub("\\s+"; " "))"'
+fi
 
 # The span from the head commit to a later merge queue removal for failed checks that
 # no new enqueue followed.

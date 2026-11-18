@@ -48,9 +48,15 @@ class Harness:
             "api */pulls/7", {"head": {"sha": "head"}, "mergeable_state": state}
         )
 
-    def runs(self, *conclusions: str | None, groups: tuple[str, ...] = ()) -> None:
+    def runs(
+        self,
+        *conclusions: str | None,
+        groups: tuple[str, ...] = (),
+        status: str = "completed",
+    ) -> None:
+        """Serves the CI and CodeQL runs on the head, then the merge group runs."""
         runs = [
-            {"id": i + 1, "conclusion": c, "head_branch": "branch"}
+            {"id": i + 1, "conclusion": c, "status": status, "head_branch": "branch"}
             for i, c in enumerate(conclusions)
         ]
         runs += [
@@ -157,6 +163,7 @@ class TestShepherdWork:
         assert gh.run() == ["conflict"]
 
     def test_should_report_each_open_codeql_alert(self, gh: Harness) -> None:
+        gh.runs("success")
         gh.codeql(3, 9)
         assert gh.run() == [
             "codeql a.go:3 go/x Bad cast.",
@@ -171,6 +178,11 @@ class TestShepherdWork:
         assert gh.run() == ["queue 9"]
         span = "created=2026-01-01T12:00:00Z..2026-01-01T13:00:00Z"
         assert any(span in call[1] for call in gh.gh.calls())
+
+    def test_should_wait_for_the_codeql_scan_of_the_head(self, gh: Harness) -> None:
+        gh.runs(None, status="in_progress")
+        gh.codeql(3)
+        assert gh.run() == []
 
     def test_should_prefer_a_failed_merge_group_run(self, gh: Harness) -> None:
         gh.runs("success", groups=("cancelled", "failure"))
