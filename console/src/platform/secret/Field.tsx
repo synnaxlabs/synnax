@@ -23,6 +23,11 @@ const describe = (s: secret.Secret): Picker.Description => ({
   text: Validity.describeSecret(s),
 });
 
+const OTHER_RACK: Picker.Description = {
+  text: "File on another rack",
+  status: "error",
+};
+
 const STORED: secret.Where = { source: { eq: "stored" } };
 
 // The device cannot read a file secret of another rack.
@@ -40,12 +45,14 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
   const result = Secret.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
   const openCreate = useCreateModal();
+  const describeOnRack = (s: secret.Secret): Picker.Description =>
+    s.source === "file" && s.rack !== rack ? OTHER_RACK : describe(s);
   return (
     <Picker.Select<secret.Key, secret.Secret>
       value={value}
       resourceName="secret"
       icon={Icon.Secret}
-      describe={describe}
+      describe={describeOnRack}
       list={list}
       result={result}
       onCreate={canCreate ? () => openCreate({ name: defaultName, rack }) : undefined}

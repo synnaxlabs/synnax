@@ -89,6 +89,8 @@ Fixture.displayName = "Fixture";
 interface RenderedField {
   defaultName: string;
   onChange: Mock<(key: string) => void>;
+  /** Renders the field again with another rack, as when the device's rack changes. */
+  setRack: (rack: rack.Key) => void;
 }
 
 interface RenderOptions {
@@ -104,20 +106,20 @@ const renderField = async (
   const defaultName = uniqueName("default");
   const onChange = vi.fn<(key: string) => void>();
   const { wrapper } = await createConsoleWrapper({ client: as });
-  render(
+  const content = (fieldRack: rack.Key): ReactElement => (
     <>
       <Fixture
         value={value}
         defaultName={defaultName}
-        rack={rack}
+        rack={fieldRack}
         onChange={onChange}
         mode={mode}
       />
       <Modals.Stack />
-    </>,
-    { wrapper },
+    </>
   );
-  return { defaultName, onChange };
+  const { rerender } = render(content(rack), { wrapper });
+  return { defaultName, onChange, setRack: (next) => rerender(content(next)) };
 };
 
 const open = async (shown: string): Promise<void> => {
@@ -249,6 +251,26 @@ describe("Secret.Field", () => {
     await act(async () => {});
     expect(onChange).not.toHaveBeenCalled();
     await findDialogTriggerByText(s.name);
+  });
+
+  it("shows a held file secret of another rack as an error", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    const s = await client.secrets.set({
+      name: uniqueName("file"),
+      source: "file",
+      fileName: "token",
+      rack: own.key,
+    });
+    created.push(s.key);
+    const { setRack } = await renderField(s.key, { rack: own.key });
+    await findDialogTriggerByText(s.name);
+    expect(screen.queryByText("File on another rack")).toBeNull();
+    setRack(other.key);
+    const shown = await screen.findByText("File on another rack");
+    expect(shown.classList).toContain("lyra--status-error");
   });
 
   it("offers no file to a field with no rack", async () => {
