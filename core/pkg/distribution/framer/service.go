@@ -114,7 +114,7 @@ func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 // Run runs the relay that streamers read from until ctx ends, then stops every
-// streamer and returns. Call Run once.
+// streamer and returns. A second Run returns an error.
 func (s *Service) Run(ctx context.Context) error { return s.relay.Run(ctx) }
 
 // OpenIterator opens a new iterator for reading historical data from channels. If the
