@@ -28,9 +28,17 @@ interface ControlProps extends Input.Control<certificate.Key> {
   defaultName: string;
   rack: rack.Key;
   preview?: boolean;
+  allowNone: boolean;
 }
 
-const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElement => {
+const Control = ({
+  value,
+  onChange,
+  defaultName,
+  rack,
+  allowNone,
+  preview,
+}: ControlProps): ReactElement => {
   const list = Certificate.useList({ query: { where: Secret.whereOnRack(rack) } });
   const result = Certificate.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(certificate.TYPE_RESOURCE_ID);
@@ -40,17 +48,25 @@ const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElem
     c.source === "file" && c.rack !== rack
       ? Secret.OTHER_RACK_DESCRIPTION
       : Secret.Validity.describeCertificate(c, now);
+  // A cleared field holds the zero key, as one never set does.
+  const selection = allowNone
+    ? {
+        value,
+        onChange: (key: certificate.Key | null) => onChange(key ?? ""),
+        allowNone: true as const,
+      }
+    : { value, onChange, allowNone: false as const };
   return (
     <Flex.Box y gap="small" grow>
       <Picker.Select<certificate.Key, certificate.Certificate>
-        value={value}
         resourceName="certificate"
         icon={Icon.Certificate}
         describe={describe}
         list={list}
         result={result}
         onCreate={canCreate ? () => openCreate({ name: defaultName, rack }) : undefined}
-        {...rest}
+        preview={preview}
+        {...selection}
       />
       {result.variant === "success" && <Details certificate={result.data} now={now} />}
     </Flex.Box>
@@ -62,13 +78,20 @@ export interface FieldProps extends Omit<Form.FieldProps<certificate.Key>, "chil
   defaultName: string;
   /** The rack of the device. The field lists only the file items of this rack. */
   rack: rack.Key;
+  /** Whether the user may clear the field, which then holds no certificate. */
+  allowNone?: boolean;
 }
 
 /**
  * A form field that holds the key of a certificate and shows its details. It selects a
  * certificate, or creates one that starts with the default name and selects it.
  */
-export const Field = ({ defaultName, rack, ...rest }: FieldProps): ReactElement => (
+export const Field = ({
+  defaultName,
+  rack,
+  allowNone = false,
+  ...rest
+}: FieldProps): ReactElement => (
   <Form.Field<certificate.Key> {...rest}>
     {({ value, onChange, preview }) => (
       <Control
@@ -77,6 +100,7 @@ export const Field = ({ defaultName, rack, ...rest }: FieldProps): ReactElement 
         defaultName={defaultName}
         rack={rack}
         preview={preview}
+        allowNone={allowNone}
       />
     )}
   </Form.Field>

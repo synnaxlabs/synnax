@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
 import { v0, v1, v2 } from "@/feature/opcua/device/types/versions";
-import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
+
+const CLIENT_CERTIFICATE_KEY = uuid.create();
+const SERVER_CERTIFICATE_KEY = uuid.create();
 
 interface TestCase {
   description: string;
@@ -58,6 +61,7 @@ const TEST_RECORD: TestCase[] = [
         securityMode: "Sign",
         securityPolicy: "Basic256",
         password: "",
+        clientCertificate: "",
         serverCertificate: "",
         certificateValidationDisabled: false,
         clientTimeoutMs: 5000,
@@ -70,39 +74,22 @@ const TEST_RECORD: TestCase[] = [
     },
   },
   {
-    description: "clears a v1 server certificate path",
+    description: "keeps v1 certificate keys and drops the private key path",
     input: {
       ...v1.ZERO_PROPERTIES,
       connection: {
         ...v0.ZERO_CONNECTION_CONFIG,
-        clientCertificate: "/etc/opcua/client.der",
+        clientCertificate: CLIENT_CERTIFICATE_KEY,
         clientPrivateKey: "/etc/opcua/client.key",
-        serverCertificate: "/etc/opcua/server.der",
+        serverCertificate: SERVER_CERTIFICATE_KEY,
       },
     },
     output: {
       ...v2.ZERO_PROPERTIES,
       connection: {
         ...v2.ZERO_PROPERTIES.connection,
-        clientCertificate: "/etc/opcua/client.der",
-        clientPrivateKey: "/etc/opcua/client.key",
-      },
-    },
-  },
-  {
-    description: "keeps a v1 server certificate that is PEM",
-    input: {
-      ...v1.ZERO_PROPERTIES,
-      connection: {
-        ...v0.ZERO_CONNECTION_CONFIG,
-        serverCertificate: SERVER_CERTIFICATE.pem,
-      },
-    },
-    output: {
-      ...v2.ZERO_PROPERTIES,
-      connection: {
-        ...v2.ZERO_PROPERTIES.connection,
-        serverCertificate: SERVER_CERTIFICATE.pem,
+        clientCertificate: CLIENT_CERTIFICATE_KEY,
+        serverCertificate: SERVER_CERTIFICATE_KEY,
       },
     },
   },

@@ -95,6 +95,7 @@ interface FixtureProps {
   rack: rack.Key;
   onChange: (key: string) => void;
   mode?: Form.Mode;
+  allowNone?: boolean;
 }
 
 const Fixture = ({
@@ -103,6 +104,7 @@ const Fixture = ({
   rack,
   onChange,
   mode,
+  allowNone,
 }: FixtureProps): ReactElement => {
   const form = Form.use({
     schema,
@@ -116,6 +118,7 @@ const Fixture = ({
         path={path.certificate}
         defaultName={defaultName}
         rack={rack}
+        allowNone={allowNone}
       />
     </Form.Form>
   );
@@ -134,11 +137,12 @@ interface RenderOptions {
   as?: Client;
   mode?: Form.Mode;
   rack?: rack.Key;
+  allowNone?: boolean;
 }
 
 const renderField = async (
   value: string = "",
-  { as = client, mode, rack = 0 }: RenderOptions = {},
+  { as = client, mode, rack = 0, allowNone }: RenderOptions = {},
 ): Promise<RenderedField> => {
   const defaultName = uniqueName("default");
   const onChange = vi.fn<(key: string) => void>();
@@ -153,6 +157,7 @@ const renderField = async (
         rack={fieldRack}
         onChange={onChange}
         mode={mode}
+        allowNone={allowNone}
       />
       <Modals.Stack />
       <CaptureStatuses
@@ -273,6 +278,21 @@ describe("Certificate.Field", () => {
       Validity: Secret.Validity.describeCertificate(c, TimeStamp.now()).text,
       "SHA-256": fingerprintOf(c),
     });
+  });
+
+  it("clears the certificate on Delete when it allows none", async () => {
+    const c = await createStored();
+    const { onChange } = await renderField(c.key, { allowNone: true });
+    fireEvent.keyDown(await findDialogTriggerByText(c.name), { key: "Delete" });
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(""));
+  });
+
+  it("offers no clear when it does not allow none", async () => {
+    const c = await createStored();
+    await renderField(c.key);
+    fireEvent.keyDown(await findDialogTriggerByText(c.name), { key: "Delete" });
+    expect(screen.queryByLabelText(`Clear ${c.name}`)).toBeNull();
+    expect(await findDialogTriggerByText(c.name)).toBeTruthy();
   });
 
   it("downloads the chain as PEM", async () => {

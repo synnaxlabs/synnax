@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type rack, task, TimeSpan } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -102,6 +102,27 @@ const createPassword = async () =>
     value: "hunter2",
   });
 
+const createServerCertificate = async () =>
+  await client.certificates.set({
+    name: uniqueName("opc_server_certificate"),
+    source: "stored",
+    pem: SERVER_CERTIFICATE.pem,
+  });
+
+const createClientCertificate = async (privateKeyPem?: string) =>
+  await client.certificates.set({
+    name: uniqueName("opc_client_certificate"),
+    source: "stored",
+    pem: CERTIFICATE.pem,
+    privateKeyPem,
+  });
+
+const SECURED_CONNECTION = {
+  ...OPCUA.Device.ZERO_PROPERTIES.connection,
+  securityMode: "Sign",
+  securityPolicy: "Basic256Sha256",
+} as const;
+
 const createScanTask = async (rck: rack.Rack) =>
   await rck.createTask({
     name: uniqueName("opcua_scan"),
@@ -162,7 +183,6 @@ describe("OPCUA.Device.useConnectModal", () => {
           securityMode: "Sign",
           securityPolicy: "Basic256",
           clientCertificate: "",
-          clientPrivateKey: "",
           serverCertificate: "",
           certificateValidationDisabled: false,
           clientTimeoutMs: 2000,
@@ -453,48 +473,39 @@ describe("OPCUA.Device.useConnectModal", () => {
     expect(screen.queryByText(DRIVER_THUMBPRINT)).toBeNull();
   });
 
-  it("should show the thumbprint of the pinned server certificate", async () => {
+  it("should show the details of the trusted server certificate", async () => {
+    const trusted = await createServerCertificate();
     const dev = await createOPCDevice(client, {
       properties: {
-        connection: {
-          ...OPCUA.Device.ZERO_PROPERTIES.connection,
-          securityMode: "Sign",
-          securityPolicy: "Basic256Sha256",
-          serverCertificate: SERVER_CERTIFICATE.pem,
-        },
+        connection: { ...SECURED_CONNECTION, serverCertificate: trusted.key },
       },
     });
     await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
       client,
     });
+    expect(await findDialogTriggerByText(trusted.name)).toBeTruthy();
+    expect(await screen.findByText("SHA-256")).toBeTruthy();
     expect(
-      await screen.findByText(
-        "FF:65:16:FC:E0:22:F9:7F:23:B6:F6:79:17:9D:B7:FE:68:CB:2D:9C",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText("The device trusts this certificate.")).toBeTruthy();
+      screen.queryByText("No certificate yet. Connect to get one from the server."),
+    ).toBeNull();
   });
 
   it("should say when the server sends a certificate other than the pinned one", async () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await createScanTask(rack);
     const loaded = await answerGetCertificate(scan);
+    const trusted = await createServerCertificate();
     const dev = await createOPCDevice(client, {
       rack: rack.key,
       properties: {
-        connection: {
-          ...OPCUA.Device.ZERO_PROPERTIES.connection,
-          securityMode: "Sign",
-          securityPolicy: "Basic256Sha256",
-          serverCertificate: SERVER_CERTIFICATE.pem,
-        },
+        connection: { ...SECURED_CONNECTION, serverCertificate: trusted.key },
       },
     });
     await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
       client,
     });
     await loaded.answered;
-    await screen.findByText("The device trusts this certificate.");
+    await findDialogTriggerByText(trusted.name);
     const rejected = await answerNextCommand(client, scan, {
       ...TEST_CONNECTION,
       variant: "error",
@@ -534,7 +545,14 @@ describe("OPCUA.Device.useConnectModal", () => {
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
-    expect(dev.properties.connection.serverCertificate).toBe(SERVER_CERTIFICATE.pem);
+    const trusted = await client.certificates.retrieve(
+      dev.properties.connection.serverCertificate,
+    );
+    expect(trusted).toMatchObject({
+      name: `${dev.name} server certificate`,
+      source: "stored",
+      pem: SERVER_CERTIFICATE.pem,
+    });
   });
 
   it("should show why the server rejected the Driver certificate at its field", async () => {
@@ -567,58 +585,112 @@ describe("OPCUA.Device.useConnectModal", () => {
     pressSaveTrigger();
     await rejected.answered;
     await screen.findByText(description);
-    fireEvent.click(screen.getByText("Files on the Driver computer"));
+    fireEvent.click(screen.getByText("Saved certificate"));
     await waitFor(() => expect(screen.queryByText(description)).toBeNull());
   });
 
-  it("should show the file paths of a device that names them", async () => {
+  it("should show the client certificate of a device that names one", async () => {
+    const own = await createClientCertificate(CERTIFICATE.privateKeyPem);
     const dev = await createOPCDevice(client, {
       properties: {
-        connection: {
-          ...OPCUA.Device.ZERO_PROPERTIES.connection,
-          securityMode: "Sign",
-          securityPolicy: "Basic256Sha256",
-          clientCertificate: "/etc/opcua/client.der",
-          clientPrivateKey: "/etc/opcua/client.key",
-        },
+        connection: { ...SECURED_CONNECTION, clientCertificate: own.key },
       },
     });
     await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
       client,
     });
-    expect(await screen.findByDisplayValue("/etc/opcua/client.der")).toBeTruthy();
-    expect(screen.getByDisplayValue("/etc/opcua/client.key")).toBeTruthy();
+    expect(await findDialogTriggerByText(own.name)).toBeTruthy();
   });
 
-  it("should clear the file paths when the Driver certificate is chosen again", async () => {
+  it("should clear the client certificate when the Driver certificate is chosen again", async () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await createScanTask(rack);
+    const own = await createClientCertificate(CERTIFICATE.privateKeyPem);
+    const dev = await createOPCDevice(client, {
+      rack: rack.key,
+      properties: {
+        connection: { ...SECURED_CONNECTION, clientCertificate: own.key },
+      },
+    });
     const { result } = await renderModalOpener(
       OPCUA.Device.useConnectModal,
-      [{ rack: rack.key }],
+      [{ deviceKey: dev.key }],
       { client },
     );
-    fireEvent.click(await screen.findByText("Sign"));
-    fireEvent.click(await screen.findByText("Files on the Driver computer"));
-    const [certificate, privateKey] = screen.getAllByPlaceholderText<HTMLInputElement>(
-      "Path on the Driver computer",
-    );
-    commitFieldInput(certificate, "/etc/opcua/client.der");
-    commitFieldInput(privateKey, "/etc/opcua/client.key");
+    await findDialogTriggerByText(own.name);
     fireEvent.click(screen.getByText("Driver certificate"));
-    await waitFor(() =>
-      expect(screen.queryByPlaceholderText("Path on the Driver computer")).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByText(own.name)).toBeNull());
     const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
     pressSaveTrigger();
-    await answered;
+    expect((await answered).args).not.toHaveProperty("grant");
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
-    const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
-    expect(dev.properties.connection).toMatchObject({
-      clientCertificate: "",
-      clientPrivateKey: "",
+    const saved = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
+    expect(saved.properties.connection.clientCertificate).toBe("");
+  });
+
+  it("should test a stored client certificate through a grant", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    const own = await createClientCertificate(CERTIFICATE.privateKeyPem);
+    const dev = await createOPCDevice(client, {
+      rack: rack.key,
+      properties: {
+        connection: { ...SECURED_CONNECTION, clientCertificate: own.key },
+      },
     });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await findDialogTriggerByText(own.name);
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    expect((await answered).args).toEqual({ grant: expect.any(String) });
+  });
+
+  it("should test a file client certificate through a grant", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    const own = await client.certificates.set({
+      name: uniqueName("opc_client_file"),
+      source: "file",
+      certificatePath: "/etc/opcua/client.der",
+      privateKeyFile: "client.pem",
+      rack: rack.key,
+    });
+    const dev = await createOPCDevice(client, {
+      rack: rack.key,
+      properties: {
+        connection: { ...SECURED_CONNECTION, clientCertificate: own.key },
+      },
+    });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await findDialogTriggerByText(own.name);
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    expect((await answered).args).toEqual({ grant: expect.any(String) });
+  });
+
+  it("should refuse a stored client certificate with no private key", async () => {
+    const rack = await createRunningRack(client, "opc");
+    await createScanTask(rack);
+    const own = await createClientCertificate();
+    const dev = await createOPCDevice(client, {
+      rack: rack.key,
+      properties: {
+        connection: { ...SECURED_CONNECTION, clientCertificate: own.key },
+      },
+    });
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await findDialogTriggerByText(own.name);
+    pressSaveTrigger();
+    expect(
+      await screen.findByText(`Certificate ${own.name} has no private key.`),
+    ).toBeTruthy();
   });
 
   it("should save certificate validation as disabled when its switch is off", async () => {

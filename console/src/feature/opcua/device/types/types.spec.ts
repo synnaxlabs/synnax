@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
+import { v2 } from "@/feature/opcua/device/types/versions";
 import { testPropertiesSchema } from "@/platform/device/testutil";
 
 // The raw persisted shape of a v0 device's properties, as stored on the Core before the
@@ -78,15 +79,6 @@ describe("OPC UA propertiesZ v1 migration", () => {
       expect(result.data.write).toEqual({ channels: {} });
     }
   });
-
-  it("should clear a server certificate path", () => {
-    const result = OPCUA.Device.propertiesZ.safeParse({
-      version: "1.0.0",
-      connection: { ...V0_PROPERTIES.connection, serverCertificate: "/srv/server.der" },
-    });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.connection.serverCertificate).toBe("");
-  });
 });
 
 describe("OPC UA propertiesZ v2 defaults", () => {
@@ -95,5 +87,15 @@ describe("OPC UA propertiesZ v2 defaults", () => {
     expect(result.success).toBe(true);
     if (result.success)
       expect(result.data.connection.certificateValidationDisabled).toBe(false);
+  });
+
+  it("should refuse a certificate that is not the key of a certificate", () => {
+    const result = v2.connectionConfigZ.safeParse({
+      ...OPCUA.Device.ZERO_PROPERTIES.connection,
+      clientCertificate: "/srv/client.der",
+    });
+    expect(result.error?.issues.map(({ path }) => path.join("."))).toEqual([
+      "clientCertificate",
+    ]);
   });
 });
