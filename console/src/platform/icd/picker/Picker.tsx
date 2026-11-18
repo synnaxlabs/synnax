@@ -14,11 +14,13 @@ import { context } from "@synnaxlabs/lyra/context";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Portal } from "@synnaxlabs/lyra/portal";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type CrudeTimeSpan } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -36,12 +38,20 @@ const [FrameContext, useFrameContext] = context.create<string>({
 export interface RootProps extends PropsWithChildren {
   /** The key of the frame that shows. */
   value: string;
+  className?: string;
 }
 
-/** Shows one {@link Frame} at a time and puts its {@link Status} in the {@link Bar}. */
-export const Root = ({ value, children }: RootProps): ReactElement => (
+/**
+ * The frame of the dialog. Shows one {@link Frame} at a time and puts its
+ * {@link Status} in the {@link Bar}.
+ */
+export const Root = ({ value, className, children }: RootProps): ReactElement => (
   <Portal.Context>
-    <ActiveContext value={value}>{children}</ActiveContext>
+    <ActiveContext value={value}>
+      <Modal.Frame className={CSS.cls(CSS.B("icd-picker"), className)}>
+        {children}
+      </Modal.Frame>
+    </ActiveContext>
   </Portal.Context>
 );
 
@@ -135,6 +145,53 @@ export const Pane = ({ children }: PropsWithChildren): ReactElement => (
   <Flex.Box y grow empty className={CSS.BE("icd-picker", "pane")}>
     {children}
   </Flex.Box>
+);
+
+/**
+ * @returns the label of the button that adds the picks, from the count of each noun.
+ * With no picks, it names idle.
+ */
+const addLabel = (counts: [noun: string, count: number][], idle: string): string => {
+  const totals = new Map<string, number>();
+  for (const [noun, count] of counts)
+    if (count > 0) totals.set(noun, (totals.get(noun) ?? 0) + count);
+  if (totals.size === 0) return `Add ${pluralize(idle)}`;
+  const parts = [...totals].map(([noun, count]) => pluralize(noun, count, true));
+  return `Add ${parts.join(" and ")}`;
+};
+
+export interface FooterProps extends PropsWithChildren {
+  /** The count of each noun picked, such as ["field", 2]. Counts of a noun add up. */
+  counts: [noun: string, count: number][];
+  /** Names what the add button adds while nothing is picked. */
+  idle: string;
+  onAdd: () => void;
+  onCancel: () => void;
+}
+
+/** The footer of the dialog: its children, then Cancel and the add button. */
+export const Footer = ({
+  counts,
+  idle,
+  onAdd,
+  onCancel,
+  children,
+}: FooterProps): ReactElement => (
+  <Modal.Footer>
+    <Nav.Bar.Start>{children}</Nav.Bar.Start>
+    <Nav.Bar.End x align="center" gap="small">
+      <Button.Button variant="outlined" onClick={onCancel}>
+        Cancel
+      </Button.Button>
+      <Button.Button
+        variant="filled"
+        disabled={counts.every(([, count]) => count === 0)}
+        onClick={onAdd}
+      >
+        {addLabel(counts, idle)}
+      </Button.Button>
+    </Nav.Bar.End>
+  </Modal.Footer>
 );
 
 /** A checkbox that holds the place of one still loading. */

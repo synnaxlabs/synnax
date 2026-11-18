@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-icd-picker {
+.console-mqtt-discover {
     .console-mqtt-discover__search {
         flex-shrink: 0;
         align-self: stretch;
