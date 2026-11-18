@@ -90,7 +90,7 @@ export interface MessagePlan {
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
  * @param written - The channels that other bindings write, which no field takes from
- * props. When another message writes one, the message also leaves its stored index.
+ * props. When another message writes one, every channel on its index is replaced.
  */
 export const planMessage = async (
   client: Synnax,
@@ -110,33 +110,32 @@ export const planMessage = async (
       dataType: "",
     };
   // The Core refuses a channel that two bindings write, and an index that two messages
-  // write. A channel that another message writes takes its index along, with every
-  // stored channel on it.
+  // write. A channel that another message writes takes its index along.
   const skipped = fields
     .filter((f) => bindingOf(f).channel === 0 && written.has(held[f.pointer]))
     .map(({ pointer }) => pointer);
   const own = new Set(read.bindings.map(({ channel }) => channel));
   const elsewhere = skipped.map((p) => held[p]).filter((key) => !own.has(key));
-  const elsewhereIndexes =
-    elsewhere.length === 0
-      ? []
-      : (await client.channels.retrieve(elsewhere)).map(({ index }) => index);
+  const taken = new Set(
+    (elsewhere.length === 0 ? [] : await client.channels.retrieve(elsewhere))
+      .map((ch) => (ch.isIndex ? ch.key : ch.index))
+      .filter(primitive.isNonZero),
+  );
   skipped.forEach((p) => delete held[p]);
-  let storedIndex = props?.index ?? 0;
-  if (primitive.isNonZero(storedIndex) && elsewhereIndexes.includes(storedIndex)) {
-    const onIndex = new Set(
-      (await client.channels.retrieve(Object.values(held)))
-        .filter(({ key, index }) => key === storedIndex || index === storedIndex)
-        .map(({ key }) => key),
-    );
-    for (const [pointer, key] of Object.entries(held))
-      if (onIndex.has(key)) delete held[pointer];
-    storedIndex = 0;
-  }
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
   const live = new Map(
-    (await client.channels.retrieve(reused)).map((ch) => [ch.key, ch]),
+    (await client.channels.retrieve([...reused, ...Object.values(held)])).map((ch) => [
+      ch.key,
+      ch,
+    ]),
   );
+  const onTaken = (ch: channel.Channel): boolean =>
+    taken.has(ch.key) || taken.has(ch.index);
+  for (const [pointer, key] of Object.entries(held)) {
+    const ch = live.get(key);
+    if (ch != null && onTaken(ch)) delete held[pointer];
+  }
+  const storedIndex = props == null || taken.has(props.index) ? 0 : props.index;
   // A message stores every field on one index when it has an index field, a stored
   // channel, or a fixed-density field that needs a new channel. Else it streams them.
   const indexed =
@@ -153,11 +152,13 @@ export const planMessage = async (
     const suited = binding.dataType !== "" && converts(f.type, binding.dataType);
     const dataType = suited ? binding.dataType : "";
     const ch = live.get(reused[i]);
-    // A deleted channel, an edit of the field's kind or index role since the last
-    // deploy, or a streamed field that the message now stores, needs a new channel.
+    // A deleted channel, one on an index that another message writes, an edit of the
+    // field's kind or index role since the last deploy, or a streamed field that the
+    // message now stores, needs a new channel.
     const stale =
       reused[i] !== 0 &&
       (ch == null ||
+        onTaken(ch) ||
         !converts(f.type, ch.dataType.toString()) ||
         ch.isIndex !== isIndex ||
         (indexed && ch.virtual));

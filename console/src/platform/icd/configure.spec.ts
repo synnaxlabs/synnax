@@ -21,14 +21,17 @@ const client = createTestClient();
 /**
  * @returns a message of float fields, as a source reads it. Each field is named by a
  * key of channels and bound to its value.
+ * @param index - The name of a timestamp field to read as the index.
  */
-const createBound = (channels: Record<string, number>) => {
+const createBound = (channels: Record<string, number>, index?: string) => {
   const fields = Object.keys(channels).map((name) =>
     icd.jsonFieldZ.parse({
       key: uuid.create(),
       name,
       pointer: `/${name}`,
-      type: "float",
+      ...(name === index
+        ? { type: "timestamp", timeFormat: "unix_ms" }
+        : { type: "float" }),
     }),
   );
   const message: icd.Message = {
@@ -45,7 +48,13 @@ const createBound = (channels: Record<string, number>) => {
     source: {
       icd: uuid.create(),
       disabled: false,
-      messages: [{ message: message.key, bindings }],
+      messages: [
+        {
+          message: message.key,
+          index: fields.find(({ name }) => name === index)?.key,
+          bindings,
+        },
+      ],
     },
     read: 0,
     message,
@@ -75,18 +84,22 @@ describe("planMessage", () => {
     expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
   });
 
-  it("should not take a stored channel that another binding writes, or its index", async () => {
+  it("should replace every channel on an index that another message writes", async () => {
     const prefix = uniqueName("src");
     const index = await createIndex(`${prefix}_time`);
     const createStored = async (name: string) =>
       await client.channels.create({
-        name: `${prefix}_${name}_old`,
+        name: `${prefix}_${name}`,
         dataType: "float64",
         index: index.key,
       });
     const shared = await createStored("temp");
     const stored = await createStored("pressure");
-    const bound = createBound({ temp: 0, pressure: 0 });
+    const onIndex = await createStored("flow");
+    const bound = createBound(
+      { time: index.key, temp: 0, pressure: 0, flow: onIndex.key },
+      "time",
+    );
     const props = {
       index: index.key,
       channels: { "/temp": shared.key, "/pressure": stored.key },
@@ -100,14 +113,18 @@ describe("planMessage", () => {
       new Set([shared.key]),
     );
     await ICD.applyMessage(client, bound, plan);
-    const [temp, pressure] = await Promise.all(
+    const [time, ...data] = await Promise.all(
       bound.source.messages[0].bindings.map(
         async ({ channel }) => await client.channels.retrieve(channel),
       ),
     );
-    expect(temp.key).not.toBe(shared.key);
-    expect(pressure.key).not.toBe(stored.key);
-    expect(temp.index).not.toBe(index.key);
-    expect(pressure.index).toBe(temp.index);
+    expect(time.key).not.toBe(index.key);
+    expect(data.map(({ index }) => index)).toEqual([time.key, time.key, time.key]);
+    expect(data.map(({ name }) => name)).toEqual([
+      `${prefix}_temp_2`,
+      `${prefix}_pressure`,
+      `${prefix}_flow`,
+    ]);
+    expect((await client.channels.retrieve(shared.key)).name).toBe(`${prefix}_temp`);
   });
 });
