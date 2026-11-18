@@ -295,7 +295,10 @@ JSONField union on type payload.Kind extends JSONBaseField {
     }
     json {
         default any? {
-            @doc value "is the value when a read finds none or no channel is bound."
+            @doc value        """
+                is the value when a read finds none or no channel is bound.
+            """
+            @ts preserve_case
         }
 
         @doc value "is any JSON value."

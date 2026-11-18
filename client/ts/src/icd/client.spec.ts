@@ -234,7 +234,12 @@ describe("icd", () => {
           timeFormat: "iso8601",
           default: { type: "now" },
         },
-        { type: "json", name: "config", pointer: "/config", default: { mode: "auto" } },
+        {
+          type: "json",
+          name: "config",
+          pointer: "/config",
+          default: { set_point: 1, modeName: "auto" },
+        },
         {
           type: "uuid",
           name: "device",
