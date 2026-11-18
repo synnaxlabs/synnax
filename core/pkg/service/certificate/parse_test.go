@@ -10,7 +10,12 @@
 package certificate_test
 
 import (
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
+	"math/big"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,6 +64,31 @@ var _ = Describe("ParseDetails", func() {
 
 	It("Should read a certificate after a byte order mark", func() {
 		data := "\uFEFF" + leaf
+		Expect(
+			MustSucceed(certificate.ParseDetails([]byte(data))).Subject,
+		).To(Equal("CN=Leaf"))
+	})
+
+	It("Should read a DER certificate that holds PEM text as DER", func() {
+		key := newKey()
+		tmpl := &x509.Certificate{
+			SerialNumber: big.NewInt(1),
+			Subject:      pkix.Name{CommonName: "Outer"},
+			NotBefore:    start,
+			NotAfter:     start.Add(time.Hour),
+			ExtraExtensions: []pkix.Extension{{
+				Id:    asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 99999, 1},
+				Value: []byte("\n" + leaf),
+			}},
+		}
+		der := MustSucceed(
+			x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key),
+		)
+		Expect(MustSucceed(certificate.ParseDetails(der)).Subject).To(Equal("CN=Outer"))
+	})
+
+	It("Should read PEM whose first line starts with 0", func() {
+		data := "0 is the first byte of this file\n" + leaf
 		Expect(
 			MustSucceed(certificate.ParseDetails([]byte(data))).Subject,
 		).To(Equal("CN=Leaf"))

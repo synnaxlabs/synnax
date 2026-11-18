@@ -12,6 +12,11 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "testutil",
     testonly = True,
+    srcs = ["testutil.cpp"],
     hdrs = ["testutil.h"],
     visibility = ["//visibility:public"],
+    deps = [
+        "@googletest//:gtest",
+        "@mbedtls",
+    ],
 )

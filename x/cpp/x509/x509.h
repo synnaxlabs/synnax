@@ -29,17 +29,19 @@ class Certificate {
 public:
     Certificate() = default;
 
-    /// @brief parses a PEM or DER encoded certificate. For PEM, the first
-    /// CERTIFICATE block is the certificate, and other blocks and text are skipped.
+    /// @brief parses a PEM or DER encoded certificate. Data that starts with a SEQUENCE
+    /// tag and a long-form length is DER, even when it holds PEM text. For PEM, the
+    /// first CERTIFICATE block is the certificate, and other blocks and text are
+    /// skipped.
     /// @returns INVALID if the data holds no certificate.
     static std::pair<Certificate, errors::Error> parse(std::string_view data);
 
-    /// @returns true if a PEM certificate header is anywhere in the data, even with no
-    /// footer after it.
+    /// @returns true if the data is not DER and a PEM certificate header is anywhere in
+    /// it, even with no footer after it.
     [[nodiscard]] static bool is_pem(std::string_view data);
 
     /// @returns each PEM certificate block in the data, in order, from its header
-    /// through its footer. Text and blocks of other types are skipped.
+    /// through its footer, or none for DER. Text and blocks of other types are skipped.
     [[nodiscard]] static std::vector<std::string_view>
     pem_blocks(std::string_view data);
 
