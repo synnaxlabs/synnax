@@ -172,12 +172,13 @@ the first eight are closer than 0.05 in OKLab, in either theme. The first eight 
 hues of `#DC136C`, `#20A4F3`, `#52FFB8`, `#F18F01`, `#FE5F55`, `#8075FF`, `#F7AEF8`, and
 `#791E94` from today's list, and a hue moves only to pass a check. The last eight fill
 the hue gaps and pass only the contrast check: a repeated color is a sure mix-up, and a
-near color only a possible one. A user can add colors to Series, and a new color takes
-part in the assignment by its position. A new line gets the first series color that no
-other line in its plot uses, and stores its key. When the plot uses every series color,
-it gets the one used least in its plot, and a tie goes to the first by position. A user
-can pick any color. Auto clears a picked color, and the line gets a series color the
-same way. Rules get series colors the same way, counted among the rules of the plot.
+near color only a possible one. A user adds colors to Series in Settings, where they set
+the value, and a new color takes part in the assignment by its position. A new line gets
+the first series color that no other line in its plot uses, and stores its key. When the
+plot uses every series color, it gets the one used least in its plot, and a tie goes to
+the first by position. A user can pick any color. Auto clears a picked color, and the
+line gets a series color the same way. Rules get series colors the same way, counted
+among the rules of the plot.
 
 ### 4.5 Editor checks
 

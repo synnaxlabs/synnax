@@ -366,9 +366,11 @@ bound, a log precision, or the line plot X channel.
   under it. Each palette sits under its title, which ends with the name of the hovered
   color, else the linked one. Swatches have no tooltips.
 - A swatch shows the color's value for the current theme only.
-- A "+" swatch ends each palette. It creates a named color from the field's current
-  color, asks for its name inline, and links the field to it. On Auto, it starts from
-  the color that Auto shows. A blank name cancels the create.
+- A "+" swatch ends each palette except Series. Series is the pool of automatic colors,
+  so a user adds to it in Settings, where they set the new value. The "+" creates a
+  named color from the field's current color, asks for its name inline, and links the
+  field to it. On Auto, it starts from the color that Auto shows. A blank name cancels
+  the create.
 - Hovering a swatch shows an edit action. It opens the named color editor of Settings
   (name, light, dark) inside the picker, and each edit saves at once.
 - "Create palette" ends the Library list.
