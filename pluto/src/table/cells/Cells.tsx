@@ -52,8 +52,8 @@ export const Text = ({
   textColor,
 }: CellProps<TextConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const fill = fillColor == null ? undefined : resolve(fillColor);
-  const text = textColor == null ? undefined : resolve(textColor);
+  const fill = resolve(fillColor);
+  const text = resolve(textColor);
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   const handleValueChange = (value: string) =>
     onChange({ variant: "text", value, level, weight, align, fillColor, textColor });
@@ -113,19 +113,15 @@ export const Value = ({
 }: CellProps<ValueConfig>) => {
   const resolve = Color.useResolve();
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
-  const backgroundTelem = BaseValue.backgroundTelem(
-    t,
-    redline,
-    fillColor == null ? undefined : resolve(fillColor),
-  );
+  const backgroundTelem = BaseValue.backgroundTelem(t, redline, resolve(fillColor));
   BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
     level,
-    color: textColor == null ? undefined : resolve(textColor),
+    color: resolve(textColor),
     stalenessTimeout: TimeSpan.seconds(stalenessTimeout).nanoseconds,
-    stalenessColor: stalenessColor == null ? undefined : resolve(stalenessColor),
+    stalenessColor: resolve(stalenessColor),
     backgroundTelem,
     location: { x: "center", y: "center" },
     clip: true,

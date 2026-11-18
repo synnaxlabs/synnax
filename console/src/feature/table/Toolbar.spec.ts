@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color as Color, type Synnax as Client, table } from "@synnaxlabs/client";
+import {
+  type color as clientColor,
+  type Synnax as Client,
+  table,
+} from "@synnaxlabs/client";
 import {
   createTestClient,
   RoleClients,
@@ -55,7 +59,7 @@ const roleInput = (label: string): HTMLInputElement => {
   return input;
 };
 
-const hexOf = (ref?: Color.Ref | null): string | undefined =>
+const hexOf = (ref?: clientColor.Ref | null): string | undefined =>
   ref?.type === "fixed" ? color.hex(ref.value) : undefined;
 
 const renderToolbar = async ({
