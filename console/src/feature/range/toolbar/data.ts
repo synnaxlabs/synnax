@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Flux, Ranger } from "@synnaxlabs/pluto";
-import { TimeStamp } from "@synnaxlabs/x";
+import { compare, TimeStamp, unique } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import { Session } from "@/session";
@@ -20,6 +20,9 @@ const NEWEST: ranger.Order = { field: "time_range_start", descending: true };
 // Recent shows how long ago each range ended, so it sorts by the end.
 const LATEST_END: ranger.Order = { field: "time_range_end", descending: true };
 const STAGES: ranger.Where = { stages: ["in_progress", "completed"] };
+
+const latestEndFirst = (a: ranger.Range, b: ranger.Range): number =>
+  TimeStamp.sort(b.timeRange.end, a.timeRange.end);
 
 export interface Forest {
   roots: ranger.Range[];
@@ -64,16 +67,28 @@ export const useGroups = (): Groups => {
     initialSize: 250,
     eager: true,
   });
-  const running = Store.useItems({
-    keys: runningList.data,
+  // Each list shows its last answer until its answer for a new `at` lands, and the two
+  // land apart. Until both land, the groups keep the ranges of the last answers, so a
+  // range that ends moves to Recent at once and never shows twice or drops out.
+  const [held, setHeld] = useState<ranger.Key[]>([]);
+  const reading = runningList.variant === "loading" || recentList.variant === "loading";
+  const keys = unique.unique([
+    ...runningList.data,
+    ...recentList.data,
+    ...(reading ? held : []),
+  ]);
+  if (!reading && compare.primitiveArrays(held, keys) !== compare.EQUAL) setHeld(keys);
+  const ranges = Store.useItems({
+    keys,
     subscribe: runningList.subscribe,
     getItem: runningList.getItem,
   });
-  const recent = Store.useItems({
-    keys: recentList.data,
-    subscribe: recentList.subscribe,
-    getItem: recentList.getItem,
-  });
+  const running = ranges.filter(
+    (r) => Ranger.getStage(r.timeRange, at) === "in_progress",
+  );
+  const recent = ranges
+    .filter((r) => Ranger.getStage(r.timeRange, at) === "completed")
+    .sort(latestEndFirst);
   const upcoming = Ranger.useNextRanges(STAGES, at);
   const crossing = Ranger.nextCrossing(STAGES, upcoming, at);
   const now = useNow(() => crossing);
