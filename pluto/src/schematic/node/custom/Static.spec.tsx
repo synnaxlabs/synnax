@@ -63,7 +63,7 @@ describe("Static", () => {
     await act(async () => {
       await client.schematics.symbols.dispatch(
         symbol.key,
-        schematic.symbol.set({ path: ["data", "svg"], value: VALID_SVG }),
+        schematic.symbol.set({ path: ["data", "drawing", "markup"], value: VALID_SVG }),
       );
     });
     await waitFor(() => {
