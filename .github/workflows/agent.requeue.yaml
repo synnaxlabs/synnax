@@ -46,6 +46,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RUN: ${{ github.event.workflow_run.id }}
       ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+      TITLE: ${{ github.event.workflow_run.display_title }}
     steps:
       - name: Assume the runner start role
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
@@ -130,5 +131,14 @@ jobs:
                 "resets at $at. Run the job again then."
             fi
             exit 1
+          fi
+          # A rerun cannot reopen the check run that the review ended, so the review of
+          # a pull request starts again in a new run. A replay has no check run.
+          read -r pr kind _ <<< "$TITLE"
+          if [ "$name" = Review ] && [ "$kind" != replay ]; then
+            review="repos/$GITHUB_REPOSITORY/actions/workflows/review.sedosaur.yaml"
+            gh api -X POST --silent "$review/dispatches" \
+              -f ref=main -f "inputs[pr]=$pr" -f "inputs[repeat]=true"
+            exit 0
           fi
           gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$found/rerun" --silent
