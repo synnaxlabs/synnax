@@ -21,7 +21,7 @@ actionlint:
 
 bazel: &bazel
   - .bazelignore
-  - .bazeliskrc
+  - .bazelversion
   - .bazelrc
   - .gitmodules
   - MODULE.bazel
