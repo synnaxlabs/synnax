@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/platform/icd/Bindings";
 export * from "@/platform/icd/dataType";
+export * from "@/platform/icd/Details";
 export * from "@/platform/icd/Fields";
+export * from "@/platform/icd/Formats";
 export * from "@/platform/icd/Match";
+export * from "@/platform/icd/read";

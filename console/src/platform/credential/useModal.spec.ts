@@ -14,15 +14,12 @@ import {
   createTestClientAs,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
-import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { createElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { useModal } from "@/platform/credential/useModal";
-import { findButton, openModal } from "@/platform/modals/testutil";
+import { findButton, openModal, pressEscape } from "@/platform/modals/testutil";
 import {
-  CaptureStatuses,
   clickAndSettle,
   createTestClientWithGrants,
   openContextMenu,
@@ -83,7 +80,7 @@ describe("useModal", () => {
     expect(await client.auth.retrieveKeys([id])).toHaveLength(0);
   });
 
-  it("should delete a key whose creation ends after its modal closes", async () => {
+  it("should stay open while a key saves", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
@@ -92,61 +89,15 @@ describe("useModal", () => {
       role,
     });
     const id = user.resourceID(subject.key);
-    const create = client.auth.createKey.bind(client.auth);
-    let release = (): void => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
-    let createdKey: string | undefined;
-    vi.spyOn(client.auth, "createKey").mockImplementation(async (params) => {
-      await gate;
-      const res = await create(params);
-      createdKey = res.key.key;
-      return res;
-    });
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
-    await createKey(uniqueName("key"));
-    fireEvent.click(findButton("Cancel"));
-    release();
-    await waitFor(() => expect(createdKey).toBeDefined());
-    await waitFor(async () =>
-      expect((await client.auth.retrieveKeys([id])).map((k) => k.key)).not.toContain(
-        createdKey,
-      ),
-    );
-  });
-
-  it("should show an error when deleting an unused key fails", async () => {
-    const client = createTestClient();
-    const { key: role } = await createEmptyRole(client);
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-      role,
-    });
-    const id = user.resourceID(subject.key);
-    const create = client.auth.createKey.bind(client.auth);
-    let release = (): void => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
-    vi.spyOn(client.auth, "createKey").mockImplementation(async (params) => {
-      await gate;
-      return await create(params);
-    });
-    vi.spyOn(client.auth, "deleteKeys").mockRejectedValue(new Error("denied"));
-    let statuses: Status.NotificationSpec[] = [];
-    await openModal(useModal, {
-      client,
-      params: { subject: id },
-      extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
-    });
-    await screen.findByText("No API keys");
-    await createKey(uniqueName("key"));
-    fireEvent.click(findButton("Cancel"));
-    release();
-    await waitFor(() =>
-      expect(statuses.map((s) => s.message)).toContain(
-        "Failed to delete an unused API key",
-      ),
-    );
+    const name = uniqueName("key");
+    await createKey(name);
+    expect(findButton("Cancel").getAttribute("aria-disabled")).toBe("true");
+    pressEscape();
+    await screen.findByText(`Copy the key for ${name}`);
+    pressEscape();
+    await waitFor(() => expect(screen.queryByText(/^syk_/)).toBeNull());
   });
 
   it("should manage a rack's keys and offer no password", async () => {
@@ -199,6 +150,24 @@ describe("useModal", () => {
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
     await expectPassword(username, "changed123");
+  });
+
+  it("should stay open while a password saves", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({
+      username: uniqueName("user"),
+      password: "password123",
+      role,
+    });
+    await openModal(useModal, {
+      client,
+      params: { subject: user.resourceID(subject.key) },
+    });
+    await type("New password", "changed123");
+    fireEvent.click(findButton("Set password"));
+    pressEscape();
+    expect(await screen.findByText("Successfully changed password")).toBeTruthy();
   });
 
   it("should let an owner set another user's password", async () => {

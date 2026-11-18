@@ -44,6 +44,7 @@ const Create = ({ close, statusKey }: Modals.ContentProps<CreateModalParams, voi
     },
     afterSave: () => close(),
   });
+  Modals.useBusy(variant === "loading");
 
   return (
     <Modal.Frame>
