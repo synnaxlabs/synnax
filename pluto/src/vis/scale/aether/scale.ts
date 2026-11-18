@@ -305,7 +305,7 @@ export class Scale
     const ratio =
       range === 0 || Number.isNaN(value)
         ? 0
-        : (bounds.clamp(this.state.bounds, value) - lower) / range;
+        : (bounds.clamp(bounds.construct(this.state.bounds), value) - lower) / range;
 
     if (this.state.showFill) {
       // The fill goes on the lower canvas so a symbol's own container paints over it.

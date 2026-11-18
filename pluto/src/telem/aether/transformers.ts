@@ -98,7 +98,7 @@ export class WithinBounds
   schema = WithinBounds.propsZ;
 
   protected transform(value: number): boolean {
-    return bounds.contains(this.props.trueBound, value);
+    return bounds.contains(bounds.construct(this.props.trueBound), value);
   }
 }
 

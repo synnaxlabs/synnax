@@ -16,8 +16,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { Schematic, Theming, TimeSpan } from "@synnaxlabs/pluto";
-import { bounds, deep, dimensions, id } from "@synnaxlabs/x";
+import { Schematic, Theming } from "@synnaxlabs/pluto";
+import { bounds, deep, dimensions, id, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";

@@ -175,67 +175,6 @@ describe("sticky", () => {
       });
     });
   });
-  describe("completeXY schema", () => {
-    interface Spec {
-      value: unknown;
-      valid: boolean;
-    }
-    const SPECS: Spec[] = [
-      {
-        value: {
-          x: 10,
-          y: 20,
-          root: { x: "left", y: "top" },
-          units: { x: "px", y: "px" },
-        },
-        valid: true,
-      },
-      {
-        value: {
-          x: 10,
-          y: 20,
-          root: { x: "right", y: "bottom" },
-          units: { x: "decimal", y: "decimal" },
-        },
-        valid: true,
-      },
-      {
-        value: {
-          x: 0,
-          y: 0,
-          root: { x: "left", y: "top" },
-          units: { x: "px", y: "px" },
-        },
-        valid: true,
-      },
-      { value: { x: 10, y: 20 }, valid: false },
-      { value: { x: 10, y: 20, root: { x: "left", y: "top" } }, valid: false },
-      { value: { x: 10, y: 20, units: { x: "px", y: "px" } }, valid: false },
-      {
-        value: {
-          x: 10,
-          y: 20,
-          root: { x: "invalid", y: "top" },
-          units: { x: "px", y: "px" },
-        },
-        valid: false,
-      },
-      {
-        value: {
-          x: 10,
-          y: 20,
-          root: { x: "left", y: "top" },
-          units: { x: "invalid", y: "px" },
-        },
-        valid: false,
-      },
-    ];
-    SPECS.forEach(({ value, valid }, i) => {
-      test(`completeXY schema ${i}`, () => {
-        expect(sticky.completeXYZ.validate(value)).toBe(valid);
-      });
-    });
-  });
   describe("toDecimal", () => {
     interface Spec {
       position: sticky.XY;

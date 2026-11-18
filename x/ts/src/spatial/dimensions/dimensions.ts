@@ -7,24 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import {
   type Dimensions,
   dimensionsZ,
-  numberCouple,
+  type NumberCouple,
   type SignedDimensions,
-  signedDimensionsZ,
+  type XY,
 } from "@/spatial/base";
-import { xyZ } from "@/spatial/types.gen";
 
-export { type Dimensions, dimensionsZ, type SignedDimensions, signedDimensionsZ };
+export { type Dimensions, dimensionsZ };
 
-export const crude = z.union([dimensionsZ, signedDimensionsZ, xyZ, numberCouple]);
-export type Crude = z.infer<typeof crude>;
+export type Crude = Dimensions | SignedDimensions | XY | NumberCouple;
 
-export const ZERO = { width: 0, height: 0 };
-export const DECIMAL = { width: 1, height: 1 };
+export const ZERO: Dimensions = Object.freeze({ width: 0, height: 0 });
+export const DECIMAL: Dimensions = Object.freeze({ width: 1, height: 1 });
 
 export const construct = (width: number | Crude, height?: number): Dimensions => {
   if (typeof width === "number") return { width, height: height ?? width };
@@ -35,7 +31,7 @@ export const construct = (width: number | Crude, height?: number): Dimensions =>
   return { ...width };
 };
 
-export type Signed = z.infer<typeof signedDimensionsZ>;
+export type Signed = SignedDimensions;
 
 export const equals = (ca: Crude, cb?: Crude | null): boolean => {
   if (cb == null) return false;
@@ -62,11 +58,6 @@ export const couple = (ca: Crude): [number, number] => {
 export const max = (crude: Crude[]): Dimensions => ({
   width: Math.max(...crude.map((c) => construct(c).width)),
   height: Math.max(...crude.map((c) => construct(c).height)),
-});
-
-export const min = (crude: Crude[]): Dimensions => ({
-  width: Math.min(...crude.map((c) => construct(c).width)),
-  height: Math.min(...crude.map((c) => construct(c).height)),
 });
 
 export const scale = (ca: Crude, factor: number): Dimensions => {

@@ -89,7 +89,7 @@ class FixedSeries
   }
 
   value(): Result<[bounds.Bounds, MultiSeries]> {
-    const b = bounds.max(this.data.map((x) => x.bounds));
+    const b = bounds.union(this.data.map((x) => x.bounds));
     return success([b, new MultiSeries(this.data)]);
   }
 }
@@ -144,7 +144,7 @@ export class IterativeSeries
       };
       return success([b, new MultiSeries(d)]);
     }
-    const b = bounds.max(d.map((x) => x.bounds));
+    const b = bounds.union(d.map((x) => x.bounds));
     return success([b, new MultiSeries(d)]);
   }
 

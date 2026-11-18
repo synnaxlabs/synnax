@@ -113,7 +113,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 
   private renderRanges(props: AxisRenderProps, xDataToDecimalScale: scale.Scale): void {
     const bound = this.bounds(props.hold);
-    const clampedBounds = bounds.min([bound, TimeRange.MAX.numericBounds]);
+    const clampedBounds = bounds.intersection([bound, TimeRange.MAX.numericBounds]);
     const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
     this.ranges.forEach((el) =>
       el.render({

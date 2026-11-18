@@ -156,6 +156,18 @@ describe("WithinBounds", () => {
     expect(t.value().data).toBe(false);
   });
 
+  it("returns true inside bounds stored with the lower above the upper", () => {
+    const value = (v: number): boolean => {
+      const t = new WithinBounds({ trueBound: { lower: 15, upper: 5 } });
+      t.setSources({ in: new TestSource(v) });
+      return t.value().data;
+    };
+    expect(value(5)).toBe(true);
+    expect(value(10)).toBe(true);
+    expect(value(15)).toBe(false);
+    expect(value(20)).toBe(false);
+  });
+
   // Staleness counts arrivals, so a sample that leaves the boolean unchanged must still
   // reach the listener.
   it("notifies on every sample, even when the boolean stays the same", () => {
