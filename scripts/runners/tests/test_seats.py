@@ -224,6 +224,14 @@ class TestSeats:
         seats(client, aws).step(queued=[JOB], found=found, stuck=[JOB])
         assert aws.started == [CLAUDE_2]
 
+    def test_should_not_start_a_seat_for_a_stuck_job_while_disconnected(
+        self, client: Client
+    ) -> None:
+        aws = Instances()
+        found = {CLAUDE: seat("running"), CLAUDE_2: seat("stopped", name="claude-2")}
+        seats(client, aws).step(queued=[JOB], found=found, stuck=[JOB], connected=False)
+        assert aws.started == []
+
     def test_should_not_start_another_seat_for_a_stuck_job_while_one_boots(
         self, client: Client
     ) -> None:

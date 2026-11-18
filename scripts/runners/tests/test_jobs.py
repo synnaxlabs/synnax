@@ -162,12 +162,14 @@ class TestJobs:
                 },
             }
         )
-        j = jobs(github, client=client)
-        j.resync(sy.TimeStamp.now())
-        j.apply([queued(1, labels=["self-hosted", "seat-claude-1"])])
         after = 5 * sy.TimeSpan.MINUTE
-        assert j.stuck(WAITING.since + after, after=after) == [set(LABELS)]
-        assert j.stuck(WAITING.since + sy.TimeSpan.MINUTE, after=after) == []
+        late = jobs(github, client=client)
+        late.resync(WAITING.since + after)
+        late.apply([queued(1, labels=["self-hosted", "seat-claude-1"])])
+        assert late.stuck(after=after) == [set(LABELS)]
+        early = jobs(github, client=client)
+        early.resync(WAITING.since + sy.TimeSpan.MINUTE)
+        assert early.stuck(after=after) == []
 
     def test_should_keep_the_queue_until_the_resync_finishes(
         self, client: Client

@@ -118,9 +118,11 @@ class Seats:
         found: dict[str, dict],
         enabled: bool = True,
         stuck: Sequence[set[str]] = (),
+        connected: bool = True,
     ) -> None:
         """Starts the seats that the queued jobs, given by their labels, wait for.
-        stuck gives the labels of the queued jobs that have waited FULL_AFTER."""
+        stuck gives the labels of the queued jobs that have waited FULL_AFTER. While
+        not connected, the runners cannot reach GitHub, so no job counts as stuck."""
         now = sy.TimeStamp.now()
         seconds = int(now) // int(sy.TimeSpan.SECOND)
         try:
@@ -151,7 +153,8 @@ class Seats:
             if info["state"] == "pending" or now.span(info["launched"]) < FULL_AFTER
         }
         starting: set[str] = set()
-        jobs = [(job, False) for job in queued] + [(job, True) for job in stuck]
+        waited = list(stuck) if connected else []
+        jobs = [(job, False) for job in queued] + [(job, True) for job in waited]
         for job, full in jobs:
             wanted = {label.lower() for label in job} - GENERIC
             matching = [iid for iid, labels in seats.items() if wanted <= labels]

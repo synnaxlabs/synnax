@@ -305,12 +305,12 @@ class Controller:
             # An unread queue looks empty, which would stop runners jobs wait for.
             stops=self.jobs.ready,
         )
-        # A closed gate keeps every runner from its jobs, so none is stuck.
         self.seats.step(
             queued=[job.labels for job in self.jobs.queued.values()],
             found=found,
             enabled=self.scaler.enabled,
-            stuck=self.jobs.stuck(now, after=FULL_AFTER) if self.gate.enabled else [],
+            stuck=self.jobs.stuck(after=FULL_AFTER),
+            connected=self.gate.enabled,
         )
         now = sy.TimeStamp.now()
         self.pool_report.step(
