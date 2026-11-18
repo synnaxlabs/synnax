@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x";
+
 import {
   CARD_IN_S,
   CARD_RISE_PX,
@@ -42,10 +44,9 @@ import {
 } from "@/film";
 import { type Mark, marks, type Rect, type Timeline } from "@/timeline";
 
-const clamp = (t: number, lo = 0, hi = 1): number => Math.min(hi, Math.max(lo, t));
-
 /** Ease-out quint: fast arrival, long settle. */
-export const easeOutQuint = (t: number): number => 1 - (1 - clamp(t)) ** 5;
+export const easeOutQuint = (t: number): number =>
+  1 - (1 - bounds.clamp({ lower: 0, upper: 1 }, t)) ** 5;
 
 /**
  * Where the capture sits on the stage for one frame. (`cx`, `cy`) is the capture
@@ -169,12 +170,11 @@ const planTake = (
       const doublings = Math.abs(target.zoom - zoom.position) / Math.LN2;
       const pace =
         target.pace ??
-        clamp(
+        bounds.clamp(
+          { lower: PACE_MIN_S, upper: PACE_MAX_S },
           PACE_MIN_S +
             (PACE_PER_WIDTH_S * travel * scale) / frame.width +
             PACE_PER_ZOOM_S * doublings,
-          PACE_MIN_S,
-          PACE_MAX_S,
         );
       params = settling(pace);
     }
@@ -201,11 +201,13 @@ const planTake = (
     const pan = (x.velocity * scale) / frame.width;
     const tiltPan = (y.velocity * scale) / frame.width;
     const dolly = zoom.velocity / Math.LN2;
-    const leanZ = clamp(-LEAN_DEG * pan, -LEAN_MAX_DEG, LEAN_MAX_DEG);
-    const leanX = clamp(
+    const leanZ = bounds.clamp(
+      { lower: -LEAN_MAX_DEG, upper: LEAN_MAX_DEG },
+      -LEAN_DEG * pan,
+    );
+    const leanX = bounds.clamp(
+      { lower: -LEAN_MAX_DEG, upper: LEAN_MAX_DEG },
       LEAN_ZOOM_DEG * dolly - LEAN_DEG * tiltPan,
-      -LEAN_MAX_DEG,
-      LEAN_MAX_DEG,
     );
     const revealing = shot.tilt != null && (tick - from.tick) / FPS < REVEAL_S;
     const tiltParams = settling(revealing ? REVEAL_S : LEAN_S);

@@ -52,12 +52,8 @@ class RangeExplorer(ConsoleCase):
         ]:
             self.client.ranges.create(name=name, time_range=tr)
 
-        self.console.ranges.create(
-            self.range_a_name, persisted=True, labels=[self.label_a_name]
-        )
-        self.console.ranges.create(
-            self.range_b_name, persisted=True, labels=[self.label_b_name]
-        )
+        self.console.ranges.create(self.range_a_name, labels=[self.label_a_name])
+        self.console.ranges.create(self.range_b_name, labels=[self.label_b_name])
 
         self.console.ranges.explorer.open()
 
@@ -113,12 +109,12 @@ class RangeExplorer(ConsoleCase):
             [self.range_b_name, self.range_c_name]
         )
 
-        assert self.console.ranges.toolbar.exists(self.range_b_name), (
-            f"'{self.range_b_name}' should appear in toolbar after favoriting"
-        )
-        assert self.console.ranges.toolbar.exists(self.range_c_name), (
-            f"'{self.range_c_name}' should appear in toolbar after favoriting"
-        )
+        assert self.console.ranges.toolbar.exists(
+            self.range_b_name, group="Favorites"
+        ), f"'{self.range_b_name}' should appear in toolbar after favoriting"
+        assert self.console.ranges.toolbar.exists(
+            self.range_c_name, group="Favorites"
+        ), f"'{self.range_c_name}' should appear in toolbar after favoriting"
 
     def test_unfavorite_range(self) -> None:
         """Test unfavoriting a single range via explorer context menu."""
@@ -126,9 +122,9 @@ class RangeExplorer(ConsoleCase):
         self.console.ranges.explorer.open()
         self.console.ranges.explorer.unfavorite(self.range_b_name)
 
-        assert self.console.ranges.toolbar.exists(self.range_c_name), (
-            f"'{self.range_c_name}' should still be in toolbar"
-        )
+        assert self.console.ranges.toolbar.exists(
+            self.range_c_name, group="Favorites"
+        ), f"'{self.range_c_name}' should still be in toolbar"
 
     def test_unfavorite_multiple_ranges(self) -> None:
         """Test unfavoriting multiple ranges via multi-select context menu."""
