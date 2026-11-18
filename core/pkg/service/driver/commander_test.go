@@ -11,6 +11,9 @@ package driver_test
 
 import (
 	"context"
+	"strings"
+	"sync/atomic"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -132,6 +135,88 @@ var _ = Describe("Commander", func() {
 				Expect(stat.Description).
 					To(Equal("The task does not accept the 'restart' command."))
 			})
+
+		It("Should answer a command whose data is over 1 MiB with an error",
+			func(ctx SpecContext) {
+				c := open(
+					func(context.Context, task.Command) (msgpack.EncodedJSON, error) {
+						return msgpack.EncodedJSON{
+							"data": strings.Repeat("a", 2<<20),
+						}, nil
+					},
+				)
+				stat := answer(ctx, run(ctx, c, "list"))
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Answer too large"))
+				Expect(stat.Description).To(Equal(
+					"The answer holds 2.0 MiB of JSON, and a command answers with at " +
+						"most 1 MiB. Ask for less data, such as fewer topics.",
+				))
+				Expect(stat.Details.Data).To(BeNil())
+			})
+
+		It("Should run one command at a time", func(ctx SpecContext) {
+			var (
+				running, done atomic.Int32
+				overlapped    atomic.Bool
+				release       = make(chan struct{})
+			)
+			c := open(func(context.Context, task.Command) (msgpack.EncodedJSON, error) {
+				if running.Add(1) > 1 {
+					overlapped.Store(true)
+				}
+				<-release
+				running.Add(-1)
+				done.Add(1)
+				return nil, nil
+			})
+			run(ctx, c, "list")
+			run(ctx, c, "list")
+			Eventually(running.Load).Should(BeEquivalentTo(1))
+			Consistently(running.Load, 50*time.Millisecond).Should(BeEquivalentTo(1))
+			close(release)
+			Eventually(done.Load).Should(BeEquivalentTo(2))
+			Expect(overlapped.Load()).To(BeFalse())
+		})
+
+		It("Should start the time limit of a command at its turn",
+			func(ctx SpecContext) {
+				started, release := make(chan struct{}), make(chan struct{})
+				c := open(func(
+					ctx context.Context,
+					cmd task.Command,
+				) (msgpack.EncodedJSON, error) {
+					if cmd.Type == "hold" {
+						close(started)
+						<-release
+					}
+					return nil, ctx.Err()
+				})
+				run(ctx, c, "hold")
+				Eventually(started).Should(BeClosed())
+				limited, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+				defer cancel()
+				next := run(limited, c, "list")
+				<-limited.Done()
+				close(release)
+				Expect(answer(ctx, next).Variant).To(Equal(status.VariantSuccess))
+			})
+
+		It("Should end a command at the time limit of its context",
+			func(ctx SpecContext) {
+				c := open(func(
+					ctx context.Context,
+					_ task.Command,
+				) (msgpack.EncodedJSON, error) {
+					<-ctx.Done()
+					return nil, ctx.Err()
+				})
+				limited, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
+				defer cancel()
+				stat := answer(ctx, run(limited, c, "list"))
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("context deadline exceeded"))
+			})
 	})
 
 	Describe("Stop", func() {
@@ -152,5 +237,14 @@ var _ = Describe("Commander", func() {
 				stat := retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
 			})
+
+		It("Should answer commands sent after a stop", func(ctx SpecContext) {
+			c := open(func(context.Context, task.Command) (msgpack.EncodedJSON, error) {
+				return nil, nil
+			})
+			Expect(c.Stop(false)).To(Succeed())
+			Expect(answer(ctx, run(ctx, c, "list")).Variant).
+				To(Equal(status.VariantSuccess))
+		})
 	})
 })

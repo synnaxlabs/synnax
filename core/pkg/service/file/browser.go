@@ -155,7 +155,8 @@ func (b browser) list(ctx context.Context, path string) (listing, error) {
 		l.Parent = parent
 	}
 	secrets := b.secrets()
-	l.Secret = secrets.holds(dir)
+	resolved, err := filepath.EvalSymlinks(dir)
+	l.Secret = err != nil || secrets.holds(resolved, "")
 	for _, e := range found[:min(len(found), maxEntries)] {
 		if ctx.Err() != nil {
 			return listing{}, failure(
@@ -163,10 +164,8 @@ func (b browser) list(ctx context.Context, path string) (listing, error) {
 				dir,
 			)
 		}
-		// The check and the reads use one resolved path, so a link that changes
-		// between them cannot lead the reads into the secrets folder.
 		target, err := filepath.EvalSymlinks(e.Path)
-		if l.Secret || err != nil || secrets.holds(target) {
+		if l.Secret || err != nil || secrets.holds(target, resolved) {
 			l.Entries = append(l.Entries, e)
 			continue
 		}
@@ -185,9 +184,8 @@ func (b browser) list(ctx context.Context, path string) (listing, error) {
 }
 
 // readDir returns the files and folders in dir, folders first, then files, each by
-// name.
-// It follows links, and leaves out a link that leads nowhere and an entry whose name is
-// not valid UTF-8.
+// name. It follows links, and leaves out a link that leads nowhere and an entry whose
+// name is not valid UTF-8.
 func readDir(dir string) ([]entry, error) {
 	dirEntries, err := os.ReadDir(dir)
 	if err != nil {
@@ -281,6 +279,12 @@ func (b browser) top() (listing, error) {
 	}
 	l := listing{SecretsDir: b.secretsDir, Entries: []entry{}}
 	add := func(name, path string) {
+		if path == "" || slices.ContainsFunc(
+			l.Entries,
+			func(e entry) bool { return e.Path == path },
+		) {
+			return
+		}
 		l.Entries = append(
 			l.Entries,
 			entry{Name: name, Path: path, Kind: kindDirectory},
@@ -289,49 +293,49 @@ func (b browser) top() (listing, error) {
 	for _, root := range rootDirs {
 		add(root, root)
 	}
-	for _, dir := range []string{b.home, b.secretsDir} {
-		if dir != "" {
-			add(filepath.Base(dir), dir)
-		}
-	}
+	add(filepath.Base(b.home), b.home)
+	add(filepath.Base(b.secretsDir), b.secretsDir)
 	return l, nil
 }
 
-// secrets is the secrets folder of one listing, by its name and with its links
-// resolved.
+// secrets is the secrets folder of the Core's rack, as it is at the start of a list.
 type secrets struct {
-	dir string
-	// resolved is empty when dir does not resolve.
-	resolved string
+	// info is nil when no folder is set.
+	info fs.FileInfo
+	// unread is true when the folder is set but cannot be read.
+	unread bool
 }
 
 func (b browser) secrets() secrets {
-	s := secrets{dir: b.secretsDir}
-	if s.dir == "" {
-		return s
+	if b.secretsDir == "" {
+		return secrets{}
 	}
-	if resolved, err := filepath.EvalSymlinks(s.dir); err == nil {
-		s.resolved = resolved
+	info, err := os.Stat(b.secretsDir)
+	if err != nil {
+		return secrets{unread: true}
 	}
-	return s
+	return secrets{info: info}
 }
 
-// holds reports whether path is in the folder, by its name or with its links resolved.
-// It returns true when the folder or path does not resolve.
-func (s secrets) holds(path string) bool {
-	if s.dir == "" {
-		return false
-	}
-	if s.resolved == "" || within(path, s.dir) {
+// holds reports whether path, with its links resolved, is in the secrets folder. It
+// compares the identity of path and of each parent with the folder, up to checked, a
+// folder known to be outside it. It returns true when the folder, path, or a parent
+// cannot be read.
+func (s secrets) holds(path, checked string) bool {
+	if s.unread {
 		return true
 	}
-	resolved, err := filepath.EvalSymlinks(path)
-	return err != nil || within(resolved, s.resolved)
-}
-
-// within reports whether path is dir or is in dir. Both must be clean and absolute.
-func within(path, dir string) bool {
-	rel, err := filepath.Rel(dir, path)
-	return err == nil && rel != ".." &&
-		!strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	if s.info == nil {
+		return false
+	}
+	for ; path != checked; path = filepath.Dir(path) {
+		info, err := os.Stat(path)
+		if err != nil || os.SameFile(info, s.info) {
+			return true
+		}
+		if filepath.Dir(path) == path {
+			return false
+		}
+	}
+	return false
 }
