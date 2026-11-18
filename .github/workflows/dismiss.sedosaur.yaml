@@ -34,6 +34,10 @@ on:
 
 permissions: {}
 
+# The review module reads the Claude Code stream with the agent wrapper's code.
+env:
+  PYTHONPATH: ${{ github.workspace }}/scripts
+
 # Each job has its own group, so a dismissal does not wait behind a judgment. A job that
 # waits is canceled when another one queues. The next one answers its work.
 jobs:
@@ -67,7 +71,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts
+          sparse-checkout: |
+            .github/scripts
+            scripts/agent
 
       - name: Mint the GitHub App token
         id: app

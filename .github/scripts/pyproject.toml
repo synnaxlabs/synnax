@@ -61,9 +61,11 @@ combine-as-imports = true
 
 [tool.mypy]
 strict = true
+# The review module shares the agent wrapper's reading of the Claude Code stream.
+mypy_path = "../../scripts"
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = [".", "../../scripts"]
 
 [tool.coverage.run]
 omit = ["tests/*"]

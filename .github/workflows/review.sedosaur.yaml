@@ -61,6 +61,8 @@ permissions: {}
 env:
   RUN_URL:
     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  # The review module reads the Claude Code stream with the agent wrapper's code.
+  PYTHONPATH: ${{ github.workspace }}/scripts
 
 # One review of a pull request at a time. A newer request replaces a queued one, so the
 # relay asks for a repeat while one waits. Replays post nothing, so each runs apart.
@@ -118,7 +120,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts
+          sparse-checkout: |
+            .github/scripts
+            scripts/agent
 
       - name: Decide whether to review
         id: skip
