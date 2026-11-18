@@ -106,6 +106,9 @@ func (resolveResponseTranslator) Forward(
 	}
 	return &ResolveResponse{
 		Command: cmd,
+		Secrets: lo.Map(res.Secrets, func(k secret.Key, _ int) string {
+			return k.String()
+		}),
 		Values: lo.Map(res.Values, func(v secret.Value, _ int) *Value {
 			return &Value{Key: v.Key.String(), Value: v.Value}
 		}),

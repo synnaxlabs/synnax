@@ -40,11 +40,14 @@ using ResolveClient = freighter::
 /// @brief the plain text values of secrets by key.
 using Values = std::unordered_map<Key, std::string>;
 
-/// @brief what a spent grant gives: the command to run and the values of its secrets.
+/// @brief what a spent grant gives a rack.
 struct Grant {
     /// @brief the command to run in place of the command that carried the grant.
     synnax::task::Command command;
-    /// @brief the values of the secrets that the grant names.
+    /// @brief the keys of the secrets that the grant names, file secrets included.
+    std::vector<Key> secrets;
+    /// @brief the values of the secrets that the grant names, except a file secret of
+    /// the rack, which the rack reads from its own secrets folder.
     Values values;
 };
 
@@ -68,8 +71,8 @@ public:
     [[nodiscard]] std::pair<std::vector<Secret>, x::errors::Error>
     retrieve(const std::vector<Key> &keys) const;
 
-    /// @brief spends a grant and returns its command and the values of its secrets.
-    /// Only a rack may call it, for a grant to that rack.
+    /// @brief spends a grant and returns its command, the secrets it names, and their
+    /// values. Only a rack may call it, for a grant to that rack.
     /// @param grant the key of the grant.
     /// @param task the task that runs the command. A grant for another task fails, and
     /// is spent.

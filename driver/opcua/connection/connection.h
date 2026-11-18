@@ -123,12 +123,12 @@ struct Config {
 };
 
 /// @brief reads the password of cfg from the secret that it names, when it names one.
-/// @param granted the values of a spent grant, as for secret::Reader::read.
+/// @param grant a spent grant, as for secret::Reader::read.
 /// @returns the error of the read.
 [[nodiscard]] x::errors::Error read_password(
     Config &cfg,
     const secret::Reader &reader,
-    const std::optional<synnax::secret::Values> &granted = std::nullopt
+    const std::optional<synnax::secret::Grant> &grant = std::nullopt
 );
 
 /// @brief the security inputs of a connection that do not come from its Config.

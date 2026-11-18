@@ -71,15 +71,15 @@ bool server_answered(const x::errors::Error &err) {
 x::errors::Error read_sent_password(
     connection::Config &cfg,
     const secret::Reader &reader,
-    const std::optional<synnax::secret::Values> &granted
+    const std::optional<synnax::secret::Grant> &grant
 ) {
-    if (!cfg.password_secret.is_nil() && !granted.has_value())
+    if (!cfg.password_secret.is_nil() && !grant.has_value())
         return x::errors::Error(
             x::errors::VALIDATION,
             "The command sends a connection with a password, so it must carry a "
             "grant."
         );
-    return connection::read_password(cfg, reader, granted);
+    return connection::read_password(cfg, reader, grant);
 }
 
 /// @returns an error status for the reply to cmd, which each handler fills in.
@@ -155,27 +155,27 @@ bool Scanner::exec(
         return true;
     }
     if (!grant.has_value()) return this->run(cmd, std::nullopt);
-    return this->run(grant->command, grant->values);
+    return this->run(grant->command, grant);
 }
 
 bool Scanner::run(
     const synnax::task::Command &cmd,
-    const std::optional<synnax::secret::Values> &granted
+    const std::optional<synnax::secret::Grant> &grant
 ) const {
     if (cmd.type == BROWSE_CMD_TYPE) {
-        this->browse_nodes(cmd, granted);
+        this->browse_nodes(cmd, grant);
         return true;
     }
     if (cmd.type == BROWSE_VARIABLES_CMD_TYPE) {
-        this->browse_variables(cmd, granted);
+        this->browse_variables(cmd, grant);
         return true;
     }
     if (cmd.type == READ_NODE_CMD_TYPE) {
-        this->read_node(cmd, granted);
+        this->read_node(cmd, grant);
         return true;
     }
     if (cmd.type == TEST_CONNECTION_CMD_TYPE) {
-        this->test_connection(cmd, granted);
+        this->test_connection(cmd, grant);
         return true;
     }
     if (cmd.type == GET_ENDPOINTS_CMD_TYPE) {
@@ -789,19 +789,19 @@ std::pair<x::json::json, x::errors::Error> read_details(
 
 std::pair<connection::Config, x::errors::Error> Scanner::connection_of(
     const ScanCommandArgs &args,
-    const std::optional<synnax::secret::Values> &granted
+    const std::optional<synnax::secret::Grant> &grant
 ) const {
     if (!args.device.empty())
         return device::read_connection(*this->ctx->client, *this->reader, args.device);
     auto cfg = args.connection;
-    auto err = read_sent_password(cfg, *this->reader, granted);
+    auto err = read_sent_password(cfg, *this->reader, grant);
     return {std::move(cfg), err};
 }
 
 std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::target(
     const x::json::Parser &parser,
     const ScanCommandArgs &args,
-    const std::optional<synnax::secret::Values> &granted,
+    const std::optional<synnax::secret::Grant> &grant,
     synnax::task::Status &status,
     const std::string &failure
 ) const {
@@ -812,7 +812,7 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
         ctx->set_status(status);
         return std::nullopt;
     }
-    auto [cfg, cfg_err] = this->connection_of(args, granted);
+    auto [cfg, cfg_err] = this->connection_of(args, grant);
     if (cfg_err) {
         status.message = "Failed to connect to server";
         status.description = cfg_err.data;
@@ -851,13 +851,13 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
 
 void Scanner::browse_nodes(
     const synnax::task::Command &cmd,
-    const std::optional<synnax::secret::Values> &granted
+    const std::optional<synnax::secret::Grant> &grant
 ) const {
     const auto deadline = std::chrono::steady_clock::now() + BROWSE_DEADLINE;
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, granted, status, "Failed to browse nodes");
+    auto target = this->target(parser, args, grant, status, "Failed to browse nodes");
     if (!target.has_value()) return;
     auto &[connection, start] = *target;
 
@@ -912,19 +912,13 @@ void Scanner::browse_nodes(
 
 void Scanner::browse_variables(
     const synnax::task::Command &cmd,
-    const std::optional<synnax::secret::Values> &granted
+    const std::optional<synnax::secret::Grant> &grant
 ) const {
     const auto deadline = std::chrono::steady_clock::now() + SEARCH_DEADLINE;
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(
-        parser,
-        args,
-        granted,
-        status,
-        "Failed to find variables"
-    );
+    auto target = this->target(parser, args, grant, status, "Failed to find variables");
     if (!target.has_value()) return;
     auto &[connection, start] = *target;
     auto [search, search_err] = find_variables(connection, start, deadline);
@@ -962,12 +956,12 @@ void Scanner::browse_variables(
 
 void Scanner::read_node(
     const synnax::task::Command &cmd,
-    const std::optional<synnax::secret::Values> &granted
+    const std::optional<synnax::secret::Grant> &grant
 ) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    auto target = this->target(parser, args, granted, status, "Failed to read node");
+    auto target = this->target(parser, args, grant, status, "Failed to read node");
     if (!target.has_value()) return;
     auto &[connection, id] = *target;
     auto [data, details_err] = read_details(connection, id, args.field);
@@ -985,7 +979,7 @@ void Scanner::read_node(
 
 void Scanner::test_connection(
     const synnax::task::Command &cmd,
-    const std::optional<synnax::secret::Values> &granted
+    const std::optional<synnax::secret::Grant> &grant
 ) const {
     x::json::Parser parser(cmd.args);
     connection::Config cfg(parser.child("connection"));
@@ -997,7 +991,7 @@ void Scanner::test_connection(
         ctx->set_status(status);
         return;
     }
-    if (const auto err = read_sent_password(cfg, *this->reader, granted)) {
+    if (const auto err = read_sent_password(cfg, *this->reader, grant)) {
         status.message = "Failed to connect to server";
         status.description = err.data;
         ctx->set_status(status);

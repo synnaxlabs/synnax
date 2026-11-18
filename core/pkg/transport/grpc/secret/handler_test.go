@@ -37,11 +37,12 @@ var _ = Describe("Resolve", func() {
 			return res, nil
 		})
 	})
-	It("Should decode a grant and a task, and encode the command and values",
+	It("Should decode a grant and a task, and encode the command, secrets, and values",
 		func(ctx SpecContext) {
-			g, t, k := uuid.New(), uuid.New(), uuid.New()
+			g, t, k, file := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 			res = secret.ResolveResponse{
 				Command: task.Command{Task: t, Type: "test", Key: "cmd"},
+				Secrets: []secret.Key{k, file},
 				Values:  []secret.Value{{Key: k, Value: "v"}},
 			}
 			out := MustSucceed(client.Exec(ctx, &grpcsecret.ResolveRequest{
@@ -56,6 +57,7 @@ var _ = Describe("Resolve", func() {
 			Expect(out.Command.Task).To(Equal(t.String()))
 			Expect(out.Command.Type).To(Equal("test"))
 			Expect(out.Command.Key).To(Equal("cmd"))
+			Expect(out.Secrets).To(Equal([]string{k.String(), file.String()}))
 			Expect(out.Values).To(HaveLen(1))
 			Expect(out.Values[0].Key).To(Equal(k.String()))
 			Expect(out.Values[0].Value).To(Equal("v"))

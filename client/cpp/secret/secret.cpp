@@ -70,12 +70,16 @@ Client::resolve(const x::uuid::UUID &grant, const synnax::task::Key &task) const
     if (err) return {Grant{}, err};
     auto [cmd, cmd_err] = synnax::task::Command::from_proto(res.command());
     if (cmd_err) return {Grant{}, cmd_err};
+    Grant out{.command = std::move(cmd)};
+    for (const auto &k: res.secrets()) {
+        auto [key, key_err] = x::uuid::UUID::parse(k);
+        if (key_err) return {Grant{}, key_err};
+        out.secrets.push_back(key);
+    }
     auto [values, values_err] = to_values(res);
     if (values_err) return {Grant{}, values_err};
-    return {
-        Grant{.command = std::move(cmd), .values = std::move(values)},
-        x::errors::NIL
-    };
+    out.values = std::move(values);
+    return {std::move(out), x::errors::NIL};
 }
 
 std::pair<Values, x::errors::Error>

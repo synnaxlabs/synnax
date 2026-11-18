@@ -143,14 +143,14 @@ private:
     /// password only a grant may give.
     std::pair<connection::Config, x::errors::Error> connection_of(
         const ScanCommandArgs &args,
-        const std::optional<synnax::secret::Values> &granted
+        const std::optional<synnax::secret::Grant> &grant
     ) const;
 
-    /// @brief runs cmd with the values of the grant that it carried, if any.
+    /// @brief runs cmd with the grant that it carried, if any.
     /// @returns false when the scanner does not handle the type of cmd.
     bool
     run(const synnax::task::Command &cmd,
-        const std::optional<synnax::secret::Values> &granted) const;
+        const std::optional<synnax::secret::Grant> &grant) const;
 
     /// @brief connects to the server that a browse command names and finds its node.
     /// When a step fails, sets the command's status with the failure message.
@@ -159,7 +159,7 @@ private:
     std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> target(
         const x::json::Parser &parser,
         const ScanCommandArgs &args,
-        const std::optional<synnax::secret::Values> &granted,
+        const std::optional<synnax::secret::Grant> &grant,
         synnax::task::Status &status,
         const std::string &failure
     ) const;
@@ -167,28 +167,28 @@ private:
     /// @brief Browse child nodes of a given OPC UA node.
     void browse_nodes(
         const synnax::task::Command &cmd,
-        const std::optional<synnax::secret::Values> &granted
+        const std::optional<synnax::secret::Grant> &grant
     ) const;
 
     /// @brief replies with the variables under the command's node, each with its browse
     /// path from below the node, and whether the search stopped at a limit.
     void browse_variables(
         const synnax::task::Command &cmd,
-        const std::optional<synnax::secret::Values> &granted
+        const std::optional<synnax::secret::Grant> &grant
     ) const;
 
     /// @brief replies with the attributes and the value of the command's node, or of
     /// the member of its structure value that the command's field names.
     void read_node(
         const synnax::task::Command &cmd,
-        const std::optional<synnax::secret::Values> &granted
+        const std::optional<synnax::secret::Grant> &grant
     ) const;
 
     /// @brief Test connection to an OPC UA server. Never trusts a server certificate
     /// that the configuration does not name.
     void test_connection(
         const synnax::task::Command &cmd,
-        const std::optional<synnax::secret::Values> &granted
+        const std::optional<synnax::secret::Grant> &grant
     ) const;
 
     /// @brief replies with the endpoints of the server that the command's connection
