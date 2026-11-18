@@ -34,9 +34,11 @@ in place until then and need no migration between them.
 
 ## 2 Principles
 
-1. **The ICD says how to parse; the task says where the data goes**: The ICD holds what
-   every user of the device must agree on. The task holds every choice that can differ
-   between rigs: transport, channels, timing.
+1. **The ICD says what a message is; the task says how the rig moves it**: The ICD holds
+   a message's layout, how to find it in a shared stream (CAN ID and frame flags, line
+   prefix, JSON match), and what the sender promises (cycle time, min and max). The task
+   holds where the stream is (topic, path, port), the request it sends to get a reply,
+   the poll rate, the send period, and the channels.
 2. **The ICD holds no value a rig chooses**: Protocol values (the fill for a missing
    field, a constant, a send-time generator) are encoding and live in the ICD. A
    channel, or a constant one site picks, lives on the task.
@@ -72,9 +74,8 @@ This RFC changes the ICD in these ways:
   written by hand in Go, TypeScript, and Python.
 - The unused `payload.FloatRead` to `payload.TimestampRead` types are deleted. The ICD
   JSON field is their replacement.
-- A message gets a `query`, the request a device must receive before it answers, and a
-  `cycle_time`, the send cycle the protocol states. DBC import fills `cycle_time` from
-  `GenMsgCycleTime`.
+- A message gets a `cycle_time`, the send cycle the protocol states. DBC import fills it
+  from `GenMsgCycleTime`.
 
 ### 3.1 Tasks
 
@@ -83,7 +84,9 @@ A task entry names one ICD and lists messages. Each message lists bindings (`fie
 ICD key sits on each entry, because one entry is one publishing device. The task holds
 all timing, because the rig chooses it: the poll rate of a queried message, and the
 `period` of a sent message. The form fills `period` from the message's `cycle_time` when
-a write task first binds it.
+a write task first binds it. A polled serial, TCP, or UDP entry holds its `query`, the
+request the device must receive before it answers, as an HTTP endpoint holds its
+request.
 
 A write task binds channels to fields. A field with no channel takes its `default` (a
 constant or a generator). The Core refuses to save a write task that leaves a field with
@@ -173,7 +176,7 @@ on a real adapter (§6.16).
 | 15    | Return ICD check problems as path errors          | `x/go/validate`, `core/pkg/service/icd`, `client/ts/src/icd`, `client/py/synnax/icd`                 | -          |
 | 16    | Add payload format and import format enums        | `schemas/x/payload.oracle`, `schemas/synnax/icd.oracle`                                              | -          |
 | 17    | Remove the unused payload read types              | `schemas/x/payload.oracle`                                                                           | -          |
-| 18    | Add queries and cycle times to ICD messages       | `schemas/synnax/icd.oracle`, `core/pkg/service/icd`, `console/src/platform/icd`                      | -          |
+| 18    | Add cycle times to ICD messages                   | `schemas/synnax/icd.oracle`, `core/pkg/service/icd`, `console/src/platform/icd`                      | -          |
 | 19    | Encode ICD messages in the Core                   | `core/pkg/service/icd/codec`                                                                         | -          |
 | 20    | Write MQTT messages through ICDs                  | `core/pkg/service/mqtt`, `schemas/synnax/mqtt.oracle`, `console/src/feature/mqtt`                    | 19         |
 | 21    | Write Kafka messages through ICDs                 | `core/pkg/service/kafka`, `schemas/synnax/kafka.oracle`, `console/src/feature/kafka`                 | 7, 19      |
@@ -234,3 +237,11 @@ on a real adapter (§6.16).
     0.62.0 would cost a migration each for Kafka, MQTT, and HTTP (2026-11-18).
 16. **A CAN backend ships visible only after real hardware**: Its read and write tasks
     must pass on a real adapter. A backend with no adapter stays hidden (2026-11-18).
+17. **A query lives on the task, a cycle time on the ICD**: Principle 1 sorts each
+    message fact (2026-11-18). A query is a request the rig sends, like the HTTP request
+    the HTTP task already holds. OpenAPI, gRPC, and AsyncAPI also keep a request apart
+    from the message schema. A cycle time is the sender's promise, so it stays with the
+    message, as in DBC files, ARINC 429 label tables, and AUTOSAR PDUs. A query on the
+    ICD, as SCPI manuals list it, was rejected: it mixes an action of the rig into the
+    message, and the HTTP request already set the precedent. Moving the cycle time to
+    the task was rejected: DBC import would lose it.
