@@ -48,7 +48,7 @@ const retrieveNotFoundError = (): Error =>
 const messageText = (): string | null =>
   document.querySelector(".pluto-error-fallback__message")?.textContent ?? null;
 
-describe("ErrorDiagnostics", () => {
+describe("Diagnostics", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
   let warnSpy: ReturnType<typeof vi.spyOn>;
 

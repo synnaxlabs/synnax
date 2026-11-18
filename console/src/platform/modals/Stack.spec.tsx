@@ -110,6 +110,24 @@ describe("Stack", () => {
     await waitFor(() => expect(screen.getByText("lazy loaded")).toBeTruthy());
   });
 
+  it("should show a crash of the modal content inside its dialog", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const Crash: Modals.Content<Record<never, never>, void> = () => {
+      throw new Error("boom");
+    };
+    const useOpenCrash = Modals.create(Crash);
+    const CrashOpener = (): ReactElement => {
+      const open = useOpenCrash();
+      return <Button.Button onClick={() => open()}>open-crash</Button.Button>;
+    };
+    renderWithModals(<CrashOpener />);
+    clickText("open-crash");
+    const dialog = await screen.findByRole("dialog");
+    const message = dialog.querySelector(".pluto-error-fallback__message");
+    expect(message?.textContent).toBe("boom\nCore: none");
+    errorSpy.mockRestore();
+  });
+
   describe("triggers", () => {
     const Noop: Modals.Content = () => null;
 
