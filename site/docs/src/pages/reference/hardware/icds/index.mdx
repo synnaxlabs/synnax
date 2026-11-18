@@ -122,5 +122,7 @@ A task names an ICD and the messages that it reads. For each message, the task b
 fields to channels, and it records only the fields that it binds. You cannot delete an
 ICD that a task uses.
 
-When you edit an ICD, the edit saves at once. A running task keeps the old layout until
-you deploy it again: the task shows **Redeploy**.
+An edit to an ICD saves at once. When you change a message that a running task reads,
+the task keeps the old layout until you deploy it again, and it shows **Redeploy**. A
+change to a name does not need a redeploy, because tasks refer to ICDs and messages by
+key.
