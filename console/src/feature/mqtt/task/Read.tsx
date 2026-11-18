@@ -922,28 +922,20 @@ const configureMessage = async (
   bound: ICD.BoundMessage<PlainReadEntry>,
   written: Set<channel.Key>,
 ): Promise<void> => {
-  const { source: entry, read: r, message, fields } = bound;
-  const read = entry.messages[r];
-  const propertiesKey = storedKey(entry.topic, read.message);
+  const { source: entry, read: r, message } = bound;
+  const propertiesKey = storedKey(entry.topic, entry.messages[r].message);
   const props = storedOf(dev.properties.read, entry, r);
   if (props != null && dev.properties.read[propertiesKey] == null) {
     dev.properties.read[propertiesKey] = props;
     delete dev.properties.read[entry.topic];
   }
-  const stored = props?.channels ?? {};
-  // A field with no channel takes the one the device stores for its pointer, unless
-  // another binding writes it.
-  for (const f of fields) {
-    const ch = read.bindings.find(({ field }) => field === f.key)?.channel ?? 0;
-    if (ch === 0 && written.has(stored[f.pointer])) delete stored[f.pointer];
-  }
-  const channels = await ICD.configureMessage(
+  await ICD.configureMessage(
     client,
     bound,
     messagePrefix(dev.name, entry.topic, r, message.name),
     { read: dev.properties.read, key: propertiesKey },
+    written,
   );
-  channels.forEach((ch) => written.add(ch));
 };
 
 /** Gives each field and tag that an enabled entry reads a channel, and binds it. */

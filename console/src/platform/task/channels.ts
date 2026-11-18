@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
-import { DataType, errors, primitive } from "@synnaxlabs/x";
+import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
+import { z } from "zod";
 
 /** @returns the channel with the given key, or null when it does not exist or is 0. */
 const retrieveChannel = async (
@@ -47,11 +48,25 @@ const createChannelWithIndex = async (
   return await client.channels.create({ name, dataType, index: index.key });
 };
 
+// Anything that is not a channel key reads as no index.
+const storedIndexZ = z.preprocess(
+  (v) => (channel.keyZ.safeParse(v).success ? v : 0),
+  channel.keyZ,
+);
+
+// Pointers and source keys are values, not property names, so they keep their case.
+const readChannelPropsZ = z.object({
+  index: storedIndexZ,
+  channels: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
+});
+
 /** The channels of one read source, as the properties of a device store them. */
-export interface ReadChannelProps {
-  index: channel.Key;
-  channels: Record<string, channel.Key>;
-}
+export interface ReadChannelProps extends z.infer<typeof readChannelPropsZ> {}
+
+/** The channels that the read sources of a device made, by source key. */
+export const readPropertiesZ = caseconv.preserveKeys(
+  z.record(z.string(), readChannelPropsZ).default({}),
+);
 
 /** A field of a read source that gets a channel. */
 export interface ReadChannelField {
