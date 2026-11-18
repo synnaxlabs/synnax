@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color as refs, schematic } from "@synnaxlabs/client";
+import { color as clientColor, schematic } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -108,12 +108,12 @@ const hexOf = (value: unknown): string | undefined =>
 // fixedHexOf reads a color that a reference field stores as a fixed reference.
 const fixedHexOf = (value: unknown): string | undefined => {
   if (value == null) return undefined;
-  const ref = refs.refZ.parse(value);
+  const ref = clientColor.refZ.parse(value);
   if (ref.type !== "fixed") throw new Error("expected a fixed color");
   return color.hex(ref.value);
 };
 
-const fixed = (hex: string): refs.Ref => ({
+const fixed = (hex: string): clientColor.Ref => ({
   type: "fixed",
   value: color.construct(hex),
 });
