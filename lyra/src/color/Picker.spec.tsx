@@ -507,6 +507,15 @@ describe("Picker", () => {
         fireEvent.focus(c.getByLabelText("Moss"));
         expect(c.getByText("Moss")).toBeTruthy();
       });
+
+      it("should return to the linked color when the focus leaves the palette", () => {
+        const c = renderLibrary({ value: "#3e8bff", named: "ocean" });
+        fireEvent.focus(c.getByLabelText("Moss"));
+        fireEvent.blur(c.getByLabelText("Moss"), {
+          relatedTarget: c.getByLabelText("Alarm"),
+        });
+        expect(c.getByText("Ocean")).toBeTruthy();
+      });
     });
 
     describe("slots", () => {
@@ -614,6 +623,19 @@ describe("Picker", () => {
         fireEvent.click(c.getByLabelText("Back"));
         expect(c.queryByText("view body")).toBeNull();
         expect(picker?.classList.contains(viewing)).toBe(false);
+      });
+
+      it("should focus Back in a view, then the opener after Back", () => {
+        const c = renderSlots(
+          { named: "ocean", footer: <ViewOpener /> },
+          { value: "#3e8bff" },
+        );
+        const open = c.getByText("open from #3e8bff");
+        open.focus();
+        fireEvent.click(open);
+        expect(document.activeElement).toBe(c.getByLabelText("Back"));
+        fireEvent.click(c.getByLabelText("Back"));
+        expect(document.activeElement).toBe(open);
       });
     });
 

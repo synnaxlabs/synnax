@@ -14,6 +14,8 @@ import {
   type ComponentPropsWithoutRef,
   type ReactElement,
   type ReactNode,
+  useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -57,7 +59,9 @@ export interface PickerContextValue {
   value: color.Color;
   /**
    * Shows the view in place of the tabs, under a back button and the title. Back
-   * returns to the tabs as they were.
+   * returns to the tabs as they were, with the focus on the element that opened the
+   * view. The view renders outside every palette, so it cannot call `usePalette`: give
+   * it what it needs, such as a key.
    */
   openView: (title: string, view: ReactNode) => void;
 }
@@ -156,6 +160,12 @@ const Tabbed = ({
 }: TabbedProps): ReactElement => {
   const handleChange = useChangeHandler(onChange);
   const [view, setView] = useState<View | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (view != null) return;
+    opener.current?.focus();
+    opener.current = null;
+  }, [view]);
   const frequent = useFrequent();
   const linked = named == null ? undefined : findNamed(palettes, named);
   const [tab, setTab] = useState<Tab>(
@@ -165,7 +175,11 @@ const Tabbed = ({
   const autoSelected = value == null && linked == null;
   const ctx: PickerContextValue = {
     value: color.construct(value ?? fallback ?? color.TRANSPARENT),
-    openView: (title, content) => setView({ title, content }),
+    openView: (title, content) => {
+      opener.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setView({ title, content });
+    },
   };
   return (
     <PickerContext value={ctx}>
@@ -198,6 +212,7 @@ const Tabbed = ({
                 square
                 textColor={9}
                 onClick={() => setView(null)}
+                autoFocus
                 tooltip="Back"
                 aria-label="Back"
               >
@@ -378,6 +393,9 @@ const PaletteSection = ({
         role="group"
         aria-label={palette.name}
         onPointerLeave={() => setHovered(undefined)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setHovered(undefined);
+        }}
       >
         {colors.map((c) => (
           <BaseSwatch
