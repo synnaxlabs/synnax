@@ -293,7 +293,11 @@ const RecordDetails: FC<RecordDetailsProps> = ({
   onAddMessage,
 }) => {
   const isPreview = Task.useIsPreview();
-  const reads = PForm.useFieldValue(path.messages).length;
+  const reads = PForm.useFieldValue(path.messages);
+  const encoding = PForm.useFieldValue(
+    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
+    { optional: true, ctx: format },
+  );
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -302,7 +306,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {reads === 1 && <ICD.AddField onClick={onAddField} />}
+                {encoding === "json" && <ICD.AddField onClick={onAddField} />}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
                   <Icon.Add />
                   Add message
@@ -318,7 +322,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
             inputProps={RECORD_KEY_INPUT_PROPS}
           />
         </PForm.Section>
-        {reads === 1 && (
+        {reads.length === 1 && (
           <MessageSections path={path} read={0} format={format} device={device} />
         )}
       </PForm.Sections>
