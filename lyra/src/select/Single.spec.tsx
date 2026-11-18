@@ -87,6 +87,12 @@ describe("Select.Single", () => {
     expect(c.getByText("Test Item")).toBeTruthy();
   });
 
+  it("should select the first entry when autoSelectOnNone is set", () => {
+    const { SelectSingle, onChange } = createSelectSingle();
+    render(<SelectSingle autoSelectOnNone virtual={false} />);
+    expect(onChange).toHaveBeenCalledWith("1");
+  });
+
   it("should close the selection dialog on one Escape from the search field", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />, { wrapper: Triggers.Provider });

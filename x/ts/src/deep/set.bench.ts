@@ -131,11 +131,6 @@ test("deep.set benchmarks", async ({ bench }) => {
       deep.set(obj, "a.b.c", "value");
     }),
 
-    bench("set with negative array indices", () => {
-      const obj = { arr: [1, 2, 3, 4, 5] };
-      deep.set(obj, "arr.-1", 99);
-    }),
-
     bench("repeated set operations", () => {
       const obj = { a: { b: { c: 0 } } };
       for (let i = 0; i < 10; i++) deep.set(obj, "a.b.c", i);
