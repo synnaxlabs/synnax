@@ -7,11 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, renderHook, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  render as rtlRender,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { render } from "@/testutil";
+import { Alamos } from "@/alamos";
+import { alamos } from "@/alamos/aether";
+import { Status } from "@/status";
+import { status } from "@/status/aether";
+import { createAetherProvider, render } from "@/testutil";
 import { Canvas } from "@/vis/canvas";
 import { canvas } from "@/vis/canvas/aether";
 import { canvasTest } from "@/vis/render/testutil";
@@ -156,11 +166,23 @@ describe("Canvas", () => {
       const rect = vi
         .spyOn(HTMLElement.prototype, "getBoundingClientRect")
         .mockReturnValue(new DOMRect(0, 0, 200, 100));
-      render(
+      // React remounts only what StrictMode wraps on the first commit, which the test
+      // harness's providers do not allow, so this test builds its own.
+      const Provider = createAetherProvider({
+        ...alamos.REGISTRY,
+        ...status.REGISTRY,
+        ...canvas.REGISTRY,
+      });
+      rtlRender(
         <StrictMode>
-          <Canvas.Canvas resizeDebounce={0} handoff="bitmap" />
+          <Provider>
+            <Alamos.Provider>
+              <Status.Aggregator>
+                <Canvas.Canvas resizeDebounce={0} handoff="bitmap" />
+              </Status.Aggregator>
+            </Alamos.Provider>
+          </Provider>
         </StrictMode>,
-        { registry: canvas.REGISTRY },
       );
       await waitFor(() =>
         expect(renderer.transferFromImageBitmap).toHaveBeenCalledTimes(3),
