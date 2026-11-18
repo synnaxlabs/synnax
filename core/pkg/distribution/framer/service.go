@@ -117,6 +117,10 @@ func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 // streamer and returns. A second Run returns an error.
 func (s *Service) Run(ctx context.Context) error { return s.relay.Run(ctx) }
 
+// Close fails streamers that wait for a Run that has not started, and makes a later
+// Run fail. Close while Run runs returns an error.
+func (s *Service) Close() error { return s.relay.Close() }
+
 // OpenIterator opens a new iterator for reading historical data from channels. If the
 // returned error is nil, the iterator must be closed after use. For information on
 // configuration parameters, see the IteratorConfig struct.

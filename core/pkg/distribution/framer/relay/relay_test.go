@@ -184,6 +184,36 @@ var _ = Describe("Relay", func() {
 			Expect(r.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
 		})
 
+		It("Should fail a Run after Close", func(ctx SpecContext) {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			Expect(r.Close()).To(Succeed())
+			Expect(
+				r.Run(ctx),
+			).To(MatchError(ContainSubstring("run called after close")))
+		})
+
+		It("Should fail a Close while Run runs", func() {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			StartRun(r.Run)
+			Expect(r.Close()).
+				To(MatchError(ContainSubstring("close called while Run runs")))
+		})
+
+		It("Should fail a streamer waiting for Run when the relay closes", func(
+			ctx SpecContext,
+		) {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			sCtx, _ := relayFlow(ctx, r)
+			Expect(r.Close()).To(Succeed())
+			Expect(sCtx.Wait()).To(MatchError(ContainSubstring("relay stopped")))
+		})
+
 		It("Should fail a streamer that starts after Run returns", func(
 			ctx SpecContext,
 		) {
