@@ -285,7 +285,7 @@ func compileBody(
 		}
 	case parser.IExpressionContext:
 		t, err := expression.Compile(ctx.Child(body))
-		if err == nil && types.UnitsConvertible(t.Unit, results.Unit) {
+		if err == nil && types.WriteConverts(t.Unit, results.Unit) {
 			err = expression.EmitCast(ctx, t, results)
 		}
 		if err != nil {
@@ -371,7 +371,7 @@ func compileScaleSynthetic(
 	if in.Kind == types.KindVarRef && in.Elem != nil {
 		in = *in.Elem
 	}
-	if !types.UnitsConvertible(in.Unit, out.Unit) {
+	if !types.WriteConverts(in.Unit, out.Unit) {
 		return compiledFunction{}, errors.Newf(
 			"unit conversion %s cannot convert %s to %s", fn.Key, in, out,
 		)

@@ -439,7 +439,7 @@ func castValue(cast parser.ITypeCastContext, t types.Type) any {
 	if err != nil {
 		return nil
 	}
-	if types.UnitsConvertible(castType.Unit, t.Unit) {
+	if types.WriteConverts(castType.Unit, t.Unit) {
 		parsed, err = literal.Convert(
 			telem.CastNumeric[float64](parsed.Value), castType.Unit, t,
 		)

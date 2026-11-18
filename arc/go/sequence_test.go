@@ -5857,6 +5857,38 @@ var _ = Describe("Sequence", func() {
 			expectWaitOf20ms(ctx, h)
 		})
 
+		DescribeTable("Waits for the period of a rate",
+			func(ctx SpecContext, declarations, duration string) {
+				h := newRuntimeHarness(ctx, `
+				import time
+				`+declarations+`
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=`+duration+`)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+				defer h.Close(ctx)
+				expectWaitOf20ms(ctx, h)
+			},
+			Entry("a literal", "", "50hz"),
+			Entry("a sum of rates", "", "25hz + 25hz"),
+			Entry("a variable", "r := 50hz", "r"),
+			Entry("a computed variable", "r := 25hz * 2", "r"),
+			Entry("a cast of a float rate", "r := 0.05khz", "i64 ns(r)"),
+			Entry("the result of a function",
+				"func period(r i64 hz) i64 ns {\nreturn r\n}", "period(50hz)"),
+			Entry("a variable in a function",
+				"func period() i64 ns {\nd i64 ns := 50hz\nreturn d\n}", "period()"),
+			Entry("an assignment in a function",
+				"func period(r i64 hz) i64 ns {\nd i64 ns := 0ns\nd = r\nreturn d\n}",
+				"period(50hz)"),
+			Entry("a compound sum in a function",
+				"func period(r i64 hz) i64 ns {\nd i64 ns := 0ns\nd += r\nreturn d\n}",
+				"period(50hz)"),
+		)
+
 		// expectWaitOf checks that "done" is logged after span and not before it.
 		expectWaitOf := func(ctx SpecContext, h *runtimeHarness, span telem.TimeSpan) {
 			GinkgoHelper()
@@ -9646,6 +9678,87 @@ var _ = Describe("Sequence", func() {
 				Expect(lastU8(out, 345)).To(Equal(uint8(1)))
 			},
 		)
+
+		It(
+			"adopts the period of a reassigned interval rate at the next fire",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 346},
+					"tick_ch":   {types.U8(), 347},
+				})
+				h := newRuntimeHarness(ctx, `
+    sequence main {
+        rate := 10hz
+        stage s1 {
+            interval(period=rate) -> tick_ch
+            wait(1s) -> sequence {
+                rate = 1hz
+            }
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 346, DataType: telem.Uint8T},
+					channels.Digest{Key: 347, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 346)
+				out, _ := h.Flush()
+				Expect(out.Get(347).Series).ToNot(BeEmpty())
+				// 10 hz is a 100 ms period.
+				advance(h, ctx, 141*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).ToNot(BeEmpty())
+				advance(h, ctx, 171*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).To(BeEmpty(),
+					"30 ms after the last fire must not tick at 10 hz")
+				// The wait sets the rate to 1 hz. The interval also ticks here.
+				advance(h, ctx, 1101*telem.Millisecond)
+				_, _ = h.Flush()
+				advance(h, ctx, 1400*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).To(BeEmpty(),
+					"the interval must adopt the 1 s period of 1 hz")
+				advance(h, ctx, 2*telem.Second)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).To(BeEmpty())
+				advance(h, ctx, 2200*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(347).Series).ToNot(BeEmpty())
+			},
+		)
+
+		It("parks an interval that reads a rate of zero", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 348},
+				"tick_ch":   {types.U8(), 349},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        rate := 10hz
+        stage s1 {
+            interval(period=rate) -> tick_ch
+            wait(300ms) -> sequence {
+                rate = 0hz
+            }
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 348, DataType: telem.Uint8T},
+				channels.Digest{Key: 349, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 348)
+			advance(h, ctx, 141*telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(349).Series).ToNot(BeEmpty())
+			// The wait sets the rate to 0. The flush drains a tick at this time.
+			advance(h, ctx, 401*telem.Millisecond)
+			_, _ = h.Flush()
+			advance(h, ctx, 2*telem.Second)
+			out, _ = h.Flush()
+			Expect(out.Get(349).Series).To(BeEmpty())
+		})
 	})
 
 	// A triggered mid-chain variable read emits the variable's live value on

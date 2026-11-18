@@ -46,6 +46,9 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	from, to types.Type,
 ) error {
+	if types.UnitsReciprocal(from.Unit, to.Unit) {
+		return emitPeriod(ctx, from, to)
+	}
 	if !types.UnitsConvertible(from.Unit, to.Unit) {
 		return emitKindCast(ctx, from, to)
 	}
@@ -62,6 +65,25 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 		return err
 	}
 	return emitKindCast(ctx, wide, to)
+}
+
+// emitPeriod converts the rate on the stack to its period, which an integer rounds.
+func emitPeriod[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	from, to types.Type,
+) error {
+	f64 := types.F64()
+	if err := emitKindCast(ctx, from, f64); err != nil {
+		return err
+	}
+	ctx.Writer.WriteF64Const(-1)
+	ctx.Resolver.EmitMathPow(ctx.Writer, ctx.WriterID, f64)
+	ctx.Writer.WriteF64Const(types.PeriodFactor(from.Unit, to.Unit))
+	ctx.Writer.WriteBinaryOp(wasm.OpF64Mul)
+	if to.IsInteger() {
+		ctx.Writer.WriteOpcode(wasm.OpF64Nearest)
+	}
+	return emitKindCast(ctx, f64, to)
 }
 
 // width orders the numeric types by the range of values that they hold.

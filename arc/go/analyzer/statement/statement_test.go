@@ -3799,6 +3799,8 @@ var _ = Describe("Unit checks", func() {
 			"incompatible dimensions: cannot write s to 'ys' (psi)"),
 		Entry("a compound assignment of a series", "x i64 s)", "ys := [1psi]\nys += x",
 			"incompatible dimensions: cannot write s to 'ys' (psi)"),
+		Entry("a time span for a rate", "x i64 s)", "r i64 hz := 1hz\nr = x",
+			"incompatible dimensions: cannot write s to 'r' (hz)"),
 		Entry("a compound product of an integer series by a factor that is not whole",
 			")", "xs := [5psi]\nxs *= 1Pa",
 			"invalid operand: a series of i64 in psi does not convert to Pa, use a "+

@@ -1776,7 +1776,37 @@ INSTANTIATE_TEST_SUITE_P(
         },
         UnitCase{"h_low", "2h", "1h", x::telem::HOUR, Rate::LOW},
         UnitCase{"h_low_long", "24h", "12h", 12 * x::telem::HOUR, Rate::LOW},
-        UnitCase{"h_reassigned_to_a_longer_span", "1h", "2h", x::telem::HOUR, Rate::LOW}
+        UnitCase{
+            "h_reassigned_to_a_longer_span",
+            "1h",
+            "2h",
+            x::telem::HOUR,
+            Rate::LOW
+        },
+        UnitCase{"hz_high", "200hz", "2000hz", 500 * x::telem::MICROSECOND, Rate::HIGH},
+        UnitCase{
+            "hz_medium",
+            "200hz",
+            "500hz",
+            2 * x::telem::MILLISECOND,
+            Rate::MEDIUM
+        },
+        UnitCase{"hz_low", "20hz", "200hz", 5 * x::telem::MILLISECOND, Rate::LOW},
+        UnitCase{
+            "hz_reassigned_to_a_lower_rate",
+            "500hz",
+            "20hz",
+            2 * x::telem::MILLISECOND,
+            Rate::MEDIUM
+        },
+        UnitCase{
+            "hz_reassigned_with_a_literal_in_khz",
+            "200hz",
+            "2khz",
+            500 * x::telem::MICROSECOND,
+            Rate::HIGH
+        },
+        UnitCase{"khz_high", "1khz", "2khz", 500 * x::telem::MICROSECOND, Rate::HIGH}
     ),
     [](const testing::TestParamInfo<UnitCase> &info) { return info.param.name; }
 );

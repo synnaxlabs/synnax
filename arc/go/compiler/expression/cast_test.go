@@ -690,6 +690,8 @@ var _ = Describe("EmitCast", func() {
 		h   = &types.Unit{Dimensions: types.DimTime, Scale: 3600e9, Name: "h"}
 		pa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
 		psi = &types.Unit{Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"}
+		hz  = &types.Unit{Dimensions: types.DimFrequency, Scale: 1, Name: "hz"}
+		khz = &types.Unit{Dimensions: types.DimFrequency, Scale: 1e3, Name: "khz"}
 	)
 	in := func(t types.Type, unit *types.Unit) types.Type {
 		t.Unit = unit
@@ -737,5 +739,26 @@ var _ = Describe("EmitCast", func() {
 			OpI64ExtendI32S),
 		Entry("a type with no unit", in(types.I32(), s), types.I64(),
 			OpI64ExtendI32S),
+		Entry("a rate to an integer time span",
+			in(types.I64(), hz), in(types.I64(), ns),
+			OpF64ConvertI64S, OpF64Const, float64(-1), OpCall, uint32(0),
+			OpF64Const, float64(1e9), OpF64Mul, OpF64Nearest, OpI64TruncF64S),
+		Entry("a rate in a larger unit to a larger time span",
+			in(types.I64(), khz), in(types.I64(), ms),
+			OpF64ConvertI64S, OpF64Const, float64(-1), OpCall, uint32(0),
+			OpF64Const, float64(1), OpF64Mul, OpF64Nearest, OpI64TruncF64S),
+		Entry("a float rate to an integer time span",
+			in(types.F64(), hz), in(types.I64(), ns),
+			OpF64Const, float64(-1), OpCall, uint32(0),
+			OpF64Const, float64(1e9), OpF64Mul, OpF64Nearest, OpI64TruncF64S),
+		Entry("a rate to a float time span", in(types.F64(), hz), in(types.F64(), s),
+			OpF64Const, float64(-1), OpCall, uint32(0),
+			OpF64Const, float64(1), OpF64Mul),
+		Entry("a 32-bit float rate to a 32-bit float time span",
+			in(types.F32(), hz), in(types.F32(), s),
+			OpF64PromoteF32, OpF64Const, float64(-1), OpCall, uint32(0),
+			OpF64Const, float64(1), OpF64Mul, OpF32DemoteF64),
+		Entry("a time span to a rate keeps the number",
+			in(types.I32(), s), in(types.I64(), hz), OpI64ExtendI32S),
 	)
 })

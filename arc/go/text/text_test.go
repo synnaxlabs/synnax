@@ -531,6 +531,29 @@ var _ = Describe("Text", func() {
 			Entry("typed milliseconds from seconds", `d i64 ms := 5s`, 5*telem.Second),
 			Entry("typed nanoseconds", `d i64 ns := 5s`, 5*telem.Second),
 			Entry("negated", `d := -5s`, -5*telem.Second),
+			Entry("a rate in hertz", `d := 10hz`, 100*telem.Millisecond),
+			Entry("a rate in kilohertz", `d := 1khz`, telem.Millisecond),
+			Entry("a rate with a period that rounds",
+				`d := 60hz`, telem.TimeSpan(16666667)),
+			Entry("a typed rate", `d i64 khz := 2`, 500*telem.Microsecond),
+			Entry("a rate into a typed time span",
+				`d i64 ms := 10hz`, 100*telem.Millisecond),
+		)
+
+		DescribeTable("Should give an input the period of a literal rate",
+			func(ctx SpecContext, rate string, expected telem.TimeSpan) {
+				source := "count_ch -> wait(duration=" + rate + ") -> flag_ch"
+				inter, diagnostics := analyzeText(ctx, source)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				duration := MustBeOk(
+					findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+				)
+				Expect(duration.Type).To(Equal(types.TimeSpan()))
+				Expect(duration.Value).To(Equal(expected))
+			},
+			Entry("hertz", `10hz`, 100*telem.Millisecond),
+			Entry("kilohertz", `1khz`, telem.Millisecond),
+			Entry("a period that rounds", `60hz`, telem.TimeSpan(16666667)),
 		)
 
 		DescribeTable(
@@ -1147,6 +1170,17 @@ var _ = Describe("Text", func() {
 				"d := 5s\nfunc hold(x f64 ns) f64 {\nreturn x\n}\n"+
 					"count_ch -> hold(x=d) -> flag_ch",
 				"expected f64, got i64"),
+			Entry("a float rate for an integer time span",
+				"r := 0.5hz\ncount_ch -> wait(duration=r) -> flag_ch",
+				"expected i64, got f64"),
+			Entry("a literal float rate for an integer time span",
+				"count_ch -> wait(duration=0.5hz) -> flag_ch",
+				"float is not compatible with i64 ns"),
+			Entry("a time span for a rate",
+				"d := 5s\nfunc pace(x i64 hz) i64 hz {\nreturn x\n}\n"+
+					"count_ch -> pace(x=d) -> count_ch",
+				"incompatible dimensions: cannot write s to parameter 'x' of 'pace' "+
+					"(hz)"),
 		)
 
 		It("Should convert a reassigned variable on its way into a function", func(
@@ -1207,6 +1241,62 @@ var _ = Describe("Text", func() {
 			Expect(up).To(Equal(1e9))
 			Expect(down).To(Equal(1e-9))
 			Expect(duration.Value).To(Equal(5 * telem.Second))
+		})
+
+		It("Should stamp both units on a reassigned rate", func(ctx SpecContext) {
+			source := `
+			sequence main {
+			    r := 10hz
+			    stage s1 {
+			        r = 20hz
+			        count_ch -> wait(duration=r) -> flag_ch
+			    }
+			}`
+			inter, diagnostics := analyzeText(ctx, source)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			duration := MustBeOk(
+				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+			)
+			Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
+			Expect(duration.Type.Unit.Name).To(Equal("ns"))
+			Expect(duration.Type.Elem.Unit.Name).To(Equal("hz"))
+			Expect(types.InputPeriod(duration.Type)).To(Equal(1e9))
+			Expect(duration.Value).To(Equal(100 * telem.Millisecond))
+		})
+
+		It("Should convert a reassigned rate on its way into a function", func(
+			ctx SpecContext,
+		) {
+			source := `
+			func hold(x i64 ns) i64 ns {
+			    return x
+			}
+			sequence main {
+			    r := 10hz
+			    stage s1 {
+			        r = 20hz
+			        count_ch -> hold(x=r) -> count_ch
+			    }
+			}`
+			inter, diagnostics := analyzeText(ctx, source)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			scale := findNodeByKey(inter.Nodes, "scale_0")
+			Expect(scale.Inputs[0].Type.Elem.Unit.Name).To(Equal("hz"))
+			x := MustBeOk(findNodeByKey(inter.Nodes, "hold_0").Inputs.Get("x"))
+			Expect(x.Type).To(Equal(types.VarRef(types.TimeSpan(), "scale_0")))
+			Expect(x.Value).To(Equal(100 * telem.Millisecond))
+		})
+
+		It("Should give a computed rate the unit of the input", func(ctx SpecContext) {
+			source := `count_ch -> wait(duration=25hz+25hz) -> flag_ch`
+			inter, diagnostics := analyzeText(ctx, source)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			duration := MustBeOk(
+				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+			)
+			arg := findNodeByKey(inter.Nodes, duration.Type.Name)
+			Expect(arg.Type).To(HavePrefix("expression_"))
+			Expect(arg.Outputs[0].Type).To(Equal(types.TimeSpan()))
 		})
 
 		It("Should sample a computed config input per fire", func(ctx SpecContext) {

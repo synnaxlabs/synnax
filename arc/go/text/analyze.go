@@ -2113,7 +2113,7 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		}
 		// A value written to a variable of another unit converts on the way.
 		if from, to := p.prevNode.Outputs[0].Type, node.node.Outputs; isSink &&
-			len(to) > 0 && types.UnitsConvertible(from.Unit, to[0].Type.Unit) {
+			len(to) > 0 && types.WriteConverts(from.Unit, to[0].Type.Unit) {
 			scale := buildScaleNode(from, to[0].Type, p.kg)
 			p.edges = append(p.edges, ir.Edge{
 				Source: p.prevOutput,
@@ -2449,7 +2449,7 @@ func (p *inputParser) parseVariable(
 	paramType types.Type,
 ) (any, types.Type, bool) {
 	t, value := sym.Type.UnwrapChan(), varValue(sym)
-	convertible := types.UnitsConvertible(t.Unit, paramType.Unit)
+	convertible := types.WriteConverts(t.Unit, paramType.Unit)
 	check := convertible && rn != nil
 	// A value that is not finite is text, the same in each unit.
 	_, nonFinite := sym.DefaultValue.(string)

@@ -4635,7 +4635,29 @@ var _ = Describe("Compiler", func() {
 				"d i64 ms := 1s\nother i64 min := 2min", int64(2), int64(120000)),
 			Entry("a float",
 				"d := 1.0bar\nother := 250.0kPa", float64(250), float64(2.5)),
+			Entry("a rate to its period",
+				"d := 1ns\nother := 10hz", int64(10), int64(100000000)),
+			Entry("a rate to a period that rounds up",
+				"d := 1ns\nother := 10hz", int64(60), int64(16666667)),
+			Entry("a rate to a period that rounds down",
+				"d := 1ns\nother := 10hz", int64(3), int64(333333333)),
+			Entry("a rate in a larger unit",
+				"d := 1us\nother := 1khz", int64(2), int64(500)),
+			Entry("a negative rate",
+				"d := 1ns\nother := 10hz", int64(-4), int64(-250000000)),
+			Entry("a float rate",
+				"d := 1.0s\nother := 1.0hz", float64(4), float64(0.25)),
 		)
+
+		It("Should trap on a rate of zero for an integer time span", func(
+			ctx SpecContext,
+		) {
+			inter, i := analyzeScale(ctx, "d := 1ns\nother := 10hz")
+			output := MustSucceed(compiler.Compile(ctx, inter))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			Expect(mod.ExportedFunction(inter.Functions[i].Key).Call(ctx, 0)).Error().
+				To(MatchError(ContainSubstring("integer overflow")))
+		})
 
 		DescribeTable("Should convert its input to the kind of its output",
 			func(

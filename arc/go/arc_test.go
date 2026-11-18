@@ -1111,6 +1111,57 @@ var _ = DescribeTable(
 		"import time\n\ntime.wait(duration=0ms) -> out",
 		"duration must be positive, got 0s",
 	),
+	Entry(
+		"zero interval rate",
+		"import time\n\ntime.interval(period=0hz) -> out",
+		"[E3005]: invalid argument value: period must be positive, got 0s",
+	),
+	Entry(
+		"negative interval rate",
+		"import time\n\ntime.interval(period=-5hz) -> out",
+		"period must be positive, got",
+	),
+	Entry(
+		"interval rate with a period that rounds to zero",
+		"import time\n\ntime.interval(period=3GHz) -> out",
+		"period must be positive, got 0s",
+	),
+	Entry(
+		"zero wait rate",
+		"import time\n\ntime.wait(duration=0hz) -> out",
+		"duration must be positive, got 0s",
+	),
+)
+
+var _ = DescribeTable(
+	"a rate for a time span input",
+	func(ctx SpecContext, source string) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		root.Parent.AddChild(
+			&symbol.Symbol{
+				Name: "sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   1,
+			},
+			&symbol.Symbol{
+				Name: "out",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   2,
+			},
+		)
+		Expect(arc.CompileText(ctx, arc.Text{Raw: source}, root)).
+			Error().ToNot(HaveOccurred())
+	},
+	Entry("an interval", "import time\n\ntime.interval(period=10hz) -> out"),
+	Entry("an interval via bare alias", `interval(period=10hz) -> out`),
+	Entry("an interval in kilohertz",
+		"import time\n\ntime.interval(period=1khz) -> out"),
+	Entry("a wait", "import time\n\ntime.wait(duration=10hz) -> out"),
+	Entry("a stable window", "import stable\n\nsensor -> stable.for(10hz) -> out"),
+	Entry("a variable in a function",
+		"func f() i64 ns {\nd i64 ns := 10hz\nreturn d\n}"),
 )
 
 // Boolean expression pipelines: an expression that yields bool (comparison or
