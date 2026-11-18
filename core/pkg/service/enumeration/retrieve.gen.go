@@ -67,6 +67,15 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Detach: func(e *Enumeration, t color.Key) {
+				for i5 := range e.Entries {
+					if e.Entries[i5].Color != nil {
+						if v6, ok := e.Entries[i5].Color.Variant.(color.NamedRef); ok && v6.Key == t {
+							e.Entries[i5].Color = nil
+						}
+					}
+				}
+			},
 			Inline: func(
 				ctx context.Context,
 				tx gorp.Tx,

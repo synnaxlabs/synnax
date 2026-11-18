@@ -303,40 +303,34 @@ func frozenFile(
 			pred.aliased.Add(ns + "." + name)
 		}
 	}
-	var structs, enums, typedefs, unions []resolution.Type
 	// The frozen surface table registers sorted, so the version file's declaration
 	// order passes to the generator explicitly.
 	order := make(map[string]int, len(f.Order))
 	for i, name := range f.Order {
 		order[ns+"."+name] = i
 	}
+	vkPath := versioning.VersionedPath(origPath, k)
+	out := goFile{
+		outputPath: vkPath,
+		table:      table,
+		repoRoot:   req.RepoRoot,
+		pred:       pred,
+		closure:    PersistedClosure(table),
+		order:      order,
+		embedded:   embedded,
+	}
 	for _, name := range f.Order {
 		t, ok := table.Get(ns + "." + name)
-		if !ok || t.Synthetic || omit.IsSkipped(t, "go") {
-			continue
-		}
-		switch t.Form.(type) {
-		case resolution.StructForm:
-			structs = append(structs, t)
-		case resolution.EnumForm:
-			enums = append(enums, t)
-		case resolution.UnionForm:
-			unions = append(unions, t)
-		case resolution.DistinctForm, resolution.AliasForm:
-			typedefs = append(typedefs, t)
+		if ok && !t.Synthetic && !omit.IsSkipped(t, "go") {
+			out.addDecl(t)
 		}
 	}
-	vkPath := versioning.VersionedPath(origPath, k)
 	// A fully hand-written frozen package (every declaration @go hand) keeps its
 	// historical files; there is nothing to generate.
-	if len(structs)+len(enums)+len(typedefs)+len(unions) == 0 {
+	if len(out.structs)+len(out.enums)+len(out.typeDefs)+len(out.unions) == 0 {
 		return plugin.File{}, nil
 	}
-	content, err := generateGoFile(
-		vkPath, structs, enums, typedefs, unions,
-		table, req.RepoRoot, pred, nil, PersistedClosure(table), false, order, nil,
-		embedded,
-	)
+	content, err := generateGoFile(out)
 	if err != nil {
 		return plugin.File{}, errors.Wrapf(err, "frozen package %s", vkPath)
 	}
@@ -357,36 +351,54 @@ func annotateOutputs(
 		if !ok {
 			continue
 		}
-		goRoot, dependency := origPath, lp != ownLive
-		if dependency {
+		goRoot := origPath
+		if lp != ownLive {
 			var err error
-			if goRoot, ok, err = versionedGoRoot(req, lp); err != nil {
+			if goRoot, err = dependencyGoRoot(req, t, lp, v, ownLive); err != nil {
 				return err
-			} else if !ok {
-				return errors.Newf(
-					"%s pins %s, which has no versioned Go output in the live schemas",
-					ownLive, lp,
-				)
-			}
-			current, err := isCurrentVersion(req, lp, v)
-			if err != nil {
-				return err
-			}
-			// Only the current package renders from the live file, so only a pin of
-			// it takes the live @go output and name. A frozen package declares every
-			// member at the chain root under its version file's name.
-			if lt, has := liveType(req, lp, t.Name); current && has {
-				if p := output.GetPath(lt, "go"); p != "" {
-					goRoot = p
-				}
-				if n := domain.GetStringFromType(lt, "go", "name"); n != "" {
-					withGoName(t, n)
-				}
 			}
 		}
 		withGoOutput(t, versioning.VersionedPath(goRoot, v))
 	}
 	return nil
+}
+
+// dependencyGoRoot returns the Go root of the type t that a frozen table pins from
+// version v of the dependency livePath, and gives t the live @go name when v is
+// current.
+func dependencyGoRoot(
+	req *plugin.Request,
+	t *resolution.Type,
+	livePath string,
+	v int,
+	ownLive string,
+) (string, error) {
+	goRoot, ok, err := versionedGoRoot(req, livePath)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", errors.Newf(
+			"%s pins %s, which has no versioned Go output in the live schemas",
+			ownLive, livePath,
+		)
+	}
+	current, err := isCurrentVersion(req, livePath, v)
+	if err != nil {
+		return "", err
+	}
+	// Only the current package renders from the live file, so only a pin of it takes
+	// the live @go output and name. A frozen package declares every member at the
+	// chain root under its version file's name.
+	if lt, has := liveType(req, livePath, t.Name); current && has {
+		if p := output.GetPath(lt, "go"); p != "" {
+			goRoot = p
+		}
+		if n := domain.GetStringFromType(lt, "go", "name"); n != "" {
+			withGoName(t, n)
+		}
+	}
+	return goRoot, nil
 }
 
 // isCurrentVersion reports whether v is the current version of livePath's chain.

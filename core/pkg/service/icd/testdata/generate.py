@@ -24,9 +24,8 @@ def signal_of(s: cantools.database.Signal) -> dict:
         "start_bit": s.start,
         "bit_length": s.length,
         "byte_order": s.byte_order,
-        # The library has no signed float: a float's sign lives in its IEEE bits.
-        "signed": s.is_signed and not s.is_float,
-        "float": s.is_float,
+        # A float's sign lives in its IEEE bits, so a float is never an integer kind.
+        "kind": "float" if s.is_float else "integer" if s.is_signed else "unsigned",
         "scale": float(s.scale),
         "offset": float(s.offset),
         "units": s.unit or "",

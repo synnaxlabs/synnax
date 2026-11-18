@@ -13,10 +13,10 @@ package v10
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v3"
 	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
-	color "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -92,7 +92,7 @@ func (lv *Line) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv color.Ref
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -316,7 +316,7 @@ func (rv *Rule) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv color.Ref
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}

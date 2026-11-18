@@ -14,6 +14,7 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import {
+  bounds,
   type breaker,
   compare,
   DataType,
@@ -338,7 +339,10 @@ export class StreamMultiChannelLog
       .filter(([, { stored }]) => stored)
       .map(([key]): [channel.Key, number] => [
         key,
-        Math.min(Math.max(span.counts.get(key) ?? 0, OLDER_PAGE_SIZE), limit) + 1,
+        bounds.clamp(
+          { lower: OLDER_PAGE_SIZE, upper: limit },
+          span.counts.get(key) ?? 0,
+        ) + 1,
       ]);
     const size = (): number => [...span.counts.values()].reduce((a, b) => a + b, 0);
     const before = size();

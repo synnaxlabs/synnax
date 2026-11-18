@@ -175,25 +175,27 @@ convert to timespan by inverting the period.
 
 ### Temporal values
 
-Timestamps and timespans are represented as `i64` with time units (nanoseconds):
+A timespan is an `i64` in the unit of its literal. A timestamp is an `i64` in
+nanoseconds:
 
 ```arc
-duration := 100ms // i64 with time units
-interval := 5s // i64 with time units
+duration := 100ms // i64 ms, holds 100
+interval := 5s // i64 s, holds 5
 timestamp := now() // i64 ns from now() builtin
 ```
 
 ### Dimensional compatibility
 
 - **Addition/Subtraction**: Operands must have compatible dimensions
-- **Multiplication/Division**: Always valid; dimensions combine
+- **Multiplication/Division**: Always valid; two values with units give no unit, and so
+  does a number divided by a value with a unit
 - **Exponentiation**: If base has dimensions, exponent must be a literal integer
 
 ```arc
 distance f64 m := 10.0
 time f64 s := 2.0
-speed := distance / time // f64 m/s (dimensions combine)
-area := distance ^ 2 // f64 m^2 (literal exponent required)
+speed := distance / time // f64 with no unit
+area := distance ^ 2 // f64 with no unit (literal exponent required)
 ```
 
 ## Variables

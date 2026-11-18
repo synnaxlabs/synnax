@@ -21,7 +21,6 @@ from synnax import mqtt
 from tests.console.task.mqtt_case import MQTTCase
 
 TOPIC = "plant/sensors"
-POINTER = "/temperature"
 WILDCARD_TOPIC = "plant/+"
 
 
@@ -63,10 +62,9 @@ class MQTTInvalidConfig(MQTTCase):
     def test_wildcard_topic(self, page: MQTTRead) -> None:
         self.log("Testing: Wildcard topic")
         self.select_broker(page)
-        page.add_entry()
+        page.add_topics([TOPIC])
+        page.select_entry(TOPIC)
         page.set_topic(WILDCARD_TOPIC)
-        page.add_field(WILDCARD_TOPIC, POINTER)
-        page.select_entry(WILDCARD_TOPIC)
         page.deploy(expect=None)
         message = page.field_help_text("Topic")
         assert message == "Topic must not hold the wildcards + or #", (
@@ -93,16 +91,14 @@ class MQTTInvalidConfig(MQTTCase):
         self.console.tasks.wait_for_state(page.page_name, "running")
 
     def test_duplicate_channel(self, page: MQTTRead) -> None:
-        """Deploy a second task on the same field of the same topic while the first
-        one runs; the Console reuses the channel and the Driver rejects the writer."""
+        """Deploy a second task on the same fields of the same topic while the first
+        one runs; the Console reuses the channels and the Driver rejects the writer."""
         self.log("Testing: Duplicate channel (two tasks on same channel)")
         # Page objects locate their pane by task type, so the first tab closes before a
         # second read task opens.
         self.console.close_all_tabs()
         second = self.create_page(MQTTRead, prefix="MQTT Console Duplicate")
         self.select_broker(second)
-        second.add_entry()
-        second.set_topic(TOPIC)
-        second.add_field(TOPIC, POINTER)
+        second.add_topics([TOPIC])
         self.assert_driver_rejects(second, label="duplicate channel")
         self.console.tasks.stop(page.page_name)
