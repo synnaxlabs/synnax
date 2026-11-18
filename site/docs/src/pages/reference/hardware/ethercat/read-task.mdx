@@ -393,7 +393,7 @@ Right-click the module, select **Configure**, and click **Save**.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Entry ... on slave ... sends data that only ... reads."}>
+<Problem.Item message={"Entry ... on module ... sends data that only ... reads."}>
 <Problem.Cause>
 
 The module runs the setup of another program, such as DewesoftX, and only that program
@@ -408,21 +408,22 @@ restart the power of the module, or select another entry.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... is set up for .... Switch it to Synnax before you start the task."}>
+<Problem.Item message={"... sets up this device"}>
 <Problem.Cause>
 
-Another program, such as DewesoftX, sets up the module.
+Another program, such as DewesoftX, sets up the module. The channel list marks each
+channel on the module in yellow, and the details of the channel show this warning.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Switch the module to Synnax in the Configure dialog. If the message tells you to set up
-the module in the other program, do that.
+Click **Switch to Synnax** in the warning. If the warning tells you to set up the module
+in the other program, do that.
 
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Another task sets ... of slave ... to ..."}>
+<Problem.Item message={"Another task sets ... of module ... to ..."}>
 <Problem.Cause>
 
 Two read tasks write different values to one setting of a module.
@@ -435,7 +436,7 @@ Give both tasks the same value, or stop the other task.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Slave ... has no input entry at ..."}>
+<Problem.Item message={"Module ... has no input entry at ..."}>
 <Problem.Cause>
 
 The module has no input entry at the address of the channel.
@@ -520,7 +521,7 @@ Right-click one of the modules, select **Configure**, and change its
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
+<Problem.Item message={["Module ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
 <Problem.Cause>
 
 The index channel name `<identifier>_time` belongs to another module, or to a channel
@@ -593,7 +594,7 @@ Check the cable to the first module and the power of the modules.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["Lost contact with slave ... (...).", "Slave ... (...) is not in OP."]}>
+<Problem.Item message={["Lost contact with module ... (...).", "Module ... (...) is not in OP."]}>
 <Problem.Cause>
 
 The task shows **Dropped samples**. A module of the task stopped responding or left OP.
@@ -657,5 +658,5 @@ See
 </Problem.List>
 
 For errors that stop every task on a port, such as `Failed to reach SAFE-OP` or
-`No EtherCAT slaves found on ...`, see
+`No EtherCAT modules found on ...`, see
 [Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).

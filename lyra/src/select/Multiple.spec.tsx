@@ -12,6 +12,7 @@ import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
+import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -86,6 +87,12 @@ describe("Select.Multiple", () => {
     const { SelectMultiple } = createSelectMultiple();
     const c = render(<SelectMultiple />);
     expect(c.getByText("Test Items")).toBeTruthy();
+  });
+
+  it("should select the first entry when autoSelectOnNone is set", () => {
+    const { SelectMultiple, onChange } = createSelectMultiple();
+    render(<SelectMultiple autoSelectOnNone virtual={false} />);
+    expect(onChange).toHaveBeenCalledWith(["1"]);
   });
 
   it("should open the selection dialog when the trigger is clicked", () => {
@@ -306,6 +313,31 @@ describe("Select.Multiple", () => {
     expect(
       c.getByRole("option", { name: "First Item Option" }).classList,
     ).not.toContain("lyra-btn--prevent-click");
+  });
+
+  describe("drag preview", () => {
+    const dragTag = (props: Partial<Select.MultipleProps<string, TestEntry>> = {}) => {
+      const { SelectMultiple } = createSelectMultiple(["1"]);
+      const c = render(
+        <Haul.Provider>
+          <SelectMultiple haulType="test-item" {...props} />
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(c.getByText("First Item"));
+      return document.querySelector(".lyra-haul__layer")?.textContent;
+    };
+
+    it("should picture a dragged tag by its name", () => {
+      expect(dragTag()).toBe("First Item");
+    });
+
+    it("should picture a dragged tag with the preview that its trigger renders", () => {
+      const renderHaulPreview = (entry: unknown) =>
+        `Custom ${(entry as TestEntry).name}`;
+      expect(dragTag({ triggerProps: { renderHaulPreview } })).toBe(
+        "Custom First Item",
+      );
+    });
   });
 
   describe("selected first", () => {

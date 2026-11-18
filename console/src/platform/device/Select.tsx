@@ -52,6 +52,8 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   onConfigure: (deviceKey: device.Key) => void;
   emptyContent?: string;
   label?: string;
+  /** What the select calls a device, such as "connection". */
+  resourceName?: string;
   make: string;
   model?: string;
   path?: deep.Target<device.Key>;
@@ -69,6 +71,7 @@ export const Select = ({
   emptyContent = "No devices connected",
   filter: filterProp,
   label = "Device",
+  resourceName,
   make,
   model,
   path = root.config.device,
@@ -103,6 +106,7 @@ export const Select = ({
           query={{ where: { make: { eq: make } } }}
           filter={filter}
           emptyContent={emptyContent}
+          resourceName={resourceName}
           grow
           icon={icon}
           locationFormat={locationFormat}

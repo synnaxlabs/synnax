@@ -123,8 +123,8 @@ test("deep.get benchmarks", async ({ bench }) => {
       deep.get(veryDeepObject, path);
     }),
 
-    bench("optional path that doesn't exist", () => {
-      deep.get(nestedObject, "level1.nonexistent.path", { optional: true });
+    bench("path that doesn't exist", () => {
+      deep.get(nestedObject, "level1.nonexistent.path");
     }),
 
     bench("keyed array with periods in keys", () => {
@@ -151,22 +151,6 @@ test("deep.get benchmarks", async ({ bench }) => {
     bench("repeated get operations (cache test)", () => {
       for (let i = 0; i < 10; i++)
         deep.get(nestedObject, "level1.level2.level3.level4.level5.value");
-    }),
-
-    bench("get with custom getter function", () => {
-      const obj = {
-        data: {
-          value: () => ({ result: 42 }),
-        },
-      };
-      deep.get(obj, "data.value().result", {
-        optional: false,
-        getter: (obj, key) => {
-          if (key === "value()")
-            return (obj as { value: () => { result: number } }).value();
-          return obj[key];
-        },
-      });
     }),
   );
 });

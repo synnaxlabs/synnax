@@ -139,9 +139,6 @@ def _parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     raise ValueError(f"invalid writer mode {mode}")
 
 
-_ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
-
-
 class WriterClosed(Error): ...
 
 

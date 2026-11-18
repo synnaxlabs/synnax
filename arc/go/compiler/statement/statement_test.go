@@ -995,7 +995,7 @@ var _ = Describe("Statement Compiler", func() {
 			OpF32Const, float32(3.14),
 			OpLocalSet, 0,
 			OpLocalGet, 0,
-			OpI32TruncF32S,
+			OpI32TruncSatF32S,
 			OpLocalSet, 1,
 		),
 		Entry("u32 variable to f32",

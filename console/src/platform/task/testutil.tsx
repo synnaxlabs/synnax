@@ -551,6 +551,28 @@ export const findChannelListItem = async (text: string): Promise<HTMLElement> =>
     return match;
   });
 
+/** Finds the note under the channel list that shows the message, and its variant. */
+export const findChannelListNote = async (
+  message: string,
+): Promise<{ note: HTMLElement; variant?: "error" | "warning" | "info" }> => {
+  const text = await screen.findByText(message);
+  const note = text.closest<HTMLElement>(".console-channel-list__status");
+  assertDefined(note, `channel list note showing "${message}" not found`);
+  const variant = (["error", "warning", "info"] as const).find((v) =>
+    note.classList.contains(`lyra--${v}`),
+  );
+  return { note, variant };
+};
+
+/** @returns the status that a channel list item shows, or undefined for none. */
+export const getChannelItemStatus = (
+  item: HTMLElement,
+): "error" | "warning" | undefined => {
+  if (item.classList.contains("console-channel-item--error")) return "error";
+  if (item.classList.contains("console-channel-item--warning")) return "warning";
+  return undefined;
+};
+
 /**
  * Opens the dialog select whose trigger currently shows triggerText and clicks the
  * option showing optionText. Options are queried inside the open dialog, since the
