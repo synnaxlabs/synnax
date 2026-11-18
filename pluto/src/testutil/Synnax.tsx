@@ -10,6 +10,7 @@
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
+import { color } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
@@ -57,6 +58,18 @@ const ThemingSeed = ({ children }: PropsWithChildren): ReactElement => {
     type: theming.Provider.TYPE,
     schema: theming.Provider.z,
     initialState: { theme: TEST_THEME, fontURLs: [] },
+  });
+  return <Aether.Composite path={path}>{children}</Aether.Composite>;
+};
+
+const SERIES_COLORS = ["#dc136c", "#20a4f3", "#52ffb8"].map((c) => color.construct(c));
+
+// Fixed series colors, so a spec never depends on the colors stored in the Core.
+const SeriesSeed = ({ children }: PropsWithChildren): ReactElement => {
+  const { path } = Aether.useLifecycle({
+    type: series.Provider.TYPE,
+    schema: series.Provider.z,
+    initialState: { colors: SERIES_COLORS },
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
@@ -124,7 +137,9 @@ export const createSynnaxWrapper = ({
           <Alamos.Provider>
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>
-                <ThemingSeed>{inner}</ThemingSeed>
+                <ThemingSeed>
+                  <SeriesSeed>{inner}</SeriesSeed>
+                </ThemingSeed>
               </Suspense>
             </Synnax.TestProvider>
           </Alamos.Provider>
