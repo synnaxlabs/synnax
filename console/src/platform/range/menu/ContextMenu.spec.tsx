@@ -178,6 +178,16 @@ describe("Range.ContextMenu", () => {
   });
 
   describe("copy", () => {
+    it("should offer no time range for a range planned with no times", async () => {
+      const planned = await createRange(uniqueRangeName("planned"), {
+        timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
+      });
+      await renderMenu([planned]);
+      const copy = await openSubmenu("Copy");
+      within(copy).getByRole("menuitem", { name: "Name" });
+      expect(within(copy).queryByRole("menuitem", { name: "Time range" })).toBeNull();
+    });
+
     it("should copy the names of every range, one per line", async () => {
       const writeText = stubClipboardWriteText();
       const ranges = [
