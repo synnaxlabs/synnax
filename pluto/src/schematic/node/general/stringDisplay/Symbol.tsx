@@ -54,7 +54,7 @@ export const Symbol = ({
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       <StringDisplay
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         level={level}
         inlineSize={inlineSize}
         orientation={orientation}

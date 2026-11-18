@@ -22,15 +22,15 @@ import {
   useState,
 } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 
 interface RenderProps extends Partial<
-  Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale">
+  Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale" | "fillColor">
 > {
+  fillColor?: color.Crude;
   className?: string;
   style?: CSSProperties;
   /** value is the last commanded value, or null when none is known. */
@@ -54,7 +54,6 @@ export const Setpoint = ({
   readback,
   inlineSize,
 }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
   const draft = Primitive.useDraft(value);
   const shown = draft.value;
   // Numeric reports a value only on Enter or blur, so a keystroke marks the field
@@ -62,7 +61,7 @@ export const Setpoint = ({
   const [edited, setEdited] = useState(false);
   const dirty = edited || draft.dirty;
   const inputRef = useRef<HTMLInputElement>(null);
-  const symbolColor = color.rgbaString(resolve(fillColor));
+  const symbolColor = color.rgbaString(fillColor);
   const mergedStyle: CSSProperties = {
     ...style,
     [Primitive.SYMBOL_COLOR]: symbolColor,

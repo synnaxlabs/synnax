@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
+import { Preview } from "@/schematic/node/general/button/Symbol";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
 const getButton = (container: HTMLElement): HTMLElement => {
@@ -29,9 +30,7 @@ describe("button symbol", () => {
   it("should carry the symbol-colored + symbol-button classes and set the source color", () => {
     // The bg/border/text vars are mapped to the display/contrast vars in button.css;
     // jsdom cannot compute them, so we assert the marker classes and the source var.
-    const { container } = render(
-      <Button fillColor={{ type: "fixed", value: color.construct("#ff0000") }} />,
-    );
+    const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     const cls = btn.getAttribute("class") ?? "";
     expect(cls).toContain("lyra-symbol-colored");
@@ -40,9 +39,7 @@ describe("button symbol", () => {
   });
 
   it("should not engage the base button's concrete-color JS path", () => {
-    const { container } = render(
-      <Button fillColor={{ type: "fixed", value: color.construct("#ff0000") }} />,
-    );
+    const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     // The color is not forwarded, so the base button never sets its own color var.
     expect(btn.getAttribute("class")).not.toContain("lyra-btn--custom-color");
@@ -50,21 +47,24 @@ describe("button symbol", () => {
   });
 
   it("should carry the alpha channel so a translucent button stays translucent", () => {
-    const { container } = render(
-      <Button fillColor={{ type: "fixed", value: [255, 0, 0, 51] }} />,
-    );
+    const { container } = render(<Button fillColor={[255, 0, 0, 51]} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "255, 0, 0, 0.2",
     );
   });
 
-  it("should paint a named color from the library", async () => {
+  it("should paint the preview with a named color from the library", async () => {
     const client = createTestClient();
     const wrapper = await createAsyncSynnaxWrapper({ client });
     await waitForStreamLive(client.connection);
     const named = await client.colors.create({ name: "Fuel", light: "#00ff00" });
     const { container } = render(
-      <Button fillColor={{ type: "named", key: named.key }} />,
+      <Preview
+        {...schematic.buttonNodeConfigZ.parse({
+          variant: "button",
+          fillColor: { type: "named", key: named.key },
+        })}
+      />,
       { wrapper },
     );
     await waitFor(() =>
@@ -75,9 +75,7 @@ describe("button symbol", () => {
   });
 
   it("should pass a fully transparent color through as a choice", () => {
-    const { container } = render(
-      <Button fillColor={{ type: "fixed", value: color.TRANSPARENT }} />,
-    );
+    const { container } = render(<Button fillColor={color.TRANSPARENT} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
     );

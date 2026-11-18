@@ -11,16 +11,14 @@ import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Partial<
-  Pick<
-    schematic.ScaleNodeConfig,
-    "levelColor" | "axisColor" | "levelHidden" | "caretHidden"
-  >
+  Pick<schematic.ScaleNodeConfig, "levelHidden" | "caretHidden">
 > {
+  levelColor?: color.Crude;
+  axisColor?: color.Crude;
   className?: string;
 }
 
@@ -58,13 +56,11 @@ export const Scale = ({
   caretHidden,
   className,
 }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
   const containerStyle: CSSProperties = {
     ...CONTAINER_STYLE,
-    [Primitive.SYMBOL_COLOR]: color.rgbaString(resolve(levelColor)),
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(levelColor),
   };
-  const axisValue = resolve(axisColor);
-  const axis = axisValue == null ? AXIS_FALLBACK : color.hex(axisValue);
+  const axis = axisColor == null ? AXIS_FALLBACK : color.hex(axisColor);
   return (
     <div className={CSS.cls(CSS.symbolColored, className)} style={containerStyle}>
       <svg width={WIDTH} height={HEIGHT} style={{ position: "absolute" }}>

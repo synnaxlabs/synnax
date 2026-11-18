@@ -14,7 +14,6 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -30,9 +29,10 @@ export const offPageReferenceTooltip = (
 };
 
 interface RenderProps extends Partial<
-  Pick<schematic.OffPageReferenceNodeConfig, "orientation" | "fillColor">
+  Pick<schematic.OffPageReferenceNodeConfig, "orientation">
 > {
   level?: text.Level;
+  fillColor?: color.Crude;
   label?: string;
   className?: string;
   title?: string;
@@ -51,12 +51,11 @@ export const OffPageReference = ({
   pageType = "schematic",
   onLabelChange,
 }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
   const PageIcon = PAGE_ICONS[pageType];
 
   const swap = direction.construct(orientation) === "y";
   const style: CSSProperties = {
-    [Primitive.SYMBOL_COLOR]: color.rgbaString(resolve(fillColor)),
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(fillColor),
   };
 
   return (

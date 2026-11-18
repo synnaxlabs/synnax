@@ -12,15 +12,16 @@ import { type Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.PolygonNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "strokeColor" | "fillColor"
 > {
+  strokeColor?: color.Crude;
+  fillColor?: color.Crude;
   className?: string;
 }
 
@@ -104,7 +105,6 @@ export const Polygon = ({
   borderRadius,
   strokeWidth = Border.DEFAULT_STROKE_WIDTH,
 }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
   const padding = 2 * (strokeWidth + 1);
   const vertices = calculatePolygonVertices(numSides, sideLength, rotation, padding);
   const path = generateRoundedPolygonPath(vertices, sideLength, borderRadius ?? 0);
@@ -113,11 +113,11 @@ export const Polygon = ({
     <Primitive.Div className={CSS.cls(className, CSS.B("polygon"))}>
       <Primitive.SVG
         dimensions={{ width: size, height: size }}
-        strokeColor={resolve(strokeColor)}
+        strokeColor={strokeColor}
       >
         <Primitive.Path
           d={path}
-          fill={color.cssString(resolve(fillColor)) ?? FILL_FALLBACK}
+          fill={color.cssString(fillColor) ?? FILL_FALLBACK}
           strokeWidth={strokeWidth}
         />
       </Primitive.SVG>

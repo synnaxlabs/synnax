@@ -14,6 +14,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { box, type color, xy } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
+import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -99,6 +100,7 @@ export const Symbol = ({
     inlineSize,
   },
 }: NodeProps<schematic.SetpointNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
@@ -117,7 +119,7 @@ export const Symbol = ({
         onSend={set}
         value={value}
         units={units}
-        fillColor={fillColor}
+        fillColor={resolve(fillColor)}
         orientation={orientation}
         disabled={disabled}
         size={size}

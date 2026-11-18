@@ -13,18 +13,16 @@ import { type schematic } from "@synnaxlabs/client";
 import { border, color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Partial<
-  Pick<
-    schematic.TankNodeConfig,
-    "dimensions" | "borderRadius" | "strokeColor" | "fillColor"
-  >
+  Pick<schematic.TankNodeConfig, "dimensions" | "borderRadius">
 > {
+  strokeColor?: color.Crude;
+  fillColor?: color.Crude;
   className?: string;
   boxBorderRadius?: number;
   strokeWidth?: number;
@@ -39,7 +37,6 @@ export const Tank = ({
   fillColor,
   strokeWidth = Border.DEFAULT_STROKE_WIDTH,
 }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
   const detailedRadius = border.constructRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
   const { width, height } = dimensions;
@@ -50,12 +47,12 @@ export const Tank = ({
   const topOffset = Border.pixelToPercent(1, height);
   const bottomOffset = 100 - topOffset;
   const cssBorderRadius = boxBorderRadius ?? radiusCSS;
-  const fillCSS = color.cssString(resolve(fillColor));
+  const fillCSS = color.cssString(fillColor);
   const style: CSSProperties = {
     width,
     height,
     borderRadius: cssBorderRadius,
-    [Primitive.SYMBOL_COLOR]: color.rgbaString(resolve(strokeColor)),
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
     backgroundColor: fillCSS,
     borderWidth: strokeWidth,
   };

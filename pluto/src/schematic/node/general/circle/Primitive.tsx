@@ -11,7 +11,6 @@ import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
@@ -19,8 +18,10 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.CircleNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "strokeColor" | "fillColor"
 > {
+  strokeColor?: color.Crude;
+  fillColor?: color.Crude;
   className?: string;
 }
 
@@ -31,7 +32,6 @@ export const Circle = ({
   className,
   strokeWidth = Border.DEFAULT_STROKE_WIDTH,
 }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
   const padding = strokeWidth + 1;
   const diameter = radius * 2;
   const width = diameter + 2 * padding;
@@ -69,13 +69,13 @@ export const Circle = ({
           id="4"
         />
       </Handle.Boundary>
-      <Primitive.SVG dimensions={dimensions} strokeColor={resolve(strokeColor)}>
+      <Primitive.SVG dimensions={dimensions} strokeColor={strokeColor}>
         <Primitive.Circle
           cx={width / 2}
           cy={height / 2}
           r={radius}
           strokeWidth={strokeWidth}
-          fill={color.cssString(resolve(fillColor))}
+          fill={color.cssString(fillColor)}
         />
       </Primitive.SVG>
     </Primitive.Div>

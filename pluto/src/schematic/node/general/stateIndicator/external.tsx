@@ -10,6 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { StateIndicatorForm } from "@/schematic/node/general/stateIndicator/Form";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
@@ -18,14 +19,17 @@ import { type Spec } from "@/schematic/node/spec";
 const Preview = ({
   strokeColor,
   size,
-}: schematic.StateIndicatorNodeConfig): ReactElement => (
-  <StateIndicator
-    matchedOptionKey="1"
-    options={[{ key: "1", name: "Active", value: 1 }]}
-    strokeColor={strokeColor}
-    size={size}
-  />
-);
+}: schematic.StateIndicatorNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <StateIndicator
+      matchedOptionKey="1"
+      options={[{ key: "1", name: "Active", value: 1 }]}
+      strokeColor={resolve(strokeColor)}
+      size={size}
+    />
+  );
+};
 
 export const spec: Spec<"state_indicator", schematic.StateIndicatorNodeConfig> = {
   key: "state_indicator",

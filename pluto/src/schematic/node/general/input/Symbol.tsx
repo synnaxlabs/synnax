@@ -13,6 +13,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { type color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
@@ -69,9 +70,11 @@ export const Symbol = ({
     stalenessTimeout,
     size,
     inlineSize,
+    fillColor,
     ...rest
   },
 }: NodeProps<schematic.InputNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const sink = Telem.stringSink(commandChannel);
   const source = telem.streamChannelStringValue({ channel: commandChannel });
   const { set, value } = InputTelem.use({ aetherKey: nodeKey, sink, source });
@@ -88,6 +91,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <Input
         onSend={set}
+        fillColor={resolve(fillColor)}
         value={value}
         size={size}
         inlineSize={inlineSize}

@@ -17,6 +17,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
 import { Value } from "@/vis/value";
@@ -76,4 +77,13 @@ export const Symbol = ({
       <div style={dims} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );
+};
+
+/** Renders the gauge in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  strokeColor,
+  ...rest
+}: schematic.GaugeNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return <Gauge {...rest} strokeColor={resolve(strokeColor)} />;
 };

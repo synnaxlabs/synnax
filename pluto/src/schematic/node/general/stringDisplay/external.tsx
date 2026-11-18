@@ -24,7 +24,7 @@ const Preview = ({
 }: schematic.StringDisplayNodeConfig): ReactElement => {
   const resolve = Color.useResolve();
   return (
-    <StringDisplay strokeColor={strokeColor} level={level}>
+    <StringDisplay strokeColor={resolve(strokeColor)} level={level}>
       <Text.Text
         level={level}
         color={resolve(textColor)}

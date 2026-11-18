@@ -15,7 +15,6 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { color, TimeSpan } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Label } from "@/schematic/node/common/label";
@@ -33,12 +32,10 @@ const primaryOnly = (
       };
 
 interface ButtonProps extends Partial<
-  Pick<
-    schematic.ButtonNodeConfig,
-    "orientation" | "size" | "mode" | "onClickDelay" | "fillColor"
-  >
+  Pick<schematic.ButtonNodeConfig, "orientation" | "size" | "mode" | "onClickDelay">
 > {
   label?: schematic.ButtonNodeConfig["label"];
+  fillColor?: color.Crude;
   className?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   onMouseDown?: MouseEventHandler<HTMLButtonElement>;
@@ -56,8 +53,7 @@ export const Button = ({
   mode = "fire",
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
-  const resolve = Color.useResolve();
-  const symbolColor = color.rgbaString(resolve(fillColor));
+  const symbolColor = color.rgbaString(fillColor);
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
     textAlign: label == null ? undefined : Label.TEXT_ALIGNS[label.align],

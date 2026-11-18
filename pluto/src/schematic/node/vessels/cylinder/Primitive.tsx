@@ -11,7 +11,6 @@ import { type schematic } from "@synnaxlabs/client";
 import { border, color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
@@ -20,14 +19,11 @@ import { Primitive } from "@/schematic/node/common/primitive";
 interface RenderProps extends Partial<
   Pick<
     schematic.CylinderNodeConfig,
-    | "dimensions"
-    | "borderRadius"
-    | "strokeColor"
-    | "fillColor"
-    | "orientation"
-    | "scale"
+    "dimensions" | "borderRadius" | "orientation" | "scale"
   >
 > {
+  strokeColor?: color.Crude;
+  fillColor?: color.Crude;
   className?: string;
 }
 
@@ -40,10 +36,9 @@ export const Cylinder = ({
   orientation = "left",
   scale,
 }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
   const radiusCSS = Border.cssRadius(border.constructRadius(borderRadius));
   const refreshDeps = `${dimensions.width} ${dimensions.height} ${radiusCSS}`;
-  const bgColor = color.cssString(resolve(fillColor));
+  const bgColor = fillColor == null ? undefined : color.cssString(fillColor);
   const transform = `scale(${dimensions.width / 66},${dimensions.height / 180})`;
 
   return (
@@ -55,7 +50,7 @@ export const Cylinder = ({
         dimensions={dimensions}
         orientation={orientation}
         scale={scale}
-        strokeColor={resolve(strokeColor)}
+        strokeColor={strokeColor}
       >
         <path
           d="M23 33.6712C11.9844 36.0332 3 42.4382 3 52.8862V174.568C3 176.225 4.34315 177.568 6 177.568H60C61.6569 177.568 63 176.225 63 174.568V52.8862C63 36.3342 40.4511 29.9292 23 33.6712ZM23 33.6712V13.3181C23 0.318109 42.9975 0.318123 42.9975 13.3181V33.6712"

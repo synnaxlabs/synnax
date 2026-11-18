@@ -13,10 +13,12 @@ import { type schematic } from "@synnaxlabs/client";
 import { box, dimensions, location, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Scale as BaseScale } from "@/schematic/node/common/scale";
+import { Scale } from "@/schematic/node/general/scale/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Scale as VisScale } from "@/vis/scale";
 
@@ -70,5 +72,17 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <div style={outer} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
+  );
+};
+
+/** Renders the scale in the symbol list, with its colors resolved for the theme. */
+export const Preview = ({
+  levelColor,
+  axisColor,
+  ...rest
+}: schematic.ScaleNodeConfig): ReactElement => {
+  const resolve = Color.useResolve();
+  return (
+    <Scale {...rest} levelColor={resolve(levelColor)} axisColor={resolve(axisColor)} />
   );
 };
