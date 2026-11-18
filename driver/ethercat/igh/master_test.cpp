@@ -411,6 +411,36 @@ TEST_F(IGHMasterTest, ScanReadsOnlyTheSIIOfAStartingSlave) {
     EXPECT_TRUE(slaves[1].properties.settings.has_value());
 }
 
+/// @brief it should read the CoE objects of an enabled slave that was starting at the
+/// scan once it reaches PRE-OP, and start without one that stays in INIT.
+TEST_F(IGHMasterTest, ActivateReadsAStartingSlaveOnceItReachesPreOP) {
+    for (const int reads: {1, -1}) {
+        auto &slave = this->api->add_slave(
+            "6xSTG",
+            testutil::DEWESOFT,
+            testutil::IOLITE_6XSTG
+        );
+        slave.info.al_state = EC_AL_STATE_INIT;
+        slave.reads_to_pre_op = reads;
+        slave.objects = testutil::stg_objects(0);
+        slave.wide_objects[{0x1018, 4}] = 9;
+    }
+    this->api->add_slave().info.al_state = EC_AL_STATE_INIT;
+    this->configs = {{1, {}}, {2, {}}, {3, {.enabled = false}}};
+    ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
+    ASSERT_NIL(this->activate().err);
+    EXPECT_GE(this->clock.steady() - started, std::chrono::seconds(2));
+    const auto &slaves = this->image.slaves;
+    EXPECT_EQ(slaves[0].status.state, slave::State::PRE_OP);
+    EXPECT_FALSE(slaves[0].status.starting);
+    EXPECT_EQ(slaves[0].properties.serial, 9);
+    EXPECT_TRUE(slaves[0].properties.settings.has_value());
+    EXPECT_TRUE(slaves[1].status.starting);
+    EXPECT_FALSE(slaves[1].properties.settings.has_value());
+    EXPECT_TRUE(slaves[2].status.starting);
+}
+
 /// @brief it should give the reason for each way an SDO read fails.
 TEST_F(IGHMasterTest, ReadGivesTheReasonForEachFailure) {
     auto &slave = this->api->add_slave();

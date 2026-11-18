@@ -186,6 +186,13 @@ uint16_t ring_position(const uint16_t position) {
     return position - 1;
 }
 
+/// @brief returns whether a slave in state is below PRE-OP. IgH aborts each SDO
+/// transfer of a slave in INIT.
+bool starting(const slave::State state) {
+    return state == slave::State::INIT || state == slave::State::BOOT ||
+           state == slave::State::UNKNOWN;
+}
+
 /// @brief returns errors::SLAVE_CONFIG_ERROR when config enables slave in a mode that
 /// the IgH master cannot run.
 x::errors::Error
@@ -280,12 +287,8 @@ x::errors::Error Master::initialize() {
         result.properties.revision = slave_info.revision_number;
         result.properties.serial = slave_info.serial_number;
         result.properties.name = slave_info.name;
-        const auto state = slave::from_al_state(slave_info.al_state);
-        result.status.state = state;
-        // IgH aborts each SDO transfer of a slave in INIT.
-        result.status.starting = state == slave::State::INIT ||
-                                 state == slave::State::BOOT ||
-                                 state == slave::State::UNKNOWN;
+        result.status.state = slave::from_al_state(slave_info.al_state);
+        result.status.starting = starting(result.status.state);
         for (uint8_t sm = 0; sm < slave_info.sync_count; ++sm)
             if (const auto err = this->append_scanned_pdos(result.properties, sm)) {
                 result.properties.input_pdos.clear();
@@ -295,19 +298,7 @@ x::errors::Error Master::initialize() {
                 break;
             }
         esi::fill(result);
-        if (!result.status.starting) {
-            const auto ring_pos = static_cast<uint16_t>(i);
-            read_serial(*this->api, this->ec_master, ring_pos, result);
-            auto [settings, settings_err] = esi::read_settings(
-                slave_info.vendor_id,
-                slave_info.product_code,
-                slave_info.revision_number,
-                result.properties.op_modes,
-                sdo_reader(*this->api, this->ec_master, ring_pos)
-            );
-            result.status.settings_error = settings_err.data;
-            result.properties.settings = std::move(settings);
-        }
+        if (!result.status.starting) this->read_coe(result);
         this->cached_slaves.push_back(std::move(result));
     }
     slave::clear_duplicate_serials(this->cached_slaves);
@@ -321,6 +312,53 @@ x::errors::Error Master::initialize() {
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " initialized with "
             << this->cached_slaves.size() << " slaves";
     return x::errors::NIL;
+}
+
+void Master::read_coe(slave::DiscoveryResult &slave) {
+    auto &props = slave.properties;
+    const auto pos = ring_position(props.position);
+    read_serial(*this->api, this->ec_master, pos, slave);
+    auto [settings, err] = esi::read_settings(
+        props.vendor_id,
+        props.product_code,
+        props.revision,
+        props.op_modes,
+        sdo_reader(*this->api, this->ec_master, pos)
+    );
+    slave.status.settings_error = err.data;
+    props.settings = std::move(settings);
+}
+
+void Master::read_starting(const master::Plan &plan) {
+    std::vector<slave::DiscoveryResult *> pending;
+    for (auto &slave: this->cached_slaves)
+        if (const auto it = plan.slaves.find(slave.properties.position);
+            slave.status.starting && it != plan.slaves.end() && it->second.enabled)
+            pending.push_back(&slave);
+    if (pending.empty()) return;
+    // IgH moves each slave to PRE-OP in the background once the master is requested.
+    const auto deadline = this->cfg.clock.steady() + this->cfg.pre_op_timeout.chrono();
+    while (true) {
+        std::vector<slave::DiscoveryResult *> still;
+        for (auto *slave: pending) {
+            ec_slave_info_t info{};
+            const auto pos = ring_position(slave->properties.position);
+            const bool read = this->api
+                                  ->master_get_slave(this->ec_master, pos, &info) == 0;
+            const auto state = slave::from_al_state(info.al_state);
+            if (!read || starting(state)) {
+                still.push_back(slave);
+                continue;
+            }
+            slave->status.state = state;
+            slave->status.starting = false;
+            this->read_coe(*slave);
+        }
+        pending = std::move(still);
+        if (pending.empty() || this->cfg.clock.steady() >= deadline) break;
+        this->cfg.clock.sleep(OP_POLL_INTERVAL);
+    }
+    slave::clear_duplicate_serials(this->cached_slaves);
 }
 
 std::pair<master::Change, x::errors::Error> Master::changed() {
@@ -488,6 +526,7 @@ master::Activation Master::activate(
                 config_of(slave.properties.position)
             ))
             return {.err = err};
+    this->read_starting(plan);
     master::Image image;
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
