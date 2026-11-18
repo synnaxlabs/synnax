@@ -9,15 +9,34 @@
 
 /// <reference types="vitest/config" />
 
-import { lib } from "@synnaxlabs/vite-plugin";
+import { isProd, lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 
 import packageJSON from "./package.json" with { type: "json" };
 
+// Browsers with no bundler have no `process`, so the browser entry must not read it.
+const noProcess = (): Plugin => ({
+  name: "no-process",
+  generateBundle(_, bundle) {
+    for (const chunk of Object.values(bundle))
+      if (
+        chunk.type === "chunk" &&
+        chunk.name !== "testutil" &&
+        /(?<![.\w$])process(\??\.[\w$]|\[)/.test(chunk.code)
+      )
+        this.error(`${chunk.fileName} reads process`);
+  },
+});
+
 export default defineConfig({
-  define: { __VERSION__: JSON.stringify(packageJSON.version) },
-  plugins: [lib({ name: "client" })],
+  define: {
+    __VERSION__: JSON.stringify(packageJSON.version),
+    // The bundled Immer reads this at load, and browsers with no bundler have no
+    // `process`.
+    "process.env.NODE_ENV": JSON.stringify(isProd() ? "production" : "development"),
+  },
+  plugins: [lib({ name: "client" }), noProcess()],
   build: {
     lib: {
       entry: {
@@ -27,7 +46,7 @@ export default defineConfig({
     },
     rolldownOptions: {
       external: [
-        "zod",
+        /^zod(\/|$)/,
         "vitest",
         /^@vitest\//,
         /^node:/,

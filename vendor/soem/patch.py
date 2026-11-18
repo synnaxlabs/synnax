@@ -402,35 +402,6 @@ SEND_LEFT_ALSTAT_READS = (
 /** Receive processdata from slaves.""",
 )
 
-RECEIVE_ALSTAT = (
-    """int ecx_receive_processdata_group(ecx_contextt *context, uint8 group, int timeout)
-{
-""",
-    """int ecx_receive_processdata_group(ecx_contextt *context, uint8 group, int timeout)
-{
-   return ecx_receive_processdata_group_alstat(context, group, timeout, NULL);
-}
-
-int ecx_receive_processdata_group_alstat(ecx_contextt *context, uint8 group, int timeout,
-                                         uint16 *alstat)
-{
-   uint16 slave = 0;
-""",
-)
-
-CLEAR_ALSTAT = (
-    """   idxstack = &context->idxstack;
-   rxbuf = context->port.rxbuf;
-""",
-    """   idxstack = &context->idxstack;
-   rxbuf = context->port.rxbuf;
-   while ((alstat != NULL) && ((slave = ecx_nextalstat(context, group, slave)) != 0))
-   {
-      alstat[slave] = 0;
-   }
-""",
-)
-
 # The frame gives the working counter of its last datagram, which can now be an AL
 # status read.
 COUNT_PROCESS_DATA_WKC = (
@@ -445,16 +416,142 @@ COUNT_PROCESS_DATA_WKC = (
 """,
 )
 
-READ_ALSTAT = (
-    """      /* release buffer */
-      ecx_setbufstat(&context->port, idx, EC_BUF_EMPTY);
+# A USB adapter can bring a frame back a cycle late. These functions keep the frames of
+# each send in flight until all of them come back, so a late frame is not lost.
+ADD_INFLIGHT = (
+    """   /* if no frames has arrived */
+   if (valid_wkc == 0)
+   {
+      return EC_NOFRAME;
+   }
+   return wkc;
+}
 """,
-    """      if ((alstat != NULL) && (wkc2 > EC_NOFRAME))
+    """   /* if no frames has arrived */
+   if (valid_wkc == 0)
+   {
+      return EC_NOFRAME;
+   }
+   return wkc;
+}
+
+/** Frees the frames of the oldest send in inflight and takes them off the index stack.
+ */
+static void ecx_popinflight(ecx_contextt *context, ec_inflightT *inflight)
+{
+   ec_idxstackT *idxstack = &context->idxstack;
+   uint8 frames = inflight->frames[0];
+   uint8 left = (uint8)(idxstack->pushed - frames);
+   uint8 pos;
+
+   for (pos = 0; pos < frames; pos++)
+   {
+      ecx_setbufstat(&context->port, idxstack->idx[pos], EC_BUF_EMPTY);
+   }
+   memmove(idxstack->idx, &idxstack->idx[frames], left * sizeof(idxstack->idx[0]));
+   memmove(idxstack->data, &idxstack->data[frames], left * sizeof(idxstack->data[0]));
+   memmove(idxstack->length, &idxstack->length[frames],
+           left * sizeof(idxstack->length[0]));
+   memmove(idxstack->dcoffset, &idxstack->dcoffset[frames],
+           left * sizeof(idxstack->dcoffset[0]));
+   memmove(idxstack->type, &idxstack->type[frames], left * sizeof(idxstack->type[0]));
+   memmove(inflight->received, &inflight->received[frames],
+           left * sizeof(inflight->received[0]));
+   idxstack->pushed = left;
+   idxstack->pulled = 0;
+   inflight->sends--;
+   memmove(inflight->frames, &inflight->frames[1],
+           inflight->sends * sizeof(inflight->frames[0]));
+}
+
+int ecx_send_processdata_inflight(ecx_contextt *context, uint8 group,
+                                  ec_inflightT *inflight)
+{
+   uint8 first = context->idxstack.pushed;
+   uint8 pos;
+   int sent = ecx_send_processdata_group(context, group);
+
+   if (sent > 0)
+   {
+      for (pos = first; pos < context->idxstack.pushed; pos++)
       {
-         ecx_readalstat(context, idx, alstat);
+         inflight->received[pos] = FALSE;
       }
-      /* release buffer */
-      ecx_setbufstat(&context->port, idx, EC_BUF_EMPTY);
+      inflight->frames[inflight->sends] = (uint8)(context->idxstack.pushed - first);
+      return inflight->frames[inflight->sends++];
+   }
+   return sent;
+}
+
+int ecx_receive_processdata_inflight(ecx_contextt *context, uint8 group, int timeout,
+                                     ec_inflightT *inflight, uint16 *alstat)
+{
+   ec_idxstackT *idxstack = &context->idxstack;
+   ec_bufT *rxbuf = context->port.rxbuf;
+   uint16 slave = 0;
+   uint16 le_wkc;
+   int64 le_DCtime;
+   uint8 command;
+   uint8 idx;
+   uint8 pos;
+   int wkc = 0;
+
+   while ((slave = ecx_nextalstat(context, group, slave)) != 0)
+   {
+      alstat[slave] = 0;
+   }
+   if (inflight->sends == 0)
+   {
+      return EC_NOFRAME;
+   }
+   for (pos = 0; pos < inflight->frames[0]; pos++)
+   {
+      /* ecx_waitinframe gives a frame once only. */
+      if (!inflight->received[pos])
+      {
+         inflight->received[pos] =
+            (ecx_waitinframe(&context->port, idxstack->idx[pos], timeout) > EC_NOFRAME);
+      }
+      if (!inflight->received[pos])
+      {
+         return EC_NOFRAME;
+      }
+   }
+   for (pos = 0; pos < inflight->frames[0]; pos++)
+   {
+      idx = idxstack->idx[pos];
+      command = rxbuf[idx][EC_CMDOFFSET];
+      if ((command == EC_CMD_LRD) || (command == EC_CMD_LRW) || (command == EC_CMD_LWR))
+      {
+         if (command != EC_CMD_LWR)
+         {
+            memcpy(idxstack->data[pos], &(rxbuf[idx][EC_HEADERSIZE]),
+                   idxstack->length[pos]);
+         }
+         memcpy(&le_wkc, &(rxbuf[idx][EC_HEADERSIZE + idxstack->length[pos]]),
+                EC_WKCSIZE);
+         /* output WKC counts 2 times when using LRW, emulate the same for LWR */
+         wkc += etohs(le_wkc) * ((command == EC_CMD_LWR) ? 2 : 1);
+         if (idxstack->dcoffset[pos] > 0)
+         {
+            memcpy(&le_DCtime, &(rxbuf[idx][idxstack->dcoffset[pos]]),
+                   sizeof(le_DCtime));
+            context->DCtime = etohll(le_DCtime);
+         }
+      }
+      ecx_readalstat(context, idx, alstat);
+   }
+   ecx_popinflight(context, inflight);
+   return wkc;
+}
+
+void ecx_drop_processdata_inflight(ecx_contextt *context, ec_inflightT *inflight)
+{
+   if (inflight->sends > 0)
+   {
+      ecx_popinflight(context, inflight);
+   }
+}
 """,
 )
 
@@ -473,10 +570,8 @@ PATCHES = {
         ADD_ALSTAT_TO_LRD,
         ADD_ALSTAT_TO_LRW,
         SEND_LEFT_ALSTAT_READS,
-        RECEIVE_ALSTAT,
-        CLEAR_ALSTAT,
         COUNT_PROCESS_DATA_WKC,
-        READ_ALSTAT,
+        ADD_INFLIGHT,
     ],
     "nicdrv.c": [
         REQUEST_TIMER_PERIOD_PER_SESSION,

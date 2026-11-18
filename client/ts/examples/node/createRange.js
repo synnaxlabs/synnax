@@ -39,18 +39,24 @@ const timeData = BigInt64Array.from({ length: 1000 }, (_, i) =>
 const data = Float64Array.from({ length: 1000 }, (_, i) => Math.sin(i * 0.01));
 
 // Create an index channel that will be used to store our timestamps.
-const timeChannel = await client.channels.create({
-  name: "create_range_time",
-  dataType: DataType.TIMESTAMP,
-  isIndex: true,
-});
+const timeChannel = await client.channels.create(
+  {
+    name: "create_range_time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create a data channel that will be used to store our fake sensor data.
-const dataChannel = await client.channels.create({
-  name: "create_range_data",
-  dataType: DataType.FLOAT64,
-  index: timeChannel.key,
-});
+const dataChannel = await client.channels.create(
+  {
+    name: "create_range_data",
+    dataType: DataType.FLOAT64,
+    index: timeChannel.key,
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Write the data to the Synnax cluster through the channels. Note that we need to write
 // to the index channel first, otherwise our write will fail.

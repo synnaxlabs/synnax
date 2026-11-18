@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <filesystem>
+#include <fstream>
+#include <string>
 
 #include "x/cpp/kv/kv.h"
 #include "x/cpp/testutil/testutil.h"
@@ -95,7 +97,7 @@ TEST_F(JSONTest, Persistence) {
     }
 }
 
-/// @brief it should set an existing file to the configured mode.
+/// @brief it should keep the mode of an existing file when it opens and writes it.
 TEST_F(JSONTest, ExistingFileMode) {
 #ifdef _WIN32
     GTEST_SKIP() << "Windows files have no POSIX mode";
@@ -103,16 +105,84 @@ TEST_F(JSONTest, ExistingFileMode) {
     JSONFileConfig config;
     config.path = temp_path;
     config.dir_mode = std::filesystem::perms::owner_all;
-    config.file_mode = std::filesystem::perms::owner_read |
-                       std::filesystem::perms::owner_write |
-                       std::filesystem::perms::others_read;
+    const auto mode = std::filesystem::perms::owner_read |
+                      std::filesystem::perms::owner_write |
+                      std::filesystem::perms::others_read;
+    config.file_mode = mode;
     ASSERT_NIL_P(JSONFile::open_file(config));
     config.file_mode = std::filesystem::perms::owner_read |
                        std::filesystem::perms::owner_write;
-    ASSERT_NIL_P(JSONFile::open_file(config));
+    const auto kv = ASSERT_NIL_P(JSONFile::open_file(config));
+    ASSERT_NIL(kv->set("key", "value"));
     ASSERT_EQ(
         std::filesystem::status(temp_path).permissions() & std::filesystem::perms::all,
-        config.file_mode
+        mode
     );
+}
+
+/// @brief it should refuse to write through a link at the path.
+TEST_F(JSONTest, WriteRefusesLink) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows writes through the path";
+#endif
+    JSONFileConfig config;
+    config.path = temp_path;
+    config.dir_mode = std::filesystem::perms::owner_all;
+    config.file_mode = std::filesystem::perms::owner_read |
+                       std::filesystem::perms::owner_write;
+    const auto kv = ASSERT_NIL_P(JSONFile::open_file(config));
+    const auto target = std::filesystem::path(temp_path).parent_path() / "target.json";
+    std::ofstream(target) << "target";
+    std::filesystem::remove(temp_path);
+    std::filesystem::create_symlink(target, temp_path);
+    const auto err = kv->set("key", "value");
+    ASSERT_NE(err.message().find("failed to open file"), std::string::npos);
+    std::ifstream file(target);
+    std::string content;
+    file >> content;
+    ASSERT_EQ(content, "target");
+}
+
+/// @brief it should write a file in a directory that the process cannot write.
+TEST_F(JSONTest, WriteInReadOnlyDirectory) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows directories have no POSIX mode";
+#endif
+    JSONFileConfig config;
+    config.path = temp_path;
+    config.dir_mode = std::filesystem::perms::owner_all;
+    config.file_mode = std::filesystem::perms::owner_read |
+                       std::filesystem::perms::owner_write;
+    const auto kv = ASSERT_NIL_P(JSONFile::open_file(config));
+    const auto dir = std::filesystem::path(temp_path).parent_path();
+    std::filesystem::permissions(
+        dir,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_exec
+    );
+    const auto err = kv->set("key", "value");
+    std::filesystem::permissions(dir, std::filesystem::perms::owner_all);
+    ASSERT_NIL(err);
+    const auto reopened = ASSERT_NIL_P(JSONFile::open_file(config));
+    std::string value;
+    ASSERT_NIL(reopened->get("key", value));
+    ASSERT_EQ(value, "value");
+}
+
+/// @brief it should refuse to open a link at the path.
+TEST_F(JSONTest, OpenRefusesLink) {
+#ifdef _WIN32
+    GTEST_SKIP() << "Windows reads through the path";
+#endif
+    const auto dir = std::filesystem::path(temp_path).parent_path();
+    std::filesystem::create_directories(dir);
+    std::ofstream(dir / "target.json") << "{}";
+    std::filesystem::create_symlink(dir / "target.json", temp_path);
+    JSONFileConfig config;
+    config.path = temp_path;
+    config.dir_mode = std::filesystem::perms::owner_all;
+    config.file_mode = std::filesystem::perms::owner_read |
+                       std::filesystem::perms::owner_write;
+    auto [kv, err] = JSONFile::open_file(config);
+    ASSERT_NE(err.message().find("failed to open file"), std::string::npos);
 }
 }

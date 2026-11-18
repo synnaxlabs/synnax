@@ -92,7 +92,7 @@ StringTimeStamp = TimeStamp {
 Window union on variant {
     dynamic {
         time_span TimeSpan = 0 {
-            @doc value "is the span of the window, which ends now."
+            @doc value "is the span of the window, which ends at the newest sample."
         }
 
         @doc value "is a rolling window."
@@ -106,7 +106,7 @@ Window union on variant {
     }
 
     @cpp omit
-    @doc value  "is a window of time: a rolling span that ends now, or a fixed range."
+    @doc value  "is a window of time: a rolling span or a fixed range."
     @go marshal
     @pb omit
     @ts hand

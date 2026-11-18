@@ -21,6 +21,7 @@ export { Channel } from "@/channel/client";
 export { isCalculated } from "@/channel/payload";
 export {
   type ConnectOptions,
+  type ConstructorParams,
   default as Synnax,
   type SynnaxParams,
   synnaxParamsZ,

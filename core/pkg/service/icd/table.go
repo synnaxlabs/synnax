@@ -300,6 +300,9 @@ func (t *table) readField(row int, cells []string) (BinaryField, error) {
 	case "":
 	case payload.KindFloat, payload.KindInteger, payload.KindUnsigned:
 		f.Kind = k
+	case payload.KindString, payload.KindBoolean, payload.KindTimestamp,
+		payload.KindJSON, payload.KindUUID, payload.KindBytes:
+		fallthrough
 	default:
 		return BinaryField{}, rowErrorf(
 			row,

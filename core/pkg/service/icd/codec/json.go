@@ -164,6 +164,8 @@ func Converts(k payload.Kind, dt telem.DataType) bool {
 		return k == payload.KindUnsigned || k == payload.KindBoolean
 	case payload.KindUnsigned:
 		return k == payload.KindBoolean
+	case payload.KindString, payload.KindBoolean, payload.KindTimestamp,
+		payload.KindJSON, payload.KindUUID, payload.KindBytes:
 	}
 	return false
 }

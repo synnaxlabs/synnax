@@ -19,7 +19,7 @@ import synnax as sy
 from synnax import task
 from x import filter
 from x.strings import random_name
-from x.testutil import assert_eventually
+from x.testutil import assert_eventually, untyped
 
 
 def _device(rack: sy.rack.Key) -> sy.Device:
@@ -219,7 +219,7 @@ class TestTaskClient:
     def test_retrieve_none_field(self, client: sy.Synnax) -> None:
         """Should reject a field set to None, since it would select every task."""
         with pytest.raises(sy.ValidationError, match="rack is None"):
-            client.tasks.retrieve(rack=None)  # type: ignore[call-overload]
+            untyped(client.tasks.retrieve)(rack=None)
 
     def test_retrieve_by_internal(self, client: sy.Synnax) -> None:
         """Should exclude user tasks when filtering for internal tasks."""

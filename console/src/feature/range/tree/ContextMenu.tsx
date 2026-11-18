@@ -28,7 +28,10 @@ import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 /** The menu for ranges in the explorer and the overview. */
-export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+export const ContextMenu = ({
+  keys,
+  target,
+}: Menu.ContextMenuMenuProps): ReactElement => {
   const { getItem, subscribe } = List.useUtilContext<ranger.Key, ranger.Range>();
   if (getItem == null || subscribe == null)
     throw new UnexpectedError("No item getter found");
@@ -102,7 +105,9 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement =
         </Menu.Item>
       )}
       {single != null && canUpdate && (
-        <Base.RenameItem onClick={() => Text.edit(List.itemNameID(single.key))} />
+        <Base.RenameItem
+          onClick={() => Text.edit(List.itemNameID(single.key), target)}
+        />
       )}
       <Menu.Divider />
       {ranges.some((r) => !favoriteKeys.includes(r.key)) && (

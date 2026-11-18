@@ -49,6 +49,7 @@ var (
 		apicolor.RetrieveRequest,
 		apicolor.RetrieveResponse,
 	]
+	apiSvc *apicolor.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -56,7 +57,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
-	apiSvc := MustSucceed(apicolor.NewService(apicolor.ServiceConfig{
+	apiSvc = MustSucceed(apicolor.NewService(apicolor.ServiceConfig{
 		Color: svc.Color,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{

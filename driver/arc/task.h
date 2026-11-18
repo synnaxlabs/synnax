@@ -287,11 +287,12 @@ public:
              fail](const ::arc::ir::Node &node, const x::errors::Error &err) {
                 const auto description = "The " + node.type +
                                          " node failed: " + err.data;
-                if (err.matches(::arc::runtime::errors::WARNING)) {
-                    std::lock_guard lock(task_ptr->state_mu);
-                    task_ptr->state.send_warning("Node failed", description);
-                } else
+                if (err.matches(::arc::runtime::errors::LOOP_BUDGET)) {
                     fail(x::errors::Error(err, description));
+                    return;
+                }
+                std::lock_guard lock(task_ptr->state_mu);
+                task_ptr->state.send_warning("Node failed", description);
             }
         );
         if (err) return {nullptr, err};

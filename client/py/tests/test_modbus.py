@@ -18,6 +18,7 @@ from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
 from tests.json_value import arr, obj
 from tests.task_targets import TaskTargets
 from x.strings import random_name
+from x.testutil import untyped
 
 
 @pytest.mark.modbus
@@ -904,10 +905,10 @@ class TestModbusDevicePropertyUpdates:
             match=r"^baud_rate: must be one of 1200, 2400, 4800, 9600, 19200, 38400, "
             r"57600, 115200, 230400$",
         ):
-            sy.modbus.Device(
+            untyped(sy.modbus.Device)(
                 transport="rtu",
                 serial_port="COM3",
-                baud_rate=baud_rate,  # type: ignore[arg-type]
+                baud_rate=baud_rate,
             )
 
     def test_device_property_key_format(self) -> None:

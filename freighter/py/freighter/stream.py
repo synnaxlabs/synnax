@@ -198,3 +198,11 @@ class StreamClient(Transport, Protocol):
             responses.
         """
         ...
+
+    def with_codec(self, codec: Codec) -> "StreamClient":
+        """Returns a client that encodes and decodes stream messages with codec. It
+        shares the target and middleware of this client.
+
+        :param codec: The codec for messages on streams that the new client opens.
+        """
+        ...

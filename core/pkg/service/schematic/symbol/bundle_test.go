@@ -12,6 +12,7 @@ package symbol_test
 import (
 	"encoding/json/v2"
 	"io"
+	"io/fs"
 	"maps"
 	"os"
 	"slices"
@@ -415,12 +416,11 @@ var _ = Describe("ImportGroup", func() {
 	Describe("Golden bundles", func() {
 		loadBundle := func(dir string) zip.Files {
 			GinkgoHelper()
-			entries := MustSucceed(os.ReadDir(dir))
+			bundle := os.DirFS(dir)
+			entries := MustSucceed(fs.ReadDir(bundle, "."))
 			files := make(zip.Files, len(entries))
 			for _, entry := range entries {
-				files[entry.Name()] = MustSucceed(
-					os.ReadFile(dir + "/" + entry.Name()),
-				)
+				files[entry.Name()] = MustSucceed(fs.ReadFile(bundle, entry.Name()))
 			}
 			return files
 		}
