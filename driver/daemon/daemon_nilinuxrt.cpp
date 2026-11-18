@@ -86,7 +86,7 @@ do_start() {
     PID_DIR=$(dirname "$PIDFILE")
     if [ ! -d "$PID_DIR" ]; then
         mkdir -p "$PID_DIR"
-        chmod 777 "$PID_DIR"
+        chmod 755 "$PID_DIR"
     fi
 
     if [ -f "$PIDFILE" ]; then
@@ -229,7 +229,7 @@ x::errors::Error setup_pid_file() {
         pid_file_stream.close();
         LOG(INFO) << "PID file created";
 
-        if (chmod(pid_file.c_str(), 0666) != 0)
+        if (chmod(pid_file.c_str(), 0644) != 0)
             return x::errors::Error("failed to set PID file permissions");
         LOG(INFO) << "PID file permissions set";
 
@@ -280,7 +280,7 @@ x::errors::Error install_service() {
     if (!log_file) return x::errors::Error("failed to create log file");
     log_file.close();
 
-    if (chmod("/var/log/synnax-driver.log", 0666) != 0)
+    if (chmod("/var/log/synnax-driver.log", 0644) != 0)
         return x::errors::Error("failed to set log file permissions");
 
     if (system("chown synnax:synnax /var/log/synnax-driver.log") != 0)
