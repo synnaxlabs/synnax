@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/client";
 import { color as xcolor, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -61,27 +60,13 @@ describe("MultiEdit", () => {
     });
   });
 
-  describe("valueColorFieldsByVariant", () => {
-    it("should map each variant to the fields that store color values", () => {
-      const fields = MultiEdit.valueColorFieldsByVariant({
-        a: z.object({
-          strokeColor: xcolor.colorZ.optional(),
-          onColor: xcolor.colorZ,
-          fillColor: color.refZ.optional(),
-          label: z.string(),
-        }),
-      });
-      expect(fields.get("a")).toEqual(new Set(["strokeColor", "onColor"]));
-    });
-  });
-
   describe("colorRefs with value fields", () => {
     it("should reference each color value as a value only fixed color", () => {
       const refs = MultiEdit.colorRefs(
         "a",
         { strokeColor: "#ff0000", fillColor: undefined },
         ["strokeColor", "fillColor"],
-        new Set(["strokeColor"]),
+        ["strokeColor"],
       );
       expect(refs).toEqual([
         {
@@ -99,7 +84,7 @@ describe("MultiEdit", () => {
           "a",
           { fillColor: { type: "named" } },
           ["fillColor"],
-          new Set(["fillColor"]),
+          ["fillColor"],
         ),
       ).toThrow(z.ZodError);
     });

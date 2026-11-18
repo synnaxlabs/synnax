@@ -11,6 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type ReactElement } from "react";
 
+import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Telem } from "@/schematic/node/common/telem";
@@ -34,6 +35,7 @@ export const Symbol = ({
     stalenessColor,
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
+  const resolve = Color.useResolve();
   const theme = Theming.use();
   const source = Telem.numberSource(channel);
   const { key: optKey, stale } = BaseStateIndicator.use({
@@ -54,7 +56,7 @@ export const Symbol = ({
       <StateIndicator
         matchedOptionKey={optKey}
         options={options}
-        strokeColor={strokeColor}
+        strokeColor={resolve(strokeColor)}
         inlineSize={inlineSize}
         size={size}
         staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}

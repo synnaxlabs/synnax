@@ -19,7 +19,6 @@ import {
   type Ref,
 } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -27,12 +26,10 @@ import { LEVEL_SIZES } from "@/schematic/node/common/size";
 
 interface RenderProps extends PropsWithChildren<
   Partial<
-    Pick<
-      schematic.StringDisplayNodeConfig,
-      "strokeColor" | "orientation" | "level" | "inlineSize"
-    >
+    Pick<schematic.StringDisplayNodeConfig, "orientation" | "level" | "inlineSize">
   >
 > {
+  strokeColor?: color.Crude;
   className?: string;
   /** contentRef receives the element the canvas draws the text into. */
   contentRef?: Ref<HTMLDivElement>;
@@ -47,8 +44,7 @@ export const StringDisplay = ({
   contentRef,
   children,
 }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
-  const symbolColor = color.rgbaString(resolve(strokeColor));
+  const symbolColor = color.rgbaString(strokeColor);
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
     width: inlineSize,

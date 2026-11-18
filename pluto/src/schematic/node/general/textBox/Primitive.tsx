@@ -14,15 +14,15 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.TextBoxNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "textColor"
 > {
+  textColor?: color.Crude;
   className?: string;
   onChange?: (value: string) => void;
 }
@@ -38,12 +38,11 @@ export const TextBox = ({
   value,
   onChange,
 }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
   const isVertical = direction.construct(orientation) === "y";
   const size = autoFitDisabled ? inlineSize : "fit-content";
   const style: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
-    [Primitive.SYMBOL_COLOR]: color.rgbaString(resolve(textColor)),
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(textColor),
     ...(isVertical ? { height: size } : { width: size }),
   };
 

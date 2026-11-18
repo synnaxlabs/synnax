@@ -10,8 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 
 import { ButtonForm, colorFallbacks } from "@/schematic/node/general/button/Form";
-import { Button } from "@/schematic/node/general/button/Primitive";
-import { Symbol } from "@/schematic/node/general/button/Symbol";
+import { Preview, Symbol } from "@/schematic/node/general/button/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
 const NAME = "Button";
@@ -21,7 +20,7 @@ export const spec: Spec<"button", schematic.ButtonNodeConfig> = {
   name: NAME,
   Form: ButtonForm,
   Node: Symbol,
-  Preview: Button,
+  Preview,
   zIndex: 4,
   colorFallbacks,
 };

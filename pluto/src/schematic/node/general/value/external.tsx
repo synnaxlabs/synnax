@@ -29,7 +29,7 @@ const Preview = ({
   const resolve = Color.useResolve();
   return (
     <Value
-      strokeColor={strokeColor}
+      strokeColor={resolve(strokeColor)}
       orientation={orientation}
       units={units}
       inlineSize={inlineSize}

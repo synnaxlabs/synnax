@@ -9,17 +9,15 @@
 
 import "@/schematic/node/general/line/line.css";
 
-import { type schematic } from "@synnaxlabs/client";
 import { color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 export interface LineProps {
   className?: string;
-  strokeColor?: schematic.LineNodeConfig["strokeColor"];
+  strokeColor?: color.Crude;
   start?: xy.XY;
   end?: xy.XY;
   strokeWidth?: number;
@@ -32,7 +30,6 @@ export const Line = ({
   end = { x: 40, y: 0 },
   strokeWidth = 2,
 }: LineProps): ReactElement => {
-  const resolve = Color.useResolve();
   // A zero-area box would match every selection rectangle, so the box is at least 1px.
   const width = Math.max(1, start.x, end.x);
   const height = Math.max(1, start.y, end.y);
@@ -42,7 +39,7 @@ export const Line = ({
       className={CSS.cls(className, CSS.B("line"), CSS.symbolColored)}
       width={width}
       height={height}
-      style={{ [Primitive.SYMBOL_COLOR]: color.rgbaString(resolve(strokeColor)) }}
+      style={{ [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor) }}
     >
       <line className={CSS.BE("line", "hit")} {...ends} />
       <line strokeWidth={strokeWidth} {...ends} />

@@ -14,19 +14,18 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.GaugeNodeConfig,
-  "variant" | "label" | "scale"
+  "variant" | "label" | "scale" | "strokeColor"
 > {
+  strokeColor?: color.Crude;
   className?: string;
 }
 
 export const Gauge = ({ strokeColor, className }: RenderProps): ReactElement => {
-  const resolve = Color.useResolve();
   const radius = 27;
   const strokeWidth = 5;
   const centerX = 33.5;
@@ -48,7 +47,7 @@ export const Gauge = ({ strokeColor, className }: RenderProps): ReactElement => 
   `;
 
   const style: CSSProperties = {
-    [Primitive.SYMBOL_COLOR]: color.rgbaString(resolve(strokeColor)),
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
   };
 
   return (

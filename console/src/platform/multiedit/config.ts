@@ -35,30 +35,6 @@ export const fieldsByVariant = (
     ]),
   );
 
-const storesColorValue = (field: z.core.SomeType): boolean =>
-  field === xcolor.colorZ ||
-  (field instanceof z.ZodOptional && field.unwrap() === xcolor.colorZ);
-
-/**
- * Maps each variant to the top-level fields that store a color value instead of a
- * color reference. A named color cannot go in one.
- *
- * @throws if a schema is not a Zod object.
- */
-export const valueColorFieldsByVariant = (
-  schemas: Record<string, z.ZodType>,
-): Map<string, Set<string>> =>
-  new Map(
-    Object.entries(schemas).map(([variant, schema]) => [
-      variant,
-      new Set(
-        Object.entries(objectShape(variant, schema))
-          .filter(([, field]) => storesColorValue(field))
-          .map(([name]) => name),
-      ),
-    ]),
-  );
-
 /** A color reference stored at a path in one element's config. */
 export interface ColorRef {
   key: string;
@@ -78,12 +54,12 @@ export const colorRefs = (
   key: string,
   config: record.Unknown,
   fields: readonly string[],
-  valueFields: ReadonlySet<string> = new Set(),
+  valueFields: readonly string[] = [],
 ): ColorRef[] =>
   fields.flatMap((path): ColorRef[] => {
     const value = config[path];
     if (value == null) return [];
-    if (valueFields.has(path))
+    if (valueFields.includes(path))
       return [
         { key, path, value: fixedRef(xcolor.colorZ.parse(value)), valueOnly: true },
       ];
