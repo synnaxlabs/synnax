@@ -19,7 +19,6 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
-  narrow,
   state,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -194,14 +193,6 @@ const readLive = (live: unknown, path: string): unknown => {
   return parent == null ? ABSENT : undefined;
 };
 
-// Whether a write at the path lands in the value: at a key the value holds, or at a new
-// key of an object it holds. A path into a list entry that is gone does not land.
-const lands = (value: unknown, path: string): boolean => {
-  if (deep.resolve(value, path) != null) return true;
-  const cut = path.lastIndexOf(deep.SEPARATOR);
-  return narrow.isObject(cut === -1 ? value : deep.get(value, path.slice(0, cut)));
-};
-
 /**
  * @returns the value to write at the path, with live values kept at pending paths. A
  * pending path whose container the value no longer holds, as a list entry another
@@ -219,7 +210,7 @@ const keepPending = <V>(
     const current = readLive(live, p);
     if (current === ABSENT) continue;
     const at = path === "" ? p : p.slice(path.length + 1);
-    if (!lands(kept, at)) continue;
+    if (!deep.canSet(kept, at)) continue;
     if (kept === value) kept = deep.copy(value);
     deep.set(kept, at, current);
   }

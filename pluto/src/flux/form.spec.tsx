@@ -1018,13 +1018,14 @@ describe("useForm", () => {
     });
   });
 
-  describe("a remote change that removes a list entry", () => {
+  describe("a remote change during a pending edit", () => {
     const listSchema = z.object({
       key: z.string(),
       channels: z.array(z.object({ key: z.string(), port: z.number() })),
+      extra: z.object({ x: z.number() }).optional(),
     });
     type List = z.infer<typeof listSchema>;
-    const channels = deep.path<List>().channels;
+    const { channels, extra } = deep.path<List>();
     const INITIAL: List = {
       key: "1",
       channels: [
@@ -1108,6 +1109,13 @@ describe("useForm", () => {
       act(() => result.current.form.set(channels.a.port, 5));
       act(() => listenerReset({ key: "1", channels: [] }));
       expect(result.current.form.value().channels).toEqual([]);
+    });
+
+    it("should keep a pending edit under an object the remote value lacks", async () => {
+      const { result, listenerReset } = await renderListForm();
+      act(() => result.current.form.set(deep.present(extra).x, 3));
+      act(() => listenerReset(INITIAL));
+      expect(result.current.form.value().extra).toEqual({ x: 3 });
     });
   });
 

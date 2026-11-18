@@ -485,4 +485,31 @@ describe("set", () => {
       expect(obj).toEqual({ "a.b": { c: 1, d: 2 } });
     });
   });
+
+  describe("canSet", () => {
+    const cases: Array<[string, unknown, string, boolean]> = [
+      ["a path that resolves", { a: { b: 1 } }, "a.b", true],
+      ["missing objects on the way", {}, "a.b.c", true],
+      ["a null value on the way", { a: null }, "a.b", true],
+      ["the index just past the end of a list", { items: ["a"] }, "items.1", true],
+      ["a new field of an entry", { items: [{ key: "x" }] }, "items.x.port", true],
+      ["a key that names no entry", { items: [{ key: "x" }] }, "items.y", false],
+      [
+        "a field of an entry that is gone",
+        { items: [{ key: "x" }] },
+        "items.y.a",
+        false,
+      ],
+      ["a key on an empty list", { items: [] }, "items.y", false],
+    ];
+    it.each(cases)("should be %s: %#", (_, obj, path, expected) => {
+      expect(deep.canSet(obj, path)).toBe(expected);
+    });
+    it.each(cases)("should agree with whether set throws for %s", (_, obj, path) => {
+      const settable = deep.canSet(obj, path);
+      const write = () => deep.set(obj, path, 1);
+      if (settable) expect(write).not.toThrow();
+      else expect(write).toThrow();
+    });
+  });
 });

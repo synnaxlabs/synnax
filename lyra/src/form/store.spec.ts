@@ -149,11 +149,16 @@ describe("createLocalStore", () => {
         expect(store.get()).toBe(prev);
       });
 
-      it("should do nothing for an index past the end of a list", () => {
-        const store = createLocalStore(createValues());
-        const prev = store.get();
-        store.set("channels.5.port", 1);
-        expect(store.get()).toBe(prev);
+      it("should append at the index just past the end of a list without keys", () => {
+        const store = createLocalStore<{ tags: string[] }>({ tags: ["a"] });
+        store.set("tags.1", "b");
+        expect(store.get().tags).toEqual(["a", "b"]);
+      });
+
+      it("should build a missing object on the way to the path", () => {
+        const store = createLocalStore<{ cfg?: { a?: { b: number } } }>({});
+        store.set("cfg.a.b", 1);
+        expect(store.get()).toEqual({ cfg: { a: { b: 1 } } });
       });
 
       it("should still write a new field into an entry that is present", () => {

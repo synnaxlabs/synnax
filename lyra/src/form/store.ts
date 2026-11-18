@@ -57,16 +57,6 @@ const copyPath = <V>(root: V, path: string): V => {
   return next;
 };
 
-// Whether the path goes into a list at an entry the list does not hold.
-const missesEntry = (values: unknown, path: string): boolean => {
-  if (deep.resolve(values, path) != null) return false;
-  const cut = path.lastIndexOf(deep.SEPARATOR);
-  if (cut === -1) return false;
-  const parent = deep.get(values, path.slice(0, cut));
-  if (parent == null) return missesEntry(values, path.slice(0, cut));
-  return Array.isArray(parent);
-};
-
 const position = (list: Entry[], after: string | undefined): number => {
   if (after == null) return 0;
   const i = list.findIndex(({ key }) => key === after);
@@ -92,7 +82,7 @@ export const createLocalStore = <V>(values: V): Store<V> => {
   const list = (path: string): Entry[] => deep.get<Entry[], V>(current, path) ?? [];
   const set = (path: string, value: unknown) => {
     if (path === "") commit(value as V);
-    else if (!missesEntry(current, path))
+    else if (deep.canSet(current, path))
       write(path, (next) => deep.set(next, path, value));
   };
   return {

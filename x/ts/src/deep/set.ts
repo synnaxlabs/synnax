@@ -12,16 +12,15 @@ import { SEPARATOR } from "@/deep/path";
 import { getIndex, resolve } from "@/deep/resolve";
 import { type record } from "@/record";
 
-// A part that names nothing becomes an index on an array and a key elsewhere.
+// Whether a part that names nothing can be added to the parent: any key of an object,
+// and only an index on an array.
+const accepts = (parent: unknown, part: string): boolean =>
+  !Array.isArray(parent) || getIndex(part) != null;
+
 const add = (parent: unknown, part: string, value: unknown, path: string): void => {
-  if (!Array.isArray(parent)) {
-    (parent as record.Unknown)[part] = value;
-    return;
-  }
-  const index = getIndex(part);
-  if (index == null)
+  if (!accepts(parent, part))
     throw new Error(`Cannot set ${path}: the list holds no entry with the key ${part}`);
-  parent[index] = value;
+  (parent as record.Unknown)[part] = value;
 };
 
 // The value at the path, built when it is missing: an array when the next part is an
@@ -57,3 +56,18 @@ const write = (obj: unknown, path: string, value: unknown, full: string): void =
  */
 export const set = <V>(obj: V, path: string, value: unknown): void =>
   write(obj, path, value, path);
+
+/**
+ * @returns false when {@link set} would throw at the path: the path goes into a list at
+ * a part that is neither an index nor the key of an entry, as when another client
+ * removed the entry. Missing objects on the way to the path do not count, since set
+ * builds them.
+ */
+export const canSet = (obj: unknown, path: string): boolean => {
+  if (resolve(obj, path) != null) return true;
+  const cut = path.lastIndexOf(SEPARATOR);
+  if (cut === -1) return accepts(obj, path);
+  const parent = get(obj, path.slice(0, cut));
+  if (parent == null) return canSet(obj, path.slice(0, cut));
+  return accepts(parent, path.slice(cut + 1));
+};
