@@ -49,7 +49,7 @@ class Master final : public master::Master {
 
     // Non-owning pointers managed by IgH kernel module via ecrt_release_master().
 
-    /// @brief IgH master handle from ecrt_request_master().
+    /// @brief IgH master handle from ecrt_open_master().
     ec_master_t *ec_master;
     /// @brief IgH input domain handle (LRD datagram, TxPDO data).
     ec_domain_t *input_domain;
