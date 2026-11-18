@@ -72,9 +72,8 @@ func parseChain(text string) (string, *x509.Certificate, error) {
 // ParseDetails returns the details of the leaf of the certificate chain in data. data
 // is DER when it starts as a DER certificate does, with a SEQUENCE and a long-form
 // length. Other data is PEM when it holds a CERTIFICATE block, else DER. The leaf is
-// the
-// first CERTIFICATE block, and blocks of other types are skipped. It returns an error
-// when a certificate does not parse.
+// the first CERTIFICATE block, and blocks of other types are skipped. It returns an
+// error when a certificate does not parse.
 func ParseDetails(data []byte) (Details, error) {
 	if isDER(data) {
 		leaf, err := x509.ParseCertificate(data)
@@ -108,8 +107,7 @@ func ParseDetails(data []byte) (Details, error) {
 }
 
 // isDER reports whether data starts with a SEQUENCE tag and a long-form length of one
-// to
-// four bytes, as every DER certificate does. No text starts that way, so a DER
+// to four bytes, as every DER certificate does. No text starts that way, so a DER
 // certificate that holds PEM text in an extension is never read as PEM.
 func isDER(data []byte) bool {
 	return len(data) >= 2 && data[0] == 0x30 && data[1] >= 0x81 && data[1] <= 0x84
