@@ -10,7 +10,7 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { mockWindows } from "@tauri-apps/api/mocks";
-import { createEvent, fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
@@ -32,12 +32,9 @@ import {
   renderWithStatus,
 } from "@/testutil";
 
-// jsdom has no DragEvent, so the transfer is defined on the event testing-library falls
-// back to. effectAllowed marks an OS file drag rather than an internal haul.
+// effectAllowed marks an OS file drag rather than an internal haul.
 const fireFileDragOver = (target: HTMLElement): void => {
-  const event = createEvent.dragOver(target);
-  Object.defineProperty(event, "dataTransfer", { value: { effectAllowed: "all" } });
-  fireEvent(target, event);
+  fireEvent.dragOver(target, { dataTransfer: { effectAllowed: "all" } });
 };
 
 describe("app/window/Window", () => {

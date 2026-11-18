@@ -22,10 +22,17 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
 import { math, narrow } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useRef, useState } from "react";
+import {
+  type DragEvent,
+  type ReactElement,
+  type ReactNode,
+  useRef,
+  useState,
+} from "react";
 
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
+import { HaulPreview } from "@/feature/opcua/device/HaulPreview";
 import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import { type Device } from "@/feature/opcua/device/types";
 import {
@@ -291,9 +298,13 @@ export const Details = ({
     );
   const draggable =
     fresh && (details?.nodeClass === "Variable" || details?.nodeClass === "Object");
-  const handleDragStart = () => {
-    if (draggable && details != null)
-      startDrag([createHaulItem({ ...details.node, key: nodeIdentity(details.node) })]);
+  const handleDragStart = (event: DragEvent<HTMLElement>) => {
+    if (!draggable || details == null) return;
+    startDrag({
+      event,
+      items: [createHaulItem({ ...details.node, key: nodeIdentity(details.node) })],
+      preview: <HaulPreview node={details.node} />,
+    });
   };
   return (
     <Flex.Box y empty className={CSS.B("opc-details")}>

@@ -10,7 +10,7 @@
 import "zod/compile";
 import "fake-indexeddb/auto";
 
-import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
+import { installDragEvent, preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 import { shortenKeepAlive } from "@synnaxlabs/x/testutil/keepAlive";
 import { configure } from "@testing-library/react";
@@ -29,6 +29,8 @@ failOnConsoleOutput();
 // Clients constructed at spec module scope start connecting immediately, so the
 // crash-proof WebSocket must be in place before spec imports, not in beforeAll.
 installTestWebSocket();
+
+installDragEvent();
 
 // jsdom lays everything out at zero size, which collapses virtualized lists and trees
 // to no rows. Every element measures 100x100 instead, and ResizeObserver (absent in
