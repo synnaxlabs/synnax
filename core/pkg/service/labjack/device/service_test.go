@@ -447,6 +447,58 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Configure", func() {
+		It("Should write the user's fields and keep the scanner's", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			next := edit(d, func(b *device.Base) {
+				b.Name = "Renamed"
+				b.Identifier = "dev1"
+				b.Rack = other.Key
+				b.Serial = d.Base().Serial + 1000
+				b.Connection = device.ConnectionTCP
+			})
+			Expect(svc.NewWriter(tx).Configure(ctx, next)).To(Succeed())
+			got := retrieve(ctx, d.Base().Key).Base()
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Identifier).To(Equal("dev1"))
+			Expect(got.Rack).To(Equal(d.Base().Rack))
+			Expect(got.Serial).To(Equal(d.Base().Serial))
+			Expect(got.Connection).To(Equal(d.Base().Connection))
+		})
+
+		It("Should refuse a different model", func(ctx SpecContext) {
+			d := create(ctx)
+			next := device.Device{Variant: device.T4Device{Base: d.Base()}}
+			Expect(svc.NewWriter(tx).Configure(ctx, next)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot change from t7 to t4")),
+			))
+			Expect(retrieve(ctx, d.Base().Key).Model()).To(Equal(device.ModelT7))
+		})
+
+		It("Should reject a device with no model", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Configure(ctx, device.Device{})).
+				To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should return not found for a missing device", func(ctx SpecContext) {
+			d := device.Device{Variant: device.T7Device{Base: device.Base{
+				Key:        uuid.New(),
+				Rack:       rackKey,
+				Name:       "T7-0003",
+				Serial:     nextSerial(),
+				Connection: device.ConnectionUSB,
+			}}}
+			Expect(
+				svc.NewWriter(tx).Configure(ctx, d),
+			).To(MatchError(query.ErrNotFound))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should remove the device and its status", func(ctx SpecContext) {
 			d := create(ctx)
