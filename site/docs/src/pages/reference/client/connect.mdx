@@ -438,10 +438,12 @@ const client = new Synnax({
 
 `caCert` works in Node.js and Bun. In Deno, leave out `caCert` and give Deno the CA file
 with `--cert /path/to/ca.crt` or `DENO_CERT`. In Deno, `SYNNAX_CA_CERT` turns on TLS,
-but the client does not read the file. Set `DENO_CERT` to the same file:
+but the client does not read the file. Set `DENO_CERT` to the same file. Deno does not
+expand `~`, so give both variables an absolute path:
 
 ```bash
-export DENO_CERT=$SYNNAX_CA_CERT
+export SYNNAX_CA_CERT="$HOME/ca.crt"
+export DENO_CERT="$SYNNAX_CA_CERT"
 ```
 
 A browser cannot use `caCert`.
