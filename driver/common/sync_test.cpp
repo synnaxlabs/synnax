@@ -414,6 +414,20 @@ TEST(Sync, RecreatesResourceMissingFromCore) {
     ASSERT_TRUE(store->identity_updates.empty());
 }
 
+/// @brief it should mark a resource that the Core holds but the Sync never tracked as
+/// disconnected when a scan does not find it.
+TEST(Sync, MarksUntrackedHeldResourceDisconnected) {
+    auto [sync, store] = new_sync();
+    ASSERT_NIL(sync->init());
+    auto stored = found("01A");
+    stored.key = "key-01A";
+    store->stored.push_back(stored);
+    ASSERT_NIL(sync->sync({}));
+    ASSERT_EQ(store->statuses.size(), 1);
+    ASSERT_EQ(store->statuses.at(0).key, "key-01A");
+    ASSERT_EQ(store->statuses.at(0).status.value().message, "Device disconnected");
+}
+
 /// @brief it should end a scan whose rack retrieve fails before it changes anything.
 TEST(Sync, StopsWhenRetrieveFails) {
     auto [sync, store] = new_sync();

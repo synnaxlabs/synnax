@@ -165,8 +165,7 @@ public:
     }
 
     /// @brief saves the hardware that a scan found, and the status of every tracked
-    /// resource. It first stops tracking the resources that the Core no longer holds
-    /// on the rack.
+    /// resource. It first tracks exactly the resources that the Core holds on the rack.
     /// @param found the hardware that the scan found, with both field groups set to
     /// what a new resource holds, and the status the scanner reports, if any.
     /// @returns the error of the rack retrieve, which ends the scan before it changes
@@ -183,10 +182,13 @@ public:
         std::vector<std::optional<D>> snapshot;
         {
             std::lock_guard lock(this->mu);
-            // The Core can lose a row without a delete signal, such as on a restart.
+            // The Core can lose or gain a row without a signal, such as on a restart.
             std::unordered_set<std::string> stored;
-            for (const auto &res: held)
-                stored.insert(this->store->match_key(res));
+            for (auto &res: held) {
+                auto match = this->store->match_key(res);
+                stored.insert(match);
+                this->tracked.try_emplace(std::move(match), std::move(res));
+            }
             std::erase_if(this->tracked, [&](const auto &entry) {
                 return !stored.contains(entry.first);
             });
