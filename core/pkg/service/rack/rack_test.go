@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -33,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -175,6 +177,39 @@ func retrieveStatusTx(
 	}
 	return s, nil
 }
+
+var _ = Describe("Dependents", func() {
+	It("Should return the status and the tasks of a rack", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		s := DeferClose(openStack(ctx, db, rack.ServiceConfig{}))
+		MustOpen(task.OpenService(ctx, task.ServiceConfig{
+			DB:      db,
+			Rack:    s.rack,
+			Status:  s.status,
+			ImEx:    imex.NewService(),
+			Configs: MustSucceed(taskconfig.NewRegistry()),
+		}))
+		used := &rack.Rack{Name: "used"}
+		empty := &rack.Rack{Name: "empty"}
+		t := task.Task{Key: uuid.New(), Name: "uses"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			w := s.rack.NewWriter(tx)
+			if err := w.Create(ctx, used); err != nil {
+				return err
+			}
+			if err := w.Create(ctx, empty); err != nil {
+				return err
+			}
+			t.Rack = used.Key
+			return gorp.WrapWriter[task.Key, task.Task](tx).Set(ctx, t)
+		})).To(Succeed())
+		isStatus := HaveField("Type", resource.TypeStatus)
+		Expect(s.rack.Dependents(ctx, db, used.Key)).
+			To(ConsistOf(isStatus, task.ResourceID(t.Key)))
+		Expect(s.rack.Dependents(ctx, db, empty.Key)).To(ConsistOf(isStatus))
+	})
+})
 
 var _ = Describe("Rack", Ordered, func() {
 	var (
