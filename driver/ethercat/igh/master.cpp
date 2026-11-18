@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <charconv>
 #include <chrono>
 #include <cstring>
@@ -40,29 +41,108 @@ constexpr auto SYSFS_PATH = "/sys/class/EtherCAT";
 /// @brief the device of the first IgH master.
 constexpr auto DEVICE_PATH = "/dev/EtherCAT0";
 
+/// @brief the CoE identity object and the sub-index that holds the serial number.
+constexpr uint16_t IDENTITY_INDEX = 0x1018;
+constexpr uint8_t SERIAL_SUB_INDEX = 4;
+/// @brief the largest serial number that the Core and the Console store exactly. A
+/// rounded serial number would match no saved device, so a larger one counts as none.
+constexpr uint64_t MAX_SERIAL = (uint64_t{1} << 53) - 1;
+
+/// @brief returns why an SDO transfer failed with ret, the negative error code of the
+/// IgH call, and abort_code, which IgH gives only with EIO.
+errors::SDOFailure sdo_failure(const int ret, const uint32_t abort_code) {
+    using Kind = errors::SDOFailure::Kind;
+    switch (-ret) {
+        case EIO:
+            // IgH also gives EIO with no abort code when the slave does not answer.
+            if (abort_code == 0) return {.kind = Kind::NO_REPLY};
+            return {.kind = Kind::ABORTED, .abort_code = abort_code};
+        // A slave with no CoE gives SOEM a mailbox error, but IgH refuses the transfer
+        // itself.
+        case EPROTO:
+        case EPROTONOSUPPORT:
+            return {.kind = Kind::MAILBOX_ERROR};
+        case ENOBUFS:
+            return {.kind = Kind::REPLY_TOO_LARGE};
+        // Any other code, such as EINVAL for a slave that left the bus, means that the
+        // transfer did not reach the slave.
+        default:
+            return {.kind = Kind::NO_REPLY};
+    }
+}
+
+/// @brief reads index:sub_index of the slave at ring position as an unsigned value of
+/// at most sizeof(T) bytes. Returns why the read failed when it fails.
+template<typename T>
+std::pair<T, std::optional<errors::SDOFailure>> upload(
+    const API &api,
+    ec_master_t *master,
+    const uint16_t position,
+    const uint16_t index,
+    const uint8_t sub_index
+) {
+    std::array<uint8_t, sizeof(T)> data{};
+    size_t size = 0;
+    uint32_t abort_code = 0;
+    if (const int ret = api.master_sdo_upload(
+            master,
+            position,
+            index,
+            sub_index,
+            data.data(),
+            data.size(),
+            &size,
+            &abort_code
+        );
+        ret < 0)
+        return {0, sdo_failure(ret, abort_code)};
+    T value = 0;
+    for (size_t i = 0; i < size; i++)
+        value |= static_cast<T>(data[i]) << (8 * i);
+    return {value, std::nullopt};
+}
+
 /// @brief returns a read of the object dictionary of the slave at position.
 coe::Read sdo_reader(const API &api, ec_master_t *master, const uint16_t position) {
     return [&api, master, position](const uint16_t index, const uint8_t sub_index)
                -> std::pair<uint32_t, x::errors::Error> {
-        std::array<uint8_t, 4> data{};
-        size_t size = 0;
-        uint32_t abort_code = 0;
-        if (api.master_sdo_upload(
-                master,
-                position,
-                index,
-                sub_index,
-                data.data(),
-                data.size(),
-                &size,
-                &abort_code
-            ) < 0)
-            return {0, coe::read_error(index, sub_index, abort_code)};
-        uint32_t value = 0;
-        for (size_t i = 0; i < size; i++)
-            value |= static_cast<uint32_t>(data[i]) << (8 * i);
+        const auto [value, failure] = upload<uint32_t>(
+            api,
+            master,
+            position,
+            index,
+            sub_index
+        );
+        if (failure) return {0, coe::read_error(index, sub_index, *failure)};
         return {value, x::errors::NIL};
     };
+}
+
+/// @brief reads the CoE serial number of slave, at ring position, when its SII serial
+/// number is 0, as IOLITE modules have. IgH reads only the SII serial number.
+void read_serial(
+    const API &api,
+    ec_master_t *master,
+    const uint16_t position,
+    slave::DiscoveryResult &slave
+) {
+    if (slave.properties.serial != 0) return;
+    // CiA 301 gives the serial number 4 bytes, but IOLITE modules give it 8.
+    const auto [serial, failure] = upload<uint64_t>(
+        api,
+        master,
+        position,
+        IDENTITY_INDEX,
+        SERIAL_SUB_INDEX
+    );
+    if (!failure) {
+        if (serial <= MAX_SERIAL) slave.properties.serial = serial;
+        return;
+    }
+    // Only a slave that refuses the read for good has no CoE serial number.
+    if (failure->permanent()) return;
+    const auto err = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, *failure);
+    slave.status.serial_error = err.data;
 }
 
 /// @brief reads the PDO layout that the slave at position assigns.
@@ -113,6 +193,13 @@ std::string next_state(const slave::State state) {
 /// @brief returns the IgH ring position, which counts from 0, of the slave at position.
 uint16_t ring_position(const uint16_t position) {
     return position - 1;
+}
+
+/// @brief returns whether a slave in state is below PRE-OP. IgH aborts each SDO
+/// transfer of a slave in INIT.
+bool starting(const slave::State state) {
+    return state == slave::State::INIT || state == slave::State::BOOT ||
+           state == slave::State::UNKNOWN;
 }
 
 /// @brief reads the DC modes from the SII of the slave at ring position.
@@ -343,7 +430,8 @@ x::errors::Error Master::initialize() {
         result.properties.revision = slave_info.revision_number;
         result.properties.serial = slave_info.serial_number;
         result.properties.name = slave_info.name;
-        result.status.state = slave::State::INIT;
+        result.status.state = slave::from_al_state(slave_info.al_state);
+        result.status.starting = starting(result.status.state);
         // IgH reads DC receive times only from slaves with a distributed clock, and it
         // makes the first of them the reference clock.
         if (!this->reference_clock && slave_info.ports[0].receive_time != 0)
@@ -371,22 +459,60 @@ x::errors::Error Master::initialize() {
                 )
             );
         result.properties.op_modes = std::move(modes);
-        auto [settings, settings_err] = esi::read_settings(
-            slave_info.vendor_id,
-            slave_info.product_code,
-            slave_info.revision_number,
-            result.properties.op_modes,
-            sdo_reader(*this->api, this->ec_master, static_cast<uint16_t>(i))
-        );
-        result.status.settings_error = settings_err.data;
-        result.properties.settings = std::move(settings);
+        if (!result.status.starting) this->read_coe(result);
         this->cached_slaves.push_back(std::move(result));
     }
+    slave::clear_duplicate_serials(this->cached_slaves);
 
     this->initialized = true;
     VLOG(1) << "[ethercat.igh] master " << this->master_index << " initialized with "
             << this->cached_slaves.size() << " slaves";
     return x::errors::NIL;
+}
+
+void Master::read_coe(slave::DiscoveryResult &slave) {
+    auto &props = slave.properties;
+    const auto pos = ring_position(props.position);
+    read_serial(*this->api, this->ec_master, pos, slave);
+    auto [settings, err] = esi::read_settings(
+        props.vendor_id,
+        props.product_code,
+        props.revision,
+        props.op_modes,
+        sdo_reader(*this->api, this->ec_master, pos)
+    );
+    slave.status.settings_error = err.data;
+    props.settings = std::move(settings);
+}
+
+void Master::read_starting() {
+    std::vector<slave::DiscoveryResult *> pending;
+    for (auto &slave: this->cached_slaves)
+        if (slave.status.starting) pending.push_back(&slave);
+    if (pending.empty()) return;
+    // IgH moves each slave to PRE-OP in the background while the master is open.
+    const auto deadline = this->cfg.clock.steady() + this->cfg.pre_op_timeout.chrono();
+    while (true) {
+        std::vector<slave::DiscoveryResult *> still;
+        for (auto *slave: pending) {
+            ec_slave_info_t info{};
+            const auto pos = ring_position(slave->properties.position);
+            const bool read = this->api
+                                  ->master_get_slave(this->ec_master, pos, &info) == 0;
+            const auto state = slave::from_al_state(info.al_state);
+            if (!read || starting(state)) {
+                still.push_back(slave);
+                continue;
+            }
+            slave->status.state = state;
+            slave->status.starting = false;
+            this->read_coe(*slave);
+        }
+        pending = std::move(still);
+        if (pending.empty() || this->cfg.clock.steady() >= deadline) break;
+        this->cfg.clock.sleep(OP_POLL_INTERVAL);
+    }
+    slave::clear_duplicate_serials(this->cached_slaves);
 }
 
 uint64_t Master::app_time() const {
@@ -440,21 +566,23 @@ x::errors::Error
 Master::download(const slave::Properties &slave, const slave::StartupParameter &param) {
     const auto data = param.bytes();
     uint32_t abort_code = 0;
-    if (this->api->master_sdo_download(
-            this->ec_master,
-            ring_position(slave.position),
-            param.index,
-            param.sub_index,
-            data.data(),
-            data.size(),
-            &abort_code
-        ) >= 0)
-        return x::errors::NIL;
+    const int ret = this->api->master_sdo_download(
+        this->ec_master,
+        ring_position(slave.position),
+        param.index,
+        param.sub_index,
+        data.data(),
+        data.size(),
+        &abort_code
+    );
+    if (ret >= 0) return x::errors::NIL;
+    const auto failure = sdo_failure(ret, abort_code);
+    const bool rejected = failure.kind == errors::SDOFailure::Kind::ABORTED;
     return x::errors::Error(
         errors::startup_parameter_error(abort_code),
-        "slave " + std::to_string(slave.position) + " (" + slave.name +
-            ") rejected startup parameter " + param.to_string() + ": " +
-            errors::sdo_abort_reason(abort_code)
+        "slave " + std::to_string(slave.position) + " (" + slave.name + ") " +
+            (rejected ? "rejected" : "failed to write") + " startup parameter " +
+            param.to_string() + ": " + failure.reason()
     );
 }
 
@@ -478,7 +606,7 @@ x::errors::Error Master::write(
         std::vector<uint8_t> held(want.size());
         size_t size = 0;
         uint32_t abort_code = 0;
-        if (this->api->master_sdo_upload(
+        if (const int ret = this->api->master_sdo_upload(
                 this->ec_master,
                 ring_position(position),
                 param.index,
@@ -487,12 +615,13 @@ x::errors::Error Master::write(
                 held.size(),
                 &size,
                 &abort_code
-            ) < 0)
+            );
+            ret < 0)
             return x::errors::Error(
                 errors::startup_parameter_error(abort_code),
                 "slave " + std::to_string(position) + " (" + slave.name +
                     ") failed to read startup parameter " + param.to_string() + ": " +
-                    errors::sdo_abort_reason(abort_code)
+                    sdo_failure(ret, abort_code).reason()
             );
         if (size != want.size() || held != want)
             return x::errors::Error(
@@ -583,6 +712,7 @@ master::Activation Master::activate(
 
     auto [dc_setups, dc_err] = master::resolve_dc(this->cached_slaves, identified);
     if (dc_err) return {.err = dc_err};
+    this->read_starting();
 
     if (const int ret = this->api->master_reserve(this->ec_master); ret != 0)
         return {.err = reserve_error(this->name(), this->master_index, ret)};

@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <format>
 #include <map>
 #include <string>
 #include <utility>
@@ -437,6 +438,138 @@ TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
         slaves[0].status.settings_error,
         "failed to read 0x8050:03: Object does not exist in the object dictionary"
     );
+}
+
+/// @brief it should read the 8-byte CoE serial number of a slave whose SII serial
+/// number is 0, and keep a nonzero SII serial number.
+TEST_F(IGHMasterTest, ScanReadsTheCoESerialWhenTheSIISerialIsZero) {
+    this->api->add_slave().wide_objects[{0x1018, 4}] = 0x000000DB21014087;
+    auto &sii = this->api->add_slave();
+    sii.info.serial_number = 42;
+    sii.wide_objects[{0x1018, 4}] = 7;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0x000000DB21014087);
+    EXPECT_EQ(slaves[1].properties.serial, 42);
+    EXPECT_FALSE(slaves[0].serial_unread());
+}
+
+/// @brief it should count a CoE serial number that the Core cannot store exactly as
+/// none.
+TEST_F(IGHMasterTest, ScanCountsATooLargeCoESerialAsNone) {
+    this->api->add_slave().wide_objects[{0x1018, 4}] = uint64_t{1} << 53;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_FALSE(slaves[0].serial_unread());
+}
+
+/// @brief it should report why a slave gave no CoE serial number when a later read can
+/// get it, and leave a slave that refuses the read for good with none.
+TEST_F(IGHMasterTest, ScanReportsACoESerialReadWithNoReply) {
+    this->api->add_slave().upload_errors[{0x1018, 4}] = -EIO;
+    this->api->add_slave().upload_errors[{0x1018, 4}] = -EPROTONOSUPPORT;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(slaves[0].status.serial_error, "failed to read 0x1018:04: no response");
+    EXPECT_TRUE(slaves[0].serial_unread());
+    EXPECT_TRUE(slaves[1].status.serial_error.empty());
+    EXPECT_FALSE(slaves[1].serial_unread());
+}
+
+/// @brief it should give serial number 0 to a slave with the model and CoE serial
+/// number of a slave before it.
+TEST_F(IGHMasterTest, ScanClearsADuplicateCoESerial) {
+    this->api->add_slave().wide_objects[{0x1018, 4}] = 9;
+    this->api->add_slave().wide_objects[{0x1018, 4}] = 9;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(slaves[0].properties.serial, 9);
+    EXPECT_EQ(slaves[1].properties.serial, 0);
+}
+
+/// @brief it should report the AL state of each slave, and read nothing through the
+/// mailbox of a slave below PRE-OP.
+TEST_F(IGHMasterTest, ScanReadsOnlyTheSIIOfAStartingSlave) {
+    for (const uint8_t state: {EC_AL_STATE_INIT, EC_AL_STATE_SAFEOP}) {
+        auto &slave = this->api->add_slave(
+            "6xSTG",
+            testutil::DEWESOFT,
+            testutil::IOLITE_6XSTG
+        );
+        slave.info.al_state = state;
+        slave.objects = testutil::stg_objects(0);
+        slave.wide_objects[{0x1018, 4}] = 9;
+    }
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_EQ(slaves[0].status.state, slave::State::INIT);
+    EXPECT_TRUE(slaves[0].status.starting);
+    EXPECT_EQ(slaves[0].properties.serial, 0);
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    EXPECT_TRUE(slaves[0].status.settings_error.empty());
+    EXPECT_EQ(slaves[1].status.state, slave::State::SAFE_OP);
+    EXPECT_FALSE(slaves[1].status.starting);
+    EXPECT_EQ(slaves[1].properties.serial, 9);
+    EXPECT_TRUE(slaves[1].properties.settings.has_value());
+}
+
+/// @brief it should read the CoE objects of each slave that was starting at the scan
+/// once it reaches PRE-OP, disabled ones included, and start without one that stays in
+/// INIT.
+TEST_F(IGHMasterTest, ActivateReadsAStartingSlaveOnceItReachesPreOP) {
+    for (const int reads: {1, -1}) {
+        auto &slave = this->api->add_slave(
+            "6xSTG",
+            testutil::DEWESOFT,
+            testutil::IOLITE_6XSTG
+        );
+        slave.info.al_state = EC_AL_STATE_INIT;
+        slave.reads_to_pre_op = reads;
+        slave.objects = testutil::stg_objects(0);
+        slave.wide_objects[{0x1018, 4}] = 9;
+    }
+    auto &disabled = this->api->add_slave();
+    disabled.info.al_state = EC_AL_STATE_INIT;
+    disabled.reads_to_pre_op = 1;
+    disabled.wide_objects[{0x1018, 4}] = 10;
+    this->configs = {{1, {}}, {2, {}}, {3, {.enabled = false}}};
+    ASSERT_NIL_P(this->master.scan());
+    const auto started = this->clock.steady();
+    ASSERT_NIL(this->activate().err);
+    EXPECT_GE(this->clock.steady() - started, std::chrono::seconds(2));
+    const auto &slaves = this->image.slaves;
+    EXPECT_EQ(slaves[0].status.state, slave::State::PRE_OP);
+    EXPECT_FALSE(slaves[0].status.starting);
+    EXPECT_EQ(slaves[0].properties.serial, 9);
+    EXPECT_TRUE(slaves[0].properties.settings.has_value());
+    EXPECT_TRUE(slaves[1].status.starting);
+    EXPECT_FALSE(slaves[1].properties.settings.has_value());
+    EXPECT_FALSE(slaves[2].status.starting);
+    EXPECT_EQ(slaves[2].properties.serial, 10);
+}
+
+/// @brief it should give the reason for each way an SDO read fails.
+TEST_F(IGHMasterTest, ReadGivesTheReasonForEachFailure) {
+    auto &slave = this->api->add_slave();
+    slave.upload_errors = {
+        {{0x8000, 1}, -EIO},
+        {{0x8000, 2}, -EPROTO},
+        {{0x8000, 3}, -EPROTONOSUPPORT},
+    };
+    slave.wide_objects[{0x8000, 4}] = 1;
+    ASSERT_NIL_P(this->master.scan());
+    const std::vector<std::pair<uint8_t, std::string>> reasons{
+        {1, "no response"},
+        {2, "the slave refused the mailbox request"},
+        {3, "the slave refused the mailbox request"},
+        {4, "the reply is larger than the read allows"},
+        {5, "Object does not exist in the object dictionary"},
+    };
+    for (const auto &[sub_index, reason]: reasons) {
+        const auto err = this->master.read(1, 0x8000, sub_index).second;
+        ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
+        EXPECT_EQ(
+            err.data,
+            std::format("failed to read 0x8000:{:02X}: {}", sub_index, reason)
+        );
+    }
+    EXPECT_TRUE(this->master.read(1, 0x8000, 1).second.matches(coe::NO_REPLY));
 }
 
 /// @brief it should report a change once IgH finds another model at a position.
@@ -1141,8 +1274,8 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveRejectsAStartupParameter) {
     EXPECT_TRUE(this->api->slaves[0].startup_sdos.empty());
 }
 
-/// @brief it should report no response when a slave does not answer a startup
-/// parameter write.
+/// @brief it should report no response, not a rejection, when a slave does not answer a
+/// startup parameter write.
 TEST_F(IGHMasterTest, ActivateFailsWhenASlaveDoesNotAnswerAStartupParameter) {
     this->api->add_slave().download_aborts[{0x8000, 0x15}] = 0;
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
@@ -1151,7 +1284,8 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveDoesNotAnswerAStartupParameter) {
     EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
         err.data,
-        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): no response"
+        "slave 1 (TestSlave) failed to write startup parameter 0x8000:15 (Filter): no "
+        "response"
     );
 }
 

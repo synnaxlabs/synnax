@@ -32,6 +32,10 @@
 namespace driver::ethercat::igh {
 /// @brief how the IgH master waits for its slaves.
 struct Config {
+    /// @brief how long a slave that was below PRE-OP at the scan gets to reach PRE-OP
+    /// before activation, enabled or not. The default is the PreopTimeout of the ESI
+    /// files.
+    x::telem::TimeSpan pre_op_timeout = x::telem::SECOND * 2;
     /// @brief how long the slaves get to reach OP after activation. Some slaves take up
     /// to 9 s.
     x::telem::TimeSpan op_timeout = x::telem::SECOND * 10;
@@ -222,6 +226,13 @@ private:
     /// OP still has its AL error flag set after a reset, or when one has it at
     /// Config::op_timeout. errors::STATE_CHANGE_ERROR when none has it at the timeout.
     master::Activation wait_for_op();
+
+    /// @brief waits up to Config::pre_op_timeout for each slave that was starting at
+    /// the scan to reach PRE-OP, then reads its CoE objects.
+    void read_starting();
+
+    /// @brief reads the CoE serial number and the settings of slave.
+    void read_coe(slave::DiscoveryResult &slave);
 
     /// @brief returns true when every slave at positions has its AL error flag set.
     [[nodiscard]] bool refusing(const std::vector<uint16_t> &positions) const;

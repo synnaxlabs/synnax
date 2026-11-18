@@ -94,9 +94,18 @@ public:
         /// @brief the object dictionary, keyed by index and sub-index. A download
         /// writes to it, and an upload of a missing object aborts.
         std::map<std::pair<uint16_t, uint8_t>, uint32_t> objects;
+        /// @brief objects of 8 bytes. An upload with less room fails with ENOBUFS, as
+        /// in IgH.
+        std::map<std::pair<uint16_t, uint8_t>, uint64_t> wide_objects;
+        /// @brief the error code that an upload of each object fails with, with no
+        /// abort code.
+        std::map<std::pair<uint16_t, uint8_t>, int> upload_errors;
         /// @brief abort codes for objects that reject downloads. A code of 0 makes the
         /// download time out.
         std::map<std::pair<uint16_t, uint8_t>, uint32_t> download_aborts;
+        /// @brief how many more reads of a slave in INIT find it in INIT before IgH
+        /// moves it to PRE-OP, or -1 to keep it in INIT.
+        int reads_to_pre_op = -1;
         /// @brief whether master_get_slave fails for the slave.
         bool unreadable = false;
         /// @brief whether slave_config_state fails for the slave.
@@ -339,7 +348,9 @@ public:
     ) const override {
         if (position >= this->slaves.size() || this->slaves[position].unreadable)
             return -EIO;
-        const auto &slave = this->slaves[position];
+        auto &slave = this->slaves[position];
+        if (slave.reads_to_pre_op == 0) slave.info.al_state = EC_AL_STATE_PREOP;
+        if (slave.reads_to_pre_op >= 0) slave.reads_to_pre_op--;
         *info = slave.info;
         info->sync_count = static_cast<uint8_t>(slave.syncs.size());
         return 0;
@@ -512,9 +523,21 @@ public:
         size_t *result_size,
         uint32_t *abort_code
     ) const override {
-        const auto &objects = this->slaves.at(position).objects;
-        const auto it = objects.find({index, sub_index});
-        if (it == objects.end()) {
+        const auto &slave = this->slaves.at(position);
+        const std::pair key{index, sub_index};
+        if (const auto err = slave.upload_errors.find(key);
+            err != slave.upload_errors.end())
+            return err->second;
+        if (const auto wide = slave.wide_objects.find(key);
+            wide != slave.wide_objects.end()) {
+            if (target_size < sizeof(wide->second)) return -ENOBUFS;
+            for (size_t i = 0; i < sizeof(wide->second); i++)
+                target[i] = static_cast<uint8_t>(wide->second >> (8 * i));
+            *result_size = sizeof(wide->second);
+            return 0;
+        }
+        const auto it = slave.objects.find(key);
+        if (it == slave.objects.end()) {
             *abort_code = 0x06020000;
             return -EIO;
         }

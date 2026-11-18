@@ -184,6 +184,7 @@ class TestOPCReadTask:
         )
         task_targets.attach(task.config)
         createdTask = client.tasks.create(
+            rack=task_targets.rack,
             name="test-task",
             type="opc_read",
             config=task.config,
@@ -199,7 +200,10 @@ class TestOPCReadTask:
         )
         task_targets.attach(task.config)
         created = client.tasks.create(
-            name="test-task", type="opc_read", config=task.config
+            rack=task_targets.rack,
+            name="test-task",
+            type="opc_read",
+            config=task.config,
         )
         retrieved = client.tasks.retrieve(key=created.key)
         assert sy.opcua.ReadTask(retrieved).config.nan_fill_enabled is True
@@ -303,6 +307,7 @@ class TestOPCWriteTask:
         )
         task_targets.attach(task.config)
         createdTask = client.tasks.create(
+            rack=task_targets.rack,
             name="test-write-task",
             type="opc_write",
             config=task.config,
@@ -378,6 +383,7 @@ class TestOPCWriteTask:
         # Create task in database
         task_targets.attach(original_task.config)
         created_task = client.tasks.create(
+            rack=task_targets.rack,
             name="test-round-trip",
             type="opc_write",
             config=original_task.config,

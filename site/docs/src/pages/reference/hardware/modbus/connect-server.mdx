@@ -82,7 +82,7 @@ A server on a serial port uses the same dialog:
 ```python
 from synnax import modbus
 
-rack = client.racks.retrieve_embedded_rack()
+rack = client.racks.retrieve_embedded_rack("modbus")
 device = client.devices.create(
     modbus.Device(
         name="Pump skid PLC",
