@@ -111,7 +111,10 @@ func (w Writer) Configure(ctx context.Context, d Device) error {
 			b, kept := d.Base(), stored.Base()
 			b.Rack, b.Connection, b.Serial = kept.Rack, kept.Connection, kept.Serial
 			d.SetBase(b)
-			return d, validateDevice(d)
+			if err := validateDevice(d); err != nil {
+				return Device{}, err
+			}
+			return d, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
 		return err
