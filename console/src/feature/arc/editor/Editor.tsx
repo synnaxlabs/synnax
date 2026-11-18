@@ -17,10 +17,17 @@ import { Path } from "@/feature/arc/editor/Path";
 import { Text } from "@/feature/arc/editor/Text";
 import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
+import { Vis } from "@/platform/vis";
 
 const Internal = () => {
   const mode = Arc.useMode();
-  return mode === "graph" ? <Graph /> : <Text />;
+  return mode === "graph" ? (
+    <Vis.GPUBoundary name="Arcs">
+      <Graph />
+    </Vis.GPUBoundary>
+  ) : (
+    <Text />
+  );
 };
 
 export const Editor: Panel.Content = () => {
