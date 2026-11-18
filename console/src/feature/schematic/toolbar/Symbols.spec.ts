@@ -22,6 +22,7 @@ import {
 import { List } from "@synnaxlabs/lyra/list";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement, type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -41,6 +42,7 @@ import {
   getIconButton,
   getIconButtons,
   type Grants,
+  HaulProvider,
   removeSaveFilePicker,
   uniqueName,
 } from "@/testutil";
@@ -258,6 +260,35 @@ describe("Schematic toolbar Symbols", () => {
       documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
         .selectedSymbolGroup,
     ).toBe(created.key);
+  });
+});
+
+const DraggableToolbar = (): ReactElement =>
+  createElement(HaulProvider, null, createElement(Toolbar));
+
+const layer = (): Element | null => document.querySelector(".lyra-haul__layer");
+
+describe("Schematic toolbar Symbols drag preview", () => {
+  it("should picture a symbol as its drawing with its corner on the pointer", async () => {
+    await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
+    const setDragImage = vi.fn();
+    fireEvent.dragStart(await screen.findByText("Polygon"), {
+      dataTransfer: { setDragImage },
+    });
+    const path = layer()?.querySelector(".pluto-polygon path");
+    expect(path?.getAttribute("fill")).toBe("var(--pluto-gray-l1)");
+    expect(layer()?.querySelector(".lyra-haul-preview")).toBeNull();
+    expect(setDragImage).toHaveBeenCalledWith(layer(), 18, 18);
+  });
+
+  it("should picture a remote symbol as its drawing", async () => {
+    const name = uniqueName("custom_sym");
+    const { grp } = await createRemoteSymbolGroup([name]);
+    await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
+    fireEvent.click(await screen.findByText(grp.name));
+    fireEvent.dragStart(await screen.findByText(name));
+    expect(layer()?.querySelector(".pluto-custom-drawing")).toBeInstanceOf(Element);
+    expect(layer()?.textContent).toBe("");
   });
 });
 

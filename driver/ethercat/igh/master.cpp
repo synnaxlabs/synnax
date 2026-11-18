@@ -145,6 +145,60 @@ void read_serial(
     slave.status.serial_error = err.data;
 }
 
+/// @brief names each entry of slave with the name and data type that the CoE
+/// dictionary of the slave at ring position gives. IgH reads the dictionary of
+/// object_count objects in the background after its scan, so an entry that it has not
+/// read yet keeps its name.
+void fill_dictionary_entries(
+    const API &api,
+    const unsigned int master_index,
+    const uint16_t position,
+    const uint16_t object_count,
+    slave::Properties &slave
+) {
+    std::vector<ObjectInfo> objects;
+    for (uint16_t i = 0; i < object_count; ++i) {
+        ObjectInfo object;
+        if (api.object_info(master_index, position, i, object) != 0) break;
+        objects.push_back(std::move(object));
+    }
+    // A lookup of an entry that IgH has not read writes an error to the kernel log. IgH
+    // reads the name of an object, then its entries, then the next object. IgH gives no
+    // sign that it has read the final object, so it counts once it has a name.
+    std::map<uint16_t, uint8_t> read;
+    for (size_t i = 0; i < objects.size(); ++i) {
+        const bool next_named = i + 1 < objects.size() ? !objects[i + 1].name.empty()
+                                                       : i + 1 == object_count;
+        if (!objects[i].name.empty() && next_named)
+            read[objects[i].index] = objects[i].max_sub_index;
+    }
+    const auto fill = [&](std::vector<pdo::Properties> &pdos) {
+        for (auto &pdo: pdos) {
+            const auto object = read.find(pdo.index);
+            if (pdo.is_padding() || object == read.end() ||
+                pdo.sub_index > object->second)
+                continue;
+            EntryInfo entry;
+            if (api.entry_info(
+                    master_index,
+                    position,
+                    pdo.index,
+                    pdo.sub_index,
+                    entry
+                ) != 0 ||
+                entry.name.empty())
+                continue;
+            pdo.name = std::move(entry.name);
+            pdo.data_type = telem::map_ethercat_to_synnax(
+                static_cast<telem::DataType>(entry.data_type),
+                pdo.bit_length
+            );
+        }
+    };
+    fill(slave.input_pdos);
+    fill(slave.output_pdos);
+}
+
 /// @brief reads the PDO layout that the slave at position assigns.
 std::pair<std::vector<pdo::Sync>, x::errors::Error>
 read_layout(const API &api, ec_master_t *master, const uint16_t position) {
@@ -162,6 +216,10 @@ std::string reason(const int ret) {
 
 /// @brief the time between reads of the slave states while the slaves move to OP.
 const auto OP_POLL_INTERVAL = x::telem::MILLISECOND * 10;
+/// @brief how long the master waits for IgH to finish a scan of the bus.
+const auto SCAN_TIMEOUT = x::telem::SECOND * 10;
+/// @brief the time between reads of the master state while IgH scans the bus.
+const auto SCAN_POLL_INTERVAL = x::telem::MILLISECOND * 10;
 /// @brief how long a reset can take to clear the AL error flags, since IgH resets in
 /// the background.
 const auto RESET_GRACE = x::telem::MILLISECOND * 500;
@@ -253,13 +311,60 @@ check_sync1(const slave::Properties &slave, const dc::Registers &regs) {
     return x::errors::Error(
         errors::SLAVE_CONFIG_ERROR,
         std::format(
-            "slave {} ({}) cannot run its DC mode on the IgH master: SYNC1 comes {} "
+            "module {} ({}) cannot run its DC mode on the IgH master: SYNC1 comes {} "
             "after SYNC0, which is not a whole number of SYNC0 cycles of {}",
             slave.position,
             slave.name,
             x::telem::TimeSpan(regs.sync1_cycle).to_string(),
             x::telem::TimeSpan(regs.sync0_cycle).to_string()
         )
+    );
+}
+
+/// @brief returns errors::NO_SLAVES_FOUND for the master named name at index, telling a
+/// port with no link from slaves that do not answer.
+x::errors::Error
+no_slaves_error(const std::string &name, const unsigned int index, const bool link_up) {
+    const auto found = "No EtherCAT modules found on " + name + ". ";
+    if (link_up)
+        return x::errors::Error(
+            errors::NO_SLAVES_FOUND,
+            found + "Check the cable and the power of the first module."
+        );
+    return x::errors::Error(
+        errors::NO_LINK,
+        found + std::format(
+                    "Its network port has no link. Check the cable to the first "
+                    "module, and that MASTER{}_DEVICE in the IgH configuration names "
+                    "the port.",
+                    index
+                )
+    );
+}
+
+/// @brief returns errors::ACTIVATION_ERROR for ret, the error of a failed reservation
+/// of the master named name at index.
+x::errors::Error
+reserve_error(const std::string &name, const unsigned int index, const int ret) {
+    if (ret == -EBUSY)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            "another program uses " + name + ". Stop it, then start the task again"
+        );
+    if (ret == -ENODEV)
+        return x::errors::Error(
+            errors::ACTIVATION_ERROR,
+            std::format(
+                "no network port is attached to {}. Set MASTER{}_DEVICE in the IgH "
+                "configuration to the MAC address of the port, then restart IgH "
+                "with 'sudo systemctl restart ethercat'",
+                name,
+                index
+            )
+        );
+    return x::errors::Error(
+        errors::ACTIVATION_ERROR,
+        "failed to reserve " + name + ": " + reason(ret)
     );
 }
 
@@ -279,7 +384,7 @@ first_app_time(const uint64_t now, const std::vector<dc::Registers> &dc_sync) {
                 0,
                 x::errors::Error(
                     errors::SLAVE_CONFIG_ERROR,
-                    "the SYNC0 cycles of the slaves have no common multiple that the "
+                    "the SYNC0 cycles of the modules have no common multiple that the "
                     "IgH master can start them on"
                 )
             };
@@ -316,29 +421,69 @@ Master::~Master() {
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Master::scan() {
-    if (!this->initialized)
+    if (!this->initialized) {
         if (auto err = this->initialize()) return {{}, err};
+    } else
+        this->read_dictionaries();
     return {this->cached_slaves, x::errors::NIL};
+}
+
+void Master::read_dictionaries() {
+    for (auto &slave: this->cached_slaves) {
+        auto &props = slave.properties;
+        const auto pos = ring_position(props.position);
+        ec_slave_info_t info{};
+        if (this->api->master_get_slave(this->ec_master, pos, &info) != 0) continue;
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            pos,
+            info.sdo_count,
+            props
+        );
+        esi::fill_known_entries(props);
+    }
 }
 
 x::errors::Error Master::initialize() {
     if (auto err = this->api->check_device(this->master_index)) return err;
-    this->ec_master = this->api->request_master(this->master_index);
+    // Only a reserved master stops IgH from scanning the bus again, so changed() sees
+    // the slaves that come and go until activate() reserves it.
+    this->ec_master = this->api->open_master(this->master_index);
     if (!this->ec_master)
         return x::errors::Error(
             errors::MASTER_INIT_ERROR,
-            "IgH master not available - is kernel module loaded?"
+            "failed to open " + this->name() +
+                ". Check that libethercat comes from the EtherLab version of the "
+                "ec_master kernel module"
         );
 
-    const auto fail = [this](const std::string &msg) {
+    const auto release = [this](const x::errors::Error &err) {
         this->api->release_master(this->ec_master);
         this->ec_master = nullptr;
-        return x::errors::Error(errors::MASTER_INIT_ERROR, msg);
+        return err;
+    };
+    const auto fail = [&release](const std::string &msg) {
+        return release(x::errors::Error(errors::MASTER_INIT_ERROR, msg));
     };
 
-    ec_master_info_t master_info;
-    if (this->api->master(this->ec_master, &master_info) < 0)
-        return fail("failed to get master info");
+    ec_master_info_t master_info{};
+    const auto deadline = this->cfg.clock.steady() + SCAN_TIMEOUT.chrono();
+    while (true) {
+        if (this->api->master(this->ec_master, &master_info) < 0)
+            return fail("failed to get master info");
+        if (master_info.scan_busy == 0) break;
+        if (this->cfg.clock.steady() >= deadline)
+            return fail(
+                "IgH did not finish its scan of the bus within " +
+                SCAN_TIMEOUT.to_string()
+            );
+        this->cfg.clock.sleep(SCAN_POLL_INTERVAL);
+    }
+    if (master_info.slave_count == 0)
+        return release(
+            no_slaves_error(this->name(), this->master_index, master_info.link_up != 0)
+        );
 
     this->cached_slaves.clear();
     this->cached_slaves.reserve(master_info.slave_count);
@@ -349,7 +494,9 @@ x::errors::Error Master::initialize() {
         if (const int ret = this->api
                                 ->master_get_slave(this->ec_master, i, &slave_info);
             ret != 0)
-            return fail(std::format("failed to read slave {}: {}", i + 1, reason(ret)));
+            return fail(
+                std::format("failed to read module {}: {}", i + 1, reason(ret))
+            );
         slave::DiscoveryResult result{};
         result.properties.network = "igh:" + std::to_string(this->master_index);
         result.properties.position = static_cast<uint16_t>(i + 1);
@@ -372,6 +519,13 @@ x::errors::Error Master::initialize() {
                                                     err.data;
                 break;
             }
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            static_cast<uint16_t>(i),
+            slave_info.sdo_count,
+            result.properties
+        );
         esi::fill(result);
         auto [modes, ret] = read_op_modes(
             *this->api,
@@ -381,7 +535,7 @@ x::errors::Error Master::initialize() {
         if (ret != 0)
             return fail(
                 std::format(
-                    "failed to read the SII of slave {}: {}",
+                    "failed to read the SII of module {}: {}",
                     i + 1,
                     reason(ret)
                 )
@@ -418,7 +572,7 @@ void Master::read_starting() {
     for (auto &slave: this->cached_slaves)
         if (slave.status.starting) pending.push_back(&slave);
     if (pending.empty()) return;
-    // IgH moves each slave to PRE-OP in the background once the master is requested.
+    // IgH moves each slave to PRE-OP in the background while the master is open.
     const auto deadline = this->cfg.clock.steady() + this->cfg.pre_op_timeout.chrono();
     while (true) {
         std::vector<slave::DiscoveryResult *> still;
@@ -458,9 +612,10 @@ std::pair<master::Change, x::errors::Error> Master::changed() {
             {},
             x::errors::Error(errors::MASTER_INIT_ERROR, "failed to get master info")
         };
-    if (info.slave_count != this->cached_slaves.size())
+    // IgH scans the bus again by itself when the slaves change, so its slave info is
+    // current once the scan ends.
+    if (info.scan_busy != 0 || info.slave_count != this->cached_slaves.size())
         return {master::Change{.stale = true}, x::errors::NIL};
-    // IgH scans the bus again by itself, so its slave info is current.
     for (const auto &slave: this->cached_slaves) {
         const auto &props = slave.properties;
         ec_slave_info_t slave_info;
@@ -475,7 +630,7 @@ std::pair<master::Change, x::errors::Error> Master::changed() {
                 x::errors::Error(
                     errors::MASTER_INIT_ERROR,
                     std::format(
-                        "failed to read slave {}: {}",
+                        "failed to read module {}: {}",
                         props.position,
                         reason(ret)
                     )
@@ -507,7 +662,7 @@ Master::download(const slave::Properties &slave, const slave::StartupParameter &
     const bool rejected = failure.kind == errors::SDOFailure::Kind::ABORTED;
     return x::errors::Error(
         errors::startup_parameter_error(abort_code),
-        "slave " + std::to_string(slave.position) + " (" + slave.name + ") " +
+        "module " + std::to_string(slave.position) + " (" + slave.name + ") " +
             (rejected ? "rejected" : "failed to write") + " startup parameter " +
             param.to_string() + ": " + failure.reason()
     );
@@ -520,7 +675,7 @@ x::errors::Error Master::write(
     if (position == 0 || position > this->cached_slaves.size())
         return x::errors::Error(
             errors::STARTUP_PARAMETER_ERROR,
-            "no slave at position " + std::to_string(position)
+            "no module at position " + std::to_string(position)
         );
     const auto &slave = this->cached_slaves[position - 1].properties;
     if (!this->activated) {
@@ -546,14 +701,14 @@ x::errors::Error Master::write(
             ret < 0)
             return x::errors::Error(
                 errors::startup_parameter_error(abort_code),
-                "slave " + std::to_string(position) + " (" + slave.name +
+                "module " + std::to_string(position) + " (" + slave.name +
                     ") failed to read startup parameter " + param.to_string() + ": " +
                     sdo_failure(ret, abort_code).reason()
             );
         if (size != want.size() || held != want)
             return x::errors::Error(
                 errors::SETTING_CONFLICT,
-                "the IgH master cannot change " + param.to_string() + " of slave " +
+                "the IgH master cannot change " + param.to_string() + " of module " +
                     std::to_string(position) + " (" + slave.name +
                     ") while other tasks run the bus. Stop them, then start this "
                     "task first"
@@ -589,7 +744,7 @@ x::errors::Error Master::add_startup_parameters(
             ) < 0)
             return x::errors::Error(
                 errors::ACTIVATION_ERROR,
-                "failed to add startup parameter " + param.to_string() + " to slave " +
+                "failed to add startup parameter " + param.to_string() + " to module " +
                     std::to_string(slave.position) + " (" + slave.name + ")"
             );
     }
@@ -608,9 +763,52 @@ master::Activation Master::activate(
         const auto it = plan.slaves.find(pos);
         return it == plan.slaves.end() ? slave::Config{} : it->second;
     };
-    auto [dc_setups, dc_err] = master::resolve_dc(this->cached_slaves, plan);
+    // IgH has no identity to configure a slave by when it failed to read its EEPROM.
+    auto identified = plan;
+    std::map<uint16_t, slave::Refusal> unidentified;
+    for (const auto &slave: this->cached_slaves) {
+        const auto &props = slave.properties;
+        if (!config_of(props.position).enabled || props.vendor_id != 0 ||
+            props.product_code != 0)
+            continue;
+        unidentified[props.position] = {
+            .reason = "gave no identity when IgH read its EEPROM"
+        };
+        identified.slaves[props.position].enabled = false;
+    }
+    const auto refuse_unidentified = [&] {
+        std::string msg;
+        for (const auto &[pos, refusal]: unidentified)
+            msg += std::format(
+                "{}module {} ({}) {}",
+                msg.empty() ? "" : "; ",
+                pos,
+                this->cached_slaves[pos - 1].properties.name,
+                refusal.reason
+            );
+        return master::Activation{
+            .err = x::errors::Error(errors::ACTIVATION_ERROR, msg),
+            .refusals = std::move(unidentified),
+        };
+    };
+
+    auto [dc_setups, dc_err] = master::resolve_dc(this->cached_slaves, identified);
     if (dc_err) return {.err = dc_err};
     this->read_starting();
+
+    if (const int ret = this->api->master_reserve(this->ec_master); ret != 0)
+        return {.err = reserve_error(this->name(), this->master_index, ret)};
+    // The slaves can change until the reservation, and IgH keeps its slave list from
+    // then until activation.
+    const auto [change, change_err] = this->changed();
+    if (change_err) return {.err = change_err};
+    if (change.stale)
+        return {
+            .err = x::errors::Error(
+                errors::ACTIVATION_ERROR,
+                "the modules on " + this->name() + " changed since the last scan"
+            )
+        };
     master::Image image;
     for (const auto &[pos, regs]: dc_setups) {
         if (auto err = check_sync1(this->cached_slaves[pos - 1].properties, regs))
@@ -625,7 +823,7 @@ master::Activation Master::activate(
     for (const auto &slave: this->cached_slaves) {
         const auto pos = slave.properties.position;
         const auto config = config_of(pos);
-        if (!config.enabled) continue;
+        if (!config.enabled || unidentified.contains(pos)) continue;
         auto *sc = this->api->master_slave_config(
             this->ec_master,
             0,
@@ -637,7 +835,7 @@ master::Activation Master::activate(
             return {
                 .err = x::errors::Error(
                     errors::ACTIVATION_ERROR,
-                    "failed to configure slave " + std::to_string(pos) + " (" +
+                    "failed to configure module " + std::to_string(pos) + " (" +
                         slave.properties.name + ")"
                 )
             };
@@ -669,7 +867,7 @@ master::Activation Master::activate(
                 .err = x::errors::Error(
                     errors::ACTIVATION_ERROR,
                     std::format(
-                        "failed to set up the DC sync of slave {} ({}): {}",
+                        "failed to set up the DC sync of module {} ({}): {}",
                         pos,
                         slave.properties.name,
                         reason(ret)
@@ -691,6 +889,8 @@ master::Activation Master::activate(
             };
         image.reference_clock = this->reference_clock;
     }
+    // The caller leaves out a refused slave only when the image maps another one.
+    if (!unidentified.empty() && image.offsets.empty()) return refuse_unidentified();
 
     const size_t size = this->domains.empty() ? 0 : this->domains.back().end();
     VLOG(1) << "[ethercat.igh] activating master " << this->master_index << " with "
@@ -720,6 +920,7 @@ master::Activation Master::activate(
     image.slaves = this->cached_slaves;
     // The IgH master moves the slaves to OP on its own while the caller cycles.
     start_cycle(image);
+    if (!unidentified.empty()) return refuse_unidentified();
     return this->wait_for_op();
 }
 
@@ -781,7 +982,7 @@ Master::op_error(const std::vector<uint16_t> &pending, const bool timed_out) {
             ret != 0) {
             if (!msg.empty()) msg += "; ";
             msg += std::format(
-                "slave {} ({}): failed to read its state: {}",
+                "module {} ({}): failed to read its state: {}",
                 pos,
                 name,
                 reason(ret)
@@ -793,7 +994,7 @@ Master::op_error(const std::vector<uint16_t> &pending, const bool timed_out) {
         if (state == slave::State::OP) continue;
         if (!msg.empty()) msg += "; ";
         msg += std::format(
-            "slave {} ({}) is in {}",
+            "module {} ({}) is in {}",
             pos,
             name,
             slave::to_string(state)
@@ -914,7 +1115,7 @@ const x::errors::Error &Master::receive() {
         this->latest_inputless.clear();
         return this->received = x::errors::Error(
                    errors::WORKING_COUNTER_ERROR,
-                   "no slaves responded"
+                   "no modules responded"
                );
     }
     return this->received = x::errors::Error(
@@ -1035,7 +1236,7 @@ void Master::recover(const x::breaker::Breaker &breaker) {
 x::errors::Error
 Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) {
     auto props = this->cached_slaves[position - 1].properties;
-    const auto slave_name = "slave " + std::to_string(position) + " (" + props.name +
+    const auto slave_name = "module " + std::to_string(position) + " (" + props.name +
                             ")";
     const auto [syncs, err] = read_layout(
         *this->api,
@@ -1127,6 +1328,16 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
                 errors::PDO_MAPPING_ERROR,
                 "failed to clear the PDO mapping of " + slave_name
             );
+    if (ec_slave_info_t info{};
+        this->api->master_get_slave(this->ec_master, ring_position(position), &info) ==
+        0)
+        fill_dictionary_entries(
+            *this->api,
+            this->master_index,
+            ring_position(position),
+            info.sdo_count,
+            props
+        );
     esi::fill_known_entries(props);
     this->cached_slaves[position - 1].properties = std::move(props);
     return x::errors::NIL;
@@ -1148,7 +1359,7 @@ x::errors::Error Master::register_pdo_entries(
         return x::errors::Error(
             errors::ACTIVATION_ERROR,
             std::format(
-                "failed to create the domain of slave {} ({})",
+                "failed to create the domain of module {} ({})",
                 slave.position,
                 slave.name
             )
@@ -1173,7 +1384,7 @@ x::errors::Error Master::register_pdo_entries(
                 x::errors::Error(
                     errors::PDO_MAPPING_ERROR,
                     std::format(
-                        "the IgH master rejected PDO {} of slave {} ({}): {}",
+                        "the IgH master rejected PDO {} of module {} ({}): {}",
                         telem::format_index_sub_index(pdo.index, pdo.sub_index),
                         slave.position,
                         slave.name,

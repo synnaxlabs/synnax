@@ -55,10 +55,10 @@ const renderToolbar = async ({
     store.dispatch(Session.Range.add({ variant: "persisted", key })),
   );
   const content = (
-    <>
+    <HaulProvider>
       {Range.TOOLBAR.content}
       <Modals.Stack />
-    </>
+    </HaulProvider>
   );
   const { unmount } = render(content, { wrapper });
   const remount = () => {
@@ -87,6 +87,13 @@ const createRunning = async (
     new TimeRange(TimeStamp.now().sub(since), TimeStamp.MAX),
     parent,
   );
+
+const endRange = async (r: ranger.Range, end: TimeStamp): Promise<void> => {
+  const value = { start: r.timeRange.start.valueOf(), end: end.valueOf() };
+  expect(
+    await client.ranges.dispatch(r.key, ranger.set({ path: ["timeRange"], value })),
+  ).toBe(true);
+};
 
 /** Reads the one range with this name from the Core. */
 const readRange = async (name: string): Promise<ranger.Range> => {
@@ -144,18 +151,14 @@ describe("range/Toolbar", () => {
     });
 
     it("should move ranges from Running to Recent as they end, newest end first", async () => {
-      const start = TimeStamp.now().sub(TimeSpan.SECOND);
-      const first = await createRange(
-        uniqueRangeName("first"),
-        new TimeRange(start, TimeStamp.now().add(TimeSpan.milliseconds(1500))),
-      );
-      const second = await createRange(
-        uniqueRangeName("second"),
-        new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(2))),
-      );
+      const first = await createRunning(uniqueRangeName("first"));
+      const second = await createRunning(uniqueRangeName("second"));
       await renderToolbar();
       await findLine("Running", first.name);
       await findLine("Running", second.name);
+      // An end set at creation can pass before the toolbar's first fetch lands.
+      await endRange(first, TimeStamp.now().add(TimeSpan.milliseconds(500)));
+      await endRange(second, TimeStamp.now().add(TimeSpan.SECOND));
       const [firstLine, secondLine] = await waitFor(
         () => [
           within(groupOf("Recent")).getByRole("listitem", { name: first.name }),
@@ -533,6 +536,20 @@ describe("range/Toolbar", () => {
   });
 
   describe("drag", () => {
+    it("should picture a dragged line as its range", async () => {
+      const rng = await createRange(
+        uniqueRangeName("picture"),
+        TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+      );
+      await renderToolbar({ favorites: [rng] });
+      fireEvent.dragStart(await findLine("Favorites", rng.name));
+      const preview = document.querySelector(".lyra-haul__layer .lyra-haul-preview");
+      expect(preview?.querySelector(".lyra-haul-preview__name")?.textContent).toBe(
+        rng.name,
+      );
+      expect(preview?.querySelector(".lyra-icon--range")).toBeInstanceOf(Element);
+    });
+
     it("should add a range dropped on the range picker of a line plot", async () => {
       const rng = await createRange(
         uniqueRangeName("drag"),

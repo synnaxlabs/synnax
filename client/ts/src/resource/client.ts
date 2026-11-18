@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { record, unique } from "@synnaxlabs/x";
+import { compare, record, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { query } from "@/query";
@@ -135,7 +135,7 @@ export class Client {
         await this.execSearch(normalize({ searchTerm, types, limit })),
       compose: (record) => record,
       cursor: ({ key }) => key,
-      compare: (a, b) => a.localeCompare(b),
+      compare: compare.codePoints,
     });
     this.byKey = cache.queries<string, Resource, string, Resource>({
       name: "Resource",

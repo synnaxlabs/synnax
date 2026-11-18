@@ -9,7 +9,7 @@
 
 import { panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { waitFor } from "@testing-library/react";
+import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/feature/panel";
@@ -63,6 +63,15 @@ describe("panel tree item", () => {
     await writer.panels.retrieve(pan.key);
     await writer.panels.dispatch(pan.key, panel.setIcon({ icon: "valve" }));
     await waitFor(async () => expect(await findRowIcon(pan, "valve")).not.toBeNull());
+  });
+
+  it("should picture a dragged panel with its icon", async () => {
+    const pan = await renderPanelTree({ icon: "valve" });
+    await waitFor(async () => expect(await findRowIcon(pan, "valve")).not.toBeNull());
+    fireEvent.dragStart(await findTreeRow(pan.name));
+    const layer = document.querySelector(".lyra-haul__layer");
+    expect(layer?.querySelector(".lyra-icon--valve")).not.toBeNull();
+    expect(layer?.textContent).toBe(`${pan.name}Panel`);
   });
 
   // Each tab shows a record that the tree lists in its own place.
