@@ -133,6 +133,16 @@ describe("line", () => {
     const X2 = series([5, 6], 10n, { start: 100, end: 200 });
     const Y2 = series([40, 50], 10n, { start: 100, end: 200 });
 
+    it("should keep a source that takes the props of a new spec in place", () => {
+      const m = mount([X1], [Y1]);
+      m.line.render(PROPS);
+      const cleanup = vi.spyOn(m.xSource, "cleanup");
+      const x = sourceSpec(m.xSource);
+      m.update({ x: { ...x, props: { ...x.props, window: 1 } } });
+      m.line.render(PROPS);
+      expect(cleanup).not.toHaveBeenCalled();
+    });
+
     it("should pass the x range the region shows to its sources", () => {
       const m = mount([X1], [Y1]);
       const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
