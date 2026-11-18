@@ -60,13 +60,14 @@ const HIGHLIGHTED = "data-highlighted";
  * key other than Space, typed outside a field.
  */
 export const isFilterKey = (e: KeyboardEvent<HTMLElement>): boolean => {
-  const target = e.target as HTMLElement;
+  const { target } = e;
   return (
     e.key.length === 1 &&
     e.key !== " " &&
     !e.altKey &&
     !e.ctrlKey &&
     !e.metaKey &&
+    target instanceof HTMLElement &&
     !(target instanceof HTMLInputElement) &&
     !(target instanceof HTMLTextAreaElement) &&
     !target.isContentEditable
@@ -81,6 +82,12 @@ export const nodeText = (node: ReactNode): string => {
   return "";
 };
 
+const words = (text: string): string[] =>
+  text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word !== "");
+
 /**
  * @returns whether an item with the given text shows under the filter of its menu: each
  * word of the filter is in the item's text or in the names of the submenus it is in.
@@ -90,10 +97,7 @@ export const useMatches = (text: string): boolean => {
   const term = useFilterContext();
   const path = usePath();
   const searched = [...path, text].join(" ").toLowerCase();
-  return term
-    .toLowerCase()
-    .split(/\s+/)
-    .every((word) => searched.includes(word));
+  return words(term).every((word) => searched.includes(word));
 };
 
 /**
@@ -102,10 +106,9 @@ export const useMatches = (text: string): boolean => {
  */
 export const useItemTerm = (): string => {
   const names = usePath().join(" ").toLowerCase();
-  return useFilterContext()
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((word) => word !== "" && !names.includes(word))
+  const term = useFilterContext();
+  return words(term)
+    .filter((word) => !names.includes(word))
     .join(" ");
 };
 

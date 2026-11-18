@@ -187,7 +187,7 @@ describe("menu filter", () => {
           <Menu.Item itemKey="rename">Rename</Menu.Item>
           <Menu.Sub itemKey="copy" textValue="Copy">
             <Menu.SubTrigger>Copy</Menu.SubTrigger>
-            <Menu.Dialog>
+            <Menu.Dialog aria-label="Copy">
               <Menu.Menu onChange={onPick}>
                 <Menu.Item itemKey="link">
                   <Icon.Search />
@@ -275,11 +275,24 @@ describe("menu filter", () => {
         screen.getByRole("menuitem", { name: "Copy" }).focus();
         press("ArrowRight");
         expect(focused()).toBe("Link");
+        expect(screen.getByRole("dialog", { name: "Copy" })).toBeTruthy();
         type("lin");
         expect(search()?.value).toBe("lin");
         expect(document.activeElement).toBe(search());
         expect(screen.queryByRole("dialog", { name: "Copy" })).toBeNull();
         expect(shown()).toEqual(["CopyLink"]);
+        press("Escape");
+        expect(screen.queryByRole("dialog", { name: "Copy" })).toBeNull();
+      });
+
+      it("should keep a submenu open on Space", () => {
+        open(<CopyMenu />);
+        screen.getByRole("menuitem", { name: "Copy" }).focus();
+        press("ArrowRight");
+        press(" ");
+        expect(focused()).toBe("Link");
+        expect(screen.getByRole("dialog", { name: "Copy" })).toBeTruthy();
+        expect(search()).toBeNull();
       });
 
       it("should leave typed text to a field in a submenu", () => {

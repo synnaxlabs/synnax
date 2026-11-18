@@ -70,44 +70,26 @@ interface BlockItemProps<
   E extends Button.ElementType,
 > extends Pick<ItemProps<K, E>, "checkable" | "onActivate"> {
   item: List.ItemProps<K, E>;
-  text?: string;
 }
 
 const BlockItem = <K extends record.Key, E extends Button.ElementType>({
   item,
-  text,
   checkable = false,
   onActivate,
 }: BlockItemProps<K, E>): ReactNode => {
   const { selected, hovered, onSelect, onHover, sole } = useItemState(item.itemKey);
   const reselectNoop = useReselectNoop();
-  // In its menu, an option is a menu item, and its click closes the menu.
-  const inline = useInline();
-  const children = usePathChildren(item.children);
-  // The search of the list answers late, so the menu filter checks each option itself.
-  const matches = useMatches(text ?? nodeText(item.children));
-  const setShown = useShownContext();
-  const shown = inline && matches;
-  useLayoutEffect(() => {
-    if (!shown || setShown == null) return;
-    setShown((count) => count + 1);
-    return () => setShown((count) => count - 1);
-  }, [shown, setShown]);
-  if (inline && !matches) return null;
   if (!checkable)
     return (
       <List.Item<K, E>
-        role={inline ? "menuitem" : "option"}
-        propagateClick={inline}
+        role="option"
         selected={selected}
         hovered={hovered}
         onHover={onHover}
         onSelect={onSelect}
         preventClick={reselectNoop && sole ? true : undefined}
         {...item}
-      >
-        {children}
-      </List.Item>
+      />
     );
   const handleSelect = (_: K, e: MouseEvent<HTMLElement>): void => {
     if (hasModifier(e)) onSelect();
@@ -134,6 +116,44 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>({
         aria-label="Select"
       />
       {item.children}
+    </List.Item>
+  );
+};
+
+interface InlineItemProps<K extends record.Key, E extends Button.ElementType> {
+  item: List.ItemProps<K, E>;
+  text?: string;
+}
+
+// In its menu, an option is a menu item, and its click closes the menu.
+const InlineItem = <K extends record.Key, E extends Button.ElementType>({
+  item,
+  text,
+}: InlineItemProps<K, E>): ReactNode => {
+  const { selected, hovered, onSelect, onHover, sole } = useItemState(item.itemKey);
+  const reselectNoop = useReselectNoop();
+  const children = usePathChildren(item.children);
+  // The search of the list answers late, so the menu filter checks each option itself.
+  const matches = useMatches(text ?? nodeText(item.children));
+  const setShown = useShownContext();
+  useLayoutEffect(() => {
+    if (!matches || setShown == null) return;
+    setShown((count) => count + 1);
+    return () => setShown((count) => count - 1);
+  }, [matches, setShown]);
+  if (!matches) return null;
+  return (
+    <List.Item<K, E>
+      role="menuitem"
+      propagateClick
+      selected={selected}
+      hovered={hovered}
+      onHover={onHover}
+      onSelect={onSelect}
+      preventClick={reselectNoop && sole ? true : undefined}
+      {...item}
+    >
+      {children}
     </List.Item>
   );
 };
@@ -272,16 +292,11 @@ export const Item = <
 ): ReactNode => {
   const inItems = List.useInItems();
   const buttons = useButtonsContext();
+  const inline = useInline();
   const { textValue, checkable, onActivate, label, ...rest } = props;
+  if (inItems && inline) return <InlineItem item={rest} text={textValue} />;
   if (inItems)
-    return (
-      <BlockItem
-        item={rest}
-        text={textValue}
-        checkable={checkable}
-        onActivate={onActivate}
-      />
-    );
+    return <BlockItem item={rest} checkable={checkable} onActivate={onActivate} />;
   if (buttons != null) return <ButtonItem {...rest} buttons={buttons} />;
   return <FixedItem item={rest} text={textValue} label={label ?? rest.children} />;
 };
