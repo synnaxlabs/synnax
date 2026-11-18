@@ -29,7 +29,7 @@ import { createSiftDevice } from "@/feature/sift/testutil";
 import { searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
-import { uniqueRangeName } from "@/platform/range/testutil";
+import { createPlannedTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { createTabWrapper, openFilterProperty } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
@@ -98,18 +98,6 @@ const createRange = async (
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
     ...extra,
   });
-};
-
-/**
- * Creates a range with no start. It sorts above every other range, so the spec deletes
- * it once it finishes.
- */
-const createPlanned = async (name: string): Promise<ranger.Range> => {
-  const rng = await createRange(name, {
-    timeRange: new TimeRange(TimeStamp.MAX, TimeStamp.MAX),
-  });
-  onTestFinished(async () => await client.ranges.delete(rng.key));
-  return rng;
 };
 
 /** Creates a label, one range with it, and one without it, each named after token. */
@@ -584,7 +572,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should start a planned range now with no end", async () => {
-      const planned = await createPlanned(uniqueRangeName("planned"));
+      const planned = await createPlannedTestRange(client, uniqueRangeName("planned"));
       await renderExplorer();
       await openMenuOf(planned);
       fireEvent.click(await menuItem("Start"));
@@ -789,7 +777,7 @@ describe("range/explorer/Explorer", () => {
     });
 
     it("should show no start for a range with no start", async () => {
-      const planned = await createPlanned(uniqueRangeName("planned"));
+      const planned = await createPlannedTestRange(client, uniqueRangeName("planned"));
       await renderExplorer();
       const item = await findItem(planned.name);
       const when = within(item).getByRole("group", { name: "Time range" });
@@ -844,7 +832,7 @@ describe("range/explorer/Explorer", () => {
   describe("timeline", () => {
     it("should leave a range with no start out of the default window", async () => {
       const token = uniqueToken();
-      const planned = await createPlanned(`${token} planned`);
+      const planned = await createPlannedTestRange(client, `${token} planned`);
       const running = await createRange(`${token} running`);
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));

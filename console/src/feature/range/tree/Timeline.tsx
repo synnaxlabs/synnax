@@ -40,7 +40,7 @@ import {
   useState,
 } from "react";
 
-import { Lead, scheduled } from "@/feature/range/tree/Item";
+import { Lead } from "@/feature/range/tree/Item";
 import { type Node, useNode } from "@/feature/range/tree/tree";
 import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
@@ -114,7 +114,7 @@ const pad = ({ start, end }: Window, fraction = 0.04): Window => {
 
 /** @returns the window that holds every scheduled time range, or null for none. */
 const fit = (timeRanges: TimeRange[], now: number): Window | null => {
-  const spans = timeRanges.filter(scheduled).map((tr) => span(tr, now));
+  const spans = timeRanges.filter(Range.scheduled).map((tr) => span(tr, now));
   if (spans.length === 0) return null;
   return pad({
     start: Math.min(...spans.map((s) => s.start)),
@@ -236,7 +236,7 @@ interface BarProps {
 /** A bar places itself from the window on the timeline root, so a pan renders none. */
 const Bar = ({ range }: BarProps): ReactElement | null => {
   const { origin, onZoom } = useContext("Tree.Bar");
-  if (!scheduled(range.timeRange)) return null;
+  if (!Range.scheduled(range.timeRange)) return null;
   const open = range.timeRange.end.equals(TimeStamp.MAX);
   const { start, end } = range.timeRange.makeValid();
   const hue = range.color == null ? undefined : color.hex(range.color);

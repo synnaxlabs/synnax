@@ -10,6 +10,11 @@
 import { type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Ranger } from "@synnaxlabs/pluto";
+import { type TimeRange, TimeStamp } from "@synnaxlabs/x";
+
+/** Whether the time range has a start, and so a time to show. */
+export const scheduled = (timeRange: TimeRange): boolean =>
+  !timeRange.makeValid().start.equals(TimeStamp.MAX);
 
 /** Starts a planned range now. It keeps an end that is still ahead. */
 export const useStart = (): ((range: ranger.Range) => void) => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ranger } from "@synnaxlabs/client";
+import { DisconnectedError, label, ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -77,23 +77,26 @@ export const Labels = ({ ranges }: LabelsProps): ReactElement => {
     );
   const name = term.trim();
   const exists = data.some(
-    (key) => getItem?.(key)?.name.toLowerCase() === name.toLowerCase(),
+    (key) => getItem(key)?.name.toLowerCase() === name.toLowerCase(),
   );
   const handleCreate = () =>
-    handleError(async () => {
-      if (client == null) return;
-      // A new label takes the first palette color that no label uses yet.
-      const used = new Set(
-        data.flatMap((key) => {
-          const c = getItem?.(key)?.color;
-          return c == null ? [] : [color.hex(c)];
-        }),
-      );
-      const palette = colors.visualization.palettes.default;
-      const next = palette.find((c) => !used.has(color.hex(c))) ?? palette[0];
-      const created = await client.labels.create({ name, color: next });
-      add(created.key);
-    }, `Failed to create label ${name}`);
+    handleError(
+      async () => {
+        if (client == null) throw new DisconnectedError();
+        // A new label takes the first palette color that no label uses yet.
+        const used = new Set(
+          data.flatMap((key) => {
+            const c = getItem(key)?.color;
+            return c == null ? [] : [color.hex(c)];
+          }),
+        );
+        const palette = colors.visualization.palettes.default;
+        const next = palette.find((c) => !used.has(color.hex(c))) ?? palette[0];
+        const created = await client.labels.create({ name, color: next });
+        add(created.key);
+      },
+      { message: "Failed to create label", name },
+    );
   const handleChange = (_: label.Key[], { clicked }: { clicked: label.Key | null }) => {
     if (clicked == null) return;
     if (clicked === CREATE) return handleCreate();
