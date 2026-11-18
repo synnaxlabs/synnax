@@ -1,0 +1,126 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "ICDs"
+description: "Learn what an ICD is, what it is for, and how a task uses one."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Diagram } from "@/components/diagram";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An interface control document (ICD) describes the messages that a device sends: the
+layout of each message, and the meaning of each value in it. A read task uses an ICD to
+turn each message into samples on [channels](/reference/channels).
+
+<Diagram.Block
+  title="A device sends a payload. The read task reads it with the layout of an ICD message, and writes each field that it binds to a channel."
+  nodes={[
+    {
+      key: "payload",
+      label: "Payload",
+      caption: "from a device",
+      icon: Icon.Hardware,
+      column: 0,
+    },
+    {
+      key: "message",
+      label: "ICD message",
+      caption: "the layout",
+      icon: Icon.Library,
+      column: 0,
+    },
+    {
+      key: "task",
+      label: "Read task",
+      caption: "binds fields",
+      icon: Icon.Task,
+      column: 1,
+    },
+    {
+      key: "channels",
+      label: "Channels",
+      caption: "one for each field",
+      icon: Icon.Channel,
+      column: 2,
+    },
+  ]}
+  edges={[
+    { from: "payload", to: "task" },
+    { from: "message", to: "task" },
+    { from: "task", to: "channels" },
+  ]}
+/>
+
+An ICD is almost the same as a DBC file for a CAN bus, or an Avro schema for a Kafka
+topic. One ICD can hold many messages, and many tasks can use one ICD.
+
+<Divider.Divider x />
+
+## What ICDs are for
+
+### Read JSON from an MQTT topic
+
+An [MQTT read task](/reference/hardware/mqtt/read-task) reads each JSON document on a
+topic with one ICD message. Each field of the message finds one value with a JSON
+pointer, such as `/temperature`. When you first add data to a task, the Console creates
+an ICD with the name of the task, and a message for each topic.
+
+### Read many kinds of message from one topic
+
+A topic can carry more than one kind of document, such as sensor readings and status
+reports. Give each message a
+[match rule](/reference/hardware/icds/reference#match-rules): a JSON pointer and the
+value that it must hold, such as `/type` equal to `status`. The task reads each document
+with the message whose rule the document meets.
+
+### Fill a missing value
+
+A device can leave a value out of some documents. Give the field a
+[default](/reference/hardware/icds/reference#defaults), and the task writes the default
+when the document has no value. Without a default, the task skips the document.
+
+### Record text labels as numbers
+
+A device can send a state as text, such as `ON` or `OFF`. The
+[enum values](/reference/hardware/icds/reference#enum-values) of a field map each label
+to a number, such as `ON` to 1, so that a line plot can show the state.
+
+<Divider.Divider x />
+
+## Messages and fields
+
+An ICD holds messages. A message is the layout of one kind of payload, and its fields
+are the values in the payload. Each message has one of three formats:
+
+| Format | One message is                              | A field is found by                                                        | Example                                        |
+| ------ | ------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------- |
+| JSON   | One JSON document                           | A JSON pointer                                                             | `/temperature`                                 |
+| Text   | One line of text                            | Its position after a split on a delimiter, or the tag that comes before it | Position 1 in `oven,21.4`, or `T=` in `T=21.4` |
+| Binary | The bytes of one frame, such as a CAN frame | A start bit and a length in bits                                           | Start bit 16, length 12                        |
+
+A message can also select the payloads that belong to it. A JSON message has a match
+rule, a text message has a prefix that each line starts with, and a binary message has
+an identifier, such as a CAN ID.
+
+Each field has a name, a scale, an offset, and units. The task multiplies the raw value
+by the scale, then adds the offset. JSON and binary fields also have a kind, such as
+`float` or `integer`. A JSON field can also have enum values and a default. The
+[ICD reference](/reference/hardware/icds/reference) gives each property.
+
+An MQTT read task reads JSON messages.
+
+<Divider.Divider x />
+
+## How tasks use an ICD
+
+The ICD says what a message is. The task says where to get the message, and where its
+values go.
+
+A task names an ICD and the messages that it reads. For each message, the task binds
+fields to channels, and it records only the fields that it binds. You cannot delete an
+ICD that a task uses.
+
+When you edit an ICD, the edit saves at once. A running task keeps the old layout until
+you deploy it again: the task shows **Redeploy**.

@@ -23,21 +23,22 @@ payloads in channels. One task reads any number of topics, and it can also read
 
 ## Entries and fields
 
-An entry is one topic. A field is one value in its payload, found by a
-[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) such as `/temperature`,
-and recorded in one channel.
+An entry is one topic. It reads one or more messages of an
+[ICD](/reference/hardware/icds), and it records each field that it binds in one channel.
+A field finds its value with a
+[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901), such as `/temperature`.
 
 - **Bare values** -> an empty pointer reads a topic that carries a bare number or
   string, such as `42.7`. The **Add data** dialog shows it as **Whole payload**.
-- **Text labels** -> the **Enum mapping** of a field maps text, such as `ON`, to a
-  channel value.
-- **All or nothing** -> the task writes all fields of a payload or none. A payload that
-  lacks a field, or holds a value that the channel cannot store, is skipped. In code, a
-  field's `default` is written in place of a missing value.
+- **Text labels** -> the [enum values](/reference/hardware/icds/reference#enum-values)
+  of a field map text, such as `ON`, to a channel value.
+- **All or nothing** -> the task writes all fields of a payload or none. The task skips
+  a payload that lacks a field with no
+  [default](/reference/hardware/icds/reference#defaults), or that holds a value that the
+  channel cannot store.
 
 A topic can be in a task once, and it cannot hold the wildcards `+` or `#`. The fields
-of one message share one index channel. Two messages cannot share an index channel, and
-two topics cannot write to the same channel.
+of one message share one index channel, and two topics cannot write to the same channel.
 
 <Divider.Divider x />
 
@@ -57,7 +58,7 @@ two topics cannot write to the same channel.
    its **Pointer**. Its **Channel** section sets the channel name and **Data type**.
 6. Click <Icon.Play /> (**Start**).
 
-The Console creates a channel for each field and an index channel for each topic.
+The Console creates a channel for each field and an index channel for each message.
 
 <Video id="hardware/mqtt/read-task" />
 
@@ -130,9 +131,10 @@ task.start()
 The **Source** of an entry sets the timestamps of its samples:
 
 - **Arrival time** -> the time at which the payload arrives at the Core. The default.
-- **Payload value** -> a time in the payload, at a **Pointer**, in a **Format**: ISO
-  8601, or Unix time in seconds, milliseconds, microseconds, or nanoseconds. The value
-  goes to the index channel of the topic.
+- **Payload value** -> the time in a timestamp field of the message, which you select in
+  **Field**. The [type](/reference/hardware/icds/reference#types) of the field sets its
+  format. A field with a default cannot be the source. The value goes to the index
+  channel of the message.
 
 Timestamps in an index channel must increase. The task skips a payload whose timestamp
 is not after the last one it wrote. A broker can send such a payload when it delivers a
@@ -182,7 +184,7 @@ The task has no sample rate. It writes each payload when it arrives.
 
 <Divider.Divider x />
 
-## Entry and field reference
+## Entry reference
 
 An entry has these settings:
 
@@ -199,40 +201,8 @@ In code, an entry is `PlainReadEntry`, of type `"plain"`. The `qos` values are
 `ReadMessage`, with the key of the `message`, its `index`, and its `bindings`. A
 `ReadBinding` gives the key of a `field` and the `channel` that records it.
 
-A field of a message has these settings:
-
-| Setting                                   | Default | Notes                                                       |
-| ----------------------------------------- | ------- | ----------------------------------------------------------- |
-| Name <small>`name`</small>                |         | Unique in its message. The Console names channels after it. |
-| Pointer <small>`pointer`</small>          | Empty   | Such as `/motor/speed`. Empty reads the whole payload.      |
-| Type <small>`type`</small>                | Float   | See [field types](#field-types).                            |
-| Scale <small>`scale`</small>              | 1       | Multiplies the value. Needs a float channel.                |
-| Offset <small>`offset`</small>            | 0       | Added after the scale. Needs a float channel.               |
-| Units <small>`units`</small>              | Empty   | The engineering unit of the value.                          |
-| Default <small>`default`</small>          | None    | Written when the payload has no value. Set in **Optional**. |
-| Enum mapping <small>`enum_values`</small> | None    | Maps text labels to values of the type.                     |
-
-### Field types
-
-The data type is that of a new channel. A float channel also reads signed, unsigned, and
-boolean fields. A signed integer channel also reads unsigned and boolean fields, and an
-unsigned channel also reads boolean fields. The **Data type** menu lists only the data
-types that fit.
-
-| Type             | Python class         | Data type   | Notes                                            |
-| ---------------- | -------------------- | ----------- | ------------------------------------------------ |
-| Float            | `FloatJSONField`     | `float64`   | A number.                                        |
-| Signed integer   | `IntegerJSONField`   | `int64`     | An integer.                                      |
-| Unsigned integer | `UnsignedJSONField`  | `uint64`    | An integer of 0 or more.                         |
-| Boolean          | `BooleanJSONField`   | `uint8`     | `true` or `false`, as 1 or 0.                    |
-| String           | `StringJSONField`    | `string`    | A string.                                        |
-| JSON             | `JSONJSONField`      | `json`      | Any JSON value.                                  |
-| UUID             | `UuidJSONField`      | `uuid`      | A UUID in a string.                              |
-| Bytes (base64)   | `BytesJSONField`     | `bytes`     | Base64 text in a string. Needs a pointer.        |
-| Timestamp        | `TimestampJSONField` | `timestamp` | ISO 8601 text, or Unix time in s, ms, µs, or ns. |
-
-In code, the `time_format` of a timestamp field is `"iso8601"`, `"unix_sec"`,
-`"unix_ms"`, `"unix_us"`, or `"unix_ns"`.
+The [ICD reference](/reference/hardware/icds/reference) lists the properties of a
+message and its fields, and the data types that each field type can write to.
 
 <Divider.Divider x />
 
