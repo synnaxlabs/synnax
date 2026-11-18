@@ -88,7 +88,7 @@ type jsonField struct {
 // with no rule. NewJSON returns an error wrapping validate.ErrValidation when:
 //   - two value rules test different pointers
 //   - one document value can meet two value rules
-//   - a present rule tests the pointer of another rule
+//   - a present rule tests the pointer of another rule, or a value that holds it
 //   - two messages have no match rule
 //   - a binding names no field of its message
 //   - a field's kind does not convert to its binding's data type

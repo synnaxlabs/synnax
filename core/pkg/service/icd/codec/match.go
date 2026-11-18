@@ -134,14 +134,16 @@ func newRouter(messages []JSONMessage) (*router, error) {
 		}
 	}
 	r.ruled = first >= 0
+	// A present rule at or above the pointer of another rule meets every document that
+	// the other rule meets.
 	for k, p := range r.present {
-		other := -1
-		if r.ruled && slices.Equal(p.pointer, r.pointer) {
-			other = first
+		other, at := -1, xjson.Pointer(nil)
+		if r.ruled && within(p.pointer, r.pointer) {
+			other, at = first, r.pointer
 		}
-		for _, q := range r.present[:k] {
-			if slices.Equal(q.pointer, p.pointer) {
-				other = q.message
+		for j, q := range r.present {
+			if j != k && within(p.pointer, q.pointer) {
+				other, at = q.message, q.pointer
 			}
 		}
 		if other >= 0 {
@@ -150,11 +152,16 @@ func newRouter(messages []JSONMessage) (*router, error) {
 				"messages %s and %s both match a value at %q",
 				messages[min(other, p.message)].Name,
 				messages[max(other, p.message)].Name,
-				messages[p.message].Payload.Match.Base().Pointer,
+				at.String(),
 			)
 		}
 	}
 	return r, nil
+}
+
+// within reports whether inner is outer or a pointer into the value at outer.
+func within(outer, inner xjson.Pointer) bool {
+	return len(outer) <= len(inner) && slices.Equal(outer, inner[:len(outer)])
 }
 
 // pointers returns the pointers that the rules test, in the order that find takes their

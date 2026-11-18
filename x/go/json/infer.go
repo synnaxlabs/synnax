@@ -164,11 +164,11 @@ func (i *Inferrer) Shape() Shape { return i.group.shape() }
 type inferSource struct {
 	name string
 	docs []parsedDocument
-	// kinds holds each set of fields of docs, in the order first seen.
-	kinds []fieldSet
+	// sets holds each set of fields of docs, in the order first seen.
+	sets  []fieldSet
 	byKey map[string]int
-	// kindOf holds the index in kinds of each document of docs.
-	kindOf []int
+	// setOf holds the index in sets of each document of docs.
+	setOf []int
 }
 
 // fieldSet is a set of field pointers in their text form.
@@ -198,21 +198,21 @@ func (src *inferSource) add(doc parsedDocument) {
 	fs := newFieldSet(fields)
 	k, ok := src.byKey[fs.key]
 	if !ok {
-		k = len(src.kinds)
+		k = len(src.sets)
 		src.byKey[fs.key] = k
-		src.kinds = append(src.kinds, fs)
+		src.sets = append(src.sets, fs)
 	}
 	src.docs = append(src.docs, doc)
-	src.kindOf = append(src.kindOf, k)
+	src.setOf = append(src.setOf, k)
 }
 
 // split returns the kinds of the documents of src, in the order of their first
 // documents. Each kind keeps the order of its documents.
 func (src *inferSource) split() []kind {
-	if len(src.kinds) > maxKinds {
+	if len(src.sets) > maxKinds {
 		union := make(set.Set[string])
-		for _, k := range src.kinds {
-			union.Add(k.fields.Slice()...)
+		for _, fs := range src.sets {
+			union.Add(fs.fields.Slice()...)
 		}
 		return []kind{{key: newFieldSet(union).key, docs: src.docs}}
 	}
@@ -222,12 +222,12 @@ func (src *inferSource) split() []kind {
 		at    = make(map[int]int)
 	)
 	for i, doc := range src.docs {
-		target := into[src.kindOf[i]]
+		target := into[src.setOf[i]]
 		k, ok := at[target]
 		if !ok {
 			k = len(kinds)
 			at[target] = k
-			kinds = append(kinds, kind{key: src.kinds[target].key})
+			kinds = append(kinds, kind{key: src.sets[target].key})
 		}
 		kinds[k].docs = append(kinds[k].docs, doc)
 	}
@@ -239,10 +239,10 @@ func (src *inferSource) split() []kind {
 // no other set holds all of its fields.
 func (src *inferSource) joins() []int {
 	holds := func(a, b int) bool {
-		return a != b && len(src.kinds[a].fields) > len(src.kinds[b].fields) &&
-			src.kinds[b].fields.IsSubsetOf(src.kinds[a].fields)
+		return len(src.sets[a].fields) > len(src.sets[b].fields) &&
+			src.sets[b].fields.IsSubsetOf(src.sets[a].fields)
 	}
-	n := len(src.kinds)
+	n := len(src.sets)
 	widest := make([]bool, n)
 	for i := range n {
 		widest[i] = true

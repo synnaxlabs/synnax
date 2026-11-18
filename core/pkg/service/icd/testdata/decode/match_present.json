@@ -104,6 +104,22 @@
         "state": "run"
       },
       "error": "document matches messages reading and status: validation error"
+    },
+    {
+      "document": {
+        "time": 7,
+        "pressure": 0
+      },
+      "message": "reading",
+      "samples": [0]
+    },
+    {
+      "document": {
+        "time": 8,
+        "state": ""
+      },
+      "message": "status",
+      "samples": [""]
     }
   ]
 }

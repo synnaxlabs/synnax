@@ -195,14 +195,18 @@ var _ = Describe("Infer", func() {
 		Expect(shapes[2].Count).To(Equal(1))
 	})
 
-	It("Should give one shape to a source with more than 16 sets of fields", func() {
-		shapes := xjson.Infer(documents("devices", 17, func(i int) string {
-			return fmt.Sprintf(`{"device-%d":1}`, i)
-		}))
-		Expect(shapes).To(HaveLen(1))
-		Expect(shapes[0].Fields).To(HaveLen(17))
-		Expect(shapes[0].Count).To(Equal(17))
-	})
+	DescribeTable("Should split a source into kinds only up to 16 sets of fields",
+		func(sets, shapes, fields int) {
+			inferred := xjson.Infer(documents("devices", sets, func(i int) string {
+				return fmt.Sprintf(`{"device-%d":1}`, i)
+			}))
+			Expect(inferred).To(HaveLen(shapes))
+			Expect(inferred[0].Fields).To(HaveLen(fields))
+			Expect(inferred[0].Count).To(Equal(fields))
+		},
+		Entry("16 sets", 16, 16, 1),
+		Entry("17 sets", 17, 1, 17),
+	)
 
 	It("Should keep every digit of a nanosecond index and read a boolean", func() {
 		shapes := xjson.Infer(documents("valve", 3, func(i int) string {

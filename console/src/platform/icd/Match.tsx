@@ -111,9 +111,8 @@ export interface MatchProps {
 }
 
 /**
- * Picks the JSON documents that belong to a message: the ones whose value at a
- * pointer equals a value, or that hold a value at a pointer. A type change keeps the
- * pointer.
+ * Picks the JSON documents that belong to a message: the ones whose value at a pointer
+ * equals a value, or that hold a value at a pointer. A type change keeps the pointer.
  */
 export const Match = ({ path }: MatchProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
