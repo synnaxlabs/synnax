@@ -22,6 +22,7 @@ import (
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/color"
+	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
@@ -220,6 +221,26 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.ColorRetrieveBuiltins = noop.UnaryServer[
 		struct{},
 		color.RetrieveBuiltinsResponse,
+	]{}
+
+	// ENUMERATION
+	t.EnumerationCreate = noop.UnaryServer[
+		enumeration.CreateRequest,
+		enumeration.CreateResponse,
+	]{}
+	t.EnumerationRetrieve = noop.UnaryServer[
+		enumeration.RetrieveRequest,
+		enumeration.RetrieveResponse,
+	]{}
+	t.EnumerationDelete = noop.UnaryServer[enumeration.DeleteRequest, struct{}]{}
+	t.EnumerationDispatch = noop.UnaryServer[enumeration.DispatchRequest, struct{}]{}
+	t.EnumerationRetrieveBuiltins = noop.UnaryServer[
+		struct{},
+		enumeration.RetrieveBuiltinsResponse,
+	]{}
+	t.EnumerationRetrieveDependents = noop.UnaryServer[
+		enumeration.RetrieveDependentsRequest,
+		enumeration.RetrieveDependentsResponse,
 	]{}
 
 	// ACCESS

@@ -18,6 +18,7 @@ __lazy_modules__ = [
     "synnax.channel",
     "synnax.control",
     "synnax.device",
+    "synnax.enumeration",
     "synnax.exceptions",
     "synnax.framer",
     "synnax.icd",
@@ -47,6 +48,7 @@ from importlib.metadata import version as _version
 
 from synnax import (
     color,
+    enumeration,
     ethercat,
     group,
     http,
@@ -263,6 +265,7 @@ __all__ = [
     "color",
     "convert_time_units",
     "elapsed_seconds",
+    "enumeration",
     "ethercat",
     "group",
     "http",

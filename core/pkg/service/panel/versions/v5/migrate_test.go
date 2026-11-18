@@ -74,3 +74,33 @@ var _ = Describe("MigratePanel", func() {
 		Expect(out.Color).To(Equal(&colorv2.Color{R: 1, A: 128}))
 	})
 })
+
+var _ = Describe("NameMigration", func() {
+	migrated := func(ctx SpecContext, in v5.Panel) v5.Panel {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		Expect(gorp.NewCreate[v5.Key, v5.Panel]().Entry(&in).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Panel",
+			Migrations: []gorp.Migration{v5.NameMigration},
+		})).To(Succeed())
+		var out v5.Panel
+		Expect(gorp.NewRetrieve[v5.Key, v5.Panel]().
+			Where(gorp.MatchKeys[v5.Key, v5.Panel](in.Key)).
+			Entry(&out).Exec(ctx, db)).To(Succeed())
+		return out
+	}
+	key := uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000")
+	DescribeTable(
+		"Should name only nameless panels",
+		func(ctx SpecContext, name, expected string) {
+			in := v5.Panel{Key: key, Name: name, Root: root()}
+			Expect(migrated(ctx, in).Name).To(Equal(expected))
+		},
+		Entry("empty name", "", "Panel 1a2b3c4d"),
+		Entry("named panel", "Named", "Named"),
+	)
+})

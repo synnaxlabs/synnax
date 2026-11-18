@@ -278,6 +278,20 @@ describe("device location", () => {
   });
 });
 
+describe("device drag preview", () => {
+  it("should picture the device with its integration", async () => {
+    const dev = await createTestDevice(client, {
+      make: OPCUA.Device.MAKE,
+      location: "opc.tcp://10.0.0.5:4840",
+    });
+    await renderDeviceTree(hostDevices(dev));
+    await screen.findByText("10.0.0.5");
+    fireEvent.dragStart(await findTreeRow(dev.name));
+    const layer = document.querySelector(".lyra-haul__layer");
+    expect(layer?.textContent).toBe(`${dev.name}OPC UA server`);
+  });
+});
+
 describe("permission to write the device", () => {
   it("should offer Reload Console", async () => {
     const dev = await createTestDevice(client);
