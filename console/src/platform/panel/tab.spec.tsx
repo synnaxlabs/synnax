@@ -18,6 +18,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Flux, Schematic } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -43,7 +44,6 @@ import {
   createTestClientWithGrants,
   findEditableText,
   renderWithConsole,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/platform/task";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 const MISSING_KEY = 4294967295;

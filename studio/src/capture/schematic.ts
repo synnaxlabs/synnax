@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x";
 import { type Locator, type Page } from "playwright";
 
 import { control } from "@/capture/plot";
@@ -140,14 +141,11 @@ export const selectSymbols = async (
   const boxes = await Promise.all(targets.map((t) => t.boundingBox()));
   const found = boxes.filter((b) => b != null);
   if (found.length === 0) throw new Error("no symbols to select");
-  const from = {
-    x: Math.min(...found.map((b) => b.x)) - padding,
-    y: Math.min(...found.map((b) => b.y)) - padding,
-  };
-  const to = {
-    x: Math.max(...found.map((b) => b.x + b.width)) + padding,
-    y: Math.max(...found.map((b) => b.y + b.height)) + padding,
-  };
+  const { one, two } = box.bound(
+    found.map(({ x, y, width, height }) => box.construct(x, y, width, height)),
+  );
+  const from = { x: one.x - padding, y: one.y - padding };
+  const to = { x: two.x + padding, y: two.y + padding };
   await session.drag(from, to, { zoom: false });
 };
 

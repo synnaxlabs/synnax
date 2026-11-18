@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -15,7 +16,7 @@ import { renderPalette } from "@/feature/command/testutil";
 import { ICD } from "@/feature/icd";
 import { client } from "@/feature/icd/testutil";
 import { Session } from "@/session";
-import { resolveFocusedTab, uniqueName } from "@/testutil";
+import { resolveFocusedTab } from "@/testutil";
 
 describe("ICD commands", () => {
   it("should create an ICD and open it in a tab", async () => {

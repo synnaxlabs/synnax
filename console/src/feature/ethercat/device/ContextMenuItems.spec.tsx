@@ -11,6 +11,7 @@ import { type device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -37,7 +38,6 @@ import {
   getIconButton,
   resolveFocusedTab,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

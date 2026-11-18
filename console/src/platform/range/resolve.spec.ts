@@ -9,11 +9,12 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/platform/range";
-import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import { createTestRange } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import { renderHookWithConsole } from "@/testutil";
 
@@ -66,7 +67,7 @@ describe("Range.useResolveMultiple", () => {
     const start = new TimeStamp(TimeStamp.now().valueOf() + 1n);
     const end = start.add(TimeSpan.seconds(10));
     const created = await client.ranges.create({
-      name: uniqueRangeName(),
+      name: uniqueName("range"),
       timeRange: new TimeRange(start, end),
     });
     const { result } = await renderResolveMultiple(
@@ -191,7 +192,7 @@ describe("Range.useResolve", () => {
       created.key,
     );
     await waitFor(() => expect(result.current).toHaveProperty("name", created.name));
-    const renamed = uniqueRangeName("renamed");
+    const renamed = uniqueName("renamed");
     await client.ranges.rename(created.key, renamed);
     await waitFor(() => expect(result.current).toHaveProperty("name", renamed));
   });

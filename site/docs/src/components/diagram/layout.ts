@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Icon } from "@synnaxlabs/lyra/icon";
+import { math } from "@synnaxlabs/x";
 
 /** A block in a diagram. Blocks in one column stack in the order they are given. */
 export interface Node {
@@ -70,7 +71,7 @@ const CORNER_RADIUS = 8;
 
 /** The total length of the given lengths with a gap between each pair. */
 export const span = (lengths: number[], gap: number): number =>
-  lengths.reduce((a, b) => a + b, 0) + gap * Math.max(0, lengths.length - 1);
+  math.sum(lengths) + gap * Math.max(0, lengths.length - 1);
 
 // A label or caption can hold line breaks.
 const lines = (text: string): number => text.split("\n").length;

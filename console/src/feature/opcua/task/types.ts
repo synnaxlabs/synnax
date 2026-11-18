@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, opcua, type task } from "@synnaxlabs/client";
-import { record } from "@synnaxlabs/x";
+import { map, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -33,7 +33,7 @@ const validateNodeIDs = ({
   const counts = new Map<string, number>();
   channels.forEach((ch) => {
     const id = nodeIdentity(ch);
-    counts.set(id, (counts.get(id) ?? 0) + 1);
+    map.increment(counts, id);
   });
   channels.forEach((ch, i) => {
     if (ch.nodeId.length === 0 || (counts.get(nodeIdentity(ch)) ?? 0) < 2) return;

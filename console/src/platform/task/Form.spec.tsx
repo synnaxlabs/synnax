@@ -15,6 +15,7 @@ import {
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { deep, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type FC } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -30,7 +31,7 @@ import {
   renderTaskFormTab,
   reportTaskRunning,
 } from "@/platform/task/testutil";
-import { findIconButton, uniqueName } from "@/testutil";
+import { findIconButton } from "@/testutil";
 
 const path = deep.path<Task.Values<typeof schemas>>();
 
@@ -858,8 +859,7 @@ describe("wrapForm", () => {
     it("should not start a redeploy that a stop cancels while it configures", async () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
-      let release = (): void => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       const Renderer = createRenderer({
         onConfigure: async (_client, config) => {
           await released;
@@ -891,8 +891,7 @@ describe("wrapForm", () => {
     it("should show that a start configures until its command goes out", async () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...INITIAL_VALUES, rack: 0 });
-      let release = (): void => {};
-      const released = new Promise<void>((resolve) => (release = resolve));
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
       const Renderer = createRenderer({
         onConfigure: async (_client, config) => {
           await released;

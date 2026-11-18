@@ -219,12 +219,8 @@ describe("version useInfoModal", () => {
       );
 
     it("should keep the update open until it installs", async () => {
-      let finish = (): void => {};
-      const { ipc, rid } = await startInstall(
-        new Promise<void>((resolve) => {
-          finish = resolve;
-        }),
-      );
+      const { promise, resolve: finish } = Promise.withResolvers<void>();
+      const { ipc, rid } = await startInstall(promise);
       expect(closed(ipc)).not.toContain(rid);
       finish();
       await waitFor(() => expect(restarted(ipc)).toBe(true));

@@ -17,6 +17,7 @@ import {
   DataType,
   dynamicWindow,
   id,
+  math,
   MultiSeries,
   scale,
   Series,
@@ -902,7 +903,7 @@ describe("line", () => {
       );
       expect(ys.series.every((s) => s.alignmentMultiple > 1n)).toBe(true);
       const ops = drawn(xs, ys);
-      expect(ops.reduce((n, op) => n + op.count, 0)).toBe(ys.length);
+      expect(math.sum(ops.map((op) => op.count))).toBe(ys.length);
       expect(y.value().data[0].upper).toBeCloseTo(1, 3);
       expect(y.value().data[0].lower).toBeCloseTo(-1, 3);
       x.cleanup();
@@ -954,7 +955,7 @@ describe("line", () => {
       expect(ys.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
       expect(ys.length).toBeGreaterThanOrEqual(500);
       expect(ys.length).toBeLessThan(homePoints + 1024);
-      expect(drawn(xs, ys).reduce((n, op) => n + op.count, 0)).toBe(ys.length);
+      expect(math.sum(drawn(xs, ys).map((op) => op.count))).toBe(ys.length);
       x.cleanup();
       y.cleanup();
     });

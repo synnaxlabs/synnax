@@ -10,6 +10,7 @@
 import { type device, ni, type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { expect } from "vitest";
@@ -28,7 +29,6 @@ import {
   type RenderTaskFormTabOptions,
   type RenderTaskFormTabResult,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
 
 type New = device.New<typeof SCHEMAS.properties, typeof SCHEMAS.make>;
 

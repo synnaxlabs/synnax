@@ -15,6 +15,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -30,7 +31,7 @@ import {
 import { Toolbar } from "@/feature/table/Toolbar";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import { assertDefined, getInputByItemLabel, uniqueName } from "@/testutil";
+import { getInputByItemLabel } from "@/testutil";
 
 interface RenderToolbarOptions {
   tableState?: Partial<Session.Table.State>;

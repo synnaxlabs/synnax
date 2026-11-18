@@ -9,6 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -21,7 +22,7 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createTestStore, resolveFocusedTab, uniqueName } from "@/testutil";
+import { createTestStore, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 

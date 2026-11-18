@@ -15,7 +15,7 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { box, direction, xy } from "@synnaxlabs/x";
+import { box, direction, math, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -72,7 +72,7 @@ export const ColumnIndicators = memo(
       if (idx !== undefined) cols.add(idx);
     }
     const selectedCols = cols;
-    const totalCells = rows.reduce((n, r) => n + r.cells.length, 0);
+    const totalCells = math.sum(rows.map((r) => r.cells.length));
     const allSelected = totalCells > 0 && selected.length >= totalCells;
     return (
       <tr className={CSS.cls(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>

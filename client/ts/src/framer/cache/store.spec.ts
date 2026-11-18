@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series, Size, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  math,
+  Series,
+  Size,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
@@ -106,11 +114,8 @@ describe("Store", () => {
     it("should evict a block past the budget once its fetch settles", async () => {
       const store = new Store({ budget: Size.bytes(1) });
       const block = store.raw(1, 100);
-      let settle!: () => void;
-      const fetch = store.hold(
-        block,
-        new Promise<void>((resolve) => (settle = resolve)),
-      );
+      const { promise: settled, resolve: settle } = Promise.withResolvers<void>();
+      const fetch = store.hold(block, settled);
       store.raw(1, 101);
       expect(store.findRaw(1, 100)).toBe(block);
       settle();
@@ -524,10 +529,12 @@ describe("Store", () => {
     };
 
     const held = (store: Store, key: channel.Key): number =>
-      store
-        .raw(key, 100)
-        .seriesIn(TimeRange.MAX)
-        .reduce((sum, s) => sum + s.length, 0);
+      math.sum(
+        store
+          .raw(key, 100)
+          .seriesIn(TimeRange.MAX)
+          .map((s) => s.length),
+      );
 
     const createStore = (now: TimeStamp): Store => {
       const store = new Store({

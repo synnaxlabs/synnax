@@ -13,6 +13,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { strings } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/css";
@@ -48,7 +49,7 @@ export const AddCountControl = ({
           onAdd(count);
           setCount(1);
         }}
-        tooltip={`Add ${count} ${count === 1 ? resourceName : `${resourceName}s`}`}
+        tooltip={`Add ${strings.count(count, resourceName)}`}
       >
         <Icon.Add />
       </Button.Button>

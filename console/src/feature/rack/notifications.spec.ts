@@ -10,6 +10,7 @@
 import { rack, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -19,7 +20,6 @@ import {
   settleWrites,
   writeStatus,
 } from "@/platform/notifications/testutil";
-import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

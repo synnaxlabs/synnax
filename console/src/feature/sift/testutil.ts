@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type device, type rack, type secret, type Synnax } from "@synnaxlabs/client";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 
 import { MAKE, type Properties } from "@/feature/sift/device/types";
 import { createTestDevice } from "@/platform/device/testutil";
-import { uniqueName } from "@/testutil";
 
 export interface CreateSiftDeviceOptions {
   rack?: rack.Key;

@@ -9,13 +9,14 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
 import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { findDialogTrigger, uniqueName } from "@/testutil";
+import { findDialogTrigger } from "@/testutil";
 
 const renderSelect = async (client: Synnax | null) =>
   await renderWithDeviceForm(

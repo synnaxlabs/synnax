@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,7 +18,7 @@ import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand, selectFromDropdown } from "@/platform/task/testutil";
-import { getSwitchInput, uniqueName } from "@/testutil";
+import { getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
 

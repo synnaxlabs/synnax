@@ -9,6 +9,7 @@
 
 import { type group } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -18,12 +19,7 @@ import {
   createLegacySymbolFile,
   symbolNames,
 } from "@/feature/schematic/testutil";
-import {
-  fakePickedFile,
-  interceptFilePicker,
-  renderHookWithConsole,
-  uniqueName,
-} from "@/testutil";
+import { fakePickedFile, interceptFilePicker, renderHookWithConsole } from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();

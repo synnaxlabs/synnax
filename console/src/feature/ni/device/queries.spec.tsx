@@ -9,13 +9,14 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice } from "@/feature/ni/task/testutil";
 import { renderWithDeviceForm } from "@/platform/device/testutil";
-import { createAsyncSynnaxWrapper, uniqueName } from "@/testutil";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

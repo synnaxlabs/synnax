@@ -10,6 +10,7 @@
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 import { z } from "zod";
@@ -22,13 +23,7 @@ import {
 } from "@/platform/task/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import {
-  assertDefined,
-  CaptureStatuses,
-  getIconButton,
-  queryIcon,
-  uniqueName,
-} from "@/testutil";
+import { CaptureStatuses, getIconButton, queryIcon } from "@/testutil";
 
 const clickIcon = (container: HTMLElement, icon: string): void => {
   fireEvent.click(getIconButton(container, icon));

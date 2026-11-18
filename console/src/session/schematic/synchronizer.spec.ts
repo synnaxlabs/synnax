@@ -10,12 +10,13 @@
 import { type project, type schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
 import { documentIn, inWindow } from "@/session/window/testutil";
-import { renderHookWithConsole, uniqueName } from "@/testutil";
+import { renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 

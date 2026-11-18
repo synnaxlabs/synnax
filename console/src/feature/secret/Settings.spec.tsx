@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   cleanup,
@@ -47,7 +48,6 @@ import {
   openContextMenu,
   resolveFocusedTab,
   selectTestProject,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

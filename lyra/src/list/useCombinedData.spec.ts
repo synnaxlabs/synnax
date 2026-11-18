@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { map } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -295,9 +296,7 @@ describe("useCombinedData", () => {
           return items.get(key);
         }) as GetItem<string, TestItem>,
         subscribe: (callback, key) => {
-          if (!subscribers.has(key)) subscribers.set(key, new Set());
-
-          subscribers.get(key)!.add(callback);
+          map.getOrInsert(subscribers, key, () => new Set()).add(callback);
           return () => subscribers.get(key)?.delete(callback);
         },
       });

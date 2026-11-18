@@ -162,6 +162,8 @@ const createCore060Unary = (core: Core060 = { upgraded: false }): UnaryClient =>
   };
 };
 
+const POLL = { timeout: 10_000, interval: 1 };
+
 const FAST_RETRY: breaker.Config = { baseInterval: TimeSpan.milliseconds(1), scale: 1 };
 
 const createConfig = (
@@ -1268,7 +1270,7 @@ describe("connection", () => {
         TimeSpan.seconds(60),
       );
       const send = unary.send as ReturnType<typeof vi.fn>;
-      while (send.mock.calls.length === 0) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThan(0);
       // the stream opens behind the auth middleware, so a login lands first
       client.notify({ type: "auth.success", session: "session" });
       client.notify({ type: "stream.live" });
@@ -1312,7 +1314,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (calls.length < 2) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => calls.length, POLL).toBeGreaterThanOrEqual(2);
       expect(calls.slice(0, 2)).toEqual(["reset", "ensure"]);
       await client.close();
     });
@@ -1329,8 +1331,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.authenticated,
       );
-      while (ensured.mock.calls.length === 0)
-        await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => ensured.mock.calls.length, POLL).toBeGreaterThan(0);
       expect(client.status.variant).toEqual("loading");
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
@@ -1345,11 +1346,10 @@ describe("connection", () => {
         stream: { reset: async () => {}, ensure: ensured },
       });
       const send = unary.send as ReturnType<typeof vi.fn>;
-      while (send.mock.calls.length < 3) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => send.mock.calls.length, POLL).toBeGreaterThanOrEqual(3);
       expect(ensured).not.toHaveBeenCalled();
       unary.setLicense("ok");
-      while (ensured.mock.calls.length === 0)
-        await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => ensured.mock.calls.length, POLL).toBeGreaterThan(0);
       await client.close();
     });
 
@@ -1382,7 +1382,7 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("warning");
       expect(probes).toEqual(1);
       const checksAtDenial = checks;
-      while (probes < 2) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => probes, POLL).toBeGreaterThanOrEqual(2);
       expect(checks - checksAtDenial).toBeGreaterThanOrEqual(3);
       expect(internal).toHaveLength(1);
       expect(AccessDeniedError.matches(internal[0])).toBe(true);
@@ -1400,8 +1400,7 @@ describe("connection", () => {
         stream: { reset: async () => {}, ensure: ensured },
         onInternalError: (error) => internal.push(error),
       });
-      while (ensured.mock.calls.length === 0)
-        await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => ensured.mock.calls.length, POLL).toBeGreaterThan(0);
       await sleep.sleep(TimeSpan.milliseconds(5));
       expect(internal).toEqual([]);
       await client.close();
@@ -1477,7 +1476,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (internal.length === 0) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => internal.length, POLL).toBeGreaterThan(0);
       expect(internal[0].message).toEqual(
         "failed to reset cache after cluster replacement",
       );
@@ -1580,11 +1579,12 @@ describe("connection", () => {
         () => client.status,
         (s) => s.details.clusterKey === "second",
       );
-      while (calls.length === 0) await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect.poll(() => calls.length, POLL).toBeGreaterThan(0);
       const send = unary.send as ReturnType<typeof vi.fn>;
       const sent = send.mock.calls.length;
-      while (send.mock.calls.length < sent + 3)
-        await sleep.sleep(TimeSpan.milliseconds(1));
+      await expect
+        .poll(() => send.mock.calls.length, POLL)
+        .toBeGreaterThanOrEqual(sent + 3);
       expect(calls).toEqual(["reset"]);
       await client.close();
     });

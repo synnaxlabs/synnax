@@ -11,6 +11,7 @@ import { arc } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -24,7 +25,6 @@ import {
   getIconButton,
   HaulProvider,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

@@ -10,6 +10,7 @@
 import { DataType, group, resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Channel } from "@synnaxlabs/pluto";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -27,7 +28,7 @@ import {
   retrieveChildGroupKeys,
   searchTree,
 } from "@/platform/tree/testutil";
-import { getIconButton, uniqueName, uniqueToken, withControlHeld } from "@/testutil";
+import { getIconButton, uniqueToken, withControlHeld } from "@/testutil";
 
 const client = createTestClient();
 

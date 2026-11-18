@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type destructor, errors } from "@synnaxlabs/x";
+import { deep, type destructor, errors, map } from "@synnaxlabs/x";
 import { useLayoutEffect, useRef } from "react";
 import { type z } from "zod";
 
@@ -263,7 +263,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
   const addStatusDisplay: ContextValue["addStatusDisplay"] = (target) => {
     const path = String(target);
     const displays = statusDisplaysRef.current;
-    displays.set(path, (displays.get(path) ?? 0) + 1);
+    map.increment(displays, path);
     return () => {
       const count = (displays.get(path) ?? 1) - 1;
       if (count === 0) displays.delete(path);

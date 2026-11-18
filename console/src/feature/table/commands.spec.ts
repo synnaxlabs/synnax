@@ -10,6 +10,7 @@
 import { table } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +20,7 @@ import { client, project } from "@/feature/table/testutil";
 import { findCommand } from "@/platform/command/testutil";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { assertDefined, renderHookWithConsole, resolveFocusedTab } from "@/testutil";
+import { renderHookWithConsole, resolveFocusedTab } from "@/testutil";
 
 const roles = new RoleClients(client);
 

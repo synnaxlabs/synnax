@@ -17,6 +17,7 @@
 //   pnpm check-site --route /reference/hardware    only routes under the prefix
 //   pnpm check-site --strict                       fail on a broken external link
 
+import { map } from "@synnaxlabs/x";
 import { preview } from "astro";
 import fs from "fs";
 import { styleText } from "util";
@@ -89,7 +90,7 @@ if (prefixes.length > 0) {
 const counts = new Map<string, number>();
 const record = (check: string, messages: string[]): void => {
   if (messages.length === 0) return;
-  counts.set(check, (counts.get(check) ?? 0) + messages.length);
+  map.increment(counts, check, messages.length);
   for (const message of messages) {
     if (process.stdout.isTTY) process.stdout.write("\r\x1b[2K");
     console.error(`${styleText(["red", "bold"], check)} ${message}`);

@@ -16,6 +16,7 @@ import {
 import { createPanelProject } from "@synnaxlabs/client/testutil";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { renderHook, waitFor } from "@testing-library/react";
 import {
   type FC,
@@ -25,12 +26,7 @@ import {
 } from "react";
 
 import { Session } from "@/session";
-import {
-  createConsoleWrapper,
-  getBySelector,
-  type TestStore,
-  uniqueName,
-} from "@/testutil";
+import { createConsoleWrapper, getBySelector, type TestStore } from "@/testutil";
 
 /** The rendered mosaic leaf: the drop target for both tabs and OS files. */
 export const getMosaicLeaf = (): HTMLElement =>

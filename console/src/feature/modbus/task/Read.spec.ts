@@ -10,6 +10,7 @@
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -30,7 +31,7 @@ import {
   selectFromDropdown,
   START_FAILURE,
 } from "@/platform/task/testutil";
-import { findIconButton, getIconButton, uniqueName } from "@/testutil";
+import { findIconButton, getIconButton } from "@/testutil";
 
 const client = createTestClient();
 

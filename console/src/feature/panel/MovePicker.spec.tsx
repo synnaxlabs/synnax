@@ -10,6 +10,7 @@
 import { panel, type project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -25,7 +26,7 @@ import { useMovePicker } from "@/feature/panel/MovePicker";
 import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import { type TestStore, uniqueName } from "@/testutil";
+import { type TestStore } from "@/testutil";
 
 const client = createTestClient();
 

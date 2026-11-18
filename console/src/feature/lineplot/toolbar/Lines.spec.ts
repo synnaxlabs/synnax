@@ -15,6 +15,7 @@ import {
   type ranger,
 } from "@synnaxlabs/client";
 import { dynamicWindow, staticWindow, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -33,7 +34,6 @@ import {
   isPlutoDisabled,
   queryIcon,
   queryIconButton,
-  uniqueName,
 } from "@/testutil";
 
 const RECENT: ranger.Ref = {

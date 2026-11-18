@@ -23,6 +23,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -55,7 +56,6 @@ import {
   awaitTextEditingElement,
   createTestClientWithGrants,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

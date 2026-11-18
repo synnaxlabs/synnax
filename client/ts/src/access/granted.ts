@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { map } from "@synnaxlabs/x";
+
 import { type Action } from "@/access/action/types.gen";
 import { allowRequest } from "@/access/enforce";
 import { type policy } from "@/access/policy";
@@ -50,12 +52,7 @@ export class Granted {
 
   // A stable query per role keeps repeat reads on the retriever's memo.
   private queryFor({ role }: Grantee): policy.RetrieveMultipleParams {
-    let held = this.queries.get(role);
-    if (held == null) {
-      held = { roles: [role] };
-      this.queries.set(role, held);
-    }
-    return held;
+    return map.getOrInsert(this.queries, role, () => ({ roles: [role] }));
   }
 
   private evaluate(

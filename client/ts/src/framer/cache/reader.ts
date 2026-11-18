@@ -11,6 +11,7 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type destructor,
   errors,
+  map,
   type Reduction,
   scheduler,
   type Series,
@@ -306,10 +307,7 @@ export class Reader {
     const stale = (k: channel.Key): boolean => rewritten.has(null) || rewritten.has(k);
     const grouped = new Map<channel.Key, Series[]>();
     frame.forEach((k, s) => {
-      const key = k as channel.Key;
-      const existing = grouped.get(key);
-      if (existing == null) grouped.set(key, [s]);
-      else existing.push(s);
+      map.getOrInsert(grouped, k as channel.Key, () => []).push(s);
     });
     indexOf.forEach((idx, key) => {
       const series = grouped.get(key) ?? [];

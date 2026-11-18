@@ -9,6 +9,7 @@
 
 import { log, NotFoundError, project } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -21,7 +22,7 @@ import {
   renderLiveTree,
   renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { assertDefined, resolveFocusedTab, uniqueName } from "@/testutil";
+import { resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);

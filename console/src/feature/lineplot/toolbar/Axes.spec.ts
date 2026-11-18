@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -21,7 +22,6 @@ import {
   getInputItem,
   getLabeledInput,
   queryIconButton,
-  uniqueName,
 } from "@/testutil";
 
 const renderAxesTab = async () => {

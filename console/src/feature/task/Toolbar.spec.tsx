@@ -31,6 +31,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
   afterEach,
@@ -64,7 +65,6 @@ import {
 } from "@/platform/task/testutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   awaitTextEditing,
   CaptureStatuses,
   type CaptureStatusesProps,
@@ -74,7 +74,6 @@ import {
   openContextMenu,
   queryIconButton,
   resolveFocusedTab,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

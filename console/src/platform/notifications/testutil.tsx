@@ -11,11 +11,12 @@ import { type resource, type status, type Synnax } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 
 import { Notifications } from "@/platform/notifications";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 /**
  * Renders every notification. {@link Notifications.Feed} shows only four, and specs

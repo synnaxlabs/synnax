@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
@@ -17,11 +18,9 @@ import { createTestClient, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
-const uniqueName = (): string => `d_${id.create().replace(/-/g, "_")}`;
-
 const createArc = async (): Promise<arc.Arc> =>
   await client.arcs.create({
-    name: uniqueName(),
+    name: uniqueName("d"),
     type: "automation",
     source: { mode: "text" },
   });
@@ -37,7 +36,7 @@ describe("arc.directory", () => {
     const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
     expect(d.parent).toBe(root.key);
     const children = await client.arcs.directories.retrieve({ parents: [root.key] });
@@ -47,7 +46,7 @@ describe("arc.directory", () => {
   it("should cache a directory with a key before the Core answers", async () => {
     const root = await client.arcs.directories.retrieveRoot();
     const key = uuid.create();
-    const name = uniqueName();
+    const name = uniqueName("d");
     const created = client.arcs.directories.create({ parent: root.key, key, name });
     expect(client.arcs.directories.watch(key).getCached()).toEqual({
       key,
@@ -60,7 +59,11 @@ describe("arc.directory", () => {
   it("should drop the cached directory when the Core rejects the create", async () => {
     const key = uuid.create();
     const parent = uuid.create();
-    const created = client.arcs.directories.create({ parent, key, name: uniqueName() });
+    const created = client.arcs.directories.create({
+      parent,
+      key,
+      name: uniqueName("d"),
+    });
     await expect(created).rejects.toThrow(`parent: arc_directory ${parent}`);
     expect(query.isLive(client.arcs.directories.watch(key).getCached())).toBe(false);
   });
@@ -92,7 +95,7 @@ describe("arc.directory", () => {
       const root = await client.arcs.directories.retrieveRoot();
       const d = await client.arcs.directories.create({
         parent: root.key,
-        name: uniqueName(),
+        name: uniqueName("d"),
       });
       const renamed = client.arcs.directories.rename(d.key, "bad name");
       await expect(renamed).rejects.toSatisfy(ValidationError.matches);
@@ -106,9 +109,9 @@ describe("arc.directory", () => {
     const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
-    const name = uniqueName();
+    const name = uniqueName("d");
     await client.arcs.directories.rename(d.key, name);
     const [res] = await client.arcs.directories.retrieve([d.key]);
     expect(res.name).toBe(name);
@@ -118,9 +121,9 @@ describe("arc.directory", () => {
     const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
-    const name = uniqueName();
+    const name = uniqueName("d");
     await client.arcs.directories.dispatch(
       d.key,
       arc.directory.set({ path: ["name"], value: name }),
@@ -133,7 +136,7 @@ describe("arc.directory", () => {
     const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
     const res = await client.arcs.directories.retrieve(d.name);
     expect(res.key).toBe(d.key);
@@ -143,7 +146,7 @@ describe("arc.directory", () => {
     const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
     await client.arcs.directories.delete(d.key);
     await expect(client.arcs.directories.retrieve([d.key])).rejects.toSatisfy(
@@ -162,7 +165,7 @@ describe("arc.directory", () => {
     const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
     const a = await createArc();
     await client.arcs.directories.move(
@@ -176,7 +179,7 @@ describe("arc.directory", () => {
   it("should move an Arc and a directory in one call", async () => {
     const root = await client.arcs.directories.retrieveRoot();
     const [dest, moved] = await Promise.all(
-      [uniqueName(), uniqueName()].map(
+      [uniqueName("d"), uniqueName("d")].map(
         async (name) =>
           await client.arcs.directories.create({ parent: root.key, name }),
       ),
@@ -199,7 +202,7 @@ describe("arc.directory", () => {
       const key = uuid.create();
       const { directories } = client.arcs;
       await client.batch.send([
-        directories.createRequest({ parent: root.key, key, name: uniqueName() }),
+        directories.createRequest({ parent: root.key, key, name: uniqueName("d") }),
         ...directories.moveRequests(
           arc.directory.resourceID(key),
           arc.resourceID(a.key),
@@ -212,7 +215,7 @@ describe("arc.directory", () => {
       const root = await client.arcs.directories.retrieveRoot();
       const other = await client.arcs.directories.create({
         parent: root.key,
-        name: uniqueName(),
+        name: uniqueName("d"),
       });
       const a = await createArc();
       const clash = await client.arcs.directories.create({
@@ -223,7 +226,7 @@ describe("arc.directory", () => {
       const { directories } = client.arcs;
       await expect(
         client.batch.send([
-          directories.createRequest({ parent: root.key, key, name: uniqueName() }),
+          directories.createRequest({ parent: root.key, key, name: uniqueName("d") }),
           ...directories.moveRequests(
             arc.directory.resourceID(key),
             arc.resourceID(a.key),
@@ -240,9 +243,9 @@ describe("arc.directory", () => {
     const root = await client.arcs.directories.retrieveRoot();
     const dest = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
-    const name = uniqueName();
+    const name = uniqueName("d");
     await client.arcs.directories.create({ parent: dest.key, name });
     const clash = await client.arcs.directories.create({ parent: root.key, name });
     const a = await createArc();
@@ -261,11 +264,11 @@ describe("arc.directory", () => {
     const root = await client.arcs.directories.retrieveRoot();
     const mid = await client.arcs.directories.create({
       parent: root.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
     const leaf = await client.arcs.directories.create({
       parent: mid.key,
-      name: uniqueName(),
+      name: uniqueName("d"),
     });
     return [root, mid, leaf];
   };
@@ -319,7 +322,7 @@ describe("arc.directory", () => {
       await client.arcs.directories.retrieveAncestors(leaf.key);
       const handler = vi.fn();
       const stop = client.arcs.directories.onAncestorsChange(leaf.key, handler);
-      const name = uniqueName();
+      const name = uniqueName("d");
       await client.arcs.directories.rename(mid.key, name);
       await expect
         .poll(() => handler.mock.lastCall?.[0])
@@ -329,7 +332,7 @@ describe("arc.directory", () => {
         ]);
       const dest = await client.arcs.directories.create({
         parent: root.key,
-        name: uniqueName(),
+        name: uniqueName("d"),
       });
       await client.arcs.directories.move(
         arc.directory.resourceID(dest.key),
@@ -355,7 +358,7 @@ describe("arc.directory", () => {
       const root = await client.arcs.directories.retrieveRoot();
       const dir = await client.arcs.directories.create({
         parent: root.key,
-        name: uniqueName(),
+        name: uniqueName("d"),
       });
       const watcher = createTestClient();
       await watcher.connect();
@@ -373,7 +376,7 @@ describe("arc.directory", () => {
 
     it("should take a rename", async () => {
       const { watcher, dir } = await watchDirectory();
-      const name = uniqueName();
+      const name = uniqueName("d");
       await client.arcs.directories.rename(dir.key, name);
       await expect.poll(() => cachedOf(watcher, dir.key)?.name).toBe(name);
     });
@@ -382,7 +385,7 @@ describe("arc.directory", () => {
       const { watcher, root, dir } = await watchDirectory();
       const dest = await client.arcs.directories.create({
         parent: root.key,
-        name: uniqueName(),
+        name: uniqueName("d"),
       });
       await client.arcs.directories.move(
         arc.directory.resourceID(dest.key),

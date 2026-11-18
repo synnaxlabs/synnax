@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -23,7 +24,6 @@ import {
   createConsoleWrapper,
   resolveFocusedTab,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const renderToolbar = async (): Promise<{ store: TestStore }> => {

@@ -19,6 +19,7 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { scheduler, TimeSpan, uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -28,11 +29,9 @@ import { Link } from "@/feature/link";
 import { type Link as PlatformLink } from "@/platform/link";
 import { Session } from "@/session";
 import {
-  assertDefined,
   createSessionConsoleWrapper,
   renderHookWithConsole,
   type TestStore,
-  uniqueName,
   withSelectedProject,
 } from "@/testutil";
 

@@ -16,6 +16,7 @@ import {
   type dimensions,
   direction,
   location,
+  map,
   type text,
   xy,
 } from "@synnaxlabs/x";
@@ -493,12 +494,10 @@ export class Draw2D {
   }
 
   private capHeight(): number {
-    const { font } = this.canvas;
-    let height = this.capHeights.get(font);
-    if (height == null) {
-      height = this.canvas.measureText("H").actualBoundingBoxAscent;
-      this.capHeights.set(font, height);
-    }
-    return height;
+    return map.getOrInsert(
+      this.capHeights,
+      this.canvas.font,
+      () => this.canvas.measureText("H").actualBoundingBoxAscent,
+    );
   }
 }

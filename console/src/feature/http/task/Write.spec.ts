@@ -9,6 +9,7 @@
 
 import { channel, http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -31,7 +32,6 @@ import {
   commitTextEdit,
   findDialogTriggerByText,
   getHeaderIconButton,
-  uniqueName,
 } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders

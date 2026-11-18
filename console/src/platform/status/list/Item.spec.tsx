@@ -13,6 +13,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -24,7 +25,6 @@ import {
   commitTextEdit,
   countEditableText,
   createConsoleWrapper,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

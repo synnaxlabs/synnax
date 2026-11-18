@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -15,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { client, project } from "@/feature/lineplot/testutil";
 import { useTriggerHold } from "@/feature/lineplot/useTriggerHold";
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const renderTriggerHold = async (enabled: boolean) => {
   const plot = await client.lineplots.create({

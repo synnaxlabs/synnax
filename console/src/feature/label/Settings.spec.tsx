@@ -14,6 +14,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -34,7 +35,6 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   openContextMenu,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

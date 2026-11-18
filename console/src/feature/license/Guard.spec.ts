@@ -16,6 +16,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -29,12 +30,7 @@ import { License } from "@/platform/license";
 import { stubHub } from "@/platform/license/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import {
-  fakePickedFile,
-  interceptFilePicker,
-  uniqueName,
-  UNLICENSED_STATUS,
-} from "@/testutil";
+import { fakePickedFile, interceptFilePicker, UNLICENSED_STATUS } from "@/testutil";
 
 const AUTH_FAILED_STATUS: connection.Status = {
   ...connection.DEFAULT_STATUS,

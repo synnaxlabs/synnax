@@ -9,6 +9,7 @@
 
 import { type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 
 import {
@@ -24,7 +25,6 @@ import {
   type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { createRunningRack } from "@/platform/device/testutil";
-import { uniqueName } from "@/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
 export const SERVER_CERTIFICATE: CertificateInfo = {

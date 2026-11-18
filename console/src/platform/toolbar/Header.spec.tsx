@@ -53,8 +53,7 @@ describe("Toolbar.Body", () => {
   afterEach(() => consoleSpy.mockRestore());
 
   it("keeps the header painted while the body's read is pending", async () => {
-    let resolve!: () => void;
-    const promise = new Promise<void>((r) => (resolve = r));
+    const { promise, resolve } = Promise.withResolvers<void>();
     await renderToolbar(<Read promise={promise} />);
     expect(screen.getByText("Ranges")).toBeTruthy();
     expect(screen.queryByText("body")).toBeNull();

@@ -10,6 +10,7 @@
 import { arc } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Access } from "@synnaxlabs/pluto";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -17,12 +18,7 @@ import { Arc } from "@/feature/arc";
 import { renderPalette } from "@/feature/command/testutil";
 import { findCommand } from "@/platform/command/testutil";
 import { Session } from "@/session";
-import {
-  assertDefined,
-  renderHookWithConsole,
-  resolveFocusedTab,
-  uniqueName,
-} from "@/testutil";
+import { renderHookWithConsole, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);

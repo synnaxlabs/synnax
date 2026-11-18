@@ -15,6 +15,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { map, math } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { useState } from "react";
 
@@ -70,8 +71,7 @@ type DiscoverProps<E extends HeldEntry> = Modals.ContentProps<Params<E>, E[]> & 
  */
 const addLabel = (counts: [noun: string, count: number][], idle: string): string => {
   const totals = new Map<string, number>();
-  for (const [noun, count] of counts)
-    if (count > 0) totals.set(noun, (totals.get(noun) ?? 0) + count);
+  for (const [noun, count] of counts) if (count > 0) map.increment(totals, noun, count);
   if (totals.size === 0) return `Add ${pluralize(idle)}`;
   const parts = [...totals].map(([noun, count]) => pluralize(noun, count, true));
   return `Add ${parts.join(" and ")}`;
@@ -91,7 +91,7 @@ const Discover = <E extends HeldEntry>({
   const picked = (): E[] =>
     kind.create({ topics: topicPicks, tags: tagPicks }, entries);
 
-  const values = [...topicPicks.values()].reduce((n, p) => n + p.pointers.size, 0);
+  const values = math.sum([...topicPicks.values()].map((p) => p.pointers.size));
   const count = values + tagPicks.size;
   const parts: string[] = [];
   if (values > 0) {

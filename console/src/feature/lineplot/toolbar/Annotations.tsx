@@ -248,7 +248,7 @@ export const Annotations = (): ReactElement => {
     setSelectedRuleKeys(newSelectedRuleKey == null ? [] : [newSelectedRuleKey]);
   };
 
-  const shownRuleKey = selectedRuleKeys[selectedRuleKeys.length - 1];
+  const shownRuleKey = selectedRuleKeys.at(-1);
   if (shownRuleKey == null || !rules.some((rule) => rule.key === shownRuleKey))
     return <EmptyContent onCreateRule={handleCreateRule} />;
   return (

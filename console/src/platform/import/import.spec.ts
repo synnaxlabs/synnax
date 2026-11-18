@@ -10,16 +10,12 @@
 import { log } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Import } from "@/platform/import";
-import {
-  fakePickedFile,
-  interceptFilePicker,
-  renderHookWithConsole,
-  uniqueName,
-} from "@/testutil";
+import { fakePickedFile, interceptFilePicker, renderHookWithConsole } from "@/testutil";
 
 afterEach(() => {
   vi.restoreAllMocks();

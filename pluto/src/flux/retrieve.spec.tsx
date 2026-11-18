@@ -624,23 +624,23 @@ describe("use", () => {
 
     it("hands back the previous answer when the next one compares equal", async () => {
       const { utils, seen, push } = await renderProjection("equal-hold");
-      const before = seen[seen.length - 1];
+      const before = seen.at(-1);
       const renders = seen.length;
 
       await push([1, 2]);
 
       expect(utils.queryByTestId("error")).toBeNull();
       expect(seen.length).toEqual(renders);
-      expect(seen[seen.length - 1]).toBe(before);
+      expect(seen.at(-1)).toBe(before);
     });
 
     it("hands back the next answer when it compares unequal", async () => {
       const { utils, seen, push } = await renderProjection("equal-change");
-      const before = seen[seen.length - 1];
+      const before = seen.at(-1);
 
       await push([1, 2, 3]);
 
-      expect(seen[seen.length - 1]).not.toBe(before);
+      expect(seen.at(-1)).not.toBe(before);
       expect(utils.queryByTestId("value")?.textContent).toEqual("1,2,3");
     });
 
@@ -753,7 +753,7 @@ describe("use", () => {
       });
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
-      expect(seen[seen.length - 1]).toBe(cached);
+      expect(seen.at(-1)).toBe(cached);
     });
 
     it("settles a composed answer when no comparator is given", async () => {
@@ -785,7 +785,7 @@ describe("use", () => {
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
       expect(seen.length).toBeLessThan(10);
-      expect(seen[seen.length - 1]).toBe(seen[0]);
+      expect(seen.at(-1)).toBe(seen[0]);
     });
   });
 

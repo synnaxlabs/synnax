@@ -207,10 +207,7 @@ describe("Import.useFileDrop", () => {
   // alongside it. A file that finishes reading after the switch still belongs to the
   // project that was open when the drop landed.
   it("imports every file into the project open when the drop landed", async () => {
-    let releaseFile = (): void => {};
-    const held = new Promise<void>((resolve) => {
-      releaseFile = resolve;
-    });
+    const { promise: held, resolve: releaseFile } = Promise.withResolvers<void>();
     const switched = await client.projects.create({
       name: `switched-${uuid.create()}`,
     });

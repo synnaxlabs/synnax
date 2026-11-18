@@ -951,8 +951,7 @@ describe("Answers", () => {
     it("joins a subscriber's fetch from a read", async () => {
       const table = newTable();
       table.set(rec("a", 0));
-      let release = (): void => {};
-      const held = new Promise<void>((resolve) => (release = resolve));
+      const { promise: held, resolve: release } = Promise.withResolvers<void>();
       const fetch = vi.fn(async () => {
         await held;
         return ["a"];
@@ -1520,8 +1519,7 @@ describe("Answers", () => {
       const table = newTable();
       table.set("a", rec("a", 5));
       let members = [rec("a", 5)];
-      let release!: () => void;
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const fetch = vi.fn(async () => {
         const read = members;
         await gate;
@@ -1557,8 +1555,7 @@ describe("Answers", () => {
       const table = newTable();
       table.set("a", rec("a", 5));
       let members = [rec("a", 5)];
-      let release!: () => void;
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const fetch = vi.fn(async () => {
         const read = members;
         await gate;
@@ -2083,8 +2080,7 @@ describe("Answers", () => {
       const answers = limitSpace(table, fetch);
       answers.onChange({ min: 3, limit: 2 }, vi.fn());
       await answers.retrieve({ min: 3, limit: 2 });
-      let release = (): void => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       fetch.mockImplementationOnce(async () => {
         await gate;
         return ["b"];

@@ -10,18 +10,14 @@
 import { device, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { createReachedStatus, createSlaveDevice } from "@/feature/ethercat/testutil";
 import { Notifications } from "@/platform/notifications";
-import {
-  CaptureStatuses,
-  createConsoleWrapper,
-  installPortalRoot,
-  uniqueName,
-} from "@/testutil";
+import { CaptureStatuses, createConsoleWrapper, installPortalRoot } from "@/testutil";
 
 const client = createTestClient();
 

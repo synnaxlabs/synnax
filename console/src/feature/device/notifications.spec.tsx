@@ -10,6 +10,7 @@
 import { type device, type status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -22,7 +23,7 @@ import { createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { Notifications } from "@/platform/notifications";
 import { checkInUse } from "@/platform/notifications/testutil";
-import { createConsoleWrapper, installPortalRoot, uniqueName } from "@/testutil";
+import { createConsoleWrapper, installPortalRoot } from "@/testutil";
 
 const client = createTestClient();
 

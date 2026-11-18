@@ -13,6 +13,7 @@ import {
   createTestClientAs,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   cleanup,
@@ -36,7 +37,6 @@ import {
   createConsoleWrapper,
   openContextMenu,
   queryIcon,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

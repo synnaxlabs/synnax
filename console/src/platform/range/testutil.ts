@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger, type Synnax } from "@synnaxlabs/client";
-import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 
 import { createKeyEndingIn } from "@/testutil";
-
-/** Generates a Core-safe unique range name: letters, digits, and underscores. */
-export const uniqueRangeName = (prefix = "range"): string =>
-  `${prefix}_${id.create().replace(/-/g, "_")}`;
 
 /**
  * Creates a real range on the connected Core with a unique name and a valid, non-zero
@@ -23,7 +20,7 @@ export const uniqueRangeName = (prefix = "range"): string =>
 export const createTestRange = async (client: Synnax): Promise<ranger.Range> => {
   const start = TimeStamp.now();
   return await client.ranges.create({
-    name: uniqueRangeName(),
+    name: uniqueName("range"),
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
   });
 };
@@ -44,13 +41,13 @@ export const createOffPageTestRange = async (client: Synnax): Promise<ranger.Ran
   await client.ranges.create(
     Array.from({ length: PAGE_SIZE }, () => ({
       key: createKeyEndingIn("0"),
-      name: uniqueRangeName("ahead"),
+      name: uniqueName("ahead"),
       timeRange,
     })),
   );
   return await client.ranges.create({
     key: createKeyEndingIn("f"),
-    name: uniqueRangeName(),
+    name: uniqueName("range"),
     timeRange,
   });
 };

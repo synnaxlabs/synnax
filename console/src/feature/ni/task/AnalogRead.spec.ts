@@ -10,6 +10,7 @@
 import { type ni, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
@@ -36,7 +37,6 @@ import {
   getIconButton,
   getInputTable,
   getLabeledInput,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

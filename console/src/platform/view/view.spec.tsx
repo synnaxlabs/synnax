@@ -15,13 +15,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Access, Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Label } from "@/platform/label";
 import { Modals } from "@/platform/modals";
-import { uniqueRangeName } from "@/platform/range/testutil";
 import { View } from "@/platform/view";
 import { createTabWrapper, type TabWrapper } from "@/platform/view/testutil";
 import { Session } from "@/session";
@@ -37,7 +37,6 @@ import {
   openContextMenu,
   queryIconButton,
   renderSuspended,
-  uniqueName,
 } from "@/testutil";
 
 const RenderItem = ({ itemKey }: List.ItemProps<ranger.Key>): ReactElement => (
@@ -167,11 +166,11 @@ describe("View", () => {
     const start = TimeStamp.now();
     const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
     const alpha = await client.ranges.create({
-      name: uniqueRangeName("alpha"),
+      name: uniqueName("alpha"),
       timeRange,
     });
     const bravo = await client.ranges.create({
-      name: uniqueRangeName("bravo"),
+      name: uniqueName("bravo"),
       timeRange,
     });
     await renderHarness();
@@ -527,11 +526,11 @@ describe("View permissions", () => {
     const start = TimeStamp.now();
     const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
     const alpha = await client.ranges.create({
-      name: uniqueRangeName("alpha"),
+      name: uniqueName("alpha"),
       timeRange,
     });
     const bravo = await client.ranges.create({
-      name: uniqueRangeName("bravo"),
+      name: uniqueName("bravo"),
       timeRange,
     });
     const saved = await createView();

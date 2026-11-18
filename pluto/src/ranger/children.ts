@@ -11,6 +11,7 @@ import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/clie
 import { useMemoArray, useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Store } from "@synnaxlabs/lyra/store";
+import { map } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 
 import { Synnax } from "@/synnax";
@@ -72,18 +73,15 @@ export const useChildren = ({
   if (lists.client !== client || lists.order !== stableOrder)
     setLists({ client, order: stableOrder, byParent: new Map() });
   const read = lists.client == null ? NO_PARENTS : keys;
-  const listOf = (key: ranger.Key): query.List<ranger.Range, unknown> => {
-    let list = lists.byParent.get(key);
-    if (list != null) return list;
-    if (lists.client == null) throw new Error("useChildren reads with no client");
-    list = lists.client.ranges.watch({
-      where: { parents: [key] },
-      order: lists.order,
-      limit: PAGE_SIZE,
+  const listOf = (key: ranger.Key): query.List<ranger.Range, unknown> =>
+    map.getOrInsert(lists.byParent, key, () => {
+      if (lists.client == null) throw new Error("useChildren reads with no client");
+      return lists.client.ranges.watch({
+        where: { parents: [key] },
+        order: lists.order,
+        limit: PAGE_SIZE,
+      });
     });
-    lists.byParent.set(key, list);
-    return list;
-  };
   const windows = Store.useItems({
     keys: read as ranger.Key[],
     subscribe: (listener, key) => listOf(key).onChange(listener),

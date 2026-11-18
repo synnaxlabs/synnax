@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { findButton, openModal } from "@/platform/modals/testutil";
 import { User } from "@/platform/user";
-import { uniqueName } from "@/testutil";
 
 describe("User.useRegisterModal", () => {
   it("should disable the Register button when no Core is connected", async () => {

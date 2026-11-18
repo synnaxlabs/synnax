@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type secret, type Synnax } from "@synnaxlabs/client";
-
-import { uniqueName } from "@/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 
 /** Creates a stored secret with a unique name and adds its key to created. */
 export const createSecret = async (

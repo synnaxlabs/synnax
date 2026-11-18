@@ -18,6 +18,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { binary, uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -43,12 +44,10 @@ import {
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   awaitTextEditingElement,
   CaptureStatuses,
   commitTextEdit,
   resolveFocusedTab,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

@@ -11,6 +11,7 @@ import { panel, query, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
@@ -19,12 +20,7 @@ import { Panel } from "@/platform/panel";
 import { View } from "@/platform/view";
 import { createTabWrapper, type TabWrapper } from "@/platform/view/testutil";
 import { Session } from "@/session";
-import {
-  awaitTextEditing,
-  commitTextEdit,
-  renderSuspended,
-  uniqueName,
-} from "@/testutil";
+import { awaitTextEditing, commitTextEdit, renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 

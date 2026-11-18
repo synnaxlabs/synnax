@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { patch } from "@synnaxlabs/x";
+import { map, patch } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import { actions } from "@/actions";
@@ -249,8 +249,8 @@ const handlers: Handlers = {
     for (const k of selected) {
       const pos = rowPosOf.get(k);
       if (pos == null) continue;
-      rowTally.set(pos.row, (rowTally.get(pos.row) ?? 0) + 1);
-      colTally.set(pos.col, (colTally.get(pos.col) ?? 0) + 1);
+      map.increment(rowTally, pos.row);
+      map.increment(colTally, pos.col);
     }
     const fullRowIdx: number[] = [];
     for (const [rowIdx, tally] of rowTally)

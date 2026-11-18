@@ -9,6 +9,7 @@
 
 import { type Synnax, user } from "@synnaxlabs/client";
 import { createTestClient, createTestClientAs } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -23,7 +24,6 @@ import {
   type ConsolePreloadedState,
   createConsoleWrapper,
   openContextMenu,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

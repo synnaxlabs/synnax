@@ -8,14 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { http, type task } from "@synnaxlabs/client";
-import { json, payload, record } from "@synnaxlabs/x";
+import { json, payload, record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  checkDuplicateKeys,
-  headersZ,
-  queryParamsZ,
-} from "@/feature/http/device/types";
+import { headersZ, queryParamsZ } from "@/feature/http/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "http";
@@ -34,7 +30,13 @@ const deployReadFieldZ = http.readFieldZ.extend({
   pointer: json.pointerZ,
   enumValues: payload.enumEntryZ
     .array()
-    .check(checkDuplicateKeys("label", "enum label"))
+    .check(
+      zod.uniqueBy<payload.EnumEntry, "label">(
+        "label",
+        (label) => `Duplicate enum label "${label}"`,
+        ({ label }) => label === "",
+      ),
+    )
     .default(() => []),
 });
 

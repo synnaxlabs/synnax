@@ -23,6 +23,7 @@ import {
   newIndexedPair,
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -32,7 +33,7 @@ import { createSiftDevice } from "@/feature/sift/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
-import { CaptureStatuses, findDialogTriggerByText, uniqueName } from "@/testutil";
+import { CaptureStatuses, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 

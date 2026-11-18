@@ -22,11 +22,12 @@ import {
   TimeStamp,
   uuid,
 } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
-import { createConsoleWrapper, selectRange, uniqueName } from "@/testutil";
+import { createConsoleWrapper, selectRange } from "@/testutil";
 
 const client = createTestClient();
 
@@ -258,8 +259,7 @@ describe("Range.SYNCHRONIZERS", () => {
     });
 
     it("should not mark the rewrite done when its pass ends", async () => {
-      let release: () => void = () => {};
-      const gate = new Promise<void>((resolve) => (release = resolve));
+      const { promise: gate, resolve: release } = Promise.withResolvers<void>();
       const send = vi.spyOn(client.lineplots, "send").mockReturnValue(gate);
       try {
         const { unmount, rewritten } = await mountWithLocal();

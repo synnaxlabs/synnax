@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { createAction, type Middleware, type PayloadAction } from "@reduxjs/toolkit";
-import { type CrudeTimeSpan, deep, record, scheduler, TimeSpan } from "@synnaxlabs/x";
+import {
+  type CrudeTimeSpan,
+  deep,
+  map,
+  record,
+  scheduler,
+  TimeSpan,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Entry, openSugaredKV, type SugaredKV } from "@/session/persist/kv";
@@ -678,12 +685,11 @@ class Engine<S extends object> {
     schemas: SliceSchemas<S>,
     transform: SliceTransform<S> | null = null,
   ): Partition<S> {
-    let partition = this.partitions.get(base);
-    if (partition == null) {
-      partition = new Partition(this.db, base, schemas, transform, this.onError);
-      this.partitions.set(base, partition);
-    }
-    return partition;
+    return map.getOrInsert(
+      this.partitions,
+      base,
+      () => new Partition(this.db, base, schemas, transform, this.onError),
+    );
   }
 
   /** The partitions the given context reaches: global, then Core, then project. */

@@ -176,10 +176,9 @@ const cloneSafeError = (err: Error, depth: number = 8): Error => {
 /** Flattens an error's cause chain into one readable line. */
 const causeChain = (err: Error): string | undefined => {
   const parts: string[] = [];
-  let cause: unknown = err.cause;
-  for (let i = 0; i < 8 && cause instanceof Error; i++) {
+  for (const cause of errors.causes(err, 8)) {
+    if (!(cause instanceof Error)) break;
     if (cause.message.length > 0) parts.push(cause.message);
-    cause = cause.cause;
   }
   if (parts.length === 0) return undefined;
   return parts.join(": ");

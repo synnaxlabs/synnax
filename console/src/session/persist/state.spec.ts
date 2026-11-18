@@ -1079,8 +1079,7 @@ describe("Persist.middleware", () => {
     const written = await createDriver(store);
     await enter(written, CTX);
     await edit(written, "fresh");
-    let releaseStale: (() => void) | undefined;
-    const staleGate = new Promise<void>((resolve) => (releaseStale = resolve));
+    const { promise: staleGate, resolve: releaseStale } = Promise.withResolvers<void>();
     const gateHit = vi.fn();
     const gateDone = vi.fn();
     // Holds the slow Core's state read so its swap is still in flight when the next
@@ -1114,7 +1113,7 @@ describe("Persist.middleware", () => {
       { type: "Core/select" },
       { ...driver.getState(), core: { selected: "c2" }, project: {} },
     );
-    releaseStale?.();
+    releaseStale();
     // The released read is the stale swap's last async hop, so once it lands the
     // swap has fully resolved. Its hydrate would clobber the newer Core's slices.
     await vi.waitFor(() => expect(gateDone).toHaveBeenCalled());
@@ -1132,8 +1131,7 @@ describe("Persist.middleware", () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const gateHit = vi.fn();
-    let release: (() => void) | undefined;
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const { promise: gate, resolve: release } = Promise.withResolvers<void>();
     const gated: Persist.SugaredKV = {
       get: async <V>(key: string): Promise<V | null> => await store.get<V>(key),
       set: async (key, value) => await store.set(key, value),
@@ -1167,7 +1165,7 @@ describe("Persist.middleware", () => {
     // A concurrent flush would reach the store within this window; a queued one
     // cannot move until the gate opens.
     await sleep.sleep(TimeSpan.milliseconds(20));
-    release?.();
+    release();
     await driver.settle();
     expect(maxInFlight).toBe(1);
   });

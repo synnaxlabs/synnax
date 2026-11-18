@@ -10,6 +10,7 @@
 import { lineplot } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,7 +19,6 @@ import {
   captureBrowserDownloads,
   type CapturedDownloads,
   renderHookWithConsole,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();

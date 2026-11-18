@@ -14,6 +14,7 @@ import { type Status } from "@synnaxlabs/lyra/status";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { array, sleep, TimeSpan } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -48,7 +49,6 @@ import {
   renderWithConsole,
   selectTestProject,
   type TestStore,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 

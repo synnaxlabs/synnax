@@ -16,7 +16,7 @@ import {
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { color, id, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, id, map, sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -95,7 +95,7 @@ describe("useList", () => {
     const renders = new Map<ranger.Key, number>();
     const Item = ({ itemKey }: { itemKey: ranger.Key }): ReactElement => {
       const range = List.useItem<ranger.Key, ranger.Range>(itemKey);
-      renders.set(itemKey, (renders.get(itemKey) ?? 0) + 1);
+      map.increment(renders, itemKey);
       return <span>{range?.name}</span>;
     };
     const renderItem = ({ key }: { key: ranger.Key }) => (

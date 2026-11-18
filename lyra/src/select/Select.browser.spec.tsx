@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { scheduler } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -834,7 +835,7 @@ describe("Select", () => {
       const trigger = await renderChips("text", 200, { preview: true });
       // A preview reads as disabled, which a user can still click.
       chip(trigger, "Pass").click();
-      await new Promise(requestAnimationFrame);
+      await scheduler.nextFrame();
       expect(document.querySelector(".lyra-dialog__dialog")).toBeNull();
     });
 

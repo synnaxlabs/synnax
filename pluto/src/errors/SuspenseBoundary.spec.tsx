@@ -47,10 +47,7 @@ describe("SuspenseBoundary", () => {
   });
 
   it("should render the loading fallback while a child suspends", () => {
-    let resolve!: (value: string) => void;
-    const promise = new Promise<string>((r) => {
-      resolve = r;
-    });
+    const { promise, resolve } = Promise.withResolvers<string>();
     const c = render(
       <SuspenseBoundary loading={<div>loading</div>}>
         <Suspender promise={promise} />

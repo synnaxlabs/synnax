@@ -10,6 +10,7 @@
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -25,11 +26,7 @@ import {
   findChannelListItem,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import {
-  findDialogTriggerByText,
-  isSelectButtonSelected,
-  uniqueName,
-} from "@/testutil";
+import { findDialogTriggerByText, isSelectButtonSelected } from "@/testutil";
 
 const client = createTestClient();
 

@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type breaker, type destructor, sync, type TimeStamp } from "@synnaxlabs/x";
+import {
+  type breaker,
+  type destructor,
+  map,
+  sync,
+  type TimeStamp,
+} from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnsupportedError } from "@/errors";
@@ -61,19 +67,15 @@ export class Joiner {
    */
   join(ch: channel.Key, index: channel.Key, landed: () => void): destructor.Destructor {
     const { joins } = this.props;
-    let driver = this.drivers.get(index);
-    if (driver == null) {
-      driver = {
-        abort: new AbortController(),
-        running: false,
-        handlers: new Set(),
-        breaker: createBreaker(this.notifier, this.props.breaker),
-        landed: new Set(),
-        rejected: new Set(),
-        members: new Map(),
-      };
-      this.drivers.set(index, driver);
-    }
+    const driver = map.getOrInsert(this.drivers, index, (): Driver => ({
+      abort: new AbortController(),
+      running: false,
+      handlers: new Set(),
+      breaker: createBreaker(this.notifier, this.props.breaker),
+      landed: new Set(),
+      rejected: new Set(),
+      members: new Map(),
+    }));
     driver.handlers.add(landed);
     if (!driver.members.has(ch)) driver.members.set(ch, new AbortController());
     joins.join(ch, index);

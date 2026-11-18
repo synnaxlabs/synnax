@@ -9,6 +9,7 @@
 
 import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
   fireEvent,
@@ -27,7 +28,6 @@ import {
   searchTree,
 } from "@/platform/tree/testutil";
 import {
-  assertDefined,
   awaitTextEditingElement,
   commitTextEdit,
   createTestClientWithGrants,
@@ -35,7 +35,6 @@ import {
   getIconButtons,
   queryIcon,
   renderHookWithConsole,
-  uniqueName,
   uniqueToken,
 } from "@/testutil";
 

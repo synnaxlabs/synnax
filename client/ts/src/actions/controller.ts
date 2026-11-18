@@ -15,6 +15,7 @@ import {
   destructor,
   errors,
   id,
+  map,
   type record,
   TimeSpan,
   TimeStamp,
@@ -59,7 +60,7 @@ const pushOnto = <A>(
   cap: number,
   remade: boolean,
 ): StackEntry<A>[] => {
-  const top = stack[stack.length - 1];
+  const top = stack.at(-1);
   const mergeable =
     top != null &&
     (remade
@@ -601,11 +602,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * applies the entry's latest actions last.
    */
   private track(key: Key, current: State, entry: Pending<Action>, next: State): void {
-    let r = this.rebases.get(key);
-    if (r == null) {
-      r = { base: current, pending: [] };
-      this.rebases.set(key, r);
-    }
+    const r = map.getOrInsert(this.rebases, key, () => ({
+      base: current,
+      pending: [],
+    }));
     const i = r.pending.indexOf(entry);
     if (i === -1) r.pending.push(entry);
     if (i === -1 || i === r.pending.length - 1) {
@@ -1047,9 +1047,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   async settled(key: Key): Promise<void> {
     if (!this.rebases.has(key)) return;
     await new Promise<void>((resolve) => {
-      const waiting = this.settling.get(key);
-      if (waiting == null) this.settling.set(key, [resolve]);
-      else waiting.push(resolve);
+      map.getOrInsert(this.settling, key, () => []).push(resolve);
     });
   }
 

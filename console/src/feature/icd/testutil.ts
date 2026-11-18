@@ -9,8 +9,7 @@
 
 import { type icd, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-
-import { uniqueName } from "@/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 
 export const client = createTestClient();
 

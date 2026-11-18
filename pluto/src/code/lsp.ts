@@ -52,8 +52,7 @@ const createFreighterTransport = ({
   let onErrorCallback: ((error: Error) => void) | null = null;
   let onMessageCallback: ((message: Message) => void) | null = null;
 
-  let resolveClosed: () => void;
-  const closed = new Promise<void>((r) => (resolveClosed = r));
+  const { promise: closed, resolve: resolveClosed } = Promise.withResolvers<void>();
 
   const receiveLoop = async () => {
     try {

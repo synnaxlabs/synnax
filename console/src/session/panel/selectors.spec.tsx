@@ -13,6 +13,7 @@ import { createPanelProject, createTestClient } from "@synnaxlabs/client/testuti
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
+import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   type FC,
@@ -29,12 +30,10 @@ import { Project } from "@/session/project";
 import { Synchronizer } from "@/session/synchronizer";
 import { pickSynchronizer } from "@/session/synchronizer/testutil";
 import {
-  assertDefined,
   createConsoleWrapper,
   createMinimalStore,
   createTestStore,
   type TestStore,
-  uniqueName,
 } from "@/testutil";
 
 const rootReducer = combineReducers({

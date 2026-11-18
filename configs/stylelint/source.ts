@@ -88,7 +88,7 @@ const span = (text: string, open: number): string | undefined => {
   const closers: string[] = [];
   for (let i = open; i < text.length; i++) {
     const c = text[i];
-    const top = closers[closers.length - 1];
+    const top = closers.at(-1);
     if (top === '"' || top === "'") {
       if (c === "\\") i++;
       else if (c === top) closers.pop();

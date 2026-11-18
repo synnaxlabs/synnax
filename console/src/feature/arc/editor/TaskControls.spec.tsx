@@ -14,6 +14,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Arc } from "@synnaxlabs/pluto";
 import { crdt } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
@@ -35,7 +36,6 @@ import {
   queryIcon,
   queryIconButton,
   renderSuspended,
-  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
