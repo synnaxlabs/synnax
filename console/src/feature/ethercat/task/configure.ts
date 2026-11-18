@@ -197,8 +197,8 @@ const checkIndexFree = async (
   );
   if (owner != null)
     throw new Error(
-      `Slave ${owner.name} uses the index channel ${index.name}. Change the ` +
-        `identifier of slave ${slave.name}.`,
+      `Module ${owner.name} uses the index channel ${index.name}. Change the ` +
+        `identifier of module ${slave.name}.`,
     );
 };
 
@@ -236,7 +236,7 @@ export const checkOrCreateIndex = async (
       if (!idx.isIndex)
         throw new Error(
           `A channel named ${name} already exists and is not an index. Change the ` +
-            `identifier of slave ${slave.name}.`,
+            `identifier of module ${slave.name}.`,
         );
       await checkIndexFree(client, slave, idx);
     } else

@@ -492,7 +492,7 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        `Slave ${slave.name} is set up for DewesoftX. In Configure, switch it to ` +
+        `Module ${slave.name} is set up for DewesoftX. In Configure, switch it to ` +
           "Synnax before you start the task.",
       ),
     ).toBeTruthy();
@@ -516,7 +516,7 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        `Slave ${slave.name} is set up for DewesoftX. Set it up for Synnax in ` +
+        `Module ${slave.name} is set up for DewesoftX. Set it up for Synnax in ` +
           "DewesoftX before you start the task.",
       ),
     ).toBeTruthy();
@@ -538,8 +538,8 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
-          `one network. Slave ${shared.name} is set up for DewesoftX. In Configure, ` +
+        "All modules must be on the same network. Found: eth0, eth1. Pick modules on " +
+          `one network. Module ${shared.name} is set up for DewesoftX. In Configure, ` +
           "switch it to Synnax before you start the task.",
       ),
     ).toBeTruthy();
@@ -576,7 +576,7 @@ describe("Read", () => {
     // The whole text matches only when the error carries no DewesoftX step.
     expect(
       await screen.findByText(
-        `Slaves ${other.name} and ${stale.name} are both at position ${position} on ` +
+        `Modules ${other.name} and ${stale.name} are both at position ${position} on ` +
           "eth0. Delete the one that is not on the network.",
       ),
     ).toBeTruthy();
@@ -699,7 +699,7 @@ describe("Read", () => {
     ).join(", ");
     expect(
       await screen.findByText(
-        `'Input' matches more than one input entry on slave ${slave.name}: ` +
+        `'Input' matches more than one input entry on module ${slave.name}: ` +
           `${addresses}. Pick an entry.`,
       ),
     ).toBeTruthy();
@@ -989,7 +989,7 @@ describe("Read", () => {
     fireEvent.click((await screen.findAllByRole("option", { name: /0x6030:01/ }))[0]);
     expect(
       await screen.findByText(
-        `More than one channel uses entry 0x6030:01 on slave ${slave.name}. Pick a ` +
+        `More than one channel uses entry 0x6030:01 on module ${slave.name}. Pick a ` +
           "different entry for one of them.",
       ),
     ).toBeTruthy();
@@ -1042,7 +1042,7 @@ describe("Read", () => {
       });
       expect(
         await screen.findByText(
-          `Slaves ${connected.name} and ${stale.name} have the same serial number ` +
+          `Modules ${connected.name} and ${stale.name} have the same serial number ` +
             `${serial}. Delete ${stale.name}, which is not connected.`,
         ),
       ).toBeTruthy();
@@ -1058,7 +1058,7 @@ describe("Read", () => {
       // The whole text matches only when the error carries no position problem.
       expect(
         await screen.findByText(
-          `Slaves ${connected.name} and ${stale.name} have the same serial number ` +
+          `Modules ${connected.name} and ${stale.name} have the same serial number ` +
             `${serial}. Delete ${stale.name}, which is not connected.`,
         ),
       ).toBeTruthy();
@@ -1088,8 +1088,8 @@ describe("Read", () => {
       // The whole text matches only when the error carries no serial problem.
       expect(
         await screen.findByText(
-          "All slaves must be on the same network. Found: eth0, eth1. Pick slaves on " +
-            "one network.",
+          "All modules must be on the same network. Found: eth0, eth1. Pick modules " +
+            "on one network.",
         ),
       ).toBeTruthy();
     });
@@ -1122,7 +1122,7 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        `Slaves ${connected.name} and ${stale.name} are both at position ` +
+        `Modules ${connected.name} and ${stale.name} are both at position ` +
           `${position} on eth0. Delete ${stale.name}, which is not connected.`,
       ),
     ).toBeTruthy();
@@ -1178,8 +1178,8 @@ describe("Read", () => {
     expect(
       await screen.findByText(
         new RegExp(
-          `^Slaves ${second.name} and ${first.name} are both at position ${position} ` +
-            "on eth0\\. Delete the one that is not on the network\\.$",
+          `^Modules ${second.name} and ${first.name} are both at position ` +
+            `${position} on eth0\\. Delete the one that is not on the network\\.$`,
         ),
       ),
     ).toBeTruthy();
@@ -1209,9 +1209,9 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        `Slave ${other.name} in slot 4 has an identifier that gives the same channel ` +
-          `names as slave ${slave.name} in slot 3. In Configure, change the identifier ` +
-          "of one of them.",
+        `Module ${other.name} in slot 4 has an identifier that gives the same ` +
+          `channel names as module ${slave.name} in slot 3. In Configure, change the ` +
+          "identifier of one of them.",
       ),
     ).toBeTruthy();
   });
@@ -1243,9 +1243,9 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        `Slave ${second.name} in slot 4 has an identifier that gives the same channel ` +
-          `names as slave ${first.name} in slot 3. In Configure, change the identifier ` +
-          "of one of them.",
+        `Module ${second.name} in slot 4 has an identifier that gives the same ` +
+          `channel names as module ${first.name} in slot 3. In Configure, change the ` +
+          "identifier of one of them.",
       ),
     ).toBeTruthy();
   });
@@ -1273,7 +1273,7 @@ describe("Read", () => {
     });
     expect(
       await screen.findByText(
-        `Slaves ${first.name} and ${second.name} are both at position ${position} ` +
+        `Modules ${first.name} and ${second.name} are both at position ${position} ` +
           "on eth0. Delete the one that is not on the network.",
       ),
     ).toBeTruthy();
@@ -1294,7 +1294,7 @@ describe("Read", () => {
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(
       await screen.findByText(
-        `Slave ${slave.name} has no input entry at 0x6030:01. Pick an entry.`,
+        `Module ${slave.name} has no input entry at 0x6030:01. Pick an entry.`,
       ),
     ).toBeTruthy();
   });
@@ -1446,7 +1446,7 @@ describe("Read", () => {
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(
       await screen.findByText(
-        `Entry 0x6030:01 on slave ${slave.name}: A bridge needs an excitation ` +
+        `Entry 0x6030:01 on module ${slave.name}: A bridge needs an excitation ` +
           "voltage above 0 V.",
       ),
     ).toBeTruthy();
@@ -1705,7 +1705,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${owner.name} uses the index channel ${base}_state_time\\. Change ` +
+        `Module ${owner.name} uses the index channel ${base}_state_time\\. Change ` +
           "the identifier",
       ),
     );
@@ -1778,7 +1778,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${owner.name} uses the index channel ${base}_cmd_time\\. Change the ` +
+        `Module ${owner.name} uses the index channel ${base}_cmd_time\\. Change the ` +
           "identifier",
       ),
     );
@@ -1829,7 +1829,7 @@ describe("Read", () => {
     await awaitStatus(
       statuses,
       new RegExp(
-        `Slave ${renamed.name} uses the index channel ${identifier}_time\\. Change ` +
+        `Module ${renamed.name} uses the index channel ${identifier}_time\\. Change ` +
           "the identifier",
       ),
     );
@@ -2379,8 +2379,8 @@ describe("Read", () => {
   });
 
   it.each([
-    ["in DewesoftX mode", true, "In Configure, switch the slave to Synnax"],
-    ["switched but not restarted", false, "Restart the power of the slave"],
+    ["in DewesoftX mode", true, "In Configure, switch the module to Synnax"],
+    ["switched but not restarted", false, "Restart the power of the module"],
   ])(
     "should show why a channel of an input that only DewesoftX reads cannot run on a slave %s",
     async (_, shared, step) => {
@@ -2399,7 +2399,7 @@ describe("Read", () => {
       fireEvent.click(await screen.findByRole("option", { name: /0x6040:01/ }));
       expect(
         await screen.findByText(
-          `Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
+          `Entry 0x6040:01 on module ${slave.name} sends data that only DewesoftX ` +
             `reads. ${step}.`,
         ),
       ).toBeTruthy();
@@ -2557,7 +2557,7 @@ describe("Read", () => {
         statuses,
         new RegExp(
           `Device ${owner.name} has an identifier that gives the same channel names ` +
-            `as slave ${slave.name} in slot ${slave.properties.position}\\. In ` +
+            `as module ${slave.name} in slot ${slave.properties.position}\\. In ` +
             "Configure, change the identifier of one of them\\.",
         ),
       );
@@ -2581,7 +2581,7 @@ describe("Read", () => {
         statuses,
         new RegExp(
           `A channel named ${taken.name} already exists and is not an index\\. ` +
-            `Change the identifier of slave ${slave.name}\\.`,
+            `Change the identifier of module ${slave.name}\\.`,
         ),
       );
     });
@@ -2621,7 +2621,7 @@ describe("Read", () => {
     fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
     expect(
       await screen.findByText(
-        `Data type float64 does not fit entry 0x6000:01 on slave ${slave.name}, ` +
+        `Data type float64 does not fit entry 0x6000:01 on module ${slave.name}, ` +
           "which holds 16 bits. Pick a 2 byte number type.",
       ),
     ).toBeTruthy();
