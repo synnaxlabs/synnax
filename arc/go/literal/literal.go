@@ -204,12 +204,21 @@ func parseNumericWithUnit(
 }
 
 // Convert returns value, a number in the unit from, as a value of targetType in its
-// unit. An integer does not hold a part of a unit, so it truncates toward zero.
+// unit. An integer truncates toward zero, but the period of a rate rounds.
 func Convert(
 	value float64,
 	from *types.Unit,
 	targetType types.Type,
 ) (ParsedValue, error) {
+	if types.UnitsReciprocal(from, targetType.Unit) {
+		if value != 0 {
+			value = types.PeriodFactor(from, targetType.Unit) / value
+		}
+		if targetType.IsInteger() {
+			value = math.RoundToEven(value)
+		}
+		return convertToTargetKind(value, targetType, targetType.Unit)
+	}
 	factor, err := units.ScaleFactor(from, targetType.Unit)
 	if err != nil {
 		return ParsedValue{}, err

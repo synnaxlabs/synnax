@@ -754,8 +754,11 @@ var _ = Describe("Literal Parser", func() {
 
 var _ = Describe("Convert", func() {
 	var (
+		ns  = &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
 		ms  = &types.Unit{Dimensions: types.DimTime, Scale: 1e6, Name: "ms"}
 		s   = &types.Unit{Dimensions: types.DimTime, Scale: 1e9, Name: "s"}
+		hz  = &types.Unit{Dimensions: types.DimFrequency, Scale: 1, Name: "hz"}
+		khz = &types.Unit{Dimensions: types.DimFrequency, Scale: 1e3, Name: "khz"}
 		pa  = &types.Unit{Dimensions: types.DimPressure, Scale: 1, Name: "Pa"}
 		bar = &types.Unit{Dimensions: types.DimPressure, Scale: 1e5, Name: "bar"}
 		pk  = &types.Unit{Dimensions: types.DimTemperature, Scale: 1e-12, Name: "pK"}
@@ -792,10 +795,31 @@ var _ = Describe("Convert", func() {
 		Entry("an integer that is not a time",
 			2.0, bar, in(types.I64(), pa), int64(200000), false),
 		Entry("a float", 1500.0, ms, in(types.F64(), s), 1.5, false),
+		Entry("a rate to its period",
+			10.0, hz, in(types.I64(), ns), telem.TimeSpan(100000000), false),
+		Entry("a rate in a larger unit",
+			1.0, khz, in(types.I64(), ms), telem.TimeSpan(1), false),
+		Entry("a rate with a period that rounds up",
+			60.0, hz, in(types.I64(), ns), telem.TimeSpan(16666667), false),
+		Entry("a rate with a period that rounds down",
+			3.0, hz, in(types.I64(), ns), telem.TimeSpan(333333333), false),
+		Entry("a rate under one",
+			0.5, hz, in(types.I64(), s), telem.TimeSpan(2), false),
+		Entry("a rate with a period under half of the unit",
+			3e6, khz, in(types.I64(), ns), telem.TimeSpan(0), false),
+		Entry("a rate of zero", 0.0, hz, in(types.I64(), ns), telem.TimeSpan(0), false),
+		Entry("a negative rate",
+			-5.0, hz, in(types.I64(), ms), telem.TimeSpan(-200), false),
+		Entry("a rate to a float", 4.0, hz, in(types.F64(), s), 0.25, false),
 	)
 
 	It("Should reject a unit of another dimension", func() {
 		Expect(literal.Convert(1, s, in(types.I64(), pa))).Error().
+			To(MatchError(units.ErrIncompatibleDimensions))
+	})
+
+	It("Should reject a time span that goes to a rate", func() {
+		Expect(literal.Convert(1, s, in(types.I64(), hz))).Error().
 			To(MatchError(units.ErrIncompatibleDimensions))
 	})
 })
