@@ -175,6 +175,48 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
+		DescribeTable(
+			"Should keep the colors of an old symbol file as color looks with no enumeration",
+			func(ctx SpecContext, path string, colors [][2]string) {
+				countEnumerations := func() int {
+					GinkgoHelper()
+					var all []enumeration.Enumeration
+					Expect(
+						enumSvc.NewRetrieve().Entries(&all).Exec(ctx, tx),
+					).To(Succeed())
+					return len(all)
+				}
+				before := countEnumerations()
+				res := importAndRetrieve(ctx, path, createImportGroup(ctx, tx))
+				Expect(countEnumerations()).To(Equal(before))
+				state, ok := res.Data.States[0].Variant.(symbol.EnumerationState)
+				Expect(ok).To(BeTrue())
+				Expect(state.Enumeration).To(BeNil())
+				Expect(res.Data.Looks).To(HaveLen(len(colors)))
+				for i, c := range colors {
+					look := res.Data.Looks[i]
+					Expect(look.When).To(HaveValue(Equal(symbol.Condition{
+						Variant: symbol.EqualsCondition{
+							State:  "active",
+							Values: []float64{float64(i)},
+						},
+					})))
+					Expect(look.Stroke).To(HaveValue(Equal(colorPaint(c[0]))))
+					Expect(look.Fill).To(HaveValue(Equal(colorPaint(c[1]))))
+				}
+			},
+			Entry(
+				"a v2 file with one state",
+				"versions/testdata/import_v2.json",
+				[][2]string{{"#ff0000", "#00ff00"}},
+			),
+			Entry(
+				"a v3 file with the states Base and Active",
+				"versions/testdata/import_v3.json",
+				[][2]string{{"#111111", "#222222"}, {"#333333", "#444444"}},
+			),
+		)
+
 		It("Should put the imported symbol in the given group", func(ctx SpecContext) {
 			g := createImportGroup(ctx, tx)
 			res := importAndRetrieve(ctx, "versions/testdata/import_v2.json", g)
