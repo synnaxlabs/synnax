@@ -138,8 +138,13 @@ describe("SelectionColors", () => {
     render(
       <MultiEdit.SelectionColors
         refs={[
-          { key: "a", path: "fillColor", value: fixed(GREEN) },
-          { key: "b", path: "strokeColor", value: fixed(GREEN), valueOnly: true },
+          { key: "a", path: "fillColor", value: MultiEdit.fixedRef(GREEN) },
+          {
+            key: "b",
+            path: "strokeColor",
+            value: MultiEdit.fixedRef(GREEN),
+            valueOnly: true,
+          },
         ]}
         onChange={vi.fn()}
       />,
