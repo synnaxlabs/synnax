@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"reflect"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -317,14 +316,74 @@ func logDisabled(l changeLog, old, next bool) {
 	}
 }
 
-// aiBase returns the BaseAIChannel that an analog input variant embeds. It panics for a
-// variant without one.
-func aiBase[B v2.BaseAIChannel | BaseAIChannel](variant any) B {
-	field := reflect.ValueOf(variant).FieldByName("BaseAIChannel")
-	if !field.IsValid() {
-		panic(fmt.Sprintf("analog input variant %T has no base", variant))
+// aiBases returns the shared fields of a v2 analog input variant and of its migration.
+// It panics for a variant without shared fields.
+func aiBases(
+	old v2.AIChannelVariant,
+	n AIChannelVariant,
+) (v2.BaseAIChannel, BaseAIChannel) {
+	switch o := old.(type) {
+	case v2.AIVoltageChannel:
+		return o.BaseAIChannel, as[AIVoltageChannel](n).BaseAIChannel
+	case v2.AIAccelChannel:
+		return o.BaseAIChannel, as[AIAccelChannel](n).BaseAIChannel
+	case v2.AIBridgeChannel:
+		return o.BaseAIChannel, as[AIBridgeChannel](n).BaseAIChannel
+	case v2.AICurrentChannel:
+		return o.BaseAIChannel, as[AICurrentChannel](n).BaseAIChannel
+	case v2.AIForceBridgeTableChannel:
+		return o.BaseAIChannel, as[AIForceBridgeTableChannel](n).BaseAIChannel
+	case v2.AIForceBridgeTwoPointLinChannel:
+		return o.BaseAIChannel, as[AIForceBridgeTwoPointLinChannel](n).BaseAIChannel
+	case v2.AIForceIEPEChannel:
+		return o.BaseAIChannel, as[AIForceIEPEChannel](n).BaseAIChannel
+	case v2.AIMicrophoneChannel:
+		return o.BaseAIChannel, as[AIMicrophoneChannel](n).BaseAIChannel
+	case v2.AIPressureBridgeTableChannel:
+		return o.BaseAIChannel, as[AIPressureBridgeTableChannel](n).BaseAIChannel
+	case v2.AIPressureBridgeTwoPointLinChannel:
+		return o.BaseAIChannel, as[AIPressureBridgeTwoPointLinChannel](n).BaseAIChannel
+	case v2.AIResistanceChannel:
+		return o.BaseAIChannel, as[AIResistanceChannel](n).BaseAIChannel
+	case v2.AIRTDChannel:
+		return o.BaseAIChannel, as[AIRTDChannel](n).BaseAIChannel
+	case v2.AIStrainGaugeChannel:
+		return o.BaseAIChannel, as[AIStrainGaugeChannel](n).BaseAIChannel
+	case v2.AIThermocoupleChannel:
+		return o.BaseAIChannel, as[AIThermocoupleChannel](n).BaseAIChannel
+	case v2.AITorqueBridgeTableChannel:
+		return o.BaseAIChannel, as[AITorqueBridgeTableChannel](n).BaseAIChannel
+	case v2.AITorqueBridgeTwoPointLinChannel:
+		return o.BaseAIChannel, as[AITorqueBridgeTwoPointLinChannel](n).BaseAIChannel
+	case v2.AIVelocityIEPEChannel:
+		return o.BaseAIChannel, as[AIVelocityIEPEChannel](n).BaseAIChannel
+	case v2.AIAccel4WireDCVoltageChannel:
+		return o.BaseAIChannel, as[AIAccel4WireDCVoltageChannel](n).BaseAIChannel
+	case v2.AIAccelChargeChannel:
+		return o.BaseAIChannel, as[AIAccelChargeChannel](n).BaseAIChannel
+	case v2.AIChargeChannel:
+		return o.BaseAIChannel, as[AIChargeChannel](n).BaseAIChannel
+	case v2.AICurrentRMSChannel:
+		return o.BaseAIChannel, as[AICurrentRMSChannel](n).BaseAIChannel
+	case v2.AIForceBridgePolynomialChannel:
+		return o.BaseAIChannel, as[AIForceBridgePolynomialChannel](n).BaseAIChannel
+	case v2.AIFreqVoltageChannel:
+		return o.BaseAIChannel, as[AIFreqVoltageChannel](n).BaseAIChannel
+	case v2.AIPressureBridgePolynomialChannel:
+		return o.BaseAIChannel, as[AIPressureBridgePolynomialChannel](n).BaseAIChannel
+	case v2.AIThermistorIexChannel:
+		return o.BaseAIChannel, as[AIThermistorIexChannel](n).BaseAIChannel
+	case v2.AIThermistorVexChannel:
+		return o.BaseAIChannel, as[AIThermistorVexChannel](n).BaseAIChannel
+	case v2.AITorqueBridgePolynomialChannel:
+		return o.BaseAIChannel, as[AITorqueBridgePolynomialChannel](n).BaseAIChannel
+	case v2.AIVoltageRMSChannel:
+		return o.BaseAIChannel, as[AIVoltageRMSChannel](n).BaseAIChannel
+	case v2.AIVoltageWithExcitChannel:
+		return o.BaseAIChannel, as[AIVoltageWithExcitChannel](n).BaseAIChannel
+	default:
+		panic(fmt.Sprintf("analog input variant %T has no base", old))
 	}
-	return as[B](field.Interface())
 }
 
 func logAIChannel(l changeLog, old v2.AIChannel, migrated AIChannel) {
@@ -337,8 +396,7 @@ func logAIChannel(l changeLog, old v2.AIChannel, migrated AIChannel) {
 	if old.Variant == nil {
 		return
 	}
-	o := aiBase[v2.BaseAIChannel](old.Variant)
-	n := aiBase[BaseAIChannel](migrated.Variant)
+	o, n := aiBases(old.Variant, migrated.Variant)
 	l.channel = o.Key
 	logNumber(l, "Port", o.Port, n.Port)
 	logDisabled(l, o.Disabled, n.Disabled)
