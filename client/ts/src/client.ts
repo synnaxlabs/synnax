@@ -280,7 +280,8 @@ export default class Synnax extends framer.Client {
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
    * certificate. Turns on props.secure when it is not given. When props.secure and
-   * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT.
+   * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT,
+   * except in Deno, where TLS trusts the store that --cert or DENO_CERT fills.
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
    * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
    * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
@@ -289,23 +290,23 @@ export default class Synnax extends framer.Client {
    * @throws {Unreachable} If the key helper of Synnax Desktop is gone, as for a closed
    * AppImage.
    * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
-   * Deno, or if SYNNAX_CA_CERT gives the CA in Deno.
+   * Deno.
    */
   constructor(params: ConstructorParams = {}) {
-    const resolved = resolveParams(params, globalThis.process?.env, nodeSystem());
-    const parsedParams = zod.parse(constructorParamsZ, resolved);
+    const system = nodeSystem();
+    const parsedParams = zod.parse(
+      constructorParamsZ,
+      resolveParams(params, globalThis.process?.env, system),
+    );
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
     const address = new url.URL({ host, port: Number(port) });
     const { caCert } = parsedParams;
     // Deno's WebSocket cannot use the CA, so the client's change stream never opens.
-    if (caCert != null && "Deno" in globalThis) {
-      const advice =
-        resolved.caCertSource === "env"
-          ? "Deno cannot use SYNNAX_CA_CERT. Unset it"
-          : "Deno cannot use caCert. Leave it out";
-      throw new Error(`${advice} and start Deno with --cert <file>.`);
-    }
+    if (caCert != null && system?.caCertUnsupported === true)
+      throw new Error(
+        "Deno cannot use caCert. Leave it out and start Deno with --cert <file>.",
+      );
     const connector = caCert == null ? undefined : trustCA(caCert);
     const transport = new Transport({
       url: address,

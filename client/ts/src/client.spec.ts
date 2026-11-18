@@ -166,19 +166,22 @@ describe("constructor with caCert", () => {
     ).toThrow("Deno cannot use caCert. Leave it out and start Deno with --cert");
   });
 
-  it("should tell a Deno user to unset SYNNAX_CA_CERT", () => {
-    const dir = mkdtempSync(join(tmpdir(), "synnax-ca-"));
-    try {
-      const file = join(dir, "ca.pem");
-      writeFileSync(file, PEM);
-      vi.stubEnv("SYNNAX_CA_CERT", file);
-      vi.stubGlobal("Deno", {});
-      expect(() => new Synnax({ host: "localhost", port: 9090 })).toThrow(
-        "Deno cannot use SYNNAX_CA_CERT. Unset it and start Deno with --cert",
-      );
-    } finally {
-      rmSync(dir, { recursive: true });
-    }
+  it("should use TLS with no CA for SYNNAX_CA_CERT in Deno", async () => {
+    vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
+    vi.stubGlobal("Deno", {});
+    const client = new Synnax({ host: "localhost", port: 9090 });
+    expect(client.params.secure).toBe(true);
+    expect(client.params.caCert).toBeUndefined();
+    await client.close();
+  });
+
+  it("should reject SYNNAX_CA_CERT with SYNNAX_SECURE false in Deno", () => {
+    vi.stubEnv("SYNNAX_SECURE", "false");
+    vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
+    vi.stubGlobal("Deno", {});
+    expect(() => new Synnax({ host: "localhost", port: 9090 })).toThrow(
+      "SYNNAX_CA_CERT requires SYNNAX_SECURE",
+    );
   });
 });
 

@@ -44,6 +44,11 @@ export interface System {
   readFile: (path: string) => string | null;
   /** Runs the program at path with no arguments. Returns null if there is none. */
   run: (path: string) => Run | null;
+  /**
+   * True in Deno, where TLS trusts only the store that --cert or DENO_CERT fills, so
+   * the SYNNAX_CA_CERT file is not read.
+   */
+  caCertUnsupported?: boolean;
 }
 
 interface Resolved {
@@ -52,8 +57,6 @@ interface Resolved {
   apiKey?: string;
   secure: boolean;
   caCert?: string;
-  /** Where caCert came from. Undefined when there is no caCert. */
-  caCertSource?: "params" | "env";
 }
 
 interface Desktop {
@@ -172,18 +175,15 @@ const resolveTLS = (
   env: Env,
   system: System | undefined,
   desktop: Desktop | undefined,
-): Pick<Resolved, "secure" | "caCert" | "caCertSource"> => {
+): Pick<Resolved, "secure" | "caCert"> => {
   if (params.secure != null || params.caCert != null)
-    return {
-      secure: params.secure ?? true,
-      caCert: params.caCert,
-      caCertSource: params.caCert == null ? undefined : "params",
-    };
+    return { secure: params.secure ?? true, caCert: params.caCert };
   const secure = readSecure(env);
   const path = read(env, "SYNNAX_CA_CERT");
   if (path === "") return { secure: secure ?? desktop?.secure ?? false };
   if (secure === false) throw new ValidationError(CA_NEEDS_SECURE_MSG);
-  return { secure: true, caCert: readCA(system, path), caCertSource: "env" };
+  if (system?.caCertUnsupported === true) return { secure: true };
+  return { secure: true, caCert: readCA(system, path) };
 };
 
 const runHelper = (system: System, helper: string): Run | null => {
@@ -237,6 +237,7 @@ export const nodeSystem = (): System | undefined => {
   const proc = globalThis.process;
   if (proc?.getBuiltinModule == null) return undefined;
   return {
+    caCertUnsupported: "Deno" in globalThis,
     readFile: (path) => {
       const paths = proc.getBuiltinModule("node:path");
       const home =
@@ -280,9 +281,10 @@ export const nodeSystem = (): System | undefined => {
  * give no credentials or token. Secure and the CA certificate come as a pair from the
  * first source that sets either one: the params (secure, caCert), then the variables
  * (SYNNAX_SECURE, and SYNNAX_CA_CERT as the path of a PEM file), then Synnax Desktop. A
- * CA certificate with no secure turns secure on. Reads only the variables of missing
- * fields. Variable values are trimmed, and an empty value is unset. In Deno, a variable
- * the script has no permission to read is unset.
+ * CA certificate with no secure turns secure on. When system.caCertUnsupported is
+ * true, SYNNAX_CA_CERT turns secure on but its file is not read. Reads only the
+ * variables of missing fields. Variable values are trimmed, and an empty value is
+ * unset. In Deno, a variable the script has no permission to read is unset.
  * @param system - Finds Synnax Desktop and reads the SYNNAX_CA_CERT file. Undefined in
  * a runtime that cannot.
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if

@@ -399,7 +399,6 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     expect(resolveParams({ host: "rig" }, env, system)).toMatchObject({
       secure: true,
       caCert: PEM,
-      caCertSource: "env",
     });
   });
 
@@ -416,7 +415,6 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     expect(resolveParams({ host: "rig", caCert: "pem" }, env, system)).toMatchObject({
       secure: true,
       caCert: "pem",
-      caCertSource: "params",
     });
   });
 
@@ -439,7 +437,6 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
       apiKey: "syk_desktop",
       secure: true,
       caCert: PEM,
-      caCertSource: "env",
     });
   });
 
@@ -477,6 +474,30 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   ])("should reject when %s", (_, env, system, message) => {
     expect(() => resolveParams({ host: "rig" }, env, system)).toThrow(ValidationError);
     expect(() => resolveParams({ host: "rig" }, env, system)).toThrow(message);
+  });
+
+  it("should turn on TLS without reading the file when the CA is unsupported", () => {
+    const deno: System = {
+      readFile: vi.fn(() => PEM),
+      run: () => null,
+      caCertUnsupported: true,
+    };
+    const resolved = resolveParams(
+      { host: "rig" },
+      { SYNNAX_CA_CERT: "~/ca.pem" },
+      deno,
+    );
+    expect(resolved.secure).toBe(true);
+    expect(resolved.caCert).toBeUndefined();
+    expect(deno.readFile).not.toHaveBeenCalled();
+  });
+
+  it("should reject SYNNAX_SECURE false when the CA is unsupported", () => {
+    const deno: System = { ...system, caCertUnsupported: true };
+    const env = { SYNNAX_SECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" };
+    expect(() => resolveParams({ host: "rig" }, env, deno)).toThrow(
+      "SYNNAX_CA_CERT requires SYNNAX_SECURE",
+    );
   });
 
   it("should name the file when Deno cannot read it", () => {
