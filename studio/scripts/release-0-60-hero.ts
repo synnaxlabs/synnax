@@ -55,7 +55,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       const look = ICONS[name];
       if (look == null) continue;
       const actions = [panel.setIcon({ icon: look.icon })];
-      if (look.color != null) actions.push(panel.setColor({ color: look.color }));
+      if (look.color != null)
+        actions.push(panel.setColor({ color: { type: "fixed", value: look.color } }));
       const applied = await client.panels.dispatch(key, actions);
       if (!applied) throw new Error(`the ${name} panel is not cached`);
     }

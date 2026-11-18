@@ -19,8 +19,7 @@ import (
 )
 
 // MigratePanel lifts a v4 panel to v5, which stores the icon color as a fixed color
-// with
-// a 0-255 alpha byte.
+// with a 0-255 alpha byte.
 func MigratePanel(ctx context.Context, old v4.Panel) (Panel, error) {
 	p, err := autoMigratePanel(ctx, old)
 	if err != nil || old.Color == nil {

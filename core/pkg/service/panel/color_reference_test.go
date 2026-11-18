@@ -59,4 +59,40 @@ var _ = Describe("Color references", func() {
 		Expect(seen[0].Actions[0].Create).ToNot(BeNil())
 		Expect(seen[0].Actions[0].Create.Panel).To(Equal(res))
 	})
+
+	DescribeTable(
+		"Should drop a named color only when the Core does not hold it",
+		func(ctx SpecContext, held bool) {
+			c := color.Named{
+				Name:  "Custom",
+				Light: MustSucceed(xcolor.Parse("#123456")),
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return colorSvc.NewWriter(tx).Create(ctx, &c)
+			})).To(Succeed())
+			ref := &color.Ref{Variant: color.NamedRef{Key: c.Key}}
+			if !held {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return colorSvc.NewWriter(tx).Delete(ctx, c.Key)
+				})).To(Succeed())
+			} else {
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return colorSvc.NewWriter(tx).Delete(ctx, c.Key)
+					})).To(Succeed())
+				})
+			}
+			p := panel.Panel{Name: "imported", Color: ref}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.DropDangling(ctx, tx, &p)
+			})).To(Succeed())
+			if held {
+				Expect(p.Color).To(Equal(ref))
+			} else {
+				Expect(p.Color).To(BeNil())
+			}
+		},
+		Entry("held", true),
+		Entry("missing", false),
+	)
 })
