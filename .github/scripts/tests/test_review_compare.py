@@ -255,6 +255,10 @@ class FakeGH:
         self.kept: dict[int, bool] = {}
         self.records: dict[int, dict[str, Any]] = {}
         self.downloads: list[int] = []
+        self.failures: dict[int, list[str]] = {}
+        """The stderr of each failed try to download a run's record, in order."""
+        self.lookup_failures: dict[int, list[str]] = {}
+        """The stderr of each failed try to look up a run's record, in order."""
 
     def review(self, run: int, rec: dict[str, Any]) -> None:
         """Adds a Sedosaur review run, newer than every other, and its record."""
@@ -283,6 +287,9 @@ class FakeGH:
         if args[:2] == ("run", "download"):
             run = int(args[2])
             self.downloads.append(run)
+            if self.failures.get(run):
+                stderr = self.failures[run].pop(0)
+                raise subprocess.CalledProcessError(1, ["gh", *args], "", stderr)
             into = Path(args[args.index("--dir") + 1])
             (into / "review.json").write_text(json.dumps(self.records[run]))
             return ""
@@ -296,6 +303,9 @@ class FakeGH:
             args[1],
         ):
             run = int(m[1])
+            if self.lookup_failures.get(run):
+                stderr = self.lookup_failures[run].pop(0)
+                raise subprocess.CalledProcessError(1, ["gh", *args], "", stderr)
             return f"{run}\n" if self.kept.get(run, run in self.records) else ""
         raise AssertionError(f"unexpected gh call: {args}")
 
@@ -306,7 +316,7 @@ def pairs(gh: FakeGH, repo: "Repo", recs: list[dict[str, Any]]) -> list[compare.
         gh.review(run, rec)
     cache = repo.clone.parent / "records"
     cache.mkdir()
-    return compare.pairs(gh, repo.git, REPO, SINCE, cache)
+    return compare.pairs(gh, repo.git, REPO, SINCE, compare.Records(gh, REPO, cache))
 
 
 def t(**kw: Any) -> compare.Thread:
@@ -486,20 +496,82 @@ class TestSedosaurReviews:
         assert compare.sedosaur_reviews(edits, REPO, SINCE) == {}
 
 
-class TestRecord:
-    """Tests reading the record of a Sedosaur review."""
+UNAVAILABLE = "error downloading sedosaur-review: HTTP 503: 503 Egress is over."
+NOT_FOUND = "error downloading sedosaur-review: HTTP 404: Not Found"
+
+
+class TestRecords:
+    """Tests downloading the records of Sedosaur reviews."""
+
+    def records(self, gh: FakeGH, cache: Path) -> tuple[compare.Records, list[float]]:
+        slept: list[float] = []
+        return compare.Records(gh, REPO, cache, sleep=slept.append), slept
 
     def test_should_download_a_record_once(self, tmp_path: Path) -> None:
         gh = FakeGH()
         gh.records[1] = record(HEAD)
-        assert compare.record(gh, REPO, 1, tmp_path) == record(HEAD)
-        assert compare.record(gh, REPO, 1, tmp_path) == record(HEAD)
+        records, _ = self.records(gh, tmp_path)
+        assert records.get(1) == record(HEAD)
+        assert records.get(1) == record(HEAD)
         assert gh.downloads == [1]
 
     def test_should_return_none_for_a_run_that_kept_no_record(
         self, tmp_path: Path
     ) -> None:
-        assert compare.record(FakeGH(), REPO, 1, tmp_path) is None
+        records, _ = self.records(FakeGH(), tmp_path)
+        assert records.get(1) is None
+        assert records.skipped == []
+
+    def test_should_retry_a_server_error_with_backoff(self, tmp_path: Path) -> None:
+        gh = FakeGH()
+        gh.records[1] = record(HEAD)
+        gh.failures[1] = [UNAVAILABLE, UNAVAILABLE]
+        records, slept = self.records(gh, tmp_path)
+        assert records.get(1) == record(HEAD)
+        assert slept == [2, 4]
+        assert records.skipped == []
+
+    def test_should_skip_a_record_after_every_try_fails(self, tmp_path: Path) -> None:
+        gh = FakeGH()
+        gh.records[1] = record(HEAD)
+        gh.failures[1] = [UNAVAILABLE] * 4
+        records, slept = self.records(gh, tmp_path)
+        assert records.get(1) is None
+        assert records.get(1) is None
+        assert slept == [2, 4, 8]
+        assert gh.downloads == [1] * 4
+        assert records.skipped == [(1, UNAVAILABLE)]
+
+    def test_should_retry_and_skip_a_lookup_that_fails_with_a_server_error(
+        self, tmp_path: Path
+    ) -> None:
+        gh = FakeGH()
+        gh.records[1] = record(HEAD)
+        gh.lookup_failures[1] = [UNAVAILABLE] * 4
+        records, slept = self.records(gh, tmp_path)
+        assert records.get(1) is None
+        assert slept == [2, 4, 8]
+        assert gh.downloads == []
+        assert records.skipped == [(1, UNAVAILABLE)]
+
+    def test_should_raise_on_an_error_that_is_not_known(self, tmp_path: Path) -> None:
+        gh = FakeGH()
+        gh.records[1] = record(HEAD)
+        gh.failures[1] = ["HTTP 401: Bad credentials"]
+        records, slept = self.records(gh, tmp_path)
+        with pytest.raises(subprocess.CalledProcessError):
+            records.get(1)
+        assert slept == []
+        assert records.skipped == []
+
+    def test_should_skip_a_record_that_is_gone_at_once(self, tmp_path: Path) -> None:
+        gh = FakeGH()
+        gh.records[1] = record(HEAD)
+        gh.failures[1] = [NOT_FOUND]
+        records, slept = self.records(gh, tmp_path)
+        assert records.get(1) is None
+        assert slept == []
+        assert records.skipped == [(1, NOT_FOUND)]
 
 
 class TestLimits:
@@ -519,7 +591,7 @@ class TestLimits:
             artifact("2026-11-06T10:00:00Z", 1),
             artifact("2026-11-06T11:00:00Z", 2),
         ]
-        newest = compare.limits(gh, REPO, SINCE, tmp_path)
+        newest = compare.limits(gh, REPO, SINCE, compare.Records(gh, REPO, tmp_path))
         assert newest is not None
         assert newest["usage"]["limits"]["seven_day"]["utilization"] == 0.81
 
@@ -533,7 +605,9 @@ class TestLimits:
             artifact("2026-11-06T10:00:00Z", 3, expired=True),
             artifact("2026-11-04T10:00:00Z", 4),
         ]
-        assert compare.limits(gh, REPO, SINCE, tmp_path) is None
+        assert (
+            compare.limits(gh, REPO, SINCE, compare.Records(gh, REPO, tmp_path)) is None
+        )
         assert gh.downloads == []
 
 
@@ -630,7 +704,7 @@ class TestPairs:
         assert [i.repeat for i in one.greptile + one.sedosaur] == [False] * 4
         assert [i.repeat for i in two.greptile] == [True, False]
         assert [i.repeat for i in two.sedosaur] == [True, False]
-        text = compare.report([one, two], None, since=SINCE)
+        text = compare.report([one, two], None, since=SINCE, skipped=[])
         assert "| Findings | 3 | 3 |" in text
 
     def test_should_match_a_new_finding_with_a_repeat(self, repo: Repo) -> None:
@@ -677,7 +751,7 @@ class TestReport:
     def test_should_report_coverage_and_precision(self, repo: Repo) -> None:
         repo.commit({"a.go": "y\n"})
         ps = pairs(FakeGH(repo.head), repo, [record(repo.head)])
-        text = compare.report(ps, None, since=SINCE)
+        text = compare.report(ps, None, since=SINCE, skipped=[])
         short = repo.head[:10]
         assert "1 commit on 1 pull request have a review from both." in text
         assert "| Precision | 1 of 1 (100%) | 1 of 1 (100%) |" in text
@@ -697,26 +771,39 @@ class TestReport:
         gh.threads = gh.threads[:1]
         r = record(repo.head)
         r["review"]["findings"] = []
-        text = compare.report(pairs(gh, repo, [r]), None, since=SINCE)
+        text = compare.report(pairs(gh, repo, [r]), None, since=SINCE, skipped=[])
         missed = text.split("### Real Greptile findings Sedosaur missed\n\n")[1]
         assert missed.startswith("- P1 **Leaks a handle** `a.go:10` (#7)")
 
     def test_should_say_when_no_finding_is_real_yet(self, repo: Repo) -> None:
         gh = FakeGH(repo.head)
         gh.threads[0]["isResolved"] = False
-        text = compare.report(pairs(gh, repo, [record(repo.head)]), None, since=SINCE)
+        text = compare.report(
+            pairs(gh, repo, [record(repo.head)]), None, since=SINCE, skipped=[]
+        )
         assert "- **Coverage:** no real Greptile findings yet." in text
 
     def test_should_show_the_limits_of_the_newest_review(self) -> None:
-        text = compare.report([], limited(0.81, NOON), since=SINCE)
+        text = compare.report([], limited(0.81, NOON), since=SINCE, skipped=[])
         assert "As of the newest review, at 2026-11-05 12:00 UTC:" in text
         assert "| `seven_day` | 81% | allowed_warning | 2026-11-09 18:00 UTC |" in text
 
     def test_should_say_when_no_review_recorded_the_limits(self) -> None:
-        text = compare.report([], None, since=SINCE)
+        text = compare.report([], None, since=SINCE, skipped=[])
         assert "No recent review recorded the usage limits." in text
 
+    def test_should_say_how_many_records_it_skipped_and_why(self, repo: Repo) -> None:
+        gh = FakeGH(repo.head)
+        gh.failures[1] = [NOT_FOUND]
+        records = compare.Records(gh, REPO, repo.clone.parent)
+        gh.review(1, record(repo.head))
+        ps = compare.pairs(gh, repo.git, REPO, SINCE, records)
+        text = compare.report(ps, None, since=SINCE, skipped=records.skipped)
+        assert ps == []
+        assert "The report leaves out 1 record that failed to download:" in text
+        assert f"- Run 1: {NOT_FOUND}" in text
+
     def test_should_say_when_nothing_is_paired(self) -> None:
-        assert compare.report([], None, since=SINCE).endswith(
+        assert compare.report([], None, since=SINCE, skipped=[]).endswith(
             "No commit has a review from both yet."
         )
