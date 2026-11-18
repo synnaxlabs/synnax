@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { binary } from "@/binary";
 import { primitive } from "@/primitive";
+import { TimeStamp } from "@/telem";
 import { toString } from "@/testutil";
 
 class ExampleStringer implements primitive.Stringer {
@@ -61,6 +62,23 @@ describe("primitive", () => {
     });
     it("should return false for null", () => {
       expect(primitive.isStringer(null)).toBe(false);
+    });
+    it("should return false for a plain object", () => {
+      expect(primitive.isStringer({})).toBe(false);
+    });
+    it("should return false for an object without a prototype", () => {
+      expect(primitive.isStringer(Object.create(null))).toBe(false);
+    });
+    it("should return false for arrays and typed arrays", () => {
+      expect(primitive.isStringer([])).toBe(false);
+      expect(primitive.isStringer(new Float32Array([1]))).toBe(false);
+    });
+    it("should return false for a Map and a Set", () => {
+      expect(primitive.isStringer(new Map())).toBe(false);
+      expect(primitive.isStringer(new Set())).toBe(false);
+    });
+    it("should return true for a TimeStamp", () => {
+      expect(primitive.isStringer(TimeStamp.now())).toBe(true);
     });
   });
 
