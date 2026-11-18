@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { control, type Synnax } from "@synnaxlabs/client";
-import { color, deep, type destructor, observe } from "@synnaxlabs/x";
+import { color, type destructor, observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -38,16 +38,17 @@ export interface ColoredState extends control.State {
 
 /**
  * Colors assigns each control subject a color, so that a reader can tell subjects
- * apart at a glance. Assignment is sequential over the series colors, which keeps
- * colors unique for as many subjects as there are series colors. A subject keeps its
- * place in the series colors when they change.
+ * apart at a glance. Each subject holds the smallest number no other subject holds, and
+ * takes the series color at that number, wrapping around. Colors stay unique for as
+ * many subjects as there are series colors, and a subject keeps its number when they
+ * change.
  */
 export class Colors extends aether.Composite<typeof colorsStateZ, InternalState> {
   static readonly TYPE = "Colors";
   static readonly stateZ = colorsStateZ;
   schema = Colors.stateZ;
 
-  /** The series color index assigned to each control subject, keyed by subject key. */
+  /** The number assigned to each control subject, keyed by subject key. */
   private readonly assigned = new Map<string, number>();
   /** User-specified color overrides from the legend UI. */
   private readonly overrides = new Map<string, color.Color>();
@@ -66,22 +67,11 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    const theme = theming.use(ctx);
-    const palette = series.use(ctx);
-    const recolored = !deep.equal(palette, i.palette);
-    i.palette = palette;
-    i.defaultColor = theme.colors.gray.l9;
+    i.palette = series.use(ctx);
+    i.defaultColor = theming.use(ctx).colors.gray.l9;
     ctx.set(CONTEXT_KEY, this);
     const nextClient = synnax.use(ctx);
-    if (i.client != null && nextClient === i.client) {
-      if (recolored) {
-        this.assigned.forEach((index, key) => {
-          if (index >= palette.length) this.assigned.delete(key);
-        });
-        this.assign(i.client.control.store.get());
-      }
-      return;
-    }
+    if (i.client != null && nextClient === i.client) return this.obs.notify();
     i.client = nextClient;
     this.disconnect?.();
     this.assigned.clear();
@@ -105,12 +95,11 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
   /** The color of the given subject, or the default color when it has none. */
   get(subject: string): color.Color {
     const { defaultColor, palette } = this.internal;
-    const index = this.assigned.get(subject);
-    return (
-      this.overrides.get(subject) ??
-      (index == null ? undefined : palette.at(index)) ??
-      defaultColor
-    );
+    const override = this.overrides.get(subject);
+    if (override != null) return override;
+    const n = this.assigned.get(subject);
+    if (n == null || palette.length === 0) return defaultColor;
+    return palette[n % palette.length];
   }
 
   setOverrides(overrides: Record<string, color.Color>): void {
@@ -139,15 +128,13 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
       if (!subjects.has(key)) this.assigned.delete(key);
     });
     const taken = new Set(this.assigned.values());
-    const { palette } = this.internal;
-    if (palette.length > 0)
-      subjects.forEach((key) => {
-        if (this.assigned.has(key)) return;
-        const free = palette.findIndex((_, index) => !taken.has(index));
-        const next = free === -1 ? 0 : free;
-        this.assigned.set(key, next);
-        taken.add(next);
-      });
+    let next = 0;
+    subjects.forEach((key) => {
+      if (this.assigned.has(key)) return;
+      while (taken.has(next)) next++;
+      this.assigned.set(key, next);
+      taken.add(next);
+    });
     this.obs.notify();
   }
 }

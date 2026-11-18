@@ -236,6 +236,16 @@ describe("control/aether/Colors", SUITE, () => {
     expect(color.equals(colors.get(moved.subject), next)).toBe(true);
   });
 
+  it("should part subjects that shared a color when the palette grows", async () => {
+    const [first, second] = await createChannels(2);
+    const { colors, setSeries } = await setup([first, second], PALETTE.slice(0, 1));
+    const [a, b] = await Promise.all([hold(first), hold(second)]);
+    await assigned(colors, a.subject);
+    await assigned(colors, b.subject);
+    setSeries(PALETTE);
+    expect(color.equals(colors.get(a.subject), colors.get(b.subject))).toBe(false);
+  });
+
   it("should keep subjects apart when the same series colors arrive again", async () => {
     const [first, second] = await createChannels(2);
     const { colors, setSeries } = await setup([first, second]);
