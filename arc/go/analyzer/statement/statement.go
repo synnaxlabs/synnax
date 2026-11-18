@@ -536,7 +536,7 @@ func rejectParameterAlias(
 	if err != nil || !ref.IsSequenceInput() || ref.Type.Kind != types.KindChan {
 		return
 	}
-	ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+	ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(ctx.AST,
 		"a channel parameter cannot have an alias, use '%s' directly", ref.Name))
 }
 

@@ -423,8 +423,10 @@ func analyzeIdentifier(
 		return
 	}
 	if sym.IsParameterized() {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s has parameters", name).
-			WithNote("use " + name + "(...) to start it"))
+		ctx.Diagnostics.Add(
+			codes.TransitionTarget.Atf(ctx.AST, "%s has parameters", name).
+				WithNote("use " + name + "(...) to start it"),
+		)
 		return
 	}
 	// Any other symbol would lower to a read or write of a channel that does not exist.
@@ -452,7 +454,7 @@ func analyzeIdentifier(
 			sym.Reassigned = true
 		}
 		if sym.IsSequenceInput() && sym.Type.Kind != types.KindChan {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(ctx.AST,
 				"cannot reassign parameter '%s'", name))
 			return
 		}

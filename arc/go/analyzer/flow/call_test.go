@@ -113,26 +113,31 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 		`),
 	)
 
-	DescribeTable("Invalid",
+	DescribeTable(
+		"Invalid",
 		func(bCtx SpecContext, source, message string) {
 			ctx := analyze(bCtx, source)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(message))
 		},
-		Entry("the bare name", `start => main`, "main has parameters"),
+		Entry(
+			"the bare name",
+			`start => main`,
+			"invalid transition target: main has parameters",
+		),
 		Entry(
 			"a computed argument",
 			`start => main(pressure * 2.0, valve_a)`,
-			"argument for parameter 'limit' of sequence 'main' is not fixed at compile time",
+			"not a constant: argument for parameter 'limit' of sequence 'main' is not fixed at compile time",
 		),
 		Entry("a top-level variable that reads a channel", `
 			double := pressure * 2.0
 			start => main(double, valve_a)
-		`, "argument for parameter 'limit' of sequence 'main' is not fixed at compile time"),
+		`, "not a constant: argument for parameter 'limit' of sequence 'main' is not fixed at compile time"),
 		Entry("a top-level variable computed at run time", `
 			double := 2.0 * 3.0
 			start => main(double, valve_a)
-		`, "argument for parameter 'limit' of sequence 'main' is not fixed at compile time"),
+		`, "not a constant: argument for parameter 'limit' of sequence 'main' is not fixed at compile time"),
 		Entry("a variable of the calling sequence", `
 			sequence outer {
 				local := 5.0
@@ -140,11 +145,17 @@ var _ = Describe("Calls of a sequence or stage with parameters", func() {
 					start => main(local, valve_a)
 				}
 			}
-		`, "argument for parameter 'limit' of sequence 'main' is not fixed at compile time"),
-		Entry("a channel for a value parameter", `start => main(pressure, valve_a)`,
-			"argument for parameter 'limit' of sequence 'main' cannot be a channel"),
-		Entry("a value for a channel parameter", `start => main(50.0, 1.0)`,
-			"argument for parameter 'valve' of sequence 'main' must be a channel"),
+		`, "not a constant: argument for parameter 'limit' of sequence 'main' is not fixed at compile time"),
+		Entry(
+			"a channel for a value parameter",
+			`start => main(pressure, valve_a)`,
+			"invalid argument value: argument for parameter 'limit' of sequence 'main' cannot be a channel",
+		),
+		Entry(
+			"a value for a channel parameter",
+			`start => main(50.0, 1.0)`,
+			"channel expected: argument for parameter 'valve' of sequence 'main' must be a channel",
+		),
 		Entry("a missing argument", `start => main(50.0)`,
 			"missing required argument: parameter 'valve' of sequence 'main'"),
 		Entry("an extra argument", `start => main(50.0, valve_a, valve_b)`,

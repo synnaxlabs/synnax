@@ -290,7 +290,7 @@ func rejectBodyCallCycles(ctx acontext.Context[parser.IProgramContext]) {
 		if site == nil {
 			continue
 		}
-		d := diagnostics.Errorf(
+		d := codes.CircularCall.Atf(
 			site, "%s '%s' cannot call itself", nouns[cycle[0]], cycle[0],
 		)
 		if len(cycle) > 2 {

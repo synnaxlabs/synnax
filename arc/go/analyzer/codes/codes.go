@@ -674,6 +674,17 @@ sensor -> split() -> {
 		Message:  "channel limit exceeded",
 		Problem:  "A program has more top-level variables than Arc allows.",
 	}
+	// BodyDeclaration is a stage or sequence declared in a form that is not valid.
+	BodyDeclaration = diagnostics.Kind{
+		Code:     "E5016",
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  "invalid stage or sequence declaration",
+		Problem:  "Only a named top-level stage or sequence can have parameters.",
+		Example: `sequence main {
+    stage hold(limit f64) {
+    }
+}`,
+	}
 	// DeclarationAfterStep is a variable declared after a step of its scope.
 	DeclarationAfterStep = diagnostics.Kind{
 		Code:     "W5000",
@@ -760,5 +771,6 @@ var All = []diagnostics.Kind{
 	RoutingName,
 	DataflowCycle,
 	ChannelLimit,
+	BodyDeclaration,
 	DeclarationAfterStep,
 }

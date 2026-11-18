@@ -1770,7 +1770,7 @@ var _ = Describe("Calls between sequences with parameters", func() {
 		`, chResolver)
 		Expect(*ctx.Diagnostics).To(HaveLen(1))
 		Expect((*ctx.Diagnostics)[0].Message).
-			To(Equal("sequence 'main' cannot call itself"))
+			To(Equal("circular function call: sequence 'main' cannot call itself"))
 		Expect((*ctx.Diagnostics)[0].Notes).To(BeEmpty())
 	})
 
@@ -1782,7 +1782,7 @@ var _ = Describe("Calls between sequences with parameters", func() {
 		`, chResolver)
 		Expect(*ctx.Diagnostics).To(HaveLen(1))
 		Expect((*ctx.Diagnostics)[0].Message).
-			To(Equal("stage 'hold' cannot call itself"))
+			To(Equal("circular function call: stage 'hold' cannot call itself"))
 	})
 
 	It("Should reject a cycle of calls and show the chain", func(bCtx SpecContext) {
@@ -1802,7 +1802,7 @@ var _ = Describe("Calls between sequences with parameters", func() {
 		d := (*ctx.Diagnostics)[0]
 		Expect(
 			d.Message,
-		).To(MatchRegexp(`^sequence '(fill|drain)' cannot call itself$`))
+		).To(MatchRegexp(`^circular function call: sequence '(fill|drain)' cannot call itself$`))
 		Expect(d.Notes).To(HaveLen(1))
 		Expect(d.Notes[0].Message).To(MatchRegexp(
 			`^call chain: (fill -> drain -> fill|drain -> fill -> drain)$`,

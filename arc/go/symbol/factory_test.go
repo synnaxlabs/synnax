@@ -443,7 +443,7 @@ var _ = Describe("Sequence parameters", func() {
 			func(bCtx SpecContext) {
 				add(bCtx, withInputs(types.Sequence()))
 				Expect(root.ResolveMember(bCtx, "main", "vent")).Error().
-					To(MatchError("cannot use 'main.vent': 'main' has parameters"))
+					To(MatchError("undefined symbol: main.vent"))
 			},
 		)
 

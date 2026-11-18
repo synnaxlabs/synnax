@@ -679,12 +679,7 @@ func (s *Symbol) ResolveMember(
 		return sym, err
 	}
 	if sym.IsParameterized() {
-		return nil, errors.Newf(
-			"cannot use '%s.%s': '%s' has parameters",
-			head,
-			tail,
-			head,
-		)
+		return nil, codes.SymbolUndefined.Errorf("undefined symbol: %s.%s", head, tail)
 	}
 	return sym.Resolve(ctx, tail)
 }

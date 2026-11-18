@@ -61,7 +61,7 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	}
 	switch {
 	case sym.IsSequenceInput() && sym.Type.Kind != types.KindChan:
-		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+		ctx.Diagnostics.Add(codes.AssignmentTarget.Atf(assign,
 			"cannot reassign parameter '%s'", name))
 	case sym.IsChannelReadWrite():
 		target, ok := channelRebindTarget(ctx, assign.Expression())
@@ -280,12 +280,12 @@ func collectParameters[T antlr.ParserRuleContext](
 		return nil
 	}
 	if !topLevel {
-		ctx.Diagnostics.Add(diagnostics.Errorf(inputList,
-			"only a top-level sequence or stage can have parameters"))
+		ctx.Diagnostics.Add(codes.BodyDeclaration.Atf(inputList,
+			"only a top-level stage or sequence can have parameters"))
 		return nil
 	}
 	if name == "" {
-		ctx.Diagnostics.Add(diagnostics.Errorf(inputList,
+		ctx.Diagnostics.Add(codes.BodyDeclaration.Atf(inputList,
 			"a %s with parameters needs a name", kind))
 		return nil
 	}

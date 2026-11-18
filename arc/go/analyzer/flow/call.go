@@ -10,12 +10,12 @@
 package flow
 
 import (
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // analyzeBodyCall checks a call of a sequence or stage with parameters, if ctx is one.
@@ -82,7 +82,7 @@ func checkBodyArgument(
 ) bool {
 	channel, ok := fixedArgument(ctx, arg.Expr)
 	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(arg.AST,
+		ctx.Diagnostics.Add(codes.NotConstant.Atf(arg.AST,
 			"argument for parameter '%s' of %s '%s' is not fixed at compile time",
 			param.Name, noun, name,
 		).WithNote(
@@ -91,11 +91,11 @@ func checkBodyArgument(
 		return false
 	}
 	if isChan := param.Type.Kind == types.KindChan; channel != isChan {
-		must := "cannot be"
+		kind, must := codes.FuncArgValue, "cannot be"
 		if isChan {
-			must = "must be"
+			kind, must = codes.ChannelExpected, "must be"
 		}
-		ctx.Diagnostics.Add(diagnostics.Errorf(arg.AST,
+		ctx.Diagnostics.Add(kind.Atf(arg.AST,
 			"argument for parameter '%s' of %s '%s' %s a channel",
 			param.Name, noun, name, must,
 		))

@@ -1014,29 +1014,29 @@ var _ = Describe("Parameters", func() {
 				stage press(limit f64) {
 				}
 			}
-		`, "only a top-level sequence or stage can have parameters"),
+		`, "invalid stage or sequence declaration: only a top-level stage or sequence can have parameters"),
 		Entry("a parameter list on a sequence in a sequence", `
 			sequence main {
 				sequence inner(limit f64) {
 					0.0 -> valve_cmd
 				}
 			}
-		`, "only a top-level sequence or stage can have parameters"),
+		`, "invalid stage or sequence declaration: only a top-level stage or sequence can have parameters"),
 		Entry("a parameter list on an inline stage", `
 			start_cmd => stage(limit f64) {
 				0.0 -> valve_cmd
 			}
-		`, "only a top-level sequence or stage can have parameters"),
+		`, "invalid stage or sequence declaration: only a top-level stage or sequence can have parameters"),
 		Entry("a parameter list on a sequence with no name", `
 			sequence(limit f64) {
 				0.0 -> valve_cmd
 			}
-		`, "a sequence with parameters needs a name"),
+		`, "invalid stage or sequence declaration: a sequence with parameters needs a name"),
 		Entry("a parameter list on a stage with no name", `
 			stage(limit f64) {
 				0.0 -> valve_cmd
 			}
-		`, "a stage with parameters needs a name"),
+		`, "invalid stage or sequence declaration: a stage with parameters needs a name"),
 		Entry("a default of the wrong type", `
 			sequence main(limit f64 = "high") {
 				stage press {
@@ -1055,14 +1055,14 @@ var _ = Describe("Parameters", func() {
 					limit = 1.0
 				}
 			}
-		`, "cannot reassign parameter 'limit'"),
+		`, "invalid assignment: cannot reassign parameter 'limit'"),
 		Entry("a flow into a value parameter", `
 			sequence main(limit f64) {
 				stage press {
 					1.0 -> limit
 				}
 			}
-		`, "cannot reassign parameter 'limit'"),
+		`, "invalid assignment: cannot reassign parameter 'limit'"),
 		Entry("an assignment to a channel parameter", `
 			sequence main(valve chan f64) {
 				stage press {
@@ -1084,7 +1084,7 @@ var _ = Describe("Parameters", func() {
 					1.0 -> out
 				}
 			}
-		`, "a channel parameter cannot have an alias, use 'valve' directly"),
+		`, "invalid assignment: a channel parameter cannot have an alias, use 'valve' directly"),
 		Entry("two parameters with one name", `
 			sequence main(limit f64, limit f64) {
 				stage press {
@@ -1136,7 +1136,7 @@ var _ = Describe("Parameters", func() {
 					start_cmd => main
 				}
 			}
-		`, "main has parameters"),
+		`, "invalid transition target: main has parameters"),
 		Entry("a member of its own sequence by qualified name", `
 			sequence main(limit f64) {
 				stage press {
@@ -1145,14 +1145,14 @@ var _ = Describe("Parameters", func() {
 				stage vent {
 				}
 			}
-		`, "cannot use 'main.vent': 'main' has parameters"),
+		`, "undefined symbol: main.vent"),
 		Entry("a parameter read by qualified name from outside", `
 			sequence main(limit f64) {
 				stage press {
 				}
 			}
 			main.limit -> valve_cmd
-		`, "cannot use 'main.limit': 'main' has parameters"),
+		`, "undefined symbol: main.limit"),
 	)
 
 	It("Should give the sequence type its inputs", func(bCtx SpecContext) {

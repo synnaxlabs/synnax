@@ -323,6 +323,12 @@
     "problem": "A program has more top-level variables than Arc allows.",
     "example": ""
   },
+  "E5016": {
+    "severity": "error",
+    "message": "invalid stage or sequence declaration",
+    "problem": "Only a named top-level stage or sequence can have parameters.",
+    "example": "sequence main {\n    stage hold(limit f64) {\n    }\n}"
+  },
   "W2000": {
     "severity": "warning",
     "message": "non-boolean condition",
