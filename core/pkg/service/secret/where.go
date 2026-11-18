@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package task
+package secret
 
-import "fmt"
+import (
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+)
 
-// String returns the command's type together with its key and target task.
-func (c Command) String() string {
-	return fmt.Sprintf("%s (key=%s, task=%s)", c.Type, c.Key, c.Task)
+// MatchRacks returns a filter for the file secrets on any of the racks with keys.
+func MatchRacks(keys ...rack.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Secret] { return r.indexes.rack.Filter(keys...) }
 }

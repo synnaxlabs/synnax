@@ -42,15 +42,16 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Set creates the certificate, or replaces the one with the same key, and writes its
-// expiry status. It returns a validation error for an invalid certificate or key.
+// expiry status. It returns a validation error for an invalid certificate or key, or
+// for a replace of a certificate of another source. It returns a gorp.RestrictError
+// for a replace that moves a file certificate that anything uses to another rack.
 //
 // For a stored certificate, Set reads the details from the PEM and keeps only its
 // certificate blocks. An optional PEM privateKey must match the leaf, and replaces the
 // value of the certificate's key secret. Without one, a replacement keeps the old key
 // only when the public key is unchanged, and renames its secret after a new name. A
-// file certificate takes no privateKey, and replacing a stored certificate with one
-// deletes the old key secret. The commit carries a create action that holds the
-// certificate.
+// file certificate takes no privateKey. The commit carries a create action that holds
+// the certificate.
 func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) error {
 	if c.Variant == nil {
 		v := validate.New("certificate")
@@ -73,10 +74,20 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 	if errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
-	prevStored, _ := prev.Variant.(StoredCertificate)
-	var orphanedKey *secret.Key
+	if prev.Variant != nil && prev.Source() != c.Source() {
+		v := validate.New("certificate")
+		v.Ternaryf(
+			"source",
+			true,
+			"cannot change from %s to %s",
+			prev.Source(),
+			c.Source(),
+		)
+		return v.Error()
+	}
 	switch variant := c.Variant.(type) {
 	case StoredCertificate:
+		prevStored, _ := prev.Variant.(StoredCertificate)
 		if variant, err = w.prepareStored(
 			ctx,
 			variant,
@@ -87,6 +98,12 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 		}
 		c.Variant = variant
 	case FileCertificate:
+		prevFile, ok := prev.Variant.(FileCertificate)
+		if ok && prevFile.Rack != variant.Rack {
+			if err = w.table.RestrictChange(ctx, w.tx, base.Key, "rack"); err != nil {
+				return err
+			}
+		}
 		v := validate.New("certificate")
 		v.NotEmptyString("certificate_path", variant.CertificatePath)
 		if variant.PrivateKeyFile != nil {
@@ -100,17 +117,11 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 		if err = v.Error(); err != nil {
 			return err
 		}
-		orphanedKey = prevStored.PrivateKey
 	}
 	if err = w.table.NewCreate().Entry(c).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, base.Key, NewCreateAction(CreatePayload{Certificate: *c}))
-	if orphanedKey != nil {
-		if err = w.secrets.Delete(ctx, *orphanedKey); err != nil {
-			return err
-		}
-	}
 	return w.writeStatus(ctx, *c)
 }
 

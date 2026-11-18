@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -93,6 +94,8 @@ type FileSecret struct {
 	Base
 	// FileName is the name of the file in the secrets folder of the rack.
 	FileName string `json:"file_name" msgpack:"file_name"`
+	// Rack is the rack that reads the file.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 }
 
 func (FileSecret) isSecretVariant() {}
@@ -101,6 +104,7 @@ func (FileSecret) isSecretVariant() {}
 // schema constraints.
 func (f FileSecret) Validate() error {
 	v := validate.New("FileSecret")
+	v.NonZero("rack", f.Rack)
 	v.Exec(f.Base.Validate)
 	return v.Error()
 }
