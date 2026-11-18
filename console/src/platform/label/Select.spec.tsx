@@ -250,8 +250,8 @@ describe("Label.Select permissions", () => {
       retrieve: [label.TYPE_RESOURCE_ID],
     });
 
-  // A search that lists a label but names none shows the create option to a subject
-  // who may create, so its absence proves the gate and not a list still in flight.
+  // A search that lists a label but names none shows the create option to a subject who
+  // may create, so its absence proves the gate and not a list still in flight.
   const renderPicker = async (as: Client): Promise<string> => {
     const token = uniqueToken();
     const { name } = await client.labels.create({

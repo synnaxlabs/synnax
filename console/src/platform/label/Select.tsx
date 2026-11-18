@@ -14,10 +14,7 @@ import { type ReactElement } from "react";
 
 import { CreateFooter } from "@/platform/label/CreateFooter";
 
-/**
- * Picks labels. A user who can create labels can also create one from the search,
- * which it adds.
- */
+/** Picks labels. A user who can create labels can also create one, which it adds. */
 export const SelectMultiple = ({
   value,
   onChange,

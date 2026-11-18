@@ -12,7 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Access, Flux, Label as Base } from "@synnaxlabs/pluto";
+import { Access, Flux, Label as PLabel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -46,7 +46,7 @@ export interface LabelsProps {
  * them on the first click and leaves all of them on the next.
  */
 export const Labels = ({ ranges }: LabelsProps): ReactElement => {
-  const { update } = Base.useEditFor();
+  const { update } = PLabel.useEditFor();
   const canCreate = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.labels,

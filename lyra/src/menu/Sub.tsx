@@ -65,7 +65,8 @@ export interface SubProps extends PropsWithChildren {
  * A menu item that opens a submenu beside its menu. Its children are a {@link
  * SubTrigger} and the content: a {@link Dialog}, or a selection dialog on the menu
  * surface. A menu opens one submenu at a time. ArrowLeft and Escape close one level. A
- * click inside the content keeps a context menu open unless it picks an item.
+ * click inside the content keeps a context menu open unless it picks an item or an
+ * option that leaves the menu.
  *
  * @example
  * <Menu.Menu>

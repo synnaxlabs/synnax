@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, ranger, TimeRange } from "@synnaxlabs/client";
+import { ranger, TimeRange } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
+import { Access, Flux, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Analytics } from "@/platform/analytics";
@@ -87,8 +86,6 @@ export interface ParentProps {
  * covers the ranges and takes their shared parent, and the ranges move inside it.
  */
 export const Parent = ({ ranges }: ParentProps): ReactElement => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
   const openCreate = useCreateModal();
   const { capture } = Analytics.use();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
@@ -111,25 +108,21 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
     ranges.forEach((r) => update({ key: r.key, parent }));
   const handleChange = (next: ranger.Key | null) =>
     move(next == null || next === NONE ? null : next);
-  const handleCreate = (name: string) =>
-    handleError(async () => {
-      if (client == null) throw new DisconnectedError();
-      const timeRange = TimeRange.max(...ranges.map((r) => r.timeRange));
-      if (name !== "") {
-        const created = await client.ranges.create({
-          name,
-          timeRange,
-          parent: current ?? undefined,
-        });
-        capture("range_created", {});
-        return move(created.key);
-      }
-      const key = await openCreate({
-        timeRange: timeRange.numeric,
-        parent: current ?? "",
-      });
-      if (key != null) move(key);
-    }, "Failed to create range");
+  const { update: create } = Ranger.useCreate({
+    afterSuccess: ({ data }) => {
+      capture("range_created", {});
+      move(data.key);
+    },
+  });
+  const handleCreate = (name: string) => {
+    const timeRange = TimeRange.max(...ranges.map((r) => r.timeRange));
+    if (name !== "") return create({ name, timeRange, parent: current ?? undefined });
+    void openCreate({ timeRange: timeRange.numeric, parent: current ?? "" }).then(
+      (key) => {
+        if (key != null) move(key);
+      },
+    );
+  };
   return (
     <Menu.Sub itemKey="parent" textValue="Parent">
       <Menu.SubTrigger>
