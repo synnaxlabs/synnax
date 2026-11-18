@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { secret } from "@synnaxlabs/client";
+import { secret, type rack } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
@@ -25,10 +25,11 @@ const describe = (s: secret.Secret): Picker.Description => ({
 
 interface ControlProps extends Input.Control<secret.Key> {
   defaultName: string;
+  rack: rack.Key;
   preview?: boolean;
 }
 
-const Control = ({ value, defaultName, ...rest }: ControlProps): ReactElement => {
+const Control = ({ value, defaultName, rack, ...rest }: ControlProps): ReactElement => {
   const list = Secret.useList();
   const result = Secret.useResult(primitive.isZero(value) ? null : { key: value });
   const canCreate = Access.useCreateGranted(secret.TYPE_RESOURCE_ID);
@@ -41,7 +42,7 @@ const Control = ({ value, defaultName, ...rest }: ControlProps): ReactElement =>
       describe={describe}
       list={list}
       result={result}
-      onCreate={canCreate ? () => openCreate({ name: defaultName }) : undefined}
+      onCreate={canCreate ? () => openCreate({ name: defaultName, rack }) : undefined}
       {...rest}
     />
   );
@@ -50,19 +51,22 @@ const Control = ({ value, defaultName, ...rest }: ControlProps): ReactElement =>
 export interface FieldProps extends Omit<Form.FieldProps<secret.Key>, "children"> {
   /** The name a created secret starts with, such as "Line 2 alerts routing key". */
   defaultName: string;
+  /** The rack of the device. The field lists only the file items of this rack. */
+  rack: rack.Key;
 }
 
 /**
  * A form field that holds the key of a secret. It selects a secret, or creates one that
  * starts with the default name and selects it.
  */
-export const Field = ({ defaultName, ...rest }: FieldProps): ReactElement => (
+export const Field = ({ defaultName, rack, ...rest }: FieldProps): ReactElement => (
   <Form.Field<secret.Key> {...rest}>
     {({ value, onChange, preview }) => (
       <Control
         value={value}
         onChange={onChange}
         defaultName={defaultName}
+        rack={rack}
         preview={preview}
       />
     )}

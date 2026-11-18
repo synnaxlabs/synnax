@@ -1,0 +1,91 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type rack, type Synnax, task } from "@synnaxlabs/client";
+import { onTestFinished } from "vitest";
+
+import { FileBrowser } from "@/platform/file-browser";
+import { createRunningRack } from "@/platform/device/testutil";
+import { answerCommand } from "@/platform/task/testutil";
+import { uniqueName } from "@/testutil";
+
+/** A running rack and its file browser task. */
+export interface FileRack {
+  rack: rack.Rack;
+  browser: task.Task;
+}
+
+/** Creates a running rack with a file browser task, as a Driver with `file` has. */
+export const createFileRack = async (client: Synnax): Promise<FileRack> => {
+  const r = await createRunningRack(client, "file");
+  const browser = await r.createTask({
+    name: uniqueName("file_browser"),
+    type: FileBrowser.TASK_TYPE,
+    config: {},
+  });
+  return { rack: r, browser };
+};
+
+/** Creates the listing of a folder, with defaults for the fields a spec ignores. */
+export const createListing = (
+  overrides: Partial<FileBrowser.Listing> = {},
+): FileBrowser.Listing => ({
+  path: "",
+  parent: "",
+  secretsDir: "",
+  secret: false,
+  truncated: false,
+  entries: [],
+  ...overrides,
+});
+
+/**
+ * Answers each list command to the browser as a Driver does, with the listing of its
+ * path. A path with no listing gets the error of a missing folder. Answers until the
+ * test ends.
+ */
+export const serveListings = async (
+  client: Synnax,
+  { browser }: FileRack,
+  listings: FileBrowser.Listing[],
+): Promise<void> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  let finished = false;
+  onTestFinished(() => {
+    finished = true;
+    streamer.close();
+  });
+  const respond = async (): Promise<void> => {
+    for (;;) {
+      const frame = await streamer.read();
+      for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
+        const cmd = task.commandZ.parse(sample);
+        if (cmd.task !== browser.key) continue;
+        const path = String(cmd.args?.path ?? "");
+        const listing = listings.find((l) => l.path === path);
+        await answerCommand(
+          client,
+          browser,
+          cmd,
+          listing == null
+            ? {
+                variant: "error",
+                message: "Failed to list files",
+                description: `${path} does not exist.`,
+              }
+            : { data: listing },
+        );
+      }
+    }
+  };
+  // The read fails once the streamer closes at the end of the test.
+  respond().catch((e: unknown) => {
+    if (!finished) throw e;
+  });
+};
