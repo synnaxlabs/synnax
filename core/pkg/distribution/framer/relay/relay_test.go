@@ -194,6 +194,14 @@ var _ = Describe("Relay", func() {
 			).To(MatchError(ContainSubstring("run called after close")))
 		})
 
+		It("Should close after Run returns", func() {
+			r := openRelay(relay.Config{
+				FreeWrites: confluence.NewStream[relay.Response](1),
+			})
+			StartRun(r.Run)()
+			Expect(r.Close()).To(Succeed())
+		})
+
 		It("Should fail a Close while Run runs", func() {
 			r := openRelay(relay.Config{
 				FreeWrites: confluence.NewStream[relay.Response](1),
