@@ -243,6 +243,16 @@ TEST(CertificateTest, ParseChainKeepsFirst) {
     );
 }
 
+/// @brief it should treat a certificate with no footer as PEM, and fail to parse it.
+TEST(CertificateTest, TruncatedPem) {
+    const auto truncated = testutil::CERTIFICATE.substr(
+        0,
+        testutil::CERTIFICATE.find("-----END")
+    );
+    ASSERT_TRUE(Certificate::is_pem(truncated));
+    ASSERT_OCCURRED_AS_P(Certificate::parse(truncated), INVALID);
+}
+
 /// @brief it should reject data that holds no certificate.
 TEST(CertificateTest, ParseRejectsGarbage) {
     ASSERT_OCCURRED_AS_P(Certificate::parse("not a certificate"), INVALID);

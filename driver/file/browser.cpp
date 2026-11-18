@@ -223,7 +223,9 @@ Browser::list(const std::string &path) const {
     if (truncated) found.resize(MAX_ENTRIES);
 
     const Secrets secrets(this->cfg.secrets_dir);
-    const bool listed_secret = secrets.contains(dir);
+    std::error_code real_ec;
+    const auto real_dir = std::filesystem::canonical(dir, real_ec);
+    const bool listed_secret = real_ec || secrets.contains(real_dir);
     auto entries = x::json::json::array();
     for (const auto &e: found) {
         x::json::json entry = {

@@ -323,7 +323,7 @@ std::vector<std::string_view> Certificate::pem_blocks(const std::string_view dat
 }
 
 bool Certificate::is_pem(const std::string_view data) {
-    return !pem_blocks(data).empty();
+    return data.contains(PEM_HEADER);
 }
 
 std::pair<Certificate, errors::Error> Certificate::parse(const std::string_view data) {

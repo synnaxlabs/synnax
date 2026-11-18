@@ -34,7 +34,8 @@ public:
     /// @returns INVALID if the data holds no certificate.
     static std::pair<Certificate, errors::Error> parse(std::string_view data);
 
-    /// @returns true if a PEM certificate block is anywhere in the data.
+    /// @returns true if a PEM certificate header is anywhere in the data, even with no
+    /// footer after it.
     [[nodiscard]] static bool is_pem(std::string_view data);
 
     /// @returns each PEM certificate block in the data, in order, from its header
