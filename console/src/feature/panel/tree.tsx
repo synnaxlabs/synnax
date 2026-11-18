@@ -24,7 +24,7 @@ interface ItemIconProps {
 const ItemIcon = ({ panelKey }: ItemIconProps): ReactElement => {
   const { data } = Panel.useResultAppearance({ key: panelKey });
   const resolve = Color.useResolve();
-  const color = data?.color == null ? undefined : resolve(data.color);
+  const color = resolve(data?.color);
   return Appearance.renderIcon({ icon: data?.icon, color, fallback: Icon.Panel });
 };
 

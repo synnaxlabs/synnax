@@ -15,14 +15,3 @@ export const fixedRef = (value: xcolor.Crude): color.Ref => ({
   type: "fixed",
   value: xcolor.construct(value),
 });
-
-/**
- * @returns the color of a fixed reference.
- * @throws if the reference is named, which a control that hides the palettes never
- * sends.
- */
-export const fixedValue = (ref: color.Ref): xcolor.Color => {
-  if (ref.type === "named")
-    throw new Error(`[multiedit] - named color ${ref.key} in a color value field`);
-  return ref.value;
-};

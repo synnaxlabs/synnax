@@ -49,8 +49,7 @@ export const ColorField = ({
 }: ColorFieldProps): ReactElement => {
   const resolve = Color.useResolve();
   const [first] = values;
-  const painted = (v: ColorValue): xcolor.Crude =>
-    (v.value == null ? undefined : resolve(v.value)) ?? v.fallback;
+  const painted = (v: ColorValue): xcolor.Crude => resolve(v.value) ?? v.fallback;
   const mixed = values.some(
     (v) =>
       refID(v.value) !== refID(first.value) ||

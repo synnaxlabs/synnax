@@ -33,7 +33,8 @@ const RED = xcolor.construct("#ff0000");
 const BLUE = xcolor.construct("#0000ff");
 const FIXED_RED: color.Ref = { type: "fixed", value: RED };
 const FIXED_BLUE: color.Ref = { type: "fixed", value: BLUE };
-const NAMED: color.Ref = { type: "named", key: uuid.create() };
+const NAMED_KEY = uuid.create();
+const NAMED: color.Ref = { type: "named", key: NAMED_KEY };
 
 const create = (configs: Array<[string, Config]>) => {
   const updates: Array<Array<[string, Config]>> = [];
@@ -104,7 +105,7 @@ describe("selection", () => {
 
   it("should throw when a named color goes in a field that holds values", () => {
     expect(() => selection.setColor("strokeColor", NAMED)).toThrow(
-      `[multiedit] - named color ${NAMED.type === "named" ? NAMED.key : ""} in a color value field`,
+      `[multiedit] - named color ${NAMED_KEY} in a color value field`,
     );
   });
 

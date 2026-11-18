@@ -9,13 +9,13 @@
 
 import { type color } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { color as xcolor } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { MultiEdit } from "@/platform/multiedit";
-import { assertDefined, createConsoleWrapper, uniqueName } from "@/testutil";
+import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
+import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -35,24 +35,6 @@ const createInPalette = async (): Promise<color.Named> => {
 };
 
 const named = (key: string): color.Ref => ({ type: "named", key });
-const fixed = (value: xcolor.Crude): color.Ref => ({
-  type: "fixed",
-  value: xcolor.construct(value),
-});
-
-const hexBox = (label: string): HTMLInputElement => {
-  const input = screen
-    .getAllByLabelText(label)
-    .find((el): el is HTMLInputElement => el instanceof HTMLInputElement);
-  assertDefined(input);
-  return input;
-};
-
-const swatchesIn = (label: string): HTMLElement[] => {
-  const item = screen.getByText(label).closest(".lyra-input__item");
-  assertDefined(item);
-  return Array.from(item.querySelectorAll<HTMLElement>(".lyra-color-swatch"));
-};
 
 describe("ColorField", () => {
   let wrapper: FC<PropsWithChildren>;
@@ -72,7 +54,7 @@ describe("ColorField", () => {
       />,
       { wrapper },
     );
-    fireEvent.click(swatchesIn("Fill")[0]);
+    fireEvent.click(getSwatches("Fill")[0]);
     fireEvent.click(await screen.findByRole("button", { name: c.name }));
     expect(onChange).toHaveBeenCalledWith(named(c.key));
   });
@@ -90,7 +72,7 @@ describe("ColorField", () => {
       />,
       { wrapper },
     );
-    await waitFor(() => expect(hexBox("Fill").placeholder).toBe(c.name));
+    await waitFor(() => expect(getHexInput("Fill").placeholder).toBe(c.name));
   });
 
   it("should show Mixed when one element follows a named color and another holds its value", async () => {
@@ -100,13 +82,13 @@ describe("ColorField", () => {
         label="Fill"
         values={[
           { value: named(c.key), fallback: FALLBACK },
-          { value: fixed(GREEN), fallback: FALLBACK },
+          { value: MultiEdit.fixedRef(GREEN), fallback: FALLBACK },
         ]}
         onChange={vi.fn()}
       />,
       { wrapper },
     );
-    await waitFor(() => expect(hexBox("Fill").placeholder).toBe("Mixed"));
+    await waitFor(() => expect(getHexInput("Fill").placeholder).toBe("Mixed"));
   });
 
   it("should hide the palettes when palettesHidden is set", async () => {
@@ -121,8 +103,8 @@ describe("ColorField", () => {
       { wrapper },
     );
     // The named color resolves once the named colors load.
-    await waitFor(() => expect(hexBox("Fill").value).toBe(GREEN.slice(1)));
-    fireEvent.click(swatchesIn("Fill")[0]);
+    await waitFor(() => expect(getHexInput("Fill").value).toBe(GREEN.slice(1)));
+    fireEvent.click(getSwatches("Fill")[0]);
     await screen.findByLabelText("Hex");
     expect(screen.queryByText("Library")).toBeNull();
   });
@@ -142,13 +124,13 @@ describe("SelectionColors", () => {
         refs={[
           { key: "a", path: "fillColor", value: named(c.key) },
           { key: "b", path: "fillColor", value: named(c.key) },
-          { key: "c", path: "fillColor", value: fixed(GREEN) },
+          { key: "c", path: "fillColor", value: MultiEdit.fixedRef(GREEN) },
         ]}
         onChange={vi.fn()}
       />,
       { wrapper },
     );
-    await waitFor(() => expect(swatchesIn("Selection")).toHaveLength(2));
+    await waitFor(() => expect(getSwatches("Selection")).toHaveLength(2));
   });
 
   it("should hide the palettes of a group that holds a color value", async () => {
@@ -172,11 +154,11 @@ describe("SelectionColors", () => {
     const c = await createInPalette();
     const onChange = vi.fn();
     const refs: MultiEdit.ColorRef[] = [
-      { key: "a", path: "fillColor", value: fixed(GREEN) },
-      { key: "b", path: "textColor", value: fixed(GREEN) },
+      { key: "a", path: "fillColor", value: MultiEdit.fixedRef(GREEN) },
+      { key: "b", path: "textColor", value: MultiEdit.fixedRef(GREEN) },
     ];
     render(<MultiEdit.SelectionColors refs={refs} onChange={onChange} />, { wrapper });
-    fireEvent.click(swatchesIn("Selection")[0]);
+    fireEvent.click(getSwatches("Selection")[0]);
     // A fixed color opens the picker on its Custom tab.
     fireEvent.click(await screen.findByText("Library"));
     fireEvent.click(await screen.findByRole("button", { name: c.name }));

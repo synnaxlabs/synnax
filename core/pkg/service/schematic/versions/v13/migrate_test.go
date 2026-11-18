@@ -698,6 +698,96 @@ var _ = Describe("MigrateSchematic group parents", func() {
 	})
 })
 
+var _ = Describe("MigrateNodeConfig look colors", func() {
+	shade := func(r uint8) *color.Color { return &color.Color{R: r, A: 1} }
+	// Each entry gives its nth field the red value n, so a swapped field fails.
+	DescribeTable(
+		"Should store each look color as a fixed color reference",
+		func(ctx SpecContext, old v12.NodeConfigVariant, fields ...string) {
+			out := MustSucceed(v13.MigrateNodeConfig(ctx, v12.NodeConfig{Variant: old}))
+			for i, f := range fields {
+				want := colorv2.Color{R: uint8(i + 1), A: 255}
+				Expect(out.Variant).To(HaveField(f, Equal(&servicecolor.Ref{
+					Variant: servicecolor.FixedRef{Value: want},
+				})))
+			}
+		},
+		Entry(
+			"a box",
+			v12.BoxNodeConfig{StrokeColor: shade(1), FillColor: shade(2)},
+			"StrokeColor",
+			"FillColor",
+		),
+		Entry(
+			"a circle",
+			v12.CircleNodeConfig{StrokeColor: shade(1), FillColor: shade(2)},
+			"StrokeColor",
+			"FillColor",
+		),
+		Entry(
+			"a cylinder",
+			v12.CylinderNodeConfig{StrokeColor: shade(1), FillColor: shade(2)},
+			"StrokeColor",
+			"FillColor",
+		),
+		Entry("a line", v12.LineNodeConfig{StrokeColor: shade(1)}, "StrokeColor"),
+		Entry(
+			"a polygon",
+			v12.PolygonNodeConfig{StrokeColor: shade(1), FillColor: shade(2)},
+			"StrokeColor",
+			"FillColor",
+		),
+		Entry("a text box", v12.TextBoxNodeConfig{TextColor: shade(1)}, "TextColor"),
+		Entry(
+			"an off page reference",
+			v12.OffPageReferenceNodeConfig{FillColor: shade(1)},
+			"FillColor",
+		),
+		Entry("a button", v12.ButtonNodeConfig{FillColor: shade(1)}, "FillColor"),
+		Entry("an input", v12.InputNodeConfig{FillColor: shade(1)}, "FillColor"),
+		Entry("a select", v12.SelectNodeConfig{FillColor: shade(1)}, "FillColor"),
+		Entry("a setpoint", v12.SetpointNodeConfig{FillColor: shade(1)}, "FillColor"),
+		Entry(
+			"a state indicator",
+			v12.StateIndicatorNodeConfig{StrokeColor: shade(1)},
+			"StrokeColor",
+		),
+		Entry(
+			"a tank",
+			v12.TankNodeConfig{
+				StrokeColor: shade(1),
+				FillColor:   shade(2),
+				LevelColor:  shade(3),
+				AxisColor:   shade(4),
+				TextColor:   shade(5),
+			},
+			"StrokeColor",
+			"FillColor",
+			"LevelColor",
+			"AxisColor",
+			"TextColor",
+		),
+		Entry("a gauge", v12.GaugeNodeConfig{StrokeColor: shade(1)}, "StrokeColor"),
+		Entry(
+			"a string display",
+			v12.StringDisplayNodeConfig{StrokeColor: shade(1), TextColor: shade(2)},
+			"StrokeColor",
+			"TextColor",
+		),
+		Entry(
+			"a value",
+			v12.ValueNodeConfig{
+				StrokeColor: shade(1),
+				TextColor:   shade(2),
+				FillColor:   shade(3),
+			},
+			"StrokeColor",
+			"TextColor",
+			"FillColor",
+		),
+	)
+})
+
 var _ = Describe("MigrateNodeConfig stroke widths", func() {
 	DescribeTable("Should round and clamp a symbol stroke width",
 		func(ctx SpecContext, old v12.NodeConfigVariant, want uint8) {
