@@ -169,5 +169,5 @@ frame = new Frame({
 try {
   obj = frame.at(3, true); // Throws an error
 } catch (e) {
-  console.log(e.message); // no value at index
+  if (e instanceof Error) console.log(e.message); // no value at index
 }

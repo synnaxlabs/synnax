@@ -92,6 +92,7 @@ var _ = Describe("Service", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		clock = timetestutil.NewClock(start)
 		svc = MustOpen(grant.OpenService(ctx, grant.ServiceConfig{
 			DB:    db,

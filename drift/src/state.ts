@@ -320,10 +320,10 @@ const reduceCreateWindow = (
 
   if (s.config.enablePrerender && !alreadyHasPreRender(s)) {
     log(s.config.debug, "creating pre-render window");
-    s.windows[prerenderLabel] = deep.copy({
+    s.windows[prerenderLabel] = {
       ...s.config.defaultWindowProps,
       ...INITIAL_PRERENDER_WINDOW_STATE,
-    });
+    };
   }
   groupEnd(s.config.debug);
 };

@@ -19,7 +19,6 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
-  type record,
   state,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -187,16 +186,18 @@ const ABSENT = Symbol("absent");
  * value that holds it is gone.
  */
 const readLive = (live: unknown, path: string): unknown => {
-  if (deep.has(live, path)) return deep.get(live, path);
-  const split = path.lastIndexOf(deep.SEPARATOR);
-  const parentPath = split === -1 ? "" : path.slice(0, split);
-  const parent = deep.get<record.Unknown, unknown>(live, parentPath, {
-    optional: true,
-  });
-  return parent == null ? ABSENT : deep.defaultGetter(parent, path.slice(split + 1));
+  const found = deep.resolve(live, path);
+  if (found != null) return found.value;
+  const cut = path.lastIndexOf(deep.SEPARATOR);
+  const parent = cut === -1 ? live : deep.get(live, path.slice(0, cut));
+  return parent == null ? ABSENT : undefined;
 };
 
-/** @returns the value to write at the path, with live values kept at pending paths. */
+/**
+ * @returns the value to write at the path, with live values kept at pending paths. A
+ * pending path into a list entry the value no longer holds is dropped, unless it also
+ * reads as a path into a kept entry, as `a.b` does when the list keeps `a`.
+ */
 const keepPending = <V>(
   live: unknown,
   path: string,
@@ -208,8 +209,10 @@ const keepPending = <V>(
     if (!deep.pathsMatch(p, path)) continue;
     const current = readLive(live, p);
     if (current === ABSENT) continue;
+    const at = path === "" ? p : p.slice(path.length + 1);
+    if (!deep.canSet(kept, at)) continue;
     if (kept === value) kept = deep.copy(value);
-    deep.set(kept, path === "" ? p : p.slice(path.length + 1), current);
+    deep.set(kept, at, current);
   }
   return kept;
 };

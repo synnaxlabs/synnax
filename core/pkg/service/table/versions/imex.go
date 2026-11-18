@@ -34,22 +34,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		// Core's snake_case coincide.
 		t, err = autoDecodeEnvelope(ctx, env)
 	} else {
-		// Console states embed the structural model inline: ride the storage lift,
-		// which decodes the body through the legacy chain.
-		var body msgpack.EncodedJSON
-		if body, err = env.Decode[msgpack.EncodedJSON](); err == nil {
-			if err = imex.RequireFields(
-				body, "a table", "layout", "cells",
-			); err == nil {
-				var t1 v1.Table
-				if t1, err = v1.MigrateTable(
-					ctx,
-					v0.Table{Name: env.Name, Data: body},
-				); err == nil {
-					t, err = liftFirst(ctx, t1)
-				}
-			}
-		}
+		t, err = decodeConsoleEnvelope(ctx, env)
 	}
 	if err != nil {
 		return Table{}, err
@@ -62,4 +47,22 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 	// here for every path.
 	t.Name = env.Name
 	return t, nil
+}
+
+// decodeConsoleEnvelope lifts a Console-written table envelope to a current-version
+// Table. Console states embed the structural model inline, so it rides the storage
+// lift, which decodes the body through the legacy chain.
+func decodeConsoleEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
+	body, err := env.Decode[msgpack.EncodedJSON]()
+	if err != nil {
+		return Table{}, err
+	}
+	if err = imex.RequireFields(body, "a table", "layout", "cells"); err != nil {
+		return Table{}, err
+	}
+	t1, err := v1.MigrateTable(ctx, v0.Table{Name: env.Name, Data: body})
+	if err != nil {
+		return Table{}, err
+	}
+	return liftFirst(ctx, t1)
 }

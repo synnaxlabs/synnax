@@ -14,8 +14,9 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import {
+  array,
+  bounds,
   type breaker,
-  compare,
   DataType,
   type Series,
   staticWindow,
@@ -209,7 +210,7 @@ export class StreamMultiChannelLog
    * show twice. A log that is not live returns to the newest samples.
    */
   setChannels(channels: channel.Key[]): void {
-    if (compare.primitiveArrays(this._channels, channels) === compare.EQUAL) return;
+    if (array.equal(this._channels, channels)) return;
     this._channels = channels;
     this.start = null;
     this.startRead++;
@@ -338,7 +339,10 @@ export class StreamMultiChannelLog
       .filter(([, { stored }]) => stored)
       .map(([key]): [channel.Key, number] => [
         key,
-        Math.min(Math.max(span.counts.get(key) ?? 0, OLDER_PAGE_SIZE), limit) + 1,
+        bounds.clamp(
+          { lower: OLDER_PAGE_SIZE, upper: limit },
+          span.counts.get(key) ?? 0,
+        ) + 1,
       ]);
     const size = (): number => [...span.counts.values()].reduce((a, b) => a + b, 0);
     const before = size();
@@ -1073,16 +1077,11 @@ const compareTimes = (a: LogEntry, b: LogEntry): number => {
 
 // Returns the position after the last entry before time, or at or before it unless
 // prepended.
-const bound = (entries: LogEntry[], time: bigint, prepended: boolean): number => {
-  let [lo, hi] = [0, entries.length];
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    const t = entries[mid].timestamp.valueOf();
-    if (t < time || (!prepended && t === time)) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-};
+const bound = (entries: LogEntry[], time: bigint, prepended: boolean): number =>
+  array.partitionPoint(entries.length, (i) => {
+    const t = entries[i].timestamp.valueOf();
+    return prepended ? t >= time : t > time;
+  });
 
 export const streamMultiChannelLog = (
   props: StreamMultiChannelLogProps,

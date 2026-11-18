@@ -248,6 +248,12 @@ var _ = Describe("Types", func() {
 	})
 
 	Describe("Zero", func() {
+		It("Should panic on a kind outside the enum", func() {
+			Expect(func() { types.Zero(types.Type{Kind: types.Kind(99)}) }).To(
+				PanicWith("unknown type kind Kind(99)"),
+			)
+		})
+
 		DescribeTable("Should return the typed zero of a scalar kind",
 			func(t types.Type, want any) {
 				Expect(types.Zero(t)).To(Equal(want))

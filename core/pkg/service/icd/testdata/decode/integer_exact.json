@@ -1,0 +1,73 @@
+{
+  "description": "Integer and unsigned fields take only the integers they hold exactly, on any channel, and scaling applies after that check.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "count",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/count",
+            "type": "integer"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "total",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/total",
+            "type": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "half",
+            "scale": 0.5,
+            "offset": 0,
+            "units": "",
+            "pointer": "/half",
+            "type": "integer"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "int64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": { "count": 9007199254740993, "total": 7, "half": 3 },
+      "message": "reading",
+      "samples": [9007199254740992, 7, 1.5]
+    },
+    {
+      "document": { "count": 9007199254740993.5, "total": 7, "half": 3 },
+      "error": "field count: 9007199254740993.5 is not an integer: validation error"
+    },
+    {
+      "document": { "count": 1, "total": -1, "half": 3 },
+      "error": "field total: -1 is out of range for uint64: validation error"
+    },
+    {
+      "document": { "count": 1, "total": 1, "half": 1.5 },
+      "error": "field half: 1.5 is not an integer: validation error"
+    }
+  ]
+}

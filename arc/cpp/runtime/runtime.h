@@ -221,6 +221,9 @@ public:
         return true;
     }
 
+    /// @brief returns true from a start until the stop that follows it.
+    [[nodiscard]] bool running() const { return this->breaker.running(); }
+
     /// @brief closes the output queue, unblocking any pending read() calls.
     /// Call this before stopping consumers of the output queue.
     void close_outputs() { this->outputs.close(); }

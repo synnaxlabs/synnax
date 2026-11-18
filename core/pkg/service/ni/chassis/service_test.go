@@ -137,9 +137,9 @@ var _ = Describe("Service", func() {
 		})
 
 		DescribeTable("Should reject a chassis without a required field",
-			func(ctx SpecContext, field string, clear func(*chassis.Chassis)) {
+			func(ctx SpecContext, field string, unset func(*chassis.Chassis)) {
 				c := newChassis()
-				clear(&c)
+				unset(&c)
 				Expect(svc.NewWriter(tx).Create(ctx, &c)).
 					To(MatchError(ContainSubstring(field + ": required")))
 			},

@@ -148,8 +148,8 @@ class DeviceSim(Simulator):
         os.dup2(devnull_fd, 1)
         os.dup2(devnull_fd, 2)
         os.close(devnull_fd)
-        sys.stdout = open(os.devnull, "w")
-        sys.stderr = open(os.devnull, "w")
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         if sys.platform != "win32":
             signal.signal(signal.SIGTERM, signal.SIG_DFL)

@@ -30,10 +30,7 @@ type ReporterConfig struct {
 	Filter EnvironmentFilter
 }
 
-var (
-	_                     config.Config[ReporterConfig] = ReporterConfig{}
-	defaultReporterConfig                               = ReporterConfig{}
-)
+var _ config.Config[ReporterConfig] = ReporterConfig{}
 
 // Validate implements config.Config.
 func (r ReporterConfig) Validate() error {
@@ -60,7 +57,7 @@ type Reporter struct {
 // configurations are provided, the function will return an error. To use a no-op
 // reporter, simply pass a nil-pointer.
 func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
-	cfg, err := config.New(defaultReporterConfig, configs...)
+	cfg, err := config.New(ReporterConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}

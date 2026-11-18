@@ -147,6 +147,7 @@ var _ = Describe("ReadMigration", func() {
 		ctx SpecContext,
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := v2.ReadConfig{
 			Key:      uuid.New(),
 			Channels: []v2.ReadChannel{analog(199), analog(300)},
@@ -182,6 +183,7 @@ var _ = Describe("ReadMigration", func() {
 var _ = Describe("ScanMigration", func() {
 	It("Should clamp and log a stored TCP scan multiplier", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		stored := v2.ScanConfig{
 			Key:               uuid.New(),
 			TCPScanMultiplier: -2,

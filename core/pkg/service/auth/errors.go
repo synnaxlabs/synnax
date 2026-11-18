@@ -48,7 +48,7 @@ const (
 	accessDeniedType       = errorType + ".access_denied"
 )
 
-func encode(err error) (errors.Payload, bool) {
+func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrSessionEnded) {
 		return errors.Payload{Type: sessionEndedType, Data: err.Error()}, true
 	}
@@ -76,7 +76,7 @@ func encode(err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decode(p errors.Payload) (error, bool) {
+func decode(_ *errors.Codec, p errors.Payload) (error, bool) {
 	switch p.Type {
 	case invalidCredentialsType:
 		return errors.Wrap(ErrInvalidCredentials, p.Data), true
@@ -99,4 +99,7 @@ func decode(p errors.Payload) (error, bool) {
 	return nil, false
 }
 
-func init() { errors.Register(encode, decode) }
+// ErrorProvider encodes and decodes auth errors for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{Encode: encode, Decode: decode}
+}

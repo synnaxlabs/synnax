@@ -24,7 +24,7 @@ if condition { ... } else if condition { ... } else { ... }
 
 The braces are necessary. The `else if` and `else` clauses are optional. The condition
 is a `bool`. A numeric condition gives the warning
-[ARC2005](/reference/control/arc/reference/errors#arc2005).
+[W2000](/reference/control/arc/reference/errors#w2000).
 
 ```arc bodies="band"
 func band(v f64) i64 {
@@ -86,20 +86,21 @@ type: `range(n, i64(100))` with an `i32` `n` fails with
 `type mismatch: cannot use i32 and i64 in range()`. Cast them to one type, as in
 `range(i64(n), i64(100))`. Arc reads `end` and `step` once, before the first pass. A
 float argument fails with
-`range() argument 1 must be an integer type, got exact integer float`. Do not use a step
-of 0: the compiler accepts it, and the loop can run forever.
+`type mismatch: range() argument 1 must be an integer type, got exact integer float`. Do
+not use a step of 0: the compiler accepts it, and the loop can run forever.
 
 ### Loop variables
 
 A loop variable exists only in the loop body. Assigning to it fails with
-`cannot assign to loop variable 'i'`. A loop over a channel fails with
-`cannot iterate over chan f64; did you mean range(tank_pt)?`.
+`invalid assignment: cannot assign to loop variable 'i'`. A loop over a channel fails
+with `invalid operand: cannot iterate over chan f64; did you mean range(tank_pt)?`.
 
 ### Break and continue
 
 `break` leaves the innermost loop. `continue` starts the next pass of the innermost
-loop. Outside a loop, they fail with `break can only be used inside a for loop` and
-`continue can only be used inside a for loop`.
+loop. Outside a loop, they fail with
+`break or continue outside a loop: break can only be used inside a for loop` and
+`break or continue outside a loop: continue can only be used inside a for loop`.
 
 ### Limits
 
@@ -114,11 +115,11 @@ loop that does not end stops the automation: no new cycle starts.
 function that has no unnamed output. For the rule on all paths, see
 [outputs](/reference/control/arc/reference/functions#outputs).
 
-| Error                                                       | Cause                                         |
-| ----------------------------------------------------------- | --------------------------------------------- |
-| `return statement in 'f' missing value of type f64`         | A bare `return` in a function with an output. |
-| `cannot return str from 'f': expected f64`                  | The value has the wrong type.                 |
-| `cannot return a value from a function with no return type` | A value in a function with no unnamed output. |
+| Error                                                                       | Cause                                         |
+| --------------------------------------------------------------------------- | --------------------------------------------- |
+| `invalid return: return statement in 'f' missing value of type f64`         | A bare `return` in a function with an output. |
+| `type mismatch: cannot return str from 'f': expected f64`                   | The value has the wrong type.                 |
+| `invalid return: cannot return a value from a function with no return type` | A value in a function with no unnamed output. |
 
 <Divider.Divider x />
 
@@ -139,9 +140,10 @@ does not exist fails with `undefined symbol: name`.
 | `%=`     | `x = x % v` |
 
 Compound assignment works on numbers, and `+=` also joins strings. On a `bool` it fails
-with `compound assignment requires numeric type, got bool`. On a float, `%=` fails with
-`float modulo not yet implemented`. In a sequence or a stage, it fails with
-`compound and indexed assignment to a variable are not yet supported`.
+with `invalid operand: compound assignment requires numeric type, got bool`. On a float,
+`%=` fails with `float modulo not yet implemented`. In a sequence or a stage, it fails
+with
+`invalid assignment: compound and indexed assignment to a variable are not yet supported`.
 
 ```arc bodies="next_power_of_two"
 func next_power_of_two(n i64) i64 {

@@ -21,19 +21,11 @@
 #include <utility>
 #include <vector>
 
-#ifndef _WIN32
-#include <csignal>
-
-#include <netinet/in.h>
-#include <poll.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#endif
-
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/status/status.h"
+#include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
@@ -573,106 +565,6 @@ synnax::task::Status wait_for_task_status(
         __LINE__ __VA_OPT__(, ) __VA_ARGS__                                            \
     )
 
-#ifndef _WIN32
-/// @brief forwards local TCP connections to the Core. cut drops every open
-/// connection, as a short Core outage does. Later connections still go through.
-class CorePipe {
-    int listener = -1;
-    sockaddr_in core{};
-    std::atomic<bool> open{true};
-    std::atomic<bool> paused{false};
-    std::mutex mu;
-    std::vector<int> sockets;
-    std::vector<std::thread> pumps;
-    std::thread acceptor;
-
-    static sockaddr_in loopback(const uint16_t port) {
-        sockaddr_in addr{};
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(port);
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        return addr;
-    }
-
-    static void pump(const int from, const int to) {
-        std::array<char, 16384> buf{};
-        ssize_t n = 0;
-        while ((n = recv(from, buf.data(), buf.size(), 0)) > 0)
-            if (send(to, buf.data(), n, 0) != n) break;
-        shutdown(to, SHUT_RDWR);
-    }
-
-    void accept_loop() {
-        while (this->open) {
-            pollfd fd{.fd = this->listener, .events = POLLIN, .revents = 0};
-            if (poll(&fd, 1, 50) <= 0) continue;
-            const int client = accept(this->listener, nullptr, nullptr);
-            if (client < 0) continue;
-            if (this->paused) {
-                close(client);
-                continue;
-            }
-            const int upstream = socket(AF_INET, SOCK_STREAM, 0);
-            const auto *addr = reinterpret_cast<sockaddr *>(&this->core);
-            if (connect(upstream, addr, sizeof(this->core)) != 0) {
-                close(client);
-                close(upstream);
-                continue;
-            }
-            std::lock_guard lock{this->mu};
-            this->sockets.insert(this->sockets.end(), {client, upstream});
-            this->pumps.emplace_back(pump, client, upstream);
-            this->pumps.emplace_back(pump, upstream, client);
-        }
-    }
-
-public:
-    uint16_t port = 0;
-
-    explicit CorePipe(const uint16_t core_port):
-        listener(socket(AF_INET, SOCK_STREAM, 0)), core(loopback(core_port)) {
-        // A pump writes to a socket that the other side closed.
-        signal(SIGPIPE, SIG_IGN);
-        auto addr = loopback(0);
-        socklen_t len = sizeof(addr);
-        auto *sock_addr = reinterpret_cast<sockaddr *>(&addr);
-        EXPECT_EQ(bind(this->listener, sock_addr, len), 0);
-        EXPECT_EQ(listen(this->listener, 16), 0);
-        EXPECT_EQ(getsockname(this->listener, sock_addr, &len), 0);
-        this->port = ntohs(addr.sin_port);
-        this->acceptor = std::thread([this] { this->accept_loop(); });
-    }
-
-    CorePipe(const CorePipe &) = delete;
-    CorePipe &operator=(const CorePipe &) = delete;
-
-    void cut() {
-        std::lock_guard lock{this->mu};
-        for (const int s: this->sockets)
-            shutdown(s, SHUT_RDWR);
-    }
-
-    /// @brief cuts every connection and refuses new ones until resume.
-    void pause() {
-        this->paused = true;
-        this->cut();
-    }
-
-    void resume() { this->paused = false; }
-
-    ~CorePipe() {
-        this->open = false;
-        this->acceptor.join();
-        this->cut();
-        for (auto &t: this->pumps)
-            t.join();
-        for (const int s: this->sockets)
-            close(s);
-        close(this->listener);
-    }
-};
-#endif
-
 class TaskManagerTest : public testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
@@ -681,7 +573,6 @@ protected:
     std::thread thread;
     synnax::framer::Streamer streamer;
     bool setup_succeeded = false;
-#ifndef _WIN32
     std::unique_ptr<CorePipe> pipe;
     std::mutex runs_mu;
     std::condition_variable runs_cv;
@@ -728,7 +619,6 @@ protected:
             return this->runs >= n;
         });
     }
-#endif
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -1016,6 +906,36 @@ TEST_F(TaskManagerTest, BootStopsATaskLeftRunning) {
     EXPECT_FALSE(s.details.running);
 }
 
+/// @brief it should stop a running task that the Core marked as stopped responding
+/// while the Driver was down, so the status of the outage does not stay.
+TEST_F(TaskManagerTest, BootStopsATaskTheCoreMarkedAsStoppedResponding) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(
+        client,
+        task,
+        synnax::status::VARIANT_WARNING,
+        "Task stopped responding",
+        false
+    );
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) { return s.message == "Task stopped"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(
+        s.description,
+        "The Driver restarted while the task was running. Start the task again."
+    );
+    EXPECT_FALSE(s.details.running);
+}
+
 /// @brief a factory whose tasks start at boot, as an auto-start task does.
 class AutoStartTaskFactory final : public Factory {
 public:
@@ -1135,7 +1055,6 @@ TEST_F(TaskManagerTest, BootLeavesARunningStatusOfAnotherRackAlone) {
         EXPECT_NE(s.message, "Task stopped");
 }
 
-#ifndef _WIN32
 /// @brief it should deploy its tasks and answer commands again when it runs again
 /// after the connection to the Core drops.
 TEST_F(TaskManagerTest, RunsAgainAfterTheCoreConnectionDrops) {
@@ -1887,7 +1806,6 @@ TEST_F(TaskManagerTest, InitialTaskKeepsOneInstanceAcrossALostConnection) {
     EXPECT_EQ(f->configures.load(), 1);
     EXPECT_EQ(f->live.load(), 1);
 }
-#endif
 
 /// @brief it should not deploy a task that is created but never started.
 TEST_F(TaskManagerTest, NoConfigureOnCreate) {

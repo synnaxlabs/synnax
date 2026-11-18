@@ -30,6 +30,7 @@ var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	kvDB = memkv.New()
 	db = DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+	StartRun(db.Run)
 })
 
 func TestGorp(t *testing.T) {

@@ -264,6 +264,38 @@ describe("Panel.useOpenTab", () => {
       expect(leafTabs(doc.root)).toHaveLength(1);
     });
 
+    it("focuses the first tab that matches focus instead of opening one", async () => {
+      const otherTabKey = uuid.create();
+      const matchTabKey = uuid.create();
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [
+          { variant: "view", key: otherTabKey, type: "other" },
+          { variant: "view", key: matchTabKey, type: "match" },
+        ],
+      });
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey: otherTabKey,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current(
+          { variant: "view", type: "range_explorer" },
+          { focus: (tab) => tab.variant === "view" && tab.type === "match" },
+        );
+      });
+      await waitFor(() =>
+        expect(
+          Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
+        ).toBe(matchTabKey),
+      );
+      const doc = await client.panels.retrieve(existing.key);
+      expect(leafTabs(doc.root)).toHaveLength(2);
+    });
+
     it("focuses a new keyless resource tab opened beside the current tab", async () => {
       const curTabKey = uuid.create();
       const existing = await createServerPanel(client, viewLeaf(curTabKey, "current"));

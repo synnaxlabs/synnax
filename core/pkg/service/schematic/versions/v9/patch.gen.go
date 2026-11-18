@@ -34,36 +34,6 @@ func (csc *ControlStateConfig) Patch(c patch.Cursor) error {
 }
 
 // Patch applies the path action at c, which is not done, to the value.
-func (lc *LabelConfig) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "label":
-		return patch.Value(&lc.Label, c.Next())
-	case "level":
-		return patch.Defaulted(&lc.Level, c.Next(), func(def *LabelConfig) {
-			lc.Level = def.Level
-		})
-	case "orientation":
-		return patch.Defaulted(&lc.Orientation, c.Next(), func(def *LabelConfig) {
-			lc.Orientation = def.Orientation
-		})
-	case "direction":
-		return patch.Defaulted(&lc.Direction, c.Next(), func(def *LabelConfig) {
-			lc.Direction = def.Direction
-		})
-	case "max_inline_size":
-		return patch.Defaulted(&lc.MaxInlineSize, c.Next(), func(def *LabelConfig) {
-			lc.MaxInlineSize = def.MaxInlineSize
-		})
-	case "align":
-		return patch.Defaulted(&lc.Align, c.Next(), func(def *LabelConfig) {
-			lc.Align = def.Align
-		})
-	default:
-		return c.UnknownField()
-	}
-}
-
-// Patch applies the path action at c, which is not done, to the value.
 func (p *Page) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "type":

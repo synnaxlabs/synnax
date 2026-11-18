@@ -28,7 +28,7 @@ const LINE: lineplotClient.Line = {
   yAxis: "y1",
   yChannel: 1,
   xChannel: 0,
-  color: color.construct("#00aaff"),
+  color: { type: "fixed", value: color.construct("#00aaff") },
   strokeWidth: 2,
   aggregation: "min_max",
   detail: "medium",
@@ -210,6 +210,25 @@ describe("LinePlot", () => {
       act(() => result.current.toggleZoom("outer", OUTER));
       expect(view()).toEqual(box.DECIMAL);
       expect(held()).toBe(false);
+    });
+
+    it("should report the key of the zoom that the view shows", () => {
+      const { result } = renderFrame();
+      expect(result.current.zoomedKey).toBeNull();
+      act(() => result.current.toggleZoom("outer", OUTER));
+      act(() => result.current.toggleZoom("inner", INNER));
+      expect(result.current.zoomedKey).toBe("inner");
+      act(() => result.current.toggleZoom("inner", INNER));
+      expect(result.current.zoomedKey).toBe("outer");
+      act(() =>
+        result.current.setViewport({
+          box: box.DECIMAL,
+          mode: "pan",
+          stage: "end",
+          cursor: xy.ZERO,
+        }),
+      );
+      expect(result.current.zoomedKey).toBeNull();
     });
 
     it("should zoom in again when the view changes between calls", () => {

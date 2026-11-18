@@ -11,6 +11,7 @@ package types
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
@@ -42,14 +43,14 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 	if series := ctx.SeriesType(); series != nil {
 		return inferSeriesType(series)
 	}
-	return types.Type{}, errors.New("could not determine type")
+	return types.Type{}, codes.UnresolvedType.Errorf("could not determine type")
 }
 
 func applyUnitSuffix(t types.Type, ctx parser.IUnitSuffixContext) (types.Type, error) {
 	unitName := ctx.IDENTIFIER().GetText()
 	unit, ok := units.Resolve(unitName)
 	if !ok {
-		return types.Type{}, errors.Newf("unknown unit: %s", unitName)
+		return types.Type{}, codes.UnknownUnit.Errorf("unknown unit: %s", unitName)
 	}
 	t.Unit = unit
 	return t, nil
@@ -65,9 +66,7 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if ctx.BOOL() != nil {
 		return types.Bool(), nil
 	}
-	return types.Type{}, errors.New(
-		"unknown type: expected a primitive (i32, f64, str, etc.)",
-	)
+	panic(errors.New("unknown type: expected a primitive (i32, f64, str, etc.)"))
 }
 
 func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
@@ -77,9 +76,7 @@ func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if float := ctx.FloatType(); float != nil {
 		return inferFloatType(float)
 	}
-	return types.Type{}, errors.New(
-		"unknown type: expected a numeric type (i32, f64, etc.)",
-	)
+	panic(errors.New("unknown type: expected a numeric type (i32, f64, etc.)"))
 }
 
 func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
@@ -102,7 +99,7 @@ func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
 	case "u64":
 		return types.U64(), nil
 	default:
-		return types.Type{}, errors.Newf("unknown integer type: %s", text)
+		panic(errors.Newf("unknown integer type: %s", text))
 	}
 }
 
@@ -114,7 +111,7 @@ func inferFloatType(ctx parser.IFloatTypeContext) (types.Type, error) {
 	case "f64":
 		return types.F64(), nil
 	default:
-		return types.Type{}, errors.Newf("unknown float type: %s", text)
+		panic(errors.Newf("unknown float type: %s", text))
 	}
 }
 
@@ -155,9 +152,7 @@ func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 		}
 		return types.Series(valueType), nil
 	}
-	return types.Type{}, errors.New(
-		"series elements must be a primitive type (i32, f64, str, etc.)",
-	)
+	panic(errors.New("series elements must be a primitive type (i32, f64, str, etc.)"))
 }
 
 // Compatible returns true if t1 and t2 have compatible base types after unwrapping

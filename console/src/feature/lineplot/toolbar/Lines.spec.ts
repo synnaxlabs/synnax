@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, lineplot, type ranger } from "@synnaxlabs/client";
+import {
+  type channel,
+  color,
+  DataType,
+  lineplot,
+  type ranger,
+} from "@synnaxlabs/client";
 import { dynamicWindow, staticWindow, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,6 +21,7 @@ import { describe, expect, it } from "vitest";
 import {
   client,
   createPreloadedState,
+  pickNamedColor,
   renderLinePlot,
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
@@ -160,6 +167,22 @@ describe("lineplot/toolbar/Lines", () => {
     await renderLinesTab(x.key);
     await screen.findByText("Medium detail");
     await waitFor(() => expect(screen.queryByText("Min/max")).toBeNull());
+  });
+
+  it("persists a series color picked from a palette as a named color", async () => {
+    const series = (
+      await client.colors.retrieve({ groups: [color.SERIES_PALETTE] })
+    ).sort(color.compare);
+    const { key, lineKey, result } = await renderLinesTab();
+    await screen.findByText("Min/max");
+    await pickNamedColor(result.container, series[2].name);
+    await waitFor(async () => {
+      const plot = await client.lineplots.retrieve(key);
+      expect(plot.lines.find((l) => l.key === lineKey)?.color).toEqual({
+        type: "named",
+        key: series[2].key,
+      });
+    });
   });
 
   it("persists a detail change to the server", async () => {

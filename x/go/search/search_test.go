@@ -95,20 +95,20 @@ func (o oracle) score(key int, words []string) (int, int) {
 
 func (o oracle) search(term string) []int {
 	words := oracleWords(term)
-	var all, any []int
+	var all, some []int
 	for key := range o {
 		_, matched := o.score(key, words)
 		if matched == len(words) && matched > 0 {
 			all = append(all, key)
 		}
 		if matched > 0 {
-			any = append(any, key)
+			some = append(some, key)
 		}
 	}
 	if len(all) > 0 {
 		return all
 	}
-	return any
+	return some
 }
 
 // expectRanked asserts that keys are exactly what the oracle matches for term, in an

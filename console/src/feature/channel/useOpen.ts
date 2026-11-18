@@ -31,7 +31,6 @@ export const useOpen = (): ((resource: resource.Resource) => void) => {
   const getFocusedTab = Session.Panel.useGetFocusedTab();
   const getSelectedPanel = Session.Panel.useGetSelected();
   const getSelectedProject = Session.Project.useGetSelected();
-  const getSelectedRef = Session.Range.useGetSelectedRef();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   const { capture } = Analytics.use();
@@ -71,7 +70,7 @@ export const useOpen = (): ((resource: resource.Resource) => void) => {
         project,
         name: "Line plot",
         channels: { y1: [channelKey] },
-        ranges: [getSelectedRef()],
+        ranges: [Session.Range.RECENT_REF],
       });
       capture("plot_created", {});
       store.dispatch(Session.LinePlot.create({ key }));

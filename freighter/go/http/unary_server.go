@@ -81,8 +81,8 @@ func WithStreamingResponse(compressed ...http.Encoder) UnaryServerOption {
 
 func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	so := unaryServerOptions{
-		requestDecoders:  defaultDecoders,
-		responseEncoders: defaultEncoders,
+		requestDecoders:  []http.Decoder{json.Codec},
+		responseEncoders: []http.Encoder{json.Codec},
 	}
 	for _, opt := range opts {
 		opt(&so)
@@ -93,6 +93,7 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 type unaryServer[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
 	unaryServerOptions
+	errs   *errors.Codec
 	handle freighter.UnaryHandler[RQ, RS]
 	path   string
 	freighter.MiddlewareCollector
@@ -159,7 +160,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	if closer, ok := any(res).(io.Closer); ok && handled && err != nil {
 		err = errors.Combine(err, closer.Close())
 	}
-	fErr := errors.Encode(err, false)
+	fErr := s.errs.Encode(err, false)
 	if fErr.Type == errors.TypeNil {
 		setResponseCtx(fCtx, oMD)
 		if s.streaming {
@@ -265,7 +266,7 @@ func (s *unaryServer[RQ, RS]) streamAndWrite(
 	case <-started:
 	case err := <-done:
 		if err != nil {
-			return s.writeError(c, errors.Encode(err, false))
+			return s.writeError(c, s.errs.Encode(err, false))
 		}
 	}
 	if gz != nil {

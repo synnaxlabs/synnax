@@ -33,6 +33,8 @@ func KindOf(dt telem.DataType) (k Kind, ok bool) {
 		return KindUUID, true
 	case telem.BytesT:
 		return KindBytes, true
+	case telem.UnknownT:
+		fallthrough
 	default:
 		return "", false
 	}

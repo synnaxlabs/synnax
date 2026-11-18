@@ -36,6 +36,7 @@ const Create = ({
       close(key);
     },
   });
+  Modals.useBusy(variant === "loading");
   return (
     <Modal.Frame>
       <Modal.Header icon={<Icon.Label />}>Label.Create</Modal.Header>

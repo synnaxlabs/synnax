@@ -11,6 +11,7 @@ package testutil
 
 import (
 	"context"
+	"io"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -29,16 +30,16 @@ type Node struct {
 	*distribution.Layer
 	// Storage is the storage layer of the node.
 	Storage *storage.Layer
-	// storageOwned is true when the Node opened Storage.
-	storageOwned bool
+	// ownedStorage is Storage when the Node opened it, and nil otherwise.
+	ownedStorage io.Closer
 }
 
 // Close closes the distribution layer, then the storage layer if the Node opened it. It
 // shadows the embedded Layer.Close.
 func (n Node) Close() error {
 	err := n.Layer.Close()
-	if n.storageOwned {
-		err = errors.Join(err, n.Storage.Close())
+	if n.ownedStorage != nil {
+		err = errors.Join(err, n.ownedStorage.Close())
 	}
 	return err
 }
@@ -61,15 +62,27 @@ func (n Node) CreateChannels(
 
 // NewNode opens a Node and registers its teardown via testutil.DeferClose. It must be
 // called from within a Ginkgo node; use OpenNode from plain Go tests and benchmarks.
+// The storage of the Node runs until the teardown, even when ctx ends first.
 func NewNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 	ginkgo.GinkgoHelper()
-	return testutil.DeferClose(OpenNode(ctx, overrides...))
+	return testutil.DeferClose(openNode(ctx, ginkgo.GinkgoT().Context(), overrides...))
 }
 
 // OpenNode opens a Node. The overrides are layered on top of the base
 // distribution.LayerConfig. The Node opens its own storage layer unless an override
-// passes one, which the caller then closes. The caller closes the returned Node.
+// passes one, which the caller then closes and runs. The storage of the Node runs
+// until Close or until ctx ends, so ctx must outlive the Node. The caller closes the
+// returned Node.
 func OpenNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
+	ginkgo.GinkgoHelper()
+	return openNode(ctx, ctx, overrides...)
+}
+
+func openNode(
+	ctx context.Context,
+	life context.Context,
+	overrides ...distribution.LayerConfig,
+) Node {
 	ginkgo.GinkgoHelper()
 	var n Node
 	for _, o := range overrides {
@@ -78,8 +91,8 @@ func OpenNode(ctx context.Context, overrides ...distribution.LayerConfig) Node {
 		}
 	}
 	if n.Storage == nil {
-		n.Storage = storagetestutil.OpenLayer(ctx)
-		n.storageOwned = true
+		owned := storagetestutil.OpenLayer(life)
+		n.Storage, n.ownedStorage = owned.Layer, owned
 	}
 	addr := address.Address("localhost:0")
 	cfg := distribution.LayerConfig{Storage: n.Storage, AdvertiseAddress: addr}

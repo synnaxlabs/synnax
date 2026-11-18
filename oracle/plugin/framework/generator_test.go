@@ -10,6 +10,8 @@
 package framework_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -48,13 +50,13 @@ func newGoType(
 	outputPath string,
 	extraExprs ...resolution.Expression,
 ) resolution.Type {
-	exprs := []resolution.Expression{
-		{
+	exprs := slices.Concat(
+		[]resolution.Expression{{
 			Name:   "output",
 			Values: []resolution.ExpressionValue{{StringValue: outputPath}},
-		},
-	}
-	exprs = append(exprs, extraExprs...)
+		}},
+		extraExprs,
+	)
 	return resolution.Type{
 		Name:          name,
 		QualifiedName: "test." + name,

@@ -15,6 +15,7 @@ import (
 	"bufio"
 	"encoding/json/v2"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/synnaxlabs/x/errors"
@@ -55,7 +56,7 @@ var importantLogLevels = map[string]logLevelInfo{
 
 // readRecentLogs reads the log file and returns formatted important log entries.
 func readRecentLogs(filePath string, maxEntries int) (_ []string, err error) {
-	f, err := os.Open(filePath)
+	f, err := os.Open(filepath.Clean(filePath))
 	if err != nil {
 		return nil, err
 	}

@@ -67,11 +67,11 @@ const Properties = () => (
   </Flex.Box>
 );
 
-const selectRackRenderProp = Component.renderProp(
-  (p: Omit<Rack.SelectSingleProps, "variant">) => (
-    <Rack.SelectSingle {...p} query={INITIAL_RACK_QUERY} />
-  ),
+const SelectRack = (p: Omit<Rack.SelectSingleProps, "variant">) => (
+  <Rack.SelectSingle {...p} query={INITIAL_RACK_QUERY} />
 );
+
+const selectRackRenderProp = Component.renderProp(SelectRack);
 
 const INITIAL_RACK_QUERY: rack.RetrieveMultipleParams = {
   where: { integrations: { any: ["pagerduty"] } },
@@ -121,9 +121,11 @@ const GROUP_INPUT_PROPS = { placeholder: "engines" };
 
 const CLASS_INPUT_PROPS = { placeholder: "engine-failure" };
 
-const selectStatusRenderProp = Component.renderProp(
-  (p: Omit<Status.SelectProps, "variant">) => <Status.Select {...p} />,
+const SelectStatus = (p: Omit<Status.SelectProps, "variant">) => (
+  <Status.Select {...p} />
 );
+
+const selectStatusRenderProp = Component.renderProp(SelectStatus);
 
 const EMPTY_CONTENT = <Empty.Action message="No alerts" />;
 

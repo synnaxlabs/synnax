@@ -49,13 +49,15 @@ type options struct {
 	Instrumentation alamos.Instrumentation
 }
 
-var defaultOptions = options{
-	Codec:         encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
-	MaxDeleteSize: 1 << 20,
+func defaultOptions() options {
+	return options{
+		Codec:         encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
+		MaxDeleteSize: 1 << 20,
+	}
 }
 
 func newOptions(opts []Option) options {
-	o := defaultOptions
+	o := defaultOptions()
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -63,7 +65,8 @@ func newOptions(opts []Option) options {
 }
 
 func overrideOptions(o options) options {
-	o.Codec = override.Nil(defaultOptions.Codec, o.Codec)
-	o.MaxDeleteSize = override.Numeric(defaultOptions.MaxDeleteSize, o.MaxDeleteSize)
+	def := defaultOptions()
+	o.Codec = override.Nil(def.Codec, o.Codec)
+	o.MaxDeleteSize = override.Numeric(def.MaxDeleteSize, o.MaxDeleteSize)
 	return o
 }

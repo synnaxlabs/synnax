@@ -41,6 +41,18 @@ describe("ChannelNameField", () => {
     expect(await hoverTip(icon)).toBe("New channelDeploying the task creates it.");
   });
 
+  it("should show the default name of a new channel that the form names nowhere", async () => {
+    await renderInTaskForm(
+      <Task.ChannelNameField channel={0} defaultName="dev_value" />,
+      {
+        values: { config: { name: "" } },
+      },
+    );
+    const input = await screen.findByDisplayValue<HTMLInputElement>("dev_value");
+    expect(input.disabled).toBe(true);
+    expect(stateIcon("New channel")).toBeTruthy();
+  });
+
   it("should not mark a skipped channel as new", async () => {
     await renderInTaskForm(
       <Task.ChannelNameField

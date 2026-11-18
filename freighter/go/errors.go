@@ -16,14 +16,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-var (
-	// EOF is returned when either the receiving or sending end of a Stream
-	// exits normally.
-	EOF = io.EOF
-	// ErrStreamClosed is returned when a caller attempts to send or receive a message
-	// from a stream that is already closed.
-	ErrStreamClosed = errors.New("[freighter] - stream closed")
-)
+// ErrStreamClosed is returned when a caller attempts to send or receive a message
+// from a stream that is already closed.
+var ErrStreamClosed = errors.New("[freighter] - stream closed")
 
 const (
 	freighterErrorType    = "freighter."
@@ -31,8 +26,8 @@ const (
 	streamClosedErrorType = freighterErrorType + "stream_closed"
 )
 
-func encodeErr(err error) (errors.Payload, bool) {
-	if errors.CheapIs(err, EOF) {
+func encodeErr(_ *errors.Codec, err error) (errors.Payload, bool) {
+	if errors.CheapIs(err, io.EOF) {
 		return errors.Payload{Type: eofErrorType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrStreamClosed) {
@@ -41,10 +36,10 @@ func encodeErr(err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decodeErr(pld errors.Payload) (error, bool) {
+func decodeErr(_ *errors.Codec, pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case eofErrorType:
-		return EOF, true
+		return io.EOF, true
 	case streamClosedErrorType:
 		return ErrStreamClosed, true
 	}
@@ -54,6 +49,7 @@ func decodeErr(pld errors.Payload) (error, bool) {
 	return nil, false
 }
 
-func init() {
-	errors.Register(encodeErr, decodeErr)
+// ErrorProvider encodes and decodes freighter errors for an errors.Codec.
+func ErrorProvider() errors.Provider {
+	return errors.Provider{Encode: encodeErr, Decode: decodeErr}
 }

@@ -183,9 +183,7 @@ jobs:
     if: inputs.migration_audit
     uses: ./.github/workflows/audit.migration.yaml
     secrets:
-      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
       CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
-      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
       CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
@@ -510,7 +508,9 @@ jobs:
       # only after a stage succeeds, and a run whose tag already names this commit has
       # nothing to stage. While the newest version overall or on this train waits for
       # approval, nothing new stages, so approvals never move a dist-tag back. `client`
-      # is approved last. The check only reads, and the publish job runs it again.
+      # is approved last. A version is on the registry only after approval, so its
+      # provenance is checked here, before the next stage. The check only reads, and
+      # the publish job runs it again.
       - &claim-ts
         name: Check the version claim
         id: claim
@@ -524,6 +524,20 @@ jobs:
             curl -s -o /dev/null -w '%{http_code}' \
               "https://registry.npmjs.org/@synnaxlabs/$1/$2"
           }
+          attested() {
+            local doc code
+            doc=$(curl -s -w '\n%{http_code}' \
+              "https://registry.npmjs.org/@synnaxlabs/$1/$2")
+            code=${doc##*$'\n'}
+            if [ "$code" != 200 ]; then
+              echo "the registry answered $code for $1 $2. If it is 404," >&2
+              echo "approve the other $2 packages." >&2
+              exit 1
+            fi
+            jq -e '.dist.attestations.provenance' <<< "${doc%$'\n'*}" > /dev/null
+          }
+          # A maintainer staged these by hand, with no OIDC token to sign provenance.
+          unattested=" 0.61.1 "
           claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
           if [ "$claimed" = "$GITHUB_SHA" ]; then
             echo "staged=true" >> "$GITHUB_OUTPUT"
@@ -551,7 +565,16 @@ jobs:
             [ -n "$pending" ] || continue
             code=$(status client "$pending")
             case "$code" in
-              200) ;;
+              200)
+                [[ "$unattested" == *" $pending "* ]] && continue
+                for name in x alamos freighter client; do
+                  if ! attested "$name" "$pending"; then
+                    echo "$name $pending has no provenance attestation. After" >&2
+                    echo "review, add $pending to unattested." >&2
+                    exit 1
+                  fi
+                done
+                ;;
               404)
                 echo "client $pending is not out. Approve it, or reject it" >&2
                 echo "and delete the ts/v$pending tag." >&2
@@ -631,7 +654,7 @@ jobs:
       # A hotfix on an older train must not move `latest` back. The trusted publisher
       # may only stage, so nothing installs until a maintainer approves it with 2FA.
       # pnpm cannot stage a batch, so each package stages on its own, in dependency
-      # order.
+      # order. Without `--provenance`, pnpm only warns and stages when it cannot sign.
       - name: Stage
         id: stage
         if: steps.claim.outputs.staged != 'true'
@@ -644,7 +667,7 @@ jobs:
         run: |
           for name in x alamos freighter client; do
             pnpm stage publish "npm-packages/synnaxlabs-$name-$VERSION.tgz" \
-              --tag "$TAG" --no-git-checks
+              --tag "$TAG" --no-git-checks --provenance
           done
 
       # No tag guards the packages that a failed stage left on the registry.
@@ -806,16 +829,41 @@ jobs:
         run:
           gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
+      # The provenance check reads the list made before the prune, so it also checks
+      # files that an earlier attempt published.
       - name: Prune already-published distributions
-        run: uv run --no-project python .github/scripts/prune_published.py
-
-      - name: Publish
+        id: prune
         run: |
-          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
-            uv publish --check-url https://pypi.org/simple/
-          else
-            echo "All distributions already published; nothing to upload."
+          ls dist > "$RUNNER_TEMP/distributions"
+          uv run --no-project python .github/scripts/prune_published.py
+          if compgen -G "dist/*" > /dev/null; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # `uv publish` uploads attestations but cannot sign them, so this action signs
+      # and uploads each distribution.
+      - name: Publish
+        if: steps.prune.outputs.pending == 'true'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          attestations: true
+
+      - name: Check provenance
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+        run: |
+          missing=false
+          while read -r file; do
+            name=${file%%-"$VERSION"*}
+            url="https://pypi.org/integrity/$name/$VERSION/$file/provenance"
+            code=$(curl -s --retry 5 --max-time 30 -o /dev/null -w '%{http_code}' \
+              "$url")
+            if [ "$code" != 200 ]; then
+              echo "::error::PyPI answered $code for the provenance of $file."
+              missing=true
+            fi
+          done < "$RUNNER_TEMP/distributions"
+          [ "$missing" = false ]
 
   draft-core:
     name: Draft Core

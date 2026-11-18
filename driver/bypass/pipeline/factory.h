@@ -52,6 +52,11 @@ inline std::shared_ptr<::driver::pipeline::StreamerFactory> create_streamer_fact
     if (ctx->rack_key() != 0 && sub.group == 0) sub.group = ctx->rack_key();
     VLOG(1) << "[bypass] wrapping streamer factory with bus subscription, subject="
             << sub.name << ", group=" << sub.group;
-    return std::make_shared<StreamerFactory>(factory, ctx->bus(), sub);
+    return std::make_shared<StreamerFactory>(
+        factory,
+        ctx->bus(),
+        sub,
+        x::breaker::default_config("bypass.streamer." + sub.name)
+    );
 }
 }

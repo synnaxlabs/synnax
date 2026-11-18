@@ -198,12 +198,13 @@ func copyModules(edits ...edit) string {
 	for _, m := range append(modules, "testdata/c") {
 		Expect(os.CopyFS(filepath.Join(dir, m), os.DirFS(m))).To(Succeed())
 	}
+	root := MustSucceed(os.OpenRoot(dir))
+	DeferCleanup(root.Close)
 	for _, e := range edits {
-		path := filepath.Join(dir, e.file)
-		src := string(MustSucceed(os.ReadFile(path)))
+		src := string(MustSucceed(root.ReadFile(e.file)))
 		Expect(src).To(ContainSubstring(e.old))
 		src = strings.Replace(src, e.old, e.new, 1)
-		Expect(os.WriteFile(path, []byte(src), 0o644)).To(Succeed())
+		Expect(root.WriteFile(e.file, []byte(src), 0o644)).To(Succeed())
 	}
 	return dir
 }

@@ -59,8 +59,7 @@ const createBinaryField = (name: string, startBit: number): icd.BinaryField => (
   startBit,
   bitLength: 8,
   byteOrder: "little_endian",
-  signed: false,
-  float: false,
+  kind: "unsigned",
   scale: 1,
   offset: 0,
   units: "",
@@ -79,8 +78,9 @@ const createMessage = (
 const createJSONField = (name: string, pointer: string): icd.JSONField => ({
   key: uuid.create(),
   name,
-  type: "number",
+  type: "float",
   pointer,
+  enumValues: [],
   scale: 1,
   offset: 0,
   units: "",
@@ -250,6 +250,68 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should match the JSON documents whose value at a pointer equals a string", async () => {
+    const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: /^Match/ }));
+    fireEvent.click(await screen.findByText("String"));
+    const pointer = await screen.findByPlaceholderText("/type");
+    fireEvent.change(pointer, { target: { value: "/kind" } });
+    fireEvent.blur(pointer);
+    const value = await screen.findByLabelText(/^Value/);
+    fireEvent.change(value, { target: { value: "reading" } });
+    fireEvent.blur(value);
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        match: { type: "string", pointer: "/kind", value: "reading" },
+      }),
+    );
+  });
+
+  it("should keep the pointer of a match when its type changes", async () => {
+    const ic = await createICD([
+      {
+        ...createJSONMessage([]),
+        payload: {
+          format: "json",
+          fields: [],
+          match: { type: "string", pointer: "/kind", value: "reading" },
+        },
+      },
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: /^Match/ }));
+    fireEvent.click(await screen.findByText("Signed integer"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        match: { type: "integer", pointer: "/kind", value: "0" },
+      }),
+    );
+  });
+
+  it("should remove the match of a message that takes any document", async () => {
+    const ic = await createICD([
+      {
+        ...createJSONMessage([]),
+        payload: {
+          format: "json",
+          fields: [],
+          match: { type: "boolean", pointer: "/alarm", value: true },
+        },
+      },
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: /^Match/ }));
+    fireEvent.click(await screen.findByText("Any document"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload).toEqual({
+        format: "json",
+        fields: [],
+      }),
+    );
+    expect(screen.queryByPlaceholderText("/type")).toBeNull();
+  });
+
   it("should add the JSON fields a paste adds as numbers", async () => {
     const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
     await renderEditor(ic);
@@ -260,8 +322,8 @@ describe("ICD editor", () => {
     });
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
-        { name: "Temp", pointer: "/temp", type: "number" },
-        { name: "Speed", pointer: "/speed", type: "number", scale: 1 },
+        { name: "Temp", pointer: "/temp", type: "float" },
+        { name: "Speed", pointer: "/speed", type: "float", scale: 1 },
       ]),
     );
   });
@@ -279,16 +341,57 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should store the type of a binary field", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Temp", 0)])]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Unsigned integer"));
+    fireEvent.click(await screen.findByText("Signed integer"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "Temp", kind: "integer" },
+      ]),
+    );
+  });
+
   it("should drop the scale when a JSON field stops being a number", async () => {
     const ic = await createICD([
       createJSONMessage([{ ...createJSONField("Time", "/ts"), scale: 0.1 }]),
     ]);
     await renderEditor(ic);
-    fireEvent.click(await screen.findByText("Number"));
+    fireEvent.click(await screen.findByText("Float"));
     fireEvent.click(await screen.findByText("Timestamp (ms)"));
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
-        { type: "timestamp", format: "unix_ms", scale: 1 },
+        { type: "timestamp", timeFormat: "unix_ms", scale: 1 },
+      ]),
+    );
+  });
+
+  it("should keep the scale when a JSON field becomes another number", async () => {
+    const ic = await createICD([
+      createJSONMessage([{ ...createJSONField("Count", "/n"), scale: 0.1 }]),
+    ]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByText("Float"));
+    fireEvent.click(await screen.findByText("Signed integer"));
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { type: "integer", scale: 0.1 },
+      ]),
+    );
+  });
+
+  it("should change the type of a JSON field with a blank name", async () => {
+    const ic = await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]);
+    await renderEditor(ic);
+    await commit("Name", 1, "");
+    await screen.findByText(/^Field 1: name is required/);
+    fireEvent.click(await screen.findByText("Float"));
+    fireEvent.click(await screen.findByText("String"));
+    await commit("Name", 1, "State");
+    await waitFor(async () =>
+      expect((await retrieveMessage(ic.key)).payload.fields).toMatchObject([
+        { name: "State", type: "string", enumValues: [] },
       ]),
     );
   });

@@ -11,6 +11,7 @@ package freightfluence_test
 
 import (
 	"context"
+	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,12 +30,12 @@ type errReceiver struct {
 
 func (e *errReceiver) Receive() (int, error) { return 0, e.recvErr }
 
-// sliceReceiver returns its values in order, then freighter.EOF.
+// sliceReceiver returns its values in order, then io.EOF.
 type sliceReceiver struct{ values []int }
 
 func (s *sliceReceiver) Receive() (int, error) {
 	if len(s.values) == 0 {
-		return 0, freighter.EOF
+		return 0, io.EOF
 	}
 	v := s.values[0]
 	s.values = s.values[1:]
@@ -51,7 +52,7 @@ type blockingReceiver struct {
 func (b *blockingReceiver) Receive() (int, error) {
 	close(b.entered)
 	<-b.release
-	return 0, freighter.EOF
+	return 0, io.EOF
 }
 
 var _ = Describe("Receiver", func() {
@@ -82,7 +83,7 @@ var _ = Describe("Receiver", func() {
 			Expect(stream.Send(1)).To(Succeed())
 			Expect(stream.CloseSend()).To(Succeed())
 			By("Closing the network pipe on return")
-			Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 			Expect(receivedValues).To(Equal([]int{1}))
 			By("Closing the receive server on exit")
 			Eventually(receiverStream.Outlet()).Should(BeClosed())
@@ -262,7 +263,7 @@ var _ = Describe("Receiver", func() {
 				Expect(stream.Send(1)).To(Succeed())
 				Expect(stream.CloseSend()).To(Succeed())
 				By("Closing the network pipe on return")
-				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+				Expect(stream.Receive()).Error().To(MatchError(io.EOF))
 				Expect(receivedValues).To(Equal([]int{2}))
 				By("Closing the receive server on exit")
 				Eventually(receiverStream.Outlet()).Should(BeClosed())

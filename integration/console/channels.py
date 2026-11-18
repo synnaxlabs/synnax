@@ -108,9 +108,6 @@ class ChannelClient(ResourceClient):
         :param virtual: Boolean indicating whether the channel is virtual.
         :returns: True if the channel was created successfully.
         """
-        if is_index and data_type == sy.DataType.UNKNOWN:
-            data_type = sy.DataType.TIMESTAMP
-
         self.open_create_modal()
         self.layout.locator("input[placeholder='Channel name']").fill(name)
         if is_index:
@@ -156,9 +153,6 @@ class ChannelClient(ResourceClient):
             is_index = ch_config.get("is_index", False)
             index = ch_config.get("index", "")
             virtual = ch_config.get("virtual", False)
-
-            if is_index and data_type == sy.DataType.UNKNOWN:
-                data_type = sy.DataType.TIMESTAMP
 
             if i == 0:
                 self.layout.command_palette("Create channel")

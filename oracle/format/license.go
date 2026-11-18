@@ -13,12 +13,12 @@ import (
 	"bytes"
 	"context"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -36,6 +36,7 @@ var headerYear = regexp.MustCompile(`Copyright (\d{4}) Synnax Labs`)
 // starts with a valid header. Otherwise the header uses the year passed to NewLicense.
 // Format replaces any other Synnax header on content and leaves a valid one unchanged.
 type License struct {
+	repoRoot string
 	template string
 	year     string
 	prior    map[string]string
@@ -46,12 +47,12 @@ type License struct {
 // header years of the absolute paths in prior now, so Format keeps them after a tool
 // such as buf rewrites those files without a header.
 func NewLicense(repoRoot string, year int, prior []string) (*License, error) {
-	tmplPath := filepath.Join(repoRoot, licenseTemplatePath)
-	raw, err := os.ReadFile(tmplPath)
+	raw, err := paths.ReadFile(licenseTemplatePath, repoRoot)
 	if err != nil {
-		return nil, errors.Wrapf(err, "read license template %s", tmplPath)
+		return nil, errors.Wrapf(err, "read license template %s", licenseTemplatePath)
 	}
 	l := &License{
+		repoRoot: repoRoot,
 		template: strings.TrimRight(string(raw), "\n"),
 		year:     strconv.Itoa(year),
 		prior:    make(map[string]string, len(prior)),
@@ -70,7 +71,8 @@ func NewLicense(repoRoot string, year int, prior []string) (*License, error) {
 
 // Format prepends or refreshes the license header on content. Files with extensions
 // outside the supported set pass through unchanged. Format reads the file at absPath,
-// if one exists and NewLicense did not read it, to find the year to keep.
+// if one exists and NewLicense did not read it, to find the year to keep. It fails when
+// absPath lies outside the repository root.
 func (l *License) Format(
 	_ context.Context,
 	content []byte,
@@ -101,7 +103,7 @@ func (l *License) Format(
 // diskYear returns the year of the valid header at the start of the file at absPath,
 // or l.year when the file does not exist or has no valid header.
 func (l *License) diskYear(absPath, ext string) (string, error) {
-	existing, err := os.ReadFile(absPath)
+	existing, err := paths.ReadFile(absPath, l.repoRoot)
 	if errors.Is(err, fs.ErrNotExist) {
 		return l.year, nil
 	}

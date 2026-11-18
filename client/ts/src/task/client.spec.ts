@@ -45,9 +45,9 @@ const createStreamedClient = async (recordCap?: number) => {
   onTestFinished(async () => await cache.close());
   const coreURL = new url.URL(TEST_CORE_ADDRESS);
   const frames = new framer.Client({
-    stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
+    stream: new WebSocketClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     unary,
-    file: new HTTPClient(coreURL, binary.JSON_CODEC),
+    file: new HTTPClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     retrieveChannels: async () => [],
   });
   const statuses = new status.Client({ unary, cache });

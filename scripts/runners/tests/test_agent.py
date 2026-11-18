@@ -10,15 +10,16 @@
 import argparse
 import json
 import sys
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
 
 import numpy as np
 import psutil
 import pytest
 import synnax as sy
+from freighter.websocket import ConnectionClosedError
+from websockets.frames import Close
 
 import agent
 import agent_log
@@ -39,7 +40,7 @@ from agent import (
     runner_name,
 )
 from agent_log import Log
-from gh_runner import Runner
+from gh_runner import Runner, Sink
 
 RUNNER = "ubuntu-build-bot-i-0f44"
 NAMES = {
@@ -62,12 +63,26 @@ def arguments(*, secure: bool = False, no_runner: bool = False) -> argparse.Name
 
 
 class Writer(conftest.Writer):
+    def __init__(self, *, core: "Core", start: sy.TimeStamp) -> None:
+        super().__init__(client=core, start=start)
+        self.core = core
+
     def write(self, frame: dict) -> None:
-        core = cast(Core, self.client)
-        if rejected := core.rejected & frame.keys():
-            core.rejected -= rejected
+        if rejected := self.core.rejected & frame.keys():
+            self.core.rejected -= rejected
             raise ConnectionError("Core unreachable")
         super().write(frame)
+
+
+class Names(conftest.ChannelStore):
+    """Finds the channels that exist among names."""
+
+    def __init__(self, names: set[str]) -> None:
+        super().__init__()
+        self.names = names
+
+    def retrieve(self, names: list[str], /) -> list[SimpleNamespace]:
+        return [SimpleNamespace(name=n) for n in names if n in self.names]
 
 
 class Core(conftest.Client):
@@ -80,16 +95,13 @@ class Core(conftest.Client):
         self.rejected: set[str] = set()
         self.writers = 0
         self.closed = False
-        self.channels = SimpleNamespace(retrieve=self.retrieve)
-
-    def retrieve(self, names: list[str]) -> list[SimpleNamespace]:
-        return [SimpleNamespace(name=n) for n in names if n in self.names]
+        self.channels: Names = Names(self.names)
 
     def open_writer(
         self, start: sy.TimeStamp, *args: object, **kwargs: object
     ) -> Writer:
         self.writers += 1
-        return Writer(client=self, start=start)
+        return Writer(core=self, start=start)
 
     def close(self) -> None:
         self.closed = True
@@ -135,7 +147,7 @@ class Control:
         self.applied: list[tuple[bool, str]] = []
         self.listened: list[tuple[str, str]] = []
         self.sinks: list[object] = []
-        self.sink: object = None
+        self.sink: Sink | None = None
         self.ticks = 0
         self.listening = False
 
@@ -143,7 +155,7 @@ class Control:
         self.applied.append((enabled, why))
         self.state = enabled
 
-    def listen(self, client: object, name: str, state: str, sink: object) -> None:
+    def listen(self, client: object, name: str, state: str, sink: Sink) -> None:
         self.listened.append((name, state))
         self.sinks.append(sink)
         self.sink = sink
@@ -154,10 +166,6 @@ class Control:
 
     def stop_listening(self) -> None:
         self.listening = False
-
-
-def control(c: Control) -> Runner:
-    return cast(Runner, c)
 
 
 class Loop:
@@ -207,22 +215,41 @@ class TestChannelName:
 
 
 class Broken:
-    def __init__(self) -> None:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
         self.closes = 0
 
     def close(self) -> None:
         self.closes += 1
-        raise ConnectionError("Core unreachable")
+        raise self.error
 
 
+@pytest.mark.parametrize(
+    "close_quietly", [close_quietly, common.close_quietly], ids=["agent", "common"]
+)
 class TestCloseQuietly:
     """Tests for closing a resource during teardown."""
 
-    def test_should_ignore_a_close_that_fails(self) -> None:
-        resource = Broken()
+    @pytest.mark.parametrize(
+        "error",
+        [
+            sy.UnexpectedError("Core unreachable"),
+            ConnectionClosedError(Close(1011, "keepalive ping timeout"), None),
+        ],
+    )
+    def test_should_ignore_a_core_or_transport_error(
+        self, close_quietly: Callable[[Broken | None], None], error: Exception
+    ) -> None:
+        resource = Broken(error)
         close_quietly(resource)
         close_quietly(None)
         assert resource.closes == 1
+
+    def test_should_raise_any_other_error(
+        self, close_quietly: Callable[[Broken | None], None]
+    ) -> None:
+        with pytest.raises(RuntimeError):
+            close_quietly(Broken(RuntimeError("bug")))
 
 
 @pytest.fixture
@@ -466,7 +493,7 @@ class TestConnect:
         monkeypatch.setattr(agent, "CONNECT_GRACE", sy.TimeSpan(0))
         cores(monkeypatch, ConnectionError("Core unreachable"), Core())
         c = Control()
-        connect(arguments(), NAMES, control(c), store)
+        connect(arguments(), NAMES, c, store)
         assert c.applied == [(True, "no Synnax")]
 
     def test_should_leave_a_runner_that_has_a_state(
@@ -476,7 +503,7 @@ class TestConnect:
         cores(monkeypatch, Core())
         c = Control()
         c.state = False
-        connect(arguments(), NAMES, control(c), store)
+        connect(arguments(), NAMES, c, store)
         assert c.applied == []
 
 
@@ -501,7 +528,9 @@ class TestRun:
         run(arguments(no_runner=True), NAMES, RUNNER, None, store)
         assert [sorted(f) for f in session.frames] == [sorted(USAGE)] * 2
         first, second = session.written(NAMES["index"])
-        assert cast(sy.TimeStamp, first) < cast(sy.TimeStamp, second)
+        assert isinstance(first, sy.TimeStamp)
+        assert isinstance(second, sy.TimeStamp)
+        assert first < second
         assert all(
             isinstance(f[NAMES[k]], np.float32)
             for f in session.frames
@@ -513,7 +542,7 @@ class TestRun:
         self, session: Core, store: Store
     ) -> None:
         c = Control()
-        run(arguments(), NAMES, RUNNER, control(c), store)
+        run(arguments(), NAMES, RUNNER, c, store)
         assert c.listened == [(NAMES["cmd"], NAMES["state"])]
         assert c.ticks == 2
         assert not c.listening
@@ -548,7 +577,7 @@ class TestRun:
     ) -> None:
         session.rejected = {NAMES["log"]}
         c = Control()
-        run(arguments(), NAMES, RUNNER, control(c), store)
+        run(arguments(), NAMES, RUNNER, c, store)
         assert session.written(NAMES["log"]) == [["[agent] agent connected"]]
         assert isinstance(c.sink, Log)
         assert c.sink is not c.sinks[0]

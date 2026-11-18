@@ -10,7 +10,6 @@
 package marshal_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -38,13 +37,11 @@ func unversionedOptions() marshal.Options {
 
 var _ = Describe("Go Marshal Plugin", func() {
 	var (
-		ctx           context.Context
 		loader        *MockFileLoader
 		marshalPlugin *marshal.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		marshalPlugin = marshal.New(unversionedOptions())
 	})
@@ -62,7 +59,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						age int32
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
 						"package test",
@@ -90,7 +87,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "test", loader)
+				req := MustGenerateRequest(source, "test", loader)
 				Expect(marshalPlugin.Generate(req)).Error().To(MatchError(
 					ContainSubstring("references Inner, which has no @go marshal"),
 				))
@@ -111,7 +108,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "test", loader)
+				req := MustGenerateRequest(source, "test", loader)
 				Expect(marshalPlugin.Generate(req)).Error().To(MatchError(
 					ContainSubstring("references Item, which has no @go marshal"),
 				))
@@ -134,7 +131,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("func (o Outer) EncodeOrc").
 					ToContain("o.Inner.EncodeOrc(w)").
@@ -162,7 +159,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("func (h Holder) EncodeOrc")
 			})
@@ -184,7 +181,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("func (s Shape) EncodeOrc")
 			})
@@ -204,7 +201,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "test", loader)
+				req := MustGenerateRequest(source, "test", loader)
 				Expect(marshalPlugin.Generate(req)).Error().To(MatchError(
 					ContainSubstring("references Circle, which has no @go marshal"),
 				))
@@ -230,7 +227,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
 						"o.From.EncodeOrc(w)",
@@ -252,7 +249,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						description string?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("if t.Description != nil {")
 			})
@@ -268,7 +265,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						description string?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain("var hv string")
 				content.ToContain("t.Description = &hv")
@@ -298,7 +295,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						type  TickType?
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain("var hv TickType")
 					content.ToContain("hv = TickType(rawV)")
@@ -330,7 +327,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						level Level?
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain("var hv Level")
 					content.ToContain("iv.Level = &hv")
@@ -365,7 +362,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("Holder) EncodeOrc", "Wrapper[").
 					ToNotContain("Details) EncodeOrc", "Details) DecodeOrc")
@@ -391,7 +388,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("Record) EncodeOrc").
 					ToNotContain("Payload) EncodeOrc", "Payload) DecodeOrc")
@@ -426,7 +423,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						status MyStatus?
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					ExpectContent(resp, "codec.gen.go").
 						ToContain("func (t Test) EncodeOrc(w *orc.Writer")
 				},
@@ -456,7 +453,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						details Details?
 					}
 				`
-						resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+						resp := MustGenerate(source, "test", loader, marshalPlugin)
 						content := ExpectContent(resp, "codec.gen.go")
 						content.ToContain(
 							"w.String(string(s.Variant))",
@@ -494,7 +491,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						axis_key AxisKey
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain("w.String(string(p.AxisKey))")
 					content.ToContain("p.AxisKey = AxisKey(rawV)")
@@ -522,7 +519,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						nodes Nodes
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("func (g Graph) EncodeOrc(w *orc.Writer")
 			})
@@ -544,7 +541,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						strata Strata?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("func (t Test) EncodeOrc(w *orc.Writer")
 			})
@@ -575,7 +572,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						wrapper MyWrapper?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("func (t Test) EncodeOrc(w *orc.Writer")
 			})
@@ -584,7 +581,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		Context("generic struct instances", func() {
 			It(
 				"Should instantiate a generic struct in each container",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -604,7 +601,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						deep   Box<Box<Valve>>
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					ExpectContent(resp, "codec.gen.go").ToContain(
 						"p.Boxes = make([]Box[Valve], n)",
 						"p.ByName = make(map[string]Box[Valve], n)",
@@ -623,7 +620,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		Context("generic struct with an omitted optional type arg", func() {
 			It(
 				"Should instantiate the omitted type arg as struct{}",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -637,7 +634,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						none Bin<nil>
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					ExpectContent(resp, "codec.gen.go").ToContain(
 						"if err := p.Bare.EncodeOrc(w); err != nil { return err }",
 						"if err := p.None.EncodeOrc(w); err != nil { return err }",
@@ -662,7 +659,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						items string[]
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
 						"w.Bool(t.Items != nil)",
@@ -676,7 +673,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		Context("map field nil preservation", func() {
 			It(
 				"Should dispatch union map values through the wrapper codec",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -692,7 +689,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						configs map<string, ElementConfig>
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					ExpectContent(resp, "codec.gen.go").
 						ToContain(
 							"if err := val.EncodeOrc(w); err != nil { return err }",
@@ -713,7 +710,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						labels map<string, string>
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
 						"w.Bool(t.Labels != nil)",
@@ -736,7 +733,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						data bytes
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
 						"w.Bool(t.Data != nil)",
@@ -761,7 +758,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain("t.Name")
 				content.ToNotContain("Data")
@@ -778,7 +775,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 					in T[]?
 				}
 			`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").ToContain(
 					"s.In = make([]T, n)",
 					"if m, ok := any(s.In[j]).(orc.SelfEncoder); ok {",
@@ -803,7 +800,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						}
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain(
 						"json.Marshal(s.Details)",
@@ -831,7 +828,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						items string[]?
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain(
 						"if t.Items != nil {",
@@ -859,7 +856,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						labels map<string, string>?
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain(
 						"if t.Labels != nil {",
@@ -874,7 +871,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("distinct bool field", func() {
-			It("Should convert the value to and from bool", func(ctx SpecContext) {
+			It("Should convert the value to and from bool", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -888,7 +885,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						armed   Flag?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").ToContain(
 					"w.Bool(bool(t.Enabled))",
 					"rawV, err := r.Bool(); if err != nil { return err }; "+
@@ -900,7 +897,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 		Context("distinct record field", func() {
 			It("Should hold a distinct value in every generated test value",
-				func(ctx SpecContext) {
+				func() {
 					source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -914,7 +911,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						draft Doc?
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					ExpectContent(resp, "codec_gen_test.go").ToContain(
 						"Doc: test.Doc(msgpack.EncodedJSON{}),",
 						"Draft: test.Doc(msgpack.EncodedJSON{}),",
@@ -937,7 +934,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						data bytes?
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain(
 						"if t.Data != nil {",
@@ -960,7 +957,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						blobs bytes[]?
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain("w.Bool(t.Blobs[j] != nil)")
 				},
@@ -984,7 +981,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						items Inner[]?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain(
 					"if t.Items != nil {",
@@ -1012,7 +1009,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain(
 					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
@@ -1036,7 +1033,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				content := ExpectContent(resp, "codec.gen.go")
 				content.ToContain(
 					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
@@ -1064,7 +1061,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						type Type
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
 						"func (c Container) EncodeOrc(w *orc.Writer",
@@ -1095,7 +1092,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						alpha Alpha
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToPreserveOrder(
 						"Alpha) EncodeOrc",
@@ -1125,7 +1122,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						name string
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec_gen_test.go")
 					content.ToContain(`"uuid"`)
 					content.ToNotContain(`uuid "uuid"`)
@@ -1154,7 +1151,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						alpha Alpha
 					}
 				`
-					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					resp := MustGenerate(source, "test", loader, marshalPlugin)
 					ExpectContent(resp, "codec_gen_test.go").
 						ToPreserveOrder(
 							`Describe("Alpha"`,
@@ -1183,7 +1180,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToPreserveOrder(
 						"Bravo) DecodeMsgpack",
@@ -1207,7 +1204,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToPreserveOrder(
 						`"github.com/synnaxlabs/x/encoding/json"`,
@@ -1233,7 +1230,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						name string = ""
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				gen := MustContentOf(resp, "codec_gen_test.go")
 				// Child has no port member of its own, so the literal reaches Base.Port
 				// through the promoted field key.
@@ -1262,7 +1259,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						c string
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				resp := MustGenerate(source, "test", loader, marshalPlugin)
 				gen := MustContentOf(resp, "codec_gen_test.go")
 				// A top-level Meta key would set the embedded Meta struct, so Other
 				// cannot promote its meta field alongside Meta's own M.
@@ -1286,7 +1283,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should generate a binary wrapper codec with base and payload delegation",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1305,7 +1302,7 @@ var _ = Describe("Union Codecs", func() {
 				config ElementConfig
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			ExpectContent(resp, "codec.gen.go").
 				ToContain(
 					"func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {",
@@ -1335,7 +1332,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should generate codecs for structs reachable only through a union",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1351,7 +1348,7 @@ var _ = Describe("Union Codecs", func() {
 				config ElementConfig
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			ExpectContent(resp, "codec.gen.go").
 				ToContain(
 					"func (tc TankConfig) EncodeOrc(w *orc.Writer) error {",
@@ -1362,7 +1359,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should generate round-trip, benchmark, and fuzz harnesses covering every variant",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1381,7 +1378,7 @@ var _ = Describe("Union Codecs", func() {
 				config ElementConfig
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			ExpectContent(resp, "codec_gen_test.go").
 				ToBeValidGoSource().
 				ToContain(
@@ -1399,7 +1396,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should encode inline variant fields directly in the union codec",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1418,7 +1415,7 @@ var _ = Describe("Union Codecs", func() {
 				tab Tab
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			content := ExpectContent(resp, "codec.gen.go")
 			content.ToBeValidGoSource()
 			content.ToContain(
@@ -1442,7 +1439,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should inline a base a variant omits a field from",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1464,7 +1461,7 @@ var _ = Describe("Union Codecs", func() {
 				chan AIChannel
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			content := ExpectContent(resp, "codec.gen.go")
 			content.ToBeValidGoSource()
 			content.ToContain(
@@ -1480,7 +1477,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should encode a variant's restated base default only once",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1498,7 +1495,7 @@ var _ = Describe("Union Codecs", func() {
 				tab Tab
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			content := ExpectContent(resp, "codec.gen.go")
 			content.ToBeValidGoSource()
 			content.ToContain(
@@ -1517,7 +1514,7 @@ var _ = Describe("Union Codecs", func() {
 
 	It(
 		"Should share fully populated fixtures between union entries and type tables",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1534,7 +1531,7 @@ var _ = Describe("Union Codecs", func() {
 				config ElementConfig
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			ExpectContent(resp, "codec_gen_test.go").
 				ToBeValidGoSource().
 				ToContain(
@@ -1560,7 +1557,7 @@ var _ = Describe("Recursive Codecs", func() {
 
 	It(
 		"Should guard a recursive struct's decode with a depth limit",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1571,7 +1568,7 @@ var _ = Describe("Recursive Codecs", func() {
 				children Node[]
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			ExpectContent(resp, "codec.gen.go").
 				ToBeValidGoSource().
 				ToContain(
@@ -1587,7 +1584,7 @@ var _ = Describe("Recursive Codecs", func() {
 
 	It(
 		"Should populate one nested level of a recursive struct in test fixtures",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1597,7 +1594,7 @@ var _ = Describe("Recursive Codecs", func() {
 				children Node[]
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			ExpectContent(resp, "codec_gen_test.go").
 				ToContain(`Children: []test.Node{test.Node{Name: "test_3", ` +
 					`Children: []test.Node{test.Node{}}}}`)
@@ -1606,7 +1603,7 @@ var _ = Describe("Recursive Codecs", func() {
 
 	It(
 		"Should guard a recursive union and its cycle members with a depth limit",
-		func(ctx SpecContext) {
+		func() {
 			source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1620,7 +1617,7 @@ var _ = Describe("Recursive Codecs", func() {
 				group GroupConfig
 			}
 		`
-			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			resp := MustGenerate(source, "test", loader, marshalPlugin)
 			ExpectContent(resp, "codec.gen.go").
 				ToBeValidGoSource().
 				ToContain(
@@ -1641,7 +1638,7 @@ var _ = Describe("Recursive Codecs", func() {
 		},
 	)
 
-	It("Should not guard non-recursive decodes", func(ctx SpecContext) {
+	It("Should not guard non-recursive decodes", func() {
 		source := `
 			@go output "core/pkg/test"
 			@go marshal
@@ -1657,20 +1654,18 @@ var _ = Describe("Recursive Codecs", func() {
 				config ElementConfig
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		resp := MustGenerate(source, "test", loader, marshalPlugin)
 		ExpectContent(resp, "codec.gen.go").ToNotContain("PushDepth")
 	})
 })
 
 var _ = Describe("Version-Laid-Out Packages", func() {
 	var (
-		ctx           context.Context
 		loader        *MockFileLoader
 		marshalPlugin *marshal.Plugin
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 		marshalPlugin = marshal.New(unversionedOptions())
 	})
@@ -1686,7 +1681,7 @@ var _ = Describe("Version-Laid-Out Packages", func() {
 				@go marshal
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		resp := MustGenerate(source, "test", loader, marshalPlugin)
 		ExpectContent(resp, "out/versions/v3/codec.gen.go").
 			ToBeValidGoSource().
 			ToContain(
@@ -1709,7 +1704,7 @@ var _ = Describe("Version-Laid-Out Packages", func() {
 				name string
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		resp := MustGenerate(source, "test", loader, marshalPlugin)
 		Expect(resp.Files[0].Path).To(Equal("core/pkg/test/codec.gen.go"))
 		ExpectContent(resp, "core/pkg/test/codec.gen.go").
 			ToContain("package test").
@@ -1936,7 +1931,7 @@ var _ = Describe("Recursive Codec Depth Guard", func() {
 })
 
 var _ = Describe("Same-Named Entries Across Namespaces", func() {
-	It("Should emit each entry's codec at its own path", func(ctx SpecContext) {
+	It("Should emit each entry's codec at its own path", func() {
 		loader := NewMockFileLoader()
 		loader.Add("schemas/panel", `
 			@go output "core/pkg/service/panel"
@@ -1956,7 +1951,7 @@ var _ = Describe("Same-Named Entries Across Namespaces", func() {
 			}
 			Linked struct { view panel.View }
 		`
-		resp := MustGenerate(ctx, source, "view", loader,
+		resp := MustGenerate(source, "view", loader,
 			marshal.New(unversionedOptions()))
 		ExpectContent(resp, "core/pkg/service/view/codec.gen.go").
 			ToContain("View) EncodeOrc")
@@ -1966,7 +1961,7 @@ var _ = Describe("Same-Named Entries Across Namespaces", func() {
 var _ = Describe("Versioned codec requirement", func() {
 	It(
 		"Should reject a marshalled type outside a versions/vN package",
-		func(ctx SpecContext) {
+		func() {
 			loader := NewMockFileLoader()
 			source := `
 			@go output "core/pkg/service/thing"
@@ -1977,7 +1972,7 @@ var _ = Describe("Versioned codec requirement", func() {
 				@go marshal
 			}
 		`
-			req := MustGenerateRequest(ctx, source, "thing", loader)
+			req := MustGenerateRequest(source, "thing", loader)
 			Expect(marshal.New(marshal.DefaultOptions()).Generate(req)).
 				Error().To(MatchError(ContainSubstring("must be versioned")))
 		},
@@ -1985,7 +1980,7 @@ var _ = Describe("Versioned codec requirement", func() {
 
 	It(
 		"Should accept a marshalled type in a versions/vN package",
-		func(ctx SpecContext) {
+		func() {
 			loader := NewMockFileLoader()
 			source := `
 			@go output "core/pkg/service/thing/versions/v2"
@@ -1995,7 +1990,7 @@ var _ = Describe("Versioned codec requirement", func() {
 				@go marshal
 			}
 		`
-			resp := MustGenerate(ctx, source, "thing", loader,
+			resp := MustGenerate(source, "thing", loader,
 				marshal.New(marshal.DefaultOptions()))
 			ExpectContent(resp, "core/pkg/service/thing/versions/v2/codec.gen.go").
 				ToContain("Thing) EncodeOrc")

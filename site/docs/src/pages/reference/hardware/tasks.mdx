@@ -338,6 +338,12 @@ copy a line that retrieves the task in a script.
 
 ## Tasks in code
 
+A task runs on the Driver that owns its device, not on the computer that runs your
+script. MQTT, Kafka, Sift, and PagerDuty tasks run in the Core. For example, a script on
+a Mac can configure an NI task, and the task runs on the Windows or Linux computer of
+the Driver. The platform limits of each integration apply to the computer that runs the
+task. See [Where the Driver runs](/reference/hardware#where-the-driver-runs).
+
 <Client.Tabs exclude={["console"]}>
   <Fragment slot="python">
 
@@ -346,7 +352,7 @@ copy a line that retrieves the task in a script.
 task = client.tasks.retrieve(name="Tank sensors")
 tasks = client.tasks.retrieve(names=["Tank sensors", "Tank valves"])
 
-# List the tasks on the embedded Driver of the Core.
+# List the tasks on the racks embedded in the Core.
 for t in client.tasks.list():
     print(t.name, t.type)
 
@@ -357,8 +363,8 @@ copy = client.tasks.copy(key=task.key, name="Tank sensors copy")
 client.tasks.delete(copy.key)
 ```
 
-`list()` with no argument returns only the tasks on the embedded Driver of the Core. To
-list the tasks of another Driver, pass its rack key: `client.tasks.list(rack=key)`.
+`list()` with no argument returns the tasks on the racks embedded in the Core. To list
+the tasks of another Driver, pass its rack key: `client.tasks.list(rack=key)`.
 
   </Fragment>
   <Fragment slot="typescript">

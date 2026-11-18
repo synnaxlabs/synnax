@@ -14,6 +14,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -126,9 +127,6 @@ func generatePyFile(
 		}
 	}
 
-	skip := func(typ resolution.Type) bool { return omit.IsSkipped(typ, "py") }
-	rawKeyFields := key.Collect(structs, table, skip)
-	keyFields := convertKeyFields(rawKeyFields, data)
 	inOutput := func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "py") == outputPath
 	}
@@ -168,7 +166,7 @@ func generatePyFile(
 		}
 	}
 	for _, u := range unions {
-		form := u.Form.(resolution.UnionForm)
+		form := resolution.MustForm[resolution.UnionForm](u)
 		for _, v := range form.Variants {
 			_, declared := resolver.VariantBases(form, v, "py", table)
 			for _, field := range declared {
@@ -220,11 +218,12 @@ func generatePyFile(
 	// dependency (e.g. Functions before IR), so the trailing input order only
 	// matters inside a cycle. Any forward reference that remains is resolved by the
 	// model_rebuild() calls emitted at the end of the file.
-	var combinedTypes []resolution.Type
-	combinedTypes = append(combinedTypes, aliasTypeDefs...)
-	combinedTypes = append(combinedTypes, structs...)
-	combinedTypes = append(combinedTypes, unions...)
-	combinedTypes = append(combinedTypes, trailingTypeDefs...)
+	combinedTypes := slices.Concat(
+		aliasTypeDefs,
+		structs,
+		unions,
+		trailingTypeDefs,
+	)
 
 	sortedTypes := table.TopologicalSort(combinedTypes)
 
@@ -245,7 +244,7 @@ func generatePyFile(
 				TypeDef:   tdd,
 			})
 		case resolution.StructForm:
-			sd, err := processStruct(typ, table, data, keyFields)
+			sd, err := processStruct(typ, table, data)
 			if err != nil {
 				return nil, err
 			}
@@ -280,7 +279,7 @@ func generatePyFile(
 				data.RebuildModels = append(data.RebuildModels, sd.PyName)
 			}
 		case resolution.UnionForm:
-			u := processUnion(typ, table, data, keyFields)
+			u := processUnion(typ, table, data)
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsUnion: true,
 				Union:   u,
@@ -309,17 +308,6 @@ func (d *templateData) missingIncludesErr() error {
 		"types with no generated Python declaration need a @py include module: %s",
 		sortedJoin(d.missingIncludes),
 	)
-}
-
-func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
-	result := make([]keyFieldData, 0, len(fields))
-	for _, f := range fields {
-		result = append(result, keyFieldData{
-			Name:   f.Name,
-			PyType: primitiveToPython(f.Primitive, data),
-		})
-	}
-	return result
 }
 
 func extractResource(
@@ -502,9 +490,8 @@ func declareTypeVars(
 		declared = append(declared, tpd)
 		tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
 		// An omitted optional type argument means its bound, or arbitrary JSON when
-		// unbounded. TypeVar defaults need typing_extensions on Python 3.12.
+		// unbounded.
 		if tp.Optional {
-			data.imports.typeVarDefault = true
 			tvd.Default = tpd.Constraint
 			if tvd.Default == "" {
 				data.imports.addPydantic("JsonValue")
@@ -657,7 +644,6 @@ func processStruct(
 	entry resolution.Type,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
 ) (structData, error) {
 	sd := structData{
 		Name:   entry.Name,
@@ -726,7 +712,7 @@ func processStruct(
 				for _, field := range flat {
 					sd.Fields = append(
 						sd.Fields,
-						processField(field, table, data, keyFields, form.OmittedFields),
+						processField(field, table, data, form.OmittedFields),
 					)
 					if hashableKey(field) {
 						sd.KeyField = fieldName(field.Name)
@@ -797,7 +783,6 @@ func processStruct(
 							childField,
 							table,
 							data,
-							keyFields,
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
@@ -809,7 +794,6 @@ func processStruct(
 							pf,
 							table,
 							data,
-							keyFields,
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
@@ -828,7 +812,6 @@ func processStruct(
 						field,
 						table,
 						data,
-						keyFields,
 						form.OmittedFields,
 					)
 					sd.Fields = append(sd.Fields, fd)
@@ -846,7 +829,7 @@ func processStruct(
 			redefinedFields := make(set.Set[string])
 			for _, field := range form.Fields {
 				redefinedFields.Add(field.Name)
-				fd := processField(field, table, data, keyFields, form.OmittedFields)
+				fd := processField(field, table, data, form.OmittedFields)
 				sd.Fields = append(sd.Fields, fd)
 				// Only a required @key field yields a __hash__.
 				if hashableKey(field) {
@@ -880,7 +863,6 @@ func processStruct(
 							pf,
 							table,
 							data,
-							keyFields,
 							form.OmittedFields,
 						)
 						sd.Fields = append(sd.Fields, fd)
@@ -896,7 +878,7 @@ func processStruct(
 	allFields := resolution.UnifiedFields(entry, table)
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
+		sd.Fields = append(sd.Fields, processField(field, table, data, nil))
 		// Only a required @key field yields a __hash__.
 		if hashableKey(field) {
 			sd.KeyField = fieldName(field.Name)
@@ -972,7 +954,6 @@ func processField(
 	field resolution.Field,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
 	excludedFields []string,
 ) fieldData {
 	wireName := casing.FieldSnake(field.Name)
@@ -987,10 +968,14 @@ func processField(
 	}
 
 	baseType := typeToPython(field.Type, table, data)
+	// The Core mints a key, so a client sends its zero value on create. An optional
+	// field is never required.
+	_, isKey := field.Domains["key"]
 	fieldConstraints := collectValidation(
 		validation.FieldRules(field, table),
 		field.Default,
 		field.Type,
+		!isKey && !field.Optional,
 		table,
 		data,
 	)
@@ -1037,7 +1022,7 @@ func processField(
 		field.Type.TypeParam != nil && field.Type.TypeParam.Optional
 	optional := fd.IsOptional || isOptionalTypeParam || excludedRequired
 	if optional {
-		fd.PyType = fd.PyType + " | None"
+		fd.PyType += " | None"
 	} else if kind, isCollection := resolution.CollectionKind(field.Type, table); isCollection {
 		if kind == "Array" {
 			fieldConstraints = ensureDefaultFactory(fieldConstraints, "list")
@@ -1157,22 +1142,32 @@ func collectValidation(
 	rules *validation.Rules,
 	defaultVal *resolution.ExpressionValue,
 	typeRef resolution.TypeRef,
+	refusesZero bool,
 	table *resolution.Table,
 	data *templateData,
 ) []string {
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return nil
 	}
+	required := rules.Required && refusesZero
 	var constraints []string
 	primitive := key.ResolvePrimitive(typeRef, table)
 	isString := resolution.IsStringPrimitive(primitive)
 	isNumber := resolution.IsNumberPrimitive(primitive)
+	// A required string, aliased or not, is nonempty. A UUID has no length.
+	requiredString := required && resolution.PrimitiveBase(typeRef, table) == "string"
+	if requiredString && !isString && rules.MinLength == nil {
+		constraints = append(constraints, "min_length=1")
+	}
 	if isString {
-		if rules.MinLength != nil {
+		switch {
+		case rules.MinLength != nil:
 			constraints = append(
 				constraints,
 				fmt.Sprintf("min_length=%d", *rules.MinLength),
 			)
+		case requiredString:
+			constraints = append(constraints, "min_length=1")
 		}
 		if rules.MaxLength != nil {
 			constraints = append(
@@ -1182,6 +1177,11 @@ func collectValidation(
 		}
 	}
 	if isNumber {
+		// A required unsigned integer is nonzero, so it is greater than zero.
+		if required && strings.HasPrefix(primitive, "uint") && rules.Min == nil &&
+			rules.GT == nil {
+			constraints = append(constraints, "gt=0")
+		}
 		if rules.Min != nil {
 			if rules.Min.IsInt {
 				constraints = append(constraints, fmt.Sprintf("ge=%d", rules.Min.Int))
@@ -1204,7 +1204,7 @@ func collectValidation(
 			}
 		}
 		isFloat := primitive == "float32" || primitive == "float64"
-		if isFloat && len(constraints) > 0 {
+		if isFloat && (len(constraints) > 0 || rules.Finite) {
 			constraints = append(constraints, "allow_inf_nan=False")
 		}
 	}
@@ -1292,7 +1292,7 @@ func collectValidation(
 				table,
 			); ok {
 				variantRef := enumVariantToPython(ev, table, data)
-				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
+				constraints = append(constraints, "default="+variantRef)
 			}
 			if uv, ok := validation.ResolveUnionVariant(
 				defaultVal.IdentValue,
@@ -1316,9 +1316,11 @@ func collectValidation(
 			} else {
 				constraints = append(
 					constraints,
-					fmt.Sprintf(
-						"default_factory=lambda: %s",
-						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					"default_factory=lambda: "+pyDefaultLiteral(
+						typeRef,
+						*defaultVal,
+						table,
+						data,
 					),
 				)
 			}
@@ -1333,9 +1335,11 @@ func collectValidation(
 				} else {
 					constraints = append(
 						constraints,
-						fmt.Sprintf(
-							"default_factory=lambda: %s",
-							pyDefaultLiteral(typeRef, *defaultVal, table, data),
+						"default_factory=lambda: "+pyDefaultLiteral(
+							typeRef,
+							*defaultVal,
+							table,
+							data,
 						),
 					)
 				}
@@ -1343,9 +1347,11 @@ func collectValidation(
 				// Models are mutable, so they must use default_factory, never default=.
 				constraints = append(
 					constraints,
-					fmt.Sprintf(
-						"default_factory=lambda: %s",
-						pyDefaultLiteral(typeRef, *defaultVal, table, data),
+					"default_factory=lambda: "+pyDefaultLiteral(
+						typeRef,
+						*defaultVal,
+						table,
+						data,
 					),
 				)
 			}
@@ -1367,7 +1373,7 @@ func pyDefaultLiteral(
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", val.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", val.IntValue)
+		return strconv.FormatInt(val.IntValue, 10)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", val.FloatValue)
 	case resolution.ValueKindBool:
@@ -1973,11 +1979,8 @@ type importManager struct {
 	reserved set.Set[string]
 	uuid     []string
 	typing   []string
-	// typeVarDefault is true when a TypeVar takes a default, so TypeVar comes from
-	// typing_extensions instead of typing.
-	typeVarDefault bool
-	enum           []string
-	pydantic       []string
+	enum     []string
+	pydantic []string
 	// field is the name pydantic's Field is imported as. It differs from "Field" when
 	// the file declares a type of that name.
 	field  string
@@ -2187,7 +2190,7 @@ type resourceData struct {
 
 func (d *templateData) UUIDImports() []string { return d.imports.uuid }
 func (d *templateData) TypingImports() []string {
-	if len(d.TypeVars) == 0 || d.imports.typeVarDefault {
+	if len(d.TypeVars) == 0 {
 		return d.imports.typing
 	}
 	return append(slices.Clone(d.imports.typing), "TypeVar")
@@ -2208,19 +2211,6 @@ func (d *templateData) CodecImports() []string    { return d.imports.codec }
 func (d *templateData) NamespaceImports() []namespaceImportData { return d.imports.namespaces }
 
 func (d *templateData) ModuleImports() []moduleImportData { return d.imports.modules }
-
-// TypingExtensionsImports returns the names imported from typing_extensions.
-func (d *templateData) TypingExtensionsImports() []string {
-	if d.imports.typeVarDefault {
-		return []string{"TypeVar"}
-	}
-	return nil
-}
-
-type keyFieldData struct {
-	Name   string
-	PyType string
-}
 
 type typeParamData struct {
 	// Name is the TypeVar name (e.g., "V").
@@ -2571,9 +2561,6 @@ from uuid import {{ join .UUIDImports ", " }}
 {{- end }}
 {{- if .TypingImports }}
 from typing import {{ join .TypingImports ", " }}
-{{- end }}
-{{- if .TypingExtensionsImports }}
-from typing_extensions import {{ join .TypingExtensionsImports ", " }}
 {{- end }}
 {{- if .EnumImports }}
 from enum import {{ join .EnumImports ", " }}

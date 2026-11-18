@@ -26,9 +26,9 @@ var _ = Describe("Matcher", func() {
 		AddFilterSchema(loader)
 	})
 
-	table := func(ctx SpecContext, source string) *resolution.Table {
+	table := func(source string) *resolution.Table {
 		GinkgoHelper()
-		req := MustGenerateRequest(ctx, `
+		req := MustGenerateRequest(`
 			import "schemas/x/filter"
 
 			@go output "core/pkg/service/thing"
@@ -47,10 +47,8 @@ var _ = Describe("Matcher", func() {
 	}
 
 	Describe("List", func() {
-		It("Should list the @filter fields and the bare lines in field order", func(
-			ctx SpecContext,
-		) {
-			t := table(ctx, `
+		It("Should list the @filter fields and the bare lines in field order", func() {
+			t := table(`
 				Thing struct {
 					key      uuid     { @key }
 					internal bool     { @filter }
@@ -74,10 +72,10 @@ var _ = Describe("Matcher", func() {
 			}))
 		})
 
-		It("Should name the bare line of a @ref field after its reference filter", func(
-			ctx SpecContext,
-		) {
-			t := table(ctx, `
+		It(
+			"Should name the bare line of a @ref field after its reference filter",
+			func() {
+				t := table(`
 				Thing struct {
 					key    uuid   { @key }
 					parent uuid   { @ref on_delete cascade }
@@ -88,17 +86,16 @@ var _ = Describe("Matcher", func() {
 					labels
 				}
 			`)
-			ms := MustSucceed(matcher.List(t.MustGet("thing.Thing"), t))
-			Expect(summarize(ms)).To(Equal([]summary{
-				{Func: "MatchParents", Access: "Parent", Kind: matcher.Variadic},
-				{Func: "MatchLabels", Access: "Labels", Kind: matcher.Variadic},
-			}))
-		})
+				ms := MustSucceed(matcher.List(t.MustGet("thing.Thing"), t))
+				Expect(summarize(ms)).To(Equal([]summary{
+					{Func: "MatchParents", Access: "Parent", Kind: matcher.Variadic},
+					{Func: "MatchLabels", Access: "Labels", Kind: matcher.Variadic},
+				}))
+			},
+		)
 
-		It("Should read a union's base fields and tag through its methods", func(
-			ctx SpecContext,
-		) {
-			t := table(ctx, `
+		It("Should read a union's base fields and tag through its methods", func() {
+			t := table(`
 				Type enum {
 					first = "first"
 				}
@@ -121,10 +118,8 @@ var _ = Describe("Matcher", func() {
 			}))
 		})
 
-		It("Should reject a line over a field that a variant drops", func(
-			ctx SpecContext,
-		) {
-			t := table(ctx, `
+		It("Should reject a line over a field that a variant drops", func() {
+			t := table(`
 				Type enum {
 					first = "first"
 				}
@@ -145,8 +140,8 @@ var _ = Describe("Matcher", func() {
 			))
 		})
 
-		It("Should reject @filter on the @key field", func(ctx SpecContext) {
-			t := table(ctx, `
+		It("Should reject @filter on the @key field", func() {
+			t := table(`
 				Thing struct {
 					key uuid { @key @filter }
 				}
@@ -194,8 +189,8 @@ var _ = Describe("Matcher", func() {
 
 		DescribeTable(
 			"Should return the selector that reads a field",
-			func(ctx SpecContext, typ, name, access string) {
-				t := table(ctx, source)
+			func(typ, name, access string) {
+				t := table(source)
 				Expect(MustBeOk(
 					matcher.Access(t.MustGet(typ), field(t, typ, name), t),
 				)).To(Equal(access))
@@ -210,10 +205,8 @@ var _ = Describe("Matcher", func() {
 			),
 		)
 
-		It("Should return false for a field that a variant drops", func(
-			ctx SpecContext,
-		) {
-			t := table(ctx, source)
+		It("Should return false for a field that a variant drops", func() {
+			t := table(source)
 			_, ok := matcher.Access(
 				t.MustGet("thing.Dropped"),
 				field(t, "thing.Dropped", "name"),
