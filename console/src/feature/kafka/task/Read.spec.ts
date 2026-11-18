@@ -289,6 +289,15 @@ describe("Kafka read form", () => {
       expect(records[1].messages[0].message).toBe(messages[1].key);
     });
 
+    it("should open one Add data dialog for a double click", async () => {
+      await renderRead();
+      const button = await screen.findByRole("button", { name: "Add data" });
+      fireEvent.click(button);
+      fireEvent.click(button);
+      await screen.findByRole("dialog");
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    });
+
     it("should name a record by its record key", async () => {
       const { draft } = await renderRead({
         fields: [createField("temperature", "float")],
