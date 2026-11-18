@@ -80,6 +80,9 @@ export const mixMessage = (fields: icd.JSONField[]): string =>
 export const isReadable = ({ type, pointer }: icd.JSONField): boolean =>
   type !== "bytes" || pointer !== "";
 
+export const isIndexable = (field?: icd.JSONField): boolean =>
+  field?.type === "timestamp" && field.default == null;
+
 /** @returns the data types that a channel of a field of the kind cannot take. */
 export const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
   DataType.ALL.filter((dt) => !converts(kind, dt.toString()));
@@ -87,7 +90,8 @@ export const hiddenDataTypes = (kind: payload.Kind): DataType[] =>
 /**
  * @returns read, changed to suit the fields of its message: no binding of a field that
  * is gone or that the Core cannot read, no data type that its field cannot convert to,
- * and no index that is not a timestamp field.
+ * and no index that is not a timestamp field. An index field with a default stays, for
+ * its error to show.
  */
 export const suit = (read: ReadMessage, fields: icd.JSONField[]): ReadMessage => {
   const byKey = new Map(fields.map((f) => [f.key, f]));

@@ -28,6 +28,7 @@ import { Match } from "@/platform/icd/Match";
 import {
   fieldsPath,
   hiddenDataTypes,
+  isIndexable,
   jsonFields,
   mixMessage,
   readFields,
@@ -109,6 +110,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
     set(readPath, reindex(get(readPath).value, next, indexChannel));
   const handleMode = (mode: TimingMode) =>
     setIndex(mode === "payload" ? timestamps.at(0)?.key : undefined);
+  const invalid = index != null && !isIndexable(index);
   return (
     <>
       <Input.Item
@@ -130,7 +132,16 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
         </Select.Buttons>
       </Input.Item>
       {index != null && (
-        <Input.Item label="Field" padHelpText={false}>
+        <Input.Item
+          label="Field"
+          padHelpText={false}
+          helpText={
+            invalid
+              ? `${index.name} has a default, so it cannot be the index. Remove its default in the message format.`
+              : undefined
+          }
+          status={invalid ? "error" : undefined}
+        >
           <Select.Simple<string>
             value={index.key}
             onChange={setIndex}

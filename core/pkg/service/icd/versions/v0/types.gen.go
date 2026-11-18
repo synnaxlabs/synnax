@@ -20,6 +20,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
@@ -616,6 +617,8 @@ type TimestampJSONField struct {
 	JSONBaseField
 	// TimeFormat is the encoding of the timestamp.
 	TimeFormat payload.TimeFormat `json:"time_format" msgpack:"time_format"`
+	// Default is the value when the document has none. Absent requires one.
+	Default *telem.TimeStamp `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
 func (TimestampJSONField) isJSONFieldVariant() {}

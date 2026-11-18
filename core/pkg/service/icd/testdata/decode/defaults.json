@@ -47,6 +47,17 @@
             "default": true
           },
           {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "time",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/ts",
+            "type": "timestamp",
+            "time_format": "unix_ms",
+            "default": "1000"
+          },
+          {
             "key": "00000000-0000-4000-8000-000000000006",
             "name": "id",
             "scale": 1,
@@ -75,6 +86,10 @@
           "data_type": "uint8"
         },
         {
+          "field": "00000000-0000-4000-8000-000000000005",
+          "data_type": "timestamp"
+        },
+        {
           "field": "00000000-0000-4000-8000-000000000006",
           "data_type": "int64"
         }
@@ -87,7 +102,7 @@
         "id": 1
       },
       "message": "reading",
-      "samples": [42, 4, "idle", 1, 1]
+      "samples": [42, 4, "idle", 1, 1000, 1]
     },
     {
       "document": {
@@ -95,10 +110,11 @@
         "count": 2,
         "state": "run",
         "armed": false,
+        "ts": 5,
         "id": 2
       },
       "message": "reading",
-      "samples": [3, 2, "run", 0, 2]
+      "samples": [3, 2, "run", 0, 5000000, 2]
     },
     {
       "document": {

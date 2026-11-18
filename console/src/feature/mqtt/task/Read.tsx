@@ -1293,9 +1293,9 @@ const boundMessage = (
   const readMessage = entry.messages[read];
   const fields = ICD.readFields(message.payload.fields, readMessage);
   const index = fields.find(({ key }) => key === readMessage.index);
-  if (index != null && index.type !== "timestamp")
+  if (index != null && !ICD.isIndexable(index))
     throw new ValidationError(
-      `In ${where}, the index field ${index.name} must be a timestamp field`,
+      `In ${where}, the index field ${index.name} must be a timestamp field with no default`,
     );
   if (fields.length === 0)
     throw new ValidationError(`The task reads no fields of ${where}`);
