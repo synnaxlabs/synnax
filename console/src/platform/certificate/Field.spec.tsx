@@ -126,6 +126,8 @@ interface RenderedField {
   defaultName: string;
   onChange: Mock<(key: string) => void>;
   statuses: Status.NotificationSpec[];
+  /** Renders the field again with another rack, as when the device's rack changes. */
+  setRack: (rack: rack.Key) => void;
 }
 
 interface RenderOptions {
@@ -142,13 +144,13 @@ const renderField = async (
   const onChange = vi.fn<(key: string) => void>();
   const statuses: Status.NotificationSpec[] = [];
   const { wrapper } = await createConsoleWrapper({ client: as });
-  render(
+  const content = (fieldRack: rack.Key): ReactElement => (
     <Haul.Provider>
       <FileDragSource />
       <Fixture
         value={value}
         defaultName={defaultName}
-        rack={rack}
+        rack={fieldRack}
         onChange={onChange}
         mode={mode}
       />
@@ -156,10 +158,15 @@ const renderField = async (
       <CaptureStatuses
         onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
       />
-    </Haul.Provider>,
-    { wrapper },
+    </Haul.Provider>
   );
-  return { defaultName, onChange, statuses };
+  const { rerender } = render(content(rack), { wrapper });
+  return {
+    defaultName,
+    onChange,
+    statuses,
+    setRack: (next) => rerender(content(next)),
+  };
 };
 
 const open = async (shown: string): Promise<void> => {
@@ -459,6 +466,26 @@ describe("Certificate.Field", () => {
     await act(async () => {});
     expect(onChange).not.toHaveBeenCalled();
     await findDialogTriggerByText(c.name);
+  });
+
+  it("shows a held file certificate of another rack as an error", async () => {
+    const [own, other] = await Promise.all([
+      client.racks.create({ name: uniqueName("rack") }),
+      client.racks.create({ name: uniqueName("rack") }),
+    ]);
+    const c = await client.certificates.set({
+      name: uniqueName("file"),
+      source: "file",
+      certificatePath: "/etc/synnax/client.crt",
+      rack: own.key,
+    });
+    created.push(c.key);
+    const { setRack } = await renderField(c.key, { rack: own.key });
+    await findDialogTriggerByText(c.name);
+    expect(screen.queryByText("File on another rack")).toBeNull();
+    setRack(other.key);
+    const shown = await screen.findByText("File on another rack");
+    expect(shown.classList).toContain("lyra--status-error");
   });
 
   it("offers no file to a field with no rack", async () => {
