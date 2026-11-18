@@ -43,12 +43,16 @@ export interface View {
   width: number;
 }
 
+const xBounds = ({ x, xOffset, count }: DrawOperation): bounds.Bounds =>
+  x.boundsFor(xOffset, xOffset + count);
+
 /**
- * @returns the samples per group that reduces the full-resolution ops. When ops hold
- * reduced series, it is the group size of the one that ends last, so the line draws at
- * one density. Otherwise, it is the samples of the ops per pixel column of the view
- * over groupsPerColumn, rounded down to a power of two. Returns 1, meaning no
- * reduction, when that is below 2 or a span is zero or not finite.
+ * @returns the samples per group that reduces the full-resolution ops. It is the
+ * largest group size of the reduced ops when the full-resolution samples are within two
+ * times the density of that op's samples, so the line draws at one density. A tile cut
+ * short can reduce at a smaller size. Otherwise, it is the samples of the ops per pixel
+ * column of the view over groupsPerColumn, rounded down to a power of two. Returns 1,
+ * meaning no reduction, when that is below 2 or a span is zero or not finite.
  */
 export const groupSize = (
   ops: DrawOperation[],
@@ -62,18 +66,23 @@ export const groupSize = (
   let reduced: DrawOperation | null = null;
   for (const op of ops) {
     if (!isFullResolution(op)) {
-      if (reduced == null || op.span.end.after(reduced.span.end)) reduced = op;
+      if (reduced == null || op.x.alignmentMultiple > reduced.x.alignmentMultiple)
+        reduced = op;
       continue;
     }
     count += op.count;
-    const b = op.x.boundsFor(op.xOffset, op.xOffset + op.count);
+    const b = xBounds(op);
     lower = Math.min(lower, b.lower);
     upper = Math.max(upper, b.upper);
   }
-  if (reduced != null)
-    return Number(reduced.x.alignmentMultiple) * POINTS_PER_GROUP[aggregation];
-  const samplesPerPixel =
-    (count / (upper - lower)) * (bounds.span(view.bounds) / view.width);
+  const density = count / (upper - lower);
+  if (reduced != null) {
+    const multiple = Number(reduced.x.alignmentMultiple);
+    const reducedDensity = (reduced.count * multiple) / bounds.span(xBounds(reduced));
+    const ratio = density / reducedDensity;
+    if (ratio >= 1 / 2 && ratio <= 2) return multiple * POINTS_PER_GROUP[aggregation];
+  }
+  const samplesPerPixel = density * (bounds.span(view.bounds) / view.width);
   const size = 2 ** Math.floor(Math.log2(samplesPerPixel / groupsPerColumn));
   return Number.isFinite(size) && size >= 2 ? size : 1;
 };

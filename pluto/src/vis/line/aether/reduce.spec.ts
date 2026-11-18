@@ -100,17 +100,36 @@ describe("groupSize", () => {
   });
 
   describe("with ops of reduced series", () => {
-    const reduced = (multiple: bigint, start: number): DrawOperation => {
-      const s = new Series({ data: new Float32Array(N), alignmentMultiple: multiple });
-      return spanned(op(s, s), start, start + 1);
+    // density is how many times denser the samples of the op are than those of dense.
+    const reduced = (multiple: bigint, density = 1): DrawOperation => {
+      const x = new Series({
+        data: new Float32Array(
+          Array.from({ length: N }, (_, i) => (i * Number(multiple)) / density),
+        ),
+        alignmentMultiple: multiple,
+      });
+      const y = new Series({ data: new Float32Array(N), alignmentMultiple: multiple });
+      return op(x, y);
     };
 
-    it("should take the group size of the reduced op that ends last", () => {
-      expect(size([reduced(300n, 1), dense, reduced(100n, 0)])).toBe(600);
+    it("should take the largest group size of the reduced ops", () => {
+      expect(size([reduced(300n), dense, reduced(100n)])).toBe(600);
+      const cut = spanned(reduced(299n), 1, 2);
+      expect(size([spanned(reduced(300n), 0, 1), cut, dense])).toBe(600);
     });
 
     it("should take one point per group for an aggregation other than min_max", () => {
-      expect(groupSize([reduced(300n, 0), dense], VIEW, 1 / 2, "average")).toBe(300);
+      expect(groupSize([reduced(300n), dense], VIEW, 1 / 2, "average")).toBe(300);
+    });
+
+    it("should take the size from the view for samples over two times sparser", () => {
+      expect(size([reduced(300n, 4), dense])).toBe(16);
+      expect(size([reduced(300n, 1.9), dense])).toBe(600);
+    });
+
+    it("should take the size from the view for samples over two times denser", () => {
+      expect(size([reduced(300n, 1 / 4), dense])).toBe(16);
+      expect(size([reduced(300n, 1 / 1.9), dense])).toBe(600);
     });
   });
 
