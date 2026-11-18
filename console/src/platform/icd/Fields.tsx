@@ -544,6 +544,18 @@ export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null =
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
+interface ScaleControlProps extends Input.Control<number> {
+  offset: deep.Target<number>;
+}
+
+/** The scale, with the offset beside it in the same control. */
+const ScaleControl = ({ offset, ...rest }: ScaleControlProps): ReactElement => (
+  <div className={CSS.BE("icd-fields", "scale")}>
+    <Input.Numeric {...rest} />
+    <Form.NumericField path={offset} label="Offset" padHelpText={false} />
+  </div>
+);
+
 export interface JSONFieldProps {
   /** The form path of the field. */
   path: deep.Path<icd.JSONField>;
@@ -589,10 +601,9 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
       </Input.Item>
       {isNumberKind(type) && (
         <>
-          <Flex.Box x>
-            <Form.NumericField path={path.scale} label="Scale" padHelpText={false} />
-            <Form.NumericField path={path.offset} label="Offset" padHelpText={false} />
-          </Flex.Box>
+          <Form.Field<number> path={path.scale} label="Scale" padHelpText={false}>
+            {(p) => <ScaleControl {...p} offset={path.offset} />}
+          </Form.Field>
           <Form.TextField path={path.units} label="Units" padHelpText={false} />
         </>
       )}
