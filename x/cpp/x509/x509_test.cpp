@@ -83,6 +83,56 @@ FbGJbLw=
 -----END CERTIFICATE-----
 )";
 
+/// @brief a certificate whose subject holds values that are not text: a BIT STRING and
+/// a UniversalString of unknown types, and a BIT STRING for O.
+const std::string CERT_VALUES = R"(-----BEGIN CERTIFICATE-----
+MIIBfDCCASOgAwIBAgIBBzAKBggqhkjOPQQDAjBIMQ8wDQYDVQQDEwZ2YWx1ZXMx
+CzAJBgMqAwQDAgeAMQ0wCwYDKgMFHAQAAABBMQswCQYDVQQKAwIHgDEMMAoGAyoD
+BxYDaWE1MB4XDTI2MDEwMTAwMDAwMFoXDTI3MDEwMTAwMDAwMFowSDEPMA0GA1UE
+AxMGdmFsdWVzMQswCQYDKgMEAwIHgDENMAsGAyoDBRwEAAAAQTELMAkGA1UECgMC
+B4AxDDAKBgMqAwcWA2lhNTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJxOCBU2
+j2WhizBYenYrDLiPyDpk9CJn0pCu76QfzwOHqDof0EEDoEJ7HsjaFwWsvN43TA4V
+HAdzwWtaDe9txt8wCgYIKoZIzj0EAwIDRwAwRAIgW6bitmeh7G2crRAhhNXCI0CJ
+w+edEQUKCRIq0WNuqNQCIHCuCQTfnoU/SOPymY4QWEbkGNnAtbVukxUcHKEQI011
+-----END CERTIFICATE-----
+)";
+
+/// @brief a certificate whose subject holds a UTF8String that is not valid UTF-8.
+const std::string CERT_BAD_UTF8 = R"(-----BEGIN CERTIFICATE-----
+MIIBKjCB0aADAgECAgEHMAoGCCqGSM49BAMCMB8xEDAOBgNVBAMTB2JhZHV0Zjgx
+CzAJBgNVBAoMAmH/MB4XDTI2MDEwMTAwMDAwMFoXDTI3MDEwMTAwMDAwMFowHzEQ
+MA4GA1UEAxMHYmFkdXRmODELMAkGA1UECgwCYf8wWTATBgcqhkjOPQIBBggqhkjO
+PQMBBwNCAAQEJRpbpUnksYbGZeU8BVh1vrIRV4MfxBHU14HPNkLEjzUouSTtddfN
+vKDj4STNfDjCXnplcH9mwaJkVA1+IdpoMAoGCCqGSM49BAMCA0gAMEUCIGPutBaD
+lMq7daL4Yd2ZzjEg6sbaFUhwneVfE8lxRd+3AiEAt6TfnSIAPVDAtVGxHrAxSBja
+gh3RZClLMTaDcCidbus=
+-----END CERTIFICATE-----
+)";
+
+/// @brief a certificate whose subject holds a BMPString with a surrogate pair.
+const std::string CERT_BAD_BMP = R"(-----BEGIN CERTIFICATE-----
+MIIBKzCB06ADAgECAgEHMAoGCCqGSM49BAMCMCAxDzANBgNVBAMTBmJhZGJtcDEN
+MAsGA1UECh4E2D3eADAeFw0yNjAxMDEwMDAwMDBaFw0yNzAxMDEwMDAwMDBaMCAx
+DzANBgNVBAMTBmJhZGJtcDENMAsGA1UECh4E2D3eADBZMBMGByqGSM49AgEGCCqG
+SM49AwEHA0IABO6bl2Q9qM6/tzxEbUSCkFaQL50cSbZEWKnzP+smOOfXHXPGL+yg
+NSaRzEx68mr2P89mQpkCtzQqMO4eSX2H65swCgYIKoZIzj0EAwIDRwAwRAIgWejw
+YodVMp8wh5nLPbwVeHHA5S1WL0mylnd/QF6IzvACIH1/vLFnpK7LRbV8ImCyT7iP
+W9WtvFisAUytADsOcOuK
+-----END CERTIFICATE-----
+)";
+
+/// @brief a certificate whose subject holds a PrintableString with an underscore.
+const std::string CERT_BAD_PRINTABLE = R"(-----BEGIN CERTIFICATE-----
+MIIBNjCB3aADAgECAgEHMAoGCCqGSM49BAMCMCUxFTATBgNVBAMTDGJhZHByaW50
+YWJsZTEMMAoGA1UEChMDYV9iMB4XDTI2MDEwMTAwMDAwMFoXDTI3MDEwMTAwMDAw
+MFowJTEVMBMGA1UEAxMMYmFkcHJpbnRhYmxlMQwwCgYDVQQKEwNhX2IwWTATBgcq
+hkjOPQIBBggqhkjOPQMBBwNCAAQhKBi61UWdrGLDI0QktuYTULuPoct4pRxIMKXf
+//riq7k4tSf0NsRMOLAINFNt39A66OgYxQDNvcmI9YKuFNUoMAoGCCqGSM49BAMC
+A0gAMEUCIQDvvA6jtjXx3D1SNDtq//EWADlXYveQgS6lT516HyMrMgIgfBGmos6z
+T4bhGz5Esl548HbqvdI0Vz4k4vqypdZQa/o=
+-----END CERTIFICATE-----
+)";
+
 /// @brief the private key of CERT_B.
 const std::string KEY_B = R"(-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg160R6M902UlqFdVs
@@ -119,6 +169,28 @@ TEST(CertificateTest, NamesMatchCore) {
         "0.9.2342.19200300.100.1.1=uid1,1.2.840.113549.1.9.1=a@b.co"
     );
     ASSERT_EQ(cert.issuer(), "CN=Root \xC3\xA9 1,O=Plant CA");
+}
+
+/// @brief it should give a value that is not text as Go does: the DER as hex for an
+/// unknown type, and nothing for a named type.
+TEST(CertificateTest, NonTextValuesMatchCore) {
+    const auto cert = ASSERT_NIL_P(Certificate::parse(CERT_VALUES));
+    ASSERT_EQ(
+        cert.subject(),
+        "CN=values,1.2.3.7=ia5,1.2.3.5=#1c0400000041,1.2.3.4=#03020780"
+    );
+}
+
+/// @brief it should reject a certificate whose names Go refuses.
+TEST(CertificateTest, ParseRejectsInvalidNames) {
+    for (const auto &pem: {CERT_BAD_UTF8, CERT_BAD_BMP, CERT_BAD_PRINTABLE}) {
+        const auto [cert, err] = Certificate::parse(pem);
+        ASSERT_MATCHES(err, INVALID);
+        ASSERT_EQ(
+            err.data,
+            "Failed to parse certificate: a name holds text that is not valid."
+        );
+    }
 }
 
 /// @brief it should clamp the validity period to the range of a TimeStamp, as the

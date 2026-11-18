@@ -19,6 +19,7 @@ cc_library(
         "//x/cpp/date",
         "//x/cpp/defer",
         "//x/cpp/errors",
+        "//x/cpp/strings",
         "//x/cpp/telem",
         "@mbedtls",
     ],

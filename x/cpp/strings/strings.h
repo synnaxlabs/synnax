@@ -10,6 +10,8 @@
 #pragma once
 
 #include <cctype>
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -82,6 +84,48 @@ join(const std::vector<std::string> &parts, const std::string_view sep) {
         out += parts[i];
     }
     return out;
+}
+
+/// @returns true if s is valid UTF-8, with no overlong form, surrogate, or code point
+/// past U+10FFFF.
+[[nodiscard]] inline bool valid_utf8(const std::string_view s) noexcept {
+    size_t i = 0;
+    while (i < s.size()) {
+        const auto lead = static_cast<unsigned char>(s[i]);
+        if (lead < 0x80) {
+            i++;
+            continue;
+        }
+        size_t n = 0;
+        uint32_t code_point = 0;
+        uint32_t min = 0;
+        if ((lead & 0xE0) == 0xC0) {
+            n = 1;
+            code_point = lead & 0x1F;
+            min = 0x80;
+        } else if ((lead & 0xF0) == 0xE0) {
+            n = 2;
+            code_point = lead & 0x0F;
+            min = 0x800;
+        } else if ((lead & 0xF8) == 0xF0) {
+            n = 3;
+            code_point = lead & 0x07;
+            min = 0x10000;
+        } else {
+            return false;
+        }
+        if (i + n >= s.size()) return false;
+        for (size_t k = 1; k <= n; k++) {
+            const auto b = static_cast<unsigned char>(s[i + k]);
+            if ((b & 0xC0) != 0x80) return false;
+            code_point = code_point << 6 | (b & 0x3F);
+        }
+        if (code_point < min || code_point > 0x10FFFF ||
+            (code_point >= 0xD800 && code_point <= 0xDFFF))
+            return false;
+        i += n + 1;
+    }
+    return true;
 }
 
 }

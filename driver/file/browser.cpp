@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "x/cpp/fs/fs.h"
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/x509/x509.h"
 
 #include "driver/file/file.h"
@@ -38,9 +39,16 @@ std::filesystem::path to_path(const std::string &utf8) {
     return {std::u8string(utf8.begin(), utf8.end())};
 }
 
-std::string to_utf8(const std::filesystem::path &path) {
-    const auto s = path.u8string();
-    return {s.begin(), s.end()};
+/// @returns the path as UTF-8, or nothing when it is not valid Unicode, such as a
+/// Linux file name in Latin-1.
+std::optional<std::string> to_utf8(const std::filesystem::path &path) {
+    std::u8string s;
+    try {
+        s = path.u8string();
+    } catch (const std::system_error &) { return std::nullopt; }
+    std::string out(s.begin(), s.end());
+    if (!x::strings::valid_utf8(out)) return std::nullopt;
+    return out;
 }
 
 /// @returns the path without "." or ".." segments or a trailing separator.
@@ -59,7 +67,7 @@ bool starts_with(
 }
 
 bool certificate_extension(const std::filesystem::path &path) {
-    auto ext = to_utf8(path.extension());
+    auto ext = to_utf8(path.extension()).value_or("");
     std::ranges::transform(ext, ext.begin(), [](const unsigned char c) {
         return static_cast<char>(std::tolower(c));
     });
@@ -98,7 +106,33 @@ x::errors::Error read_error(const std::error_code &ec, const std::string &path) 
 struct Entry {
     std::string name;
     std::filesystem::path path;
+    std::string path_utf8;
     bool directory = false;
+};
+
+/// @brief the secrets folder by its name, and with its links resolved at the start of
+/// a list.
+class Secrets {
+    std::filesystem::path dir;
+    std::optional<std::filesystem::path> resolved;
+
+public:
+    explicit Secrets(std::filesystem::path dir): dir(std::move(dir)) {
+        if (this->dir.empty()) return;
+        std::error_code ec;
+        auto path = std::filesystem::weakly_canonical(this->dir, ec);
+        if (!ec) this->resolved = std::move(path);
+    }
+
+    /// @returns true if the path is in the folder, by its name or with its links
+    /// resolved. When the folder or the path does not resolve, it returns true.
+    [[nodiscard]] bool contains(const std::filesystem::path &path) const {
+        if (this->dir.empty()) return false;
+        if (!this->resolved || starts_with(path, this->dir)) return true;
+        std::error_code ec;
+        const auto resolved_path = std::filesystem::weakly_canonical(path, ec);
+        return ec || starts_with(resolved_path, *this->resolved);
+    }
 };
 
 x::json::json reply(
@@ -121,37 +155,33 @@ x::json::json reply(
 }
 
 Browser::Browser(Config cfg): cfg(std::move(cfg)) {
-    if (this->cfg.secrets_dir.empty()) return;
-    this->cfg.secrets_dir = normal(this->cfg.secrets_dir);
-    std::error_code ec;
-    this->secrets = std::filesystem::weakly_canonical(this->cfg.secrets_dir, ec);
-    if (ec) this->secrets = this->cfg.secrets_dir;
+    if (!this->cfg.secrets_dir.empty())
+        this->cfg.secrets_dir = normal(this->cfg.secrets_dir);
 }
 
-bool Browser::secret(const std::filesystem::path &path) const {
-    if (this->secrets.empty()) return false;
-    std::error_code ec;
-    const auto resolved = std::filesystem::weakly_canonical(path, ec);
-    // A path that does not resolve can still lead into the secrets folder.
-    return ec || starts_with(resolved, this->secrets);
+std::string Browser::secrets_dir() const {
+    return to_utf8(this->cfg.secrets_dir).value_or("");
 }
 
 x::json::json Browser::top() const {
     auto entries = x::json::json::array();
-    for (const auto &root: this->cfg.roots)
+    const auto add = [&](const std::filesystem::path &path,
+                         const std::filesystem::path &name) {
+        const auto name_utf8 = to_utf8(name);
+        const auto path_utf8 = to_utf8(path);
+        if (!name_utf8 || !path_utf8) return;
         entries.push_back(
-            {{"name", to_utf8(root)}, {"path", to_utf8(root)}, {"kind", "directory"}}
+            {{"name", *name_utf8}, {"path", *path_utf8}, {"kind", "directory"}}
         );
+    };
+    for (const auto &root: this->cfg.roots)
+        add(root, root);
     for (const auto &dir: {this->cfg.home, this->cfg.secrets_dir}) {
         if (dir.empty()) continue;
         const auto path = normal(dir);
-        entries.push_back(
-            {{"name", to_utf8(path.has_filename() ? path.filename() : path)},
-             {"path", to_utf8(path)},
-             {"kind", "directory"}}
-        );
+        add(path, path.has_filename() ? path.filename() : path);
     }
-    return reply("", "", to_utf8(this->cfg.secrets_dir), false, false, entries);
+    return reply("", "", this->secrets_dir(), false, false, entries);
 }
 
 std::pair<x::json::json, x::errors::Error>
@@ -161,7 +191,8 @@ Browser::list(const std::string &path) const {
     if (!requested.is_absolute())
         return {{}, {x::fs::INVALID_PATH, path + " is not an absolute path."}};
     const auto dir = normal(requested);
-    const auto dir_name = to_utf8(dir);
+    // The path came from UTF-8, so it and its parent convert back.
+    const auto dir_name = to_utf8(dir).value();
     std::error_code ec;
     const auto status = std::filesystem::status(dir, ec);
     if (status.type() == std::filesystem::file_type::not_found)
@@ -179,8 +210,11 @@ Browser::list(const std::string &path) const {
         if (entry_ec) continue;
         const bool directory = std::filesystem::is_directory(entry_status);
         if (!directory && !std::filesystem::is_regular_file(entry_status)) continue;
-        const auto name = it->path().filename();
-        found.push_back({to_utf8(name), dir / name, directory});
+        const auto path = dir / it->path().filename();
+        auto name = to_utf8(path.filename());
+        auto path_utf8 = to_utf8(path);
+        if (!name || !path_utf8) continue;
+        found.push_back({std::move(*name), path, std::move(*path_utf8), directory});
     }
     if (ec) return {{}, read_error(ec, dir_name)};
     std::ranges::sort(found, [](const Entry &a, const Entry &b) {
@@ -190,15 +224,16 @@ Browser::list(const std::string &path) const {
     const bool truncated = found.size() > MAX_ENTRIES;
     if (truncated) found.resize(MAX_ENTRIES);
 
-    const bool listed_secret = this->secret(dir);
+    const Secrets secrets(this->cfg.secrets_dir);
+    const bool listed_secret = secrets.contains(dir);
     auto entries = x::json::json::array();
     for (const auto &e: found) {
         x::json::json entry = {
             {"name", e.name},
-            {"path", to_utf8(e.path)},
+            {"path", e.path_utf8},
             {"kind", e.directory ? "directory" : "file"},
         };
-        if (listed_secret || this->secret(e.path)) {
+        if (listed_secret || secrets.contains(e.path)) {
             entries.push_back(std::move(entry));
             continue;
         }
@@ -221,8 +256,8 @@ Browser::list(const std::string &path) const {
     return {
         reply(
             dir_name,
-            parent == dir ? "" : to_utf8(parent),
-            to_utf8(this->cfg.secrets_dir),
+            parent == dir ? "" : to_utf8(parent).value(),
+            this->secrets_dir(),
             listed_secret,
             truncated,
             std::move(entries)

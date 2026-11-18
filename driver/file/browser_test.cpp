@@ -228,6 +228,36 @@ TEST_F(BrowserTest, BrokenLinkLeftOut) {
     ASSERT_TRUE(entry(data, "broken").is_null());
 }
 
+/// @brief it should resolve the links of the secrets folder at each list, so a link
+/// made after the browser starts still hides the files.
+TEST_F(BrowserTest, SecretsLinkResolvedEachList) {
+    const auto link = this->dir / "link";
+    const Browser browser(Config{.secrets_dir = link});
+    const auto real = this->dir / "real";
+    std::filesystem::create_directories(real);
+    write(real / "client.pem", x::x509::testutil::CERTIFICATE);
+    std::error_code ec;
+    std::filesystem::create_directory_symlink(real, link, ec);
+    if (ec) GTEST_SKIP() << "cannot create a link: " << ec.message();
+    const auto data = ASSERT_NIL_P(browser.list(real.string()));
+    ASSERT_EQ(data["secret"], true);
+    ASSERT_EQ(entry(data, "client.pem").size(), 3);
+}
+
+/// @brief it should leave out an entry whose name is not valid UTF-8.
+TEST_F(BrowserTest, NonUTF8NameLeftOut) {
+#ifndef __linux__
+    GTEST_SKIP() << "only Linux keeps a file name that is not valid UTF-8";
+#endif
+    const auto folder = this->dir / "names";
+    std::filesystem::create_directories(folder);
+    write(folder / "ok.txt", "");
+    write(folder / std::string("caf\xE9.txt"), "");
+    const auto data = ASSERT_NIL_P(this->browser().list(folder.string()));
+    ASSERT_EQ(data["entries"].size(), 1);
+    ASSERT_EQ(data["entries"][0]["name"], "ok.txt");
+}
+
 /// @brief it should keep the first 1000 entries of a larger folder.
 TEST_F(BrowserTest, Truncated) {
     const auto folder = this->dir / "many";
