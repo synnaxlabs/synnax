@@ -679,6 +679,34 @@ func EnumEntriesFromPB(pbs []*EnumEntry) ([]payload.EnumEntry, error) {
 	return result, nil
 }
 
+// FormatToPB converts payload.Format to Format.
+func FormatToPB(v payload.Format) (Format, error) {
+	switch v {
+	case payload.FormatJSON:
+		return Format_FORMAT_JSON, nil
+	case payload.FormatText:
+		return Format_FORMAT_TEXT, nil
+	case payload.FormatBinary:
+		return Format_FORMAT_BINARY, nil
+	default:
+		return 0, errors.Newf("unrecognized payload.Format value: %v", v)
+	}
+}
+
+// FormatFromPB converts Format to payload.Format.
+func FormatFromPB(v Format) (payload.Format, error) {
+	switch v {
+	case Format_FORMAT_JSON:
+		return payload.FormatJSON, nil
+	case Format_FORMAT_TEXT:
+		return payload.FormatText, nil
+	case Format_FORMAT_BINARY:
+		return payload.FormatBinary, nil
+	default:
+		return payload.Format(""), errors.Newf("unrecognized Format value: %v", v)
+	}
+}
+
 // GeneratorTypeToPB converts payload.GeneratorType to GeneratorType.
 func GeneratorTypeToPB(v payload.GeneratorType) (GeneratorType, error) {
 	switch v {

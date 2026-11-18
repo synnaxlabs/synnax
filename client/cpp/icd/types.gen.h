@@ -48,6 +48,10 @@ struct RetrieveResponse;
 constexpr const char *BYTE_ORDER_LITTLE_ENDIAN = "little_endian";
 constexpr const char *BYTE_ORDER_BIG_ENDIAN = "big_endian";
 
+constexpr const char *IMPORT_FORMAT_DBC = "dbc";
+constexpr const char *IMPORT_FORMAT_CSV = "csv";
+constexpr const char *IMPORT_FORMAT_XLSX = "xlsx";
+
 using Key = x::uuid::UUID;
 
 using MessageKey = x::uuid::UUID;
@@ -635,7 +639,7 @@ json_field_from_proto(const ::service::icd::pb::JSONField &pb);
 
 /// @brief BinaryPayload is a payload of raw bytes.
 struct BinaryPayload {
-    std::string format = "binary";
+    std::string format = ::x::payload::FORMAT_BINARY;
     /// @brief length is the payload length in bytes. When absent the length is
     /// variable.
     std::optional<std::uint16_t> length;
@@ -657,7 +661,7 @@ struct BinaryPayload {
 
 /// @brief TextPayload is a payload of one text line.
 struct TextPayload {
-    std::string format = "text";
+    std::string format = ::x::payload::FORMAT_TEXT;
     /// @brief delimiter splits the items of the line.
     std::string delimiter = ",";
     /// @brief prefix is the text a line must start with to belong to the message. An
@@ -678,7 +682,7 @@ struct TextPayload {
 
 /// @brief JSONPayload is a payload of one JSON document.
 struct JSONPayload {
-    std::string format = "json";
+    std::string format = ::x::payload::FORMAT_JSON;
     /// @brief match selects the documents that belong to the message. When absent every
     /// document belongs to it.
     std::optional<JSONMatch> match;
