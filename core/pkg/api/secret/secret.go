@@ -382,12 +382,16 @@ type Value struct {
 	Key Key `json:"key" msgpack:"key"`
 }
 
-// ResolveResponse holds the command of a grant and the values of its secrets.
+// ResolveResponse holds the command of a grant, the secrets it names, and their values.
 type ResolveResponse struct {
 	// Command is the command to run, in place of the arguments of the command that
 	// carried the grant.
 	Command task.Command `json:"command" msgpack:"command"`
-	// Values holds one value for each secret that the grant names.
+	// Secrets holds the keys of the secrets that the grant names, file secrets
+	// included. Empty without a grant.
+	Secrets []Key `json:"secrets" msgpack:"secrets"`
+	// Values holds one value for each secret, except a file secret of the calling
+	// rack, which the rack reads from its own secrets folder.
 	Values []Value `json:"values" msgpack:"values"`
 }
 
@@ -410,19 +414,23 @@ func (s *Service) Resolve(
 		return ResolveResponse{}, err
 	}
 	var (
-		cmd    task.Command
+		g      grant.Grant
 		values map[Key][]byte
 		err    error
 	)
 	if req.Grant == uuid.Nil() {
 		values, err = s.resolveUsed(ctx, subject, req.Secrets)
 	} else {
-		cmd, values, err = s.internal.Resolve(ctx, subject, req.Task, req.Grant)
+		g, values, err = s.internal.Resolve(ctx, subject, req.Task, req.Grant)
 	}
 	if err != nil {
 		return ResolveResponse{}, err
 	}
-	res := ResolveResponse{Command: cmd, Values: make([]Value, 0, len(values))}
+	res := ResolveResponse{
+		Command: g.Command,
+		Secrets: g.Secrets,
+		Values:  make([]Value, 0, len(values)),
+	}
 	for k, v := range values {
 		res.Values = append(res.Values, Value{Key: k, Value: string(v)})
 	}

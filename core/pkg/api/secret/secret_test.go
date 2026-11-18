@@ -685,6 +685,7 @@ var _ = Describe("Service", func() {
 					apisecret.ResolveRequest{Grant: g, Task: t.Key},
 				))
 				Expect(res.Command).To(Equal(cmd))
+				Expect(res.Secrets).To(Equal([]secret.Key{a.Base().Key, b.Base().Key}))
 				Expect(res.Values).To(ConsistOf(
 					apisecret.Value{Key: a.Base().Key, Value: "first"},
 					apisecret.Value{Key: b.Base().Key, Value: "second"},

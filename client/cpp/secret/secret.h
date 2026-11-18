@@ -37,6 +37,15 @@ using ResolveClient = freighter::
 /// @brief the plain text values of secrets by key.
 using Values = std::unordered_map<Key, std::string>;
 
+/// @brief what a spent grant gives a rack.
+struct Grant {
+    /// @brief the keys of the secrets that the grant names, file secrets included.
+    std::vector<Key> secrets;
+    /// @brief the values of the secrets that the grant names, except a file secret of
+    /// the rack, which the rack reads from its own secrets folder.
+    Values values;
+};
+
 /// @brief Client for reading secrets in the Core.
 class Client {
 public:

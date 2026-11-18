@@ -40,8 +40,8 @@ var _ = Describe("OpenService", func() {
 			Args: msgpack.EncodedJSON{"host": "plc"},
 		}
 		grant := MustSucceed(svc.Grant(ctx, db, r, cmd, s.Base().Key))
-		stored, values := MustSucceed2(svc.Resolve(ctx, r, cmd.Task, grant))
-		Expect(stored).To(Equal(cmd))
+		spent, values := MustSucceed2(svc.Resolve(ctx, r, cmd.Task, grant))
+		Expect(spent.Command).To(Equal(cmd))
 		Expect(values).To(Equal(map[secret.Key][]byte{s.Base().Key: []byte("hunter2")}))
 	})
 })

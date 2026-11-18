@@ -144,16 +144,28 @@ TEST_F(ReaderTest, RefusesSecretOfAnotherRack) {
     );
 }
 
-/// @brief it should read a stored secret from a grant, and refuse one the grant does
-/// not hold.
+/// @brief it should read a stored secret from a grant that names it.
 TEST_F(ReaderTest, ReadsSecretFromGrant) {
     const auto key = this->create_secret();
-    const auto r = this->reader(this->rack);
-    const auto values = ASSERT_NIL_P(r.read({key}, synnax::secret::Values{{key, "v"}}));
+    const auto values = ASSERT_NIL_P(
+        this->reader(this->rack)
+            .read(
+                {key},
+                synnax::secret::Grant{.secrets = {key}, .values = {{key, "v"}}}
+            )
+    );
     ASSERT_EQ(values.at(key), "v");
-    const auto [missing, err] = r.read({key}, synnax::secret::Values{});
+}
+
+/// @brief it should refuse a key that a grant does not name before it looks for the
+/// secret, so a grant cannot read a file secret that it leaves out.
+TEST_F(ReaderTest, RefusesKeyGrantDoesNotName) {
+    const auto key = this->create_secret();
+    const auto other = x::uuid::create();
+    const synnax::secret::Grant grant{.secrets = {key}, .values = {{key, "v"}}};
+    const auto [values, err] = this->reader(this->rack).read({key, other}, grant);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "The grant does not hold secret " + key.to_string() + ".");
+    ASSERT_EQ(err.data, "The grant does not name secret " + other.to_string() + ".");
 }
 
 /// @brief it should return NOT_FOUND for a key that no secret has.
@@ -215,7 +227,10 @@ TEST_F(ReaderTest, ReadsStoredCertificateFromGrant) {
         this->reader(this->rack)
             .read_certificate(
                 stored.key,
-                synnax::secret::Values{{private_key, x::x509::testutil::KEY}}
+                synnax::secret::Grant{
+                    .secrets = {private_key},
+                    .values = {{private_key, x::x509::testutil::KEY}},
+                }
             )
     );
     ASSERT_EQ(c.pem, x::x509::testutil::CERTIFICATE);

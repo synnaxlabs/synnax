@@ -58,8 +58,18 @@ Reader::read_file(const std::string &item, const std::string &name) const {
 
 std::pair<synnax::secret::Values, x::errors::Error> Reader::read(
     const std::vector<synnax::secret::Key> &keys,
-    const std::optional<synnax::secret::Values> &granted
+    const std::optional<synnax::secret::Grant> &grant
 ) const {
+    if (grant.has_value())
+        for (const auto &key: keys)
+            if (!std::ranges::contains(grant->secrets, key))
+                return {
+                    {},
+                    x::errors::Error(
+                        x::errors::VALIDATION,
+                        "The grant does not name secret " + key.to_string() + "."
+                    )
+                };
     auto [secrets, err] = this->client->secrets.retrieve(keys);
     if (err) return {{}, err};
     for (const auto &key: keys)
@@ -86,12 +96,12 @@ std::pair<synnax::secret::Values, x::errors::Error> Reader::read(
             continue;
         }
         const auto &key = std::get<synnax::secret::StoredSecret>(s).key;
-        if (!granted.has_value()) {
+        if (!grant.has_value()) {
             stored.push_back(key);
             continue;
         }
-        const auto it = granted->find(key);
-        if (it == granted->end())
+        const auto it = grant->values.find(key);
+        if (it == grant->values.end())
             return {
                 {},
                 x::errors::Error(
@@ -110,7 +120,7 @@ std::pair<synnax::secret::Values, x::errors::Error> Reader::read(
 
 std::pair<Certificate, x::errors::Error> Reader::read_certificate(
     const synnax::certificate::Key &key,
-    const std::optional<synnax::secret::Values> &granted
+    const std::optional<synnax::secret::Grant> &grant
 ) const {
     auto [record, err] = this->client->certificates.retrieve(key);
     if (err) return {Certificate{}, err};
@@ -119,7 +129,7 @@ std::pair<Certificate, x::errors::Error> Reader::read_certificate(
         )) {
         Certificate out{.pem = stored->pem};
         if (!stored->private_key.has_value()) return {std::move(out), x::errors::NIL};
-        auto [values, read_err] = this->read({*stored->private_key}, granted);
+        auto [values, read_err] = this->read({*stored->private_key}, grant);
         if (read_err) return {Certificate{}, read_err};
         out.private_key = std::move(values[*stored->private_key]);
         return {std::move(out), x::errors::NIL};

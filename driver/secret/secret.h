@@ -45,26 +45,27 @@ public:
 
     /// @brief returns the values of the secrets with the given keys. It reads a file
     /// secret from the secrets folder, without the line breaks at the end of the file.
-    /// @param granted the values of a spent grant. When set, each stored secret must be
-    /// in it. When not, the Core gives a stored value only when a device or task on
-    /// the rack uses the secret.
-    /// @returns NOT_FOUND when no secret has a key, an access error when no device or
-    /// task on the rack uses a stored secret, and VALIDATION for a file secret of
-    /// another rack, or when no secrets folder is set.
+    /// @param grant a spent grant. When set, it must name each key, and a stored value
+    /// comes from it. When not, the Core gives a stored value only when a device or
+    /// task on the rack uses the secret.
+    /// @returns VALIDATION when the grant does not name a key, NOT_FOUND when no secret
+    /// has a key, an access error when no device or task on the rack uses a stored
+    /// secret, and VALIDATION for a file secret of another rack, or when no secrets
+    /// folder is set.
     [[nodiscard]] std::pair<synnax::secret::Values, x::errors::Error> read(
         const std::vector<synnax::secret::Key> &keys,
-        const std::optional<synnax::secret::Values> &granted = std::nullopt
+        const std::optional<synnax::secret::Grant> &grant = std::nullopt
     ) const;
 
     /// @brief returns the certificate with the given key and its private key. For a
     /// file certificate, it reads the certificate file, and the key file from the
     /// secrets folder. After it reads both, it saves new details in the Core when the
     /// SHA-256 fingerprint of the certificate differs from the saved one.
-    /// @param granted the values of a spent grant, as for read.
+    /// @param grant a spent grant, as for read.
     /// @returns VALIDATION for a file certificate of another rack, before any read.
     [[nodiscard]] std::pair<Certificate, x::errors::Error> read_certificate(
         const synnax::certificate::Key &key,
-        const std::optional<synnax::secret::Values> &granted = std::nullopt
+        const std::optional<synnax::secret::Grant> &grant = std::nullopt
     ) const;
 
 private:
