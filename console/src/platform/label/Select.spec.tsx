@@ -9,6 +9,8 @@
 
 import { label, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { color } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -23,9 +25,28 @@ import {
   getIconButton,
   type Grants,
   uniqueName,
+  uniqueToken,
 } from "@/testutil";
 
 const client = createTestClient();
+
+const PALETTE = Theming.themeZ.parse(Theming.SYNNAX_LIGHT).colors.visualization.palettes
+  .default;
+
+/** The color a new label should take: the first palette color no label uses. */
+const nextColor = async (): Promise<string> => {
+  const used = new Set(
+    (await client.labels.retrieve({})).map((l) => color.hex(l.color)),
+  );
+  return color.hex(PALETTE.find((c) => !used.has(color.hex(c))) ?? PALETTE[0]);
+};
+
+const openAndSearch = async (term: string): Promise<void> => {
+  fireEvent.click(await findDialogTrigger());
+  fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
+    target: { value: term },
+  });
+};
 
 const renderSelect = async (ui: ReactElement, as: Client = client) => {
   const { wrapper } = await createConsoleWrapper({ client: as });
@@ -113,7 +134,7 @@ describe("Label.Select", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     const { rerender } = render(renderField([createdBefore.key]), { wrapper });
     fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
-    fireEvent.click(await screen.findByText("Create label"));
+    fireEvent.click(await screen.findByText("New label"));
     const name = uniqueName("label");
     fireEvent.change(await screen.findByPlaceholderText("Label name"), {
       target: { value: name },
@@ -142,7 +163,7 @@ describe("Label.Select", () => {
     );
     // A trigger that holds labels opens through its add button.
     fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
-    fireEvent.click(await screen.findByText("Create label"));
+    fireEvent.click(await screen.findByText("New label"));
     const name = uniqueName("label");
     fireEvent.change(await screen.findByPlaceholderText("Label name"), {
       target: { value: name },
@@ -154,6 +175,72 @@ describe("Label.Select", () => {
     const [created] = await client.labels.retrieve({ name: [name] });
     expect(onChange.mock.calls[0][0]).toEqual([existing.key, created.key]);
   });
+
+  it("should open New label with the first palette color that no label uses", async () => {
+    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
+    fireEvent.click(await findDialogTrigger());
+    const expected = await nextColor();
+    fireEvent.click(await screen.findByText("New label"));
+    const name = uniqueName("label");
+    fireEvent.change(await screen.findByPlaceholderText("Label name"), {
+      target: { value: name },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    });
+    const created = await waitFor(async () => {
+      const [l] = await client.labels.retrieve({ name: [name] });
+      if (l == null) throw new Error("label not created");
+      return l;
+    });
+    expect(color.hex(created.color)).toBe(expected);
+  });
+
+  it("should create a label from the search text and add it to the selection", async () => {
+    const existing = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#00FF00",
+    });
+    const onChange = vi.fn();
+    await renderSelect(
+      <Label.SelectMultiple value={[existing.key]} onChange={onChange} />,
+    );
+    fireEvent.click(getIconButton(await findDialogTrigger(), "add"));
+    const name = uniqueName("label");
+    fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
+      target: { value: name },
+    });
+    fireEvent.click(await screen.findByText(`Create label "${name}"`));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const [created] = await client.labels.retrieve({ name: [name] });
+    expect(onChange.mock.calls[0][0]).toEqual([existing.key, created.key]);
+  });
+
+  it("should give a label created from the search the first palette color no label uses", async () => {
+    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
+    const name = uniqueName("label");
+    await openAndSearch(name);
+    const create = await screen.findByText(`Create label "${name}"`);
+    const expected = await nextColor();
+    fireEvent.click(create);
+    const created = await waitFor(async () => {
+      const [l] = await client.labels.retrieve({ name: [name] });
+      if (l == null) throw new Error("label not created");
+      return l;
+    });
+    expect(color.hex(created.color)).toBe(expected);
+  });
+
+  it("should hide the create option while the search matches a label name in any case", async () => {
+    const existing = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#00FF00",
+    });
+    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
+    await openAndSearch(existing.name.toUpperCase());
+    await screen.findByText(existing.name);
+    expect(screen.queryByText(/^Create label/)).toBeNull();
+  });
 });
 
 describe("Label.Select permissions", () => {
@@ -163,31 +250,32 @@ describe("Label.Select permissions", () => {
       retrieve: [label.TYPE_RESOURCE_ID],
     });
 
+  // A search that lists a label but names none shows the create option to a subject
+  // who may create, so its absence proves the gate and not a list still in flight.
   const renderPicker = async (as: Client): Promise<string> => {
+    const token = uniqueToken();
     const { name } = await client.labels.create({
-      name: uniqueName("label"),
+      name: `${token} listed`,
       color: "#0000FF",
     });
     await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />, as);
-    fireEvent.click(await findDialogTrigger());
-    const search = await screen.findByPlaceholderText("Search labels...");
-    fireEvent.change(search, { target: { value: name } });
-    return name;
+    await openAndSearch(token);
+    await screen.findByText(name);
+    return token;
   };
 
-  it("should withhold Create label from a subject who cannot create labels", async () => {
-    const name = await renderPicker(await createSubject({}));
-    // The listed label proves the picker resolved its data, so the missing action
-    // is the gate and not a list still in flight.
-    await screen.findByText(name);
-    expect(screen.queryByText("Create label")).toBeNull();
+  it("should withhold the create option from a subject who cannot create labels", async () => {
+    const token = await renderPicker(await createSubject({}));
+    expect(screen.queryByText(`Create label "${token}"`)).toBeNull();
     // A footer that renders null still counts as a footer, which moves the border
     // off the list onto an empty wrapper.
     expect(document.querySelector(".lyra-select__body")).toBeNull();
   });
 
-  it("should offer Create label to a subject who may create labels", async () => {
-    await renderPicker(await createSubject({ create: [label.TYPE_RESOURCE_ID] }));
-    expect(await screen.findByText("Create label")).toBeTruthy();
+  it("should offer the create option to a subject who may create labels", async () => {
+    const token = await renderPicker(
+      await createSubject({ create: [label.TYPE_RESOURCE_ID] }),
+    );
+    expect(await screen.findByText(`Create label "${token}"`)).toBeTruthy();
   });
 });

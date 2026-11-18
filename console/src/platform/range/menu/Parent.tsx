@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { DisconnectedError, ranger, TimeRange } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Flux, Ranger } from "@synnaxlabs/pluto";
+import { Access, Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { useCreateModal } from "@/platform/range/useCreateModal";
 
 const NONE = "none";
 const NEWEST: ranger.Order = { field: "time_range_start", descending: true };
@@ -79,14 +81,21 @@ export interface ParentProps {
   ranges: ranger.Range[];
 }
 
-/** Moves the ranges under another range, or to the top level. */
+/**
+ * Moves the ranges under another range, or to the top level. A new range made here
+ * covers the ranges and takes their shared parent, and the ranges move inside it.
+ */
 export const Parent = ({ ranges }: ParentProps): ReactElement => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const openCreate = useCreateModal();
+  const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const { update } = Ranger.useSetParent();
   const first = ranges[0]?.parent ?? null;
   const shared = ranges.every((r) => (r.parent ?? null) === first);
   const current = shared ? first : null;
   // The ranges cannot hold themselves, and the current parent leads the list.
-  const hidden = new Set([...ranges.map((r) => r.key), ...(current ?? [])]);
+  const hidden = new Set([...ranges.map((r) => r.key), current]);
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
     (c) => c.ranges,
     {
@@ -95,14 +104,32 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
       filter: (r) => !hidden.has(r.key),
     },
   );
+  const move = (parent: ranger.Key | null) =>
+    ranges.forEach((r) => update({ key: r.key, parent }));
   const handleChange = (next: ranger.Key | null) =>
-    ranges.forEach((r) =>
-      update({ key: r.key, parent: next == null || next === NONE ? null : next }),
-    );
+    move(next == null || next === NONE ? null : next);
+  const handleCreate = (name: string) =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const timeRange = TimeRange.max(...ranges.map((r) => r.timeRange));
+      if (name !== "") {
+        const created = await client.ranges.create({
+          name,
+          timeRange,
+          parent: current ?? undefined,
+        });
+        return move(created.key);
+      }
+      const key = await openCreate({
+        timeRange: timeRange.numeric,
+        parent: current ?? "",
+      });
+      if (key != null) move(key);
+    }, "Failed to create range");
   return (
     <Menu.Sub itemKey="parent" textValue="Parent">
       <Menu.SubTrigger>
-        <Icon.Range />
+        <Ranger.ParentIcon />
         Parent
       </Menu.SubTrigger>
       <Select.Frame<ranger.Key, ranger.Range | undefined>
@@ -127,6 +154,12 @@ export const Parent = ({ ranges }: ParentProps): ReactElement => {
             footer={
               <>
                 <Menu.Divider />
+                {canCreate && (
+                  <Select.CreateItem<ranger.Key, ranger.Range>
+                    resourceName="range"
+                    onCreate={handleCreate}
+                  />
+                )}
                 <Select.Item<ranger.Key> itemKey={NONE} textValue="No parent">
                   <Icon.None />
                   No parent

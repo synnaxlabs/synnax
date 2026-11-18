@@ -104,7 +104,7 @@ const ContextMenuContent = ({
   const handleCreateRange = () =>
     handleError(async () => {
       const tr = await getTimeRange();
-      openCreateRange({ timeRange: tr.numeric });
+      await openCreateRange({ timeRange: tr.numeric });
     }, "Failed to create range from selection");
   const handleDownloadCSV = () =>
     handleError(async () => {

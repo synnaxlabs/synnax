@@ -76,7 +76,7 @@ const NoRanges = (): ReactElement => {
     <Empty.Action
       message="No ranges match"
       action={canCreate ? "Create range" : undefined}
-      onClick={() => openCreate()}
+      onClick={() => void openCreate()}
     />
   );
 };
@@ -247,7 +247,7 @@ const Internal = (): ReactElement => {
               size="medium"
               tooltip="Create range"
               tooltipLocation={location.BOTTOM_LEFT}
-              onClick={() => openCreate()}
+              onClick={() => void openCreate()}
             >
               <Icon.Add />
             </Button.Button>

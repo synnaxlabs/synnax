@@ -36,7 +36,7 @@ const Body = ({ rangeKey: key }: BodyProps): ReactElement => {
   const openCreate = Range.useCreateModal();
   const canCreate = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   const canEdit = Access.useUpdateGranted(ranger.resourceID(key));
-  const handleCreate = canCreate ? () => openCreate({ parent: key }) : undefined;
+  const handleCreate = canCreate ? () => void openCreate({ parent: key }) : undefined;
   const showMetaData = pairs.length > 0 || adding;
   return (
     <div className={CSS.BE("range-overview", "scroll")}>

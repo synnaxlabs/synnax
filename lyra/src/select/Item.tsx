@@ -22,11 +22,19 @@ import { createPortal } from "react-dom";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
+import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
+import { CLOSES_ATTRIBUTE, CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState, useReselectNoop, useSelectedAmong } from "@/select/Context";
-import { type ItemOptions, useIsHidden, useRegistryContext } from "@/select/registry";
+import {
+  type ItemOptions,
+  useHasName,
+  useIsHidden,
+  useRegistryContext,
+  useTerm,
+} from "@/select/registry";
 import {
   type ButtonsContextValue,
   useButtonsContext,
@@ -285,3 +293,78 @@ export const ItemDescription = ({
     {...rest}
   />
 );
+
+const CREATE_KEY = "lyra-select-create";
+
+/** Props for {@link CreateItem}. */
+export interface CreateItemProps {
+  /** The name of what the item creates, such as "label". */
+  resourceName: string;
+  /**
+   * Called on a click or Enter with the trimmed search term. An empty term closes the
+   * dialog, and any menu that holds it, as the create flow then happens outside.
+   */
+  onCreate: (name: string) => void;
+}
+
+interface CreateOptionProps extends Pick<CreateItemProps, "onCreate"> {
+  name: string;
+  text: string;
+}
+
+const CreateOption = ({ name, text, onCreate }: CreateOptionProps): ReactNode => {
+  const ref = useRef<HTMLDivElement>(null);
+  useRegister(CREATE_KEY, ref, { text, pinned: true });
+  const { hovered, onHover } = useItemState<record.Key>(CREATE_KEY);
+  const { close } = Dialog.useContext();
+  const leaves = name === "";
+  const handleClick = (): void => {
+    if (leaves) close();
+    onCreate(name);
+  };
+  return (
+    <List.Item<record.Key>
+      role="option"
+      itemKey={CREATE_KEY}
+      hovered={hovered}
+      onHover={onHover}
+      onClick={handleClick}
+      ref={ref}
+      propagateClick={leaves}
+      {...{ [CLOSES_ATTRIBUTE]: leaves ? true : undefined }}
+    >
+      <Icon.Add />
+      {text}
+    </List.Item>
+  );
+};
+
+const OpenCreateItem = <
+  K extends record.Key,
+  E extends record.Keyed<K> & { name: string },
+>({
+  resourceName,
+  onCreate,
+}: CreateItemProps): ReactNode => {
+  const name = useTerm().trim();
+  const { data, getItem } = List.useData<K, E>();
+  const fixed = useHasName(name);
+  const lower = name.toLowerCase();
+  const listed = data.some((k) => getItem?.(k)?.name.toLowerCase() === lower);
+  if (name !== "" && (fixed || listed)) return null;
+  const text = name === "" ? `New ${resourceName}` : `Create ${resourceName} "${name}"`;
+  return <CreateOption name={name} text={text} onCreate={onCreate} />;
+};
+
+/**
+ * A pinned option that creates an item from the search. It reads "New label" with no
+ * search and Create label "text" with one, and it hides while an option, fixed or not,
+ * has that name in any case. It never changes the selection, so `onCreate` picks what
+ * it creates.
+ */
+export const CreateItem = <
+  K extends record.Key,
+  E extends record.Keyed<K> & { name: string },
+>(
+  props: CreateItemProps,
+): ReactNode => (useClosed() ? null : <OpenCreateItem<K, E> {...props} />);

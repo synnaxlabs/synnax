@@ -28,9 +28,11 @@ import { Icon } from "@/icon";
 import { FilterContext, useMatches } from "@/menu/filter";
 import { useContext } from "@/menu/Menu";
 import { SubContext, useSubContext, useSubmenusContext } from "@/menu/submenus";
+import { CLOSES_ATTRIBUTE } from "@/menu/types";
 import { type position } from "@/position";
 
 const MENU_ITEM = '[role="menuitem"]';
+const CLOSING = `${MENU_ITEM}, [${CLOSES_ATTRIBUTE}]`;
 const LIST = '[role="listbox"]';
 
 // The content opens beside the item, on the side that has room. It laps 4 px over the
@@ -96,7 +98,7 @@ export const Sub = ({
     if (!isTrigger(e.target)) enter(e);
   };
   const handleClick = (e: MouseEvent<HTMLElement>): void => {
-    if (!(e.target instanceof Element) || e.target.closest(MENU_ITEM) == null)
+    if (!(e.target instanceof Element) || e.target.closest(CLOSING) == null)
       e.stopPropagation();
   };
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
