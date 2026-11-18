@@ -13,7 +13,7 @@ import { CSS } from "@/css";
 import { Input } from "@/input";
 import { computed, renderThemed, resolve } from "@/styletest";
 
-type ColumnType = NonNullable<Input.TableColumnProps["type"]>;
+type ColumnType = "string" | "number";
 
 interface TableOptions {
   type: ColumnType;
