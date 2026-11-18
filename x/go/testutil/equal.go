@@ -26,9 +26,11 @@ func DeepEqual(a, b any) bool {
 }
 
 // visit records a pair of references already under comparison, so a cyclic value
-// terminates.
+// terminates. n is the slice length, since slices of one backing array can differ in
+// length.
 type visit struct {
 	a, b uintptr
+	n    int
 	t    reflect.Type
 }
 
@@ -49,6 +51,12 @@ func deepEqual(a, b reflect.Value, seen set.Set[visit]) bool {
 			return a.IsNil() == b.IsNil()
 		}
 		key := visit{a: a.Pointer(), b: b.Pointer(), t: a.Type()}
+		if a.Kind() == reflect.Slice {
+			if a.Len() != b.Len() {
+				return false
+			}
+			key.n = a.Len()
+		}
 		if seen.Contains(key) {
 			return true
 		}
