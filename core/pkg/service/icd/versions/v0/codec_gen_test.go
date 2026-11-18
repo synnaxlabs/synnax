@@ -19,7 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
+	payloadv0 "github.com/synnaxlabs/x/payload/versions/v0"
+	payload "github.com/synnaxlabs/x/payload/versions/v1"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -93,7 +94,7 @@ var _ = Describe("Codec", func() {
 				StartBit:        9,
 				BitLength:       10,
 				ByteOrder:       v0.ByteOrder("little_endian"),
-				Kind:            payload.Kind("float"),
+				Kind:            payloadv0.Kind("float"),
 				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 				MultiplexValues: []int32{14},
 			}),
@@ -108,7 +109,7 @@ var _ = Describe("Codec", func() {
 				StartBit:        0,
 				BitLength:       0,
 				ByteOrder:       v0.ByteOrder(""),
-				Kind:            payload.Kind(""),
+				Kind:            payloadv0.Kind(""),
 				Multiplexor:     nil,
 				MultiplexValues: []int32{},
 			}),
@@ -123,7 +124,7 @@ var _ = Describe("Codec", func() {
 				StartBit:        9,
 				BitLength:       10,
 				ByteOrder:       v0.ByteOrder("little_endian"),
-				Kind:            payload.Kind("float"),
+				Kind:            payloadv0.Kind("float"),
 				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 				MultiplexValues: []int32{},
 			}),
@@ -168,7 +169,7 @@ var _ = Describe("Codec", func() {
 									StartBit:        23,
 									BitLength:       24,
 									ByteOrder:       v0.ByteOrder("little_endian"),
-									Kind:            payload.Kind("float"),
+									Kind:            payloadv0.Kind("float"),
 									Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
 									MultiplexValues: []int32{28},
 								},
@@ -265,32 +266,32 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("float variant", v0.JSONField{Variant: v0.FloatJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
-				EnumValues:    []payload.FloatEntry{{Label: "test_2", Value: payload.Float(3.5)}},
-				Default:       new(payload.Float(4.5)),
+				EnumValues:    []payloadv0.FloatEntry{{Label: "test_2", Value: payload.Float(3.5)}},
+				Default:       new(payloadv0.Float(4.5)),
 			}}),
 			Entry("integer variant", v0.JSONField{Variant: v0.IntegerJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
-				EnumValues:    []payload.IntegerEntry{{Label: "test_2", Value: payload.Integer(4)}},
-				Default:       new(payload.Integer(5)),
+				EnumValues:    []payloadv0.IntegerEntry{{Label: "test_2", Value: payload.Integer(4)}},
+				Default:       new(payloadv0.Integer(5)),
 			}}),
 			Entry("unsigned variant", v0.JSONField{Variant: v0.UnsignedJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
-				EnumValues:    []payload.UnsignedEntry{{Label: "test_2", Value: payload.Unsigned(4)}},
-				Default:       new(payload.Unsigned(5)),
+				EnumValues:    []payloadv0.UnsignedEntry{{Label: "test_2", Value: payload.Unsigned(4)}},
+				Default:       new(payloadv0.Unsigned(5)),
 			}}),
 			Entry("string variant", v0.JSONField{Variant: v0.StringJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
-				EnumValues:    []payload.StringEntry{{Label: "test_2", Value: "test_3"}},
+				EnumValues:    []payloadv0.StringEntry{{Label: "test_2", Value: "test_3"}},
 				Default:       new(string("test_4")),
 			}}),
 			Entry("boolean variant", v0.JSONField{Variant: v0.BooleanJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
-				EnumValues:    []payload.BooleanEntry{{Label: "test_2", Value: true}},
+				EnumValues:    []payloadv0.BooleanEntry{{Label: "test_2", Value: true}},
 				Default:       new(bool(false)),
 			}}),
 			Entry("timestamp variant", v0.JSONField{Variant: v0.TimestampJSONField{
 				JSONBaseField: fullyPopulatedJSONBaseField,
-				TimeFormat:    payload.TimeFormat("iso8601"),
+				TimeFormat:    payloadv0.TimeFormat("iso8601"),
 				Default:       new(telem.TimeStamp(3)),
 			}}),
 			Entry("json variant", v0.JSONField{Variant: v0.JSONJSONField{JSONBaseField: fullyPopulatedJSONBaseField}}),
@@ -311,15 +312,15 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("float variant", v0.JSONMatch{Variant: v0.FloatJSONMatch{
 				JSONBaseMatch: fullyPopulatedJSONBaseMatch,
-				Value:         payload.Float(1.5),
+				Value:         payloadv0.Float(1.5),
 			}}),
 			Entry("integer variant", v0.JSONMatch{Variant: v0.IntegerJSONMatch{
 				JSONBaseMatch: fullyPopulatedJSONBaseMatch,
-				Value:         payload.Integer(2),
+				Value:         payloadv0.Integer(2),
 			}}),
 			Entry("unsigned variant", v0.JSONMatch{Variant: v0.UnsignedJSONMatch{
 				JSONBaseMatch: fullyPopulatedJSONBaseMatch,
-				Value:         payload.Unsigned(2),
+				Value:         payloadv0.Unsigned(2),
 			}}),
 			Entry("string variant", v0.JSONMatch{Variant: v0.StringJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch, Value: "test_1"}}),
 			Entry("boolean variant", v0.JSONMatch{Variant: v0.BooleanJSONMatch{JSONBaseMatch: fullyPopulatedJSONBaseMatch, Value: true}}),
@@ -360,7 +361,7 @@ var _ = Describe("Codec", func() {
 							StartBit:        20,
 							BitLength:       21,
 							ByteOrder:       v0.ByteOrder("little_endian"),
-							Kind:            payload.Kind("float"),
+							Kind:            payloadv0.Kind("float"),
 							Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"))),
 							MultiplexValues: []int32{25},
 						},
@@ -410,7 +411,7 @@ var _ = Describe("Codec", func() {
 						StartBit:        17,
 						BitLength:       18,
 						ByteOrder:       v0.ByteOrder("little_endian"),
-						Kind:            payload.Kind("float"),
+						Kind:            payloadv0.Kind("float"),
 						Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 						MultiplexValues: []int32{22},
 					},
@@ -424,13 +425,13 @@ var _ = Describe("Codec", func() {
 			Entry("json variant", v0.Payload{Variant: v0.JSONPayload{
 				Match: new(v0.JSONMatch{Variant: v0.FloatJSONMatch{
 					JSONBaseMatch: fullyPopulatedJSONBaseMatch,
-					Value:         payload.Float(2.5),
+					Value:         payloadv0.Float(2.5),
 				}}),
 				Fields: []v0.JSONField{
 					{Variant: v0.FloatJSONField{
 						JSONBaseField: fullyPopulatedJSONBaseField,
-						EnumValues:    []payload.FloatEntry{{Label: "test_5", Value: payload.Float(6.5)}},
-						Default:       new(payload.Float(7.5)),
+						EnumValues:    []payloadv0.FloatEntry{{Label: "test_5", Value: payload.Float(6.5)}},
+						Default:       new(payloadv0.Float(7.5)),
 					}},
 				},
 			}}),
@@ -482,7 +483,7 @@ func BenchmarkEncodeDecodeBinaryField(b *testing.B) {
 		StartBit:        9,
 		BitLength:       10,
 		ByteOrder:       v0.ByteOrder("little_endian"),
-		Kind:            payload.Kind("float"),
+		Kind:            payloadv0.Kind("float"),
 		Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 		MultiplexValues: []int32{14},
 	}
@@ -530,7 +531,7 @@ func BenchmarkEncodeDecodeICD(b *testing.B) {
 							StartBit:        23,
 							BitLength:       24,
 							ByteOrder:       v0.ByteOrder("little_endian"),
-							Kind:            payload.Kind("float"),
+							Kind:            payloadv0.Kind("float"),
 							Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
 							MultiplexValues: []int32{28},
 						},
@@ -614,8 +615,8 @@ func BenchmarkEncodeDecodeJSONBaseMatch(b *testing.B) {
 func BenchmarkEncodeDecodeJSONField(b *testing.B) {
 	seed := v0.JSONField{Variant: v0.FloatJSONField{
 		JSONBaseField: fullyPopulatedJSONBaseField,
-		EnumValues:    []payload.FloatEntry{{Label: "test_2", Value: payload.Float(3.5)}},
-		Default:       new(payload.Float(4.5)),
+		EnumValues:    []payloadv0.FloatEntry{{Label: "test_2", Value: payload.Float(3.5)}},
+		Default:       new(payloadv0.Float(4.5)),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -635,7 +636,7 @@ func BenchmarkEncodeDecodeJSONField(b *testing.B) {
 func BenchmarkEncodeDecodeJSONMatch(b *testing.B) {
 	seed := v0.JSONMatch{Variant: v0.FloatJSONMatch{
 		JSONBaseMatch: fullyPopulatedJSONBaseMatch,
-		Value:         payload.Float(1.5),
+		Value:         payloadv0.Float(1.5),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -677,7 +678,7 @@ func BenchmarkEncodeDecodeMessage(b *testing.B) {
 					StartBit:        20,
 					BitLength:       21,
 					ByteOrder:       v0.ByteOrder("little_endian"),
-					Kind:            payload.Kind("float"),
+					Kind:            payloadv0.Kind("float"),
 					Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"))),
 					MultiplexValues: []int32{25},
 				},
@@ -721,7 +722,7 @@ func BenchmarkEncodeDecodePayload(b *testing.B) {
 				StartBit:        17,
 				BitLength:       18,
 				ByteOrder:       v0.ByteOrder("little_endian"),
-				Kind:            payload.Kind("float"),
+				Kind:            payloadv0.Kind("float"),
 				Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 				MultiplexValues: []int32{22},
 			},
@@ -819,7 +820,7 @@ func FuzzDecodeBinaryField(f *testing.F) {
 			StartBit:        9,
 			BitLength:       10,
 			ByteOrder:       v0.ByteOrder("little_endian"),
-			Kind:            payload.Kind("float"),
+			Kind:            payloadv0.Kind("float"),
 			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 			MultiplexValues: []int32{14},
 		}
@@ -841,7 +842,7 @@ func FuzzDecodeBinaryField(f *testing.F) {
 			StartBit:        0,
 			BitLength:       0,
 			ByteOrder:       v0.ByteOrder(""),
-			Kind:            payload.Kind(""),
+			Kind:            payloadv0.Kind(""),
 			Multiplexor:     nil,
 			MultiplexValues: []int32{},
 		}
@@ -863,7 +864,7 @@ func FuzzDecodeBinaryField(f *testing.F) {
 			StartBit:        9,
 			BitLength:       10,
 			ByteOrder:       v0.ByteOrder("little_endian"),
-			Kind:            payload.Kind("float"),
+			Kind:            payloadv0.Kind("float"),
 			Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 			MultiplexValues: []int32{},
 		}
@@ -925,7 +926,7 @@ func FuzzDecodeICD(f *testing.F) {
 								StartBit:        23,
 								BitLength:       24,
 								ByteOrder:       v0.ByteOrder("little_endian"),
-								Kind:            payload.Kind("float"),
+								Kind:            payloadv0.Kind("float"),
 								Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a"))),
 								MultiplexValues: []int32{28},
 							},
@@ -1125,8 +1126,8 @@ func FuzzDecodeJSONField(f *testing.F) {
 	{
 		seed := v0.JSONField{Variant: v0.FloatJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
-			EnumValues:    []payload.FloatEntry{{Label: "test_2", Value: payload.Float(3.5)}},
-			Default:       new(payload.Float(4.5)),
+			EnumValues:    []payloadv0.FloatEntry{{Label: "test_2", Value: payload.Float(3.5)}},
+			Default:       new(payloadv0.Float(4.5)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1137,8 +1138,8 @@ func FuzzDecodeJSONField(f *testing.F) {
 	{
 		seed := v0.JSONField{Variant: v0.IntegerJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
-			EnumValues:    []payload.IntegerEntry{{Label: "test_2", Value: payload.Integer(4)}},
-			Default:       new(payload.Integer(5)),
+			EnumValues:    []payloadv0.IntegerEntry{{Label: "test_2", Value: payload.Integer(4)}},
+			Default:       new(payloadv0.Integer(5)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1149,8 +1150,8 @@ func FuzzDecodeJSONField(f *testing.F) {
 	{
 		seed := v0.JSONField{Variant: v0.UnsignedJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
-			EnumValues:    []payload.UnsignedEntry{{Label: "test_2", Value: payload.Unsigned(4)}},
-			Default:       new(payload.Unsigned(5)),
+			EnumValues:    []payloadv0.UnsignedEntry{{Label: "test_2", Value: payload.Unsigned(4)}},
+			Default:       new(payloadv0.Unsigned(5)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1161,7 +1162,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 	{
 		seed := v0.JSONField{Variant: v0.StringJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
-			EnumValues:    []payload.StringEntry{{Label: "test_2", Value: "test_3"}},
+			EnumValues:    []payloadv0.StringEntry{{Label: "test_2", Value: "test_3"}},
 			Default:       new(string("test_4")),
 		}}
 		w := orc.NewWriter(0)
@@ -1173,7 +1174,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 	{
 		seed := v0.JSONField{Variant: v0.BooleanJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
-			EnumValues:    []payload.BooleanEntry{{Label: "test_2", Value: true}},
+			EnumValues:    []payloadv0.BooleanEntry{{Label: "test_2", Value: true}},
 			Default:       new(bool(false)),
 		}}
 		w := orc.NewWriter(0)
@@ -1185,7 +1186,7 @@ func FuzzDecodeJSONField(f *testing.F) {
 	{
 		seed := v0.JSONField{Variant: v0.TimestampJSONField{
 			JSONBaseField: fullyPopulatedJSONBaseField,
-			TimeFormat:    payload.TimeFormat("iso8601"),
+			TimeFormat:    payloadv0.TimeFormat("iso8601"),
 			Default:       new(telem.TimeStamp(3)),
 		}}
 		w := orc.NewWriter(0)
@@ -1244,7 +1245,7 @@ func FuzzDecodeJSONMatch(f *testing.F) {
 	{
 		seed := v0.JSONMatch{Variant: v0.FloatJSONMatch{
 			JSONBaseMatch: fullyPopulatedJSONBaseMatch,
-			Value:         payload.Float(1.5),
+			Value:         payloadv0.Float(1.5),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1255,7 +1256,7 @@ func FuzzDecodeJSONMatch(f *testing.F) {
 	{
 		seed := v0.JSONMatch{Variant: v0.IntegerJSONMatch{
 			JSONBaseMatch: fullyPopulatedJSONBaseMatch,
-			Value:         payload.Integer(2),
+			Value:         payloadv0.Integer(2),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1266,7 +1267,7 @@ func FuzzDecodeJSONMatch(f *testing.F) {
 	{
 		seed := v0.JSONMatch{Variant: v0.UnsignedJSONMatch{
 			JSONBaseMatch: fullyPopulatedJSONBaseMatch,
-			Value:         payload.Unsigned(2),
+			Value:         payloadv0.Unsigned(2),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1338,7 +1339,7 @@ func FuzzDecodeMessage(f *testing.F) {
 						StartBit:        20,
 						BitLength:       21,
 						ByteOrder:       v0.ByteOrder("little_endian"),
-						Kind:            payload.Kind("float"),
+						Kind:            payloadv0.Kind("float"),
 						Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"))),
 						MultiplexValues: []int32{25},
 					},
@@ -1412,7 +1413,7 @@ func FuzzDecodePayload(f *testing.F) {
 					StartBit:        17,
 					BitLength:       18,
 					ByteOrder:       v0.ByteOrder("little_endian"),
-					Kind:            payload.Kind("float"),
+					Kind:            payloadv0.Kind("float"),
 					Multiplexor:     new(v0.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
 					MultiplexValues: []int32{22},
 				},
@@ -1440,13 +1441,13 @@ func FuzzDecodePayload(f *testing.F) {
 		seed := v0.Payload{Variant: v0.JSONPayload{
 			Match: new(v0.JSONMatch{Variant: v0.FloatJSONMatch{
 				JSONBaseMatch: fullyPopulatedJSONBaseMatch,
-				Value:         payload.Float(2.5),
+				Value:         payloadv0.Float(2.5),
 			}}),
 			Fields: []v0.JSONField{
 				{Variant: v0.FloatJSONField{
 					JSONBaseField: fullyPopulatedJSONBaseField,
-					EnumValues:    []payload.FloatEntry{{Label: "test_5", Value: payload.Float(6.5)}},
-					Default:       new(payload.Float(7.5)),
+					EnumValues:    []payloadv0.FloatEntry{{Label: "test_5", Value: payload.Float(6.5)}},
+					Default:       new(payloadv0.Float(7.5)),
 				}},
 			},
 		}}
