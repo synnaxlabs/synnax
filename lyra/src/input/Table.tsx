@@ -254,6 +254,8 @@ export const Table = ({
   const initial = useRef<Initial | null>(null);
   // Set once Esc puts a cell back, so the next Esc leaves the cell.
   const restored = useRef(false);
+  // Set by a block paste, which commits: Esc then puts back what the paste wrote.
+  const pasted = useRef(false);
   // The row that takes focus once an add or a remove renders.
   const pendingFocus = useRef<number | null>(null);
   const table = useRef<HTMLTableElement>(null);
@@ -300,6 +302,7 @@ export const Table = ({
     if (block == null) return;
     e.preventDefault();
     restored.current = false;
+    pasted.current = true;
     const plan = grid.plan(dims, anchor.current, block);
     const next = value.map((row) => [...row]);
     for (let row = dims.height; row < plan.dimensions.height; row++)
@@ -330,6 +333,15 @@ export const Table = ({
     table.current?.tBodies[0]?.rows[y]?.cells[
       x + (hasGutter ? 1 : 0)
     ]?.querySelector<HTMLInputElement>("input") ?? null;
+
+  useEffect(() => {
+    if (!pasted.current) return;
+    pasted.current = false;
+    const at = anchor.current;
+    const input = cellAt(at);
+    if (input == null || input !== document.activeElement) return;
+    initial.current = { value: value[at.y]?.[at.x], text: input.value };
+  });
 
   useEffect(() => {
     if (pendingFocus.current == null) return;
