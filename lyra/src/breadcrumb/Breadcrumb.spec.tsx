@@ -35,6 +35,28 @@ describe("Breadcrumb", () => {
       expect(c.getByText("Profile")).toBeTruthy();
       expect(c.container.querySelectorAll(".lyra-icon--caret-right")).toHaveLength(2);
     });
+    it("should not lead with a separator when the first child is omitted", () => {
+      const hidden = false as boolean;
+      const c = render(
+        <Breadcrumb.Breadcrumb>
+          {hidden && <Breadcrumb.Segment>Home</Breadcrumb.Segment>}
+          <Breadcrumb.Segment>Settings</Breadcrumb.Segment>
+          <Breadcrumb.Segment>Profile</Breadcrumb.Segment>
+        </Breadcrumb.Breadcrumb>,
+      );
+      expect(c.container.querySelectorAll(".lyra-icon--caret-right")).toHaveLength(1);
+    });
+    it("should not render an empty string child as a segment", () => {
+      const label = "" as string;
+      const c = render(
+        <Breadcrumb.Breadcrumb>
+          {label && <Breadcrumb.Segment>{label}</Breadcrumb.Segment>}
+          <Breadcrumb.Segment>Settings</Breadcrumb.Segment>
+          <Breadcrumb.Segment>Profile</Breadcrumb.Segment>
+        </Breadcrumb.Breadcrumb>,
+      );
+      expect(c.container.querySelectorAll(".lyra-icon--caret-right")).toHaveLength(1);
+    });
   });
   describe("mapURLSegments", () => {
     it("should map URL segments correctly", () => {

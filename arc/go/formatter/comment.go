@@ -44,13 +44,9 @@ func (ca *commentAttacher) getTrailingComment(tok antlr.Token) antlr.Token {
 	if tok == nil || ca.nextUnused >= len(ca.comments) {
 		return nil
 	}
-	tokLine := tok.GetLine()
 	tokEnd := tok.GetStop()
-
 	comment := ca.comments[ca.nextUnused]
-	commentLine := comment.GetLine()
-	commentStart := comment.GetStart()
-	if commentLine == tokLine && commentStart > tokEnd {
+	if comment.GetLine() == lastLine(tok) && comment.GetStart() > tokEnd {
 		ca.nextUnused++
 		return comment
 	}

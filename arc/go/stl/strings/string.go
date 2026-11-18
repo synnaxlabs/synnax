@@ -269,12 +269,7 @@ func NewHost(
 	)
 	builder = registerFormat(builder, h, "format_i64", func(v int64) any { return v })
 	builder = registerFormat(builder, h, "format_u64", func(v uint64) any { return v })
-	builder = registerFormat(
-		builder,
-		h,
-		"format_f32",
-		func(v float32) any { return float64(v) },
-	)
+	builder = registerFormat(builder, h, "format_f32", func(v float32) any { return v })
 	builder = registerFormat(builder, h, "format_f64", func(v float64) any { return v })
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, ptr, length uint32) uint32 {

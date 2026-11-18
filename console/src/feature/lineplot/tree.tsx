@@ -100,6 +100,7 @@ export const GROUP_MEMBER: Group.Member = {
 const TreeItem = Tree.createItem({
   linkable: true,
   icon: <Icon.LinePlot />,
+  typeName: "Line plot",
   useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(resource.idToString(id))],
   ContextMenu: TreeContextMenu,
