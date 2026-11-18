@@ -64,7 +64,7 @@ inline std::string dispatch_create(
         x::telem::TimeStamp::now(),
         x::telem::TIME_STAMP_MAX
     };
-    r.color = c;
+    r.color = std::move(c);
     if (!parent.empty()) {
         auto [uid, err] = x::uuid::UUID::parse(parent);
         if (err) {
