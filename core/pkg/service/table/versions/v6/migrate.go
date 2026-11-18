@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp/migrate"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v5"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -62,9 +63,7 @@ func MigrateTable(ctx context.Context, old v5.Table) (Table, error) {
 }
 
 func emptyConfig() CellConfig {
-	c := CellConfig{Variant: TextCellConfig{}}
-	c.ApplyDefaults()
-	return c
+	return CellConfig{Variant: defaults.Fill(TextCellConfig{})}
 }
 
 // newKey returns a key derived from base that used does not hold, and adds it to used.

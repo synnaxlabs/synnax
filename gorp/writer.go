@@ -154,7 +154,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	k := entry.GorpKey()
 	encoded := w.keyCodec.Encode(k)
 	changes := &w.tx.txIdentity().changes
-	s, err := w.find(ctx, changes, k, encoded)
+	s, err := w.find(changes, k, encoded)
 	if err != nil {
 		return err
 	}
@@ -182,13 +182,22 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	for _, idx := range w.indexes {
 		idx.stageSet(w.tx, entry)
 	}
-	return nil
+	db := txDB(w.tx)
+	if db == nil {
+		return nil
+	}
+	refs := db.registry.watchers(w.tableName)
+	if len(refs) == 0 {
+		return nil
+	}
+	target := Target{Table: w.tableName, Key: key.Format(k)}
+	return db.registry.targetSet(ctx, w.tx, refs, target)
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, k K) error {
 	encoded := w.keyCodec.Encode(k)
 	changes := &w.tx.txIdentity().changes
-	s, err := w.find(ctx, changes, k, encoded)
+	s, err := w.find(changes, k, encoded)
 	if err != nil {
 		return err
 	}
@@ -205,13 +214,11 @@ func (w *Writer[K, E]) delete(ctx context.Context, k K) error {
 // find returns the slot in changes of a write to the record with key k, which encoded
 // stores.
 func (w *Writer[K, E]) find(
-	ctx context.Context,
 	changes *changeList,
 	k K,
 	encoded []byte,
 ) (slot, error) {
 	return changes.find(
-		ctx,
 		w.tx,
 		NewTarget(w.tableName, k),
 		encoded,

@@ -13,7 +13,7 @@ import {
   type UnaryClient,
 } from "@synnaxlabs/freighter";
 import { array, deep, type destructor, filter, zod } from "@synnaxlabs/x";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 import { actions } from "@/actions";
 import { createOf, encode, isUndoable, kindOf, reduceAll } from "@/arc/actions";
@@ -412,7 +412,7 @@ export class Client extends query.Retriever<
     const arcs = await this.execRetrieve({ where, includeChanges: true });
     checkForMultipleOrNoResults("Arc", { where }, arcs, true);
     const a = arcs[0];
-    return a.type === "automation" ? (a.changes ?? []) : [];
+    return a.type === "automation" ? a.changes : [];
   }
 
   private async execRetrieve(

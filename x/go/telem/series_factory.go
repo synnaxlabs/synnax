@@ -42,41 +42,40 @@ type Sample interface{ FixedSample | VariableSample }
 // NewSeries creates a new Series from a slice of sample values. It automatically
 // determines the data type from the type parameter.
 func NewSeries[T Sample](data []T) Series {
-	var t T
-	switch any(t).(type) {
-	case uint8:
-		return newFixedSeries(any(data).([]uint8))
-	case uint16:
-		return newFixedSeries(any(data).([]uint16))
-	case uint32:
-		return newFixedSeries(any(data).([]uint32))
-	case uint64:
-		return newFixedSeries(any(data).([]uint64))
-	case int8:
-		return newFixedSeries(any(data).([]int8))
-	case int16:
-		return newFixedSeries(any(data).([]int16))
-	case int32:
-		return newFixedSeries(any(data).([]int32))
-	case int64:
-		return newFixedSeries(any(data).([]int64))
-	case float32:
-		return newFixedSeries(any(data).([]float32))
-	case float64:
-		return newFixedSeries(any(data).([]float64))
-	case TimeStamp:
-		return newFixedSeries(any(data).([]TimeStamp))
-	case uuid.UUID:
-		return newFixedSeries(any(data).([]uuid.UUID))
-	case bool:
-		return newFixedSeries(any(data).([]bool))
-	case string:
-		return newVariableSeries(any(data).([]string))
-	case []byte:
-		return newVariableSeries(any(data).([][]byte))
+	switch d := any(data).(type) {
+	case []uint8:
+		return newFixedSeries(d)
+	case []uint16:
+		return newFixedSeries(d)
+	case []uint32:
+		return newFixedSeries(d)
+	case []uint64:
+		return newFixedSeries(d)
+	case []int8:
+		return newFixedSeries(d)
+	case []int16:
+		return newFixedSeries(d)
+	case []int32:
+		return newFixedSeries(d)
+	case []int64:
+		return newFixedSeries(d)
+	case []float32:
+		return newFixedSeries(d)
+	case []float64:
+		return newFixedSeries(d)
+	case []TimeStamp:
+		return newFixedSeries(d)
+	case []uuid.UUID:
+		return newFixedSeries(d)
+	case []bool:
+		return newFixedSeries(d)
+	case []string:
+		return newVariableSeries(d)
+	case [][]byte:
+		return newVariableSeries(d)
 	}
 	// degenerate case, should never hit this path.
-	panic(fmt.Sprintf("unsupported sample type %T", t))
+	panic(fmt.Sprintf("unsupported sample type %T", data))
 }
 
 // NewSeriesV is a variadic version of NewSeries.
@@ -84,8 +83,8 @@ func NewSeriesV[T Sample](data ...T) Series { return NewSeries(data) }
 
 // MakeSeries allocates a new Series with the specified DataType and length. Note that
 // this function allocates a length and not a capacity.
-func MakeSeries(dt DataType, len int) Series {
-	return Series{DataType: dt, Data: make([]byte, len*int(dt.Density()))}
+func MakeSeries(dt DataType, length int) Series {
+	return Series{DataType: dt, Data: make([]byte, length*int(dt.Density()))}
 }
 
 // NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input
@@ -182,38 +181,47 @@ func (series Series) Unmarshal[T Sample]() []T {
 	var t T
 	switch any(t).(type) {
 	case uint8:
-		return any(unmarshalFixed[uint8](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[uint8](series.Data))
 	case uint16:
-		return any(unmarshalFixed[uint16](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[uint16](series.Data))
 	case uint32:
-		return any(unmarshalFixed[uint32](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[uint32](series.Data))
 	case uint64:
-		return any(unmarshalFixed[uint64](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[uint64](series.Data))
 	case int8:
-		return any(unmarshalFixed[int8](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[int8](series.Data))
 	case int16:
-		return any(unmarshalFixed[int16](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[int16](series.Data))
 	case int32:
-		return any(unmarshalFixed[int32](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[int32](series.Data))
 	case int64:
-		return any(unmarshalFixed[int64](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[int64](series.Data))
 	case float32:
-		return any(unmarshalFixed[float32](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[float32](series.Data))
 	case float64:
-		return any(unmarshalFixed[float64](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[float64](series.Data))
 	case TimeStamp:
-		return any(unmarshalFixed[TimeStamp](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[TimeStamp](series.Data))
 	case uuid.UUID:
-		return any(unmarshalFixed[uuid.UUID](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[uuid.UUID](series.Data))
 	case bool:
-		return any(unmarshalFixed[bool](series.Data)).([]T)
+		return castSamples[T](unmarshalFixed[bool](series.Data))
 	case string:
-		return any(unmarshalVariable[string](series.Data)).([]T)
+		return castSamples[T](unmarshalVariable[string](series.Data))
 	case []byte:
-		return any(unmarshalVariable[[]byte](series.Data)).([]T)
+		return castSamples[T](unmarshalVariable[[]byte](series.Data))
 	}
 	// degenerate case, should never hit this path.
 	panic(fmt.Sprintf("unsupported sample type %T", t))
+}
+
+// castSamples returns data as a []T. T must be U.
+func castSamples[T, U Sample](data []U) []T {
+	out, ok := any(data).([]T)
+	if !ok {
+		panic(fmt.Sprintf("cannot cast %T to %T", data, out))
+	}
+	return out
 }
 
 func unmarshalFixed[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
@@ -295,6 +303,8 @@ func NewSeriesFromAny(value any, dt DataType) Series {
 		return NewSeriesV(castToBytes(value))
 	case JSONT:
 		return lo.Must(NewJSONSeriesV(value))
+	case UnknownT:
+		fallthrough
 	default:
 		panic(fmt.Sprintf("unsupported data type %s", dt))
 	}

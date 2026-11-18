@@ -60,8 +60,10 @@ every frame.
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click a module and select **Create write task**. The
-   task starts with a channel for each output of the module. To remove a channel,
-   right-click it and select **Remove**.
+   task starts with a channel for each output of the module. To write to several modules
+   of one network in one task, select them first. The Console configures each module
+   that is not configured yet. To remove a channel, right-click it and select
+   **Remove**.
 2. Set **Execution rate** and **State update rate**.
 3. Click <Icon.Play /> (**Start**).
 
@@ -270,11 +272,11 @@ is the one that the task wrote before, and it keeps the old channels.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["A channel has no device. Pick a device.", "A channel on slave ... has no entry. Pick an entry."]}>
+<Problem.Item message={["Device is required", "Entry is required"]}>
 <Problem.Cause>
 
 A channel has no module or no entry selected, such as the empty channel that the task
-opens with.
+opens with. The Console shows this problem when you start the task.
 
 </Problem.Cause>
 <Problem.Fix>

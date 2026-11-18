@@ -53,7 +53,7 @@ class Role(BaseModel):
     """
 
     key: Key = Field(default_factory=uuid4)
-    name: str
+    name: str = Field(min_length=1)
     description: str = ""
     internal: bool = False
 

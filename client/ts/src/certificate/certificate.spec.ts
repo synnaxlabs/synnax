@@ -123,7 +123,7 @@ describe("Certificate", () => {
       });
       await expect(create).rejects.toThrow(PathError);
       await expect(create).rejects.toThrow(
-        "private_key_pem: does not match the certificate: validation error",
+        "private_key_pem: does not match the certificate",
       );
     });
 
@@ -322,7 +322,7 @@ describe("Certificate", () => {
       await expect(del).rejects.toThrow(ValidationError);
       await expect(del).rejects.toThrow(
         "cannot delete secret In use private key because certificate In use uses it " +
-          "as its private_key: validation error",
+          "as its private_key",
       );
       const retrieved = await createTestClient().secrets.retrieve(privateKey);
       expect(retrieved.key).toBe(privateKey);

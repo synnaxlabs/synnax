@@ -161,6 +161,7 @@ const TaskForm: FC = createForm<ReadChannel>({
   children: isIndexItem,
   resolve,
   indexed: true,
+  tareable: true,
 });
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({

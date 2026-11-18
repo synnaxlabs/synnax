@@ -286,6 +286,8 @@ exports_go:
   - *core
   - *freighter_integration
   - *oracle
+  - .github/exports-go.json
+  - .github/scripts/go_affected.py
 
 exports_py:
   - *client_py
@@ -413,6 +415,9 @@ scripts:
   - *py
   - client/py/**
   - scripts/**
+
+suppressions_py:
+  - "**/*.py"
 
 runners:
   - *py

@@ -24,7 +24,6 @@ package imex
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -109,7 +108,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if p.options.ResourceImportPath == "" {
 		return nil, errors.New("go/imex requires Options.ResourceImportPath")
 	}
-	ctx := context.Background()
 	var (
 		paths    []string
 		packages = make(map[string][]target)
@@ -122,7 +120,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		t, err := newTarget(ctx, req, typ)
+		t, err := newTarget(req, typ)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +145,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	for _, outputPath := range paths {
 		if err := p.generatePackage(
-			ctx, req, resp, outputPath, packages[outputPath],
+			req, resp, outputPath, packages[outputPath],
 		); err != nil {
 			return nil, err
 		}
@@ -206,7 +204,6 @@ type target struct {
 }
 
 func newTarget(
-	ctx context.Context,
 	req *plugin.Request,
 	typ resolution.Type,
 ) (target, error) {
@@ -221,7 +218,7 @@ func newTarget(
 			"%s declares @go imex without a version chain", typ.QualifiedName,
 		)
 	}
-	if ended, err := req.Versions.Ended(ctx, livePath); err != nil {
+	if ended, err := req.Versions.Ended(livePath); err != nil {
 		return target{}, err
 	} else if ended {
 		return target{}, errors.Newf(
@@ -229,12 +226,12 @@ func newTarget(
 		)
 	}
 	current := chain.Current()
-	floor, err := firstImexVersion(ctx, req, livePath, typ.Name, current)
+	floor, err := firstImexVersion(req, livePath, typ.Name, current)
 	if err != nil {
 		return target{}, err
 	}
 	exported := exportedVersions(req, livePath, floor, current)
-	steps, err := migrateSteps(ctx, req, typ, livePath, exported)
+	steps, err := migrateSteps(req, typ, livePath, exported)
 	if err != nil {
 		return target{}, err
 	}
@@ -267,7 +264,6 @@ func referenceNames(typ resolution.Type, table *resolution.Table) []string {
 const bodyMarker = "body"
 
 func (p *Plugin) generatePackage(
-	ctx context.Context,
 	req *plugin.Request,
 	resp *plugin.Response,
 	outputPath string,
@@ -280,7 +276,7 @@ func (p *Plugin) generatePackage(
 	versionNums := slices.Sorted(maps.Keys(exported))
 	for _, k := range versionNums {
 		dir := versioning.VersionedPath(outputPath, k)
-		subject, err := versionSubject(ctx, req, targets[0].livePath, k)
+		subject, err := versionSubject(req, targets[0].livePath, k)
 		if err != nil {
 			return err
 		}
@@ -360,12 +356,11 @@ func (p *Plugin) generatePackage(
 // versionSubject names the @go imex shapes in version k of the chain at livePath. It
 // reads only k's version file, so a later version or a live change leaves vK unchanged.
 func versionSubject(
-	ctx context.Context,
 	req *plugin.Request,
 	livePath string,
 	k int,
 ) (string, error) {
-	surf, err := req.Versions.Surface(ctx, livePath, k)
+	surf, err := req.Versions.Surface(livePath, k)
 	if err != nil {
 		return "", err
 	}
@@ -515,7 +510,6 @@ const Version imex.Version = {{.Version}}
 // version whose file drops the marker or omits the type; marker history is contiguous.
 // Versions below the floor predate Core export.
 func firstImexVersion(
-	ctx context.Context,
 	req *plugin.Request,
 	livePath, name string,
 	current int,
@@ -529,11 +523,10 @@ func firstImexVersion(
 		return floor, nil
 	}
 	for _, k := range slices.Backward(chain.Numbers) {
-
 		if k >= current {
 			continue
 		}
-		surf, err := req.Versions.Surface(ctx, livePath, k)
+		surf, err := req.Versions.Surface(livePath, k)
 		if err != nil {
 			return 0, err
 		}
@@ -574,7 +567,7 @@ type decodeExpr func(pkg, goName string) string
 
 // envelopeDecode decodes a resource's envelope.
 func envelopeDecode(pkg, goName string) string {
-	return fmt.Sprintf("env.Decode[%s.%s](ctx)", pkg, goName)
+	return fmt.Sprintf("env.Decode[%s.%s]()", pkg, goName)
 }
 
 // blobDecode decodes a body blob, naming it name in errors.
@@ -646,7 +639,6 @@ func writeSteps(b *strings.Builder, t target, i int, cur, indent string) string 
 // since the ladder would pass the old shape through unchanged. A version that only
 // aliases typ keeps its shape and needs no step.
 func migrateSteps(
-	ctx context.Context,
 	req *plugin.Request,
 	typ resolution.Type,
 	livePath string,
@@ -667,7 +659,7 @@ func migrateSteps(
 			steps.Add(k)
 			continue
 		}
-		surf, err := req.Versions.Surface(ctx, livePath, k)
+		surf, err := req.Versions.Surface(livePath, k)
 		if err != nil {
 			return nil, err
 		}
@@ -762,7 +754,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) ({{.Type}}, erro
 {{.Body}}
 {{- end}}
 	case {{.CurrentPkg}}.Version:
-		return env.Decode[{{.Type}}](ctx)
+		return env.Decode[{{.Type}}]()
 	}
 	return {{.Type}}{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

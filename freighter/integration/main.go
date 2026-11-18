@@ -25,7 +25,7 @@ import (
 func main() {
 	app := fiber.New(fiber.Config{})
 	app.Use(logger.New())
-	if err := http.BindTo(app); err != nil {
+	if err := http.BindTo(context.Background(), app); err != nil {
 		log.Fatal(err)
 	}
 	interruptC := make(chan os.Signal, 1)

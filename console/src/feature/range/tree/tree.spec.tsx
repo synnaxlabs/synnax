@@ -11,6 +11,7 @@ import { type label, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Telem } from "@synnaxlabs/lyra/telem";
 import { Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -106,6 +107,31 @@ const renderTree = async (
 };
 
 describe("range tree", () => {
+  it("should show a short start for a narrow list", async () => {
+    const { key } = await client.labels.create({ name: "short", color: "#000000" });
+    const now = TimeStamp.now();
+    const old = now.sub(TimeSpan.days(400));
+    const ranges = await client.ranges.create(
+      [
+        { name: "new", start: now },
+        { name: "old", start: old },
+      ].map(({ name, start }) => ({
+        name,
+        timeRange: new TimeRange(start, start.add(TimeSpan.hours(1))),
+        labels: [key],
+      })),
+    );
+    await renderTree(key, ranges, "list");
+    // A narrow list shows this form in place of the full start.
+    const short = (name: string): string | null | undefined =>
+      screen
+        .getByText(name)
+        .closest(".console-range-item")
+        ?.querySelector(".console-range-item__start-compact")?.textContent;
+    expect(short("new")).toBe(Telem.Text.formatTime(now, TimeSpan.MINUTE));
+    expect(short("old")).toContain(String(old.localYear));
+  });
+
   it.each<Layout>(["tree", "list"])(
     "should render only the item of a renamed range in the %s layout",
     async (layout) => {

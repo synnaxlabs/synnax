@@ -10,6 +10,7 @@
 import "schemas/arc/program"
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/text/v1"
+import "schemas/synnax/versions/channel/v1"
 import "schemas/synnax/versions/status/v2"
 
 Key = v1.Key
@@ -93,16 +94,34 @@ Change struct {
     """
 }
 
+Calculation struct {
+    channel channel.Key     {
+        @doc value "is the key of the calculated channel."
+    }
+    program program.Program {
+        @doc value "is the compiled module that computes the channel."
+    }
+
+    @doc value "is a calculated channel that an automation reads, compiled to a module."
+}
+
 Arc union on type Type extends Base {
     automation {
-        program program.Program? {
+        program      program.Program? {
             @doc value  """
                 is the compiled module output including IR and WebAssembly bytecode.
             """
             @go marshal omit
         }
-        changes Change[]?        {
+        changes      Change[]         {
             @doc value  "is what changed in the automation since its task was deployed."
+            @go marshal omit
+        }
+        calculations Calculation[]    {
+            @doc value  """
+                are the calculated channels that the program reads, nested ones
+                included. Dependencies come before the channels that read them.
+            """
             @go marshal omit
         }
 

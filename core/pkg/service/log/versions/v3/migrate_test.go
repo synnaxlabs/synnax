@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -26,7 +27,7 @@ import (
 
 var _ = Describe("Migration", func() {
 	defaulted := func(e v3.ChannelEntry) v3.ChannelEntry {
-		e.ApplyDefaults()
+		e = defaults.Fill(e)
 		return e
 	}
 
@@ -141,6 +142,7 @@ var _ = Describe("Migration", func() {
 			},
 		}
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.Log]{DB: db}))
 		Expect(gorp.NewCreate[uuid.UUID, v2.Log]().Entry(&stored).Exec(ctx, db)).
 			To(Succeed())

@@ -72,11 +72,10 @@ func OpenService(_ context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, updates: observe.New[Update]()}
-	s.disconnectStorage = cfg.TS.OnControlUpdate(
-		func(ctx context.Context, u ts.ControlUpdate) {
-			s.updates.Notify(ctx, updateFromStorage(u))
-		},
-	)
+	s.disconnectStorage = cfg.TS.OnControlUpdate(func(u ts.ControlUpdate) {
+		// Storage gives no context. Subscribers use their own.
+		s.updates.Notify(context.Background(), updateFromStorage(u))
+	})
 	return s, nil
 }
 

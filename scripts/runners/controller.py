@@ -7,16 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-# /// script
-# requires-python = ">=3.12,<4"
-# dependencies = [
-#     "boto3",
-#     "certifi>=2026.10.19",
-#     "PyJWT[crypto]>=2.10,<3",
-#     "synnax>=0.61,<0.62",
-# ]
-# ///
-
 """Polls GitHub and EC2 every --interval and writes the fleet's state to Synnax.
 Also runs the scaler, the gate, and the cost fetch, and creates every channel below
 plus the agents' channels, for each new runner too, unless --no-create-channels.
@@ -24,8 +14,9 @@ plus the agents' channels, for each new runner too, unless --no-create-channels.
 Per-runner channels, written on change:
 
     <runner>_gh            int8 on gh_time:
-                               -1  channel exists but GitHub no longer lists the runner
-                                0  offline
+                               -1  channel exists but neither GitHub nor EC2 lists the
+                                   runner
+                                0  offline, or deleted from GitHub by the scaler
                                 1  online and idle
                                 2  online and busy
     <runner>_ec2           bool on ec2_time: instance running
@@ -73,17 +64,19 @@ Sums, errors, and month projections are calculated channels, see cost.calculated
 
 Job starts and finishes arrive as workflow_job webhooks on --webhook-port (9091),
 checked against GH_WEBHOOK_SECRET; steps are polled from five running runs per
-cycle, and the queue is rebuilt from the API every 5 minutes. Runner names persist
-in registry.json so a removed runner keeps reporting -1.
+cycle, and the queue is rebuilt from the API every 5 minutes. Runner names and labels
+persist in registry.json so a removed runner keeps reporting.
 
-Scaler (scaler.py): starts stopped runners when jobs queue in their pool, stops
-runners idle past --idle-cooldown (3 min). An offline runner on an instance up longer
-than --boot-grace (2 min) counts as idle. --scale sets the start state (enabled);
-runner_scaler_cmd switches it at runtime, runner_scaler_enabled beats the state,
-runner_scaler_log carries its log.
+Scaler (scaler.py): starts stopped runners when jobs queue in their pool, drains
+runners idle past --idle-cooldown (3 min), and once a drained runner is offline,
+deletes its GitHub registration and stops its instance. An offline runner counts as
+idle when it is drained or its instance is up longer than --boot-grace (2 min).
+--scale sets the start state (enabled); runner_scaler_cmd switches it at runtime,
+runner_scaler_enabled beats the state, runner_scaler_log carries its log.
 
-Seats (seats.py): starts a stopped agent seat when a job that asks for its labels
-queues. The scaler switch holds these starts too, and they log to runner_scaler_log.
+Seats (seats.py): starts a stopped agent or review seat when a job that asks for its
+labels queues, on a login it picks (logins.py). The scaler switch holds these starts
+too, and they log to runner_scaler_log.
 
 Gate (gate.py): fans global_gh_cmd out to every <runner>_gh_cmd, disconnecting the
 fleet from GitHub without stopping instances. --gh sets the start state (enabled);
@@ -98,13 +91,15 @@ while the last 3 polls all failed), runner_controller_log (every line logged her
 Reads the GH_APP_ID, GH_APP_KEY, GH_WEBHOOK_SECRET, and SYNNAX_PASSWORD secrets (see
 common.secret).
 Needs AWS credentials from the boto3 chain that may DescribeInstances, DescribeVolumes,
-StartInstances on the agent seats, cloudwatch:GetMetricData, ce:GetCostAndUsage,
-ce:GetCostForecast, pricing:GetProducts, and ssm:GetParameter on /runners/*.
+StartInstances and tag the seats, cloudwatch:GetMetricData, ce:GetCostAndUsage,
+ce:GetCostForecast, pricing:GetProducts, ssm:GetParameter on /runners/*,
+iam:GetRole on the seat role, and list and tag the logins in Secrets Manager.
 """
 
 import argparse
 import os
 from concurrent.futures import Future, ThreadPoolExecutor, wait as futures_wait
+from typing import Protocol
 
 import synnax as sy
 
@@ -116,12 +111,15 @@ from common import (
     OFFLINE,
     ChannelCreateError,
     Channels,
+    Streams,
+    Writes,
     add_connection_args,
     channel_name,
     command_channels,
     connect,
     ec2_channels,
     gh_channels,
+    instance_for,
     instance_status,
     parameter_store,
     seconds,
@@ -142,6 +140,7 @@ from github import GitHub
 from heartbeat import Heartbeat
 from jobs import Jobs
 from log import Log
+from logins import SEAT_ROLE, Logins
 from pools import (
     POOL_INDEX,
     WAIT_INDEX,
@@ -178,6 +177,20 @@ def resolve(futures: list[Future]) -> list:
     return [f.result() for f in futures]
 
 
+def fleet_status(
+    listed: dict[str, int], *, labels: dict[str, set[str]], found: dict[str, dict]
+) -> dict[str, int]:
+    """The status GitHub lists for each runner, and offline for a runner GitHub does not
+    list that has an EC2 instance, such as one whose registration the scaler deleted."""
+    return {
+        r: OFFLINE for r in labels if instance_for(r, found=found) is not None
+    } | listed
+
+
+class Core(Writes, Streams, Protocol):
+    """The part of the Core that the controller writes and streams."""
+
+
 class Controller:
     """One poll cycle: fetch GitHub and EC2 concurrently, refresh channels when the
     runner set changes, publish status and events, and let the gate and the scaler
@@ -187,7 +200,7 @@ class Controller:
     def __init__(
         self,
         *,
-        client: sy.Synnax,
+        client: Core,
         channels: Channels,
         github: GitHub,
         aws: AWS,
@@ -239,8 +252,10 @@ class Controller:
         )
 
     def cycle(self, timer: sy.Timer) -> None:
-        (status, labels), found = self.fetch()
-        self.runners.add(set(status))
+        (listed, labels), found = self.fetch()
+        self.runners.add(labels)
+        labels = self.runners.labels()
+        status = fleet_status(listed, labels=labels, found=found)
         cost = self.cost.step(
             sy.TimeStamp.now(), known=self.runners.snapshot(), found=found
         )
@@ -471,19 +486,21 @@ def main() -> None:
         index=channels.index(f"{GATE_CMD}_time"),
         channels={GATE_CMD: sy.DataType.BOOLEAN},
     )
+    gate = Gate(
+        client=client,
+        channels=channels,
+        log=Log(client=client, channels=channels, channel=GATE_LOG),
+        enabled=args.gh == "enabled",
+    )
     scaler_log = Log(client=client, channels=channels, channel=SCALER_LOG)
     scaler = Scaler(
         client=client,
         cooldown=args.idle_cooldown,
         boot_grace=args.boot_grace,
         log=scaler_log,
+        gate=gate,
+        github=github,
         enabled=args.scale == "enabled",
-    )
-    gate = Gate(
-        client=client,
-        channels=channels,
-        log=Log(client=client, channels=channels, channel=GATE_LOG),
-        enabled=args.gh == "enabled",
     )
     toggles: dict[str, Toggle] = {
         SCALER_CMD: (
@@ -517,7 +534,7 @@ def main() -> None:
     )
     aws = AWS()
     runners = RunnerRegistry()
-    runners.add(set(github.runner_status()[0]))
+    runners.add(github.runner_status()[1])
     cost = Cost(log=log, aws=aws)
     cost.create_state(client, known=runners.snapshot())
     resync_pool = ThreadPoolExecutor(1)
@@ -530,7 +547,14 @@ def main() -> None:
         jobs=Jobs(github=github, log=log, pool=resync_pool),
         cost=cost,
         scaler=scaler,
-        seats=Seats(aws=aws, log=scaler_log),
+        seats=Seats(
+            aws=aws,
+            logins=Logins(
+                secrets=aws.secrets,
+                role=aws.iam.get_role(RoleName=SEAT_ROLE)["Role"]["RoleId"],
+            ),
+            log=scaler_log,
+        ),
         gate=gate,
         log=log,
         webhook=webhook,

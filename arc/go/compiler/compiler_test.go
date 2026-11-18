@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
+	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/node"
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
@@ -39,14 +39,10 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-func compile(
-	ctx context.Context,
-	source string,
-	resolver []symbol.Symbol,
-) (compiler.Output, error) {
+func compile(ctx context.Context, source string) (compiler.Output, error) {
 	GinkgoHelper()
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
+	inter, diag := text.Analyze(ctx, prog, NewRoot(nil))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	return compiler.Compile(ctx, inter)
 }
@@ -128,15 +124,14 @@ func assertResult(result uint64, expected any) {
 // loop pushes before each cycle. Guest calls to now() return it.
 const cycleNow = 1750 * telem.SecondTS
 
-// bindDefaultModules creates a state.ProgramState and binds all default STL modules
-// to the given wazero.Runtime. Returns the state, string module, string state, and
-// channel state for post-instantiation setup.
+// bindDefaultModules binds all default STL modules to the given wazero.Runtime.
+// Returns the string module, string state, and channel state for post-instantiation
+// setup.
 func bindDefaultModules(
 	ctx context.Context,
 	r wazero.Runtime,
-) (*node.ProgramState, *stlstrings.Host, *stlstrings.ProgramState, *stlchannels.ProgramState) {
+) (*stlstrings.Host, *stlstrings.ProgramState, *stlchannels.ProgramState) {
 	GinkgoHelper()
-	s := node.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
 	channelState := stlchannels.NewProgramState(nil)
@@ -147,7 +142,7 @@ func bindDefaultModules(
 	MustSucceed(stlerrors.NewHost(ctx, r, nil))
 	MustSucceed(stltime.NewHost(ctx, r, stringsState, discardReport)).SetNow(cycleNow)
 	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))
-	return s, stringsMod, stringsState, channelState
+	return stringsMod, stringsState, channelState
 }
 
 // bindMockChannelModule registers mock channel host functions under the
@@ -226,6 +221,37 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Function Execution", func() {
+		It("should take one unit of the loop budget on each call", func(
+			ctx SpecContext,
+		) {
+			output := MustSucceed(compile(ctx, `
+			func noop() {
+			}
+			`))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			budget, ok := mod.ExportedGlobal(wasm.LoopBudgetExport).(api.MutableGlobal)
+			Expect(ok).To(BeTrue())
+			noop := mod.ExportedFunction("noop")
+			budget.Set(2)
+			MustSucceed(noop.Call(ctx))
+			Expect(budget.Get()).To(Equal(uint64(1)))
+			Expect(
+				noop.Call(ctx),
+			).Error().
+				To(MatchError(ContainSubstring("unreachable")))
+		})
+
+		It("should compile a function that shares the loop budget's name", func(
+			ctx SpecContext,
+		) {
+			output := MustSucceed(compile(ctx, `
+			func loop_budget() {
+			}
+			`))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			MustSucceed(mod.ExportedFunction("loop_budget").Call(ctx))
+		})
+
 		It("should execute a function with conditional returns", func(ctx SpecContext) {
 			output := MustSucceed(compile(ctx, `
 			func dog() {b i64} i64 {
@@ -239,7 +265,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return b
 			}
-			`, nil))
+			`))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			dog := mod.ExportedFunction("dog")
 			Expect(dog).ToNot(BeNil())
@@ -261,7 +287,7 @@ var _ = Describe("Compiler", func() {
 			func add() {a i64, b i64} i64 {
 				return a + b
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			add := mod.ExportedFunction("add")
@@ -280,7 +306,7 @@ var _ = Describe("Compiler", func() {
 					return b
 				}
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			add := mod.ExportedFunction("add")
@@ -308,7 +334,7 @@ var _ = Describe("Compiler", func() {
 					}
 				}
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				nested := mod.ExportedFunction("nested")
@@ -348,7 +374,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return x
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				partial := mod.ExportedFunction("partial")
@@ -387,7 +413,7 @@ var _ = Describe("Compiler", func() {
 					return 0
 				}
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				deep := mod.ExportedFunction("deep")
@@ -430,7 +456,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return result + 1
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			mixed := mod.ExportedFunction("mixed")
@@ -464,7 +490,7 @@ var _ = Describe("Compiler", func() {
 			) {b i64} i64 {
 				return a + b
 			}
-			`, nil))
+			`))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				add := mod.ExportedFunction("add")
 				Expect(add).ToNot(BeNil())
@@ -976,7 +1002,7 @@ var _ = Describe("Compiler", func() {
 			func debug() {x i64, y i64} (out i64) {
 				out = x + y
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			debug := mod.ExportedFunction("debug")
@@ -1003,7 +1029,7 @@ var _ = Describe("Compiler", func() {
 					low = value
 				}
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			classifier := mod.ExportedFunction("classifier")
@@ -1049,7 +1075,7 @@ var _ = Describe("Compiler", func() {
 				}
 				sum = x + y
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			router := mod.ExportedFunction("router")
@@ -1096,7 +1122,7 @@ var _ = Describe("Compiler", func() {
 				asInt = i32(42)
 				original = value
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			converter := mod.ExportedFunction("converter")
@@ -1130,7 +1156,7 @@ var _ = Describe("Compiler", func() {
 				quotient = a / b
 				remainder = a % b
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			divMod := mod.ExportedFunction("divMod")
@@ -1187,7 +1213,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return total
 			}
-			`, nil))
+			`))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				sumRange := mod.ExportedFunction("sumRange")
 				Expect(sumRange).ToNot(BeNil())
@@ -1203,7 +1229,7 @@ var _ = Describe("Compiler", func() {
 			func addTwo() {x f32} f32 {
 				return x + 2
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			addTwo := mod.ExportedFunction("addTwo")
@@ -1220,7 +1246,7 @@ var _ = Describe("Compiler", func() {
 			func compare() {x i32} bool {
 				return x > 5.0
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			compare := mod.ExportedFunction("compare")
@@ -1242,7 +1268,7 @@ var _ = Describe("Compiler", func() {
 			func celsiusToFahrenheit() {celsius f32} f32 {
 				return celsius * 1.8 + 32
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				celsiusToFahrenheit := mod.ExportedFunction("celsiusToFahrenheit")
@@ -1269,7 +1295,7 @@ var _ = Describe("Compiler", func() {
 				offset f32 := 10
 				return base * multiplier + offset
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			calculate := mod.ExportedFunction("calculate")
@@ -1285,7 +1311,7 @@ var _ = Describe("Compiler", func() {
 			func increment() {x i64} i64 {
 				return x + 1
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			increment := mod.ExportedFunction("increment")
@@ -1304,7 +1330,7 @@ var _ = Describe("Compiler", func() {
 				result = a * 2 + b * 3.5 - 10
 				return result
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				calculate := mod.ExportedFunction("calculate")
@@ -1324,7 +1350,7 @@ var _ = Describe("Compiler", func() {
 			func getConstant() f32 {
 				return 3.14159
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			getConstant := mod.ExportedFunction("getConstant")
@@ -1345,7 +1371,7 @@ var _ = Describe("Compiler", func() {
 				result = result * 2
 				return result
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				process := mod.ExportedFunction("process")
@@ -1365,7 +1391,7 @@ var _ = Describe("Compiler", func() {
 				x := 42
 				return x
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				getAnswer := mod.ExportedFunction("getAnswer")
@@ -1384,7 +1410,7 @@ var _ = Describe("Compiler", func() {
 				x := 3.14
 				return x
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				getPi := mod.ExportedFunction("getPi")
@@ -1403,7 +1429,7 @@ var _ = Describe("Compiler", func() {
 			func isPositive() {x i64} bool {
 				return x > 0.0
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				isPositive := mod.ExportedFunction("isPositive")
@@ -1432,7 +1458,7 @@ var _ = Describe("Compiler", func() {
 				offset f32 := 10
 				return value * scale + offset
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				scaleAndOffset := mod.ExportedFunction("scaleAndOffset")
@@ -1458,7 +1484,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return b
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				calculate := mod.ExportedFunction("calculate")
@@ -1481,7 +1507,7 @@ var _ = Describe("Compiler", func() {
 			func test() {a i32} bool {
 				return a > -10
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
@@ -1511,7 +1537,7 @@ var _ = Describe("Compiler", func() {
 				}
 				return value   // F32 value
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				conditionalReturn := mod.ExportedFunction("conditionalReturn")
@@ -1536,7 +1562,7 @@ var _ = Describe("Compiler", func() {
 		output := MustSucceed(compile(ctx, fmt.Sprintf(`
 			func dog() {b i64} f64 {
 				return %s
-			}`, expr), nil))
+			}`, expr)))
 		mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 		dog := mod.ExportedFunction("dog")
 		Expect(dog).ToNot(BeNil())
@@ -2217,7 +2243,7 @@ var _ = Describe("Compiler", func() {
 		})
 
 		narrowResult := func(ctx SpecContext, body string, expected float64) {
-			source := fmt.Sprintf(`func test() i64 %s`, body)
+			source := "func test() i64 " + body
 			output := MustSucceed(compileWithHostImports(ctx, source, nil))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			test := mod.ExportedFunction("test")
@@ -3503,7 +3529,7 @@ var _ = Describe("Compiler", func() {
 				maxI32 = []byte{0x42, 0xff, 0xff, 0xff, 0xff, 0x07}
 				minI32 = []byte{0x42, 0x80, 0x80, 0x80, 0x80, 0x78}
 				get    = []byte{0x20, 0x00}
-				report = append([]byte{0x04, 0x40}, append(get, 0x10)...)
+				report = bytes.Join([][]byte{{0x04, 0x40}, get, {0x10}}, nil)
 				signed = bytes.Join([][]byte{
 					get, maxI32, {0x55}, get, minI32, {0x53}, {0x72}, report,
 				}, nil)
@@ -3551,7 +3577,7 @@ var _ = Describe("Compiler", func() {
 
 		DescribeTable("index that does not fit in an i32 traps",
 			func(ctx SpecContext, body, index string) {
-				source := fmt.Sprintf(`func test() f64 %s`, body)
+				source := "func test() f64 " + body
 				output := MustSucceed(compileWithHostImports(ctx, source, nil))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
@@ -3618,53 +3644,24 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Unit Literals", func() {
-		It("Should compile unit literal with scale conversion", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getMs() f64 {
-				return 300ms
-			}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getMs := mod.ExportedFunction("getMs")
-			Expect(getMs).ToNot(BeNil())
-
-			results := MustSucceed(getMs.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			result := math.Float64frombits(results[0])
-			Expect(
-				result,
-			).To(BeNumerically("~", 300000000.0, 1))
-			// 300ms = 300 million ns
-		})
-
-		It("Should compile kilometer literal", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getKm() f64 {
-				return 5km
-			}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getKm := mod.ExportedFunction("getKm")
-			results := MustSucceed(getKm.Call(ctx))
-			result := math.Float64frombits(results[0])
-			Expect(result).To(Equal(5000.0))
-		})
-
-		It("Should compile psi literal", func(ctx SpecContext) {
-			output := MustSucceed(compile(ctx, `
-			func getPsi() f64 {
-				return 100psi
-			}
-			`, nil))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			getPsi := mod.ExportedFunction("getPsi")
-			results := MustSucceed(getPsi.Call(ctx))
-			result := math.Float64frombits(results[0])
-			Expect(result).To(BeNumerically("~", 689476.0, 1.0))
-		})
+		DescribeTable(
+			"Should compile a unit literal as the number in the unit of its target",
+			func(ctx SpecContext, result, literal string, expected float64) {
+				output := MustSucceed(compile(ctx, `
+				func get() `+result+` {
+					return `+literal+`
+				}
+				`))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				results := MustSucceed(mod.ExportedFunction("get").Call(ctx))
+				Expect(results).To(HaveLen(1))
+				Expect(math.Float64frombits(results[0])).To(Equal(expected))
+			},
+			Entry("in the same unit", "f64 ms", "300ms", 300.0),
+			Entry("in a smaller unit", "f64 ns", "300ms", 300e6),
+			Entry("in a larger unit", "f64 km", "5000m", 5.0),
+			Entry("a pressure", "f64 psi", "100psi", 100.0),
+		)
 	})
 
 	Describe("String Operations", func() {
@@ -3672,7 +3669,7 @@ var _ = Describe("Compiler", func() {
 		var strState *stlstrings.ProgramState
 
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, strState, _ = bindDefaultModules(ctx, r)
+			strMod, strState, _ = bindDefaultModules(ctx, r)
 		})
 
 		It("Should return string handle from function", func(ctx SpecContext) {
@@ -3983,7 +3980,7 @@ var _ = Describe("Compiler", func() {
 					inferReturnType(expected),
 					body,
 				)
-				output := MustSucceed(compile(ctx, source, nil))
+				output := MustSucceed(compile(ctx, source))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
 				Expect(test).ToNot(BeNil())
@@ -4089,7 +4086,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return add(10, 32)
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4111,7 +4108,7 @@ var _ = Describe("Compiler", func() {
 			func main() f64 {
 				return multiply(3.5, 2.0)
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				main := mod.ExportedFunction("main")
@@ -4136,7 +4133,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return double(addOne(10))
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4159,7 +4156,7 @@ var _ = Describe("Compiler", func() {
 				b := square(4)
 				return a + b
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4186,7 +4183,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return getX() + getY() * 2
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				main := mod.ExportedFunction("main")
@@ -4211,7 +4208,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return factorial(5)
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4236,7 +4233,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return caller()
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4256,7 +4253,7 @@ var _ = Describe("Compiler", func() {
 			func main() f64 {
 				return processFloat(5)
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4279,7 +4276,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return add(add(1, 2), add(3, 4))
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				main := mod.ExportedFunction("main")
@@ -4301,7 +4298,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return getConstant()
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4321,7 +4318,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return sum4(1, 2, 3, 4)
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4350,7 +4347,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return abs(-42)
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				main := mod.ExportedFunction("main")
@@ -4373,7 +4370,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return add(5)
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				main := mod.ExportedFunction("main")
@@ -4396,7 +4393,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return add(5, 20)
 			}
-			`, nil))
+			`))
 
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				main := mod.ExportedFunction("main")
@@ -4420,7 +4417,7 @@ var _ = Describe("Compiler", func() {
 				z := sum(1, 2, 3)
 				return x + y + z
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4444,7 +4441,7 @@ var _ = Describe("Compiler", func() {
 			func main() f64 {
 				return scale(4.0)
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4465,7 +4462,7 @@ var _ = Describe("Compiler", func() {
 			func main() i32 {
 				return offset(10)
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4485,7 +4482,7 @@ var _ = Describe("Compiler", func() {
 			func main() i64 {
 				return defaults()
 			}
-			`, nil))
+			`))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			main := mod.ExportedFunction("main")
@@ -4501,7 +4498,7 @@ var _ = Describe("Compiler", func() {
 		var strMod *stlstrings.Host
 
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, _, _ = bindDefaultModules(ctx, r)
+			strMod, _, _ = bindDefaultModules(ctx, r)
 		})
 
 		It("Should compare strings with default", func(ctx SpecContext) {
@@ -4572,13 +4569,132 @@ var _ = Describe("Compiler", func() {
 		)
 	})
 
+	Describe("Unit Conversion Synthetic Functions", func() {
+		BeforeEach(func(ctx SpecContext) { bindDefaultModules(ctx, r) })
+
+		// analyzeScale returns a program in which a flow writes other to d and d to
+		// each of sinks, and the index of its unit conversion function.
+		analyzeScale := func(
+			ctx SpecContext,
+			declarations string,
+			sinks ...symbol.Symbol,
+		) (ir.IR, int) {
+			GinkgoHelper()
+			var writes strings.Builder
+			writes.WriteString("other -> d\n")
+			for _, sink := range sinks {
+				writes.WriteString("d -> " + sink.Name + "\n")
+			}
+			prog := MustSucceed(text.Parse(text.Text{Raw: "sequence main {\n" +
+				declarations + "\nstage s1 {\n" + writes.String() + "}\n}"}))
+			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, sinks...))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			for i, f := range inter.Functions {
+				if strings.HasPrefix(f.Key, compiler.ScaleSyntheticPrefix) {
+					return inter, i
+				}
+			}
+			Fail("expected a unit conversion function")
+			return inter, 0
+		}
+		// expectScaled compiles inter and expects its unit conversion function i to
+		// return expected for input.
+		expectScaled := func(
+			ctx SpecContext,
+			inter ir.IR,
+			i int,
+			input, expected any,
+		) {
+			GinkgoHelper()
+			output := MustSucceed(compiler.Compile(ctx, inter))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			fn := mod.ExportedFunction(inter.Functions[i].Key)
+			Expect(fn).ToNot(BeNil())
+			arg := uint64(0)
+			switch v := input.(type) {
+			case int64:
+				arg = uint64(v)
+			case float64:
+				arg = math.Float64bits(v)
+			}
+			results := MustSucceed(fn.Call(ctx, arg))
+			Expect(results).To(HaveLen(1))
+			assertResult(results[0], expected)
+		}
+
+		DescribeTable("Should convert its input to the unit of its output",
+			func(ctx SpecContext, declarations string, input, expected any) {
+				inter, i := analyzeScale(ctx, declarations)
+				expectScaled(ctx, inter, i, input, expected)
+			},
+			Entry("to a larger unit",
+				"d := 1min\nother := 120s", int64(120), int64(2)),
+			Entry("to a larger unit with a remainder",
+				"d := 1min\nother := 120s", int64(90), int64(1)),
+			Entry("to a smaller unit",
+				"d i64 ms := 1s\nother i64 min := 2min", int64(2), int64(120000)),
+			Entry("a float",
+				"d := 1.0bar\nother := 250.0kPa", float64(250), float64(2.5)),
+		)
+
+		DescribeTable("Should convert its input to the kind of its output",
+			func(
+				ctx SpecContext,
+				declarations string,
+				sink types.Type,
+				input, expected any,
+			) {
+				inter, i := analyzeScale(ctx, declarations, symbol.Symbol{
+					Name: "sink",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(sink),
+					ID:   100,
+				})
+				fn := inter.Functions[i]
+				Expect(fn.Inputs[0].Type.Unwrap().Kind).ToNot(Equal(sink.Kind))
+				Expect(fn.Outputs[0].Type.Kind).To(Equal(sink.Kind))
+				expectScaled(ctx, inter, i, input, expected)
+			},
+			Entry("a 64-bit float to a 32-bit float",
+				"d := 1.0bar\nother := 250.0kPa",
+				types.F32(), float64(250), float32(2.5)),
+			Entry("a 64-bit integer to a 32-bit integer",
+				"d := 1min\nother := 120s", types.I32(), int64(120), int32(2)),
+			Entry("a 64-bit integer to a 32-bit integer with a remainder",
+				"d := 1min\nother := 90s", types.I32(), int64(90), int32(1)),
+		)
+
+		It("Should reject a conversion with more than one input", func(
+			ctx SpecContext,
+		) {
+			inter, i := analyzeScale(ctx, "d := 1min\nother := 120s")
+			fn := &inter.Functions[i]
+			fn.Inputs = append(fn.Inputs, fn.Inputs[0])
+			Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+				ContainSubstring("takes one input and one output"),
+			))
+		})
+
+		It("Should reject a conversion between two dimensions", func(
+			ctx SpecContext,
+		) {
+			inter, i := analyzeScale(ctx, "d := 1min\nother := 120s")
+			inter.Functions[i].Outputs[0].Type.Unit = &types.Unit{
+				Dimensions: types.DimPressure, Scale: 1, Name: "Pa",
+			}
+			Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+				ContainSubstring("cannot convert i64 s to i64 Pa"),
+			))
+		})
+	})
+
 	Describe("Format String Synthetic Functions", func() {
 		var strMod *stlstrings.Host
 		var strState *stlstrings.ProgramState
 		var chanState *stlchannels.ProgramState
 
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, strState, chanState = bindDefaultModules(ctx, r)
+			strMod, strState, chanState = bindDefaultModules(ctx, r)
 		})
 
 		It("Should fail to compile a format function with no literal", func(
@@ -4830,7 +4946,7 @@ var _ = Describe("Compiler", func() {
 					inferReturnType(expected),
 					body,
 				)
-				output := MustSucceed(compile(ctx, source, nil))
+				output := MustSucceed(compile(ctx, source))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
 				Expect(test).ToNot(BeNil())
@@ -4958,7 +5074,7 @@ var _ = Describe("Compiler", func() {
 					inferReturnType(expected),
 					body,
 				)
-				output := MustSucceed(compile(ctx, source, nil))
+				output := MustSucceed(compile(ctx, source))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
 				Expect(test).ToNot(BeNil())
@@ -5072,7 +5188,7 @@ var _ = Describe("Compiler", func() {
 					inferReturnType(expected),
 					body,
 				)
-				output := MustSucceed(compile(ctx, source, nil))
+				output := MustSucceed(compile(ctx, source))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
 				Expect(test).ToNot(BeNil())
@@ -5132,7 +5248,7 @@ var _ = Describe("Compiler", func() {
 					inferReturnType(expected),
 					body,
 				)
-				output := MustSucceed(compile(ctx, source, nil))
+				output := MustSucceed(compile(ctx, source))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
 				Expect(test).ToNot(BeNil())
@@ -5224,7 +5340,7 @@ var _ = Describe("Compiler", func() {
 					inferReturnType(expected),
 					body,
 				)
-				output := MustSucceed(compile(ctx, source, nil))
+				output := MustSucceed(compile(ctx, source))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
 				Expect(test).ToNot(BeNil())
@@ -5280,7 +5396,7 @@ var _ = Describe("Compiler", func() {
 					inferReturnType(expected),
 					body,
 				)
-				output := MustSucceed(compile(ctx, source, nil))
+				output := MustSucceed(compile(ctx, source))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
 				Expect(test).ToNot(BeNil())
@@ -5341,7 +5457,7 @@ var _ = Describe("Compiler", func() {
 					inferReturnType(expected),
 					body,
 				)
-				output := MustSucceed(compile(ctx, source, nil))
+				output := MustSucceed(compile(ctx, source))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
 				Expect(test).ToNot(BeNil())
@@ -5398,7 +5514,7 @@ var _ = Describe("Compiler", func() {
 					inferReturnType(expected),
 					body,
 				)
-				output := MustSucceed(compile(ctx, source, nil))
+				output := MustSucceed(compile(ctx, source))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 				test := mod.ExportedFunction("test")
 				Expect(test).ToNot(BeNil())
@@ -5552,7 +5668,7 @@ var _ = Describe("Compiler", func() {
 		var strMod *stlstrings.Host
 		var strState *stlstrings.ProgramState
 		BeforeEach(func(ctx SpecContext) {
-			_, strMod, strState, _ = bindDefaultModules(ctx, r)
+			strMod, strState, _ = bindDefaultModules(ctx, r)
 		})
 		strOf := func(results []uint64) string {
 			GinkgoHelper()
@@ -5685,7 +5801,7 @@ var _ = Describe("Compiler", func() {
 		It("Should execute time.now() via qualified name", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			import time
-			func compute() i64 {
+			func compute() i64 ns {
 				return time.now()
 			}
 			`, nil))
@@ -5760,7 +5876,7 @@ var _ = Describe("Compiler", func() {
 		// Prefer time.now(). See "Should execute time.now() via qualified name" above.
 		It("Should execute bare now() (deprecated)", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
-			func compute() i64 {
+			func compute() i64 ns {
 				return now()
 			}
 			`, nil))

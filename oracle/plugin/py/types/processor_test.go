@@ -25,22 +25,29 @@ var _ = Describe("FieldProcessor", func() {
 	BeforeEach(func() { loader = NewMockFileLoader() })
 
 	processorFor := func(
-		ctx SpecContext,
 		source string,
 	) (*types.FieldProcessor, resolution.Type) {
 		GinkgoHelper()
-		req := MustGenerateRequest(ctx, source, "test", loader)
-		fp := types.NewFieldProcessor("test", "client/py/synnax/test", req.Resolutions)
-		return fp, req.Resolutions.MustGet("test.Item")
+		req := MustGenerateRequest(source, "test", loader)
+		item := req.Resolutions.MustGet("test.Item")
+		fp := types.NewFieldProcessor(
+			"test",
+			item.FilePath,
+			"client/py/synnax/test",
+			req.Resolutions,
+		)
+		return fp, item
 	}
 
 	field := func(item resolution.Type, name string) resolution.Field {
 		GinkgoHelper()
-		return MustBeOk(item.Form.(resolution.StructForm).Field(name))
+		form, ok := item.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		return MustBeOk(form.Field(name))
 	}
 
-	It("Should declare a field with its type and default", func(ctx SpecContext) {
-		fp, item := processorFor(ctx, `
+	It("Should declare a field with its type and default", func() {
+		fp, item := processorFor(`
 			@py output "client/py/synnax/test"
 
 			Item struct {
@@ -54,10 +61,8 @@ var _ = Describe("FieldProcessor", func() {
 		Expect(fd.Doc).To(Equal("is the path."))
 	})
 
-	It("Should import a type of the namespace from the types module", func(
-		ctx SpecContext,
-	) {
-		fp, item := processorFor(ctx, `
+	It("Should import a type of the namespace from the types module", func() {
+		fp, item := processorFor(`
 			@py output "client/py/synnax/test"
 
 			Tile struct {
@@ -74,9 +79,7 @@ var _ = Describe("FieldProcessor", func() {
 		)
 	})
 
-	It("Should alias a module import that a reserved name shadows", func(
-		ctx SpecContext,
-	) {
+	It("Should alias a module import that a reserved name shadows", func() {
 		loader.Add("schemas/color", `
 			@py output "x/py/x/color"
 
@@ -84,7 +87,7 @@ var _ = Describe("FieldProcessor", func() {
 				hex string
 			}
 		`)
-		fp, item := processorFor(ctx, `
+		fp, item := processorFor(`
 			import "schemas/color"
 
 			@py output "client/py/synnax/test"
@@ -98,9 +101,7 @@ var _ = Describe("FieldProcessor", func() {
 		Expect(fp.Imports()).To(ContainSubstring("from x import color as color_"))
 	})
 
-	It("Should alias a module import that a reserved field shadows", func(
-		ctx SpecContext,
-	) {
+	It("Should alias a module import that a reserved field shadows", func() {
 		loader.Add("schemas/color", `
 			@py output "x/py/x/color"
 
@@ -108,7 +109,7 @@ var _ = Describe("FieldProcessor", func() {
 				hex string
 			}
 		`)
-		fp, item := processorFor(ctx, `
+		fp, item := processorFor(`
 			import "schemas/color"
 
 			@py output "client/py/synnax/test"
@@ -121,10 +122,8 @@ var _ = Describe("FieldProcessor", func() {
 		Expect(fp.ProcessField(field(item, "color")).PyType).To(Equal("color_.Color"))
 	})
 
-	It("Should import the typing and pydantic names it is given", func(
-		ctx SpecContext,
-	) {
-		fp, _ := processorFor(ctx, `
+	It("Should import the typing and pydantic names it is given", func() {
+		fp, _ := processorFor(`
 			@py output "client/py/synnax/test"
 
 			Item struct {
@@ -139,10 +138,8 @@ var _ = Describe("FieldProcessor", func() {
 		))
 	})
 
-	It("Should fail on a namespace type whose name the module binds", func(
-		ctx SpecContext,
-	) {
-		fp, item := processorFor(ctx, `
+	It("Should fail on a namespace type whose name the module binds", func() {
+		fp, item := processorFor(`
 			@py output "client/py/synnax/test"
 
 			Tile struct {
@@ -161,10 +158,8 @@ var _ = Describe("FieldProcessor", func() {
 		))
 	})
 
-	It("Should fail on a hand-written type with no include module", func(
-		ctx SpecContext,
-	) {
-		fp, item := processorFor(ctx, `
+	It("Should fail on a hand-written type with no include module", func() {
+		fp, item := processorFor(`
 			@py output "client/py/synnax/test"
 
 			Tile struct {

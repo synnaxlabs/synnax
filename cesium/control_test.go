@@ -39,7 +39,7 @@ func observeControl(
 ) (<-chan cesium.ControlUpdate, observe.Disconnect) {
 	updates := make(chan cesium.ControlUpdate, 100)
 	return updates, db.OnControlUpdate(
-		func(_ context.Context, u cesium.ControlUpdate) {
+		func(u cesium.ControlUpdate) {
 			select {
 			case updates <- u:
 			default:
@@ -66,7 +66,7 @@ var _ = Describe("Control", func() {
 				)
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = DeferClose(mustOpenDBOnFS(ctx, fs))
+					db = mustOpenDBOnFS(ctx, fs)
 				})
 				BeforeEach(func(ctx SpecContext) {
 					idxCh, dataCh = GenerateChannelKey(), GenerateChannelKey()
@@ -338,7 +338,7 @@ var _ = Describe("Control", func() {
 				}
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = DeferClose(mustOpenDBOnFS(ctx, fs))
+					db = mustOpenDBOnFS(ctx, fs)
 				})
 				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
 
@@ -1213,7 +1213,7 @@ var _ = Describe("Control", func() {
 							Sync:              new(true),
 						}))
 						dataStreamer := MustSucceed(
-							db.NewStreamer(ctx, cesium.StreamerConfig{
+							db.NewStreamer(cesium.StreamerConfig{
 								Channels: []cesium.ChannelKey{
 									virtualChKey,
 									indexChKey,

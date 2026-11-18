@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/flow"
@@ -337,9 +338,9 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			ctx := context.NewRoot(bCtx, expr, root)
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(
-				(*ctx.Diagnostics)[0].Message,
-			).To(ContainSubstring("must contain an expression"))
+			d := (*ctx.Diagnostics)[0]
+			Expect(d.Code).To(Equal(codes.InvalidStringLiteral.Code))
+			Expect(d.Message).To(ContainSubstring("must contain an expression"))
 		})
 
 		It("should report undefined identifier in placeholder", func(bCtx SpecContext) {
@@ -791,11 +792,10 @@ var _ = Describe("AnalyzeComputedArgs", func() {
 	It("Should register no synth for a float constant", func(bCtx SpecContext) {
 		root := symbol.NewRoot(nil, stl.NewSymbols())
 		symbol.AutoImportModules(root)
-		var args []symbol.Argument
-		for _, src := range []string{"math.inf", "f32(-math.inf)", "-math.nan"} {
-			args = append(args, symbol.Argument{
-				Expr: MustSucceed(parser.ParseExpression(src)),
-			})
+		args := []symbol.Argument{
+			{Expr: MustSucceed(parser.ParseExpression("math.inf"))},
+			{Expr: MustSucceed(parser.ParseExpression("f32(-math.inf)"))},
+			{Expr: MustSucceed(parser.ParseExpression("-math.nan"))},
 		}
 		ctx := context.NewRoot(bCtx, args[0].Expr, root)
 		flow.AnalyzeComputedArgs(ctx, args)

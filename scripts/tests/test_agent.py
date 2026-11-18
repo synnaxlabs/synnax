@@ -20,6 +20,7 @@ import pytest
 
 from agent.agent import (
     LIMITED,
+    REJECTED,
     Options,
     agent_command,
     branch_name,
@@ -28,6 +29,7 @@ from agent.agent import (
     instructions,
     main,
     parse,
+    private_env,
     render_body,
     run_agent,
     skill_prompt,
@@ -250,6 +252,29 @@ def limited_agent(tmp_path: Path, *, status: str, failed: bool, code: int) -> li
     return ["--prompt", "Fix it", "--agent", "claude", "--bin", str(fake)]
 
 
+def erring_agent(tmp_path: Path, *, error: str) -> list[str]:
+    """A fake Claude Code that fails with an API error, as it does when Claude
+    rejects its OAuth token."""
+    text = "OAuth token revoked \u00b7 Please run /login"
+    content = [{"type": "text", "text": text}]
+    events = [
+        {
+            "type": "assistant",
+            "message": {"role": "assistant", "content": content},
+            "parent_tool_use_id": None,
+            "error": error,
+            "session_id": "s",
+            "uuid": "u",
+        },
+        {"type": "result", "subtype": "success", "is_error": True, "result": text},
+    ]
+    fake = tmp_path / "erring-agent"
+    lines = "\n".join(json.dumps(e) for e in events)
+    fake.write_text(f"#!/bin/sh\ncat << 'EOF'\n{lines}\nEOF\nexit 1\n")
+    fake.chmod(0o755)
+    return ["--prompt", "Fix it", "--agent", "claude", "--bin", str(fake)]
+
+
 class TestMain:
     """Tests for whole runs against a fake agent."""
 
@@ -344,6 +369,28 @@ class TestMain:
             main(argv)
 
     @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_exit_rejected_with_the_time_when_claude_rejects_the_token(
+        self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        before = int(time.time())
+        assert main(erring_agent(tmp_path, error="authentication_failed")) == REJECTED
+        lines = output.read_text().splitlines()
+        assert lines[0].startswith("login-broken<<EOF_")
+        assert before <= int(lines[1]) <= int(time.time())
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+    def test_should_fail_on_an_api_error_that_is_not_a_rejected_token(
+        self, repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        with pytest.raises(subprocess.CalledProcessError):
+            main(erring_agent(tmp_path, error="server_error"))
+        assert not output.exists()
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
     def test_should_deliver_a_run_that_a_limit_did_not_stop(
         self, repo: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -367,9 +414,13 @@ class TestMain:
 
 PRIVATE_AGENT = """#!/bin/sh
 echo "secret on stderr" >&2
-printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \\
-    "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY"
+printf '{"type": "result", "is_error": false, "result": "%s"}\\n' \
+    "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY \
+login=$(cat "$CLAUDE_SECURESTORAGE_CONFIG_DIR/.credentials.json")"
 echo "$CLAUDE_CONFIG_DIR" > "$STATE_FILE"
+echo refreshed > "$CLAUDE_SECURESTORAGE_CONFIG_DIR/new"
+mv "$CLAUDE_SECURESTORAGE_CONFIG_DIR/new" \
+    "$CLAUDE_SECURESTORAGE_CONFIG_DIR/.credentials.json"
 """
 
 
@@ -410,6 +461,10 @@ class TestPrivateReport:
         runner_temp = tmp_path / "runner"
         runner_temp.mkdir()
         monkeypatch.setenv("RUNNER_TEMP", str(runner_temp))
+        login = tmp_path / "claude"
+        login.mkdir()
+        (login / ".credentials.json").write_text("seat")
+        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(login))
         capfd.readouterr()
         argv = ["--prompt", "Audit", "--agent", "claude", "--bin", str(agent)]
         assert main([*argv, "--output", "report", "--recipient", str(key)]) == 0
@@ -420,11 +475,34 @@ class TestPrivateReport:
         plain = subprocess.run(
             [*gpg, "--decrypt"], input=armor, capture_output=True, text=True
         ).stdout
-        assert plain == "secret report token= summary="
+        assert plain == "secret report token= summary= login=seat"
         state = Path((tmp_path / "state").read_text().strip())
         assert state.is_relative_to(runner_temp)
         assert not state.exists()
         assert not (tmp_path / "summary").exists()
+        assert (login / ".credentials.json").read_text() == "refreshed\n"
+
+    def test_should_link_the_codex_login_to_the_seat(self, tmp_path: Path) -> None:
+        seat = tmp_path / "seat"
+        seat.mkdir()
+        (seat / "auth.json").write_text("seat")
+        out = tmp_path / "out"
+        out.mkdir()
+        private = private_env({"CODEX_HOME": str(seat)}, out=out)
+        login = Path(private["CODEX_HOME"]) / "auth.json"
+        assert login.resolve() == (seat / "auth.json").resolve()
+
+    def test_should_keep_a_claude_login_store_that_the_seat_names(
+        self, tmp_path: Path
+    ) -> None:
+        env = {
+            "CLAUDE_CONFIG_DIR": str(tmp_path / "config"),
+            "CLAUDE_SECURESTORAGE_CONFIG_DIR": str(tmp_path / "store"),
+        }
+        out = tmp_path / "out"
+        out.mkdir()
+        private = private_env(env, out=out)
+        assert private["CLAUDE_SECURESTORAGE_CONFIG_DIR"] == str(tmp_path / "store")
 
 
 class TestDelivery:

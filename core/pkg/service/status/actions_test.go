@@ -33,6 +33,7 @@ var _ = Describe("Actions", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		labels = MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		rec = &Recorder[status.Key, status.Action]{}

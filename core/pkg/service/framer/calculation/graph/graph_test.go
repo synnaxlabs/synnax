@@ -155,7 +155,7 @@ var _ = Describe("Graph", func() {
 			setExpression(ctx, &calc1, "return circ2")
 			Expect(
 				g.Add(ctx, calc1),
-			).To(MatchError(ContainSubstring("circular dependency")))
+			).To(MatchError(graph.ErrCycle))
 		})
 
 		It("Should not re-add existing channel", func(ctx SpecContext) {
@@ -221,6 +221,54 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calcs[2])).To(Succeed())
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(2))
+		})
+
+		It("Should group a channel with the calculated channels it reads", func(
+			ctx SpecContext,
+		) {
+			bases := []channel.Channel{
+				{Name: "splita1", DataType: telem.Int64T, Virtual: true},
+				{Name: "splita2", DataType: telem.Int64T, Virtual: true},
+				{Name: "splitb1", DataType: telem.Int64T, Virtual: true},
+				{Name: "splitb2", DataType: telem.Int64T, Virtual: true},
+				{Name: "splitb3", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
+			calcs := []channel.Channel{
+				{
+					Name:       "splitsuma",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return splita1 + splita2",
+				},
+				{
+					Name:       "splitsumb",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return splitb1 + splitb2 + splitb3",
+				},
+				{
+					Name:       "splitest",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return splitsuma + splitsumb",
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
+			Expect(g.Add(ctx, calcs[0])).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(g.CalculateGrouped()).To(HaveLen(2))
+			Expect(g.Add(ctx, calcs[2])).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			for _, mods := range grouped {
+				Expect(mods).To(HaveLen(3))
+				Expect(mods[2].Channel.Key()).To(Equal(calcs[2].Key()))
+			}
 		})
 
 		It("Should reuse groups with superset dependencies", func(ctx SpecContext) {
@@ -399,7 +447,7 @@ var _ = Describe("Graph", func() {
 			Expect(flat[2].Channel.Name).To(Equal("flat3"))
 		})
 
-		It("Should return empty list when no channels", func(ctx SpecContext) {
+		It("Should return empty list when no channels", func() {
 			flat := g.CalculateFlat()
 			Expect(flat).To(BeEmpty())
 		})
@@ -462,7 +510,7 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(BeEmpty())
 		})
 
-		It("Should return false for non-existent channel", func(ctx SpecContext) {
+		It("Should return false for non-existent channel", func() {
 			Expect(MustSucceed(g.Remove(channel.Key(99999)))).To(BeFalse())
 		})
 	})
@@ -640,7 +688,7 @@ var _ = Describe("Graph", func() {
 			Expect(keys.Contains(bases[0].Key())).To(BeFalse())
 		})
 
-		It("Should return empty set when no channels", func(ctx SpecContext) {
+		It("Should return empty set when no channels", func() {
 			keys := g.CalculatedKeys()
 			Expect(keys).To(BeEmpty())
 		})
@@ -899,7 +947,7 @@ var _ = Describe("Graph", func() {
 			Expect(baseKeys.Contains(calcs[1].Key())).To(BeFalse())
 		})
 
-		It("Should return empty set when no channels", func(ctx SpecContext) {
+		It("Should return empty set when no channels", func() {
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(BeEmpty())
 		})
@@ -1063,6 +1111,51 @@ var _ = Describe("Graph", func() {
 			Expect(g.Update(ctx, calcs[0])).To(Succeed())
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
+		})
+
+		It("Should move the dependents of a channel that changes group", func(
+			ctx SpecContext,
+		) {
+			bases := []channel.Channel{
+				{Name: "dragbase1", DataType: telem.Int64T, Virtual: true},
+				{Name: "dragbase2", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
+			calcs := []channel.Channel{
+				{
+					Name:       "dragsource",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return dragbase1",
+				},
+				{
+					Name:       "dragdependent",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return dragsource * 2",
+				},
+				{
+					Name:       "dragother",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return dragbase2",
+				},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &calcs)
+			})).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(g.Add(ctx, calcs[2])).To(Succeed())
+			Expect(g.CalculateGrouped()).To(HaveLen(2))
+			setExpression(ctx, &calcs[0], "return dragbase2")
+			Expect(g.Update(ctx, calcs[0])).To(Succeed())
+			grouped := g.CalculateGrouped()
+			Expect(grouped).To(HaveLen(1))
+			for _, mods := range grouped {
+				Expect(mods).To(HaveLen(3))
+			}
 		})
 
 		It("Should preserve reference counts after update", func(ctx SpecContext) {

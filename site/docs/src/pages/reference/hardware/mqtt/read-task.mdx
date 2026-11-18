@@ -157,9 +157,10 @@ task.start()
 The options of a field read values that its type alone cannot:
 
 - **Default** -> the task writes the default when the payload has no value for the
-  field. No value means that the pointer finds nothing or `null`, or finds `""` for a
-  channel that is not a string or bytes channel. With no default, the task skips the
-  payload.
+  field. Scale and offset apply to the default as they do to a payload value. No value
+  means that the pointer finds nothing. Except on a JSON channel, `null` is also no
+  value, and so is `""` on a channel that is not a string or bytes channel. With no
+  default, the task skips the payload.
 - **Enum mapping** -> maps a text label in the payload, such as `ON`, to a value of the
   field's type, such as `1`.
 
@@ -208,8 +209,8 @@ Each message takes the timestamps of its samples from one of two sources:
 
 To read the time from the payload in the Console, set the **Type** of the field to a
 timestamp type, such as **Timestamp (ms)**. Then, under **Timestamp**, set **Source** to
-**Payload value** and select the **Field**. The field cannot have a default. The list
-does not show the field, and **Channel** under **Timestamp** names its index channel.
+**Payload value** and select the **Field**. The list does not show the field, and
+**Channel** under **Timestamp** names its index channel.
 
 Timestamps in an index channel must increase. The task skips a payload whose timestamp
 is not after the last one it wrote. A broker can send such a payload when it delivers a
@@ -421,16 +422,16 @@ In code, a topic is `PlainReadEntry`, of type `"plain"`. The `qos` values are
 
 A field of a message has these settings:
 
-| Setting                                   | Default | Notes                                                       |
-| ----------------------------------------- | ------- | ----------------------------------------------------------- |
-| Name <small>`name`</small>                |         | Unique in its message. The Console names channels after it. |
-| Pointer <small>`pointer`</small>          | Empty   | Such as `/motor/speed`. Empty reads the whole payload.      |
-| Type <small>`type`</small>                | Float   | See [field types](#field-types).                            |
-| Scale <small>`scale`</small>              | 1       | Multiplies the value. Needs a float channel.                |
-| Offset <small>`offset`</small>            | 0       | Added after the scale. Needs a float channel.               |
-| Units <small>`units`</small>              | Empty   | The engineering unit of the value.                          |
-| Default <small>`default`</small>          | None    | Written when the payload has no value. Set in **Optional**. |
-| Enum mapping <small>`enum_values`</small> | None    | Maps text labels to values of the type.                     |
+| Setting                                   | Default | Notes                                                                  |
+| ----------------------------------------- | ------- | ---------------------------------------------------------------------- |
+| Name <small>`name`</small>                |         | Unique in its message. The Console names channels after it.            |
+| Pointer <small>`pointer`</small>          | Empty   | Such as `/motor/speed`. Empty reads the whole payload.                 |
+| Type <small>`type`</small>                | Float   | See [field types](#field-types).                                       |
+| Scale <small>`scale`</small>              | 1       | Multiplies the value. Needs a float channel.                           |
+| Offset <small>`offset`</small>            | 0       | Added after the scale. Needs a float channel.                          |
+| Units <small>`units`</small>              | Empty   | The engineering unit of the value.                                     |
+| Default <small>`default`</small>          | None    | Scaled and written when the payload has no value. Set in **Optional**. |
+| Enum mapping <small>`enum_values`</small> | None    | Maps text labels to values of the type.                                |
 
 ### Field types
 
@@ -524,8 +525,8 @@ hold. The status is **Failed to configure task**, and its description gives the 
 </Problem.Cause>
 <Problem.Fix>
 
-Undo the edit. Or start the task again in the Console, which gives a field a new channel
-when its type no longer fits the old one.
+Undo the edit, then start the task again. Or, without the undo, start the task again in
+the Console, which gives a field a new channel when its type no longer fits the old one.
 
 </Problem.Fix>
 </Problem.Item>
@@ -545,7 +546,7 @@ See [field types](#field-types).
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={["the index field ... must be a timestamp field", "the index field ... cannot take a default", "the index field ... must write to an index channel", "only the index field can write to index channel ..."]}>
+<Problem.Item message={["the index field ... must be a timestamp field", "the index field ... must write to an index channel", "only the index field can write to index channel ..."]}>
 <Problem.Cause>
 
 The `index` of a message names a field that cannot give timestamps, or a field other
@@ -554,8 +555,8 @@ than the index writes to an index channel.
 </Problem.Cause>
 <Problem.Fix>
 
-Set `index` to a timestamp field with no default, and bind it to the index channel. Bind
-each other field to a data channel.
+Set `index` to a timestamp field, and bind it to the index channel. Bind each other
+field to a data channel.
 
 </Problem.Fix>
 </Problem.Item>

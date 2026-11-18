@@ -22,6 +22,7 @@ import (
 // benchmarkHost binds the channel host functions to s and returns a runtime that
 // calls them, closing it when the benchmark ends.
 func benchmarkHost(b *testing.B, s *channels.ProgramState) *stltest.Runtime {
+	b.Helper()
 	ctx := context.Background()
 	rt := stltest.NewRuntime(ctx)
 	b.Cleanup(func() {
@@ -44,6 +45,7 @@ func benchmarkHost(b *testing.B, s *channels.ProgramState) *stltest.Runtime {
 const writesPerCycle = 8
 
 func benchmarkFlush(b *testing.B, bodyWrites bool, stamp func(cycle, j int) int64) {
+	b.Helper()
 	ctx := context.Background()
 	s := channels.NewProgramState([]channels.Digest{{Key: 1, Index: 2}})
 	rt := benchmarkHost(b, s)
@@ -86,6 +88,7 @@ func BenchmarkFlushUnorderedFlowWrites(b *testing.B) {
 }
 
 func benchmarkWriteU8(b *testing.B, digest channels.Digest) {
+	b.Helper()
 	ctx := context.Background()
 	s := channels.NewProgramState([]channels.Digest{digest})
 	rt := benchmarkHost(b, s)

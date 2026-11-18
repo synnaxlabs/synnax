@@ -11,6 +11,7 @@ package testutil
 
 import (
 	"context"
+	"io"
 	"sync"
 	"sync/atomic"
 
@@ -49,8 +50,10 @@ func NewStreams[RQ, RS freighter.Payload](
 	inB, outB := parseBuffers(buffers)
 	req, res := make(chan message[RQ], inB), make(chan message[RS], outB)
 	serverClosed, clientClosed := make(chan struct{}), make(chan struct{})
+	errs := errors.NewCodec(freighter.ErrorProvider(), ErrorProvider())
 	return &ClientStream[RQ, RS]{
 			ctx:          ctx,
+			errs:         errs,
 			requests:     req,
 			responses:    res,
 			serverClosed: serverClosed,
@@ -58,6 +61,7 @@ func NewStreams[RQ, RS freighter.Payload](
 		},
 		&ServerStream[RQ, RS]{
 			ctx:          ctx,
+			errs:         errs,
 			requests:     req,
 			responses:    res,
 			serverClosed: serverClosed,
@@ -197,6 +201,7 @@ type ServerStream[RQ, RS freighter.Payload] struct {
 	// bad practice, but in this case we're essentially using it as a data container,
 	// and we have a very good grasp on how it's used.
 	ctx          context.Context
+	errs         *errors.Codec
 	requests     <-chan message[RQ]
 	responses    chan<- message[RS]
 	serverClosed chan struct{}
@@ -240,7 +245,7 @@ func (ss *ServerStream[RQ, RS]) Receive() (RQ, error) {
 	case msg := <-ss.requests:
 		// Any error message means the Stream should die.
 		if msg.err.Type != errors.TypeEmpty {
-			ss.receiveErr = errors.Decode(ss.ctx, msg.err)
+			ss.receiveErr = ss.errs.Decode(msg.err)
 			return types.Zero[RQ](), ss.receiveErr
 		}
 		return msg.payload, nil
@@ -252,9 +257,9 @@ func (ss *ServerStream[RQ, RS]) exec(
 	handler func(context.Context, freighter.ServerStream[RQ, RS]) error,
 ) {
 	err := handler(ctx, ss)
-	errPayload := errors.Encode(ctx, err, true)
+	errPayload := ss.errs.Encode(err, true)
 	if errPayload.Type == errors.TypeNil {
-		errPayload = errors.Encode(ctx, freighter.EOF, true)
+		errPayload = ss.errs.Encode(io.EOF, true)
 	}
 	close(ss.serverClosed)
 	// A client that abandons the stream stops receiving, so the final error can have
@@ -272,6 +277,7 @@ type ClientStream[RQ, RS freighter.Payload] struct {
 	// bad practice, but in this case we're essentially using it as a data container,
 	// and we have a very good grasp on how it's used.
 	ctx          context.Context
+	errs         *errors.Codec
 	requests     chan<- message[RQ]
 	responses    <-chan message[RS]
 	serverClosed chan struct{}
@@ -288,7 +294,7 @@ func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
 		return cs.sendErr
 	}
 	if cs.receiveFailed.Load() {
-		return freighter.EOF
+		return io.EOF
 	}
 	// A free buffer slot would otherwise win the race against an earlier cancel.
 	if cs.ctx.Err() != nil {
@@ -302,7 +308,7 @@ func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
 	case <-cs.serverClosed:
 		// If the server was serverClosed, we set the sendErr to EOF and let
 		// the client discover the server error by calling Receive.
-		cs.sendErr = freighter.EOF
+		cs.sendErr = io.EOF
 		return cs.sendErr
 	case cs.requests <- message[RQ]{payload: req}:
 		return nil
@@ -326,7 +332,7 @@ func (cs *ClientStream[RQ, RS]) Receive() (RS, error) {
 		// stream (i.e. serverClosed chan is serverClosed), so we don't need explicitly
 		// listen for its closure.
 		if msg.err.Type != errors.TypeEmpty {
-			cs.receiveErr = errors.Decode(cs.ctx, msg.err)
+			cs.receiveErr = cs.errs.Decode(msg.err)
 			cs.receiveFailed.Store(true)
 			return types.Zero[RS](), cs.receiveErr
 		}
@@ -344,7 +350,7 @@ func (cs *ClientStream[RQ, RS]) CloseSend() error {
 	// A returned server or a cancelled context leaves the EOF nowhere to go. Drop it
 	// rather than parking the caller for good on a full request buffer.
 	select {
-	case cs.requests <- message[RQ]{err: errors.Encode(cs.ctx, freighter.EOF, true)}:
+	case cs.requests <- message[RQ]{err: cs.errs.Encode(io.EOF, true)}:
 	case <-cs.serverClosed:
 	case <-cs.ctx.Done():
 	}

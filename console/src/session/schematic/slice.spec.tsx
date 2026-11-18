@@ -465,6 +465,43 @@ describe("sliceStateZ", () => {
     });
   });
 
+  // A v0.61 Console stored a window partition as its windows entry alone, with no
+  // version key.
+  it("should lift the legend colors of a slice stored with no version", () => {
+    const stored = {
+      control: { authority: 1, status: "released" },
+      selected: [],
+      legend: {
+        visible: false,
+        position: {
+          x: 24,
+          y: 24,
+          root: { x: "left", y: "top" },
+          units: { x: "px", y: "px" },
+        },
+        colors: { a: [255, 0, 0, 1], b: [0, 255, 0, 0.5], c: [1, 2, 3, 0] },
+      },
+      toolbar: {
+        selectedTab: "symbols",
+        selectedSymbolGroup: "general",
+        changing: false,
+      },
+      editable: false,
+      fitViewOnResize: true,
+      tooltipsDisabled: true,
+      viewport: { position: { x: 5, y: 10 }, zoom: 2, mode: "select" },
+    };
+    const parsed = Schematic.sliceStateZ.parse({ windows: { main: { s1: stored } } });
+    expect(parsed.version).toBe(1);
+    expect(parsed.windows.main.s1).toEqual({
+      ...stored,
+      legend: {
+        ...stored.legend,
+        colors: { a: [255, 0, 0, 255], b: [0, 255, 0, 128], c: [1, 2, 3, 0] },
+      },
+    });
+  });
+
   it("should keep version 1 legend colors as they are", () => {
     const parsed = Schematic.sliceStateZ.parse({
       version: 1,

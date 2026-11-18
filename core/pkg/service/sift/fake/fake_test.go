@@ -519,6 +519,20 @@ var _ = Describe("Server", func() {
 			MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
 		})
 
+		It("Should return the RejectRuns error after queued errors, until cleared",
+			func(ctx SpecContext) {
+				server.RejectRuns(status.Error(codes.InvalidArgument, "bad name"))
+				server.FailRuns(status.Error(codes.Unavailable, "down"))
+				Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{})).Error().
+					To(WithTransform(status.Code, Equal(codes.Unavailable)))
+				for range 2 {
+					Expect(createRun(ctx, &runsv2.CreateAdhocRunRequest{})).Error().
+						To(WithTransform(status.Code, Equal(codes.InvalidArgument)))
+				}
+				server.RejectRuns(nil)
+				MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
+			})
+
 		It("Should hold CreateAdhocRun from PauseRuns until ResumeRuns",
 			func(ctx SpecContext) {
 				server.PauseRuns()
@@ -550,6 +564,34 @@ var _ = Describe("Server", func() {
 					HaveField("Name", "renamed"),
 				))
 			})
+
+		It(
+			"Should return the RejectRunUpdates error after queued errors, until cleared",
+			func(ctx SpecContext) {
+				created := MustSucceed(createRun(ctx, &runsv2.CreateAdhocRunRequest{}))
+				update := func() (*runsv2.UpdateRunResponse, error) {
+					return runs.UpdateRun(ctx, &runsv2.UpdateRunRequest{
+						Run: &runsv2.Run{RunId: created.Run.RunId, Name: "renamed"},
+						UpdateMask: &fieldmaskpb.FieldMask{
+							Paths: []string{"name"},
+						},
+					})
+				}
+				server.RejectRunUpdates(status.Error(codes.InvalidArgument, "bad name"))
+				server.FailRunUpdates(status.Error(codes.Unavailable, "down"))
+				Expect(update()).Error().
+					To(WithTransform(status.Code, Equal(codes.Unavailable)))
+				for range 2 {
+					Expect(update()).Error().
+						To(WithTransform(status.Code, Equal(codes.InvalidArgument)))
+				}
+				server.RejectRunUpdates(nil)
+				MustSucceed(update())
+				Expect(server.Runs()).To(HaveExactElements(
+					HaveField("Name", "renamed"),
+				))
+			},
+		)
 	})
 
 	Describe("APIKey", func() {

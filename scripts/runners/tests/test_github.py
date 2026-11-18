@@ -12,77 +12,16 @@ import threading
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
-from datetime import UTC, datetime
-from email.message import Message
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import jwt
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 
+from conftest import APP_ID, HOUR, NOW, Clock, Server, github as connect, key
 from github import API, REPO, GitHub, send
 
-APP_ID = "5687191"
 RUNNERS = f"{API}/repos/{REPO}/actions/runners"
-INSTALLATION = 180309468
-NOW = datetime(2026, 11, 10, 12, tzinfo=UTC).timestamp()
-HOUR = 60 * 60
-
-
-@pytest.fixture(scope="module")
-def key() -> rsa.RSAPrivateKey:
-    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
-
-
-@pytest.fixture(scope="module")
-def pem(key: rsa.RSAPrivateKey) -> str:
-    return key.private_bytes(
-        serialization.Encoding.PEM,
-        serialization.PrivateFormat.PKCS8,
-        serialization.NoEncryption(),
-    ).decode()
-
-
-class Clock:
-    def __init__(self) -> None:
-        self.now = NOW
-
-    def __call__(self) -> float:
-        return self.now
-
-
-class Server:
-    """Answers GitHub requests from memory, minting token-1, token-2, and so on, each
-    valid for an hour from the clock. Fails the next request to a URL in failures with
-    its status code."""
-
-    def __init__(self, clock: Clock) -> None:
-        self.clock = clock
-        self.requests: list[urllib.request.Request] = []
-        self.minted = 0
-        self.installation = INSTALLATION
-        self.failures: dict[str, int] = {}
-
-    def __call__(self, req: urllib.request.Request) -> dict:
-        self.requests.append(req)
-        url = req.full_url
-        if code := self.failures.pop(url, None):
-            raise urllib.error.HTTPError(url, code, "failed", Message(), None)
-        if url == f"{API}/repos/{REPO}/installation":
-            return {"id": self.installation}
-        if url == f"{API}/app/installations/{self.installation}/access_tokens":
-            assert req.get_method() == "POST"
-            self.minted += 1
-            expires = datetime.fromtimestamp(self.clock.now + HOUR, tz=UTC)
-            return {
-                "token": f"token-{self.minted}",
-                "expires_at": expires.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            }
-        return {"url": url}
-
-    def auth(self, i: int) -> str:
-        return str(self.requests[i].get_header("Authorization"))
+RUNNER = "ubuntu-build-bot-i-0aaa"
 
 
 @pytest.fixture
@@ -96,30 +35,30 @@ def server(clock: Clock) -> Server:
 
 
 @pytest.fixture
-def github(pem: str, server: Server, clock: Clock) -> GitHub:
-    return GitHub(APP_ID, pem, send=server, clock=clock)
+def github(server: Server) -> GitHub:
+    return connect(server)
 
 
-class TestGet:
-    """Tests for authenticating API reads with installation tokens."""
+class TestCall:
+    """Tests for authenticating API calls with installation tokens."""
 
     def test_should_send_the_installation_token(
         self, github: GitHub, server: Server
     ) -> None:
-        assert github.get("/actions/runners") == {
+        assert github.call("/actions/runners") == {
             "url": f"{API}/repos/{REPO}/actions/runners"
         }
         assert server.auth(-1) == "Bearer token-1"
 
     def test_should_mint_with_a_signed_app_jwt(
-        self, github: GitHub, server: Server, key: rsa.RSAPrivateKey
+        self, github: GitHub, server: Server
     ) -> None:
-        github.get("/actions/runners")
+        github.call("/actions/runners")
         for i in (0, 1):
             app = server.auth(i).removeprefix("Bearer ")
             claims = jwt.decode(
                 app,
-                key.public_key(),
+                key().public_key(),
                 algorithms=["RS256"],
                 options={"verify_exp": False, "verify_iat": False},
             )
@@ -132,53 +71,87 @@ class TestGet:
     def test_should_reuse_a_token_until_near_expiry(
         self, github: GitHub, server: Server, clock: Clock
     ) -> None:
-        github.get("/actions/runners")
+        github.call("/actions/runners")
         clock.now += HOUR - 6 * 60
-        github.get("/actions/runners")
+        github.call("/actions/runners")
         assert server.minted == 1
         assert server.auth(-1) == "Bearer token-1"
 
     def test_should_refresh_a_token_before_it_expires(
         self, github: GitHub, server: Server, clock: Clock
     ) -> None:
-        github.get("/actions/runners")
+        github.call("/actions/runners")
         clock.now += HOUR - 4 * 60
-        github.get("/actions/runners")
+        github.call("/actions/runners")
         assert server.minted == 2
         assert server.auth(-1) == "Bearer token-2"
 
     def test_should_look_up_the_installation_once(
         self, github: GitHub, server: Server, clock: Clock
     ) -> None:
-        github.get("/actions/runners")
+        github.call("/actions/runners")
         clock.now += HOUR
-        github.get("/actions/runners")
+        github.call("/actions/runners")
         lookups = [r for r in server.requests if r.full_url.endswith("/installation")]
         assert len(lookups) == 1
 
     def test_should_mint_a_new_token_after_a_rejected_one(
         self, github: GitHub, server: Server
     ) -> None:
-        github.get("/actions/runners")
+        github.call("/actions/runners")
         server.failures[RUNNERS] = 401
         with pytest.raises(urllib.error.HTTPError):
-            github.get("/actions/runners")
-        github.get("/actions/runners")
+            github.call("/actions/runners")
+        github.call("/actions/runners")
         assert server.minted == 2
         assert server.auth(-1) == "Bearer token-2"
 
     def test_should_look_up_a_reinstalled_app_again(
         self, github: GitHub, server: Server, clock: Clock
     ) -> None:
-        github.get("/actions/runners")
+        github.call("/actions/runners")
         stale = f"{API}/app/installations/{server.installation}/access_tokens"
         server.failures[stale] = 404
         server.installation += 1
         clock.now += HOUR
         with pytest.raises(urllib.error.HTTPError):
-            github.get("/actions/runners")
-        github.get("/actions/runners")
+            github.call("/actions/runners")
+        github.call("/actions/runners")
         assert server.auth(-1) == "Bearer token-2"
+
+
+class TestDelete:
+    """Tests for removing a runner's registration."""
+
+    def test_should_delete_the_registration(
+        self, github: GitHub, server: Server
+    ) -> None:
+        server.registered[RUNNER] = 7
+        assert github.delete(RUNNER)
+        assert server.deletes() == [f"{RUNNERS}/7"]
+        assert server.registered == {}
+
+    def test_should_report_a_runner_with_a_job(
+        self, github: GitHub, server: Server
+    ) -> None:
+        server.registered[RUNNER] = 7
+        server.busy.add(RUNNER)
+        assert not github.delete(RUNNER)
+        assert server.registered == {RUNNER: 7}
+
+    def test_should_succeed_without_a_registration(
+        self, github: GitHub, server: Server
+    ) -> None:
+        assert github.delete(RUNNER)
+        assert server.deletes() == []
+
+    def test_should_raise_any_other_refusal(
+        self, github: GitHub, server: Server
+    ) -> None:
+        server.registered[RUNNER] = 7
+        server.failures[f"{RUNNERS}/7"] = 403
+        with pytest.raises(urllib.error.HTTPError):
+            github.delete(RUNNER)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -189,6 +162,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def do_DELETE(self) -> None:
+        self.send_response(204)
+        self.end_headers()
 
     def log_message(self, format: str, *args: object) -> None:
         pass
@@ -210,3 +187,6 @@ class TestSend:
 
     def test_should_decode_the_json_response(self, local: str) -> None:
         assert send(urllib.request.Request(f"{local}/x")) == {"path": "/x"}
+
+    def test_should_return_empty_for_no_content(self, local: str) -> None:
+        assert send(urllib.request.Request(f"{local}/x", method="DELETE")) == {}

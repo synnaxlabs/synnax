@@ -17,7 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { DataType, deep, id, primitive } from "@synnaxlabs/x";
+import { array, DataType, deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/kafka/device/queries";
@@ -45,20 +45,22 @@ const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
 
 const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
 
-const renderStartOffsetSelect = Component.renderProp(
-  (p: Omit<Select.SingleSimpleProps<StartOffset>, "children" | "resourceName">) => (
-    <Select.Simple<StartOffset>
-      {...p}
-      resourceName="start offset"
-      triggerProps={SELECT_TRIGGER_PROPS}
-      dialogProps={SELECT_DIALOG_PROPS}
-    >
-      <Select.Item itemKey="latest">Latest</Select.Item>
-      <Select.Item itemKey="earliest">Earliest</Select.Item>
-      <Select.Item itemKey="none">Committed only</Select.Item>
-    </Select.Simple>
-  ),
+const SelectStartOffset = (
+  p: Omit<Select.SingleSimpleProps<StartOffset>, "children" | "resourceName">,
+) => (
+  <Select.Simple<StartOffset>
+    {...p}
+    resourceName="start offset"
+    triggerProps={SELECT_TRIGGER_PROPS}
+    dialogProps={SELECT_DIALOG_PROPS}
+  >
+    <Select.Item itemKey="latest">Latest</Select.Item>
+    <Select.Item itemKey="earliest">Earliest</Select.Item>
+    <Select.Item itemKey="none">Committed only</Select.Item>
+  </Select.Simple>
 );
+
+const renderStartOffsetSelect = Component.renderProp(SelectStartOffset);
 
 const Properties = () => (
   <>
@@ -131,10 +133,7 @@ const TimestampFields = ({ path }: { path: deep.Path<ReadRecord> }) => {
       set(path.fields, [...fields, field]);
       set(path.index, field.key);
     } else if (mode === "kafka" && indexField != null) {
-      set(
-        path.fields,
-        fields.filter((f) => f.key !== index),
-      );
+      set(path.fields, array.removeKeyed(fields, index));
       set(path.index, "");
     }
   };

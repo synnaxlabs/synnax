@@ -15,7 +15,11 @@ from tests.arc.arc import ArcCase
 
 ARC_SEQUENCE_SOURCE = """
 // Multi-output function that classifies pressure into three categories
-func classify_pressure(safe_threshold f32, warning_threshold f32) {pressure f32} (safe_out f32, warning_out f32, critical_out f32) {
+func classify_pressure(safe_threshold f32, warning_threshold f32) {pressure f32} (
+    safe_out f32,
+    warning_out f32,
+    critical_out f32
+) {
     if (pressure < safe_threshold) {
         safe_out = pressure
     } else if (pressure < warning_threshold) {
@@ -158,7 +162,7 @@ sequence main {
         start_tpc_cmd == 1 => precheck
     }
 }
-"""  # noqa: E501
+"""
 
 PHASE_NAMES = {
     0: "Idle",  # Waiting for start command

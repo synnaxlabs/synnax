@@ -23,6 +23,7 @@ import (
 var _ = Describe("OpenService", func() {
 	It("Should open a service that stores and resolves secrets", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
 		r := rack.Key(1).ResourceID()
 		svc := secrettestutil.OpenService(ctx, db)
 		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "Key"}}}

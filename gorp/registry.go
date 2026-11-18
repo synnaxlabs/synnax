@@ -32,6 +32,12 @@ type registeredTable interface {
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
+	// watches reports whether the table runs a hook when an entry of the table named
+	// table that its entries hold is set.
+	watches(table string) bool
+	// targetSet runs the hook of the table for a set of an entry of the table named
+	// table, with the entry of the text key k.
+	targetSet(ctx context.Context, tx Tx, k, table string) error
 }
 
 // registeredReference is the part of a Reference that the delete walk reaches.
@@ -40,6 +46,7 @@ type registeredReference interface {
 	referenceName() string
 	index() int
 	onDeletePolicy() OnDelete
+	linkKind() LinkKind
 	targetTables() []string
 	// dependents returns the text keys of the entries that hold target.
 	dependents(ctx context.Context, snap Snapshot, target Target) ([]string, error)
@@ -200,6 +207,49 @@ func (r *registry) dependents(
 	return out, nil
 }
 
+// watchers returns the Use references to the table named table whose owner tables
+// watch it.
+func (r *registry) watchers(table string) []registeredReference {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []registeredReference
+	for _, ref := range r.referencing[table] {
+		if ref.linkKind() != Use {
+			continue
+		}
+		if t, ok := r.tables[ref.ownerTable()]; ok && t.watches(table) {
+			out = append(out, ref)
+		}
+	}
+	return out
+}
+
+// targetSet runs the target hook of each entry that holds target through one of refs,
+// which watchers returns for the table of target.
+func (r *registry) targetSet(
+	ctx context.Context,
+	tx Tx,
+	refs []registeredReference,
+	target Target,
+) error {
+	for _, ref := range refs {
+		owner, err := r.table(ref.ownerTable())
+		if err != nil {
+			return err
+		}
+		keys, err := ref.dependents(ctx, tx, target)
+		if err != nil {
+			return err
+		}
+		for _, k := range keys {
+			if err = owner.targetSet(ctx, tx, k, target.Table); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // deletePlan is the full effect of deleting a set of entries.
 type deletePlan struct {
 	// table is the name of the table of the entries the caller asked to delete.
@@ -267,52 +317,13 @@ func (r *registry) plan(
 	keys []string,
 	limit int,
 ) (*deletePlan, error) {
-	p := &deletePlan{
-		table:     table,
-		requested: set.New[string](),
-		cascades:  make(map[string]set.Set[string]),
-		detaches:  make(map[Target][]detachOp),
+	w := newPlanWalk(table, keys, limit)
+	if w.plan.changes() > limit {
+		return nil, w.tooLarge()
 	}
-	tooLarge := func() error {
-		named := table + " " + keys[0]
-		if len(keys) > 1 {
-			named = strconv.Itoa(len(keys)) + " entries of " + table
-		}
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"deleting %s would change more than %d entries",
-			named,
-			limit,
-		)
-	}
-	var queue []Target
-	for _, k := range keys {
-		if p.request(k) {
-			queue = append(queue, Target{Table: table, Key: k})
-		}
-	}
-	if p.changes() > limit {
-		return nil, tooLarge()
-	}
-	type restriction struct {
-		ref       registeredReference
-		dependent Target
-		target    Target
-	}
-	var (
-		restrictions []restriction
-		restricted   = set.New[Target]()
-	)
-	refuse := func(rs restriction) error {
-		return RestrictError{
-			Target:    rs.target,
-			Holder:    rs.dependent,
-			Reference: rs.ref.referenceName(),
-		}
-	}
-	for len(queue) > 0 {
-		target := queue[0]
-		queue = queue[1:]
+	for len(w.queue) > 0 {
+		target := w.queue[0]
+		w.queue = w.queue[1:]
 		for _, ref := range r.referencesTo(target.Table) {
 			deps, err := ref.dependents(ctx, tx, target)
 			if err != nil {
@@ -320,51 +331,125 @@ func (r *registry) plan(
 			}
 			for _, k := range deps {
 				dep := Target{Table: ref.ownerTable(), Key: k}
-				switch ref.onDeletePolicy() {
-				case Cascade:
-					if !p.cascade(dep) {
-						continue
-					}
-					queue = append(queue, dep)
-				case Restrict:
-					if p.contains(dep) || restricted.Contains(dep) {
-						continue
-					}
-					restricted.Add(dep)
-					restrictions = append(
-						restrictions,
-						restriction{ref: ref, dependent: dep, target: target},
-					)
-					// The closure holds at most limit entries, so at least one
-					// restricted dependent stays outside it.
-					if len(restrictions) > limit {
-						for _, rs := range restrictions {
-							if !p.contains(rs.dependent) {
-								return nil, refuse(rs)
-							}
-						}
-					}
-				case Detach, Inline:
-					if p.contains(dep) {
-						continue
-					}
-					p.detaches[dep] = append(
-						p.detaches[dep],
-						detachOp{ref: ref.index(), target: target},
-					)
-				}
-				if p.changes() > limit {
-					return nil, tooLarge()
+				if err := w.visit(ref, dep, target); err != nil {
+					return nil, err
 				}
 			}
 		}
 	}
-	for _, rs := range restrictions {
-		if !p.contains(rs.dependent) {
-			return nil, refuse(rs)
+	if err := w.checkRestrictions(); err != nil {
+		return nil, err
+	}
+	return w.plan, nil
+}
+
+// restriction is a Restrict reference through which dependent holds target.
+type restriction struct {
+	ref       registeredReference
+	dependent Target
+	target    Target
+}
+
+func (rs restriction) err() error {
+	return RestrictError{
+		Target:    rs.target,
+		Holder:    rs.dependent,
+		Reference: rs.ref.referenceName(),
+	}
+}
+
+// planWalk is the state of a breadth-first walk that builds a deletePlan.
+type planWalk struct {
+	plan         *deletePlan
+	keys         []string
+	limit        int
+	queue        []Target
+	restrictions []restriction
+	restricted   set.Set[Target]
+}
+
+func newPlanWalk(table string, keys []string, limit int) *planWalk {
+	w := &planWalk{
+		plan: &deletePlan{
+			table:     table,
+			requested: set.New[string](),
+			cascades:  make(map[string]set.Set[string]),
+			detaches:  make(map[Target][]detachOp),
+		},
+		keys:       keys,
+		limit:      limit,
+		restricted: set.New[Target](),
+	}
+	for _, k := range keys {
+		if w.plan.request(k) {
+			w.queue = append(w.queue, Target{Table: table, Key: k})
 		}
 	}
-	return p, nil
+	return w
+}
+
+func (w *planWalk) tooLarge() error {
+	named := w.plan.table + " " + w.keys[0]
+	if len(w.keys) > 1 {
+		named = strconv.Itoa(len(w.keys)) + " entries of " + w.plan.table
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"deleting %s would change more than %d entries",
+		named,
+		w.limit,
+	)
+}
+
+// visit applies the delete policy of ref to dep, an entry that holds target through
+// ref.
+func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
+	switch ref.onDeletePolicy() {
+	case Cascade:
+		if !w.plan.cascade(dep) {
+			return nil
+		}
+		w.queue = append(w.queue, dep)
+	case Restrict:
+		if w.plan.contains(dep) || w.restricted.Contains(dep) {
+			return nil
+		}
+		w.restricted.Add(dep)
+		w.restrictions = append(
+			w.restrictions,
+			restriction{ref: ref, dependent: dep, target: target},
+		)
+		// The closure holds at most limit entries, so at least one restricted
+		// dependent stays outside it.
+		if len(w.restrictions) > w.limit {
+			if err := w.checkRestrictions(); err != nil {
+				return err
+			}
+		}
+	case Detach, Inline:
+		if w.plan.contains(dep) {
+			return nil
+		}
+		w.plan.detaches[dep] = append(
+			w.plan.detaches[dep],
+			detachOp{ref: ref.index(), target: target},
+		)
+	}
+	if w.plan.changes() > w.limit {
+		return w.tooLarge()
+	}
+	return nil
+}
+
+// checkRestrictions returns a RestrictError for the first restricted dependent that
+// the plan does not delete.
+func (w *planWalk) checkRestrictions() error {
+	for _, rs := range w.restrictions {
+		if !w.plan.contains(rs.dependent) {
+			return rs.err()
+		}
+	}
+	return nil
 }
 
 // apply carries out what p adds to the delete that the caller asked for: it detaches

@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json/jsontext"
+	"fmt"
 	"math"
 	"strconv"
 	"uuid"
@@ -59,8 +60,10 @@ func (t Type) String() string {
 		return "string"
 	case Boolean:
 		return "boolean"
+	case Number:
+		return "number"
 	}
-	return "number"
+	panic(fmt.Sprintf("json: invalid type %d", t))
 }
 
 // MarshalText implements encoding.TextMarshaler.
@@ -209,79 +212,104 @@ func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
 		}
 		return telem.ByteOrder.AppendUint64(dst, uint64(ts)), nil
 	case telem.StringT:
-		if raw.Kind() != '"' {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "expected a string, got %s", kindName(raw),
-			)
-		}
-		if len(d.enums) > 0 {
-			if err := d.unquote(raw); err != nil {
-				return nil, err
-			}
-			if sample, ok := d.enum(); ok {
-				dst = telem.ByteOrder.AppendUint32(dst, uint32(len(sample)))
-				return append(dst, sample...), nil
-			}
-		}
-		start := len(dst)
-		dst = append(dst, make([]byte, variablePrefix)...)
-		var err error
-		if dst, err = jsontext.AppendUnquote(dst, raw); err != nil {
-			return nil, errors.Wrap(validate.ErrValidation, err.Error())
-		}
-		return endVariable(dst, start), nil
+		return d.appendString(dst, raw)
 	case telem.JSONT:
-		start := len(dst)
-		dst = append(dst, make([]byte, variablePrefix)...)
-		dst = append(dst, raw...)
-		if kind := raw.Kind(); kind == '{' || kind == '[' {
-			v := jsontext.Value(dst[start+variablePrefix:])
-			if err := v.Compact(rejectDuplicateNames...); err != nil {
-				return nil, errors.Wrap(validate.ErrValidation, err.Error())
-			}
-			dst = dst[:start+variablePrefix+len(v)]
-		}
-		return endVariable(dst, start), nil
+		return appendJSON(dst, raw)
 	case telem.UUIDT:
-		if raw.Kind() != '"' {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"expected a UUID string, got %s",
-				kindName(raw),
-			)
-		}
-		if err := d.unquote(raw); err != nil {
-			return nil, err
-		}
-		var id uuid.UUID
-		if err := id.UnmarshalText(d.text); err != nil {
-			return nil, errors.Wrapf(validate.ErrValidation, "invalid UUID %q", d.text)
-		}
-		return append(dst, id[:]...), nil
+		return d.appendUUID(dst, raw)
 	case telem.BytesT:
-		if raw.Kind() != '"' {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"expected a base64 string, got %s",
-				kindName(raw),
-			)
-		}
+		return d.appendBytes(dst, raw)
+	case telem.Float64T, telem.Float32T, telem.BooleanT,
+		telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
+		return d.appendNumeric(dst, raw)
+	case telem.UnknownT:
+	}
+	panic(fmt.Sprintf("json: no decoder for data type %q", d.field.DataType))
+}
+
+func (d *Decoder) appendString(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() != '"' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "expected a string, got %s", kindName(raw),
+		)
+	}
+	if len(d.enums) > 0 {
 		if err := d.unquote(raw); err != nil {
 			return nil, err
 		}
-		if bytes.ContainsAny(d.text, "\r\n") {
-			return nil, errors.Wrap(
-				validate.ErrValidation, "base64 must not hold a line break",
-			)
+		if sample, ok := d.enum(); ok {
+			dst = telem.ByteOrder.AppendUint32(dst, uint32(len(sample)))
+			return append(dst, sample...), nil
 		}
-		start := len(dst)
-		dst = append(dst, make([]byte, variablePrefix)...)
-		var err error
-		if dst, err = strictBase64.AppendDecode(dst, d.text); err != nil {
+	}
+	start := len(dst)
+	dst = append(dst, make([]byte, variablePrefix)...)
+	var err error
+	if dst, err = jsontext.AppendUnquote(dst, raw); err != nil {
+		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return endVariable(dst, start), nil
+}
+
+func appendJSON(dst []byte, raw jsontext.Value) ([]byte, error) {
+	start := len(dst)
+	dst = append(dst, make([]byte, variablePrefix)...)
+	dst = append(dst, raw...)
+	if kind := raw.Kind(); kind == '{' || kind == '[' {
+		v := jsontext.Value(dst[start+variablePrefix:])
+		if err := v.Compact(rejectDuplicateNames...); err != nil {
 			return nil, errors.Wrap(validate.ErrValidation, err.Error())
 		}
-		return endVariable(dst, start), nil
+		dst = dst[:start+variablePrefix+len(v)]
 	}
+	return endVariable(dst, start), nil
+}
+
+func (d *Decoder) appendUUID(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() != '"' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"expected a UUID string, got %s",
+			kindName(raw),
+		)
+	}
+	if err := d.unquote(raw); err != nil {
+		return nil, err
+	}
+	var id uuid.UUID
+	if err := id.UnmarshalText(d.text); err != nil {
+		return nil, errors.Wrapf(validate.ErrValidation, "invalid UUID %q", d.text)
+	}
+	return append(dst, id[:]...), nil
+}
+
+func (d *Decoder) appendBytes(dst []byte, raw jsontext.Value) ([]byte, error) {
+	if raw.Kind() != '"' {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"expected a base64 string, got %s",
+			kindName(raw),
+		)
+	}
+	if err := d.unquote(raw); err != nil {
+		return nil, err
+	}
+	if bytes.ContainsAny(d.text, "\r\n") {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "base64 must not hold a line break",
+		)
+	}
+	start := len(dst)
+	dst = append(dst, make([]byte, variablePrefix)...)
+	var err error
+	if dst, err = strictBase64.AppendDecode(dst, d.text); err != nil {
+		return nil, errors.Wrap(validate.ErrValidation, err.Error())
+	}
+	return endVariable(dst, start), nil
+}
+
+func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) {
 	if raw.Kind() == '"' {
 		if err := d.unquote(raw); err != nil {
 			return nil, err
@@ -487,9 +515,10 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	case String:
 		dst = append(dst, '"')
 		return append(n.appendText(dst), '"'), nil
-	default:
+	case Number:
 		return appendJSONNumber(dst, n)
 	}
+	panic(fmt.Sprintf("json: invalid type %d", e.field.Type))
 }
 
 // matches reports whether a and b, samples of dt, are equal. Floats are equal by value,
@@ -501,7 +530,9 @@ func matches(dt telem.DataType, a, b []byte) bool {
 		return x == y || (math.IsNaN(x) && math.IsNaN(y))
 	case telem.BooleanT:
 		return (a[0] != 0) == (b[0] != 0)
-	default:
-		return bytes.Equal(a, b)
+	case telem.UnknownT, telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T, telem.TimestampT,
+		telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT:
 	}
+	return bytes.Equal(a, b)
 }

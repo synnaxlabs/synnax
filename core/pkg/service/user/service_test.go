@@ -83,7 +83,7 @@ var _ = Describe("Service", func() {
 			tx gorp.Tx
 			w  user.Writer
 		)
-		BeforeEach(func(ctx SpecContext) {
+		BeforeEach(func() {
 			tx = DeferClose(db.OpenTx())
 			w = svc.NewWriter(tx)
 		})

@@ -11,6 +11,7 @@ packages:
   - alamos/ts
   - arc/ts
   - client/ts
+  - client/ts/examples/node
   - configs/**
   - console
   - drift
@@ -80,8 +81,9 @@ allowBuilds:
   sharp: true
 
 catalog:
+  '@arethetypeswrong/cli': ^0.18.5
   '@astrojs/check': ^0.9.10
-  '@astrojs/markdown-satteri': ^0.4.4
+  '@astrojs/markdown-satteri': ^0.4.10
   '@astrojs/mdx': ^8.1.0
   '@astrojs/react': ^7.1.0
   '@astrojs/vercel': ^11.0.15
@@ -160,7 +162,7 @@ catalog:
   '@vscode/vsce': ^4.0.0
   '@xyflow/react': ^12.12.0
   algoliasearch: ^5.60.0
-  astro: ^7.4.0
+  astro: ^7.4.12
   astro-seo: ^1.2.0
   async-mutex: ^0.5.0
   # Pinned: a compiler upgrade can change what gets memoized.
@@ -180,6 +182,7 @@ catalog:
   eslint-plugin-simple-import-sort: ^14.0.0
   fake-indexeddb: ^6.2.6
   fflate: ^0.8.3
+  fractional-indexing: 3.2.0
   globals: ^17.13.0
   gray-matter: ^4.0.3
   hast-util-from-html: ^2.0.3
@@ -220,7 +223,7 @@ catalog:
   remotion: ^4.0.540
   resend: ^6.34.1
   rolldown: ~1.2.14
-  satteri: ^0.10.5
+  satteri: ^0.11.7
   sharp: ^0.35.5
   shiki: ^4.5.0
   source-map-js: ^1.2.2
@@ -249,6 +252,9 @@ catalog:
 catalogs:
   ts6:
     typescript: ^6.0.3
+  # Undici 8 does not load on Node 22.12, the oldest Node the published packages run on.
+  node22:
+    undici: ^7.30.2
 # Dependencies do not install agent skills into the repository.
 permissions:
   compromise:

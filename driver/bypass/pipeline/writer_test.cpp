@@ -14,9 +14,60 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/bypass/pipeline/writer.h"
+#include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::bypass::pipeline {
+/// @brief a source that numbers its frames on channel 1 from 0.
+class CountingSource final : public ::driver::pipeline::Source {
+    uint64_t reads = 0;
+
+public:
+    x::errors::Error read(
+        x::breaker::Breaker &,
+        x::telem::Frame &fr,
+        ::driver::pipeline::Authorities &
+    ) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        fr.emplace(1, x::telem::Series(this->reads++));
+        return x::errors::NIL;
+    }
+};
+
+/// @brief it should send a frame that the acquisition pipeline writes again to a
+/// reopened writer to bus subscribers once.
+TEST(WriterTest, RewrittenFrameReachesBusOnce) {
+    auto bus = std::make_shared<Bus>();
+    auto sub = bus->subscribe({1});
+    const auto server = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector<x::errors::Error>{},
+        std::vector{freighter::UNREACHABLE},
+        std::vector{1}
+    );
+    auto pipeline = ::driver::pipeline::Acquisition(
+        std::make_shared<WriterFactory>(
+            server,
+            bus,
+            std::make_shared<control::States>(),
+            0
+        ),
+        synnax::framer::WriterConfig{.channels = {1}},
+        std::make_shared<CountingSource>(),
+        x::breaker::Config{.base_interval = x::telem::MICROSECOND * 10}
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(server->writes->size(), 3);
+    ASSERT_TRUE(pipeline.stop());
+    std::vector<uint64_t> received;
+    x::telem::Frame fr;
+    while (sub->try_pop(fr))
+        received.push_back(fr.at<uint64_t>(1, 0));
+    ASSERT_GE(received.size(), 3);
+    for (size_t i = 0; i < received.size(); i++)
+        EXPECT_EQ(received[i], i);
+}
+
 TEST(WriterTest, PublishesToBusAndForwardsToCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();

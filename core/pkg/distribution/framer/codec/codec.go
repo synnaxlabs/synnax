@@ -12,12 +12,12 @@ package codec
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -176,14 +176,37 @@ type Codec struct {
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
 	// of sorting the frame directly in order to avoid excess heap allocations
 	encodeSorter sorter
+	// decodeLimit is the most bytes that one decoded frame can hold, or zero for no
+	// limit.
+	decodeLimit int64
 }
+
+// Option configures a Codec.
+type Option func(*Codec)
+
+// WithDecodeLimit makes Decode and DecodeStream reject a frame whose series hold more
+// than limit bytes once decoded. A boolean sample counts one byte, and each series also
+// counts SeriesOverhead. The codec checks each series before it allocates the series.
+func WithDecodeLimit(limit int64) Option {
+	return func(c *Codec) { c.decodeLimit = limit }
+}
+
+// SeriesOverhead is the bytes that each decoded series counts against the decode limit
+// in addition to its samples.
+const SeriesOverhead = int64(
+	unsafe.Sizeof(telem.Series{}) + unsafe.Sizeof(channel.Key(0)),
+)
 
 var byteOrder = telem.ByteOrder
 
 // NewStatic creates a new codec that uses the given channel keys and data types as
 // its encoding state. It is not safe to call Update on a codec instantiated using
 // NewStatic.
-func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
+func NewStatic(
+	channelKeys channel.Keys,
+	dataTypes []telem.DataType,
+	opts ...Option,
+) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
@@ -191,7 +214,7 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 	for i, key := range channelKeys {
 		keyDataTypes[key] = dataTypes[i]
 	}
-	c := newCodec()
+	c := newCodec(opts)
 	c.update(channelKeys, keyDataTypes)
 	return c
 }
@@ -205,25 +228,28 @@ type ChannelResolver interface {
 	// RetrieveDataTypes returns the data types of the channels with the given keys in
 	// the same order as keys. The returned slice must contain exactly one entry per
 	// key; Codec.Update returns an error if the lengths differ.
-	RetrieveDataTypes(context.Context, channel.Keys) ([]telem.DataType, error)
+	RetrieveDataTypes(ctx context.Context, keys channel.Keys) ([]telem.DataType, error)
 	// RetrieveName returns the name of the channel with the given key, or an empty
 	// string if no channel with the key exists.
-	RetrieveName(context.Context, channel.Key) string
+	RetrieveName(ctx context.Context, key channel.Key) string
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel
 // data types through the provided ChannelResolver. Codec.Update must be called before
 // the first call to Codec.Encode and Codec.Decode.
-func NewDynamic(channelResolver ChannelResolver) *Codec {
-	c := newCodec()
+func NewDynamic(channelResolver ChannelResolver, opts ...Option) *Codec {
+	c := newCodec(opts)
 	c.channelResolver = channelResolver
 	return c
 }
 
-func newCodec() *Codec {
+func newCodec(opts []Option) *Codec {
 	c := &Codec{
 		buf:    binary.NewWriter(0, byteOrder),
 		reader: binary.NewReader(nil, byteOrder),
+	}
+	for _, opt := range opts {
+		opt(c)
 	}
 	c.mu.updateAvailable.Store(false)
 	c.mu.states = make(map[uint32]state)
@@ -391,10 +417,7 @@ func (c *Codec) prune(seqNum uint32) {
 func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
 		panic(
-			fmt.Sprintf(
-				"dynamic codec was not updated for first call to %s",
-				opName,
-			),
+			"dynamic codec was not updated for first call to " + opName,
 		)
 	}
 }
@@ -443,7 +466,6 @@ func (c *Codec) mergeContiguousSeries(
 	for i < count {
 		// Find the run of series with the same key
 		key := sortedKeys[i]
-		groupStart := i
 		groupEnd := i + 1
 
 		// Find all series with the same key
@@ -452,90 +474,77 @@ func (c *Codec) mergeContiguousSeries(
 		}
 
 		// Process contiguous sub-groups within this key group
-		j := groupStart
-		for j < groupEnd {
-			// Start a new contiguous run
-			runStart := j
-			runEnd := j + 1
-
-			// Extend the run while series are contiguous
-			for runEnd < groupEnd {
-				prevRawIdx := sortedIndices[runEnd-1]
-				currRawIdx := sortedIndices[runEnd]
-				prevSeries := src.RawSeriesAt(prevRawIdx)
-				currSeries := src.RawSeriesAt(currRawIdx)
-
-				if !isAlignmentContiguous(prevSeries, currSeries) {
-					break
-				}
-				runEnd++
-			}
-
-			// If only one series in this run, append it directly
-			if runEnd-runStart == 1 {
-				rawIdx := sortedIndices[runStart]
-				c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
-					series: src.RawSeriesAt(rawIdx),
-					key:    key,
-				})
-			} else {
-				// Multiple contiguous series - merge them
-				// First pass: calculate total size
-				totalSize := 0
-				for k := runStart; k < runEnd; k++ {
-					rawIdx := sortedIndices[k]
-					s := src.RawSeriesAt(rawIdx)
-					totalSize += len(s.Data)
-				}
-
-				// Allocate merged data buffer directly (no intermediate buffer)
-				var (
-					mergedData = make([]byte, totalSize)
-					// Copy all series data directly into final buffer
-					offset       = 0
-					mergedSeries telem.Series
-				)
-				for k := runStart; k < runEnd; k++ {
-					rawIdx := sortedIndices[k]
-					s := src.RawSeriesAt(rawIdx)
-
-					if k == runStart {
-						// Initialize merged series with first series properties
-						mergedSeries = telem.Series{
-							DataType:          s.DataType,
-							Alignment:         s.Alignment,
-							AlignmentMultiple: s.AlignmentMultiple,
-							TimeRange:         s.TimeRange,
-						}
-					} else {
-						// Extend time range to encompass all series
-						if s.TimeRange.End > mergedSeries.TimeRange.End {
-							mergedSeries.TimeRange.End = s.TimeRange.End
-						}
-						if s.TimeRange.Start < mergedSeries.TimeRange.Start {
-							mergedSeries.TimeRange.Start = s.TimeRange.Start
-						}
-					}
-
-					copy(mergedData[offset:], s.Data)
-					offset += len(s.Data)
-				}
-
-				mergedSeries.Data = mergedData
-
-				c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
-					series: mergedSeries,
-					key:    key,
-				})
-			}
-
-			j = runEnd
+		for runStart := i; runStart < groupEnd; {
+			runEnd := contiguousRunEnd(sortedIndices, src, runStart, groupEnd)
+			c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
+				series: mergeRun(sortedIndices[runStart:runEnd], src),
+				key:    key,
+			})
+			runStart = runEnd
 		}
 
 		i = groupEnd
 	}
 
 	return c.mergedSeriesResult
+}
+
+// contiguousRunEnd returns the exclusive end of the run that starts at runStart, where
+// each series is alignment-contiguous with the one before it.
+func contiguousRunEnd(
+	sortedIndices []int,
+	src framer.Frame,
+	runStart, groupEnd int,
+) int {
+	runEnd := runStart + 1
+	for runEnd < groupEnd {
+		prevSeries := src.RawSeriesAt(sortedIndices[runEnd-1])
+		currSeries := src.RawSeriesAt(sortedIndices[runEnd])
+		if !isAlignmentContiguous(prevSeries, currSeries) {
+			break
+		}
+		runEnd++
+	}
+	return runEnd
+}
+
+// mergeRun merges the series at the given raw indices into one series. A run of one
+// series returns that series unchanged.
+func mergeRun(rawIndices []int, src framer.Frame) telem.Series {
+	if len(rawIndices) == 1 {
+		return src.RawSeriesAt(rawIndices[0])
+	}
+	totalSize := 0
+	for _, rawIdx := range rawIndices {
+		totalSize += len(src.RawSeriesAt(rawIdx).Data)
+	}
+	var (
+		mergedData   = make([]byte, totalSize)
+		offset       = 0
+		mergedSeries telem.Series
+	)
+	for k, rawIdx := range rawIndices {
+		s := src.RawSeriesAt(rawIdx)
+		if k == 0 {
+			mergedSeries = telem.Series{
+				DataType:          s.DataType,
+				Alignment:         s.Alignment,
+				AlignmentMultiple: s.AlignmentMultiple,
+				TimeRange:         s.TimeRange,
+			}
+		} else {
+			if s.TimeRange.End > mergedSeries.TimeRange.End {
+				mergedSeries.TimeRange.End = s.TimeRange.End
+			}
+			if s.TimeRange.Start < mergedSeries.TimeRange.Start {
+				mergedSeries.TimeRange.Start = s.TimeRange.Start
+			}
+		}
+		copy(mergedData[offset:], s.Data)
+		offset += len(s.Data)
+	}
+	mergedSeries.Data = mergedData
+	return mergedSeries
 }
 
 const (
@@ -571,8 +580,42 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.prune(c.mu.seqNum)
 	currState := c.mu.states[c.mu.seqNum]
 	src = src.KeepKeys(currState.keySet)
+	if err := c.sortSeries(ctx, src, currState); err != nil {
+		return err
+	}
+	mergedSeries := c.mergeContiguousSeries(
+		c.encodeSorter.keys,
+		c.encodeSorter.rawIndices,
+		src,
+		c.encodeSorter.offset,
+	)
+	h := newEncodeHeader(mergedSeries, currState)
+	c.buf.Resize(h.byteArraySize)
+	c.buf.Reset()
+	c.buf.Uint8(h.fgs.encode())
+	c.buf.Uint32(c.mu.seqNum)
+	if h.fgs.equalLens {
+		c.buf.Uint32(uint32(h.dataSize))
+	}
+	if h.fgs.equalTimeRanges && !h.fgs.timeRangesZero {
+		writeTimeRange(c.buf, h.tr)
+	}
+	if h.fgs.equalAlignments && !h.fgs.zeroAlignments {
+		c.buf.Uint64(uint64(h.alignment))
+	}
+	for _, msi := range mergedSeries {
+		c.writeSeries(h.fgs, msi)
+	}
+	return nil
+}
 
-	// First pass: validate and insert into sorter with pre-extracted data
+// sortSeries validates each series in src against currState and sorts the series by
+// key, alignment, and raw index into c.encodeSorter.
+func (c *Codec) sortSeries(
+	ctx context.Context,
+	src framer.Frame,
+	currState state,
+) error {
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
@@ -599,148 +642,137 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			)
 		}
 	}
-
-	// Sort by (key, alignment, rawIndex) using pre-extracted data for cache efficiency
 	c.encodeSorter.sort()
+	return nil
+}
 
-	mergedSeries := c.mergeContiguousSeries(
-		c.encodeSorter.keys,
-		c.encodeSorter.rawIndices,
-		src,
-		c.encodeSorter.offset,
-	)
+// encodeHeader holds the flags, the shared reference values, and the total byte size
+// of an encoded frame.
+type encodeHeader struct {
+	fgs           flags
+	dataSize      int
+	tr            telem.TimeRange
+	alignment     telem.Alignment
+	byteArraySize int
+}
 
-	// Calculate flags and byte size based on merged series
-	var (
-		curDataSize   = -1
-		refTr         = telem.TimeRangeZero
-		refAlignment  telem.Alignment
-		byteArraySize = flagsSize + seqNumSize
-		fgs           = newFlags()
-	)
-
-	if currState.hasVariableDataTypes {
-		fgs.equalLens = false
+func newEncodeHeader(mergedSeries []mergedSeriesInfo, currState state) encodeHeader {
+	h := encodeHeader{
+		dataSize:      -1,
+		tr:            telem.TimeRangeZero,
+		byteArraySize: flagsSize + seqNumSize,
+		fgs:           newFlags(),
 	}
-
+	if currState.hasVariableDataTypes {
+		h.fgs.equalLens = false
+	}
 	// allChannelsPresent is true only when the merged series form a 1-to-1
 	// correspondence with currState.keys (each state key has exactly one series in the
 	// same order). Multi-domain frames that produce multiple series for the same key
 	// would otherwise be silently miscounted into a flag that tells the decoder to skip
 	// per-series keys on the wire.
-	fgs.allChannelsPresent = len(mergedSeries) == len(currState.keys)
-	if fgs.allChannelsPresent {
+	h.fgs.allChannelsPresent = len(mergedSeries) == len(currState.keys)
+	if h.fgs.allChannelsPresent {
 		for i, msi := range mergedSeries {
 			if msi.key != currState.keys[i] {
-				fgs.allChannelsPresent = false
+				h.fgs.allChannelsPresent = false
 				break
 			}
 		}
 	}
-	if !fgs.allChannelsPresent {
-		byteArraySize += len(mergedSeries) * 4
+	if !h.fgs.allChannelsPresent {
+		h.byteArraySize += len(mergedSeries) * 4
 	}
-
-	// Calculate flags and accumulate data size from merged series
 	for _, msi := range mergedSeries {
-		s := msi.series
-		sLen := int(s.Len())
-		byteArraySize += wireSize(s)
-
-		if curDataSize == -1 {
-			curDataSize = sLen
-			refTr = s.TimeRange
-			refAlignment = s.Alignment
-			continue
-		}
-		if sLen != curDataSize {
-			fgs.equalLens = false
-		}
-		if s.TimeRange != refTr {
-			fgs.equalTimeRanges = false
-		}
-		if s.Alignment != refAlignment {
-			fgs.equalAlignments = false
-		}
+		h.addSeries(msi.series)
 	}
-	fgs.multiplesPresent = slices.ContainsFunc(
+	h.fgs.multiplesPresent = slices.ContainsFunc(
 		mergedSeries,
 		func(msi mergedSeriesInfo) bool { return msi.series.Multiple() > 1 },
 	)
+	h.fgs.timeRangesZero = h.fgs.equalTimeRanges && h.tr.Start.IsZero() &&
+		h.tr.End.IsZero()
+	h.fgs.zeroAlignments = h.fgs.equalAlignments && h.alignment == 0
+	h.byteArraySize += h.metadataSize(len(mergedSeries))
+	return h
+}
 
-	fgs.timeRangesZero = fgs.equalTimeRanges && refTr.Start.IsZero() &&
-		refTr.End.IsZero()
-	fgs.zeroAlignments = fgs.equalAlignments && refAlignment == 0
+// addSeries adds the wire size of s and clears the flags that s breaks.
+func (h *encodeHeader) addSeries(s telem.Series) {
+	sLen := int(s.Len())
+	h.byteArraySize += wireSize(s)
+	if h.dataSize == -1 {
+		h.dataSize = sLen
+		h.tr = s.TimeRange
+		h.alignment = s.Alignment
+		return
+	}
+	if sLen != h.dataSize {
+		h.fgs.equalLens = false
+	}
+	if s.TimeRange != h.tr {
+		h.fgs.equalTimeRanges = false
+	}
+	if s.Alignment != h.alignment {
+		h.fgs.equalAlignments = false
+	}
+}
 
-	// Calculate metadata size based on merged series count
-	if !fgs.equalLens {
-		byteArraySize += len(mergedSeries) * 4
+// metadataSize returns the bytes of lengths, time ranges, alignments, and multiples
+// that the flags require for count series.
+func (h *encodeHeader) metadataSize(count int) int {
+	size := 0
+	if !h.fgs.equalLens {
+		size += count * 4
 	} else {
-		byteArraySize += 4
+		size += 4
 	}
-	if !fgs.timeRangesZero {
-		if !fgs.equalTimeRanges {
-			byteArraySize += len(mergedSeries) * 16
+	if !h.fgs.timeRangesZero {
+		if !h.fgs.equalTimeRanges {
+			size += count * 16
 		} else {
-			byteArraySize += 16
+			size += 16
 		}
 	}
-	if !fgs.zeroAlignments {
-		if !fgs.equalAlignments {
-			byteArraySize += len(mergedSeries) * 8
+	if !h.fgs.zeroAlignments {
+		if !h.fgs.equalAlignments {
+			size += count * 8
 		} else {
-			byteArraySize += 8
+			size += 8
 		}
+	}
+	if h.fgs.multiplesPresent {
+		size += count * 4
+	}
+	return size
+}
+
+func (c *Codec) writeSeries(fgs flags, msi mergedSeriesInfo) {
+	s := msi.series
+	if !fgs.allChannelsPresent {
+		c.buf.Uint32(uint32(msi.key))
+	}
+	if !fgs.equalLens {
+		if s.DataType.IsVariable() {
+			c.buf.Uint32(uint32(s.Size()))
+		} else {
+			c.buf.Uint32(uint32(s.Len()))
+		}
+	}
+	if s.DataType == telem.BooleanT {
+		c.buf.Write(packBoolBits(s.Data))
+	} else {
+		c.buf.Write(s.Data)
+	}
+	if !fgs.equalTimeRanges {
+		writeTimeRange(c.buf, s.TimeRange)
+	}
+	if !fgs.equalAlignments {
+		c.buf.Uint64(uint64(s.Alignment))
 	}
 	if fgs.multiplesPresent {
-		byteArraySize += len(mergedSeries) * 4
+		c.buf.Uint32(s.Multiple())
 	}
-
-	// Allocate buffer and write headers
-	c.buf.Resize(byteArraySize)
-	c.buf.Reset()
-	c.buf.Uint8(fgs.encode())
-	c.buf.Uint32(c.mu.seqNum)
-	if fgs.equalLens {
-		c.buf.Uint32(uint32(curDataSize))
-	}
-	if fgs.equalTimeRanges && !fgs.timeRangesZero {
-		writeTimeRange(c.buf, refTr)
-	}
-	if fgs.equalAlignments && !fgs.zeroAlignments {
-		c.buf.Uint64(uint64(refAlignment))
-	}
-
-	// Write merged series data
-	for _, msi := range mergedSeries {
-		s := msi.series
-		if !fgs.allChannelsPresent {
-			c.buf.Uint32(uint32(msi.key))
-		}
-		if !fgs.equalLens {
-			if s.DataType.IsVariable() {
-				c.buf.Uint32(uint32(s.Size()))
-			} else {
-				c.buf.Uint32(uint32(s.Len()))
-			}
-		}
-		if s.DataType == telem.BooleanT {
-			c.buf.Write(packBoolBits(s.Data))
-		} else {
-			c.buf.Write(s.Data)
-		}
-		if !fgs.equalTimeRanges {
-			writeTimeRange(c.buf, s.TimeRange)
-		}
-		if !fgs.equalAlignments {
-			c.buf.Uint64(uint64(s.Alignment))
-		}
-		if fgs.multiplesPresent {
-			c.buf.Uint32(s.Multiple())
-		}
-	}
-
-	return nil
 }
 
 // Decode decodes a frame from the given src bytes.
@@ -748,141 +780,171 @@ func (c *Codec) Decode(src []byte) (dst framer.Frame, err error) {
 	return c.DecodeStream(bytes.NewReader(src))
 }
 
+// decodeHeader holds the flags, the state, and the shared reference values that a
+// frame header carries.
+type decodeHeader struct {
+	fgs       flags
+	state     state
+	dataLen   uint32
+	tr        telem.TimeRange
+	alignment telem.Alignment
+	// decoded is the running count of bytes the frame decodes to.
+	decoded int64
+}
+
 // DecodeStream decodes a frame from the given io reader.
 func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	c.processUpdates()
 	c.panicIfNotUpdated("Decode")
 	c.reader.Reset(reader)
-
-	var (
-		dataLen      uint32
-		refTr        telem.TimeRange
-		refAlignment telem.Alignment
-		fr           framer.Frame
-		err          error
-	)
-
-	flagB, err := c.reader.Uint8()
+	h, err := c.readHeader()
 	if err != nil {
 		return framer.Frame{}, err
+	}
+	if h.fgs.allChannelsPresent {
+		fr := frame.Alloc(len(h.state.keys))
+		for _, k := range h.state.keys {
+			s, err := c.decodeSeries(&h, k)
+			if err != nil {
+				return framer.Frame{}, err
+			}
+			fr = fr.Append(k, s)
+		}
+		return fr, nil
+	}
+	var fr framer.Frame
+	for {
+		k, err := c.reader.Uint32()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return fr, nil
+			}
+			return framer.Frame{}, err
+		}
+		s, err := c.decodeSeries(&h, channel.Key(k))
+		if err != nil {
+			return framer.Frame{}, err
+		}
+		fr = fr.Append(channel.Key(k), s)
+	}
+}
+
+func (c *Codec) readHeader() (decodeHeader, error) {
+	var h decodeHeader
+	flagB, err := c.reader.Uint8()
+	if err != nil {
+		return decodeHeader{}, err
 	}
 	seqNum, err := c.reader.Uint32()
 	if err != nil {
-		return framer.Frame{}, err
+		return decodeHeader{}, err
 	}
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
-		states := lo.Keys(c.mu.states)
-		err = errors.Wrapf(
+		return decodeHeader{}, errors.Wrapf(
 			validate.ErrValidation,
 			"remote sent invalid sequence number %d. Valid rawIndices are %v",
 			seqNum,
-			states,
+			lo.Keys(c.mu.states),
 		)
-		return framer.Frame{}, err
 	}
+	h.state = cState
 	c.prune(seqNum)
-	fgs := decodeFlags(flagB)
-	if fgs.extended {
-		return framer.Frame{}, errors.Wrap(
+	h.fgs = decodeFlags(flagB)
+	if h.fgs.extended {
+		return decodeHeader{}, errors.Wrap(
 			validate.ErrValidation,
 			"remote sent an extended flags byte, which this codec does not support",
 		)
 	}
-	if fgs.equalLens {
-		if dataLen, err = c.reader.Uint32(); err != nil {
-			return framer.Frame{}, err
+	if h.fgs.equalLens {
+		if h.dataLen, err = c.reader.Uint32(); err != nil {
+			return decodeHeader{}, err
 		}
 	}
-	if fgs.equalTimeRanges && !fgs.timeRangesZero {
-		if refTr, err = c.readTimeRange(); err != nil {
-			return framer.Frame{}, err
+	if h.fgs.equalTimeRanges && !h.fgs.timeRangesZero {
+		if h.tr, err = c.readTimeRange(); err != nil {
+			return decodeHeader{}, err
 		}
 	}
-	if fgs.equalAlignments && !fgs.zeroAlignments {
-		v, readErr := c.reader.Uint64()
-		if readErr != nil {
-			return framer.Frame{}, readErr
+	if h.fgs.equalAlignments && !h.fgs.zeroAlignments {
+		v, err := c.reader.Uint64()
+		if err != nil {
+			return decodeHeader{}, err
 		}
-		refAlignment = telem.Alignment(v)
+		h.alignment = telem.Alignment(v)
 	}
+	return h, nil
+}
 
-	decodeSeries := func(key channel.Key) error {
-		s := telem.Series{TimeRange: refTr, Alignment: refAlignment}
-		dataLenOrSize := dataLen
-		if !fgs.equalLens {
-			if dataLenOrSize, err = c.reader.Uint32(); err != nil {
-				return err
-			}
+// decodeSeries reads the series for key and adds its size to h.decoded.
+func (c *Codec) decodeSeries(h *decodeHeader, key channel.Key) (telem.Series, error) {
+	s := telem.Series{TimeRange: h.tr, Alignment: h.alignment}
+	dataLenOrSize := h.dataLen
+	var err error
+	if !h.fgs.equalLens {
+		if dataLenOrSize, err = c.reader.Uint32(); err != nil {
+			return telem.Series{}, err
 		}
-		dataType, exists := cState.keyDataTypes[key]
-		if !exists {
-			return errors.Newf("unknown channel key: %v", key)
-		}
-		s.DataType = dataType
-		if dataType == telem.BooleanT {
-			packed := make([]byte, bitPackedByteCount(dataLenOrSize))
-			if _, err = c.reader.Read(packed); err != nil {
-				return err
-			}
-			s.Data = unpackBoolBits(packed, int(dataLenOrSize))
-		} else {
-			if dataType.IsVariable() {
-				s.Data = make([]byte, dataLenOrSize)
-			} else {
-				s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
-			}
-			if _, err = c.reader.Read(s.Data); err != nil {
-				return err
-			}
-		}
-		if !fgs.equalTimeRanges {
-			if s.TimeRange, err = c.readTimeRange(); err != nil {
-				return err
-			}
-		}
-		if !fgs.equalAlignments {
-			v, readErr := c.reader.Uint64()
-			if readErr != nil {
-				return readErr
-			}
-			s.Alignment = telem.Alignment(v)
-		}
-		if fgs.multiplesPresent {
-			multiple, readErr := c.reader.Uint32()
-			if readErr != nil {
-				return readErr
-			}
-			if multiple > 1 {
-				s.AlignmentMultiple = multiple
-			}
-		}
-		fr = fr.Append(key, s)
-		return err
 	}
+	dataType, exists := h.state.keyDataTypes[key]
+	if !exists {
+		return telem.Series{}, errors.Newf("unknown channel key: %v", key)
+	}
+	s.DataType = dataType
+	size := int64(dataLenOrSize)
+	if !dataType.IsVariable() && dataType != telem.BooleanT {
+		size = int64(dataType.Density().Size(size))
+	}
+	h.decoded += size + SeriesOverhead
+	if c.decodeLimit > 0 && h.decoded > c.decodeLimit {
+		return telem.Series{}, errors.Wrapf(
+			validate.ErrValidation,
+			"frame decodes to more than the limit of %d bytes",
+			c.decodeLimit,
+		)
+	}
+	if dataType == telem.BooleanT {
+		packed, err := c.readBytes(bitPackedByteCount(int64(dataLenOrSize)))
+		if err != nil {
+			return telem.Series{}, err
+		}
+		s.Data = unpackBoolBits(packed, int(dataLenOrSize))
+	} else if s.Data, err = c.readBytes(size); err != nil {
+		return telem.Series{}, err
+	}
+	if err = c.readSeriesMetadata(h.fgs, &s); err != nil {
+		return telem.Series{}, err
+	}
+	return s, nil
+}
 
-	if fgs.allChannelsPresent {
-		fr = frame.Alloc(len(cState.keys))
-		for _, k := range cState.keys {
-			if err = decodeSeries(k); err != nil {
-				return framer.Frame{}, err
-			}
-		}
-		return fr, nil
-	}
-
-	for {
-		k, readErr := c.reader.Uint32()
-		if readErr != nil {
-			if errors.Is(readErr, io.EOF) {
-				return fr, nil
-			}
-			return framer.Frame{}, readErr
-		}
-		if err = decodeSeries(channel.Key(k)); err != nil {
-			return framer.Frame{}, err
+// readSeriesMetadata reads the time range, alignment, and multiple of s that the
+// flags do not share across the frame.
+func (c *Codec) readSeriesMetadata(fgs flags, s *telem.Series) error {
+	var err error
+	if !fgs.equalTimeRanges {
+		if s.TimeRange, err = c.readTimeRange(); err != nil {
+			return err
 		}
 	}
+	if !fgs.equalAlignments {
+		v, err := c.reader.Uint64()
+		if err != nil {
+			return err
+		}
+		s.Alignment = telem.Alignment(v)
+	}
+	if fgs.multiplesPresent {
+		multiple, err := c.reader.Uint32()
+		if err != nil {
+			return err
+		}
+		if multiple > 1 {
+			s.AlignmentMultiple = multiple
+		}
+	}
+	return nil
 }
 
 // readTimeRange reads a time range using the codec's reader.
@@ -899,4 +961,25 @@ func (c *Codec) readTimeRange() (telem.TimeRange, error) {
 		Start: telem.TimeStamp(start),
 		End:   telem.TimeStamp(end),
 	}, nil
+}
+
+// readChunk is the most bytes that readBytes allocates before the bytes arrive.
+const readChunk = 1 << 20
+
+// readBytes reads n bytes. It grows its buffer only as bytes arrive, so a length that
+// the source does not hold fails on the read instead of allocating the whole length.
+func (c *Codec) readBytes(n int64) ([]byte, error) {
+	buf := make([]byte, 0, min(n, readChunk))
+	for int64(len(buf)) < n {
+		if len(buf) == cap(buf) {
+			buf = slices.Grow(buf, int(min(n-int64(len(buf)), int64(len(buf)))))
+		}
+		chunk := buf[len(buf):min(int64(cap(buf)), n)]
+		read, err := c.reader.Read(chunk)
+		buf = buf[:len(buf)+read]
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buf, nil
 }

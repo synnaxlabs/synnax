@@ -10,6 +10,7 @@
 import { type Action } from "@reduxjs/toolkit";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Synnax } from "@synnaxlabs/pluto";
+import { destructor } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 import { useStore } from "react-redux";
 
@@ -49,7 +50,13 @@ export const use = <S, A extends Action>(
   useEffect(() => {
     if (client == null) return;
     setVerified(false);
-    const params: Params<S, A> = { client, store };
+    // The provider closes a replaced client before this effect tears down, so work it
+    // started can settle after the close. Its results, failures included, no longer
+    // describe the Core.
+    let released = false;
+    const closed = (): boolean =>
+      released || client.connection.status.variant === "disabled";
+    const params: Params<S, A> = { client, store, ended: closed };
     // A pass finishing after its cold reset must not count: it verified against a Core
     // the client no longer mirrors.
     let generation = 0;
@@ -58,10 +65,7 @@ export const use = <S, A extends Action>(
     );
     const reconcile = async (): Promise<void> => {
       const gen = generation;
-      // a client change, a cold reset, or a closed client ends the pass, and its
-      // results, failures included, no longer describe the Core
-      const ended = (): boolean =>
-        gen !== generation || client.connection.status.variant === "disabled";
+      const ended = (): boolean => gen !== generation || closed();
       for (const synchronizer of entriesRef.current) {
         if (synchronizer.reconcile == null) continue;
         if (ended()) return;
@@ -93,8 +97,9 @@ export const use = <S, A extends Action>(
       }),
     );
     return () => {
+      released = true;
       generation += 1;
-      destructors.forEach((destroy) => destroy());
+      destructor.unwind(...destructors);
     };
   }, [client, store]);
   return verified;

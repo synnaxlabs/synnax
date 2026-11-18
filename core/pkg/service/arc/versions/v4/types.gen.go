@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -196,13 +197,6 @@ type Base struct {
 	Directory *uuid.UUID `json:"directory,omitzero" msgpack:"directory,omitempty"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *Base) ApplyDefaults() {
-	if b.Source.Variant == nil {
-		b.Source.Variant = TextSource{}
-	}
-}
-
 // SetDefaults sets every field that has a schema default to that default.
 func (b *Base) SetDefaults() {
 	b.Source.Variant = TextSource{}
@@ -259,6 +253,22 @@ func (c Change) Validate() error {
 	return v.Error()
 }
 
+// Calculation is a calculated channel that an automation reads, compiled to a module.
+type Calculation struct {
+	// Channel is the key of the calculated channel.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Program is the compiled module that computes the channel.
+	Program program.Program `json:"program" msgpack:"program"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Calculation) Validate() error {
+	v := validate.New("Calculation")
+	v.Exec(func() error { return validate.PathedError(c.Program.Validate(), "program") })
+	return v.Error()
+}
+
 // ArcVariant is implemented by every Arc variant.
 type ArcVariant interface {
 	isArcVariant()
@@ -270,7 +280,10 @@ type AutomationArc struct {
 	// Program is the compiled module output including IR and WebAssembly bytecode.
 	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
 	// Changes is what changed in the automation since its task was deployed.
-	Changes []Change `json:"changes,omitzero" msgpack:"changes,omitempty"`
+	Changes []Change `json:"changes" msgpack:"changes"`
+	// Calculations are the calculated channels that the program reads, nested ones
+	// included. Dependencies come before the channels that read them.
+	Calculations []Calculation `json:"calculations" msgpack:"calculations"`
 }
 
 func (AutomationArc) isArcVariant() {}
@@ -278,11 +291,6 @@ func (AutomationArc) isArcVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (a *AutomationArc) SetDefaults() {
 	a.Base.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AutomationArc) ApplyDefaults() {
-	a.Base.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -295,6 +303,11 @@ func (a AutomationArc) Validate() error {
 	}
 	for i := range a.Changes {
 		v.Exec(func() error { return validate.PathedError(a.Changes[i].Validate(), "changes", strconv.Itoa(i)) })
+	}
+	for i := range a.Calculations {
+		v.Exec(func() error {
+			return validate.PathedError(a.Calculations[i].Validate(), "calculations", strconv.Itoa(i))
+		})
 	}
 	return v.Error()
 }
@@ -311,11 +324,6 @@ func (ModuleArc) isArcVariant() {}
 // SetDefaults sets every field that has a schema default to that default.
 func (m *ModuleArc) SetDefaults() {
 	m.Base.SetDefaults()
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *ModuleArc) ApplyDefaults() {
-	m.Base.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -411,19 +419,6 @@ func (u Arc) Type() Type {
 		return TypeModule
 	}
 	return ""
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Arc) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case AutomationArc:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case ModuleArc:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or

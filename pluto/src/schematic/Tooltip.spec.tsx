@@ -227,7 +227,12 @@ describe("Schematic.Tooltip", () => {
 
   describe("field rows", () => {
     it("should label fields in sentence case with their units", async () => {
-      renderTooltip(Node.createConfig({ variant: "valve", onClickDelay: 250 }));
+      renderTooltip(
+        Node.createConfig({
+          variant: "valve",
+          onClickDelay: TimeSpan.milliseconds(250).nanoseconds,
+        }),
+      );
       const tooltip = await findTooltip();
       expect(within(tooltip).getByText("On click delay")).not.toBeNull();
       expect(within(tooltip).getByText("250ms")).not.toBeNull();
@@ -488,7 +493,11 @@ describe("Schematic.Tooltip", () => {
           Node.createConfig({ variant: "value", channel: a.key }),
         );
         swap(
-          Node.createConfig({ variant: "value", channel: a.key, stalenessTimeout: 10 }),
+          Node.createConfig({
+            variant: "value",
+            channel: a.key,
+            stalenessTimeout: TimeSpan.seconds(10).nanoseconds,
+          }),
         );
         expect(labelOf(tooltip, LABEL)).toBe(label);
         expect(valueOf(label).textContent).not.toEqual("");

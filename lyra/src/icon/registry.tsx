@@ -196,6 +196,8 @@ import {
   PiFileCsv,
   PiMagnifyingGlassBold,
   PiSelectionPlusBold,
+  PiSlidersHorizontalBold,
+  PiSwatches,
   PiTreeViewBold,
   PiUploadSimple,
   PiWaveformBold,
@@ -287,6 +289,24 @@ export const Play = wrapSVGIcon(MdPlayArrow, "play");
 export const Replay = wrapSVGIcon(MdReplay, "replay");
 export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
+// A circle that fills its box, so its edges are the box's edges.
+export const Dot = wrapSVGIcon(
+  ({ color, size, style, ...rest }) => (
+    <svg
+      viewBox="0 0 2 2"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      color={color}
+      style={{ color, ...style }}
+      {...rest}
+    >
+      <circle cx="1" cy="1" r="1" />
+    </svg>
+  ),
+  "dot",
+);
 export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
 export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
@@ -508,6 +528,8 @@ export const Type = wrapSVGIcon(MdTypeSpecimen, "type");
 export const Array = wrapSVGIcon(MdDataArray, "array");
 export const Label = wrapSVGIcon(MdLabel, "label");
 export const Library = wrapSVGIcon(PiBooks, "library");
+export const Swatches = wrapSVGIcon(PiSwatches, "swatches");
+export const Sliders = wrapSVGIcon(PiSlidersHorizontalBold, "sliders");
 export const Details = wrapSVGIcon(MdOutlineTableRows, "details");
 export const LinkExternal = wrapSVGIcon(BiLinkExternal, "link-external");
 export const Access = wrapSVGIcon(MdShield, "access");
@@ -712,6 +734,7 @@ const icons = {
   Array,
   Label,
   Library,
+  Swatches,
   Details,
   LinkExternal,
   Access,

@@ -624,7 +624,11 @@ flag -> select() => {
 }
 `}
 			Expect(arc.CompileText(ctx, t, root)).Error().To(
-				MatchError(ContainSubstring("'=>' cannot feed a routing table")),
+				MatchError(
+					ContainSubstring(
+						"[E5006]: invalid flow operator: '=>' cannot feed a routing table",
+					),
+				),
 			)
 		},
 	)
@@ -1090,7 +1094,7 @@ var _ = DescribeTable(
 	Entry(
 		"zero interval period",
 		"import time\n\ntime.interval(period=0ms) -> out",
-		"period must be positive, got 0s",
+		"[E3005]: invalid argument value: period must be positive, got 0s",
 	),
 	Entry(
 		"negative interval period",
@@ -1241,4 +1245,17 @@ var _ = Describe("Cycle stamps end-to-end runtime", func() {
 			Expect(h.cycleNow).To(Equal(stepped + 3))
 		},
 	)
+})
+
+var _ = Describe("Source limits", func() {
+	root := func() *symbol.Symbol { return symbol.NewRoot(nil, stl.NewSymbols()) }
+	It("Should return a diagnostic for nesting past the parser limit", func(
+		ctx SpecContext,
+	) {
+		n := 100_000
+		src := "func f() f64 { return " + strings.Repeat("(", n) + "1.0" +
+			strings.Repeat(")", n) + " }"
+		Expect(arc.CompileText(ctx, arc.Text{Raw: src}, root())).Error().
+			To(MatchError(ContainSubstring("nesting is deeper than the parser allows")))
+	})
 })

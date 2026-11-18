@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"context"
 	"slices"
 
 	"github.com/synnaxlabs/x/errors"
@@ -99,7 +98,6 @@ type slot struct {
 // write to record, it reads the stored value of record. When record exists, find passes
 // the stored value to held, which returns the links of record.
 func (l *changeList) find(
-	ctx context.Context,
 	tx Tx,
 	record Target,
 	key []byte,
@@ -109,7 +107,7 @@ func (l *changeList) find(
 		return slot{at: at}, nil
 	}
 	s := slot{at: -1, record: record}
-	stored, closer, err := tx.Get(ctx, key)
+	stored, closer, err := tx.Get(key)
 	if errors.Is(err, query.ErrNotFound) {
 		return s, nil
 	}

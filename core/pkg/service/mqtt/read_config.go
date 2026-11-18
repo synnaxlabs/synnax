@@ -11,6 +11,7 @@ package mqtt
 
 import (
 	"context"
+	"encoding/json/v2"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -93,6 +95,49 @@ func (r readResolver) resolve(
 	}, nil
 }
 
+// hash writes to h the payload of each ICD message that an enabled plain entry of cfg
+// reads, so an edit to the format of one changes the config hash of the task.
+func (r readResolver) hash(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg *ReadConfig,
+	h *content.Hash,
+) error {
+	icdKeys, _ := referencedKeys(cfg, nil)
+	if len(icdKeys) == 0 {
+		return nil
+	}
+	var found []icd.ICD
+	if err := r.icds.NewRetrieve().
+		Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
+		Entries(&found).
+		Exec(ctx, snap); err != nil {
+		return err
+	}
+	icds := lo.KeyBy(found, func(ic icd.ICD) icd.Key { return ic.Key })
+	for _, e := range cfg.Entries {
+		entry, ok := e.Variant.(PlainReadEntry)
+		if !ok || entry.Disabled {
+			continue
+		}
+		for _, rm := range entry.Messages {
+			m, ok := lo.Find(icds[entry.ICD].Messages, func(m icd.Message) bool {
+				return m.Key == rm.Message
+			})
+			h.Bool(ok)
+			if !ok {
+				continue
+			}
+			b, err := json.Marshal(m.Payload, json.Deterministic(true))
+			if err != nil {
+				return err
+			}
+			h.Bytes(b)
+		}
+	}
+	return nil
+}
+
 // check checks each enabled entry of cfg against its ICD, from icds or else read
 // through snap, and its channels. It skips an ICD or a channel that does not exist,
 // which the reference check of the write reports.
@@ -102,10 +147,41 @@ func (r readResolver) check(
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
 ) error {
-	var (
-		icdKeys     []icd.Key
-		channelKeys []channel.Key
-	)
+	icdKeys, channelKeys := referencedKeys(cfg, icds)
+	if len(icdKeys) > 0 {
+		var found []icd.ICD
+		if err := r.icds.NewRetrieve().
+			Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
+			SkipMissingKeys().
+			Entries(&found).
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		for _, ic := range found {
+			icds[ic.Key] = ic
+		}
+	}
+	c := readChecker{icds: icds, written: make(map[channel.Key]string)}
+	if len(channelKeys) > 0 {
+		var err error
+		if c.channels, err = r.channels(ctx, snap, lo.Uniq(channelKeys)); err != nil {
+			return err
+		}
+	}
+	for i, e := range cfg.Entries {
+		if err := c.checkEntry(e, []string{"entries", strconv.Itoa(i)}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// referencedKeys returns the ICDs that the enabled entries of cfg name and icds lacks,
+// and the channels that the enabled entries name.
+func referencedKeys(
+	cfg *ReadConfig,
+	icds map[icd.Key]icd.ICD,
+) (icdKeys []icd.Key, channelKeys []channel.Key) {
 	for _, e := range cfg.Entries {
 		switch entry := e.Variant.(type) {
 		case PlainReadEntry:
@@ -128,82 +204,57 @@ func (r readResolver) check(
 			}
 		}
 	}
-	if len(icdKeys) > 0 {
-		var found []icd.ICD
-		if err := r.icds.NewRetrieve().
-			Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
-			SkipMissingKeys().
-			Entries(&found).
-			Exec(ctx, snap); err != nil {
-			return err
-		}
-		for _, ic := range found {
-			icds[ic.Key] = ic
-		}
-	}
-	var channels map[channel.Key]v2.Channel
-	if len(channelKeys) > 0 {
-		var err error
-		if channels, err = r.channels(ctx, snap, lo.Uniq(channelKeys)); err != nil {
-			return err
-		}
-	}
+	return icdKeys, channelKeys
+}
+
+// readChecker checks the entries of a read config against their ICDs and channels.
+type readChecker struct {
+	icds     map[icd.Key]icd.ICD
+	channels map[channel.Key]v2.Channel
 	// written holds the path of the binding or tag that writes to each channel.
-	written := make(map[channel.Key]string)
-	claim := func(key channel.Key, path []string) error {
-		if other, ok := written[key]; ok {
-			return validate.PathedError(
-				validate.Errorf("channel %d is also written by %s", key, other),
-				path...,
-			)
-		}
-		written[key] = strings.Join(path, ".")
-		return nil
+	written map[channel.Key]string
+}
+
+// claim takes key for the binding or tag at path.
+func (c readChecker) claim(key channel.Key, path []string) error {
+	if other, ok := c.written[key]; ok {
+		return validate.PathedError(
+			validate.Errorf("channel %d is also written by %s", key, other),
+			path...,
+		)
 	}
-	for i, e := range cfg.Entries {
-		path := []string{"entries", strconv.Itoa(i)}
-		switch entry := e.Variant.(type) {
-		case PlainReadEntry:
-			ic, ok := icds[entry.ICD]
-			if entry.Disabled || !ok {
-				continue
-			}
-			for j, rm := range entry.Messages {
-				if err := checkReadMessage(
-					rm,
-					ic,
-					channels,
-					claim,
-					slices.Concat(path, []string{"messages", strconv.Itoa(j)}),
-				); err != nil {
-					return err
-				}
-			}
-		case SparkplugReadEntry:
-			if entry.Disabled || entry.Channel == 0 {
-				continue
-			}
-			if err := claim(
-				entry.Channel, slices.Concat(path, []string{"channel"}),
-			); err != nil {
+	c.written[key] = strings.Join(path, ".")
+	return nil
+}
+
+// checkEntry checks e, at path, when it is enabled. It skips a plain entry whose ICD
+// does not exist.
+func (c readChecker) checkEntry(e ReadEntry, path []string) error {
+	switch entry := e.Variant.(type) {
+	case PlainReadEntry:
+		ic, ok := c.icds[entry.ICD]
+		if entry.Disabled || !ok {
+			return nil
+		}
+		for j, rm := range entry.Messages {
+			messagePath := slices.Concat(path, []string{"messages", strconv.Itoa(j)})
+			if err := c.checkMessage(rm, ic, messagePath); err != nil {
 				return err
 			}
+		}
+	case SparkplugReadEntry:
+		if !entry.Disabled && entry.Channel != 0 {
+			return c.claim(entry.Channel, slices.Concat(path, []string{"channel"}))
 		}
 	}
 	return nil
 }
 
-// checkReadMessage checks rm, at path, against its message in ic and the channels of
-// its bindings, and claims each channel of a binding.
-func checkReadMessage(
-	rm ReadMessage,
-	ic icd.ICD,
-	channels map[channel.Key]v2.Channel,
-	claim func(key channel.Key, path []string) error,
-	path []string,
-) error {
-	at := func(err error, segments ...string) error {
-		return validate.PathedError(err, slices.Concat(path, segments)...)
+// checkMessage checks rm, at path, against its message in ic and the channels of its
+// bindings, and claims each channel of a binding.
+func (c readChecker) checkMessage(rm ReadMessage, ic icd.ICD, path []string) error {
+	at := func(err error, segment string) error {
+		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
 	i := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
 		return m.Key == rm.Message
@@ -228,73 +279,93 @@ func checkReadMessage(
 		},
 	)
 	if rm.Index != nil {
-		f, ok := fields[*rm.Index]
-		switch {
-		case !ok:
-			return at(validate.Errorf(
-				"field %s does not exist in message %s", *rm.Index, msg.Name,
-			), "index")
-		case f.Type() != payload.KindTimestamp:
-			return at(validate.Errorf(
-				"the index field %s must be a timestamp field", f.Base().Name,
-			), "index")
-		case f.Variant.(icd.TimestampJSONField).Default != nil:
-			return at(validate.Errorf(
-				"the index field %s cannot take a default", f.Base().Name,
-			), "index")
-		case !slices.ContainsFunc(rm.Bindings, func(b ReadBinding) bool {
-			return b.Field == *rm.Index
-		}):
-			return at(validate.Errorf(
-				"the index field %s has no binding", f.Base().Name,
-			), "index")
+		if err := checkIndex(rm, fields, msg.Name); err != nil {
+			return at(err, "index")
 		}
 	}
 	for j, b := range rm.Bindings {
-		index := strconv.Itoa(j)
 		f, ok := fields[b.Field]
+		bindingPath := slices.Concat(path, []string{"bindings", strconv.Itoa(j)})
 		if !ok {
-			return at(validate.Errorf(
-				"field %s does not exist in message %s", b.Field, msg.Name,
-			), "bindings", index, "field")
-		}
-		kind, name := f.Type(), f.Base().Name
-		if kind == payload.KindBytes && f.Base().Pointer == "" {
-			return at(validate.Errorf(
-				"bytes field %s requires a JSON pointer", name,
-			), "bindings", index, "field")
-		}
-		if b.DataType != "" && !codec.Converts(kind, b.DataType) {
-			return at(validate.Errorf(
-				"field %s of kind %s cannot read into data type %s",
-				name, kind, b.DataType,
-			), "bindings", index, "data_type")
-		}
-		ch, ok := channels[b.Channel]
-		if !ok {
-			continue
-		}
-		channelPath := slices.Concat(path, []string{"bindings", index, "channel"})
-		if !codec.Converts(kind, ch.DataType) {
 			return validate.PathedError(validate.Errorf(
-				"field %s of kind %s cannot read into channel %s of data type %s",
-				name, kind, ch.Name, ch.DataType,
-			), channelPath...)
+				"field %s does not exist in message %s", b.Field, msg.Name,
+			), slices.Concat(bindingPath, []string{"field"})...)
 		}
 		isIndex := rm.Index != nil && *rm.Index == b.Field
-		if isIndex && !ch.Index {
-			return validate.PathedError(validate.Errorf(
-				"the index field %s must write to an index channel", name,
-			), channelPath...)
-		}
-		if !isIndex && ch.Index {
-			return validate.PathedError(validate.Errorf(
-				"only the index field can write to index channel %s", ch.Name,
-			), channelPath...)
-		}
-		if err := claim(b.Channel, channelPath); err != nil {
+		if err := c.checkBinding(b, f, isIndex, bindingPath); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// checkIndex checks the index field of rm, which has one, against fields, the fields
+// of the message named message.
+func checkIndex(
+	rm ReadMessage,
+	fields map[icd.FieldKey]icd.JSONField,
+	message string,
+) error {
+	f, ok := fields[*rm.Index]
+	switch {
+	case !ok:
+		return validate.Errorf(
+			"field %s does not exist in message %s", *rm.Index, message,
+		)
+	case f.Type() != payload.KindTimestamp:
+		return validate.Errorf(
+			"the index field %s must be a timestamp field", f.Base().Name,
+		)
+	case !slices.ContainsFunc(rm.Bindings, func(b ReadBinding) bool {
+		return b.Field == *rm.Index
+	}):
+		return validate.Errorf("the index field %s has no binding", f.Base().Name)
+	}
+	return nil
+}
+
+// checkBinding checks b, at path, against f, the field it binds, and its channel, and
+// claims the channel. isIndex is true when f is the index field of its message.
+func (c readChecker) checkBinding(
+	b ReadBinding,
+	f icd.JSONField,
+	isIndex bool,
+	path []string,
+) error {
+	at := func(err error, segment string) error {
+		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
+	}
+	kind, name := f.Type(), f.Base().Name
+	if kind == payload.KindBytes && f.Base().Pointer == "" {
+		return at(validate.Errorf(
+			"bytes field %s requires a JSON pointer", name,
+		), "field")
+	}
+	if b.DataType != "" && !codec.Converts(kind, b.DataType) {
+		return at(validate.Errorf(
+			"field %s of kind %s cannot read into data type %s",
+			name, kind, b.DataType,
+		), "data_type")
+	}
+	ch, ok := c.channels[b.Channel]
+	if !ok {
+		return nil
+	}
+	if !codec.Converts(kind, ch.DataType) {
+		return at(validate.Errorf(
+			"field %s of kind %s cannot read into channel %s of data type %s",
+			name, kind, ch.Name, ch.DataType,
+		), "channel")
+	}
+	if isIndex && !ch.Index {
+		return at(validate.Errorf(
+			"the index field %s must write to an index channel", name,
+		), "channel")
+	}
+	if !isIndex && ch.Index {
+		return at(validate.Errorf(
+			"only the index field can write to index channel %s", ch.Name,
+		), "channel")
+	}
+	return c.claim(b.Channel, slices.Concat(path, []string{"channel"}))
 }
