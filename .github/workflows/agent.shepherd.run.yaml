@@ -39,10 +39,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
-      checks: read
       contents: read
       issues: write
       pull-requests: write
+      security-events: read
     outputs:
       run: ${{ steps.gate.outputs.run }}
       prompt: ${{ steps.gate.outputs.prompt }}

@@ -11,10 +11,11 @@
 
 # Prints the work a pull request needs before it is done, one item per line, and
 # nothing when it is done. Usage: shepherd_work.sh <pr>. The items are "conflict", "ci
-# <run id>" for a failed CI run on the head, "codeql" for a failed CodeQL check on the
-# head, "queue <run id>" for a merge queue removal after the head commit with the CI
-# run of its merge group, "threads <count>" for review threads that need action, and
-# "outside-diff" for open Sedosaur findings outside the diff.
+# <run id>" for a failed CI run on the head, "codeql <path>:<line> <rule> <message>"
+# for each open CodeQL alert the pull request adds, "queue <run id>" for a merge queue
+# removal after the head commit with the CI run of its merge group, "threads <count>"
+# for review threads that need action, and "outside-diff" for open Sedosaur findings
+# outside the diff.
 
 set -euo pipefail
 
@@ -46,10 +47,13 @@ if [ "$CONCLUSION" = failure ]; then
     echo "ci $RUN"
 fi
 
-CHECKS="repos/${REPO}/commits/${SHA}/check-runs?check_name=CodeQL"
-if [ "$(gh api "$CHECKS" --jq '.check_runs[0].conclusion')" = failure ]; then
-    echo codeql
-fi
+# CodeQL on a pull request reports only the alerts on lines it changed.
+ALERTS="code-scanning/alerts?ref=refs/pull/${PR}/merge&state=open&per_page=100"
+# shellcheck disable=SC2016 # The jq program uses jq variables.
+gh api "repos/${REPO}/${ALERTS}" --paginate --jq '.[]
+    | .most_recent_instance as $at
+    | "codeql \($at.location.path):\($at.location.start_line) \(.rule.id)"
+        + " \($at.message.text | gsub("\\s+"; " "))"'
 
 # The span from the head commit to a later merge queue removal for failed checks. The
 # removal cancels the CI run of its merge group, so a failed run can end cancelled.

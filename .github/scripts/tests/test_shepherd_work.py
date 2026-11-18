@@ -23,8 +23,8 @@ QUEUE_BRANCH = "gh-readonly-queue/main/pr-7-base"
 
 
 class Harness:
-    """A fake gh serving one pull request, its CI runs, checks, threads, queue removals,
-    and comments."""
+    """A fake gh serving one pull request, its CI runs, alerts, threads, queue
+    removals, and comments."""
 
     def __init__(self, path: Path) -> None:
         self.gh = FakeGH(path)
@@ -57,9 +57,18 @@ class Harness:
             runs.append({"id": 9, "conclusion": group, "head_branch": QUEUE_BRANCH})
         self.gh.serve("api */actions/*", {"workflow_runs": runs})
 
-    def codeql(self, conclusion: str | None = None) -> None:
-        checks = [{"name": "CodeQL", "conclusion": conclusion}]
-        self.gh.serve("api */commits/*", {"check_runs": checks})
+    def codeql(self, *lines: int) -> None:
+        alerts = [
+            {
+                "rule": {"id": "go/x"},
+                "most_recent_instance": {
+                    "location": {"path": "a.go", "start_line": line},
+                    "message": {"text": "Bad\n  cast."},
+                },
+            }
+            for line in lines
+        ]
+        self.gh.serve("api */code-scanning/*", alerts)
 
     def ok(self, conclusion: str | None = None) -> None:
         jobs = [{"name": "OK", "conclusion": conclusion}]
@@ -140,13 +149,12 @@ class TestShepherdWork:
         gh.ok("failure")
         assert gh.run() == ["conflict"]
 
-    def test_should_report_a_failed_codeql_check_on_the_head(self, gh: Harness) -> None:
-        gh.codeql("failure")
-        assert gh.run() == ["codeql"]
-
-    def test_should_ignore_a_codeql_check_in_progress(self, gh: Harness) -> None:
-        gh.codeql(None)
-        assert gh.run() == []
+    def test_should_report_each_open_codeql_alert(self, gh: Harness) -> None:
+        gh.codeql(3, 9)
+        assert gh.run() == [
+            "codeql a.go:3 go/x Bad cast.",
+            "codeql a.go:9 go/x Bad cast.",
+        ]
 
     def test_should_report_a_queue_removal_after_the_head_commit(
         self, gh: Harness
@@ -182,14 +190,14 @@ class TestShepherdWork:
     def test_should_report_every_kind_of_work_in_order(self, gh: Harness) -> None:
         gh.pull(state="dirty")
         gh.runs("failure", group="failure")
-        gh.codeql("failure")
+        gh.codeql(3)
         gh.removed(at="2026-01-01T13:00:00Z")
         gh.threads(count=1)
         gh.comments(outside=True)
         assert gh.run() == [
             "conflict",
             "ci 1",
-            "codeql",
+            "codeql a.go:3 go/x Bad cast.",
             "queue 9",
             "threads 1",
             "outside-diff",

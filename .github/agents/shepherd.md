@@ -31,14 +31,12 @@ When CI failed on the head:
 
 ## 3. Fix CodeQL alerts
 
-When the CodeQL check failed on the head, the pull request adds code scanning alerts.
+Each `codeql` line in the work is an open CodeQL alert that the pull request adds, with
+its file, line, rule, and message.
 
-1. Read the open alerts:
-   `gh api "repos/synnaxlabs/synnax/code-scanning/alerts?ref=refs/pull/<number>/merge&state=open" --jq '.[] | [.rule.id, .most_recent_instance.location.path, .most_recent_instance.location.start_line, .most_recent_instance.message.text] | @tsv'`.
-2. Fix each alert on a line this pull request changed, so that the analysis can see the
-   code is safe. CodeQL does not take a bound in a `switch` case as a guard. Use an
-   `if`.
-3. Never dismiss an alert or add a suppression.
+1. Fix the code at each alert so that the analysis can see the code is safe. CodeQL does
+   not take a bound in a `switch` case as a guard. Use an `if`.
+2. Never dismiss an alert or add a suppression.
 
 ## 4. Fix a merge queue removal
 

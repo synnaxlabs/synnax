@@ -102,10 +102,10 @@ jobs:
       cancel-in-progress: false
     permissions:
       actions: write
-      checks: read
       contents: read
       issues: write
       pull-requests: write
+      security-events: read
     uses: ./.github/workflows/agent.shepherd.run.yaml
     with:
       pr: ${{ matrix.pr }}
