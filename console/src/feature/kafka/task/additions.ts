@@ -16,8 +16,15 @@ import { ICD } from "@/platform/icd";
 /** The pointers of the fields picked from each shape of a sample, by shape key. */
 export type Picks = Map<string, Set<string>>;
 
-/** @returns a key for a shape that stays the same across samples of a topic. */
-export const shapeKey = ({ sources }: json.Shape): string => sources.join("\n");
+/**
+ * @returns a key for a shape that stays the same across samples while its fields do.
+ * The Core groups the keys of a topic into shapes by their set of fields.
+ */
+export const shapeKey = ({ fields }: json.Shape): string =>
+  fields
+    .map(({ pointer }) => pointer)
+    .sort()
+    .join("\n");
 
 /** A message that adding picks puts in the task's ICD, and the records that read it. */
 export interface Addition {

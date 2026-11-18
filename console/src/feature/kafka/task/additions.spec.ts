@@ -66,6 +66,16 @@ describe("createAdditions", () => {
     expect(additions.map(({ recordKeys }) => recordKeys)).toEqual([["pump"]]);
   });
 
+  it("should keep the picks of a shape when another key sends its fields", () => {
+    const fields = [createNumber("/pressure", "float64")];
+    const picks = new Map([
+      [shapeKey(createShape(["pump-1"], fields)), new Set(["/pressure"])],
+    ]);
+    const shape = createShape(["pump-1", "pump-2"], fields);
+    const [addition] = createAdditions([shape], picks, [], [], (key) => key);
+    expect(addition.recordKeys).toEqual(["pump-1", "pump-2"]);
+  });
+
   it("should name fields apart when their pointers give one name", () => {
     const shape = createShape(
       ["pump"],

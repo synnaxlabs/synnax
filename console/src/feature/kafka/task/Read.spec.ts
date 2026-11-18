@@ -393,6 +393,28 @@ describe("Kafka read form", () => {
       dialog.getByText(/A string field cannot share a message/);
     });
 
+    it("should show each field's value from the newest record that holds it", async () => {
+      const { dev } = await renderRead();
+      const record = (offset: number, value: object) => ({
+        partition: 0,
+        offset,
+        key: "oven-1",
+        time: offset,
+        headers: [],
+        format: "json",
+        payload: JSON.stringify(value),
+      });
+      const records = [record(1, { state: "idle" }), record(2, { temperature: 61.5 })];
+      const dialog = await openAddData(dev, {
+        data: {
+          topics: [{ topic: TOPIC, records, shapes: [OVEN_SHAPE], error: "" }],
+          truncated: false,
+        },
+      });
+      await dialog.findByText("61.5");
+      dialog.getByText("idle");
+    });
+
     it("should add later messages to the ICD of the first record", async () => {
       const { draft, dev } = await renderRead({
         fields: [createField("temperature", "float")],

@@ -57,17 +57,29 @@ const valueAt = (doc: unknown, pointer: string): unknown => {
   return value;
 };
 
-/** @returns the parsed value of the newest JSON record of a shape's keys. */
-const newestValue = (sample: kafka.SampledTopic, shape: json.Shape): unknown => {
-  const records = sample.records
-    .filter(({ key, format }) => format === "json" && shape.sources.includes(key))
-    .sort((a, b) => Number(b.time.valueOf() - a.time.valueOf()));
+const parse = (payload: string): unknown => {
   try {
-    return JSON.parse(records[0]?.payload ?? "null");
+    return JSON.parse(payload);
   } catch {
     // The payload holds only the start of a value longer than 16 KiB.
     return undefined;
   }
+};
+
+/** @returns the parsed JSON records of a shape's keys, newest first. */
+const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] =>
+  sample.records
+    .filter(({ key, format }) => format === "json" && shape.sources.includes(key))
+    .sort((a, b) => Number(b.time.valueOf() - a.time.valueOf()))
+    .map(({ payload }) => parse(payload));
+
+/** @returns the value of a field in the newest record that holds it. */
+const newestValue = (records: unknown[], pointer: string): unknown => {
+  for (const record of records) {
+    const value = valueAt(record, pointer);
+    if (value !== undefined) return value;
+  }
+  return undefined;
 };
 
 const show = (value: unknown): string | null => {
@@ -94,7 +106,7 @@ const ShapeValues = ({
   value,
   onChange,
 }: ShapeValuesProps) => {
-  const newest = newestValue(sample, shape);
+  const records = newestFirst(sample, shape);
   const values = shape.fields.map((f, i): ICD.Picker.Value => {
     const dataType = f.timeFormat == null ? f.dataType.toString() : "timestamp";
     let lock: ICD.Picker.Lock | undefined;
@@ -104,7 +116,7 @@ const ShapeValues = ({
     return {
       key: f.pointer,
       name: f.pointer === "" ? "Whole value" : f.pointer,
-      sample: show(valueAt(newest, f.pointer)),
+      sample: show(newestValue(records, f.pointer)),
       dataType,
       lock,
     };
