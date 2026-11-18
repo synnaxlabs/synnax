@@ -19,7 +19,8 @@ variable "repository" {
 }
 
 # A seat is one machine. A Claude seat runs on a shared login that the fleet controller
-# gives it when it starts, and a Codex seat holds its own ChatGPT login.
+# gives it when it starts, and a Codex seat holds its own ChatGPT login. A review seat's
+# runners carry only the `review` label, so agent jobs never land on them.
 variable "seats" {
   description = "Seats by name, one instance each"
   type = map(object({
@@ -28,7 +29,7 @@ variable "seats" {
   }))
   default = {
     claude-1 = { agent = "claude" }
-    claude-2 = { agent = "claude" }
+    review-1 = { agent = "claude", pool = "review" }
   }
   validation {
     condition = alltrue([
@@ -58,6 +59,11 @@ variable "pools" {
     # Five agents build at once at up to 11 GiB each, so memory runs out before CPU.
     agent = {
       instance_type = "r7i.4xlarge", disk_gb = 400, idle_minutes = 20, runners = 5
+    }
+    # Reviews only read code. The longer idle time spares most reviews in a workday
+    # the wait for a stopped instance to boot.
+    review = {
+      instance_type = "m7i.xlarge", disk_gb = 100, idle_minutes = 60, runners = 12
     }
   }
   validation {

@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Reviews a pull request with Sedosaur on an agent seat, and posts the review as the
+# Reviews a pull request with Sedosaur on a review runner, and posts the review as the
 # sedosaur GitHub App. The scripts and the policy in `.sedosaur/` come from the commit
 # that started this workflow, on the default branch, never from the pull request or its
 # base. Claude Code gets only read tools, a checkout of the head, and its OAuth token.
@@ -234,7 +234,7 @@ jobs:
     needs: start
     if: needs.start.outputs.skip == 'false' && needs.start.outputs.carried != 'true'
     name: Review
-    runs-on: [self-hosted, agent-claude]
+    runs-on: [self-hosted, review]
     timeout-minutes: 30
     permissions:
       contents: read

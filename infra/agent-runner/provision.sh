@@ -25,6 +25,7 @@ ORG=synnaxlabs
 REPO=$ORG/synnax
 HOME_DIR=/home/runner
 IDLE_MINUTES=${idle_minutes}
+POOL=${pool}
 export DEBIAN_FRONTEND=noninteractive
 
 # Stops the instance once no job has run for the idle period. It goes first, so a
@@ -106,10 +107,10 @@ echo "PATH=/usr/local/go/bin:$HOME_DIR/go/bin:/usr/local/bin:/usr/bin:/bin" \
     > "$RUNNER_DIR/.env"
 chown -R runner:runner "$HOME_DIR"
 
-# Warms the Go build cache and the pnpm store before the seat's first job. A failed warm
-# only makes the first job slower, so it must not stop the idle timer from being
-# installed.
-if ! timeout 30m sudo -H -u runner bash -euxc "
+# Warms the Go build cache and the pnpm store before an agent seat's first job. Review
+# seats build nothing. A failed warm only makes the first job slower, so it must not
+# stop the idle timer from being installed.
+if [ $POOL = agent ] && ! timeout 30m sudo -H -u runner bash -euxc "
     cd $HOME_DIR
     git clone --depth 1 https://github.com/$REPO warm
     cd warm/core && /usr/local/go/bin/go build ./...

@@ -107,7 +107,7 @@ jobs:
     concurrency:
       group: judge-sedosaur-${{ inputs.pr }}
       cancel-in-progress: false
-    runs-on: [self-hosted, agent-claude]
+    runs-on: [self-hosted, review]
     timeout-minutes: 30
     permissions:
       contents: read

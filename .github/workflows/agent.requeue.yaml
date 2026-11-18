@@ -133,12 +133,22 @@ jobs:
             exit 1
           fi
           # A rerun cannot reopen the check run that the review ended, so the review of
-          # a pull request starts again in a new run. A replay has no check run.
+          # a pull request starts again in a new run. A replay has no check run. Each
+          # new run starts at attempt 1, so the cap counts the failed reviews of the
+          # pull request in the last day instead.
           read -r pr kind _ <<< "$TITLE"
           if [ "$name" = Review ] && [ "$kind" != replay ]; then
             review="repos/$GITHUB_REPOSITORY/actions/workflows/review.sedosaur.yaml"
+            since=$(date -u -d '-1 day' +%FT%TZ)
+            failed=$(gh api "$review/runs?created=>$since&status=failure&per_page=100" \
+              --jq "[.workflow_runs[] | select(.display_title == \"$pr\")] | length")
+            if [ "$failed" -ge 3 ]; then
+              echo "::error::The review of #$pr failed $failed times in a day." \
+                "It does not run again."
+              exit 1
+            fi
             gh api -X POST --silent "$review/dispatches" \
-              -f ref=main -f "inputs[pr]=$pr" -f "inputs[repeat]=true"
+              -f ref=main -f "inputs[pr]=$pr" -f "inputs[repeat]=false"
             exit 0
           fi
           gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$found/rerun" --silent

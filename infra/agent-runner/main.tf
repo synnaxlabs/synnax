@@ -150,7 +150,7 @@ resource "aws_iam_role_policy" "limited_until" {
       Condition = {
         StringEquals = {
           "aws:ResourceTag/project" = "synnax-agents"
-          "aws:ResourceTag/pool"    = "agent"
+          "aws:ResourceTag/pool"    = ["agent", "review"]
           "aws:userid" = join(":", [
             aws_iam_role.runner.unique_id, "$${ec2:InstanceID}",
           ])
@@ -201,6 +201,7 @@ resource "aws_instance" "seat" {
   instance_initiated_shutdown_behavior = "stop"
   user_data = templatefile("${path.module}/provision.sh", {
     idle_minutes = var.pools[each.value.pool].idle_minutes
+    pool         = each.value.pool
   })
   root_block_device {
     volume_type = "gp3"

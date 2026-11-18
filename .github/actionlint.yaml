@@ -9,9 +9,9 @@
 
 self-hosted-runner:
   labels:
-    - agent-claude
     - hitl
     - macos-build-bot
+    - review
     - ubuntu-build-bot
     - ubuntu-test-bot
     - windows-build-bot

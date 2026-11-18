@@ -77,8 +77,8 @@ if [ "$action" = token ]; then
 fi
 
 tag() { echo "Tags[?Key==\`$1\`]|[0].Value"; }
-fields="InstanceId,$(tag agent),$(tag runners)"
-read -r id agent runners <<< "$(aws ec2 describe-instances --output text \
+fields="InstanceId,$(tag agent),$(tag pool),$(tag runners)"
+read -r id agent pool runners <<< "$(aws ec2 describe-instances --output text \
     --filters Name=tag:project,Values=synnax-agents Name=tag:seat,Values="$seat" \
     Name=instance-state-name,Values=pending,running,stopping,stopped \
     --query "Reservations[].Instances[].[$fields]")"
@@ -128,7 +128,11 @@ case $action in
             echo "Seat $seat has no runners tag: run terraform apply" >&2
             exit 1
         fi
-        labels=agent,agent-$agent,seat-$seat
+        if [ "$pool" = review ]; then
+            labels=review,seat-$seat
+        else
+            labels=agent,agent-$agent,seat-$seat
+        fi
         # All runners run as the runner user, so they share its agent login. SSM runs
         # the script with sh, which has no pipefail.
         run "set -eu
