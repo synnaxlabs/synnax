@@ -48,6 +48,7 @@ var (
 	secretType      = resource.ID{Type: resource.TypeSecret}
 	deviceType      = resource.ID{Type: resource.TypeDevice}
 	certificateType = resource.ID{Type: resource.TypeCertificate}
+	rackType        = resource.ID{Type: resource.TypeRack}
 	all             = access.AllActions
 )
 
@@ -144,6 +145,12 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				allow(ctx, u.ResourceID(), all, secretType)
+				allow(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					rackType,
+				)
 				res := MustSucceed(set(AuthedCtx(ctx, u),
 					apisecret.SetRequest{Secrets: []apisecret.Input{
 						{
@@ -151,13 +158,20 @@ var _ = Describe("Service", func() {
 							Name:   "Password",
 							Value:  "hunter2",
 						},
-						{Source: secret.SourceFile, Name: "Key", FileName: "k.pem"},
+						{
+							Source:   secret.SourceFile,
+							Name:     "Key",
+							FileName: "k.pem",
+							Rack:     svc.Rack.EmbeddedKey,
+						},
 					}},
 				))
 				Expect(res.Secrets).To(HaveLen(2))
 				Expect(res.Secrets[0].Base().Key).ToNot(Equal(uuid.Nil()))
-				Expect(retrieveSecret(ctx, res.Secrets[1].Base().Key).Variant).
-					To(BeAssignableToTypeOf(secret.FileSecret{}))
+				file, ok := retrieveSecret(ctx, res.Secrets[1].Base().Key).
+					Variant.(secret.FileSecret)
+				Expect(ok).To(BeTrue())
+				Expect(file.Rack).To(Equal(svc.Rack.EmbeddedKey))
 				encoded := string(MustSucceed(json.Marshal(res)))
 				Expect(encoded).ToNot(ContainSubstring("value"))
 				Expect(encoded).ToNot(ContainSubstring("hunter2"))
@@ -204,6 +218,16 @@ var _ = Describe("Service", func() {
 				"file_name: must be empty for a stored secret",
 			),
 			Entry(
+				"a stored secret with a rack",
+				apisecret.Input{
+					Source: secret.SourceStored,
+					Name:   "A",
+					Value:  "v",
+					Rack:   1,
+				},
+				"rack: must be empty for a stored secret",
+			),
+			Entry(
 				"a file secret with a value",
 				apisecret.Input{
 					Source:   secret.SourceFile,
@@ -214,6 +238,24 @@ var _ = Describe("Service", func() {
 				"value: must be empty for a file secret",
 			),
 		)
+		It("Should deny a file secret on a rack the user cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			allow(ctx, u.ResourceID(), all, secretType)
+			Expect(set(AuthedCtx(ctx, u),
+				apisecret.SetRequest{Secrets: []apisecret.Input{{
+					Source:   secret.SourceFile,
+					Name:     "Key",
+					FileName: "k.pem",
+					Rack:     svc.Rack.EmbeddedKey,
+				}}},
+			)).Error().To(MatchError(
+				u.ResourceID().String() + " cannot retrieve " +
+					svc.Rack.EmbeddedKey.ResourceID().String() +
+					": access denied: auth error",
+			))
+		})
 		It("Should deny a user without create access", func(ctx SpecContext) {
 			u := createUser(ctx)
 			Expect(set(AuthedCtx(ctx, u),
@@ -256,6 +298,12 @@ var _ = Describe("Service", func() {
 			It(
 				"Should let a user without update access create new secrets",
 				func(ctx SpecContext) {
+					allow(
+						ctx,
+						u.ResourceID(),
+						[]access.Action{access.ActionRetrieve},
+						rackType,
+					)
 					key := uuid.New()
 					res := MustSucceed(set(AuthedCtx(ctx, u),
 						apisecret.SetRequest{Secrets: []apisecret.Input{
@@ -265,6 +313,7 @@ var _ = Describe("Service", func() {
 								Source:   secret.SourceFile,
 								Name:     "Keyed",
 								FileName: "k",
+								Rack:     svc.Rack.EmbeddedKey,
 							},
 						}},
 					))

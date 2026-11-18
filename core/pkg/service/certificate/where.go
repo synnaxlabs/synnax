@@ -16,5 +16,7 @@ import (
 
 // MatchRacks returns a filter for the file certificates on any of the racks with keys.
 func MatchRacks(keys ...rack.Key) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Certificate] { return r.indexes.rack.Filter(keys...) }
+	return func(r Retrieve) gorp.Filter[Key, Certificate] {
+		return r.indexes.rack.Filter(keys...)
+	}
 }
